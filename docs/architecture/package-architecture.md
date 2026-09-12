@@ -202,12 +202,22 @@ execution observer adapts its stage lifetimes to CLI progress without selecting
 the outcome. Each operation returns its evidence; callers do not share mutable
 command arrays across deferred work.
 
-`cli-update` retains its current placement while native script replacement,
-inspection, and the remaining preview/progress bindings are separated. Its
-package-manager adapters own command grammar, process execution, and response
-decoding; composition selects those adapters and metadata storage. The script
-replacement still combines application sequencing with filesystem integration,
-so the overall upgrade entry is not yet independent of concrete installers.
+Script upgrades also have an application-owned operation. Domain code selects
+the checksum and accepts executable-version observations; the application owns
+staging, protection, replacement, rollback, and installation-recording order.
+`ScriptReleaseAssets` supplies downloaded bytes with their digest and checksum
+manifest. `ScriptExecutableInstaller` supplies observations and scoped replacement
+leases. The native lease owns the lock, temporary files, backup, and interruption
+cleanup. A metadata failure preserves the verified new executable and its backup;
+acceptance releases the backup. A failed verification after restoration identifies
+the restored executable, rather than claiming the consumed backup still exists.
+
+`cli-update` retains its current placement while native inspection and the
+remaining preview/progress bindings are separated. Its installer adapters own
+command grammar, process execution, response decoding, downloads, and filesystem
+resources; composition selects those adapters and metadata storage. Package and
+script execution can both run without host services, but the combined preview and
+upgrade entry still selects native recovery guidance.
 The remaining operation-vocabulary dependency does not make self-update
 strategically core.
 

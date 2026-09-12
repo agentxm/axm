@@ -14,3 +14,4 @@ export { UpdateCheckCacheLive } from "./composition/update-cache.js";
 export { UpgradePreparationLive } from "./composition/preparation.js";
 
 export { PackageInstallationLive } from "./composition/package-installation.js";
+export { ScriptInstallationLive } from "./composition/script-installation.js";

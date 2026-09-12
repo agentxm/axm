@@ -16,16 +16,12 @@
  */
 
 import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
-import type * as Path from "effect/Path";
-import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { observeUnit } from "@agentxm/workspace-operations";
-
-import { methodName } from "@agentxm/cli-maintenance/self-update/domain";
-import { methodLabel } from "@agentxm/cli-maintenance/self-update/adapters/cli";
 import {
   applyPackageUpgrade,
+  applyScriptUpgrade,
+  ScriptExecutableInstaller,
+  ScriptReleaseAssets,
   PackageInstaller,
   InstallationRecorder,
   noMutationResult,
@@ -35,7 +31,6 @@ import {
   type UpgradeSettlement,
 } from "@agentxm/cli-maintenance/self-update/application";
 
-import { Subprocess } from "../subprocess/subprocess.js";
 import {
   UpdateCheckCache,
   rememberStableChannel,
@@ -49,7 +44,7 @@ import {
   type UpgradeCandidate,
   UpgradeFailed,
 } from "@agentxm/cli-maintenance/self-update/application";
-import { handleScript, previewResult, recoveryInstaller } from "./mechanism.js";
+import { previewResult, recoveryInstaller } from "./mechanism.js";
 
 /** How the prepared candidate is settled. */
 export interface UpgradeExecution {
@@ -59,12 +54,10 @@ export interface UpgradeExecution {
 type UpgradeRequirements =
   | InstallationRecorder
   | PackageInstaller
-  | Subprocess
+  | ScriptExecutableInstaller
+  | ScriptReleaseAssets
   | UpdateCheckCache
-  | UpgradeWorkingDirectory
-  | HttpClient.HttpClient
-  | FileSystem.FileSystem
-  | Path.Path;
+  | UpgradeWorkingDirectory;
 
 const notRequired: InstallerAvailability = {
   state: "not-required",
@@ -150,9 +143,12 @@ export const previewOrApply: (
                 }),
               );
             }
-            return handleScript(input, method, platform, {
-              binaryAssetUrl,
-              checksumAssetUrl,
+            return applyScriptUpgrade({
+              ...input,
+              method,
+              binaryName: platform.binaryName,
+              release: { binaryAssetUrl, checksumAssetUrl },
+              recoveryCommand: recoveryInstaller(input.targetVersion),
             });
           }
           return method._tag === "Unknown"
@@ -164,20 +160,7 @@ export const previewOrApply: (
       }
     })();
 
-  // The mutation unit stays on screen for the whole delegation, so its label
-  // carries the two facts the reader needs while it runs: what is being
-  // installed and which installer is doing it. The commands the installer
-  // runs nest under it.
-  const result =
-    action === "mutate" && method._tag === "Script"
-      ? yield* observeUnit(
-          {
-            id: "upgrade",
-            label: `AXM ${targetVersion} via ${methodLabel(methodName(method))}`,
-          },
-          resultEffect,
-        )
-      : yield* resultEffect;
+  const result = yield* resultEffect;
   return settle(result);
 });
 

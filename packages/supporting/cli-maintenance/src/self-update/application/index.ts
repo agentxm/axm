@@ -1,4 +1,15 @@
 /** Self-update preparation, release selection, and the contracts their adapters implement. */
+export { applyScriptUpgrade, type ScriptUpgradeInput } from "./apply-script-upgrade.js";
+export {
+  ScriptReleaseAssets,
+  ScriptExecutableInstaller,
+  type ScriptReleaseSource,
+  type DownloadedScriptRelease,
+  type ScriptExecutableObservation,
+  type StagedExecutable,
+  type ExecutableReplacementLease,
+  type ScriptExecutableInstallerService,
+} from "./script-installer.js";
 export { UpgradeFailed } from "./errors.js";
 export {
   CliReleaseCatalog,

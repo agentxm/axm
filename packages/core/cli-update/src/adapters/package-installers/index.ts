@@ -1,11 +1,10 @@
+import { makeCommandRunner } from "../subprocess/command-evidence.js";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
-import * as Ref from "effect/Ref";
+import type * as Ref from "effect/Ref";
 import type * as Path from "effect/Path";
 import * as semver from "semver";
-import { observeChildUnit } from "@agentxm/workspace-operations";
 import { methodName } from "@agentxm/cli-maintenance/self-update/domain";
-import { formatRecommendedCommand } from "@agentxm/cli-maintenance/self-update/adapters/cli";
 import {
   UpgradeFailed,
   type CommandRecord,
@@ -15,7 +14,7 @@ import {
   type VerificationExecutable,
 } from "@agentxm/cli-maintenance/self-update/application";
 import type { InstallMetaService } from "../../install-meta/install-meta.js";
-import type { RunCommandOptions, SubprocessService } from "../../subprocess/subprocess.js";
+import type { SubprocessService } from "../../subprocess/subprocess.js";
 import { readHomebrewFormula, readPackageAvailability } from "./availability.js";
 import {
   HOMEBREW_ENV,
@@ -32,48 +31,7 @@ export const makePackageInstaller = (
   pathService: Path.Path,
   counter: Ref.Ref<number>,
 ): PackageInstallerService => {
-  const run = (
-    purpose: CommandRecord["purpose"],
-    executable: string,
-    args: ReadonlyArray<string>,
-    workingDirectory: string,
-    options?: RunCommandOptions,
-  ) =>
-    Effect.gen(function* () {
-      const sequence = yield* Ref.getAndUpdate(counter, (value) => value + 1);
-      const display = formatRecommendedCommand({ executable, args, shellRequired: false });
-      return yield* observeChildUnit(
-        {
-          id: `package-command-${String(sequence)}`,
-          label: display,
-          resolvedLabel: (record: CommandRecord) => {
-            const outcome =
-              record.executionState === "not-started"
-                ? "did not start"
-                : record.executionState === "timed-out"
-                  ? "timed out"
-                  : record.exitCode === 0
-                    ? null
-                    : `exit ${record.exitCode === null ? "unavailable" : String(record.exitCode)}`;
-            return outcome === null ? display : `${display} · ${outcome}`;
-          },
-        },
-        Effect.map(
-          subprocess.run(executable, args, { ...options, cwd: workingDirectory }),
-          (result): CommandRecord => ({
-            purpose,
-            executable,
-            args,
-            display,
-            executionState: result.executionState,
-            exitCode: result.exitCode,
-            stdout: result.stdout,
-            stderr: result.stderr,
-            outputTruncated: result.stdoutTruncated === true || result.stderrTruncated === true,
-          }),
-        ),
-      );
-    });
+  const run = makeCommandRunner(subprocess, counter, "package-command");
 
   const reportedVersion = (result: CommandRecord): string | null =>
     result.exitCode === 0 ? semver.valid(result.stdout.trim()) : null;

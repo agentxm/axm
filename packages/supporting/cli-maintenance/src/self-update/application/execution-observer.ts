@@ -1,5 +1,6 @@
 import * as Context from "effect/Context";
 import type * as Effect from "effect/Effect";
+import type { Script } from "../domain/index.js";
 import type {
   PackageManagedInstallation,
   RegistryManagedInstallation,
@@ -9,7 +10,7 @@ export type UpgradeExecutionStage =
   | { readonly kind: "availability"; readonly method: RegistryManagedInstallation }
   | {
       readonly kind: "mutation";
-      readonly method: PackageManagedInstallation;
+      readonly method: PackageManagedInstallation | Script;
       readonly targetVersion: string;
     };
 

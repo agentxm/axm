@@ -1,4 +1,5 @@
 /** Installation facts and upgrade decisions owned by CLI maintenance. */
+export { selectReleaseChecksum, acceptsScriptExecutable } from "./script-verification.js";
 export {
   Script,
   Homebrew,

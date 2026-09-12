@@ -39,7 +39,7 @@ import {
 import { InstallMeta, type InstallMetaData } from "./install-meta/install-meta.js";
 import { InstallMethod } from "./install-method/install-method.js";
 import { Subprocess, type CommandResult, type RunCommandOptions } from "./subprocess/subprocess.js";
-import { UpdateCheck } from "./update-check/update-check.js";
+import { UpdateCheckCache } from "@agentxm/cli-maintenance/self-update/application";
 import {
   UpgradeWorkingDirectory,
   prepareUpgrade,
@@ -50,7 +50,7 @@ import { previewOrApply } from "./upgrade/use-case.js";
 import type { UpgradeAssessmentResult } from "./upgrade/mechanism.js";
 
 export { InstallMethodTest } from "./install-method/install-method.js";
-export { UpdateCheckTest } from "./update-check/update-check.js";
+export { makeUpdateCheckCacheLayer } from "./composition/update-cache.js";
 
 /** The local version every trial reports unless the caller states another. */
 export const LOCAL_VERSION = "1.0.0";
@@ -389,17 +389,13 @@ export const makeUpgradeTrial = (
               installMetaWrites.push(metadata);
             }),
         }),
-        Layer.succeed(UpdateCheck, {
-          readCacheState: () => Effect.succeed({ state: "missing" as const }),
-          readCache: () => Effect.succeed(Option.none()),
-          writeCache: (channel) =>
+        Layer.succeed(UpdateCheckCache, {
+          read: () => Effect.succeed(Option.none()),
+          write: (cache) =>
             Effect.sync(() => {
-              updateCheckWrites.push({ version: channel.version });
+              updateCheckWrites.push({ version: cache.document.version });
             }),
-          isUpdateAvailable: () => Effect.succeed(Option.none()),
-          shouldSkip: () => false,
-          notificationMessage: () => "",
-        } satisfies typeof UpdateCheck.Service),
+        } satisfies typeof UpdateCheckCache.Service),
       ),
     );
 

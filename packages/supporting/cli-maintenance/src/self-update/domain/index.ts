@@ -22,3 +22,11 @@ export {
   type UpgradeAction,
   type VersionRelation,
 } from "./policy.js";
+export {
+  availableStartupUpdate,
+  isChannelCacheStale,
+  shouldSkipStartupCheck,
+  type AvailableUpdate,
+  type CachedStableChannel,
+  type StartupCheckContext,
+} from "./startup-check.js";

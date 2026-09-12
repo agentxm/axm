@@ -5,7 +5,8 @@
     "vitest.execution.ts",
     "vitest.reporting.ts",
     "vitest.purpose.setup.ts",
-    "scripts/test-purpose.ts"
+    "scripts/test-purpose.ts",
+    "scripts/allure-reporter.ts"
   ],
   "include": [],
   "references": [],

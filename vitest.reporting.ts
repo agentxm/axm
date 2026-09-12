@@ -43,7 +43,7 @@ export const makeTestReporting = ({
         },
       ],
       [
-        "allure-vitest/reporter",
+        fileURLToPath(new URL("scripts/allure-reporter.ts", import.meta.url)),
         {
           environmentInfo: {
             node_version: process.version,

@@ -101,8 +101,9 @@ import {
   InstallMetaLive,
   InstallMethodLive,
   SubprocessLive,
-  UpdateCheckLive,
+  UpdateCheckCacheLive,
 } from "@agentxm/cli-update/live";
+import { StableChannelCheckLive } from "@agentxm/cli-maintenance/self-update/composition";
 
 import { loadVersion } from "./version.js";
 import { suggestionsForScope } from "./root/shared/scoped-command.js";
@@ -259,18 +260,18 @@ export const baseLayer = Layer.mergeAll(runtimeBaseLayer, PlatformLayer, cliConf
 
 /**
  * The self-update capability's environment-backed services. The startup
- * update check needs the channel cache and the installation it belongs to;
+ * update check needs the channel cache and conditional release discovery;
  * the `upgrade` command additionally drives an installer through a
  * subprocess and records what it installed.
  */
 export const startupUpdateCheckLayer = Layer.provide(
-  Layer.mergeAll(UpdateCheckLive, InstallMethodLive),
-  runtimeBaseLayer,
+  Layer.mergeAll(UpdateCheckCacheLive, StableChannelCheckLive),
+  PlatformLayer,
 );
 
 export const selfUpdateLayer = Layer.provideMerge(
   UpgradePreparationLive,
-  Layer.mergeAll(InstallMethodLive, InstallMetaLive, SubprocessLive, UpdateCheckLive),
+  Layer.mergeAll(InstallMethodLive, InstallMetaLive, SubprocessLive, UpdateCheckCacheLive),
 );
 
 /** Route Effect diagnostics through the Screen's serialized transcript writer. */

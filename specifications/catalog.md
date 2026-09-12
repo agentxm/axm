@@ -3968,7 +3968,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 ##### The environment can disable the startup update check
 
 - Requirement: `cli/environment-disables-startup-update-check`
-- Owner: `cli-update`
+- Owner: `cli`
 - Statement: When AXM_NO_UPDATE_CHECK is 1, AXM shall omit the informational startup update notification and its release requests regardless of output or interaction mode, while allowing an explicitly invoked command to perform its required network operations.
 - Class: functional
 - Role: interface
@@ -3977,7 +3977,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Methods: decision-table, example
 - Open questions: Must agent sessions always skip startup checks when AXM_NO_UPDATE_CHECK is not 1? Earlier environment help said they skip, but the current runtime and its internal test permit agent checks even without a TTY.; Does suppression also prohibit reading an existing update cache, beyond the absence of requests and notifications promised here?
 - Limitation: The primary decision table uses a populated fresh cache and a controlled HTTP port; it establishes notification suppression and command-network independence, but does not by itself establish the absence of a background refresh when a cache is missing or stale. Retires when: Add a scheduler-coordinated missing/stale-cache control that observes the live startup wrapper's detached request and completion without wall-clock sleeps or leaked fibers.
-- Source: [`packages/core/cli-update/src/startup-check/environment-disables-startup-update-check.spec.ts`](../packages/core/cli-update/src/startup-check/environment-disables-startup-update-check.spec.ts)
+- Source: [`apps/cli/src/environment-disables-startup-update-check.spec.ts`](../apps/cli/src/environment-disables-startup-update-check.spec.ts)
 
 ##### Registry services use the selected environment origin
 

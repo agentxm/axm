@@ -28,9 +28,10 @@ adapters.
   checksum and the staged executable's own version report, and replaces the
   target under its own process lock, restoring the original when anything
   after the replacement fails.
-- **The startup check.** Suppression rules, the cached channel document, the
-  notification a fresh cache justifies, and the bounded background
-  revalidation.
+- **Update-cache storage.** Decode and atomically replace the validated channel
+  snapshot through CLI maintenance's `UpdateCheckCache` contract. Suppression,
+  freshness, notification eligibility, and refresh belong to that capability;
+  notification wording belongs to the CLI.
 
 Every termination resolves to one `axm.upgrade-assessment/v1` result carrying
 ownership, the canonical release, availability, mutation and verification
@@ -46,6 +47,6 @@ Unstable and unsupported — use the [axm.sh](https://axm.sh) CLI.
 
 | Export                        | Contents                                                                                                                                         |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `@agentxm/cli-update`         | `AssessUpgrade`, `previewOrApply`, `StartupUpdateCheck`, the assessment contract, and native service declarations                                |
+| `@agentxm/cli-update`         | `AssessUpgrade`, `previewOrApply`, the assessment contract, and native service declarations                                                      |
 | `@agentxm/cli-update/live`    | Environment-backed Layers the application composes once                                                                                          |
 | `@agentxm/cli-update/testing` | A recording subprocess, a chosen install method, an in-memory metadata record and channel cache, a fixture release origin, and `runUpgradeTrial` |

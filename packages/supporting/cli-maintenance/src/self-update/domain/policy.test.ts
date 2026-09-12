@@ -73,15 +73,15 @@ describe("version relationships", () => {
 
 describe("automatic upgrade eligibility", () => {
   it.each([
-    [new Script({ execPath: "/axm" }), true],
-    [new Homebrew({ execPath: "/brew/axm" }), true],
-    [new Npm({ importUrl: "file:///npm/axm" }), true],
-    [new Pnpm({ importUrl: "file:///pnpm/axm" }), true],
-    [new Yarn({ importUrl: "file:///yarn/axm", managerMajorVersion: 1 }), true],
-    [new Yarn({ importUrl: "file:///yarn/axm", managerMajorVersion: 4 }), false],
-    [new Yarn({ importUrl: "file:///yarn/axm" }), false],
-    [new Unknown(), false],
-  ] as const)("decides from %s installation facts", (method, expected) => {
+    ["script", new Script({ execPath: "/axm" }), true],
+    ["Homebrew", new Homebrew({ execPath: "/brew/axm" }), true],
+    ["npm", new Npm({ importUrl: "file:///npm/axm" }), true],
+    ["pnpm", new Pnpm({ importUrl: "file:///pnpm/axm" }), true],
+    ["Yarn Classic", new Yarn({ importUrl: "file:///yarn/axm", managerMajorVersion: 1 }), true],
+    ["Yarn modern", new Yarn({ importUrl: "file:///yarn/axm", managerMajorVersion: 4 }), false],
+    ["Yarn with an unknown version", new Yarn({ importUrl: "file:///yarn/axm" }), false],
+    ["unknown installer", new Unknown(), false],
+  ] as const)("decides from %s installation facts", (_case, method, expected) => {
     expect(supportedMethod(method)).toBe(expected);
   });
 });

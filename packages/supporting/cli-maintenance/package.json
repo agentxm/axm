@@ -1,6 +1,6 @@
 {
   "name": "@agentxm/cli-maintenance",
-  "version": "0.30.0",
+  "version": "0.30.1",
   "description": "CLI maintenance policies and application contracts for self-update and compatibility between the running AXM CLI and its official skill. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",

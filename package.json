@@ -44,7 +44,6 @@
     "prepare": "husky && effect-tsgo patch",
     "release:plan": "nx release plan --only-touched=false",
     "release:plan:check": "nx release plan:check",
-    "release:prepare": "pnpm exec nx run axm:release-prepare",
     "release:publish": "pnpm exec nx run axm:release-publish",
     "release:publish:local": "pnpm exec nx run axm:release-publish-local",
     "generate": "pnpm exec nx run-many -t generate",

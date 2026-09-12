@@ -176,7 +176,7 @@ describe("repository task interface", () => {
     for (const targetName of [
       "typecheck",
       "test",
-      "release-prepare",
+      "resolve-release-preparation-source",
       "release-prepare-candidate",
       "release-publish",
       "release-publish-local",
@@ -326,18 +326,17 @@ describe("repository task interface", () => {
     }
   });
 
-  it("reaches candidate generation only through the release-preparation entry point", () => {
+  it("keeps release preparation mutation inside the Actions-only candidate target", () => {
     // Supersedes part of the retired specification identity
     // `system/process/release-preparation-isolates-candidate-state`
-    // (see `specifications/disposition-ledger.json`): the published script
-    // routes to the root release-preparation target, and candidate
-    // generation is an internal target that runs only inside the disposable
-    // checkout.
+    // (see `specifications/disposition-ledger.json`): Actions owns the
+    // ephemeral checkout and external mutations, while these unaliased
+    // targets resolve the source and generate the exact candidate.
     const scripts = readObject("package.json")["scripts"];
     if (!isRecord(scripts)) throw new Error("package.json must declare scripts.");
     const rootTargets = readTargets("project.json");
-    expect(scripts["release:prepare"]).toBe("pnpm exec nx run axm:release-prepare");
-    expect(Object.keys(rootTargets)).toContain("release-prepare");
+    expect(scripts["release:prepare"]).toBeUndefined();
+    expect(Object.keys(rootTargets)).toContain("resolve-release-preparation-source");
     expect(Object.keys(rootTargets)).toContain("release-prepare-candidate");
     expect(
       Object.values(scripts).filter(
@@ -364,7 +363,7 @@ describe("repository task interface", () => {
       "bench",
       "lint-bundled-skill",
       "parity-ledger-check",
-      "release-prepare",
+      "resolve-release-preparation-source",
       // A cached result would skip the production Registry preflight or the
       // exact candidate preview.
       "release-prepare-candidate",

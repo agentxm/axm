@@ -233,8 +233,11 @@ preserves the command's failure status. Clearing outputs is necessary because
 native `run` ignores initially existing files: a cache hit whose outputs are
 already present would otherwise produce an empty report. Results from unselected
 suites are excluded. This clears generated evidence, not the Nx task cache.
-Direct `axm:allure-report` remains a diagnostic view of the results present on
-disk; it does not claim a new execution or a complete verification workflow.
+`test:report` uses that same host boundary for the unit-test workflow; report
+generation is not an Nx dependent that a failed test would skip.
+Direct `axm:allure-report` replaces its generated report directory and remains a
+diagnostic view of the results present on disk. It does not claim a new execution
+or a complete verification workflow.
 
 `generate:check` reads the resolved project graph once, follows local generator
 dependencies, and scopes comparison to their declared outputs, which Nx's own

@@ -10,7 +10,7 @@
     "axm:local": "./scripts/axm-local",
     "classify:ci": "bun scripts/classify-ci-changes.ts",
     "check:ci-image": "node scripts/check-ci-image.mjs",
-    "test:report": "pnpm exec nx run axm:test-report",
+    "test:report": "scripts/with-allure-report.sh pnpm run test",
     "test:report:open": "pnpm exec nx run axm:allure-report-open",
     "sync": "nx sync",
     "sync:check": "nx sync:check",

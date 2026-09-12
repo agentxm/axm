@@ -79,7 +79,6 @@
     "@agentxm/client-e2e-utils": "workspace:*",
     "@agentxm/extension-content": "workspace:*",
     "@agentxm/extension-model": "workspace:*",
-    "@agentxm/extension-resolution": "workspace:^",
     "@agentxm/registry-protocol": "workspace:*",
     "@agentxm/specification-metadata": "workspace:*",
     "@boundaries/elements": "catalog:",
@@ -118,6 +117,7 @@
     "typescript-eslint": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:",
-    "yaml": "catalog:"
+    "yaml": "catalog:",
+    "@agentxm/cli-maintenance": "workspace:^"
   }
 }

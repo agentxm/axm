@@ -1,0 +1,66 @@
+{
+  "name": "@agentxm/cli-maintenance",
+  "version": "0.29.4",
+  "description": "CLI maintenance policies and application contracts, including compatibility between the running AXM CLI and its official skill. Unstable and unsupported — use the axm.sh CLI.",
+  "type": "module",
+  "license": "FSL-1.1-MIT",
+  "homepage": "https://axm.sh",
+  "bugs": {
+    "url": "https://github.com/agentxm/axm/issues"
+  },
+  "author": "AgentXM <hello@agentxm.ai> (https://agentxm.ai)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/axm.git",
+    "directory": "packages/supporting/cli-maintenance"
+  },
+  "sideEffects": false,
+  "exports": {
+    "./official-skill/domain": {
+      "types": "./dist/src/official-skill/domain/index.d.ts",
+      "axm-source": "./src/official-skill/domain/index.ts",
+      "default": "./dist/src/official-skill/domain/index.js"
+    },
+    "./official-skill/application": {
+      "types": "./dist/src/official-skill/application/index.d.ts",
+      "axm-source": "./src/official-skill/application/index.ts",
+      "default": "./dist/src/official-skill/application/index.js"
+    },
+    "./official-skill/composition": {
+      "types": "./dist/src/official-skill/composition/index.d.ts",
+      "axm-source": "./src/official-skill/composition/index.ts",
+      "default": "./dist/src/official-skill/composition/index.js"
+    },
+    "./official-skill/adapters/cli": {
+      "types": "./dist/src/official-skill/adapters/cli/index.d.ts",
+      "axm-source": "./src/official-skill/adapters/cli/index.ts",
+      "default": "./dist/src/official-skill/adapters/cli/index.js"
+    }
+  },
+  "files": [
+    "dist/src/",
+    "!**/*.map"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "nx": {
+    "includedScripts": []
+  },
+  "dependencies": {
+    "effect": "catalog:",
+    "semver": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/platform-node": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@types/semver": "catalog:",
+    "@typescript/native": "catalog:",
+    "@fast-check/vitest": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

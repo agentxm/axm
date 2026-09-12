@@ -1,3 +1,4 @@
+import { renderAxmSkillCompatibility } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 /**
  * Lint runner — the reusable core of `axm lint`.
  *
@@ -47,7 +48,7 @@ import {
   type CatalogRuleContexts,
   type LintView,
 } from "./catalog-contexts.js";
-import { type AxmSkillCompatibility } from "@agentxm/extension-resolution";
+import { type AxmSkillCompatibility } from "@agentxm/cli-maintenance/official-skill/domain";
 
 // -----------------------------------------------------------------------------
 // Grouping + summary
@@ -1432,7 +1433,7 @@ export const toLintJsonDocument = (args: {
     input: args.input,
     ...(args.axmSkillCompatibility === undefined
       ? {}
-      : { axmSkillCompatibility: args.axmSkillCompatibility }),
+      : { axmSkillCompatibility: renderAxmSkillCompatibility(args.axmSkillCompatibility) }),
     findings: summary.findings.map(toJsonFinding),
     summary: {
       total: summary.counts.total,

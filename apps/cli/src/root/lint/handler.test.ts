@@ -45,7 +45,7 @@ import { ExecutionDirectory } from "../../execution-directory.js";
 import { handleLint } from "./handler.js";
 import { remapLintSummaryPaths, resolveLintRoot } from "@agentxm/workspace-lint";
 import { LifecycleStepFailureConversionLive } from "../../feature-errors.js";
-import { AxmSkillCompatibilityPolicy } from "@agentxm/extension-resolution";
+import { AxmSkillCompatibilityPolicy } from "@agentxm/cli-maintenance/official-skill/application";
 
 describe("axm lint handler", () => {
   let tempDir: string;

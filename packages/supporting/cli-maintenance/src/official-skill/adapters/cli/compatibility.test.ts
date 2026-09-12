@@ -5,12 +5,17 @@ import * as Effect from "effect/Effect";
 import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
-  AxmSkillCompatibilityPolicy,
-  evaluateAxmSkillCompatibility,
-  makeAxmSkillCompatibilityPolicyLayer,
+  evaluateAxmSkillCompatibility as evaluatePolicy,
   validateAxmSkillCliVersionRange,
   type AxmSkillCompatibilityInput,
-} from "./axm-skill-compatibility.js";
+} from "../../domain/index.js";
+import { AxmSkillCompatibilityPolicy } from "../../application/index.js";
+import { makeAxmSkillCompatibilityPolicyLayer } from "../../composition/index.js";
+
+import { renderAxmSkillCompatibility } from "./index.js";
+
+const evaluateAxmSkillCompatibility = (input: AxmSkillCompatibilityInput) =>
+  renderAxmSkillCompatibility(evaluatePolicy(input));
 
 const CLI_VERSION = "1.2.3";
 const SKILL_VERSION = "1.2.0";

@@ -43,7 +43,7 @@ import {
   stringProperty,
 } from "../../../test-support/test-helpers.js";
 import { writeWorkspaceFiles } from "../../../test-support/test-stubs.js";
-import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-resolution";
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 
 // -----------------------------------------------------------------------------
 // Helpers

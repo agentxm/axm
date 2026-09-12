@@ -1,3 +1,4 @@
+import { renderAxmSkillCompatibility } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 import { describe, expect, it } from "@effect/vitest";
 
 import { resolveLintExitCategory, toLintHumanBlocks, toLintJsonDocument } from "./cli.js";
@@ -5,7 +6,7 @@ import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
   evaluateAxmSkillCompatibility,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/cli-maintenance/official-skill/domain";
 
 describe("lint fact rendering", () => {
   it("maps a rule predicate to explicit machine-readable facts", () => {
@@ -166,6 +167,6 @@ describe("lint fact rendering", () => {
       axmSkillCompatibility: compatibility,
     });
 
-    expect(document.axmSkillCompatibility).toEqual(compatibility);
+    expect(document.axmSkillCompatibility).toEqual(renderAxmSkillCompatibility(compatibility));
   });
 });

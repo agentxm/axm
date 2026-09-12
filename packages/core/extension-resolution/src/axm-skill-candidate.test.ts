@@ -8,7 +8,7 @@ import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { computeSourceHash } from "@agentxm/workspace-state";
 import { exactVersion, extensionName, handle } from "./test-helpers.js";
-import { makeAxmSkillCompatibilityPolicyLayer } from "./axm-skill-compatibility.js";
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 import { validateAxmSkillCandidate } from "./axm-skill-candidate.js";
 import type { WorkspaceSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 

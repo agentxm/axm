@@ -1,3 +1,4 @@
+import { renderAxmSkillRecovery } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 /**
  * Implementation of the source-resolution composition port this package owns
  * the policy for.
@@ -27,8 +28,8 @@ import { evaluateAxmSkillCandidate } from "./axm-skill-candidate.js";
 import {
   AXM_SKILL_BUNDLED_PREVIEW_COMMAND,
   formatAxmSkillCompatibilityTarget,
-} from "./axm-skill-compatibility.js";
-import type { AxmSkillCompatibilityUnavailable } from "./errors.js";
+} from "@agentxm/cli-maintenance/official-skill/adapters/cli";
+import type { AxmSkillCompatibilityUnavailable } from "@agentxm/cli-maintenance/official-skill/application";
 
 /**
  * The gate renders the recovery command and target exactly as the registry
@@ -52,7 +53,7 @@ export const AxmSkillCandidateGateLive = Layer.succeed(AxmSkillCandidateGate, {
               recoveryCommand:
                 result.recovery.action === "update-registry-skill"
                   ? AXM_SKILL_BUNDLED_PREVIEW_COMMAND
-                  : result.recovery.nextAction,
+                  : renderAxmSkillRecovery(result.recovery).nextAction,
               recoveryTarget: formatAxmSkillCompatibilityTarget(result.recovery),
             },
       ),

@@ -22,6 +22,9 @@
       "path": "../../../tools/specification-metadata/tsconfig.lib.json"
     },
     {
+      "path": "../../supporting/cli-maintenance/tsconfig.lib.json"
+    },
+    {
       "path": "../workspace-state/tsconfig.lib.json"
     },
     {

@@ -18,6 +18,9 @@
   ],
   "references": [
     {
+      "path": "../../supporting/cli-maintenance/tsconfig.lib.json"
+    },
+    {
       "path": "../workspace-transactions/tsconfig.lib.json"
     },
     {
@@ -30,6 +33,12 @@
       "path": "../workspace-operations/tsconfig.lib.json"
     },
     {
+      "path": "../../supporting/registry-client/tsconfig.lib.json"
+    },
+    {
+      "path": "../../supporting/extension-sources/tsconfig.lib.json"
+    },
+    {
       "path": "../extension-resolution/tsconfig.lib.json"
     },
     {
@@ -37,12 +46,6 @@
     },
     {
       "path": "../extension-content/tsconfig.lib.json"
-    },
-    {
-      "path": "../../supporting/registry-client/tsconfig.lib.json"
-    },
-    {
-      "path": "../../supporting/extension-sources/tsconfig.lib.json"
     },
     {
       "path": "../../supporting/agent-integration/tsconfig.lib.json"

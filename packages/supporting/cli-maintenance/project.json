@@ -1,0 +1,23 @@
+{
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "name": "cli-maintenance",
+  "projectType": "library",
+  "root": "packages/supporting/cli-maintenance",
+  "sourceRoot": "packages/supporting/cli-maintenance/src",
+  "tags": ["type:lib", "role:capability", "scope:cli-maintenance", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/supporting/cli-maintenance/src/official-skill/domain/index.ts",
+        "outputPath": "packages/supporting/cli-maintenance/dist",
+        "tsConfig": "packages/supporting/cli-maintenance/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

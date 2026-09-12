@@ -29,7 +29,7 @@ import * as Path from "effect/Path";
 import { buildPackRuleContexts, buildSkillRuleContexts } from "@agentxm/extension-content/lint";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { AxmSkillCompatibilityPolicy } from "@agentxm/extension-resolution";
+import { AxmSkillCompatibilityPolicy } from "@agentxm/cli-maintenance/official-skill/application";
 import {
   CodingAgentRepository,
   WorkspaceInvariantFacts,

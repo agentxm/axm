@@ -46,7 +46,7 @@ import {
   extensionName,
   handle,
 } from "../test-support/test-stubs.js";
-import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-resolution";
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 import { AxmSkillCandidateGateLive } from "@agentxm/extension-resolution/live";
 
 const runEffect = <A, E>(

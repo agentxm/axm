@@ -39,10 +39,10 @@ import {
 import {
   ReleaseAgePosture,
   decideNamedRegistryVersion,
-  makeAxmSkillCompatibilityPolicyLayer,
   namedRegistryCandidates,
   resolveVersionEntryWithReleaseAge,
 } from "@agentxm/extension-resolution";
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 import { AxmSkillCandidateGateLive } from "@agentxm/extension-resolution/live";
 import { RegistryResolutionPolicy, SourceHostProviders } from "@agentxm/extension-sources";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";

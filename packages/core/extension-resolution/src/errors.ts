@@ -7,7 +7,6 @@
 
 import * as Data from "effect/Data";
 import * as Schema from "effect/Schema";
-import type { AxmSkillCompatibility } from "./axm-skill-compatibility.js";
 
 const CarriedSuggestedActionSchema = Schema.Struct({
   description: Schema.String,
@@ -45,20 +44,6 @@ export class ExtensionResolutionFailed extends Schema.TaggedError<ExtensionResol
 export class SourceAuthorityBlocked extends Data.TaggedError("SourceAuthorityBlocked")<{
   readonly detail: string;
   readonly recovery: ReadonlyArray<{ readonly description: string }>;
-}> {}
-
-/** The AXM compatibility policy did not evaluate the official AXM skill. */
-export class AxmSkillCompatibilityUnavailable extends Data.TaggedError(
-  "AxmSkillCompatibilityUnavailable",
-) {}
-
-/**
- * The official AXM skill candidate is incompatible with this CLI. Carries the
- * policy's full compatibility verdict, whose recovery plan the application
- * boundary renders into suggestions.
- */
-export class AxmSkillIncompatible extends Data.TaggedError("AxmSkillIncompatible")<{
-  readonly compatibility: AxmSkillCompatibility;
 }> {}
 
 /**

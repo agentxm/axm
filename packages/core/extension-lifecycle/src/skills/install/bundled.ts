@@ -1,3 +1,4 @@
+import { renderAxmSkillRecovery } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 /**
  * Installing the official AXM skill that ships inside the CLI.
  *
@@ -26,7 +27,7 @@ import {
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
   AXM_SKILL_FQN,
   evaluateAxmSkillCompatibility,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/cli-maintenance/official-skill/domain";
 import {
   operationPresentation,
   type JobStepArtifact,
@@ -289,14 +290,13 @@ export const installBundledAxmSkill: Effect.Effect<
           },
         });
         if (compatibility.status === "incompatible") {
+          const recovery = renderAxmSkillRecovery(compatibility.recovery);
           return yield* installRefused({
             category: "internal",
             detail:
               compatibility.detail ??
               "Bundled AXM skill remained incompatible after workspace installation",
-            ...(compatibility.recovery.nextAction === null
-              ? {}
-              : { cmd: compatibility.recovery.nextAction }),
+            ...(recovery.nextAction === null ? {} : { cmd: recovery.nextAction }),
           });
         }
       }),

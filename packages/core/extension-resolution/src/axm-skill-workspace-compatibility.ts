@@ -13,8 +13,8 @@ import {
   AXM_SKILL_FQN,
   type AxmSkillCompatibility,
   type AxmSkillCompatibilityCandidate,
-  type AxmSkillCompatibilityPolicyService,
-} from "./axm-skill-compatibility.js";
+} from "@agentxm/cli-maintenance/official-skill/domain";
+import { type AxmSkillCompatibilityPolicyService } from "@agentxm/cli-maintenance/official-skill/application";
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);

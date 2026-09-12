@@ -47,11 +47,8 @@ import {
   SubagentManagerLive,
 } from "./test-helpers.js";
 import { makeWorkspaceFileContents, writeWorkspaceFiles } from "./test-stubs.js";
-import {
-  makeAxmSkillCompatibilityPolicyLayer,
-  ReleaseAgePosture,
-  type ReleaseAgePostureValue,
-} from "@agentxm/extension-resolution";
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
+import { ReleaseAgePosture, type ReleaseAgePostureValue } from "@agentxm/extension-resolution";
 import { makeMemoryTransitionLockWorld } from "@agentxm/workspace-transactions/testing";
 import { MemoryWorkspaceTransactionScope } from "@agentxm/workspace-state/testing";
 import { WorkspaceStateLive } from "@agentxm/workspace-state/live";

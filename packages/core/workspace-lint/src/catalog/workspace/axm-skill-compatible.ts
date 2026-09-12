@@ -1,3 +1,4 @@
+import { renderAxmSkillRecovery } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
@@ -6,7 +7,7 @@ import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryRule } from "@agentxm/extension-content/lint";
 import { canonicalDisplayRoot } from "./display-paths.js";
 import { EMPTY_ADVISORY_FINDINGS } from "./helpers/empty.js";
-import { formatAxmSkillCompatibilityTarget } from "@agentxm/extension-resolution";
+import { formatAxmSkillCompatibilityTarget } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 
 const RULE_ID = "workspace/axm-skill-compatible";
 
@@ -38,7 +39,7 @@ export const axmSkillCompatibleRule: AdvisoryRule<WorkspaceRuleContext> = {
       if (Option.isNone(compatibilityResult.success)) return EMPTY_ADVISORY_FINDINGS;
       const compatibility = compatibilityResult.success.value;
       if (compatibility.status === "compatible") return EMPTY_ADVISORY_FINDINGS;
-      const recovery = compatibility.recovery.nextAction;
+      const recovery = renderAxmSkillRecovery(compatibility.recovery).nextAction;
       const target = formatAxmSkillCompatibilityTarget(compatibility.recovery);
       return [
         {

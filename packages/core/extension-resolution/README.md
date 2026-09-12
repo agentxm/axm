@@ -20,14 +20,16 @@ extension resolves to, and whether that resolution may be accepted.
 - **Publisher-binding trust** — `classifyPublisherBindingTransition` and the
   proposal vocabulary. Shaping the resulting plan risk condition belongs to
   the feature that owns the plan, not here.
-- **Official AXM skill compatibility** — `evaluateAxmSkillCompatibility`,
-  `evaluateAxmSkillCandidate`, `readAxmSkillWorkspaceCompatibility`.
+- **Official AXM skill inspection** — `evaluateAxmSkillCandidate` and
+  `readAxmSkillWorkspaceCompatibility` currently obtain candidate facts and
+  invoke the compatibility policy owned by `@agentxm/cli-maintenance`.
 
 Exports `.` and `./live`.
 
 Dependency budget: `@agentxm/extension-model`, `@agentxm/registry-protocol`,
 `@agentxm/extension-content`, `@agentxm/extension-sources`, and
-`@agentxm/workspace-state`. Deciding what a configured entry resolves to needs
+`@agentxm/workspace-state`, and the published official-skill APIs of
+`@agentxm/cli-maintenance`. Deciding what a configured entry resolves to needs
 workspace facts and source acquisition, so this package sits **above**
 `@agentxm/workspace-state`: state must never depend on it.
 
@@ -52,6 +54,14 @@ requests, yank handling, and range maxima) belongs to
 It consumes domain release facts and preserves the selected candidate. Registry
 clients and this package use it without making wire schemas own the algorithm;
 release-age and other client admission policies remain here.
+
+Official-skill compatibility and recovery are owned by
+[`@agentxm/cli-maintenance`](../../supporting/cli-maintenance/README.md), with
+separate domain, application, and composition entry points. They are absent
+from this package's public exports. Registry candidate probing and workspace
+inspection still require a further acquisition/application separation; the
+policy extraction does not make the current provider port design the target
+architecture.
 
 Unstable and unsupported — use the [axm.sh](https://axm.sh) CLI.
 

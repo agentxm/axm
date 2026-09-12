@@ -7,10 +7,8 @@
  */
 
 import * as Data from "effect/Data";
-import type {
-  AxmSkillCompatibilityUnavailable,
-  AxmSkillIncompatible,
-} from "@agentxm/extension-resolution";
+import type { AxmSkillCompatibilityUnavailable } from "@agentxm/cli-maintenance/official-skill/application";
+import type { AxmSkillIncompatible } from "@agentxm/cli-maintenance/official-skill/domain";
 
 /**
  * A skill source or agent configuration did not validate. `detail` carries

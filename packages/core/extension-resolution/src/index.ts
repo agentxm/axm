@@ -4,8 +4,7 @@
  * Extension resolution policy: which source is allowed to supply a
  * configured extension, which visible version that source resolves to under
  * the minimum-release-age policy, which publisher binding a proposed
- * acceptance replaces, how a Pack's declared members resolve, and whether an
- * official AXM skill candidate is compatible with this CLI. Pure over the
+ * acceptance replaces, and how a Pack's declared members resolve. Pure over the
  * Registry index contract and workspace state; the provider that fetches the
  * index applies these through a port.
  *
@@ -14,8 +13,6 @@
  */
 
 export {
-  AxmSkillCompatibilityUnavailable,
-  AxmSkillIncompatible,
   ExtensionResolutionFailed,
   PackConstraintShadowed,
   PackDependencyConflict,
@@ -125,36 +122,7 @@ export {
 } from "./pack-dependency-resolution.js";
 export { acceptedPackDependencyResolver } from "./accepted-pack-dependency-resolver.js";
 
-// Official AXM skill compatibility policy.
-export {
-  AXM_SKILL_BUNDLED_APPLY_COMMAND,
-  AXM_SKILL_BUNDLED_PREVIEW_COMMAND,
-  AXM_SKILL_CLI_VERSION_METADATA_KEY,
-  AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
-  AXM_SKILL_FQN,
-  AXM_SKILL_REGISTRY_APPLY_COMMAND,
-  AXM_SKILL_REGISTRY_PREVIEW_COMMAND,
-  AxmSkillCompatibilityPolicy,
-  AxmSkillCompatibilityRecoveryActionSchema,
-  AxmSkillCompatibilityRecoverySchema,
-  AxmSkillCompatibilityRecoveryStepSchema,
-  AxmSkillCompatibilityReasonSchema,
-  AxmSkillCompatibilitySchema,
-  evaluateAxmSkillCompatibility,
-  formatAxmSkillCompatibilityTarget,
-  makeAxmSkillCompatibilityPolicyLayer,
-  validateAxmSkillCliVersionRange,
-  type AxmSkillCliVersionRangeValidation,
-  type AxmSkillCompatibility,
-  type AxmSkillCompatibilityCandidate,
-  type AxmSkillCompatibilityInput,
-  type AxmSkillCompatibilityPolicyInput,
-  type AxmSkillCompatibilityPolicyService,
-  type AxmSkillCompatibilityReason,
-  type AxmSkillCompatibilityRecovery,
-  type AxmSkillCompatibilityRecoveryAction,
-  type AxmSkillCompatibilityRecoveryStep,
-} from "./axm-skill-compatibility.js";
+// Official-skill byte inspection remains a workspace integration.
 export {
   evaluateAxmSkillCandidate,
   validateAxmSkillCandidate,

@@ -103,7 +103,8 @@
     "@effect/platform-node-shared": "catalog:",
     "effect": "catalog:",
     "marked": "^18.0.9",
-    "@agentxm/workspace-reconciliation": "workspace:^"
+    "@agentxm/workspace-reconciliation": "workspace:^",
+    "@agentxm/cli-maintenance": "workspace:^"
   },
   "devDependencies": {
     "@agentxm/extension-type-parity": "workspace:*",

@@ -25,7 +25,7 @@ import type { CanonicalObservation } from "@agentxm/workspace-state";
 import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace-state";
 import type { LockfileReadError, SettingsReadError } from "@agentxm/workspace-state";
 import type { WorkspaceReadModel } from "@agentxm/workspace-state";
-import { type AxmSkillCompatibility } from "@agentxm/extension-resolution";
+import { type AxmSkillCompatibility } from "@agentxm/cli-maintenance/official-skill/domain";
 
 /**
  * Context passed to `workspace/*` rules.

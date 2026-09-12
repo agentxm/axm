@@ -4,10 +4,10 @@ import { it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { AxmSkillCompatibilityPolicy } from "./axm-skill-compatibility.js";
+import { AxmSkillCompatibilityPolicy } from "@agentxm/cli-maintenance/official-skill/application";
 import { ReleaseAgePosture } from "./release-age-posture.js";
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 import {
-  AxmSkillCompatibilityPolicyTest,
   ReleaseAgePostureTest,
   exactVersion,
   extensionName,
@@ -30,7 +30,10 @@ describe("@agentxm/extension-resolution/testing", () => {
       ).toBeNull();
     }).pipe(
       Effect.provide(
-        Layer.mergeAll(ReleaseAgePostureTest("ignore"), AxmSkillCompatibilityPolicyTest("0.28.12")),
+        Layer.mergeAll(
+          ReleaseAgePostureTest("ignore"),
+          makeAxmSkillCompatibilityPolicyLayer("0.28.12"),
+        ),
       ),
     ),
   );

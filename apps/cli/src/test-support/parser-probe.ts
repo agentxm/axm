@@ -22,7 +22,7 @@ import {
   DeviceLoginInteractionTest,
 } from "@agentxm/registry-auth/testing";
 import { TEST_VERSION } from "./command-tree-test-helpers.js";
-import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-resolution";
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 import { makeCliTestContext } from "./test-helpers.js";
 import { rootCommand } from "../app.js";
 

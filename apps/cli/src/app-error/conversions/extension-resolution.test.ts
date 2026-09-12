@@ -12,8 +12,10 @@ import { AppError, type AppErrorCode } from "../app-error.js";
 import { isKnownFailure, toAppError, type KnownFailure } from "../conversions.js";
 import {
   type AxmSkillCompatibility,
-  AxmSkillCompatibilityUnavailable,
   AxmSkillIncompatible,
+} from "@agentxm/cli-maintenance/official-skill/domain";
+import { AxmSkillCompatibilityUnavailable } from "@agentxm/cli-maintenance/official-skill/application";
+import {
   PackConstraintShadowed,
   PackDependencyConflict,
   PackDependencyInvalid,
@@ -35,8 +37,6 @@ const incompatibleAxmSkill: AxmSkillCompatibility = {
     action: "upgrade-cli",
     targetCliVersion: "2.0.0",
     targetSkillVersion: "0.9.0",
-    nextAction: "axm upgrade",
-    steps: [],
   },
 };
 

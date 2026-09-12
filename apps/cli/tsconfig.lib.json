@@ -19,6 +19,9 @@
       "path": "../../tools/specification-metadata/tsconfig.lib.json"
     },
     {
+      "path": "../../packages/supporting/cli-maintenance/tsconfig.lib.json"
+    },
+    {
       "path": "../../packages/core/workspace-reconciliation/tsconfig.lib.json"
     },
     {

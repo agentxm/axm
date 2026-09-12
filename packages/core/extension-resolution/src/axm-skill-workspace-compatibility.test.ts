@@ -15,9 +15,9 @@ import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-con
 import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
-  AxmSkillCompatibilityPolicy,
-  makeAxmSkillCompatibilityPolicyLayer,
-} from "./axm-skill-compatibility.js";
+} from "@agentxm/cli-maintenance/official-skill/domain";
+import { AxmSkillCompatibilityPolicy } from "@agentxm/cli-maintenance/official-skill/application";
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 import { readAxmSkillWorkspaceCompatibility } from "./axm-skill-workspace-compatibility.js";
 
 const VERSION = "1.2.0";
@@ -77,8 +77,6 @@ describe("readAxmSkillWorkspaceCompatibility", () => {
             action: "none",
             targetCliVersion: "1.2.3",
             targetSkillVersion: VERSION,
-            nextAction: null,
-            steps: [],
           },
         }),
       );

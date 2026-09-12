@@ -1,3 +1,4 @@
+import { renderAxmSkillRecovery } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 /**
  * Conversions from the extension-resolution typed failure families into
  * CLI-facing `AppError` values. The resolution failure chose its category and
@@ -8,9 +9,10 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { type AxmSkillCompatibilityUnavailable } from "@agentxm/cli-maintenance/official-skill/application";
+import { type AxmSkillIncompatible } from "@agentxm/cli-maintenance/official-skill/domain";
+import { formatAxmSkillCompatibilityTarget } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 import {
-  type AxmSkillCompatibilityUnavailable,
-  type AxmSkillIncompatible,
   type ExtensionResolutionFailed,
   type PackConstraintShadowed,
   type PackDependencyConflict,
@@ -18,7 +20,6 @@ import {
   type PackDependencyMissing,
   type PackDependencyUnsatisfied,
   type SourceAuthorityBlocked,
-  formatAxmSkillCompatibilityTarget,
 } from "@agentxm/extension-resolution";
 import { makeAppError, type AppError } from "../app-error.js";
 
@@ -47,16 +48,16 @@ export const axmSkillCompatibilityUnavailableToAppError = (
   });
 
 /** Translate an incompatible official AXM skill with its recovery plan. */
-export const axmSkillIncompatibleToAppError = (error: AxmSkillIncompatible): AppError =>
-  makeAppError({
+export const axmSkillIncompatibleToAppError = (error: AxmSkillIncompatible): AppError => {
+  const recovery = renderAxmSkillRecovery(error.compatibility.recovery);
+  return makeAppError({
     code: "conflict",
     detail:
       error.compatibility.detail ?? "The official AXM skill is incompatible with this AXM CLI.",
     recover: `Converge to ${formatAxmSkillCompatibilityTarget(error.compatibility.recovery)} with the ${error.compatibility.recovery.action} recovery plan`,
-    ...(error.compatibility.recovery.nextAction === null
-      ? {}
-      : { cmd: error.compatibility.recovery.nextAction }),
+    ...(recovery.nextAction === null ? {} : { cmd: recovery.nextAction }),
   });
+};
 
 /** Translate an invalid pack input; the site owns the fact sentence. */
 export const packDependencyInvalidToAppError = (error: PackDependencyInvalid): AppError =>

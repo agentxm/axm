@@ -192,9 +192,9 @@ import {
   sourceSyntaxInvalidToAppError,
   workspaceCatalogUnavailableToAppError,
 } from "./conversions/extension-sources.js";
+import { AxmSkillCompatibilityUnavailable } from "@agentxm/cli-maintenance/official-skill/application";
+import { AxmSkillIncompatible } from "@agentxm/cli-maintenance/official-skill/domain";
 import {
-  AxmSkillCompatibilityUnavailable,
-  AxmSkillIncompatible,
   ExtensionResolutionFailed,
   PackConstraintShadowed,
   PackDependencyConflict,

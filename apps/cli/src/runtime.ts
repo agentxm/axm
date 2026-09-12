@@ -106,10 +106,8 @@ import {
 import { loadVersion } from "./version.js";
 import { suggestionsForScope } from "./root/shared/scoped-command.js";
 import { ScreenLoggerLive } from "./screen/index.js";
-import {
-  makeAxmSkillCompatibilityPolicyLayer,
-  ReleaseAgePosture,
-} from "@agentxm/extension-resolution";
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
+import { ReleaseAgePosture } from "@agentxm/extension-resolution";
 
 export { verboseFlag, debugFlag };
 

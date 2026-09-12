@@ -10,10 +10,19 @@ export const capabilityElements = [
     capture: ["strategy"],
     partialMatch: false,
   },
+  {
+    type: "backstage",
+    pattern: "packages/*/cli-maintenance/src/official-skill",
+    capture: ["strategy"],
+    partialMatch: false,
+  },
   { type: "test-support", pattern: "tools/specification-metadata/src", partialMatch: false },
 ];
 
-export const capabilityRoots = ["packages/core/extension-model/src"];
+export const capabilityRoots = [
+  "packages/core/extension-model/src",
+  "packages/supporting/cli-maintenance/src/official-skill",
+];
 export const capabilitySourceFiles = capabilityRoots.map(
   (root) => `${root}/**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs}`,
 );

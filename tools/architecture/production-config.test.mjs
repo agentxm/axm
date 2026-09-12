@@ -96,3 +96,30 @@ test("workspace aliases resolve to the published source condition without a buil
   assert.equal(result.found, true);
   assert.equal(result.path, resolve(root, domainFile));
 });
+
+test("official-skill domain policy cannot acquire candidate bytes", async () => {
+  const [result] = await eslint.lintText(
+    'import * as FileSystem from "effect/FileSystem"; export { FileSystem };',
+    { filePath: "packages/supporting/cli-maintenance/src/official-skill/domain/policy.ts" },
+  );
+  assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages));
+  assert.ok(result.messages.some(({ ruleId }) => ruleId === "boundaries/dependencies"));
+});
+
+test("official-skill application cannot select its concrete CLI-version binding", async () => {
+  const [result] = await eslint.lintText(
+    'export { makeAxmSkillCompatibilityPolicyLayer } from "../composition/index.js";',
+    { filePath: "packages/supporting/cli-maintenance/src/official-skill/application/index.ts" },
+  );
+  assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages));
+  assert.ok(result.messages.some(({ ruleId }) => ruleId === "boundaries/dependencies"));
+});
+
+test("official-skill domain cannot construct recovery through the CLI adapter", async () => {
+  const [result] = await eslint.lintText(
+    'export { renderAxmSkillRecovery } from "../adapters/cli/index.js";',
+    { filePath: "packages/supporting/cli-maintenance/src/official-skill/domain/policy.ts" },
+  );
+  assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages));
+  assert.ok(result.messages.some(({ ruleId }) => ruleId === "boundaries/dependencies"));
+});

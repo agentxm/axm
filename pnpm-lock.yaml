@@ -169,6 +169,9 @@ importers:
 
   .:
     devDependencies:
+      '@agentxm/cli-maintenance':
+        specifier: workspace:^
+        version: link:packages/supporting/cli-maintenance
       '@agentxm/client-e2e-utils':
         specifier: workspace:*
         version: link:tools/e2e-utils
@@ -178,9 +181,6 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:*
         version: link:packages/core/extension-model
-      '@agentxm/extension-resolution':
-        specifier: workspace:^
-        version: link:packages/core/extension-resolution
       '@agentxm/registry-protocol':
         specifier: workspace:*
         version: link:packages/core/registry-protocol
@@ -304,6 +304,9 @@ importers:
       '@agentxm/agent-integration':
         specifier: workspace:^
         version: link:../../packages/supporting/agent-integration
+      '@agentxm/cli-maintenance':
+        specifier: workspace:^
+        version: link:../../packages/supporting/cli-maintenance
       '@agentxm/cli-update':
         specifier: workspace:^
         version: link:../../packages/core/cli-update
@@ -663,6 +666,9 @@ importers:
       '@agentxm/agent-integration':
         specifier: workspace:^
         version: link:../../supporting/agent-integration
+      '@agentxm/cli-maintenance':
+        specifier: workspace:^
+        version: link:../../supporting/cli-maintenance
       '@agentxm/extension-content':
         specifier: workspace:^
         version: link:../extension-content
@@ -742,6 +748,9 @@ importers:
       '@agentxm/agent-integration':
         specifier: workspace:^
         version: link:../../supporting/agent-integration
+      '@agentxm/cli-maintenance':
+        specifier: workspace:^
+        version: link:../../supporting/cli-maintenance
       '@agentxm/extension-content':
         specifier: workspace:^
         version: link:../extension-content
@@ -904,6 +913,9 @@ importers:
 
   packages/core/extension-resolution:
     dependencies:
+      '@agentxm/cli-maintenance':
+        specifier: workspace:^
+        version: link:../../supporting/cli-maintenance
       '@agentxm/extension-content':
         specifier: workspace:^
         version: link:../extension-content
@@ -1152,6 +1164,9 @@ importers:
       '@agentxm/agent-integration':
         specifier: workspace:^
         version: link:../../supporting/agent-integration
+      '@agentxm/cli-maintenance':
+        specifier: workspace:^
+        version: link:../../supporting/cli-maintenance
       '@agentxm/extension-content':
         specifier: workspace:^
         version: link:../extension-content
@@ -1449,6 +1464,9 @@ importers:
       '@agentxm/agent-integration':
         specifier: workspace:^
         version: link:../../supporting/agent-integration
+      '@agentxm/cli-maintenance':
+        specifier: workspace:^
+        version: link:../../supporting/cli-maintenance
       '@agentxm/extension-resolution':
         specifier: workspace:^
         version: link:../extension-resolution
@@ -1538,6 +1556,37 @@ importers:
       smol-toml:
         specifier: 'catalog:'
         version: 1.7.1
+      typescript:
+        specifier: 'catalog:'
+        version: '@typescript/typescript6@6.0.2'
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.0(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
+
+  packages/supporting/cli-maintenance:
+    dependencies:
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.115
+      semver:
+        specifier: 'catalog:'
+        version: 7.8.5
+    devDependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0)))
+      '@fast-check/vitest':
+        specifier: 'catalog:'
+        version: 0.5.0(vitest@5.0.0(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0)))
+      '@types/semver':
+        specifier: 'catalog:'
+        version: 7.7.1
+      '@typescript/native':
+        specifier: 'catalog:'
+        version: typescript@7.0.2
       typescript:
         specifier: 'catalog:'
         version: '@typescript/typescript6@6.0.2'

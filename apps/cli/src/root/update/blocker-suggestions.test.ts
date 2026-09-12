@@ -10,8 +10,8 @@
 
 import { describe, expect, it } from "@effect/vitest";
 
+import { AXM_SKILL_BUNDLED_APPLY_COMMAND } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 import {
-  AXM_SKILL_BUNDLED_APPLY_COMMAND,
   type TargetedUpdateBlocker,
   type TargetedUpdatePublicContext,
 } from "@agentxm/extension-resolution";

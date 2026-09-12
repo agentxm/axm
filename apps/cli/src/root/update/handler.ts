@@ -7,11 +7,8 @@ import {
   type UpdateCandidate,
   type UpdateSubjectType,
 } from "@agentxm/extension-lifecycle";
-import {
-  AXM_SKILL_BUNDLED_APPLY_COMMAND,
-  ReleaseAgePosture,
-  type TargetedUpdatePublicContext,
-} from "@agentxm/extension-resolution";
+import { AXM_SKILL_BUNDLED_APPLY_COMMAND } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
+import { ReleaseAgePosture, type TargetedUpdatePublicContext } from "@agentxm/extension-resolution";
 import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions";
 import {
   credentialFreeLocatorRecoveryValue,

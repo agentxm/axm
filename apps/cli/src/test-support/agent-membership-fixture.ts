@@ -20,10 +20,8 @@ import * as nodePath from "node:path";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Layer from "effect/Layer";
 
-import {
-  ReleaseAgePosture,
-  makeAxmSkillCompatibilityPolicyLayer,
-} from "@agentxm/extension-resolution";
+import { ReleaseAgePosture } from "@agentxm/extension-resolution";
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 
 import {
   CodingAgentRepositoryLive,

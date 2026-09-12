@@ -15,7 +15,7 @@
 
 import * as Schema from "effect/Schema";
 import { CATALOG_GROUP_ORDER } from "./catalog-contexts.js";
-import { AxmSkillCompatibilitySchema } from "@agentxm/extension-resolution";
+import { CliAxmSkillCompatibilitySchema } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 
 const LintJsonLocationSchema = Schema.Struct({
   file: Schema.String,
@@ -95,7 +95,7 @@ export type LintInput = typeof LintInputSchema.Type;
  */
 export const LintJsonDocumentSchema = Schema.Struct({
   input: LintInputSchema,
-  axmSkillCompatibility: Schema.optionalKey(AxmSkillCompatibilitySchema),
+  axmSkillCompatibility: Schema.optionalKey(CliAxmSkillCompatibilitySchema),
   findings: Schema.Array(LintJsonFindingSchema),
   summary: LintJsonSummarySchema,
   driftBanner: Schema.Array(Schema.String),

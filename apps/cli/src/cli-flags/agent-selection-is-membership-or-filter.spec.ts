@@ -8,7 +8,7 @@ import { CliConfig, Command, GlobalFlag } from "effect/unstable/cli";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-resolution";
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 
 import { rootCommand } from "../app.js";
 import { TEST_VERSION, collectHelpFiles } from "../test-support/command-tree-test-helpers.js";

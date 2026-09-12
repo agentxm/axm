@@ -35,8 +35,8 @@ import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-t
 import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
-} from "@agentxm/extension-resolution";
-import { AxmSkillCompatibilityPolicyTest } from "@agentxm/extension-resolution/testing";
+} from "@agentxm/cli-maintenance/official-skill/domain";
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 import type { ProjectionParticipants } from "@agentxm/workspace-projection";
 import {
   CodingAgentRepositoryLive,
@@ -147,7 +147,7 @@ export const lintWorkspaceServices = (args: {
   return Layer.provideMerge(
     Layer.mergeAll(
       WorkspaceInvariantFactsLive.pipe(Layer.provide(NativeWriteAuthorityLive)),
-      AxmSkillCompatibilityPolicyTest(args.cliVersion ?? null),
+      makeAxmSkillCompatibilityPolicyLayer(args.cliVersion ?? null),
     ),
     agents,
   );

@@ -105,10 +105,8 @@ import {
   ExtensionTypeSchema,
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import {
-  type AxmSkillCompatibilityPolicyService,
-  readAxmSkillWorkspaceCompatibility,
-} from "@agentxm/extension-resolution";
+import { type AxmSkillCompatibilityPolicyService } from "@agentxm/cli-maintenance/official-skill/application";
+import { readAxmSkillWorkspaceCompatibility } from "@agentxm/extension-resolution";
 
 // -----------------------------------------------------------------------------
 // LintWorkspaceView

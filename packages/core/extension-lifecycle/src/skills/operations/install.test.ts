@@ -55,7 +55,7 @@ import type { InstallSkillOperation } from "./install.js";
 import { installSkill, buildRenderedFilesFromResults, computeSkillSourceHash } from "./install.js";
 import { sanitizeName } from "@agentxm/workspace-state";
 import type { InstallResult } from "./install-result.js";
-import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/extension-resolution";
+import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 
 /** Creates a workspace mock that writes lockfile + settings to disk. */
 const makeWorkspaceMock = (

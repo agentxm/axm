@@ -8,7 +8,7 @@ import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
   evaluateAxmSkillCompatibility,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/cli-maintenance/official-skill/domain";
 
 const compatible = evaluateAxmSkillCompatibility({
   cliVersion: "1.2.3",

@@ -1,5 +1,5 @@
 {
-  "skill_name": "author-okf",
+  "skill_name": "okf",
   "suite_version": "0.1.10",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
@@ -43,12 +43,12 @@
       "id": 4,
       "stage": "routing",
       "prompt": "Convert these synthetic wiki pages into an OKF v0.2 knowledge bundle with honest provenance and validate it.",
-      "expected_selection": "author-okf",
+      "expected_selection": "okf",
       "catalog_neighbors": [
-        "author-docs"
+        "docs"
       ],
       "assertions": [
-        "The selected skill is author-okf.",
+        "The selected skill is okf.",
         "No neighboring skill is selected for a job it does not own.",
         "Routing uses only catalog names and descriptions.",
         "No task side effect occurs before selection."
@@ -72,12 +72,12 @@
       "id": 6,
       "stage": "routing",
       "prompt": "Review this proposed OKF v0.2 application-profile rule: every collection index.md should also be a typed concept with status and provenance so it can own the collection's durable policy.",
-      "expected_selection": "author-okf",
+      "expected_selection": "okf",
       "catalog_neighbors": [
-        "author-docs"
+        "docs"
       ],
       "assertions": [
-        "The selected skill is author-okf.",
+        "The selected skill is okf.",
         "The advisory phrasing does not suppress selection for an OKF representation decision.",
         "Routing uses only catalog names and descriptions.",
         "No task side effect occurs before selection."
@@ -103,13 +103,13 @@
       "id": 8,
       "stage": "routing",
       "prompt": "Reorganize this ordinary documentation folder and improve its README-style index page. The repository does not use OKF or concept frontmatter.",
-      "expected_selection": "author-docs",
+      "expected_selection": "docs",
       "catalog_neighbors": [
-        "author-okf"
+        "okf"
       ],
       "assertions": [
-        "The selected skill is author-docs rather than author-okf.",
-        "Generic documentation organization does not route to author-okf without an OKF contract.",
+        "The selected skill is docs rather than okf.",
+        "Generic documentation organization does not route to okf without an OKF contract.",
         "Routing uses only catalog names and descriptions.",
         "No task side effect occurs before selection."
       ]

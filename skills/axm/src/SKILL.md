@@ -187,12 +187,15 @@ workspace state. Diagnosis is a local read and authorizes no repair.
    unreadable, report `Could not diagnose` with the blocking prerequisite only.
 2. Run `axm lint --json`, `axm sync --preview --fail-on-change --json`, and
    `axm list --json`; classify findings by lint rule ID and inventory by
-   `management`. Read `git status` for recoverability. Add read-only checks
+   `management`. Read `git status` for recoverability and `git grep -n` for
+   references to each removal candidate. Add read-only checks
    live help offers.
 3. Unless asked to stay offline, check currency against configured sources
    only: `axm upgrade --preview --json`, then `axm list --outdated --json` and
-   `axm list --deprecated --json`. Never authenticate for these. Report an
-   offline request, unreachable source, or timeout as skipped, not failed.
+   `axm list --deprecated --json`, and `axm view <fqn> --json` for a
+   replacement named only in a deprecation note. Never authenticate for these.
+   Report an offline request, unreachable source, or timeout as skipped, not
+   failed.
 4. Render [the doctor report](references/doctor-report.md) exactly, then stop
    at its choice. Only a selected option or named IDs authorize repair;
    free text becomes a plan to approve.

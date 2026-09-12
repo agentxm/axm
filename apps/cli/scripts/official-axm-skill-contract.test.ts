@@ -111,7 +111,7 @@ describe("official AXM skill contract", () => {
 
     const stages = cases.map((item) => requireString(item, "stage"));
     expect(stages.filter((stage) => stage === "routing")).toHaveLength(34);
-    expect(stages.filter((stage) => stage === "execution")).toHaveLength(53);
+    expect(stages.filter((stage) => stage === "execution")).toHaveLength(57);
     expect(skillMd).not.toContain("evaluation-contract.json");
   });
 });

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Rename the skill from `author-okf` to `okf`
+  (`@craigsmitham/skills/okf`). Behavior is unchanged.
+
 ## 0.1.9 — 2026-09-08
 
 - Default citation definitions to short titles while preserving source IDs,

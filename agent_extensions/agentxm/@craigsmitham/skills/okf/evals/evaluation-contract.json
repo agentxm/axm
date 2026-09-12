@@ -1,9 +1,9 @@
 {
   "contract_version": "3.0.0",
   "owner": "@craigsmitham",
-  "decision": "Detect routing, authority, boundary, execution, and evidence failures in author-okf before release; this suite does not approve the skill.",
+  "decision": "Detect routing, authority, boundary, execution, and evidence failures in okf before release; this suite does not approve the skill.",
   "target_binding": {
-    "skill_name": "author-okf",
+    "skill_name": "okf",
     "required_result_fields": [
       "target.source_revision",
       "target.package_content_identity",

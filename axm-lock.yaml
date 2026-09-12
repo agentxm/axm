@@ -14,20 +14,6 @@ skills:
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
     treeIntegrity: sha256-tree-v1:d1cb8a5dc517a6c941f45dda8e5f6819f4e122eb692ba1b45f2c7e2b0aef8825
-  author-okf:
-    type: registry
-    sourceType: registry
-    endpoint: https://registry.agentxm.ai/
-    extensionType: skill
-    workspaceName: author-okf
-    packageFormat: agentxm
-    owner: "@craigsmitham"
-    name: author-okf
-    resolvedVersion: 0.1.9
-    integrity: sha512-pb1xbFiPg17sxMphZM2pOElwhDpNn2i1/ZzEA1yeqg2+XDuJkJHsLAuMIxT7GNufd1YkhBAZgabMIfEq2iQjEg==
-    sourceName: agentxm
-    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:f03af462f9fb6ccf27167deff641f29e1566646ef70c94a3b93b5c4564f1a3bd
   field-notes:
     type: registry
     sourceType: registry
@@ -196,6 +182,20 @@ skills:
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
     treeIntegrity: sha256-tree-v1:fd9fc2efc4d1baa76410c18500fd0ddec50b1476f5378f084f7ddcd907048934
+  okf:
+    type: registry
+    sourceType: registry
+    endpoint: https://registry.agentxm.ai/
+    extensionType: skill
+    workspaceName: okf
+    packageFormat: agentxm
+    owner: "@craigsmitham"
+    name: okf
+    resolvedVersion: 0.1.9
+    integrity: sha512-82E+G7GQXDxj514Vym4n98WS2cJvrSP/cDijOlvxb4aYX1XebACztUfujgzC7o4pyRqUyPc7DEBceGuc4Ol1pA==
+    sourceName: agentxm
+    publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
+    treeIntegrity: sha256-tree-v1:b27c3248b7d16d6417dce95a37910e0c16790ac87a81cd12c74fd2bc2e5c99d8
 subagents:
   researcher:
     type: registry

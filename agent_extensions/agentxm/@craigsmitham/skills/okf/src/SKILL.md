@@ -1,5 +1,5 @@
 ---
-name: author-okf
+name: okf
 description: >-
   Authors, reviews, converts, maintains, and validates Open Knowledge Format (OKF) v0.2 knowledge
   bundles and application profiles. Use when creating or assessing an OKF bundle, concept document,

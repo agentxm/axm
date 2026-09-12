@@ -47,7 +47,10 @@ import {
   type UpgradeFailed,
 } from "@agentxm/cli-maintenance/self-update/application";
 import { previewOrApply } from "./upgrade/use-case.js";
-import type { UpgradeAssessmentResult } from "./upgrade/mechanism.js";
+import {
+  toUpgradeAssessment,
+  type UpgradeAssessmentResult,
+} from "@agentxm/cli-maintenance/self-update/adapters/cli";
 
 export { InstallMethodTest } from "./install-method/install-method.js";
 export { makeUpdateCheckCacheLayer } from "./composition/update-cache.js";
@@ -415,6 +418,7 @@ export const makeUpgradeTrial = (
               mode: options?.preview === true ? "preview" : "apply",
             }),
           ),
+          Effect.map(toUpgradeAssessment),
           Effect.provide(layer),
           Effect.provideService(OperationLifecycle, lifecycle),
           Effect.forkChild,

@@ -126,7 +126,7 @@ packages pending their application/adapter separation.
 | `@agentxm/extension-resolution`      | `role:capability` | What a configured or requested extension resolves to and whether that resolution may be accepted: release-age policy and evidence, version selection, configured-entry and Pack dependency resolution, workspace source authority, publisher-binding trust, and candidate inspection |
 | `@agentxm/extension-materialization` | `role:capability` | Type-specific canonical acquisition, inspection, staging, replacement, removal, and projection participation; managers return facts without writing desired declarations                                                                                                             |
 | `@agentxm/workspace-reconciliation`  | `role:capability` | Proposed desired state, shared lifecycle recipes, accepted-state realization, reachability-based retirement, native cleanup, semantic closure planning, and retained-state reporting                                                                                                 |
-| `@agentxm/cli-update`                | `role:capability` | Self-update: install-ownership detection, release-channel and exact-version resolution, the startup update check, and the verified upgrade of the installed executable                                                                                                               |
+| `@agentxm/cli-update`                | `role:capability` | Native installation inspection and verified executable replacement; CLI maintenance owns release selection, startup-update policy, settlement contracts, and the CLI assessment adapter                                                                                              |
 
 `extension-content` is a leaf. It reads the model and nothing else, which is
 why integrations and supporting packages may consume it by name without pulling
@@ -181,9 +181,21 @@ Upgrade preparation belongs to its application, with installation-inspection
 and release-catalog ports. It owns platform and ownership admission, release
 selection, and the immutable candidate used for preview and application.
 Stable-channel/GitHub access and CLI observation are separately composed
-adapters. `cli-update` retains its current placement while installer mutation,
-startup checking, and their remaining mechanisms are separated. Depending
-on the operation vocabulary explains that remaining source dependency; it does
+adapters. Startup checking also belongs to the application; its cache and
+release-origin adapters supply facts without owning eligibility policy.
+
+The application owns `UpgradeSettlement`: installation, availability, mutation,
+verification, and recovery facts. The CLI adapter under
+`self-update/adapters/cli` owns the `axm.upgrade-assessment/v1` document,
+messages, plan steps, and command display. The CLI maps a settlement once at its
+delivery boundary. Availability has one canonical value in the settlement, so
+failure wording and the machine disposition read the same observation.
+
+`cli-update` retains its current placement while installer execution, its
+remaining policy/I/O mixture, and progress integration are separated. Its
+existing entry returns the owned settlement contract; that change does not yet
+make the entry independent of concrete installers or CLI progress. Depending
+on the operation vocabulary explains the remaining source dependency; it does
 not make self-update strategically core.
 
 The lower-level graph is deliberately small:

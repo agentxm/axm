@@ -7,7 +7,7 @@
  * candidate and, on apply, establishes publication availability through the
  * owning installer, performs the mutation, verifies it, and records the
  * install metadata. Every termination resolves to one
- * `axm.upgrade-assessment/v1` result.
+ * settlement of execution facts. The CLI adapter maps those facts to its document.
  *
  * `AssessUpgrade.query` is the read-only entry point: the same candidate,
  * presented and never applied.
@@ -21,6 +21,13 @@ import type * as Path from "effect/Path";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
 import { observeUnit } from "@agentxm/workspace-operations";
+
+import { methodLabel } from "@agentxm/cli-maintenance/self-update/adapters/cli";
+import type {
+  InstallerAvailability,
+  UpgradeCoreResult,
+  UpgradeSettlement,
+} from "@agentxm/cli-maintenance/self-update/application";
 
 import { InstallMeta } from "../install-meta/install-meta.js";
 import { Subprocess } from "../subprocess/subprocess.js";
@@ -41,16 +48,11 @@ import {
   methodName,
   handleDelegated,
   handleScript,
-  methodLabel,
   noMutationResult,
   previewResult,
   queryPackageAvailability,
   recoveryInstaller,
-  toUpgradeAssessment,
   type BaseResultInput,
-  type InstallerAvailability,
-  type UpgradeAssessmentResult,
-  type UpgradeCoreResult,
 } from "./mechanism.js";
 
 /** How the prepared candidate is settled. */
@@ -91,7 +93,7 @@ const baseInput = (candidate: UpgradeCandidate): BaseResultInput => ({
 export const previewOrApply: (
   candidate: UpgradeCandidate,
   execution: UpgradeExecution,
-) => Effect.Effect<UpgradeAssessmentResult, UpgradeFailed, UpgradeRequirements> = Effect.fn(
+) => Effect.Effect<UpgradeSettlement, UpgradeFailed, UpgradeRequirements> = Effect.fn(
   "PerformUpgrade.previewOrApply",
 )(function* (candidate: UpgradeCandidate, execution: UpgradeExecution) {
   const preview = execution.mode === "preview";
@@ -129,17 +131,19 @@ export const previewOrApply: (
       ? "manual"
       : selectedAction;
 
-  const assess = (result: UpgradeCoreResult): UpgradeAssessmentResult =>
-    toUpgradeAssessment({
-      result,
+  const settle = (result: UpgradeCoreResult): UpgradeSettlement => {
+    const { availability: installerAvailability, ...executionResult } = result;
+    return {
+      result: executionResult,
       resolution,
       platform,
       requestedVersion: candidate.request.requestedVersion,
-      availability,
-    });
+      availability: installerAvailability ?? availability,
+    };
+  };
 
   if (preview && action === "mutate") {
-    return assess(previewResult(input, platform.binaryName));
+    return settle(previewResult(input, platform.binaryName));
   }
 
   const resultEffect: Effect.Effect<UpgradeCoreResult, UpgradeFailed, UpgradeRequirements> =
@@ -197,14 +201,14 @@ export const previewOrApply: (
           resultEffect,
         )
       : yield* resultEffect;
-  return assess(result);
+  return settle(result);
 });
 
 /** The read-only assessment: the prepared candidate, presented, never applied. */
 export const query: (
   request: UpgradeRequest,
 ) => Effect.Effect<
-  UpgradeAssessmentResult,
+  UpgradeSettlement,
   UpgradeFailed,
   UpgradeRequirements | InstallationInspection | CliReleaseCatalog
 > = Effect.fn("AssessUpgrade.query")(function* (request: UpgradeRequest) {

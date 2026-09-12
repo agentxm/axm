@@ -172,11 +172,15 @@ must not depend on it. `extension-sources` reaches resolution only through the
 `RegistryResolutionPolicy`, `AxmSkillCandidateGate`, and `WorkspaceCatalog`
 ports, bound at the composition root.
 
-`cli-update` is core because the upgrade converges the running executable
-through the same operation vocabulary as every other mutation, and because
-keeping that vocabulary inside the plan pipeline is what keeps it out of the
-shared kernel. The classification record explains the alternative that was
-rejected.
+Self-update is strategically supporting. Its installation facts, platform
+support, version comparison, reinstall policy, downgrade refusal, and automatic
+upgrade eligibility belong to `cli-maintenance/self-update/domain`. The
+frontstage self-update capability and backstage official-skill compatibility
+capability share one package with separate enforced module boundaries.
+`cli-update` retains its current placement while release acquisition, installer
+I/O, progress reporting, and application orchestration are separated. Depending
+on the operation vocabulary explains that remaining source dependency; it does
+not make self-update strategically core.
 
 The lower-level graph is deliberately small:
 
@@ -241,7 +245,7 @@ authored workspace state.
 
 ## Supporting packages
 
-`packages/supporting/` — four packages, `domain:supporting`. They may reach
+`packages/supporting/` — `domain:supporting`. They may reach
 only each other, `packages/generic/`, and the three named seams
 `extension-model`, `registry-protocol`, and `extension-content`. Nothing else
 under `packages/core/` is reachable from a supporting package, which is what
@@ -253,6 +257,7 @@ keeps the distinctive model from leaking outward through an adapter.
 | `@agentxm/registry-client`   | `role:integration` | Local and remote Registry clients over the generated OpenAPI transport, request policy and retries, typed Registry failures, the archive cache, and lifecycle administration                                                                                               |
 | `@agentxm/agent-integration` | `role:integration` | Detection of installed coding agents plus every native format mechanic AXM writes into one: agent adapters, subagent rendering, MCP entry projection and config writing, hook-group editing, the ownership marker grammar, and the YAML/TOML/JSON codecs those writers use |
 | `@agentxm/registry-auth`     | `role:capability`  | Login, logout, token and identity inspection, device and loopback flows, step-up authorization, and credential lifecycle                                                                                                                                                   |
+| `@agentxm/cli-maintenance`   | `role:capability`  | Self-update decisions and official-skill compatibility, with independent capability visibility and architectural-role constraints inside the package                                                                                                                       |
 
 `extension-sources` may depend on `registry-client`; that asymmetric edge is a
 named constraint rather than a tier rule.

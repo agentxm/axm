@@ -1,10 +1,10 @@
+import { Npm } from "@agentxm/cli-maintenance/self-update/domain";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { Npm } from "../install-method/install-method.js";
 import { TARGET_VERSION, runUpgradeTrial, type SubprocessInvocation } from "../testing.js";
 
 export const specification = defineSpecification({

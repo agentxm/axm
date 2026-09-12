@@ -6,6 +6,11 @@
  */
 
 import {
+  classifyVersionRelation,
+  type VersionRelation,
+} from "@agentxm/cli-maintenance/self-update/domain";
+
+import {
   STABLE_CHANNEL_REPOSITORY,
   STABLE_CHANNEL_URL,
   decodeStableChannelDocument,
@@ -25,8 +30,6 @@ const CHANNEL_REQUEST_TIMEOUT = "10 seconds";
 
 /** Default GitHub repository used for immutable exact-version artifacts. */
 export const DEFAULT_GITHUB_REPO = STABLE_CHANNEL_REPOSITORY;
-
-export type VersionRelation = "upgrade-available" | "current" | "local-newer" | "unknown-local";
 
 export interface ResolvedRelease {
   readonly tagName: string;
@@ -48,22 +51,6 @@ export interface VersionResolutionResult {
   /** Validator supplied by the channel origin, when present. */
   readonly etag: string | null;
 }
-
-const classifyRelation = (
-  localVersion: string | null,
-  targetVersion: string,
-): { readonly localVersion: string | null; readonly versionRelation: VersionRelation } => {
-  const validLocal = localVersion === null ? null : semver.valid(localVersion);
-  if (validLocal === null) {
-    return { localVersion: null, versionRelation: "unknown-local" };
-  }
-  const comparison = semver.compare(validLocal, targetVersion);
-  return {
-    localVersion: validLocal,
-    versionRelation:
-      comparison < 0 ? "upgrade-available" : comparison > 0 ? "local-newer" : "current",
-  };
-};
 
 const channelErrorForStatus = (status: number, retryAfter: string | undefined) => {
   if (status === 403 || status === 429) {
@@ -182,7 +169,7 @@ export const resolveLatestVersion = (
       });
     }
 
-    const relation = classifyRelation(localVersion, channel.version);
+    const relation = classifyVersionRelation(localVersion, channel.version);
     return {
       targetVersion: channel.version,
       localVersion: relation.localVersion,
@@ -233,7 +220,7 @@ export const resolveExactVersion = (
     const tagName = `${CLI_TAG_PREFIX}${targetVersion}`;
     const assetUrl = (name: string) =>
       `https://github.com/${repository}/releases/download/${tagName}/${name}`;
-    const relation = classifyRelation(localVersion, targetVersion);
+    const relation = classifyVersionRelation(localVersion, targetVersion);
 
     return {
       targetVersion,

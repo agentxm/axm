@@ -1,9 +1,9 @@
+import { Yarn } from "@agentxm/cli-maintenance/self-update/domain";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 
-import { Yarn } from "../install-method/install-method.js";
 import { runUpgradeTrial } from "../testing.js";
 
 export const specification = defineSpecification({
@@ -28,7 +28,6 @@ describe("Unsupported in-place upgrade route", () => {
         method: new Yarn({
           importUrl: "file:///controlled/yarn/axm",
           managerMajorVersion: 4,
-          supported: false,
         }),
       });
       expect(upgrade.assessment).toMatchObject({

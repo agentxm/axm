@@ -108,21 +108,19 @@ sources, and the Registry client directly. Contract types stay importable for
 rendering. `apps/cli/src/runtime.ts` and `apps/cli/src/cli-runtime/**` are
 outside the rule; they are the composition root and the runtime envelope.
 
-**`cli-update` is core, not supporting.** Self-update looks like an
-undifferentiated capability, and it was placed under `packages/supporting/`
-while the classification was first applied. It reports progress and failures in
-the operation vocabulary the plan pipeline owns — `OperationErrorCategory`,
-`observeUnit`, `observeChildUnit`, throttled unit progress — all exported by
-`@agentxm/workspace-operations`, which is core. Honouring that import from a
-supporting package would have required widening the supporting allowlist with
-`scope:workspace-operations`, or moving the vocabulary into
-`@agentxm/extension-model` so it crossed the seam legally. The second option is
-the damaging one: the model is what the Registry imports and the platform
-repository adopts, and the plan pipeline's progress and failure vocabulary is
-AXM-client detail that has no business in a shared kernel. Moving the package
-was the cheaper correction, and it is also the more honest classification — an
-upgrade that must converge the running executable through the same closure
-machinery as every other mutation is part of the distinctive model.
+**Classify self-update by purpose.** The earlier choice to place `cli-update`
+under core followed its imports of operation progress and failure vocabulary.
+That dependency is real, but it does not establish strategic significance.
+Self-update is supporting CLI maintenance. Its installation facts, platform
+support, version comparison, and upgrade decisions now belong to the
+frontstage `cli-maintenance/self-update/domain` module. They have no dependency
+on workspace execution or installer I/O.
+
+The remaining `cli-update` implementation retains its placement until its
+application contracts, release acquisition, installation adapters, and progress
+integration are separated. Do not widen the supporting allowlist or move CLI
+progress vocabulary into the shared extension model to make the move legal.
+The source dependency needs an architectural correction at its owning boundary.
 
 ## Context
 

@@ -1,10 +1,10 @@
+import { Unknown } from "@agentxm/cli-maintenance/self-update/domain";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { Unknown } from "../install-method/install-method.js";
 import { makeUpgradeTrial } from "../testing.js";
 
 export const specification = defineSpecification({

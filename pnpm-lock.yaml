@@ -468,6 +468,9 @@ importers:
 
   packages/core/cli-update:
     dependencies:
+      '@agentxm/cli-maintenance':
+        specifier: workspace:^
+        version: link:../../supporting/cli-maintenance
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../extension-model

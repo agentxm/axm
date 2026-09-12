@@ -61,29 +61,31 @@ describe("Valid deprecation guidance", () => {
   }
 
   for (const message of [Option.none<string>(), Option.some("  ")]) {
-    it.effect("rejects empty effective guidance after observation without writing", () =>
-      Effect.gen(function* () {
-        const world = makeRegistryManagementWorld(() =>
-          jsonRegistryResponse({ deprecation: null, revision: observedRevision }),
-        );
+    it.effect(
+      `rejects ${Option.isNone(message) ? "missing" : "blank"} effective guidance after observation without writing`,
+      () =>
+        Effect.gen(function* () {
+          const world = makeRegistryManagementWorld(() =>
+            jsonRegistryResponse({ deprecation: null, revision: observedRevision }),
+          );
 
-        const failure = expectPublishFailed(
-          yield* world.provide(
-            Effect.flip(
-              deprecate({
-                ref: registryTarget,
-                message,
-                replacement: Option.none(),
-                clearMessage: false,
-                clearReplacement: false,
-              }),
+          const failure = expectPublishFailed(
+            yield* world.provide(
+              Effect.flip(
+                deprecate({
+                  ref: registryTarget,
+                  message,
+                  replacement: Option.none(),
+                  clearMessage: false,
+                  clearReplacement: false,
+                }),
+              ),
             ),
-          ),
-        );
+          );
 
-        expect(failure.category).toBe("validation");
-        expect(world.requests.map(({ method }) => method)).toEqual(["GET"]);
-      }),
+          expect(failure.category).toBe("validation");
+          expect(world.requests.map(({ method }) => method)).toEqual(["GET"]);
+        }),
     );
   }
 });

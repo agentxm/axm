@@ -19,3 +19,16 @@ export {
   type UpgradeWorkingDirectoryService,
 } from "./working-directory.js";
 export { CommandRecordSchema, type CommandRecord } from "./evidence.js";
+export {
+  UpdateCheckCache,
+  UpdateCheckUnavailable,
+  StableChannelCheck,
+  type StableChannelCheckResult,
+} from "./update-cache.js";
+export {
+  checkStartupUpdate,
+  refreshStartupUpdate,
+  rememberStableChannel,
+  type StartupUpdateCheckOptions,
+  type StartupUpdateCheckOutcome,
+} from "./startup-check.js";

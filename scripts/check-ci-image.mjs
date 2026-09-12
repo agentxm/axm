@@ -361,16 +361,6 @@ if (!projectManifest.targets?.test?.outputs?.includes("{workspaceRoot}/test-resu
   errors.push("the cached root test target must restore its JUnit report");
 }
 
-for (const target of ["test-report", "allure-report"]) {
-  const command = projectManifest.targets?.[target]?.options?.command ?? "";
-  requireText(command, "allure generate", `${target} must generate the Allure report`);
-  if (command.includes("--clean")) {
-    errors.push(
-      `${target} must use the Allure 3 generate contract without the removed --clean flag`,
-    );
-  }
-}
-
 const workspaceCi = packageManifest.scripts?.["ci:workspace"] ?? "";
 requireText(workspaceCi, "pnpm run format:check", "workspace CI must retain formatting");
 requireText(

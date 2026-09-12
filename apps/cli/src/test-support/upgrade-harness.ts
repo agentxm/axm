@@ -18,7 +18,8 @@ import * as TestClock from "effect/testing/TestClock";
 import * as Fiber from "effect/Fiber";
 import * as Option from "effect/Option";
 
-import { InstallMeta, InstallMethod, UpdateCheck } from "@agentxm/cli-update";
+import { InstallMeta, InstallMethod } from "@agentxm/cli-update";
+import { UpdateCheckCache } from "@agentxm/cli-maintenance/self-update/application";
 import type { InstallMetaData } from "@agentxm/cli-update";
 import {
   HOMEBREW_EXECUTABLE,
@@ -121,14 +122,10 @@ export const runUpgradeCommand = (options?: UpgradeCommandOptions) =>
               installMetaWrites.push(metadata);
             }),
         }),
-        Layer.succeed(UpdateCheck, {
-          readCacheState: () => Effect.succeed({ state: "missing" as const }),
-          readCache: () => Effect.succeed(Option.none()),
-          writeCache: () => Effect.void,
-          isUpdateAvailable: () => Effect.succeed(Option.none()),
-          shouldSkip: () => false,
-          notificationMessage: () => "",
-        } satisfies typeof UpdateCheck.Service),
+        Layer.succeed(UpdateCheckCache, {
+          read: () => Effect.succeed(Option.none()),
+          write: () => Effect.void,
+        } satisfies typeof UpdateCheckCache.Service),
       ),
     );
 

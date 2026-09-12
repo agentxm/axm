@@ -614,7 +614,7 @@ describe("common schemas", () => {
       expect(Result.isSuccess(result)).toBe(true);
     });
 
-    it.each(["mit", "MIT or Apache 2", "TBD", "", "  "])("rejects %s", (license) => {
+    it.each(["mit", "MIT or Apache 2", "TBD", "", "  "])("rejects %j", (license) => {
       const result = decode(license);
 
       expect(Result.isFailure(result)).toBe(true);

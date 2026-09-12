@@ -13,12 +13,14 @@ import {
   STABLE_CHANNEL_SCHEMA,
   decodeStableChannelDocumentSync,
 } from "@agentxm/extension-model/unstable/release-channel";
-import { UpdateCheck } from "@agentxm/cli-update";
-import { UpdateCheckTest } from "@agentxm/cli-update/testing";
+import { rememberStableChannel } from "@agentxm/cli-maintenance/self-update/application";
+import { StableChannelCheckLive } from "@agentxm/cli-maintenance/self-update/composition";
+import { makeUpdateCheckCacheLayer } from "@agentxm/cli-update/testing";
 
 import { TestRenderer } from "./test-support/presenter-test.js";
 import {
   isUpgradeCommand,
+  notificationMessage,
   withUpdateCheck,
   type NotificationPrinter,
   type UpdateCheckContextInputs,
@@ -77,6 +79,15 @@ describe("startup update-check routing", () => {
 });
 
 describe("startup notification printing", () => {
+  it("formats human and agent notifications at delivery", () => {
+    const update = { current: "1.0.0", latest: "1.2.3" };
+    expect(notificationMessage(update, "human")).toBe(
+      "Update available: 1.0.0 → 1.2.3\nRun: axm upgrade",
+    );
+    expect(notificationMessage(update, "agent")).toBe(
+      'AXM_UPDATE_AVAILABLE current=1.0.0 latest=1.2.3 command="axm upgrade"',
+    );
+  });
   let tempDir: string;
   let cachePath: string;
 
@@ -101,12 +112,18 @@ describe("startup notification printing", () => {
         Effect.sync(() => HttpClientResponse.fromWeb(request, new Response(null, { status: 500 }))),
       ),
     );
-    const updateCheckLayer = UpdateCheckTest(cachePath).pipe(Layer.provide(NodeServices.layer));
+    const updateCheckLayer = makeUpdateCheckCacheLayer(cachePath).pipe(
+      Layer.provide(NodeServices.layer),
+    );
     const { layer: rendererLayer } = TestRenderer.make();
-    const layer = Layer.mergeAll(NodeServices.layer, updateCheckLayer, http, rendererLayer);
+    const layer = Layer.mergeAll(
+      NodeServices.layer,
+      updateCheckLayer,
+      StableChannelCheckLive.pipe(Layer.provide(http)),
+      rendererLayer,
+    );
     return Effect.gen(function* () {
-      const updateCheck = yield* UpdateCheck;
-      yield* updateCheck.writeCache(channelDocument(), null);
+      yield* rememberStableChannel(channelDocument(), null);
       yield* withUpdateCheck(
         Effect.sync(() => {
           events.push("command");

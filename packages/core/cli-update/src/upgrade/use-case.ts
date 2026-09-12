@@ -24,7 +24,10 @@ import { observeUnit } from "@agentxm/workspace-operations";
 
 import { InstallMeta } from "../install-meta/install-meta.js";
 import { Subprocess } from "../subprocess/subprocess.js";
-import { UpdateCheck } from "../update-check/update-check.js";
+import {
+  UpdateCheckCache,
+  rememberStableChannel,
+} from "@agentxm/cli-maintenance/self-update/application";
 import {
   CliReleaseCatalog,
   prepareUpgrade,
@@ -58,7 +61,7 @@ export interface UpgradeExecution {
 type UpgradeRequirements =
   | InstallMeta
   | Subprocess
-  | UpdateCheck
+  | UpdateCheckCache
   | UpgradeWorkingDirectory
   | HttpClient.HttpClient
   | FileSystem.FileSystem
@@ -100,8 +103,7 @@ export const previewOrApply: (
   // A preview leaves no trace: the channel cache is durable state the command
   // was not asked to change.
   if (resolution.channel !== null && !preview) {
-    const updateCheck = yield* UpdateCheck;
-    yield* updateCheck.writeCache(resolution.channel, resolution.etag);
+    yield* rememberStableChannel(resolution.channel, resolution.etag);
   }
 
   // A preview resolves ownership and the target and stops: publication state

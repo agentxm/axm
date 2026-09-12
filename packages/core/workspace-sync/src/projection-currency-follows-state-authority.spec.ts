@@ -144,7 +144,7 @@ describe("Generated document projection currency", () => {
       .pipe(Effect.provide(NodeServices.layer));
   });
 
-  it.effect("regenerates after source change and reconciles missing generation once", () => {
+  it.effect("restores a missing generation record once", () => {
     const workspace = ruleWorkspace();
     cleanups.push(workspace.cleanup);
     writeAuthoredRule(workspace.root, "review", "First authoritative guidance.");
@@ -166,10 +166,27 @@ describe("Generated document projection currency", () => {
           expect(reconciled).not.toBe(withoutGeneration);
           expect(reconciled).toContain("First authoritative guidance.");
 
+          expectNothingToReconcile(yield* applySync());
+          expect(workspace.readFile("AGENTS.md")).toBe(reconciled);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect("regenerates after an authoritative source change once", () => {
+    const workspace = ruleWorkspace();
+    cleanups.push(workspace.cleanup);
+    writeAuthoredRule(workspace.root, "review", "First authoritative guidance.");
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applySync();
+          const generated = workspace.readFile("AGENTS.md");
+
           writeAuthoredRule(workspace.root, "review", "Second authoritative guidance.");
 
           expectReconciliationPlanned(yield* previewSync());
-          expect(workspace.readFile("AGENTS.md")).toBe(reconciled);
+          expect(workspace.readFile("AGENTS.md")).toBe(generated);
 
           yield* applySync();
           const afterSourceChange = workspace.readFile("AGENTS.md");

@@ -841,7 +841,7 @@
       "expected_output": "A report whose choice offers A · Full cleanup with the sync and B · None, omits Repair because it would equal Full cleanup, recommends A, and applies nothing.",
       "assertions": [
         "The choice is lettered in order as `A · Full cleanup` and `B · None`, with no Repair choice.",
-        "A is recommended after the options, and no sync is applied."
+        "A carries an inline `**(Recommended)**` marker with its reason on the same line, no separate recommendation line follows, and no sync is applied."
       ]
     },
     {

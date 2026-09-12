@@ -135,13 +135,12 @@ Project: <status | not set up | not applicable> · User: <status | not set up> �
 Versions: CLI <version> (<latest | newer available: version | unchecked>) · skill <compatibility> · <n> outdated · <n> deprecated
 <one sentence: the most important thing>
 
-A · Full cleanup: <option IDs with short labels, naming each removal, upgrade, and replacement>
+A · Full cleanup **(Recommended)**: <option IDs with short labels, naming each removal, upgrade, and replacement> — <why, in one sentence>
 B · Repair: <option IDs with short labels>
 C · None: change nothing
 
 Not in full cleanup: <option IDs with reason>
 
-Recommended: <letter>. <why, in one sentence>
 Reply with a letter, option IDs such as `D1b D2a`, or what you want instead; `A D2b` runs full cleanup with that override.
 ```
 
@@ -165,7 +164,9 @@ label, so a reply by label is equivalent to its letter.
   option IDs and authority; render it as a review gate and apply nothing until
   approved.
 - Recommend exactly one choice: Full cleanup when present, otherwise Repair,
-  otherwise None with the reason nothing is recommended.
+  otherwise None with the reason nothing is recommended. Mark it inline as
+  `**(Recommended)**` after its label, with the reason on the same line; no
+  separate recommendation line.
 
 When the host has a structured-question affordance, use it for the same
 choice: the recommended choice first, then the rest in letter order, with its

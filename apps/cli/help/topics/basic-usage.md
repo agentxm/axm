@@ -105,7 +105,10 @@ an unpublished version below the highest published SemVer. `axm version` only
 changes workspace-sourced manifests. Run `axm help publish` for the full
 selection and integrity boundary.
 
-Use `axm list` for the fast, local inventory across all extension types.
+Use `axm list` for the fast, local inventory across all extension types. Content
+desired state does not explain is `leftover` (installed but not configured;
+`axm sync` removes it), `undeclared` (authored but not declared; `axm adopt`
+declares it), or `unmanaged` (native agent content).
 `axm list --outdated` and `axm list --deprecated` perform remote checks against
 each installed extension's recorded source and report incomplete coverage.
 

@@ -1,6 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
+import type { InstallRootInventory, InstalledPackageEntry } from "@agentxm/workspace-state";
 import {
   type AgentOutputInventory,
   type ProjectionInvariantFact,
@@ -13,6 +14,9 @@ import { axmSkillCompatibleRule } from "../../axm-skill-compatible.js";
 import { hookOwnershipAmbiguousRule } from "../../hook-ownership-ambiguous.js";
 import { knowledgeStateValidRule } from "../../knowledge-state-valid.js";
 import { managedFileUnownedRule } from "../../managed-file-unowned.js";
+import { installedButNotConfiguredRule } from "../../installed-but-not-configured.js";
+import { authoredPackageDeclaredRule } from "../../authored-package-declared.js";
+import { installRootEntriesRecognizedRule } from "../../install-root-entries-recognized.js";
 import { projectionOwnershipValidRule } from "../../projection-ownership-valid.js";
 import { projectionContributorsRenderedRule } from "../../projection-contributors-rendered.js";
 import { settingsKeysRecognizedRule } from "../../settings-keys-recognized.js";
@@ -411,6 +415,119 @@ export const knowledgeStateValidConformance: WorkspaceRuleConformanceCase = {
       message:
         "Knowledge bundle 'handbook' has canonical content without an accepted AXM ownership fact.",
       location: { file: "agent_extensions" },
+    },
+  ],
+  inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
+};
+
+const installRootContext = (inventory: Partial<InstallRootInventory>) =>
+  contextFor({ settings: validSettings(), lockfile: validLockfile }).pipe(
+    Effect.map(
+      (context) =>
+        ({
+          ...context,
+          installRoot: Effect.succeed({
+            root: "/workspace/agent_extensions",
+            packages: [],
+            leftovers: [],
+            unrecognized: [],
+            ...inventory,
+          }),
+        }) satisfies WorkspaceRuleContext,
+    ),
+  );
+
+const leftoverPackage = {
+  kind: "package",
+  type: "skill",
+  name: "review",
+  owner: "@acme",
+  sourceDirectory: "agentxm",
+  path: "/workspace/agent_extensions/agentxm/@acme/skills/review",
+  lockKey: "review",
+  reached: false,
+} as const satisfies InstalledPackageEntry;
+
+export const installedButNotConfiguredConformance: WorkspaceRuleConformanceCase = {
+  rule: installedButNotConfiguredRule,
+  satisfied: () =>
+    installRootContext({ packages: [{ ...leftoverPackage, reached: true }], leftovers: [] }),
+  violated: () =>
+    installRootContext({
+      packages: [leftoverPackage],
+      leftovers: [
+        leftoverPackage,
+        {
+          ...leftoverPackage,
+          lockKey: undefined,
+          name: "draft",
+          path: "/workspace/agent_extensions/agentxm/@acme/skills/draft",
+        },
+      ],
+    }),
+  expectedFindings: [
+    {
+      message:
+        "Installed skill '@acme/skills/review' is not configured in project scope: canonical path agent_extensions/agentxm/@acme/skills/review, source directory agentxm, lock row present.",
+      location: { file: "agent_extensions/agentxm/@acme/skills/review" },
+    },
+    {
+      message:
+        "Installed skill '@acme/skills/draft' is not configured in project scope: canonical path agent_extensions/agentxm/@acme/skills/draft, source directory agentxm, no lock row.",
+      location: { file: "agent_extensions/agentxm/@acme/skills/draft" },
+    },
+  ],
+  inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
+};
+
+const authoredPackagesContext = (declared: boolean) =>
+  contextFor({ settings: validSettings(), lockfile: validLockfile }).pipe(
+    Effect.map(
+      (context) =>
+        ({
+          ...context,
+          authoredPackages: Effect.succeed([
+            {
+              type: "rule",
+              name: "style",
+              owner: "@acme",
+              version: "1.2.0",
+              path: "/workspace/rules/style",
+              declared,
+            },
+          ]),
+        }) satisfies WorkspaceRuleContext,
+    ),
+  );
+
+export const authoredPackageDeclaredConformance: WorkspaceRuleConformanceCase = {
+  rule: authoredPackageDeclaredRule,
+  satisfied: () => authoredPackagesContext(true),
+  violated: () => authoredPackagesContext(false),
+  expectedFindings: [
+    {
+      message:
+        "Authored rule '@acme/rules/style' version 1.2.0 at rules/style is not declared in axm.json.",
+      location: { file: "rules/style" },
+    },
+  ],
+  inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
+};
+
+export const installRootEntriesRecognizedConformance: WorkspaceRuleConformanceCase = {
+  rule: installRootEntriesRecognizedRule,
+  satisfied: () => installRootContext({ packages: [{ ...leftoverPackage, reached: true }] }),
+  violated: () =>
+    installRootContext({
+      unrecognized: [
+        { kind: "unrecognized", path: "/workspace/agent_extensions/notes.txt", entryKind: "file" },
+      ],
+    }),
+  expectedFindings: [
+    {
+      message:
+        "Unrecognized file agent_extensions/notes.txt in the project-scope install root is not an installed package or AXM staging.",
+      location: { file: "agent_extensions/notes.txt" },
     },
   ],
   inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),

@@ -33,12 +33,19 @@ with several lists `Options`, marks exactly one `(recommended)`, and includes
   owner, recommend keep and label migrate a publisher change. Without an
   available structured replacement, quote the note, recommend keep, and never
   derive a target from its text.
-- **Unowned artifact** (`workspace/managed-file-unowned`): offer remove
-  (`git rm -r <path>`, local deletion) and keep, applying recoverability.
-- **Leftover package:** a canonical package that `axm list --json` reports
-  `unmanaged`, absent from desired and lock state. Offer remove (`git rm -r
-<root>`), adopt (`axm adopt <fqn> --preview`, then apply; local write), and
-  keep, applying recoverability.
+- **Leftover installed package** (`workspace/installed-but-not-configured`):
+  fix with `axm sync` (local deletion; AXM-installed content); verify with
+  `axm sync --preview --fail-on-change --json` → `no-op` and no such lint
+  finding. Never `git rm` it.
+- **Undeclared authored package** (`workspace/authored-package-declared`):
+  offer adopt in place (`axm adopt <fqn> --preview`, then apply; local write;
+  recommended), adopt then `axm <type> disable <name>` to keep a draft (local
+  write), remove (`git rm -r <path>`, local deletion, applying
+  recoverability), and keep.
+- **Unowned artifact** (`workspace/managed-file-unowned`) or **unrecognized
+  install-root entry** (`workspace/install-root-entries-recognized`): offer
+  remove (`git rm -r <path>`, local deletion) and keep, applying
+  recoverability. AXM never removes it.
 
 ```markdown
 ### Needs action
@@ -115,8 +122,8 @@ choice: A marked recommended first, then B and E, with its free-text option
 carrying C, D, or an override. Keep the labels in option text so both paths map
 identically.
 
-Apply in dependency order: upgrade, updates and sync, installs and adoptions,
-then removals. When a step fails, skip steps that depend on it — never remove
+Apply in dependency order: upgrade; updates, installs, and adoptions; sync;
+then uninstalls and removals of authored or unowned content. When a step fails, skip steps that depend on it — never remove
 an extension whose replacement did not verify — and continue independent ones.
 
 ## Variants

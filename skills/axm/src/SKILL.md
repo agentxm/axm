@@ -186,8 +186,9 @@ workspace state. Diagnosis is a local read and authorizes no repair.
 1. Preflight the current scope. When `axm` or the workspace is missing or
    unreadable, report `Could not diagnose` with the blocking prerequisite only.
 2. Run `axm lint --json`, `axm sync --preview --fail-on-change --json`, and
-   `axm list --json` for unmanaged packages absent from desired and lock state;
-   read `git status` for recoverability. Add read-only checks live help offers.
+   `axm list --json`; classify findings by lint rule ID and inventory by
+   `management`. Read `git status` for recoverability. Add read-only checks
+   live help offers.
 3. Unless asked to stay offline, check currency against configured sources
    only: `axm upgrade --preview --json`, then `axm list --outdated --json` and
    `axm list --deprecated --json`. Never authenticate for these. Report an
@@ -197,6 +198,9 @@ workspace state. Diagnosis is a local read and authorizes no repair.
    free text becomes a plan to approve.
 5. Apply exactly the selected IDs in the report's dependency order, re-run the
    checks, and render the post-repair report with the same IDs.
+
+Never hand-delete installed or projected content; converge it with `axm sync`.
+Never delete authored content without an explicitly selected option.
 
 ## Execute and verify
 

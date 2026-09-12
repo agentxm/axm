@@ -820,7 +820,7 @@
       "prompt": "Treat this as supplied evidence: a doctor report listed D1 (`axm sync`, local write), D2 (`axm update @acme/skills/review`, local write), D3 (migrate `@acme/rules/legacy` to same-owner `@acme/rules/style`: install, verify, uninstall), D4 (`axm upgrade` to 0.30.1), and D5 (unowned `.claude/skills/notes` with uncommitted changes; recommended keep). The user replied `A`. Plan the repair without modifying files.",
       "expected_output": "A plan applying D1–D4 in dependency order with previews and readbacks, leaving D5 untouched.",
       "assertions": [
-        "The plan orders the upgrade first, then update and sync, then the style install and its verification, and the legacy uninstall last.",
+        "The plan orders the upgrade first, then the update and the style install with its verification, then sync, and the legacy uninstall last.",
         "D5 is not acted on because its recommendation is to keep it; no deletion of `.claude/skills/notes` appears."
       ]
     },
@@ -847,21 +847,21 @@
     {
       "id": 80,
       "stage": "execution",
-      "prompt": "Treat this as supplied evidence: lint is compatible with no findings; sync preview is `no-op`; the CLI is current; nothing is outdated or deprecated; `axm list --json` reports `skills/author-docs` `unmanaged` at `agent_extensions/agentxm/@craigsmitham/skills/author-docs`, absent from `axm.json` and `axm-lock.yaml`; `git status` shows that root tracked with no changes. Run `/axm doctor` without modifying files.",
-      "expected_output": "A leftover-package finding listing remove (recommended, recoverable), adopt, and keep options, with full cleanup first naming the removal; nothing is applied.",
+      "prompt": "Treat this as supplied evidence: lint is compatible except `workspace/installed-but-not-configured` for `@craigsmitham/skills/author-docs` at `agent_extensions/agentxm/@craigsmitham/skills/author-docs`; `axm sync --preview --fail-on-change --json` plans one removal unit for it; the CLI is current; nothing is outdated or deprecated; `git status` shows that root tracked with no changes. Run `/axm doctor` without modifying files.",
+      "expected_output": "A leftover installed package finding fixed only by `axm sync`, with full cleanup first naming the sync; nothing is applied.",
       "assertions": [
-        "The finding lists options with IDs `D1a`, `D1b`, and `D1c` covering remove via `git rm -r`, adopt via `axm adopt`, and keep, with exactly one marked recommended.",
-        "Removal is recommended and names `git restore` as recovery because the root is tracked and clean.",
-        "A · Full cleanup is first, recommended, and names the removal; B is omitted; nothing is removed or adopted."
+        "The finding cites `workspace/installed-but-not-configured`, fixes it with `axm sync`, and verifies with `axm sync --preview --fail-on-change --json` returning `no-op`.",
+        "No `git rm` or adopt option is offered for the installed package.",
+        "A · Full cleanup is first, recommended, and names the sync; nothing is removed or synced."
       ]
     },
     {
       "id": 81,
       "stage": "execution",
-      "prompt": "Treat this as supplied evidence: a doctor report offered D1 (leftover package `author-docs`: D1a remove recommended, D1b adopt, D1c keep) and D2 (18 unowned `.github/skills` files, tracked and clean: D2a remove recommended, D2b keep). The user replied `A D2b`. Plan the repair without modifying files.",
-      "expected_output": "A plan applying D1a with its readback and keeping the `.github/skills` files per the D2b override.",
+      "prompt": "Treat this as supplied evidence: a doctor report listed D1 (leftover installed package `author-docs`, fix `axm sync`) and D2 (18 unowned `.github/skills` files, tracked and clean: D2a remove recommended, D2b keep). The user replied `A D2b`. Plan the repair without modifying files.",
+      "expected_output": "A plan applying D1's sync with its readback and keeping the `.github/skills` files per the D2b override.",
       "assertions": [
-        "The plan removes the `author-docs` root with `git rm -r` and names its readback.",
+        "The plan runs `axm sync` for D1 and names its readback; it never hand-deletes the installed package.",
         "No `.github/skills` file is removed, and D2 is reported as kept by override."
       ]
     },
@@ -878,11 +878,52 @@
     {
       "id": 83,
       "stage": "execution",
-      "prompt": "Treat this as supplied evidence: a doctor report offered D1 (leftover package `engineer-requirements`, tracked and clean: D1a remove recommended, D1b adopt, D1c keep). The user replied `C D1`. Plan the repair without modifying files.",
-      "expected_output": "A plan applying D1's recommended removal with its readback.",
+      "prompt": "Treat this as supplied evidence: a doctor report offered D1 (undeclared authored package `@acme/skills/notes` at `skills/notes` from `workspace/authored-package-declared`, tracked and clean: D1a adopt in place recommended, D1b adopt then disable, D1c remove, D1d keep). The user replied `C D1`. Plan the repair without modifying files.",
+      "expected_output": "A plan applying D1's recommended adopt in place with its preview and readback.",
       "assertions": [
-        "The bare finding ID resolves to D1a, removing the root with `git rm -r` and naming `axm list --json` as readback.",
-        "No adoption is planned and nothing is applied."
+        "The bare finding ID resolves to D1a: `axm adopt @acme/skills/notes --preview`, then apply, then a readback of the declaration and projections.",
+        "No removal of `skills/notes` is planned and nothing is applied."
+      ]
+    },
+    {
+      "id": 84,
+      "stage": "execution",
+      "prompt": "Treat this as supplied evidence: lint is compatible except `workspace/authored-package-declared` for `@acme/skills/notes` at `skills/notes` and `workspace/skills-declarations-valid` for `skills/draft`, whose manifest is invalid; sync preview is `no-op`; the CLI is current; `git status` shows both tracked with no changes. Run `/axm doctor` without modifying files.",
+      "expected_output": "An undeclared authored package finding with adopt in place recommended and an invalid-declaration finding for the lookalike; nothing is applied.",
+      "assertions": [
+        "`skills/notes` offers adopt in place (recommended), adopt then disable, remove via `git rm -r`, and keep.",
+        "`skills/draft` is reported as invalid, not as an undeclared package, and is not offered adoption.",
+        "Nothing is adopted or removed before a selection."
+      ]
+    },
+    {
+      "id": 85,
+      "stage": "execution",
+      "prompt": "Treat this as supplied evidence: `axm skills uninstall @craigsmitham/skills/audit-docs --preview --json` was refused because no desired route reaches the identity, and lint reports `workspace/installed-but-not-configured` for it. Remove that skill without modifying files; plan only.",
+      "expected_output": "A plan that routes removal of the leftover installed package through `axm sync` with preview and readback, not uninstall or manual deletion.",
+      "assertions": [
+        "The plan uses `axm sync --preview` then `axm sync`, and verifies with `axm sync --preview --fail-on-change --json` returning `no-op`.",
+        "The plan does not retry uninstall or hand-delete `agent_extensions` content."
+      ]
+    },
+    {
+      "id": 86,
+      "stage": "execution",
+      "prompt": "Treat this as supplied evidence: a doctor report offered D1 (undeclared authored package `skills/notes`: D1a adopt in place recommended, D1c remove) and D2 (`workspace/install-root-entries-recognized` for `agent_extensions/agentxm/notes.txt`, tracked and clean: D2a remove recommended, D2b keep). The user replied: clean up whatever you can. Plan the repair without modifying files.",
+      "expected_output": "A custom plan rendered as a review gate that deletes no authored or unowned content without an explicit option selection.",
+      "assertions": [
+        "The free-text request is treated as a plan to approve, and nothing is applied.",
+        "Removal of `skills/notes` is not planned unless D1c is explicitly selected, and no AXM command is claimed to remove the install-root entry."
+      ]
+    },
+    {
+      "id": 87,
+      "stage": "execution",
+      "prompt": "Treat this as supplied evidence: lint is compatible except `workspace/install-root-entries-recognized` for file `agent_extensions/agentxm/notes.txt`; sync preview is `no-op`; the CLI is current; `git status` shows it untracked. Run `/axm doctor` without modifying files.",
+      "expected_output": "A finding that offers removal but recommends keeping the unrecognized entry, noting sync never removes it; nothing is applied.",
+      "assertions": [
+        "Removal via `git rm -r` is offered but keep is recommended because the entry is untracked.",
+        "The report does not offer `axm sync` as a fix for the entry."
       ]
     }
   ]

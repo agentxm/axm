@@ -42,7 +42,16 @@ can distinguish unit identity from extension provenance.
 `axm lint` reports `workspace/managed-file-unowned` when an artifact in a
 configured agent directory has neither a structured file marker nor a managed
 symlink proof. Inspect and preserve unfamiliar content; AXM does not claim or
-delete it automatically.
+delete it automatically. A valid authored package in its authoring folder is
+authored source, not an unowned artifact.
+
+`axm lint` also warns about content desired state does not explain:
+`workspace/installed-but-not-configured` for an installed package in the
+install root that no desired route reaches, `workspace/authored-package-declared`
+for a valid authored package in a standard authoring folder that `axm.json`
+does not declare, and `workspace/install-root-entries-recognized` for an
+install-root entry that is neither an installed package nor AXM staging.
+`axm lint --fix` adds no declarations and removes nothing.
 
 User scope uses `~/.axm/workspace/axm.json`,
 `~/.axm/workspace/axm-lock.yaml`, and the same source-qualified acquired

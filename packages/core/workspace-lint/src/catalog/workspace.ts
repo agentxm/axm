@@ -44,6 +44,9 @@ import { axmSkillDeclaredRule } from "./workspace/axm-skill-declared.js";
 import { axmSkillCompatibleRule } from "./workspace/axm-skill-compatible.js";
 import { hookOwnershipAmbiguousRule } from "./workspace/hook-ownership-ambiguous.js";
 import { managedFileUnownedRule } from "./workspace/managed-file-unowned.js";
+import { installedButNotConfiguredRule } from "./workspace/installed-but-not-configured.js";
+import { authoredPackageDeclaredRule } from "./workspace/authored-package-declared.js";
+import { installRootEntriesRecognizedRule } from "./workspace/install-root-entries-recognized.js";
 import { sourceEndpointsAlignedRule } from "./workspace/source-endpoints-aligned.js";
 
 /**
@@ -95,6 +98,9 @@ export const liveOnlyWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext
   projectionContributorsRenderedRule,
   hookOwnershipAmbiguousRule,
   managedFileUnownedRule,
+  installedButNotConfiguredRule,
+  authoredPackageDeclaredRule,
+  installRootEntriesRecognizedRule,
   mcpServerAgentDriftRule,
   mcpServerAgentOrphanedRule,
   skillsArtifactsCorrectRule,
@@ -123,6 +129,9 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   projectionContributorsRenderedRule,
   hookOwnershipAmbiguousRule,
   managedFileUnownedRule,
+  installedButNotConfiguredRule,
+  authoredPackageDeclaredRule,
+  installRootEntriesRecognizedRule,
   skillsDeclarationsValidRule,
   packsDeclarationsValidRule,
   configuredButNotInstalledRule,

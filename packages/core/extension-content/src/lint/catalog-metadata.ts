@@ -587,6 +587,24 @@ export const lintCatalogRuleMetadata = defineLintCatalog([
     views: workspaceView,
   },
   {
+    id: "workspace/installed-but-not-configured",
+    defaultSeverity: "warning",
+    group: "workspace",
+    views: workspaceView,
+  },
+  {
+    id: "workspace/authored-package-declared",
+    defaultSeverity: "warning",
+    group: "workspace",
+    views: workspaceView,
+  },
+  {
+    id: "workspace/install-root-entries-recognized",
+    defaultSeverity: "warning",
+    group: "workspace",
+    views: workspaceView,
+  },
+  {
     id: "workspace/skills-declarations-valid",
     defaultSeverity: "error",
     group: "workspace",

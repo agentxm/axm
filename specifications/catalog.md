@@ -125,7 +125,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/lint/authored-skills-are-not-agent-output`
 - Owner: `workspace-lint`
-- Statement: When a declared workspace skill has a valid manifest matching its declared identity at its authored package path, lint shall exclude that package from unowned agent output findings regardless of activation or configured agents, while continuing to report unowned native content and undeclared or invalid package lookalikes.
+- Statement: When a skill package has a valid manifest matching its path identity at its authored package path, lint shall exclude that package from unowned agent output findings whether or not it is declared and regardless of activation or configured agents, while continuing to report unowned native content and invalid package lookalikes.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
@@ -206,6 +206,49 @@ People and agents can understand invalid workspace state and recover it through 
 - Methods: example
 - Additional evidence: process via [`apps/cli-e2e/src/lint.e2e.test.ts`](../apps/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
 - Source: [`packages/core/workspace-lint/src/run/reports-facts-without-mutation.spec.ts`](../packages/core/workspace-lint/src/run/reports-facts-without-mutation.spec.ts)
+
+##### Lint reports installed packages that are not configured
+
+- Requirement: `cli/lint/reports-installed-but-not-configured`
+- Owner: `workspace-lint`
+- Statement: When an installed package in the install root is reached by no desired route, lint shall report one warning per such package under workspace/installed-but-not-configured stating its identity, type, scope, canonical path, source directory, and whether a lock row exists, as facts without commands.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Boundary rationale: Leftovers are decided from a real install root, lockfile, and settings on disk; production lint observes them without mutating the workspace.
+- Methods: example, decision-table
+- Additional evidence: process via [`apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts`](../apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts) — Runs the built CLI against a persisted workspace holding leftover installed packages, an undeclared authored package, an unrecognized install-root entry, and obsolete skill links, proving lint facts, the sync convergence exit status, uninstall refusal, and the files a real sync removes and keeps.
+- Source: [`packages/core/workspace-lint/src/catalog/workspace/reports-installed-but-not-configured.spec.ts`](../packages/core/workspace-lint/src/catalog/workspace/reports-installed-but-not-configured.spec.ts)
+
+##### Lint reports authored packages that are not declared
+
+- Requirement: `cli/lint/reports-undeclared-authored-packages`
+- Owner: `workspace-lint`
+- Statement: When a project workspace's standard authoring folder for an extension type holds a package whose valid manifest matches its path identity and settings hold no declaration for it, enabled or disabled, lint shall report one warning under workspace/authored-package-declared stating its identity, type, authoring path, and manifest version, shall not report that package under workspace/managed-file-unowned, shall not report a lookalike with a missing, invalid, or mismatched manifest as undeclared, and lint --fix shall not add a declaration.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Boundary rationale: Authored packages, their manifests, and settings are real files; production lint and lint --fix observe them and the settings document on disk.
+- Methods: example, decision-table
+- Derived from: `cli/lint/authored-skills-are-not-agent-output`
+- Additional evidence: process via [`apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts`](../apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts) — Runs the built CLI against a persisted workspace holding leftover installed packages, an undeclared authored package, an unrecognized install-root entry, and obsolete skill links, proving lint facts, the sync convergence exit status, uninstall refusal, and the files a real sync removes and keeps.
+- Source: [`packages/core/workspace-lint/src/catalog/workspace/reports-undeclared-authored-packages.spec.ts`](../packages/core/workspace-lint/src/catalog/workspace/reports-undeclared-authored-packages.spec.ts)
+
+##### Lint reports unrecognized install root entries
+
+- Requirement: `cli/lint/reports-unrecognized-install-root-entries`
+- Owner: `workspace-lint`
+- Statement: When the install root holds an entry that is neither an installed package nor AXM staging, lint shall report one warning per such entry under workspace/install-root-entries-recognized stating its path, scope, and entry kind, and shall not change the entry.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Boundary rationale: Entry kinds (file, directory, symbolic link) and AXM staging names are observed from a real install root on disk.
+- Methods: example, decision-table
+- Additional evidence: process via [`apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts`](../apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts) — Runs the built CLI against a persisted workspace holding leftover installed packages, an undeclared authored package, an unrecognized install-root entry, and obsolete skill links, proving lint facts, the sync convergence exit status, uninstall refusal, and the files a real sync removes and keeps.
+- Source: [`packages/core/workspace-lint/src/catalog/workspace/reports-unrecognized-install-root-entries.spec.ts`](../packages/core/workspace-lint/src/catalog/workspace/reports-unrecognized-install-root-entries.spec.ts)
 
 ##### The recovery route for a rejected lockfile re-accepts the desired state
 
@@ -430,6 +473,20 @@ Configured extensions realize correctly and completely for every configured codi
 Extension authors can create, evolve, and version workspace-authored extensions with explicit authority transitions.
 
 #### Functional
+
+##### Adopt declares an undeclared authored package where it already is
+
+- Requirement: `cli/adopt/declares-authored-package-in-place`
+- Owner: `extension-authoring`
+- Statement: When a person adopts an identity whose valid, identity-matching package already sits at its authoring location and no workspace declaration or installed copy of it exists, AXM shall add an enabled workspace declaration and realize its projections without moving content or writing a lockfile row, shall report that declaration without writing anything in preview, and shall refuse without changes when the name is already declared, the manifest is invalid or names another identity, or an installed copy also exists.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Boundary rationale: In-place adoption is a decision of the authoring use case over real directories: a temporary project workspace shows the authored bytes untouched, the declaration added, the lockfile without a row, and the agent projection realized — none of which a double could stand in for.
+- Methods: example, decision-table
+- Derived from: `cli/adopt/moves-package-into-workspace-authorship`, `apps/cli/src/root/adopt/command.ts`
+- Source: [`packages/core/extension-authoring/src/adopt/declares-authored-package-in-place.spec.ts`](../packages/core/extension-authoring/src/adopt/declares-authored-package-in-place.spec.ts)
 
 ##### Adopt moves an existing package into workspace authorship
 
@@ -1659,7 +1716,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 
 - Requirement: `cli/adopt/preview-is-pure`
 - Owner: `extension-authoring`
-- Statement: When adopt runs in preview mode against a canonical package the workspace could author, it shall report the adoption it would apply with a previewed outcome and shall not move the package, create authored content, or change settings or the lockfile.
+- Statement: When adopt runs in preview mode against a canonical package the workspace could author, or an undeclared authored package it could declare in place, it shall report the adoption it would apply with a previewed outcome and shall not move the package, create authored content, realize projections, or change settings or the lockfile.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
@@ -3092,6 +3149,19 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Open questions: Should Git update assessment treat a changed commit with an unchanged extension tree as an available update? Current code compares both identities; Registry version eligibility is the accepted scope of this requirement.
 - Source: [`packages/core/workspace-inspection/src/extension-list/assesses-updates-through-recorded-registry.spec.ts`](../packages/core/workspace-inspection/src/extension-list/assesses-updates-through-recorded-registry.spec.ts)
 
+##### List classifies content desired state does not explain
+
+- Requirement: `cli/list/classifies-unexplained-content`
+- Owner: `workspace-inspection`
+- Statement: When listing extensions, AXM shall classify each detected extension that desired state does not explain as leftover when it is an installed package in the install root that is not configured, undeclared when it is an authored package in its standard authoring folder that is not declared, or unmanaged when it is native agent content, and update and deprecation assessments shall report leftover and undeclared extensions as not applicable.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/list/reports-the-cross-type-inventory`, `packages/core/workspace-inspection/src/extension-list/list-extensions.ts`, `packages/core/workspace-state/src/workspace/read-model/extensions/inventory.ts`
+- Source: [`packages/core/workspace-inspection/src/extension-list/classifies-unexplained-content.spec.ts`](../packages/core/workspace-inspection/src/extension-list/classifies-unexplained-content.spec.ts)
+
 ##### List exposes failed Registry assessment
 
 - Requirement: `cli/list/fails-when-registry-assessment-fails`
@@ -3484,6 +3554,20 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Source: [`packages/core/workspace-sync/src/preserves-configuration-and-resolutions.spec.ts`](../packages/core/workspace-sync/src/preserves-configuration-and-resolutions.spec.ts)
 
+##### Sync leaves undeclared authored packages alone
+
+- Requirement: `cli/sync/preserves-undeclared-authored-packages`
+- Owner: `workspace-sync`
+- Statement: When an authoring root holds an authored package or authored lookalike that no workspace declaration names, sync shall not project, remove, or rewrite it and shall not count it as unconverged.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/sync/realizes-desired-state`
+- Additional evidence: process via [`apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts`](../apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts) — Runs the built CLI against a persisted workspace holding leftover installed packages, an undeclared authored package, an unrecognized install-root entry, and obsolete skill links, proving lint facts, the sync convergence exit status, uninstall refusal, and the files a real sync removes and keeps.
+- Source: [`packages/core/workspace-sync/src/preserves-undeclared-authored-packages.spec.ts`](../packages/core/workspace-sync/src/preserves-undeclared-authored-packages.spec.ts)
+
 ##### Sync never removes agent-native content without AXM ownership proof
 
 - Requirement: `cli/sync/preserves-unowned-agent-content`
@@ -3495,6 +3579,34 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Methods: example
 - Source: [`packages/core/workspace-sync/src/preserves-unowned-agent-content.spec.ts`](../packages/core/workspace-sync/src/preserves-unowned-agent-content.spec.ts)
+
+##### Sync removes installed packages that desired state no longer includes
+
+- Requirement: `cli/sync/removes-leftover-installed-packages`
+- Owner: `workspace-sync`
+- Statement: When an installed package in the install root is reached by no desired route, sync shall plan one removal unit for it naming its identity, canonical path, and that it is not desired, and shall remove that package directory, any accepted record for it, and the agent projections AXM owns for it without following symbolic links out of the install root, leaving desired packages and unrecognized install-root entries untouched, and shall report convergence only when no such package remains.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/sync/realizes-desired-state`, `cli/sync/preserves-unowned-agent-content`
+- Additional evidence: process via [`apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts`](../apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts) — Runs the built CLI against a persisted workspace holding leftover installed packages, an undeclared authored package, an unrecognized install-root entry, and obsolete skill links, proving lint facts, the sync convergence exit status, uninstall refusal, and the files a real sync removes and keeps.
+- Source: [`packages/core/workspace-sync/src/removes-leftover-installed-packages.spec.ts`](../packages/core/workspace-sync/src/removes-leftover-installed-packages.spec.ts)
+
+##### Sync removes obsolete agent skill links into AXM storage
+
+- Requirement: `cli/sync/removes-obsolete-storage-root-links`
+- Owner: `workspace-sync`
+- Statement: When an agent skill-folder symbolic link resolves inside a current AXM storage root and no desired route expects it, including when its target is missing, sync shall remove the link, and sync shall not remove or rewrite a symbolic link whose target lies outside every current AXM storage root.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/sync/preserves-unowned-agent-content`
+- Additional evidence: process via [`apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts`](../apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts) — Runs the built CLI against a persisted workspace holding leftover installed packages, an undeclared authored package, an unrecognized install-root entry, and obsolete skill links, proving lint facts, the sync convergence exit status, uninstall refusal, and the files a real sync removes and keeps.
+- Source: [`packages/core/workspace-sync/src/removes-obsolete-storage-root-links.spec.ts`](../packages/core/workspace-sync/src/removes-obsolete-storage-root-links.spec.ts)
 
 ##### Agent filters match any selected agent
 
@@ -3521,6 +3633,20 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Derived from: `apps/cli/src/root/shared/extension-show.test.ts`, `apps/cli/src/root/shared/extension-show.ts`
 - Source: [`apps/cli/src/root/shared/type-shows-report-missing-entries.spec.ts`](../apps/cli/src/root/shared/type-shows-report-missing-entries.spec.ts)
+
+##### Uninstall refuses an installed package the workspace does not configure
+
+- Requirement: `cli/uninstall/refuses-undesired-target`
+- Owner: `extension-lifecycle`
+- Statement: When a root or type uninstall names an identity that no desired route reaches while an installed package for it exists in the install root, it shall refuse as an unmet precondition before any change and tell the user that axm sync reconciles installed packages that are not configured; and every uninstall preview and result shall list as removed only paths that exist and are removed, and as updated only files whose content changes.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: decision-table
+- Derived from: `cli/uninstall/is-idempotent`, `cli/uninstall/reports-removed-and-retained-state`
+- Additional evidence: process via [`apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts`](../apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts) — Runs the built CLI against a persisted workspace holding leftover installed packages, an undeclared authored package, an unrecognized install-root entry, and obsolete skill links, proving lint facts, the sync convergence exit status, uninstall refusal, and the files a real sync removes and keeps.
+- Source: [`packages/core/extension-lifecycle/src/uninstall/refuses-undesired-target.spec.ts`](../packages/core/extension-lifecycle/src/uninstall/refuses-undesired-target.spec.ts)
 
 ##### Uninstall reports exact removed and retained state
 

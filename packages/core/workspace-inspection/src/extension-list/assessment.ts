@@ -29,7 +29,7 @@ import type {
   SubagentLockEntry,
 } from "@agentxm/workspace-state";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
-import type { ReadModelRecordRow } from "@agentxm/workspace-state";
+import type { ExtensionInventoryLifecycle, ReadModelRecordRow } from "@agentxm/workspace-state";
 import {
   WorkspaceMutations,
   type WorkspaceMutationsService,
@@ -67,7 +67,7 @@ export interface ExtensionListItem {
   readonly ref: string;
   readonly type: InstallableExtensionType;
   readonly name: string;
-  readonly management: "configured" | "implicit" | "unmanaged";
+  readonly management: ExtensionInventoryLifecycle;
   readonly installed: boolean;
   readonly enabled: boolean | null;
   readonly version?: string;
@@ -354,6 +354,19 @@ const assessItem = (
 ) =>
   Effect.gen(function* () {
     if (!item.installed) return { state: "not-applicable" } satisfies ExtensionAssessment;
+    // Desired state does not reach these packages, so no accepted source applies.
+    if (item.management === "leftover") {
+      return {
+        state: "not-applicable",
+        reason: "Installed package is not configured",
+      } satisfies ExtensionAssessment;
+    }
+    if (item.management === "undeclared") {
+      return {
+        state: "not-applicable",
+        reason: "Authored package is not declared",
+      } satisfies ExtensionAssessment;
+    }
     if (record === undefined) {
       return {
         state: "unknown",

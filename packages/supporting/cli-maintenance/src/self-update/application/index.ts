@@ -1,4 +1,4 @@
-/** Self-update application contracts and release-selection workflow. */
+/** Self-update preparation, release selection, and the contracts their adapters implement. */
 export { UpgradeFailed } from "./errors.js";
 export {
   CliReleaseCatalog,
@@ -8,3 +8,14 @@ export {
   type VersionResolutionResult,
 } from "./releases.js";
 export { selectUpgradeRelease, type UpgradeReleaseRequest } from "./release-selection.js";
+export { prepareUpgrade, type UpgradeRequest, type UpgradeCandidate } from "./preparation.js";
+export {
+  InstallationInspection,
+  type InstallationInspectionService,
+  type InspectedInstallation,
+} from "./installation.js";
+export {
+  UpgradeWorkingDirectory,
+  type UpgradeWorkingDirectoryService,
+} from "./working-directory.js";
+export { CommandRecordSchema, type CommandRecord } from "./evidence.js";

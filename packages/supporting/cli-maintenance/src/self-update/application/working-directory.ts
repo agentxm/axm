@@ -15,4 +15,4 @@ export interface UpgradeWorkingDirectoryService {
 export class UpgradeWorkingDirectory extends ServiceMap.Service<
   UpgradeWorkingDirectory,
   UpgradeWorkingDirectoryService
->()("axm.sh/cli-update/UpgradeWorkingDirectory") {}
+>()("@agentxm/cli-maintenance/self-update/UpgradeWorkingDirectory") {}

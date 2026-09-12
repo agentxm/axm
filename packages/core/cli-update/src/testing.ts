@@ -11,7 +11,7 @@
  */
 
 import { stableChannelDocument } from "@agentxm/cli-maintenance/self-update/testing";
-import { CliReleaseCatalogLive } from "@agentxm/cli-maintenance/self-update/composition";
+import { UpgradePreparationLive } from "./live.js";
 import { Homebrew, type InstallMethodType } from "@agentxm/cli-maintenance/self-update/domain";
 
 import * as fs from "node:fs";
@@ -40,9 +40,13 @@ import { InstallMeta, type InstallMetaData } from "./install-meta/install-meta.j
 import { InstallMethod } from "./install-method/install-method.js";
 import { Subprocess, type CommandResult, type RunCommandOptions } from "./subprocess/subprocess.js";
 import { UpdateCheck } from "./update-check/update-check.js";
-import { UpgradeWorkingDirectory } from "./upgrade/working-directory.js";
-import { PerformUpgrade, type UpgradeRequest } from "./upgrade/use-case.js";
-import type { UpgradeFailed } from "@agentxm/cli-maintenance/self-update/application";
+import {
+  UpgradeWorkingDirectory,
+  prepareUpgrade,
+  type UpgradeRequest,
+  type UpgradeFailed,
+} from "@agentxm/cli-maintenance/self-update/application";
+import { previewOrApply } from "./upgrade/use-case.js";
 import type { UpgradeAssessmentResult } from "./upgrade/mechanism.js";
 
 export { InstallMethodTest } from "./install-method/install-method.js";
@@ -366,32 +370,37 @@ export const makeUpgradeTrial = (
           };
     const installedMeta = options?.installedMeta;
 
-    const layer = Layer.mergeAll(
-      subprocess.layer,
-      Layer.provideMerge(CliReleaseCatalogLive, releaseOrigin.layer),
-      Layer.succeed(UpgradeWorkingDirectory, {
-        path: options?.workingDirectory ?? process.cwd(),
-      }),
-      Layer.succeed(InstallMethod, { detect: () => Effect.succeed(method) }),
-      Layer.succeed(InstallMeta, {
-        read: () =>
-          Effect.succeed(installedMeta === undefined ? Option.none() : Option.some(installedMeta)),
-        write: (metadata: InstallMetaData) =>
-          Effect.sync(() => {
-            installMetaWrites.push(metadata);
-          }),
-      }),
-      Layer.succeed(UpdateCheck, {
-        readCacheState: () => Effect.succeed({ state: "missing" as const }),
-        readCache: () => Effect.succeed(Option.none()),
-        writeCache: (channel) =>
-          Effect.sync(() => {
-            updateCheckWrites.push({ version: channel.version });
-          }),
-        isUpdateAvailable: () => Effect.succeed(Option.none()),
-        shouldSkip: () => false,
-        notificationMessage: () => "",
-      } satisfies typeof UpdateCheck.Service),
+    const layer = Layer.provideMerge(
+      UpgradePreparationLive,
+      Layer.mergeAll(
+        subprocess.layer,
+        releaseOrigin.layer,
+        Layer.succeed(UpgradeWorkingDirectory, {
+          path: options?.workingDirectory ?? process.cwd(),
+        }),
+        Layer.succeed(InstallMethod, { detect: () => Effect.succeed(method) }),
+        Layer.succeed(InstallMeta, {
+          read: () =>
+            Effect.succeed(
+              installedMeta === undefined ? Option.none() : Option.some(installedMeta),
+            ),
+          write: (metadata: InstallMetaData) =>
+            Effect.sync(() => {
+              installMetaWrites.push(metadata);
+            }),
+        }),
+        Layer.succeed(UpdateCheck, {
+          readCacheState: () => Effect.succeed({ state: "missing" as const }),
+          readCache: () => Effect.succeed(Option.none()),
+          writeCache: (channel) =>
+            Effect.sync(() => {
+              updateCheckWrites.push({ version: channel.version });
+            }),
+          isUpdateAvailable: () => Effect.succeed(Option.none()),
+          shouldSkip: () => false,
+          notificationMessage: () => "",
+        } satisfies typeof UpdateCheck.Service),
+      ),
     );
 
     const request: UpgradeRequest = {
@@ -404,9 +413,9 @@ export const makeUpgradeTrial = (
 
     const run = () =>
       Effect.gen(function* () {
-        const fiber = yield* PerformUpgrade.prepare(request).pipe(
+        const fiber = yield* prepareUpgrade(request).pipe(
           Effect.flatMap((candidate) =>
-            PerformUpgrade.previewOrApply(candidate, {
+            previewOrApply(candidate, {
               mode: options?.preview === true ? "preview" : "apply",
             }),
           ),

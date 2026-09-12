@@ -143,6 +143,7 @@ test("backstage compatibility policy cannot depend on the frontstage upgrade dec
 });
 
 for (const [name, code] of [
+  ["host process access", 'import * as process from "node:process"; export { process };'],
   [
     "HTTP access",
     'import * as HttpClient from "effect/unstable/http/HttpClient"; export { HttpClient };',

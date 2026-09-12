@@ -1,20 +1,23 @@
-import { UpgradeFailed } from "@agentxm/cli-maintenance/self-update/application";
 /**
  * The `upgrade` command adapter: read the running version, ask
- * `@agentxm/cli-update` what the request selects, settle it as a preview or an
+ * CLI maintenance what the request selects, settle it as a preview or an
  * apply, and render the assessment as the machine document and the human
  * view.
  */
 
+import {
+  UpgradeFailed,
+  UpgradeWorkingDirectory,
+  prepareUpgrade,
+} from "@agentxm/cli-maintenance/self-update/application";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 import {
   AssessUpgrade,
   HOMEBREW_FORMULA,
-  PerformUpgrade,
+  previewOrApply,
   UpgradeAssessmentResultSchema,
-  UpgradeWorkingDirectory,
   type UpgradeAssessmentResult,
 } from "@agentxm/cli-update";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
@@ -143,10 +146,8 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
     },
     (preview
       ? AssessUpgrade.query(request)
-      : PerformUpgrade.prepare(request).pipe(
-          Effect.flatMap((candidate) =>
-            PerformUpgrade.previewOrApply(candidate, { mode: "apply" }),
-          ),
+      : prepareUpgrade(request).pipe(
+          Effect.flatMap((candidate) => previewOrApply(candidate, { mode: "apply" })),
         )
     ).pipe(
       Effect.provideService(UpgradeWorkingDirectory, { path: executionDirectory.path }),

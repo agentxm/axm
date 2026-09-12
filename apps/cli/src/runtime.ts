@@ -1,4 +1,3 @@
-import { CliReleaseCatalogLive } from "@agentxm/cli-maintenance/self-update/composition";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as HttpClient from "effect/unstable/http/HttpClient";
@@ -98,6 +97,7 @@ import {
 } from "@agentxm/extension-model/unstable/path-types";
 import { ExecutionDirectory } from "./execution-directory.js";
 import {
+  UpgradePreparationLive,
   InstallMetaLive,
   InstallMethodLive,
   SubprocessLive,
@@ -268,12 +268,9 @@ export const startupUpdateCheckLayer = Layer.provide(
   runtimeBaseLayer,
 );
 
-export const selfUpdateLayer = Layer.mergeAll(
-  CliReleaseCatalogLive,
-  InstallMethodLive,
-  InstallMetaLive,
-  SubprocessLive,
-  UpdateCheckLive,
+export const selfUpdateLayer = Layer.provideMerge(
+  UpgradePreparationLive,
+  Layer.mergeAll(InstallMethodLive, InstallMetaLive, SubprocessLive, UpdateCheckLive),
 );
 
 /** Route Effect diagnostics through the Screen's serialized transcript writer. */

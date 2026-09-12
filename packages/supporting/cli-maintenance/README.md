@@ -9,15 +9,18 @@ platforms, version comparison, equal-version reinstall, downgrade refusal, and
 eligibility for an automatic upgrade. These decisions are published through
 `./self-update/domain` and depend only on explicit facts.
 
-`./self-update/application` selects exact or promoted stable releases, validates
-the requested target, and compares release facts with the installed version.
-It owns the `CliReleaseCatalog` contract and typed upgrade failures. The
+`./self-update/application` prepares the immutable upgrade candidate: it checks
+platform eligibility, requires installation ownership before release selection,
+and decides the action shared by preview and application. It owns the
+`InstallationInspection` and `CliReleaseCatalog` contracts, the invocation
+directory, command evidence, and typed upgrade failures. The
 `./self-update/adapters/releases` implementation reads the public stable channel
 and derives immutable GitHub coordinates; `./self-update/composition` connects
 it to the caller's HTTP client. Substitute catalogs exercise selection policy
-without HTTP, installation state, or a CLI. Installation probes, mutation,
-progress reporting, and assessment rendering remain in `@agentxm/cli-update`
-pending their application/adapter separation.
+without HTTP, installation state, or a CLI. Host inspection and CLI progress
+implement these contracts in `@agentxm/cli-update`'s adapters and composition.
+Its installer mutation, startup-check policy, and assessment rendering remain
+to be separated and consolidated under CLI maintenance.
 
 The `official-skill` backstage capability has four published entry points:
 

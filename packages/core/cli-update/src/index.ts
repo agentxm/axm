@@ -1,7 +1,7 @@
 /**
- * The AXM self-update capability: install-ownership detection, release
- * selection from the promoted stable channel or an exact version, the startup
- * update check, and the verified upgrade of the installed `axm` executable.
+ * Native installation inspection, startup checking, and verified replacement
+ * of the installed `axm` executable. CLI maintenance owns upgrade preparation
+ * and the application contracts these adapters implement.
  *
  * The capability owns its own process lock and atomic executable replacement:
  * it acts on a file outside any workspace, so it is deliberately not a
@@ -11,13 +11,7 @@
  * @packageDocumentation
  */
 
-export {
-  AssessUpgrade,
-  PerformUpgrade,
-  type UpgradeCandidate,
-  type UpgradeExecution,
-  type UpgradeRequest,
-} from "./upgrade/use-case.js";
+export { AssessUpgrade, previewOrApply, type UpgradeExecution } from "./upgrade/use-case.js";
 
 export {
   HOMEBREW_FORMULA,
@@ -27,16 +21,10 @@ export {
   parseChecksum,
   resultMessage,
   upgradePlanSteps,
-  type CommandRecord,
   type ResultStatus,
   type UpgradeAssessmentResult,
   type UpgradeCoreResult,
 } from "./upgrade/mechanism.js";
-
-export {
-  UpgradeWorkingDirectory,
-  type UpgradeWorkingDirectoryService,
-} from "./upgrade/working-directory.js";
 
 export {
   InstallMethod,

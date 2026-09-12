@@ -1,6 +1,6 @@
 {
   "name": "@agentxm/registry-protocol",
-  "version": "0.30.0",
+  "version": "0.30.1",
   "description": "AgentXM Registry wire contracts: index, discovery, publication-set, visibility, authorization, and suggested-action schemas. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",

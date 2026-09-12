@@ -7,7 +7,7 @@ export default defineConfig({
     awesome: {
       options: {
         reportLanguage: "en",
-        singleFile: true,
+        singleFile: false,
       },
     },
   },

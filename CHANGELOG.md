@@ -1,3 +1,13 @@
+## 0.30.0 (2026-09-12)
+
+### ⚠️ Breaking Changes
+
+- Reconcile extension lifecycle from desired state, preserve accepted content during activation and sync, and report exact uninstall effects. Introduce the shared workspace-reconciliation capability and explicit declaration and closure ownership contracts. ([f6168c2f9](https://github.com/agentxm/axm/commit/f6168c2f9))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.29.4 (2026-09-12)
 
 ### 🩹 Fixes

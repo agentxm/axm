@@ -178,6 +178,26 @@ they prevent a mutation, report the exact blocked target and recovery instead
 of claiming success. Do not retry a failed Registry mutation unless live help
 and the result explicitly establish a safe retry.
 
+## Doctor mode
+
+Enter when invoked as `doctor` or asked to check, diagnose, or health-check AXM
+workspace state. Diagnosis is a local read and authorizes no repair.
+
+1. Preflight the current scope. When `axm` or the workspace is missing or
+   unreadable, report `Could not diagnose` with the blocking prerequisite only.
+2. Run `axm lint --json`, `axm sync --preview --fail-on-change --json`, and
+   `axm list --json` for unmanaged packages absent from desired and lock state;
+   read `git status` for recoverability. Add read-only checks live help offers.
+3. Unless asked to stay offline, check currency against configured sources
+   only: `axm upgrade --preview --json`, then `axm list --outdated --json` and
+   `axm list --deprecated --json`. Never authenticate for these. Report an
+   offline request, unreachable source, or timeout as skipped, not failed.
+4. Render [the doctor report](references/doctor-report.md) exactly, then stop
+   at its choice. Only a selected option or named IDs authorize repair;
+   free text becomes a plan to approve.
+5. Apply exactly the selected IDs in the report's dependency order, re-run the
+   checks, and render the post-repair report with the same IDs.
+
 ## Execute and verify
 
 1. Run only the AXM-owned portion against the resolved identity and scope.

@@ -84,6 +84,9 @@ const StepArtifactTargetSchema = Schema.Struct({
   path: Schema.String,
   change: ArtifactChangeSchema,
   agentIds: Schema.optional(Schema.Array(Schema.String)),
+  unitId: Schema.optional(Schema.String),
+  owner: Schema.optional(Schema.String),
+  entryName: Schema.optional(Schema.String),
 }).annotate({
   identifier: "StepArtifactTarget",
   title: "Plan Step Artifact Target",
@@ -112,6 +115,14 @@ const StepManagedRegionSchema = Schema.Struct({
   description: "One managed-region ownership unit and its provenance owner.",
 });
 
+const StepArtifactReferenceSchema = Schema.Struct({
+  path: Schema.String,
+  state: Schema.Literals(["retained", "absent", "unknown"]),
+  reason: Schema.String,
+  unitId: Schema.optional(Schema.String),
+  owner: Schema.optional(Schema.String),
+});
+
 const StepArtifactSchema = Schema.Struct({
   path: Schema.optional(Schema.String),
   scope: Schema.Literals(["project", "user"] as const),
@@ -122,6 +133,7 @@ const StepArtifactSchema = Schema.Struct({
   previousVersion: Schema.optional(Schema.String),
   fileCount: Schema.optional(Schema.Number),
   targets: Schema.optional(Schema.Array(StepArtifactTargetSchema)),
+  references: Schema.optional(Schema.Array(StepArtifactReferenceSchema)),
   agentOutcomes: Schema.optional(Schema.Array(ConfiguredAgentOutcomeSchema)),
   source: Schema.optional(StepArtifactSourceSchema),
   managedRegions: Schema.optional(Schema.Array(StepManagedRegionSchema)),
@@ -415,9 +427,18 @@ const artifactForJson = (
   artifact: JobStepArtifact,
   options: PlanResolutionResultOptions,
 ): StepArtifact => {
-  const { targets, source, managedRegions, ...base } = artifact;
+  const { targets, source, managedRegions, references, ...base } = artifact;
   const sanitizedBase = {
     ...base,
+    ...(references === undefined
+      ? {}
+      : {
+          references: references.map((reference) => ({
+            ...reference,
+            path: redactSensitiveText(reference.path),
+            reason: redactSensitiveText(reference.reason),
+          })),
+        }),
     ...(base.path === undefined ? {} : { path: redactSensitiveText(base.path) }),
     ...(managedRegions === undefined
       ? {}
@@ -441,7 +462,9 @@ const artifactForJson = (
       ? { ...sanitizedBase, source: sanitizedSource }
       : sanitizedBase;
   if (targets === undefined) return rest;
-  const additionalTargets = artifact.targets?.filter((target) => target.path !== artifact.path);
+  const additionalTargets = artifact.targets?.filter(
+    (target) => target.path !== artifact.path || target.unitId !== undefined,
+  );
   return additionalTargets === undefined || additionalTargets.length === 0
     ? rest
     : {

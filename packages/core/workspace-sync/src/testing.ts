@@ -35,7 +35,10 @@ import {
   ResolvePlanInteractionTest,
 } from "@agentxm/workspace-operations/testing";
 
-import { SyncStepFailureConversion, type SyncPolicyFailure } from "./failure-adapter.js";
+import {
+  SyncStepFailureConversion,
+  type SyncPolicyFailure,
+} from "@agentxm/workspace-reconciliation";
 import type { SyncWorkspaceRequest } from "./sync-workspace.js";
 
 const isCategory = (value: unknown): value is OperationErrorCategory =>

@@ -142,6 +142,8 @@ export interface JobStepArtifact {
   readonly previousVersion?: string;
   readonly fileCount?: number;
   readonly targets?: ReadonlyArray<JobStepArtifactTarget>;
+  /** Observed retained, absent, or unresolved state; these are not write targets. */
+  readonly references?: ReadonlyArray<JobStepArtifactReference>;
   readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
   readonly source?: JobStepArtifactSource;
   readonly managedRegions?: ReadonlyArray<JobStepManagedRegion>;
@@ -156,10 +158,21 @@ export interface JobStepManagedRegion {
   readonly owner: string;
 }
 
+export interface JobStepArtifactReference {
+  readonly path: string;
+  readonly state: "retained" | "absent" | "unknown";
+  readonly reason: string;
+  readonly unitId?: string;
+  readonly owner?: string;
+}
+
 export interface JobStepArtifactTarget {
   readonly path: string;
   readonly change: ArtifactChange;
   readonly agentIds?: ReadonlyArray<string>;
+  readonly unitId?: string;
+  readonly owner?: string;
+  readonly entryName?: string;
 }
 
 export interface JobStepArtifactSource {
@@ -200,6 +213,8 @@ export type JobStepResult<Output = never> =
 export interface ReadyJobStep<Requirements = never, Output = never> {
   readonly key?: string;
   readonly dependsOn?: ReadonlyArray<string>;
+  /** Read-only inputs fingerprinted with this step, distinct from its write footprint. */
+  readonly materialPaths?: ReadonlyArray<string>;
   readonly readiness: "ready";
   readonly label: string;
   readonly message?: string;
@@ -213,6 +228,8 @@ export interface ReadyJobStep<Requirements = never, Output = never> {
 export interface WarnJobStep<Requirements = never, Output = never> {
   readonly key?: string;
   readonly dependsOn?: ReadonlyArray<string>;
+  /** Read-only inputs fingerprinted with this step, distinct from its write footprint. */
+  readonly materialPaths?: ReadonlyArray<string>;
   readonly readiness: "warn";
   readonly warnMessage: string;
   readonly label: string;
@@ -226,6 +243,8 @@ export interface WarnJobStep<Requirements = never, Output = never> {
 export interface ErrorJobStep {
   readonly key?: string;
   readonly dependsOn?: ReadonlyArray<string>;
+  /** Read-only inputs fingerprinted with this step, distinct from its write footprint. */
+  readonly materialPaths?: ReadonlyArray<string>;
   readonly readiness: "error";
   readonly errorMessage: string;
   readonly label: string;
@@ -264,7 +283,8 @@ export interface Job<Requirements = never, Output = never> {
   readonly concurrency: "unbounded" | number;
   /**
    * Defaults to ordered fail-fast execution. Use `best-effort` only when every
-   * sibling step is independent; a failure still blocks subsequent jobs.
+   * sibling step is independent, including readiness failures; a failure still
+   * blocks subsequent jobs.
    */
   readonly executionPolicy?: JobExecutionPolicy;
 }

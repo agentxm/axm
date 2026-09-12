@@ -161,10 +161,6 @@ describe("JSON-mode channel contract (--json)", () => {
           ),
         );
         const mcpBefore = fs.readFileSync(path.join(temp.path, ".mcp.json"), "utf8");
-        fs.rmSync(path.join(temp.path, ".claude", "skills", "axm"), {
-          recursive: true,
-          force: true,
-        });
 
         const result = await runCli(["sync", "--non-interactive", "--json"], {
           cwd: temp.path,

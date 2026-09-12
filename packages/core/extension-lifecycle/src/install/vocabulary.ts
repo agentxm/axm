@@ -17,11 +17,8 @@ import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import type { NativeWriteAuthority } from "@agentxm/agent-integration";
-import type {
-  ManagerRequirements,
-  McpSecretStore,
-  RecipeRequirements,
-} from "@agentxm/extension-materialization";
+import type { ManagerRequirements, McpSecretStore } from "@agentxm/extension-materialization";
+import type { RecipeRequirements } from "@agentxm/workspace-reconciliation";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
 import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
@@ -44,11 +41,12 @@ import type {
   PlanInteractionFailed,
   ResolvePlanInteraction,
 } from "@agentxm/workspace-operations";
-import type { CodingAgentRepository } from "@agentxm/workspace-projection";
+import type { CodingAgentRepository, WorkspaceInvariantFacts } from "@agentxm/workspace-projection";
 import type {
   AcceptedCanonicalRefError,
   ConfiguredAgentOutcomesProvider,
   LockfileValidationError,
+  LockfileReader,
   WorkspaceMutations,
   WorkspaceSettingsReadFailure,
   WorkspaceStateReadFailure,
@@ -78,6 +76,8 @@ export type InstallStepRequirements =
   | RecipeRequirements
   | McpSecretStore
   | CodingAgentRepository
+  | LockfileReader
+  | WorkspaceInvariantFacts
   | WorkspaceMutations
   | NativeWriteAuthority;
 

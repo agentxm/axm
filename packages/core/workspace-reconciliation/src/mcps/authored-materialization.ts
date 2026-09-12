@@ -13,8 +13,8 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
-import type { McpServerMaterializationFacts } from "../managers.js";
-import type { ExtensionManagerFailure } from "../errors.js";
+import type { McpServerMaterializationFacts } from "@agentxm/extension-materialization";
+import type { ExtensionManagerFailure } from "@agentxm/extension-materialization";
 import { installMcpServer, type McpServerInstallRequirements } from "./install-operation.js";
 
 /**
@@ -37,10 +37,7 @@ export const materializeAuthoredMcpServer = (args: {
       ref: args.ref,
       nonInteractive: args.nonInteractive,
       force: false,
-      allowWorkspaceSourceTransition: true,
-      versionRange: Option.none(),
-      skipSettings: Option.none(),
-      skipStateWrites: true,
+
       env: Option.none(),
     },
   }).pipe(Effect.as(Option.none<McpServerMaterializationFacts>()));

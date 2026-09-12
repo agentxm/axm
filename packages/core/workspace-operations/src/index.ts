@@ -39,6 +39,7 @@ export type {
   PackMembershipDelta,
   JobStepArtifactSource,
   JobStepArtifactTarget,
+  JobStepArtifactReference,
   JobStepResult,
   Operation,
   OperationPrecondition,

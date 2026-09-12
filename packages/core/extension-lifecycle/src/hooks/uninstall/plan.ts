@@ -11,7 +11,8 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { HookManager, buildUninstallOperation } from "@agentxm/extension-materialization";
+import { HookManager } from "@agentxm/extension-materialization";
+import { buildUninstallOperation } from "@agentxm/workspace-reconciliation";
 import type { JobStepArtifact, JobStepArtifactTarget, Plan } from "@agentxm/workspace-operations";
 import {
   WorkspaceMutations,
@@ -23,7 +24,7 @@ import {
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { lifecycleStepFailure } from "../../step-failure.js";
 import { installRefused, type InstallStepRequirements } from "../../install/vocabulary.js";
-import { makeWorkspaceRetentionPolicy } from "../../uninstall/retention-policy.js";
+import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace-reconciliation";
 import type { HookUninstallIntent } from "../../uninstall/vocabulary.js";
 import {
   workspaceCanonicalRoot,
@@ -91,7 +92,7 @@ export const planHookUninstall: (
 > = Effect.fn("UninstallExtensions.planHooks")(function* (intent: HookUninstallIntent) {
   const ws = yield* WorkspaceMutations;
   const hookManager = yield* HookManager;
-  const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(ws, lifecycleStepFailure);
 
   const steps = yield* Effect.forEach(intent.targets, (target) =>
     Effect.gen(function* () {

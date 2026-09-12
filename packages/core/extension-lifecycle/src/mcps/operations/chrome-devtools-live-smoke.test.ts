@@ -21,7 +21,7 @@ import {
 } from "../../test-helpers.js";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
-import { installMcpServer } from "@agentxm/extension-materialization";
+import { installMcpServer } from "@agentxm/workspace-reconciliation";
 import { makeMemoryMcpSecretStore } from "@agentxm/extension-materialization/testing";
 import { uninstallMcpServer } from "./uninstall.js";
 
@@ -124,8 +124,7 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
             packages: [],
           },
           force: false,
-          versionRange: Option.none(),
-          skipSettings: Option.some(true),
+
           strictAgentSync: Option.some(false),
         },
       }).pipe(

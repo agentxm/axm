@@ -24,7 +24,8 @@ import type { ReleaseAgeEvidence } from "@agentxm/extension-model/unstable/exten
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { buildInstallOperation, SubagentManager } from "@agentxm/extension-materialization";
+import { SubagentManager } from "@agentxm/extension-materialization";
+import { buildInstallOperation } from "@agentxm/workspace-reconciliation";
 import {
   classifyPublisherBindingTransition,
   makeConfiguredReleaseAgeEvaluation,
@@ -408,7 +409,7 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
       const step = buildInstallOperation(subagentManager, {
         toStepFailure: failureConversion.toStepFailure,
         ref,
-        versionRange: Option.none(),
+        declaration: { name: ref.subagent.name, versionRange: Option.none() },
       });
       if (step.readiness === "error") {
         return Effect.fail(new StepFailure({ category: "conflict", detail: step.errorMessage }));

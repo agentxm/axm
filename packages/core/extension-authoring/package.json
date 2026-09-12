@@ -53,7 +53,8 @@
     "@agentxm/workspace-transactions": "workspace:^",
     "effect": "catalog:",
     "semver": "catalog:",
-    "yaml": "catalog:"
+    "yaml": "catalog:",
+    "@agentxm/workspace-reconciliation": "workspace:^"
   },
   "devDependencies": {
     "@agentxm/agent-integration": "workspace:^",

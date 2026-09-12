@@ -55,3 +55,5 @@ specifications, never in these records.
   uninstall distinguishes the removal target from the desired-state graph, so a
   pack whose own package cannot be read is retired by registration while its
   unverifiable content is preserved and reported
+
+- [Shared desired-state reconciliation](shared-desired-state-reconciliation.md) — shared realization policy belongs below peer command features and above canonical and projection mechanics

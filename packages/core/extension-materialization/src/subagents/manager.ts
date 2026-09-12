@@ -1,3 +1,5 @@
+import { usableAcceptedCanonical } from "@agentxm/workspace-state";
+import { LifecyclePostconditionViolated } from "../extensions/errors.js";
 /**
  * Subagent extension manager service.
  *
@@ -23,7 +25,7 @@ import type { ExtensionManager, ManagerRequirements } from "../manager-contract.
 import type { SubagentMaterializationFacts } from "../managers.js";
 import type { ExtensionManagerFailure } from "../errors.js";
 import type { SubagentPathSource } from "@agentxm/workspace-state";
-import type { ExtensionTarget, SubagentExtensionTarget } from "@agentxm/workspace-state";
+import type { ExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   computeSubagentPathsForLayout,
@@ -892,6 +894,42 @@ export const SubagentManagerLive = Layer.effect(
       }),
 
       materializeInstall,
+      acquireCanonical: ({ ref, force }) =>
+        Effect.gen(function* () {
+          const {
+            sanitized,
+            paths: { canonicalPath, subagentSrcPath },
+          } = getCanonicalPaths(ref);
+          const treeIntegrity = yield* materializeCanonical(
+            ref,
+            sanitized,
+            canonicalPath,
+            subagentSrcPath,
+            force === true,
+          );
+          yield* readSubagentContent(subagentSrcPath, ref.subagent.name);
+          return {
+            sourceHash: Option.some(yield* computePackageContentHash(canonicalPath)),
+            treeIntegrity: Option.fromUndefinedOr(treeIntegrity),
+            observation: { agents: [], targets: [] },
+          };
+        }),
+      materializeRetained: ({ target }) =>
+        Effect.gen(function* () {
+          const canonical = yield* usableAcceptedCanonical({
+            workspace: ws,
+            type: "subagent",
+            name: target.name,
+          });
+          if (Option.isNone(canonical) || canonical.value.ref.type !== "subagent") {
+            return yield* new LifecyclePostconditionViolated({
+              postcondition: "materialize-observable",
+              targetType: "subagent",
+              targetName: target.name,
+            });
+          }
+          return yield* materializeInstall({ ref: canonical.value.ref });
+        }),
       prepareSourceTransition: ({ ref }) =>
         prepareAcceptedCanonicalTransition({
           workspace: ws,
@@ -916,73 +954,7 @@ export const SubagentManagerLive = Layer.effect(
       materializeUninstall,
       materializeDeactivate,
 
-      upsertSettingsEntry: Effect.fn("SubagentManager.upsertSettingsEntry")(function* ({
-        ref,
-        versionRange,
-        materialization,
-      }: {
-        readonly ref: SubagentExtensionRef;
-        readonly versionRange: Option.Option<string>;
-        readonly materialization: Option.Option<SubagentMaterializationFacts>;
-      }) {
-        const workspaceRelativeLocalSourcePath =
-          ref.refType === "local"
-            ? makeWorkspaceRelativeSourcePath(
-                path,
-                baseDir,
-                ref.sourcePath ?? stripFileProtocol(ref.location),
-              )
-            : Option.none();
-        if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
-          return yield* new SubagentDefinitionInvalid({
-            detail: `Local subagent source path must stay within the workspace root: ${ref.source.path}`,
-          });
-        }
-        const state = acquiredState(materialization);
-        if (ref.refType === "workspace") {
-          return yield* ws.setSubagentEntry(ref.subagent.name, {
-            source: "workspace",
-            enabled: true,
-          });
-        }
-        if (state === undefined) {
-          return yield* new SubagentInstallStateMissing({
-            name: ref.subagent.name,
-            kind: "content-identity",
-          });
-        }
-        const lockEntry = buildSubagentLockEntry(
-          ref,
-          state.sourceHash,
-          state.treeIntegrity,
-          workspaceRelativeLocalSourcePath,
-        );
-        if (lockEntry === undefined) {
-          return yield* new SubagentInstallStateMissing({
-            name: ref.subagent.name,
-            kind: "external-resolution",
-          });
-        }
-        if (lockEntry.type === "registry") {
-          yield* validateExactResolvedVersion(
-            `subagents.${ref.subagent.name}.resolvedVersion`,
-            lockEntry.resolvedVersion,
-          );
-        }
-        return yield* ws.setSubagent({
-          name: ref.subagent.name,
-          lockEntry,
-          versionRange,
-        });
-      }),
-
-      removeSettingsEntry: ({ target }: { readonly target: SubagentExtensionTarget }) =>
-        ws
-          .removeSubagentSettings(target.name)
-
-          .pipe(Effect.withSpan("SubagentManager.removeSettingsEntry")),
-
-      upsertLockfileEntry: Effect.fn("SubagentManager.upsertLockfileEntry")(function* ({
+      acceptedResolution: Effect.fn("SubagentManager.acceptedResolution")(function* ({
         ref,
         materialization,
       }: {
@@ -1003,8 +975,7 @@ export const SubagentManagerLive = Layer.effect(
           });
         }
         if (ref.refType === "workspace") {
-          yield* ws.removeSubagentLock(ref.subagent.name);
-          return;
+          return Option.none();
         }
         const state = acquiredState(materialization);
         if (state === undefined) {
@@ -1031,18 +1002,10 @@ export const SubagentManagerLive = Layer.effect(
             lockEntry.resolvedVersion,
           );
         }
-        return yield* ws.setSubagentLock({
-          name: ref.subagent.name,
-          lockEntry,
-          versionRange: Option.none(),
-        });
+        return Option.some({ key: ref.subagent.name, entry: lockEntry });
       }),
 
-      removeLockfileEntry: ({ target }: { readonly target: SubagentExtensionTarget }) =>
-        ws
-          .removeSubagentLock(target.name)
-
-          .pipe(Effect.withSpan("SubagentManager.removeLockfileEntry")),
+      withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
     } satisfies SubagentManagerService;
   }),
 );

@@ -190,67 +190,14 @@ describe("SubagentManager", () => {
     );
   });
 
-  describe("upsertSettingsEntry", () => {
-    it.effect("fails closed when local content was not materialized first", () => {
-      const setSubagentSpy = vi.fn(() => Effect.void);
-
-      return Effect.gen(function* () {
-        const manager = yield* SubagentManager;
-        const error = yield* manager
-          .upsertSettingsEntry({
-            ref: makeLocalSubagentRef("planner", "/tmp/source/planner"),
-            versionRange: Option.none(),
-            materialization: Option.none(),
-          })
-          .pipe(Effect.flip);
-        expect(error).toMatchObject({
-          _tag: "SubagentInstallStateMissing",
-          kind: "content-identity",
-        });
-        expect(setSubagentSpy).not.toHaveBeenCalled();
-      }).pipe(
-        Effect.provide(
-          makeTestLayer({
-            wsOverrides: {
-              setSubagent: setSubagentSpy,
-            },
-          }),
-        ),
-      );
-    });
-  });
-
-  describe("removeSettingsEntry", () => {
-    it.effect("calls ws.removeSubagentSettings", () => {
-      const removeSpy = vi.fn(() => Effect.void);
-
-      return Effect.gen(function* () {
-        const manager = yield* SubagentManager;
-        yield* manager.removeSettingsEntry({
-          target: { type: "subagent", name: "planner" },
-          materialization: Option.none(),
-        });
-        expect(removeSpy).toHaveBeenCalledOnce();
-      }).pipe(
-        Effect.provide(
-          makeTestLayer({
-            wsOverrides: {
-              removeSubagentSettings: removeSpy,
-            },
-          }),
-        ),
-      );
-    });
-  });
-
-  describe("upsertLockfileEntry", () => {
+  describe("acceptedResolution", () => {
     it.effect("fails closed when lock persistence has no materialized identity", () => {
       const setLockSpy = vi.fn(() => Effect.void);
 
       return Effect.gen(function* () {
         const manager = yield* SubagentManager;
         const error = yield* manager
-          .upsertLockfileEntry({
+          .acceptedResolution({
             ref: makeLocalSubagentRef("planner", "/tmp/source/planner"),
             materialization: Option.none(),
           })
@@ -265,29 +212,6 @@ describe("SubagentManager", () => {
           makeTestLayer({
             wsOverrides: {
               setSubagentLock: setLockSpy,
-            },
-          }),
-        ),
-      );
-    });
-  });
-
-  describe("removeLockfileEntry", () => {
-    it.effect("calls ws.removeSubagentLock", () => {
-      const removeSpy = vi.fn(() => Effect.void);
-
-      return Effect.gen(function* () {
-        const manager = yield* SubagentManager;
-        yield* manager.removeLockfileEntry({
-          target: { type: "subagent", name: "planner" },
-          materialization: Option.none(),
-        });
-        expect(removeSpy).toHaveBeenCalledOnce();
-      }).pipe(
-        Effect.provide(
-          makeTestLayer({
-            wsOverrides: {
-              removeSubagentLock: removeSpy,
             },
           }),
         ),
@@ -431,7 +355,6 @@ describe("SubagentManager", () => {
       const axmDir = nodePath.join(projectDir, ".axm");
       const skillsDir = nodePath.join(projectDir, ".cline", "skills");
       nodeFs.mkdirSync(axmDir, { recursive: true });
-      let captured: SubagentLockEntry | undefined;
       const fallbackAgent = makeMockCodingAgent("cline", {
         addSubagent: () => Effect.succeed({ _tag: "unsupported", reason: "no native surface" }),
         resolveEffectiveSkillsDir: () => Effect.succeed({ _tag: "supported", dir: skillsDir }),
@@ -450,7 +373,11 @@ describe("SubagentManager", () => {
             },
           ],
         });
-        yield* manager.upsertLockfileEntry({ ref, materialization: Option.some(facts) });
+        const accepted = yield* manager.acceptedResolution({
+          ref,
+          materialization: Option.some(facts),
+        });
+        const captured = Option.getOrUndefined(Option.map(accepted, ({ entry }) => entry));
 
         const skillPath = nodePath.join(skillsDir, "planner", "SKILL.md");
         if (!nodeFs.existsSync(skillPath)) {
@@ -475,12 +402,6 @@ describe("SubagentManager", () => {
           makeTestLayer({
             axmDir,
             agents: [fallbackAgent],
-            wsOverrides: {
-              setSubagentLock: (args) =>
-                Effect.sync(() => {
-                  captured = args.lockEntry;
-                }),
-            },
           }),
         ),
       );

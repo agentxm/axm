@@ -24,14 +24,16 @@ import * as Path from "effect/Path";
 import {
   ExtensionManagers,
   McpSecretStore,
-  buildAuthoredExtensionStep,
-  materializeAuthoredMcpServer,
-  type AuthoredExtensionOperationArgs,
   type ExtensionManager,
   type ManagerRequirements,
   type MaterializationFacts,
-  type RecipeRequirements,
 } from "@agentxm/extension-materialization";
+import { materializeAuthoredMcpServer } from "@agentxm/workspace-reconciliation";
+import {
+  buildAuthoredExtensionStep,
+  type AuthoredExtensionOperationArgs,
+  type RecipeRequirements,
+} from "@agentxm/workspace-reconciliation";
 import {
   extensionTypeToPlural,
   formatFqn,

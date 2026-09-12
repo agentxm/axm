@@ -369,11 +369,6 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
       const review = graph.nodes.find((node) => node.type === "skill" && node.name === "review");
       expect(review?.enabled).toBe(true);
       expect(review?.origins).toEqual([
-        expect.objectContaining({
-          type: "pack",
-          pack: "@acme/packs/reviewers",
-          enabled: false,
-        }),
         expect.objectContaining({ type: "pack", pack: "@acme/packs/maintainers" }),
       ]);
     }),
@@ -401,12 +396,11 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
       expect(review?.enabled).toBe(true);
       expect(review?.origins).toEqual([
         expect.objectContaining({ type: "settings", enabled: true }),
-        expect.objectContaining({ type: "pack", enabled: false }),
       ]);
     }),
   );
 
-  it.effect("keeps disabled Pack membership reachable without activating its dependencies", () =>
+  it.effect("a disabled Pack withdraws its dependency route while remaining desired", () =>
     Effect.gen(function* () {
       writePack(root, "@acme", "reviewers", {
         "@acme/skills/review": "^1.0.0",
@@ -423,31 +417,30 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
 
       expect(graph.complete).toBe(true);
       expect(graph.nodes).toEqual([
-        expect.objectContaining({ type: "skill", name: "review", enabled: false }),
         expect.objectContaining({ type: "pack", name: "reviewers", enabled: false }),
       ]);
     }),
   );
 
-  it.effect("requires a disabled Pack manifest to preserve membership reachability", () =>
-    Effect.gen(function* () {
-      const graph = yield* buildDesiredStateGraph({
-        baseDir: root,
-        settings: {
-          packs: {
-            missing: { source: "@acme/packs/missing", enabled: false },
+  it.effect(
+    "does not require a disabled Pack manifest to establish its absent dependency route",
+    () =>
+      Effect.gen(function* () {
+        const graph = yield* buildDesiredStateGraph({
+          baseDir: root,
+          settings: {
+            packs: {
+              missing: { source: "@acme/packs/missing", enabled: false },
+            },
           },
-        },
-      });
+        });
 
-      expect(graph.complete).toBe(false);
-      expect(graph.problems).toEqual([
-        expect.objectContaining({ type: "pack-manifest-unavailable", pack: "@acme/packs/missing" }),
-      ]);
-      expect(graph.nodes).toEqual([
-        expect.objectContaining({ type: "pack", name: "missing", enabled: false }),
-      ]);
-    }),
+        expect(graph.complete).toBe(true);
+        expect(graph.problems).toEqual([]);
+        expect(graph.nodes).toEqual([
+          expect.objectContaining({ type: "pack", name: "missing", enabled: false }),
+        ]);
+      }),
   );
 
   it.effect("merges workspace authorship with a pack dependency for the same package", () =>

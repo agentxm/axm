@@ -89,7 +89,6 @@ export type InstallSkillOperationArgs = {
   /** Version constraint from the original input when available. */
   readonly versionRange: Option.Option<string>;
   /** When true, write to lockfile only (skip settings). Used for pack dependencies. */
-  readonly skipSettings: Option.Option<boolean>;
   /** When true, fail on unknown configured agents instead of warning+skip. */
   readonly strictUnknownAgents: Option.Option<boolean>;
   /** Named registry source that provided the ref (written to lockfile for registry skills). */
@@ -767,26 +766,17 @@ export const installSkill: OperationHandler<
       } satisfies JobStepResult;
     }
 
-    const skipSettings = Option.getOrElse(op.args.skipSettings, () => false);
     const writeEffect =
       baseLockEntry === undefined
-        ? skipSettings
-          ? Effect.void
-          : ws.setSkillEntry(ref.skill.name, {
-              source: ref.refType === "workspace" ? "workspace" : printSourceParams(ref.source),
-              enabled: true,
-            })
-        : skipSettings
-          ? ws.setSkillLock({
-              name: ref.skill.name,
-              lockEntry: baseLockEntry,
-              versionRange: materialized.versionRange,
-            })
-          : ws.setSkill({
-              name: ref.skill.name,
-              lockEntry: baseLockEntry,
-              versionRange: materialized.versionRange,
-            });
+        ? ws.setSkillEntry(ref.skill.name, {
+            source: ref.refType === "workspace" ? "workspace" : printSourceParams(ref.source),
+            enabled: true,
+          })
+        : ws.setSkill({
+            name: ref.skill.name,
+            lockEntry: baseLockEntry,
+            versionRange: materialized.versionRange,
+          });
     const writeFailure = yield* writeEffect.pipe(Effect.result);
     if (writeFailure._tag === "Failure") {
       const failure = writeFailure.failure;

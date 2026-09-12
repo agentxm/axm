@@ -30,9 +30,18 @@ import {
 } from "./screen/phrases.js";
 
 const artifactPaths = (artifact: JobStepArtifact): string =>
-  artifact.targets === undefined || artifact.targets.length === 0
-    ? artifact.path
-    : artifact.targets.map((target) => target.path).join(", ");
+  [
+    artifact.targets === undefined || artifact.targets.length === 0
+      ? artifact.path
+      : artifact.targets
+          .map((target) =>
+            target.entryName === undefined ? target.path : `${target.path} (${target.entryName})`,
+          )
+          .join(", "),
+    ...(artifact.references ?? []).map(
+      (reference) => `${reference.state}: ${reference.path} (${reference.reason})`,
+    ),
+  ].join("; ");
 
 const artifactCells = (artifact: JobStepArtifact | undefined): ReadonlyArray<string> => {
   if (artifact === undefined) return [];

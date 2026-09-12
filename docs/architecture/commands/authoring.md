@@ -32,7 +32,7 @@ MCP import has a separate responsibility: discover native server configuration
 and bring the selected configuration under management. Its package-conversion
 path is described by the MCP specifications.
 
-Authoring orchestrates package edits through the lifecycle feature. That keeps
+Authoring orchestrates package edits through the shared reconciliation capability. That keeps
 content, declarations, and immediate agent outputs in the same execution
 model as installation and reconciliation. Registry authentication and
 publication remain with their respective features.

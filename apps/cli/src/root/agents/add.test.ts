@@ -46,10 +46,6 @@ const emptySkillManager = {
   materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   listMaterializable: () => Effect.succeed([]),
   materializeUninstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
-  upsertSettingsEntry: () => Effect.void,
-  removeSettingsEntry: () => Effect.void,
-  upsertLockfileEntry: () => Effect.void,
-  removeLockfileEntry: () => Effect.void,
 } satisfies ServiceMap.Service.Shape<typeof SkillManager>;
 
 const emptyMcpServerManager = {
@@ -61,24 +57,17 @@ const emptyMcpServerManager = {
   materializeUninstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   configuredAgentOutcomes: () => Effect.succeed([]),
   configuredAgentOutcomesForEntry: () => Effect.succeed([]),
-  upsertSettingsEntry: () => Effect.void,
-  removeSettingsEntry: () => Effect.void,
-  upsertLockfileEntry: () => Effect.void,
-  removeLockfileEntry: () => Effect.void,
 } satisfies ServiceMap.Service.Shape<typeof McpServerManager>;
 
 const emptyHookManager = {
   ...managerLifecycleStubs,
   type: "hook",
+  prepareProjection: () => Effect.succeed({ plans: [], agentOutcomes: [], acquisitions: [] }),
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   listMaterializable: () => Effect.succeed([]),
   materializeUninstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   projectionPlans: () => Effect.succeed([]),
-  upsertSettingsEntry: () => Effect.void,
-  removeSettingsEntry: () => Effect.void,
-  upsertLockfileEntry: () => Effect.void,
-  removeLockfileEntry: () => Effect.void,
 } satisfies ServiceMap.Service.Shape<typeof HookManager>;
 
 const emptyRuleManager = {
@@ -89,10 +78,6 @@ const emptyRuleManager = {
   materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   listMaterializable: () => Effect.succeed([]),
   materializeUninstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
-  upsertSettingsEntry: () => Effect.void,
-  removeSettingsEntry: () => Effect.void,
-  upsertLockfileEntry: () => Effect.void,
-  removeLockfileEntry: () => Effect.void,
 } satisfies ServiceMap.Service.Shape<typeof RuleManager>;
 
 const emptySubagentManager = {
@@ -103,10 +88,6 @@ const emptySubagentManager = {
   materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   listMaterializable: () => Effect.succeed([]),
   materializeUninstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
-  upsertSettingsEntry: () => Effect.void,
-  removeSettingsEntry: () => Effect.void,
-  upsertLockfileEntry: () => Effect.void,
-  removeLockfileEntry: () => Effect.void,
 } satisfies ServiceMap.Service.Shape<typeof SubagentManager>;
 
 const emptyKnowledgeManager = {
@@ -120,10 +101,6 @@ const emptyKnowledgeManager = {
   materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   listMaterializable: () => Effect.succeed([]),
   materializeUninstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
-  upsertSettingsEntry: () => Effect.void,
-  removeSettingsEntry: () => Effect.void,
-  upsertLockfileEntry: () => Effect.void,
-  removeLockfileEntry: () => Effect.void,
 } satisfies ServiceMap.Service.Shape<typeof KnowledgeManager>;
 
 const emptyPackManager = {
@@ -133,10 +110,6 @@ const emptyPackManager = {
   materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   listMaterializable: () => Effect.succeed([]),
   materializeUninstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
-  upsertSettingsEntry: () => Effect.void,
-  removeSettingsEntry: () => Effect.void,
-  upsertLockfileEntry: () => Effect.void,
-  removeLockfileEntry: () => Effect.void,
 } satisfies ServiceMap.Service.Shape<typeof PackManager>;
 
 const managersLayer = (

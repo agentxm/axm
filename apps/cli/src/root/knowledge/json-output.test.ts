@@ -50,10 +50,6 @@ const stubKnowledgeManager = {
   materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   listMaterializable: () => Effect.succeed([]),
   materializeUninstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
-  upsertSettingsEntry: () => Effect.void,
-  removeSettingsEntry: () => Effect.void,
-  upsertLockfileEntry: () => Effect.void,
-  removeLockfileEntry: () => Effect.void,
 } satisfies ServiceMap.Service.Shape<typeof KnowledgeManager>;
 
 const knowledgeManagerLayer = Layer.succeed(KnowledgeManager, stubKnowledgeManager);

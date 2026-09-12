@@ -178,12 +178,20 @@ path, and byte equality are observations, not ownership proof.
 ## Reachability and retention
 
 AXM-managed installed state is retained when its extension is reachable from
-desired state. Direct extension configuration and Pack membership can make an
+desired state. Direct extension configuration and enabled Pack membership can make an
 extension reachable. Lock rows do not keep an otherwise undesired extension
 installed (the executable specification
 `cli/lock-state-never-creates-reachability` owns the obligation).
 Workspace-authored inventory is preserved by authorship, not retained by
 desired-state reachability.
+
+A disabled leaf remains desired: AXM retains or acquires its canonical content
+and accepted identity, while withdrawing its active outputs. A disabled Pack
+also remains desired, but contributes no member routes. Members whose last
+route disappears are retired with their owned outputs and accepted records;
+members reached directly or by another enabled Pack remain. Re-enabling a leaf
+uses its accepted content. Re-enabling a Pack realizes its resulting dependency
+graph, including acquiring members that were retired.
 
 Removing one route to an extension does not remove it while another desired
 route still reaches it. Cleanup that depends on knowing the complete desired
@@ -197,7 +205,8 @@ manifests are workspace configuration and may be edited directly.
 ## Accepted external resolutions
 
 The [lockfile](lockfile.md) records the immutable external source and resolution
-accepted at acquisition. A satisfying resolution remains stable during sync.
+accepted at acquisition. A satisfying resolution remains stable during sync. An incompatible accepted
+identity blocks reconciliation until an explicit resolution transition.
 Missing canonical content can be reacquired only from that exact identity when
 the source can still reproduce it. Update, not sync, owns advancement.
 

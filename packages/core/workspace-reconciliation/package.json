@@ -1,0 +1,69 @@
+{
+  "name": "@agentxm/workspace-reconciliation",
+  "version": "0.29.4",
+  "description": "Shared desired-state reconciliation planning for AXM workspaces.",
+  "type": "module",
+  "license": "FSL-1.1-MIT",
+  "homepage": "https://axm.sh",
+  "bugs": {
+    "url": "https://github.com/agentxm/axm/issues"
+  },
+  "author": "AgentXM <hello@agentxm.ai> (https://agentxm.ai)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/axm.git",
+    "directory": "packages/core/workspace-reconciliation"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "axm-source": "./src/index.ts",
+      "default": "./dist/src/index.js"
+    },
+    "./testing": {
+      "types": "./dist/src/testing.d.ts",
+      "axm-source": "./src/testing.ts",
+      "default": "./dist/src/testing.js"
+    }
+  },
+  "files": [
+    "dist/src/",
+    "!**/*.map"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "nx": {
+    "includedScripts": []
+  },
+  "dependencies": {
+    "@agentxm/agent-integration": "workspace:^",
+    "@agentxm/extension-materialization": "workspace:^",
+    "@agentxm/extension-model": "workspace:^",
+    "@agentxm/extension-resolution": "workspace:^",
+    "@agentxm/extension-sources": "workspace:^",
+    "@agentxm/workspace-operations": "workspace:^",
+    "@agentxm/workspace-projection": "workspace:^",
+    "@agentxm/workspace-state": "workspace:^",
+    "@agentxm/workspace-transactions": "workspace:^",
+    "effect": "catalog:",
+    "semver": "catalog:",
+    "@agentxm/registry-client": "workspace:^"
+  },
+  "devDependencies": {
+    "@effect/platform-node": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/semver": "catalog:",
+    "@typescript/native": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "@agentxm/specification-metadata": "workspace:^",
+    "@fast-check/vitest": "catalog:",
+    "yaml": "catalog:"
+  }
+}

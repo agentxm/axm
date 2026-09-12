@@ -10,9 +10,9 @@
  * do something the declaration did not imply.
  *
  * A selection narrows the sweep to one extension, one type, or one Pack's
- * members. A narrowed sweep deliberately skips the workspace-wide sweeps
- * (cleanup of unowned rendered files, the Knowledge discovery region), because
- * those decide from the whole graph and a scoped run cannot see it.
+ * members. Shared outputs still use complete contributor sets; retirement and
+ * native cleanup are bounded to the selection. Incomplete graph evidence never
+ * authorizes a workspace-wide sweep.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -27,13 +27,14 @@ import {
 import type {
   ExtensionManagers,
   HookManager,
-  KnowledgeManager,
+  PackManager,
   McpServerManager,
-  McpServerInstallRequirements,
+  KnowledgeManager,
   RuleManager,
   SkillManager,
   SubagentManager,
 } from "@agentxm/extension-materialization";
+import type { McpServerInstallRequirements } from "@agentxm/workspace-reconciliation";
 import {
   observeUnit,
   OperationJournal,
@@ -42,6 +43,7 @@ import {
   ResolvePlanInteraction,
   type ApprovalRecoveryMissing,
   type CandidateFingerprintFailed,
+  type ExecutionCandidate,
   type OperationResolution,
   type Plan,
   type PlanExecution,
@@ -51,6 +53,7 @@ import {
 import { WorkspaceInvariantFacts } from "@agentxm/workspace-projection";
 import {
   ConfiguredAgentOutcomesProvider,
+  LockfileReader,
   WorkspaceMutations,
   type LockfileValidationError,
   type WorkspaceSettingsReadFailure,
@@ -60,14 +63,21 @@ import type {
   WorkspaceTransitionAcquireFailure,
 } from "@agentxm/workspace-transactions";
 
-import { collectConfiguredPackRecovery } from "./configured-pack-recovery.js";
-import { SyncStepFailureConversion, type SyncPolicyFailure } from "./failure-adapter.js";
+import {
+  collectUnreachableRetirement,
+  collectConfiguredPackRecovery,
+} from "@agentxm/workspace-reconciliation";
+import {
+  SyncStepFailureConversion,
+  type SyncPolicyFailure,
+} from "@agentxm/workspace-reconciliation";
 import {
   collectMaterializeSteps,
   type CollectedMaterializeSteps,
   type ConfiguredEntryResolutionRequirements,
   type SyncSelection,
-} from "./materialize.js";
+  selectedDesiredNodes,
+} from "@agentxm/workspace-reconciliation";
 import {
   collectCleanupStep,
   collectHooksStep,
@@ -77,7 +87,7 @@ import {
   SYNC_PLAN_DESCRIPTION,
   SYNC_PLAN_NAME,
   type SyncStepRequirements,
-} from "./plan.js";
+} from "@agentxm/workspace-reconciliation";
 
 /** Everything a sync plan's steps need when they run. */
 export type SyncWorkspaceRequirements =
@@ -86,6 +96,9 @@ export type SyncWorkspaceRequirements =
   | ExtensionManagers
   | FootprintRecorder
   | HookManager
+  | PackManager
+  | McpServerManager
+  | LockfileReader
   | KnowledgeManager
   | McpServerManager
   | McpServerInstallRequirements
@@ -118,6 +131,7 @@ export interface WorkspaceAlreadyReconciled {
 /** A settled reconciliation: every step it will take, in the order it takes them. */
 export interface SyncWorkspaceCandidate {
   readonly _tag: "SyncWorkspace";
+  readonly execution: ExecutionCandidate<SyncWorkspaceRequirements>;
   readonly plan: Plan<SyncWorkspaceRequirements>;
   /** What the operator is told when the sweep turns out to change nothing. */
   readonly upToDateMessage: string;
@@ -147,7 +161,10 @@ const scopeLabelFor = (selection: SyncSelection): string =>
  * selection that names a Pack touches all of them, because a Pack can
  * contribute any member type.
  */
-const selectionTouches = (selection: SyncSelection, unitType: "rule" | "hook"): boolean => {
+const selectionTouches = (
+  selection: SyncSelection,
+  unitType: "rule" | "hook" | "knowledge",
+): boolean => {
   if (Option.isNone(selection.target) && Option.isNone(selection.type)) return true;
   if (Option.isSome(selection.type) && selection.type.value === unitType) return true;
   if (Option.isSome(selection.target)) {
@@ -192,7 +209,7 @@ export const prepareSyncWorkspace = (
   request: SyncWorkspaceRequest,
 ): Effect.Effect<
   SyncWorkspaceCandidate | WorkspaceAlreadyReconciled,
-  SyncWorkspaceFailure,
+  SyncWorkspaceFailure | SyncWorkspaceExecutionFailure,
   SyncWorkspaceRequirements
 > =>
   Effect.gen(function* () {
@@ -222,6 +239,17 @@ export const prepareSyncWorkspace = (
           ...(packRecovery === undefined ? {} : { packRecovery }),
           adapter: conversion,
         });
+        const graph = yield* ws.getDesiredStateGraph();
+        const selected = scoped ? selectedDesiredNodes(graph, selection) : [];
+        const selectedType = Option.getOrUndefined(selection.type);
+        const selectedAccepted =
+          selectedType === undefined
+            ? []
+            : Object.values(yield* (yield* LockfileReader).entries(selectedType)).map((entry) => ({
+                type: selectedType,
+                name: entry.workspaceName,
+              }));
+        const subjects = scoped ? [...selected, ...selectedAccepted] : undefined;
         const projectionFacts = yield* invariantFacts.projectionFacts;
         const hookProjectionFacts = projectionFacts.filter(({ subject }) =>
           subject.unitId.startsWith("hook:"),
@@ -236,7 +264,7 @@ export const prepareSyncWorkspace = (
         // an incomplete graph both leave them out rather than deciding from a
         // partial view.
         const knowledgeStep: Option.Option<SyncPlanStep> =
-          scoped || !collected.cleanupSafe
+          !selectionTouches(selection, "knowledge") || !collected.cleanupSafe
             ? Option.none()
             : yield* collectKnowledgeStep({
                 adapter: conversion,
@@ -244,36 +272,68 @@ export const prepareSyncWorkspace = (
                 facts: knowledgeProjectionFacts,
               });
         const hooksStep: Option.Option<SyncPlanStep> = selectionTouches(selection, "hook")
-          ? yield* collectHooksStep({ facts: hookProjectionFacts, adapter: conversion })
+          ? yield* collectHooksStep({
+              facts: hookProjectionFacts,
+              adapter: conversion,
+              ...(collected.preparedHookProjection === undefined
+                ? {}
+                : { prepared: collected.preparedHookProjection }),
+            })
           : Option.none();
-        const cleanupStep: Option.Option<SyncPlanStep> =
-          scoped || !collected.cleanupSafe
-            ? Option.none()
-            : yield* collectCleanupStep({
-                expectedSkillNames: collected.expectedSkillNames,
-                expectedSubagentNames: collected.expectedSubagentNames,
-                expectedMcpServerNames: collected.expectedMcpServerNames,
-                expectedHookNames: collected.expectedHookNames,
-                adapter: conversion,
-              });
+        const cleanupStep: Option.Option<SyncPlanStep> = !collected.cleanupSafe
+          ? Option.none()
+          : yield* collectCleanupStep({
+              ...(subjects === undefined ? {} : { subjects }),
+              expectedSkillNames: collected.expectedSkillNames,
+              expectedSubagentNames: collected.expectedSubagentNames,
+              expectedMcpServerNames: collected.expectedMcpServerNames,
+              expectedHookNames: collected.expectedHookNames,
+              adapter: conversion,
+            });
         const instructionStep: Option.Option<SyncPlanStep> = selectionTouches(selection, "rule")
           ? yield* collectInstructionStep({
               projectionFacts: ruleProjectionFacts,
               adapter: conversion,
             })
           : Option.none();
-        return { collected, knowledgeStep, hooksStep, cleanupStep, instructionStep };
+        const retirementStep = !collected.cleanupSafe
+          ? Option.none<SyncPlanStep>()
+          : yield* collectUnreachableRetirement(
+              conversion,
+              subjects === undefined ? undefined : { resultingGraph: graph, subjects },
+            ).pipe(
+              Effect.catch((failure) =>
+                Effect.succeed(
+                  Option.some({
+                    readiness: "error" as const,
+                    key: "maintenance:retirement",
+                    label: "Retire unreachable acquired state",
+                    errorMessage: conversion.toStepFailure(failure).detail,
+                  }),
+                ),
+              ),
+            );
+        return {
+          collected,
+          knowledgeStep,
+          hooksStep,
+          cleanupStep,
+          instructionStep,
+          retirementStep,
+        };
       }),
     );
 
-    const { collected, knowledgeStep, hooksStep, cleanupStep, instructionStep } = preflight;
+    const { collected, knowledgeStep, hooksStep, cleanupStep, instructionStep, retirementStep } =
+      preflight;
     const materializeSteps: ReadonlyArray<SyncPlanStep> = collected.steps;
     const stepCount =
       materializeSteps.length +
       Option.toArray(knowledgeStep).length +
       Option.toArray(hooksStep).length +
       Option.toArray(cleanupStep).length +
-      Option.toArray(instructionStep).length;
+      Option.toArray(instructionStep).length +
+      Option.toArray(retirementStep).length;
     const lockfileNeedsRecovery = (yield* ws.getLockfileState()) !== "ok";
     if (stepCount === 0 && !lockfileNeedsRecovery) {
       return {
@@ -284,21 +344,23 @@ export const prepareSyncWorkspace = (
       };
     }
 
-    return {
-      _tag: "SyncWorkspace",
-      plan: makeSyncPlan({
-        materializeSteps,
-        knowledgeStep,
-        hooksStep,
-        cleanupStep,
-        instructionStep,
-        releaseAge: collected.releaseAge,
-        serialMaterialization: collected.serialMaterialization,
-        name: planName,
-        description: planDescription,
-      }),
-      upToDateMessage,
-    };
+    const plan = yield* makeSyncPlan({
+      graph: yield* ws.getDesiredStateGraph(),
+      scope: ws.scope,
+      adapter: conversion,
+      materializeSteps,
+      knowledgeStep,
+      hooksStep,
+      cleanupStep,
+      instructionStep,
+      ...(Option.isSome(retirementStep) ? { retirementStep: retirementStep.value } : {}),
+      releaseAge: collected.releaseAge,
+      serialMaterialization: collected.serialMaterialization,
+      name: planName,
+      description: planDescription,
+    });
+    const execution = yield* prepareExecutionCandidate(plan);
+    return { _tag: "SyncWorkspace", plan, execution, upToDateMessage };
   });
 
 /**
@@ -313,11 +375,7 @@ export const previewOrApplySyncWorkspace = (
   OperationResolution<void>,
   SyncWorkspaceExecutionFailure,
   SyncWorkspaceRequirements
-> =>
-  Effect.gen(function* () {
-    const prepared = yield* prepareExecutionCandidate(candidate.plan);
-    return yield* resolveExecutionCandidate(prepared, execution);
-  });
+> => resolveExecutionCandidate(candidate.execution, execution);
 
 /** The workspace-reconciliation use case. */
 export const SyncWorkspace = {

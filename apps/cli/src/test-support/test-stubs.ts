@@ -67,6 +67,10 @@ export const NO_MATERIALIZATION_FACTS = {
 } as const;
 
 export const managerLifecycleStubs = {
+  acquireCanonical: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
+  materializeRetained: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
+  acceptedResolution: () => Effect.succeed(Option.none()),
+  withdrawnResolutionKeys: () => Effect.succeed([]),
   materializeDeactivate: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   aggregateProjectionObservation: Effect.succeed(NO_MATERIALIZATION_OBSERVATION),
 };

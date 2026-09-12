@@ -1,3 +1,4 @@
+import { buildReconciliationClosure } from "@agentxm/workspace-reconciliation";
 /**
  * Unpacking a Pack: promoting its members to direct declarations.
  *
@@ -24,11 +25,11 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
+import { PackManager } from "@agentxm/extension-materialization";
 import {
-  PackManager,
   buildUninstallOperation,
   type UninstallRetentionPolicy,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace-reconciliation";
 import {
   operationPresentation,
   prepareExecutionCandidate,
@@ -50,7 +51,7 @@ import {
 import { ExtensionLifecycleFailed } from "../errors.js";
 import { lifecycleStepFailure } from "../step-failure.js";
 import type { InstallStepRequirements } from "../install/vocabulary.js";
-import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "./graph-transition.js";
+import { validatePackGraphPostcondition } from "./graph-transition.js";
 
 // -----------------------------------------------------------------------------
 // Request and candidate
@@ -299,7 +300,8 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
     { path: packDisplayPath(path, ws, packNode), change: "removed" },
   ];
 
-  const graphStep = yield* buildAtomicPackGraphStep({
+  const graphStep = yield* buildReconciliationClosure({
+    toStepFailure: lifecycleStepFailure,
     label: packNode.identity,
     message: `Unpacked ${packNode.identity} into ${promotions.length} direct declaration${
       promotions.length === 1 ? "" : "s"

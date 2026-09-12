@@ -49,7 +49,8 @@ the ordinary canonical content and projections of its members.
 
 Pack disablement is therefore not uninstall. It preserves the Pack as managed
 state and removes only the dependency contribution associated with that Pack
-while it is disabled.
+while it is disabled. Exclusive acquired members become unreachable and are
+retired; remaining direct or enabled-Pack routes preserve their members.
 
 ## Ownership and coexistence
 

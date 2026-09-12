@@ -14,7 +14,7 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
-import { installMcpServer } from "@agentxm/extension-materialization";
+import { installMcpServer } from "@agentxm/workspace-reconciliation";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
   type ConfigurableAgentId,
@@ -440,8 +440,7 @@ export const planMcpServerInstall: (
                 localName: intent.localName,
                 nonInteractive: intent.nonInteractive,
                 force: intent.force,
-                versionRange: intent.versionRange,
-                skipSettings: Option.none(),
+                declaration: { name: intent.localName, versionRange: intent.versionRange },
                 env: Option.some(intent.env ?? {}),
               },
             }).pipe(Effect.mapError(lifecycleStepFailure)),

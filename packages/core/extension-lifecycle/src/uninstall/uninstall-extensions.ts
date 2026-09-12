@@ -12,6 +12,14 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import {
+  proposeDesiredState,
+  prepareUninstallArtifact,
+  collectCleanupStep,
+  buildReconciliationClosure,
+  type SyncPolicyFailure,
+} from "@agentxm/workspace-reconciliation";
+import { lifecycleStepFailure } from "../step-failure.js";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
@@ -25,7 +33,7 @@ import {
   type PlanExecution,
 } from "@agentxm/workspace-operations";
 
-import type { ExtensionLifecycleFailed } from "../errors.js";
+import { ExtensionLifecycleFailed } from "../errors.js";
 import { parseHookUninstallRequest, planHookUninstall } from "../hooks/uninstall/plan.js";
 import {
   parseKnowledgeUninstallRequest,
@@ -182,13 +190,119 @@ export const prepareUninstallExtensions: (
       ),
   });
   const planned = yield* planForType(resolved.type, resolved.selector);
+  const proposal = yield* proposeDesiredState(
+    planned.names.map((name) => ({ kind: "remove", type: resolved.type, name })),
+  ).pipe(
+    Effect.mapError(
+      (cause) =>
+        new ExtensionLifecycleFailed({
+          category: "conflict",
+          detail: "Cannot derive desired state after uninstall",
+          cause,
+        }),
+    ),
+  );
   // The plan's own name stands whichever spelling produced it: the removal a
   // person asked for is type-specific, and the plan name is what they read.
   // Only the presented subject varies — the root form routes across every
   // type, so it presents the default subject rather than the one this
   // request happened to settle on.
+  const leafType = resolved.type === "pack" ? undefined : resolved.type;
+  const artifacts =
+    leafType === undefined
+      ? []
+      : yield* Effect.forEach(planned.names, (name) =>
+          prepareUninstallArtifact({ type: leafType, name }, proposal),
+        ).pipe(
+          Effect.mapError(
+            (cause) =>
+              new ExtensionLifecycleFailed({
+                category: "conflict",
+                detail: "Cannot establish uninstall effects",
+                cause,
+              }),
+          ),
+        );
+  const artifactByName = new Map(
+    planned.names.flatMap((name, index) =>
+      artifacts[index] === undefined ? [] : [[name, artifacts[index]] as const],
+    ),
+  );
+  const cleanupAdapter = {
+    toStepFailure: (cause: SyncPolicyFailure) =>
+      lifecycleStepFailure(
+        new ExtensionLifecycleFailed({
+          category: "conflict",
+          detail: "detail" in cause ? cause.detail : cause._tag,
+          cause,
+        }),
+      ),
+  };
+  const activeNames = (type: InstallableExtensionType) =>
+    new Set(
+      proposal.after.nodes
+        .filter((node) => node.type === type && node.enabled)
+        .map((node) => node.name),
+    );
+  const jobs = yield* Effect.forEach(planned.plan.jobs, (job) =>
+    Effect.gen(function* () {
+      const steps = yield* Effect.forEach(job.steps, (step) =>
+        Effect.gen(function* () {
+          const artifact = artifactByName.get(step.label ?? "");
+          if (
+            artifact === undefined ||
+            step.readiness === "error" ||
+            leafType === undefined ||
+            ((artifact.targets?.length ?? 0) === 0 && (artifact.references?.length ?? 0) === 0)
+          )
+            return step;
+          const cleanup = yield* collectCleanupStep({
+            expectedSkillNames: activeNames("skill"),
+            expectedSubagentNames: activeNames("subagent"),
+            expectedMcpServerNames: activeNames("mcp-server"),
+            expectedHookNames: activeNames("hook"),
+            subjects: [{ type: leafType, name: step.label }],
+            adapter: cleanupAdapter,
+          }).pipe(
+            Effect.mapError(
+              (cause) =>
+                new ExtensionLifecycleFailed({
+                  category: "conflict",
+                  detail: "Cannot establish owned uninstall outputs",
+                  cause,
+                }),
+            ),
+          );
+          const removal = {
+            ...step,
+            artifact,
+            run: step.run.pipe(
+              Effect.map((result) =>
+                result.result === "success" ? { ...result, artifact } : result,
+              ),
+            ),
+          };
+          if (Option.isNone(cleanup)) return removal;
+          return yield* buildReconciliationClosure({
+            label: step.label,
+            message: `Uninstalled ${step.label}`,
+            artifact,
+            children: [
+              { step: cleanup.value, coverage: "ineligible" },
+              { step: removal, coverage: "eligible" },
+            ],
+            toStepFailure: (failure) =>
+              failure._tag === "StepFailure" ? failure : cleanupAdapter.toStepFailure(failure),
+            validate: Effect.void,
+          });
+        }),
+      );
+      return { ...job, steps };
+    }),
+  );
   const plan = {
     ...planned.plan,
+    jobs,
     presentation: operationPresentation(
       { imperative: "uninstall", past: "Uninstalled", gerund: "Uninstalling" },
       Option.getOrUndefined(request.type),
@@ -198,7 +312,16 @@ export const prepareUninstallExtensions: (
   // candidate carries the configured-agent operation the resolution projects
   // before the removal and verifies after it.
   const configuredAgentOperations: ReadonlyArray<ConfiguredAgentOperation> = planned.names.map(
-    (name) => ({ extensionType: resolved.type, name, plannedState: "absent" }),
+    (name) => {
+      const retained = proposal.after.nodes.find(
+        (node) => node.type === resolved.type && node.name === name,
+      );
+      return {
+        extensionType: resolved.type,
+        name,
+        plannedState: retained === undefined ? "absent" : retained.enabled ? "enabled" : "disabled",
+      };
+    },
   );
   const execution = yield* prepareExecutionCandidate(plan, { configuredAgentOperations });
   return {

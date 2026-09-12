@@ -1,3 +1,5 @@
+import { lifecycleStepFailure } from "../step-failure.js";
+import { buildReconciliationClosure } from "@agentxm/workspace-reconciliation";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -20,7 +22,7 @@ import { ExtensionLifecycleFailed } from "../errors.js";
 import { installRefused, type InstallStepRequirements } from "../install/vocabulary.js";
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
 import { makeWorkspaceUpdatePlan } from "../update/configured.js";
-import { buildAtomicPackGraphStep } from "./graph-transition.js";
+import {} from "./graph-transition.js";
 
 /**
  * Register a target with the enclosing transition before writing it, the way
@@ -95,7 +97,8 @@ describe("atomic pack graph transition", () => {
               ),
             }),
           );
-          const graphStep = yield* buildAtomicPackGraphStep({
+          const graphStep = yield* buildReconciliationClosure({
+            toStepFailure: lifecycleStepFailure,
             label: "@test/packs/atomic",
             message: "updated atomic pack graph",
             artifact: {
@@ -143,7 +146,8 @@ describe("atomic pack graph transition", () => {
           target: string,
           validate: Effect.Effect<void, ExtensionLifecycleFailed>,
         ) =>
-          buildAtomicPackGraphStep({
+          buildReconciliationClosure({
+            toStepFailure: lifecycleStepFailure,
             label,
             message: `Updated ${label}`,
             artifact: { path: target, scope: "project", change: "updated" },
@@ -220,7 +224,8 @@ describe("atomic pack graph transition", () => {
     provide(
       Effect.gen(function* () {
         let childRan = false;
-        const graphStep = yield* buildAtomicPackGraphStep({
+        const graphStep = yield* buildReconciliationClosure({
+          toStepFailure: lifecycleStepFailure,
           label: "@test/packs/preconditioned",
           message: "updated preconditioned pack graph",
           artifact: {
@@ -269,7 +274,8 @@ describe("atomic pack graph transition", () => {
   it.effect("publishes the deterministic union from successful eligible install leaves", () =>
     provide(
       Effect.gen(function* () {
-        const graphStep = yield* buildAtomicPackGraphStep({
+        const graphStep = yield* buildReconciliationClosure({
+          toStepFailure: lifecycleStepFailure,
           label: "@test/packs/covered",
           message: "installed covered pack",
           artifact: {
@@ -356,7 +362,8 @@ describe("atomic pack graph transition", () => {
   it.effect("publishes applicable empty coverage only for eligible applicable leaves", () =>
     provide(
       Effect.gen(function* () {
-        const graphStep = yield* buildAtomicPackGraphStep({
+        const graphStep = yield* buildReconciliationClosure({
+          toStepFailure: lifecycleStepFailure,
           label: "@test/packs/empty",
           message: "installed empty pack",
           artifact: { path: "pack graph", scope: "project", change: "updated" },
@@ -398,7 +405,8 @@ describe("atomic pack graph transition", () => {
       Effect.gen(function* () {
         const target = path.join(workspace.root, "coverage-scope.txt");
         fs.writeFileSync(target, "before\n");
-        const graphStep = yield* buildAtomicPackGraphStep({
+        const graphStep = yield* buildReconciliationClosure({
+          toStepFailure: lifecycleStepFailure,
           label: "@test/packs/mixed-scope",
           message: "installed mixed-scope pack",
           artifact: { path: "pack graph", scope: "project", change: "updated" },
@@ -433,7 +441,7 @@ describe("atomic pack graph transition", () => {
         }
 
         const error = yield* Effect.flip(graphStep.run);
-        expect(error.detail).toBe("Pack coverage spans project and user scopes");
+        expect(error.detail).toBe("Closure coverage spans project and user scopes");
         expect(fs.readFileSync(target, "utf8")).toBe("before\n");
       }),
     ),

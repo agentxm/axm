@@ -25,11 +25,17 @@ import type { SourceResolutionFailure } from "@agentxm/extension-sources";
 import type { AcceptedCanonicalRefError } from "@agentxm/workspace-state";
 import type { InstructionMaintenanceFailure } from "@agentxm/workspace-projection";
 import type { McpConfigSyncFailure } from "@agentxm/agent-integration";
+import type {
+  WorkspaceTransactionFailure,
+  WorkspaceRestorationIncomplete,
+} from "@agentxm/workspace-transactions";
 import type { StepFailure } from "@agentxm/workspace-operations";
 import type { WorkspaceSyncCleanupFailure } from "./errors.js";
 
 /** Every typed failure the sync policy hands to the application's converter. */
 export type SyncPolicyFailure =
+  | WorkspaceTransactionFailure
+  | WorkspaceRestorationIncomplete
   | AcceptedCanonicalRefError
   | ExtensionManagerFailure
   | ExtensionResolutionFailed
@@ -48,4 +54,4 @@ export interface SyncFailureAdapter {
 export class SyncStepFailureConversion extends ServiceMap.Service<
   SyncStepFailureConversion,
   SyncFailureAdapter
->()("@agentxm/workspace-sync/SyncStepFailureConversion") {}
+>()("@agentxm/workspace-reconciliation/SyncStepFailureConversion") {}

@@ -65,6 +65,7 @@
     "@typescript/native": "catalog:",
     "fflate": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "@agentxm/workspace-reconciliation": "workspace:^"
   }
 }

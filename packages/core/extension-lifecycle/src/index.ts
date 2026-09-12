@@ -115,11 +115,7 @@ export {
 } from "./skills/install/bundled.js";
 
 // Pack graph transitions: the atomic step and its desired-state predicate.
-export {
-  buildAtomicPackGraphStep,
-  validatePackGraphPostcondition,
-  type AtomicPackGraphChild,
-} from "./packs/graph-transition.js";
+export { validatePackGraphPostcondition } from "./packs/graph-transition.js";
 export { buildPackMemberInstallStep, type PackMemberRef } from "./packs/member-install-step.js";
 export {
   configuredPackConstraintBlockPlan,
@@ -143,10 +139,7 @@ export {
   type RootUninstallIntent,
   type RootUninstallableType,
 } from "./uninstall/root-intent.js";
-export {
-  exclusiveMemberRetentionPolicy,
-  makeWorkspaceRetentionPolicy,
-} from "./uninstall/retention-policy.js";
+
 export {
   PACK_UNINSTALL_GRAPH_BLOCKER_ID,
   packUninstallRecoveryIdentifiers,

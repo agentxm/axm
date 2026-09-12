@@ -1,3 +1,4 @@
+import type { DesiredStateGraph } from "@agentxm/workspace-state";
 /**
  * Per-extension-type manager service tags and the materialization facts each
  * manager reports.
@@ -176,11 +177,24 @@ export class RuleManager extends ServiceMap.Service<RuleManager, RuleManagerServ
   "@agentxm/extension-materialization/managers/RuleManager",
 ) {}
 
+/** Hook contributors verified during preparation, before they enter the lockfile. */
+export interface PreparedHookProjection {
+  readonly plans: ReadonlyArray<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>>;
+  readonly agentOutcomes: ReadonlyArray<ConfiguredAgentOutcome>;
+  readonly acquisitions: ReadonlyArray<{
+    readonly name: string;
+    readonly treeIntegrity: TreeIntegrity;
+  }>;
+}
+
 export interface HookManagerService extends ExtensionManager<
   HookExtensionRef,
   HookMaterializationFacts,
   ManagerRequirements
 > {
+  readonly prepareProjection: (
+    refs: ReadonlyArray<HookExtensionRef>,
+  ) => Effect.Effect<PreparedHookProjection, ExtensionManagerFailure, ManagerRequirements>;
   readonly aggregateProjectionObservation: Effect.Effect<
     MaterializationObservation,
     ExtensionManagerFailure,
@@ -193,6 +207,7 @@ export interface HookManagerService extends ExtensionManager<
   >;
   readonly configuredAgentOutcomes?: (
     state: "projected" | "current",
+    proposedGraph?: DesiredStateGraph,
   ) => Effect.Effect<
     ReadonlyArray<ConfiguredAgentOutcome>,
     ExtensionManagerFailure,

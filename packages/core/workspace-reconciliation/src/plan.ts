@@ -18,10 +18,16 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import type * as ServiceMap from "effect/Context";
-import { HookManager, KnowledgeManager, RuleManager } from "@agentxm/extension-materialization";
+import {
+  HookManager,
+  KnowledgeManager,
+  RuleManager,
+  type PreparedHookProjection,
+} from "@agentxm/extension-materialization";
 import {
   CodingAgentRepository,
   applyPlannedProjections,
+  applyProjectionPlans,
   inspectMcpServerAcrossAgents,
   observeInstructionProjection,
   projectionFactRequiresReconciliation,
@@ -38,7 +44,8 @@ import {
   syncInlineMcpServerToAgents,
   type NativeWriteAuthority,
 } from "@agentxm/agent-integration";
-import type { ManagerRequirements, RecipeRequirements } from "@agentxm/extension-materialization";
+import type { ManagerRequirements } from "@agentxm/extension-materialization";
+import type { RecipeRequirements } from "./extensions/operations.js";
 import {
   StepFailure,
   type Job,
@@ -52,9 +59,11 @@ import type { ReleaseAgeOperationEvidence } from "@agentxm/extension-resolution"
 import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 import {
   WorkspaceMutations,
+  type DesiredStateGraph,
   type McpServerEntry,
   type WorkspaceSettingsReadFailure,
 } from "@agentxm/workspace-state";
+import { buildReconciliationClosure } from "./closure.js";
 import { reconcileAgentOutputs } from "./rendered-file-cleanup.js";
 import type { WorkspaceSyncCleanupFailure } from "./errors.js";
 import type { SyncFailureAdapter } from "./failure-adapter.js";
@@ -374,6 +383,7 @@ export const collectCleanupStep: (args: {
   readonly expectedMcpServerNames: ReadonlySet<string>;
   readonly expectedHookNames: ReadonlySet<string>;
   readonly adapter: SyncFailureAdapter;
+  readonly subjects?: ReadonlyArray<{ readonly type: string; readonly name: string }>;
 }) => Effect.Effect<
   Option.Option<PlannedJobStep<SyncStepRequirements>>,
   WorkspaceSyncCleanupFailure,
@@ -398,6 +408,7 @@ export const collectCleanupStep: (args: {
     desiredAgentIds,
     expectedNames,
     dryRun: true,
+    ...(args.subjects === undefined ? {} : { subjects: args.subjects }),
   });
   const previewPaths = preview.removedPaths;
   if (previewPaths.length === 0) return Option.none<PlannedJobStep<SyncStepRequirements>>();
@@ -412,7 +423,11 @@ export const collectCleanupStep: (args: {
       fileCount: previewPaths.length,
       targets: previewPaths.map((filePath) => ({ path: filePath, change: "removed" })),
     },
-    run: reconcileAgentOutputs({ desiredAgentIds, expectedNames }).pipe(
+    run: reconcileAgentOutputs({
+      desiredAgentIds,
+      expectedNames,
+      ...(args.subjects === undefined ? {} : { subjects: args.subjects }),
+    }).pipe(
       Effect.mapError(args.adapter.toStepFailure),
       Effect.map((result): JobStepResult => {
         const removedPaths = result.removedPaths;
@@ -435,11 +450,12 @@ export const collectCleanupStep: (args: {
 export const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (args: {
   readonly facts: ReadonlyArray<ProjectionInvariantFact>;
   readonly adapter: SyncFailureAdapter;
+  readonly prepared?: PreparedHookProjection;
 }) {
   const facts = args.facts;
   const manager = yield* HookManager;
   const ws = yield* WorkspaceMutations;
-  if (!projectionFactsNeedReconciliation(facts))
+  if (args.prepared === undefined && !projectionFactsNeedReconciliation(facts))
     return Option.none<PlannedJobStep<SyncStepRequirements>>();
   const unsupported = facts.find(
     ({ observation }) => observation.reasonCode === "unsupported-version",
@@ -461,9 +477,10 @@ export const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (ar
     });
   }
   const agentOutcomes =
-    manager.configuredAgentOutcomes === undefined
+    args.prepared?.agentOutcomes ??
+    (manager.configuredAgentOutcomes === undefined
       ? []
-      : yield* manager.configuredAgentOutcomes("projected");
+      : yield* manager.configuredAgentOutcomes("projected"));
   const artifact = {
     path: "managed hook projections",
     scope: ws.scope,
@@ -489,7 +506,8 @@ export const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (ar
     readiness: "ready",
     artifact,
     run: Effect.gen(function* () {
-      yield* applyPlannedProjections(manager);
+      if (args.prepared === undefined) yield* applyPlannedProjections(manager);
+      else yield* applyProjectionPlans(args.prepared.plans);
       const currentOutcomes =
         manager.configuredAgentOutcomes === undefined
           ? []
@@ -622,54 +640,145 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
 // the plan so aliases are updated only after canonical content is current.
 
 export const makeSyncPlan = <R>({
+  graph,
+  scope,
+  adapter,
   materializeSteps,
   knowledgeStep,
   hooksStep,
   cleanupStep,
   instructionStep,
+  retirementStep,
   releaseAge,
   serialMaterialization = false,
   name = SYNC_PLAN_NAME,
   description = SYNC_PLAN_DESCRIPTION,
 }: {
+  readonly graph: DesiredStateGraph;
+  readonly scope: JobStepArtifact["scope"];
+  readonly adapter: SyncFailureAdapter;
   readonly materializeSteps: ReadonlyArray<PlannedJobStep<R>>;
   readonly knowledgeStep: Option.Option<PlannedJobStep<R>>;
   readonly hooksStep: Option.Option<PlannedJobStep<R>>;
   readonly cleanupStep: Option.Option<PlannedJobStep<R>>;
   readonly instructionStep: Option.Option<PlannedJobStep<R>>;
+  readonly retirementStep?: PlannedJobStep<R>;
   readonly releaseAge: ReleaseAgeOperationEvidence;
   readonly serialMaterialization?: boolean;
   readonly name?: string;
   readonly description?: string;
-}): Plan<R> => {
-  const ruleSteps = materializeSteps.filter((step) => step.key?.startsWith("rule:") === true);
-  const nonRuleSteps = materializeSteps.filter((step) => step.key?.startsWith("rule:") !== true);
-  const jobs: Array<Job<R>> = [];
-  if (nonRuleSteps.length > 0) {
-    jobs.push({ concurrency: serialMaterialization ? 1 : "unbounded", steps: nonRuleSteps });
-  }
-  if (Option.isSome(knowledgeStep)) {
-    jobs.push({ concurrency: 1, steps: [knowledgeStep.value] });
-  }
-  if (ruleSteps.length > 0) {
-    jobs.push({ concurrency: "unbounded", steps: ruleSteps });
-  }
-  // Aggregate hook units render after canonical hook materialization.
-  if (Option.isSome(hooksStep)) {
-    jobs.push({ concurrency: 1, steps: [hooksStep.value] });
-  }
-  if (Option.isSome(cleanupStep)) {
-    jobs.push({ concurrency: 1, steps: [cleanupStep.value] });
-  }
-  if (Option.isSome(instructionStep)) {
-    jobs.push({ concurrency: 1, steps: [instructionStep.value] });
-  }
-  return {
-    _tag: "Plan",
-    name,
-    description: Option.some(description),
-    jobs,
-    releaseAge,
-    presentation: SYNC_PRESENTATION,
-  };
-};
+}) =>
+  Effect.gen(function* () {
+    const ruleSteps = materializeSteps.filter((step) => step.key?.startsWith("rule:") === true);
+    const nonRuleSteps = materializeSteps.filter((step) => step.key?.startsWith("rule:") !== true);
+    const jobs: Array<Job<R>> = [];
+    if (nonRuleSteps.length > 0) {
+      jobs.push({ concurrency: serialMaterialization ? 1 : "unbounded", steps: nonRuleSteps });
+    }
+    if (Option.isSome(knowledgeStep)) {
+      jobs.push({ concurrency: 1, steps: [knowledgeStep.value] });
+    }
+    if (ruleSteps.length > 0) {
+      jobs.push({ concurrency: "unbounded", steps: ruleSteps });
+    }
+    // Aggregate hook units render after canonical hook materialization.
+    if (Option.isSome(hooksStep)) {
+      jobs.push({ concurrency: 1, steps: [hooksStep.value] });
+    }
+    if (Option.isSome(cleanupStep)) {
+      jobs.push({ concurrency: 1, steps: [cleanupStep.value] });
+    }
+    if (Option.isSome(instructionStep)) {
+      jobs.push({ concurrency: 1, steps: [instructionStep.value] });
+    }
+    if (retirementStep !== undefined) jobs.push({ concurrency: 1, steps: [retirementStep] });
+    // Storage files alone do not couple unrelated domain transitions. Dependency
+    // routes and shared native units do: failure in either restores the component.
+    const ordered = jobs.flatMap((job) => job.steps);
+    const components: Array<{ keys: Set<string>; steps: Array<PlannedJobStep<R>> }> = [];
+    const nativePath = (value: string) => value.split("#", 1)[0] ?? value;
+    const aggregateKeys = (step: PlannedJobStep<R>): ReadonlyArray<string> => {
+      const key = step.key ?? "";
+      if (
+        key.startsWith("knowledge:") ||
+        key.startsWith("rule:") ||
+        key.startsWith("hook:") ||
+        key === "instruction:reconcile"
+      )
+        return ["native:instruction-contributors"];
+      return [];
+    };
+    for (const step of ordered) {
+      const keys = new Set(aggregateKeys(step));
+      const key = step.key ?? "";
+      for (const node of graph.nodes) {
+        if (
+          key !== `${node.type}:${node.name}` &&
+          !(
+            node.type === "pack" &&
+            key === `${SYNC_RECOVERY_IDS.packManifestDivergence}:${node.name}`
+          )
+        )
+          continue;
+        keys.add(`subject:${node.type}:${node.name}`);
+        if (node.type === "pack") keys.add(`pack:${node.identity.replace(/^workspace:/, "")}`);
+        for (const origin of node.origins)
+          if (origin.type === "pack") keys.add(`pack:${origin.pack.replace(/^workspace:/, "")}`);
+      }
+      for (const target of [
+        ...(step.artifact?.targets ?? []),
+        ...(step.artifact?.managedRegions ?? []),
+      ]) {
+        const file = nativePath(target.path);
+        if (!file.endsWith("axm.json") && !file.endsWith("axm-lock.yaml")) keys.add(`path:${file}`);
+      }
+      const touching = components.filter((component) =>
+        [...keys].some((key) => component.keys.has(key)),
+      );
+      const component = {
+        keys: new Set([...keys, ...touching.flatMap((item) => [...item.keys])]),
+        steps: [...touching.flatMap((item) => item.steps), step],
+      };
+      for (const item of touching) components.splice(components.indexOf(item), 1);
+      components.push(component);
+    }
+    const closures = yield* Effect.forEach(components, ({ steps }) => {
+      if (steps.length === 1) return Effect.succeed(steps[0]);
+      // Preserve the topological order even when this step joins earlier components.
+      steps.sort((left, right) => ordered.indexOf(left) - ordered.indexOf(right));
+      const artifacts = steps.flatMap((step) =>
+        step.artifact === undefined ? [] : [step.artifact],
+      );
+      return buildReconciliationClosure({
+        toStepFailure: (failure) =>
+          failure._tag === "StepFailure" ? failure : adapter.toStepFailure(failure),
+        label: steps.map((step) => step.label).join("; "),
+        message: "Reconciled dependent workspace state",
+        artifact: {
+          path:
+            artifacts[0]?.path ?? (scope === "project" ? "axm.json" : ".axm/workspace/axm.json"),
+          scope,
+          change: "updated",
+          targets: artifacts.flatMap((artifact) => artifact.targets ?? []),
+          references: artifacts.flatMap((artifact) => artifact.references ?? []),
+          managedRegions: artifacts.flatMap((artifact) => artifact.managedRegions ?? []),
+        },
+        children: steps.map((step) => ({ step, coverage: "ineligible" })),
+        validate: Effect.void,
+      });
+    });
+    return {
+      _tag: "Plan",
+      name,
+      description: Option.some(description),
+      jobs: [
+        {
+          concurrency: 1,
+          executionPolicy: "best-effort",
+          steps: closures.flatMap((step) => (step === undefined ? [] : [step])),
+        },
+      ],
+      releaseAge,
+      presentation: SYNC_PRESENTATION,
+    } satisfies Plan<R | WorkspaceTransactionScope | FileSystem.FileSystem | Path.Path>;
+  });

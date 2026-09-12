@@ -22,7 +22,11 @@ import type { ExtensionManagerFailure } from "./errors.js";
 import type { NativeWriteAuthority } from "@agentxm/agent-integration";
 import type { ProjectionPlan } from "@agentxm/workspace-projection";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
-import type { ExtensionTarget, ExtensionTargetFor } from "@agentxm/workspace-state";
+import type {
+  ExtensionTarget,
+  ExtensionTargetFor,
+  LockEntryByType,
+} from "@agentxm/workspace-state";
 
 /**
  * The services every manager keeps in `R`: the platform it reads and writes
@@ -130,29 +134,28 @@ export interface ExtensionManager<
   readonly materializeUninstall: (args: {
     readonly target: ExtensionTargetFor<TRef>;
   }) => Effect.Effect<TMaterialization, ExtensionManagerFailure, R>;
+  /** Acquire canonical content without producing any native agent output. */
+  readonly acquireCanonical: ExtensionManager<TRef, TMaterialization, R>["materializeInstall"];
+  /** Restore projections from verified retained canonical content, without source resolution. */
+  readonly materializeRetained: (args: {
+    readonly target: ExtensionTargetFor<TRef>;
+  }) => Effect.Effect<TMaterialization, ExtensionManagerFailure, R>;
   /** Remove active projections while retaining canonical managed content. */
   readonly materializeDeactivate: (args: {
     readonly target: ExtensionTargetFor<TRef>;
   }) => Effect.Effect<TMaterialization, ExtensionManagerFailure, R>;
-  readonly upsertSettingsEntry: (args: {
+  /** Verified acquisition facts; recording the resolution belongs to reconciliation. */
+  readonly acceptedResolution: (args: {
     readonly ref: TRef;
-    readonly versionRange: Option.Option<string>;
-    /** What `materializeInstall` observed in this closure, when it ran. */
     readonly materialization: Option.Option<TMaterialization>;
-  }) => Effect.Effect<void, ExtensionManagerFailure, R>;
-  readonly removeSettingsEntry: (args: {
+  }) => Effect.Effect<
+    Option.Option<{ readonly key: string; readonly entry: LockEntryByType[TRef["type"]] }>,
+    ExtensionManagerFailure,
+    R
+  >;
+  /** Accepted keys associated with the withdrawal observed by this adapter. */
+  readonly withdrawnResolutionKeys: (args: {
     readonly target: ExtensionTargetFor<TRef>;
-    /** What the withdrawal in this closure observed, when one ran. */
     readonly materialization: Option.Option<TMaterialization>;
-  }) => Effect.Effect<void, ExtensionManagerFailure, R>;
-  readonly upsertLockfileEntry: (args: {
-    readonly ref: TRef;
-    /** What `materializeInstall` observed in this closure, when it ran. */
-    readonly materialization: Option.Option<TMaterialization>;
-  }) => Effect.Effect<void, ExtensionManagerFailure, R>;
-  readonly removeLockfileEntry: (args: {
-    readonly target: ExtensionTargetFor<TRef>;
-    /** What the withdrawal in this closure observed, when one ran. */
-    readonly materialization: Option.Option<TMaterialization>;
-  }) => Effect.Effect<void, ExtensionManagerFailure, R>;
+  }) => Effect.Effect<ReadonlyArray<string>, ExtensionManagerFailure, R>;
 }

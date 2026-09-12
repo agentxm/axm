@@ -24,7 +24,7 @@ export const specification = defineSpecification({
   requirement: "cli/sync/preserves-configuration-and-resolutions",
   title: "Sync never changes configuration and never advances a satisfying resolution",
   statement:
-    "Sync shall never rewrite axm.json or alter an accepted resolution that still satisfies its constraint, and shall restore realized content from the accepted resolution even when a newer version is available.",
+    "Sync shall preserve axm.json and authored manifests byte for byte, preserve satisfying accepted resolutions of still-desired extensions, and restore missing acquired content only from the accepted identity even when newer content exists; an incompatible accepted identity shall block until an explicit resolution transition is authorized, and retiring an unreachable accepted record shall not count as advancing a resolution.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -58,6 +58,54 @@ describe("Sync preserves configuration and accepted resolutions", () => {
     cleanups.push(created.cleanup);
     return created;
   };
+
+  it.effect("blocks incompatible accepted authority without advancing it", () => {
+    const published = registry();
+    published.writeSkill(SKILL, [
+      { version: "1.0.0", body: "Accepted." },
+      { version: "2.0.0", body: "New." },
+    ]);
+    const workspace = fixture({
+      agents: ["claude-code"],
+      sources: [published.source],
+      skills: { [SKILL]: `@acme/skills/${SKILL}@^1.0.0` },
+    });
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applySync();
+          workspace.writeSettings({
+            ...workspace.readSettings(),
+            skills: { [SKILL]: `@acme/skills/${SKILL}@^2.0.0` },
+          });
+          const before = workspace.snapshot();
+          const failure = yield* applySync().pipe(Effect.flip);
+          expect(failure._tag).toBe("WorkspaceSyncFailed");
+          expect(workspace.snapshot()).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect("preserves the requested Pack range during first acquisition", () => {
+    const published = registry();
+    published.writePack("toolkit", [{ version: "1.0.0", dependencies: {} }]);
+    const workspace = fixture({
+      agents: ["claude-code"],
+      sources: [published.source],
+      packs: { toolkit: "agentxm:@acme/packs/toolkit@^1.0.0" },
+    });
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          const before = workspace.readFile("axm.json");
+          expect(deriveOperationOutcome(expectResolved(yield* applySync()))).toBe("applied");
+          expect(workspace.readFile("axm.json")).toBe(before);
+          expect((yield* applySync())._tag).toBe("AlreadyReconciled");
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
 
   it.effect("preserves equivalent repository serialization and reports no work", () => {
     const workspace = fixture({

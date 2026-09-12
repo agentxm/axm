@@ -41,25 +41,6 @@ const extensionDirectory = {
   pack: "packs",
 } as const satisfies Record<ExtensionType, string>;
 
-/** Where one desired-graph node's package sits, authored or acquired. */
-export const workspaceCanonicalNodePath = (
-  path: Path.Path,
-  ws: WorkspaceMutationsService,
-  node: {
-    readonly type: ExtensionType;
-    readonly name: string;
-    readonly identity: string;
-  },
-): string => {
-  if (node.identity.startsWith("workspace:") && ws.layout.scope === "project") {
-    return path.join(path.relative(ws.baseDir, ws.layout.authoredRoot(node.type)), node.name);
-  }
-  const identity = node.identity.startsWith("workspace:")
-    ? node.identity.slice("workspace:".length)
-    : node.identity;
-  return workspaceCanonicalPath(ws.scope, identity);
-};
-
 /** Where a workspace-authored package of this type and name sits. */
 export const workspaceAuthoredPath = (
   path: Path.Path,

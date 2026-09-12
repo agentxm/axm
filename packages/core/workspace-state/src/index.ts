@@ -305,6 +305,7 @@ export { readOtherScopeState, type OtherScopeState } from "./workspace/other-sco
 export {
   DesiredStateReader,
   type DesiredStateReaderService,
+  type DesiredStateGraphInputs,
 } from "./workspace/desired-state-reader.js";
 export { WorkspaceRecords, type WorkspaceRecordsService } from "./workspace/workspace-records.js";
 export { ExtensionPaths, type ExtensionPathsService } from "./workspace/extension-paths-service.js";
@@ -318,6 +319,7 @@ export {
   type DeclareArgsByType,
   type DesiredStateWriterService,
 } from "./workspace/desired-state-writer.js";
+export { settingsEntries, lockEntries } from "./workspace/entry-accessors.js";
 export type {
   LockEntriesOf,
   LockEntryByType,
@@ -410,3 +412,5 @@ export {
   EXTENSION_CONFIGURED_AGENT_POLICY,
   type ConfiguredAgentLifecycleState,
 } from "./workspace/configured-agent-outcomes.js";
+
+export { lockEntrySemanticallyEqual } from "./workspace/accepted-resolution-writer.js";

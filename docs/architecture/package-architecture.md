@@ -62,7 +62,7 @@ capability and among the most distinctive code in the repository.
 
 ## Core packages
 
-`packages/core/` — nineteen packages, all `domain:core`, all shipped in the
+`packages/core/` — twenty packages, all `domain:core`, all shipped in the
 fixed `release:cli` cohort.
 
 ### Contracts
@@ -90,7 +90,8 @@ and the model's external dependency budget is fixed at `effect`,
 | `@agentxm/workspace-operations`      | `role:capability` | Plans, execution candidates, semantic-closure execution and settlement, operation resolutions, progress and lifecycle observation, journals, and readiness gating                                                                                                                                |
 | `@agentxm/workspace-projection`      | `role:capability` | Ownership units and their participant registry, projection planning, contributor calculation over the desired-state graph, managed-file ownership and provenance, instruction targets, and the invariant and drift facts lint and sync read                                                      |
 | `@agentxm/extension-resolution`      | `role:capability` | What a configured or requested extension resolves to and whether that resolution may be accepted: release-age policy and evidence, version selection, configured-entry and Pack dependency resolution, workspace source authority, publisher-binding trust, and official AXM skill compatibility |
-| `@agentxm/extension-materialization` | `role:capability` | The per-extension-type manager contract and its implementations, canonical package staging and swap, registry-backed acquisition, and the install, uninstall, materialize, and authored-package closure recipes                                                                                  |
+| `@agentxm/extension-materialization` | `role:capability` | Type-specific canonical acquisition, inspection, staging, replacement, removal, and projection participation; managers return facts without writing desired declarations                                                                                                                         |
+| `@agentxm/workspace-reconciliation`  | `role:capability` | Proposed desired state, shared lifecycle recipes, accepted-state realization, reachability-based retirement, native cleanup, semantic closure planning, and retained-state reporting                                                                                                             |
 | `@agentxm/cli-update`                | `role:capability` | Self-update: install-ownership detection, release-channel and exact-version resolution, the startup update check, and the verified upgrade of the installed executable                                                                                                                           |
 
 `extension-content` is a leaf. It reads the model and nothing else, which is
@@ -111,10 +112,17 @@ the mechanics for safely applying a plan, never the feature policy that decides
 which plan should exist. Every feature that changes workspace state builds its
 own plan and applies it here; no feature executes another feature's plans.
 
-`extension-materialization` sits above `workspace-operations` because its
-recipes produce plan steps. Its managers keep their platform,
-registry-transport, and native-write requirements explicit in `R`, so the
-command boundary composes them once instead of a manager capturing them.
+`workspace-reconciliation` sits above materialization, resolution, state,
+projection, and operation planning. Lifecycle, sync, and authoring invoke this
+capability as peer features. It owns the policy that joins declarations,
+accepted content, and native outputs into a coherent transition. The
+[shared reconciliation decision](decisions/shared-desired-state-reconciliation.md)
+explains why that policy has its own boundary.
+
+`extension-materialization` provides the type-specific mechanics. Its managers
+keep platform, registry transport, and native-write requirements explicit in
+`R`, so the application composes them once. Settings and accepted-resolution
+writes are coordinated above the manager boundary.
 
 `workspace-projection` owns what AXM claims in agent-facing output and what its
 observed state means: the ownership units, who may contribute to each, the
@@ -146,7 +154,11 @@ flowchart LR
   PROJECTION["workspace-projection"] --> STATE
   PROJECTION --> TRANSACTIONS
   PROJECTION --> AGENT_INTEGRATION["agent-integration"]
-  MATERIALIZATION["extension-materialization"] --> PROJECTION
+  RECONCILIATION["workspace-reconciliation"] --> MATERIALIZATION["extension-materialization"]
+  RECONCILIATION --> OPERATIONS
+  RECONCILIATION --> STATE
+  RECONCILIATION --> PROJECTION
+  MATERIALIZATION --> PROJECTION
   MATERIALIZATION --> OPERATIONS
   MATERIALIZATION --> STATE
   MATERIALIZATION --> TRANSACTIONS
@@ -169,7 +181,7 @@ their public service APIs, and never on another feature.
 
 | Package                            | Role           | Use cases it owns                                                                                                                                        |
 | ---------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@agentxm/workspace-sync`          | `role:feature` | Desired-state reconciliation planning, projection realization, and reconciliation outcomes                                                               |
+| `@agentxm/workspace-sync`          | `role:feature` | Scope selection, shared reconciliation invocation, convergence and reconciliation outcomes                                                               |
 | `@agentxm/workspace-lint`          | `role:feature` | Workspace facts, lint rules, findings, normalization, and bounded fix planning                                                                           |
 | `@agentxm/extension-lifecycle`     | `role:feature` | Install, update, uninstall, enable, disable, demote, and Pack unpacking across root and type-specific forms                                              |
 | `@agentxm/extension-authoring`     | `role:feature` | New, fork, native import, adopt identity policy, version, and authored Pack membership                                                                   |

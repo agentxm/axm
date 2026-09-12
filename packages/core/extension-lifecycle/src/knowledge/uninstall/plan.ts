@@ -14,11 +14,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import {
-  KnowledgeManager,
-  KnowledgeUnavailable,
-  buildUninstallOperation,
-} from "@agentxm/extension-materialization";
+import { KnowledgeManager, KnowledgeUnavailable } from "@agentxm/extension-materialization";
+import { buildUninstallOperation } from "@agentxm/workspace-reconciliation";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
 import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import { resolveInstructionsConfig } from "@agentxm/workspace-projection";
@@ -35,7 +32,7 @@ import {
 import { ExtensionLifecycleFailed } from "../../errors.js";
 import { lifecycleStepFailure } from "../../step-failure.js";
 import { installRefused, type InstallStepRequirements } from "../../install/vocabulary.js";
-import { makeWorkspaceRetentionPolicy } from "../../uninstall/retention-policy.js";
+import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace-reconciliation";
 import type { KnowledgeUninstallIntent } from "../../uninstall/vocabulary.js";
 
 /** A target and, when AXM may not remove it, the reason it is protected. */
@@ -189,7 +186,7 @@ export const planKnowledgeUninstall: (
 > = Effect.fn("UninstallExtensions.planKnowledge")(function* (intent: KnowledgeUninstallIntent) {
   const ws = yield* WorkspaceMutations;
   const manager = yield* KnowledgeManager;
-  const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(ws, lifecycleStepFailure);
 
   /** The accepted ownership fact, not on-disk presence, decides removability. */
   const isAcceptedTargetPresent = (target: KnowledgeExtensionTarget) =>

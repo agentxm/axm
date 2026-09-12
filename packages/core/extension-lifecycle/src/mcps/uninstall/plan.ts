@@ -17,13 +17,15 @@ import * as Path from "effect/Path";
 
 import {
   McpServerManager,
-  buildUninstallOperation,
-  collectSecretInputNames,
-  deleteMcpSecrets,
   mcpServerArtifact,
   mcpSourceTarget,
-  readMcpServerManifest,
 } from "@agentxm/extension-materialization";
+import {
+  collectSecretInputNames,
+  deleteMcpSecrets,
+  readMcpServerManifest,
+} from "@agentxm/workspace-reconciliation";
+import { buildUninstallOperation } from "@agentxm/workspace-reconciliation";
 import {
   appendWarningsToMessage,
   type JobStepResult,
@@ -39,7 +41,7 @@ import {
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { lifecycleStepFailure } from "../../step-failure.js";
 import type { InstallStepRequirements } from "../../install/vocabulary.js";
-import { makeWorkspaceRetentionPolicy } from "../../uninstall/retention-policy.js";
+import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace-reconciliation";
 import type { McpServerUninstallIntent } from "../../uninstall/vocabulary.js";
 import { workspaceLockfilePath, workspaceSettingsPath } from "../../workspace-paths.js";
 
@@ -59,7 +61,7 @@ export const planMcpServerUninstall: (
   const ws = yield* WorkspaceMutations;
   const mcpServerManager = yield* McpServerManager;
   const path = yield* Path.Path;
-  const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(ws, lifecycleStepFailure);
 
   const steps = intent.targets.map((target): PlannedJobStep<InstallStepRequirements> => {
     const step = buildUninstallOperation(mcpServerManager, retentionPolicy, {
@@ -97,8 +99,17 @@ export const planMcpServerUninstall: (
           onNone: () => new Set<string>(),
           onSome: collectSecretInputNames,
         });
+        const remaining = yield* ws
+          .getDesiredStateGraph()
+          .pipe(Effect.mapError(lifecycleStepFailure));
+        const remainsDesired = remaining.nodes.some(
+          (node) => node.type === "mcp-server" && node.name === target.name,
+        );
         const secretDeletionWarnings =
-          unchanged || desiredNode === undefined || desiredNode.authority === "inline"
+          unchanged ||
+          remainsDesired ||
+          desiredNode === undefined ||
+          desiredNode.authority === "inline"
             ? []
             : (yield* deleteMcpSecrets(
                 {

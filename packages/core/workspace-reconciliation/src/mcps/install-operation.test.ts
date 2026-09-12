@@ -1,3 +1,4 @@
+import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { execSync } from "node:child_process";
 import { NativeWriteAuthorityPermissive } from "@agentxm/agent-integration/testing";
 import * as fs from "node:fs";
@@ -28,15 +29,9 @@ import { SourceHostProviders } from "@agentxm/extension-sources";
 import type { SourceHostProvidersService } from "@agentxm/extension-sources";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
-import {
-  exactVersion,
-  expectRecord,
-  extensionName,
-  handle,
-  makeCodingAgentStub,
-} from "../test-helpers.js";
-import type { McpSecretStoreService } from "./secret-store.js";
-import { McpSecretStore, mcpSecretAccount } from "./secret-store.js";
+import { expectRecord, makeCodingAgentStub } from "./test-helpers.js";
+import type { McpSecretStoreService } from "@agentxm/extension-materialization";
+import { McpSecretStore, mcpSecretAccount } from "@agentxm/extension-materialization";
 import type { InstallMcpServerOperation } from "./install-operation.js";
 import { installMcpServer } from "./install-operation.js";
 
@@ -274,7 +269,7 @@ const makeOp = (
     ref?: McpServerExtensionRef;
     force?: boolean;
     versionRange?: Option.Option<string>;
-    skipSettings?: boolean;
+    inherited?: boolean;
     strictAgentSync?: boolean;
     env?: Readonly<Record<string, string>>;
   } = {},
@@ -284,8 +279,14 @@ const makeOp = (
     nonInteractive: true,
     ref: overrides.ref ?? makeRegistryRef(),
     force: overrides.force ?? false,
-    versionRange: overrides.versionRange ?? Option.none(),
-    skipSettings: Option.fromUndefinedOr(overrides.skipSettings),
+    ...(overrides.inherited === true
+      ? {}
+      : {
+          declaration: {
+            name: (overrides.ref ?? makeRegistryRef()).server.name,
+            versionRange: overrides.versionRange ?? Option.none(),
+          },
+        }),
     strictAgentSync: Option.fromUndefinedOr(overrides.strictAgentSync),
     env: Option.fromUndefinedOr(overrides.env),
   },
@@ -585,8 +586,8 @@ describe("installMcpServer", () => {
     );
   });
 
-  describe("skipSettings", () => {
-    it.effect("calls setMcpServerLock instead of setMcpServer when skipSettings is true", () =>
+  describe("inherited", () => {
+    it.effect("records accepted resolution without declaring a root for inherited members", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
@@ -595,7 +596,7 @@ describe("installMcpServer", () => {
         const result = yield* installMcpServer(
           makeOp({
             ref: makeRegistryRef({ integrity: "" }),
-            skipSettings: true,
+            inherited: true,
           }),
         ).pipe(Effect.provide(withServices(axmDir, { setMcpServerFn })));
 

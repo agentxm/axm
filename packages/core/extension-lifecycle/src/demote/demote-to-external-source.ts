@@ -22,7 +22,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import { ExtensionManagers, buildInstallOperation } from "@agentxm/extension-materialization";
+import { ExtensionManagers } from "@agentxm/extension-materialization";
+import { buildInstallOperation } from "@agentxm/workspace-reconciliation";
 import {
   formatFqn,
   parseFqn,
@@ -181,7 +182,7 @@ const restoreDisabledState = (
 
 /**
  * Resolve the replacement package from its new source and compose the install
- * that replaces the authored content. `allowWorkspaceReplacement` is the one
+ * that replaces the authored content. `sourceReplacements` is the one
  * place source authority is deliberately overridden, and it is named here so
  * no other route can reach it by accident.
  */
@@ -195,44 +196,72 @@ const replacementStep = Effect.fn("Demote.replacementStep")(function* (
   // The one place source authority is deliberately overridden.
   const common = {
     toStepFailure: lifecycleStepFailure,
-    allowWorkspaceReplacement: true,
+    sourceReplacements: [{ type, name }],
   } as const;
 
   switch (type) {
     case "skill":
-      return buildInstallOperation(managers.skill, {
-        ...common,
-        ...(yield* resolveConfiguredSkill(name, source, evaluation)),
+      return yield* Effect.gen(function* () {
+        const resolved = yield* resolveConfiguredSkill(name, source, evaluation);
+        return buildInstallOperation(managers.skill, {
+          ...common,
+          ...resolved,
+          declaration: { name, versionRange: resolved.versionRange },
+        });
       });
     case "mcp-server":
-      return buildInstallOperation(managers["mcp-server"], {
-        ...common,
-        ...(yield* resolveConfiguredMcpServer(name, source, evaluation)),
+      return yield* Effect.gen(function* () {
+        const resolved = yield* resolveConfiguredMcpServer(name, source, evaluation);
+        return buildInstallOperation(managers["mcp-server"], {
+          ...common,
+          ...resolved,
+          declaration: { name, versionRange: resolved.versionRange },
+        });
       });
     case "subagent":
-      return buildInstallOperation(managers.subagent, {
-        ...common,
-        ...(yield* resolveConfiguredSubagent(name, source, evaluation)),
+      return yield* Effect.gen(function* () {
+        const resolved = yield* resolveConfiguredSubagent(name, source, evaluation);
+        return buildInstallOperation(managers.subagent, {
+          ...common,
+          ...resolved,
+          declaration: { name, versionRange: resolved.versionRange },
+        });
       });
     case "rule":
-      return buildInstallOperation(managers.rule, {
-        ...common,
-        ...(yield* resolveConfiguredRule(name, source, evaluation)),
+      return yield* Effect.gen(function* () {
+        const resolved = yield* resolveConfiguredRule(name, source, evaluation);
+        return buildInstallOperation(managers.rule, {
+          ...common,
+          ...resolved,
+          declaration: { name, versionRange: resolved.versionRange },
+        });
       });
     case "hook":
-      return buildInstallOperation(managers.hook, {
-        ...common,
-        ...(yield* resolveConfiguredHook(name, source, evaluation)),
+      return yield* Effect.gen(function* () {
+        const resolved = yield* resolveConfiguredHook(name, source, evaluation);
+        return buildInstallOperation(managers.hook, {
+          ...common,
+          ...resolved,
+          declaration: { name, versionRange: resolved.versionRange },
+        });
       });
     case "knowledge":
-      return buildInstallOperation(managers.knowledge, {
-        ...common,
-        ...(yield* resolveConfiguredKnowledge(name, source, evaluation)),
+      return yield* Effect.gen(function* () {
+        const resolved = yield* resolveConfiguredKnowledge(name, source, evaluation);
+        return buildInstallOperation(managers.knowledge, {
+          ...common,
+          ...resolved,
+          declaration: { name, versionRange: resolved.versionRange },
+        });
       });
     case "pack":
-      return buildInstallOperation(managers.pack, {
-        ...common,
-        ...(yield* resolveConfiguredPack(name, source, evaluation)),
+      return yield* Effect.gen(function* () {
+        const resolved = yield* resolveConfiguredPack(name, source, evaluation);
+        return buildInstallOperation(managers.pack, {
+          ...common,
+          ...resolved,
+          declaration: { name, versionRange: resolved.versionRange },
+        });
       });
   }
 });

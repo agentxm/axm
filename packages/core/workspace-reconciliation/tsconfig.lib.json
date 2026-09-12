@@ -1,0 +1,54 @@
+{
+  "extends": "../../../tsconfig.lib-base.json",
+  "compilerOptions": {
+    "incremental": true,
+    "composite": true,
+    "outDir": "dist",
+    "rootDir": ".",
+    "ignoreDeprecations": "6.0"
+  },
+  "include": ["src/**/*"],
+  "exclude": [
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts",
+    "src/**/*.type-test.ts",
+    "src/**/test-helpers.ts",
+    "src/**/__tests__/**",
+    "src/**/__fixtures__/**/*.md"
+  ],
+  "references": [
+    {
+      "path": "../workspace-transactions/tsconfig.lib.json"
+    },
+    {
+      "path": "../workspace-state/tsconfig.lib.json"
+    },
+    {
+      "path": "../workspace-projection/tsconfig.lib.json"
+    },
+    {
+      "path": "../workspace-operations/tsconfig.lib.json"
+    },
+    {
+      "path": "../../supporting/extension-sources/tsconfig.lib.json"
+    },
+    {
+      "path": "../extension-resolution/tsconfig.lib.json"
+    },
+    {
+      "path": "../extension-model/tsconfig.lib.json"
+    },
+    {
+      "path": "../extension-materialization/tsconfig.lib.json"
+    },
+    {
+      "path": "../../supporting/agent-integration/tsconfig.lib.json"
+    },
+    {
+      "path": "../../../tools/specification-metadata/tsconfig.lib.json"
+    },
+    {
+      "path": "../../supporting/registry-client/tsconfig.lib.json"
+    }
+  ]
+}

@@ -1,3 +1,5 @@
+import { usableAcceptedCanonical } from "@agentxm/workspace-state";
+import { LifecyclePostconditionViolated } from "../extensions/errors.js";
 /**
  * Skill extension manager service.
  *
@@ -22,7 +24,7 @@ import { enabledConfiguredEntries } from "@agentxm/workspace-state";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { ExtensionManager, ManagerRequirements } from "../manager-contract.js";
 import type { SkillMaterializationFacts } from "../managers.js";
-import type { ExtensionTarget, SkillExtensionTarget } from "@agentxm/workspace-state";
+import type { ExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { sanitizeName } from "@agentxm/workspace-state";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
@@ -312,6 +314,49 @@ export const SkillManagerLive = Layer.effect(
       }),
 
       materializeInstall,
+      acquireCanonical: ({ ref, force }) =>
+        Effect.gen(function* () {
+          const locked = yield* ws.getLockedSkill(ref.skill.name);
+          const materialized = yield* materializeSkillCanonical({
+            ref,
+            sanitizedName: sanitizeName(ref.skill.name),
+            baseDir,
+            layout: ws.layout,
+            reuse: {
+              force: force === true,
+              lockedVersion:
+                ref.refType === "registry" ? acceptedRegistryVersionForRef(locked, ref) : undefined,
+              lockedTreeIntegrity: Option.isSome(locked) ? locked.value.treeIntegrity : undefined,
+            },
+          });
+          const sourceHash =
+            ref.refType === "workspace"
+              ? ref.sourceHash
+              : ref.refType === "registry"
+                ? yield* computePackageContentHash(path.dirname(materialized.skillSrcPath))
+                : yield* computeSkillSourceHash(materialized.skillSrcPath);
+          return {
+            sourceHash: Option.some(sourceHash),
+            treeIntegrity: Option.fromUndefinedOr(materialized.treeIntegrity),
+            observation: { agents: [], targets: [] },
+          };
+        }),
+      materializeRetained: ({ target }) =>
+        Effect.gen(function* () {
+          const canonical = yield* usableAcceptedCanonical({
+            workspace: ws,
+            type: "skill",
+            name: target.name,
+          });
+          if (Option.isNone(canonical) || canonical.value.ref.type !== "skill") {
+            return yield* new LifecyclePostconditionViolated({
+              postcondition: "materialize-observable",
+              targetType: "skill",
+              targetName: target.name,
+            });
+          }
+          return yield* materializeInstall({ ref: canonical.value.ref });
+        }),
       prepareSourceTransition: ({ ref }) =>
         prepareAcceptedCanonicalTransition({
           workspace: ws,
@@ -363,78 +408,7 @@ export const SkillManagerLive = Layer.effect(
       materializeUninstall,
       materializeDeactivate,
 
-      upsertSettingsEntry: Effect.fn("SkillManager.upsertSettingsEntry")(function* ({
-        ref,
-        versionRange,
-        materialization,
-      }: {
-        readonly ref: SkillExtensionRef;
-        readonly versionRange: Option.Option<string>;
-        readonly materialization: Option.Option<SkillMaterializationFacts>;
-      }) {
-        const workspaceRelativeLocalSourcePath =
-          ref.refType === "local"
-            ? makeWorkspaceRelativeSourcePath(
-                path,
-                baseDir,
-                ref.sourcePath ?? stripFileProtocol(ref.location),
-              )
-            : Option.none();
-        if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
-          return yield* new SkillDefinitionInvalid({
-            detail: `Local skill source path must stay within the workspace root: ${ref.source.path}`,
-          });
-        }
-        const sourceHash = Option.getOrUndefined(
-          materialization.pipe(Option.flatMap((facts) => facts.sourceHash)),
-        );
-        const treeIntegrity = Option.getOrUndefined(
-          materialization.pipe(Option.flatMap((facts) => facts.treeIntegrity)),
-        );
-        if (ref.refType === "workspace") {
-          return yield* ws.setSkillEntry(ref.skill.name, {
-            source: "workspace",
-            enabled: true,
-          });
-        }
-        if (sourceHash === undefined || treeIntegrity === undefined) {
-          return yield* new SkillInstallStateMissing({
-            name: ref.skill.name,
-            kind: "content-identity",
-          });
-        }
-        const lockEntry = buildSkillLockEntry(
-          ref,
-          workspaceRelativeLocalSourcePath,
-          sourceHash,
-          treeIntegrity,
-        );
-        if (lockEntry === undefined) {
-          return yield* new SkillInstallStateMissing({
-            name: ref.skill.name,
-            kind: "external-resolution",
-          });
-        }
-        if (lockEntry.type === "registry") {
-          yield* validateExactResolvedVersion(
-            `skills.${ref.skill.name}.resolvedVersion`,
-            lockEntry.resolvedVersion,
-          );
-        }
-        return yield* ws.setSkill({
-          name: ref.skill.name,
-          lockEntry,
-          versionRange,
-        });
-      }),
-
-      removeSettingsEntry: ({ target }: { readonly target: SkillExtensionTarget }) =>
-        ws
-          .removeSkillFromSettings(target.name)
-
-          .pipe(Effect.withSpan("SkillManager.removeSettingsEntry")),
-
-      upsertLockfileEntry: Effect.fn("SkillManager.upsertLockfileEntry")(function* ({
+      acceptedResolution: Effect.fn("SkillManager.acceptedResolution")(function* ({
         ref,
         materialization,
       }: {
@@ -455,8 +429,7 @@ export const SkillManagerLive = Layer.effect(
           });
         }
         if (ref.refType === "workspace") {
-          yield* ws.removeSkillLock(ref.skill.name);
-          return;
+          return Option.none();
         }
         const sourceHash = Option.getOrUndefined(
           materialization.pipe(Option.flatMap((facts) => facts.sourceHash)),
@@ -488,18 +461,10 @@ export const SkillManagerLive = Layer.effect(
             lockEntry.resolvedVersion,
           );
         }
-        return yield* ws.setSkillLock({
-          name: ref.skill.name,
-          lockEntry,
-          versionRange: Option.none(),
-        });
+        return Option.some({ key: ref.skill.name, entry: lockEntry });
       }),
 
-      removeLockfileEntry: ({ target }: { readonly target: SkillExtensionTarget }) =>
-        ws
-          .removeSkillLock(target.name)
-
-          .pipe(Effect.withSpan("SkillManager.removeLockfileEntry")),
+      withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
     } satisfies ExtensionManager<SkillExtensionRef, SkillMaterializationFacts, ManagerRequirements>;
   }),
 );

@@ -75,7 +75,8 @@ import type { ReadModelRecordRow } from "./read-model-record-types.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import type { ResolvedKnowledgeDiscoveryConfig } from "../knowledge/discovery-config.js";
-import type { DesiredStateGraph, ProspectivePackRef } from "./desired-state-graph.js";
+import type { DesiredStateGraphInputs } from "./desired-state-reader.js";
+import type { DesiredStateGraph } from "./desired-state-graph.js";
 import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceLayout } from "./layout.js";
 import type { ExtensionPathSource } from "./extension-paths.js";
@@ -321,9 +322,9 @@ export interface WorkspaceMutationsService {
     LockfileValidationError | WorkspaceRootEscape
   >;
   /** Build desired extension state from settings and installed or prospective Pack manifests. */
-  readonly getDesiredStateGraph: (options?: {
-    readonly prospectivePacks?: ReadonlyArray<ProspectivePackRef>;
-  }) => Effect.Effect<DesiredStateGraph, WorkspaceStateReadFailure>;
+  readonly getDesiredStateGraph: (
+    options?: DesiredStateGraphInputs,
+  ) => Effect.Effect<DesiredStateGraph, WorkspaceStateReadFailure>;
   /** Merged sources from project, user-scope, and built-in defaults. Cached per workspace lifetime. */
   readonly getConfiguredSources: () => Effect.Effect<
     ReadonlyArray<SourceHostConfig>,

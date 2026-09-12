@@ -88,6 +88,7 @@ describe("composition-root import restriction", () => {
       "packages/core/extension-lifecycle/src/**/test-helpers.ts",
       "packages/core/extension-publish/src/**/test-helpers.ts",
       "packages/core/workspace-sync/src/**/test-helpers.ts",
+      "packages/core/workspace-reconciliation/src/**/test-helpers.ts",
       // Plan-family fixtures, excluded from the library build: the plan
       // specifications observe the real transaction scope over a temporary
       // workspace with the deterministic state ports its dependency publishes.

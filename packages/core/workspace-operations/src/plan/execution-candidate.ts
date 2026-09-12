@@ -25,8 +25,14 @@ export interface ExecutionCandidate<Requirements = never, Output = never> {
 const collectArtifactPaths = (plan: Plan<unknown, unknown>): ReadonlyArray<string> =>
   plan.jobs.flatMap((job) =>
     job.steps.flatMap((step) => {
-      if (step.artifact === undefined) return [];
-      return [step.artifact.path, ...(step.artifact.targets ?? []).map((target) => target.path)];
+      if (step.artifact === undefined) return step.materialPaths ?? [];
+      return [
+        ...(step.materialPaths ?? []),
+        step.artifact.path,
+        ...(step.artifact.targets ?? []).map((target) => target.path),
+        ...(step.artifact.references ?? []).map((reference) => reference.path),
+        ...(step.artifact.managedRegions ?? []).map((region) => region.path),
+      ];
     }),
   );
 
@@ -104,6 +110,7 @@ const planIdentity = (plan: Plan<unknown, unknown>, baseDir: string, path: Path.
         steps: job.steps.map((step) => ({
           key: step.key,
           dependsOn: step.dependsOn,
+          materialPaths: step.materialPaths,
           label: step.label,
           readiness: step.readiness,
           artifact: step.artifact,

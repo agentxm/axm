@@ -205,23 +205,26 @@ const readinessBlockersOf = <Requirements, Output>(plan: Plan<Requirements, Outp
   const declaredConditionIds = new Set(
     (plan.riskConditions ?? []).map((condition) => condition.id),
   );
-  return plan.jobs.flatMap((job) =>
-    job.steps.flatMap((step) =>
-      step.readiness === "error"
-        ? (step.blockingConditionIds ?? []).length > 0 &&
-          (step.blockingConditionIds ?? []).every((id) => declaredConditionIds.has(id))
-          ? []
-          : [
-              {
-                level: "blocked" as const,
-                id: step.key ?? step.label,
-                detail: step.errorMessage,
-                errorCode: "conflict" as const,
-              },
-            ]
-        : [],
-    ),
-  );
+  const hasRunnable = plan.jobs.some((job) => job.steps.some((step) => step.readiness !== "error"));
+  return plan.jobs
+    .filter((job) => !hasRunnable || job.executionPolicy !== "best-effort")
+    .flatMap((job) =>
+      job.steps.flatMap((step) =>
+        step.readiness === "error"
+          ? (step.blockingConditionIds ?? []).length > 0 &&
+            (step.blockingConditionIds ?? []).every((id) => declaredConditionIds.has(id))
+            ? []
+            : [
+                {
+                  level: "blocked" as const,
+                  id: step.key ?? step.label,
+                  detail: step.errorMessage,
+                  errorCode: "conflict" as const,
+                },
+              ]
+          : [],
+      ),
+    );
 };
 
 export interface PrepareExecutionCandidateOptions {
@@ -336,7 +339,10 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
   const candidatePlan = candidate.plan;
   const operations = candidate.configuredAgentOperations;
   const configuredAgents = operations.length === 0 ? [] : yield* ws.getConfiguredAgents();
-  const readiness = scanPlanReadiness(candidatePlan);
+  const readiness = scanPlanReadiness({
+    ...candidatePlan,
+    jobs: candidatePlan.jobs.filter((job) => job.executionPolicy !== "best-effort"),
+  });
   const readinessBlockers = readinessBlockersOf(candidatePlan);
   const riskConditions = candidatePlan.riskConditions ?? [];
 

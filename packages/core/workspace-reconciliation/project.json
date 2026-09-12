@@ -1,0 +1,23 @@
+{
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "name": "workspace-reconciliation",
+  "projectType": "library",
+  "root": "packages/core/workspace-reconciliation",
+  "sourceRoot": "packages/core/workspace-reconciliation/src",
+  "tags": ["type:lib", "role:capability", "scope:workspace-reconciliation", "release:cli"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/core/workspace-reconciliation/src/index.ts",
+        "outputPath": "packages/core/workspace-reconciliation/dist",
+        "tsConfig": "packages/core/workspace-reconciliation/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "nx-release-publish": {
+      "executor": "@nx/js:release-publish"
+    }
+  }
+}

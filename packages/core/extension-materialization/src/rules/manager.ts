@@ -1,3 +1,5 @@
+import { usableAcceptedCanonical } from "@agentxm/workspace-state";
+import { LifecyclePostconditionViolated } from "../extensions/errors.js";
 /**
  * Rule manager service.
  *
@@ -699,6 +701,23 @@ export const RuleManagerLive = Layer.effect(
         ),
 
       materializeInstall,
+      acquireCanonical: materializeInstall,
+      materializeRetained: ({ target }) =>
+        Effect.gen(function* () {
+          const canonical = yield* usableAcceptedCanonical({
+            workspace: ws,
+            type: "rule",
+            name: target.name,
+          });
+          if (Option.isNone(canonical) || canonical.value.ref.type !== "rule") {
+            return yield* new LifecyclePostconditionViolated({
+              postcondition: "materialize-observable",
+              targetType: "rule",
+              targetName: target.name,
+            });
+          }
+          return yield* materializeInstall({ ref: canonical.value.ref });
+        }),
       prepareSourceTransition: ({ ref }) =>
         provide(
           prepareAcceptedCanonicalTransition({
@@ -738,18 +757,13 @@ export const RuleManagerLive = Layer.effect(
       materializeUninstall,
       materializeDeactivate,
 
-      upsertSettingsEntry: Effect.fn("RuleManager.upsertSettingsEntry")(function* ({
+      acceptedResolution: Effect.fn("RuleManager.acceptedResolution")(function* ({
         ref,
-        versionRange,
         materialization,
       }) {
         const lockEntry = yield* buildLockEntry(ref, materialization);
         if (Option.isNone(lockEntry)) {
-          yield* ws.setRuleEntry(ref.rule.name, {
-            source: "workspace",
-            enabled: true,
-          });
-          return;
+          return Option.none();
         }
         if (lockEntry.value.type === "registry") {
           yield* validateExactResolvedVersion(
@@ -757,42 +771,10 @@ export const RuleManagerLive = Layer.effect(
             lockEntry.value.resolvedVersion,
           );
         }
-        yield* ws.setRule({
-          name: ref.rule.name,
-          lockEntry: lockEntry.value,
-          versionRange,
-        });
+        return Option.some({ key: ref.rule.name, entry: lockEntry.value });
       }),
 
-      removeSettingsEntry: Effect.fn("RuleManager.removeSettingsEntry")(function* ({ target }) {
-        yield* ws.removeRuleSettings(target.name);
-      }),
-
-      upsertLockfileEntry: Effect.fn("RuleManager.upsertLockfileEntry")(function* ({
-        ref,
-        materialization,
-      }) {
-        const lockEntry = yield* buildLockEntry(ref, materialization);
-        if (Option.isNone(lockEntry)) {
-          yield* ws.removeRuleLock(ref.rule.name);
-          return;
-        }
-        if (lockEntry.value.type === "registry") {
-          yield* validateExactResolvedVersion(
-            `rules.${ref.rule.name}.resolvedVersion`,
-            lockEntry.value.resolvedVersion,
-          );
-        }
-        yield* ws.setRuleLock({
-          name: ref.rule.name,
-          lockEntry: lockEntry.value,
-          versionRange: Option.none(),
-        });
-      }),
-
-      removeLockfileEntry: Effect.fn("RuleManager.removeLockfileEntry")(function* ({ target }) {
-        yield* ws.removeRuleLock(target.name);
-      }),
+      withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
     } satisfies ExtensionManager<RuleExtensionRef, RuleMaterializationFacts, ManagerRequirements>;
   }),
 );

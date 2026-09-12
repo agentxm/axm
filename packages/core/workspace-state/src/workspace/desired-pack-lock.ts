@@ -16,6 +16,7 @@ import {
   isInlineDesiredExtension,
   type DesiredStateGraph,
   type DesiredStateProblem,
+  type ProspectivePackRef,
 } from "./desired-state-graph.js";
 import { isDesiredExtensionActive } from "./desired-state-enabled.js";
 import type { WorkspaceLayout } from "./layout.js";
@@ -24,6 +25,7 @@ interface ValidateDesiredPackLockArgs {
   readonly graph: DesiredStateGraph;
   readonly lockfile: Lockfile;
   readonly layout: WorkspaceLayout;
+  readonly prospectivePacks?: ReadonlyArray<ProspectivePackRef>;
 }
 
 const normalizedPackIdentity = (identity: string): string =>
@@ -86,6 +88,7 @@ export const validateDesiredPackLock = ({
   graph,
   lockfile,
   layout,
+  prospectivePacks = [],
 }: ValidateDesiredPackLockArgs): Effect.Effect<
   DesiredStateGraph,
   never,
@@ -139,26 +142,27 @@ export const validateDesiredPackLock = ({
         ).canonicalPath,
         PACK_MANIFEST_FILENAME,
       );
-      const readResult = yield* Effect.result(fs.readFileString(manifestPath));
-      if (Result.isFailure(readResult)) {
-        problems.push({
-          type: "pack-manifest-content-mismatch",
-          pack: node.identity,
-          path: manifestPath,
-          status: "missing",
-          acceptedVersion: entry.resolvedVersion,
-          acceptedContentIdentity: entry.manifestContentIdentity,
-        });
-        invalidPacks.add(normalizedPackIdentity(node.identity));
-        continue;
-      }
-
-      const decoded = Result.try({
-        try: () => decodeManifest(JSON.parse(readResult.success)),
-        catch: () => undefined,
-      });
+      const prospective = prospectivePacks.find(
+        (ref) => ref.owner === identity.owner && ref.pack.name === identity.name,
+      );
       const observedManifest =
-        Result.isSuccess(decoded) && decoded.success !== undefined ? decoded.success : undefined;
+        prospective === undefined
+          ? yield* Effect.gen(function* () {
+              const readResult = yield* Effect.result(fs.readFileString(manifestPath));
+              if (Result.isFailure(readResult)) return undefined;
+              const decoded = Result.try({
+                try: () => decodeManifest(JSON.parse(readResult.success)),
+                catch: () => undefined,
+              });
+              return Result.isSuccess(decoded) ? decoded.success : undefined;
+            })
+          : {
+              owner: prospective.owner,
+              type: "pack" as const,
+              name: prospective.pack.name,
+              version: prospective.version,
+              dependencies: prospective.pack.dependencies,
+            };
       const observedContentIdentity =
         observedManifest === undefined
           ? undefined
@@ -171,7 +175,7 @@ export const validateDesiredPackLock = ({
           type: "pack-manifest-content-mismatch",
           pack: node.identity,
           path: manifestPath,
-          status: "changed",
+          status: observedManifest === undefined ? "missing" : "changed",
           acceptedVersion: entry.resolvedVersion,
           acceptedContentIdentity: entry.manifestContentIdentity,
           ...(observedManifest === undefined || observedContentIdentity === undefined

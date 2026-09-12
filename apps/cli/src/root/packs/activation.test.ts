@@ -27,7 +27,6 @@ import {
   writeWorkspaceFiles,
 } from "../../test-support/test-stubs.js";
 import {
-  expectAppliedPlanResult,
   expectDefined,
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
@@ -294,10 +293,9 @@ describe("packs activation", () => {
     }),
   );
 
-  it.effect("deactivates an exclusive member projection and restores it from retained state", () =>
+  it.effect("retires an exclusive acquired member while preserving the authored Pack", () =>
     Effect.gen(function* () {
       const { axmDir, lockPath, renderedSkill, skillDir } = initializePackWithSkill(root);
-      const lockBefore = fs.readFileSync(lockPath, "utf8");
       const disable = makeLayers();
 
       yield* disable.provide(
@@ -313,27 +311,9 @@ describe("packs activation", () => {
         enabled: false,
       });
       expect(fs.existsSync(renderedSkill)).toBe(false);
-      expect(fs.existsSync(path.join(skillDir, "src", "SKILL.md"))).toBe(true);
-      expect(fs.readFileSync(lockPath, "utf8")).toBe(lockBefore);
-
-      const enable = makeLayers();
-      yield* enable.provide(
-        handlePackActivation({
-          name: "toolkit",
-          enabled: true,
-          preview: false,
-        }),
-      );
-
-      const enableData = expectDefined(enable.rendererState.results[0]).data;
-      const enableResult = expectRecord(expectRecord(enableData)["result"]);
-      expect(enableResult["units"]).toMatchObject([{ state: "committed" }]);
-      expectAppliedPlanResult(enableData, {
-        planName: "Enable pack",
-      });
-      expect(packSetting(axmDir)).toBe("workspace");
-      expect(fs.existsSync(renderedSkill)).toBe(true);
-      expect(fs.readFileSync(lockPath, "utf8")).toBe(lockBefore);
+      expect(fs.existsSync(skillDir)).toBe(false);
+      expect(fs.readFileSync(lockPath, "utf8")).not.toContain("workspaceName: review");
+      expect(fs.existsSync(path.join(root, "packs", "toolkit", "pack.json"))).toBe(true);
     }),
   );
 });

@@ -1,3 +1,5 @@
+import { usableAcceptedCanonical } from "@agentxm/workspace-state";
+import { LifecyclePostconditionViolated } from "../extensions/errors.js";
 /**
  * MCP server extension manager service.
  *
@@ -19,7 +21,6 @@ import {
   planSingletonProjection,
 } from "@agentxm/workspace-projection";
 import { McpConfigIoFailed, removeMcpServerFromManifest } from "@agentxm/agent-integration";
-import type { ExtensionManagerFailure } from "../errors.js";
 import type { ExtensionManager, ManagerRequirements } from "../manager-contract.js";
 import { NO_MATERIALIZATION_OBSERVATION } from "../manager-contract.js";
 import {
@@ -321,6 +322,23 @@ export const McpServerManagerLive = Layer.effect(
       }),
 
       materializeInstall,
+      acquireCanonical: materializeInstall,
+      materializeRetained: ({ target }) =>
+        Effect.gen(function* () {
+          const canonical = yield* usableAcceptedCanonical({
+            workspace: ws,
+            type: "mcp-server",
+            name: target.name,
+          });
+          if (Option.isNone(canonical) || canonical.value.ref.type !== "mcp-server") {
+            return yield* new LifecyclePostconditionViolated({
+              postcondition: "materialize-observable",
+              targetType: "mcp-server",
+              targetName: target.name,
+            });
+          }
+          return yield* materializeInstall({ ref: canonical.value.ref });
+        }),
       prepareSourceTransition: ({ ref }) =>
         prepareAcceptedCanonicalTransition({
           workspace: ws,
@@ -353,23 +371,20 @@ export const McpServerManagerLive = Layer.effect(
       configuredAgentOutcomes,
       configuredAgentOutcomesForEntry,
 
-      upsertSettingsEntry: ({
+      acceptedResolution: ({
         ref,
-        versionRange,
         materialization,
       }: {
         readonly ref: McpServerExtensionRef;
-        readonly versionRange: Option.Option<string>;
         readonly materialization: Option.Option<McpServerMaterializationFacts>;
       }) => {
-        if (ref.refType !== "registry")
-          return Effect.void.pipe(Effect.withSpan("McpServerManager.upsertSettingsEntry"));
+        if (ref.refType !== "registry") return Effect.succeed(Option.none());
         const registryRef = ref;
         return validateExactResolvedVersion(
           `mcpServers.${ref.server.name}.resolvedVersion`,
           registryRef.version,
         ).pipe(
-          Effect.flatMap((): Effect.Effect<void, ExtensionManagerFailure> => {
+          Effect.flatMap(() => {
             const treeIntegrity = materialization.pipe(
               Option.flatMap((facts) => facts.treeIntegrity),
             );
@@ -377,67 +392,22 @@ export const McpServerManagerLive = Layer.effect(
               return Effect.fail(new McpInstallStateMissing({ name: registryRef.server.name }));
             }
             const lockEntry = buildMcpServerLockEntry(registryRef, treeIntegrity.value);
-            return ws.setMcpServer({
-              name: ref.server.name,
-              resolutionKey: mcpRegistryResolutionKey({
-                authority: registryRef.source.location,
-                owner: registryRef.owner,
-                name: registryRef.server.name,
+            return Effect.succeed(
+              Option.some({
+                key: mcpRegistryResolutionKey({
+                  authority: registryRef.source.location,
+                  owner: registryRef.owner,
+                  name: registryRef.server.name,
+                }),
+                entry: lockEntry,
               }),
-              lockEntry,
-              versionRange,
-            });
-          }),
-          Effect.withSpan("McpServerManager.upsertSettingsEntry"),
-        );
-      },
-
-      removeSettingsEntry: ({ target }: { readonly target: McpServerExtensionTarget }) =>
-        ws
-          .removeMcpServerSettings(target.name)
-
-          .pipe(Effect.withSpan("McpServerManager.removeSettingsEntry")),
-
-      upsertLockfileEntry: ({
-        ref,
-        materialization,
-      }: {
-        readonly ref: McpServerExtensionRef;
-        readonly materialization: Option.Option<McpServerMaterializationFacts>;
-      }) => {
-        if (ref.refType !== "registry")
-          return ws
-            .removeMcpServerLock(ref.server.name)
-            .pipe(Effect.withSpan("McpServerManager.upsertLockfileEntry"));
-        const registryRef = ref;
-        return validateExactResolvedVersion(
-          `mcpServers.${ref.server.name}.resolvedVersion`,
-          registryRef.version,
-        ).pipe(
-          Effect.flatMap((): Effect.Effect<void, ExtensionManagerFailure> => {
-            const treeIntegrity = materialization.pipe(
-              Option.flatMap((facts) => facts.treeIntegrity),
             );
-            if (Option.isNone(treeIntegrity)) {
-              return Effect.fail(new McpInstallStateMissing({ name: registryRef.server.name }));
-            }
-            const lockEntry = buildMcpServerLockEntry(registryRef, treeIntegrity.value);
-            return ws.setMcpServerLock({
-              name: ref.server.name,
-              resolutionKey: mcpRegistryResolutionKey({
-                authority: registryRef.source.location,
-                owner: registryRef.owner,
-                name: registryRef.server.name,
-              }),
-              lockEntry,
-              versionRange: Option.none(),
-            });
           }),
-          Effect.withSpan("McpServerManager.upsertLockfileEntry"),
+          Effect.withSpan("McpServerManager.acceptedResolution"),
         );
       },
 
-      removeLockfileEntry: ({
+      withdrawnResolutionKeys: ({
         materialization,
       }: {
         readonly target: McpServerExtensionTarget;
@@ -445,14 +415,12 @@ export const McpServerManagerLive = Layer.effect(
       }) => {
         const removal = materialization.pipe(Option.flatMap((facts) => facts.removal));
         if (Option.isNone(removal)) {
-          return Effect.void.pipe(Effect.withSpan("McpServerManager.removeLockfileEntry"));
+          return Effect.succeed([]);
         }
         if (removal.value.retainShared || Option.isNone(removal.value.resolutionKey)) {
-          return Effect.void.pipe(Effect.withSpan("McpServerManager.removeLockfileEntry"));
+          return Effect.succeed([]);
         }
-        return ws
-          .removeMcpServerLock(removal.value.resolutionKey.value)
-          .pipe(Effect.withSpan("McpServerManager.removeLockfileEntry"));
+        return Effect.succeed([removal.value.resolutionKey.value]);
       },
     } satisfies McpServerManagerService;
   }),

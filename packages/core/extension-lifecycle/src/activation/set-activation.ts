@@ -10,9 +10,9 @@
  * configuration, a rule or Knowledge bundle through a shared managed region,
  * a Pack through the members it contributes.
  *
- * Two invariants hold across every type. Disabling never removes canonical
- * content or retires an accepted resolution, so re-enabling never re-resolves
- * or re-acquires. And a type whose projection shares a file with instruction
+ * Disabling a leaf preserves its canonical content and accepted resolution.
+ * Disabling a Pack withdraws its dependency route and retires exclusive acquired
+ * members. A type whose projection shares a file with instruction
  * management reconciles that file inside the same transaction, so the
  * workspace is never left with a settings change the files do not reflect.
  *
@@ -28,7 +28,6 @@ import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-sources";
 import {
@@ -37,24 +36,31 @@ import {
   type SourceResolutionFailure,
 } from "@agentxm/extension-sources";
 import {
-  buildInstallOperation,
-  collectRetainedMaterializeSteps,
   ExtensionManagers,
-  installMcpServer,
-  RetainedContentUnusable,
+  HookManager,
+  SkillManager,
+  RuleManager,
+  KnowledgeManager,
+  PackManager,
+  McpServerManager,
   SubagentManager,
   type ExtensionManagerFailure,
-  type ExtensionManagersService,
   type ManagerRequirements,
-  type McpServerInstallRequirements,
-  type RecipeRequirements,
 } from "@agentxm/extension-materialization";
+import { type McpServerInstallRequirements } from "@agentxm/workspace-reconciliation";
 import {
-  makeConfiguredReleaseAgeEvaluation,
+  collectMaterializeSteps,
+  collectUnreachableRetirement,
+  type SyncStepRequirements,
+  type CollectedMaterializeSteps,
+  type SyncPolicyFailure,
+  proposeDesiredState,
+  publishDesiredState,
+  type DesiredStateProposal,
+  type RecipeRequirements,
+} from "@agentxm/workspace-reconciliation";
+import {
   ReleaseAgePosture,
-  resolveConfiguredHook,
-  resolveConfiguredKnowledge,
-  resolveConfiguredRule,
   type ExtensionResolutionFailed,
   type PackDependencyResolutionFailure,
   type SourceAuthorityBlocked,
@@ -78,10 +84,10 @@ import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
   ResolvePlanInteraction,
-  StepFailure,
   type ConfiguredAgentOperation,
+  type ExecutionCandidate,
   type JobStepArtifact,
-  type JobStepArtifactTarget,
+  type JobStepArtifactReference,
   type JobStepResult,
   type OperationResolution,
   type Plan,
@@ -89,7 +95,12 @@ import {
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
 import {
-  acquiredExtensionDisplayPathFromLockEntry,
+  acceptedCanonicalObservation,
+  usableAcceptedCanonical,
+  LockfileReader,
+  SettingsReader,
+  settingsEntries,
+  SettingsWriter,
   ConfiguredAgentOutcomesProvider,
   type ConfiguredAgentOutcome,
   installedRowsByName,
@@ -99,7 +110,6 @@ import {
   WorkspaceMutations,
   type DesiredExtensionNode,
   type AcceptedCanonicalRefError,
-  type HookLockEntry,
   type WorkspaceMutationsService,
 } from "@agentxm/workspace-state";
 import {
@@ -120,12 +130,7 @@ import { enableSkill } from "../skills/operations/enable.js";
 import { disableSkill } from "../skills/operations/disable.js";
 import { enableSubagent } from "../subagents/operations/enable.js";
 import { disableSubagent } from "../subagents/operations/disable.js";
-import {
-  canonicalNodeDisplayPath,
-  canonicalRootDisplayPath,
-  lockfileDisplayPath,
-  settingsDisplayPath,
-} from "./display-paths.js";
+import { settingsDisplayPath } from "./display-paths.js";
 import type { SetActivationExecutionFailure } from "./errors.js";
 
 // -----------------------------------------------------------------------------
@@ -155,20 +160,13 @@ export type ActivationTransition =
   | { readonly kind: "skill" }
   | { readonly kind: "subagent" }
   | { readonly kind: "mcp-server" }
-  /** Enabling re-runs the configured install closure for the accepted entry. */
-  | {
-      readonly kind: "reinstall";
-      readonly ref: ExtensionRef;
-      readonly versionRange: Option.Option<string>;
-    }
-  /** Disabling flips the preference and dematerializes the type's projection. */
-  | { readonly kind: "deactivate-rule" }
-  | { readonly kind: "deactivate-hook" }
-  /** Rendering the discovery region is what deactivation means for Knowledge. */
-  | { readonly kind: "deactivate-knowledge" }
+  | { readonly kind: "aggregate"; readonly proposal: DesiredStateProposal }
   /** A Pack contributes members; activation moves the whole member closure. */
   | {
       readonly kind: "pack";
+      readonly proposal: DesiredStateProposal;
+      readonly materialization?: CollectedMaterializeSteps;
+      readonly retirement: Option.Option<PlannedJobStep<SyncStepRequirements | LockfileReader>>;
       readonly identity: string;
       /** Members whose active/inactive state this change decides. */
       readonly members: ReadonlyArray<DesiredExtensionNode>;
@@ -177,7 +175,7 @@ export type ActivationTransition =
     };
 
 /** A settled activation change: everything the plan needs, decided. */
-export interface SetActivationCandidate {
+interface ActivationRealization {
   readonly _tag: "SetActivation";
   readonly type: ExtensionType;
   /** The installed name, after resolving a fully-qualified identifier. */
@@ -186,6 +184,7 @@ export interface SetActivationCandidate {
   readonly scope: WorkspaceScope;
   readonly artifact: JobStepArtifact;
   readonly transition: ActivationTransition;
+  readonly proposal?: DesiredStateProposal;
   /** The instruction configuration this change reconciles inside its transaction. */
   readonly instructions: Option.Option<ResolvedInstructionsConfig>;
   /** The refusal that stops the change before it is offered, when there is one. */
@@ -211,6 +210,12 @@ export type SetActivationRequirements =
   | CodingAgentRepository
   | ConfiguredAgentOutcomesProvider
   | ExtensionManagers
+  | HookManager
+  | SkillManager
+  | RuleManager
+  | KnowledgeManager
+  | PackManager
+  | McpServerManager
   | FileSystem.FileSystem
   | FootprintRecorder
   | HttpClient.HttpClient
@@ -220,6 +225,9 @@ export type SetActivationRequirements =
   | McpServerInstallRequirements
   | ProjectionParticipantRequirements
   | RecipeRequirements
+  | LockfileReader
+  | SettingsReader
+  | SettingsWriter
   | ReleaseAgePosture
   | ResolvePlanInteraction
   | Scope.Scope
@@ -343,42 +351,6 @@ const instructionGate = (
     };
   });
 
-const hookLockArtifact = (args: {
-  readonly lockEntry: Option.Option<HookLockEntry>;
-  readonly name: string;
-  readonly scope: WorkspaceScope;
-  readonly enabled: boolean;
-}): JobStepArtifact => {
-  if (Option.isNone(args.lockEntry)) return settingsArtifact(args.scope);
-  const entry = args.lockEntry.value;
-  const packagePath = acquiredExtensionDisplayPathFromLockEntry(
-    canonicalRootDisplayPath(args.scope),
-    entry,
-    "hooks",
-    args.name,
-  );
-  const targets: ReadonlyArray<JobStepArtifactTarget> = (
-    args.enabled
-      ? [
-          { path: settingsDisplayPath(args.scope), change: "updated" as const },
-          { path: lockfileDisplayPath(args.scope), change: "updated" as const },
-          { path: packagePath, change: "created" as const },
-        ]
-      : [
-          { path: settingsDisplayPath(args.scope), change: "updated" as const },
-          { path: packagePath, change: "removed" as const },
-        ]
-  ).sort((left, right) => left.path.localeCompare(right.path));
-  const version = entry.type === "registry" ? entry.resolvedVersion : undefined;
-  return {
-    path: settingsDisplayPath(args.scope),
-    scope: args.scope,
-    ...(args.enabled && version !== undefined ? { version } : {}),
-    change: "updated",
-    targets,
-  };
-};
-
 /**
  * Settle an activation request into the change it makes.
  *
@@ -387,13 +359,19 @@ const hookLockArtifact = (args: {
  * of offering to do nothing. A request naming a subject the workspace does
  * not hold fails with the type's own recovery route.
  */
-export const prepareSetActivation = (
+const settleActivation = (
   request: SetActivationRequest,
 ): Effect.Effect<
-  SetActivationCandidate | ActivationUnchanged,
+  ActivationRealization | ActivationUnchanged,
   SetActivationFailure,
   | CodingAgentRepository
   | ExtensionManagers
+  | HookManager
+  | SkillManager
+  | RuleManager
+  | KnowledgeManager
+  | PackManager
+  | McpServerManager
   | FileSystem.FileSystem
   | HttpClient.HttpClient
   | ManagerRequirements
@@ -402,6 +380,12 @@ export const prepareSetActivation = (
   | Scope.Scope
   | SourceHostProviders
   | WorkspaceCatalog
+  | StepFailureConversion
+  | SubagentManager
+  | McpServerInstallRequirements
+  | ProjectionParticipantRequirements
+  | LockfileReader
+  | SettingsReader
   | WorkspaceMutations
 > =>
   Effect.gen(function* () {
@@ -453,202 +437,111 @@ export const prepareSetActivation = (
         };
       }
 
-      case "mcp-server": {
-        const configured = yield* ws.getConfiguredMcpServerEntries();
-        const entry = configured[request.name];
-        if (entry === undefined) {
-          return unchanged(request, request.name, `MCP server "${request.name}" is not configured`);
+      case "mcp-server":
+      case "rule":
+      case "hook":
+      case "knowledge": {
+        const name = yield* resolveInstalledIdentifierNameOrInput({
+          input: request.name,
+          resourceType: request.type,
+        });
+        const currentGraph = yield* ws.getDesiredStateGraph();
+        if (!currentGraph.nodes.some((node) => node.type === request.type && node.name === name)) {
+          if (request.type === "knowledge")
+            return yield* new ExtensionLifecycleFailed({
+              category: "not_found",
+              detail: `Knowledge bundle "${name}" is not configured`,
+            });
+          const label =
+            request.type === "mcp-server"
+              ? "MCP server"
+              : request.type === "hook"
+                ? "hooks package"
+                : "rule";
+          return unchanged(request, name, `${label} "${name}" is not configured`);
         }
-        if (!request.enabled && entry.enabled === request.enabled) {
+        const proposal = yield* proposeDesiredState([
+          { kind: "activation", type: request.type, name, enabled: request.enabled },
+        ]).pipe(
+          Effect.catchTag(
+            "WorkspaceSyncFailed",
+            (failure) =>
+              new ExtensionLifecycleFailed({
+                category: failure.category,
+                detail: failure.detail,
+                cause: failure,
+              }),
+          ),
+        );
+        if (!proposal.before.complete || !proposal.after.complete) {
+          return yield* new ExtensionLifecycleFailed({
+            category: "conflict",
+            detail: "Activation requires complete desired state",
+          });
+        }
+        const node = proposal.before.nodes.find(
+          (node) => node.type === request.type && node.name === name,
+        );
+        if (node === undefined)
+          return yield* notInstalled(request.type, name, `axm ${request.type}s list`);
+        if (node.enabled === request.enabled && (request.type !== "mcp-server" || !request.enabled))
           return unchanged(
             request,
-            request.name,
-            `MCP server "${request.name}" is already ${verb}`,
+            name,
+            `${TYPE_LABEL[request.type]} "${name}" is already ${verb}`,
           );
+        if (request.enabled && node.authority !== "inline") {
+          const canonical = yield* usableAcceptedCanonical({
+            workspace: ws,
+            type: request.type,
+            name,
+          });
+          if (Option.isNone(canonical)) {
+            return yield* new ExtensionLifecycleFailed({
+              category: "conflict",
+              detail: `Accepted ${request.type} content for "${name}" is not usable; sync it before enabling`,
+            });
+          }
         }
+        const gate =
+          request.type === "rule"
+            ? yield* instructionGate(ws)
+            : {
+                config: Option.none<ResolvedInstructionsConfig>(),
+                blocked: Option.none<ExtensionLifecycleFailed>(),
+              };
+        const entry = settingsEntries["mcp-server"].entry(proposal.settings, name);
         const managers = yield* ExtensionManagers;
-        const agentOutcomes = request.enabled
-          ? yield* managers["mcp-server"].configuredAgentOutcomesForEntry({
-              name: request.name,
-              entry,
-              state: "projected",
-            })
-          : [];
+        const agentOutcomes =
+          request.type === "mcp-server" && request.enabled && Option.isSome(entry)
+            ? yield* managers["mcp-server"].configuredAgentOutcomesForEntry({
+                name,
+                entry: entry.value,
+                state: "projected",
+              })
+            : request.type === "hook" &&
+                request.enabled &&
+                managers.hook.configuredAgentOutcomes !== undefined
+              ? (yield* managers.hook.configuredAgentOutcomes("projected", proposal.after)).filter(
+                  (outcome) => outcome.name === name,
+                )
+              : [];
         return {
           _tag: "SetActivation",
-          type: "mcp-server",
-          name: request.name,
+          type: request.type,
+          name,
           enabled: request.enabled,
           scope,
           artifact: settingsArtifact(scope),
-          transition: { kind: "mcp-server" },
-          instructions: Option.none(),
-          blocked: Option.none(),
-          warning: Option.none(),
-          agentOutcomes,
-        };
-      }
-
-      case "rule": {
-        const configured = yield* ws.getConfiguredRuleEntries();
-        const entry = configured[request.name];
-        if (entry === undefined) {
-          return unchanged(request, request.name, `rule "${request.name}" is not configured`);
-        }
-        if (entry.enabled === request.enabled) {
-          return unchanged(request, request.name, `rule "${request.name}" is already ${verb}`);
-        }
-        const gate = yield* instructionGate(ws);
-        const resolved: Option.Option<{
-          readonly ref: ExtensionRef;
-          readonly versionRange: Option.Option<string>;
-        }> = request.enabled
-          ? Option.some(
-              yield* resolveConfiguredRule(
-                request.name,
-                entry.source,
-                yield* makeConfiguredReleaseAgeEvaluation(),
-              ),
-            )
-          : Option.none();
-        return {
-          _tag: "SetActivation",
-          type: "rule",
-          name: request.name,
-          enabled: request.enabled,
-          scope,
-          artifact: settingsArtifact(scope),
-          transition: Option.match(resolved, {
-            onNone: (): ActivationTransition => ({ kind: "deactivate-rule" }),
-            onSome: ({ ref, versionRange }): ActivationTransition => ({
-              kind: "reinstall",
-              ref,
-              versionRange,
-            }),
-          }),
+          transition:
+            request.type === "mcp-server"
+              ? { kind: "mcp-server" }
+              : { kind: "aggregate", proposal },
+          proposal,
           instructions: gate.config,
           blocked: gate.blocked,
           warning: Option.none(),
-          agentOutcomes: [],
-        };
-      }
-
-      case "hook": {
-        const configured = yield* ws.getConfiguredHookEntries();
-        const entry = configured[request.name];
-        if (entry === undefined) {
-          return unchanged(
-            request,
-            request.name,
-            `hooks package "${request.name}" is not configured`,
-          );
-        }
-        if (entry.enabled === request.enabled) {
-          return unchanged(
-            request,
-            request.name,
-            `hooks package "${request.name}" is already ${verb}`,
-          );
-        }
-        const lockEntry = yield* ws
-          .getLockedHookEntry(request.name)
-          .pipe(Effect.catch(() => Effect.succeed(Option.none<HookLockEntry>())));
-        const artifact = hookLockArtifact({
-          lockEntry,
-          name: request.name,
-          scope,
-          enabled: request.enabled,
-        });
-        if (!request.enabled) {
-          return {
-            _tag: "SetActivation",
-            type: "hook",
-            name: request.name,
-            enabled: false,
-            scope,
-            artifact,
-            transition: { kind: "deactivate-hook" },
-            instructions: Option.none(),
-            blocked: Option.none(),
-            warning: Option.none(),
-            agentOutcomes: [],
-          };
-        }
-        const { ref, versionRange } = yield* resolveConfiguredHook(
-          request.name,
-          entry.source,
-          yield* makeConfiguredReleaseAgeEvaluation(),
-        );
-        const managers = yield* ExtensionManagers;
-        // Hook packages report per-agent outcomes because a hooks package can
-        // be projected for one agent and not another.
-        const agentOutcomes =
-          managers.hook.configuredAgentOutcomesForRef === undefined
-            ? []
-            : yield* managers.hook.configuredAgentOutcomesForRef(ref, "projected");
-        return {
-          _tag: "SetActivation",
-          type: "hook",
-          name: request.name,
-          enabled: true,
-          scope,
-          artifact,
-          transition: { kind: "reinstall", ref, versionRange },
-          instructions: Option.none(),
-          blocked: Option.none(),
-          warning: Option.none(),
           agentOutcomes,
-        };
-      }
-
-      case "knowledge": {
-        const configured = yield* ws.getConfiguredKnowledgeEntries();
-        const entry = configured[request.name];
-        if (entry === undefined) {
-          return yield* new ExtensionLifecycleFailed({
-            category: "not_found",
-            detail: `Knowledge bundle "${request.name}" is not configured`,
-          });
-        }
-        if (entry.enabled === request.enabled) {
-          return unchanged(
-            request,
-            request.name,
-            `Knowledge bundle "${request.name}" is already ${verb}`,
-          );
-        }
-        if (!request.enabled) {
-          return {
-            _tag: "SetActivation",
-            type: "knowledge",
-            name: request.name,
-            enabled: false,
-            scope,
-            artifact: settingsArtifact(scope),
-            transition: { kind: "deactivate-knowledge" },
-            instructions: Option.none(),
-            blocked: Option.none(),
-            warning: Option.none(),
-            agentOutcomes: [],
-          };
-        }
-        const { ref, versionRange } = yield* resolveConfiguredKnowledge(
-          request.name,
-          entry.source,
-          yield* makeConfiguredReleaseAgeEvaluation(),
-        );
-        return {
-          _tag: "SetActivation",
-          type: "knowledge",
-          name: request.name,
-          enabled: true,
-          scope,
-          artifact: settingsArtifact(scope),
-          transition: { kind: "reinstall", ref, versionRange },
-          instructions: Option.none(),
-          blocked: Option.none(),
-          warning: Option.none(),
-          agentOutcomes: [],
         };
       }
 
@@ -665,7 +558,19 @@ export const prepareSetActivation = (
         if (entry.enabled === request.enabled) {
           return unchanged(request, request.name, `Pack "${request.name}" is already ${verb}`);
         }
-        const graph = yield* ws.getDesiredStateGraph();
+        const proposal = yield* proposeDesiredState([
+          { kind: "activation", type: "pack", name: request.name, enabled: request.enabled },
+        ]).pipe(
+          Effect.mapError(
+            (cause) =>
+              new ExtensionLifecycleFailed({
+                category: "conflict",
+                detail: "Cannot derive Pack activation",
+                cause,
+              }),
+          ),
+        );
+        const graph = proposal.before;
         if (!graph.complete) {
           return yield* new ExtensionLifecycleFailed({
             category: "conflict",
@@ -692,14 +597,73 @@ export const prepareSetActivation = (
             packContributesTo(node, identity) &&
             !remainsActiveWithoutPack(node, identity),
         );
-        const contributed = graph.nodes.filter(
+        const contributed = proposal.after.nodes.filter(
           (node) => node.type !== "pack" && packContributesTo(node, identity),
         );
         const members = request.enabled ? contributed : affected;
-        const memberTargets: ReadonlyArray<JobStepArtifactTarget> = members.map((node) => ({
-          path: canonicalNodeDisplayPath(path, ws, node),
-          change: "unchanged",
-        }));
+        const conversion = yield* StepFailureConversion;
+        const adapter = {
+          toStepFailure: (cause: SyncPolicyFailure) =>
+            conversion.toStepFailure(
+              new ExtensionLifecycleFailed({
+                category: "conflict",
+                detail: "detail" in cause ? cause.detail : cause._tag,
+                cause,
+              }),
+            ),
+        };
+        const retirement = request.enabled
+          ? Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>()
+          : yield* collectUnreachableRetirement(adapter, {
+              resultingGraph: proposal.after,
+              subjects: members,
+            }).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new ExtensionLifecycleFailed({
+                    category: "conflict",
+                    detail: "Cannot verify Pack member retirement",
+                    cause,
+                  }),
+              ),
+            );
+        const materialization = request.enabled
+          ? yield* collectMaterializeSteps({
+              desiredState: proposal.after,
+              selection: { target: Option.some(identity), type: Option.none() },
+              adapter,
+            }).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new ExtensionLifecycleFailed({
+                    category: "conflict",
+                    detail: "Cannot prepare Pack member realization",
+                    cause,
+                  }),
+              ),
+            )
+          : undefined;
+        const retainedReferences = (yield* Effect.forEach(members, (node) =>
+          acceptedCanonicalObservation({ workspace: ws, type: node.type, name: node.name }).pipe(
+            Effect.map((canonical): ReadonlyArray<JobStepArtifactReference> => {
+              if (Option.isNone(canonical) || canonical.value.observation.path === undefined)
+                return [];
+              const relative = path.relative(ws.baseDir, canonical.value.observation.path);
+              if (
+                Option.isSome(retirement) &&
+                retirement.value.artifact?.targets?.some((target) => target.path === relative)
+              )
+                return [];
+              return [
+                {
+                  path: relative,
+                  state: canonical.value.observation.status === "usable" ? "retained" : "unknown",
+                  reason: "canonical content required by resulting desired state",
+                },
+              ];
+            }),
+          ),
+        )).flat();
         return {
           _tag: "SetActivation",
           type: "pack",
@@ -710,11 +674,23 @@ export const prepareSetActivation = (
             path: settingsDisplayPath(scope),
             scope,
             change: "updated",
-            fileCount: memberTargets.length + 1,
-            targets: [{ path: settingsDisplayPath(scope), change: "updated" }, ...memberTargets],
+            fileCount:
+              1 +
+              (Option.isSome(retirement) ? (retirement.value.artifact?.targets?.length ?? 0) : 0),
+            targets: [
+              { path: settingsDisplayPath(scope), change: "updated" },
+              ...(Option.isSome(retirement) ? (retirement.value.artifact?.targets ?? []) : []),
+            ],
+            references: [
+              ...retainedReferences,
+              ...(Option.isSome(retirement) ? (retirement.value.artifact?.references ?? []) : []),
+            ],
           },
           transition: {
             kind: "pack",
+            proposal,
+            retirement,
+            ...(materialization === undefined ? {} : { materialization }),
             identity,
             members,
             aggregateTypes: new Set(members.map((node) => node.type)),
@@ -740,6 +716,12 @@ const dematerializeMember = (
   LifecycleFailure,
   | CodingAgentRepository
   | ExtensionManagers
+  | HookManager
+  | SkillManager
+  | RuleManager
+  | KnowledgeManager
+  | PackManager
+  | McpServerManager
   | FileSystem.FileSystem
   | ManagerRequirements
   | Path.Path
@@ -900,11 +882,20 @@ const validatePackActivation = (candidate: {
 type TransitionRequirements =
   | CodingAgentRepository
   | ExtensionManagers
+  | HookManager
+  | SkillManager
+  | RuleManager
+  | KnowledgeManager
+  | PackManager
+  | McpServerManager
   | FileSystem.FileSystem
   | ManagerRequirements
   | McpServerInstallRequirements
   | Path.Path
   | RecipeRequirements
+  | LockfileReader
+  | SettingsReader
+  | SettingsWriter
   | StepFailureConversion
   | SubagentManager
   | WorkspaceMutations
@@ -916,118 +907,32 @@ type TransitionEffect = Effect.Effect<
   TransitionRequirements
 >;
 
-const NO_WARNINGS: ReadonlyArray<string> = [];
-
-/** Disabling a rule: record the preference, then remove its projection. */
-const deactivateRuleTransition = (candidate: SetActivationCandidate): TransitionEffect =>
+/** Aggregate projections read the accepted content selected by proposed intent. */
+const aggregateTransition = (
+  proposal: DesiredStateProposal,
+  type: ExtensionType,
+): TransitionEffect =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const managers = yield* ExtensionManagers;
-    yield* ws.updateRuleEntry(candidate.name, (current) => ({ ...current, enabled: false }));
-    yield* managers.rule.materializeDeactivate({
-      target: { type: "rule", name: candidate.name },
-    });
-    return NO_WARNINGS;
-  });
-
-/** Disabling a hooks package: record the preference, then stop projecting it. */
-const deactivateHookTransition = (candidate: SetActivationCandidate): TransitionEffect =>
-  Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const managers = yield* ExtensionManagers;
-    yield* ws.updateHookEntry(candidate.name, (current) => ({ ...current, enabled: false }));
-    yield* managers.hook.materializeDeactivate({
-      target: { type: "hook", name: candidate.name },
-    });
-    return NO_WARNINGS;
-  });
-
-/**
- * Disabling a Knowledge bundle: record the preference, then re-render the
- * discovery region. Re-rendering is what deactivation means for Knowledge, so
- * this step carries the region's own exclusion report.
- */
-const deactivateKnowledgeTransition = (candidate: SetActivationCandidate): TransitionEffect =>
-  Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const managers = yield* ExtensionManagers;
-    yield* ws.updateKnowledgeEntry(candidate.name, (current) => ({ ...current, enabled: false }));
-    const plans = yield* managers.knowledge.projectionPlans();
-    yield* applyProjectionPlans(plans);
-    return projectionPlanExclusionWarnings(plans);
+    yield* publishDesiredState(proposal);
+    return yield* reconcileAggregateProjections(new Set([type]));
   });
 
 /** Enabling a Pack, or disabling it and the members it alone kept active. */
 const packTransition = (
-  candidate: SetActivationCandidate,
+  candidate: ActivationRealization,
   transition: Extract<ActivationTransition, { readonly kind: "pack" }>,
 ): Effect.Effect<ReadonlyArray<string>, LifecycleFailure, TransitionRequirements> =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const conversion = yield* StepFailureConversion;
-    const configured = yield* ws.getConfiguredPackEntries();
-    const entry = configured[candidate.name];
-    if (entry === undefined) {
-      return yield* new ExtensionLifecycleFailed({
-        category: "not_found",
-        detail: `Pack "${candidate.name}" is no longer configured`,
-      });
-    }
-    yield* ws.setPackEntry(candidate.name, { ...entry, enabled: candidate.enabled });
+    yield* publishDesiredState(transition.proposal);
     if (candidate.enabled) {
-      // A disabled Pack contributes nothing, so the members the planner saw
-      // still carried the old inactive state. Re-read the closure from the
-      // graph this transition just produced: retained re-materialization
-      // covers active members only, and they became active one line ago.
-      const graph = yield* ws.getDesiredStateGraph();
-      const activeMembers = graph.nodes.filter(
-        (node) => node.type !== "pack" && packContributesTo(node, transition.identity),
-      );
-      // The capability refuses when accepted content is not usable; that is
-      // this feature's own conflict, reported with the recovery route the
-      // operator can actually take.
-      const { steps } = yield* collectRetainedMaterializeSteps({
-        nodes: activeMembers,
-        adapter: { toStepFailure: conversion.toStepFailure },
-        runMcpServerInstall: ({ ref }) =>
-          installMcpServer({
-            name: "install-mcp-server",
-            args: {
-              ref,
-              nonInteractive: true,
-              force: false,
-              allowWorkspaceSourceTransition: false,
-              versionRange: Option.none(),
-              skipSettings: Option.some(true),
-            },
-          }).pipe(withAdaptedStepFailures),
-      }).pipe(
-        Effect.mapError((failure) =>
-          failure instanceof RetainedContentUnusable
-            ? new ExtensionLifecycleFailed({
-                category: "conflict",
-                detail: failure.detail,
-                suggestions: [
-                  {
-                    description: "Refresh the pack and its retained members",
-                    cmd: "axm packs update --yes",
-                  },
-                ],
-                cause: failure,
-              })
-            : failure,
-        ),
-      );
-      yield* Effect.forEach(
-        steps,
-        (step): Effect.Effect<void, LifecycleFailure, TransitionRequirements> =>
-          step.readiness === "error"
-            ? Effect.fail(
-                new ExtensionLifecycleFailed({ category: "conflict", detail: step.errorMessage }),
-              )
-            : step.run.pipe(Effect.asVoid),
-        { concurrency: 1, discard: true },
-      );
+      for (const step of transition.materialization?.steps ?? []) {
+        if (step.readiness === "error")
+          return yield* new ExtensionLifecycleFailed({
+            category: "conflict",
+            detail: step.errorMessage,
+          });
+        yield* step.run;
+      }
     } else {
       yield* Effect.forEach(
         transition.members.filter((node) => !AGGREGATE_UNIT_TYPES.has(node.type)),
@@ -1035,7 +940,17 @@ const packTransition = (
         { concurrency: 1, discard: true },
       );
     }
-    return yield* reconcileAggregateProjections(transition.aggregateTypes);
+    const warnings = yield* reconcileAggregateProjections(transition.aggregateTypes);
+    if (Option.isSome(transition.retirement)) {
+      const step = transition.retirement.value;
+      if (step.readiness === "error")
+        return yield* new ExtensionLifecycleFailed({
+          category: "conflict",
+          detail: step.errorMessage,
+        });
+      yield* step.run;
+    }
+    return warnings;
   });
 
 /**
@@ -1043,7 +958,7 @@ const packTransition = (
  * transaction it opens and the artifact it observes.
  */
 const executorStep = (
-  candidate: SetActivationCandidate,
+  candidate: ActivationRealization,
   kind: "skill" | "subagent" | "mcp-server",
 ): PlannedJobStep<SetActivationRequirements> => {
   const run =
@@ -1058,11 +973,18 @@ const executorStep = (
         : candidate.enabled
           ? enableMcpServer({ name: "enable-mcp-server", args: { serverName: candidate.name } })
           : disableMcpServer({ name: "disable-mcp-server", args: { serverName: candidate.name } });
+  const applied =
+    candidate.proposal === undefined
+      ? run
+      : runWorkspaceTransaction({
+          transition: publishDesiredState(candidate.proposal).pipe(Effect.andThen(run)),
+          validate: () => Effect.void,
+        }).pipe(withAdaptedStepFailures);
   return {
     label: candidate.name,
     readiness: "ready",
     ...(candidate.agentOutcomes.length === 0 ? {} : { agentOutcomes: candidate.agentOutcomes }),
-    run,
+    run: applied,
   };
 };
 
@@ -1072,7 +994,7 @@ const executorStep = (
  * one transaction.
  */
 const transactionStep = (
-  candidate: SetActivationCandidate,
+  candidate: ActivationRealization,
   transition: TransitionEffect,
   validate: () => Effect.Effect<void, LifecycleFailure, WorkspaceMutations>,
 ): PlannedJobStep<SetActivationRequirements> => {
@@ -1102,7 +1024,7 @@ const transactionStep = (
 };
 
 const activationStep = (
-  candidate: SetActivationCandidate,
+  candidate: ActivationRealization,
 ): PlannedJobStep<SetActivationRequirements> => {
   if (Option.isSome(candidate.blocked)) {
     return {
@@ -1117,16 +1039,10 @@ const activationStep = (
     case "subagent":
     case "mcp-server":
       return executorStep(candidate, transition.kind);
-    case "reinstall":
-      return reinstallStep(candidate, transition);
-    case "deactivate-rule":
-      return transactionStep(candidate, deactivateRuleTransition(candidate), () => Effect.void);
-    case "deactivate-hook":
-      return transactionStep(candidate, deactivateHookTransition(candidate), () => Effect.void);
-    case "deactivate-knowledge":
+    case "aggregate":
       return transactionStep(
         candidate,
-        deactivateKnowledgeTransition(candidate),
+        aggregateTransition(transition.proposal, candidate.type),
         () => Effect.void,
       );
     case "pack":
@@ -1141,83 +1057,12 @@ const activationStep = (
 };
 
 /**
- * Enabling a rule, hooks package, or Knowledge bundle re-runs the configured
- * install closure for the entry the workspace already accepted, so the same
- * publisher-trust and release-age evidence a first install carries travels
- * with the re-activation.
- */
-const reinstallStep = (
-  candidate: SetActivationCandidate,
-  transition: Extract<ActivationTransition, { readonly kind: "reinstall" }>,
-): PlannedJobStep<SetActivationRequirements> => {
-  const { artifact } = candidate;
-  const install = (
-    managers: ExtensionManagersService,
-    toStepFailure: (failure: LifecycleFailure) => StepFailure,
-  ) => {
-    const common = {
-      toStepFailure,
-      versionRange: transition.versionRange,
-      message: `Enabled ${candidate.name}`,
-      buildArtifact: () => Effect.succeed(artifact),
-    } as const;
-    switch (transition.ref.type) {
-      case "rule":
-        return buildInstallOperation(managers.rule, { ...common, ref: transition.ref });
-      case "hook":
-        return buildInstallOperation(managers.hook, { ...common, ref: transition.ref });
-      case "knowledge":
-        return buildInstallOperation(managers.knowledge, { ...common, ref: transition.ref });
-      case "skill":
-        return buildInstallOperation(managers.skill, { ...common, ref: transition.ref });
-      case "subagent":
-        return buildInstallOperation(managers.subagent, { ...common, ref: transition.ref });
-      case "mcp-server":
-        return buildInstallOperation(managers["mcp-server"], { ...common, ref: transition.ref });
-      case "pack":
-        return buildInstallOperation(managers.pack, { ...common, ref: transition.ref });
-    }
-  };
-  const run = Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const managers = yield* ExtensionManagers;
-    const conversion = yield* StepFailureConversion;
-    const step = install(managers, conversion.toStepFailure);
-    if (step.readiness === "error") {
-      return yield* new StepFailure({ category: "conflict", detail: step.errorMessage });
-    }
-    return yield* Option.match(candidate.instructions, {
-      onNone: () => step.run,
-      onSome: (config) =>
-        runWorkspaceTransaction({
-          transition: reconcileInstructionTransition({ ws, config, transition: step.run }),
-          validate: () => Effect.void,
-        }).pipe(withAdaptedStepFailures),
-    });
-  });
-  return {
-    label: candidate.name,
-    readiness: "ready",
-    artifact,
-    ...(candidate.agentOutcomes.length === 0 ? {} : { agentOutcomes: candidate.agentOutcomes }),
-    run,
-  };
-};
-
-/**
  * Preview or apply a settled activation. The whole change — the preference,
  * the projections it implies, and any instruction file it shares — runs in
  * one workspace transaction, so a projection that cannot be written never
  * leaves the preference recorded.
  */
-export const previewOrApplySetActivation = (
-  candidate: SetActivationCandidate,
-  execution: PlanExecution,
-): Effect.Effect<
-  OperationResolution<void>,
-  SetActivationExecutionFailure,
-  SetActivationRequirements
-> =>
+const prepareActivationExecution = (candidate: ActivationRealization) =>
   Effect.gen(function* () {
     const plan: Plan<SetActivationRequirements> = {
       _tag: "Plan",
@@ -1246,8 +1091,34 @@ export const previewOrApplySetActivation = (
       },
     ];
     const prepared = yield* prepareExecutionCandidate(plan, { configuredAgentOperations });
-    return yield* resolveExecutionCandidate(prepared, execution);
+    return { ...candidate, execution: prepared };
   });
+
+export interface SetActivationCandidate extends ActivationRealization {
+  readonly execution: ExecutionCandidate<SetActivationRequirements>;
+}
+
+export const prepareSetActivation = (
+  request: SetActivationRequest,
+): Effect.Effect<
+  SetActivationCandidate | ActivationUnchanged,
+  SetActivationFailure | SetActivationExecutionFailure,
+  SetActivationRequirements
+> =>
+  Effect.gen(function* () {
+    const candidate = yield* settleActivation(request);
+    if (candidate._tag === "Unchanged") return candidate;
+    return yield* prepareActivationExecution(candidate);
+  });
+
+export const previewOrApplySetActivation = (
+  candidate: SetActivationCandidate,
+  execution: PlanExecution,
+): Effect.Effect<
+  OperationResolution<void>,
+  SetActivationExecutionFailure,
+  SetActivationRequirements
+> => resolveExecutionCandidate(candidate.execution, execution);
 
 /** The activation use case. */
 export const SetActivation = {

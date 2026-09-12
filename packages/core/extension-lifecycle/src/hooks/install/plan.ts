@@ -11,7 +11,8 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { HookManager, buildInstallOperation } from "@agentxm/extension-materialization";
+import { HookManager } from "@agentxm/extension-materialization";
+import { buildInstallOperation } from "@agentxm/workspace-reconciliation";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
@@ -242,8 +243,10 @@ export const planHookInstall: (
         const operation = buildInstallOperation(hookManager, {
           toStepFailure: lifecycleStepFailure,
           ref,
-          versionRange,
-          skipProjections: deferProjections,
+          declaration: { name: ref.hook.name, versionRange },
+          ...(deferProjections
+            ? { enclosingClosure: { projections: [ref.type], postconditions: [] } }
+            : {}),
           installedBefore: Effect.succeed(installedBefore),
           message: `Installed ${ref.hook.name}`,
           buildArtifact: ({ installedBefore }) =>

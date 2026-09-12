@@ -14,27 +14,22 @@
  * workspace configured but never accepted has nothing to restore, and that
  * one resolves through its configured source.
  *
- * Recovery planning lives here rather than in a capability because only the
- * reconciliation sweep needs it: Pack *activation* restores retained members
- * from accepted content and never re-acquires, which is a different decision
- * with different risk, and that one lives in `@agentxm/extension-materialization`.
- *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions/fqn";
 import {
-  buildInstallOperation,
   ExtensionManagers,
-  installMcpServer,
   type ExtensionManagersService,
-  type McpServerInstallRequirements,
 } from "@agentxm/extension-materialization";
+import { installMcpServer, type McpServerInstallRequirements } from "./mcps/install-operation.js";
+import { buildInstallOperation, targetFromRef } from "./extensions/operations.js";
 import {
   acceptedPackDependencyResolver,
   hydrateAcceptedPackRef,
@@ -46,6 +41,8 @@ import {
 import { SourceHostProviders } from "@agentxm/extension-sources";
 import {
   acceptedResolutionRef,
+  acceptedCanonicalObservation,
+  computeExtensionPathsForLayout,
   desiredStateProblemsText,
   enabledConfiguredEntries,
   WorkspaceMutations,
@@ -55,17 +52,11 @@ import {
   restorationIncompleteToStepFailure,
   StepFailure,
   workspaceTransactionFailureToStepFailure,
-  type JobStepResult,
   type PlannedJobStep,
-  type ReadyJobStep,
-  type WarnJobStep,
 } from "@agentxm/workspace-operations";
-import {
-  runWorkspaceTransaction,
-  WorkspaceRestorationIncomplete,
-  type WorkspaceTransactionScope,
-} from "@agentxm/workspace-transactions";
+import { WorkspaceRestorationIncomplete } from "@agentxm/workspace-transactions";
 
+import { buildReconciliationClosure } from "./closure.js";
 import { WorkspaceSyncFailed } from "./errors.js";
 import type { SyncFailureAdapter, SyncPolicyFailure } from "./failure-adapter.js";
 import {
@@ -102,15 +93,12 @@ const recoveryStep = (args: {
   // reused rather than fetched again.
   const common = {
     toStepFailure: adapter.toStepFailure,
-    versionRange: Option.none<string>(),
     force: isPack,
-    skipSettings: !isPack,
-    skipProjections: true,
-    deferObservableValidation: true,
+    enclosingClosure: { projections: [ref.type], postconditions: [ref.type] },
   } as const;
   switch (ref.type) {
     case "pack":
-      return buildInstallOperation(managers.pack, { ...common, ref, skipSettings: false });
+      return buildInstallOperation(managers.pack, { ...common, ref });
     case "skill":
       return buildInstallOperation(managers.skill, { ...common, ref });
     case "subagent":
@@ -131,97 +119,10 @@ const recoveryStep = (args: {
             ref,
             nonInteractive: true,
             force: true,
-            allowWorkspaceSourceTransition: false,
-            versionRange: Option.none(),
-            skipSettings: Option.some(true),
           },
         }).pipe(Effect.mapError(adapter.toStepFailure)),
       };
   }
-};
-
-/**
- * One recovery closure per Pack. Restoring a Pack package and the members it
- * declares is one transition: a member that cannot be restored must leave the
- * Pack as it was rather than half-recovered, so the children run inside one
- * workspace transaction and settle as a single unit.
- */
-const atomicRecoveryStep = (args: {
-  readonly key: string;
-  readonly label: string;
-  readonly children: ReadonlyArray<
-    PlannedJobStep<SyncStepRequirements | McpServerInstallRequirements>
-  >;
-}): PlannedJobStep<
-  SyncStepRequirements | McpServerInstallRequirements | WorkspaceTransactionScope
-> => {
-  const readinessErrors = args.children.flatMap((step) =>
-    step.readiness === "error" ? [step.errorMessage] : [],
-  );
-  const artifact = args.children.find((step) => step.artifact !== undefined)?.artifact;
-  if (readinessErrors.length > 0) {
-    return {
-      readiness: "error",
-      key: args.key,
-      label: args.label,
-      errorMessage: readinessErrors.join("; "),
-      ...(artifact === undefined ? {} : { artifact }),
-    };
-  }
-  const runnable = args.children.filter(
-    (
-      step,
-    ): step is
-      | ReadyJobStep<SyncStepRequirements | McpServerInstallRequirements>
-      | WarnJobStep<SyncStepRequirements | McpServerInstallRequirements> =>
-      step.readiness !== "error",
-  );
-  return {
-    readiness: "ready",
-    key: args.key,
-    label: args.label,
-    ...(artifact === undefined ? {} : { artifact }),
-    run: runWorkspaceTransaction({
-      transition: Effect.forEach(
-        runnable,
-        (step) =>
-          step.run.pipe(
-            Effect.flatMap((result) =>
-              result.result === "error"
-                ? Effect.fail(
-                    result.error ??
-                      new StepFailure({
-                        category: "internal",
-                        detail: `${step.label} failed: ${result.message}`,
-                      }),
-                  )
-                : Effect.succeed(result),
-            ),
-          ),
-        { concurrency: 1 },
-      ),
-      validate: () => Effect.void,
-    }).pipe(
-      Effect.mapError((failure) =>
-        failure instanceof StepFailure
-          ? failure
-          : failure instanceof WorkspaceRestorationIncomplete
-            ? restorationIncompleteToStepFailure(failure)
-            : workspaceTransactionFailureToStepFailure(failure),
-      ),
-      Effect.map((results): JobStepResult => {
-        const warnings = results.flatMap((result) =>
-          result.result === "success" ? (result.warnings ?? []) : [],
-        );
-        return {
-          result: "success",
-          message: results[0]?.message ?? "Restored the accepted Pack graph",
-          ...(artifact === undefined ? {} : { artifact }),
-          ...(warnings.length === 0 ? {} : { warnings }),
-        };
-      }),
-    ),
-  };
 };
 
 /**
@@ -324,11 +225,53 @@ export const collectConfiguredPackRecovery = (args: {
           );
           return {
             steps: [
-              atomicRecoveryStep({
+              {
+                ...(yield* buildReconciliationClosure({
+                  label,
+                  message: `Restored ${identity} and its required members`,
+                  artifact: packStep.artifact ?? {
+                    path: computeExtensionPathsForLayout(
+                      (yield* Path.Path).join,
+                      ws.layout,
+                      packRef,
+                      "packs",
+                      name,
+                    ).canonicalPath,
+                    scope: ws.scope,
+                    change: "updated",
+                  },
+                  children: [packStep, ...memberSteps].map((step) => ({
+                    step,
+                    coverage: "eligible" as const,
+                  })),
+                  toStepFailure: (failure) =>
+                    failure instanceof StepFailure
+                      ? failure
+                      : failure instanceof WorkspaceRestorationIncomplete
+                        ? restorationIncompleteToStepFailure(failure)
+                        : workspaceTransactionFailureToStepFailure(failure),
+                  validate: Effect.gen(function* () {
+                    for (const ref of [packRef, ...memberRefs]) {
+                      const target = targetFromRef(ref).name;
+                      const canonical = yield* acceptedCanonicalObservation({
+                        workspace: ws,
+                        type: ref.type,
+                        name: target,
+                      });
+                      if (
+                        Option.isNone(canonical) ||
+                        canonical.value.observation.status !== "usable"
+                      ) {
+                        return yield* new WorkspaceSyncFailed({
+                          category: "conflict",
+                          detail: `Recovered ${ref.type} ${target} does not satisfy desired state`,
+                        });
+                      }
+                    }
+                  }).pipe(Effect.mapError(args.adapter.toStepFailure)),
+                })),
                 key: `${SYNC_RECOVERY_IDS.packManifestDivergence}:${name}`,
-                label,
-                children: [packStep, ...memberSteps],
-              }),
+              },
             ],
             holdbacks: expansion.holdbacks,
             bypasses: expansion.bypasses,

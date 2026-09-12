@@ -592,17 +592,20 @@ describe("axm install", () => {
       expect(disabled.stdout.result.outcome).toBe("applied");
       for (const row of leafRows) {
         const canonical = extensionDirForSurface(workspace.path, row.plural, memberName(row));
-        expect(fs.existsSync(canonical), `${row.type} canonical root retained`).toBe(true);
-        if (row.type === "skill") {
-          expect(fs.existsSync(path.join(canonical, "src")), "skill canonical src retained").toBe(
-            true,
-          );
-        }
+        expect(fs.existsSync(canonical), `${row.type} exclusive canonical root retired`).toBe(
+          false,
+        );
       }
       await expectCleanWorkspace(workspace.path, "all leaf members disabled");
 
       const enabled = await runJsonCommand(workspace.path, ["packs", "enable", packName]);
       expect(enabled.stdout.result.outcome).toBe("applied");
+      for (const row of leafRows) {
+        expect(
+          fs.existsSync(extensionDirForSurface(workspace.path, row.plural, memberName(row))),
+          `${row.type} canonical root reacquired`,
+        ).toBe(true);
+      }
       await expectCleanWorkspace(workspace.path, "all leaf members enabled");
 
       const unpackPreview = await runJsonCommand(

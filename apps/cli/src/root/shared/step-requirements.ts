@@ -13,11 +13,8 @@
  */
 
 import type { StepFailureConversion } from "@agentxm/extension-lifecycle";
-import type {
-  ManagerRequirements,
-  McpSecretStore,
-  RecipeRequirements,
-} from "@agentxm/extension-materialization";
+import type { ManagerRequirements, McpSecretStore } from "@agentxm/extension-materialization";
+import type { RecipeRequirements } from "@agentxm/workspace-reconciliation";
 import type { CodingAgentRepository } from "@agentxm/workspace-projection";
 import type { WorkspaceMutations } from "@agentxm/workspace-state";
 import type { Screen } from "../../screen/index.js";

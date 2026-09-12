@@ -24,11 +24,11 @@ import {
   SkillManager,
   artifactAgentIdsFromTargets,
   artifactTargetAgentIds,
-  buildInstallOperation,
   computeSkillSourceHash,
   groupInstallTargetsByDirectory,
   type InstallableSkillTarget,
 } from "@agentxm/extension-materialization";
+import { buildInstallOperation } from "@agentxm/workspace-reconciliation";
 import {
   matchesReleaseAgeExcludePattern,
   type Handle,
@@ -552,7 +552,7 @@ export const planSkillInstall: (
           buildInstallOperation(skillManager, {
             toStepFailure: lifecycleStepFailure,
             ref,
-            versionRange: entry.versionRange,
+            declaration: { name: ref.skill.name, versionRange: entry.versionRange },
             force: intent.force === true,
             installedBefore: Effect.succeed(installedBefore),
             buildArtifact: ({ installedBefore }) =>

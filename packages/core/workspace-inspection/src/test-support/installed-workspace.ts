@@ -35,11 +35,11 @@ import { strToU8, zipSync } from "fflate";
 
 import { AgentPresenceProbeLive } from "@agentxm/agent-integration/live";
 import {
-  buildInstallOperation,
   PackManager,
   SkillManager,
   type ExtensionManagerFailure,
 } from "@agentxm/extension-materialization";
+import { buildInstallOperation } from "@agentxm/workspace-reconciliation";
 import { PackManagerLive, SkillManagerLive } from "@agentxm/extension-materialization/live";
 import {
   decideNamedRegistryVersion,
@@ -347,7 +347,7 @@ export const installRegistrySkill = Effect.fn("InspectionFixture.installRegistry
     const resolved = yield* resolveConfiguredSkill(args.name, args.source, releaseAge);
     const step = buildInstallOperation(manager, {
       ref: resolved.ref,
-      versionRange: Option.map(resolved.versionRange, String),
+      declaration: { name: args.name, versionRange: Option.map(resolved.versionRange, String) },
       toStepFailure,
     });
     // A planned install step is ready or warned; an error step would mean the
@@ -373,7 +373,7 @@ export const installRegistryPack = Effect.fn("InspectionFixture.installRegistryP
     const resolved = yield* resolveConfiguredPack(args.name, args.source, releaseAge);
     const step = buildInstallOperation(manager, {
       ref: resolved.ref,
-      versionRange: Option.map(resolved.versionRange, String),
+      declaration: { name: args.name, versionRange: Option.map(resolved.versionRange, String) },
       toStepFailure,
     });
     if (step.readiness === "error") {

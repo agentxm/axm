@@ -24,22 +24,25 @@ import * as Path from "effect/Path";
 
 import {
   ExtensionManagers,
-  buildAuthoredExtensionStep,
-  buildNewExtensionStep,
   createCanonicalDirectory,
   groupInstallTargetsByDirectory,
   recoverCanonicalDirectory,
   artifactAgentIdsFromTargets,
   artifactTargetAgentIds,
-  type AuthoredExtensionOperationArgs,
   type ExtensionManager,
   type InstallableSkillTarget,
   type ManagerRequirements,
   type MaterializationFacts,
+} from "@agentxm/extension-materialization";
+import {
+  buildAuthoredExtensionStep,
+  buildNewExtensionStep,
+  type AuthoredExtensionOperationArgs,
   type NewExtensionOperationArgs,
   type RecipeRequirements,
-} from "@agentxm/extension-materialization";
-import { McpSecretStore, materializeAuthoredMcpServer } from "@agentxm/extension-materialization";
+} from "@agentxm/workspace-reconciliation";
+import { McpSecretStore } from "@agentxm/extension-materialization";
+import { materializeAuthoredMcpServer } from "@agentxm/workspace-reconciliation";
 import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {

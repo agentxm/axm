@@ -36,6 +36,7 @@ export {
   SubagentManager,
   type AcquiredContentFacts,
   type HookManagerService,
+  type PreparedHookProjection,
   type HookMaterializationFacts,
   type KnowledgeManagerService,
   type KnowledgeMaterializationFacts,
@@ -117,17 +118,7 @@ export {
 
 // MCP server installation: the operation four surfaces share, its credential
 // port, and the artifact/target vocabulary the plan step reports.
-export {
-  collectSecretInputNames,
-  deleteMcpSecrets,
-  installMcpServer,
-  readMcpServerManifest,
-  type InstallMcpServerOperation,
-  type InstallMcpServerOperationArgs,
-  type McpSecretDeletionOutcome,
-  type McpServerInstallRequirements,
-} from "./mcps/install-operation.js";
-export { materializeAuthoredMcpServer } from "./mcps/authored-materialization.js";
+
 export {
   NativeMcpEntryRetirementFailed,
   retireNativeMcpEntry,
@@ -212,42 +203,4 @@ export {
   type RegistryPackageMaterializationMessages,
 } from "./registry-materialization.js";
 
-// Closure recipes
-export {
-  buildAuthoredExtensionStep,
-  buildInstallOperation,
-  buildMaterializeOperation,
-  buildNewExtensionStep,
-  buildUninstallOperation,
-  extensionRefLifecycleWarnings,
-  extensionRefRegistryLifecycle,
-  formatPackageUrlParts,
-  targetFromRef,
-  toLabel,
-  toLabelWithCompanions,
-  toStepKey,
-  type AuthoredExtensionOperationArgs,
-  type CallerStepFailure,
-  type InstallOperationArgs,
-  type MaterializeOperationArgs,
-  type NewExtensionOperationArgs,
-  type RecipeRequirements,
-  type StepFailureAdapter,
-  type UninstallOperationArgs,
-  type UninstallRetentionPolicy,
-  type UninstallSettlement,
-  type UnreadablePackageRetirement,
-} from "./extensions/operations.js";
-
-// Re-materializing content the workspace already accepted. Both the sync
-// sweep and Pack activation restore retained members, and neither feature may
-// import the other.
-export { RetainedContentUnusable } from "./desired-state/errors.js";
-export {
-  collectRetainedMaterializeSteps,
-  type RetainedMaterializeFailure,
-  type RetainedMaterializeRequirements,
-  type RetainedMaterializeSteps,
-  type RunRetainedMcpServerInstall,
-} from "./desired-state/retained-materialization.js";
 export { projectionErrorToStepFailure } from "./projection-step-failure.js";

@@ -172,6 +172,7 @@ const productScopeBans = [
   "scope:workspace-state",
   "scope:workspace-transactions",
   "scope:workspace-sync",
+  "scope:workspace-reconciliation",
 ];
 
 // Technical roles: dependencies point inward and never back toward the
@@ -644,6 +645,7 @@ export default [
       "packages/core/extension-lifecycle/src/**/test-helpers.ts",
       "packages/core/extension-publish/src/**/test-helpers.ts",
       "packages/core/workspace-sync/src/**/test-helpers.ts",
+      "packages/core/workspace-reconciliation/src/**/test-helpers.ts",
       // Plan-family fixtures, excluded from the library build: the plan
       // specifications observe the real transaction scope over a temporary
       // workspace with the deterministic state ports its dependency publishes.

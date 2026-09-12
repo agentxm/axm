@@ -29,13 +29,15 @@ import {
 } from "@agentxm/workspace-state";
 import {
   agentConfigTarget,
-  collectSecretInputNames,
-  deleteMcpSecrets,
   mcpServerArtifact,
   mcpSettingsTarget,
-  readMcpServerManifest,
   McpSecretStore,
 } from "@agentxm/extension-materialization";
+import {
+  collectSecretInputNames,
+  deleteMcpSecrets,
+  readMcpServerManifest,
+} from "@agentxm/workspace-reconciliation";
 import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";
 import { ExtensionLifecycleFailed } from "../../errors.js";
 

@@ -41,17 +41,14 @@
     "includedScripts": []
   },
   "dependencies": {
-    "@agentxm/agent-integration": "workspace:^",
     "@agentxm/extension-materialization": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
-    "@agentxm/extension-resolution": "workspace:^",
-    "@agentxm/extension-sources": "workspace:^",
     "@agentxm/workspace-operations": "workspace:^",
     "@agentxm/workspace-projection": "workspace:^",
     "@agentxm/workspace-state": "workspace:^",
     "@agentxm/workspace-transactions": "workspace:^",
     "effect": "catalog:",
-    "semver": "catalog:"
+    "@agentxm/workspace-reconciliation": "workspace:^"
   },
   "devDependencies": {
     "@agentxm/registry-client": "workspace:^",
@@ -61,6 +58,9 @@
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "@agentxm/agent-integration": "workspace:^",
+    "@agentxm/extension-sources": "workspace:^",
+    "@agentxm/extension-resolution": "workspace:^"
   }
 }

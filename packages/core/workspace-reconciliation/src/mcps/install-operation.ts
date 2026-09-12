@@ -3,7 +3,7 @@
  * connection's credentials, record the accepted resolution and the settings
  * entry, and project the connection into every configured agent.
  *
- * It lives in the materialization capability rather than in a feature because
+ * It lives in the reconciliation capability rather than in a feature because
  * four surfaces need it — `axm mcps install`, pack member installation,
  * reconciliation, and the authoring routes that install an MCP server they
  * have just scaffolded, forked, adopted, or imported — and a feature may not
@@ -34,8 +34,8 @@ import {
 import { appendWarningsToMessage } from "@agentxm/workspace-operations";
 import type { JobStepResult, Operation } from "@agentxm/workspace-operations";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { canReuseInstalledPackage } from "../extensions/canonical-directory.js";
-import { materializeRegistryPackage } from "../registry-materialization.js";
+import { canReuseInstalledPackage } from "@agentxm/extension-materialization";
+import { materializeRegistryPackage } from "@agentxm/extension-materialization";
 import { computeExtensionPathsForLayout } from "@agentxm/workspace-state";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import type {
@@ -59,8 +59,8 @@ import {
   mcpServerArtifact,
   mcpSettingsTarget,
   mcpSourceTarget,
-} from "./artifact.js";
-import type { ExtensionManagerFailure } from "../errors.js";
+} from "@agentxm/extension-materialization";
+import type { ExtensionManagerFailure } from "@agentxm/extension-materialization";
 import {
   McpAgentSyncRefused,
   McpCanonicalPathUnsafe,
@@ -68,8 +68,12 @@ import {
   McpRegistryOnlyInstall,
   McpRequiredInputsMissing,
   McpWorkspacePackageInvalid,
-} from "./errors.js";
-import { McpSecretStore, mcpSecretAccount, type McpSecretIdentity } from "./secret-store.js";
+} from "@agentxm/extension-materialization";
+import {
+  McpSecretStore,
+  mcpSecretAccount,
+  type McpSecretIdentity,
+} from "@agentxm/extension-materialization";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -83,13 +87,8 @@ export type InstallMcpServerOperationArgs = {
   /** Local connection identity and exact agent-native MCP key. */
   readonly localName?: string;
   readonly force: boolean;
-  /** Explicitly permit a workspace-authored relocation during reconciliation. */
-  readonly allowWorkspaceSourceTransition?: boolean;
-  readonly versionRange: Option.Option<string>;
-  /** When true, write to lockfile only (skip settings). Used for pack dependencies. */
-  readonly skipSettings: Option.Option<boolean>;
-  /** Materialize only; the enclosing authored-package transaction owns state writes. */
-  readonly skipStateWrites?: boolean;
+  /** Explicit connection declaration; absent when realizing inherited or authored state. */
+  readonly declaration?: { readonly name: string; readonly versionRange: Option.Option<string> };
   /** When true, enforce strict policy for MCP sync outcomes. */
   readonly strictAgentSync?: Option.Option<boolean>;
   /** Resolved MCP input values from `--env KEY=VALUE` flags. */
@@ -589,7 +588,7 @@ export const installMcpServer: (
     const ws = yield* WorkspaceMutations;
     const path = yield* Path.Path;
     const { ref } = op.args;
-    const localName = op.args.localName ?? ref.server.name;
+    const localName = op.args.declaration?.name ?? op.args.localName ?? ref.server.name;
 
     if (ref.refType !== "registry" && ref.refType !== "workspace") {
       return yield* new McpRegistryOnlyInstall({
@@ -723,29 +722,27 @@ export const installMcpServer: (
       enabled,
     };
     const writeEffect =
-      op.args.skipStateWrites === true
-        ? Effect.void
-        : Option.getOrElse(op.args.skipSettings, () => false)
-          ? lockEntry === undefined
-            ? Effect.void
-            : ws.setMcpServerLock({
-                name: resolutionKey ?? ref.server.name,
-                resolutionKey: resolutionKey ?? ref.server.name,
-                lockEntry,
-                versionRange: Option.none(),
-              })
-          : lockEntry === undefined
-            ? ws.setMcpServerEntry(localName, {
-                ...settingsEntry,
-              })
-            : ws.setMcpServer({
-                name: localName,
-                resolutionKey: resolutionKey ?? localName,
-                lockEntry,
-                versionRange: op.args.versionRange,
-                env: persistedEnv,
-                enabled,
-              });
+      op.args.declaration === undefined
+        ? lockEntry === undefined
+          ? Effect.void
+          : ws.setMcpServerLock({
+              name: resolutionKey ?? ref.server.name,
+              resolutionKey: resolutionKey ?? ref.server.name,
+              lockEntry,
+              versionRange: Option.none(),
+            })
+        : lockEntry === undefined
+          ? ws.setMcpServerEntry(localName, {
+              ...settingsEntry,
+            })
+          : ws.setMcpServer({
+              name: localName,
+              resolutionKey: resolutionKey ?? localName,
+              lockEntry,
+              versionRange: op.args.declaration.versionRange,
+              env: persistedEnv,
+              enabled,
+            });
     yield* writeEffect;
 
     const projectionNames =

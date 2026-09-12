@@ -478,6 +478,8 @@ export const buildDesiredStateGraph = ({
 
       const workspacePack = isWorkspaceSourceLocator(entry.source);
       const configuredRegistrySource = registryLocator(entry.source)?.sourceName ?? "agentxm";
+      if (entry.enabled === false) continue;
+
       const manifestPath = path.join(
         layout === undefined
           ? path.join(
@@ -565,7 +567,7 @@ export const buildDesiredStateGraph = ({
           identity: dependencyIdentity,
           authority: "sourced",
           source: `${fqn}@${constraint}`,
-          enabled: entry.enabled !== false,
+          enabled: true,
           constraint,
           origin: {
             type: "pack",
@@ -573,7 +575,7 @@ export const buildDesiredStateGraph = ({
             manifestPath: path.relative(baseDir, manifestPath),
             source: fqn,
             constraint,
-            enabled: entry.enabled !== false,
+            enabled: true,
           },
         });
       }

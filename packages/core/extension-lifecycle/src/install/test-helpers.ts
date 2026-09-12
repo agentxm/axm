@@ -84,6 +84,7 @@ export interface InstallWorld {
 export const makeInstallWorld = (
   options: {
     readonly settings?: Readonly<Record<string, unknown>>;
+    readonly scope?: "project" | "user";
     /** Reuse a Registry another workspace already published into. */
     readonly registry?: LifecycleRegistry;
   } = {},
@@ -91,6 +92,7 @@ export const makeInstallWorld = (
   const owned = options.registry === undefined;
   const registry = options.registry ?? makeLifecycleRegistry();
   const workspace = makeLifecycleFixture({
+    ...(options.scope === undefined ? {} : { scope: options.scope }),
     sources: "live",
     settings: {
       owner: "@acme",

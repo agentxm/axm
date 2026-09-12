@@ -31,6 +31,8 @@ import { SourceAuthorityBlocked } from "@agentxm/extension-resolution";
 import { StepFailure } from "@agentxm/workspace-operations";
 import { computeSourceHash } from "@agentxm/workspace-state";
 import {
+  recipeWorkspace,
+  type RecipeWriteFaults,
   exactVersion,
   extensionName,
   fullyQualifiedName,
@@ -41,9 +43,9 @@ import type {
   ExtensionManager,
   ManagerRequirements,
   MaterializationFacts,
-} from "../manager-contract.js";
-import { NO_MATERIALIZATION_OBSERVATION } from "../manager-contract.js";
-import { SkillDefinitionInvalid } from "../skills/errors.js";
+} from "@agentxm/extension-materialization";
+import { NO_MATERIALIZATION_OBSERVATION } from "@agentxm/extension-materialization";
+import { SkillDefinitionInvalid } from "@agentxm/extension-materialization";
 import type { RecipeRequirements } from "./operations.js";
 import type {
   RegistrySkillRef,
@@ -70,18 +72,22 @@ afterEach(() => {
 
 const grounded = <A, E>(
   effect: Effect.Effect<A, E, RecipeRequirements | ManagerRequirements>,
-): Effect.Effect<A, E> =>
+  writes: RecipeWriteFaults = {},
+) =>
   effect.pipe(
     Effect.provide(
-      Layer.mergeAll(
-        WorkspaceTransactionScopeTest({
-          workspaceDir: transactionDir,
-          settingsPath: nodePath.join(transactionDir, "settings.json"),
-          lockPath: nodePath.join(transactionDir, "axm-lock.yaml"),
-        }),
-        NativeWriteAuthorityPermissive,
-        NodeServices.layer,
-        FetchHttpClient.layer,
+      Layer.provideMerge(
+        recipeWorkspace(transactionDir, writes),
+        Layer.mergeAll(
+          WorkspaceTransactionScopeTest({
+            workspaceDir: transactionDir,
+            settingsPath: nodePath.join(transactionDir, "settings.json"),
+            lockPath: nodePath.join(transactionDir, "axm-lock.yaml"),
+          }),
+          NativeWriteAuthorityPermissive,
+          NodeServices.layer,
+          FetchHttpClient.layer,
+        ),
       ),
     ),
   );
@@ -197,11 +203,11 @@ describe("buildInstallOperation", () => {
       materializeInstall: () => Effect.succeed(NO_FACTS),
       listMaterializable: () => Effect.succeed([]),
       materializeUninstall: () => Effect.succeed(NO_FACTS),
+      acquireCanonical: () => Effect.succeed(NO_FACTS),
+      materializeRetained: () => Effect.succeed(NO_FACTS),
       materializeDeactivate: () => Effect.succeed(NO_FACTS),
-      upsertSettingsEntry: () => Effect.void,
-      removeSettingsEntry: () => Effect.void,
-      upsertLockfileEntry: () => Effect.void,
-      removeLockfileEntry: () => Effect.void,
+      acceptedResolution: () => Effect.succeed(Option.none()),
+      withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
     } satisfies ExtensionManager<SkillExtensionRef, MaterializationFacts, ManagerRequirements>;
     const name = extensionName("review");
     const ref: RegistrySkillRef = {
@@ -226,7 +232,7 @@ describe("buildInstallOperation", () => {
 
     const operation = buildInstallOperation(manager, {
       ref,
-      versionRange: Option.none(),
+      declaration: { name: ref.skill.name, versionRange: Option.none() },
       toStepFailure,
     });
 
@@ -244,11 +250,11 @@ describe("buildInstallOperation", () => {
         materializeInstall: () => Effect.succeed(NO_FACTS),
         listMaterializable: () => Effect.succeed([]),
         materializeUninstall: () => Effect.succeed(NO_FACTS),
+        acquireCanonical: () => Effect.succeed(NO_FACTS),
+        materializeRetained: () => Effect.succeed(NO_FACTS),
         materializeDeactivate: () => Effect.succeed(NO_FACTS),
-        upsertSettingsEntry: () => Effect.void,
-        removeSettingsEntry: () => Effect.void,
-        upsertLockfileEntry: () => Effect.void,
-        removeLockfileEntry: () => Effect.void,
+        acceptedResolution: () => Effect.succeed(Option.none()),
+        withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
       } satisfies ExtensionManager<SkillExtensionRef, MaterializationFacts, ManagerRequirements>;
       const name = extensionName("review");
       const deprecation = {
@@ -281,7 +287,7 @@ describe("buildInstallOperation", () => {
 
       const operation = buildInstallOperation(manager, {
         ref,
-        versionRange: Option.none(),
+        declaration: { name: ref.skill.name, versionRange: Option.none() },
         toStepFailure,
         buildArtifact: () =>
           Effect.succeed({ path: "agent_extensions/review", scope: "project", change: "created" }),
@@ -312,11 +318,11 @@ describe("buildInstallOperation", () => {
         getConfiguredSource: () => Effect.succeed(Option.some("workspace")),
         listMaterializable: () => Effect.succeed([]),
         materializeUninstall: () => Effect.succeed(NO_FACTS),
+        acquireCanonical: () => Effect.succeed(NO_FACTS),
+        materializeRetained: () => Effect.succeed(NO_FACTS),
         materializeDeactivate: () => Effect.succeed(NO_FACTS),
-        upsertSettingsEntry: () => Effect.void,
-        removeSettingsEntry: () => Effect.void,
-        upsertLockfileEntry: () => Effect.void,
-        removeLockfileEntry: () => Effect.void,
+        acceptedResolution: () => Effect.succeed(Option.none()),
+        withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
       } satisfies ExtensionManager<SkillExtensionRef, MaterializationFacts, ManagerRequirements>;
       const name = extensionName("review");
       const ref: RegistrySkillRef = {
@@ -340,7 +346,7 @@ describe("buildInstallOperation", () => {
 
       const operation = buildInstallOperation(manager, {
         ref,
-        versionRange: Option.none(),
+        declaration: { name: ref.skill.name, versionRange: Option.none() },
         toStepFailure,
       });
       if (operation.readiness !== "ready") {
@@ -356,7 +362,7 @@ describe("buildInstallOperation", () => {
         throw new Error("Expected workspace source protection to reject the install");
       }
 
-      expect(result.error._tag).toBe("StepFailure");
+      if (result.error._tag !== "StepFailure") throw new Error(result.error._tag);
       expect(result.error.category).toBe("conflict");
       expect(result.error.detail).toContain("Cannot install over workspace-sourced skill");
       expect(result.error.suggestions).toHaveLength(1);
@@ -397,11 +403,11 @@ describe("buildNewExtensionStep", () => {
         listMaterializable: () =>
           Effect.fail(new SkillDefinitionInvalid({ detail: "invalid pack" })),
         materializeUninstall: () => Effect.succeed(NO_FACTS),
+        acquireCanonical: () => Effect.succeed(NO_FACTS),
+        materializeRetained: () => Effect.succeed(NO_FACTS),
         materializeDeactivate: () => Effect.succeed(NO_FACTS),
-        upsertSettingsEntry: () => Effect.void,
-        removeSettingsEntry: () => Effect.void,
-        upsertLockfileEntry: () => Effect.void,
-        removeLockfileEntry: () => Effect.void,
+        acceptedResolution: () => Effect.succeed(Option.none()),
+        withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
       } satisfies ExtensionManager<SkillExtensionRef, MaterializationFacts, ManagerRequirements>;
       const step = buildNewExtensionStep(manager, {
         target: { type: "skill", name: "review" },
@@ -440,6 +446,15 @@ describe("buildNewExtensionStep", () => {
           });
         let listCalls = 0;
         const fail = () => Effect.fail(new SkillDefinitionInvalid({ detail: failureAt }));
+        const writes: RecipeWriteFaults = {
+          removeAccepted: () => remove("lock"),
+          removeEntry: () => remove("settings"),
+          setEntry: () =>
+            Effect.gen(function* () {
+              yield* write("settings");
+              if (failureAt === "commit") return yield* fail();
+            }),
+        };
         const manager = {
           type: "skill",
           isInstalled: () => Effect.succeed(false),
@@ -460,15 +475,11 @@ describe("buildNewExtensionStep", () => {
               yield* remove("projection");
               return NO_FACTS;
             }),
+          acquireCanonical: () => Effect.succeed(NO_FACTS),
+          materializeRetained: () => Effect.succeed(NO_FACTS),
           materializeDeactivate: () => Effect.succeed(NO_FACTS),
-          upsertSettingsEntry: () =>
-            Effect.gen(function* () {
-              yield* write("settings");
-              if (failureAt === "commit") return yield* fail();
-            }),
-          removeSettingsEntry: () => remove("settings"),
-          upsertLockfileEntry: () => Effect.void,
-          removeLockfileEntry: () => remove("lock"),
+          acceptedResolution: () => Effect.succeed(Option.none()),
+          withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
         } satisfies ExtensionManager<SkillExtensionRef, MaterializationFacts, ManagerRequirements>;
         const step = buildNewExtensionStep(manager, {
           target: { type: "skill", name: "review" },
@@ -487,7 +498,7 @@ describe("buildNewExtensionStep", () => {
         });
         if (step.readiness === "error") throw new Error(step.errorMessage);
 
-        yield* Effect.flip(grounded(step.run));
+        yield* Effect.flip(grounded(step.run, writes));
 
         expect({
           canonical: nodeFs.existsSync(surfacePath("canonical")),
@@ -514,12 +525,12 @@ describe("buildAuthoredExtensionStep", () => {
         listMaterializable: () => Effect.succeed([ref]),
         materializeInstall: () => Effect.succeed(NO_FACTS),
         materializeUninstall: () => Effect.succeed(NO_FACTS),
+        acquireCanonical: () => Effect.succeed(NO_FACTS),
+        materializeRetained: () => Effect.succeed(NO_FACTS),
         materializeDeactivate: () => Effect.succeed(NO_FACTS),
-        upsertSettingsEntry: () => Effect.void,
-        removeSettingsEntry: () => Effect.void,
-        upsertLockfileEntry: () => Effect.void,
-        removeLockfileEntry: () => Effect.void,
+        acceptedResolution: () => Effect.succeed(Option.none()),
         getConfiguredSource: () => Effect.succeed(Option.some("workspace:@acme/skills/review")),
+        withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
       } satisfies ExtensionManager<SkillExtensionRef, MaterializationFacts, ManagerRequirements>;
       const step = buildAuthoredExtensionStep(manager, {
         target: { type: "skill", name: extensionName("review") },
@@ -557,12 +568,12 @@ describe("buildAuthoredExtensionStep", () => {
         },
         materializeInstall: () => Effect.succeed(NO_FACTS),
         materializeUninstall: () => Effect.succeed(NO_FACTS),
+        acquireCanonical: () => Effect.succeed(NO_FACTS),
+        materializeRetained: () => Effect.succeed(NO_FACTS),
         materializeDeactivate: () => Effect.succeed(NO_FACTS),
-        upsertSettingsEntry: () => Effect.void,
-        removeSettingsEntry: () => Effect.void,
-        upsertLockfileEntry: () => Effect.void,
-        removeLockfileEntry: () => Effect.void,
+        acceptedResolution: () => Effect.succeed(Option.none()),
         getConfiguredSource: () => Effect.succeed(Option.some("workspace:@acme/skills/review")),
+        withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
       } satisfies ExtensionManager<SkillExtensionRef, MaterializationFacts, ManagerRequirements>;
       const step = buildAuthoredExtensionStep(manager, {
         target: { type: "skill", name: extensionName("review") },
@@ -586,6 +597,9 @@ describe("buildAuthoredExtensionStep", () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       const ref = authoredSkillRef();
+      const writes: RecipeWriteFaults = {
+        setEntry: () => Effect.sync(() => calls.push("settings")),
+      };
       const manager = {
         type: "skill",
         isInstalled: () => Effect.succeed(false),
@@ -593,13 +607,16 @@ describe("buildAuthoredExtensionStep", () => {
         materializeInstall: () =>
           Effect.sync(() => calls.push("materialize")).pipe(Effect.as(NO_FACTS)),
         materializeUninstall: () => Effect.succeed(NO_FACTS),
+        acquireCanonical: () => Effect.succeed(NO_FACTS),
+        materializeRetained: () => Effect.succeed(NO_FACTS),
         materializeDeactivate: () =>
           Effect.sync(() => calls.push("deactivate")).pipe(Effect.as(NO_FACTS)),
-        upsertSettingsEntry: () => Effect.sync(() => calls.push("settings")),
-        removeSettingsEntry: () => Effect.void,
-        upsertLockfileEntry: () => Effect.sync(() => calls.push("accepted-resolution")),
-        removeLockfileEntry: () => Effect.void,
+        acceptedResolution: () =>
+          (() => Effect.sync(() => calls.push("resolution-facts")))().pipe(
+            Effect.as(Option.none()),
+          ),
         getConfiguredSource: () => Effect.succeed(Option.some("workspace:@acme/skills/review")),
+        withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
       } satisfies ExtensionManager<SkillExtensionRef, MaterializationFacts, ManagerRequirements>;
       const step = buildAuthoredExtensionStep(manager, {
         target: { type: "skill", name: extensionName("review") },
@@ -614,9 +631,9 @@ describe("buildAuthoredExtensionStep", () => {
       });
       if (step.readiness === "error") throw new Error(step.errorMessage);
 
-      yield* grounded(step.run);
+      yield* grounded(step.run, writes);
 
-      expect(calls).toEqual(["materialize", "settings", "deactivate"]);
+      expect(calls).toEqual(["materialize", "resolution-facts", "settings", "deactivate"]);
     }),
   );
 
@@ -624,6 +641,9 @@ describe("buildAuthoredExtensionStep", () => {
     Effect.gen(function* () {
       const calls: string[] = [];
       const ref = authoredSkillRef();
+      const writes: RecipeWriteFaults = {
+        setEntry: () => Effect.sync(() => calls.push("settings")),
+      };
       const manager = {
         type: "skill",
         isInstalled: () => Effect.succeed(false),
@@ -631,13 +651,16 @@ describe("buildAuthoredExtensionStep", () => {
         materializeInstall: () =>
           Effect.sync(() => calls.push("materialize")).pipe(Effect.as(NO_FACTS)),
         materializeUninstall: () => Effect.succeed(NO_FACTS),
+        acquireCanonical: () => Effect.succeed(NO_FACTS),
+        materializeRetained: () => Effect.succeed(NO_FACTS),
         materializeDeactivate: () =>
           Effect.sync(() => calls.push("deactivate")).pipe(Effect.as(NO_FACTS)),
-        upsertSettingsEntry: () => Effect.sync(() => calls.push("settings")),
-        removeSettingsEntry: () => Effect.void,
-        upsertLockfileEntry: () => Effect.sync(() => calls.push("accepted-resolution")),
-        removeLockfileEntry: () => Effect.void,
+        acceptedResolution: () =>
+          (() => Effect.sync(() => calls.push("resolution-facts")))().pipe(
+            Effect.as(Option.none()),
+          ),
         getConfiguredSource: () => Effect.succeed(Option.some("workspace:@acme/skills/review")),
+        withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
       } satisfies ExtensionManager<SkillExtensionRef, MaterializationFacts, ManagerRequirements>;
       const step = buildAuthoredExtensionStep(manager, {
         target: { type: "skill", name: extensionName("review") },
@@ -651,15 +674,15 @@ describe("buildAuthoredExtensionStep", () => {
       });
       if (step.readiness === "error") throw new Error(step.errorMessage);
 
-      yield* grounded(step.run);
+      yield* grounded(step.run, writes);
 
-      expect(calls).toEqual(["settings"]);
+      expect(calls).toEqual(["resolution-facts", "settings"]);
     }),
   );
 });
 
 describe("buildMaterializeOperation", () => {
-  it.effect("persists the accepted resolution only after materialization succeeds", () =>
+  it.effect("derives accepted resolution facts only after materialization succeeds", () =>
     Effect.gen(function* () {
       const calls: string[] = [];
       const manager = {
@@ -669,11 +692,14 @@ describe("buildMaterializeOperation", () => {
           Effect.sync(() => calls.push("materialize")).pipe(Effect.as(NO_FACTS)),
         listMaterializable: () => Effect.succeed([]),
         materializeUninstall: () => Effect.succeed(NO_FACTS),
+        acquireCanonical: () => Effect.succeed(NO_FACTS),
+        materializeRetained: () => Effect.succeed(NO_FACTS),
         materializeDeactivate: () => Effect.succeed(NO_FACTS),
-        upsertSettingsEntry: () => Effect.void,
-        removeSettingsEntry: () => Effect.void,
-        upsertLockfileEntry: () => Effect.sync(() => calls.push("accepted-resolution")),
-        removeLockfileEntry: () => Effect.void,
+        acceptedResolution: () =>
+          (() => Effect.sync(() => calls.push("resolution-facts")))().pipe(
+            Effect.as(Option.none()),
+          ),
+        withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
       } satisfies ExtensionManager<SkillExtensionRef, MaterializationFacts, ManagerRequirements>;
       const name = extensionName("review");
       const ref: RegistrySkillRef = {
@@ -700,7 +726,7 @@ describe("buildMaterializeOperation", () => {
 
       yield* grounded(operation.run);
 
-      expect(calls).toEqual(["materialize", "accepted-resolution"]);
+      expect(calls).toEqual(["materialize", "resolution-facts"]);
     }),
   );
 });
@@ -723,6 +749,18 @@ describe("buildUninstallOperation", () => {
             nodeFs.rmSync(surfacePath(surface), { force: true });
           });
         const fail = () => Effect.fail(new SkillDefinitionInvalid({ detail: failureAt }));
+        const writes: RecipeWriteFaults = {
+          removeAccepted: () =>
+            Effect.gen(function* () {
+              yield* remove("lock");
+              if (failureAt === "lock") return yield* fail();
+            }),
+          removeEntry: () =>
+            Effect.gen(function* () {
+              yield* remove("settings");
+              if (failureAt === "settings") return yield* fail();
+            }),
+        };
         const manager = {
           type: "skill",
           isInstalled: () =>
@@ -742,19 +780,11 @@ describe("buildUninstallOperation", () => {
               if (failureAt === "materialize") return yield* fail();
               return NO_FACTS;
             }),
+          acquireCanonical: () => Effect.succeed(NO_FACTS),
+          materializeRetained: () => Effect.succeed(NO_FACTS),
           materializeDeactivate: () => Effect.succeed(NO_FACTS),
-          upsertSettingsEntry: () => Effect.void,
-          removeSettingsEntry: () =>
-            Effect.gen(function* () {
-              yield* remove("settings");
-              if (failureAt === "settings") return yield* fail();
-            }),
-          upsertLockfileEntry: () => Effect.void,
-          removeLockfileEntry: () =>
-            Effect.gen(function* () {
-              yield* remove("lock");
-              if (failureAt === "lock") return yield* fail();
-            }),
+          acceptedResolution: () => Effect.succeed(Option.none()),
+          withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
         } satisfies ExtensionManager<SkillExtensionRef, MaterializationFacts, ManagerRequirements>;
         const operation = buildUninstallOperation<
           SkillExtensionRef,
@@ -768,7 +798,7 @@ describe("buildUninstallOperation", () => {
         );
         if (operation.readiness === "error") throw new Error(operation.errorMessage);
 
-        yield* Effect.flip(grounded(operation.run));
+        yield* Effect.flip(grounded(operation.run, writes));
 
         expect({
           canonical: present("canonical"),
@@ -789,6 +819,12 @@ describe("buildUninstallOperation", () => {
       const installed = true;
       const materializeUninstall = vi.fn(() => Effect.succeed(NO_FACTS));
       let configured = true;
+      const writes: RecipeWriteFaults = {
+        removeEntry: () =>
+          Effect.sync(() => {
+            configured = false;
+          }),
+      };
       const manager = {
         type: "skill",
         isInstalled: () => Effect.succeed(installed),
@@ -797,14 +833,11 @@ describe("buildUninstallOperation", () => {
           Effect.succeed(configured ? Option.some("workspace") : Option.none()),
         listMaterializable: () => Effect.succeed([]),
         materializeUninstall,
+        acquireCanonical: () => Effect.succeed(NO_FACTS),
+        materializeRetained: () => Effect.succeed(NO_FACTS),
         materializeDeactivate: () => Effect.succeed(NO_FACTS),
-        upsertSettingsEntry: () => Effect.void,
-        removeSettingsEntry: () =>
-          Effect.sync(() => {
-            configured = false;
-          }),
-        upsertLockfileEntry: () => Effect.void,
-        removeLockfileEntry: () => Effect.void,
+        acceptedResolution: () => Effect.succeed(Option.none()),
+        withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
       } satisfies ExtensionManager<SkillExtensionRef, MaterializationFacts, ManagerRequirements>;
       const operation = buildUninstallOperation<
         SkillExtensionRef,
@@ -820,7 +853,7 @@ describe("buildUninstallOperation", () => {
         throw new Error(operation.errorMessage);
       }
 
-      const result = yield* grounded(operation.run);
+      const result = yield* grounded(operation.run, writes);
 
       expect(materializeUninstall).toHaveBeenCalledWith({
         target: { type: "skill", name: "review" },
@@ -834,6 +867,16 @@ describe("buildUninstallOperation", () => {
       const materializeUninstall = vi.fn(() => Effect.succeed(NO_FACTS));
       let configured = true;
       let locked = true;
+      const writes: RecipeWriteFaults = {
+        removeAccepted: () =>
+          Effect.sync(() => {
+            locked = false;
+          }),
+        removeEntry: () =>
+          Effect.sync(() => {
+            configured = false;
+          }),
+      };
       const manager = {
         type: "skill",
         // A target whose manifest is gone still has canonical content on disk.
@@ -843,17 +886,11 @@ describe("buildUninstallOperation", () => {
           Effect.succeed(configured ? Option.some("@acme/packs/toolkit") : Option.none()),
         listMaterializable: () => Effect.succeed([]),
         materializeUninstall,
+        acquireCanonical: () => Effect.succeed(NO_FACTS),
+        materializeRetained: () => Effect.succeed(NO_FACTS),
         materializeDeactivate: () => Effect.succeed(NO_FACTS),
-        upsertSettingsEntry: () => Effect.void,
-        removeSettingsEntry: () =>
-          Effect.sync(() => {
-            configured = false;
-          }),
-        upsertLockfileEntry: () => Effect.void,
-        removeLockfileEntry: () =>
-          Effect.sync(() => {
-            locked = false;
-          }),
+        acceptedResolution: () => Effect.succeed(Option.none()),
+        withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
       } satisfies ExtensionManager<SkillExtensionRef, MaterializationFacts, ManagerRequirements>;
       const operation = buildUninstallOperation<
         SkillExtensionRef,
@@ -873,7 +910,7 @@ describe("buildUninstallOperation", () => {
         throw new Error(operation.errorMessage);
       }
 
-      const result = yield* grounded(operation.run);
+      const result = yield* grounded(operation.run, writes);
 
       expect(configured).toBe(false);
       expect(locked).toBe(false);
@@ -892,6 +929,12 @@ describe("buildUninstallOperation", () => {
   it.effect("distinguishes an undecodable package manifest from a missing one", () =>
     Effect.gen(function* () {
       let configured = true;
+      const writes: RecipeWriteFaults = {
+        removeEntry: () =>
+          Effect.sync(() => {
+            configured = false;
+          }),
+      };
       const manager = {
         type: "skill",
         isInstalled: () => Effect.succeed(true),
@@ -900,14 +943,11 @@ describe("buildUninstallOperation", () => {
           Effect.succeed(configured ? Option.some("@acme/packs/toolkit") : Option.none()),
         listMaterializable: () => Effect.succeed([]),
         materializeUninstall: () => Effect.succeed(NO_FACTS),
+        acquireCanonical: () => Effect.succeed(NO_FACTS),
+        materializeRetained: () => Effect.succeed(NO_FACTS),
         materializeDeactivate: () => Effect.succeed(NO_FACTS),
-        upsertSettingsEntry: () => Effect.void,
-        removeSettingsEntry: () =>
-          Effect.sync(() => {
-            configured = false;
-          }),
-        upsertLockfileEntry: () => Effect.void,
-        removeLockfileEntry: () => Effect.void,
+        acceptedResolution: () => Effect.succeed(Option.none()),
+        withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
       } satisfies ExtensionManager<SkillExtensionRef, MaterializationFacts, ManagerRequirements>;
       const operation = buildUninstallOperation<
         SkillExtensionRef,
@@ -927,7 +967,7 @@ describe("buildUninstallOperation", () => {
         throw new Error(operation.errorMessage);
       }
 
-      const result = yield* grounded(operation.run);
+      const result = yield* grounded(operation.run, writes);
 
       if (result.result !== "success") throw new Error(result.message);
       expect(result.warnings?.[0]).toContain("cannot be read at packs/toolkit/pack.json");
@@ -943,6 +983,12 @@ describe("buildUninstallOperation", () => {
           projected = false;
         }).pipe(Effect.as(NO_FACTS)),
       );
+      const writes: RecipeWriteFaults = {
+        removeEntry: () =>
+          Effect.sync(() => {
+            configured = false;
+          }),
+      };
       const manager = {
         type: "skill",
         isInstalled: () => Effect.succeed(false),
@@ -951,14 +997,11 @@ describe("buildUninstallOperation", () => {
           Effect.succeed(configured ? Option.some("workspace:@acme/skills/review") : Option.none()),
         listMaterializable: () => Effect.succeed([]),
         materializeUninstall,
+        acquireCanonical: () => Effect.succeed(NO_FACTS),
+        materializeRetained: () => Effect.succeed(NO_FACTS),
         materializeDeactivate: () => Effect.succeed(NO_FACTS),
-        upsertSettingsEntry: () => Effect.void,
-        removeSettingsEntry: () =>
-          Effect.sync(() => {
-            configured = false;
-          }),
-        upsertLockfileEntry: () => Effect.void,
-        removeLockfileEntry: () => Effect.void,
+        acceptedResolution: () => Effect.succeed(Option.none()),
+        withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
       } satisfies ExtensionManager<SkillExtensionRef, MaterializationFacts, ManagerRequirements>;
       const operation = buildUninstallOperation<
         SkillExtensionRef,
@@ -974,7 +1017,7 @@ describe("buildUninstallOperation", () => {
         throw new Error(operation.errorMessage);
       }
 
-      yield* grounded(operation.run);
+      yield* grounded(operation.run, writes);
 
       expect(materializeUninstall).toHaveBeenCalledWith({
         target: { type: "skill", name: "review" },
@@ -988,6 +1031,12 @@ describe("buildUninstallOperation", () => {
     Effect.gen(function* () {
       let configured = true;
       const materializeUninstall = vi.fn(() => Effect.succeed(NO_FACTS));
+      const writes: RecipeWriteFaults = {
+        removeEntry: () =>
+          Effect.sync(() => {
+            configured = false;
+          }),
+      };
       const manager = {
         type: "skill",
         isInstalled: () => Effect.succeed(false),
@@ -996,14 +1045,11 @@ describe("buildUninstallOperation", () => {
         isConfigured: () => Effect.succeed(configured),
         listMaterializable: () => Effect.succeed([]),
         materializeUninstall,
+        acquireCanonical: () => Effect.succeed(NO_FACTS),
+        materializeRetained: () => Effect.succeed(NO_FACTS),
         materializeDeactivate: () => Effect.succeed(NO_FACTS),
-        upsertSettingsEntry: () => Effect.void,
-        removeSettingsEntry: () =>
-          Effect.sync(() => {
-            configured = false;
-          }),
-        upsertLockfileEntry: () => Effect.void,
-        removeLockfileEntry: () => Effect.void,
+        acceptedResolution: () => Effect.succeed(Option.none()),
+        withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
       } satisfies ExtensionManager<SkillExtensionRef, MaterializationFacts, ManagerRequirements>;
       const operation = buildUninstallOperation<
         SkillExtensionRef,
@@ -1017,7 +1063,7 @@ describe("buildUninstallOperation", () => {
       );
       if (operation.readiness === "error") throw new Error(operation.errorMessage);
 
-      yield* grounded(operation.run);
+      yield* grounded(operation.run, writes);
 
       expect(materializeUninstall).toHaveBeenCalledWith({
         target: { type: "skill", name: "review" },
@@ -1031,6 +1077,7 @@ describe("buildUninstallOperation", () => {
     () =>
       Effect.gen(function* () {
         const removeLockfileEntry = vi.fn(() => Effect.void);
+        const writes: RecipeWriteFaults = { removeAccepted: removeLockfileEntry };
         const manager = {
           type: "skill",
           isInstalled: () => Effect.succeed(false),
@@ -1038,11 +1085,11 @@ describe("buildUninstallOperation", () => {
           getConfiguredSource: () => Effect.succeed(Option.none()),
           listMaterializable: () => Effect.succeed([]),
           materializeUninstall: () => Effect.succeed(NO_FACTS),
+          acquireCanonical: () => Effect.succeed(NO_FACTS),
+          materializeRetained: () => Effect.succeed(NO_FACTS),
           materializeDeactivate: () => Effect.succeed(NO_FACTS),
-          upsertSettingsEntry: () => Effect.void,
-          removeSettingsEntry: () => Effect.void,
-          upsertLockfileEntry: () => Effect.void,
-          removeLockfileEntry,
+          acceptedResolution: () => Effect.succeed(Option.none()),
+          withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
         } satisfies ExtensionManager<SkillExtensionRef, MaterializationFacts, ManagerRequirements>;
         const operation = buildUninstallOperation<
           SkillExtensionRef,
@@ -1058,7 +1105,7 @@ describe("buildUninstallOperation", () => {
           throw new Error(operation.errorMessage);
         }
 
-        const result = yield* grounded(operation.run);
+        const result = yield* grounded(operation.run, writes);
 
         expect(removeLockfileEntry).not.toHaveBeenCalled();
         expect(result).toMatchObject({
@@ -1072,6 +1119,13 @@ describe("buildUninstallOperation", () => {
     Effect.gen(function* () {
       const removeLockfileEntry = vi.fn(() => Effect.void);
       let configured = true;
+      const writes: RecipeWriteFaults = {
+        removeAccepted: removeLockfileEntry,
+        removeEntry: () =>
+          Effect.sync(() => {
+            configured = false;
+          }),
+      };
       const manager = {
         type: "skill",
         isInstalled: () => Effect.succeed(true),
@@ -1080,14 +1134,11 @@ describe("buildUninstallOperation", () => {
           Effect.succeed(configured ? Option.some("@acme/skills/review") : Option.none()),
         listMaterializable: () => Effect.succeed([]),
         materializeUninstall: () => Effect.succeed(NO_FACTS),
+        acquireCanonical: () => Effect.succeed(NO_FACTS),
+        materializeRetained: () => Effect.succeed(NO_FACTS),
         materializeDeactivate: () => Effect.succeed(NO_FACTS),
-        upsertSettingsEntry: () => Effect.void,
-        removeSettingsEntry: () =>
-          Effect.sync(() => {
-            configured = false;
-          }),
-        upsertLockfileEntry: () => Effect.void,
-        removeLockfileEntry,
+        acceptedResolution: () => Effect.succeed(Option.none()),
+        withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
       } satisfies ExtensionManager<SkillExtensionRef, MaterializationFacts, ManagerRequirements>;
       const operation = buildUninstallOperation<
         SkillExtensionRef,
@@ -1103,7 +1154,7 @@ describe("buildUninstallOperation", () => {
         throw new Error(operation.errorMessage);
       }
 
-      yield* grounded(operation.run);
+      yield* grounded(operation.run, writes);
 
       expect(removeLockfileEntry).not.toHaveBeenCalled();
     }),

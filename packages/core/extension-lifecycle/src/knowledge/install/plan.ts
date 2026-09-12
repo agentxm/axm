@@ -11,14 +11,14 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
+import { KnowledgeManager } from "@agentxm/extension-materialization";
 import {
-  KnowledgeManager,
   extensionRefLifecycleWarnings,
   extensionRefRegistryLifecycle,
   targetFromRef,
   toLabelWithCompanions,
   toStepKey,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace-reconciliation";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,

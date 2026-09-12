@@ -19,15 +19,17 @@ import {
   RuleManager,
   SkillManager,
   SubagentManager,
-  buildInstallOperation,
-  extensionRefLifecycleWarnings,
-  extensionRefRegistryLifecycle,
-  installMcpServer,
-  toLabelWithCompanions,
   type ExtensionManagerFailure,
   type ManagerRequirements,
   type MaterializationObservation,
 } from "@agentxm/extension-materialization";
+import { installMcpServer } from "@agentxm/workspace-reconciliation";
+import {
+  buildInstallOperation,
+  extensionRefLifecycleWarnings,
+  extensionRefRegistryLifecycle,
+  toLabelWithCompanions,
+} from "@agentxm/workspace-reconciliation";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
@@ -88,9 +90,8 @@ export const buildPackMemberInstallStep: (args: {
     return buildInstallOperation(skillManager, {
       toStepFailure: lifecycleStepFailure,
       ref,
-      versionRange: Option.none(),
-      skipSettings: true,
-      deferObservableValidation: true,
+
+      enclosingClosure: { projections: [], postconditions: [ref.type] },
       installedBefore: args.graphComplete
         ? skillManager.isInstalled({ target: { type: "skill", name: ref.skill.name } })
         : Effect.succeed(false),
@@ -122,8 +123,7 @@ export const buildPackMemberInstallStep: (args: {
           ref,
           nonInteractive: args.nonInteractive,
           force: false,
-          versionRange: Option.none(),
-          skipSettings: Option.some(true),
+
           strictAgentSync: Option.some(true),
           env: Option.none(),
         },
@@ -150,9 +150,8 @@ export const buildPackMemberInstallStep: (args: {
     return buildInstallOperation(subagentManager, {
       toStepFailure: lifecycleStepFailure,
       ref,
-      versionRange: Option.none(),
-      skipSettings: true,
-      deferObservableValidation: true,
+
+      enclosingClosure: { projections: [], postconditions: [ref.type] },
       installedBefore: args.graphComplete
         ? subagentManager.isInstalled({ target: { type: "subagent", name: ref.subagent.name } })
         : Effect.succeed(false),
@@ -176,10 +175,8 @@ export const buildPackMemberInstallStep: (args: {
     return buildInstallOperation(ruleManager, {
       toStepFailure: lifecycleStepFailure,
       ref,
-      versionRange: Option.none(),
-      skipSettings: true,
-      skipProjections: true,
-      deferObservableValidation: true,
+
+      enclosingClosure: { projections: [ref.type], postconditions: [ref.type] },
       installedBefore: args.graphComplete
         ? ruleManager.isInstalled({ target: { type: "rule", name: ref.rule.name } })
         : Effect.succeed(false),
@@ -198,10 +195,8 @@ export const buildPackMemberInstallStep: (args: {
     return buildInstallOperation(hookManager, {
       toStepFailure: lifecycleStepFailure,
       ref,
-      versionRange: Option.none(),
-      skipSettings: true,
-      skipProjections: true,
-      deferObservableValidation: true,
+
+      enclosingClosure: { projections: [ref.type], postconditions: [ref.type] },
       installedBefore: args.graphComplete
         ? hookManager.isInstalled({ target: { type: "hook", name: ref.hook.name } })
         : Effect.succeed(false),
@@ -219,10 +214,8 @@ export const buildPackMemberInstallStep: (args: {
   return buildInstallOperation(knowledgeManager, {
     toStepFailure: lifecycleStepFailure,
     ref,
-    versionRange: Option.none(),
-    skipSettings: true,
-    skipProjections: true,
-    deferObservableValidation: true,
+
+    enclosingClosure: { projections: [ref.type], postconditions: [ref.type] },
     installedBefore: args.graphComplete
       ? knowledgeManager.isInstalled({ target: { type: "knowledge", name: ref.knowledge.name } })
       : Effect.succeed(false),

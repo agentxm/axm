@@ -1135,69 +1135,30 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect(
-    "plans and converges one deterministic transition for every depending Pack constraint",
-    () =>
-      Effect.gen(function* () {
-        const fixture = makeConstraintMismatchFixture(tempDir);
-        const lockBefore = fs.readFileSync(fixture.paths.lockfile, "utf8");
-        const settingsBefore = fs.readFileSync(fixture.paths.settings, "utf8");
-        const canonicalBefore = fs.readFileSync(fixture.paths.canonicalSkill, "utf8");
-        const human = makeLayers(undefined, fixture.sources);
-        const machine = makeLayers({ machine: true }, fixture.sources);
-
-        yield* human.provide(handleSync({ preview: true }));
-        yield* machine.provide(handleSync({ preview: true }));
-
-        const humanPreview = expectPreviewedPlanResult(human.rendererState.results[0]?.data, {
-          planName: "Sync workspace",
-          totalSteps: 1,
-        });
-        const machinePreview = expectPreviewedPlanResult(machine.rendererState.results[0]?.data, {
-          planName: "Sync workspace",
-          totalSteps: 1,
-        });
-        const humanLabel = property(planResultUnits(humanPreview)[0], "label");
-        const machineLabel = property(planResultUnits(machinePreview)[0], "label");
-        expect(machineLabel).toBe(humanLabel);
-        expect(machineLabel).toContain("@acme/packs/alpha range=>=2.0.0 <3.0.0");
-        expect(machineLabel).toContain("@acme/packs/beta range=^2.1.0");
-        expect(machineLabel).toContain("accepted version=1.0.0");
-        expect(machineLabel).toContain("observed version=1.0.0");
-        expect(machineLabel).toContain("decision=reconcilable; proposed version=2.2.0");
-        expect(fs.readFileSync(fixture.paths.lockfile, "utf8")).toBe(lockBefore);
-        expect(fs.readFileSync(fixture.paths.settings, "utf8")).toBe(settingsBefore);
-        expect(fs.readFileSync(fixture.paths.canonicalSkill, "utf8")).toBe(canonicalBefore);
-
-        machine.rendererState.results.length = 0;
-        yield* machine.provide(handleSync({ preview: false }));
-        const applied = expectAppliedPlanResult(machine.rendererState.results[0]?.data, {
-          planName: "Sync workspace",
-          totalSteps: 1,
-        });
-        expect(property(planResultUnits(applied)[0], "label")).toBe(machineLabel);
-        expect(YAML.parse(fs.readFileSync(fixture.paths.lockfile, "utf8"))).toMatchObject({
-          skills: { review: { resolvedVersion: "2.2.0" } },
-        });
-        expect(JSON.parse(fs.readFileSync(fixture.paths.settings, "utf8"))).toEqual(
-          JSON.parse(settingsBefore),
-        );
-        expect(JSON.parse(fs.readFileSync(fixture.paths.canonicalSkill, "utf8"))).toMatchObject({
-          version: "2.2.0",
-        });
-        expect(fixture.lookupCalls).toEqual(["skill", "skill", "skill"]);
-
-        machine.rendererState.results.length = 0;
-        yield* machine.provide(handleSync({ preview: true }));
-        expect(machine.rendererState.results[0]?.data).toMatchObject({
-          result: {
-            mode: "preview",
-            outcome: "no-op",
-            planName: "Sync workspace",
-            counts: { total: 0 },
-          },
-        });
-      }),
+  it.effect("refuses incompatible accepted Pack-member resolutions without advancing them", () =>
+    Effect.gen(function* () {
+      const fixture = makeConstraintMismatchFixture(tempDir);
+      const before = [
+        fixture.paths.lockfile,
+        fixture.paths.settings,
+        fixture.paths.canonicalSkill,
+      ].map((path) => fs.readFileSync(path, "utf8"));
+      const human = makeLayers(undefined, fixture.sources);
+      const machine = makeLayers({ machine: true }, fixture.sources);
+      const preview = yield* human.provide(handleSync({ preview: true })).pipe(Effect.flip);
+      const applied = yield* machine.provide(handleSync({ preview: false })).pipe(Effect.flip);
+      expect(preview.code).toBe("conflict");
+      expect(applied.detail).toBe(preview.detail);
+      expect(applied.detail).toContain("@acme/packs/alpha range=>=2.0.0 <3.0.0");
+      expect(applied.detail).toContain("@acme/packs/beta range=^2.1.0");
+      expect(applied.detail).toContain("decision=blocked; reason=accepted-resolution-incompatible");
+      expect(
+        [fixture.paths.lockfile, fixture.paths.settings, fixture.paths.canonicalSkill].map((path) =>
+          fs.readFileSync(path, "utf8"),
+        ),
+      ).toEqual(before);
+      expect(fixture.lookupCalls).toEqual([]);
+    }),
   );
 
   it.effect(
@@ -1223,44 +1184,29 @@ describe("root sync handler", () => {
       }),
   );
 
-  it.effect("rolls back a constraint repair when its apply closure fails", () =>
+  it.effect("refuses incompatible authority before attempting a write", () =>
     Effect.gen(function* () {
       const fixture = makeConstraintMismatchFixture(tempDir);
-      const lockBefore = fs.readFileSync(fixture.paths.lockfile, "utf8");
-      const settingsBefore = fs.readFileSync(fixture.paths.settings, "utf8");
-      const canonicalBefore = fs.readFileSync(fixture.paths.canonicalSkill, "utf8");
-      // The repair fails after it has materialized canonical content, by
-      // refusing the lockfile write that records the new resolution.
-      const { provide, rendererState } = makeLayers(
+      const before = [
+        fixture.paths.lockfile,
+        fixture.paths.settings,
+        fixture.paths.canonicalSkill,
+      ].map((path) => fs.readFileSync(path, "utf8"));
+      const { provide } = makeLayers(
         {
           machine: true,
-          fileSystemLayer: injectWriteFaults(
-            (operation) => operation.path.endsWith("axm-lock.yaml"),
-            "Injected repair failure",
-          ),
+          fileSystemLayer: injectWriteFaults(() => true, "No writes are authorized"),
         },
         fixture.sources,
       );
-
-      yield* provide(handleSync({ preview: false }));
-
-      // A refused lockfile rename is a `LockfileWriteError` at step `rename`,
-      // which the application-error boundary renders as `validation` with this
-      // sentence — pinned by app-error/conversions.test.ts. The plan pipeline
-      // must reproduce it byte for byte rather than invent its own category.
+      const failure = yield* provide(handleSync({ preview: false })).pipe(Effect.flip);
+      expect(failure.code).toBe("conflict");
+      expect(failure.detail).toContain("accepted-resolution-incompatible");
       expect(
-        expectRecord(property(expectRecord(rendererState.results[0]?.data), "result")),
-      ).toMatchObject({
-        outcome: "failed",
-        failure: {
-          code: "validation",
-          message: expect.stringContaining("Failed to atomically replace lockfile at"),
-        },
-      });
-      expect(fs.readFileSync(fixture.paths.lockfile, "utf8")).toBe(lockBefore);
-      expect(fs.readFileSync(fixture.paths.settings, "utf8")).toBe(settingsBefore);
-      expect(fs.readFileSync(fixture.paths.canonicalSkill, "utf8")).toBe(canonicalBefore);
-      expect(fs.existsSync(fixture.paths.materializedSkill)).toBe(false);
+        [fixture.paths.lockfile, fixture.paths.settings, fixture.paths.canonicalSkill].map((path) =>
+          fs.readFileSync(path, "utf8"),
+        ),
+      ).toEqual(before);
     }),
   );
 
@@ -1497,52 +1443,38 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("blocks every phase when instruction preflight finds an unowned target", () =>
-    Effect.gen(function* () {
-      // The first materialization write is refused, so the closure fails
-      // before any projection lands and the remaining units are aborted.
-      const { provide, rendererState } = makeLayers({
-        machine: true,
-        fileSystemLayer: injectWriteFaults(
-          (operation) =>
-            operation.path.endsWith(`${path.sep}.claude${path.sep}skills${path.sep}release`),
-          "Injected materialization failure",
-        ),
-      });
-      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
-        agents: ["claude-code"],
-        skills: { release: "workspace" },
-      });
-      writeSkillExtension(tempDir, "release");
-      writeSettings(tempDir, {
-        agents: ["claude-code"],
-        skills: { release: "workspace" },
-        instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: true },
-      });
-      fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Desired\n");
-      fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), "# Human-owned\n");
+  it.effect(
+    "preserves an unowned instruction target while independent materialization commits",
+    () =>
+      Effect.gen(function* () {
+        const { provide, rendererState } = makeLayers({ machine: true });
+        writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+          agents: ["claude-code"],
+          skills: { release: "workspace" },
+        });
+        writeSkillExtension(tempDir, "release");
+        writeSettings(tempDir, {
+          agents: ["claude-code"],
+          skills: { release: "workspace" },
+          instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: true },
+        });
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Desired\n");
+        fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), "# Human-owned\n");
 
-      yield* provide(handleSync({ preview: false }));
+        yield* provide(handleSync({ preview: false }));
 
-      const payload = expectRecord(rendererState.results[0]?.data);
-      const result = expectRecord(property(payload, "result"));
-      expect(result).toMatchObject({
-        outcome: "blocked",
-        blocking: {
-          class: "precondition-unmet",
-          phase: "planning",
-          detail: expect.stringContaining("Instruction reconciliation would overwrite"),
-        },
-      });
-      expect(planResultUnits(result)).toContainEqual(
-        expect.objectContaining({
-          state: "blocked",
-          message: expect.stringContaining("Instruction reconciliation would overwrite"),
-        }),
-      );
-      expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "release"))).toBe(false);
-      expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf8")).toBe("# Human-owned\n");
-    }),
+        const payload = expectRecord(rendererState.results[0]?.data);
+        const result = expectRecord(property(payload, "result"));
+        expect(result).toMatchObject({ outcome: "partial" });
+        expect(planResultUnits(result)).toContainEqual(
+          expect.objectContaining({
+            state: "blocked",
+            message: expect.stringContaining("Instruction reconciliation would overwrite"),
+          }),
+        );
+        expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "release"))).toBe(true);
+        expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf8")).toBe("# Human-owned\n");
+      }),
   );
 
   it.effect("names stale aliases in the instruction preview and removes them on apply", () =>
@@ -1589,10 +1521,10 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("blocks cleanup and instructions after an earlier runtime failure", () =>
+  it.effect("commits independent cleanup and instructions after a materialization failure", () =>
     Effect.gen(function* () {
-      // Materialization fails on its first durable write, so the units the
-      // sweep had not reached are aborted rather than run.
+      // The failed materialization restores its own closure. Unrelated owned
+      // residue and instruction aliases have independent postconditions.
       const { provide, rendererState } = makeLayers({
         machine: true,
         fileSystemLayer: injectWriteFaults(
@@ -1618,26 +1550,16 @@ describe("root sync handler", () => {
 
       const payload = expectRecord(rendererState.results[0]?.data);
       const result = expectRecord(property(payload, "result"));
-      expect(property(result, "outcome")).toBe("failed");
+      expect(property(result, "outcome")).toBe("partial");
       expect(expectRecord(property(result, "counts"))).toMatchObject({
         total: 3,
-        committed: 0,
+        committed: 2,
         failed: 1,
-        blocked: 2,
+        blocked: 0,
       });
-      // The two unfinished units were aborted by the earlier failure, not
-      // blocked by conditions of their own.
-      expect(
-        planResultUnits(result).filter(
-          (unit) => property(expectRecord(unit), "state") === "blocked",
-        ),
-      ).toMatchObject([
-        { blocking: { class: "operation-aborted" } },
-        { blocking: { class: "operation-aborted" } },
-      ]);
       expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "release"))).toBe(false);
-      expect(fs.existsSync(path.join(tempDir, ".claude", "agents", "stale.md"))).toBe(true);
-      expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(false);
+      expect(fs.existsSync(path.join(tempDir, ".claude", "agents", "stale.md"))).toBe(false);
+      expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(true);
     }),
   );
 
@@ -1978,50 +1900,66 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("restores external Knowledge from its accepted resolution", () =>
-    Effect.gen(function* () {
-      const { provide } = makeLayers();
-      const axmDir = path.join(tempDir, ".axm");
-      writeLocalKnowledgePackage(path.join(tempDir, "locked-source"), "handbook", "Locked");
-      writeLocalKnowledgePackage(path.join(tempDir, "newer-source"), "handbook", "Newer");
-      writeWorkspaceFiles(axmDir, {
-        agents: [],
-        knowledge: {
-          handbook: { source: "./newer-source", enabled: true },
-        },
-        lockfileKnowledge: {
-          handbook: {
-            type: "local",
-            path: "locked-source",
-            contentIdentity: computePackageContentHashSync(path.join(tempDir, "locked-source")),
-            treeIntegrity: computeMaterializedTreeIntegritySync(
-              path.join(tempDir, "locked-source"),
+  for (const configuredSource of ["./locked-source", "./newer-source"]) {
+    it.effect(
+      `reconciles accepted external Knowledge only when its configured source agrees (${configuredSource})`,
+      () =>
+        Effect.gen(function* () {
+          const { provide } = makeLayers();
+          const axmDir = path.join(tempDir, ".axm");
+          writeLocalKnowledgePackage(path.join(tempDir, "locked-source"), "handbook", "Locked");
+          writeLocalKnowledgePackage(path.join(tempDir, "newer-source"), "handbook", "Newer");
+          writeWorkspaceFiles(axmDir, {
+            agents: [],
+            knowledge: {
+              handbook: { source: configuredSource, enabled: true },
+            },
+            lockfileKnowledge: {
+              handbook: {
+                type: "local",
+                path: "locked-source",
+                contentIdentity: computePackageContentHashSync(path.join(tempDir, "locked-source")),
+                treeIntegrity: computeMaterializedTreeIntegritySync(
+                  path.join(tempDir, "locked-source"),
+                ),
+                installedAt: "2026-08-04T00:00:00.000Z",
+                updatedAt: "2026-08-04T00:00:00.000Z",
+              },
+            },
+          });
+          const settingsBefore = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
+          const lockfileBefore = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8");
+
+          if (configuredSource === "./newer-source") {
+            const failure = yield* provide(handleSync({ preview: false })).pipe(Effect.flip);
+            expect(failure.detail).toContain("configured source differs from accepted authority");
+            expect(
+              fs.existsSync(path.join(tempDir, "agent_extensions", "local", "locked-source")),
+            ).toBe(false);
+            expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
+            expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(
+              lockfileBefore,
+            );
+            return;
+          }
+          yield* provide(handleSync({ preview: false }));
+
+          expect(
+            fs.readFileSync(
+              path.join(tempDir, "agent_extensions", "local", "locked-source", "src", "concept.md"),
+              "utf8",
             ),
-            installedAt: "2026-08-04T00:00:00.000Z",
-            updatedAt: "2026-08-04T00:00:00.000Z",
-          },
-        },
-      });
-      const settingsBefore = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
-      const lockfileBefore = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8");
-
-      yield* provide(handleSync({ preview: false }));
-
-      expect(
-        fs.readFileSync(
-          path.join(tempDir, "agent_extensions", "local", "locked-source", "src", "concept.md"),
-          "utf8",
-        ),
-      ).toContain("# Locked");
-      expect(
-        fs.existsSync(
-          path.join(tempDir, "agent_extensions", "agentxm", "@acme", "knowledge", "handbook"),
-        ),
-      ).toBe(false);
-      expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
-      expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(lockfileBefore);
-    }),
-  );
+          ).toContain("# Locked");
+          expect(
+            fs.existsSync(
+              path.join(tempDir, "agent_extensions", "agentxm", "@acme", "knowledge", "handbook"),
+            ),
+          ).toBe(false);
+          expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
+          expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(lockfileBefore);
+        }),
+    );
+  }
 
   it.effect("includes instruction reconciliation in non-git previews without gitignore work", () =>
     Effect.gen(function* () {

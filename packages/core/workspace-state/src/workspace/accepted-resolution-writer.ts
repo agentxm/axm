@@ -81,10 +81,6 @@ export const preserveAcceptedResolutionOnNoop = <TEntry>(
   next: TEntry,
 ): TEntry => (lockEntrySemanticallyEqual(current, next) && current !== undefined ? current : next);
 
-/** Types whose semantically unchanged resolution skips the commit entirely. */
-const skipsUnchangedCommit = (type: InstallableExtensionType): boolean =>
-  type === "skill" || type === "subagent";
-
 export const makeAcceptedResolutionWriter = (
   location: WorkspaceLocationService,
   mutex: Semaphore.Semaphore,
@@ -100,7 +96,7 @@ export const makeAcceptedResolutionWriter = (
           const lockfile = yield* current;
           const accessor = lockEntries[type];
           const previous = accessor.entries(lockfile)[key];
-          if (skipsUnchangedCommit(type) && lockEntrySemanticallyEqual(previous, entry)) return;
+          if (lockEntrySemanticallyEqual(previous, entry)) return;
           yield* commit(
             lockfile,
             accessor.set(lockfile, key, preserveAcceptedResolutionOnNoop(previous, entry)),

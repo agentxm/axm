@@ -2,13 +2,21 @@ import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
 import * as Effect from "effect/Effect";
+import * as Result from "effect/Result";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { applyInstall, contentUnder, installRequest } from "../install/test-helpers.js";
+import {
+  applyInstall,
+  contentUnder,
+  installRequest,
+  localLifecycleRows,
+  makeInstallWorld,
+} from "../install/test-helpers.js";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   makeLifecycleFixture,
   writeAgentSkillDirectory,
@@ -18,9 +26,9 @@ import { applyActivation, workspaceWithAuthoredExtension } from "./test-helpers.
 
 export const specification = defineSpecification({
   requirement: "cli/activation-follows-desired-state",
-  title: "Activation commands change realized surfaces without touching content or resolutions",
+  title: "Activation preserves leaf content and realizes Pack dependency routes",
   statement:
-    "When an installed extension is disabled or enabled, the workspace shall record the new activation intent and change only that extension's realized agent surfaces, and shall not alter canonical content or accepted resolutions; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in.",
+    "When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record a direct activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members, and retaining members reached elsewhere; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability"],
@@ -43,6 +51,217 @@ describe("Activation follows desired state", () => {
     cleanups.push(fixture.cleanup);
     return fixture;
   };
+
+  it.effect.each(localLifecycleRows)(
+    "re-enables local $type from accepted content after upstream changes",
+    (row) => {
+      const world = makeInstallWorld();
+      cleanups.push(world.cleanup);
+      const { workspace } = world;
+      const name = "review";
+      const source = row.writePackage(workspace.root, { name });
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applyInstall(
+              installRequest({ type: row.type, subject: { kind: "source", source } }),
+            );
+            yield* applyActivation({ type: row.type, name, enabled: false });
+            const accepted = workspace.readFile("axm-lock.yaml");
+            const canonical = `agent_extensions/local/vendor/${name}/${row.canonicalFile(name)}`;
+            const content = workspace.readFile(canonical);
+            workspace.writeFile(
+              `vendor/${name}/${row.canonicalFile(name)}`,
+              `${content}\nUpstream changed.\n`,
+            );
+            const enabled = yield* applyActivation({ type: row.type, name, enabled: true });
+            expect(enabled._tag === "Resolved" ? enabled.outcome : enabled._tag).toBe("applied");
+            expect(workspace.readFile("axm-lock.yaml")).toBe(accepted);
+            expect(workspace.readFile(canonical)).toBe(content);
+            row.expectRealized(workspace, name);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
+
+  for (const type of ["skill", "subagent", "mcp-server", "rule", "hook", "knowledge"] as const) {
+    it.effect(`disables a Pack-only ${type} through explicit intent`, () => {
+      const world = makeInstallWorld();
+      cleanups.push(world.cleanup);
+      const { workspace, registry } = world;
+      const name = "review";
+      const plural =
+        type === "mcp-server" ? "mcps" : type === "knowledge" ? "knowledge" : `${type}s`;
+      switch (type) {
+        case "skill":
+          registry.writeSkill(name, [{ version: "1.0.0", body: "Review." }]);
+          break;
+        case "subagent":
+          registry.writeSubagent(name, [{ version: "1.0.0", body: "Review." }]);
+          break;
+        case "rule":
+          registry.writeRule(name, [{ version: "1.0.0", body: "Review." }]);
+          break;
+        case "hook":
+          registry.writeHook(name, [{ version: "1.0.0" }]);
+          break;
+        case "knowledge":
+          registry.writeKnowledge(name, [{ version: "1.0.0", body: "Review." }]);
+          break;
+        case "mcp-server":
+          registry.writeMcp(name, [{ version: "1.0.0" }]);
+          break;
+      }
+      registry.writePack("reviews", [
+        { version: "1.0.0", dependencies: { [`@acme/${plural}/${name}`]: "^1.0.0" } },
+      ]);
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applyInstall(
+              installRequest({
+                type: "pack",
+                subject: { kind: "source", source: "@acme/packs/reviews" },
+              }),
+            );
+            const accepted = workspace.readFile("axm-lock.yaml");
+            yield* applyActivation({ type, name, enabled: false });
+            const graph = yield* (yield* WorkspaceMutations).getDesiredStateGraph();
+            expect(
+              graph.nodes.find((node) => node.type === type && node.name === name)?.enabled,
+            ).toBe(false);
+            expect(workspace.readFile("axm-lock.yaml")).toBe(accepted);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    });
+    it.effect(
+      `disabling a Pack retires its exclusive ${type} and enabling realizes it again`,
+      () => {
+        const world = makeInstallWorld();
+        cleanups.push(world.cleanup);
+        const { workspace, registry } = world;
+        const name = "review";
+        const plural =
+          type === "mcp-server" ? "mcps" : type === "knowledge" ? "knowledge" : `${type}s`;
+        switch (type) {
+          case "skill":
+            registry.writeSkill(name, [{ version: "1.0.0", body: "Review." }]);
+            break;
+          case "subagent":
+            registry.writeSubagent(name, [{ version: "1.0.0", body: "Review." }]);
+            break;
+          case "rule":
+            registry.writeRule(name, [{ version: "1.0.0", body: "Review." }]);
+            break;
+          case "hook":
+            registry.writeHook(name, [{ version: "1.0.0" }]);
+            break;
+          case "knowledge":
+            registry.writeKnowledge(name, [{ version: "1.0.0", body: "Review." }]);
+            break;
+          case "mcp-server":
+            registry.writeMcp(name, [{ version: "1.0.0" }]);
+            break;
+        }
+        registry.writePack("reviews", [
+          { version: "1.0.0", dependencies: { [`@acme/${plural}/${name}`]: "^1.0.0" } },
+        ]);
+        return workspace
+          .provide(
+            Effect.gen(function* () {
+              yield* applyInstall(
+                installRequest({
+                  type: "pack",
+                  subject: { kind: "source", source: "@acme/packs/reviews" },
+                }),
+              );
+              const packContent = workspace.readFile(
+                "agent_extensions/agentxm/@acme/packs/reviews/pack.json",
+              );
+              const disabled = yield* applyActivation({
+                type: "pack",
+                name: "reviews",
+                enabled: false,
+              });
+              expect(disabled._tag === "Resolved" ? disabled.outcome : disabled._tag).toBe(
+                "applied",
+              );
+              const graph = yield* (yield* WorkspaceMutations).getDesiredStateGraph();
+              expect(
+                graph.nodes.find((node) => node.type === type && node.name === name),
+              ).toBeUndefined();
+              expect(workspace.exists(`agent_extensions/agentxm/@acme/${plural}/${name}`)).toBe(
+                false,
+              );
+              expect(
+                workspace.readFile("agent_extensions/agentxm/@acme/packs/reviews/pack.json"),
+              ).toBe(packContent);
+              const enabled = yield* applyActivation({
+                type: "pack",
+                name: "reviews",
+                enabled: true,
+              });
+              expect(enabled._tag === "Resolved" ? enabled.outcome : enabled._tag).toBe("applied");
+              expect(workspace.exists(`agent_extensions/agentxm/@acme/${plural}/${name}`)).toBe(
+                true,
+              );
+            }),
+          )
+          .pipe(Effect.provide(NodeServices.layer));
+      },
+    );
+  }
+
+  it.effect(
+    "rejects a newly enabled Pack constraint that conflicts with retained accepted content",
+    () => {
+      const world = makeInstallWorld({
+        settings: { packs: { reviews: { source: "workspace", enabled: false } } },
+      });
+      cleanups.push(world.cleanup);
+      const { workspace, registry } = world;
+      registry.writeSkill("review", [{ version: "1.0.0", body: "Accepted review." }]);
+      workspace.writeFile(
+        "packs/reviews/pack.json",
+        JSON.stringify({
+          owner: "@acme",
+          type: "pack",
+          name: "reviews",
+          version: "1.0.0",
+          description: "Review tools",
+          dependencies: { "@acme/skills/review": "^2.0.0" },
+        }),
+      );
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applyInstall(
+              installRequest({
+                type: "skill",
+                subject: { kind: "source", source: "@acme/skills/review" },
+              }),
+            );
+            const settings = workspace.readFile("axm.json");
+            const accepted = workspace.readFile("axm-lock.yaml");
+            const content = contentUnder(workspace, "agent_extensions");
+            const result = yield* applyActivation({
+              type: "pack",
+              name: "reviews",
+              enabled: true,
+            }).pipe(Effect.result);
+            expect(Result.isFailure(result)).toBe(true);
+            if (Result.isFailure(result))
+              expect(JSON.stringify(result.failure)).toContain("accepted-resolution-incompatible");
+            expect(workspace.readFile("axm.json")).toBe(settings);
+            expect(workspace.readFile("axm-lock.yaml")).toBe(accepted);
+            expect(contentUnder(workspace, "agent_extensions")).toEqual(content);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
   /** Every authored file the workspace holds for the extension, as bytes. */
   const authoredContent = (fixture: LifecycleFixture, relative: string) =>

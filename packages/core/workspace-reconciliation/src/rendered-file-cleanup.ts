@@ -35,6 +35,7 @@ export interface ReconcileAgentOutputsArgs {
   readonly desiredAgentIds: ReadonlySet<string>;
   readonly expectedNames: Readonly<Record<PerAgentType, ReadonlySet<string>>>;
   readonly dryRun?: boolean;
+  readonly subjects?: ReadonlyArray<{ readonly type: string; readonly name: string }>;
 }
 
 const inventory = (
@@ -105,7 +106,15 @@ const desiredNamesForContainer = (
 ): ReadonlySet<string> =>
   output.claimantAgentIds.some((agentId) => args.desiredAgentIds.has(agentId))
     ? args.expectedNames[output.extensionType]
-    : new Set<string>();
+    : new Set(
+        [...args.expectedNames[output.extensionType]].filter(
+          (name) =>
+            args.subjects !== undefined &&
+            !args.subjects.some(
+              (subject) => subject.type === output.extensionType && subject.name === name,
+            ),
+        ),
+      );
 
 const pruneMcpContainer = (
   output: AgentOutputObservation,
@@ -188,7 +197,45 @@ export const reconcileAgentOutputs = (
 > =>
   Effect.gen(function* () {
     const before = yield* inventory(args);
-    const candidates = before.ownedResidue;
+    const selected = (output: AgentOutputObservation) =>
+      args.subjects === undefined ||
+      args.subjects.some(
+        (subject) => subject.type === output.extensionType && subject.name === output.entryName,
+      );
+    const candidates = before.ownedResidue.filter(selected);
+    // Preserve every unselected entry in shared containers, including other residue.
+    const scopedArgs =
+      args.subjects === undefined
+        ? args
+        : {
+            ...args,
+            expectedNames: {
+              skill: new Set([
+                ...args.expectedNames.skill,
+                ...before.outputs
+                  .filter((output) => output.extensionType === "skill" && !selected(output))
+                  .map((output) => output.entryName),
+              ]),
+              subagent: new Set([
+                ...args.expectedNames.subagent,
+                ...before.outputs
+                  .filter((output) => output.extensionType === "subagent" && !selected(output))
+                  .map((output) => output.entryName),
+              ]),
+              "mcp-server": new Set([
+                ...args.expectedNames["mcp-server"],
+                ...before.outputs
+                  .filter((output) => output.extensionType === "mcp-server" && !selected(output))
+                  .map((output) => output.entryName),
+              ]),
+              hook: new Set([
+                ...args.expectedNames.hook,
+                ...before.outputs
+                  .filter((output) => output.extensionType === "hook" && !selected(output))
+                  .map((output) => output.entryName),
+              ]),
+            },
+          };
     const preservedPaths = [...new Set(before.unownedFootprints.map(({ path }) => path))].sort();
     if (args.dryRun === true) {
       return {
@@ -208,12 +255,12 @@ export const reconcileAgentOutputs = (
     for (const output of uniqueContainers(
       candidates.filter(({ extensionType }) => extensionType === "mcp-server"),
     )) {
-      yield* pruneMcpContainer(output, args, ws.baseDir, ws.scope);
+      yield* pruneMcpContainer(output, scopedArgs, ws.baseDir, ws.scope);
     }
     for (const output of uniqueContainers(
       candidates.filter(({ extensionType }) => extensionType === "hook"),
     )) {
-      yield* pruneHookContainer(fs, path, output, args, ws.baseDir, ws.scope);
+      yield* pruneHookContainer(fs, path, output, scopedArgs, ws.baseDir, ws.scope);
     }
 
     const after = yield* inventory(args);

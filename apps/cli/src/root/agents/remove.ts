@@ -4,7 +4,10 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { CodingAgentRepository } from "@agentxm/workspace-projection";
-import { reconcileAgentOutputs, type ReconcileAgentOutputsResult } from "@agentxm/workspace-sync";
+import {
+  reconcileAgentOutputs,
+  type ReconcileAgentOutputsResult,
+} from "@agentxm/workspace-reconciliation";
 import {
   ConfigureAgents,
   type DepartingAgentReconciliation,

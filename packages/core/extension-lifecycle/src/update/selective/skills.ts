@@ -734,7 +734,7 @@ export const prepareSelectiveSkillUpdate = Effect.fn("SelectiveSkillUpdate.prepa
         ref: item.ref,
         force: request.ignoreVersionConstraints || item.ref.refType !== "registry",
         versionRange: item.versionRange,
-        skipSettings: Option.none(),
+
         strictUnknownAgents: Option.none(),
         sourceName: Option.none(),
       },

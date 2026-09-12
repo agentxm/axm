@@ -43,6 +43,8 @@ interface AcceptedCanonicalRefArgs {
   readonly workspace: WorkspaceMutationsService;
   readonly type: DesiredExtensionNode["type"];
   readonly name: string;
+  /** Proposed authority when preparing a transition before publishing intent. */
+  readonly desired?: DesiredExtensionNode;
 }
 
 /** Every failure the accepted-canonical reconstruction functions can produce. */
@@ -337,8 +339,11 @@ export const acceptedResolutionRef = (
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    const graph = yield* args.workspace.getDesiredStateGraph();
-    const desired = graph.nodes.find((node) => node.type === args.type && node.name === args.name);
+    const desired =
+      args.desired ??
+      (yield* args.workspace.getDesiredStateGraph()).nodes.find(
+        (node) => node.type === args.type && node.name === args.name,
+      );
     if (desired === undefined || desired.identity.startsWith("workspace:")) {
       return Option.none();
     }
@@ -349,14 +354,18 @@ export const acceptedCanonicalObservation = ({
   workspace,
   type,
   name,
+  desired: proposed,
 }: AcceptedCanonicalRefArgs): Effect.Effect<
   Option.Option<AcceptedCanonicalObservation>,
   AcceptedCanonicalRefError,
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    const graph = yield* workspace.getDesiredStateGraph();
-    const desired = graph.nodes.find((node) => node.type === type && node.name === name);
+    const desired =
+      proposed ??
+      (yield* workspace.getDesiredStateGraph()).nodes.find(
+        (node) => node.type === type && node.name === name,
+      );
     if (desired === undefined) return Option.none();
     const accepted = yield* getAcceptedResolution(workspace, type, name);
     const observation = yield* observeCanonicalExtension({
@@ -402,7 +411,11 @@ export const usableAcceptedCanonical = (
     const canonical = yield* usableAcceptedCanonicalObservation(args);
     if (Option.isNone(canonical)) return Option.none();
     const ref = yield* refForDesired(args.workspace, canonical.value.desired);
-    return Option.some({ ...canonical.value, ref });
+    // A usable local acquisition is the accepted copy, even if the original
+    // directory has changed or disappeared. Keep sourcePath as its identity.
+    const retainedRef =
+      ref.refType === "local" ? { ...ref, location: canonical.value.observation.path } : ref;
+    return Option.some({ ...canonical.value, ref: retainedRef });
   });
 
 export const usableAcceptedCanonicalRef = (

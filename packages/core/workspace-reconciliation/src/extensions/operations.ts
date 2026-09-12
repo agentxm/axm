@@ -1,3 +1,4 @@
+import { stripFileProtocol } from "@agentxm/registry-client";
 /**
  * Shared extension closure recipes — install, materialize, uninstall, and the
  * authored-package transition.
@@ -13,12 +14,22 @@
  */
 
 import * as Effect from "effect/Effect";
+import {
+  SettingsReader,
+  SettingsWriter,
+  AcceptedResolutionWriter,
+  WorkspaceMutations,
+} from "@agentxm/workspace-state";
+import { declareMaterialization, recordMaterialization } from "./declaration.js";
 import * as Option from "effect/Option";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
-import type { ExtensionManager, MaterializationFacts } from "../manager-contract.js";
-import type { ExtensionManagerFailure } from "../errors.js";
-import { LifecyclePostconditionViolated, ScaffoldedExtensionUnresolved } from "./errors.js";
+import type { ExtensionManager, MaterializationFacts } from "@agentxm/extension-materialization";
+import type { ExtensionManagerFailure } from "@agentxm/extension-materialization";
+import {
+  LifecyclePostconditionViolated,
+  ScaffoldedExtensionUnresolved,
+} from "@agentxm/extension-materialization";
 import { SourceAuthorityBlocked } from "@agentxm/extension-resolution";
 import {
   applyProjectionPlans,
@@ -46,7 +57,8 @@ import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensi
  *
  * Pack targets include owner; leaf-extension targets are name-only.
  */
-export const targetFromRef = (ref: ExtensionRef): ExtensionTarget => {
+export function targetFromRef<TRef extends ExtensionRef>(ref: TRef): ExtensionTargetFor<TRef>;
+export function targetFromRef(ref: ExtensionRef): ExtensionTarget {
   switch (ref.type) {
     case "skill":
       return { type: "skill", name: ref.skill.name };
@@ -63,7 +75,7 @@ export const targetFromRef = (ref: ExtensionRef): ExtensionTarget => {
     case "knowledge":
       return { type: "knowledge", name: ref.knowledge.name };
   }
-};
+}
 
 export const extensionRefLifecycleWarnings = (ref: ExtensionRef): ReadonlyArray<string> =>
   ref.refType === "registry"
@@ -166,7 +178,14 @@ export interface StepFailureAdapter<F = never> {
  * transaction scope its closure opens, and the platform that scope reads and
  * writes through.
  */
-export type RecipeRequirements = WorkspaceTransactionScope | FileSystem.FileSystem | Path.Path;
+export type RecipeRequirements =
+  | WorkspaceTransactionScope
+  | FileSystem.FileSystem
+  | Path.Path
+  | SettingsReader
+  | SettingsWriter
+  | AcceptedResolutionWriter
+  | WorkspaceMutations;
 
 const NO_PROJECTION_WARNINGS: ReadonlyArray<string> = [];
 
@@ -196,6 +215,10 @@ const applyManagerProjectionPlans = <
 // Install Operation
 // -----------------------------------------------------------------------------
 
+/** Mutable source inputs are part of the candidate, even before first acceptance. */
+const sourceMaterialPaths = (ref: ExtensionRef): ReadonlyArray<string> =>
+  ref.refType === "local" || ref.refType === "workspace" ? [stripFileProtocol(ref.location)] : [];
+
 export interface InstallOperationArgs<
   TRef extends ExtensionRef,
   TMaterialization extends MaterializationFacts,
@@ -203,23 +226,15 @@ export interface InstallOperationArgs<
   R = never,
 > extends StepFailureAdapter<F> {
   readonly ref: TRef;
-  readonly versionRange: Option.Option<string>;
+  /** The explicit desired root to declare; absent for derived materialization. */
+  readonly declaration?: { readonly name: string; readonly versionRange: Option.Option<string> };
   /** When true, re-materialize unconditionally (repair path for forced reinstalls). */
   readonly force?: boolean;
-  /** When true, skip writing to settings (e.g. pack dependency installs). */
-  readonly skipSettings?: boolean;
-  /**
-   * When true, skip the trailing shared-projection reconcile (e.g. pack
-   * dependency steps, whose closure runs one projection write at the end).
-   */
-  readonly skipProjections?: boolean;
-  /**
-   * Defer the manager-wide observable check to an enclosing semantic closure.
-   * Pack member transitions use this while other configured Packs are still
-   * incomplete; the enclosing Pack graph validates every accepted canonical
-   * package and its scoped desired-state postcondition before committing.
-   */
-  readonly deferObservableValidation?: boolean;
+  /** Work owned by the enclosing semantic closure, with explicit type coverage. */
+  readonly enclosingClosure?: {
+    readonly projections: ReadonlyArray<ExtensionRef["type"]>;
+    readonly postconditions: ReadonlyArray<ExtensionRef["type"]>;
+  };
   /** Optional pre-install state probe for artifact change labels. */
   readonly installedBefore?: Effect.Effect<boolean, CallerStepFailure<F>, R>;
   /** Optional presenter metadata computed after materialization/settings writes. */
@@ -230,7 +245,7 @@ export interface InstallOperationArgs<
   /** Optional outcome message for type-specific install presenters. */
   readonly message?: string;
   /** Explicit destructive source-authority transition used only by demotion. */
-  readonly allowWorkspaceReplacement?: boolean;
+  readonly sourceReplacements?: ReadonlyArray<Pick<ExtensionTarget, "type" | "name">>;
 }
 
 export interface NewExtensionOperationArgs<
@@ -240,8 +255,9 @@ export interface NewExtensionOperationArgs<
   R = never,
 > extends Omit<
   InstallOperationArgs<TRef, TMaterialization, F, R>,
-  "force" | "allowWorkspaceReplacement"
+  "force" | "sourceReplacements" | "declaration"
 > {
+  readonly versionRange: Option.Option<string>;
   readonly target: ExtensionTargetFor<TRef>;
   /** Read-only artifact forecast rendered by preview before any mutation occurs. */
   readonly plannedArtifact?: JobStepArtifact;
@@ -329,9 +345,10 @@ const runInstallOperation = <
               workspace: isWorkspaceSourceLocator(configuredSource.value),
             },
           }),
-      ...(args.allowWorkspaceReplacement === undefined
-        ? {}
-        : { allowWorkspaceReplacement: args.allowWorkspaceReplacement }),
+      allowWorkspaceReplacement:
+        args.sourceReplacements?.some(
+          (replacement) => replacement.type === target.type && replacement.name === target.name,
+        ) === true,
     });
     if (authority.kind === "blocked") {
       return yield* new SourceAuthorityBlocked({
@@ -351,29 +368,36 @@ const runInstallOperation = <
           ref: args.ref,
           ...(args.force === undefined ? {} : { force: args.force }),
         });
-        if (!args.skipSettings) {
-          yield* manager.upsertSettingsEntry({
-            ref: args.ref,
-            versionRange: args.versionRange,
-            materialization: Option.some(materialization),
-          });
-        }
-        yield* manager.upsertLockfileEntry({
+        const resolution = yield* manager.acceptedResolution({
           ref: args.ref,
           materialization: Option.some(materialization),
         });
+        if (args.declaration !== undefined) {
+          yield* declareMaterialization({
+            ref: args.ref,
+            name: args.declaration.name,
+            versionRange: args.declaration.versionRange,
+            resolution,
+          });
+        }
+        yield* recordMaterialization({ ref: args.ref, name: target.name, resolution });
+        const graph = yield* (yield* WorkspaceMutations).getDesiredStateGraph();
+        const resulting = graph.nodes.find(
+          (node) => node.type === target.type && node.name === target.name,
+        );
+        if (resulting?.enabled === false) yield* manager.materializeDeactivate({ target });
         yield* cleanupSupersededCanonical;
         // Desired state and canonical content are committed; render every
         // shared aggregate unit once from the complete contributor set.
         const projectionWarnings =
-          args.skipProjections !== true
+          args.enclosingClosure?.projections.includes(target.type) !== true
             ? yield* applyManagerProjectionPlans(manager)
             : NO_PROJECTION_WARNINGS;
         return { installedBefore, materialization, projectionWarnings };
       }),
       validate: () =>
         Effect.gen(function* () {
-          if (args.deferObservableValidation !== true) {
+          if (args.enclosingClosure?.postconditions.includes(target.type) !== true) {
             const installed = yield* manager.isInstalled({ target });
             if (!installed) {
               return yield* new LifecyclePostconditionViolated({
@@ -384,7 +408,7 @@ const runInstallOperation = <
             }
           }
           if (
-            args.skipSettings !== true &&
+            args.declaration !== undefined &&
             (manager.isConfigured !== undefined || manager.getConfiguredSource !== undefined)
           ) {
             const configured = yield* isConfigured(manager, target);
@@ -457,6 +481,7 @@ export const buildInstallOperation = <
   const base = {
     key: toStepKey(target),
     label: toLabelWithCompanions(target, companionPkgs),
+    materialPaths: sourceMaterialPaths(args.ref),
     run: runInstallOperation(manager, args),
     ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
     ...(registryBinding === undefined ? {} : { registryBinding }),
@@ -523,11 +548,14 @@ export const buildAuthoredExtensionStep = <
                   ? Option.some(yield* manager.materializeInstall({ ref }))
                   : yield* args.materializeInstall(ref);
             }
-            yield* manager.upsertSettingsEntry({
+            const resolution = yield* manager.acceptedResolution({ ref, materialization });
+            yield* declareMaterialization({
               ref,
+              name: targetFromRef(ref).name,
               versionRange: args.versionRange,
-              materialization,
+              resolution,
             });
+            yield* recordMaterialization({ ref, name: targetFromRef(ref).name, resolution });
             if (args.finalizeAuthored !== undefined) {
               yield* args.finalizeAuthored;
             }
@@ -632,6 +660,7 @@ export interface MaterializeOperationArgs<
   R = never,
 > extends StepFailureAdapter<F> {
   readonly ref: TRef;
+  readonly desiredActivation?: boolean;
   /** Optional transition-rich label used by reconciliation previews. */
   readonly label?: string;
   /** Explicitly permit a workspace-authored relocation during reconciliation. */
@@ -661,17 +690,20 @@ const runMaterializeOperation = <
     const target = targetFromRef(args.ref);
     const materialization = yield* runWorkspaceTransaction({
       transition: Effect.gen(function* () {
-        const observed = yield* manager.materializeInstall({
+        const observed = yield* (
+          args.desiredActivation === false ? manager.acquireCanonical : manager.materializeInstall
+        )({
           ref: args.ref,
           ...(args.force === undefined ? {} : { force: args.force }),
         });
         if (args.validateMaterialized !== undefined) {
           yield* args.validateMaterialized({ materialization: observed });
         }
-        yield* manager.upsertLockfileEntry({
+        const resolution = yield* manager.acceptedResolution({
           ref: args.ref,
           materialization: Option.some(observed),
         });
+        yield* recordMaterialization({ ref: args.ref, name: target.name, resolution });
         return observed;
       }),
       validate: () =>
@@ -712,6 +744,7 @@ export const buildMaterializeOperation = <
     key: toStepKey(target),
     label: args.label ?? toLabelWithCompanions(target, companionPkgs),
     readiness: "ready",
+    materialPaths: sourceMaterialPaths(args.ref),
     run: runMaterializeOperation(manager, args),
   } satisfies PlannedJobStep<R | RecipeRequirements>;
 };
@@ -726,12 +759,10 @@ export interface UninstallOperationArgs<
   F = never,
   R = never,
 > extends StepFailureAdapter<F> {
+  readonly artifact?: JobStepArtifact;
   readonly target: ExtensionTargetFor<TRef>;
-  /**
-   * When true, skip the trailing shared-projection reconcile (e.g. pack
-   * dependency steps, whose closure runs one projection write at the end).
-   */
-  readonly skipProjections?: boolean;
+  /** Aggregate projections owned by the enclosing removal closure. */
+  readonly enclosingClosure?: { readonly projections: ReadonlyArray<ExtensionRef["type"]> };
   /**
    * Declares that the target's canonical package could not be read. Uninstall
    * then removes the target's configuration and accepted resolution only, and
@@ -799,6 +830,23 @@ const unreadablePackageWarning = (
 ): string =>
   `${toLabel(target)}: its package manifest ${retirement.reason === "missing" ? "is missing" : "cannot be read"} at ${retirement.manifestPath}, so AXM removed its configuration entry and accepted resolution and left its package content in place. Delete that content yourself once you no longer need it.`;
 
+const retireMaterialization = <
+  TRef extends ExtensionRef,
+  TMaterialization extends MaterializationFacts,
+  R,
+>(
+  manager: ExtensionManager<TRef, TMaterialization, R>,
+  args: {
+    readonly target: ExtensionTargetFor<TRef>;
+    readonly materialization: Option.Option<TMaterialization>;
+  },
+) =>
+  Effect.gen(function* () {
+    const writer = yield* AcceptedResolutionWriter;
+    const keys = yield* manager.withdrawnResolutionKeys(args);
+    for (const key of keys) yield* writer.removeAccepted(args.target.type, key);
+  });
+
 /**
  * Execute the uninstall sequence with retention check.
  *
@@ -828,18 +876,15 @@ const runUninstallOperation = <
     const configured = yield* isConfigured(manager, args.target);
     const transition = Effect.gen(function* () {
       const applyProjections = () =>
-        args.skipProjections !== true
+        args.enclosingClosure?.projections.includes(args.target.type) !== true
           ? applyManagerProjectionPlans(manager)
           : Effect.succeed(NO_PROJECTION_WARNINGS);
 
       if (args.retirement !== undefined) {
         // Nothing about the package can be verified, so only the registration
         // AXM itself wrote is removable. Canonical content stays untouched.
-        yield* manager.removeSettingsEntry({
-          target: args.target,
-          materialization: Option.none(),
-        });
-        yield* manager.removeLockfileEntry({
+        yield* (yield* SettingsWriter).removeEntry(args.target.type, args.target.name);
+        yield* retireMaterialization(manager, {
           target: args.target,
           materialization: Option.none(),
         });
@@ -854,6 +899,27 @@ const runUninstallOperation = <
         };
       }
 
+      const stillRequiredByPack = yield* retentionPolicy.isRequiredByInstalledPack({
+        target: args.target,
+      });
+      if (stillRequiredByPack) {
+        yield* (yield* SettingsWriter).removeEntry(args.target.type, args.target.name);
+        const graph = yield* (yield* WorkspaceMutations).getDesiredStateGraph();
+        const retained = graph.nodes.find(
+          (node) => node.type === args.target.type && node.name === args.target.name,
+        );
+        if (retained?.enabled === true) yield* manager.materializeRetained({ target: args.target });
+        return {
+          settlement: {
+            declaration: "removed",
+            canonical: "retained-by-pack",
+          } satisfies UninstallSettlement,
+          unmaterialization: Option.none<TMaterialization>(),
+          expectedInstalled: true,
+          projectionWarnings: yield* applyProjections(),
+        };
+      }
+
       const isInstalled = yield* manager.isInstalled({ target: args.target });
       if (!isInstalled) {
         if (configured) {
@@ -861,11 +927,8 @@ const runUninstallOperation = <
           // when they have no canonical managed package on disk.
           const withdrawn = yield* manager.materializeUninstall({ target: args.target });
           const unmaterialization = Option.some(withdrawn);
-          yield* manager.removeSettingsEntry({
-            target: args.target,
-            materialization: unmaterialization,
-          });
-          yield* manager.removeLockfileEntry({
+          yield* (yield* SettingsWriter).removeEntry(args.target.type, args.target.name);
+          yield* retireMaterialization(manager, {
             target: args.target,
             materialization: unmaterialization,
           });
@@ -890,30 +953,11 @@ const runUninstallOperation = <
         };
       }
 
-      const stillRequiredByPack = yield* retentionPolicy.isRequiredByInstalledPack({
-        target: args.target,
-      });
-      if (stillRequiredByPack) {
-        yield* manager.removeSettingsEntry({ target: args.target, materialization: Option.none() });
-        return {
-          settlement: {
-            declaration: "removed",
-            canonical: "retained-by-pack",
-          } satisfies UninstallSettlement,
-          unmaterialization: Option.none<TMaterialization>(),
-          expectedInstalled: true,
-          projectionWarnings: yield* applyProjections(),
-        };
-      }
-
       const unmaterialization = Option.some(
         yield* manager.materializeUninstall({ target: args.target }),
       );
-      yield* manager.removeSettingsEntry({
-        target: args.target,
-        materialization: unmaterialization,
-      });
-      yield* manager.removeLockfileEntry({
+      yield* (yield* SettingsWriter).removeEntry(args.target.type, args.target.name);
+      yield* retireMaterialization(manager, {
         target: args.target,
         materialization: unmaterialization,
       });
@@ -972,7 +1016,7 @@ const runUninstallOperation = <
     ];
     const artifact =
       args.buildArtifact === undefined
-        ? undefined
+        ? args.artifact
         : yield* args.buildArtifact({
             settlement: result.settlement,
             unmaterialization: result.unmaterialization,
@@ -1005,6 +1049,7 @@ export const buildUninstallOperation = <
   return {
     label: toLabel(args.target),
     readiness: "ready",
+    ...(args.artifact === undefined ? {} : { artifact: args.artifact }),
     run: runUninstallOperation(manager, retentionPolicy, args),
   } satisfies PlannedJobStep<R | RecipeRequirements>;
 };

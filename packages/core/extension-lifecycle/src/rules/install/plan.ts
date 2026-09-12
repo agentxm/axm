@@ -11,7 +11,8 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { RuleManager, buildInstallOperation } from "@agentxm/extension-materialization";
+import { RuleManager } from "@agentxm/extension-materialization";
+import { buildInstallOperation } from "@agentxm/workspace-reconciliation";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
@@ -153,8 +154,10 @@ export const planRuleInstall: (
     buildInstallOperation(ruleManager, {
       toStepFailure: lifecycleStepFailure,
       ref,
-      versionRange,
-      skipProjections: deferProjections,
+      declaration: { name: ref.rule.name, versionRange },
+      ...(deferProjections
+        ? { enclosingClosure: { projections: [ref.type], postconditions: [] } }
+        : {}),
       installedBefore: ruleManager.isInstalled({
         target: { type: "rule", name: ref.rule.name },
       }),

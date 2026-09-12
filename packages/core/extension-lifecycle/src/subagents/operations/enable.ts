@@ -105,10 +105,7 @@ export const enableSubagent: OperationHandler<
     }
 
     const baseDir = ws.baseDir;
-    const subagentSrcPath =
-      canonical.value.ref.refType === "registry" || canonical.value.ref.refType === "workspace"
-        ? path.join(canonical.value.observation.path, "src")
-        : canonical.value.observation.path;
+    const subagentSrcPath = path.join(canonical.value.observation.path, "src");
 
     // Read and parse the subagent content file
     const expectedFilename = subagentContentFilename(op.args.subagentName);

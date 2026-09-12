@@ -70,19 +70,11 @@ const executeStep = <Requirements, Output>(
 ): Effect.Effect<CompletedJobStep<Output>, never, Requirements> => {
   switch (step.readiness) {
     case "error":
-      return Effect.succeed({
-        ...(step.key === undefined ? {} : { key: step.key }),
-        ...stepEvidence(step),
-        label: step.label,
-        result: {
-          result: "error",
-          message: step.errorMessage,
-          error: new StepFailure({
-            category: "internal",
-            detail: step.errorMessage,
-          }),
-        },
-      });
+      return Effect.succeed(
+        blockStep(step, step.errorMessage, {
+          class: "precondition-unmet",
+        }),
+      );
 
     case "ready":
       return step.run.pipe(
@@ -313,9 +305,9 @@ const executeDependencyAwareJob = <Requirements, Output>(
 /**
  * Apply a plan by iterating jobs and executing step run closures.
  *
- * Any readiness error gates the complete plan before execution. At runtime,
- * jobs use ordered fail-fast execution by default. A job may explicitly opt
- * into best-effort execution for independent siblings; failures still block
+ * Readiness errors in ordered jobs gate the complete plan. A job may explicitly
+ * opt into best-effort execution for independent siblings, including siblings
+ * blocked during preparation. Runtime failures still block
  * all subsequent jobs.
  *
  * Never fails — catches StepFailure and converts to error results.
@@ -340,8 +332,10 @@ export const applyPlan = <Requirements, Output>(
   Effect.gen(function* () {
     const observeStep = options?.onStepCompleted ?? (() => Effect.void);
     const observeStart = options?.onStepStarted ?? (() => Effect.void);
-    const hasReadinessError = plan.jobs.some((job) =>
-      job.steps.some((step) => step.readiness === "error"),
+    const hasReadinessError = plan.jobs.some(
+      (job) =>
+        job.executionPolicy !== "best-effort" &&
+        job.steps.some((step) => step.readiness === "error"),
     );
     // Any job with an error blocks every later job; the fact travels in a
     // `Ref` because it crosses the job traversal's iteration boundary.

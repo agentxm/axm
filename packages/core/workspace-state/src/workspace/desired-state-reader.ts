@@ -18,6 +18,8 @@ import {
   type DesiredStateGraph,
   type ProspectivePackRef,
 } from "./desired-state-graph.js";
+import type { Settings } from "../settings/index.js";
+import type { Lockfile } from "../lockfile/index.js";
 import { validateDesiredPackLock } from "./desired-pack-lock.js";
 import { DesiredPackGraphIncomplete } from "./errors.js";
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
@@ -25,11 +27,18 @@ import type { ExtensionTarget, WorkspaceStateReadFailure } from "./service-inter
 import { SettingsReader, type SettingsReaderService } from "./settings-reader.js";
 import { readLockfileCell } from "./state-cells.js";
 
+/** Authoritative inputs for evaluating a candidate without publishing it. */
+export interface DesiredStateGraphInputs {
+  readonly settings?: Settings;
+  readonly acceptedResolutions?: Lockfile;
+  readonly prospectivePacks?: ReadonlyArray<ProspectivePackRef>;
+}
+
 export interface DesiredStateReaderService {
   /** Build desired extension state from settings and installed or prospective Pack manifests. */
-  readonly graph: (options?: {
-    readonly prospectivePacks?: ReadonlyArray<ProspectivePackRef>;
-  }) => Effect.Effect<
+  readonly graph: (
+    options?: DesiredStateGraphInputs,
+  ) => Effect.Effect<
     DesiredStateGraph,
     WorkspaceStateReadFailure,
     FileSystem.FileSystem | Path.Path
@@ -55,7 +64,7 @@ export const makeDesiredStateReader = (
 ): DesiredStateReaderService => {
   const graph: DesiredStateReaderService["graph"] = (options) =>
     Effect.gen(function* () {
-      const current = yield* settings.settings;
+      const current = options?.settings ?? (yield* settings.settings);
       const configuredSources = yield* settings.configuredSources;
       const layout = yield* Ref.get(location.layout);
       const registryAuthorities = Object.fromEntries(
@@ -72,8 +81,16 @@ export const makeDesiredStateReader = (
           ? {}
           : { prospectivePacks: options.prospectivePacks }),
       });
-      const lockfile = yield* readLockfileCell(location, location.runtimeDir);
-      return yield* validateDesiredPackLock({ graph: built, lockfile, layout });
+      const lockfile =
+        options?.acceptedResolutions ?? (yield* readLockfileCell(location, location.runtimeDir));
+      return yield* validateDesiredPackLock({
+        graph: built,
+        lockfile,
+        layout,
+        ...(options?.prospectivePacks === undefined
+          ? {}
+          : { prospectivePacks: options.prospectivePacks }),
+      });
     }).pipe(Effect.withSpan("DesiredStateReader.graph"));
   return {
     graph,

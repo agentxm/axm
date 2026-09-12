@@ -1,3 +1,8 @@
+import { lifecycleStepFailure } from "../step-failure.js";
+import {
+  buildReconciliationClosure,
+  type ReconciliationChild,
+} from "@agentxm/workspace-reconciliation";
 /**
  * Wrapping a targeted update in one atomic ownership transition.
  *
@@ -34,7 +39,6 @@ import {
 
 import { ExtensionLifecycleFailed } from "../errors.js";
 import type { InstallStepRequirements } from "../install/vocabulary.js";
-import { buildAtomicPackGraphStep, type AtomicPackGraphChild } from "../packs/graph-transition.js";
 
 export const TARGETED_UPDATE_STALE_DETAIL =
   "The targeted update ownership context became stale before apply.";
@@ -93,12 +97,13 @@ export const wrapTargetedUpdatePlan = (args: {
 > =>
   Effect.gen(function* () {
     const workspace = yield* WorkspaceMutations;
-    const children: ReadonlyArray<AtomicPackGraphChild> = args.plan.jobs.flatMap((job) =>
-      job.steps.map((step) => ({
-        step,
-        coverage: args.context.public.target.type === "knowledge" ? "ineligible" : "eligible",
-      })),
-    );
+    const children: ReadonlyArray<ReconciliationChild<InstallStepRequirements>> =
+      args.plan.jobs.flatMap((job) =>
+        job.steps.map((step) => ({
+          step,
+          coverage: args.context.public.target.type === "knowledge" ? "ineligible" : "eligible",
+        })),
+      );
     const firstArtifact = children.find((child) => child.step.artifact !== undefined)?.step
       .artifact;
     const artifact = firstArtifact ?? {
@@ -106,7 +111,8 @@ export const wrapTargetedUpdatePlan = (args: {
       scope: workspace.scope,
       change: "updated" as const,
     };
-    const builtStep = yield* buildAtomicPackGraphStep({
+    const builtStep = yield* buildReconciliationClosure({
+      toStepFailure: lifecycleStepFailure,
       label: args.context.public.target.fqn,
       message: `Updated ${args.context.public.target.fqn}`,
       artifact,

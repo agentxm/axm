@@ -15,9 +15,9 @@ import * as Option from "effect/Option";
 import {
   NO_MATERIALIZATION_OBSERVATION,
   SubagentManager,
-  buildInstallOperation,
   type SubagentMaterializationFacts,
 } from "@agentxm/extension-materialization";
+import { buildInstallOperation } from "@agentxm/workspace-reconciliation";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import {
@@ -356,7 +356,7 @@ export const planSubagentInstall: (
         return buildInstallOperation(subagentManager, {
           toStepFailure: lifecycleStepFailure,
           ref,
-          versionRange: entry.versionRange,
+          declaration: { name: ref.subagent.name, versionRange: entry.versionRange },
           installedBefore: subagentManager
             .isInstalled({ target: { type: "subagent", name: ref.subagent.name } })
             .pipe(Effect.catch(() => Effect.succeed(false))),

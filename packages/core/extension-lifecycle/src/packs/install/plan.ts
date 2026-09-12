@@ -1,3 +1,4 @@
+import { buildReconciliationClosure } from "@agentxm/workspace-reconciliation";
 /**
  * Installing a pack.
  *
@@ -27,11 +28,13 @@ import {
   RuleManager,
   SkillManager,
   SubagentManager,
+} from "@agentxm/extension-materialization";
+import {
   buildInstallOperation,
   buildUninstallOperation,
   targetFromRef,
   toLabel,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace-reconciliation";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import {
@@ -98,10 +101,10 @@ import {
   type ResolveInstallRequirements,
 } from "../../install/vocabulary.js";
 import { expandPackInstallRefs, expandPackInstallRefsWithReleaseAge } from "../expansion.js";
-import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
+import { validatePackGraphPostcondition } from "../graph-transition.js";
 import { buildPackMemberInstallStep } from "../member-install-step.js";
 import { registrySourceArtifact, registrySourcePath } from "../artifact.js";
-import { makeWorkspaceRetentionPolicy } from "../../uninstall/retention-policy.js";
+import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace-reconciliation";
 
 /** A pack install request after grammar parsing, before anything is discovered. */
 export interface ParsedPackInstallRequest {
@@ -994,7 +997,7 @@ export const planPackInstall: (
   // cleanup by suppressing dropped-member removal until the pre-install graph
   // is complete.
   const existingPack = graph.complete ? currentPackNode : undefined;
-  const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(ws, lifecycleStepFailure);
 
   const installSteps = yield* Effect.forEach(
     refs,
@@ -1015,7 +1018,7 @@ export const planPackInstall: (
             buildInstallOperation(packManager, {
               toStepFailure: lifecycleStepFailure,
               ref,
-              versionRange: intent.versionRange,
+              declaration: { name: ref.pack.name, versionRange: intent.versionRange },
               ...(intent.forceCanonical === true ? { force: true } : {}),
               installedBefore: graph.complete
                 ? packManager.isInstalled({
@@ -1091,19 +1094,19 @@ export const planPackInstall: (
           return buildUninstallOperation(ruleManager, retentionPolicy, {
             toStepFailure: lifecycleStepFailure,
             target,
-            skipProjections: true,
+            enclosingClosure: { projections: [target.type] },
           });
         case "hook":
           return buildUninstallOperation(hookManager, retentionPolicy, {
             toStepFailure: lifecycleStepFailure,
             target,
-            skipProjections: true,
+            enclosingClosure: { projections: [target.type] },
           });
         case "knowledge":
           return buildUninstallOperation(knowledgeManager, retentionPolicy, {
             toStepFailure: lifecycleStepFailure,
             target,
-            skipProjections: true,
+            enclosingClosure: { projections: [target.type] },
           });
       }
     },
@@ -1151,7 +1154,8 @@ export const planPackInstall: (
             ...droppedTargets.map(({ target }) => target.type),
           ]),
         });
-  const graphStep = yield* buildAtomicPackGraphStep({
+  const graphStep = yield* buildReconciliationClosure({
+    toStepFailure: lifecycleStepFailure,
     label: packIdentity,
     message: `Installed ${packIdentity} and ${refs.length - 1} pack member${refs.length === 2 ? "" : "s"}`,
     artifact: {

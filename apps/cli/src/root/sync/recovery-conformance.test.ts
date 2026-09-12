@@ -15,7 +15,7 @@ import {
   INCOMPLETE_DESIRED_STATE_BLOCKER_ID,
   type AggregateOwnershipUnitId,
 } from "@agentxm/workspace-projection";
-import { syncRecoveryIdentifiers } from "@agentxm/workspace-sync";
+import { syncRecoveryIdentifiers } from "@agentxm/workspace-reconciliation";
 import { packUninstallRecoveryIdentifiers } from "@agentxm/extension-lifecycle";
 
 type RecoveryOwner = "sync" | "intent-command" | "direct-correction" | "manual-preservation";

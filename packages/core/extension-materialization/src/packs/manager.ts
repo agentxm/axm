@@ -1,3 +1,5 @@
+import { usableAcceptedCanonical } from "@agentxm/workspace-state";
+import { LifecyclePostconditionViolated } from "../extensions/errors.js";
 /**
  * Pack manager service.
  *
@@ -31,7 +33,7 @@ import { SourceHostProviders } from "@agentxm/extension-sources";
 import type { ExtensionManager, ManagerRequirements } from "../manager-contract.js";
 import { NO_MATERIALIZATION_OBSERVATION } from "../manager-contract.js";
 import { PackManager, type PackMaterializationFacts } from "../managers.js";
-import type { ExtensionTarget, PackExtensionTarget } from "@agentxm/workspace-state";
+import type { ExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations, type SetPackArgs } from "@agentxm/workspace-state";
 import { copyExtensionDirectory } from "../extensions/copy-directory.js";
 import { computePackPathsForLayout } from "@agentxm/workspace-state";
@@ -235,6 +237,7 @@ export const PackManagerLive = Layer.effect(
         return yield* isObservedInstalled(ws, "pack", target.name);
       }),
       materializeInstall,
+      acquireCanonical: materializeInstall,
       prepareSourceTransition: ({ ref }) =>
         prepareAcceptedCanonicalTransition({
           workspace: ws,
@@ -255,44 +258,35 @@ export const PackManagerLive = Layer.effect(
       }),
       materializeUninstall,
       materializeDeactivate,
-
-      upsertSettingsEntry: Effect.fn("PackManager.upsertSettingsEntry")(function* ({
-        ref,
-        versionRange,
-        materialization,
-      }: {
-        readonly ref: PackRef;
-        readonly versionRange: Option.Option<string>;
-        readonly materialization: Option.Option<PackMaterializationFacts>;
-      }) {
-        const args = yield* buildCurrentPackArgs(ref, versionRange, materialization);
-        if (Option.isSome(args)) {
-          yield* ws.setPack(args.value);
-        } else {
-          yield* ws.setPackEntry(ref.pack.name, {
-            source: "workspace",
-            enabled: true,
+      materializeRetained: ({ target }) =>
+        Effect.gen(function* () {
+          const canonical = yield* usableAcceptedCanonical({
+            workspace: ws,
+            type: "pack",
+            name: target.name,
           });
-        }
-      }),
+          if (Option.isNone(canonical) || canonical.value.ref.type !== "pack") {
+            return yield* new LifecyclePostconditionViolated({
+              postcondition: "materialize-observable",
+              targetType: "pack",
+              targetName: target.name,
+            });
+          }
+          return yield* materializeDeactivate({ target });
+        }),
 
-      removeSettingsEntry: ({ target }: { readonly target: PackExtensionTarget }) =>
-        ws.removePackSettings(target.name).pipe(Effect.withSpan("PackManager.removeSettingsEntry")),
-
-      upsertLockfileEntry: Effect.fn("PackManager.upsertLockfileEntry")(function* ({
+      acceptedResolution: Effect.fn("PackManager.acceptedResolution")(function* ({
         ref,
         materialization,
       }) {
         const args = yield* buildCurrentPackArgs(ref, Option.none(), materialization);
-        if (Option.isSome(args)) {
-          yield* ws.setPackLock(args.value);
-        } else {
-          yield* ws.removePackLock(ref.pack.name);
-        }
+        return Option.map(args, ({ versionRange: _versionRange, ...entry }) => ({
+          key: ref.pack.name,
+          entry,
+        }));
       }),
 
-      removeLockfileEntry: ({ target }: { readonly target: PackExtensionTarget }) =>
-        ws.removePackLock(target.name).pipe(Effect.withSpan("PackManager.removeLockfileEntry")),
+      withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
     } satisfies ExtensionManager<PackRef, PackMaterializationFacts, ManagerRequirements>;
   }),
 );

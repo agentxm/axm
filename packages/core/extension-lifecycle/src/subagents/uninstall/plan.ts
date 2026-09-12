@@ -14,8 +14,8 @@ import * as Option from "effect/Option";
 import {
   NO_MATERIALIZATION_OBSERVATION,
   SubagentManager,
-  buildUninstallOperation,
 } from "@agentxm/extension-materialization";
+import { buildUninstallOperation } from "@agentxm/workspace-reconciliation";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import type { JobStepArtifact, JobStepArtifactTarget, Plan } from "@agentxm/workspace-operations";
 import {
@@ -29,7 +29,7 @@ import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { expandGlob } from "../../glob.js";
 import { lifecycleStepFailure } from "../../step-failure.js";
 import { installRefused, type InstallStepRequirements } from "../../install/vocabulary.js";
-import { makeWorkspaceRetentionPolicy } from "../../uninstall/retention-policy.js";
+import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace-reconciliation";
 import type { SubagentUninstallIntent } from "../../uninstall/vocabulary.js";
 import {
   workspaceCanonicalPath,
@@ -144,7 +144,7 @@ export const planSubagentUninstall: (
 > = Effect.fn("UninstallExtensions.planSubagents")(function* (intent: SubagentUninstallIntent) {
   const ws = yield* WorkspaceMutations;
   const subagentManager = yield* SubagentManager;
-  const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(ws, lifecycleStepFailure);
 
   // The accepted resolution names the package the removal retires, and the
   // removal deletes it, so it is read before the step runs.

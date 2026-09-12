@@ -14,25 +14,25 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Result from "effect/Result";
 import * as ServiceMap from "effect/Context";
 import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import * as semver from "semver";
 import {
+  PackManager,
+  McpServerManager,
   HookManager,
   KnowledgeManager,
-  McpServerManager,
   RuleManager,
   SkillManager,
   SubagentManager,
-  buildMaterializeOperation,
-  installMcpServer,
   skillArtifactFromTargets,
-  targetFromRef,
-  toStepKey,
-  type McpServerInstallRequirements,
+  type PreparedHookProjection,
 } from "@agentxm/extension-materialization";
+import { installMcpServer, type McpServerInstallRequirements } from "./mcps/install-operation.js";
+import { buildMaterializeOperation, targetFromRef, toStepKey } from "./extensions/operations.js";
 import { enabledConfiguredEntries, isConfiguredEntryEnabled } from "@agentxm/workspace-state";
 import {
   CodingAgentRepository,
@@ -41,7 +41,6 @@ import {
   isObservedMaterializationCurrent,
   type ProjectionParticipantRequirements,
   makeExtensionConstraintInvariantFact,
-  planExtensionConstraintFact,
   type CodingAgentRepositoryService,
 } from "@agentxm/workspace-projection";
 import {
@@ -49,6 +48,7 @@ import {
   normalizeReleaseAgeRecords,
   ReleaseAgePosture,
   resolveConfiguredHook,
+  resolveConfiguredPack,
   resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,
   resolveConfiguredRule,
@@ -75,6 +75,7 @@ import { printSourceParams } from "@agentxm/extension-model/unstable/sources/pri
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { type McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
+import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { type HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import { type KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
 import { type RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
@@ -112,7 +113,7 @@ const sourceTransitionIdentity = (authority: string, identity: string): string =
       ? identity
       : `${authority}:${identity}`;
 
-const selectedDesiredNodes = (
+export const selectedDesiredNodes = (
   graph: DesiredStateGraph,
   selection: SyncSelection,
 ): ReadonlyArray<DesiredExtensionNode> => {
@@ -123,7 +124,7 @@ const selectedDesiredNodes = (
     if (parsed.type === "pack") {
       return graph.nodes.filter(
         (node) =>
-          node.type !== "pack" &&
+          (node.type === "pack" && normalizedIdentity(node.identity) === target) ||
           node.origins.some(
             (origin) => origin.type === "pack" && normalizedIdentity(origin.pack) === target,
           ),
@@ -294,9 +295,6 @@ const buildMcpServerSyncOperation = ({
         ref,
         nonInteractive: true,
         force,
-        allowWorkspaceSourceTransition: false,
-        versionRange: Option.none(),
-        skipSettings: Option.some(true),
       },
     }).pipe(Effect.mapError(adapter.toStepFailure)),
   };
@@ -410,12 +408,7 @@ const resolveDesiredNodeRef = (
     case "knowledge":
       return annotate(resolveConfiguredKnowledge(node.name, node.source, releaseAgeEvaluation));
     case "pack":
-      return Effect.fail(
-        new WorkspaceSyncFailed({
-          category: "internal",
-          detail: `Pack ${node.identity} is not a projection target`,
-        }),
-      );
+      return annotate(resolveConfiguredPack(node.name, node.source, releaseAgeEvaluation));
   }
 };
 
@@ -435,6 +428,7 @@ type MaterializeStepRequirements =
 export interface CollectedMaterializeSteps {
   /** Whether the desired graph was complete enough for cleanup to run. */
   readonly cleanupSafe: boolean;
+  readonly preparedHookProjection?: PreparedHookProjection;
   readonly knowledgeMayChange: boolean;
   readonly serialMaterialization: boolean;
   readonly expectedSkillNames: ReadonlySet<string>;
@@ -456,6 +450,7 @@ export interface CollectedMaterializeSteps {
  */
 export const collectMaterializeSteps = (args: {
   readonly selection?: SyncSelection;
+  readonly desiredState?: DesiredStateGraph;
   /** Desired agent set for membership preflight before settings are committed. */
   readonly configuredAgents?: ReadonlyArray<string>;
   readonly packRecovery?: ConfiguredPackRecovery;
@@ -467,6 +462,8 @@ export const collectMaterializeSteps = (args: {
   | ConfiguredEntryResolutionRequirements
   | FileSystem.FileSystem
   | HookManager
+  | PackManager
+  | McpServerManager
   | KnowledgeManager
   | McpServerManager
   | McpServerInstallRequirements
@@ -478,6 +475,8 @@ export const collectMaterializeSteps = (args: {
   | WorkspaceMutations
 > =>
   Effect.gen(function* () {
+    const packManager = yield* PackManager;
+    const mcpManager = yield* McpServerManager;
     const skillManager = yield* SkillManager;
     const subagentManager = yield* SubagentManager;
     const ruleManager = yield* RuleManager;
@@ -491,7 +490,11 @@ export const collectMaterializeSteps = (args: {
     const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation();
     const configuredMcpServerEntries = yield* ws.getConfiguredMcpServerEntries();
     const configuredAgents = args.configuredAgents ?? (yield* ws.getConfiguredAgents());
-    const desiredState = yield* ws.getDesiredStateGraph();
+    const desiredState = args.desiredState ?? (yield* ws.getDesiredStateGraph());
+    const desiredActivation = (ref: ExtensionRef): boolean =>
+      desiredState.nodes.some(
+        (node) => node.type === ref.type && node.name === targetFromRef(ref).name && node.enabled,
+      );
     const selection = args.selection ?? { target: Option.none(), type: Option.none() };
     const problems = scopedProblems(desiredState, selection);
     const blockers = problems.filter((problem) => {
@@ -521,16 +524,17 @@ export const collectMaterializeSteps = (args: {
       });
     }
 
-    const reconciled = yield* Effect.forEach(
+    const evaluated = yield* Effect.forEach(
       selectedDesiredNodes(desiredState, selection)
         .filter(isSourcedDesiredExtension)
-        .filter((node) => node.enabled && node.type !== "pack"),
+        .filter((node) => node.type !== "pack" || !node.enabled),
       (node) =>
         Effect.gen(function* () {
           const canonical = yield* acceptedCanonicalObservation({
             workspace: ws,
             type: node.type,
             name: node.name,
+            desired: node,
           });
           const observation = Option.isSome(canonical)
             ? canonical.value.observation
@@ -540,6 +544,22 @@ export const collectMaterializeSteps = (args: {
             observation.status === "constraint-mismatch"
               ? makeExtensionConstraintInvariantFact(node, observation)
               : undefined;
+          if (constraintFact !== undefined)
+            return yield* new WorkspaceSyncFailed({
+              category: "conflict",
+              detail: `${extensionConstraintFactText(constraintFact)}; decision=blocked; reason=accepted-resolution-incompatible`,
+              suggestions: [
+                {
+                  description: "Explicitly update the extension to accept a satisfying resolution.",
+                  cmd: "axm update --help",
+                },
+              ],
+            });
+          if (accepted !== undefined && observation.status === "wrong-origin")
+            return yield* new WorkspaceSyncFailed({
+              category: "conflict",
+              detail: `${node.type} ${node.name}: configured source differs from accepted authority; explicitly reinstall or change source before syncing`,
+            });
           const forceCanonical = observation.status !== "usable";
           const resolved = yield* Effect.gen(function* () {
             if (observation.status === "usable") {
@@ -547,16 +567,18 @@ export const collectMaterializeSteps = (args: {
                 workspace: ws,
                 type: node.type,
                 name: node.name,
+                desired: node,
               });
               if (Option.isSome(usable)) {
                 return { ref: usable.value.ref, versionRange: Option.none() };
               }
             }
-            if (accepted !== undefined && constraintFact === undefined) {
+            if (accepted !== undefined) {
               const immutable = yield* acceptedResolutionRef({
                 workspace: ws,
                 type: node.type,
                 name: node.name,
+                desired: node,
               });
               if (Option.isSome(immutable)) {
                 return { ref: immutable.value, versionRange: Option.none() };
@@ -566,9 +588,7 @@ export const collectMaterializeSteps = (args: {
               node,
               observation.status,
               releaseAgeEvaluation,
-              constraintFact === undefined
-                ? undefined
-                : extensionConstraintFactText(constraintFact),
+              undefined,
             );
           });
           const ref = resolved.ref;
@@ -591,23 +611,8 @@ export const collectMaterializeSteps = (args: {
                   entry: configuredMcpEntry,
                   state: "current",
                 })).every(({ outcome }) => outcome === "current" || outcome === "unsupported");
-          const materialize = observation.status !== "usable" || !materializationCurrent;
-          const resolvedVersion =
-            ref.refType === "registry" || ref.refType === "workspace" ? ref.version : undefined;
-          const constraintDecision =
-            constraintFact === undefined
-              ? undefined
-              : planExtensionConstraintFact(constraintFact, resolvedVersion);
-          if (constraintFact !== undefined && constraintDecision?.readiness === "blocked") {
-            return yield* new WorkspaceSyncFailed({
-              category: "conflict",
-              detail: `${extensionConstraintFactText(constraintFact)}; decision=blocked; reason=${constraintDecision.reason}${constraintDecision.candidateVersion === undefined ? "" : `; candidate version=${constraintDecision.candidateVersion}`}`,
-            });
-          }
-          const constraintTransition =
-            constraintFact !== undefined && constraintDecision?.readiness === "ready"
-              ? `${extensionConstraintFactText(constraintFact)}; decision=reconcilable; proposed version=${constraintDecision.version}`
-              : undefined;
+          const materialize =
+            observation.status !== "usable" || (node.enabled && !materializationCurrent);
           const releaseAge = configuredReleaseAge(resolved);
           return {
             ref,
@@ -623,13 +628,7 @@ export const collectMaterializeSteps = (args: {
               `proposed source=${sourceTransitionIdentity(ref.source.type, node.identity)}`,
               `previous version=${accepted?.type === "registry" ? accepted.resolvedVersion : "none"}`,
               `proposed version=${ref.refType === "registry" || ref.refType === "workspace" ? ref.version : "unversioned"}`,
-              `reason=${
-                constraintFact === undefined
-                  ? observation.status !== "usable"
-                    ? observation.status
-                    : "stale-projection"
-                  : constraintTransition
-              }`,
+              `reason=${observation.status !== "usable" ? observation.status : "stale-projection"}`,
               `downgrade=${
                 accepted?.type === "registry" &&
                 (ref.refType === "registry" || ref.refType === "workspace") &&
@@ -640,8 +639,27 @@ export const collectMaterializeSteps = (args: {
             ].join("; "),
             releaseAge,
           };
-        }),
+        }).pipe(
+          Effect.result,
+          Effect.map((result) => ({ node, result })),
+        ),
       { concurrency: "unbounded" },
+    );
+    const reconciled = evaluated.flatMap(({ result }) =>
+      Result.isSuccess(result) ? [result.success] : [],
+    );
+    const failures = evaluated.flatMap(({ node, result }) =>
+      Result.isFailure(result) ? [{ node, failure: result.failure }] : [],
+    );
+    if (reconciled.length === 0 && failures[0] !== undefined)
+      return yield* Effect.fail(failures[0].failure);
+    const blockedSteps = failures.map(
+      ({ node, failure }): PlannedJobStep<MaterializeStepRequirements> => ({
+        readiness: "error",
+        key: `${node.type}:${node.name}`,
+        label: node.name,
+        errorMessage: args.adapter.toStepFailure(failure).detail,
+      }),
     );
 
     type Reconciled<TRef extends ExtensionRef> = {
@@ -655,6 +673,7 @@ export const collectMaterializeSteps = (args: {
       };
     };
     const skillRefs: Array<Reconciled<SkillExtensionRef>> = [];
+    const packRefs: Array<Reconciled<PackRef>> = [];
     const mcpServerRefs: Array<Reconciled<McpServerExtensionRef>> = [];
     const subagentRefs: Array<Reconciled<SubagentExtensionRef>> = [];
     const ruleRefs: Array<Reconciled<RuleExtensionRef>> = [];
@@ -717,13 +736,22 @@ export const collectMaterializeSteps = (args: {
           });
           break;
         case "pack":
+          packRefs.push({
+            ref: item.ref,
+            force: item.force,
+            materialize: item.materialize,
+            transitionLabel: item.transitionLabel,
+            ...(item.releaseAge === undefined ? {} : { releaseAge: item.releaseAge }),
+          });
           break;
       }
     }
 
     const declaredMcpServerNames = new Set([
       ...enabledConfiguredEntries(configuredMcpServerEntries).map(([name]) => name),
-      ...mcpServerRefs.map(({ ref }) => ref.server.name),
+      ...mcpServerRefs
+        .filter(({ ref }) => desiredActivation(ref))
+        .map(({ ref }) => ref.server.name),
     ]);
     const inlineMcpServerSteps = yield* Effect.forEach(
       Object.entries(configuredMcpServerEntries).filter(
@@ -781,10 +809,14 @@ export const collectMaterializeSteps = (args: {
       Effect.gen(function* () {
         if (ref.refType !== "local") return;
         const target = targetFromRef(ref);
+        const proposed = desiredState.nodes.find(
+          (node) => node.type === target.type && node.name === target.name,
+        );
         const canonical = yield* acceptedCanonicalObservation({
           workspace: ws,
           type: target.type,
           name: target.name,
+          ...(proposed === undefined ? {} : { desired: proposed }),
         }).pipe(
           Effect.mapError(
             (cause) =>
@@ -835,6 +867,7 @@ export const collectMaterializeSteps = (args: {
           ...buildMaterializeOperation(skillManager, {
             toStepFailure: args.adapter.toStepFailure,
             ref,
+            desiredActivation: desiredActivation(ref),
             validateMaterialized: () => validateAcceptedLocalMaterialization(ref),
             force,
             label: transitionLabel,
@@ -852,6 +885,7 @@ export const collectMaterializeSteps = (args: {
       buildMaterializeOperation(subagentManager, {
         toStepFailure: args.adapter.toStepFailure,
         ref,
+        desiredActivation: desiredActivation(ref),
         validateMaterialized: () => validateAcceptedLocalMaterialization(ref),
         force,
         label: transitionLabel,
@@ -866,6 +900,7 @@ export const collectMaterializeSteps = (args: {
       buildMaterializeOperation(knowledgeManager, {
         toStepFailure: args.adapter.toStepFailure,
         ref,
+        desiredActivation: desiredActivation(ref),
         validateMaterialized: () => validateAcceptedLocalMaterialization(ref),
         force,
         label: transitionLabel,
@@ -878,15 +913,33 @@ export const collectMaterializeSteps = (args: {
       { concurrency: "unbounded" },
     );
 
+    const changedHooks = hookRefs
+      .filter(({ materialize, ref }) => materialize && desiredActivation(ref))
+      .map(({ ref }) => ref);
+    const preparedHookProjection =
+      changedHooks.length === 0 ? undefined : yield* hookManager.prepareProjection(changedHooks);
     return {
+      ...(preparedHookProjection === undefined ? {} : { preparedHookProjection }),
       cleanupSafe: problems.length === 0,
       knowledgeMayChange:
         packRecoverySteps.length > 0 || knowledgeRefs.some(({ materialize }) => materialize),
       serialMaterialization: packRecoverySteps.length > 0,
-      expectedSkillNames: new Set(skillRefs.map(({ ref }) => ref.skill.name)),
-      expectedSubagentNames: new Set(subagentRefs.map(({ ref }) => ref.subagent.name)),
+      expectedSkillNames: new Set(
+        desiredState.nodes
+          .filter((node) => node.type === "skill" && node.enabled)
+          .map((node) => node.name),
+      ),
+      expectedSubagentNames: new Set(
+        desiredState.nodes
+          .filter((node) => node.type === "subagent" && node.enabled)
+          .map((node) => node.name),
+      ),
       expectedMcpServerNames: declaredMcpServerNames,
-      expectedHookNames: new Set(hookRefs.map(({ ref }) => ref.hook.name)),
+      expectedHookNames: new Set(
+        desiredState.nodes
+          .filter((node) => node.type === "hook" && node.enabled)
+          .map((node) => node.name),
+      ),
       releaseAge: {
         evaluatedAt: DateTime.formatIso(releaseAgeEvaluation.evaluatedAt),
         holdbacks: normalizeReleaseAgeRecords([
@@ -899,12 +952,30 @@ export const collectMaterializeSteps = (args: {
         ]),
       } satisfies ReleaseAgeOperationEvidence,
       steps: [
+        ...blockedSteps,
         ...packRecoverySteps,
+        ...packRefs
+          .filter(({ materialize }) => materialize)
+          .map(({ ref, force }) =>
+            buildMaterializeOperation(packManager, {
+              ref,
+              force,
+              desiredActivation: false,
+              toStepFailure: args.adapter.toStepFailure,
+            }),
+          ),
         ...skillSteps,
         ...mcpServerRefs
           .filter(({ materialize }) => materialize)
           .map(({ ref, force, transitionLabel }) =>
-            buildMcpServerSyncOperation({ ref, force, transitionLabel, adapter: args.adapter }),
+            desiredActivation(ref)
+              ? buildMcpServerSyncOperation({ ref, force, transitionLabel, adapter: args.adapter })
+              : buildMaterializeOperation(mcpManager, {
+                  ref,
+                  force,
+                  desiredActivation: false,
+                  toStepFailure: args.adapter.toStepFailure,
+                }),
           ),
         ...inlineMcpServerSteps,
         ...subagentRefs.filter(({ materialize }) => materialize).map(subagentMaterializeStep),
@@ -914,6 +985,7 @@ export const collectMaterializeSteps = (args: {
             buildMaterializeOperation(ruleManager, {
               toStepFailure: args.adapter.toStepFailure,
               ref,
+              desiredActivation: desiredActivation(ref),
               validateMaterialized: () => validateAcceptedLocalMaterialization(ref),
               force,
               label: transitionLabel,
@@ -925,7 +997,22 @@ export const collectMaterializeSteps = (args: {
             buildMaterializeOperation(hookManager, {
               toStepFailure: args.adapter.toStepFailure,
               ref,
-              validateMaterialized: () => validateAcceptedLocalMaterialization(ref),
+              desiredActivation: desiredActivation(ref),
+              validateMaterialized: ({ materialization }) =>
+                Effect.gen(function* () {
+                  yield* validateAcceptedLocalMaterialization(ref);
+                  const expected = preparedHookProjection?.acquisitions.find(
+                    ({ name }) => name === ref.hook.name,
+                  );
+                  if (
+                    expected !== undefined &&
+                    Option.getOrUndefined(materialization.treeIntegrity) !== expected.treeIntegrity
+                  )
+                    return yield* new WorkspaceSyncFailed({
+                      category: "conflict",
+                      detail: `Hook ${ref.hook.name} changed after projection preparation`,
+                    });
+                }),
               force,
               label: transitionLabel,
             }),

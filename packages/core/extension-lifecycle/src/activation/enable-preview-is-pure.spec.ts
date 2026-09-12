@@ -3,6 +3,9 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
+import { deriveOperationOutcome, previewPlanExecution } from "@agentxm/workspace-operations";
+import { preapprovedPlanExecution } from "@agentxm/workspace-operations/testing";
+import { SetActivation } from "./set-activation.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 
@@ -111,6 +114,31 @@ describe("Enable preview purity", () => {
     cleanups.push(fixture.cleanup);
     return fixture;
   };
+
+  it.effect("rejects an activation candidate whose desired state changed after preview", () => {
+    const fixture = disabledWorkspace("skill", "review");
+    return fixture
+      .provide(
+        Effect.gen(function* () {
+          const candidate = yield* SetActivation.prepare({
+            type: "skill",
+            name: "review",
+            enabled: true,
+          });
+          if (candidate._tag === "Unchanged") throw new Error("Expected activation work");
+          yield* SetActivation.previewOrApply(candidate, previewPlanExecution);
+          fixture.writeFile("axm.json", `${fixture.readFile("axm.json")}\n`);
+          const before = fixture.snapshot();
+          const resolution = yield* SetActivation.previewOrApply(
+            candidate,
+            preapprovedPlanExecution,
+          );
+          expect(deriveOperationOutcome(resolution)).toBe("blocked");
+          expect(fixture.snapshot()).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
 
   it.effect.each(TYPES)(
     "a previewed enable of a disabled $type changes no workspace state",

@@ -560,6 +560,29 @@ describe("toPlanResolutionResult", () => {
     ]);
   });
 
+  it("preserves exact native entry effects and retained references in the machine schema", () => {
+    const artifact: JobStepArtifact = {
+      path: ".mcp.json",
+      scope: "project",
+      change: "updated",
+      targets: [
+        {
+          path: ".mcp.json",
+          change: "updated",
+          unitId: "mcp-server:native-config-entry",
+          entryName: "review",
+          agentIds: ["claude-code"],
+        },
+      ],
+      references: [{ path: "mcps/review", state: "retained", reason: "workspace-authored source" }],
+    };
+    const output = toPlanResolutionResult(
+      resolution({ units: [unit("review", "committed", { artifact })] }),
+    );
+    const decoded = Schema.decodeUnknownSync(PlanResolutionResultSchema)(output);
+    expect(decoded.units[0]?.artifact).toEqual(artifact);
+  });
+
   it("emits the primary artifact path with deduplicated additional target metadata", () => {
     const artifact: JobStepArtifact = {
       path: ".claude/skills/code-review",

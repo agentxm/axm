@@ -16,10 +16,10 @@ import * as Path from "effect/Path";
 
 import {
   SkillManager,
-  buildUninstallOperation,
   skillArtifactFromTargets,
   type InstallableSkillTarget,
 } from "@agentxm/extension-materialization";
+import { buildUninstallOperation } from "@agentxm/workspace-reconciliation";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-sources";
 import type { JobStepArtifactTarget, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import { CodingAgentRepository } from "@agentxm/workspace-projection";
@@ -41,7 +41,7 @@ import {
   type InstallStepRequirements,
   type ResolveInstallRequirements,
 } from "../../install/vocabulary.js";
-import { makeWorkspaceRetentionPolicy } from "../../uninstall/retention-policy.js";
+import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace-reconciliation";
 import type { SkillUninstallIntent } from "../../uninstall/vocabulary.js";
 import {
   workspaceAuthoredPath,
@@ -137,7 +137,7 @@ export const planSkillUninstall: (
   const skillManager = yield* SkillManager;
   const agentRepo = yield* CodingAgentRepository;
   const path = yield* Path.Path;
-  const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(ws, lifecycleStepFailure);
 
   const configuredAgents = yield* agentRepo.getMaterializationAgents().pipe(
     Effect.mapError((cause) =>

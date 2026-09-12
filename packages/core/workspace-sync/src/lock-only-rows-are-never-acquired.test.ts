@@ -72,11 +72,13 @@ describe("Reconciliation never acquires a lock-only row", () => {
         .provide(
           Effect.gen(function* () {
             yield* previewSync();
+            expect(workspace.snapshot()).toEqual(before);
             yield* applySync();
 
             // Neither the preview nor the reconciliation considered the
             // lock-only entry part of the workspace's desired state.
-            expect(workspace.snapshot()).toEqual(before);
+            expect(workspace.readFile("axm-lock.yaml")).not.toContain(row.name);
+            expect((yield* applySync())._tag).toBe("AlreadyReconciled");
             expect(workspace.exists(`agent_extensions`)).toBe(false);
             expect(workspace.exists(`.claude/skills/${row.name}`)).toBe(false);
             expect(workspace.exists(`.agents/skills/${row.name}`)).toBe(false);

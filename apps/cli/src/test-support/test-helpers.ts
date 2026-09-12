@@ -6,12 +6,6 @@
  */
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { WorkspaceMutations as WorkspaceMutationsTag } from "@agentxm/workspace-state";
-import { makeBaseWorkspaceMock } from "./test-stubs.js";
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
-import { NativeWriteAuthorityPermissive } from "@agentxm/agent-integration/testing";
-import { MockWorkspaceTransactionScope } from "@agentxm/workspace-state/testing";
-import type { StepRequirements } from "../root/shared/step-requirements.js";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -779,23 +773,3 @@ export const makeEffectProvide = (
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper hides generic layer plumbing
   return <A, E>(effect: Effect.Effect<A, E, any>) => effect.pipe(Effect.provide(layer));
 };
-
-/**
- * Everything a materialization plan step declares, stubbed for tests that
- * exercise plan shape rather than workspace effects. The step's requirements
- * travel with it from the capability; this is the boundary a test composes
- * them at, exactly as the runtime does.
- */
-export const StepRequirementsTest = (axmDir = "/tmp/axm"): Layer.Layer<StepRequirements> =>
-  Layer.mergeAll(
-    MockWorkspaceTransactionScope(axmDir),
-    NativeWriteAuthorityPermissive,
-    NodeServices.layer,
-    FetchHttpClient.layer,
-    LifecycleStepFailureConversionLive,
-    McpSecretStoreLive,
-    TestRenderer.make().layer,
-    CodingAgentRepositoryLive.pipe(
-      Layer.provideMerge(Layer.succeed(WorkspaceMutationsTag, makeBaseWorkspaceMock(axmDir))),
-    ),
-  );

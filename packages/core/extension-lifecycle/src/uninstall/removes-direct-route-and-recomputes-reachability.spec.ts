@@ -5,6 +5,8 @@ import { afterEach } from "vitest";
 
 import { deriveOperationOutcome } from "@agentxm/workspace-operations";
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { applyActivation } from "../activation/test-helpers.js";
 
 import {
   applyInstall,
@@ -22,7 +24,7 @@ export const specification = defineSpecification({
   requirement: "cli/uninstall/removes-direct-route-and-recomputes-reachability",
   title: "Uninstall removes direct intent and keeps state another desired route still reaches",
   statement:
-    "When a directly desired extension is uninstalled, AXM shall remove its direct configuration from axm.json, shall remove its resolution, acquired content whose ownership AXM can verify, and owned projections only when no other desired route still reaches it, reporting retained state otherwise, and shall leave every other desired extension's state untouched.",
+    "When a directly desired extension is uninstalled, AXM shall remove its direct configuration, remove its resolution and verified acquired content when no other desired route reaches it, realize activation and owned outputs from the remaining desired routes, report retained state, preserve authored inventory, and leave state outside the necessary dependency and shared-output closure untouched.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity"],
@@ -46,6 +48,37 @@ describe("Uninstall a directly desired extension", () => {
     cleanups.push(created.cleanup);
     return created;
   };
+
+  it.effect("removing a disabled direct preference restores an enabled Pack route", () => {
+    const { workspace, registry } = world();
+    registry.writeSkill("review", [{ version: "1.0.0", body: "Review." }]);
+    registry.writePack("reviews", [
+      { version: "1.0.0", dependencies: { "@acme/skills/review": "^1.0.0" } },
+    ]);
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applyInstall(
+            installRequest({
+              type: "pack",
+              subject: { kind: "source", source: "@acme/packs/reviews" },
+            }),
+          );
+          yield* applyActivation({ type: "skill", name: "review", enabled: false });
+          expect(workspace.exists(".claude/skills/review")).toBe(false);
+          const result = yield* applyUninstall(
+            uninstallRequest({ selector: "@acme/skills/review" }),
+          );
+          expect(deriveOperationOutcome(result)).toBe("applied");
+          const graph = yield* (yield* WorkspaceMutations).getDesiredStateGraph();
+          expect(
+            graph.nodes.find((node) => node.type === "skill" && node.name === "review")?.enabled,
+          ).toBe(true);
+          expect(workspace.exists(".claude/skills/review/SKILL.md")).toBe(true);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
 
   /** Acquire a skill from a local directory, the way a person points at one. */
   const installLocalSkill = (world: InstallWorld, name: string) =>
@@ -175,8 +208,13 @@ describe("Uninstall a directly desired extension", () => {
             expect(projectedBefore.length).toBeGreaterThan(0);
             // The removal reports the retention rather than claiming a deletion.
             const [unit] = resolution.units;
-            expect(unit?.artifact?.targets).toEqual(
-              expect.arrayContaining([expect.objectContaining({ change: "unchanged" })]),
+            expect(unit?.artifact?.references).toEqual(
+              expect.arrayContaining([
+                expect.objectContaining({
+                  state: "retained",
+                  reason: "required by resulting desired state",
+                }),
+              ]),
             );
             expect(unit?.message).toContain("retained its package");
           }),

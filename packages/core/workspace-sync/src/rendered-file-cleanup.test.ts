@@ -11,7 +11,7 @@ import { codingAgentForId } from "@agentxm/agent-integration";
 import type { CodingAgentRepositoryService } from "@agentxm/workspace-projection";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
-import { reconcileAgentOutputs } from "./index.js";
+import { reconcileAgentOutputs } from "@agentxm/workspace-reconciliation";
 import { applySync, previewSync, makeSyncFixture } from "./test-helpers.js";
 
 const AXM_MANAGED_MARKER =
@@ -286,6 +286,34 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
       Layer.succeed(CodingAgentRepository, agentRepo),
     );
   };
+
+  it.effect("scoped cleanup retains unrelated managed entries for a removed agent", () =>
+    Effect.gen(function* () {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-scoped-mcp-cleanup-"));
+      try {
+        const mcpConfig = path.join(tempDir, ".mcp.json");
+        const entry = (name: string) => ({
+          command: "npx",
+          args: [name],
+          "x-axm": { v: 1, managed: true, ext: `@workspace/mcps/${name}`, source: "inline" },
+        });
+        const retained = entry("unrelated");
+        fs.writeFileSync(
+          mcpConfig,
+          JSON.stringify({ mcpServers: { selected: entry("selected"), unrelated: retained } }),
+        );
+        yield* reconcileAgentOutputs({
+          desiredAgentIds: new Set(),
+          expectedNames: expectedNames(),
+          subjects: [{ type: "mcp-server", name: "selected" }],
+        }).pipe(Effect.provide(makeClaudeCodeLayer(tempDir)));
+        const observed: unknown = JSON.parse(fs.readFileSync(mcpConfig, "utf8"));
+        expect(observed).toEqual({ mcpServers: { unrelated: retained } });
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }),
+  );
 
   it.effect("removes AXM-managed MCP entries and keeps user-authored servers", () =>
     Effect.gen(function* () {

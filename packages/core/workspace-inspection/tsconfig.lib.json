@@ -20,6 +20,9 @@
   ],
   "references": [
     {
+      "path": "../workspace-reconciliation/tsconfig.lib.json"
+    },
+    {
       "path": "../workspace-state/tsconfig.lib.json"
     },
     {

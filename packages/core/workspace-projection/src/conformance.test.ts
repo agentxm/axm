@@ -91,7 +91,10 @@ describe("aggregate ownership unit conformance", () => {
       );
     }
     const sharedMcpParticipants = [
-      [materializationSrc, "mcps/install-operation.ts"],
+      [
+        nodePath.join(packagesRoot, "core", "workspace-reconciliation", "src"),
+        "mcps/install-operation.ts",
+      ],
       [lifecycleSrc, "mcps/operations/enable.ts"],
     ] as const;
     for (const [root, relativePath] of sharedMcpParticipants) {

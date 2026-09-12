@@ -1,3 +1,4 @@
+import { buildReconciliationClosure } from "@agentxm/workspace-reconciliation";
 /**
  * Uninstalling packs.
  *
@@ -23,9 +24,14 @@ import {
   RuleManager,
   SkillManager,
   SubagentManager,
-  buildUninstallOperation,
-  toLabel,
 } from "@agentxm/extension-materialization";
+import {
+  buildUninstallOperation,
+  prepareUninstallArtifact,
+  collectCleanupStep,
+  type SyncPolicyFailure,
+  proposeDesiredState,
+} from "@agentxm/workspace-reconciliation";
 import {
   parseExtensionFqnParts,
   type ExtensionFqnParts,
@@ -54,9 +60,8 @@ import { installRefused, type InstallStepRequirements } from "../../install/voca
 import {
   exclusiveMemberRetentionPolicy,
   makeWorkspaceRetentionPolicy,
-} from "../../uninstall/retention-policy.js";
-import { workspaceCanonicalNodePath } from "../../workspace-paths.js";
-import { buildAtomicPackGraphStep, validatePackGraphPostcondition } from "../graph-transition.js";
+} from "@agentxm/workspace-reconciliation";
+import { validatePackGraphPostcondition } from "../graph-transition.js";
 import {
   PACK_UNINSTALL_GRAPH_BLOCKER_ID,
   planPackUninstallGraphReadiness,
@@ -355,7 +360,7 @@ export const planPackUninstall: (
     }),
   );
 
-  const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(ws, lifecycleStepFailure);
 
   const allTargets = new Map<string, ExtensionTarget>();
   for (const pack of intent.packsToUninstall) {
@@ -384,12 +389,36 @@ export const planPackUninstall: (
   const packTargets = [...allTargets.values()].filter((target) => target.type === "pack");
   const depTargets = [...allTargets.values()].filter((target) => target.type !== "pack");
   const orderedTargets = [...depTargets, ...packTargets];
-  const sourcePathByTarget = new Map(
-    graph.nodes.map((node) => [
-      `${node.type}:${node.name}`,
-      workspaceCanonicalNodePath(path, ws, node),
-    ]),
+  const proposal = yield* proposeDesiredState(
+    intent.packsToUninstall.map((pack) => ({ kind: "remove", type: "pack", name: pack.name })),
+  ).pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "conflict",
+        detail: "Pack retirement intent could not be evaluated",
+        cause,
+      }),
+    ),
   );
+  const artifacts = yield* Effect.forEach(orderedTargets, (target) =>
+    prepareUninstallArtifact(target, proposal),
+  ).pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "conflict",
+        detail: "Pack retirement effects could not be established",
+        cause,
+      }),
+    ),
+  );
+  const artifactTargets = artifacts
+    .flatMap((artifact) => artifact.targets ?? [])
+    .filter(
+      (target, index, all) =>
+        all.findIndex(
+          (candidate) => candidate.path === target.path && candidate.change === target.change,
+        ) === index,
+    );
 
   const steps = orderedTargets.map((target): PlannedJobStep<InstallStepRequirements> => {
     switch (target.type) {
@@ -429,23 +458,57 @@ export const planPackUninstall: (
         return buildUninstallOperation(ruleManager, exclusiveMemberRetentionPolicy, {
           toStepFailure: lifecycleStepFailure,
           target,
-          skipProjections: true,
+          enclosingClosure: { projections: [target.type] },
         });
       case "hook":
         return buildUninstallOperation(hookManager, exclusiveMemberRetentionPolicy, {
           toStepFailure: lifecycleStepFailure,
           target,
-          skipProjections: true,
+          enclosingClosure: { projections: [target.type] },
         });
       case "knowledge":
         return buildUninstallOperation(knowledgeManager, exclusiveMemberRetentionPolicy, {
           toStepFailure: lifecycleStepFailure,
           target,
-          skipProjections: true,
+          enclosingClosure: { projections: [target.type] },
         });
     }
   });
 
+  const activeNames = (type: ExtensionTarget["type"]) =>
+    new Set(
+      proposal.after.nodes
+        .filter((node) => node.type === type && node.enabled)
+        .map((node) => node.name),
+    );
+  const cleanup =
+    plannedRetirements.length > 0
+      ? Option.none()
+      : yield* collectCleanupStep({
+          expectedSkillNames: activeNames("skill"),
+          expectedSubagentNames: activeNames("subagent"),
+          expectedMcpServerNames: activeNames("mcp-server"),
+          expectedHookNames: activeNames("hook"),
+          subjects: orderedTargets,
+          adapter: {
+            toStepFailure: (cause: SyncPolicyFailure) =>
+              lifecycleStepFailure(
+                installRefused({
+                  category: "conflict",
+                  detail: ("detail" in cause ? cause.detail : undefined) ?? cause._tag,
+                  cause,
+                }),
+              ),
+          },
+        }).pipe(
+          Effect.mapError((cause) =>
+            installRefused({
+              category: "conflict",
+              detail: "Cannot establish owned Pack uninstall outputs",
+              cause,
+            }),
+          ),
+        );
   const projectionStep = yield* buildAggregateProjectionStep({
     types: new Set(orderedTargets.map((target) => target.type)),
   });
@@ -453,23 +516,21 @@ export const planPackUninstall: (
     plannedRetirements.length === 0
       ? ""
       : ` (${plannedRetirements.length} pack${plannedRetirements.length === 1 ? "" : "s"} unregistered without removing package content)`;
-  const graphStep = yield* buildAtomicPackGraphStep({
+  const graphStep = yield* buildReconciliationClosure({
+    toStepFailure: lifecycleStepFailure,
     label: `${intent.packsToUninstall.length} pack${intent.packsToUninstall.length === 1 ? "" : "s"}`,
     message: `Uninstalled ${intent.packsToUninstall.length} pack${intent.packsToUninstall.length === 1 ? "" : "s"} and ${depTargets.length} exclusive member${depTargets.length === 1 ? "" : "s"}${registrationOnly}`,
     artifact: {
-      path: "pack graph",
+      path: artifacts[0]?.path ?? path.relative(ws.baseDir, ws.layout.settingsPath),
       scope: ws.scope,
       change: "removed",
       fileCount: orderedTargets.length,
-      targets: orderedTargets.map((target) => ({
-        path: sourcePathByTarget.get(`${target.type}:${target.name}`) ?? toLabel(target),
-        // Content AXM could not verify is preserved, so its canonical path is
-        // never reported as removed.
-        change:
-          target.type === "pack" && retirementByPackName.has(target.name) ? "unchanged" : "removed",
-      })),
+      targets: artifactTargets,
+      references: artifacts.flatMap((artifact) => artifact.references ?? []),
+      managedRegions: artifacts.flatMap((artifact) => artifact.managedRegions ?? []),
     },
     children: [
+      ...Option.toArray(cleanup).map((step) => ({ step, coverage: "ineligible" as const })),
       ...steps.map((step) => ({ step, coverage: "ineligible" as const })),
       ...Option.toArray(projectionStep).map((step) => ({
         step,

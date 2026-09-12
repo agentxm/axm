@@ -3,7 +3,14 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { countUnitStates, deriveOperationOutcome } from "@agentxm/workspace-operations";
+import { preapprovedPlanExecution } from "@agentxm/workspace-operations/testing";
+import { SyncWorkspace } from "./sync-workspace.js";
+import { syncRequest } from "./testing.js";
+import {
+  countUnitStates,
+  deriveOperationOutcome,
+  previewPlanExecution,
+} from "@agentxm/workspace-operations";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {
@@ -71,6 +78,52 @@ describe("Sync preview purity", () => {
       workspace.remove(PROJECTION);
       expect(workspace.exists(PROJECTION)).toBe(false);
     });
+
+  it.effect("rejects a prepared reconciliation after its desired authority changes", () => {
+    const workspace = fixture();
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* driftedWorkspace(workspace);
+          const candidate = yield* SyncWorkspace.prepare(syncRequest());
+          if (candidate._tag === "AlreadyReconciled")
+            throw new Error("Expected reconciliation work");
+          yield* SyncWorkspace.previewOrApply(candidate, previewPlanExecution);
+          workspace.writeFile("axm.json", `${workspace.readFile("axm.json")}\n`);
+          const before = workspace.snapshot();
+          const resolution = yield* SyncWorkspace.previewOrApply(
+            candidate,
+            preapprovedPlanExecution,
+          );
+          expect(deriveOperationOutcome(resolution)).toBe("blocked");
+          expect(workspace.snapshot()).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect("rejects changed local source bytes before first accepted acquisition", () => {
+    const workspace = fixture({ skills: { [SKILL]: `./vendor/${SKILL}` } });
+    writeLocalSkillPackage(workspace.root, { name: SKILL });
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          const candidate = yield* SyncWorkspace.prepare(syncRequest());
+          if (candidate._tag === "AlreadyReconciled") throw new Error("Expected first acquisition");
+          yield* SyncWorkspace.previewOrApply(candidate, previewPlanExecution);
+          const source = `vendor/${SKILL}/src/SKILL.md`;
+          workspace.writeFile(
+            source,
+            `${workspace.readFile(source)}\nChanged after preparation.\n`,
+          );
+          const before = workspace.snapshot();
+          const result = yield* SyncWorkspace.previewOrApply(candidate, preapprovedPlanExecution);
+          expect(deriveOperationOutcome(result)).toBe("blocked");
+          expect(workspace.snapshot()).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
 
   it.effect("a previewed reconciliation changes no protected state", () => {
     const workspace = fixture();

@@ -616,7 +616,10 @@ describe("previewOrApply", () => {
     },
   );
 
-  it.effect("rejects readiness errors before confirmation or execution", () => {
+  it.effect.each([
+    { policy: "fail-fast", outcome: "blocked", applied: 0 },
+    { policy: "best-effort", outcome: "partial", applied: 1 },
+  ] as const)("settles readiness errors according to the $policy job policy", (row) => {
     let appliedCount = 0;
     const context = makeTestContext();
     const plan: Plan = {
@@ -627,6 +630,7 @@ describe("previewOrApply", () => {
       jobs: [
         {
           concurrency: 1,
+          executionPolicy: row.policy,
           steps: [
             {
               readiness: "ready",
@@ -651,15 +655,19 @@ describe("previewOrApply", () => {
         execution: preapprovedPlanExecution,
       });
 
-      expect(deriveOperationOutcome(result)).toBe("blocked");
-      expect(deriveOperationOutcome(result)).toBe("blocked");
-      expect(result.blocking?.class).toBe("precondition-unmet");
-      expect(result.blocking?.causeCode).toBe("conflict");
-      expect(result.blocking?.subject).toBe("invalid");
+      expect(deriveOperationOutcome(result)).toBe(row.outcome);
+      if (row.policy === "fail-fast") {
+        expect(result.blocking?.class).toBe("precondition-unmet");
+        expect(result.blocking?.causeCode).toBe("conflict");
+        expect(result.blocking?.subject).toBe("invalid");
+      }
       expect(result.releaseAge).toEqual(releaseAge);
-      expect(result.units.map((unit) => unit.state)).toEqual(["ready", "blocked"]);
+      expect(result.units.map((unit) => unit.state)).toEqual([
+        row.applied === 0 ? "ready" : "committed",
+        "blocked",
+      ]);
       expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(0);
-      expect(appliedCount).toBe(0);
+      expect(appliedCount).toBe(row.applied);
     }).pipe(Effect.provide(context.layer));
   });
 

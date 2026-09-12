@@ -299,7 +299,7 @@ const makeOp = (
     gitTreeSha?: string;
     gitCommitSha?: string;
     refSourcePath?: string;
-    skipSettings?: boolean;
+
     strictUnknownAgents?: boolean;
     skill?: {
       name: string;
@@ -388,7 +388,7 @@ const makeOp = (
       ref,
       force: overrides.force ?? false,
       versionRange: overrides.versionRange ?? Option.none(),
-      skipSettings: Option.fromUndefinedOr(overrides.skipSettings),
+
       strictUnknownAgents: Option.fromUndefinedOr(overrides.strictUnknownAgents),
       sourceName: Option.none(),
     },

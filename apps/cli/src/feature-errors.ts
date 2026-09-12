@@ -39,6 +39,7 @@ import {
   type RegistryAuthFailure,
   type StepUpRequired,
 } from "@agentxm/registry-auth";
+import type { SyncWorkspaceExecutionFailure } from "@agentxm/workspace-sync";
 import { LintStagingFailed } from "@agentxm/workspace-lint";
 import {
   WorkspaceConfigurationFailed,
@@ -46,11 +47,11 @@ import {
 } from "@agentxm/workspace-configuration";
 import { WorkspaceInspectionFailed } from "@agentxm/workspace-inspection";
 import {
-  SyncStepFailureConversion,
+  makeReconciliationLayer,
   WorkspaceSyncFailed,
   type SyncFailureAdapter,
   type SyncPolicyFailure,
-} from "@agentxm/workspace-sync";
+} from "@agentxm/workspace-reconciliation";
 
 /**
  * Translate a lint input-staging failure: the implementation chose the
@@ -90,7 +91,9 @@ export const workspaceSyncFailedToAppError = (error: WorkspaceSyncFailed): AppEr
   });
 
 /** Convert any sync-policy failure into the CLI-facing `AppError` envelope. */
-export const syncFailureToAppError = (failure: SyncPolicyFailure | AppError): AppError =>
+export const syncFailureToAppError = (
+  failure: SyncPolicyFailure | SyncWorkspaceExecutionFailure | AppError,
+): AppError =>
   failure instanceof WorkspaceSyncFailed
     ? workspaceSyncFailedToAppError(failure)
     : toAppError(failure);
@@ -104,10 +107,7 @@ export const syncStepFailureAdapter: SyncFailureAdapter = {
 };
 
 /** Layer wiring the boundary's failure conversions into sync planning. */
-export const SyncStepFailureConversionLive = Layer.succeed(
-  SyncStepFailureConversion,
-  syncStepFailureAdapter,
-);
+export const SyncStepFailureConversionLive = makeReconciliationLayer(syncStepFailureAdapter);
 
 /**
  * Translate a publish policy failure: the implementation chose the category

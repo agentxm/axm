@@ -5,7 +5,7 @@ import { type ProjectionUnitObservation } from "@agentxm/workspace-projection";
 import {
   projectionDivergenceLabel,
   projectionFactsNeedReconciliation,
-} from "@agentxm/workspace-sync";
+} from "@agentxm/workspace-reconciliation";
 
 const base: ProjectionUnitObservation = {
   unitId: "rule:instructions-region",

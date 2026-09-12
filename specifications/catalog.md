@@ -895,7 +895,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 
 - Requirement: `cli/uninstall/removes-direct-route-and-recomputes-reachability`
 - Owner: `extension-lifecycle`
-- Statement: When a directly desired extension is uninstalled, AXM shall remove its direct configuration from axm.json, shall remove its resolution, acquired content whose ownership AXM can verify, and owned projections only when no other desired route still reaches it, reporting retained state otherwise, and shall leave every other desired extension's state untouched.
+- Statement: When a directly desired extension is uninstalled, AXM shall remove its direct configuration, remove its resolution and verified acquired content when no other desired route reaches it, realize activation and owned outputs from the remaining desired routes, report retained state, preserve authored inventory, and leave state outside the necessary dependency and shared-output closure untouched.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`
@@ -2242,7 +2242,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 
 - Requirement: `cli/sync/realizes-desired-state`
 - Owner: `workspace-sync`
-- Statement: Sync shall realize each desired extension AXM owns, recording a first accepted resolution for one that has none and restoring missing agent projections from canonical content and missing canonical content from the exact accepted identity, shall remove owned outputs that desired state no longer includes, and shall report a no-op once managed state agrees with desired state.
+- Statement: Sync shall realize desired installations and activation, accepting a first resolution when absent and restoring missing content only from its accepted identity, shall remove unreachable accepted records, verified acquired installations and obsolete owned outputs when reachability and ownership are established while preserving authored and unowned content, and shall report convergence only when every required postcondition in its scope is satisfied.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `agent-interoperability`
@@ -2748,11 +2748,11 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 #### Functional
 
-##### Activation commands change realized surfaces without touching content or resolutions
+##### Activation preserves leaf content and realizes Pack dependency routes
 
 - Requirement: `cli/activation-follows-desired-state`
 - Owner: `extension-lifecycle`
-- Statement: When an installed extension is disabled or enabled, the workspace shall record the new activation intent and change only that extension's realized agent surfaces, and shall not alter canonical content or accepted resolutions; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in.
+- Statement: When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record a direct activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members, and retaining members reached elsewhere; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`
@@ -3476,7 +3476,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/sync/preserves-configuration-and-resolutions`
 - Owner: `workspace-sync`
-- Statement: Sync shall never rewrite axm.json or alter an accepted resolution that still satisfies its constraint, and shall restore realized content from the accepted resolution even when a newer version is available.
+- Statement: Sync shall preserve axm.json and authored manifests byte for byte, preserve satisfying accepted resolutions of still-desired extensions, and restore missing acquired content only from the accepted identity even when newer content exists; an incompatible accepted identity shall block until an explicit resolution transition is authorized, and retiring an unreachable accepted record shall not count as advancing a resolution.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
@@ -3521,6 +3521,18 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Derived from: `apps/cli/src/root/shared/extension-show.test.ts`, `apps/cli/src/root/shared/extension-show.ts`
 - Source: [`apps/cli/src/root/shared/type-shows-report-missing-entries.spec.ts`](../apps/cli/src/root/shared/type-shows-report-missing-entries.spec.ts)
+
+##### Uninstall reports exact removed and retained state
+
+- Requirement: `cli/uninstall/reports-removed-and-retained-state`
+- Owner: `extension-lifecycle`
+- Statement: Uninstall preview and application of the same candidate shall identify the actual settings, accepted-resolution and owned projection units changed, acquired content removed, and authored or still-required content retained, with explicit retention reasons; absent and unverified content shall be distinguished from retained content, and shared native files shall not be reported as deleted when only their owned entry or region changes.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`packages/core/extension-lifecycle/src/uninstall/reports-removed-and-retained-state.spec.ts`](../packages/core/extension-lifecycle/src/uninstall/reports-removed-and-retained-state.spec.ts)
 
 ##### Uninstall retires a desired pack whose package cannot be read
 

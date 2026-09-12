@@ -191,6 +191,12 @@ export interface FileRegistry {
    * index. Call again with more versions to model a later publication.
    */
   readonly writeSkill: (name: string, versions: ReadonlyArray<RegistrySkillVersion>) => void;
+  readonly writeSubagent: (name: string, versions: ReadonlyArray<RegistrySkillVersion>) => void;
+  readonly writeRule: (name: string, versions: ReadonlyArray<RegistrySkillVersion>) => void;
+  readonly writeHook: (
+    name: string,
+    versions: ReadonlyArray<{ readonly version: string; readonly published?: string }>,
+  ) => void;
   readonly writeMcp: (name: string, versions: ReadonlyArray<RegistryMcpVersion>) => void;
   readonly writePack: (name: string, versions: ReadonlyArray<RegistryPackVersion>) => void;
   readonly writeKnowledge: (
@@ -339,6 +345,52 @@ export const makeFileRegistry = (options: { readonly root?: string } = {}): File
     );
   };
 
+  const writeDocumentPackage = (
+    type: "subagent" | "rule" | "hook",
+    name: string,
+    versions: ReadonlyArray<{
+      readonly version: string;
+      readonly published?: string;
+      readonly body?: string;
+    }>,
+  ): void => {
+    const directory = extensionDir(`${type}s`, name);
+    writeIndex(
+      directory,
+      type,
+      name,
+      versions.map(({ version, published, body }) => ({
+        version,
+        published: published ?? FIXTURE_PUBLISHED_AT,
+        integrity: integrityOf(
+          writeArchive(directory, version, {
+            [`${type}.json`]: JSON.stringify({
+              owner: FIXTURE_OWNER,
+              type,
+              name,
+              version,
+              description: `The ${name} ${type}.`,
+              ...(type === "hook"
+                ? {
+                    runtime: "bash",
+                    entrypoint: "src/hook.sh",
+                    bindings: [{ on: "tool.pre", match: { tools: ["file.write"] } }],
+                  }
+                : {}),
+            }),
+            ...(type === "subagent"
+              ? {
+                  [`src/${name}.md`]: `---\nname: ${name}\ndescription: The ${name} subagent.\n---\n\n${body ?? "Review."}\n`,
+                }
+              : type === "rule"
+                ? { "src/RULE.md": `${body ?? "Review."}\n` }
+                : { "src/hook.sh": `#!/usr/bin/env bash\necho "${name}"\n` }),
+          }),
+        ),
+      })),
+    );
+  };
+
   const writeMcp = (name: string, versions: ReadonlyArray<RegistryMcpVersion>): void => {
     const directory = extensionDir("mcps", name);
     writeIndex(
@@ -460,6 +512,9 @@ export const makeFileRegistry = (options: { readonly root?: string } = {}): File
     url: pathToFileURL(root).href,
     source: { name: "agentxm", type: "registry", location: `file://${root}` },
     writeSkill,
+    writeSubagent: (name, versions) => writeDocumentPackage("subagent", name, versions),
+    writeRule: (name, versions) => writeDocumentPackage("rule", name, versions),
+    writeHook: (name, versions) => writeDocumentPackage("hook", name, versions),
     writeMcp,
     writePack,
     writeKnowledge,

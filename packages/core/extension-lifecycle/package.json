@@ -61,7 +61,8 @@
     "@agentxm/workspace-transactions": "workspace:^",
     "@napi-rs/keyring": "^1.3.0",
     "effect": "catalog:",
-    "fflate": "catalog:"
+    "fflate": "catalog:",
+    "@agentxm/workspace-reconciliation": "workspace:^"
   },
   "devDependencies": {
     "@effect/platform-node": "catalog:",

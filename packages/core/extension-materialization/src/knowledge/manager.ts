@@ -1,3 +1,5 @@
+import { usableAcceptedCanonical } from "@agentxm/workspace-state";
+import { LifecyclePostconditionViolated } from "../extensions/errors.js";
 // @effect-diagnostics anyUnknownInErrorContext:off — schema and filesystem errors are swept into KnowledgeIoFailed inside this manager
 /** Lifecycle manager for isolated Open Knowledge Format bundles. */
 
@@ -1022,6 +1024,27 @@ export const KnowledgeManagerLive = Layer.effect(
       applyKnowledgeProjection.pipe(Effect.as(withdrawn)),
     );
 
+    const acquireCanonical: KnowledgeManagerService["materializeInstall"] = Effect.fn(
+      "KnowledgeManager.materializeInstall",
+    )(function* ({ ref, force }) {
+      const relativeLocalSource =
+        ref.refType === "local"
+          ? makeWorkspaceRelativeSourcePath(
+              path,
+              baseDir,
+              ref.sourcePath ?? stripFileProtocol(ref.location),
+            )
+          : Option.none<string>();
+      if (ref.refType === "local" && Option.isNone(relativeLocalSource)) {
+        return yield* new KnowledgeDefinitionInvalid({
+          detail: `Local knowledge source must stay within the workspace: ${ref.source.path}`,
+        });
+      }
+      const prepared = yield* preparePackage(ref, force === true);
+      yield* prepared.commit;
+      return acquiredFacts(prepared, relativeLocalSource);
+    }, Effect.scoped);
+
     return {
       type: "knowledge",
       projectionPlans,
@@ -1042,27 +1065,8 @@ export const KnowledgeManagerLive = Layer.effect(
       install: installAtomically,
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
         isObservedInstalled(ws, "knowledge", target.name),
-      materializeInstall: Effect.fn("KnowledgeManager.materializeInstall")(function* ({
-        ref,
-        force,
-      }) {
-        const relativeLocalSource =
-          ref.refType === "local"
-            ? makeWorkspaceRelativeSourcePath(
-                path,
-                baseDir,
-                ref.sourcePath ?? stripFileProtocol(ref.location),
-              )
-            : Option.none<string>();
-        if (ref.refType === "local" && Option.isNone(relativeLocalSource)) {
-          return yield* new KnowledgeDefinitionInvalid({
-            detail: `Local knowledge source must stay within the workspace: ${ref.source.path}`,
-          });
-        }
-        const prepared = yield* preparePackage(ref, force === true);
-        yield* prepared.commit;
-        return acquiredFacts(prepared, relativeLocalSource);
-      }, Effect.scoped),
+      materializeInstall: acquireCanonical,
+      acquireCanonical,
       prepareSourceTransition: ({ ref }) =>
         provide(
           prepareAcceptedCanonicalTransition({
@@ -1107,23 +1111,26 @@ export const KnowledgeManagerLive = Layer.effect(
         }),
       materializeUninstall,
       materializeDeactivate,
-      upsertSettingsEntry: ({ ref, versionRange, materialization }) =>
-        buildLockEntry(ref, materialization).pipe(
-          Effect.flatMap((lockEntry) =>
-            Option.isSome(lockEntry)
-              ? ws.setKnowledge({
-                  name: ref.knowledge.name,
-                  lockEntry: lockEntry.value,
-                  versionRange,
-                })
-              : setKnowledgeSourceEntry(ref.knowledge.name, "workspace"),
-          ),
-        ),
-      removeSettingsEntry: ({ target }) => ws.removeKnowledgeSettings(target.name),
-      upsertLockfileEntry: ({ ref, materialization }) =>
+      materializeRetained: ({ target }) =>
+        Effect.gen(function* () {
+          const canonical = yield* usableAcceptedCanonical({
+            workspace: ws,
+            type: "knowledge",
+            name: target.name,
+          });
+          if (Option.isNone(canonical) || canonical.value.ref.type !== "knowledge") {
+            return yield* new LifecyclePostconditionViolated({
+              postcondition: "materialize-observable",
+              targetType: "knowledge",
+              targetName: target.name,
+            });
+          }
+          return yield* materializeDeactivate({ target });
+        }),
+      acceptedResolution: ({ ref, materialization }) =>
         buildLockEntry(ref, materialization).pipe(
           Effect.flatMap((lockEntry) => {
-            if (Option.isNone(lockEntry)) return ws.removeKnowledgeLock(ref.knowledge.name);
+            if (Option.isNone(lockEntry)) return Effect.succeed(Option.none());
             const validate =
               lockEntry.value.type === "registry"
                 ? validateExactResolvedVersion(
@@ -1132,17 +1139,11 @@ export const KnowledgeManagerLive = Layer.effect(
                   )
                 : Effect.void;
             return validate.pipe(
-              Effect.flatMap(() =>
-                ws.setKnowledgeLock({
-                  name: ref.knowledge.name,
-                  lockEntry: lockEntry.value,
-                  versionRange: Option.none(),
-                }),
-              ),
+              Effect.as(Option.some({ key: ref.knowledge.name, entry: lockEntry.value })),
             );
           }),
         ),
-      removeLockfileEntry: ({ target }) => ws.removeKnowledgeLock(target.name),
+      withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
     } satisfies KnowledgeManagerService;
   }),
 );

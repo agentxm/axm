@@ -10,14 +10,15 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { RuleManager, buildUninstallOperation } from "@agentxm/extension-materialization";
+import { RuleManager } from "@agentxm/extension-materialization";
+import { buildUninstallOperation } from "@agentxm/workspace-reconciliation";
 import type { Plan } from "@agentxm/workspace-operations";
 import { WorkspaceMutations, type RuleExtensionTarget } from "@agentxm/workspace-state";
 
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { lifecycleStepFailure } from "../../step-failure.js";
 import { installRefused, type InstallStepRequirements } from "../../install/vocabulary.js";
-import { makeWorkspaceRetentionPolicy } from "../../uninstall/retention-policy.js";
+import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace-reconciliation";
 import type { RuleUninstallIntent } from "../../uninstall/vocabulary.js";
 
 /** Settle whether this rule has anything to remove. */
@@ -60,7 +61,7 @@ export const planRuleUninstall: (
 > = Effect.fn("UninstallExtensions.planRules")(function* (intent: RuleUninstallIntent) {
   const ws = yield* WorkspaceMutations;
   const ruleManager = yield* RuleManager;
-  const retentionPolicy = makeWorkspaceRetentionPolicy(ws);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(ws, lifecycleStepFailure);
   return {
     _tag: "Plan",
     name: "Uninstall rule",

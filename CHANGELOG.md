@@ -1,3 +1,13 @@
+## 0.30.1 (2026-09-12)
+
+### 🚀 Features
+
+- Repair automatic release publication CI identity resolution. ([#298](https://github.com/agentxm/axm/pull/298))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.30.0 (2026-09-12)
 
 ### ⚠️ Breaking Changes

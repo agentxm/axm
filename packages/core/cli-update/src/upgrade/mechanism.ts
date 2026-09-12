@@ -12,6 +12,19 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import {
+  Npm,
+  Pnpm,
+  Unknown,
+  Yarn,
+  type DetectionSource,
+  type InstallMethodName,
+  type InstallMethodType,
+  type VersionRelation,
+  type PlatformBinaryInfo,
+  supportedMethod,
+} from "@agentxm/cli-maintenance/self-update/domain";
+
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
@@ -30,19 +43,8 @@ import { makeThrottledUnitProgress, observeChildUnit } from "@agentxm/workspace-
 
 import { UpgradeFailed } from "../errors.js";
 import { InstallMeta } from "../install-meta/install-meta.js";
-import {
-  Npm,
-  Pnpm,
-  Unknown,
-  Yarn,
-  type DetectionSource,
-  type InstallMethodName,
-  type InstallMethodType,
-} from "../install-method/install-method.js";
-import type {
-  VersionResolutionResult,
-  VersionRelation,
-} from "../version-resolution/version-resolution.js";
+
+import type { VersionResolutionResult } from "../version-resolution/version-resolution.js";
 import {
   Subprocess,
   type CommandResult,
@@ -299,27 +301,6 @@ export const HOMEBREW_FORMULA = `${HOMEBREW_TAP}/axm`;
 const NPM_PACKAGE = "axm.sh";
 const HOMEBREW_ENV = { HOMEBREW_NO_AUTO_UPDATE: "1" } as const;
 
-export interface PlatformBinaryInfo {
-  readonly binaryName: string;
-  readonly platform: string;
-  readonly arch: string;
-}
-
-const SUPPORTED_TARGETS: ReadonlyArray<PlatformBinaryInfo> = [
-  { platform: "darwin", arch: "arm64", binaryName: "axm-darwin-arm64" },
-  { platform: "darwin", arch: "x64", binaryName: "axm-darwin-x64" },
-  { platform: "linux", arch: "arm64", binaryName: "axm-linux-arm64" },
-  { platform: "linux", arch: "x64", binaryName: "axm-linux-x64" },
-  { platform: "win32", arch: "x64", binaryName: "axm-windows-x64.exe" },
-];
-
-export const resolvePlatformBinary = (platform: string, arch: string) => {
-  const target = SUPPORTED_TARGETS.find(
-    (candidate) => candidate.platform === platform && candidate.arch === arch,
-  );
-  return target === undefined ? Option.none<PlatformBinaryInfo>() : Option.some(target);
-};
-
 const displayArgument = (argument: string): string =>
   /^[A-Za-z0-9_./:@=-]+$/u.test(argument) ? argument : `'${argument.replaceAll("'", "'\\''")}'`;
 
@@ -410,21 +391,6 @@ export const detectionResult = (method: InstallMethodType): DetectionResult => (
   detectionConfidence: method.confidence ?? "low",
   executablePath: methodExecutablePath(method),
 });
-
-export type UpgradeAction = "noop-current" | "noop-newer" | "refuse" | "mutate" | "manual";
-
-export const decideUpgrade = (
-  relation: VersionRelation,
-  reinstall: boolean,
-  supportedMethod: boolean,
-): UpgradeAction => {
-  if (relation === "local-newer") return reinstall ? "refuse" : "noop-newer";
-  if (relation === "current" && !reinstall) return "noop-current";
-  return supportedMethod ? "mutate" : "manual";
-};
-
-export const supportedMethod = (method: InstallMethodType): boolean =>
-  method._tag !== "Unknown" && (method._tag !== "Yarn" || method.supported);
 
 export interface BaseResultInput {
   readonly method: InstallMethodType;
@@ -664,7 +630,6 @@ export const resolveAmbiguousPackageManager = (
         return new Yarn({
           ...fields,
           ...(managerMajorVersion === undefined ? {} : { managerMajorVersion }),
-          supported: managerMajorVersion === 1,
         });
       }
     }
@@ -683,7 +648,7 @@ const packageManagerCommand = (
     case "Pnpm":
       return recommended("pnpm", ["add", "-g", `${NPM_PACKAGE}@${targetVersion}`]);
     case "Yarn":
-      return method.supported
+      return supportedMethod(method)
         ? recommended("yarn", ["global", "add", `${NPM_PACKAGE}@${targetVersion}`])
         : null;
     case "Script":

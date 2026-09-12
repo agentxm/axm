@@ -5,11 +5,17 @@
  * `installer-availability-gates-mutation.spec.ts`.
  */
 
+import {
+  Npm,
+  Pnpm,
+  Yarn,
+  type InstallMethodType,
+} from "@agentxm/cli-maintenance/self-update/domain";
+
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
-import { Npm, Pnpm, Yarn, type InstallMethodType } from "../install-method/install-method.js";
 import { TARGET_VERSION, runUpgradeTrial, type SubprocessInvocation } from "../testing.js";
 
 const methods: ReadonlyArray<InstallMethodType> = [
@@ -19,7 +25,6 @@ const methods: ReadonlyArray<InstallMethodType> = [
     importUrl: "file:///yarn/axm",
     managerOwnedExecutable: "/yarn/bin/axm",
     managerMajorVersion: 1,
-    supported: true,
   }),
 ];
 

@@ -7,6 +7,8 @@
  * assessment document.
  */
 
+import { type InstallMethodType, Homebrew } from "@agentxm/cli-maintenance/self-update/domain";
+
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -16,7 +18,7 @@ import * as Fiber from "effect/Fiber";
 import * as Option from "effect/Option";
 
 import { InstallMeta, InstallMethod, UpdateCheck } from "@agentxm/cli-update";
-import type { InstallMetaData, InstallMethodType } from "@agentxm/cli-update";
+import type { InstallMetaData } from "@agentxm/cli-update";
 import {
   HOMEBREW_EXECUTABLE,
   LOCAL_VERSION,
@@ -26,7 +28,7 @@ import {
   type SubprocessInvocation,
   type SubprocessTestOptions,
 } from "@agentxm/cli-update/testing";
-import { Homebrew } from "@agentxm/cli-update";
+
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
 import { TestFlagsLayer } from "../cli-flags/index.js";

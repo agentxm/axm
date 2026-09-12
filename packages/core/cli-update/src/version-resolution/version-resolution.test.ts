@@ -1,15 +1,12 @@
 import { STABLE_CHANNEL_SCHEMA } from "@agentxm/extension-model/unstable/release-channel";
+import type { VersionRelation } from "@agentxm/cli-maintenance/self-update/domain";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
-import {
-  resolveExactVersion,
-  resolveLatestVersion,
-  type VersionRelation,
-} from "./version-resolution.js";
+import { resolveExactVersion, resolveLatestVersion } from "./version-resolution.js";
 
 const digest = "a".repeat(64);
 

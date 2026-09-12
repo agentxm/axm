@@ -1,3 +1,4 @@
+import { Script } from "@agentxm/cli-maintenance/self-update/domain";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import * as fs from "node:fs";
@@ -9,7 +10,6 @@ import * as Fiber from "effect/Fiber";
 import { afterEach } from "vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 
-import { Script } from "../install-method/install-method.js";
 import {
   LOCAL_VERSION,
   commandExited,

@@ -1,7 +1,6 @@
+import { Npm, Yarn } from "@agentxm/cli-maintenance/self-update/domain";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-
-import { Npm, Yarn } from "@agentxm/cli-update";
 
 import { TARGET_VERSION, runUpgradeCommand } from "../../test-support/upgrade-harness.js";
 
@@ -59,7 +58,6 @@ describe("upgrade human view", () => {
         method: new Yarn({
           importUrl: "file:///yarn/axm",
           managerMajorVersion: 4,
-          supported: false,
         }),
         human: true,
         quiet: true,

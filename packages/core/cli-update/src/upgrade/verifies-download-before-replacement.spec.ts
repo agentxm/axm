@@ -1,3 +1,4 @@
+import { Script } from "@agentxm/cli-maintenance/self-update/domain";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -8,7 +9,6 @@ import * as Effect from "effect/Effect";
 import { afterEach } from "vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 
-import { Script } from "../install-method/install-method.js";
 import {
   LOCAL_VERSION,
   TARGET_VERSION,

@@ -4,7 +4,8 @@
  *
  * `prepare` resolves the platform, the installation's owning installer, and
  * the release the request selects, and decides what the upgrade would do. It
- * reads and writes nothing. `previewOrApply` presents that immutable
+ * reads installation and release facts without applying the upgrade.
+ * `previewOrApply` presents that immutable
  * candidate and, on apply, establishes publication availability through the
  * owning installer, performs the mutation, verifies it, and records the
  * install metadata. Every termination resolves to one
@@ -15,6 +16,15 @@
  *
  * @experimental This API is unstable and may change without notice.
  */
+
+import {
+  type InstallMethodType,
+  decideUpgrade,
+  resolvePlatformBinary,
+  supportedMethod,
+  type PlatformBinaryInfo,
+  type UpgradeAction,
+} from "@agentxm/cli-maintenance/self-update/domain";
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -27,7 +37,7 @@ import { observeUnit } from "@agentxm/workspace-operations";
 
 import { UpgradeFailed } from "../errors.js";
 import { InstallMeta } from "../install-meta/install-meta.js";
-import { InstallMethod, type InstallMethodType } from "../install-method/install-method.js";
+import { InstallMethod } from "../install-method/install-method.js";
 import { Subprocess } from "../subprocess/subprocess.js";
 import { UpdateCheck } from "../update-check/update-check.js";
 import type { VersionResolutionResult } from "../version-resolution/version-resolution.js";
@@ -37,7 +47,6 @@ import {
 } from "../version-resolution/version-resolution.js";
 import { UpgradeWorkingDirectory } from "./working-directory.js";
 import {
-  decideUpgrade,
   methodName,
   handleDelegated,
   handleScript,
@@ -47,14 +56,10 @@ import {
   queryPackageAvailability,
   recoveryInstaller,
   resolveAmbiguousPackageManager,
-  resolvePlatformBinary,
-  supportedMethod,
   toUpgradeAssessment,
   type BaseResultInput,
   type CommandRecord,
   type InstallerAvailability,
-  type PlatformBinaryInfo,
-  type UpgradeAction,
   type UpgradeAssessmentResult,
   type UpgradeCoreResult,
 } from "./mechanism.js";

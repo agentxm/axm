@@ -1,3 +1,12 @@
+import {
+  Homebrew,
+  Npm,
+  Pnpm,
+  Script,
+  Unknown,
+  Yarn,
+  resolvePlatformBinary,
+} from "@agentxm/cli-maintenance/self-update/domain";
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -13,8 +22,6 @@ import * as semver from "semver";
 
 import { STABLE_CHANNEL_SCHEMA } from "@agentxm/extension-model/unstable/release-channel";
 
-import { Homebrew, Npm, Pnpm, Script, Unknown, Yarn } from "../install-method/install-method.js";
-import type { VersionRelation } from "../version-resolution/version-resolution.js";
 import {
   LOCAL_VERSION,
   TARGET_VERSION,
@@ -22,7 +29,7 @@ import {
   runUpgradeTrial,
   type SubprocessInvocation,
 } from "../testing.js";
-import { decideUpgrade, parseChecksum, resolvePlatformBinary } from "./mechanism.js";
+import { parseChecksum } from "./mechanism.js";
 
 const BINARY = new TextEncoder().encode("fixture-binary");
 const BINARY_HASH = createHash("sha256").update(BINARY).digest("hex");
@@ -35,50 +42,7 @@ const unavailableCommand = (executionState: "not-started" | "timed-out", stderr:
   stderr,
 });
 
-describe("decideUpgrade", () => {
-  const rows: ReadonlyArray<
-    readonly [VersionRelation, boolean, boolean, ReturnType<typeof decideUpgrade>]
-  > = [
-    ["upgrade-available", false, true, "mutate"],
-    ["upgrade-available", true, true, "mutate"],
-    ["upgrade-available", false, false, "manual"],
-    ["upgrade-available", true, false, "manual"],
-    ["current", false, true, "noop-current"],
-    ["current", false, false, "noop-current"],
-    ["current", true, true, "mutate"],
-    ["current", true, false, "manual"],
-    ["local-newer", false, true, "noop-newer"],
-    ["local-newer", false, false, "noop-newer"],
-    ["local-newer", true, true, "refuse"],
-    ["local-newer", true, false, "refuse"],
-    ["unknown-local", false, true, "mutate"],
-    ["unknown-local", true, true, "mutate"],
-    ["unknown-local", false, false, "manual"],
-    ["unknown-local", true, false, "manual"],
-  ];
-
-  it.each(rows)(
-    "%s reinstall=%s supported=%s => %s",
-    (relation, reinstall, supported, expected) => {
-      expect(decideUpgrade(relation, reinstall, supported)).toBe(expected);
-    },
-  );
-});
-
 describe("upgrade helpers", () => {
-  it("resolves every supported platform binary and rejects unsupported targets", () => {
-    expect(Option.getOrThrow(resolvePlatformBinary("darwin", "arm64")).binaryName).toBe(
-      "axm-darwin-arm64",
-    );
-    expect(Option.getOrThrow(resolvePlatformBinary("linux", "x64")).binaryName).toBe(
-      "axm-linux-x64",
-    );
-    expect(Option.getOrThrow(resolvePlatformBinary("win32", "x64")).binaryName).toBe(
-      "axm-windows-x64.exe",
-    );
-    expect(Option.isNone(resolvePlatformBinary("freebsd", "x64"))).toBe(true);
-  });
-
   it.effect("requires exactly one valid checksum entry for the selected binary", () =>
     Effect.gen(function* () {
       expect(yield* parseChecksum(`${BINARY_HASH}  axm-linux-x64\n`, "axm-linux-x64")).toBe(
@@ -115,7 +79,7 @@ describe("delegated upgrades", () => {
       new Yarn({
         importUrl: "file:///yarn/axm",
         managerMajorVersion: 1,
-        supported: true,
+
         managerOwnedExecutable: "/yarn/bin/axm",
       }),
       "yarn",

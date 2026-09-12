@@ -247,9 +247,9 @@ layer(NodeServices.layer, { excludeTestServices: true })("InstallMethod", (it) =
         expect(npm._tag).toBe("Npm");
         expect(pnpm._tag).toBe("Pnpm");
         expect(yarn._tag).toBe("Yarn");
-        if (yarn._tag === "Yarn") expect(yarn.supported).toBe(true);
+        if (yarn._tag === "Yarn") expect(yarn.managerMajorVersion).toBe(1);
         expect(modernYarn._tag).toBe("Yarn");
-        if (modernYarn._tag === "Yarn") expect(modernYarn.supported).toBe(false);
+        if (modernYarn._tag === "Yarn") expect(modernYarn.managerMajorVersion).toBe(4);
       }),
     );
 
@@ -395,7 +395,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("InstallMethod", (it) =
           execPath: "/some/other/bin/axm",
         });
         expect(yarn._tag).toBe("Yarn");
-        if (yarn._tag === "Yarn") expect(yarn.supported).toBe(false);
+        if (yarn._tag === "Yarn") expect(yarn.managerMajorVersion).toBe(4);
       }),
     );
 

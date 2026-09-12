@@ -191,12 +191,25 @@ messages, plan steps, and command display. The CLI maps a settlement once at its
 delivery boundary. Availability has one canonical value in the settlement, so
 failure wording and the machine disposition read the same observation.
 
-`cli-update` retains its current placement while installer execution, its
-remaining policy/I/O mixture, and progress integration are separated. Its
-existing entry returns the owned settlement contract; that change does not yet
-make the entry independent of concrete installers or CLI progress. Depending
-on the operation vocabulary explains the remaining source dependency; it does
-not make self-update strategically core.
+Package-managed upgrades use one application operation for availability,
+mutation, verification, bounded Homebrew reinstall recovery, and installation
+recording. `PackageInstaller` supplies protocol observations and command
+evidence; `InstallationRecorder` persists an accepted installation. Domain
+policy decides whether executable observations establish the selected version
+and whether an unchanged Homebrew installation earns one recovery attempt.
+The application can run without a terminal or native host services. An optional
+execution observer adapts its stage lifetimes to CLI progress without selecting
+the outcome. Each operation returns its evidence; callers do not share mutable
+command arrays across deferred work.
+
+`cli-update` retains its current placement while native script replacement,
+inspection, and the remaining preview/progress bindings are separated. Its
+package-manager adapters own command grammar, process execution, and response
+decoding; composition selects those adapters and metadata storage. The script
+replacement still combines application sequencing with filesystem integration,
+so the overall upgrade entry is not yet independent of concrete installers.
+The remaining operation-vocabulary dependency does not make self-update
+strategically core.
 
 The lower-level graph is deliberately small:
 

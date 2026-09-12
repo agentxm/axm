@@ -65,3 +65,34 @@ export const InstallMethodLiteral = Schema.Literals([
   description: "The installer or package manager that owns AXM.",
 });
 export type InstallMethodName = typeof InstallMethodLiteral.Type;
+
+export const methodName = (method: InstallMethodType): InstallMethodName | "unknown" => {
+  switch (method._tag) {
+    case "Script":
+      return "script";
+    case "Homebrew":
+      return "homebrew";
+    case "Npm":
+      return "npm";
+    case "Pnpm":
+      return "pnpm";
+    case "Yarn":
+      return "yarn";
+    case "Unknown":
+      return "unknown";
+  }
+};
+
+export const methodExecutablePath = (method: InstallMethodType): string | null => {
+  switch (method._tag) {
+    case "Script":
+    case "Homebrew":
+      return method.execPath;
+    case "Npm":
+    case "Pnpm":
+    case "Yarn":
+      return method.managerOwnedExecutable ?? null;
+    case "Unknown":
+      return null;
+  }
+};

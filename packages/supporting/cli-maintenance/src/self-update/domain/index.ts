@@ -30,3 +30,12 @@ export {
   type CachedStableChannel,
   type StartupCheckContext,
 } from "./startup-check.js";
+
+export { methodName, methodExecutablePath } from "./installation.js";
+export {
+  verifyPackageInstallation,
+  verifyHomebrewInstallation,
+  shouldReinstallHomebrew,
+  type InstallationVerification,
+  type HomebrewInstallation,
+} from "./verification.js";

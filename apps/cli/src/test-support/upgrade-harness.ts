@@ -7,7 +7,7 @@
  * assessment document.
  */
 
-import { UpgradePreparationLive } from "@agentxm/cli-update/live";
+import { UpgradePreparationLive, PackageInstallationLive } from "@agentxm/cli-update/live";
 import { type InstallMethodType, Homebrew } from "@agentxm/cli-maintenance/self-update/domain";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -101,7 +101,7 @@ export const runUpgradeCommand = (options?: UpgradeCommandOptions) =>
     const installMetaWrites: Array<InstallMetaData> = [];
 
     const layer = Layer.provideMerge(
-      UpgradePreparationLive,
+      Layer.mergeAll(UpgradePreparationLive, PackageInstallationLive),
       Layer.mergeAll(
         NodeServices.layer,
         options?.human === true

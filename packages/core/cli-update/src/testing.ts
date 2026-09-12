@@ -11,7 +11,7 @@
  */
 
 import { stableChannelDocument } from "@agentxm/cli-maintenance/self-update/testing";
-import { UpgradePreparationLive } from "./live.js";
+import { UpgradePreparationLive, PackageInstallationLive } from "./live.js";
 import { Homebrew, type InstallMethodType } from "@agentxm/cli-maintenance/self-update/domain";
 
 import * as fs from "node:fs";
@@ -374,7 +374,7 @@ export const makeUpgradeTrial = (
     const installedMeta = options?.installedMeta;
 
     const layer = Layer.provideMerge(
-      UpgradePreparationLive,
+      Layer.mergeAll(UpgradePreparationLive, PackageInstallationLive),
       Layer.mergeAll(
         subprocess.layer,
         releaseOrigin.layer,

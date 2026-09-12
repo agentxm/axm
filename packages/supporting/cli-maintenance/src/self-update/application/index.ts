@@ -48,3 +48,28 @@ export {
   type UpgradeSettlement,
   type VerificationExecutable,
 } from "./execution-result.js";
+
+export { applyPackageUpgrade, type PackageUpgradeInput } from "./apply-package-upgrade.js";
+export {
+  upgradeBaseFacts,
+  detectionResult,
+  noMutationResult,
+  type BaseResultInput,
+} from "./execution-facts.js";
+export {
+  PackageInstaller,
+  InstallationRecorder,
+  type PackageInstallerService,
+  type PackageManagedInstallation,
+  type RegistryManagedInstallation,
+  type AvailabilityObservation,
+  type PackageInstallationObservation,
+  type PackageMutationObservation,
+  type InstallationInspectionPhase,
+} from "./package-installer.js";
+
+export {
+  UpgradeExecutionObserver,
+  type UpgradeExecutionObserverService,
+  type UpgradeExecutionStage,
+} from "./execution-observer.js";

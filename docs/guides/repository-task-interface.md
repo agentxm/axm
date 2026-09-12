@@ -113,9 +113,27 @@ existing Nx constraints remain active for unconverted scopes.
 Use the confidence ladder consistently. A focused Nx target answers one question
 during implementation. `verify:affected` is the fast source-only loop over the
 current Nx range. `verify:pr` is the complete change-boundary gate: clean and
-format checks, affected source verification, and affected browser E2E. `ci`
-runs full-workspace source and browser diagnostics for automation and scheduled
+format checks, affected source verification, packed artifacts, and affected CLI
+E2E. `ci` runs full-workspace source and CLI diagnostics for automation and scheduled
 coverage; it is not the routine substitute for `verify:pr`.
+
+`axm:unused-code` uses [Knip](https://knip.dev/features/monorepos-and-workspaces)
+to check first-party software for unreachable files, unused or undeclared
+dependencies, unresolved imports, and stale catalog entries. Both source
+verification workflows run it across the workspace before building. It has no
+build prerequisite and runs fresh; an affected-project selection would miss
+unused files or dependencies left behind in a provider when a consumer is
+removed. Native plugins read package exports, Nx targets, and test configuration.
+`knip.jsonc` adds the externally loaded and compiler-only entry points and names
+the few dependency exceptions that static analysis cannot establish. Stale
+configuration hints fail the check. Acquired Agent Skill packages retain their
+own validation boundary.
+
+The gate currently covers files and dependency declarations. Symbol-level
+export and member reports remain available through the same target with
+`--include=exports,types,duplicates`; review those findings against the published
+API before pruning. The compiler and ESLint continue to own unused local
+bindings. Knip does not replace architectural dependency or cycle enforcement.
 
 Dependencies express prerequisite artifacts or lifecycle ordering. Callers do
 not sequence a dependency already owned by a target. Host workflows may order

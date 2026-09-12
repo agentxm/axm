@@ -33,7 +33,7 @@
       ],
       "outputs": ["{workspaceRoot}/apps/cli-e2e/src/__generated__/extension-type-matrix.ts"],
       "options": {
-        "command": ["bun", "--conditions=axm-source", "scripts/generate-e2e-extension-matrix.ts"],
+        "command": "bun --conditions=axm-source scripts/generate-e2e-extension-matrix.ts",
         "cwd": "tools/extension-type-parity"
       }
     }

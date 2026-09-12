@@ -1,6 +1,7 @@
 {
   "extends": "../../tsconfig.test-base.json",
   "compilerOptions": {
+    "lib": ["ES2024"],
     "incremental": true,
     "composite": true,
     "outDir": "./out-tsc/vitest",

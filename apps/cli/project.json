@@ -62,7 +62,7 @@
       "outputs": ["{projectRoot}/src/telemetry/__generated__/telemetry-client.ts"],
       "executor": "nx:run-commands",
       "options": {
-        "command": ["bun", "scripts/generate-telemetry-client.ts"],
+        "command": "bun scripts/generate-telemetry-client.ts",
         "cwd": "apps/cli"
       }
     },
@@ -72,7 +72,7 @@
       "outputs": ["{projectRoot}/specs/telemetry-openapi.json"],
       "executor": "nx:run-commands",
       "options": {
-        "command": ["bun", "scripts/sync-telemetry-spec.ts"],
+        "command": "bun scripts/sync-telemetry-spec.ts",
         "cwd": "apps/cli"
       }
     },
@@ -99,7 +99,7 @@
       ],
       "executor": "nx:run-commands",
       "options": {
-        "command": ["bun", "--conditions=axm-source", "scripts/generate-type-enumerations.ts"],
+        "command": "bun --conditions=axm-source scripts/generate-type-enumerations.ts",
         "cwd": "apps/cli"
       },
       "dependsOn": ["^build"]
@@ -117,7 +117,7 @@
       "outputs": ["{projectRoot}/src/__generated__/help-topics.ts"],
       "executor": "nx:run-commands",
       "options": {
-        "command": ["bun", "scripts/generate-help-topics.ts"],
+        "command": "bun scripts/generate-help-topics.ts",
         "cwd": "apps/cli"
       }
     },
@@ -135,7 +135,7 @@
       "outputs": ["{projectRoot}/src/__generated__/bundled-axm-skill.ts"],
       "executor": "nx:run-commands",
       "options": {
-        "command": ["bun", "scripts/generate-bundled-axm-skill.ts"],
+        "command": "bun scripts/generate-bundled-axm-skill.ts",
         "cwd": "apps/cli"
       }
     },
@@ -151,7 +151,7 @@
       "outputs": ["{projectRoot}/site-content/__generated__/schemas"],
       "executor": "nx:run-commands",
       "options": {
-        "command": ["bun", "--conditions=axm-source", "scripts/generate-schemas.ts"],
+        "command": "bun --conditions=axm-source scripts/generate-schemas.ts",
         "cwd": "apps/cli"
       }
     },
@@ -162,7 +162,7 @@
       "inputs": ["production", "^production", "{projectRoot}/scripts/compile.ts"],
       "outputs": ["{projectRoot}/dist/bin"],
       "options": {
-        "command": ["bun", "scripts/compile.ts"],
+        "command": "bun scripts/compile.ts",
         "cwd": "apps/cli"
       }
     },
@@ -173,7 +173,7 @@
       "inputs": ["production", "^production", "{projectRoot}/scripts/compile.ts", "hostPlatform"],
       "outputs": ["{projectRoot}/dist/host-bin"],
       "options": {
-        "command": ["bun", "scripts/compile.ts", "--host-only"],
+        "command": "bun scripts/compile.ts --host-only",
         "cwd": "apps/cli"
       }
     },
@@ -183,7 +183,7 @@
       "executor": "nx:run-commands",
       "outputs": ["{projectRoot}/dist/dev-bin"],
       "options": {
-        "command": ["bun", "scripts/compile.ts", "--host-only", "--dev-build"],
+        "command": "bun scripts/compile.ts --host-only --dev-build",
         "cwd": "apps/cli"
       }
     },

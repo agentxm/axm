@@ -10,7 +10,8 @@ const root = resolve(import.meta.dirname, "../..");
 const domainFile =
   "packages/core/extension-model/src/unstable/version-constraints/version-selection.ts";
 const eslint = new ESLint({ cwd: root });
-const { Elements } = createRequire(import.meta.url)("@boundaries/elements");
+const require = createRequire(import.meta.url);
+const { Elements } = require("@boundaries/elements");
 
 test("root configuration composes a tooling project without a package facade", async () => {
   const results = await eslint.lintFiles(["eslint.config.mjs"]);

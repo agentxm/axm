@@ -23,10 +23,8 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "rewriteRelativeImportExtensions": true,
-    "jsx": "react-jsx",
-    "jsxImportSource": "react",
     "noUncheckedSideEffectImports": false,
-    "types": ["*"],
+    "types": ["node"],
     "ignoreDeprecations": "6.0"
   }
 }

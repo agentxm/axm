@@ -1,6 +1,7 @@
 {
   "extends": "../../tsconfig.test-base.json",
   "compilerOptions": {
+    "types": ["bun"],
     "incremental": true,
     "composite": true,
     "outDir": "./out-tsc/vitest",

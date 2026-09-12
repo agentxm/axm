@@ -82,17 +82,12 @@
       "inputs": ["production", "^production"],
       "outputs": ["{projectRoot}/dist"]
     },
-    "@nx/eslint:lint": {
+    "lint": {
       "cache": true,
-      "options": {
-        "maxWarnings": 192
-      },
       "inputs": [
-        "default",
-        "^default",
-        "^production",
-        "{workspaceRoot}/eslint.config.mjs",
-        "{workspaceRoot}/scripts/placement-tags-plugin.ts"
+        "...",
+        "{workspaceRoot}/tools/architecture/boundaries.mjs",
+        "{workspaceRoot}/tools/architecture/config.mjs"
       ]
     },
     "test": {

@@ -38,7 +38,7 @@ if (version === undefined || tag !== `cli-v${version}`)
   throw new Error("Expected <version> <cli-vVERSION> [asset-directory] [npm-cohort-directory].");
 guardPublicationVersion(version, null, "candidate");
 validateReleaseAssets(assets);
-validateReleaseCohort(npmCohort, version, capture("git", ["rev-parse", "HEAD"]));
+await validateReleaseCohort(npmCohort, version, capture("git", ["rev-parse", "HEAD"]));
 
 const readFormula = async (
   signal?: AbortSignal,

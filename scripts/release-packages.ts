@@ -2,6 +2,8 @@ import { copyFileSync, readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSy
 import { join } from "node:path";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
+import { publint } from "publint";
+import { formatMessage } from "publint/utils";
 import { RELEASE_PACKAGES } from "./release-shared.js";
 import { capture, run } from "./release-command.js";
 import { contentIntegrity } from "./release-publication.js";
@@ -13,19 +15,14 @@ const packedManifest = Schema.Struct({
   dependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   optionalDependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
 });
-export const validatePack = (tarball: string, name: string, version: string) => {
+export const validatePack = async (tarball: string, name: string, version: string) => {
   const manifest = Schema.decodeUnknownSync(Schema.fromJsonString(packedManifest))(
     capture("tar", ["-xOf", tarball, "package/package.json"]),
   );
   if (manifest.name !== name || manifest.version !== version)
     throw new Error(`Packed coordinate differs for ${name}.`);
-  const files = new Set(capture("tar", ["-tzf", tarball]).split("\n"));
   if (name === "axm.sh" && !/^\.?\/?dist\/.*\.js$/u.test(manifest.bin?.["axm"] ?? ""))
     throw new Error("Packed CLI must expose its compiled bin.");
-  for (const file of Object.values(manifest.bin ?? {})) {
-    if (!files.has(`package/${file.replace(/^\.\//u, "")}`))
-      throw new Error(`Missing packed executable: ${name}/${file}.`);
-  }
   for (const [dependency, reference] of Object.entries({
     ...manifest.dependencies,
     ...manifest.optionalDependencies,
@@ -42,9 +39,24 @@ export const validatePack = (tarball: string, name: string, version: string) => 
     )
       throw new Error(`Packed cohort dependency mismatch: ${dependency}@${reference}.`);
   }
+
+  const { messages, pkg } = await publint({
+    pack: { tarball: Uint8Array.from(readFileSync(tarball)).buffer },
+    strict: true,
+    level: "error",
+  });
+  if (messages.length > 0)
+    throw new Error(
+      `Invalid packed package ${name}@${version}:\n${messages
+        .map(
+          (message) =>
+            `${message.code}: ${formatMessage(message, pkg, { color: false }) ?? message.code}`,
+        )
+        .join("\n")}`,
+    );
 };
 
-export const packReleaseCohort = (version: string, directory: string): string => {
+export const packReleaseCohort = async (version: string, directory: string): Promise<string> => {
   const first = join(directory, "first");
   const second = join(directory, "second");
   mkdirSync(first);
@@ -55,7 +67,7 @@ export const packReleaseCohort = (version: string, directory: string): string =>
       run("pnpm", ["--filter", pkg.name, "pack", "--pack-destination", destination]);
     }
     const tarball = join(first, filename);
-    validatePack(tarball, pkg.name, version);
+    await validatePack(tarball, pkg.name, version);
     if (
       contentIntegrity(readFileSync(tarball)) !==
       contentIntegrity(readFileSync(join(second, filename)))
@@ -81,16 +93,16 @@ const releaseCohortManifest = Schema.Struct({
 export type ReleaseCohortManifest = typeof releaseCohortManifest.Type;
 export const RELEASE_COHORT_MANIFEST = "release-cohort.json";
 
-export const produceReleaseCohort = (
+export const produceReleaseCohort = async (
   version: string,
   commit: string,
   outputDirectory: string,
-): ReleaseCohortManifest => {
+): Promise<ReleaseCohortManifest> => {
   if (!/^[0-9a-f]{40}$/u.test(commit)) throw new Error("Expected an exact release commit SHA.");
   mkdirSync(outputDirectory, { recursive: true });
   const staging = mkdtempSync(join(outputDirectory, ".pack-"));
   try {
-    const packed = packReleaseCohort(version, staging);
+    const packed = await packReleaseCohort(version, staging);
     const packages = RELEASE_PACKAGES.map((pkg) => {
       const filename = `${pkg.tarballPrefix}${version}.tgz`;
       const source = join(packed, filename);
@@ -112,11 +124,11 @@ export const produceReleaseCohort = (
   }
 };
 
-export const validateReleaseCohort = (
+export const validateReleaseCohort = async (
   directory: string,
   version: string,
   commit: string,
-): ReleaseCohortManifest => {
+): Promise<ReleaseCohortManifest> => {
   const decoded: unknown = JSON.parse(
     readFileSync(join(directory, RELEASE_COHORT_MANIFEST), "utf8"),
   );
@@ -129,7 +141,7 @@ export const validateReleaseCohort = (
     const tarball = join(directory, expectedFilename);
     if (contentIntegrity(readFileSync(tarball)) !== entry.integrity)
       throw new Error(`Release cohort integrity mismatch: ${pkg.name}@${version}.`);
-    validatePack(tarball, pkg.name, version);
+    await validatePack(tarball, pkg.name, version);
   }
   return manifest;
 };

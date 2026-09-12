@@ -139,7 +139,10 @@ describe("repository task interface", () => {
     expect(verifyPr).toContain("pnpm run verify:clean");
     expect(verifyPr).toContain("pnpm run format:check");
     expect(verifyPr).toContain("pnpm run verify:affected");
+    expect(verifyPr).toContain("pnpm exec nx run axm:verify-release-packs");
     expect(verifyPr).toContain("pnpm run test:e2e:affected");
+    expect(scripts["verify:workspace"]).toContain("verify-release-packs");
+    expect(scripts["verify:affected"]).not.toContain("verify-release-packs");
 
     const affectedE2e = scripts["test:e2e:affected"];
     if (typeof affectedE2e !== "string") {
@@ -199,9 +202,9 @@ describe("repository task interface", () => {
     const command = commandText(lint?.options?.command);
     expect(lint?.executor).toBe("nx:run-commands");
     expect(command).toBe(
-      "eslint allurerc.ts eslint.config.mjs vitest.config.ts vitest.execution.ts vitest.reporting.ts vitest.purpose.setup.ts scripts --max-warnings=0",
+      "eslint .pnpmfile.cjs allurerc.ts eslint.config.mjs vitest.config.ts vitest.execution.ts vitest.reporting.ts vitest.purpose.setup.ts scripts --max-warnings=0",
     );
-    expect(command).not.toContain("eslint .");
+    expect(command.split(/\s+/u)).not.toContain(".");
   });
 
   it("hashes host identity for cached host-selective targets", () => {

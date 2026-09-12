@@ -8,9 +8,9 @@ if (cli === undefined) throw new Error("axm.sh is not a member of the release co
 const version = readPackageVersion(cli.path);
 const directory = mkdtempSync(join(tmpdir(), "axm-pack-verification-"));
 try {
-  packReleaseCohort(version, directory);
+  await packReleaseCohort(version, directory);
   console.log(
-    `Verified deterministic packed cohort ${version}, compiled executables and dependency references.`,
+    `Verified deterministic packed cohort ${version}, publint package contracts, compiled executables and dependency references.`,
   );
 } catch (cause) {
   throw new Error(`Release pack verification failed; artifacts retained at ${directory}.`, {

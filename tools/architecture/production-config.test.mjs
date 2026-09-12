@@ -153,6 +153,7 @@ for (const [name, code] of [
     "the concrete release adapter",
     'export { makeCliReleaseCatalog } from "../adapters/releases/index.js";',
   ],
+  ["the CLI assessment adapter", 'export { toUpgradeAssessment } from "../adapters/cli/index.js";'],
 ]) {
   test(`self-update application cannot select ${name}`, async () => {
     const [result] = await eslint.lintText(code, {

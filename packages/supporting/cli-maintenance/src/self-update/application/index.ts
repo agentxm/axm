@@ -32,3 +32,19 @@ export {
   type StartupUpdateCheckOptions,
   type StartupUpdateCheckOutcome,
 } from "./startup-check.js";
+
+export {
+  HomebrewFailureSchema,
+  InstallMethodSchema,
+  RecommendedCommandSchema,
+  UpgradeCoreResultSchema,
+  VerificationExecutableSchema,
+  type HomebrewFailure,
+  type InstallerAvailability,
+  type RecommendedCommand,
+  type ResultInstallMethod,
+  type ResultStatus,
+  type UpgradeCoreResult,
+  type UpgradeSettlement,
+  type VerificationExecutable,
+} from "./execution-result.js";

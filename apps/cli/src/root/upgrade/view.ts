@@ -6,7 +6,10 @@
 import type { VerbosityLevel } from "../../cli-flags/index.js";
 import type { Doc } from "../../screen/index.js";
 import { headlineDoc, successDoc } from "../../screen/index.js";
-import { methodLabel, type UpgradeAssessmentResult } from "@agentxm/cli-update";
+import {
+  methodLabel,
+  type UpgradeAssessmentResult,
+} from "@agentxm/cli-maintenance/self-update/adapters/cli";
 import { formatAxmSkillCompatibilityTarget } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 
 export interface UpgradeViewEntry {

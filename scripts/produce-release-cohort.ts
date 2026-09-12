@@ -9,6 +9,6 @@ if (commit === undefined || output === undefined)
 const cli = RELEASE_PACKAGES.find((member) => member.name === "axm.sh");
 if (cli === undefined) throw new Error("axm.sh is not a member of the release cohort.");
 const version = readPackageVersion(cli.path);
-produceReleaseCohort(version, commit, output);
-validateReleaseCohort(output, version, commit);
+await produceReleaseCohort(version, commit, output);
+await validateReleaseCohort(output, version, commit);
 console.log(`Produced verified npm cohort ${version} for ${commit}.`);

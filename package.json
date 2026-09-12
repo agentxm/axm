@@ -34,8 +34,8 @@
     "ci:workspace": "pnpm run verify:clean && pnpm run format:check && pnpm run verify:workspace",
     "verify:clean": "pnpm exec nx run axm:source-cli-smoke && pnpm run check:ci-image && pnpm run generate:check && pnpm run sync:check",
     "verify:affected": "pnpm exec nx run architecture:check && bun scripts/profile-nx.ts verify-affected affected -t lint typecheck build test verify-source-hygiene parity-ledger-check lint-bundled-skill --nxBail",
-    "verify:pr": "pnpm run verify:clean && pnpm run format:check && pnpm run verify:affected && pnpm run test:e2e:affected",
-    "verify:workspace": "pnpm exec nx run architecture:check && bun scripts/profile-nx.ts verify-workspace run-many -t lint typecheck build test verify-source-hygiene parity-ledger-check lint-bundled-skill --nxBail",
+    "verify:pr": "pnpm run verify:clean && pnpm run format:check && pnpm run verify:affected && pnpm exec nx run axm:verify-release-packs && pnpm run test:e2e:affected",
+    "verify:workspace": "pnpm exec nx run architecture:check && bun scripts/profile-nx.ts verify-workspace run-many -t lint typecheck build test verify-source-hygiene parity-ledger-check lint-bundled-skill verify-release-packs --nxBail",
     "verify:full": "pnpm run verify:workspace && pnpm run test:e2e",
     "container:ci": "bash scripts/container-environment.sh ci",
     "container:smoke": "bash scripts/container-environment.sh smoke",
@@ -78,6 +78,7 @@
   },
   "packageManager": "pnpm@11.20.0",
   "devDependencies": {
+    "@agentxm/cli-maintenance": "workspace:^",
     "@agentxm/client-e2e-utils": "workspace:*",
     "@agentxm/extension-content": "workspace:*",
     "@agentxm/extension-model": "workspace:*",
@@ -114,12 +115,12 @@
     "lint-staged": "catalog:",
     "nx": "catalog:",
     "prettier": "catalog:",
+    "publint": "0.3.24",
     "semver": "catalog:",
     "typescript": "catalog:",
     "typescript-eslint": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:",
-    "yaml": "catalog:",
-    "@agentxm/cli-maintenance": "workspace:^"
+    "yaml": "catalog:"
   }
 }

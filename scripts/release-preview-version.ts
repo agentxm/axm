@@ -2,8 +2,7 @@ import { validateReleaseVersion } from "./release-shared.js";
 
 export const derivePreviewVersion = (input: {
   readonly base: string;
-  readonly dirty: boolean;
-  readonly seconds: number;
+  readonly sequence: number;
   readonly shortSha: string;
 }): string => {
   const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(input.base);
@@ -17,7 +16,14 @@ export const derivePreviewVersion = (input: {
   if (major === undefined || minor === undefined || patch === undefined) {
     throw new Error(`Base version has incomplete semver components: ${input.base}`);
   }
-  const tail = input.dirty ? `${input.shortSha}.dirty` : input.shortSha;
+  if (!Number.isSafeInteger(input.sequence) || input.sequence < 1) {
+    throw new Error("Preview sequence must be a positive integer.");
+  }
+  if (!/^[0-9a-f]{7,40}$/u.test(input.shortSha)) {
+    throw new Error("Preview source must be a lowercase Git commit identity.");
+  }
 
-  return validateReleaseVersion(`${major}.${minor}.${patch}-preview.${input.seconds}.${tail}`);
+  return validateReleaseVersion(
+    `${major}.${minor}.${patch}-preview.${input.sequence}.${input.shortSha}`,
+  );
 };

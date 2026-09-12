@@ -111,10 +111,13 @@ describe("Publication summary evidence", () => {
         encoding: "utf8",
         env: {
           ...process.env,
+          ELIGIBLE: "true",
+          MODE: "stable-auto",
           GITHUB_STEP_SUMMARY: summary,
           RELEASE_TAG: "cli-v1.2.3",
           RELEASE_VERSION: "1.2.3",
           RELEASE_COMMIT: "a".repeat(40),
+          GITHUB_RELEASE: "published",
           PUBLICATION: '{"artifacts":"succeeded","npm":"succeeded","tap":"succeeded"}',
           DISTRIBUTION: scenario.distribution,
           PROMOTION: scenario.promotion,

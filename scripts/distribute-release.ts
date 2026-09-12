@@ -27,6 +27,8 @@ import {
   publicationHttpError,
   publishImmutableCohort,
   readNpmPublication,
+  reconcileNpmStableTag,
+  SupersededRelease,
 } from "./release-publication.js";
 import { formulaVersion, prepareFormula } from "./release-formula.js";
 
@@ -34,6 +36,7 @@ const version = process.argv[2];
 const tag = process.argv[3];
 const assets = resolve(process.argv[4] ?? "release-assets");
 const npmCohort = resolve(process.argv[5] ?? "release-npm");
+const preflightOnly = process.argv.includes("--preflight");
 if (version === undefined || tag !== `cli-v${version}`)
   throw new Error("Expected <version> <cli-vVERSION> [asset-directory] [npm-cohort-directory].");
 guardPublicationVersion(version, null, "candidate");
@@ -69,163 +72,176 @@ const output = (key: string, value: string) => {
 };
 
 try {
-  const outcome = await distributeRelease(
-    async () => {
+  const preflight = async () => {
+    await Promise.all([
+      mapWithConcurrency(RELEASE_PACKAGES, 6, async (pkg) => latestGuard(pkg.name)),
+      readFormula().then((formula) =>
+        guardPublicationVersion(version, formulaVersion(formula), "Homebrew"),
+      ),
+    ]);
+  };
+
+  if (preflightOnly) {
+    try {
+      await preflight();
+      output("outcome", "ready");
+      console.log(`Release distribution preflight: ${version} is ready.`);
+    } catch (error) {
+      if (error instanceof SupersededRelease) {
+        output("outcome", "superseded");
+        console.log(error.message);
+      } else {
+        throw error;
+      }
+    }
+  } else {
+    const outcome = await distributeRelease(
       // Global preflight prevents historical repair when any distribution owner
       // already exposes a newer version, regardless of canonical queue order.
-      await Promise.all([
-        mapWithConcurrency(RELEASE_PACKAGES, 6, async (pkg) => latestGuard(pkg.name)),
-        readFormula().then((formula) =>
-          guardPublicationVersion(version, formulaVersion(formula), "Homebrew"),
-        ),
-      ]);
-    },
-    [
-      {
-        name: "artifacts",
-        publish: async () => {
-          const readAsset = async (name: string): Promise<string | null> => {
-            const release = Schema.decodeUnknownSync(
-              Schema.fromJsonString(
-                Schema.Struct({ assets: Schema.Array(Schema.Struct({ name: Schema.String })) }),
-              ),
-            )(capture("gh", ["api", `repos/${RELEASE_REPO}/releases/tags/${tag}`]));
-            if (!release.assets.some((asset) => asset.name === name)) return null;
-            const directory = mkdtempSync(join(temporary, "asset-"));
-            run("gh", [
-              "release",
-              "download",
-              tag,
-              "--repo",
-              RELEASE_REPO,
-              "--pattern",
-              name,
-              "--dir",
-              directory,
-            ]);
-            return contentIntegrity(readFileSync(join(directory, name)));
-          };
-          await publishImmutableCohort(
-            [...EXPECTED_BINARY_ASSETS, CHECKSUM_MANIFEST].map((name) => ({
-              name,
-              integrity: contentIntegrity(readFileSync(join(assets, name))),
-              read: () => readAsset(name),
-              publish: async () => {
-                run("gh", ["release", "upload", tag, join(assets, name), "--repo", RELEASE_REPO]);
-              },
-            })),
-            { concurrency: 3 },
-          );
-        },
-      },
-      {
-        name: "npm",
-        publish: async () => {
-          const publicationEnv = { ...process.env };
-          delete publicationEnv["NODE_AUTH_TOKEN"];
-          delete publicationEnv["NPM_CONFIG_USERCONFIG"];
-          const publications = RELEASE_PACKAGES.map((pkg) => {
-            const tarball = join(npmCohort, `${pkg.tarballPrefix}${version}.tgz`);
-            const integrity = contentIntegrity(readFileSync(tarball));
-            return {
-              name: `${pkg.name}@${version}`,
-              integrity,
-              read: async (signal: AbortSignal) => (await latestGuard(pkg.name, signal)).integrity,
-              publish: async () => {
-                await latestGuard(pkg.name);
-                run(
-                  "npm",
-                  ["publish", tarball, "--provenance", "--access", "public", "--tag", "latest"],
-                  publicationEnv,
-                );
-              },
+      preflight,
+      [
+        {
+          name: "artifacts",
+          publish: async () => {
+            const readAsset = async (name: string): Promise<string | null> => {
+              const release = Schema.decodeUnknownSync(
+                Schema.fromJsonString(
+                  Schema.Struct({ assets: Schema.Array(Schema.Struct({ name: Schema.String })) }),
+                ),
+              )(capture("gh", ["api", `repos/${RELEASE_REPO}/releases/tags/${tag}`]));
+              if (!release.assets.some((asset) => asset.name === name)) return null;
+              const directory = mkdtempSync(join(temporary, "asset-"));
+              run("gh", [
+                "release",
+                "download",
+                tag,
+                "--repo",
+                RELEASE_REPO,
+                "--pattern",
+                name,
+                "--dir",
+                directory,
+              ]);
+              return contentIntegrity(readFileSync(join(directory, name)));
             };
-          });
-          await publishImmutableCohort(publications, { concurrency: 6, timeoutMs: 120_000 });
-          await mapWithConcurrency(RELEASE_PACKAGES, 6, async (pkg) =>
-            observePublication({
-              name: `npm latest ${pkg.name}@${version}`,
-              read: async (signal) => (await latestGuard(pkg.name, signal)).latest,
-              matches: (latest) => latest === version,
-              conflicts: (latest) => {
-                if (latest === null) return false;
-                guardPublicationVersion(version, latest, pkg.name);
-                return false;
-              },
-              retryError: isTransientPublicationError,
-              timeoutMs: 120_000,
-            }).catch((cause: unknown) => {
-              throw new Error(
-                `The latest tag for ${pkg.name}@${version} did not converge. ` +
-                  "Immutable publication is safe to rerun; changing a mutable tag requires narrow repair authority.",
-                { cause },
-              );
-            }),
-          );
-        },
-      },
-      {
-        name: "tap",
-        publish: async () => {
-          const formula = await readFormula();
-          const candidate = prepareFormula(formula, version, RELEASE_REPO, checksums);
-          if (!candidate.changed) return;
-          const token = process.env["HOMEBREW_TAP_TOKEN"];
-          if (token === undefined || token === "")
-            throw new Error("HOMEBREW_TAP_TOKEN is required to publish the missing formula.");
-          const tap = join(temporary, "tap");
-          run(
-            "git",
-            ["clone", "--depth", "1", "https://github.com/agentxm/homebrew-tap.git", tap],
-            foreignGitEnvironment(),
-          );
-          requireForeignGitRoot(tap, tap);
-          const env = {
-            ...foreignGitEnvironment(),
-            HOMEBREW_TAP_DIR: tap,
-            RELEASE_ASSET_DIR: assets,
-            GIT_CONFIG_COUNT: "1",
-            GIT_CONFIG_KEY_0: "http.https://github.com/.extraheader",
-            GIT_CONFIG_VALUE_0: `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString("base64")}`,
-          };
-          try {
-            runIn(
-              process.cwd(),
-              "pnpm",
-              ["exec", "nx", "run", "axm:update-homebrew-formula", "--", version],
-              env,
+            await publishImmutableCohort(
+              [...EXPECTED_BINARY_ASSETS, CHECKSUM_MANIFEST].map((name) => ({
+                name,
+                integrity: contentIntegrity(readFileSync(join(assets, name))),
+                read: () => readAsset(name),
+                publish: async () => {
+                  run("gh", ["release", "upload", tag, join(assets, name), "--repo", RELEASE_REPO]);
+                },
+              })),
+              { concurrency: 3 },
             );
-          } catch (cause) {
-            try {
-              await observePublication({
-                name: `Homebrew formula ${version}`,
-                read: async (signal) =>
-                  prepareFormula(await readFormula(signal), version, RELEASE_REPO, checksums),
-                matches: (observed) => !observed.changed,
-                retryError: isTransientPublicationError,
-              });
-            } catch (readbackFailure) {
-              throw new AggregateError(
-                [cause, readbackFailure],
-                "Homebrew submission and bounded public readback failed.",
-                { cause: readbackFailure },
-              );
-            }
-          }
-          await observePublication({
-            name: `Homebrew formula ${version}`,
-            read: async (signal) =>
-              prepareFormula(await readFormula(signal), version, RELEASE_REPO, checksums),
-            matches: (candidate) => !candidate.changed,
-            retryError: isTransientPublicationError,
-          });
+          },
         },
-      },
-    ],
-    (states) => output("publication", JSON.stringify(states)),
-  );
-  output("outcome", outcome);
-  console.log(`Release distribution: ${outcome}.`);
+        {
+          name: "npm",
+          publish: async () => {
+            const publicationEnv = { ...process.env };
+            delete publicationEnv["NODE_AUTH_TOKEN"];
+            delete publicationEnv["NPM_CONFIG_USERCONFIG"];
+            const publications = RELEASE_PACKAGES.map((pkg) => {
+              const tarball = join(npmCohort, `${pkg.tarballPrefix}${version}.tgz`);
+              const integrity = contentIntegrity(readFileSync(tarball));
+              return {
+                name: `${pkg.name}@${version}`,
+                integrity,
+                read: async (signal: AbortSignal) =>
+                  (await latestGuard(pkg.name, signal)).integrity,
+                publish: async () => {
+                  await latestGuard(pkg.name);
+                  run(
+                    "npm",
+                    ["publish", tarball, "--provenance", "--access", "public", "--tag", "latest"],
+                    publicationEnv,
+                  );
+                },
+              };
+            });
+            await publishImmutableCohort(publications, { concurrency: 6, timeoutMs: 120_000 });
+            await mapWithConcurrency(RELEASE_PACKAGES, 6, async (pkg) =>
+              reconcileNpmStableTag({
+                name: pkg.name,
+                version,
+                read: async (signal) => (await latestGuard(pkg.name, signal)).latest,
+                promote: async () => {
+                  await latestGuard(pkg.name);
+                  run(
+                    "npm",
+                    ["dist-tag", "add", `${pkg.name}@${version}`, "latest"],
+                    publicationEnv,
+                  );
+                },
+              }),
+            );
+          },
+        },
+        {
+          name: "tap",
+          publish: async () => {
+            const formula = await readFormula();
+            const candidate = prepareFormula(formula, version, RELEASE_REPO, checksums);
+            if (!candidate.changed) return;
+            const token = process.env["HOMEBREW_TAP_TOKEN"];
+            if (token === undefined || token === "")
+              throw new Error("HOMEBREW_TAP_TOKEN is required to publish the missing formula.");
+            const tap = join(temporary, "tap");
+            run(
+              "git",
+              ["clone", "--depth", "1", "https://github.com/agentxm/homebrew-tap.git", tap],
+              foreignGitEnvironment(),
+            );
+            requireForeignGitRoot(tap, tap);
+            const env = {
+              ...foreignGitEnvironment(),
+              HOMEBREW_TAP_DIR: tap,
+              RELEASE_ASSET_DIR: assets,
+              GIT_CONFIG_COUNT: "1",
+              GIT_CONFIG_KEY_0: "http.https://github.com/.extraheader",
+              GIT_CONFIG_VALUE_0: `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString("base64")}`,
+            };
+            try {
+              runIn(
+                process.cwd(),
+                "pnpm",
+                ["exec", "nx", "run", "axm:update-homebrew-formula", "--", version],
+                env,
+              );
+            } catch (cause) {
+              try {
+                await observePublication({
+                  name: `Homebrew formula ${version}`,
+                  read: async (signal) =>
+                    prepareFormula(await readFormula(signal), version, RELEASE_REPO, checksums),
+                  matches: (observed) => !observed.changed,
+                  retryError: isTransientPublicationError,
+                });
+              } catch (readbackFailure) {
+                throw new AggregateError(
+                  [cause, readbackFailure],
+                  "Homebrew submission and bounded public readback failed.",
+                  { cause: readbackFailure },
+                );
+              }
+            }
+            await observePublication({
+              name: `Homebrew formula ${version}`,
+              read: async (signal) =>
+                prepareFormula(await readFormula(signal), version, RELEASE_REPO, checksums),
+              matches: (candidate) => !candidate.changed,
+              retryError: isTransientPublicationError,
+            });
+          },
+        },
+      ],
+      (states) => output("publication", JSON.stringify(states)),
+    );
+    output("outcome", outcome);
+    console.log(`Release distribution: ${outcome}.`);
+  }
 } catch (error) {
   output("outcome", "distribution-failed");
   throw error;

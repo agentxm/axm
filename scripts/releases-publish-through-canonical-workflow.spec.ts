@@ -13,7 +13,7 @@ export const specification = defineSpecification({
   requirement: "system/process/releases-publish-through-canonical-workflow",
   title: "One automated workflow publishes releases",
   statement:
-    "Release artifacts shall be published only by the canonical publish.yml workflow, triggered by a published release or an explicit release tag and validating release assets before completion, and no other workflow shall publish release artifacts.",
+    "Release artifacts shall be published only by the canonical publish.yml workflow, automatically after successful exact merged-revision CI or through its explicit recovery and bootstrap-prerelease modes, and no other workflow shall publish release artifacts.",
   class: "process",
   role: "supporting",
   goals: ["dependable-change-process", "trustworthy-distribution"],
@@ -41,7 +41,8 @@ const workflowsDirectory = path.join(repoRoot, ".github", "workflows");
  */
 const PUBLICATION_SIGNALS = [
   "axm:distribute-release",
-  "axm:release-publish",
+  "axm:publish-bootstrap-prerelease",
+  "axm:reconcile-github-release",
   "axm:promote-release-channel",
   "axm:update-homebrew-formula",
   "HOMEBREW_TAP_TOKEN",
@@ -49,15 +50,20 @@ const PUBLICATION_SIGNALS = [
 ] as const;
 
 describe("Canonical release workflow", () => {
-  it.effect("publishes only for a published release or an explicitly named release tag", () =>
+  it.effect("continues merged release CI and exposes only bounded manual modes", () =>
     Effect.sync(() => {
       const triggers = readReleaseWorkflowTriggers();
-      // A published release is the ordinary path; a rerun names an existing
-      // tag through workflow_dispatch and stays inside this same workflow.
-      expect(triggers.release.types).toEqual(["published"]);
-      expect(Object.keys(triggers.workflow_dispatch.inputs)).toEqual(["release_tag"]);
-      expect(triggers.workflow_dispatch.inputs["release_tag"]).toMatchObject({ required: true });
-      expect(Object.keys(triggers)).toEqual(["release", "workflow_dispatch"]);
+      expect(triggers.workflow_run).toEqual({ workflows: ["CI"], types: ["completed"] });
+      expect(Object.keys(triggers.workflow_dispatch.inputs)).toEqual([
+        "mode",
+        "release_tag",
+        "source_sha",
+      ]);
+      expect(triggers.workflow_dispatch.inputs["mode"]).toMatchObject({
+        required: true,
+        options: ["stable-recovery", "bootstrap-prerelease"],
+      });
+      expect(Object.keys(triggers)).toEqual(["workflow_run", "workflow_dispatch"]);
     }),
   );
 
@@ -67,9 +73,53 @@ describe("Canonical release workflow", () => {
       if (release === undefined) throw new Error("publish.yml must declare the `release` job");
       const steps = release.steps.map((step) => step.run ?? "");
       const validated = steps.findIndex((run) => run.includes("axm:validate-release-assets"));
-      const distributed = steps.findIndex((run) => run.includes("axm:distribute-release"));
+      const npmValidated = steps.findIndex((run) => run.includes("axm:validate-release-cohort"));
+      const prepared = steps.findIndex(
+        (run) => run.includes("axm:reconcile-github-release") && run.includes("prepare"),
+      );
+      const distributed = steps.findIndex(
+        (run, index) => index > prepared && run.includes("axm:distribute-release"),
+      );
       expect(validated).toBeGreaterThan(-1);
-      expect(distributed).toBeGreaterThan(validated);
+      expect(npmValidated).toBeGreaterThan(validated);
+      expect(prepared).toBeGreaterThan(npmValidated);
+      expect(distributed).toBeGreaterThan(prepared);
+    }),
+  );
+
+  it.effect("accepts automation authority only from successful main push CI", () =>
+    Effect.sync(() => {
+      const workflow = readReleaseWorkflow();
+      const source = workflow.jobs["source"];
+      if (source === undefined) throw new Error("publish.yml must declare the `source` job");
+      expect(source.if).toContain("workflow_run.conclusion == 'success'");
+      expect(source.if).toContain("workflow_run.event == 'push'");
+      expect(source.if).toContain("workflow_run.head_branch == 'main'");
+      expect(
+        source.steps.some(
+          (step) =>
+            step.run?.includes("git log origin/main") === true &&
+            step.run.includes("Expected exactly one canonical release commit"),
+        ),
+      ).toBe(true);
+      expect(workflow.jobs["release"]?.needs).toBe("source");
+    }),
+  );
+
+  it.effect("owns the bootstrap prerelease and exact installation check", () =>
+    Effect.sync(() => {
+      const workflow = readReleaseWorkflow();
+      const bootstrap = workflow.jobs["bootstrap-prerelease"];
+      const verification = workflow.jobs["bootstrap-prerelease-verify"];
+      expect(
+        bootstrap?.steps.some((step) => step.run?.includes("publish-bootstrap-prerelease")),
+      ).toBe(true);
+      expect(
+        verification?.steps.some(
+          (step) =>
+            step.run?.includes("npm install --global") && step.run.includes("axm --version"),
+        ),
+      ).toBe(true);
     }),
   );
 

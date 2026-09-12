@@ -36,9 +36,9 @@ separately operated AgentXM systems.
 - [Release the CLI](../runbooks/release-cli.md) owns canonical delivery of the
   fixed `release:cli` cohort. Its explicit preparation workflow creates the
   reviewable release candidate without depending on a developer checkout; the
-  canonical publication workflow owns native binaries, npm packages, Homebrew
-  formula, and the official skill. [Local preview publication](../runbooks/publish-local-preview.md)
-  has a separate purpose and verification boundary.
+  canonical publication workflow automatically continues successful exact
+  merged-revision CI and owns native binaries, npm packages, Homebrew formula,
+  the official skill, stable recovery, and exceptional bootstrap prereleases.
 - Install/uninstall regression evidence lives in the owning specifications and
   [root install](../../apps/cli-e2e/src/root-install.e2e.test.ts) and
   [root uninstall](../../apps/cli-e2e/src/root-uninstall.e2e.test.ts) E2E files;
@@ -62,8 +62,11 @@ the host permits branch updates. External-contributor maintainer acceptance
 therefore remains an explicit process boundary rather than a host-expressible
 conditional review rule.
 
-Actions are enabled for all actions, default workflow permissions are read-only,
-and workflows cannot approve pull requests. Pull-request jobs use GitHub-hosted
+Actions are enabled for all actions and default workflow permissions are
+read-only. This repository permits Actions to create and approve pull requests
+so the preparation workflow can create a candidate; the workflow itself grants
+only the permissions it needs. Other organization repositories retain their
+separate settings. Pull-request jobs use GitHub-hosted
 ephemeral runners; trusted persistent-runner and release-production jobs are
 limited by event and repository conditions in the workflows. SHA-only action
 selection is not enforced by the host, so workflow source owns action pinning.
@@ -84,18 +87,18 @@ changes.
 The 2026-09-11 adoption moved operational meaning into `devops/`. Git preserves
 prior versions; these paths explain older links and evidence, not aliases.
 
-| Former path or section                                           | Canonical home / disposition                                                                                                                                              |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `contributing/guides/releasing.md`, except local previews        | [Release the CLI](../runbooks/release-cli.md)                                                                                                                             |
-| Its Local Preview Publish section                                | [Publish a local preview](../runbooks/publish-local-preview.md)                                                                                                           |
-| `contributing/guides/automated-pull-request-review.md`           | [Automated PR review](../playbooks/automated-pr-review.md)                                                                                                                |
-| `contributing/guides/development-environment.md`: native context | [Native development](../environments/native-development.md)                                                                                                               |
-| Its container/cache model                                        | [Linux CI](../environments/linux-ci.md)                                                                                                                                   |
-| Its native Windows and platform boundaries                       | [Native platform CI](../environments/native-platform-ci.md)                                                                                                               |
-| Its source-CLI, container-use, and image-upgrade procedures      | [Source CLI](../runbooks/run-source-cli.md), [Linux CI reproduction](../runbooks/reproduce-linux-ci.md), [image upgrade](../runbooks/upgrade-ci-image.md)                 |
-| `containers/ci/README.md`: image contract and retention          | [CI image](../tools/ci-image.md); the source README remains a discovery pointer                                                                                           |
-| Its cache persistence and recovery detail                        | [Linux CI](../environments/linux-ci.md)                                                                                                                                   |
-| `docs/guides/smoke-testing-guide.md`                             | Retired without successor: install/uninstall checks duplicate the executable journeys linked above; custom-registry setup and lockfile-version-6 expectations were stale. |
+| Former path or section                                           | Canonical home / disposition                                                                                                                                                           |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `contributing/guides/releasing.md`, except local previews        | [Release the CLI](../runbooks/release-cli.md)                                                                                                                                          |
+| Its Local Preview Publish section                                | Retired: bootstrap prereleases are now an explicit mode of the canonical [release workflow](../runbooks/release-cli.md#bootstrap-prerelease), and working-tree publication is removed. |
+| `contributing/guides/automated-pull-request-review.md`           | [Automated PR review](../playbooks/automated-pr-review.md)                                                                                                                             |
+| `contributing/guides/development-environment.md`: native context | [Native development](../environments/native-development.md)                                                                                                                            |
+| Its container/cache model                                        | [Linux CI](../environments/linux-ci.md)                                                                                                                                                |
+| Its native Windows and platform boundaries                       | [Native platform CI](../environments/native-platform-ci.md)                                                                                                                            |
+| Its source-CLI, container-use, and image-upgrade procedures      | [Source CLI](../runbooks/run-source-cli.md), [Linux CI reproduction](../runbooks/reproduce-linux-ci.md), [image upgrade](../runbooks/upgrade-ci-image.md)                              |
+| `containers/ci/README.md`: image contract and retention          | [CI image](../tools/ci-image.md); the source README remains a discovery pointer                                                                                                        |
+| Its cache persistence and recovery detail                        | [Linux CI](../environments/linux-ci.md)                                                                                                                                                |
+| `docs/guides/smoke-testing-guide.md`                             | Retired without successor: install/uninstall checks duplicate the executable journeys linked above; custom-registry setup and lockfile-version-6 expectations were stale.              |
 
 Architecture, the task-interface binding, specification admission, authentication
 implementation guidance, and Effect implementation guidance retain their

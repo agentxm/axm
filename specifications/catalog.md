@@ -4617,7 +4617,7 @@ Changes and releases land through the governed repository process with required 
 
 - Requirement: `system/process/releases-publish-through-canonical-workflow`
 - Owner: `axm`
-- Statement: Release artifacts shall be published only by the canonical publish.yml workflow, triggered by a published release or an explicit release tag and validating release assets before completion, and no other workflow shall publish release artifacts.
+- Statement: Release artifacts shall be published only by the canonical publish.yml workflow, automatically after successful exact merged-revision CI or through its explicit recovery and bootstrap-prerelease modes, and no other workflow shall publish release artifacts.
 - Class: process
 - Role: supporting
 - Product goals: `dependable-change-process`, `trustworthy-distribution`
@@ -4678,7 +4678,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `system/process/release-preview-preserves-canonical-candidate`
 - Owner: `axm`
-- Statement: The local npm cohort preview workflow shall derive every preview version below the current stable cohort version so a first preview publication cannot cause canonical publication of that stable version to be treated as superseded.
+- Statement: The explicitly dispatched bootstrap-prerelease mode of the canonical release workflow shall derive a deterministic preview version below the current stable cohort version so bootstrap publication cannot supersede that stable version.
 - Class: process
 - Role: supporting
 - Product goals: `trustworthy-distribution`, `dependable-change-process`

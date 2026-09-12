@@ -3,7 +3,9 @@ import {
   contentIntegrity,
   observePublication,
   PublicationHttpError,
+  readNpmDistTag,
   readNpmPublication,
+  reconcileNpmStableTag,
   distributeRelease,
   guardPublicationVersion,
   publishImmutable,
@@ -309,5 +311,84 @@ describe("npm publication observations", () => {
         response({ "0.1.0": {}, "1.2.3": { dist: { integrity } } }),
       ),
     ).resolves.toEqual({ latest: "1.2.4", integrity });
+  });
+
+  it("reads an exact npm distribution tag without treating package absence as a version", async () => {
+    const response = async () =>
+      new Response(
+        JSON.stringify({
+          "dist-tags": { latest: "1.2.4", preview: "1.3.0-preview.4" },
+          versions: {},
+        }),
+      );
+    await expect(readNpmDistTag("axm.sh", "preview", response)).resolves.toBe("1.3.0-preview.4");
+    await expect(
+      readNpmDistTag("axm.sh", "preview", async () => new Response(null, { status: 404 })),
+    ).resolves.toBeNull();
+  });
+});
+
+describe("npm stable tag reconciliation", () => {
+  it("does not write when latest already names the exact version", async () => {
+    const promote = vi.fn();
+    await expect(
+      reconcileNpmStableTag({
+        name: "axm.sh",
+        version: "1.2.3",
+        read: async () => "1.2.3",
+        promote,
+      }),
+    ).resolves.toBe("already-current");
+    expect(promote).not.toHaveBeenCalled();
+  });
+
+  it("repairs an older latest tag and confirms exact bounded readback", async () => {
+    const observations = ["1.2.2", "1.2.2", "1.2.3"];
+    const promote = vi.fn();
+    await expect(
+      reconcileNpmStableTag({
+        name: "axm.sh",
+        version: "1.2.3",
+        read: async () => observations.shift() ?? "1.2.3",
+        promote,
+        observation: {
+          now: (() => {
+            let time = 0;
+            return () => time++;
+          })(),
+          sleep: async () => undefined,
+          random: () => 0,
+        },
+      }),
+    ).resolves.toBe("promoted");
+    expect(promote).toHaveBeenCalledOnce();
+  });
+
+  it("refuses to move latest backward when a newer release is visible", async () => {
+    const promote = vi.fn();
+    await expect(
+      reconcileNpmStableTag({
+        name: "axm.sh",
+        version: "1.2.3",
+        read: async () => "1.2.4",
+        promote,
+      }),
+    ).rejects.toThrow(SupersededRelease);
+    expect(promote).not.toHaveBeenCalled();
+  });
+
+  it("accepts a failed submission when readback proves the tag moved", async () => {
+    const observations = ["1.2.2", "1.2.3"];
+    await expect(
+      reconcileNpmStableTag({
+        name: "axm.sh",
+        version: "1.2.3",
+        read: async () => observations.shift() ?? "1.2.3",
+        promote: async () => {
+          throw new Error("connection reset after submit");
+        },
+        observation: { sleep: async () => undefined },
+      }),
+    ).resolves.toBe("promoted");
   });
 });

@@ -157,21 +157,21 @@
         "cwd": "."
       }
     },
-    "release-publish": {
+    "reconcile-github-release": {
       "executor": "nx:run-commands",
       "cache": false,
       "dependsOn": ["^build"],
       "options": {
-        "command": "bun scripts/release-publish.ts",
+        "command": "bun scripts/reconcile-github-release.ts",
         "cwd": "."
       }
     },
-    "release-publish-local": {
+    "publish-bootstrap-prerelease": {
       "executor": "nx:run-commands",
       "cache": false,
       "dependsOn": ["^build"],
       "options": {
-        "command": "bun scripts/release-publish-local.ts",
+        "command": "bun scripts/publish-bootstrap-prerelease.ts",
         "cwd": "."
       }
     },
@@ -199,6 +199,15 @@
       "dependsOn": ["^build"],
       "options": {
         "command": "bun scripts/download-ci-binaries.ts",
+        "cwd": "."
+      }
+    },
+    "validate-release-cohort": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["^build"],
+      "options": {
+        "command": "bun scripts/validate-release-cohort.ts",
         "cwd": "."
       }
     },

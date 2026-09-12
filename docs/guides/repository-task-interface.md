@@ -145,6 +145,14 @@ metadata contract, so it depends explicitly on
 `specification-metadata:build`. Clean-checkout verification must not rely on a
 previously populated package `dist` directory.
 
+`axm:reconcile-github-release -- <prepare|publish> <tag> <sha>` owns exact draft
+GitHub Release creation and final publication with bounded state readback.
+`axm:validate-release-cohort -- <directory> <version> <sha>` validates the
+fixed npm cohort independently of publication. `axm:publish-bootstrap-prerelease
+-- <sha> <workflow-run-id>` owns the exceptional exact-current-main preview
+cohort and its immutable npm publication; it is available only through the
+canonical workflow's explicit bootstrap mode.
+
 `axm:distribute-release -- <version> <tag> [asset-directory]` owns artifact,
 fixed-cohort npm and Homebrew publication. It depends on cohort builds, checks
 mutable owners before publication, validates deterministic packs, verifies

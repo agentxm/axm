@@ -1,7 +1,7 @@
 ---
 type: Provider
 title: "npm distribution for AXM"
-description: "Registry publication and account-authority boundaries for AXM release packages and local previews."
+description: "Registry publication and account-authority boundaries for AXM release packages and bootstrap prereleases."
 status: draft
 generated:
   by: codex/gpt-6
@@ -24,11 +24,12 @@ The [publish workflow](../../.github/workflows/publish.yml) owns canonical
 publication of exact CI-produced tarballs and npm provenance. Follow
 [Release the CLI](../runbooks/release-cli.md) for gates, partial publication,
 immutable reuse, and superseded candidates.
-[Local preview publication](../runbooks/publish-local-preview.md) instead uses
-the operator's npm login under a non-default dist-tag, without provenance.
-These are different operating identities and must not be treated as equivalent
-authority. npm package/account settings own actual publisher permissions and
-trusted-publishing configuration; the workflow is evidence of intent only.
+The same workflow's explicit bootstrap-prerelease mode publishes a deterministic
+fixed cohort from exact current `main` under the non-default `preview` dist-tag,
+with provenance and exact installation verification. There is no supported
+operator working-tree publisher. npm package/account settings own actual
+publisher permissions and trusted-publishing configuration; the workflow is
+evidence of intent only.
 
 ## Constraints and relationship gaps
 

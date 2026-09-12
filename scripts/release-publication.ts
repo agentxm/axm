@@ -303,12 +303,11 @@ const NpmMetadata = Schema.Struct({
 });
 const PublishedVersion = Schema.Struct({ dist: Schema.Struct({ integrity: Schema.String }) });
 
-export const readNpmPublication = async (
+const readNpmMetadata = async (
   name: string,
-  version: string,
-  fetchImplementation: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch> = fetch,
+  fetchImplementation: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>,
   signal?: AbortSignal,
-): Promise<{ readonly latest: string | null; readonly integrity: string | null }> => {
+): Promise<typeof NpmMetadata.Type | null> => {
   const requestSignal =
     signal === undefined
       ? AbortSignal.timeout(30_000)
@@ -317,10 +316,20 @@ export const readNpmPublication = async (
     `https://registry.npmjs.org/${encodeURIComponent(name)}`,
     { cache: "no-store", signal: requestSignal },
   );
-  if (response.status === 404) return { latest: null, integrity: null };
+  if (response.status === 404) return null;
   if (response.status !== 200)
     throw publicationHttpError(`npm existence query failed for ${name}`, response);
-  const metadata = Schema.decodeUnknownSync(NpmMetadata)(await response.json());
+  return Schema.decodeUnknownSync(NpmMetadata)(await response.json());
+};
+
+export const readNpmPublication = async (
+  name: string,
+  version: string,
+  fetchImplementation: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch> = fetch,
+  signal?: AbortSignal,
+): Promise<{ readonly latest: string | null; readonly integrity: string | null }> => {
+  const metadata = await readNpmMetadata(name, fetchImplementation, signal);
+  if (metadata === null) return { latest: null, integrity: null };
   const published = metadata.versions[version];
   return {
     latest: metadata["dist-tags"]["latest"] ?? null,
@@ -329,4 +338,66 @@ export const readNpmPublication = async (
         ? null
         : Schema.decodeUnknownSync(PublishedVersion)(published).dist.integrity,
   };
+};
+
+export const readNpmDistTag = async (
+  name: string,
+  tag: string,
+  fetchImplementation: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch> = fetch,
+  signal?: AbortSignal,
+): Promise<string | null> => {
+  const metadata = await readNpmMetadata(name, fetchImplementation, signal);
+  return metadata?.["dist-tags"][tag] ?? null;
+};
+
+export const reconcileNpmStableTag = async (input: {
+  readonly name: string;
+  readonly version: string;
+  readonly read: (signal: AbortSignal) => Promise<string | null>;
+  readonly promote: () => Promise<void>;
+  readonly observation?: {
+    readonly timeoutMs?: number;
+    readonly initialDelayMs?: number;
+    readonly maxDelayMs?: number;
+    readonly sleep?: (delayMs: number, signal: AbortSignal) => Promise<void>;
+    readonly now?: () => number;
+    readonly random?: () => number;
+    readonly signal?: AbortSignal;
+  };
+}): Promise<"already-current" | "promoted"> => {
+  const initial = await input.read(AbortSignal.timeout(30_000));
+  guardPublicationVersion(input.version, initial, input.name);
+  if (initial === input.version) return "already-current";
+
+  let submissionFailure: unknown;
+  try {
+    await input.promote();
+  } catch (error) {
+    submissionFailure = error;
+  }
+
+  try {
+    await observePublication({
+      name: `npm latest ${input.name}@${input.version}`,
+      read: input.read,
+      matches: (latest) => latest === input.version,
+      conflicts: (latest) => {
+        guardPublicationVersion(input.version, latest, input.name);
+        return false;
+      },
+      retryError: isTransientPublicationError,
+      timeoutMs: 120_000,
+      ...input.observation,
+    });
+    return "promoted";
+  } catch (readbackFailure) {
+    if (submissionFailure !== undefined) {
+      throw new AggregateError(
+        [submissionFailure, readbackFailure],
+        `npm latest submission and bounded readback failed for ${input.name}.`,
+        { cause: readbackFailure },
+      );
+    }
+    throw readbackFailure;
+  }
 };

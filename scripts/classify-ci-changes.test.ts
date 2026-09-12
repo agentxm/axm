@@ -135,7 +135,9 @@ describe("classifyCiChanges", () => {
   });
 
   it("runs code verification for release and infrastructure inputs", () => {
-    expect(classifyCiChanges(["scripts/release-publish.ts", "infra/example.ts"])).toMatchObject({
+    expect(
+      classifyCiChanges(["scripts/reconcile-github-release.ts", "infra/example.ts"]),
+    ).toMatchObject({
       code: true,
       releaseInfrastructure: true,
     });

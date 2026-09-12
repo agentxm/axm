@@ -20,6 +20,7 @@ import {
   validateGeneratedSkillCompatibility,
   validateReleaseTag,
   validateCiRunDetails,
+  validateExactCiRunDetails,
   writeSkillVersion,
 } from "./release-shared.js";
 
@@ -226,6 +227,44 @@ describe("release CI producer provenance", () => {
         listedRun,
       ).attempt,
     ).toBe(3);
+  });
+
+  it("binds an explicitly selected merged-revision run to push CI", () => {
+    expect(
+      validateExactCiRunDetails(
+        {
+          id: 42,
+          event: "push",
+          head_sha: sha,
+          path: ".github/workflows/ci.yml",
+          run_attempt: 2,
+          run_number: 8,
+          status: "completed",
+          conclusion: "success",
+          html_url: "https://github.com/agentxm/axm/actions/runs/42",
+          name: "CI",
+        },
+        { databaseId: 42, headSha: sha, event: "push" },
+      ),
+    ).toMatchObject({ databaseId: 42, headSha: sha, event: "push", attempt: 2 });
+
+    expect(() =>
+      validateExactCiRunDetails(
+        {
+          id: 42,
+          event: "workflow_dispatch",
+          head_sha: sha,
+          path: ".github/workflows/ci.yml",
+          run_attempt: 2,
+          run_number: 8,
+          status: "completed",
+          conclusion: "success",
+          html_url: "https://github.com/agentxm/axm/actions/runs/42",
+          name: "CI",
+        },
+        { databaseId: 42, headSha: sha, event: "push" },
+      ),
+    ).toThrow("provenance");
   });
 
   it("rejects an ineligible event or mismatched producer identity", () => {

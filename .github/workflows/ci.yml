@@ -499,7 +499,7 @@ jobs:
         # installs no host toolchain, so no pnpm exists to resolve container:ci.
         run: >-
           scripts/container-environment.sh ci bash -lc
-          'pnpm install --frozen-lockfile && pnpm run ci:report'
+          'pnpm install --frozen-lockfile && scripts/with-allure-report.sh pnpm run ci'
 
       - name: Report hosted runner measurement
         if: always()

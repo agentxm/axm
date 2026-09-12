@@ -88,4 +88,10 @@ describe("aggregate required verification", () => {
     expect(serialized).toContain("steps.set-shas.outputs.base");
     expect(serialized).toContain("steps.set-shas.outputs.head");
   });
+
+  it("runs the complete CI workflow through the report-preserving wrapper on hosted runners", () => {
+    const hosted = JSON.stringify(readWorkflow().jobs["verify-main-hosted"]);
+    expect(hosted).toContain("scripts/with-allure-report.sh pnpm run ci");
+    expect(hosted).not.toContain("pnpm run ci:report");
+  });
 });

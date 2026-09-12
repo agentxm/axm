@@ -1,3 +1,13 @@
+## 0.29.4 (2026-09-12)
+
+### 🩹 Fixes
+
+- Publish the generated specification catalog evidence omitted from the prior release candidate. ([#270](https://github.com/agentxm/axm/pull/270))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.29.3 (2026-09-12)
 
 ### 🚀 Features

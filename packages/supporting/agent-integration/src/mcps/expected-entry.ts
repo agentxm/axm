@@ -269,8 +269,17 @@ const projectInlineStdio = (args: {
   const entry: Record<string, unknown> = {
     [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadataFromSettingsSource(args.source, args.serverName),
   };
+  const forwarded: Array<string> = [];
+  const literalOrExpanded: Record<string, string> = {};
+  for (const [name, value] of Object.entries(args.env)) {
+    if (args.dialect.envVarsKey !== undefined && FULL_ENV_REF_RE.exec(value)?.[1] === name) {
+      forwarded.push(name);
+    } else {
+      literalOrExpanded[name] = value;
+    }
+  }
   const env = projectEnvRecord({
-    values: args.env,
+    values: literalOrExpanded,
     envExpansion: args.envExpansion,
     field: "env",
   });
@@ -291,6 +300,9 @@ const projectInlineStdio = (args: {
   }
   if (Object.keys(env.values).length > 0 && args.dialect.envKey !== null) {
     entry[args.dialect.envKey] = env.values;
+  }
+  if (forwarded.length > 0 && args.dialect.envVarsKey !== undefined) {
+    entry[args.dialect.envVarsKey] = forwarded.sort();
   }
   return { _tag: "projected", entry };
 };

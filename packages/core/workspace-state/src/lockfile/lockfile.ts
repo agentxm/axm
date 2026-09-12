@@ -17,6 +17,7 @@ import * as Semaphore from "effect/Semaphore";
 import YAML from "yaml";
 
 import {
+  protectWorkspacePath,
   recordFootprint,
   sweepStaleAtomicWriteTemps,
   writeFileAtomic,
@@ -199,6 +200,7 @@ const writeLockfileUnlocked = (lockfilePath: string, lockfile: Lockfile) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const yamlContent = yield* encodeLockfileYaml(lockfilePath, lockfile);
+    yield* protectWorkspacePath(lockfilePath);
     const existed = yield* fs.exists(lockfilePath).pipe(Effect.orElseSucceed(() => true));
     yield* sweepStaleAtomicWriteTemps(fs, lockfilePath);
     const written = yield* writeFileAtomic(fs, {

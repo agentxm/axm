@@ -80,7 +80,14 @@ export const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLint
     selection,
     strict: args.strict,
     details: args.details,
-  }).pipe(withWorkspace({ scope: selection.scope, projectRoot: lintSelectionRoot(selection) }));
+  }).pipe(
+    // Lint reports a scope without settings as a finding rather than refusing to run.
+    withWorkspace({
+      scope: selection.scope,
+      projectRoot: lintSelectionRoot(selection),
+      allowUninitialized: true,
+    }),
+  );
 });
 
 /** Lint reports facts by default; `--fix` switches it into repairing determined workspace state. */

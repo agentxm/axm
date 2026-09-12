@@ -48,6 +48,9 @@ import {
   projectionContributorsRenderedConformance,
   projectionOwnershipValidConformance,
   settingsKeysRecognizedConformance,
+  projectOutputsNotShadowedConformance,
+  userOutputsHaveSettingsConformance,
+  agentContentHasSettingsConformance,
 } from "./conformance/workspace-state/test-helpers.js";
 import {
   completeWorkspaceFindings,
@@ -80,6 +83,9 @@ const cases: ReadonlyArray<WorkspaceRuleConformanceCase> = [
   installedButNotConfiguredConformance,
   authoredPackageDeclaredConformance,
   installRootEntriesRecognizedConformance,
+  projectOutputsNotShadowedConformance,
+  userOutputsHaveSettingsConformance,
+  agentContentHasSettingsConformance,
   skillsDeclarationsValidConformance,
   packsDeclarationsValidConformance,
   configuredButNotInstalledConformance,

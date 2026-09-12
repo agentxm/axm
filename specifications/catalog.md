@@ -193,6 +193,19 @@ People and agents can understand invalid workspace state and recover it through 
 - Additional evidence: process via [`apps/cli-e2e/src/lint.e2e.test.ts`](../apps/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
 - Source: [`packages/core/workspace-lint/src/run/observes-selected-filesystem-view.spec.ts`](../packages/core/workspace-lint/src/run/observes-selected-filesystem-view.spec.ts)
 
+##### Lint reports agent content in a project folder without workspace settings
+
+- Requirement: `cli/lint/reports-agent-content-without-settings`
+- Owner: `workspace-lint`
+- Statement: When a project folder that is not the user home has no project workspace settings, lint shall report one warning per agent instruction file and per non-empty agent output directory under workspace/agent-content-has-settings naming its path, its entry count, and the agents that read it, as facts without commands; a folder with settings, or the user home itself, shall produce no such finding.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Boundary rationale: Agent content and missing settings are real files in a project folder on disk, decided against a separate user home; production lint observes them without creating settings.
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-lint/src/catalog/workspace/reports-agent-content-without-settings.spec.ts`](../packages/core/workspace-lint/src/catalog/workspace/reports-agent-content-without-settings.spec.ts)
+
 ##### Lint preserves workspace files whether the run succeeds or fails
 
 - Requirement: `cli/lint/reports-facts-without-mutation`
@@ -220,6 +233,35 @@ People and agents can understand invalid workspace state and recover it through 
 - Methods: example, decision-table
 - Additional evidence: process via [`apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts`](../apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts) — Runs the built CLI against a persisted workspace holding leftover installed packages, an undeclared authored package, an unrecognized install-root entry, and obsolete skill links, proving lint facts, the sync convergence exit status, uninstall refusal, and the files a real sync removes and keeps.
 - Source: [`packages/core/workspace-lint/src/catalog/workspace/reports-installed-but-not-configured.spec.ts`](../packages/core/workspace-lint/src/catalog/workspace/reports-installed-but-not-configured.spec.ts)
+
+##### Lint reports a folder without workspace settings instead of refusing to run
+
+- Requirement: `cli/lint/reports-missing-settings-as-finding`
+- Owner: `workspace-lint`
+- Statement: When the selected scope has no workspace settings, lint shall complete and report the missing settings file as an error under workspace/initialized alongside its other findings, and shall not create the settings file.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Boundary rationale: A missing settings file is a real absence in a folder on disk; the lint feature over live workspace services decides whether the run completes and what it reports.
+- Methods: example
+- Derived from: `apps/cli-e2e/src/cli-commands/lint/command.e2e.ts`
+- Source: [`packages/core/workspace-lint/src/run/reports-missing-settings-as-finding.spec.ts`](../packages/core/workspace-lint/src/run/reports-missing-settings-as-finding.spec.ts)
+
+##### Lint reports project agent outputs that share a name with a user-scope output
+
+- Requirement: `cli/lint/reports-project-outputs-shadowed-by-user-scope`
+- Owner: `workspace-lint`
+- Statement: When a project agent skill or subagent output shares its name with a user-scope output that the same agent reads, lint shall report one warning per such pair under workspace/project-outputs-not-shadowed naming the type, the name, both paths, and the agents that read both, as facts without commands.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `agent-interoperability`
+- Boundary: memory; selection: per-change
+- Boundary rationale: A collision is decided from real agent directories under a project folder and a separate user home on disk; production lint observes both without mutating either.
+- Methods: example
+- Assumptions: Agents resolve user-scope skill and subagent directories relative to the selected user home.
+- Open questions: Which copy an agent loads when names collide is agent-defined and not recorded in the agent capability catalog, so the finding names no winner.
+- Source: [`packages/core/workspace-lint/src/catalog/workspace/reports-project-outputs-shadowed-by-user-scope.spec.ts`](../packages/core/workspace-lint/src/catalog/workspace/reports-project-outputs-shadowed-by-user-scope.spec.ts)
 
 ##### Lint reports authored packages that are not declared
 
@@ -249,6 +291,19 @@ People and agents can understand invalid workspace state and recover it through 
 - Methods: example, decision-table
 - Additional evidence: process via [`apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts`](../apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts) — Runs the built CLI against a persisted workspace holding leftover installed packages, an undeclared authored package, an unrecognized install-root entry, and obsolete skill links, proving lint facts, the sync convergence exit status, uninstall refusal, and the files a real sync removes and keeps.
 - Source: [`packages/core/workspace-lint/src/catalog/workspace/reports-unrecognized-install-root-entries.spec.ts`](../packages/core/workspace-lint/src/catalog/workspace/reports-unrecognized-install-root-entries.spec.ts)
+
+##### Lint reports AXM-owned user-scope agent outputs when user settings are unreadable
+
+- Requirement: `cli/lint/reports-user-outputs-without-settings`
+- Owner: `workspace-lint`
+- Statement: When user-scope agent outputs carry AXM ownership proof and the user workspace has no readable settings, a project lint run shall report one warning per such output under workspace/user-outputs-have-settings naming its type, path, ownership proof, and the expected user settings path, as facts without commands, and shall not report user-scope outputs without ownership proof.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Boundary rationale: Ownership proof is a real symlink into the user AXM home and settings readability is a real file under a separate user home; production lint observes both without mutating either.
+- Methods: example
+- Source: [`packages/core/workspace-lint/src/catalog/workspace/reports-user-outputs-without-settings.spec.ts`](../packages/core/workspace-lint/src/catalog/workspace/reports-user-outputs-without-settings.spec.ts)
 
 ##### The recovery route for a rejected lockfile re-accepts the desired state
 

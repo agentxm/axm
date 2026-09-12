@@ -48,6 +48,9 @@ import { installedButNotConfiguredRule } from "./workspace/installed-but-not-con
 import { authoredPackageDeclaredRule } from "./workspace/authored-package-declared.js";
 import { installRootEntriesRecognizedRule } from "./workspace/install-root-entries-recognized.js";
 import { sourceEndpointsAlignedRule } from "./workspace/source-endpoints-aligned.js";
+import { projectOutputsNotShadowedRule } from "./workspace/project-outputs-not-shadowed.js";
+import { userOutputsHaveSettingsRule } from "./workspace/user-outputs-have-settings.js";
+import { agentContentHasSettingsRule } from "./workspace/agent-content-has-settings.js";
 
 /**
  * Ordered repository-safe `workspace/*` rule catalog. Declaration order is
@@ -101,6 +104,9 @@ export const liveOnlyWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext
   installedButNotConfiguredRule,
   authoredPackageDeclaredRule,
   installRootEntriesRecognizedRule,
+  projectOutputsNotShadowedRule,
+  userOutputsHaveSettingsRule,
+  agentContentHasSettingsRule,
   mcpServerAgentDriftRule,
   mcpServerAgentOrphanedRule,
   skillsArtifactsCorrectRule,
@@ -132,6 +138,9 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   installedButNotConfiguredRule,
   authoredPackageDeclaredRule,
   installRootEntriesRecognizedRule,
+  projectOutputsNotShadowedRule,
+  userOutputsHaveSettingsRule,
+  agentContentHasSettingsRule,
   skillsDeclarationsValidRule,
   packsDeclarationsValidRule,
   configuredButNotInstalledRule,

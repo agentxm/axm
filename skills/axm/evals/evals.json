@@ -967,6 +967,69 @@
         "Migrate installs and verifies `@acme/skills/triage-v2`, updates both references as a local write, and only then uninstalls `@acme/skills/triage`; Verify re-runs the reference search.",
         "The report never describes the deprecation as harmless or the uninstall as safe while the references remain, and nothing is installed, edited, or uninstalled."
       ]
+    },
+    {
+      "id": 92,
+      "stage": "execution",
+      "prompt": "Treat this as supplied evidence: `axm lint --scope user --json` is compatible with no findings and `axm list --scope user --json` lists AXM-installed `@agentxm/skills/axm` 0.28.0; `axm lint --json` in the project reports only `workspace/project-outputs-not-shadowed`: `Project skill 'axm' at .claude/skills/axm has a same-named user-scope skill at ~/.claude/skills/axm for claude-code`; project sync preview is `no-op`; the CLI is current; nothing is outdated or deprecated. Run `/axm doctor` without modifying files.",
+      "expected_output": "A report that titles the collision as a user-scope-reaching finding, recommends a previewed user-scope uninstall kept out of full cleanup, and shows both scope statuses; nothing is applied.",
+      "assertions": [
+        "The finding quotes both `.claude/skills/axm` and `~/.claude/skills/axm` and states that the agent decides which copy loads, without claiming which one wins.",
+        "The uninstall option uses `axm skills uninstall axm --scope user --preview` before any apply and is marked `not in full cleanup: affects every project`.",
+        "The summary line reports both a project and a user status, and nothing is uninstalled or edited."
+      ]
+    },
+    {
+      "id": 93,
+      "stage": "execution",
+      "prompt": "Treat this as supplied evidence: `axm lint --scope user --json` reports `workspace/initialized` (`.axm/workspace/axm.json` missing) and `axm lint --json` in a healthy project additionally reports `workspace/user-outputs-have-settings` for `~/.claude/skills/axm`, `~/.claude/skills/lazyvim-config`, and `~/.cursor/skills/axm`, each linking into AXM storage; project sync preview is `no-op`; the CLI is current. Run `/axm doctor` without modifying files.",
+      "expected_output": "A Broken report with one grouped user-scope finding quoting all three paths and recommending a previewed user workspace restore; nothing is applied or deleted.",
+      "assertions": [
+        "The overall status is `Broken`, with the project reported healthy and the user scope reported broken or not set up.",
+        "One grouped finding quotes all three paths; its recommended option starts with `axm setup --scope user --preview` and reviews `axm sync --scope user --preview` before applying, marked `not in full cleanup: affects every project`.",
+        "The report never proposes deleting the user-scope outputs or `~/.axm` storage by hand, and nothing is set up, synced, or removed."
+      ]
+    },
+    {
+      "id": 94,
+      "stage": "execution",
+      "prompt": "Treat this as supplied evidence: the working directory is a Git repository root without `axm.json`; `axm lint --json` reports `workspace/initialized` and `workspace/agent-content-has-settings` for `CLAUDE.md` and `.claude/skills` with 3 entries; `axm lint --scope user --json` is compatible with no findings; the CLI is current. Run `/axm doctor` without modifying files.",
+      "expected_output": "A diagnosed report, not Could not diagnose, that offers a previewed project setup as a recommended option kept out of full cleanup; nothing is applied.",
+      "assertions": [
+        "The status is not `Could not diagnose`; the summary reports `Project: not set up` and a healthy user scope.",
+        "A project finding quotes `CLAUDE.md` and `.claude/skills` and offers `axm setup --preview` then setup as recommended, marked `not in full cleanup: creates a workspace`, plus keep.",
+        "No project sync or list check is reported as failed for the unset project, and nothing is set up."
+      ]
+    },
+    {
+      "id": 95,
+      "stage": "execution",
+      "prompt": "Treat this as supplied evidence: the working directory is a Git repository root without `axm.json`; `axm lint --json` reports only `workspace/initialized`; `axm lint --scope user --json` is compatible with no findings and user sync preview is `no-op`; the CLI is current; nothing is outdated or deprecated. Run `/axm doctor` without modifying files.",
+      "expected_output": "A Healthy report whose only project line is an Informational note that setup would enable project-level extensions; no choice is offered.",
+      "assertions": [
+        "The status is `Healthy` with `Project: not set up`, and the report ends with `No action needed.` and no lettered choice.",
+        "Project setup appears only as an Informational line naming `axm setup`, not as a Recommended option."
+      ]
+    },
+    {
+      "id": 96,
+      "stage": "execution",
+      "prompt": "Treat this as supplied evidence: the working directory is `$HOME`; `axm lint --scope user --json` is compatible with no findings; user sync preview is `no-op`; the CLI is current; nothing is outdated or deprecated. Run `/axm doctor` without modifying files.",
+      "expected_output": "A Healthy user-scope report with the project marked not applicable and no project setup offer.",
+      "assertions": [
+        "No project lint runs and the summary reports `Project: not applicable`.",
+        "The report offers no `axm setup` for the home directory as a project."
+      ]
+    },
+    {
+      "id": 97,
+      "stage": "execution",
+      "prompt": "Treat this as supplied evidence: the working directory has no `axm.json` and no agent content; `axm lint --json` reports only `workspace/initialized`; `axm lint --scope user --json` reports only `workspace/initialized`. Run `/axm doctor` without modifying files.",
+      "expected_output": "A Could not diagnose summary naming user setup first and project setup second, with no partial findings.",
+      "assertions": [
+        "The status is `Could not diagnose` and the summary names `axm setup --scope user` before `axm setup` for a project.",
+        "The report has no finding sections and runs no setup."
+      ]
     }
   ]
 }

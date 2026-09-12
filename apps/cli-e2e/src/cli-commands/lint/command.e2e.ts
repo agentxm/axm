@@ -400,6 +400,31 @@ describe("axm lint (e2e, Phase 7)", () => {
     });
   });
 
+  describe("folder without workspace settings", () => {
+    it("reports missing settings and agent content as findings instead of failing", async () => {
+      const project = createTempDir("axm-lint-unset-project-");
+      const home = createTempDir("axm-lint-unset-home-");
+      try {
+        fs.writeFileSync(path.join(project.path, "CLAUDE.md"), "# Guidance\n");
+
+        const result = await runCli(["lint", "--json"], {
+          cwd: project.path,
+          env: { AXM_USER_HOME: home.path, HOME: home.path },
+        });
+
+        const findings = JSON.parse(result.stdout)?.result?.findings ?? [];
+        const ruleIds = findings.map((f: { ruleId: string }) => f.ruleId);
+        expect(result.exitCode).toBe(1);
+        expect(ruleIds).toContain("workspace/initialized");
+        expect(ruleIds).toContain("workspace/agent-content-has-settings");
+        expect(fs.existsSync(path.join(project.path, "axm.json"))).toBe(false);
+      } finally {
+        project.cleanup();
+        home.cleanup();
+      }
+    });
+  });
+
   describe("configured local severity", () => {
     it("lowers a project error to warning and lets --strict own warning failure", async () => {
       const temp = createTempDir("axm-lint-severity-e2e-");

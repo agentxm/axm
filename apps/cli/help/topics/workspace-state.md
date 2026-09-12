@@ -53,6 +53,17 @@ does not declare, and `workspace/install-root-entries-recognized` for an
 install-root entry that is neither an installed package nor AXM staging.
 `axm lint --fix` adds no declarations and removes nothing.
 
+Agents read the user scope and the project together, so `axm lint` also
+reports what the other scope contributes. `workspace/project-outputs-not-shadowed`
+warns when a project skill or subagent shares its name with a user-scope output
+the same agent reads; the agent decides which copy it loads.
+`workspace/user-outputs-have-settings` warns when user-scope agent outputs carry
+AXM ownership proof but `~/.axm/workspace/axm.json` is missing or unreadable. In
+a folder without `axm.json`, lint reports `workspace/initialized` instead of
+failing, and `workspace/agent-content-has-settings` warns about agent
+instruction files and agent directories there. A project folder that is the
+user home has no separate user scope, so these checks skip it.
+
 User scope uses `~/.axm/workspace/axm.json`,
 `~/.axm/workspace/axm-lock.yaml`, and the same source-qualified acquired
 package scheme under `~/.axm/workspace/agent_extensions/`; the authority

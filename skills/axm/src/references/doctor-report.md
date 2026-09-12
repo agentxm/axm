@@ -8,7 +8,15 @@ omit empty ones, and never renumber IDs.
   (`D1a`, `D1b`). All stay fixed through repair.
 - Status is exactly one of `Healthy`, `Needs attention`, `Broken`, or
   `Could not diagnose`. `Needs attention` requires at least one option that
-  changes something.
+  changes something. Each scope's status is one of the first three or
+  `not set up`; the overall status is the worst set-up scope's.
+- Title each finding `[user]` or `[project]`. Group one rule's findings in one
+  scope into one finding whose Evidence quotes each path.
+- Render a user-scope finding in full when it changes what an agent in the
+  invoked folder loads: same-named outputs, AXM-owned outputs without
+  settings, AXM skill compatibility, projected artifacts, or an outdated or
+  deprecated installed extension. Collapse the rest into one Informational
+  line naming `axm lint --scope user --json`.
 - Authority is one of `local write`, `local deletion`, `network read`,
   `registry`, `credential`, or `executable upgrade`.
 - Evidence quotes the command and the exact field, rule ID, or unit.
@@ -32,7 +40,11 @@ it is Informational: state why no fix is offered and what would enable one.
   and Verify re-runs the search. Never call a finding harmless while a removal
   would break a reference.
 - **Outward effects:** a registry or credential option may be recommended but
-  is marked `not in full cleanup: affects all consumers`.
+  is marked `not in full cleanup: affects all consumers`; a user-scope option,
+  `not in full cleanup: affects every project`.
+- **No Git:** outside a repository, report recoverability and references as
+  `unavailable: not a Git repository` and recommend keep for removals of
+  unowned content.
 - **Currency:** a newer CLI is fixed by `axm upgrade` (executable upgrade); an
   outdated extension by `axm update <fqn>` (local write). An incompatible AXM
   skill stays `Needs action` with lint's recovery.
@@ -62,6 +74,28 @@ it is Informational: state why no fix is offered and what would enable one.
   install-root entry** (`workspace/install-root-entries-recognized`): offer
   remove (`git rm -r <path>`, local deletion) and keep, applying
   recoverability. AXM never removes it.
+- **Shadowed project output** (`workspace/project-outputs-not-shadowed`):
+  Impact names both paths and that the agent decides which copy loads. When
+  AXM installed the user copy in a readable user workspace, offer uninstall
+  (`axm <type> uninstall <name> --scope user --preview`, then apply; local
+  deletion; recommended) and keep. When the user workspace is unreadable, the
+  uninstall depends on repairing it. Otherwise report it as Informational
+  naming the user-scope path to remove by its owner.
+- **AXM-owned user outputs without settings**
+  (`workspace/user-outputs-have-settings`): `Broken`. Offer restore the user
+  workspace (`axm setup --scope user --preview`, then apply, then
+  `axm sync --scope user --preview` before applying; local write;
+  recommended) and keep. Never hand-delete the outputs or `~/.axm` storage.
+  Verify: `axm lint --scope user --json` → no such finding.
+- **Project not set up** (`workspace/initialized` in project lint): with
+  `workspace/agent-content-has-settings`, a Recommended finding quoting each
+  path offering set up (`axm setup --preview`, then
+  `axm setup --scope project`; local write; recommended;
+  `not in full cleanup: creates a workspace`) and keep. Without it, only an
+  Informational line in a Git repository; nothing elsewhere or in `$HOME`.
+- **User not set up** (`workspace/initialized` in user lint, no other user
+  finding): Informational; `axm setup --scope user` makes user-level
+  extensions available in every folder.
 
 ```markdown
 ### Needs action
@@ -97,7 +131,7 @@ it is Informational: state why no fix is offered and what would enable one.
 ---
 
 **AXM doctor: <status>**
-<scope> · <workspace path>
+Project: <status | not set up | not applicable> · User: <status | not set up> · <invoked path>
 Versions: CLI <version> (<latest | newer available: version | unchecked>) · skill <compatibility> · <n> outdated · <n> deprecated
 <one sentence: the most important thing>
 
@@ -138,7 +172,8 @@ choice: the recommended choice first, then the rest in letter order, with its
 free-text option carrying option IDs, an override, or a custom request. Keep
 the labels in option text so both paths map identically.
 
-Apply in dependency order: upgrade; updates, installs, and adoptions; sync;
+Apply in dependency order: upgrade; user-scope repair; updates, installs,
+adoptions, and setup; sync;
 reference updates; then uninstalls and removals of authored or unowned content. When a step fails, skip steps that depend on it — never remove
 an extension whose replacement did not verify — and continue independent ones.
 
@@ -147,7 +182,9 @@ an extension whose replacement did not verify — and continue independent ones.
 - **Healthy:** Informational when present, `Checked`, then the summary with
   `No action needed.` No choice.
 - **Could not diagnose:** the summary only, naming the blocking prerequisite
-  and its next command. No partial findings.
+  and its next command: the `axm` install route, or, when neither scope is set
+  up, `axm setup --scope user` then `axm setup` for a project. No partial
+  findings.
 - **Post-repair:** replace finding sections with one line per applied or
   offered option — `D1a · fixed · verified by <readback>`,
   `D2 · not selected`, `D3a · failed: <result>`, or

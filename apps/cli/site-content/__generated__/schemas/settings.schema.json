@@ -759,6 +759,9 @@
             "workspace/install-root-entries-recognized": {
               "$ref": "#/definitions/LintRuleSeverity"
             },
+            "workspace/project-outputs-not-shadowed": { "$ref": "#/definitions/LintRuleSeverity" },
+            "workspace/user-outputs-have-settings": { "$ref": "#/definitions/LintRuleSeverity" },
+            "workspace/agent-content-has-settings": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/skills-declarations-valid": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/packs-declarations-valid": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/configured-but-not-installed": { "$ref": "#/definitions/LintRuleSeverity" },

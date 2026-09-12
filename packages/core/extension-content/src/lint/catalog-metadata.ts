@@ -605,6 +605,24 @@ export const lintCatalogRuleMetadata = defineLintCatalog([
     views: workspaceView,
   },
   {
+    id: "workspace/project-outputs-not-shadowed",
+    defaultSeverity: "warning",
+    group: "workspace",
+    views: workspaceView,
+  },
+  {
+    id: "workspace/user-outputs-have-settings",
+    defaultSeverity: "warning",
+    group: "workspace",
+    views: workspaceView,
+  },
+  {
+    id: "workspace/agent-content-has-settings",
+    defaultSeverity: "warning",
+    group: "workspace",
+    views: workspaceView,
+  },
+  {
     id: "workspace/skills-declarations-valid",
     defaultSeverity: "error",
     group: "workspace",

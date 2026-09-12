@@ -139,33 +139,27 @@ state in the [specification catalog](../../specifications/catalog.md).
    The exact subject is part of the publishing contract. The default GitHub
    squash subject includes the pull request number and must not be used.
 
-4. Wait for CI on the merged release commit.
+4. Wait for CI and automatic publication on the merged release commit.
 
    The release commit must complete the `ci.yml` workflow successfully before
    publishing. That exact push run compiles and smoke-tests the native binaries,
    packs the fixed npm cohort once, verifies reproducible bytes and package
    contents, and uploads both artifact families with commit identity. CI
-   artifacts are retained for 90 days.
+   artifacts are retained for 90 days. Successful `push` CI on `main` continues
+   automatically into `publish.yml`; the canonical release subject supplies
+   the tag, and the completed run supplies the exact commit and CI run ID. No
+   second routine operator command or public trigger is required.
 
-5. Publish the GitHub release after CI is green.
+5. Let GitHub Actions finish the publish.
 
-   ```bash
-   pnpm release:publish -- cli-v0.1.0 --dry-run
-   pnpm release:publish -- cli-v0.1.0
-   ```
-
-   Dry-run previews the publish action. The real run validates the requested
-   tag, confirms the matching release commit on `origin/main`, checks the
-   release package versions at that commit, and requires a successful CI run
-   before creating the GitHub Release.
-
-6. Let GitHub Actions finish the publish.
-
-   The GitHub Release triggers `publish.yml`, which validates the exact tag and
-   commit, downloads and validates matching CI binaries, npm tarballs,
-   metadata, and checksums, then publishes those exact bytes and the Homebrew
-   formula. The publish job never rebuilds or repacks npm packages. Every
-   verification checkout is pinned to the resolved commit. Required evidence
+   The publication workflow validates the exact release commit and successful
+   merged-revision CI run, downloads and validates its binaries, npm tarballs,
+   metadata, and checksums, and preflights every mutable distribution owner.
+   It then prepares an exact draft GitHub Release, distributes those exact
+   bytes and the Homebrew formula, and publishes the release only after
+   distribution succeeds. The publish job never rebuilds or repacks stable npm
+   packages. Every verification checkout is pinned to the resolved commit.
+   Required evidence
    includes exact-version bash installations on Linux/macOS, PowerShell and cmd
    on Windows, clean published npm installations on Linux/macOS/Windows,
    pnpm and Yarn Classic on Linux, macOS Homebrew installation, and publication
@@ -181,11 +175,21 @@ state in the [specification catalog](../../specifications/catalog.md).
    audit event.
 
    Recovery uses the same workflow with the existing `release_tag`, without a
-   promotion-bypass input. Identical outputs are verified and reused; missing
-   outputs are published; different content and failed existence reads stop the
-   run. A successful or ambiguous write gets bounded readback; it is never
-   repeated merely because public visibility is delayed. Missing tap
-   credentials fail when a formula write is needed.
+   promotion-bypass input:
+
+   ```bash
+   gh workflow run publish.yml \
+     --repo agentxm/axm \
+     --ref main \
+     --field mode=stable-recovery \
+     --field release_tag=cli-v0.1.0
+   ```
+
+   Identical outputs are verified and reused; missing outputs are published;
+   different content and failed existence reads stop the run. A successful or
+   ambiguous write gets bounded readback; it is never repeated merely because
+   public visibility is delayed. Missing tap credentials fail when a formula
+   write is needed.
 
    If an exact-commit CI artifact has expired or is missing, publication fails
    before writes. Regenerate it only by dispatching `ci.yml` at the release tag,
@@ -203,15 +207,15 @@ state in the [specification catalog](../../specifications/catalog.md).
    is observed; it does not repair historical distribution or move channels
    backward. Concurrent tap changes reject the push and require a fresh run.
 
-   GitHub, npm, Homebrew, and the skill can become visible before stable. The
-   published-release trigger also leaves an initial interval before binary
-   attachment. Default public-script and native-manager installation therefore
-   has its own discovery behavior; it is not stable-only. An interrupted release
-   can remain partly published until a rerun or superseding release. There is
-   no atomic cross-service transaction, automatic rollback, or propagation
-   deadline. The always-run summary distinguishes distribution/verification
-   failure, complete distribution with incomplete promotion, confirmed
-   promotion, and superseded candidates.
+   npm, Homebrew, and the draft GitHub Release assets can exist before stable;
+   the GitHub Release becomes public only after distribution completes. Default
+   public-script and native-manager installation therefore has its own
+   discovery behavior; it is not stable-only. An interrupted release can remain
+   partly published until a rerun or superseding release. There is no atomic
+   cross-service transaction, automatic rollback, or propagation deadline. The
+   always-run summary distinguishes distribution/verification failure, complete
+   distribution with incomplete promotion, confirmed promotion, and superseded
+   candidates.
 
 ---
 
@@ -252,18 +256,36 @@ script:
    gh release view <tag> --repo agentxm/axm --json tagName,url,isDraft,isPrerelease,publishedAt
    ```
 
-6. Re-run publish preflight without creating the release.
+6. Inspect the canonical publication run for that exact commit.
 
    ```bash
-   pnpm release:publish -- <tag> --dry-run
+   gh run list --repo agentxm/axm --workflow publish.yml --limit 20 \
+     --json databaseId,event,status,conclusion,url
    ```
 
-   This is the strongest final check because it enforces the same preconditions
-   as the real publish command.
+   The automatic run is a `workflow_run` event. Its source summary must name the
+   exact tag, commit, and CI run; its final summary records distribution,
+   verification, and stable-promotion state.
 
-## Local Preview Publish
+## Bootstrap prerelease
 
-For a working-tree package preview, follow [Publish a local preview](publish-local-preview.md).
+When a published CLI is unavailable or cannot execute the candidate-generation
+workflow, publish a bootstrap prerelease from the exact current `main` revision:
+
+```bash
+source_sha="$(git rev-parse origin/main)"
+gh workflow run publish.yml \
+  --repo agentxm/axm \
+  --ref main \
+  --field mode=bootstrap-prerelease \
+  --field source_sha="$source_sha"
+```
+
+This is an explicit exceptional mode of the canonical workflow, not a
+working-tree publisher. It derives a deterministic preview version from the
+workflow run and source commit, publishes the fixed cohort with provenance
+under the `preview` dist-tag, and verifies an exact global installation. It
+refuses a stale source revision or a preview tag that has already advanced.
 
 ## Notes
 

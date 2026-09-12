@@ -43,6 +43,11 @@ belong here. Repository owners administer those settings, but their current
 membership and recovery owner are not established by the checked-in review
 routes.
 
+Successful exact `push` CI on a merged canonical release commit continues into
+publication through `workflow_run`; it does not depend on a second token-created
+event. The publication workflow also owns bounded stable recovery and explicit
+bootstrap prereleases.
+
 ## Constraints and relationship gaps
 
 Replacement or cancellation affects source collaboration, CI, release assets,

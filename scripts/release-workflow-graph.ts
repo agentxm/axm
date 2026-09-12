@@ -27,7 +27,10 @@ const Job = Schema.Struct({
  * are accepted here rather than assumed.
  */
 const Triggers = Schema.Struct({
-  release: Schema.Struct({ types: Schema.Array(Schema.String) }),
+  workflow_run: Schema.Struct({
+    workflows: Schema.Array(Schema.String),
+    types: Schema.Array(Schema.String),
+  }),
   workflow_dispatch: Schema.Struct({
     inputs: Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown)),
   }),

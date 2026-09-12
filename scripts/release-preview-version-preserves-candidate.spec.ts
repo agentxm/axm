@@ -8,7 +8,7 @@ export const specification = defineSpecification({
   requirement: "system/process/release-preview-preserves-canonical-candidate",
   title: "Release previews preserve the canonical candidate",
   statement:
-    "The local npm cohort preview workflow shall derive every preview version below the current stable cohort version so a first preview publication cannot cause canonical publication of that stable version to be treated as superseded.",
+    "The explicitly dispatched bootstrap-prerelease mode of the canonical release workflow shall derive a deterministic preview version below the current stable cohort version so bootstrap publication cannot supersede that stable version.",
   class: "process",
   role: "supporting",
   goals: ["trustworthy-distribution", "dependable-change-process"],
@@ -20,24 +20,15 @@ export const specification = defineSpecification({
 });
 
 describe("Release previews preserve the canonical candidate", () => {
-  it("derives clean and dirty previews below their stable base", () => {
+  it("derives a workflow-identity preview below its stable base", () => {
     const base = "0.28.13";
-    const clean = derivePreviewVersion({
+    const preview = derivePreviewVersion({
       base,
-      dirty: false,
-      seconds: 1_789_139_351,
-      shortSha: "5cd4595aa",
-    });
-    const dirty = derivePreviewVersion({
-      base,
-      dirty: true,
-      seconds: 1_789_139_351,
-      shortSha: "5cd4595aa",
+      sequence: 34_707_752_347,
+      shortSha: "5cd4595aa123",
     });
 
-    expect(clean).toBe("0.28.13-preview.1789139351.5cd4595aa");
-    expect(dirty).toBe("0.28.13-preview.1789139351.5cd4595aa.dirty");
-    expect(semver.lt(clean, base)).toBe(true);
-    expect(semver.lt(dirty, base)).toBe(true);
+    expect(preview).toBe("0.28.13-preview.34707752347.5cd4595aa123");
+    expect(semver.lt(preview, base)).toBe(true);
   });
 });

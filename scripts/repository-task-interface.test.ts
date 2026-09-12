@@ -179,8 +179,9 @@ describe("repository task interface", () => {
       "test",
       "resolve-release-preparation-source",
       "release-prepare-candidate",
-      "release-publish",
-      "release-publish-local",
+      "reconcile-github-release",
+      "publish-bootstrap-prerelease",
+      "validate-release-cohort",
       "validate-release-tag",
       "resolve-release-meta",
       "download-ci-binaries",
@@ -368,8 +369,9 @@ describe("repository task interface", () => {
       // A cached result would skip the production Registry preflight or the
       // exact candidate preview.
       "release-prepare-candidate",
-      "release-publish",
-      "release-publish-local",
+      "reconcile-github-release",
+      "publish-bootstrap-prerelease",
+      "validate-release-cohort",
       "specification-verdict",
       "distribute-release",
       "verify-installed-package",

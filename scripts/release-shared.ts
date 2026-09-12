@@ -528,6 +528,50 @@ export const validateCiRunDetails = (value: unknown, expected: GitHubRun): Verif
   return { ...expected, attempt };
 };
 
+export const validateExactCiRunDetails = (
+  value: unknown,
+  expected: { readonly databaseId: number; readonly headSha: string; readonly event: string },
+): VerifiedGitHubRun => {
+  if (!isRecord(value)) throw new Error("Unexpected GitHub Actions run response.");
+  const number = Reflect.get(value, "run_number");
+  const status = Reflect.get(value, "status");
+  const conclusion = Reflect.get(value, "conclusion");
+  const url = Reflect.get(value, "html_url");
+  const workflowName = Reflect.get(value, "name");
+  if (
+    typeof number !== "number" ||
+    typeof status !== "string" ||
+    (typeof conclusion !== "string" && conclusion !== null) ||
+    typeof url !== "string" ||
+    typeof workflowName !== "string"
+  )
+    throw new Error("Unexpected GitHub Actions run response.");
+
+  return validateCiRunDetails(value, {
+    databaseId: expected.databaseId,
+    event: expected.event,
+    headSha: expected.headSha,
+    number,
+    status,
+    conclusion,
+    url,
+    workflowName,
+  });
+};
+
+export const requireSuccessfulCiRunById = (
+  databaseId: number,
+  sha: string,
+  event: "push" | "workflow_dispatch",
+): VerifiedGitHubRun => {
+  if (!Number.isSafeInteger(databaseId) || databaseId < 1)
+    throw new Error("Expected a positive exact CI run ID.");
+  const details: unknown = JSON.parse(
+    capture("gh", ["api", `repos/${RELEASE_REPO}/actions/runs/${databaseId}`]),
+  );
+  return validateExactCiRunDetails(details, { databaseId, headSha: sha, event });
+};
+
 export const requireSuccessfulCiRun = (sha: string): VerifiedGitHubRun => {
   const runs = listCiRunsForCommit(sha);
   const successfulRun = runs.find(

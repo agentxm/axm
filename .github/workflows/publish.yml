@@ -2,18 +2,31 @@ name: Release
 run-name: >-
   ${{
     github.run_attempt > 1 &&
-    format('Release - {0} - rerun {1}', inputs.release_tag || github.event.release.tag_name, github.run_attempt) ||
-    format('Release - {0}', inputs.release_tag || github.event.release.tag_name)
+    format('Release - {0} - rerun {1}', inputs.release_tag || inputs.source_sha || github.event.workflow_run.head_sha, github.run_attempt) ||
+    format('Release - {0}', inputs.release_tag || inputs.source_sha || github.event.workflow_run.head_sha)
   }}
 
 on:
-  release:
-    types: [published]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
   workflow_dispatch:
     inputs:
-      release_tag:
-        description: Release tag to publish, for example cli-v0.1.1
+      mode:
+        description: Resume a stable release or publish the explicit bootstrap prerelease
         required: true
+        default: stable-recovery
+        type: choice
+        options:
+          - stable-recovery
+          - bootstrap-prerelease
+      release_tag:
+        description: Existing stable tag to resume; required for stable-recovery
+        required: false
+        type: string
+      source_sha:
+        description: Exact current main commit; required for bootstrap-prerelease
+        required: false
         type: string
 
 permissions:
@@ -31,21 +44,153 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  source:
+    name: Resolve publication authority
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    outputs:
+      eligible: ${{ steps.source.outputs.eligible }}
+      mode: ${{ steps.source.outputs.mode }}
+      tag: ${{ steps.source.outputs.tag }}
+      sha: ${{ steps.source.outputs.sha }}
+      ci_run_id: ${{ steps.source.outputs.ci_run_id }}
+    steps:
+      - name: Checkout declared source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.mode == 'bootstrap-prerelease' && inputs.source_sha || 'main' }}
+
+      - name: Resolve exact publication source
+        id: source
+        env:
+          CI_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          CI_EVENT: ${{ github.event.workflow_run.event }}
+          CI_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          CI_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          CI_RUN_ID: ${{ github.event.workflow_run.id }}
+          EVENT_NAME: ${{ github.event_name }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          REQUESTED_MODE: ${{ inputs.mode }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          set -euo pipefail
+          eligible=false
+          mode="${REQUESTED_MODE:-stable-auto}"
+          tag=""
+          sha="$(git rev-parse HEAD)"
+          ci_run_id=""
+
+          if [[ "$EVENT_NAME" == workflow_run ]]; then
+            if [[ "$CI_CONCLUSION" != success || "$CI_EVENT" != push || "$CI_HEAD_BRANCH" != main ]]; then
+              printf 'eligible=false\nmode=stable-auto\ntag=\nsha=%s\nci_run_id=\n' "$sha" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if [[ "$sha" != "$CI_HEAD_SHA" ]]; then
+              echo "Workflow-run checkout differs from the completed CI revision."
+              exit 1
+            fi
+            subject="$(git show -s --format=%s HEAD)"
+            if [[ "$subject" != "release: cli-v"* ]]; then
+              printf 'eligible=false\nmode=stable-auto\ntag=\nsha=%s\nci_run_id=\n' "$sha" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if [[ "$subject" =~ ^release:\ (cli-v[^[:space:]]+)(\ \(\#[0-9]+\))?$ ]]; then
+              tag="${BASH_REMATCH[1]}"
+            else
+              echo "Release-like commit has a noncanonical subject: $subject"
+              exit 1
+            fi
+            ci_run_id="$CI_RUN_ID"
+            eligible=true
+          elif [[ "$mode" == stable-recovery ]]; then
+            if [[ -z "$RELEASE_TAG" ]]; then
+              echo "stable-recovery requires release_tag."
+              exit 1
+            fi
+            tag="$RELEASE_TAG"
+            git fetch origin main --no-tags
+            matches=()
+            while IFS=$'\t' read -r commit subject; do
+              if [[ "$subject" =~ ^release:\ (cli-v[^[:space:]]+)(\ \(\#[0-9]+\))?$ ]] &&
+                [[ "${BASH_REMATCH[1]}" == "$tag" ]]; then
+                matches+=("$commit")
+              fi
+            done < <(git log origin/main --format='%H%x09%s')
+            if [[ "${#matches[@]}" -ne 1 ]]; then
+              echo "Expected exactly one canonical release commit for $tag on origin/main."
+              exit 1
+            fi
+            sha="${matches[0]}"
+            git checkout --detach "$sha"
+            eligible=true
+          elif [[ "$mode" == bootstrap-prerelease ]]; then
+            if [[ ! "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ || "$sha" != "$SOURCE_SHA" ]]; then
+              echo "bootstrap-prerelease requires the exact checked-out source_sha."
+              exit 1
+            fi
+            git fetch origin main --no-tags
+            if [[ "$(git rev-parse origin/main)" != "$sha" ]]; then
+              echo "Bootstrap prereleases may be published only from current main."
+              exit 1
+            fi
+            eligible=true
+          else
+            echo "Unknown publication mode: $mode"
+            exit 1
+          fi
+
+          if [[ -n "$tag" ]]; then
+            version="${tag#cli-v}"
+            manifest_version="$(jq -r '.version' apps/cli/package.json)"
+            if [[ "$manifest_version" != "$version" ]]; then
+              echo "Release tag $tag differs from package version $manifest_version."
+              exit 1
+            fi
+          fi
+          printf 'eligible=%s\nmode=%s\ntag=%s\nsha=%s\nci_run_id=%s\n' \
+            "$eligible" "$mode" "$tag" "$sha" "$ci_run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Report publication selection
+        if: always()
+        env:
+          ELIGIBLE: ${{ steps.source.outputs.eligible }}
+          MODE: ${{ steps.source.outputs.mode }}
+          TAG: ${{ steps.source.outputs.tag }}
+          SHA: ${{ steps.source.outputs.sha }}
+          CI_RUN_ID: ${{ steps.source.outputs.ci_run_id }}
+        run: |
+          {
+            echo "## Publication selection"
+            echo "- Eligible: ${ELIGIBLE:-unresolved}"
+            echo "- Mode: ${MODE:-unresolved}"
+            echo "- Tag: ${TAG:-none}"
+            echo "- Commit: ${SHA:-unresolved}"
+            echo "- Exact CI run: ${CI_RUN_ID:-resolved by recovery preflight}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   release:
     name: Publish Release Assets
+    needs: source
+    if: needs.source.outputs.eligible == 'true' && needs.source.outputs.mode != 'bootstrap-prerelease'
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.release_meta.outputs.tag }}
       version: ${{ steps.release_meta.outputs.version }}
       sha: ${{ steps.release_meta.outputs.sha }}
-      outcome: ${{ steps.distribution.outputs.outcome }}
+      outcome: ${{ steps.distribution.outputs.outcome || steps.distribution_preflight.outputs.outcome }}
       publication: ${{ steps.distribution.outputs.publication }}
+      github_release: ${{ steps.publish_release.outputs.outcome || steps.prepare_release.outputs.outcome }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          ref: ${{ inputs.release_tag || github.event.release.tag_name }}
+          ref: ${{ needs.source.outputs.sha }}
 
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
@@ -59,17 +204,20 @@ jobs:
 
       - name: Resolve release tag and commit
         id: release_meta
-        env:
-          RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
-        run: |
-          pnpm exec nx run axm:resolve-release-meta --outputStyle=static
+        run: >-
+          pnpm exec nx run axm:resolve-release-meta --outputStyle=static --
+          "${{ needs.source.outputs.tag }}" "${{ needs.source.outputs.sha }}"
 
       - name: Download release binaries from CI
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >-
-          pnpm exec nx run axm:download-ci-binaries --outputStyle=static --
-          "${{ steps.release_meta.outputs.sha }}" release-assets release-npm
+          CI_RUN_ID: ${{ needs.source.outputs.ci_run_id }}
+        run: |
+          args=("${{ steps.release_meta.outputs.sha }}" release-assets release-npm)
+          if [[ -n "$CI_RUN_ID" ]]; then
+            args+=("$CI_RUN_ID")
+          fi
+          pnpm exec nx run axm:download-ci-binaries --outputStyle=static -- "${args[@]}"
 
       - name: Generate release checksums
         run: pnpm exec nx run axm:generate-release-checksums --outputStyle=static -- release-assets
@@ -77,8 +225,33 @@ jobs:
       - name: Validate release asset set
         run: pnpm exec nx run axm:validate-release-assets --outputStyle=static -- release-assets
 
+      - name: Validate exact npm cohort
+        run: >-
+          pnpm exec nx run axm:validate-release-cohort --outputStyle=static --
+          release-npm "${{ steps.release_meta.outputs.version }}"
+          "${{ steps.release_meta.outputs.sha }}"
+
+      - name: Preflight mutable distribution owners
+        id: distribution_preflight
+        run: >-
+          pnpm exec nx run axm:distribute-release --outputStyle=static --
+          "${{ steps.release_meta.outputs.version }}"
+          "${{ steps.release_meta.outputs.tag }}"
+          release-assets release-npm --preflight
+
+      - name: Prepare exact draft GitHub Release
+        id: prepare_release
+        if: steps.distribution_preflight.outputs.outcome == 'ready'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          pnpm exec nx run axm:reconcile-github-release --outputStyle=static --
+          prepare "${{ steps.release_meta.outputs.tag }}"
+          "${{ steps.release_meta.outputs.sha }}"
+
       - name: Publish verified immutable distribution
         id: distribution
+        if: steps.distribution_preflight.outputs.outcome == 'ready'
         env:
           GH_TOKEN: ${{ github.token }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
@@ -87,6 +260,72 @@ jobs:
           "${{ steps.release_meta.outputs.version }}"
           "${{ steps.release_meta.outputs.tag }}"
           release-assets release-npm
+
+      - name: Publish verified GitHub Release
+        id: publish_release
+        if: steps.distribution.outputs.outcome == 'distributed'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          pnpm exec nx run axm:reconcile-github-release --outputStyle=static --
+          publish "${{ steps.release_meta.outputs.tag }}"
+          "${{ steps.release_meta.outputs.sha }}"
+
+  bootstrap-prerelease:
+    name: Publish Bootstrap Prerelease
+    needs: source
+    if: needs.source.outputs.eligible == 'true' && needs.source.outputs.mode == 'bootstrap-prerelease'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.publish.outputs.version }}
+      ci_run_id: ${{ steps.publish.outputs.ci_run_id }}
+    steps:
+      - name: Checkout exact current main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.source.outputs.sha }}
+
+      - name: Set up workspace toolchain
+        uses: ./.github/actions/setup-workspace
+
+      - name: Set up npm 11.5.1
+        run: |
+          npm install -g npm@11.5.1
+          npm --version
+
+      - name: Publish exact bootstrap npm cohort
+        id: publish
+        run: >-
+          pnpm exec nx run axm:publish-bootstrap-prerelease --outputStyle=static --
+          "${{ needs.source.outputs.sha }}" "${{ github.run_id }}"
+
+  bootstrap-prerelease-verify:
+    name: Verify Bootstrap Prerelease Install
+    needs: [source, bootstrap-prerelease]
+    if: needs.bootstrap-prerelease.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.source.outputs.sha }}
+
+      - name: Set up repository toolchain
+        uses: ./.github/actions/setup-workspace
+        with:
+          install: "false"
+
+      - name: Verify exact npm installation
+        env:
+          EXPECTED_VERSION: ${{ needs.bootstrap-prerelease.outputs.version }}
+        run: |
+          npm install --global "axm.sh@${EXPECTED_VERSION}"
+          actual="$(axm --version)"
+          if [[ "$actual" != "$EXPECTED_VERSION" ]]; then
+            echo "Expected $EXPECTED_VERSION, observed $actual."
+            exit 1
+          fi
 
   skill-publish:
     name: Publish AXM Skill
@@ -395,23 +634,51 @@ jobs:
   summary:
     name: Release Publication Summary
     needs:
-      [release, install-verify, package-verify, brew-verify, skill-publish, skill-verify, promote]
+      [
+        source,
+        release,
+        bootstrap-prerelease,
+        bootstrap-prerelease-verify,
+        install-verify,
+        package-verify,
+        brew-verify,
+        skill-publish,
+        skill-verify,
+        promote,
+      ]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Record distribution, verification, and promotion results
         env:
-          RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
+          ELIGIBLE: ${{ needs.source.outputs.eligible }}
+          MODE: ${{ needs.source.outputs.mode }}
+          RELEASE_TAG: ${{ needs.release.outputs.tag || needs.source.outputs.tag }}
           RELEASE_VERSION: ${{ needs.release.outputs.version }}
           RELEASE_COMMIT: ${{ needs.release.outputs.sha }}
+          GITHUB_RELEASE: ${{ needs.release.outputs.github_release }}
           PUBLICATION: ${{ needs.release.outputs.publication }}
           DISTRIBUTION: ${{ needs.release.outputs.outcome }}
           PROMOTION: ${{ needs.promote.outputs.outcome }}
+          BOOTSTRAP_VERSION: ${{ needs.bootstrap-prerelease.outputs.version }}
+          BOOTSTRAP_VERIFY: ${{ needs.bootstrap-prerelease-verify.result }}
           RESULTS: ${{ toJSON(needs) }}
         run: |
           {
-            echo "## Release $RELEASE_TAG"
+            echo "## Canonical release workflow"
+            echo "Mode: ${MODE:-not selected}"
+            if [ "$ELIGIBLE" != true ]; then
+              echo "The completed CI run did not identify a release commit; no publication was attempted."
+              exit 0
+            fi
+            if [ "$MODE" = bootstrap-prerelease ]; then
+              echo "Bootstrap prerelease: ${BOOTSTRAP_VERSION:-not published}"
+              echo "Exact npm install verification: ${BOOTSTRAP_VERIFY:-not run}"
+              exit 0
+            fi
+            echo "Release: $RELEASE_TAG"
             echo "Candidate: $RELEASE_VERSION at $RELEASE_COMMIT"
+            echo "GitHub Release: ${GITHUB_RELEASE:-not completed}"
             echo "Publication boundaries: ${PUBLICATION:-not completed}"
             echo "$RESULTS" | jq -r 'to_entries[] | "- \(.key): \(.value.result)"'
             if [ "$DISTRIBUTION" = superseded ] || [ "$PROMOTION" = newer-channel-retained ]; then

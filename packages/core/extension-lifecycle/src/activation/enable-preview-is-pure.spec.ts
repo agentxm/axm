@@ -150,7 +150,7 @@ describe("Enable preview purity", () => {
           Effect.gen(function* () {
             const settled = yield* previewActivation({ type, name, enabled: true });
 
-            expect(settled._tag).toBe("Unchanged");
+            expect(settled._tag).toBe(type === "mcp-server" ? "Resolved" : "Unchanged");
             expect(fixture.snapshot()).toEqual(before);
             expect(fixture.interactionState().confirmApplyChangesCalls).toEqual([]);
           }),

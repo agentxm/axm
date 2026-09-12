@@ -183,13 +183,14 @@ export const ShowExtension = {
 
     if (request.type === "mcp-server") {
       const entry = (yield* settings.entries("mcp-server"))[request.name];
-      if (entry !== undefined) {
+      if (entry !== undefined && enabled !== false) {
         const inspections = yield* inspectMcpServerAcrossAgents({
           workspaceRoot: location.baseDir,
           scope: location.scope,
           agentIds: yield* settings.configuredAgents,
           serverName: request.name,
           entry,
+          canonicalPaths: inventoryRow?.paths ?? [],
         });
         agents = inspections.map((inspection) => ({
           agent: inspection.agentId,
@@ -198,12 +199,24 @@ export const ShowExtension = {
               ? "current"
               : inspection.status === "unsupported"
                 ? "unsupported"
-                : "failed",
+                : inspection.status === "blocked"
+                  ? "blocked"
+                  : "failed",
           reasonCode: `mcp-${inspection.status}`,
           path: inspection.path,
           fields: [...inspection.fields],
           warnings: [...inspection.warnings],
           ...(inspection.reason === undefined ? {} : { reason: inspection.reason }),
+        }));
+      }
+      if (entry !== undefined && enabled === false) {
+        agents = (yield* settings.configuredAgents).map((agent) => ({
+          agent,
+          status: "not-applicable" as const,
+          reasonCode: "extension-disabled",
+          fields: [],
+          warnings: [],
+          reason: "The extension is disabled, so no agent projection is expected.",
         }));
       }
     }

@@ -145,7 +145,12 @@ export const makeReadModelRecordReaders = (args: {
       lifecycle: row.installationOrigin._tag === "direct" ? "configured" : "implicit",
       enabled: row.activation === "enabled",
       installed: row.actual.length > 0,
-      agents: observedAgents.length === 0 ? defaultAgents : observedAgents,
+      agents:
+        row.key.type === "mcp-server"
+          ? defaultAgents
+          : observedAgents.length === 0
+            ? defaultAgents
+            : observedAgents,
       origins: observations.origins,
       paths: observations.paths,
     };

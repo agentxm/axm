@@ -28,6 +28,7 @@ import type {
   ExtensionManagers,
   HookManager,
   KnowledgeManager,
+  McpServerManager,
   McpServerInstallRequirements,
   RuleManager,
   SkillManager,
@@ -86,6 +87,7 @@ export type SyncWorkspaceRequirements =
   | FootprintRecorder
   | HookManager
   | KnowledgeManager
+  | McpServerManager
   | McpServerInstallRequirements
   | RuleManager
   | SkillManager

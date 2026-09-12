@@ -8,12 +8,12 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import {
-  CodingAgentRepository,
-  applyProjectionPlansWithResults,
-  planSingletonProjection,
-} from "@agentxm/workspace-projection";
-import { NativeWriteAuthority, syncInlineMcpServerToAgents } from "@agentxm/agent-integration";
+  NativeWriteAuthority,
+  syncInlineMcpServerToAgents,
+  syncManifestMcpServerToAgents,
+} from "@agentxm/agent-integration";
 import {
   normalizeHandle,
   parseExtensionFqnParts,
@@ -172,45 +172,24 @@ export const enableMcpServer = (
     const resolvedVersion = accepted?.type === "registry" ? accepted.resolvedVersion : "0.0.0";
 
     const agents = yield* agentRepo.getConfiguredAgents();
+    const agentIds = agents.map(({ id }) => id);
     const outcomes = yield* runWorkspaceTransaction({
       transition: Effect.gen(function* () {
-        const synced = yield* applyProjectionPlansWithResults(
-          agents.map((agent) =>
-            planSingletonProjection({
-              unitId: "mcp-server:native-config-entry",
-              targetFile: "mcp:configured-agents",
-              contributor: op.args,
-              adapter: {
-                observe: () =>
-                  Effect.succeed({
-                    unitId: "mcp-server:native-config-entry",
-                    path: `${agent.id}:${op.args.serverName}`,
-                    present: false,
-                    current: false,
-                    expectedContributors: [op.args.serverName],
-                    observedContributors: [],
-                  }),
-                apply: () =>
-                  Effect.gen(function* () {
-                    return yield* agent.addMcpServer({
-                      workspaceRoot: ws.baseDir,
-                      scope: ws.scope,
-                      serverName: op.args.serverName,
-                      canonicalPath,
-                      owner,
-                      resolvedVersion,
-                      enabled: true,
-                      configValues: entry.env,
-                    });
-                  }),
-              },
-            }),
-          ),
-        );
+        const synced = yield* syncManifestMcpServerToAgents({
+          agentIds,
+          workspaceRoot: ws.baseDir,
+          scope: ws.scope,
+          serverName: op.args.serverName,
+          canonicalPath,
+          owner,
+          resolvedVersion,
+          enabled: true,
+          configValues: entry.env,
+        });
         yield* requireSuccessfulMcpSync(
           op.args.serverName,
-          agents.map((agent, index) => ({
-            agentId: agent.id,
+          agentIds.map((agentId, index) => ({
+            agentId,
             outcome: synced[index] ?? {
               _tag: "failed" as const,
               reason: "Agent sync returned no outcome",
@@ -230,18 +209,18 @@ export const enableMcpServer = (
     });
     const warnings = mcpSyncWarnings(
       op.args.serverName,
-      agents.map((agent, index) => ({
-        agentId: agent.id,
+      agentIds.map((agentId, index) => ({
+        agentId,
         outcome: outcomes[index] ?? {
           _tag: "failed" as const,
           reason: "Agent sync returned no outcome",
         },
       })),
     );
-    const agentOutcomes = agents.flatMap((agent, index) => {
+    const agentOutcomes = agentIds.flatMap((agentId, index) => {
       const outcome = outcomes[index];
       return outcome !== undefined && "targets" in outcome
-        ? [{ agentId: agent.id, targets: outcome.targets }]
+        ? [{ agentId, targets: outcome.targets }]
         : [];
     });
     return {

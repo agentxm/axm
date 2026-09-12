@@ -13,6 +13,7 @@ export const executionBinding = {
   requirements: [
     "cli/uninstall/removes-direct-route-and-recomputes-reachability",
     "cli/activation-follows-desired-state",
+    "cli/mcps/projects-to-every-configured-agent",
   ],
   boundary: "process",
   rationale:
@@ -91,6 +92,64 @@ const planAgentOutcomes = (stdout: string): ReadonlyArray<Readonly<Record<string
 
 const outcomeDecisions = (outcomes: ReadonlyArray<Readonly<Record<string, unknown>>>) =>
   outcomes.map(({ outcome: _outcome, ...decision }) => decision);
+
+const showStatuses = (stdout: string): Readonly<Record<string, unknown>> => {
+  const document: unknown = JSON.parse(stdout);
+  if (!isRecord(document) || !isRecord(document["result"])) return {};
+  const agents = document["result"]["agents"];
+  if (!Array.isArray(agents)) return {};
+  return Object.fromEntries(
+    agents.flatMap((agent) =>
+      isRecord(agent) && typeof agent["agent"] === "string"
+        ? [[agent["agent"], agent["status"]]]
+        : [],
+    ),
+  );
+};
+
+const lintRuleIds = (stdout: string): ReadonlyArray<string> => {
+  const document: unknown = JSON.parse(stdout);
+  if (!isRecord(document) || !isRecord(document["result"])) return [];
+  const diagnostics = document["result"]["diagnostics"];
+  if (!Array.isArray(diagnostics)) return [];
+  return diagnostics.flatMap((diagnostic) =>
+    isRecord(diagnostic) && typeof diagnostic["ruleId"] === "string" ? [diagnostic["ruleId"]] : [],
+  );
+};
+
+const writeSymbolicMcpPackage = (workspace: string): void => {
+  const directory = path.join(workspace, "mcps", "mailer");
+  fs.mkdirSync(directory, { recursive: true });
+  writeJson(path.join(directory, "mcp.json"), {
+    owner: "@test",
+    type: "mcp-server",
+    name: "mailer",
+    version: "1.0.0",
+    description: "A symbolic-input MCP server.",
+    server: {
+      name: "io.github.test/mailer",
+      description: "A symbolic-input MCP server.",
+      version: "1.0.0",
+      packages: [
+        {
+          registryType: "npm",
+          identifier: "@test/mailer-mcp",
+          version: "1.0.0",
+          transport: { type: "stdio" },
+          environmentVariables: [
+            {
+              name: "MAILER_TOKEN",
+              description: "Mailer token.",
+              format: "string",
+              isRequired: true,
+              isSecret: true,
+            },
+          ],
+        },
+      ],
+    },
+  });
+};
 
 const inventoryOutcome = (
   stdout: string,
@@ -302,4 +361,147 @@ describe("extension activation lifecycle", () => {
       userHome.cleanup();
     }
   }, 90_000);
+
+  it("keeps MCP activation, native state, inspection, and lint aligned", async () => {
+    const temp = createTempDir();
+    const agents = ["claude-code", "codex", "cursor", "gemini-cli", "github-copilot-cli"];
+    const settingsPath = path.join(temp.path, "axm.json");
+    const runJson = (args: ReadonlyArray<string>) =>
+      runCli([...args, "--json", "--non-interactive"], { cwd: temp.path });
+
+    try {
+      writeJson(settingsPath, {
+        owner: "@test",
+        agents,
+        mcpServers: {
+          context: { url: "https://example.test/mcp", enabled: false },
+        },
+        lint: {
+          rules: {
+            "workspace/agents-detected-declared": "off",
+            "workspace/configured-but-not-installed": "off",
+          },
+        },
+      });
+
+      const preview = await runJson(["mcps", "enable", "context", "--preview"]);
+      expect(preview.exitCode, preview.stdout + preview.stderr).toBe(0);
+      expect(planAgentOutcomes(preview.stdout)).toHaveLength(agents.length);
+      expect(
+        planAgentOutcomes(preview.stdout).every(({ outcome }) => outcome === "projected"),
+        preview.stdout,
+      ).toBe(true);
+
+      const enabled = await runJson(["mcps", "enable", "context"]);
+      expect(enabled.exitCode, enabled.stdout + enabled.stderr).toBe(0);
+      expect(planAgentOutcomes(enabled.stdout)).toHaveLength(agents.length);
+      expect(planAgentOutcomes(enabled.stdout).every(({ outcome }) => outcome === "current")).toBe(
+        true,
+      );
+      const shownEnabled = await runJson(["mcps", "show", "context"]);
+      expect(shownEnabled.exitCode, shownEnabled.stdout + shownEnabled.stderr).toBe(0);
+      expect(showStatuses(shownEnabled.stdout)).toEqual(
+        Object.fromEntries(agents.map((agent) => [agent, "current"])),
+      );
+
+      const disabled = await runJson(["mcps", "disable", "context"]);
+      expect(disabled.exitCode, disabled.stdout + disabled.stderr).toBe(0);
+      expect(
+        planAgentOutcomes(disabled.stdout).every(({ outcome }) => outcome === "not-applicable"),
+      ).toBe(true);
+      expect(fs.readFileSync(path.join(temp.path, ".codex/config.toml"), "utf8")).not.toContain(
+        "mcp_servers.context",
+      );
+      for (const relative of [".mcp.json", ".cursor/mcp.json", ".gemini/settings.json"]) {
+        const native = readJson(path.join(temp.path, relative));
+        expect(JSON.stringify(native), relative).not.toContain('"context"');
+      }
+      const shownDisabled = await runJson(["mcps", "show", "context"]);
+      expect(shownDisabled.exitCode, shownDisabled.stdout + shownDisabled.stderr).toBe(0);
+      expect(showStatuses(shownDisabled.stdout)).toEqual(
+        Object.fromEntries(agents.map((agent) => [agent, "not-applicable"])),
+      );
+      const lint = await runJson(["lint"]);
+      expect(lintRuleIds(lint.stdout)).not.toContain("workspace/agents-projections-stale");
+      const synced = await runJson(["sync"]);
+      expect(synced.exitCode, synced.stdout + synced.stderr).toBe(0);
+
+      const reenabled = await runJson(["mcps", "enable", "context"]);
+      expect(reenabled.exitCode, reenabled.stdout + reenabled.stderr).toBe(0);
+      const repeated = await runJson(["mcps", "enable", "context"]);
+      expect(repeated.exitCode, repeated.stdout + repeated.stderr).toBe(0);
+      expect(planAgentOutcomes(repeated.stdout).every(({ outcome }) => outcome === "current")).toBe(
+        true,
+      );
+    } finally {
+      temp.cleanup();
+    }
+  }, 120_000);
+
+  it("reports symbolic-input capability and blocks incompatible shared MCP targets", async () => {
+    const shared = createTempDir();
+    const independent = createTempDir();
+    const mcpEntry = {
+      source: "workspace",
+      enabled: false,
+      env: { MAILER_TOKEN: "${MAILER_TOKEN}" },
+    };
+    try {
+      for (const workspace of [shared.path, independent.path]) writeSymbolicMcpPackage(workspace);
+      writeJson(path.join(shared.path, "axm.json"), {
+        owner: "@test",
+        agents: ["claude-code", "github-copilot-cli"],
+        mcpServers: { mailer: mcpEntry },
+      });
+      const before = snapshotTree(shared.path);
+      const sharedPreview = await runCli(
+        ["mcps", "enable", "mailer", "--preview", "--json", "--non-interactive"],
+        { cwd: shared.path },
+      );
+      const sharedApply = await runCli(
+        ["mcps", "enable", "mailer", "--json", "--non-interactive"],
+        { cwd: shared.path },
+      );
+      expect(sharedPreview.exitCode).not.toBe(0);
+      expect(sharedApply.exitCode).not.toBe(0);
+      for (const result of [sharedPreview, sharedApply]) {
+        expect(result.stdout + result.stderr).toContain("github-copilot-cli");
+        expect(result.stdout + result.stderr).toContain("shared MCP target '.mcp.json'");
+      }
+      expect(snapshotTree(shared.path)).toEqual(before);
+
+      writeJson(path.join(independent.path, "axm.json"), {
+        owner: "@test",
+        agents: ["codex"],
+        mcpServers: { mailer: mcpEntry },
+      });
+      const independentPreview = await runCli(
+        ["mcps", "enable", "mailer", "--preview", "--json", "--non-interactive"],
+        { cwd: independent.path },
+      );
+      expect(
+        independentPreview.exitCode,
+        independentPreview.stdout + independentPreview.stderr,
+      ).toBe(0);
+      expect(planAgentOutcomes(independentPreview.stdout)).toMatchObject([
+        { agentId: "codex", outcome: "unsupported", reasonCode: "mcp-unsupported" },
+      ]);
+      const independentApply = await runCli(
+        ["mcps", "enable", "mailer", "--json", "--non-interactive"],
+        { cwd: independent.path },
+      );
+      expect(independentApply.exitCode, independentApply.stdout + independentApply.stderr).toBe(0);
+      expect(planAgentOutcomes(independentApply.stdout)).toMatchObject([
+        { agentId: "codex", outcome: "unsupported", reasonCode: "mcp-unsupported" },
+      ]);
+      expect(fs.existsSync(path.join(independent.path, ".codex/config.toml"))).toBe(false);
+      const shown = await runCli(["mcps", "show", "mailer", "--json"], {
+        cwd: independent.path,
+      });
+      expect(showStatuses(shown.stdout)).toEqual({ codex: "unsupported" });
+    } finally {
+      shared.cleanup();
+      independent.cleanup();
+    }
+  }, 120_000);
 });

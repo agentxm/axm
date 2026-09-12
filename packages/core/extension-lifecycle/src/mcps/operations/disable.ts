@@ -74,7 +74,7 @@ export const disableMcpServer = (
               workspaceRoot: ws.baseDir,
               scope: ws.scope,
               serverName: op.args.serverName,
-              disableOnly: true,
+              disableOnly: false,
             }),
           { concurrency: "unbounded" },
         );

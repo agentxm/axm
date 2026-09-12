@@ -128,20 +128,12 @@ describe("enableMcpServer and disableMcpServer", () => {
     vi.restoreAllMocks();
   });
 
-  it.effect("returns enable sync warnings in result without raw warning logs", () =>
+  it.effect("projects a sourced server through the manifest target decision", () =>
     Effect.gen(function* () {
       const entry = makeEntry(false);
-      const addSpy = vi.fn(() =>
-        Effect.succeed({
-          _tag: "fallback" as const,
-          fallbackFrom: "unsupported" as const,
-          reason: "agent used fallback config path",
-          targets: [{ path: ".mcp.json", change: "updated" as const }],
-        }),
-      );
       const agent = makeCodingAgentStub("claude-code", {
         resolveEffectiveSkillsDir: () => Effect.succeed({ _tag: "supported", dir: "/tmp" }),
-        addMcpServer: addSpy,
+        addMcpServer: () => Effect.succeed({ _tag: "unsupported", reason: "not called" }),
         removeMcpServer: () => Effect.succeed({ _tag: "success" }),
       });
       const services = makeServices(
@@ -202,17 +194,20 @@ describe("enableMcpServer and disableMcpServer", () => {
         throw new Error("Expected successful enable result");
       }
       expect(result.message).toContain("Enabled my-server");
-      expect(result.message).toContain("agent used fallback config path");
       expect(result.artifact).toMatchObject({
         path: "agent_extensions/agentxm/@community/mcps/my-server",
         scope: "project",
         change: "updated",
         targets: [
           { path: "axm.json", change: "updated" },
-          { path: ".mcp.json", change: "updated", agentIds: ["claude-code"] },
+          { path: ".mcp.json", change: "created", agentIds: ["claude-code"] },
         ],
       });
-      expect(addSpy).toHaveBeenCalledOnce();
+      expect(
+        JSON.parse(fs.readFileSync(path.join(axmDir, "..", ".mcp.json"), "utf8")),
+      ).toMatchObject({
+        mcpServers: { [serverName]: expect.objectContaining({ command: "npx" }) },
+      });
     }),
   );
 

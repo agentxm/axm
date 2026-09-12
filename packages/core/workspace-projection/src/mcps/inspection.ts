@@ -20,6 +20,7 @@ import {
 import { type McpInspectionError } from "./errors.js";
 import type { McpServerEntry } from "@agentxm/workspace-state";
 import {
+  decodeMcpServerManifestAt,
   groupConfiguredMcpTargets,
   inferInlineRemoteTransport,
   isAxmManagedMcpEntry,
@@ -35,11 +36,14 @@ import {
   readYamlEntry,
   reconcileKeyedBlock,
   resolveAgentMcpConfigTargetPath,
+  resolveMcpServer,
   resolveSharedMcpTarget,
   stringifyTomlKey,
   type ExpectedAgentEntry,
   type SharedMcpTransport,
+  validateManifestMcpServerTargets,
 } from "@agentxm/agent-integration";
+import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import { diffAgentEntry } from "./drift.js";
 
 type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
@@ -55,7 +59,8 @@ type ConfiguredMcpCapability = AgentMcpCapability & {
   };
 };
 
-export type AgentMcpInspectionStatus = "unsupported" | "absent" | "match" | "drift" | "unmanaged";
+export type AgentMcpInspectionStatus =
+  "unsupported" | "blocked" | "absent" | "match" | "drift" | "unmanaged";
 
 export interface AgentMcpServerInspection {
   readonly agentId: string;
@@ -78,9 +83,12 @@ export interface InspectAgentMcpServerArgs {
 }
 
 interface InternalInspectAgentMcpServerArgs extends InspectAgentMcpServerArgs {
+  readonly state?: "projected" | "current";
   readonly projection?: {
     readonly config: McpConfig;
     readonly target: McpConfigTarget;
+    readonly expected?: ExpectedAgentEntry;
+    readonly warnings?: ReadonlyArray<string>;
   };
 }
 
@@ -241,7 +249,7 @@ const inspectActual = (args: {
   readonly expected: McpInspectionExpectation;
 }): Effect.Effect<
   {
-    readonly status: Exclude<AgentMcpInspectionStatus, "unsupported">;
+    readonly status: Exclude<AgentMcpInspectionStatus, "unsupported" | "blocked">;
     readonly fields: ReadonlyArray<string>;
     readonly actual?: Readonly<Record<string, unknown>>;
   },
@@ -352,7 +360,8 @@ const inspectAgentMcpServerInternal = (
     }
 
     const projected: McpInspectionExpectation =
-      args.entry.command === undefined && args.entry.url === undefined
+      args.projection?.expected ??
+      (args.entry.command === undefined && args.entry.url === undefined
         ? { _tag: "managed" }
         : projectExpectedEntry({
             serverName: args.serverName,
@@ -361,7 +370,7 @@ const inspectAgentMcpServerInternal = (
             remote: config.remote,
             activationField: config.activationField,
             envExpansion: capability.native.mcpEnvExpansion,
-          });
+          }));
     const absolutePath = yield* resolveAgentMcpConfigTargetPath(args.workspaceRoot, target);
     if (projected._tag === "unsupported") {
       return {
@@ -372,6 +381,18 @@ const inspectAgentMcpServerInternal = (
         fields: [],
         warnings: [],
         reason: `${args.agentId} ${projected.reason}`,
+      };
+    }
+    if (args.state === "projected") {
+      return {
+        agentId: args.agentId,
+        path: target.path,
+        absolutePath,
+        status: "match",
+        fields: [],
+        warnings:
+          args.projection?.warnings ?? (projected._tag === "projected" ? projected.warnings : []),
+        ...(projected._tag === "projected" ? { expected: projected.entry } : {}),
       };
     }
 
@@ -388,7 +409,8 @@ const inspectAgentMcpServerInternal = (
       absolutePath,
       status: actual.status,
       fields: actual.fields,
-      warnings: projected._tag === "projected" ? projected.warnings : [],
+      warnings:
+        args.projection?.warnings ?? (projected._tag === "projected" ? projected.warnings : []),
       ...(projected._tag === "projected" ? { expected: projected.entry } : {}),
       ...(actual.actual === undefined ? {} : { actual: actual.actual }),
     };
@@ -425,6 +447,8 @@ export const inspectMcpServerAcrossAgents = (args: {
   readonly agentIds: ReadonlyArray<string>;
   readonly serverName: string;
   readonly entry: McpServerEntry;
+  readonly canonicalPaths?: ReadonlyArray<string>;
+  readonly state?: "projected" | "current";
 }): Effect.Effect<
   ReadonlyArray<AgentMcpServerInspection>,
   McpInspectionError,
@@ -432,6 +456,152 @@ export const inspectMcpServerAcrossAgents = (args: {
 > =>
   Effect.gen(function* () {
     if (args.entry.command === undefined && args.entry.url === undefined) {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      let canonicalPath: string | undefined;
+      for (const candidate of args.canonicalPaths ?? []) {
+        const resolved = path.resolve(args.workspaceRoot, candidate);
+        const manifestPath = path.join(resolved, MCP_SERVER_MANIFEST_FILENAME);
+        if (yield* fs.exists(manifestPath).pipe(Effect.catch(() => Effect.succeed(false)))) {
+          canonicalPath = resolved;
+          break;
+        }
+      }
+      if (canonicalPath !== undefined) {
+        const manifest = yield* decodeMcpServerManifestAt(
+          path.join(canonicalPath, MCP_SERVER_MANIFEST_FILENAME),
+        );
+        yield* validateManifestMcpServerTargets({
+          manifest,
+          agentIds: args.agentIds,
+          scope: args.scope,
+          serverName: args.serverName,
+          values: args.entry.env,
+          enabled: true,
+        });
+        const projectedTargets = new Map<
+          string,
+          { readonly config: McpConfig; readonly target: McpConfigTarget }
+        >();
+        for (const group of groupConfiguredMcpTargets({
+          agentIds: args.agentIds,
+          scope: args.scope,
+        })) {
+          const firstRunnable = group.members
+            .flatMap((member) => {
+              if (!isCapabilityAgentId(member.agentId)) return [];
+              const capability =
+                CONFIGURABLE_AGENTS_BY_ID[member.agentId].capabilities["mcp-server"];
+              if (!hasMcpConfig(capability)) return [];
+              const resolution = resolveMcpServer({
+                manifest,
+                localName: args.serverName,
+                capability,
+                values: args.entry.env,
+                enabled: true,
+              });
+              return resolution._tag === "resolved" || resolution._tag === "needs-input"
+                ? [resolution]
+                : [];
+            })
+            .at(0);
+          if (firstRunnable === undefined) continue;
+          const shared = resolveSharedMcpTarget({
+            members: group.members,
+            transport: firstRunnable.transport,
+          });
+          if (shared._tag === "conflict") {
+            return yield* new McpSharedTargetConflict({ reason: shared.reason });
+          }
+          for (const member of group.members) {
+            projectedTargets.set(member.agentId, { config: shared.config, target: member.target });
+          }
+        }
+        return yield* Effect.forEach(
+          args.agentIds,
+          (agentId) =>
+            Effect.gen(function* () {
+              if (!isCapabilityAgentId(agentId)) {
+                return yield* inspectAgentMcpServer({ ...args, agentId });
+              }
+              const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
+              if (!hasMcpConfig(capability)) {
+                return yield* inspectAgentMcpServer({ ...args, agentId });
+              }
+              const nativeConfig = capability.axm.writer.config;
+              const projection = projectedTargets.get(agentId);
+              const config = projection?.config ?? nativeConfig;
+              const target =
+                projection?.target ??
+                nativeConfig.targets.find(({ scope }) => scope === args.scope);
+              if (target === undefined) {
+                return yield* inspectAgentMcpServer({ ...args, agentId });
+              }
+              const absolutePath = yield* resolveAgentMcpConfigTargetPath(
+                args.workspaceRoot,
+                target,
+              );
+              const projectedCapability: ConfiguredMcpCapability = {
+                ...capability,
+                axm: { ...capability.axm, writer: { config } },
+              };
+              const resolution = resolveMcpServer({
+                manifest,
+                localName: args.serverName,
+                capability: projectedCapability,
+                values: args.entry.env,
+                enabled: true,
+              });
+              if (resolution._tag === "no-distribution" || resolution._tag === "nothing-runnable") {
+                return {
+                  agentId,
+                  path: target.path,
+                  absolutePath,
+                  status: "unsupported" as const,
+                  fields: [],
+                  warnings: [],
+                  reason: resolution.reason,
+                };
+              }
+              if (resolution._tag === "needs-input") {
+                return {
+                  agentId,
+                  path: target.path,
+                  absolutePath,
+                  status: "blocked" as const,
+                  fields: [],
+                  warnings: resolution.warnings,
+                  reason: resolution.warnings.join("; "),
+                };
+              }
+              if (args.state === "projected") {
+                return {
+                  agentId,
+                  path: target.path,
+                  absolutePath,
+                  status: "match" as const,
+                  fields: [],
+                  warnings: resolution.warnings,
+                  expected: resolution.entry,
+                };
+              }
+              return yield* inspectAgentMcpServerInternal({
+                workspaceRoot: args.workspaceRoot,
+                scope: args.scope,
+                agentId,
+                serverName: args.serverName,
+                entry: args.entry,
+                projection: {
+                  config,
+                  target,
+                  expected: { _tag: "projected", entry: resolution.entry, warnings: [] },
+                  warnings: resolution.warnings,
+                },
+              });
+            }),
+          { concurrency: "unbounded" },
+        );
+      }
       return yield* Effect.forEach(
         args.agentIds,
         (agentId) =>
@@ -464,6 +634,7 @@ export const inspectMcpServerAcrossAgents = (args: {
             agentId: member.agentId,
             serverName: args.serverName,
             entry: args.entry,
+            ...(args.state === undefined ? {} : { state: args.state }),
             projection: {
               config: resolution.config,
               target: member.target,
@@ -481,12 +652,13 @@ export const inspectMcpServerAcrossAgents = (args: {
       (agentId) => {
         const resolved = byAgentId.get(agentId);
         return resolved === undefined
-          ? inspectAgentMcpServer({
+          ? inspectAgentMcpServerInternal({
               workspaceRoot: args.workspaceRoot,
               scope: args.scope,
               agentId,
               serverName: args.serverName,
               entry: args.entry,
+              ...(args.state === undefined ? {} : { state: args.state }),
             })
           : Effect.succeed(resolved);
       },

@@ -6,8 +6,10 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
+import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 import {
+  AllExtensionManagersLive,
   expectAppliedPlanResult,
   expectNoOpPlanResult,
   makeEffectProvide,
@@ -40,14 +42,12 @@ describe("mcps enable/disable output", () => {
 
   const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) => {
     const ctx = makeWorkspaceHandlerTestContext(opts);
-    const agentRepoLayer = Layer.succeed(CodingAgentRepository, {
-      get: () => Effect.die(new Error("not implemented in test")),
-      all: Effect.succeed([]),
-      getConfiguredAgents: () => Effect.succeed([]),
-      getMaterializationAgents: () => Effect.succeed([]),
-      getUnknownConfiguredAgentIds: () => Effect.succeed([]),
-    });
-    const fullLayer = Layer.mergeAll(ctx.fullLayer, agentRepoLayer);
+    const workspaceServiceLayer = Layer.mergeAll(
+      ctx.fullLayer,
+      Layer.provide(SourceHostProvidersLive, ctx.fullLayer),
+      CodingAgentRepositoryLive,
+    );
+    const fullLayer = Layer.provideMerge(AllExtensionManagersLive, workspaceServiceLayer);
     return {
       ...ctx,
       fullLayer,
@@ -67,9 +67,9 @@ describe("mcps enable/disable output", () => {
     );
   };
 
-  it.effect("reports an already-enabled MCP server as JSON no-op", () => {
-    const { provide, logs, rendererState } = makeLayers({ machine: true });
-    writeMcpSettings(true);
+  it.effect("rechecks native projection when an MCP server is already enabled", () => {
+    const { provide, rendererState } = makeLayers({ machine: true });
+    writeMcpSettings(false);
 
     return provide(
       Effect.gen(function* () {
@@ -77,11 +77,16 @@ describe("mcps enable/disable output", () => {
           name: "context",
           preview: false,
         });
+        rendererState.logs.length = 0;
+        rendererState.results.length = 0;
 
-        expect(logs.success).toEqual([]);
-        expectNoOpPlanResult(rendererState.results[0]?.data, {
+        yield* handleEnableMcpServer({
+          name: "context",
+          preview: false,
+        });
+
+        expectAppliedPlanResult(rendererState.results[0]?.data, {
           planName: "Enable MCP server",
-          message: 'MCP server "context" is already enabled',
         });
       }),
     );

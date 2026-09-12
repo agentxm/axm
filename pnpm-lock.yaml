@@ -1275,6 +1275,9 @@ importers:
       semver:
         specifier: 'catalog:'
         version: 7.8.5
+      smol-toml:
+        specifier: 1.6.1
+        version: 1.6.1
       yaml:
         specifier: 'catalog:'
         version: 2.9.0

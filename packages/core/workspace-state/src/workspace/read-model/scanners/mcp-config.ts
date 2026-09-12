@@ -27,7 +27,9 @@ import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { parse, type ParseError } from "jsonc-parser";
+import { parse as parseJson, type ParseError } from "jsonc-parser";
+import { parse as parseToml } from "smol-toml";
+import { parse as parseYaml } from "yaml";
 import { getHome } from "../../../utils/environment.js";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
@@ -112,10 +114,20 @@ const extractServers = (
         return Option.isNone(decodedName) ? [] : [{ name: decodedName.value, config }];
       });
 
+const parseMcpConfig = (raw: string, format: McpConfigTarget["format"]): unknown => {
+  if (format === "toml") return parseToml(raw);
+  if (format === "yaml") return parseYaml(raw);
+  const errors: Array<ParseError> = [];
+  const value: unknown = parseJson(raw, errors, { allowTrailingComma: true });
+  if (errors.length > 0) throw errors;
+  return value;
+};
+
 const readMcpConfig = (
   fs: FileSystem.FileSystem,
   diagnostics: Diagnostics,
   filePath: string,
+  format: McpConfigTarget["format"],
 ): Effect.Effect<Option.Option<typeof McpConfigShapeSchema.Type>> =>
   Effect.gen(function* () {
     const exists = yield* Effect.result(fs.exists(filePath));
@@ -143,19 +155,14 @@ const readMcpConfig = (
 
     const parsed = yield* Effect.result(
       Effect.try({
-        try: (): unknown => {
-          const errors: Array<ParseError> = [];
-          const value: unknown = parse(read.success, errors, { allowTrailingComma: true });
-          if (errors.length > 0) throw errors;
-          return value;
-        },
+        try: (): unknown => parseMcpConfig(read.success, format),
         catch: (cause: unknown): { readonly cause: unknown } => ({ cause }),
       }),
     );
     if (parsed._tag === "Failure") {
       yield* diagnostics.append({
         source: "scanner",
-        message: `${SCANNER_NAME}: cannot parse JSON at ${filePath}`,
+        message: `${SCANNER_NAME}: cannot parse ${format.toUpperCase()} at ${filePath}`,
         path: filePath,
         code: "scanner-parse",
       });
@@ -182,10 +189,11 @@ const readMcpConfigCached = (
   fs: FileSystem.FileSystem,
   diagnostics: Diagnostics,
   filePath: string,
+  format: McpConfigTarget["format"],
 ): Effect.Effect<Option.Option<typeof McpConfigShapeSchema.Type>> => {
   const existing = cache.get(filePath);
   if (existing !== undefined) return Effect.succeed(existing);
-  return readMcpConfig(fs, diagnostics, filePath).pipe(
+  return readMcpConfig(fs, diagnostics, filePath, format).pipe(
     Effect.tap((decoded) =>
       Effect.sync(() => {
         cache.set(filePath, decoded);
@@ -292,7 +300,13 @@ const scanMcpSurface = (
     const { fs, path, scope, diagnostics } = deps;
     const filePathOpt = yield* resolveMcpConfigTargetPath(deps, plan.target);
     if (Option.isNone(filePathOpt)) return [];
-    const decoded = yield* readMcpConfigCached(cache, fs, diagnostics, filePathOpt.value);
+    const decoded = yield* readMcpConfigCached(
+      cache,
+      fs,
+      diagnostics,
+      filePathOpt.value,
+      plan.target.format,
+    );
     if (Option.isNone(decoded)) return [];
     const servers = extractServers(decoded.value, plan.serversKey);
     const contentLocation = makeAbsolutePath(path, filePathOpt.value);

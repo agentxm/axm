@@ -13,18 +13,26 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { McpInstallStateMissing, McpRegistryOnlyInstall } from "./errors.js";
-import { applyProjectionPlans, planSingletonProjection } from "@agentxm/workspace-projection";
+import {
+  applyProjectionPlans,
+  inspectMcpServerAcrossAgents,
+  planSingletonProjection,
+} from "@agentxm/workspace-projection";
 import { McpConfigIoFailed, removeMcpServerFromManifest } from "@agentxm/agent-integration";
 import type { ExtensionManagerFailure } from "../errors.js";
 import type { ExtensionManager, ManagerRequirements } from "../manager-contract.js";
 import { NO_MATERIALIZATION_OBSERVATION } from "../manager-contract.js";
-import { McpServerManager, type McpServerMaterializationFacts } from "../managers.js";
+import {
+  McpServerManager,
+  type McpServerManagerService,
+  type McpServerMaterializationFacts,
+} from "../managers.js";
 import { configuredMcpServersToDiskRefs } from "../extensions/materializable-from-disk.js";
 import type {
   McpServerExtensionRef,
   RegistryMcpServerRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
-import type { McpServerLockEntry } from "@agentxm/workspace-state";
+import type { ConfiguredAgentOutcome, McpServerLockEntry } from "@agentxm/workspace-state";
 import type { ExtensionTarget, McpServerExtensionTarget } from "@agentxm/workspace-state";
 import { mcpRegistryResolutionKey, WorkspaceMutations } from "@agentxm/workspace-state";
 import { canReuseInstalledPackage } from "../extensions/canonical-directory.js";
@@ -233,6 +241,75 @@ export const McpServerManagerLive = Layer.effect(
     const materializeUninstall = makeMaterializeRemoval(false);
     const materializeDeactivate = makeMaterializeRemoval(true);
 
+    const configuredAgentOutcomesForEntry: McpServerManagerService["configuredAgentOutcomesForEntry"] =
+      Effect.fn("McpServerManager.configuredAgentOutcomesForEntry")(function* ({
+        name,
+        entry,
+        state,
+      }) {
+        const configuredAgentIds = yield* ws.getConfiguredAgents();
+        const canonical =
+          entry.kind === "inline"
+            ? Option.none<string>()
+            : (yield* acceptedCanonicalObservation({
+                workspace: ws,
+                type: "mcp-server",
+                name,
+              })).pipe(
+                Option.flatMap(({ observation }) => Option.fromUndefinedOr(observation.path)),
+              );
+        const inspections = yield* inspectMcpServerAcrossAgents({
+          workspaceRoot: baseDir,
+          scope: ws.scope,
+          agentIds: configuredAgentIds,
+          serverName: name,
+          entry: { ...entry, enabled: true },
+          canonicalPaths: Option.match(canonical, { onNone: () => [], onSome: (value) => [value] }),
+          state,
+        });
+        return inspections.map((inspection): ConfiguredAgentOutcome => ({
+          extensionType: "mcp-server",
+          name,
+          agentId: inspection.agentId,
+          outcome:
+            inspection.status === "match"
+              ? state
+              : inspection.status === "unsupported"
+                ? "unsupported"
+                : inspection.status === "blocked"
+                  ? "blocked"
+                  : "failed",
+          reasonCode:
+            inspection.status === "match"
+              ? "supported"
+              : inspection.status === "absent"
+                ? "projection-missing"
+                : inspection.status === "drift"
+                  ? "stale-projection"
+                  : `mcp-${inspection.status}`,
+          reason:
+            inspection.reason ??
+            (inspection.status === "match"
+              ? `${inspection.agentId} has a matching MCP projection.`
+              : inspection.status === "absent"
+                ? `The expected ${inspection.agentId} projection is missing.`
+                : inspection.status === "drift"
+                  ? `The expected ${inspection.agentId} projection is stale.`
+                  : `MCP projection status is ${inspection.status}.`),
+          ...(inspection.path.length === 0 ? {} : { path: inspection.path }),
+        }));
+      });
+
+    const configuredAgentOutcomes: McpServerManagerService["configuredAgentOutcomes"] = (state) =>
+      Effect.gen(function* () {
+        const entries = yield* ws.getConfiguredMcpServerEntries();
+        return (yield* Effect.forEach(
+          Object.entries(entries).filter(([, entry]) => state === "projected" || entry.enabled),
+          ([name, entry]) => configuredAgentOutcomesForEntry({ name, entry, state }),
+          { concurrency: "unbounded" },
+        )).flat();
+      });
+
     return {
       type: "mcp-server",
       isInstalled: Effect.fn("McpServerManager.isInstalled")(function* ({
@@ -273,6 +350,8 @@ export const McpServerManagerLive = Layer.effect(
       }),
       materializeUninstall,
       materializeDeactivate,
+      configuredAgentOutcomes,
+      configuredAgentOutcomesForEntry,
 
       upsertSettingsEntry: ({
         ref,
@@ -375,10 +454,6 @@ export const McpServerManagerLive = Layer.effect(
           .removeMcpServerLock(removal.value.resolutionKey.value)
           .pipe(Effect.withSpan("McpServerManager.removeLockfileEntry"));
       },
-    } satisfies ExtensionManager<
-      McpServerExtensionRef,
-      McpServerMaterializationFacts,
-      ManagerRequirements
-    >;
+    } satisfies McpServerManagerService;
   }),
 );

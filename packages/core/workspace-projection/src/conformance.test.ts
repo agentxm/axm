@@ -84,12 +84,19 @@ describe("aggregate ownership unit conformance", () => {
       [materializationSrc, "skills/manager.ts"],
       [materializationSrc, "subagents/manager.ts"],
       [materializationSrc, "mcps/manager.ts"],
-      [materializationSrc, "mcps/install-operation.ts"],
-      [lifecycleSrc, "mcps/operations/enable.ts"],
     ] as const;
     for (const [root, relativePath] of singletonParticipants) {
       expect(nodeFs.readFileSync(nodePath.join(root, relativePath), "utf8")).toContain(
         "planSingletonProjection",
+      );
+    }
+    const sharedMcpParticipants = [
+      [materializationSrc, "mcps/install-operation.ts"],
+      [lifecycleSrc, "mcps/operations/enable.ts"],
+    ] as const;
+    for (const [root, relativePath] of sharedMcpParticipants) {
+      expect(nodeFs.readFileSync(nodePath.join(root, relativePath), "utf8")).toContain(
+        "syncManifestMcpServerToAgents",
       );
     }
 

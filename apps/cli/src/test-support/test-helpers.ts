@@ -63,7 +63,7 @@ export {
 } from "@agentxm/workspace-projection/live";
 export { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 export { KnowledgeIndexLive };
-export { HookConfiguredAgentOutcomesProviderLive } from "@agentxm/extension-lifecycle/live";
+export { ConfiguredAgentOutcomesProviderLive } from "@agentxm/extension-lifecycle/live";
 import {
   ExtensionManagersLive,
   HookManagerLive,
@@ -722,7 +722,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     // No per-type outcome refinement: every configured-agent outcome stays
     // generic, as it did before the provider became a boundary requirement.
     // Tests that need the native refinement merge
-    // `HookConfiguredAgentOutcomesProviderLive` over this layer.
+    // `ConfiguredAgentOutcomesProviderLive` over this layer.
     ConfiguredAgentOutcomesProviderTest,
   );
   const fullLayer = Layer.mergeAll(

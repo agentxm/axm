@@ -110,7 +110,9 @@ const inspectionOutcome = (
       ? "current"
       : inspection.status === "unsupported"
         ? "unsupported"
-        : "failed",
+        : inspection.status === "blocked"
+          ? "blocked"
+          : "failed",
   reasonCode:
     inspection.status === "absent"
       ? "projection-missing"

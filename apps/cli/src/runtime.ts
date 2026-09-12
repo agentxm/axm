@@ -45,7 +45,7 @@ import {
   directoryFlag,
 } from "./cli-flags/index.js";
 
-import { HookConfiguredAgentOutcomesProviderLive } from "@agentxm/extension-lifecycle/live";
+import { ConfiguredAgentOutcomesProviderLive } from "@agentxm/extension-lifecycle/live";
 import {
   HookManagerLive,
   KnowledgeManagerLive,
@@ -412,7 +412,7 @@ const makeWorkspaceProgramLayer = (
     Layer.merge(fullLayer, participantsLayer),
   );
   const configuredAgentOutcomesLayer = Layer.provide(
-    HookConfiguredAgentOutcomesProviderLive,
+    ConfiguredAgentOutcomesProviderLive,
     fullLayer,
   );
   return Layer.mergeAll(fullLayer, invariantFactsLayer, configuredAgentOutcomesLayer);

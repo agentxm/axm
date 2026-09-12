@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -49,6 +49,47 @@ describe("makeMcpConfigScanner", () => {
           expect(names).toContain("valid-server");
           expect(names).not.toContain("Invalid_Name");
           expect(occurrences).toHaveLength(1);
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
+  it.effect("reads agent-native TOML according to the declared target format", () =>
+    withNode(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-toml-scan-"));
+        try {
+          mkdirSync(nodePath.join(workspaceRoot, ".codex"), { recursive: true });
+          writeFileSync(
+            nodePath.join(workspaceRoot, ".codex/config.toml"),
+            ["[mcp_servers.context]", 'url = "https://example.test/mcp"', "enabled = true"].join(
+              "\n",
+            ),
+          );
+
+          const ref = yield* Ref.make<ReadonlyArray<Warning>>([]);
+          const occurrences = yield* makeMcpConfigScanner({
+            fs,
+            path,
+            workspaceRoot,
+            scope: "project",
+            diagnostics: makeDiagnostics(ref),
+            agentRegistry: { codex: AGENTS.codex },
+          });
+
+          expect(occurrences).toMatchObject([
+            {
+              surface: { _tag: "agent", agentId: "codex" },
+              name: "context",
+              contentLocation: nodePath.join(workspaceRoot, ".codex/config.toml"),
+              config: { url: "https://example.test/mcp", enabled: true },
+            },
+          ]);
+          expect(yield* Ref.get(ref)).toEqual([]);
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }

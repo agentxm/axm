@@ -22,6 +22,7 @@ import * as semver from "semver";
 import {
   HookManager,
   KnowledgeManager,
+  McpServerManager,
   RuleManager,
   SkillManager,
   SubagentManager,
@@ -467,6 +468,7 @@ export const collectMaterializeSteps = (args: {
   | FileSystem.FileSystem
   | HookManager
   | KnowledgeManager
+  | McpServerManager
   | McpServerInstallRequirements
   | Path.Path
   | ProjectionParticipantRequirements
@@ -481,6 +483,7 @@ export const collectMaterializeSteps = (args: {
     const ruleManager = yield* RuleManager;
     const hookManager = yield* HookManager;
     const knowledgeManager = yield* KnowledgeManager;
+    const mcpServerManager = yield* McpServerManager;
     const agentRepo = yield* CodingAgentRepository;
     const ws = yield* WorkspaceMutations;
     const fs = yield* FileSystem.FileSystem;
@@ -569,16 +572,25 @@ export const collectMaterializeSteps = (args: {
             );
           });
           const ref = resolved.ref;
-          const materializationCurrent = yield* isObservedMaterializationCurrent({
-            workspace: ws,
-            node,
-            configuredAgentIds: configuredAgents,
-            agents: agentRepo,
-            subagents: subagentManager,
-            resolvedRef: ref,
-            fs,
-            path,
-          });
+          const configuredMcpEntry =
+            node.type === "mcp-server" ? configuredMcpServerEntries[node.name] : undefined;
+          const materializationCurrent =
+            configuredMcpEntry === undefined
+              ? yield* isObservedMaterializationCurrent({
+                  workspace: ws,
+                  node,
+                  configuredAgentIds: configuredAgents,
+                  agents: agentRepo,
+                  subagents: subagentManager,
+                  resolvedRef: ref,
+                  fs,
+                  path,
+                })
+              : (yield* mcpServerManager.configuredAgentOutcomesForEntry({
+                  name: node.name,
+                  entry: configuredMcpEntry,
+                  state: "current",
+                })).every(({ outcome }) => outcome === "current" || outcome === "unsupported");
           const materialize = observation.status !== "usable" || !materializationCurrent;
           const resolvedVersion =
             ref.refType === "registry" || ref.refType === "workspace" ? ref.version : undefined;

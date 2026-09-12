@@ -459,13 +459,21 @@ export const prepareSetActivation = (
         if (entry === undefined) {
           return unchanged(request, request.name, `MCP server "${request.name}" is not configured`);
         }
-        if (entry.enabled === request.enabled) {
+        if (!request.enabled && entry.enabled === request.enabled) {
           return unchanged(
             request,
             request.name,
             `MCP server "${request.name}" is already ${verb}`,
           );
         }
+        const managers = yield* ExtensionManagers;
+        const agentOutcomes = request.enabled
+          ? yield* managers["mcp-server"].configuredAgentOutcomesForEntry({
+              name: request.name,
+              entry,
+              state: "projected",
+            })
+          : [];
         return {
           _tag: "SetActivation",
           type: "mcp-server",
@@ -477,7 +485,7 @@ export const prepareSetActivation = (
           instructions: Option.none(),
           blocked: Option.none(),
           warning: Option.none(),
-          agentOutcomes: [],
+          agentOutcomes,
         };
       }
 
@@ -758,7 +766,7 @@ const dematerializeMember = (
                 workspaceRoot: ws.baseDir,
                 scope: ws.scope,
                 serverName: node.name,
-                disableOnly: true,
+                disableOnly: false,
               })
               .pipe(
                 Effect.flatMap((outcome) =>
@@ -1050,7 +1058,12 @@ const executorStep = (
         : candidate.enabled
           ? enableMcpServer({ name: "enable-mcp-server", args: { serverName: candidate.name } })
           : disableMcpServer({ name: "disable-mcp-server", args: { serverName: candidate.name } });
-  return { label: candidate.name, readiness: "ready", run };
+  return {
+    label: candidate.name,
+    readiness: "ready",
+    ...(candidate.agentOutcomes.length === 0 ? {} : { agentOutcomes: candidate.agentOutcomes }),
+    run,
+  };
 };
 
 /**

@@ -14,7 +14,6 @@
 import * as ServiceMap from "effect/Context";
 
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 
@@ -22,7 +21,7 @@ import type { ExtensionManager, ManagerRequirements } from "./manager-contract.j
 import type {
   HookManagerService,
   KnowledgeManagerService,
-  McpServerMaterializationFacts,
+  McpServerManagerService,
   PackMaterializationFacts,
   RuleManagerService,
   SkillMaterializationFacts,
@@ -40,11 +39,7 @@ export interface ExtensionManagersService {
   readonly rule: RuleManagerService;
   readonly hook: HookManagerService;
   readonly knowledge: KnowledgeManagerService;
-  readonly "mcp-server": ExtensionManager<
-    McpServerExtensionRef,
-    McpServerMaterializationFacts,
-    ManagerRequirements
-  >;
+  readonly "mcp-server": McpServerManagerService;
   readonly pack: ExtensionManager<PackRef, PackMaterializationFacts, ManagerRequirements>;
 }
 

@@ -215,6 +215,7 @@ export { groupConfiguredMcpTargets, type McpTargetGroup } from "./mcps/targeting
 export {
   addMcpServerConfigFirst,
   addMcpServerConfigOnly,
+  decodeMcpServerManifestAt,
   addMcpServerFromManifest,
   addMcpServerMixed,
   pruneManagedMcpServersForAgent,
@@ -225,6 +226,8 @@ export {
   runCliInvocation,
   syncInlineMcpServerToAgent,
   syncInlineMcpServerToAgents,
+  syncManifestMcpServerToAgents,
+  validateManifestMcpServerTargets,
   type CliInvocation,
   type CliInvocationResult,
   type ConfigFirstStrategy,
@@ -232,6 +235,8 @@ export {
   type MixedStrategyConfig,
   type PruneManagedMcpServersArgs,
   type SyncInlineMcpServerArgs,
+  type SyncManifestMcpServerArgs,
+  type ValidateManifestMcpServerTargetsArgs,
 } from "./mcps/sync.js";
 
 // Hook-group editing

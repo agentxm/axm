@@ -277,6 +277,7 @@ export const listMcpServers: () => Effect.Effect<
                 agentIds: configuredAgents,
                 serverName: row.name,
                 entry: configuredEntry,
+                canonicalPaths: row.paths,
               })
             : [];
         return mcpServerListRows({

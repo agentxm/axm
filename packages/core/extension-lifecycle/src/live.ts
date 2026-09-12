@@ -8,4 +8,4 @@
  * @packageDocumentation
  */
 
-export { HookConfiguredAgentOutcomesProviderLive } from "./hooks/configured-agent-outcomes-provider.js";
+export { ConfiguredAgentOutcomesProviderLive } from "./hooks/configured-agent-outcomes-provider.js";

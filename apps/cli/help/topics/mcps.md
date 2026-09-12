@@ -121,9 +121,10 @@ ownership it can prove and preserves servers added by other tools. `axm sync`
 restores missing or stale AXM-owned entries and blocks the affected server on
 unowned or ambiguous collisions. Every configured agent whose transport and
 config capability can represent the server receives it; there is no per-server
-agent list. A configured agent that cannot represent the transport or a
-required secret reference is reported as unsupported with an explicit reason,
-never silently skipped.
+agent list. A configured agent that cannot represent the transport or secret
+reference is reported as unsupported with an explicit reason. A projection
+that needs a required input is reported as blocked. Neither case is silently
+skipped.
 
 Some agents share one native config file. AXM writes one entry that every
 sharing agent reads; a genuine dialect conflict between sharing agents blocks
@@ -187,9 +188,10 @@ Never store literal tokens in `axm.json`. Put secrets in `env` or
 environment at runtime. Registry inputs marked `isSecret` may be supplied to
 the installer and saved in the system keychain, but native config receives only
 the reference. AXM never substitutes a secret value into native config. If an
-applicable agent cannot represent the reference, projection blocks instead of
-writing a literal or omitting authentication. `axm lint` flags secret-looking literals through
-`workspace/mcps-no-secret-literal`, and `mcp.json` marks sensitive
+applicable agent cannot represent the reference, it is reported as unsupported
+instead of writing a literal or omitting authentication. If a required input is
+missing, projection is blocked. `axm lint` flags secret-looking literals
+through `workspace/mcps-no-secret-literal`, and `mcp.json` marks sensitive
 inputs with `isSecret` so installers prompt for them instead of hardcoding.
 Keychain accounts are isolated by workspace, local connection name, source
 identity, and input name. Uninstall removes only the selected connection's

@@ -24,14 +24,6 @@ export const specification = defineSpecification({
     "cli/activation-follows-desired-state",
   ],
   supersedes: [],
-  limitations: [
-    {
-      limitation:
-        "The example table does not witness that an agent which can represent the server reads as current after reconciliation. The workspace record this feature can reach reports an agent whose only MCP target is the shared project-scope file as `failed` with reason `projection-missing` once reconciliation has written that file, while the typed inventory document `axm mcps list` renders reports it as current; only the agent with its own configuration file reads current in both. The rows here therefore assert that no configured agent is omitted and that an agent which cannot represent the server is reported unsupported, not the positive current outcome.",
-      retirementCondition:
-        "`@agentxm/workspace-inspection` carries a row asserting, on the typed MCP inventory document after a reconciliation, that every configured agent that can represent the server reads `current` — at which point this file cites that row and the two read paths agree.",
-    },
-  ],
   assumptions: [
     "Claude Code and Cursor keep distinct project-scope MCP configuration files, so two native files observe two agents.",
     "An unmanaged server declared in one agent's own configuration file is the only shape adoption records, so one such declaration stands for every adopted entry.",

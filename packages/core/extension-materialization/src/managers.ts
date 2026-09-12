@@ -24,7 +24,7 @@ import type {
 } from "./manager-contract.js";
 import type { ExtensionManagerFailure } from "./errors.js";
 import type { ProjectionPlan } from "@agentxm/workspace-projection";
-import type { ConfiguredAgentOutcome } from "@agentxm/workspace-state";
+import type { ConfiguredAgentOutcome, McpServerEntry } from "@agentxm/workspace-state";
 import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import type { TreeIntegrity } from "@agentxm/workspace-state";
@@ -109,9 +109,32 @@ export class SkillManager extends ServiceMap.Service<
   ExtensionManager<SkillExtensionRef, SkillMaterializationFacts, ManagerRequirements>
 >()("@agentxm/extension-materialization/managers/SkillManager") {}
 
+export interface McpServerManagerService extends ExtensionManager<
+  McpServerExtensionRef,
+  McpServerMaterializationFacts,
+  ManagerRequirements
+> {
+  readonly configuredAgentOutcomes: (
+    state: "projected" | "current",
+  ) => Effect.Effect<
+    ReadonlyArray<ConfiguredAgentOutcome>,
+    ExtensionManagerFailure,
+    ManagerRequirements
+  >;
+  readonly configuredAgentOutcomesForEntry: (args: {
+    readonly name: string;
+    readonly entry: McpServerEntry;
+    readonly state: "projected" | "current";
+  }) => Effect.Effect<
+    ReadonlyArray<ConfiguredAgentOutcome>,
+    ExtensionManagerFailure,
+    ManagerRequirements
+  >;
+}
+
 export class McpServerManager extends ServiceMap.Service<
   McpServerManager,
-  ExtensionManager<McpServerExtensionRef, McpServerMaterializationFacts, ManagerRequirements>
+  McpServerManagerService
 >()("@agentxm/extension-materialization/managers/McpServerManager") {}
 
 export interface SubagentManagerService extends ExtensionManager<

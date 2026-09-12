@@ -48,7 +48,7 @@ import {
   type SharedMcpTargetMember,
   type SharedMcpTransport,
 } from "./shared-target.js";
-import { resolveMcpServer } from "./resolution.js";
+import { resolveMcpServer, type McpResolution } from "./resolution.js";
 import { NativeWriteAuthority, type NativeWriteRefused } from "../native-write-authority.js";
 import { removeAgentMcpConfig, writeAgentMcpConfig } from "./config-writer.js";
 import { managedYamlNames } from "../yaml.js";
@@ -840,7 +840,7 @@ export const pruneManagedMcpServersForAgent = (
 const isCapabilityAgentId = (id: string): id is CapabilityAgentId =>
   id in CONFIGURABLE_AGENTS_BY_ID;
 
-const decodeManifestAt = (
+export const decodeMcpServerManifestAt = (
   manifestPath: string,
 ): Effect.Effect<McpServerManifest, McpConfigIoFailed | McpConfigInvalid, FileSystem.FileSystem> =>
   Effect.gen(function* () {
@@ -1133,7 +1133,7 @@ export const addMcpServerFromManifest = (
     }
     const config = capability.axm.writer.config;
 
-    const manifest = yield* decodeManifestAt(
+    const manifest = yield* decodeMcpServerManifestAt(
       path.join(args.canonicalPath, MCP_SERVER_MANIFEST_FILENAME),
     );
     const resolution = resolveMcpServer({
@@ -1184,6 +1184,293 @@ export const addMcpServerFromManifest = (
       } as const;
     }
     return { _tag: "success", targets: syncTargets } as const;
+  });
+
+export interface SyncManifestMcpServerArgs extends AddMcpServerArgs {
+  readonly agentIds: ReadonlyArray<string>;
+}
+
+type RunnableMcpResolution = Extract<McpResolution, { readonly _tag: "resolved" | "needs-input" }>;
+type UnavailableMcpResolution = Exclude<McpResolution, RunnableMcpResolution>;
+
+const isRunnableMcpResolution = (resolution: McpResolution): resolution is RunnableMcpResolution =>
+  resolution._tag === "resolved" || resolution._tag === "needs-input";
+
+const isUnavailableMcpResolution = (
+  resolution: McpResolution,
+): resolution is UnavailableMcpResolution => !isRunnableMcpResolution(resolution);
+
+export interface ValidateManifestMcpServerTargetsArgs {
+  readonly manifest: McpServerManifest;
+  readonly agentIds: ReadonlyArray<string>;
+  readonly scope: "project" | "user";
+  readonly serverName: string;
+  readonly values: Readonly<Record<string, string>>;
+  readonly enabled: boolean;
+}
+
+/** Validate that every configured reader of a shared target accepts one representation. */
+export const validateManifestMcpServerTargets = (
+  args: ValidateManifestMcpServerTargetsArgs,
+): Effect.Effect<void, McpSharedTargetConflict> =>
+  Effect.gen(function* () {
+    for (const group of groupConfiguredMcpTargets(args)) {
+      const resolved = group.members.map((member) => {
+        const capability = isCapabilityAgentId(member.agentId)
+          ? CONFIGURABLE_AGENTS_BY_ID[member.agentId].capabilities["mcp-server"]
+          : undefined;
+        return {
+          member,
+          resolution:
+            capability === undefined || !hasMcpConfig(capability)
+              ? ({
+                  _tag: "no-distribution",
+                  reason: "agent does not have MCP config support",
+                } as const)
+              : resolveMcpServer({
+                  manifest: args.manifest,
+                  localName: args.serverName,
+                  capability,
+                  values: args.values,
+                  enabled: args.enabled,
+                }),
+        };
+      });
+      const runnable = resolved.filter(
+        (item): item is typeof item & { readonly resolution: RunnableMcpResolution } =>
+          isRunnableMcpResolution(item.resolution),
+      );
+      if (runnable.length === 0) continue;
+      const unavailable = resolved.find(
+        (item): item is typeof item & { readonly resolution: UnavailableMcpResolution } =>
+          isUnavailableMcpResolution(item.resolution),
+      );
+      if (unavailable !== undefined) {
+        return yield* new McpSharedTargetConflict({
+          reason: `${unavailable.member.agentId} cannot read shared MCP target '${group.path}': ${unavailable.resolution.reason}`,
+        });
+      }
+      const transports = new Set(runnable.map(({ resolution }) => resolution.transport));
+      if (transports.size > 1) {
+        return yield* new McpSharedTargetConflict({
+          reason: `MCP config target '${group.path}' resolves to incompatible transports for ${group.members.map(({ agentId }) => agentId).join(", ")}`,
+        });
+      }
+      const transport = runnable[0]?.resolution.transport;
+      if (transport === undefined) continue;
+      const shared = resolveSharedMcpTarget({ members: group.members, transport });
+      if (shared._tag === "conflict") {
+        return yield* new McpSharedTargetConflict({ reason: shared.reason });
+      }
+      for (const member of group.members) {
+        if (!isCapabilityAgentId(member.agentId)) continue;
+        const capability = CONFIGURABLE_AGENTS_BY_ID[member.agentId].capabilities["mcp-server"];
+        if (!hasMcpConfig(capability)) continue;
+        const sharedCapability: ConfiguredMcpCapability = {
+          ...capability,
+          axm: { ...capability.axm, writer: { config: shared.config } },
+        };
+        const projection = resolveMcpServer({
+          manifest: args.manifest,
+          localName: args.serverName,
+          capability: sharedCapability,
+          values: args.values,
+          enabled: args.enabled,
+        });
+        if (isUnavailableMcpResolution(projection)) {
+          return yield* new McpSharedTargetConflict({
+            reason: `${member.agentId} cannot read shared MCP target '${group.path}': ${projection.reason}`,
+          });
+        }
+      }
+    }
+  });
+
+/** Project one manifest-backed server while treating each shared file as one decision. */
+export const syncManifestMcpServerToAgents = (
+  args: SyncManifestMcpServerArgs,
+): Effect.Effect<
+  ReadonlyArray<McpServerSyncOutcome>,
+  CodingAgentFailure,
+  FileSystem.FileSystem | Path.Path | NativeWriteAuthority
+> =>
+  Effect.gen(function* () {
+    if (args.agentIds.length === 0) return [];
+    const path = yield* Path.Path;
+    const manifest = yield* decodeMcpServerManifestAt(
+      path.join(args.canonicalPath, MCP_SERVER_MANIFEST_FILENAME),
+    );
+    const scope = args.scope ?? "project";
+    yield* validateManifestMcpServerTargets({
+      manifest,
+      agentIds: args.agentIds,
+      scope,
+      serverName: args.serverName,
+      values: args.configValues ?? {},
+      enabled: args.enabled ?? true,
+    });
+    const terminal = new Map<string, McpServerSyncOutcome>();
+    const accumulated = new Map<
+      string,
+      { readonly targets: Array<McpServerSyncTarget>; readonly warnings: Array<string> }
+    >();
+
+    for (const agentId of args.agentIds) {
+      if (!isCapabilityAgentId(agentId)) {
+        terminal.set(agentId, {
+          _tag: "unsupported",
+          reason: `${agentId} has no MCP capability catalog entry`,
+        });
+        continue;
+      }
+      const capability = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"];
+      if (!hasMcpConfig(capability)) {
+        terminal.set(agentId, {
+          _tag: "unsupported",
+          reason: `${agentId} does not have MCP config support`,
+        });
+        continue;
+      }
+      accumulated.set(agentId, { targets: [], warnings: [] });
+    }
+
+    for (const group of groupConfiguredMcpTargets({ agentIds: args.agentIds, scope })) {
+      const initial = group.members.map((member) => {
+        const capability = isCapabilityAgentId(member.agentId)
+          ? CONFIGURABLE_AGENTS_BY_ID[member.agentId].capabilities["mcp-server"]
+          : undefined;
+        return {
+          member,
+          resolution:
+            capability === undefined || !hasMcpConfig(capability)
+              ? ({
+                  _tag: "no-distribution",
+                  reason: "agent does not have MCP config support",
+                } as const)
+              : resolveMcpServer({
+                  manifest,
+                  localName: args.serverName,
+                  capability,
+                  values: args.configValues ?? {},
+                  enabled: args.enabled ?? true,
+                }),
+        };
+      });
+      const runnable = initial.filter(
+        (item): item is typeof item & { readonly resolution: RunnableMcpResolution } =>
+          isRunnableMcpResolution(item.resolution),
+      );
+      const transports = new Set(runnable.map(({ resolution }) => resolution.transport));
+      if (runnable.length > 0 && runnable.length !== group.members.length) {
+        const unavailable = initial.find(
+          (item): item is typeof item & { readonly resolution: UnavailableMcpResolution } =>
+            isUnavailableMcpResolution(item.resolution),
+        );
+        return yield* new McpSharedTargetConflict({
+          reason: `${unavailable?.member.agentId ?? "one configured agent"} cannot read shared MCP target '${group.path}': ${unavailable?.resolution.reason ?? "no compatible distribution"}`,
+        });
+      }
+      if (transports.size > 1) {
+        return yield* new McpSharedTargetConflict({
+          reason: `MCP config target '${group.path}' resolves to incompatible transports for ${group.members.map(({ agentId }) => agentId).join(", ")}`,
+        });
+      }
+      const transport = runnable[0]?.resolution.transport;
+      if (transport === undefined) {
+        for (const { member, resolution } of initial) {
+          if (isRunnableMcpResolution(resolution)) continue;
+          terminal.set(member.agentId, {
+            _tag: resolution._tag === "nothing-runnable" ? "nothing-runnable" : "unsupported",
+            reason: resolution.reason,
+          });
+        }
+        continue;
+      }
+      const shared = resolveSharedMcpTarget({ members: group.members, transport });
+      if (shared._tag === "conflict") {
+        return yield* new McpSharedTargetConflict({ reason: shared.reason });
+      }
+      const projected = group.members.map((member) => {
+        const capability = isCapabilityAgentId(member.agentId)
+          ? CONFIGURABLE_AGENTS_BY_ID[member.agentId].capabilities["mcp-server"]
+          : undefined;
+        if (capability === undefined || !hasMcpConfig(capability)) {
+          return {
+            member,
+            resolution: {
+              _tag: "no-distribution",
+              reason: "agent does not have MCP config support",
+            } as const,
+          };
+        }
+        const sharedCapability: ConfiguredMcpCapability = {
+          ...capability,
+          axm: { ...capability.axm, writer: { config: shared.config } },
+        };
+        return {
+          member,
+          resolution: resolveMcpServer({
+            manifest,
+            localName: args.serverName,
+            capability: sharedCapability,
+            values: args.configValues ?? {},
+            enabled: args.enabled ?? true,
+          }),
+        };
+      });
+      const unavailable = projected.find(
+        (item): item is typeof item & { readonly resolution: UnavailableMcpResolution } =>
+          isUnavailableMcpResolution(item.resolution),
+      );
+      if (unavailable !== undefined) {
+        return yield* new McpSharedTargetConflict({
+          reason: `${unavailable.member.agentId} cannot read shared MCP target '${group.path}': ${unavailable.resolution.reason}`,
+        });
+      }
+      const first = projected[0]?.resolution;
+      if (
+        first === undefined ||
+        first._tag === "no-distribution" ||
+        first._tag === "nothing-runnable"
+      ) {
+        continue;
+      }
+      const writeResult = yield* writeAgentMcpConfig({
+        workspaceRoot: args.workspaceRoot,
+        serverName: args.serverName,
+        serversKey: shared.config.serversKey,
+        target: shared.target,
+        entry: first.entry,
+      });
+      for (const { member, resolution } of projected) {
+        const state = accumulated.get(member.agentId);
+        if (state === undefined) continue;
+        if (resolution._tag === "needs-input") {
+          terminal.set(member.agentId, {
+            _tag: "needs-input",
+            reason: resolution.warnings.join("; "),
+          });
+          continue;
+        }
+        if (resolution._tag !== "resolved") continue;
+        state.targets.push(...writeResult.targets);
+        state.warnings.push(...resolution.warnings);
+      }
+    }
+
+    return args.agentIds.map((agentId): McpServerSyncOutcome => {
+      const terminalOutcome = terminal.get(agentId);
+      if (terminalOutcome !== undefined) return terminalOutcome;
+      const state = accumulated.get(agentId);
+      if (state === undefined) {
+        return { _tag: "unsupported", reason: `${agentId} does not have MCP config support` };
+      }
+      return {
+        _tag: "success",
+        targets: state.targets,
+        ...(state.warnings.length > 0 ? { warnings: state.warnings } : {}),
+      };
+    });
   });
 
 export const removeMcpServerFromManifest = (

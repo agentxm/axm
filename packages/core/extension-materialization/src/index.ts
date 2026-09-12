@@ -41,6 +41,7 @@ export {
   type KnowledgeMaterializationFacts,
   type KnowledgeSyncResult,
   type McpServerMaterializationFacts,
+  type McpServerManagerService,
   type PackMaterializationFacts,
   type RuleManagerService,
   type RuleMaterializationFacts,

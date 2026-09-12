@@ -6,12 +6,15 @@ tags: [effect, effect-v4, httpapi, server, schema, middleware, openapi]
 status: stable
 sources:
   - id: effect-httpapi
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/ai-docs/src/51_http-server/10_basics.ts
-    title: Effect 4.0.0-rc.112 HttpApi basics
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/51_http-server/10_basics.ts
+    title: Effect 4.0.0-rc.115 HttpApi basics
   - id: effect-httpapi-source
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/unstable/httpapi/HttpApi.ts
-    title: Effect 4.0.0-rc.112 HttpApi source
-generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/unstable/httpapi/HttpApi.ts
+    title: Effect 4.0.0-rc.115 HttpApi source
+  - id: effect-bodyless-tests
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/test/unstable/http/HttpServerResponse.test.ts
+    title: Effect 4.0.0-rc.115 bodyless Web response tests
+generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
 ---
 
 # HTTP API
@@ -30,11 +33,16 @@ generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
   changes remain checked end to end.
 - [ ] Isolate platform server layers and version-sensitive
   `effect/unstable/httpapi` wiring at the application edge.
+- [ ] Verify responses whose status forbids a body omit it and release unused
+  body resources, including statuses 204, 205, and 304.[^effect-bodyless-tests]
 - [ ] Test schema rejection, each declared response and error, middleware
   behavior, generated-client compatibility, and handler interruption.
 
 ## Resources
 
-- [HttpApi basics](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/ai-docs/src/51_http-server/10_basics.ts)
-- [HttpApi source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/unstable/httpapi/HttpApi.ts)
-- [HttpApi test support](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/ai-docs/src/51_http-server/20_testing.ts)
+- [HttpApi basics](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/51_http-server/10_basics.ts)
+- [HttpApi source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/unstable/httpapi/HttpApi.ts)
+- [HttpApi test support](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/51_http-server/20_testing.ts)
+- [Bodyless Web response tests](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/test/unstable/http/HttpServerResponse.test.ts)
+
+[^effect-bodyless-tests]: Effect bodyless Web response tests.

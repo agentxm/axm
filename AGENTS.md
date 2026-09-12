@@ -342,7 +342,13 @@ requirements.
 - Cross-repo work uses a separate AXM PR with self-contained public context;
   keep private coordination and private PR links out of this repo
 
-<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery gen=087979ea5056669e3bea1b1af541da9f64ca6a6a9706b9579009ea9e7bd27814 -->
+## Field note subjects
+
+| Subject    | Mode   | Scope                                                                            | Target condition | Retire when                      |
+| ---------- | ------ | -------------------------------------------------------------------------------- | ---------------- | -------------------------------- |
+| axm-agents | survey | any session running `axm agents` or projecting extensions into configured agents | —                | a target condition can be stated |
+
+<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery gen=2b1446d853c15bd22e0ca3bdf68ea71d93caf1a4affa31aa78a00d9aa1d32695 -->
 
 ## Knowledge Bundles
 
@@ -373,12 +379,65 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 | [product-engineering](agent_extensions/agentxm/@craigsmitham/knowledge/product-engineering/src/index.md) | Opinionated product-development lifecycle from strategy through operations and maintenance, with shared conceptual foundations                                     |
 
 <!-- axm:end v=1 region=knowledge -->
-<!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions gen=32bead97ea1d124115737f9c69369b7df65a72b83cd4ed2b985f814b5ec6d768 -->
-<!-- axm:point v=1 ext=@craigsmitham/rules/use-effect-v4@0.1.1 kind=rule -->
+<!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions gen=ffd9a42eec8fc73f9378a0b10fe8c15d0eeeceacf1c68a11f4fd8a3a9a9fe506 -->
+<!-- axm:point v=1 ext=@craigsmitham/rules/use-effect-v4@0.2.0 kind=rule -->
 
 ## Use Effect v4
 
-When working with Effect, use Effect v4 APIs and conventions. Do not use Effect
-v3 APIs or carry v3 patterns forward; verify ambiguous guidance against current
-v4 sources.
+Use Effect v4 as the foundation for all TypeScript code, including applications
+and scripts. Each change should advance adoption by migrating relevant existing
+code toward a coherent Effect implementation. Keep migrations incremental and
+reviewable, preserve intended behavior, and avoid unrelated rewrites.
+
+<!-- axm:point v=1 ext=@craigsmitham/rules/field-notes@0.2.3 kind=rule -->
+
+## Field notes
+
+Record how work actually goes, so recurring obstacles become durable
+improvements instead of repeated friction.
+
+Subjects under observation are declared in the `## Field note subjects` table in
+this file. **If that section is missing or has no rows, this rule is inactive —
+do nothing.**
+
+### When to record
+
+While doing ordinary work within a declared subject, record one note when:
+
+- reality differs from instructions, documentation, or command output;
+- you retry, guess, search, or improvise an undocumented workaround; or
+- a `target`-mode subject is blocked from its target condition.
+
+Do not record your own typo, the same incident twice in one session, or
+speculation without an observed incident.
+
+### Preserve diagnostic evidence
+
+While working within a declared subject, do not discard safe structured failure
+details before deciding whether an interaction qualifies for capture. Inspect
+the complete result, preserve the process exit status, and keep result output
+separate from diagnostic output. If output must be reduced, retain materially
+useful error, request, response, retry, recovery, and affected-artifact fields.
+Never retain credentials, authorization material, opaque response bodies, or
+other sensitive values. Do not rerun a mutation merely to recover evidence.
+
+### How to record
+
+On the first qualifying incident in a session, read `capture.md` alongside the
+installed field-notes rule source.
+Append one note for each qualifying incident. Recording it is expected behavior,
+not an admission of failure.
+
+### Stay in the work
+
+Log and continue. Do not investigate the note, fix what it describes, open an
+issue, or discuss it beyond one short line at the end of your response.
+
+Raise a live correctness, data-loss, or security problem immediately instead of
+filing it. Stop to ask only when genuinely blocked on ambiguous architecture,
+data model, or destructive scope; name the ambiguity in one sentence with two or
+three options.
+
+To declare subjects, triage notes, or promote them into findings, use the
+`field-notes` skill. Never do that work inline.
 <!-- axm:end v=1 region=rules -->

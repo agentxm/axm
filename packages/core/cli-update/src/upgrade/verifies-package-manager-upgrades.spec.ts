@@ -1,10 +1,10 @@
+import { Homebrew, Npm, Pnpm, Yarn } from "@agentxm/cli-maintenance/self-update/domain";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { Homebrew, Npm, Pnpm, Yarn } from "../install-method/install-method.js";
 import {
   HOMEBREW_EXECUTABLE,
   LOCAL_VERSION,
@@ -52,7 +52,7 @@ const managers = [
     method: new Yarn({
       importUrl: "file:///controlled/yarn/axm",
       managerMajorVersion: 1,
-      supported: true,
+
       managerOwnedExecutable: "/controlled/yarn/axm",
     }),
     args: ["global", "add", `axm.sh@${TARGET_VERSION}`],

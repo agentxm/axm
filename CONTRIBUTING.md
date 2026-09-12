@@ -81,11 +81,14 @@ needs an entry in `specifications/disposition-ledger.json`; an unexplained
 removal renders as one.
 
 Landing changes through short-lived pull requests with passing aggregate
-verification is repository policy. Maintainer-authored changes need an explicit
-acceptance decision but not a second human reviewer; external contributions
-require maintainer acceptance. Host-side enforcement is still being rolled out,
-so maintainers currently confirm required checks, merge-base freshness, and
-squash merge manually. The steps below implement the policy for contributors.
+verification is repository policy. GitHub requires pull requests for `main`, a
+successful `Required CI` check produced by GitHub Actions against the current
+merge base, resolved conversations, linear history, and squash integration;
+the same rules bind administrators. Maintainer-authored changes need an explicit
+acceptance decision but not a second human reviewer, so the host requires zero
+approving reviews. External contributions still require maintainer acceptance
+as a process boundary because GitHub Team cannot require that conditionally
+without also requiring a second reviewer for maintainer-authored work.
 
 1. External contributors fork the repo; maintainers work from the main
    repository. In both cases, create a branch from current `main` before the
@@ -93,7 +96,8 @@ squash merge manually. The steps below implement the policy for contributors.
 2. Make your changes.
 3. Add or update tests for any new or changed behavior.
 4. Verify the complete change boundary: `pnpm run verify:pr`.
-5. Open a pull request against `main`.
+5. Open a pull request against `main`. Maintainers may enable auto-merge after
+   acceptance; GitHub merges only after the current-base required check passes.
 
 Do not edit, commit, or push directly on `main`. Use a separate worktree for
 concurrent tasks or coding-agent sessions so the primary checkout can remain

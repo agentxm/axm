@@ -1,8 +1,15 @@
 # @agentxm/cli-maintenance
 
-Owns policies that keep the running AXM CLI and its official skill compatible.
-This is a supporting capability: the policy serves CLI operation and must not
-become a rule for unrelated skills or shared extension version selection.
+Owns policies for maintaining the running AXM CLI. CLI maintenance is
+strategically supporting even when its outcomes are directly requested by a
+user. Its policies must not become rules for unrelated extensions.
+
+The `self-update` frontstage capability owns installation facts, supported
+platforms, version comparison, equal-version reinstall, downgrade refusal, and
+eligibility for an automatic upgrade. These decisions are published through
+`./self-update/domain` and depend only on explicit facts. Installation probes,
+release acquisition, mutation, progress reporting, and assessment rendering
+remain in `@agentxm/cli-update` pending their application/adapter separation.
 
 The `official-skill` backstage capability has four published entry points:
 
@@ -17,8 +24,9 @@ The `official-skill` backstage capability has four published entry points:
 
 Domain and application code cannot import filesystem, provider, or delivery
 mechanisms. Source descriptors in `tools/architecture/config.mjs` enforce these
-roles within this package. Byte acquisition and workspace inspection supply the
-facts; they do not own compatibility decisions.
+roles within this package. The backstage compatibility capability cannot
+import the frontstage self-update capability. Byte acquisition and workspace
+inspection supply the facts; they do not own compatibility decisions.
 
 Unstable and unsupported — use the [axm.sh](https://axm.sh) CLI.
 

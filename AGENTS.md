@@ -325,8 +325,11 @@ requirements.
   the named delivery require explicit authorization
 - Maintainer-authored changes require passing evidence and an acceptance
   decision, not a second human reviewer. External contributions require
-  maintainer acceptance. Until host enforcement is verified, treat required
-  checks, freshness, and squash merge as policy enforced manually
+  maintainer acceptance. GitHub enforces pull requests, strict current-base
+  `Required CI`, conversation resolution, linear history, squash-only
+  integration, and the same controls for administrators. Zero approvals are
+  required so maintainer-authored work needs no second human; external
+  maintainer acceptance remains a process boundary
 
 - This repo is public; the executable specification
   `system/process/public-artifacts-protect-private-context` owns the

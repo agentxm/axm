@@ -123,3 +123,21 @@ test("official-skill domain cannot construct recovery through the CLI adapter", 
   assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages));
   assert.ok(result.messages.some(({ ruleId }) => ruleId === "boundaries/dependencies"));
 });
+
+test("self-update policy cannot acquire installation facts from the filesystem", async () => {
+  const [result] = await eslint.lintText(
+    'import * as FileSystem from "effect/FileSystem"; export { FileSystem };',
+    { filePath: "packages/supporting/cli-maintenance/src/self-update/domain/policy.ts" },
+  );
+  assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages));
+  assert.ok(result.messages.some(({ ruleId }) => ruleId === "boundaries/dependencies"));
+});
+
+test("backstage compatibility policy cannot depend on the frontstage upgrade decision", async () => {
+  const [result] = await eslint.lintText(
+    'export { decideUpgrade } from "../../self-update/domain/index.js";',
+    { filePath: "packages/supporting/cli-maintenance/src/official-skill/domain/policy.ts" },
+  );
+  assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages));
+  assert.ok(result.messages.some(({ ruleId }) => ruleId === "boundaries/dependencies"));
+});

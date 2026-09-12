@@ -10,6 +10,8 @@
  * @packageDocumentation
  */
 
+import { Homebrew, type InstallMethodType } from "@agentxm/cli-maintenance/self-update/domain";
+
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 import { createHash } from "node:crypto";
@@ -33,11 +35,7 @@ import {
 } from "@agentxm/workspace-operations";
 
 import { InstallMeta, type InstallMetaData } from "./install-meta/install-meta.js";
-import {
-  Homebrew,
-  InstallMethod,
-  type InstallMethodType,
-} from "./install-method/install-method.js";
+import { InstallMethod } from "./install-method/install-method.js";
 import { Subprocess, type CommandResult, type RunCommandOptions } from "./subprocess/subprocess.js";
 import { UpdateCheck } from "./update-check/update-check.js";
 import { UpgradeWorkingDirectory } from "./upgrade/working-directory.js";

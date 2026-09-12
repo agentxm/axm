@@ -25,14 +25,11 @@ export {
   HOMEBREW_FORMULA,
   HOMEBREW_TAP,
   UpgradeAssessmentResultSchema,
-  decideUpgrade,
   methodLabel,
   parseChecksum,
-  resolvePlatformBinary,
   resultMessage,
   upgradePlanSteps,
   type CommandRecord,
-  type PlatformBinaryInfo,
   type ResultStatus,
   type UpgradeAssessmentResult,
   type UpgradeCoreResult,
@@ -45,18 +42,9 @@ export {
 
 export {
   InstallMethod,
-  Homebrew,
-  Npm,
-  Pnpm,
-  Script,
-  Unknown,
-  Yarn,
   detectFromInputs,
-  type DetectionSource,
   type InstallMethodInputs,
-  type InstallMethodName,
   type InstallMethodService,
-  type InstallMethodType,
 } from "./install-method/install-method.js";
 
 export {
@@ -79,7 +67,6 @@ export {
   resolveExactVersion,
   resolveLatestVersion,
   type ResolvedRelease,
-  type VersionRelation,
   type VersionResolutionResult,
 } from "./version-resolution/version-resolution.js";
 

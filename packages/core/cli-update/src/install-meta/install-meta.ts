@@ -8,6 +8,8 @@
  * @packageDocumentation
  */
 
+import { InstallMethodLiteral } from "@agentxm/cli-maintenance/self-update/domain";
+
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -19,7 +21,7 @@ import * as ServiceMap from "effect/Context";
 import { UpgradeFailed } from "../errors.js";
 import { writeFileAtomic } from "../internal/atomic-write.js";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
-import { InstallMethodLiteral } from "../install-method/install-method.js";
+
 import { resolveUserAxmHome } from "../internal/user-axm-home.js";
 
 // -----------------------------------------------------------------------------

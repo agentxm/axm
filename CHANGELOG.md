@@ -1,3 +1,13 @@
+## 0.29.3 (2026-09-12)
+
+### 🚀 Features
+
+- Synchronize the Registry client contract with the current server schema. ([#268](https://github.com/agentxm/axm/pull/268))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.29.2 (2026-09-11)
 
 ### 🚀 Features

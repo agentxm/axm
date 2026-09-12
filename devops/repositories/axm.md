@@ -47,8 +47,24 @@ separately operated AgentXM systems.
 [Repository instructions](../../AGENTS.md), [CONTRIBUTING](../../CONTRIBUTING.md),
 [CODEOWNERS](../../.github/CODEOWNERS), and the required CI aggregate describe
 contribution and review policy. CODEOWNERS routes review; it does not establish
-provider administration or operational ownership. GitHub repository settings
-are the authority for actual access and branch protection; they were not read.
+provider administration or operational ownership.
+
+GitHub repository settings are the live enforcement authority. Readback on
+2026-09-12 established that `main` requires pull requests, resolved
+conversations, linear history, and the strict `Required CI` context produced by
+GitHub Actions app `15368`; the rules include administrators and prohibit force
+pushes and deletion. Required approvals are zero, code-owner and last-push
+approval are off, and no actor or team has a bypass restriction. Squash is the
+only enabled merge method, automatic branch deletion and auto-merge are on, and
+the host permits branch updates. External-contributor maintainer acceptance
+therefore remains an explicit process boundary rather than a host-expressible
+conditional review rule.
+
+Actions are enabled for all actions, default workflow permissions are read-only,
+and workflows cannot approve pull requests. Pull-request jobs use GitHub-hosted
+ephemeral runners; trusted persistent-runner and release-production jobs are
+limited by event and repository conditions in the workflows. SHA-only action
+selection is not enforced by the host, so workflow source owns action pinning.
 The repository is maintained for pre-launch development. Transfer and archival
 arrangements are not documented in the reviewed sources.
 
@@ -57,7 +73,9 @@ arrangements are not documented in the reviewed sources.
 Documentation maintainer: [@craigsmitham](https://github.com/craigsmitham), under
 the [adoption declaration](../README.md). Repository maintainers operate the contribution flow described in CONTRIBUTING; the complete administrator and recovery-owner roster requires confirmation in GitHub settings.
 
-Review this record when the remote, ownership, repository layout, contribution gates, or distribution model changes.
+Review this record when the remote, ownership, repository layout, contribution
+gates, Actions permissions, runner trust boundary, or distribution model
+changes.
 
 ## Documentation migration history
 

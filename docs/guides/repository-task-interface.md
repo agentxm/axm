@@ -110,6 +110,13 @@ test runner to exercise allowed and forbidden dependencies and the composed root
 ESLint configuration, with no build prerequisite; the
 existing Nx constraints remain active for unconverted scopes.
 
+Use the confidence ladder consistently. A focused Nx target answers one question
+during implementation. `verify:affected` is the fast source-only loop over the
+current Nx range. `verify:pr` is the complete change-boundary gate: clean and
+format checks, affected source verification, and affected browser E2E. `ci`
+runs full-workspace source and browser diagnostics for automation and scheduled
+coverage; it is not the routine substitute for `verify:pr`.
+
 Dependencies express prerequisite artifacts or lifecycle ordering. Callers do
 not sequence a dependency already owned by a target. Host workflows may order
 steps only where failure handling, credentials, platform setup, or external

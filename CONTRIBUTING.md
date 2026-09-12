@@ -53,8 +53,9 @@ exception.
 | `pnpm format:check:affected` | Check only Nx-selected changed files      |
 | `pnpm lint`                  | Lint with ESLint                          |
 | `pnpm lint:fix`              | Lint and auto-fix                         |
-| `pnpm run ci`                | Run the full CI pipeline locally          |
-| `pnpm run verify:affected`   | Verify projects changed from the Nx base  |
+| `pnpm run verify:affected`   | Run fast source checks selected by Nx     |
+| `pnpm run verify:pr`         | Verify the complete pull-request boundary |
+| `pnpm run ci`                | Run full-workspace automation diagnostics |
 | `pnpm run container:ci`      | Run full CI in the pinned Linux image     |
 | `pnpm build:affected`        | Build only packages changed since `main`  |
 | `pnpm test:affected`         | Test only packages changed since `main`   |
@@ -73,16 +74,11 @@ specifies, inside the project that owns that source, and it runs in that
 project's `test` target. Before adding, moving, or retiring one, read
 [Executable specifications](contributing/guides/executable-specifications.md).
 
-Every pull request ends with the rendered specification verdict:
-
-```bash
-pnpm exec nx run axm:specification-verdict -- --base "$(git merge-base main HEAD)"
-```
-
-It lists added, removed, and revised requirement identities, or renders
-`No requirement contract changes.` Paste the output into the pull request. A
-removed identity needs an entry in `specifications/disposition-ledger.json`;
-an unexplained removal renders as one.
+Pull-request CI renders the specification verdict against the same affected
+base used by verification. It lists added, removed, and revised requirement
+identities, or renders `No requirement contract changes.` A removed identity
+needs an entry in `specifications/disposition-ledger.json`; an unexplained
+removal renders as one.
 
 Landing changes through short-lived pull requests with passing aggregate
 verification is repository policy. Maintainer-authored changes need an explicit
@@ -96,7 +92,7 @@ squash merge manually. The steps below implement the policy for contributors.
    first file edit.
 2. Make your changes.
 3. Add or update tests for any new or changed behavior.
-4. Ensure CI passes locally: `pnpm run ci`.
+4. Verify the complete change boundary: `pnpm run verify:pr`.
 5. Open a pull request against `main`.
 
 Do not edit, commit, or push directly on `main`. Use a separate worktree for

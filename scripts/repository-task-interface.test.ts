@@ -131,9 +131,21 @@ describe("repository task interface", () => {
       expect(script, name).not.toContain("--skip-nx-cache");
       expect(script, name).not.toContain("--excludeTaskDependencies");
       expect(script, name).not.toContain("--batch");
-      if (name === "verify:workspace") expect(phases).toHaveLength(2);
-      else expect(phases[2], name).toContain("affected -t e2e");
+      expect(phases).toHaveLength(2);
     }
+
+    const verifyPr = scripts["verify:pr"];
+    if (typeof verifyPr !== "string") throw new Error("Missing verify:pr script.");
+    expect(verifyPr).toContain("pnpm run verify:clean");
+    expect(verifyPr).toContain("pnpm run format:check");
+    expect(verifyPr).toContain("pnpm run verify:affected");
+    expect(verifyPr).toContain("pnpm run test:e2e:affected");
+
+    const affectedE2e = scripts["test:e2e:affected"];
+    if (typeof affectedE2e !== "string") {
+      throw new Error("Missing test:e2e:affected script.");
+    }
+    expect(affectedE2e).toContain("verify-pr-e2e affected -t e2e");
   });
 
   it("gives every cached resolved target a non-empty input contract", () => {

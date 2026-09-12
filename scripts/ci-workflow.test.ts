@@ -60,5 +60,32 @@ describe("aggregate required verification", () => {
     for (const name of Object.keys(workflow.jobs).filter((job) => job !== "required")) {
       expect(needs).toContain(name);
     }
+
+    const steps = requiredJob["steps"];
+    if (!Array.isArray(steps)) {
+      throw new Error("the required job must declare its aggregate step");
+    }
+    const aggregate = steps.find(
+      (step) => typeof step === "object" && step !== null && "run" in step,
+    );
+    if (typeof aggregate !== "object" || aggregate === null || !("run" in aggregate)) {
+      throw new Error("the required job must declare its aggregate run script");
+    }
+    const gate = aggregate.run;
+    if (typeof gate !== "string") {
+      throw new Error("the required aggregate run script must be a string");
+    }
+    expect(gate).toContain('.[$job].result // "missing"');
+    expect(gate).toContain('[[ "$result" != "success" ]]');
+    expect(gate).toContain("verify-pr");
+  });
+
+  it("derives one broad-fallback affected range for PR classification and verification", () => {
+    const workflow = readWorkflow();
+    const serialized = JSON.stringify(workflow.jobs["classify"]);
+    expect(serialized).toContain("nrwl/nx-set-shas@afb73a62d26e41464e9254689e1fd6122ee683c1");
+    expect(serialized).toContain("git rev-list --max-parents=0 HEAD");
+    expect(serialized).toContain("steps.set-shas.outputs.base");
+    expect(serialized).toContain("steps.set-shas.outputs.head");
   });
 });

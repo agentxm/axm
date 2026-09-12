@@ -20,7 +20,7 @@
       "outputs": ["{projectRoot}/src/__generated__/registry-client.ts"],
       "executor": "nx:run-commands",
       "options": {
-        "command": ["bun", "scripts/generate-registry-client.ts"],
+        "command": "bun scripts/generate-registry-client.ts",
         "cwd": "packages/supporting/registry-client"
       }
     },
@@ -30,7 +30,7 @@
       "outputs": ["{projectRoot}/specs/registry-openapi.json"],
       "executor": "nx:run-commands",
       "options": {
-        "command": ["bun", "scripts/sync-registry-spec.ts"],
+        "command": "bun scripts/sync-registry-spec.ts",
         "cwd": "packages/supporting/registry-client"
       }
     },

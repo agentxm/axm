@@ -1,0 +1,76 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema-jsonc.json",
+  "treatConfigHintsAsErrors": true,
+  // Gate files and dependency declarations. Export/member pruning is reviewed
+  // separately against the published API; --include can select those reports.
+  "include": [
+    "files",
+    "dependencies",
+    "devDependencies",
+    "optionalPeerDependencies",
+    "unlisted",
+    "unresolved",
+    "catalog",
+    "catalogReferences",
+    "binaries",
+  ],
+  // Nx infers each project's compiler target; the dual compiler aliases are
+  // enforced separately by scripts/typescript-aliases.test.ts.
+  "ignoreDependencies": ["@typescript/native"],
+  "vitest": {
+    "config": [
+      "vitest*.config.{js,mjs,ts,cjs,mts,cts}",
+      "vitest.{workspace,projects}.{js,mjs,ts,cjs,mts,cts,json}",
+    ],
+  },
+  "workspaces": {
+    ".": {
+      // @nx/eslint-plugin loads this recommended configuration at runtime but
+      // omits it from its own dependency metadata.
+      "ignoreDependencies": ["@eslint/js"],
+      // These are loaded by Allure, a shell launcher, and specification discovery.
+      "entry": [
+        "allurerc.ts",
+        "scripts/axm-local.ts",
+        "specifications/product-goals.ts",
+        "tools/architecture/check.mjs",
+        "tools/architecture/*.test.mjs",
+      ],
+      // Acquired Agent Skills and their evaluation fixtures have a separate owner.
+      "project": [
+        "*.{ts,mts,cts,js,mjs,cjs}",
+        "{scripts,benchmarks,specifications,tools/architecture}/**/*.{ts,mts,cts,js,mjs,cjs}",
+      ],
+      "vitest": {
+        "config": ["vitest*.config.ts", "scripts/vitest.config.ts"],
+      },
+    },
+    "packages/core/extension-model": {
+      "entry": ["src/**/*.type-test.ts"],
+    },
+    "packages/core/workspace-state": {
+      "entry": ["src/**/*.type-test.ts"],
+    },
+    "apps/cli": {
+      // Explicit roots for source-conditioned Bun launchers.
+      "entry": [
+        "src/main.ts",
+        "scripts/generate-schemas.ts",
+        "scripts/generate-type-enumerations.ts",
+        "scripts/paint-gallery.ts",
+      ],
+      // Pin the published Effect runtime cohort despite its transitive import.
+      "ignoreDependencies": ["@effect/platform-node-shared"],
+    },
+    "packages/core/extension-materialization": {
+      // Deliberate dynamic loading keeps unavailable native keychains recoverable.
+      "ignoreDependencies": ["@napi-rs/keyring"],
+    },
+    "packages/supporting/registry-auth": {
+      "ignoreDependencies": ["@napi-rs/keyring"],
+    },
+    "tools/extension-type-parity": {
+      "entry": ["scripts/generate-e2e-extension-matrix.ts"],
+    },
+  },
+}

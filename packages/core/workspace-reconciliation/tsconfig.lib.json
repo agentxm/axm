@@ -18,6 +18,9 @@
   ],
   "references": [
     {
+      "path": "../../supporting/registry-client/tsconfig.lib.json"
+    },
+    {
       "path": "../workspace-transactions/tsconfig.lib.json"
     },
     {
@@ -43,12 +46,6 @@
     },
     {
       "path": "../../supporting/agent-integration/tsconfig.lib.json"
-    },
-    {
-      "path": "../../../tools/specification-metadata/tsconfig.lib.json"
-    },
-    {
-      "path": "../../supporting/registry-client/tsconfig.lib.json"
     }
   ]
 }

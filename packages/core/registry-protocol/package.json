@@ -75,7 +75,6 @@
     "semver": "catalog:"
   },
   "devDependencies": {
-    "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",

@@ -117,7 +117,7 @@ describe("repository task interface", () => {
     );
   });
 
-  it("checks the complete capability graph before dependency-aware verification", () => {
+  it("checks global architecture and dependency hygiene before dependency-aware verification", () => {
     const scripts = readObject("package.json")["scripts"];
     if (!isRecord(scripts)) throw new Error("package.json must declare scripts.");
 
@@ -126,13 +126,14 @@ describe("repository task interface", () => {
       if (typeof script !== "string") throw new Error(`Missing ${name} script.`);
       const phases = script.split("&&");
       expect(phases[0]?.trim(), name).toBe("pnpm exec nx run architecture:check");
-      expect(phases[1], name).toContain("-t lint typecheck build test");
-      expect(phases[1], name).toContain("pnpm exec nx");
-      expect(phases[1], name).not.toContain("scripts/profile-nx.ts");
+      expect(phases[1]?.trim(), name).toBe("pnpm exec nx run axm:unused-code");
+      expect(phases[2], name).toContain("-t lint typecheck build test");
+      expect(phases[2], name).toContain("pnpm exec nx");
+      expect(phases[2], name).not.toContain("scripts/profile-nx.ts");
       expect(script, name).not.toContain("--skip-nx-cache");
       expect(script, name).not.toContain("--excludeTaskDependencies");
       expect(script, name).not.toContain("--batch");
-      expect(phases).toHaveLength(2);
+      expect(phases).toHaveLength(3);
     }
 
     const verifyPr = scripts["verify:pr"];

@@ -5,7 +5,8 @@ import { capabilityFileRules } from "./boundaries.mjs";
 
 // Use the package's supported CommonJS entry, as the ESLint plugin does. Its
 // ESM build currently attempts a dynamic require when constructing a matcher.
-const { Elements } = createRequire(import.meta.url)("@boundaries/elements");
+const require = createRequire(import.meta.url);
+const { Elements } = require("@boundaries/elements");
 
 /**
  * dependency-cruiser owns source extraction; JS Boundaries owns capability

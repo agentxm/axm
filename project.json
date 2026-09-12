@@ -5,6 +5,14 @@
   "sourceRoot": "scripts",
   "tags": ["type:tooling", "role:tooling", "scope:root"],
   "targets": {
+    "unused-code": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "knip --no-progress",
+        "cwd": "."
+      }
+    },
     "source-cli-smoke": {
       "executor": "nx:run-commands",
       "cache": false,

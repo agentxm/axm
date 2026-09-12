@@ -62,8 +62,6 @@
     "@typescript/native": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "@agentxm/specification-metadata": "workspace:^",
-    "@fast-check/vitest": "catalog:",
     "yaml": "catalog:"
   }
 }

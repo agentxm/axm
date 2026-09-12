@@ -14,8 +14,8 @@ sources:
     resource: https://github.com/agentxm/axm/blob/42ed192e796a413246266f871da31bddfd70de10/contributing/guides/releasing.md
     title: Pre-migration repository guidance
 generated:
-  by: codex/gpt-6
-  at: 2026-09-11T16:07:00Z
+  by: codex/gpt-5
+  at: 2026-09-12T16:23:31Z
 ---
 
 # Release the AXM CLI
@@ -60,8 +60,9 @@ state in the [specification catalog](../../specifications/catalog.md).
 
 - Releases are published from GitHub Actions. Do not publish packages or create
   GitHub Releases manually.
-- `pnpm release:prepare` is the only supported local entry point for cutting a
-  release commit and opening its pull request.
+- Release candidates are prepared only by explicitly dispatching
+  `prepare-release.yml` with an exact current `main` commit. Do not cut or push
+  a release commit from a local checkout.
 - Run `pnpm run verify:affected` explicitly when local release verification is
   wanted. Git push does not repeat that broad workflow; pull-request and
   merged-commit CI remain authoritative.
@@ -94,44 +95,40 @@ state in the [specification catalog](../../specifications/catalog.md).
    configured zero-major adjustment maps a `major` plan to the next minor
    version and a `minor` plan to the next patch version.
 
-2. Prepare the release from a clean checkout whose `HEAD` exactly matches
-   `origin/main`. The checkout may be attached to any local branch or detached;
-   the exact source commit is authoritative.
+2. Dispatch candidate preparation for the exact current `main` commit.
 
    ```bash
-   # Optional rehearsal:
-   pnpm release:prepare -- --dry-run
-
-   # Ordinary preparation:
-   pnpm release:prepare
+   git fetch origin main
+   source_sha="$(git rev-parse origin/main)"
+   gh workflow run prepare-release.yml \
+     --repo agentxm/axm \
+     --ref main \
+     --field source_sha="$source_sha"
    ```
 
-   Both modes first use the committed source CLI and the skill package from the
-   latest reachable release tag at or before the current version to verify production Registry
-   authentication, immutable archive integrity, and the authoritative
-   publish-preview contract. This disposable preflight worktree prevents
-   next-version edits on `main` from being compared with the current immutable
-   release. If a failed candidate was merged but never published, preparation
-   uses the preceding released tag instead of inventing a tag for the failed
-   candidate. The preflight workspace exposes only that released skill as
-   workspace-authored content; it does not consume the historic accepted
-   resolution lockfile. No candidate state exists yet, so an expired token,
-   incompatible Registry, or inability to reproduce the current release fails
-   before CI or release generation.
+   `source_sha` must be a full lowercase 40-character commit and must still equal
+   `origin/main` both before generation and immediately before the candidate is
+   pushed. If `main` advances, dispatch a fresh run for the new commit; do not
+   update a generated release branch with a generic branch update.
 
-   Preparation then creates a disposable detached Git worktree from the
-   preflighted source commit and installs the locked workspace dependencies.
-   Dry-run performs real versioning, changelog generation, bundled-skill
-   generation, and an exact production Registry preview inside that worktree,
-   then removes it without committing, pushing, opening a pull request, or
-   publishing. Temporary writes inside the disposable worktree are what make
-   the dry run faithful; the invoking checkout and external systems remain
-   unchanged.
+   The workflow installs the locked workspace in its ephemeral checkout. Before
+   candidate state exists, it uses the committed source CLI and the skill source
+   from the latest reachable release tag at or before the current version to
+   verify production Registry authentication, immutable archive integrity, and
+   the authoritative publish-preview contract. If a failed candidate was merged
+   but never published, preparation uses the preceding released tag instead of
+   inventing a tag for the failed candidate. The preflight checkout exposes only
+   that released skill as workspace-authored content; it does not consume the
+   historic accepted resolution lockfile.
 
-   The real run performs the same isolated candidate preparation, commits it in
-   the detached worktree, pushes `release/cli-v{VERSION}`, opens the release
-   pull request, and removes the worktree. The invoking checkout stays clean on
-   its original commit throughout.
+   After preflight, Nx Release versions the fixed cohort and changelog, stamps
+   and regenerates the bundled skill, and previews the exact candidate against
+   the production Registry. The workflow commits and pushes
+   `release/cli-v{VERSION}`, opens the release pull request, records source and
+   candidate provenance in its summary, and explicitly dispatches CI for the
+   candidate commit. That dispatch is part of the contract: branch and pull
+   request events created with the workflow token do not recursively start CI.
+   No preparation step publishes a package, release, skill, or channel.
 
 3. Wait for pull request CI, then squash-merge with the exact release subject.
 
@@ -272,14 +269,16 @@ For a working-tree package preview, follow [Publish a local preview](publish-loc
 
 - If the tag version and package manifest versions do not match, publishing
   fails fast.
-- Candidate-generation failures remove the owned disposable worktree and do
-  not restore files in the invoking checkout because that checkout was never
-  mutated. If cleanup itself fails, the command reports the exact temporary
-  path for targeted recovery.
-- A failed push creates no remote release branch. If the push succeeds but pull
-  request creation fails, keep the remote branch and rerun the pull request
-  recovery command printed by the tool; do not delete shared remote state as
-  rollback.
+- Candidate-generation failures leave no developer checkout to clean because
+  the runner is ephemeral. The workflow summary identifies the last resolved
+  source, candidate, tag, branch, and pull request state.
+- A failed push creates no remote release branch. If the push succeeds but a
+  later step fails, keep and inspect the named remote branch as the recoverable
+  outcome; do not delete shared remote state as rollback or blindly retry over
+  it.
+- Preparation requires the `AXM_REGISTRY_TOKEN` repository secret. Candidate
+  branch, pull-request, and CI-dispatch authority comes from the job-scoped
+  workflow token; no separate personal token is used.
 - Homebrew automation requires the `HOMEBREW_TAP_TOKEN` repository secret in
   `agentxm/axm`.
 - Stable-channel promotion requires `AXM_RELEASE_CONTROL_TOKEN`,

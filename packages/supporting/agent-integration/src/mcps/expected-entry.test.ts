@@ -62,6 +62,28 @@ describe("MCP projection", () => {
     });
   });
 
+  it("preserves long unterminated defaults as literal input", () => {
+    const value = "${A:-|".repeat(20_000);
+    expect(renderEnvValue(value, { variables: "none", defaults: false })).toEqual({ value });
+  });
+
+  it("finds the first valid embedded reference after malformed input", () => {
+    const value = "${9INVALID} / ${TOKEN} / ${LATER}";
+    expect(renderEnvValue(value, { variables: "none", defaults: false })).toEqual({
+      value,
+      warning: "does not expand environment reference ${TOKEN}",
+    });
+  });
+
+  it("distinguishes an empty default from an ordinary reference", () => {
+    const value = "prefix ${TOKEN:-} suffix";
+    expect(renderEnvValue(value, { variables: "braced", defaults: false })).toEqual({
+      value,
+      warning: "does not expand environment default ${TOKEN:-}",
+    });
+    expect(renderEnvValue(value, { variables: "braced", defaults: true })).toEqual({ value });
+  });
+
   it("projects an inline remote server through a target dialect", () => {
     const projected = projectExpectedEntry({
       serverName: "demo",

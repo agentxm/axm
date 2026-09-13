@@ -12,8 +12,10 @@ upgrade candidate and owns separate `assessUpgrade` and `applyUpgrade` APIs.
 Assessment requires only read contracts and installer instructions; application
 owns availability, mutation, verification, recovery, and recording decisions.
 This package supplies native implementations and CLI progress in `adapters/`
-and connects them in `composition/`. Concrete progress dependencies and native
-ownership inspection remain to be separated before package consolidation.
+and connects them in `composition/`. Native ownership inspection returns
+immutable command evidence through the same runner as installer operations.
+Concrete progress dependencies remain to be separated before package
+consolidation.
 
 - **Install ownership.** Detection across the script installer, Homebrew, npm,
   pnpm, and Yarn, from executable paths, the module URL, the package-manager

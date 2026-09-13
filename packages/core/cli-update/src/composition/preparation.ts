@@ -1,5 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Ref from "effect/Ref";
 import {
   CliReleaseCatalog,
   InstallationInspection,
@@ -13,11 +14,13 @@ import {
   observeReleaseCatalog,
 } from "../adapters/preparation/index.js";
 import { makeInstallerInstructions } from "../adapters/installer-instructions.js";
+import { makeCommandRunner } from "../adapters/subprocess/command-evidence.js";
 
 const InstallationInspectionLive = Layer.effect(
   InstallationInspection,
   Effect.gen(function* () {
-    return makeInstallationInspection(yield* InstallMethod, yield* Subprocess);
+    const run = makeCommandRunner(yield* Subprocess, yield* Ref.make(0), "ownership-command");
+    return makeInstallationInspection(yield* InstallMethod, run);
   }),
 );
 

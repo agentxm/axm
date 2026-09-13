@@ -328,11 +328,13 @@ requirements.
   the named delivery require explicit authorization
 - Maintainer-authored changes require passing evidence and an acceptance
   decision, not a second human reviewer. External contributions require
-  maintainer acceptance. GitHub enforces pull requests, strict current-base
-  `Required CI`, conversation resolution, linear history, squash-only
-  integration, and the same controls for administrators. Zero approvals are
-  required so maintainer-authored work needs no second human; external
-  maintainer acceptance remains a process boundary
+  maintainer acceptance. GitHub's native merge queue verifies the synthesized
+  integration revision before squash merge; authors do not refresh accepted
+  branches merely because `main` advances. Follow the
+  [merge-queue runbook](devops/runbooks/operate-merge-queue.md) for enqueue,
+  failure recovery, and live-setting verification. Zero approvals are required
+  so maintainer-authored work needs no second human; external maintainer
+  acceptance remains a process boundary
 
 - This repo is public; the executable specification
   `system/process/public-artifacts-protect-private-context` owns the
@@ -342,7 +344,7 @@ requirements.
 - Cross-repo work uses a separate AXM PR with self-contained public context;
   keep private coordination and private PR links out of this repo
 
-<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery gen=ff21a160698af98f430c70cb3f08e3484f7ea19b626bdb6a4465ca10a0e20892 -->
+<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery gen=4fc5de2531617ab0211364b22f4a4ce85147fd7142adb025cbe9665654ff36fb -->
 
 ## Knowledge Bundles
 

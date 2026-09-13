@@ -4,19 +4,26 @@ run-name: >-
   ${{
     github.event_name == 'pull_request' &&
     format('CI - PR #{0}', github.event.pull_request.number) ||
+    github.event_name == 'merge_group' &&
+    format('CI - merge group {0}', github.ref_name) ||
     format('CI - {0}', github.ref_name)
   }}
 
 on:
   pull_request:
+  merge_group:
+    branches: [main]
+    types: [checks_requested]
   push:
     branches: [main]
   workflow_dispatch:
 
 concurrency:
   group: >-
-    ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    ci-${{ github.workflow }}-${{ github.event_name }}-${{
+    github.event.pull_request.number || github.event.merge_group.head_ref || github.ref }}
+  cancel-in-progress: >-
+    ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
 
 permissions:
   actions: read
@@ -74,7 +81,7 @@ jobs:
   specification-verdict:
     name: Specification verdict
     needs: classify
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -94,7 +101,7 @@ jobs:
   extension-lint:
     name: AXM extension lint
     needs: classify
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -111,7 +118,7 @@ jobs:
     name: Documentation integrity
     needs: classify
     if: >-
-      github.event_name == 'pull_request' &&
+      (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
       needs.classify.outputs.documentation == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -131,7 +138,7 @@ jobs:
     name: Workflow validation
     needs: classify
     if: >-
-      github.event_name == 'pull_request' &&
+      (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
       needs.classify.outputs.workflow == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -155,9 +162,9 @@ jobs:
         run: actionlint
 
   verify-pr:
-    name: Verify PR
+    name: Verify proposed change
     needs: classify
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -194,7 +201,7 @@ jobs:
           key: >-
             axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-${{
             hashFiles('mise.toml', '.github/actions/setup-workspace/action.yml') }}-${{ hashFiles('pnpm-lock.yaml') }}-${{
-            github.event.pull_request.head.sha }}
+            needs.classify.outputs.head }}
           restore-keys: |
             axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', '.github/actions/setup-workspace/action.yml') }}-${{ hashFiles('pnpm-lock.yaml') }}-
             axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', '.github/actions/setup-workspace/action.yml') }}-
@@ -206,12 +213,17 @@ jobs:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
           HEAD_SHA: ${{ needs.classify.outputs.head }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           release_preparation=false
           release_subject="release: ${HEAD_REF#release/}"
-          if [[ "$HEAD_REPOSITORY" == "$GITHUB_REPOSITORY" ]] &&
+          if [[ "$EVENT_NAME" == "pull_request" ]] &&
+            [[ "$HEAD_REPOSITORY" == "$GITHUB_REPOSITORY" ]] &&
             [[ "$HEAD_REF" =~ ^release/cli-v[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?$ ]] &&
             git log --format=%s "main..$HEAD_SHA" | grep --fixed-strings --line-regexp --quiet -- "$release_subject"; then
+            release_preparation=true
+          elif [[ "$EVENT_NAME" == "merge_group" ]] &&
+            git log --format=%s "main..$HEAD_SHA" | grep --extended-regexp --line-regexp --quiet -- 'release: cli-v[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?'; then
             release_preparation=true
           fi
           echo "release_preparation=$release_preparation" >> "$GITHUB_OUTPUT"
@@ -258,7 +270,7 @@ jobs:
           }
           verify_outcome=${VERIFY_OUTCOME:-not run}
           {
-            echo "## Hosted PR verification"
+            echo "## Hosted proposed-change verification"
             echo
             echo "| Signal | Result |"
             echo "| --- | --- |"
@@ -641,7 +653,7 @@ jobs:
           DOCS_CHANGED: ${{ needs.classify.outputs.documentation }}
           WORKFLOW_CHANGED: ${{ needs.classify.outputs.workflow }}
         run: |
-          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+          if [[ "$EVENT_NAME" == "pull_request" || "$EVENT_NAME" == "merge_group" ]]; then
             expected=(classify secrets specification-verdict extension-lint verify-pr windows-workspace)
             [[ "$DOCS_CHANGED" == "true" ]] && expected+=(documentation)
             [[ "$WORKFLOW_CHANGED" == "true" ]] && expected+=(workflow-validation)

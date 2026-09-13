@@ -98,7 +98,7 @@ if (ciWorkflow.includes("affected_projects")) {
 }
 
 if (
-  !/key:\s*>-\s+axm-ci-nx-v2-[\s\S]{0,500}github\.event\.pull_request\.head\.sha\s*\}\}\s+restore-keys:/u.test(
+  !/key:\s*>-\s+axm-ci-nx-v2-[\s\S]{0,500}needs\.classify\.outputs\.head\s*\}\}\s+restore-keys:/u.test(
     ciWorkflow,
   )
 ) {

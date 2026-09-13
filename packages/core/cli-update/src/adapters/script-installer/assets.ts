@@ -2,10 +2,10 @@ import { createHash } from "node:crypto";
 import * as Effect from "effect/Effect";
 import * as Stream from "effect/Stream";
 import * as HttpClient from "effect/unstable/http/HttpClient";
-import { makeThrottledUnitProgress, observeChildUnit } from "@agentxm/workspace-operations";
 import {
   UpgradeFailed,
   type ScriptReleaseAssets,
+  type UpgradeExecutionObserverService,
 } from "@agentxm/cli-maintenance/self-update/application";
 
 const declaredContentLength = (headers: Readonly<Record<string, string>>): number | undefined => {
@@ -14,15 +14,13 @@ const declaredContentLength = (headers: Readonly<Record<string, string>>): numbe
 };
 
 /**
- * Read a release asset. `reportProgress` streams the body and publishes
- * throttled byte measurements for the unit in progress, so the one download
- * long enough to be worth watching is watchable; everything else reads the
- * body whole.
+ * Read a release asset. Streaming reports byte observations to the selected
+ * observer; the adapter does not select labels or progress timing.
  */
 const fetchAsset = (
   httpClient: HttpClient.HttpClient,
   url: string,
-  options?: { readonly reportProgress?: boolean },
+  report?: (received: number, total: number | undefined) => Effect.Effect<void>,
 ) =>
   Effect.gen(function* () {
     const response = yield* httpClient
@@ -63,24 +61,26 @@ const fetchAsset = (
         detail: "Failed to read the release asset",
         cause,
       });
-    if (options?.reportProgress !== true) {
+    if (report === undefined) {
       const body = yield* response.arrayBuffer.pipe(Effect.mapError(readFailed));
       return new Uint8Array(body);
     }
 
     const total = declaredContentLength(response.headers);
-    const report = yield* makeThrottledUnitProgress({ unit: "bytes", intervalMs: 250 });
-    const chunks: Array<Uint8Array> = [];
-    let received = 0;
-    yield* response.stream.pipe(
-      Stream.runForEach((chunk) => {
-        chunks.push(chunk);
-        received += chunk.length;
-        return report(received, total);
-      }),
+    const chunks = yield* response.stream.pipe(
+      Stream.mapAccum(
+        () => 0,
+        (received, chunk) => {
+          const next = received + chunk.length;
+          return [next, [{ received: next, chunk }]] as const;
+        },
+      ),
+      Stream.tap((observation) => report(observation.received, total)),
+      Stream.map((observation) => observation.chunk),
+      Stream.runCollect,
       Effect.mapError(readFailed),
     );
-    const body = new Uint8Array(received);
+    const body = new Uint8Array(chunks.reduce((totalBytes, chunk) => totalBytes + chunk.length, 0));
     let offset = 0;
     for (const chunk of chunks) {
       body.set(chunk, offset);
@@ -91,14 +91,12 @@ const fetchAsset = (
 
 export const makeScriptReleaseAssets = (
   client: HttpClient.HttpClient,
+  observeDownload: UpgradeExecutionObserverService["download"],
 ): typeof ScriptReleaseAssets.Service => ({
   read: (source, binaryName) =>
     Effect.gen(function* () {
       const [bytes, manifest] = yield* Effect.all([
-        observeChildUnit(
-          { id: "download-binary", label: `Download ${binaryName}` },
-          fetchAsset(client, source.binaryAssetUrl, { reportProgress: true }),
-        ),
+        observeDownload(binaryName, (report) => fetchAsset(client, source.binaryAssetUrl, report)),
         fetchAsset(client, source.checksumAssetUrl),
       ]);
       return {

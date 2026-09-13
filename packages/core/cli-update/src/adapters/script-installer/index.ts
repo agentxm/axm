@@ -10,6 +10,7 @@ import {
   type ExecutableReplacementLease,
   type ScriptExecutableInstallerService,
   type StagedExecutable,
+  type UpgradeExecutionObserverService,
 } from "@agentxm/cli-maintenance/self-update/application";
 import type { SubprocessService } from "../../subprocess/subprocess.js";
 import { makeCommandRunner } from "../subprocess/command-evidence.js";
@@ -28,9 +29,9 @@ export const makeScriptExecutableInstaller = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   subprocess: SubprocessService,
-  counter: Ref.Ref<number>,
+  observeCommand: UpgradeExecutionObserverService["command"],
 ): ScriptExecutableInstallerService => {
-  const run = makeCommandRunner(subprocess, counter, "script-command");
+  const run = makeCommandRunner(subprocess, observeCommand);
   return {
     inspect: (executablePath, purpose, workingDirectory) =>
       Effect.gen(function* () {

@@ -9,6 +9,7 @@ import {
   type UpgradeAction,
 } from "../domain/index.js";
 import { UpgradeFailed } from "./errors.js";
+import { UpgradeExecutionObserver } from "./execution-observer.js";
 import type { CommandRecord } from "./evidence.js";
 import { InstallationInspection } from "./installation.js";
 import { selectUpgradeRelease } from "./release-selection.js";
@@ -52,7 +53,8 @@ export const prepareUpgrade: (
   }
 
   const workingDirectory = yield* UpgradeWorkingDirectory;
-  const inspected = yield* inspection.inspect(workingDirectory.path);
+  const observer = yield* UpgradeExecutionObserver;
+  const inspected = yield* observer.installation(inspection.inspect(workingDirectory.path));
   if (inspected.method._tag === "Unknown") {
     return yield* new UpgradeFailed({
       category: "validation",

@@ -1,7 +1,6 @@
 import { makeCommandRunner } from "../subprocess/command-evidence.js";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
-import type * as Ref from "effect/Ref";
 import type * as Path from "effect/Path";
 import * as semver from "semver";
 import { methodName } from "@agentxm/cli-maintenance/self-update/domain";
@@ -12,6 +11,7 @@ import {
   type InstallationRecorder,
   type PackageInstallerService,
   type VerificationExecutable,
+  type UpgradeExecutionObserverService,
 } from "@agentxm/cli-maintenance/self-update/application";
 import type { InstallMetaService } from "../../install-meta/install-meta.js";
 import type { SubprocessService } from "../../subprocess/subprocess.js";
@@ -25,13 +25,13 @@ import {
   packageManagerCommand,
 } from "./commands.js";
 
-/** One invocation owns the counter; execution returns evidence rather than mutating a caller's array. */
+/** Installer protocols return immutable evidence through the selected observer. */
 export const makePackageInstaller = (
   subprocess: SubprocessService,
   pathService: Path.Path,
-  counter: Ref.Ref<number>,
+  observeCommand: UpgradeExecutionObserverService["command"],
 ): PackageInstallerService => {
-  const run = makeCommandRunner(subprocess, counter, "package-command");
+  const run = makeCommandRunner(subprocess, observeCommand);
 
   const reportedVersion = (result: CommandRecord): string | null =>
     result.exitCode === 0 ? semver.valid(result.stdout.trim()) : null;

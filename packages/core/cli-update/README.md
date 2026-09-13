@@ -14,8 +14,11 @@ owns availability, mutation, verification, recovery, and recording decisions.
 This package supplies native implementations and CLI progress in `adapters/`
 and connects them in `composition/`. Native ownership inspection returns
 immutable command evidence through the same runner as installer operations.
-Concrete progress dependencies remain to be separated before package
-consolidation.
+Native adapters use the application-owned observer contract. The CLI adapter
+owns operation labels, unique command units, byte-progress throttling, and
+rendered command text; the delivery composition explicitly selects it. The
+concrete CLI observer and its lifecycle test binding still need their final
+package placement before consolidation.
 
 - **Install ownership.** Detection across the script installer, Homebrew, npm,
   pnpm, and Yarn, from executable paths, the module URL, the package-manager

@@ -79,7 +79,6 @@ const runApplication = (
               purpose: "delegation",
               executable: "alternate-installer",
               args: [version],
-              display: `alternate-installer ${version}`,
               executionState: "exited",
               exitCode: 0,
               stdout: "",

@@ -1,6 +1,7 @@
 import * as Effect from "effect/Effect";
 import { classifyVersionRelation, normalizeExactVersion } from "../domain/index.js";
 import { UpgradeFailed } from "./errors.js";
+import { UpgradeExecutionObserver } from "./execution-observer.js";
 import { CliReleaseCatalog, type VersionResolutionResult } from "./releases.js";
 
 export interface UpgradeReleaseRequest {
@@ -25,10 +26,13 @@ export const selectUpgradeRelease: (
   }
 
   const catalog = yield* CliReleaseCatalog;
-  const selected =
+  const observer = yield* UpgradeExecutionObserver;
+  const selected = yield* observer.release(
+    requestedVersion,
     requestedVersion === undefined
-      ? yield* catalog.stable(request.binaryName)
-      : yield* catalog.exact(requestedVersion, request.binaryName);
+      ? catalog.stable(request.binaryName)
+      : catalog.exact(requestedVersion, request.binaryName),
+  );
 
   if (normalizeExactVersion(selected.targetVersion) === null) {
     return yield* new UpgradeFailed({

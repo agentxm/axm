@@ -3,7 +3,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import * as Ref from "effect/Ref";
+import { UpgradeExecutionObserver } from "@agentxm/cli-maintenance/self-update/application";
 import { makeScriptExecutableInstaller } from "./index.js";
 
 describe("native executable replacement lifetime", () => {
@@ -22,7 +22,7 @@ describe("native executable replacement lifetime", () => {
             run: () => Effect.die("This resource contract must not execute a command"),
             resolveExecutable: () => Effect.die("This resource contract must not resolve PATH"),
           },
-          yield* Ref.make(0),
+          (yield* UpgradeExecutionObserver).command,
         );
         const backupPath = yield* Effect.scoped(
           Effect.gen(function* () {

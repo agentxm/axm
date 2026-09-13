@@ -133,7 +133,7 @@ export const UpgradeAssessmentResultSchema = Schema.Struct({
       }),
     ),
   }),
-  commands: Schema.Array(CommandRecordSchema),
+  commands: Schema.Array(Schema.Struct({ ...CommandRecordSchema.fields, display: Schema.String })),
   details: Schema.Struct({
     messages: Schema.Array(Schema.String),
     homebrewFailure: Schema.NullOr(HomebrewFailureSchema),
@@ -429,7 +429,10 @@ export const toUpgradeAssessment = (input: UpgradeSettlement): UpgradeAssessment
               display: formatRecommendedCommand(input.result.recommendedCommand),
             },
     },
-    commands: input.result.executedCommands,
+    commands: input.result.executedCommands.map((command) => ({
+      ...command,
+      display: formatRecommendedCommand({ ...command, shellRequired: false }),
+    })),
     details: {
       messages: Array.from(new Set([...details, ...availability.details])),
       homebrewFailure: input.result.homebrewFailure ?? null,

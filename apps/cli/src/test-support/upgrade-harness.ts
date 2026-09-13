@@ -11,6 +11,7 @@ import {
   UpgradePreparationLive,
   PackageInstallationLive,
   ScriptInstallationLive,
+  CliUpgradeObservationLive,
 } from "@agentxm/cli-update/live";
 import { type InstallMethodType, Homebrew } from "@agentxm/cli-maintenance/self-update/domain";
 
@@ -107,6 +108,7 @@ export const runUpgradeCommand = (options?: UpgradeCommandOptions) =>
     const layer = Layer.provideMerge(
       Layer.mergeAll(UpgradePreparationLive, PackageInstallationLive, ScriptInstallationLive),
       Layer.mergeAll(
+        CliUpgradeObservationLive,
         NodeServices.layer,
         options?.human === true
           ? humanScreenLayer(streams)

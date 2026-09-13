@@ -149,13 +149,6 @@ export {
 
 // Skill lifecycle operations
 export { getSkillDisplayName } from "./skills/utils.js";
-export {
-  gitHostedSkillArtifactSource,
-  installSkill,
-  type InstallSkillOperation,
-  type InstallSkillOperationArgs,
-} from "./skills/operations/install.js";
-export type { InstallResult } from "./skills/operations/install-result.js";
 export { enableSkill, type EnableSkillOperation } from "./skills/operations/enable.js";
 export { disableSkill, type DisableSkillOperation } from "./skills/operations/disable.js";
 

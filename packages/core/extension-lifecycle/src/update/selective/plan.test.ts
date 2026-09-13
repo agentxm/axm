@@ -16,7 +16,7 @@ import {
   decodeVersionSync,
   type Version,
 } from "@agentxm/extension-model/unstable/version-constraints";
-import type { JobStepResult } from "@agentxm/workspace-operations";
+import type { JobStepResult, PlannedJobStep } from "@agentxm/workspace-operations";
 import {
   TreeIntegritySchema,
   type SkillLockEntry,
@@ -160,7 +160,11 @@ const firstMessage = <TOperation>(
   locks: Readonly<Record<string, SkillLockEntry | undefined>>,
   run: (operation: TOperation) => Effect.Effect<JobStepResult>,
 ) => {
-  const plan = buildSelectiveUpdatePlan([unit], locks, "Update", Option.none(), run);
+  const plan = buildSelectiveUpdatePlan([unit], locks, "Update", Option.none(), (operation) => ({
+    readiness: "ready",
+    label: unit.name,
+    run: run(operation),
+  }));
   const step = plan.jobs[0]?.steps[0];
   if (step === undefined || step.readiness === "error") {
     throw new Error("missing ready plan step");
@@ -169,6 +173,45 @@ const firstMessage = <TOperation>(
 };
 
 describe("buildSelectiveUpdatePlan — skills", () => {
+  it.each(["ready", "warn", "error"] as const)(
+    "preserves %s readiness and the owned step's execution metadata",
+    (readiness) => {
+      const common = {
+        key: "skill:skill",
+        label: "Install skill",
+        dependsOn: ["permission"],
+        materialPaths: ["/source/SKILL.md"],
+        registryBinding: {
+          extensionType: "skill" as const,
+          target: "skill",
+          owner: AXM,
+          packageName: extensionName("skill"),
+          version: exactVersion("2.0.0"),
+          publisherBindingId: "hbnd_test",
+        },
+      };
+      const owned: PlannedJobStep =
+        readiness === "error"
+          ? {
+              ...common,
+              readiness,
+              errorMessage: "Source refused",
+              blockingConditionIds: ["source-refused"],
+            }
+          : readiness === "warn"
+            ? { ...common, readiness, warnMessage: "Deprecated source", run: dispatched("skill") }
+            : { ...common, readiness, run: dispatched("skill") };
+      const plan = buildSelectiveUpdatePlan(
+        [skillUnit("skill", { type: "registry", version: exactVersion("2.0.0") })],
+        { skill: registryLock(exactVersion("1.0.0")) },
+        "Update skills",
+        Option.none(),
+        () => owned,
+      );
+      expect(plan.jobs[0]?.steps[0]).toEqual({ ...owned, label: "skill" });
+    },
+  );
+
   it.effect("skips a Git resolution with the same accepted tree", () =>
     Effect.gen(function* () {
       const message = yield* firstMessage(
@@ -253,7 +296,7 @@ describe("buildSelectiveUpdatePlan — skills", () => {
       {} satisfies SkillsLockMap,
       "Update skills",
       Option.some("description"),
-      dispatched,
+      (operation) => ({ readiness: "ready", label: "trial", run: dispatched(operation) }),
     );
     expect(plan._tag).toBe("Plan");
     expect(plan.name).toBe("Update skills");
@@ -303,7 +346,11 @@ const acceptedSubagent = (version: string): SubagentsLockMap => ({
   },
 });
 
-const applied = () => Effect.succeed<JobStepResult>({ result: "success", message: "applied" });
+const applied = () => ({
+  readiness: "ready" as const,
+  label: "researcher",
+  run: Effect.succeed<JobStepResult>({ result: "success", message: "applied" }),
+});
 
 const runFirstSubagent = (version: string, force: boolean, locks: SubagentsLockMap) => {
   const plan = buildSelectiveUpdatePlan(

@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import { defaultServerConditions } from "vite";
 import { defineConfig } from "vitest/config";
 
 const projectRoot = fileURLToPath(new URL(".", import.meta.url));
@@ -6,7 +7,7 @@ const projectRoot = fileURLToPath(new URL(".", import.meta.url));
 /** Source-only policy evidence, independent of CLI artifacts and specification receipts. */
 export default defineConfig({
   root: projectRoot,
-  resolve: { conditions: ["axm-source"] },
+  ssr: { resolve: { conditions: ["axm-source", ...defaultServerConditions] } },
   test: {
     include: [
       "src/skills/domain/**/*.test.ts",

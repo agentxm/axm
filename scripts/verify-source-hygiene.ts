@@ -25,7 +25,7 @@ import { readWorkspace } from "./workspace-discovery.js";
 
 // Reviewed 2026-08-18. Lower this ceiling whenever an existing literal is
 // removed; never raise it to accommodate a new traversal.
-const MAX_UNBOUNDED_CONCURRENCY_SITES = 186;
+const MAX_UNBOUNDED_CONCURRENCY_SITES = 184;
 
 const workspace = await readWorkspace();
 const violations = findSourceHygieneViolations(workspace);

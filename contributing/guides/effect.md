@@ -125,7 +125,7 @@ Seventeen variable-cardinality I/O sites were bounded:
 - convention filesystem discovery reuses the existing sixteen-read archive
   cap.
 
-`verify-source-hygiene` holds the remaining 186 production literals as a
+`verify-source-hygiene` holds the reviewed production literals as a
 repository-wide ceiling. Lower the ceiling when removing a site; never raise
 it for a new traversal. ESLint separately prohibits literal unbounded
 concurrency from returning to the three remediated I/O surfaces.

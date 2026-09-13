@@ -58,6 +58,8 @@ jobs:
       - name: Configure released skill preflight
         run: |
           rm -f .release-preflight/released/axm-lock.yaml
+          # $schema is a literal JSON property, not a shell variable.
+          # shellcheck disable=SC2016
           printf '%s\n' \
             '{' \
             '  "$schema": "https://axm.sh/schemas/settings.schema.json",' \
@@ -101,10 +103,12 @@ jobs:
             exit 1
           fi
           git commit -m "release: ${tag}"
-          echo "version=${version}" >> "$GITHUB_OUTPUT"
-          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
-          echo "branch=${branch}" >> "$GITHUB_OUTPUT"
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          {
+            echo "version=${version}"
+            echo "tag=${tag}"
+            echo "branch=${branch}"
+            echo "sha=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Revalidate source and push candidate
         env:

@@ -63,7 +63,6 @@ describe("classifyCiChanges", () => {
     expect(classifyCiChanges(["contributing/guides/setup.md", "CONTRIBUTING.md"])).toMatchObject({
       code: false,
       documentation: true,
-      image: false,
       workflow: false,
     });
   });
@@ -110,20 +109,9 @@ describe("classifyCiChanges", () => {
     }
   });
 
-  it("classifies CI image inputs independently", () => {
-    expect(
-      classifyCiChanges(["containers/ci/Containerfile", ".github/workflows/ci-image-publish.yml"]),
-    ).toMatchObject({
-      code: false,
-      image: true,
-      workflow: true,
-    });
-  });
-
   it("classifies workflow-only changes without compiling code", () => {
     expect(classifyCiChanges([".github/workflows/ci.yml"])).toMatchObject({
       code: false,
-      image: false,
       workflow: true,
     });
   });
@@ -148,7 +136,6 @@ describe("classifyCiChanges", () => {
       selectCodeVerificationPaths([
         "contributing/guides/setup.md",
         ".github/workflows/ci.yml",
-        "containers/ci/Containerfile",
         "apps/cli/src/main.ts",
       ]),
     ).toEqual(["apps/cli/src/main.ts"]);

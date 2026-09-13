@@ -17,6 +17,13 @@ runs:
     - name: Install toolchain from mise.toml
       uses: jdx/mise-action@f10502fc09dadecfefb962fff68ce77213930204 # v4.2.2
 
+    - name: Install Linux native prerequisites
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install --yes --no-install-recommends libsecret-1-dev
+
     - name: Install workspace dependencies
       if: inputs.install == 'true'
       shell: bash

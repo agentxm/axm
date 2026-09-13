@@ -13,7 +13,6 @@ import {
   expectAppliedPlanResult,
   expectDefined,
   expectRecord,
-  makeEffectProvide,
   makeWorkspaceHandlerTestContext,
   planResultUnits,
   property,
@@ -53,7 +52,7 @@ describe("mcps-new.handler", () => {
     return {
       ...ctx,
       fullLayer,
-      provide: makeEffectProvide(fullLayer),
+      provide: Effect.provide(fullLayer),
     };
   };
 

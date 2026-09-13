@@ -33,7 +33,6 @@ import {
   at,
   expectPublishResult,
   expectRecord,
-  makeEffectProvide,
   makeWorkspaceHandlerTestContext,
   property,
 } from "../../test-support/test-helpers.js";
@@ -120,7 +119,7 @@ describe("publish source-state comparison scheduling", () => {
     });
     return {
       ...context,
-      provide: makeEffectProvide(
+      provide: Effect.provide(
         Layer.mergeAll(
           context.fullLayer,
           AuthClientTest(),

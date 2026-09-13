@@ -8,12 +8,7 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import {
-  getAppError,
-  makeCliTestContext,
-  makeEffectProvide,
-  makeWorkspaceHandlerTestContext,
-} from "../../test-support/test-helpers.js";
+import { getAppError, makeWorkspaceHandlerTestContext } from "../../test-support/test-helpers.js";
 import { handleView } from "./handler.js";
 
 const initWorkspace = (root: string, registryRoot: string) => {
@@ -160,8 +155,8 @@ describe("view handler", () => {
           );
         }),
       );
-      const ctx = makeCliTestContext({ machine: testCase.machine, httpClient });
-      const provide = makeEffectProvide(ctx.baseLayer);
+      const ctx = makeWorkspaceHandlerTestContext({ machine: testCase.machine, httpClient });
+      const provide = ctx.provide;
 
       return provide(
         Effect.gen(function* () {

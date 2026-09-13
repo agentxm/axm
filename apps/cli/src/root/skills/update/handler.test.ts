@@ -24,9 +24,6 @@ import {
   computePackManifestContentIdentity,
 } from "@agentxm/workspace-state";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
-import { SkillManagerLive } from "@agentxm/extension-materialization/live";
 
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";
 import { AXM_SKILL_VERSION } from "../../../__generated__/bundled-axm-skill.js";
@@ -37,9 +34,7 @@ import {
   expectPreviewedPlanResult,
   expectRecord,
   getAppError,
-  LifecycleStepFailureConversionLive,
-  makeEffectProvide,
-  makeWorkspaceHandlerTestContext,
+  makeWorkspaceLifecycleTestContext,
   planResultUnits,
   stringProperty,
 } from "../../../test-support/test-helpers.js";
@@ -250,28 +245,19 @@ describe("update.handler — error recovery", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) => {
-    const handlerTestContext = makeWorkspaceHandlerTestContext({
+  const makeLayers = (opts?: Parameters<typeof makeWorkspaceLifecycleTestContext>[0]) => {
+    const handlerTestContext = makeWorkspaceLifecycleTestContext({
       prompt: {
         confirmResponses: [true],
       },
       ...opts,
     });
-    const SPLayer = Layer.provide(
-      SourceHostProvidersLive,
-      Layer.merge(handlerTestContext.baseLayer, handlerTestContext.wsLayer),
+    const baseProvide = Effect.provide(
+      Layer.merge(
+        handlerTestContext.fullLayer,
+        makeAxmSkillCompatibilityPolicyLayer(AXM_SKILL_VERSION),
+      ),
     );
-    const FullLayer = Layer.mergeAll(
-      handlerTestContext.baseLayer,
-      handlerTestContext.wsLayer,
-      SPLayer,
-      CodingAgentRepositoryLive,
-      // The update feature leaves its step requirements open; the runtime
-      // composes the boundary's failure conversion, so a handler test does too.
-      LifecycleStepFailureConversionLive,
-      makeAxmSkillCompatibilityPolicyLayer(AXM_SKILL_VERSION),
-    );
-    const baseProvide = makeEffectProvide(Layer.provideMerge(SkillManagerLive, FullLayer));
     // Registry fixtures are published at 2026-01-01; advance the virtual clock
     // past publish + minimumReleaseAge so release-age filtering sees them as mature.
     const provide: typeof baseProvide = (effect) =>
@@ -854,28 +840,19 @@ describe("update.handler — preview flag", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) => {
-    const handlerTestContext = makeWorkspaceHandlerTestContext({
+  const makeLayers = (opts?: Parameters<typeof makeWorkspaceLifecycleTestContext>[0]) => {
+    const handlerTestContext = makeWorkspaceLifecycleTestContext({
       prompt: {
         confirmResponses: [true],
       },
       ...opts,
     });
-    const SPLayer = Layer.provide(
-      SourceHostProvidersLive,
-      Layer.merge(handlerTestContext.baseLayer, handlerTestContext.wsLayer),
+    const baseProvide = Effect.provide(
+      Layer.merge(
+        handlerTestContext.fullLayer,
+        makeAxmSkillCompatibilityPolicyLayer(AXM_SKILL_VERSION),
+      ),
     );
-    const FullLayer = Layer.mergeAll(
-      handlerTestContext.baseLayer,
-      handlerTestContext.wsLayer,
-      SPLayer,
-      CodingAgentRepositoryLive,
-      // The update feature leaves its step requirements open; the runtime
-      // composes the boundary's failure conversion, so a handler test does too.
-      LifecycleStepFailureConversionLive,
-      makeAxmSkillCompatibilityPolicyLayer(AXM_SKILL_VERSION),
-    );
-    const baseProvide = makeEffectProvide(Layer.provideMerge(SkillManagerLive, FullLayer));
     // Registry fixtures are published at 2026-01-01; advance the virtual clock
     // past publish + minimumReleaseAge so release-age filtering sees them as mature.
     const provide: typeof baseProvide = (effect) =>

@@ -167,10 +167,7 @@ describe("axm lint handler", () => {
       extensionWorkspaceLayer,
     );
     const fullLayer = Layer.merge(extensionWorkspaceLayer, invariantFactsLayer);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-    const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
-      effect.pipe(Effect.provide(fullLayer));
+    const provide = Effect.provide(fullLayer);
 
     return { provide, rendererState: renderer.state };
   };

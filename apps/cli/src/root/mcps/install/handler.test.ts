@@ -19,7 +19,7 @@ import { afterEach, beforeEach } from "vitest";
 import { writeWorkspaceFiles } from "../../../test-support/test-stubs.js";
 import {
   getAppError,
-  makeWorkspaceHandlerTestContext,
+  makeWorkspaceLifecycleTestContext,
 } from "../../../test-support/test-helpers.js";
 import { handleInstallMcpServer } from "./handler.js";
 
@@ -41,7 +41,7 @@ describe("mcps install argument grammar", () => {
   });
 
   it.effect("refuses --as without a source before mutation", () => {
-    const { provide } = makeWorkspaceHandlerTestContext({ wsOptions: { projectRoot: tempDir } });
+    const { provide } = makeWorkspaceLifecycleTestContext({ wsOptions: { projectRoot: tempDir } });
     const settingsBefore = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
     const lockBefore = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8");
 

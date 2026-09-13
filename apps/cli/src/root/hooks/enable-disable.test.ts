@@ -14,7 +14,6 @@ import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   AllExtensionManagersLive,
   expectNoOpPlanResult,
-  makeEffectProvide,
   makeWorkspaceHandlerTestContext,
 } from "../../test-support/test-helpers.js";
 import { handleDisableHook } from "./disable.js";
@@ -55,7 +54,7 @@ describe("hooks enable/disable no-op output", () => {
     return {
       ...ctx,
       fullLayer,
-      provide: makeEffectProvide(fullLayer),
+      provide: Effect.provide(fullLayer),
     };
   };
 

@@ -12,7 +12,6 @@ import {
   AllExtensionManagersLive,
   expectAppliedPlanResult,
   expectNoOpPlanResult,
-  makeEffectProvide,
   makeWorkspaceHandlerTestContext,
 } from "../../test-support/test-helpers.js";
 import { handleDisableMcpServer } from "./disable.js";
@@ -51,7 +50,7 @@ describe("mcps enable/disable output", () => {
     return {
       ...ctx,
       fullLayer,
-      provide: makeEffectProvide(fullLayer),
+      provide: Effect.provide(fullLayer),
     };
   };
 

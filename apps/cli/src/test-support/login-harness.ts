@@ -26,7 +26,6 @@ import { AuthLoginPresenterLive } from "../auth-login-presenter.js";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { TestMachineRenderer, TestRenderer } from "./presenter-test.js";
-import { makeEffectProvide } from "./test-helpers.js";
 
 export const LOGIN_REGISTRY_URL = "https://registry.agentxm.ai";
 export const LOGIN_REGISTRY_HOST = "registry.agentxm.ai";
@@ -142,7 +141,7 @@ export const makeLoginSpecContext = (options: LoginSpecContextOptions = {}) => {
 
   return {
     layer,
-    provide: makeEffectProvide(layer),
+    provide: Effect.provide(layer),
     rendererState: renderer.state,
     /** The scope sets of every device sign-in the command asked the registry to start. */
     deviceFlowStarts,

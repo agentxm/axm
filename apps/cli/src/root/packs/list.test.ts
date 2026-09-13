@@ -97,10 +97,7 @@ describe("packs list.handler", () => {
     };
     const WsLayer = Layer.provide(coreWorkspaceLayer({ ...wsOptions }), BaseLayer);
     const FullLayer = Layer.mergeAll(BaseLayer, WsLayer);
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-    const provide = <A, E>(effect: Effect.Effect<A, E, any>) =>
-      effect.pipe(Effect.provide(FullLayer));
+    const provide = Effect.provide(FullLayer);
 
     return { provide, rendererState };
   };

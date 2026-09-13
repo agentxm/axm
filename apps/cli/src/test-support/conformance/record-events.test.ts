@@ -10,20 +10,15 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach, beforeEach } from "vitest";
 
 import { OperationEventSchema, type OperationEvent } from "@agentxm/workspace-operations";
-import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { SkillManagerLive } from "@agentxm/extension-materialization/live";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 
-import { LifecycleStepFailureConversionLive } from "../../feature-errors.js";
 import { handleInstall } from "../../root/skills/install/handler.js";
-import { makeEffectProvide, makeWorkspaceHandlerTestContext } from "../test-helpers.js";
+import { makeWorkspaceLifecycleTestContext } from "../test-helpers.js";
 import { writeWorkspaceFiles } from "../test-stubs.js";
 
 const decodeLog = Schema.decodeUnknownSync(Schema.Array(OperationEventSchema));
@@ -68,31 +63,8 @@ describe("recorded lifecycle event logs", () => {
   });
 
   const makeHarness = () => {
-    const context = makeWorkspaceHandlerTestContext({ flags: { nonInteractive: true } });
-    const sourceProviders = Layer.provide(
-      SourceHostProvidersLive,
-      Layer.merge(context.baseLayer, context.wsLayer),
-    );
-    const skillManager = Layer.provide(
-      SkillManagerLive,
-      Layer.mergeAll(
-        context.baseLayer,
-        context.wsLayer,
-        sourceProviders,
-        CodingAgentRepositoryLive,
-        LifecycleStepFailureConversionLive,
-      ),
-    );
-    const provide = makeEffectProvide(
-      Layer.mergeAll(
-        context.baseLayer,
-        context.wsLayer,
-        sourceProviders,
-        CodingAgentRepositoryLive,
-        LifecycleStepFailureConversionLive,
-        skillManager,
-      ),
-    );
+    const context = makeWorkspaceLifecycleTestContext({ flags: { nonInteractive: true } });
+    const provide = context.provide;
     return { provide, events: context.rendererState.events };
   };
 

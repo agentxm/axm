@@ -7,10 +7,7 @@ import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { RuleManagerLive } from "@agentxm/extension-materialization/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import {
-  makeEffectProvide,
-  makeWorkspaceHandlerTestContext,
-} from "../test-support/test-helpers.js";
+import { makeWorkspaceHandlerTestContext } from "../test-support/test-helpers.js";
 import { handleInstructionsDisable, handleInstructionsStatus } from "./instructions.js";
 import { writeWorkspaceFiles } from "../test-support/test-stubs.js";
 
@@ -61,7 +58,7 @@ describe("instructions handler", () => {
     const foundation = Layer.mergeAll(context.fullLayer, sourceLayer);
     const fullLayer = Layer.provideMerge(RuleManagerLive, foundation);
     return {
-      provide: makeEffectProvide(fullLayer),
+      provide: Effect.provide(fullLayer),
       logs: context.logs,
       rendererState: context.rendererState,
     };

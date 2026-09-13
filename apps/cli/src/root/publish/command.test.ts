@@ -44,7 +44,6 @@ import {
   expectPublishResult,
   expectRecord,
   getAppError,
-  makeEffectProvide,
   makeWorkspaceHandlerTestContext,
   property,
 } from "../../test-support/test-helpers.js";
@@ -202,7 +201,7 @@ describe("root publish", () => {
     );
     return {
       ...context,
-      provide: makeEffectProvide(
+      provide: Effect.provide(
         Layer.mergeAll(
           context.fullLayer,
           PendingPublishAuthorizationStoreTest(),
@@ -397,7 +396,7 @@ describe("root publish", () => {
         );
       },
     });
-    const provide = makeEffectProvide(
+    const provide = Effect.provide(
       Layer.mergeAll(
         context.fullLayer,
         PendingPublishAuthorizationStoreTest(),
@@ -573,7 +572,7 @@ describe("root publish", () => {
     const interaction = DeviceLoginInteractionTest({
       openBrowser: () => Effect.die("Unattended authorization must not open a browser"),
     });
-    const provide = makeEffectProvide(
+    const provide = Effect.provide(
       Layer.mergeAll(
         context.fullLayer,
         PendingPublishAuthorizationStoreTest(),

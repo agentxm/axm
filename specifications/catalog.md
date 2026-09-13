@@ -998,7 +998,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
-- Derived from: `packages/core/extension-lifecycle/src/skills/install/select-skills.ts`, `apps/cli-e2e/src/cli-commands/skills/install/command.e2e.ts`
+- Derived from: `packages/core/extension-lifecycle/src/skills/domain/selection.ts`, `packages/core/extension-lifecycle/src/skills/application/index.ts`, `apps/cli-e2e/src/cli-commands/skills/install/command.e2e.ts`
 - Open questions: Does a named skill promise glob matching, and what matching grammar applies?; Must a request containing both matched and unmatched names fail as a whole or install its matches, and how should a wholly unmatched request be reported?; Does unattended operation with neither a name selection nor an all selection select every discovered skill?; How should an all selection and a name selection be combined or refused when both are supplied?
 - Limitation: The source population is a local native .agents/skills tree with three valid uniquely named skills. These examples do not establish discovery or selection through remote Git/Registry providers, collision handling, invalid sibling packages, or an actual interactive terminal session. Retires when: Add distinct source-provider and interaction evidence when those selection conditions are allocated; keep unresolved selector policies explicit until decided.
 - Source: [`packages/core/extension-lifecycle/src/skills/install/selects-requested-source-skills.spec.ts`](../packages/core/extension-lifecycle/src/skills/install/selects-requested-source-skills.spec.ts)

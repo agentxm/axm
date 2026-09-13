@@ -1,6 +1,6 @@
 {
   "name": "@agentxm/specification-metadata",
-  "version": "0.30.0",
+  "version": "0.30.1",
   "description": "Executable-specification metadata contract shared by AXM repositories: specification, product-goal, execution-binding, and bound-evidence definitions, their decoders, and corpus conformance checks. Engineering support, not part of the runtime. Unstable and unsupported.",
   "type": "module",
   "license": "FSL-1.1-MIT",

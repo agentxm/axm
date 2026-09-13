@@ -89,9 +89,16 @@ describe("aggregate required verification", () => {
     expect(serialized).toContain("steps.set-shas.outputs.head");
   });
 
-  it("runs the complete CI workflow through the report-preserving wrapper on hosted runners", () => {
-    const hosted = JSON.stringify(readWorkflow().jobs["verify-main-hosted"]);
-    expect(hosted).toContain("scripts/with-allure-report.sh pnpm run ci");
-    expect(hosted).not.toContain("pnpm run ci:report");
+  it("preserves workspace and E2E report evidence on hosted runners", () => {
+    const jobs = readWorkflow().jobs;
+    const workspace = JSON.stringify(jobs["verify-main"]);
+    const e2e = JSON.stringify(jobs["verify-e2e-main"]);
+    expect(workspace).toContain("ubuntu-latest");
+    expect(workspace).toContain("pnpm run ci:workspace:report");
+    expect(e2e).toContain("ubuntu-latest");
+    expect(e2e).toContain("scripts/with-allure-report.sh");
+    expect(e2e).toContain("cli-e2e:e2e-main");
+    expect(e2e).toContain("binary-smoke install-suite");
+    expect(jobs).not.toHaveProperty("verify-main-hosted");
   });
 });

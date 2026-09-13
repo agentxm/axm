@@ -8,6 +8,13 @@ import {
 } from "./release-github-release.js";
 
 const sha = "a".repeat(40);
+const release = (draft: boolean) => ({
+  id: 123,
+  targetCommitish: sha,
+  draft,
+  prerelease: false,
+  url: "https://example.test/release",
+});
 
 const hostWith = (
   initial: GitHubReleaseObservation,
@@ -21,16 +28,17 @@ const hostWith = (
     createDraft: async () => {
       creates += 1;
       observed = {
-        tagSha: sha,
-        release: { draft: true, prerelease: false, url: "https://example.test/release" },
+        tagSha: null,
+        release: release(true),
       };
       if (options.createFails === true) throw new Error("lost creation response");
     },
-    publishDraft: async () => {
+    publishDraft: async (releaseId) => {
+      expect(releaseId).toBe(123);
       publishes += 1;
       observed = {
         tagSha: sha,
-        release: { draft: false, prerelease: false, url: "https://example.test/release" },
+        release: release(false),
       };
       if (options.publishFails === true) throw new Error("lost publication response");
     },
@@ -62,6 +70,17 @@ describe("GitHub Release lifecycle", () => {
     const fixture = hostWith({ tagSha: "b".repeat(40), release: null });
     await expect(ensureExactDraftRelease(fixture.host, sha)).rejects.toThrow(
       "Release tag integrity conflict",
+    );
+    expect(fixture.creates()).toBe(0);
+  });
+
+  it("refuses a conflicting draft target before mutation", async () => {
+    const fixture = hostWith({
+      tagSha: null,
+      release: { ...release(true), targetCommitish: "b".repeat(40) },
+    });
+    await expect(ensureExactDraftRelease(fixture.host, sha)).rejects.toThrow(
+      "GitHub Release target integrity conflict",
     );
     expect(fixture.creates()).toBe(0);
   });

@@ -17,13 +17,12 @@ import {
   type GitHubReleaseObservation,
 } from "./release-github-release.js";
 import { readGitHubReleaseByTag } from "./release-github-release-api.js";
-import { run } from "./release-command.js";
+import { capture, run } from "./release-command.js";
 import {
-  currentHeadSha,
   fail,
   RELEASE_REPO,
   releaseVersionFromTag,
-  requireMatchingReleasePackageVersions,
+  requireMatchingReleasePackageVersionsAtRef,
 } from "./release-shared.js";
 
 const usage = "Expected <prepare|publish> <cli-vVERSION> <commit-sha>.";
@@ -34,8 +33,7 @@ const [mode, tag, sha] = Schema.decodeUnknownSync(
 if (process.argv.length !== 5) fail(usage);
 if (!/^[0-9a-f]{40}$/u.test(sha)) fail("Expected a full lowercase release commit SHA.");
 const version = releaseVersionFromTag(tag);
-if (currentHeadSha() !== sha) fail(`Checked-out release commit does not match ${sha}.`);
-if (requireMatchingReleasePackageVersions() !== version) {
+if (requireMatchingReleasePackageVersionsAtRef(sha) !== version) {
   fail(`Release package versions do not match ${tag}.`);
 }
 
@@ -88,11 +86,17 @@ const read = async (signal: AbortSignal): Promise<GitHubReleaseObservation> => {
       tag,
       signal,
       readPage: async (page, pageSignal) => {
-        const result = await readJson(`releases?per_page=100&page=${page}`, pageSignal);
-        if (result.found === false) {
-          throw new PublicationHttpError("GitHub release inventory query failed: HTTP 404.", 404);
+        pageSignal.throwIfAborted();
+        try {
+          const output = capture("gh", [
+            "api",
+            `repos/${RELEASE_REPO}/releases?per_page=100&page=${page}`,
+          ]);
+          pageSignal.throwIfAborted();
+          return Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown))(output);
+        } catch (cause) {
+          throw new TypeError("GitHub release inventory query failed.", { cause });
         }
-        return result.value;
       },
     }),
   ]);
@@ -139,8 +143,17 @@ const host: GitHubReleaseHost = {
       ]),
     );
   },
-  publishDraft: async () => {
-    run("gh", ["release", "edit", tag, "--repo", RELEASE_REPO, "--draft=false", "--latest"]);
+  publishDraft: async (releaseId) => {
+    run("gh", [
+      "api",
+      "--method",
+      "PATCH",
+      `repos/${RELEASE_REPO}/releases/${releaseId}`,
+      "-F",
+      "draft=false",
+      "-f",
+      "make_latest=true",
+    ]);
   },
 };
 

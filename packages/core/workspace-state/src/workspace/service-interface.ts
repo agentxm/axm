@@ -189,7 +189,10 @@ export type WorkspaceSettingsMutationFailure =
 
 /** Lockfile read-modify-write through the snapshot-commit path. */
 export type WorkspaceLockfileMutationFailure =
-  WorkspaceLockfileReadFailure | LockfileValidationError | LockfileWriteError;
+  | WorkspaceLockfileReadFailure
+  | LockfileValidationError
+  | LockfileWriteError
+  | WorkspaceSnapshotError;
 
 /** Coupled settings-and-lockfile mutation. */
 export type WorkspaceStateMutationFailure =

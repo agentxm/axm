@@ -1961,7 +1961,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 
 - Requirement: `cli/install/preview-is-pure`
 - Owner: `extension-lifecycle`
-- Statement: When an install of any extension type runs in preview mode, it shall not change settings, the lockfile, canonical content, or agent projections; when the request passes the applicable checks and requires workspace changes, it shall report the planned closure with a previewed outcome, including any publisher change the acceptance would make; and when the requested source cannot be resolved, it shall report the problem and still change nothing.
+- Statement: When an install of any extension type runs in preview mode, it shall not change settings, the lockfile, canonical content, or agent projections; when the request passes the applicable checks and requires workspace changes, it shall report the planned closure with a previewed outcome, including any publisher change the acceptance would make; and when the requested source cannot be resolved or configured readers require incompatible representations of a shared native target, it shall report the problem and still change nothing.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`

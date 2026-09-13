@@ -16,6 +16,7 @@ import {
   type GitHubReleaseHost,
   type GitHubReleaseObservation,
 } from "./release-github-release.js";
+import { readGitHubReleaseByTag } from "./release-github-release-api.js";
 import { run } from "./release-command.js";
 import {
   currentHeadSha,
@@ -47,11 +48,6 @@ const apiHeaders = {
 };
 const encodedTag = encodeURIComponent(tag);
 const Ref = Schema.Struct({ object: Schema.Struct({ sha: Schema.String, type: Schema.String }) });
-const Release = Schema.Struct({
-  draft: Schema.Boolean,
-  prerelease: Schema.Boolean,
-  html_url: Schema.String,
-});
 
 const readJson = async (
   path: string,
@@ -86,9 +82,19 @@ const readJson = async (
 };
 
 const read = async (signal: AbortSignal): Promise<GitHubReleaseObservation> => {
-  const [tagResult, releaseResult] = await Promise.all([
+  const [tagResult, release] = await Promise.all([
     readJson(`git/ref/tags/${encodedTag}`, signal),
-    readJson(`releases/tags/${encodedTag}`, signal),
+    readGitHubReleaseByTag({
+      tag,
+      signal,
+      readPage: async (page, pageSignal) => {
+        const result = await readJson(`releases?per_page=100&page=${page}`, pageSignal);
+        if (result.found === false) {
+          throw new PublicationHttpError("GitHub release inventory query failed: HTTP 404.", 404);
+        }
+        return result.value;
+      },
+    }),
   ]);
   const tagSha =
     tagResult.found === false
@@ -99,13 +105,6 @@ const read = async (signal: AbortSignal): Promise<GitHubReleaseObservation> => {
             throw new Error(`Release tag ${tag} must point directly to a commit.`);
           }
           return ref.object.sha;
-        })();
-  const release =
-    releaseResult.found === false
-      ? null
-      : (() => {
-          const value = Schema.decodeUnknownSync(Release)(releaseResult.value);
-          return { draft: value.draft, prerelease: value.prerelease, url: value.html_url };
         })();
   return { tagSha, release };
 };

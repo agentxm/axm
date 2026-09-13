@@ -1,6 +1,6 @@
 name: Set up workspace toolchain
 description: >-
-  Install the host toolchain (Node, pnpm, Bun) from mise.toml — the repository
+  Install the host toolchain (Node, pnpm, Bun, Gitleaks) from mise.toml — the repository
   tool-version authority — and install workspace dependencies. Single source of
   truth for host-side toolchain setup so the versions live in mise.toml once and
   are never copied into individual workflow jobs.

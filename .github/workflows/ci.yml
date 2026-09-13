@@ -611,11 +611,27 @@ jobs:
           compression-level: 0
           retention-days: 90
 
+  secrets:
+    name: Secret scanning
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout complete history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up workspace and the pinned scanner
+        uses: ./.github/actions/setup-workspace
+      - name: Scan source and prove the scanner contract
+        run: pnpm exec nx run-many -t scan-secrets test:secret-scanning --projects=axm --nxBail
+
   required:
     name: Required CI
     if: always()
     needs:
       - classify
+      - secrets
       - specification-verdict
       - extension-lint
       - documentation
@@ -638,11 +654,11 @@ jobs:
           WORKFLOW_CHANGED: ${{ needs.classify.outputs.workflow }}
         run: |
           if [[ "$EVENT_NAME" == "pull_request" || "$EVENT_NAME" == "merge_group" ]]; then
-            expected=(classify specification-verdict extension-lint verify-pr windows-workspace)
+            expected=(classify secrets specification-verdict extension-lint verify-pr windows-workspace)
             [[ "$DOCS_CHANGED" == "true" ]] && expected+=(documentation)
             [[ "$WORKFLOW_CHANGED" == "true" ]] && expected+=(workflow-validation)
           else
-            expected=(classify verify-main verify-e2e-main windows-workspace binary-smoke npm-cohort)
+            expected=(classify secrets verify-main verify-e2e-main windows-workspace binary-smoke npm-cohort)
           fi
           expected_failures=""
           for job in "${expected[@]}"; do

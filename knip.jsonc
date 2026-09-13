@@ -28,6 +28,9 @@
       // @nx/eslint-plugin loads this recommended configuration at runtime but
       // omits it from its own dependency metadata.
       "ignoreDependencies": ["@eslint/js"],
+      // Native toolchain manager; scanner versions are declared in mise.toml,
+      // independently of npm dependency ownership.
+      "ignoreBinaries": ["mise"],
       // These are loaded by Allure, a shell launcher, and specification discovery.
       "entry": [
         "allurerc.ts",

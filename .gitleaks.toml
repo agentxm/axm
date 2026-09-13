@@ -1,0 +1,4 @@
+# Retain the pinned scanner's complete provider and generic rules.
+# Historical exceptions name only reviewed findings in .gitleaksignore.
+[extend]
+useDefault = true

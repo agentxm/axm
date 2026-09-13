@@ -5,6 +5,14 @@
   "sourceRoot": "scripts",
   "tags": ["type:tooling", "role:tooling", "scope:root"],
   "targets": {
+    "check:workflows": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "options": {
+        "command": "mise exec aqua:rhysd/actionlint -- actionlint",
+        "cwd": "."
+      }
+    },
     "unused-code": {
       "executor": "nx:run-commands",
       "cache": false,

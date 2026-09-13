@@ -16,7 +16,7 @@ import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   expectNoOpPlanResult,
   getAppError,
-  makeWorkspaceHandlerTestContext,
+  makeWorkspaceLifecycleTestContext,
 } from "../../test-support/test-helpers.js";
 import { handleDisable, type DisableHandlerArgs } from "./disable.js";
 
@@ -79,8 +79,8 @@ describe("disable.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) =>
-    makeWorkspaceHandlerTestContext(opts);
+  const makeLayers = (opts?: Parameters<typeof makeWorkspaceLifecycleTestContext>[0]) =>
+    makeWorkspaceLifecycleTestContext(opts);
 
   // ---------------------------------------------------------------------------
   // Validation

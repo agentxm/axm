@@ -31,7 +31,6 @@ import {
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
   expectRecord,
-  makeEffectProvide,
   makeWorkspaceHandlerTestContext,
 } from "../../test-support/test-helpers.js";
 import { handlePackActivation } from "./activation.js";
@@ -145,8 +144,7 @@ describe("packs activation", () => {
       Layer.merge(context.baseLayer, context.wsLayer),
     );
     const managerDependencies = Layer.mergeAll(
-      context.baseLayer,
-      context.wsLayer,
+      context.fullLayer,
       sourceProvidersLayer,
       CodingAgentRepositoryLive,
       LifecycleStepFailureConversionLive,
@@ -182,10 +180,9 @@ describe("packs activation", () => {
     );
     return {
       ...context,
-      provide: makeEffectProvide(
+      provide: Effect.provide(
         Layer.mergeAll(
-          context.baseLayer,
-          context.wsLayer,
+          context.fullLayer,
           sourceProvidersLayer,
           CodingAgentRepositoryLive,
           LifecycleStepFailureConversionLive,
@@ -214,6 +211,8 @@ describe("packs activation", () => {
 
       fs.rmSync(path.join(packDir, "pack.json"));
       const failure = yield* provide(stepOption.value.run).pipe(Effect.flip);
+
+      if (failure._tag !== "StepFailure") throw failure;
 
       expect(failure.category).toBe("conflict");
       expect(failure.detail).toContain("cannot be enumerated completely");

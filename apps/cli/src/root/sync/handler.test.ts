@@ -40,10 +40,10 @@ import { SubagentManagerLive } from "@agentxm/extension-materialization/live";
 import YAML from "yaml";
 import {
   expectAppliedPlanResult,
+  getAppError,
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
   expectRecord,
-  makeEffectProvide,
   makeWorkspaceHandlerTestContext,
   planResultUnits,
   property,
@@ -661,7 +661,7 @@ describe("root sync handler", { timeout: 15_000 }, () => {
       Layer.mergeAll(managerDependencies, managersLayer),
     );
     return {
-      provide: makeEffectProvide(
+      provide: Effect.provide(
         Layer.mergeAll(
           ctx.baseLayer,
           ctx.wsLayer,
@@ -842,7 +842,10 @@ describe("root sync handler", { timeout: 15_000 }, () => {
       writeWorkspaceFiles(axmDir, { agents: [] });
       fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 4\nskills: []\n");
 
-      const error = yield* provide(handleSync({ preview: false })).pipe(Effect.flip);
+      const error = yield* provide(handleSync({ preview: false })).pipe(
+        Effect.flip,
+        Effect.map(getAppError),
+      );
 
       expect(toAppError(error).code).toBe("validation");
       expect(rendererState.results).toEqual([]);
@@ -934,7 +937,10 @@ describe("root sync handler", { timeout: 15_000 }, () => {
         },
       });
 
-      const error = yield* provide(handleSync({ preview: false })).pipe(Effect.flip);
+      const error = yield* provide(handleSync({ preview: false })).pipe(
+        Effect.flip,
+        Effect.map(getAppError),
+      );
 
       expect(error.detail).toContain("Invalid pack source for missing");
       const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
@@ -1147,8 +1153,12 @@ describe("root sync handler", { timeout: 15_000 }, () => {
       ].map((path) => fs.readFileSync(path, "utf8"));
       const human = makeLayers(undefined, fixture.sources);
       const machine = makeLayers({ machine: true }, fixture.sources);
-      const preview = yield* human.provide(handleSync({ preview: true })).pipe(Effect.flip);
-      const applied = yield* machine.provide(handleSync({ preview: false })).pipe(Effect.flip);
+      const preview = yield* human
+        .provide(handleSync({ preview: true }))
+        .pipe(Effect.flip, Effect.map(getAppError));
+      const applied = yield* machine
+        .provide(handleSync({ preview: false }))
+        .pipe(Effect.flip, Effect.map(getAppError));
       expect(preview.code).toBe("conflict");
       expect(applied.detail).toBe(preview.detail);
       expect(applied.detail).toContain("@acme/packs/alpha range=>=2.0.0 <3.0.0");
@@ -1173,7 +1183,10 @@ describe("root sync handler", { timeout: 15_000 }, () => {
         const canonicalBefore = fs.readFileSync(fixture.paths.canonicalSkill, "utf8");
         const { provide } = makeLayers({ machine: true }, fixture.sources);
 
-        const error = yield* provide(handleSync({ preview: true })).pipe(Effect.flip);
+        const error = yield* provide(handleSync({ preview: true })).pipe(
+          Effect.flip,
+          Effect.map(getAppError),
+        );
 
         expect(error.code).toBe("conflict");
         expect(error.detail).toContain("@acme/packs/alpha range=^2.0.0");
@@ -1201,7 +1214,10 @@ describe("root sync handler", { timeout: 15_000 }, () => {
         },
         fixture.sources,
       );
-      const failure = yield* provide(handleSync({ preview: false })).pipe(Effect.flip);
+      const failure = yield* provide(handleSync({ preview: false })).pipe(
+        Effect.flip,
+        Effect.map(getAppError),
+      );
       expect(failure.code).toBe("conflict");
       expect(failure.detail).toContain("accepted-resolution-incompatible");
       expect(
@@ -1737,7 +1753,10 @@ describe("root sync handler", { timeout: 15_000 }, () => {
         },
       });
 
-      const error = yield* provide(handleSync({ preview: false })).pipe(Effect.flip);
+      const error = yield* provide(handleSync({ preview: false })).pipe(
+        Effect.flip,
+        Effect.map(getAppError),
+      );
 
       expect(error.detail).toContain("skill review");
       expect(error.detail).toContain("canonical status");
@@ -1933,7 +1952,10 @@ describe("root sync handler", { timeout: 15_000 }, () => {
           const lockfileBefore = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8");
 
           if (configuredSource === "./newer-source") {
-            const failure = yield* provide(handleSync({ preview: false })).pipe(Effect.flip);
+            const failure = yield* provide(handleSync({ preview: false })).pipe(
+              Effect.flip,
+              Effect.map(getAppError),
+            );
             expect(failure.detail).toContain("configured source differs from accepted authority");
             expect(
               fs.existsSync(path.join(tempDir, "agent_extensions", "local", "locked-source")),

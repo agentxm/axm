@@ -12,13 +12,12 @@ import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import { workspaceInvariantFactsLive } from "../../../test-support/workspace-invariant-facts-live.js";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { SourceHostProviders } from "@agentxm/extension-sources";
-import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
-import { SubagentManagerLive } from "@agentxm/extension-materialization/live";
 import { type RegistrySubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import YAML from "yaml";
@@ -27,9 +26,9 @@ import {
   expectNoOpPlanResult,
   expectPreviewedPlanResult,
   expectRecord,
-  LifecycleStepFailureConversionLive,
-  makeEffectProvide,
+  AllExtensionManagersLive,
   makeWorkspaceHandlerTestContext,
+  makeWorkspaceLifecycleTestContext,
   planResultUnits,
   stringProperty,
 } from "../../../test-support/test-helpers.js";
@@ -176,32 +175,14 @@ describe("subagents-update.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) => {
-    const handlerTestContext = makeWorkspaceHandlerTestContext({
+  const makeLayers = (opts?: Parameters<typeof makeWorkspaceLifecycleTestContext>[0]) => {
+    const handlerTestContext = makeWorkspaceLifecycleTestContext({
       prompt: {
         confirmResponses: [true],
       },
       ...opts,
     });
-    const BaseLayer = handlerTestContext.baseLayer;
-    const WsLayer = handlerTestContext.wsLayer;
-    const SPLayer = Layer.provide(SourceHostProvidersLive, Layer.merge(BaseLayer, WsLayer));
-    const AgentRepoLayer = Layer.provide(CodingAgentRepositoryLive, WsLayer);
-    const SubagentMgrLayer = Layer.provide(
-      SubagentManagerLive,
-      Layer.mergeAll(WsLayer, AgentRepoLayer, BaseLayer),
-    );
-    const FullLayer = Layer.mergeAll(
-      BaseLayer,
-      WsLayer,
-      SPLayer,
-      AgentRepoLayer,
-      SubagentMgrLayer,
-      // The update feature leaves its step requirements open; the runtime
-      // composes the boundary's failure conversion, so a handler test does too.
-      LifecycleStepFailureConversionLive,
-    );
-    const provide = makeEffectProvide(FullLayer);
+    const provide = handlerTestContext.provide;
 
     return {
       provide,
@@ -329,22 +310,13 @@ describe("subagents-update.handler", () => {
           cloneUrl: () => Option.none(),
           origin: () => "test",
         });
-        const BaseLayer = ctx.baseLayer;
-        const WsLayer = ctx.wsLayer;
-        const AgentRepoLayer = Layer.provide(CodingAgentRepositoryLive, WsLayer);
-        const SubagentMgrLayer = Layer.provide(
-          SubagentManagerLive,
-          Layer.mergeAll(WsLayer, AgentRepoLayer, BaseLayer),
+        const foundation = Layer.mergeAll(ctx.fullLayer, sourcesLayer, CodingAgentRepositoryLive);
+        const provide = Effect.provide(
+          Layer.provideMerge(
+            workspaceInvariantFactsLive,
+            Layer.provideMerge(AllExtensionManagersLive, foundation),
+          ),
         );
-        const FullLayer = Layer.mergeAll(
-          BaseLayer,
-          WsLayer,
-          sourcesLayer,
-          AgentRepoLayer,
-          SubagentMgrLayer,
-          LifecycleStepFailureConversionLive,
-        );
-        const provide = makeEffectProvide(FullLayer);
 
         initWorkspace(path.join(tempDir, ".axm"), {
           subagents: {
@@ -455,19 +427,11 @@ describe("subagents-update.handler", () => {
         cloneUrl: () => Option.none(),
         origin: () => "test",
       });
-      const agentRepoLayer = Layer.provide(CodingAgentRepositoryLive, ctx.wsLayer);
-      const subagentManagerLayer = Layer.provide(
-        SubagentManagerLive,
-        Layer.mergeAll(ctx.wsLayer, agentRepoLayer, ctx.baseLayer),
-      );
-      const provide = makeEffectProvide(
-        Layer.mergeAll(
-          ctx.baseLayer,
-          ctx.wsLayer,
-          sourcesLayer,
-          agentRepoLayer,
-          subagentManagerLayer,
-          LifecycleStepFailureConversionLive,
+      const foundation = Layer.mergeAll(ctx.fullLayer, sourcesLayer, CodingAgentRepositoryLive);
+      const provide = Effect.provide(
+        Layer.provideMerge(
+          workspaceInvariantFactsLive,
+          Layer.provideMerge(AllExtensionManagersLive, foundation),
         ),
       );
       initWorkspace(path.join(tempDir, ".axm"), {
@@ -527,22 +491,13 @@ describe("subagents-update.handler", () => {
         cloneUrl: () => Option.none(),
         origin: () => "test",
       });
-      const BaseLayer = ctx.baseLayer;
-      const WsLayer = ctx.wsLayer;
-      const AgentRepoLayer = Layer.provide(CodingAgentRepositoryLive, WsLayer);
-      const SubagentMgrLayer = Layer.provide(
-        SubagentManagerLive,
-        Layer.mergeAll(WsLayer, AgentRepoLayer, BaseLayer),
+      const foundation = Layer.mergeAll(ctx.fullLayer, sourcesLayer, CodingAgentRepositoryLive);
+      const provide = Effect.provide(
+        Layer.provideMerge(
+          workspaceInvariantFactsLive,
+          Layer.provideMerge(AllExtensionManagersLive, foundation),
+        ),
       );
-      const FullLayer = Layer.mergeAll(
-        BaseLayer,
-        WsLayer,
-        sourcesLayer,
-        AgentRepoLayer,
-        SubagentMgrLayer,
-        LifecycleStepFailureConversionLive,
-      );
-      const provide = makeEffectProvide(FullLayer);
 
       initWorkspace(path.join(tempDir, ".axm"), {
         subagents: {

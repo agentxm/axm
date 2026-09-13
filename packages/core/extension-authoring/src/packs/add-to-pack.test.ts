@@ -31,8 +31,9 @@ const makeWorkspaceMock = (
   axmDir: string,
   opts: {
     configuredProfile?: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-    configuredPacks?: Record<string, any>;
+    configuredPacks?: Effect.Success<
+      ReturnType<WorkspaceMutationsService["getConfiguredPackEntries"]>
+    >;
   } = {},
 ): WorkspaceMutationsService => {
   const configuredProfile = opts.configuredProfile ?? "@myorg";

@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
-import { makeCliTestContext, makeEffectProvide } from "../../test-support/test-helpers.js";
+import { makeCliTestContext } from "../../test-support/test-helpers.js";
 import { handleCachePrune, handleCacheStatus, handleCacheVerify } from "./command.js";
 
 describe("cache commands", () => {
@@ -29,7 +29,7 @@ describe("cache commands", () => {
 
   it.effect("reports liveness while loading human-readable status", () => {
     const context = makeCliTestContext();
-    const provide = makeEffectProvide(context.baseLayer);
+    const provide = Effect.provide(context.baseLayer);
     const { logs, rendererState } = context;
 
     return provide(
@@ -48,7 +48,7 @@ describe("cache commands", () => {
 
   it.effect("reports liveness and one machine result for maintenance commands", () => {
     const context = makeCliTestContext({ machine: true });
-    const provide = makeEffectProvide(context.baseLayer);
+    const provide = Effect.provide(context.baseLayer);
     const { rendererState } = context;
 
     return provide(

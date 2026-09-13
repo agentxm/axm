@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import { workspaceInvariantFactsLive } from "../../test-support/workspace-invariant-facts-live.js";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
@@ -12,7 +13,6 @@ import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 
 import {
   AllExtensionManagersLive,
-  makeEffectProvide,
   makeWorkspaceHandlerTestContext,
 } from "../../test-support/test-helpers.js";
 import { handleDemote } from "./command.js";
@@ -61,7 +61,12 @@ describe("demote command", () => {
     });
     const sourceLayer = Layer.provide(SourceHostProvidersLive, context.fullLayer);
     const foundation = Layer.mergeAll(context.fullLayer, sourceLayer, CodingAgentRepositoryLive);
-    const provide = makeEffectProvide(Layer.provideMerge(AllExtensionManagersLive, foundation));
+    const provide = Effect.provide(
+      Layer.provideMerge(
+        workspaceInvariantFactsLive,
+        Layer.provideMerge(AllExtensionManagersLive, foundation),
+      ),
+    );
     const { promptState } = context;
     return provide(
       Effect.gen(function* () {

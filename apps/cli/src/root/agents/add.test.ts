@@ -9,11 +9,12 @@ import type * as ServiceMap from "effect/Context";
 import { afterEach, beforeEach } from "vitest";
 import { AgentExecutableResolver } from "@agentxm/agent-integration";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
+import { ExtensionManagersLive } from "@agentxm/extension-materialization/live";
+import { workspaceInvariantFactsLive } from "../../test-support/workspace-invariant-facts-live.js";
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
   expectRecord,
-  makeEffectProvide,
   makeWorkspaceHandlerTestContext,
   property,
 } from "../../test-support/test-helpers.js";
@@ -162,17 +163,23 @@ describe("agents add.handler", () => {
       wsOptions: { scope: opts?.scope ?? "project" },
       ...(opts?.quiet === undefined ? {} : { flags: { quiet: opts.quiet } }),
     });
-    const fullLayer = Layer.mergeAll(
+    const foundation = Layer.mergeAll(
       context.fullLayer,
-      managersLayer(opts?.skillManager),
       CodingAgentRepositoryLive,
       Layer.succeed(AgentExecutableResolver, {
         exists: () => Effect.succeed(false),
       }),
     );
+    const fullLayer = Layer.provideMerge(
+      Layer.provideMerge(
+        Layer.merge(ExtensionManagersLive, workspaceInvariantFactsLive),
+        managersLayer(opts?.skillManager),
+      ),
+      foundation,
+    );
 
     return {
-      provide: makeEffectProvide(fullLayer),
+      provide: Effect.provide(fullLayer),
       logs: context.logs,
       rendererState: context.rendererState,
     };

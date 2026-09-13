@@ -9,7 +9,7 @@ import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   expectAppliedPlanResult,
   expectNoOpPlanResult,
-  makeWorkspaceHandlerTestContext,
+  makeWorkspaceLifecycleTestContext,
 } from "../../test-support/test-helpers.js";
 import { handleMcpsImport } from "./import.js";
 
@@ -28,8 +28,8 @@ describe("mcps import output", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) => {
-    const ctx = makeWorkspaceHandlerTestContext(opts);
+  const makeLayers = (opts?: Parameters<typeof makeWorkspaceLifecycleTestContext>[0]) => {
+    const ctx = makeWorkspaceLifecycleTestContext(opts);
     return {
       ...ctx,
       provide: ctx.provide,

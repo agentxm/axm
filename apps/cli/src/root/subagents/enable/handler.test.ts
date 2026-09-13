@@ -15,7 +15,7 @@ import { writeWorkspaceFiles } from "../../../test-support/test-stubs.js";
 import {
   expectNoOpPlanResult,
   getAppError,
-  makeWorkspaceHandlerTestContext,
+  makeWorkspaceLifecycleTestContext,
 } from "../../../test-support/test-helpers.js";
 import {
   CodingAgentRepository,
@@ -88,8 +88,8 @@ describe("subagents enable.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) => {
-    const ctx = makeWorkspaceHandlerTestContext({
+  const makeLayers = (opts?: Parameters<typeof makeWorkspaceLifecycleTestContext>[0]) => {
+    const ctx = makeWorkspaceLifecycleTestContext({
       ...opts,
       flags: { ...opts?.flags, nonInteractive: true },
     });
@@ -97,10 +97,7 @@ describe("subagents enable.handler", () => {
     const fullLayer = Layer.mergeAll(ctx.fullLayer, agentRepoLayer);
     return {
       ...ctx,
-      provide: <A, E>(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-        effect: Effect.Effect<A, E, any>,
-      ) => effect.pipe(Effect.provide(fullLayer)),
+      provide: Effect.provide(fullLayer),
     };
   };
 

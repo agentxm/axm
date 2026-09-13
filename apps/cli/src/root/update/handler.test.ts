@@ -10,6 +10,7 @@
  */
 
 import * as fs from "node:fs";
+import { workspaceInvariantFactsLive } from "../../test-support/workspace-invariant-facts-live.js";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
@@ -30,7 +31,6 @@ import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 import {
   AllExtensionManagersLive,
   expectNoOpPlanResult,
-  makeEffectProvide,
   makeWorkspaceHandlerTestContext,
   planResultUnits,
 } from "../../test-support/test-helpers.js";
@@ -168,10 +168,13 @@ describe("root update handler", () => {
       CodingAgentRepositoryLive,
       Layer.succeed(SourceHostProviders, opts?.sources ?? selectedSourceHostProviders),
     );
-    const fullLayer = Layer.merge(coreLayer, Layer.provide(AllExtensionManagersLive, coreLayer));
+    const fullLayer = Layer.provideMerge(
+      workspaceInvariantFactsLive,
+      Layer.provideMerge(AllExtensionManagersLive, coreLayer),
+    );
 
     return {
-      provide: makeEffectProvide(fullLayer),
+      provide: Effect.provide(fullLayer),
       handleUpdate: (
         args: Parameters<typeof handleUpdate>[0],
         releaseAgePosture: ReleaseAgePostureValue = "enforce",

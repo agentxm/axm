@@ -24,7 +24,6 @@ import {
   expectDefined,
   expectRecord,
   getAppError,
-  makeEffectProvide,
   makeWorkspaceHandlerTestContext,
   planResultUnits,
 } from "../../../test-support/test-helpers.js";
@@ -92,7 +91,7 @@ describe("subagents-new.handler", () => {
     return {
       ...ctx,
       fullLayer,
-      provide: makeEffectProvide(fullLayer),
+      provide: Effect.provide(fullLayer),
     };
   };
 

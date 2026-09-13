@@ -136,7 +136,6 @@ test("Required CI rejects failed, cancelled, skipped, and missing secret evidenc
             RESULTS: JSON.stringify(results),
             EVENT_NAME: event,
             DOCS_CHANGED: "false",
-            WORKFLOW_CHANGED: "false",
             GITHUB_STEP_SUMMARY: join(fixture, "summary.md"),
           },
         });

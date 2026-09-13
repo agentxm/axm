@@ -20,7 +20,7 @@ import { computeSourceHash } from "@agentxm/workspace-state";
 import {
   expectNoOpPlanResult,
   getAppError,
-  makeWorkspaceHandlerTestContext,
+  makeWorkspaceLifecycleTestContext,
 } from "../../test-support/test-helpers.js";
 import { handleEnable, type EnableHandlerArgs } from "./enable.js";
 
@@ -83,8 +83,8 @@ describe("enable.handler", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeLayers = (opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0]) =>
-    makeWorkspaceHandlerTestContext(opts);
+  const makeLayers = (opts?: Parameters<typeof makeWorkspaceLifecycleTestContext>[0]) =>
+    makeWorkspaceLifecycleTestContext(opts);
 
   // ---------------------------------------------------------------------------
   // Validation: skill not found

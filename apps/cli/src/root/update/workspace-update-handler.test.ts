@@ -18,8 +18,7 @@ import { afterEach, beforeEach } from "vitest";
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   expectNoOpPlanResult,
-  makeEffectProvide,
-  makeWorkspaceHandlerTestContext,
+  makeWorkspaceLifecycleTestContext,
   planResultUnits,
 } from "../../test-support/test-helpers.js";
 import { handleWorkspaceUpdate } from "./workspace-update-handler.js";
@@ -40,8 +39,8 @@ describe("workspace update handler output", () => {
   });
 
   it.effect("emits hooks update JSON no-op for an empty hooks configuration", () => {
-    const ctx = makeWorkspaceHandlerTestContext({ machine: true });
-    const provide = makeEffectProvide(ctx.fullLayer);
+    const ctx = makeWorkspaceLifecycleTestContext({ machine: true });
+    const provide = Effect.provide(ctx.fullLayer);
     writeWorkspaceFiles(path.join(tempDir, ".axm"));
 
     return provide(
@@ -66,8 +65,8 @@ describe("workspace update handler output", () => {
   });
 
   it.effect("emits knowledge update JSON no-op for an empty knowledge configuration", () => {
-    const ctx = makeWorkspaceHandlerTestContext({ machine: true });
-    const provide = makeEffectProvide(ctx.fullLayer);
+    const ctx = makeWorkspaceLifecycleTestContext({ machine: true });
+    const provide = Effect.provide(ctx.fullLayer);
     writeWorkspaceFiles(path.join(tempDir, ".axm"));
 
     return provide(
@@ -92,8 +91,8 @@ describe("workspace update handler output", () => {
   });
 
   it.effect("emits MCP update JSON no-op for an empty MCP server configuration", () => {
-    const ctx = makeWorkspaceHandlerTestContext({ machine: true });
-    const provide = makeEffectProvide(ctx.fullLayer);
+    const ctx = makeWorkspaceLifecycleTestContext({ machine: true });
+    const provide = Effect.provide(ctx.fullLayer);
     writeWorkspaceFiles(path.join(tempDir, ".axm"));
 
     return provide(
@@ -118,8 +117,8 @@ describe("workspace update handler output", () => {
   });
 
   it.effect("reports inline MCP servers as sync-owned without source resolution", () => {
-    const ctx = makeWorkspaceHandlerTestContext({ machine: true });
-    const provide = makeEffectProvide(ctx.fullLayer);
+    const ctx = makeWorkspaceLifecycleTestContext({ machine: true });
+    const provide = Effect.provide(ctx.fullLayer);
     writeWorkspaceFiles(path.join(tempDir, ".axm"), {
       mcps: {
         linear: { command: "npx", args: ["-y", "linear-mcp-server"] },
@@ -158,8 +157,8 @@ describe("workspace update handler output", () => {
   });
 
   it.effect("keeps independent MCP planning results when one source is invalid", () => {
-    const ctx = makeWorkspaceHandlerTestContext({ machine: true });
-    const provide = makeEffectProvide(ctx.fullLayer);
+    const ctx = makeWorkspaceLifecycleTestContext({ machine: true });
+    const provide = Effect.provide(ctx.fullLayer);
     writeWorkspaceFiles(path.join(tempDir, ".axm"), {
       mcps: {
         linear: { command: "npx", args: ["-y", "linear-mcp-server"] },

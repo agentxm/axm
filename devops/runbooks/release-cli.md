@@ -130,16 +130,20 @@ state in the [specification catalog](../../specifications/catalog.md).
    request events created with the workflow token do not recursively start CI.
    No preparation step publishes a package, release, skill, or channel.
 
-3. Wait for pull request CI, then enqueue the accepted release pull request with
-   the exact release subject.
+3. Wait for pull request CI, then enqueue the accepted release pull request.
+   Keep its generated title exactly `release: cli-v{VERSION}` and bind the
+   command to the accepted source commit.
 
    ```bash
-   gh pr merge --auto --squash --subject "release: cli-v0.1.0" --delete-branch
+   gh pr merge <number> --repo agentxm/axm --auto --squash \
+     --match-head-commit <accepted-source-sha>
    ```
 
-   The exact subject is part of the publishing contract. The default GitHub
-   squash subject includes the pull request number and must not be used. The
-   native merge queue verifies its synthesized integration SHA through
+   The prepared commit has the generated release subject. GitHub's native queue
+   appends the pull request number to its squash subject, for example
+   `release: cli-v0.1.0 (#123)`; CI and publication recognize that host-generated
+   form. A CLI `--subject` option does not override the queue's commit message.
+   The native merge queue verifies its synthesized integration SHA through
    `merge_group`; that temporary SHA is evidence for queue admission, not a
    release identity. Publication cannot run for a merge-group event.
 

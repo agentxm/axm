@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import * as Effect from "effect/Effect";
@@ -164,10 +165,59 @@ describe("Release preparation workflow", () => {
       expect(JSON.stringify(pullRequest)).toContain("gh pr create");
       expect(JSON.stringify(pullRequest)).toContain("${{ github.token }}");
       expect(JSON.stringify(dispatch)).toContain("gh workflow run ci.yml");
-      expect(JSON.stringify(dispatch)).toContain("--field runner=github-hosted");
+      expect(Reflect.get(dispatch, "run")).toContain('--ref "$BRANCH"');
+      expect(Reflect.get(dispatch, "env")).toMatchObject({
+        BRANCH: "${{ steps.candidate.outputs.branch }}",
+      });
       expect(workflow.steps.indexOf(dispatch)).toBeGreaterThan(workflow.steps.indexOf(pullRequest));
     }),
   );
+
+  it("dispatches the candidate using inputs accepted by the receiving CI workflow", () => {
+    const dispatch = namedStep(readWorkflow().steps, "Dispatch Required CI for candidate commit");
+    const command = Reflect.get(dispatch, "run");
+    if (typeof command !== "string") throw new Error("CI dispatch must declare a shell command.");
+
+    // Exercise shell expansion, but capture gh's arguments without credentials,
+    // network access, or a real dispatch. Compare with the actual receiving YAML.
+    const result = spawnSync(
+      "bash",
+      ["--noprofile", "--norc", "-euc", `gh() { printf '%s\\0' "$@"; }\n${command}`],
+      {
+        env: { BRANCH: "release/cli-v0.30.2", GITHUB_REPOSITORY: "agentxm/axm" },
+        encoding: "utf8",
+        timeout: 5_000,
+      },
+    );
+    expect(result.error).toBeUndefined();
+    expect(result.status, result.stderr).toBe(0);
+    const args = result.stdout.split("\0").slice(0, -1);
+    expect(args.slice(0, 3)).toEqual(["workflow", "run", "ci.yml"]);
+    expect(args[args.indexOf("--ref") + 1]).toBe("release/cli-v0.30.2");
+    expect(args).not.toContain("--json");
+
+    const ci: unknown = YAML.parse(
+      fs.readFileSync(path.join(repoRoot, ".github/workflows/ci.yml"), "utf8"),
+    );
+    if (!isRecord(ci) || !isRecord(ci["on"])) throw new Error("CI must declare its triggers.");
+    expect(ci["on"]).toHaveProperty("workflow_dispatch");
+    const trigger = ci["on"]["workflow_dispatch"];
+    const inputs = isRecord(trigger) && isRecord(trigger["inputs"]) ? trigger["inputs"] : {};
+    const supplied = args.flatMap((arg, index) => {
+      if (!["--field", "-F", "--raw-field", "-f"].includes(arg)) return [];
+      const assignment = args[index + 1];
+      if (assignment === undefined) throw new Error("Dispatch input must have a value.");
+      return [assignment.split("=")[0]];
+    });
+    for (const input of supplied) {
+      expect(Object.keys(inputs), `CI does not accept dispatch input ${input}`).toContain(input);
+    }
+    for (const [name, definition] of Object.entries(inputs)) {
+      if (isRecord(definition) && definition["required"] === true) {
+        expect(supplied, `CI requires dispatch input ${name}`).toContain(name);
+      }
+    }
+  });
 });
 
 describe("Release preparation Registry gates", () => {

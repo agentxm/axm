@@ -1,4 +1,3 @@
-// @effect-diagnostics anyUnknownInErrorContext:off — generic test harnesses intentionally preserve arbitrary fixture channels
 /**
  * Shared test helpers for CLI package tests.
  *
@@ -55,7 +54,9 @@ export {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
 } from "@agentxm/workspace-projection/live";
-export { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
+import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
+export { SourceHostProvidersLive };
+import { workspaceInvariantFactsLive } from "./workspace-invariant-facts-live.js";
 export { KnowledgeIndexLive };
 export { ConfiguredAgentOutcomesProviderLive } from "@agentxm/extension-lifecycle/live";
 import {
@@ -722,6 +723,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
   const fullLayer = Layer.mergeAll(
     cliTestContext.baseLayer,
     wsLayer,
+    Layer.provide(SourceHostProvidersLive, Layer.merge(cliTestContext.baseLayer, wsLayer)),
     KnowledgeIndexLive,
     LifecycleStepFailureConversionLive,
     SyncStepFailureConversionLive,
@@ -743,7 +745,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     ...(wsOptions.scope === "project" ? { projectRoot } : {}),
     wsLayer,
     fullLayer,
-    provide: makeEffectProvide(fullLayer),
+    provide: Effect.provide(fullLayer),
   };
 };
 
@@ -755,21 +757,26 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
  */
 export const AllExtensionManagersLive = Layer.provideMerge(
   ExtensionManagersLive,
-  Layer.mergeAll(
-    SkillManagerLive,
-    SubagentManagerLive,
-    RuleManagerLive,
-    HookManagerLive,
-    KnowledgeManagerLive,
-    McpServerManagerLive,
+  Layer.provideMerge(
     PackManagerLive,
+    Layer.mergeAll(
+      SkillManagerLive,
+      SubagentManagerLive,
+      RuleManagerLive,
+      HookManagerLive,
+      KnowledgeManagerLive,
+      McpServerManagerLive,
+    ),
   ),
 );
 
-export const makeEffectProvide = (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper hides layer variance
-  layer: Layer.Layer<any, any, any>,
+/** Complete workspace lifecycle composition for handlers that can plan a transition. */
+export const makeWorkspaceLifecycleTestContext = (
+  opts?: Parameters<typeof makeWorkspaceHandlerTestContext>[0],
 ) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper hides generic layer plumbing
-  return <A, E>(effect: Effect.Effect<A, E, any>) => effect.pipe(Effect.provide(layer));
+  const context = makeWorkspaceHandlerTestContext(opts);
+  const foundation = Layer.merge(context.fullLayer, CodingAgentRepositoryLive);
+  const managers = Layer.provideMerge(AllExtensionManagersLive, foundation);
+  const fullLayer = Layer.provideMerge(workspaceInvariantFactsLive, managers);
+  return { ...context, fullLayer, provide: Effect.provide(fullLayer) };
 };

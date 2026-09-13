@@ -24,7 +24,6 @@ import {
   expectRecord,
   getAppError,
   AllExtensionManagersLive,
-  makeEffectProvide,
   makeWorkspaceHandlerTestContext,
   planResultUnits,
   property,
@@ -95,7 +94,7 @@ describe("skills-new.handler", () => {
     return {
       ...ctx,
       fullLayer,
-      provide: makeEffectProvide(fullLayer),
+      provide: Effect.provide(fullLayer),
     };
   };
 

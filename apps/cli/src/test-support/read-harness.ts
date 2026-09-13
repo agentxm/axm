@@ -10,11 +10,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { ExecutionDirectory } from "../execution-directory.js";
-import {
-  makeCliTestContext,
-  makeWorkspaceHandlerTestContext,
-  makeEffectProvide,
-} from "./test-helpers.js";
+import { makeCliTestContext, makeWorkspaceHandlerTestContext } from "./test-helpers.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { makeSpecWorkspace, type SpecWorkspaceOptions } from "./install-harness.js";
 
@@ -63,7 +59,7 @@ export const makePublicReadSpecContext = (
     machine: true,
     httpClient: registryPort(requests, respond),
   });
-  const provide = makeEffectProvide(context.baseLayer);
+  const provide = Effect.provide(context.baseLayer);
   return {
     ...context,
     requests,
@@ -152,7 +148,7 @@ export const makeUninitializedReadSpecContext = () => {
   return {
     ...context,
     root,
-    provide: makeEffectProvide(layer),
+    provide: Effect.provide(layer),
     cleanup: () => {
       fs.rmSync(root, { recursive: true, force: true });
       fs.rmSync(home, { recursive: true, force: true });

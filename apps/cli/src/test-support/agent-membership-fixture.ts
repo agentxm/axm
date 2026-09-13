@@ -18,6 +18,7 @@ import * as os from "node:os";
 import * as nodePath from "node:path";
 
 import * as ConfigProvider from "effect/ConfigProvider";
+import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
 import { ReleaseAgePosture } from "@agentxm/extension-resolution";
@@ -35,7 +36,6 @@ import {
   SkillManagerLive,
   SourceHostProvidersLive,
   SubagentManagerLive,
-  makeEffectProvide,
   makeWorkspaceHandlerTestContext,
 } from "./test-helpers.js";
 import { workspaceInvariantFactsLive } from "./workspace-invariant-facts-live.js";
@@ -176,7 +176,7 @@ export const makeAgentMembershipFixture = (options: AgentMembershipFixtureOption
     /** Every entry under one workspace-relative directory. */
     snapshotOf: (relativePath: string) => snapshotUnder(absolute(relativePath)),
     rendererState: context.rendererState,
-    provide: makeEffectProvide(layer),
+    provide: Effect.provide(layer),
     cleanup: () => {
       fs.rmSync(root, { recursive: true, force: true });
       fs.rmSync(home, { recursive: true, force: true });

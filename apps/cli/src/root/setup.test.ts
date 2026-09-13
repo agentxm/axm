@@ -124,9 +124,7 @@ const makeSetupTestContext = (opts?: {
         "skill.json",
       ),
     );
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test helper
-  const provide = <A, E>(effect: Effect.Effect<A, E, any>) => effect.pipe(Effect.provide(layer));
+  const provide = Effect.provide(layer);
 
   return {
     handleSetup,

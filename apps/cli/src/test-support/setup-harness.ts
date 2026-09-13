@@ -32,11 +32,7 @@ import { recordingFileSystemLayer, type FileSystemWriteEvent } from "./test-help
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-configuration/testing";
 import { BundledAxmSkillAssetLive } from "../cli-runtime/index.js";
-import {
-  CodingAgentRepositoryLive,
-  NativeWriteAuthorityLive,
-  makeEffectProvide,
-} from "./test-helpers.js";
+import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "./test-helpers.js";
 import { ExecutionDirectory } from "../execution-directory.js";
 
 export interface SetupSpecContextOptions {
@@ -127,7 +123,7 @@ export const makeSetupSpecContext = (options: SetupSpecContextOptions = {}) => {
     /** Absolute path of the user-scope workspace root beneath the pinned home. */
     userWorkspaceRoot: path.join(home, ".axm", "workspace"),
     layer,
-    provide: makeEffectProvide(layer),
+    provide: Effect.provide(layer),
     rendererState: renderer.state,
     promptState: interaction.state,
     /** Every mutating file-system call recorded when `recordWrites` was requested. */

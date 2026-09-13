@@ -13,6 +13,61 @@ const eslint = new ESLint({ cwd: root });
 const require = createRequire(import.meta.url);
 const { Elements } = require("@boundaries/elements");
 
+for (const [kind, other] of [
+  ["skills", "subagents"],
+  ["subagents", "skills"],
+]) {
+  for (const [name, role, code, rule] of [
+    [
+      "domain cannot invoke application",
+      "domain",
+      'export * from "../application/index.js";',
+      "boundaries/dependencies",
+    ],
+    [
+      "application cannot acquire source content",
+      "application",
+      'import * as FileSystem from "effect/FileSystem"; export { FileSystem };',
+      "boundaries/dependencies",
+    ],
+    [
+      "application cannot use its sibling consumer",
+      "application",
+      `export * from "../../${other}/application/index.js";`,
+      "boundaries/dependencies",
+    ],
+    [
+      "application cannot enter unmigrated implementation",
+      "application",
+      'export * from "../install/plan.js";',
+      "boundaries/no-unknown-dependencies",
+    ],
+  ]) {
+    test(`${kind} ${name}`, async () => {
+      const [result] = await eslint.lintText(code, {
+        filePath: `packages/core/extension-lifecycle/src/${kind}/${role}/${role === "domain" ? "selection" : "index"}.ts`,
+      });
+      assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages));
+      assert.ok(
+        result.messages.some(({ ruleId }) => ruleId === rule),
+        JSON.stringify(result.messages),
+      );
+    });
+  }
+}
+
+test("shared extension matching cannot acquire a skill consumer's policy", async () => {
+  const [result] = await eslint.lintText(
+    'export { determineSkillsToInstall } from "@agentxm/extension-lifecycle/skills/application";',
+    { filePath: "packages/core/extension-model/src/unstable/extensions/name-patterns.ts" },
+  );
+  assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages));
+  assert.ok(
+    result.messages.some(({ ruleId }) => ruleId === "boundaries/dependencies"),
+    JSON.stringify(result.messages),
+  );
+});
+
 test("root configuration composes a tooling project without a package facade", async () => {
   const results = await eslint.lintFiles(["eslint.config.mjs"]);
   assert.deepEqual(

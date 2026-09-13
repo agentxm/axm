@@ -22,7 +22,7 @@ import {
   type IdentifierResourceType,
 } from "@agentxm/extension-sources";
 
-import { expandGlobs } from "../../glob.js";
+import { expandGlobs } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 
 /** One configured entry a selective update may advance. */
 export type SelectiveUpdateEntry = readonly [name: string, source: string];

@@ -18,7 +18,8 @@ import {
   redactSensitiveText,
 } from "../app-error/index.js";
 import { isKnownFailure, toAppError, type KnownFailure } from "../app-error/conversions.js";
-import type { ExtensionSelectionCancelled } from "@agentxm/extension-lifecycle";
+import type { SkillSelectionCancelled } from "@agentxm/extension-lifecycle/skills/application";
+import type { SubagentSelectionCancelled } from "@agentxm/extension-lifecycle/subagents/application";
 import type { PromptCancelled } from "../prompt/prompt-cancelled.js";
 
 /**
@@ -122,14 +123,15 @@ export type ExpectedCliError =
   | KnownFailure
   | PromptCancelled
   | WorkspaceInitializationCancelled
-  | ExtensionSelectionCancelled;
+  | SkillSelectionCancelled
+  | SubagentSelectionCancelled;
 export type CliRuntimeFoundation = Screen | Verbosity;
 
 /**
  * Resolve the AppError rendering for an expected error. Known typed failures
  * convert through the application-error boundary; cancellation tags
  * (PromptCancelled, WorkspaceInitializationCancelled,
- * ExtensionSelectionCancelled) resolve to none and exit successfully.
+ * SkillSelectionCancelled, SubagentSelectionCancelled) resolve to none and exit successfully.
  */
 const expectedErrorToAppError = (error: ExpectedCliError): AppError | undefined =>
   error._tag === "AppError" ? error : isKnownFailure(error) ? toAppError(error) : undefined;

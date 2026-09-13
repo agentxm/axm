@@ -55,7 +55,7 @@ export const expandGlob = (
 };
 
 /**
- * Expand multiple glob patterns against a list of skill names.
+ * Expand multiple glob patterns against a list of extension names.
  *
  * Returns the union of all matches, deduplicated, preserving the original
  * order of `names`.

@@ -63,15 +63,17 @@ import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { gitHostedSkillArtifactSource } from "../operations/install.js";
 import { lifecycleStepFailure } from "../../step-failure.js";
 import type { RegistryLookupProbe } from "../../install/registry-source-resolution.js";
-import type { ExtensionSelectionCancelled } from "../../install/selection-interaction.js";
-import { ExtensionSelectionInteraction } from "../../install/selection-interaction.js";
 import {
   installRefused,
   type InstallStepRequirements,
   type ResolveInstallRequirements,
   type SkillInstallIntent,
 } from "../../install/vocabulary.js";
-import { determineSkillsToInstall } from "./selection.js";
+import {
+  determineSkillsToInstall,
+  SkillSelectionInteraction,
+  type SkillSelectionFailure,
+} from "../application/index.js";
 import { resolveSkillInstallSource } from "./source.js";
 
 /** A skill source after grammar parsing, before anything is discovered. */
@@ -357,8 +359,8 @@ export const finalizeSkillInstallIntent: (
   discovered: ReadonlyArray<SkillExtensionRef>,
 ) => Effect.Effect<
   SkillInstallIntent,
-  ExtensionLifecycleFailed | ExtensionSelectionCancelled,
-  ExtensionSelectionInteraction
+  ExtensionLifecycleFailed | SkillSelectionFailure,
+  SkillSelectionInteraction
 > = Effect.fn("InstallExtensions.finalizeSkillIntent")(function* (
   request: ParsedSkillInstallRequest,
   discovered: ReadonlyArray<SkillExtensionRef>,

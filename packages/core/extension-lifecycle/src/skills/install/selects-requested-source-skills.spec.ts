@@ -10,7 +10,7 @@ import YAML from "yaml";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { ExtensionSelectionInteraction } from "../../install/selection-interaction.js";
+import { SkillSelectionInteraction } from "../application/index.js";
 import {
   applyInstall,
   contentUnder,
@@ -31,7 +31,8 @@ export const specification = defineSpecification({
   goals: ["extension-adoption", "workspace-intent-fidelity"],
   methods: ["decision-table", "example"],
   derivedFrom: [
-    "packages/core/extension-lifecycle/src/skills/install/select-skills.ts",
+    "packages/core/extension-lifecycle/src/skills/domain/selection.ts",
+    "packages/core/extension-lifecycle/src/skills/application/index.ts",
     // The flag spellings that build these requests (`--skill`, repeated
     // `--skill`, `--all`) stay CLI grammar; process evidence for them is
     // apps/cli-e2e/src/cli-commands/skills/install/command.e2e.ts.
@@ -227,9 +228,8 @@ describe("Select skills from a supplied source", () => {
       const sourceBefore = snapshotDirectory(source);
       // A port that refuses to be opened: the only way this example passes is
       // if the all-selection never asks which skills to take.
-      const refusingSelection = Layer.succeed(ExtensionSelectionInteraction, {
-        selectSkills: () => Effect.die(new Error("An all selection opened a selection prompt")),
-        selectSubagents: () => Effect.die(new Error("An all selection opened a selection prompt")),
+      const refusingSelection = Layer.succeed(SkillSelectionInteraction, {
+        select: () => Effect.die(new Error("An all selection opened a selection prompt")),
       });
 
       yield* world.workspace

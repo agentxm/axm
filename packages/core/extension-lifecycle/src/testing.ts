@@ -61,7 +61,8 @@ import {
 import { layer as WorkspaceLayerLive } from "@agentxm/workspace-state/live";
 
 import { ExtensionLifecycleFailed } from "./errors.js";
-import { ExtensionSelectionInteraction } from "./install/selection-interaction.js";
+import { SkillSelectionInteraction } from "./skills/application/index.js";
+import { SubagentSelectionInteraction } from "./subagents/application/index.js";
 import { BundledAxmSkillAsset } from "./skills/install/bundled.js";
 import { StepFailureConversion } from "./step-failure-conversion.js";
 
@@ -262,19 +263,23 @@ export const makeLifecycleFixture = (options: LifecycleFixtureOptions = {}) => {
     readonly type: "skill" | "subagent";
     readonly offered: ReadonlyArray<string>;
   }> = [];
-  const selection = Layer.succeed(ExtensionSelectionInteraction, {
-    selectSkills: (candidates) => {
-      selectionCalls.push({ type: "skill", offered: candidates.map((ref) => ref.skill.name) });
-      return Effect.succeed(options.select === "none" ? [] : candidates);
-    },
-    selectSubagents: (candidates) => {
-      selectionCalls.push({
-        type: "subagent",
-        offered: candidates.map((ref) => ref.subagent.name),
-      });
-      return Effect.succeed(options.select === "none" ? [] : candidates);
-    },
-  });
+  const selection = Layer.mergeAll(
+    Layer.succeed(SkillSelectionInteraction, {
+      select: (candidates) => {
+        selectionCalls.push({ type: "skill", offered: candidates.map((ref) => ref.skill.name) });
+        return Effect.succeed(options.select === "none" ? [] : candidates);
+      },
+    }),
+    Layer.succeed(SubagentSelectionInteraction, {
+      select: (candidates) => {
+        selectionCalls.push({
+          type: "subagent",
+          offered: candidates.map((ref) => ref.subagent.name),
+        });
+        return Effect.succeed(options.select === "none" ? [] : candidates);
+      },
+    }),
+  );
   const environment = ConfigProvider.layer(
     ConfigProvider.fromEnv({ env: { AXM_USER_HOME: home } }),
   );

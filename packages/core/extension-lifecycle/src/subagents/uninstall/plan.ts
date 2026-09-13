@@ -26,7 +26,7 @@ import {
 } from "@agentxm/workspace-state";
 
 import type { ExtensionLifecycleFailed } from "../../errors.js";
-import { expandGlob } from "../../glob.js";
+import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import { lifecycleStepFailure } from "../../step-failure.js";
 import { installRefused, type InstallStepRequirements } from "../../install/vocabulary.js";
 import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace-reconciliation";

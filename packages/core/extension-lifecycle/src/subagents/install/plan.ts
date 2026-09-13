@@ -46,16 +46,16 @@ import {
   type RegistryLookupProbe,
 } from "../../install/registry-source-resolution.js";
 import {
-  ExtensionSelectionInteraction,
-  type ExtensionSelectionCancelled,
-} from "../../install/selection-interaction.js";
-import {
   installRefused,
   type InstallStepRequirements,
   type ResolveInstallRequirements,
   type SubagentInstallIntent,
 } from "../../install/vocabulary.js";
-import { determineSubagentsToInstall } from "./selection.js";
+import {
+  determineSubagentsToInstall,
+  SubagentSelectionInteraction,
+  type SubagentSelectionFailure,
+} from "../application/index.js";
 import { resolveSubagentInstallSource } from "./source.js";
 
 /** A subagent source after grammar parsing, before anything is discovered. */
@@ -248,8 +248,8 @@ export const finalizeSubagentInstallIntent: (
   discovered: ReadonlyArray<SubagentExtensionRef>,
 ) => Effect.Effect<
   SubagentInstallIntent,
-  ExtensionLifecycleFailed | ExtensionSelectionCancelled,
-  ExtensionSelectionInteraction
+  ExtensionLifecycleFailed | SubagentSelectionFailure,
+  SubagentSelectionInteraction
 > = Effect.fn("InstallExtensions.finalizeSubagentIntent")(function* (
   request: ParsedSubagentInstallRequest,
   discovered: ReadonlyArray<SubagentExtensionRef>,

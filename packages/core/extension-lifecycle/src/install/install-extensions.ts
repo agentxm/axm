@@ -86,8 +86,14 @@ import { BundledAxmSkillAsset, planBundledAxmSkillInstall } from "../skills/inst
 import { buildConfiguredInstallPlan, type ConfiguredInstallRequirements } from "./configured.js";
 import { formatRegistryProbe } from "./registry-source-resolution.js";
 import { resolveRootInstallIntent } from "./root-intent.js";
-import type { ExtensionSelectionCancelled } from "./selection-interaction.js";
-import { ExtensionSelectionInteraction } from "./selection-interaction.js";
+import {
+  SkillSelectionInteraction,
+  type SkillSelectionFailure,
+} from "../skills/application/index.js";
+import {
+  SubagentSelectionInteraction,
+  type SubagentSelectionFailure,
+} from "../subagents/application/index.js";
 import {
   installRefused,
   type InstallExecutionFailure,
@@ -171,7 +177,8 @@ export interface InstallExtensionsCandidate {
 export type InstallExtensionsFailure =
   | ExtensionLifecycleFailed
   | ExtensionResolutionFailed
-  | ExtensionSelectionCancelled
+  | SkillSelectionFailure
+  | SubagentSelectionFailure
   | InstallExecutionFailure;
 
 const EMPTY_DIAGNOSTICS: InstallDiagnostics = { resolutionLines: [], companionPackages: [] };
@@ -204,7 +211,8 @@ const planForType = (
   InstallExtensionsFailure,
   | PrepareInstallRequirements
   | ConfiguredInstallRequirements
-  | ExtensionSelectionInteraction
+  | SkillSelectionInteraction
+  | SubagentSelectionInteraction
   | BundledAxmSkillAsset
 > => {
   switch (type) {
@@ -356,7 +364,8 @@ const planLocatorInstall = (
   InstallExtensionsFailure,
   | PrepareInstallRequirements
   | ConfiguredInstallRequirements
-  | ExtensionSelectionInteraction
+  | SkillSelectionInteraction
+  | SubagentSelectionInteraction
   | BundledAxmSkillAsset
 > =>
   Effect.gen(function* () {
@@ -425,7 +434,8 @@ const planRequest = (
   InstallExtensionsFailure,
   | PrepareInstallRequirements
   | ConfiguredInstallRequirements
-  | ExtensionSelectionInteraction
+  | SkillSelectionInteraction
+  | SubagentSelectionInteraction
   | BundledAxmSkillAsset
 > =>
   Effect.gen(function* () {
@@ -494,7 +504,8 @@ export const prepareInstallExtensions: (
   InstallExtensionsFailure,
   | PrepareInstallRequirements
   | ConfiguredInstallRequirements
-  | ExtensionSelectionInteraction
+  | SkillSelectionInteraction
+  | SubagentSelectionInteraction
   | BundledAxmSkillAsset
 > = Effect.fn("InstallExtensions.prepare")(function* (request: InstallExtensionsRequest) {
   const planned = yield* planRequest(request);

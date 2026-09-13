@@ -4,6 +4,8 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { SkillSelectionCancelled } from "@agentxm/extension-lifecycle/skills/application";
+import { SubagentSelectionCancelled } from "@agentxm/extension-lifecycle/subagents/application";
 
 import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/unstable/http/HttpClient";
@@ -427,37 +429,43 @@ describe("withCliErrorHandling cancellation", () => {
     ),
   );
 
-  it.effect("maps WorkspaceInitializationCancelled to a silent success exit", () =>
-    Effect.gen(function* () {
-      const exit = yield* withCliErrorHandling(
-        Effect.fail(new WorkspaceInitializationCancelled({ message: "Operation cancelled." })),
-        {
-          command: "setup",
-          format: "text",
-          telemetryConfig: { mode: "off", client: { name: "cli", version: "0.0.0" } },
-        },
-      ).pipe(Effect.exit);
+  for (const Cancellation of [
+    WorkspaceInitializationCancelled,
+    SkillSelectionCancelled,
+    SubagentSelectionCancelled,
+  ]) {
+    it.effect(`maps ${Cancellation.name} to a silent success exit`, () =>
+      Effect.gen(function* () {
+        const exit = yield* withCliErrorHandling(
+          Effect.fail(new Cancellation({ message: "Operation cancelled." })),
+          {
+            command: "setup",
+            format: "text",
+            telemetryConfig: { mode: "off", client: { name: "cli", version: "0.0.0" } },
+          },
+        ).pipe(Effect.exit);
 
-      expect(Exit.isFailure(exit)).toBe(true);
-      if (Exit.isFailure(exit)) {
-        const defect = Cause.squash(exit.cause);
-        expect(isEffectCliExit(defect)).toBe(true);
-        if (isEffectCliExit(defect)) {
-          expect(defect.exitCode).toBe(ExitCode.Success);
+        expect(Exit.isFailure(exit)).toBe(true);
+        if (Exit.isFailure(exit)) {
+          const defect = Cause.squash(exit.cause);
+          expect(isEffectCliExit(defect)).toBe(true);
+          if (isEffectCliExit(defect)) {
+            expect(defect.exitCode).toBe(ExitCode.Success);
+          }
         }
-      }
-      expect(stdoutWrites).toEqual([]);
-      expect(stderrWrites).toEqual([]);
-    }).pipe(
-      Effect.provide(
-        Layer.mergeAll(
-          globalFlagLayer,
-          testLayer("text"),
-          Layer.succeed(jsonFlag, Option.none()),
-          Layer.succeed(HttpClient.HttpClient, stubHttpClient),
-          NodeServices.layer,
+        expect(stdoutWrites).toEqual([]);
+        expect(stderrWrites).toEqual([]);
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            globalFlagLayer,
+            testLayer("text"),
+            Layer.succeed(jsonFlag, Option.none()),
+            Layer.succeed(HttpClient.HttpClient, stubHttpClient),
+            NodeServices.layer,
+          ),
         ),
       ),
-    ),
-  );
+    );
+  }
 });

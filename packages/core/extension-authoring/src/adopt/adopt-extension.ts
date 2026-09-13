@@ -8,6 +8,12 @@
  * was never declared becomes enabled — adopting content you cannot see would
  * leave the workspace holding authored work it never materializes.
  *
+ * A package already at its authoring location that nothing declares is
+ * adopted in place: the workspace declares it, enabled, and nothing moves.
+ * In-place adoption refuses when an installed copy of the same identity also
+ * exists, when the workspace already declares the name, and when the authored
+ * manifest is invalid or names a different identity.
+ *
  * `prepare` settles the identity, the destination, and the activation, and
  * writes nothing. `previewOrApply` resolves that same candidate inside the
  * workspace transaction, so a failed move restores both directories.
@@ -56,17 +62,25 @@ import {
 } from "@agentxm/workspace-operations";
 import type { CodingAgentRepository } from "@agentxm/workspace-projection";
 import {
+  LockfileReader,
   WorkspaceMutations,
+  observeInstallRoot,
   type ConfiguredAgentOutcomesProvider,
   resolveWorkspaceExtensionRef,
   type LockfileValidationError,
   type WorkspaceLockfileReadFailure,
   type WorkspaceSettingsReadFailure,
+  type WorkspaceStateReadFailure,
 } from "@agentxm/workspace-state";
 import { protectCreatedAncestors } from "@agentxm/workspace-transactions";
 
+import { CreateDestinationExists } from "@agentxm/extension-materialization";
+
 import { authoredDeclaration } from "../authored-declaration.js";
-import type { AuthoredPackageError } from "../authored-package-errors.js";
+import {
+  CreateDestinationInspectionFailed,
+  type AuthoredPackageError,
+} from "../authored-package-errors.js";
 import { preflightCreateOnly } from "../create-preflight.js";
 import { AuthoringFailed } from "../errors.js";
 import { requireAuthoredOwner, settingsRelativePath } from "../create/authoring-owner.js";
@@ -109,9 +123,14 @@ export interface AdoptExtensionCandidate {
   readonly fqn: string;
   readonly owner: Handle;
   readonly name: string;
-  /** Workspace-relative directory the package is moved out of. */
-  readonly acquiredPath: string;
-  /** Workspace-relative directory the package is moved into. */
+  /**
+   * `move` relocates an installed copy into authorship; `in-place` declares a
+   * package already at its authoring location and moves nothing.
+   */
+  readonly mode: "move" | "in-place";
+  /** Workspace-relative directory the package is moved out of, when it moves. */
+  readonly acquiredPath: Option.Option<string>;
+  /** Workspace-relative authoring directory the adopted package occupies. */
   readonly authoredPath: string;
   /** Workspace-relative settings file the declaration is rewritten in. */
   readonly settingsPath: string;
@@ -130,6 +149,7 @@ export type AdoptExtensionFailure =
   | LockfileValidationError
   | WorkspaceLockfileReadFailure
   | WorkspaceSettingsReadFailure
+  | WorkspaceStateReadFailure
   | CandidateFingerprintFailed
   | FqnInvalidError;
 
@@ -139,6 +159,7 @@ export type PrepareAdoptExtensionRequirements =
   | Path.Path
   | HttpClient.HttpClient
   | WorkspaceMutations
+  | LockfileReader
   | ExtensionManagers
   | ConfiguredAgentOutcomesProvider;
 
@@ -178,6 +199,7 @@ export const prepareAdoptExtension: (
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const managers = yield* ExtensionManagers;
+  const locks = yield* LockfileReader;
 
   const parsed = yield* Effect.fromResult(parseFqn(request.fqn));
   if (ws.layout.scope !== "project") {
@@ -199,6 +221,9 @@ export const prepareAdoptExtension: (
   const authoredPath = path.relative(ws.baseDir, targetDir);
   const settingsPath = settingsRelativePath(path, ws);
 
+  const declaration = authoredDeclaration(ws, parsed.type, name);
+  const current = yield* declaration.read;
+
   // Refuse an occupied authoring destination here, so a preview refuses it
   // too; the closure repeats the check under the transaction lock.
   const createOnly = preflightCreateOnly({
@@ -207,15 +232,64 @@ export const prepareAdoptExtension: (
     configured: false,
     destinations: [targetDir],
   });
-  yield* createOnly;
 
-  const declaration = authoredDeclaration(ws, parsed.type, name);
-  const current = yield* declaration.read;
+  // In-place adoption is decided from what is on disk now and repeated under
+  // the transaction lock, so preview and apply refuse the same states.
+  const inPlaceRefusals = Effect.gen(function* () {
+    const inventory = yield* observeInstallRoot({
+      layout: ws.layout,
+      graph: yield* ws.getDesiredStateGraph(),
+      locks,
+    });
+    const installedCopy = inventory.packages.find(
+      (entry) =>
+        entry.type === parsed.type &&
+        entry.name === name &&
+        (entry.owner === undefined || entry.owner === parsed.owner),
+    );
+    // Two copies of one identity leave adoption no single content to author.
+    if (installedCopy !== undefined) {
+      return yield* new CreateDestinationExists({ subject: "Adopt target", path: targetDir });
+    }
+    const declared = yield* declaration.read;
+    if (declared.configured) {
+      return yield* new AuthoringFailed({
+        category: "conflict",
+        detail: `${fqn} is already declared in ${settingsPath}`,
+      });
+    }
+    yield* resolveWorkspaceExtensionRef({
+      settingsName: name,
+      source: "workspace",
+      expectedType: parsed.type,
+      layout: ws.layout,
+      scope: ws.scope,
+      staticPackage: { owner: parsed.owner, name, root: targetDir },
+    }).pipe(
+      Effect.mapError(
+        (cause) =>
+          new AuthoringFailed({
+            category: "validation",
+            detail: `The authored package at ${authoredPath} is not a valid ${fqn} package`,
+            cause,
+          }),
+      ),
+    );
+  });
+
+  const authoredExists = yield* fs
+    .exists(targetDir)
+    .pipe(
+      Effect.mapError((cause) => new CreateDestinationInspectionFailed({ path: targetDir, cause })),
+    );
+  const mode: AdoptExtensionCandidate["mode"] = authoredExists ? "in-place" : "move";
+  yield* mode === "in-place" ? inPlaceRefusals : createOnly;
+
   // A package the workspace never declared becomes enabled: adopting content
   // that stays invisible is not what adoption was asked for.
-  const enabled = Option.getOrElse(current.enabled, () => true);
+  const enabled = mode === "in-place" ? true : Option.getOrElse(current.enabled, () => true);
 
-  const artifact: JobStepArtifact = {
+  const moveArtifact: JobStepArtifact = {
     path: authoredPath,
     scope: ws.scope,
     change: "created",
@@ -225,52 +299,74 @@ export const prepareAdoptExtension: (
       { path: settingsPath, change: "updated" },
     ],
   };
+  // In-place adoption writes only the declaration; the authored package keeps
+  // every byte, so it is not reported as a changed path.
+  const inPlaceArtifact: JobStepArtifact = {
+    path: settingsPath,
+    scope: ws.scope,
+    change: "updated",
+    targets: [{ path: settingsPath, change: "updated" }],
+  };
 
-  const common = {
+  const shared = {
     toStepFailure: authoringStepFailure,
     location: targetDir,
-    transactionTargets: [sourceDir],
     versionRange: Option.none<string>(),
     label: `Adopt ${fqn}`,
-    message: `Adopted ${fqn}`,
     enabled,
-    allowConfiguredSourceTransition: true,
     markAuthored: Effect.andThen(
       declaration.retireExternalResolution,
       declaration.declare({ enabled: true, env: current.env }),
     ),
     finalizeAuthored: declaration.declare({ enabled, env: current.env }),
-    plannedArtifact: artifact,
-    buildArtifact: () => Effect.succeed(artifact),
-    preflight: Effect.gen(function* () {
-      yield* createOnly;
-      // The acquired directory must already hold a resolvable package: a move
-      // that lands unreadable content would leave the workspace authoring
-      // something it cannot materialize.
-      yield* resolveWorkspaceExtensionRef({
-        settingsName: name,
-        source: "workspace",
-        expectedType: parsed.type,
-        layout: ws.layout,
-        scope: ws.scope,
-        staticPackage: { owner: parsed.owner, name, root: sourceDir },
-      });
-    }).pipe(Effect.asVoid),
-    scaffold: Effect.gen(function* () {
-      yield* protectCreatedAncestors(fs, path, path.dirname(targetDir));
-      yield* fs.makeDirectory(path.dirname(targetDir), { recursive: true });
-      yield* fs.rename(sourceDir, targetDir);
-    }).pipe(
-      Effect.mapError(
-        (cause) =>
-          new AuthoringFailed({
-            category: "internal",
-            detail: `Could not move ${fqn} into authored package storage`,
-            cause,
-          }),
-      ),
-    ),
   } as const;
+
+  const common =
+    mode === "in-place"
+      ? {
+          ...shared,
+          message: `Adopted ${fqn} in place`,
+          plannedArtifact: inPlaceArtifact,
+          buildArtifact: () => Effect.succeed(inPlaceArtifact),
+          preflight: inPlaceRefusals,
+          scaffold: Effect.void,
+        }
+      : {
+          ...shared,
+          message: `Adopted ${fqn}`,
+          transactionTargets: [sourceDir],
+          allowConfiguredSourceTransition: true,
+          plannedArtifact: moveArtifact,
+          buildArtifact: () => Effect.succeed(moveArtifact),
+          preflight: Effect.gen(function* () {
+            yield* createOnly;
+            // The acquired directory must already hold a resolvable package: a move
+            // that lands unreadable content would leave the workspace authoring
+            // something it cannot materialize.
+            yield* resolveWorkspaceExtensionRef({
+              settingsName: name,
+              source: "workspace",
+              expectedType: parsed.type,
+              layout: ws.layout,
+              scope: ws.scope,
+              staticPackage: { owner: parsed.owner, name, root: sourceDir },
+            });
+          }).pipe(Effect.asVoid),
+          scaffold: Effect.gen(function* () {
+            yield* protectCreatedAncestors(fs, path, path.dirname(targetDir));
+            yield* fs.makeDirectory(path.dirname(targetDir), { recursive: true });
+            yield* fs.rename(sourceDir, targetDir);
+          }).pipe(
+            Effect.mapError(
+              (cause) =>
+                new AuthoringFailed({
+                  category: "internal",
+                  detail: `Could not move ${fqn} into authored package storage`,
+                  cause,
+                }),
+            ),
+          ),
+        };
 
   const step = (() => {
     switch (parsed.type) {
@@ -317,7 +413,8 @@ export const prepareAdoptExtension: (
     fqn,
     owner: parsed.owner,
     name,
-    acquiredPath,
+    mode,
+    acquiredPath: mode === "move" ? Option.some(acquiredPath) : Option.none(),
     authoredPath,
     settingsPath,
     enabled,

@@ -36,7 +36,8 @@ export const inventoryRows: ReadonlyArray<ReadonlyArray<string>> = [
   ["local-notes", "detected", "n/a", "detected", "none", "none"],
 ];
 
-export const inventoryCaption = "4 skills (3 configured, 0 implicit, 3 installed, 1 unmanaged)";
+export const inventoryCaption =
+  "4 skills (3 configured, 0 implicit, 3 installed, 0 leftover, 0 undeclared, 1 unmanaged)";
 
 export const inventory: Doc = [
   {

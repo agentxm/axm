@@ -754,6 +754,14 @@
             },
             "workspace/hook-ownership-ambiguous": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/managed-file-unowned": { "$ref": "#/definitions/LintRuleSeverity" },
+            "workspace/installed-but-not-configured": { "$ref": "#/definitions/LintRuleSeverity" },
+            "workspace/authored-package-declared": { "$ref": "#/definitions/LintRuleSeverity" },
+            "workspace/install-root-entries-recognized": {
+              "$ref": "#/definitions/LintRuleSeverity"
+            },
+            "workspace/project-outputs-not-shadowed": { "$ref": "#/definitions/LintRuleSeverity" },
+            "workspace/user-outputs-have-settings": { "$ref": "#/definitions/LintRuleSeverity" },
+            "workspace/agent-content-has-settings": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/skills-declarations-valid": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/packs-declarations-valid": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/configured-but-not-installed": { "$ref": "#/definitions/LintRuleSeverity" },

@@ -649,6 +649,7 @@ export const makeSyncPlan = <R>({
   cleanupStep,
   instructionStep,
   retirementStep,
+  leftoverSteps = [],
   releaseAge,
   serialMaterialization = false,
   name = SYNC_PLAN_NAME,
@@ -663,6 +664,8 @@ export const makeSyncPlan = <R>({
   readonly cleanupStep: Option.Option<PlannedJobStep<R>>;
   readonly instructionStep: Option.Option<PlannedJobStep<R>>;
   readonly retirementStep?: PlannedJobStep<R>;
+  /** One removal per installed package desired state no longer reaches. */
+  readonly leftoverSteps?: ReadonlyArray<PlannedJobStep<R>>;
   readonly releaseAge: ReleaseAgeOperationEvidence;
   readonly serialMaterialization?: boolean;
   readonly name?: string;
@@ -692,6 +695,7 @@ export const makeSyncPlan = <R>({
       jobs.push({ concurrency: 1, steps: [instructionStep.value] });
     }
     if (retirementStep !== undefined) jobs.push({ concurrency: 1, steps: [retirementStep] });
+    if (leftoverSteps.length > 0) jobs.push({ concurrency: 1, steps: [...leftoverSteps] });
     // Storage files alone do not couple unrelated domain transitions. Dependency
     // routes and shared native units do: failure in either restores the component.
     const ordered = jobs.flatMap((job) => job.steps);

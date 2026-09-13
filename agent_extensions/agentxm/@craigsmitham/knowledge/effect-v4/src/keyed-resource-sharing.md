@@ -6,15 +6,15 @@ tags: [effect, effect-v4, rcmap, layermap, pool, keyed-resource, scope]
 status: stable
 sources:
   - id: effect-rcmap
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/RcMap.ts
-    title: Effect 4.0.0-rc.112 RcMap source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/RcMap.ts
+    title: Effect 4.0.0-rc.115 RcMap source
   - id: effect-layermap
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/ai-docs/src/01_effect/05_resources/30_layer-map.ts
-    title: Effect 4.0.0-rc.112 LayerMap guide
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/01_effect/05_resources/30_layer-map.ts
+    title: Effect 4.0.0-rc.115 LayerMap guide
   - id: effect-pool
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Pool.ts
-    title: Effect 4.0.0-rc.112 Pool source
-generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Pool.ts
+    title: Effect 4.0.0-rc.115 Pool source
+generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
 ---
 
 # Keyed resource sharing
@@ -38,6 +38,6 @@ generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
 
 ## Resources
 
-- [RcMap source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/RcMap.ts)
-- [LayerMap guide](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/ai-docs/src/01_effect/05_resources/30_layer-map.ts)
-- [Pool source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Pool.ts)
+- [RcMap source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/RcMap.ts)
+- [LayerMap guide](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/01_effect/05_resources/30_layer-map.ts)
+- [Pool source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Pool.ts)

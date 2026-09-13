@@ -59,11 +59,14 @@ export const adoptCommand = Command.make("adopt", config, ({ fqn, preview }) =>
 ).pipe(
   withArgvTracking(config),
   withCommandCapabilities(previewableCapabilities("authored-source")),
-  Command.withDescription("Adopt a canonical package into project-workspace authorship"),
+  Command.withDescription(
+    "Adopt a canonical package into project-workspace authorship, or declare an undeclared authored package in place",
+  ),
   Command.withExamples([
     {
       command: "axm adopt @acme/skills/code-review",
-      description: "Adopt an unmanaged or retained package for authoring",
+      description:
+        "Adopt an installed package for authoring, or declare authored skills/code-review",
     },
   ]),
 );

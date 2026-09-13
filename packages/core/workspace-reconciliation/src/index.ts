@@ -76,7 +76,7 @@ export {
   type DesiredStateProposal,
 } from "./proposed-state.js";
 
-export { collectUnreachableRetirement } from "./retirement.js";
+export { collectLeftoverRetirement, collectUnreachableRetirement } from "./retirement.js";
 
 export { prepareUninstallArtifact } from "./uninstall-artifact.js";
 

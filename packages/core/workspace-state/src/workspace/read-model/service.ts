@@ -130,6 +130,8 @@ export interface WorkspaceReadModel {
   readonly owner: ScopedOwnerApi;
   readonly diagnostics: Effect.Effect<ReadonlyArray<Warning>>;
   readonly canonicalExtensions: Effect.Effect<ReadonlyArray<CanonicalExtensionOccurrence>>;
+  /** The resolved storage layout, or none when the layout could not be resolved. */
+  readonly layout: Option.Option<WorkspaceLayout>;
 }
 
 /**
@@ -650,6 +652,7 @@ const buildScope = Effect.fn("workspace.read-model.build-scope")(function* (deps
     owner,
     diagnostics: diagnostics.snapshot,
     canonicalExtensions: canonicalScanner,
+    layout: Result.isFailure(layoutResult) ? Option.none() : Option.some(layoutResult.success),
   } satisfies WorkspaceReadModel;
 });
 

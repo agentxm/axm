@@ -4,7 +4,7 @@ title: Agent instruction files
 description: Why agent instruction files such as AGENTS.md and CLAUDE.md form a scoped context system, and how scope, applicability, composition, and precedence differ.
 tags: [agent-instructions, instruction-files, agents.md, claude.md, persistent-context, always-on-context, scope, routing, precedence]
 status: stable
-generated: { by: "codex/gpt-5.6", at: 2026-08-24T13:32:38Z }
+generated: { by: "codex/gpt-6", at: 2026-09-12T18:30:03Z }
 stale_after: 2027-02-24
 sources:
   - id: agents-md
@@ -56,6 +56,18 @@ agent-focused counterpart to a human README.[^agents-md]
 
 Background essays, exhaustive alternatives, long workflows, and task backlogs
 belong on demand.
+
+## Outcomes and constraints
+
+Persistent guidance should describe the desired state, invariants, and authority
+boundaries while leaving routine implementation choices to the agent. A
+mechanism or sequence belongs only when it protects correctness, safety,
+authority, or repository integration. Concrete tool ownership, required
+verification, safety ordering, and discovery routes can therefore remain
+essential even in concise outcome-oriented instructions.
+
+The authoring criterion and examples live in
+[Express outcomes and necessary constraints](authoring-agent-instruction-files.md#7-express-outcomes-and-necessary-constraints).
 
 ## A scoped context system
 
@@ -138,6 +150,7 @@ instruction surface may route to those owners.
 
 | Class | Signal | Typical response |
 | --- | --- | --- |
+| Unnecessary procedure | Incidental steps prescribe one approach without protecting a necessary constraint | Express the outcome and retain only justified constraints |
 | Duplicate body | Restates a guide or parent | Cut the copy and keep the route |
 | Procedure in always-on context | Long reusable how-to | Move it and leave a trigger |
 | Weak trigger | Topic label does not establish when to act | Rewrite as a receivable condition |

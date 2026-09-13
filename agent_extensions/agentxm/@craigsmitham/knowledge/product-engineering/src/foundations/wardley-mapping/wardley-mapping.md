@@ -461,6 +461,13 @@ practical decisions; mapping supplies context and does not settle their evidence
 A functional-job map decomposes what someone seeks to accomplish; a Wardley
 map positions dependencies by evolution. Neither substitutes for the other.
 
+[Service blueprinting](../service-blueprinting.md) also separates what a
+customer sees from what supports it, but as a named line across a time-ordered
+representation. This axis expresses visibility as a position relative to the
+anchor in a chain of needs, without named bands. A support process below a
+blueprint's internal line and a component low in a value chain are different
+claims, and neither ordering converts into the other.
+
 [DDD](../domain-driven-design.md) distinguishes a capability's strategic role
 through subdomain classification and consistent model meaning through bounded
 contexts. Neither is its evolution stage. A core subdomain can combine familiar

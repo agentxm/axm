@@ -12,7 +12,7 @@ export const specification = defineSpecification({
   requirement: "cli/lint/authored-skills-are-not-agent-output",
   title: "Authored skills are excluded from unowned agent output findings",
   statement:
-    "When a declared workspace skill has a valid manifest matching its declared identity at its authored package path, lint shall exclude that package from unowned agent output findings regardless of activation or configured agents, while continuing to report unowned native content and undeclared or invalid package lookalikes.",
+    "When a skill package has a valid manifest matching its path identity at its authored package path, lint shall exclude that package from unowned agent output findings whether or not it is declared and regardless of activation or configured agents, while continuing to report unowned native content and invalid package lookalikes.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
@@ -45,17 +45,21 @@ describe("Authored source ownership", () => {
   });
 
   it.effect.each([
+    { enabled: undefined, agents: ["claude-code"], directory: "skills" },
+    { enabled: undefined, agents: [], directory: "authored/skills" },
     { enabled: false, agents: ["claude-code"], directory: "skills" },
     { enabled: true, agents: ["claude-code"], directory: "skills" },
     { enabled: false, agents: ["openclaw"], directory: "skills" },
     { enabled: true, agents: [], directory: "authored/skills" },
-  ])("excludes declared source with $enabled activation in $directory for $agents", (testCase) => {
+  ])("excludes authored source with $enabled activation in $directory for $agents", (testCase) => {
     const workspace = makeLintWorkspace({
       settings: {
         owner: "@acme",
         agents: testCase.agents,
         skillsConfig: { dir: testCase.directory },
-        skills: { review: { source: "workspace", enabled: testCase.enabled } },
+        ...(testCase.enabled === undefined
+          ? {}
+          : { skills: { review: { source: "workspace", enabled: testCase.enabled } } }),
         lint: { rules },
       },
       files: {
@@ -76,7 +80,7 @@ describe("Authored source ownership", () => {
   });
 
   it.effect(
-    "retains findings for native content, undeclared packages, invalid identities, and malformed manifests",
+    "retains findings for native content, invalid identities, and malformed manifests but not undeclared packages",
     () => {
       const workspace = makeLintWorkspace({
         settings: {
@@ -108,7 +112,6 @@ describe("Authored source ownership", () => {
           ".claude/skills/foreign",
           "skills/malformed",
           "skills/native",
-          "skills/undeclared",
           "skills/wrong",
         ]);
         expect(workspace.snapshot()).toEqual(before);

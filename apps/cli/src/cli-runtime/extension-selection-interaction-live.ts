@@ -17,10 +17,15 @@ import * as Terminal from "effect/Terminal";
 import { Prompt } from "effect/unstable/cli";
 
 import {
-  ExtensionLifecycleFailed,
-  ExtensionSelectionCancelled,
-  ExtensionSelectionInteraction,
-} from "@agentxm/extension-lifecycle";
+  SkillSelectionCancelled,
+  SkillSelectionInteraction,
+  SkillSelectionUnavailable,
+} from "@agentxm/extension-lifecycle/skills/application";
+import {
+  SubagentSelectionCancelled,
+  SubagentSelectionInteraction,
+  SubagentSelectionUnavailable,
+} from "@agentxm/extension-lifecycle/subagents/application";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 
@@ -54,66 +59,72 @@ const askForSelection = <T>(
         guidance,
       }).pipe(Effect.provide(promptEnvironment)),
     );
-  }).pipe(
-    Effect.catchTag("PromptCancelled", (cancelled) =>
-      Effect.fail(new ExtensionSelectionCancelled({ message: cancelled.message })),
-    ),
-    // An invocation that cannot open the multiselect refuses the choice; it
-    // did not decline one. `requireInteractive` raises exactly one envelope
-    // here — its `usage` guard, pinned by `prompt/helpers.test.ts` — and the
-    // prompt itself fails only with the cancellation caught above, so the
-    // guard's own wording carries into the feature's typed refusal rather
-    // than resolving as a clean cancelled exit.
-    Effect.catchTag("AppError", (error) =>
-      Effect.fail(
-        new ExtensionLifecycleFailed({
-          category: "usage",
-          detail: error.detail,
-          ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
-          ...(error.cause === undefined ? {} : { cause: error.cause }),
-        }),
-      ),
-    ),
-  );
+  });
 
-/** The terminal implementation of the lifecycle's selection port. */
-export const ExtensionSelectionInteractionLive = Layer.effect(ExtensionSelectionInteraction)(
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const terminal = yield* Terminal.Terminal;
-    const screen = yield* Screen;
-    const environment = Layer.mergeAll(
-      Layer.succeed(FileSystem.FileSystem, fileSystem),
-      Layer.succeed(Path.Path, path),
-      Layer.succeed(Terminal.Terminal, terminal),
-      Layer.succeed(Screen, screen),
-    );
-    return {
-      selectSkills: (candidates: Array.NonEmptyReadonlyArray<SkillExtensionRef>) =>
-        askForSelection(
-          "Select skills to install",
-          "Name the skills with --skill, take them all with --all, or rerun without --json.",
-          candidates.map((skill) => ({
-            title: skill.skill.name,
-            value: skill,
-            ...(Option.isSome(skill.skill.description)
-              ? { description: skill.skill.description.value }
-              : {}),
-          })),
-        ).pipe(Effect.provide(environment)),
-      selectSubagents: (candidates: Array.NonEmptyReadonlyArray<SubagentExtensionRef>) =>
-        askForSelection(
-          "Select subagents to install",
-          "Name the subagents with --subagent, take them all with --all, or rerun without --json.",
-          candidates.map((subagent) => ({
-            title: subagent.subagent.name,
-            value: subagent,
-            ...(Option.isSome(subagent.subagent.description)
-              ? { description: subagent.subagent.description.value }
-              : {}),
-          })),
-        ).pipe(Effect.provide(environment)),
-    };
-  }),
+const selectionEnvironment = Effect.gen(function* () {
+  const fileSystem = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const terminal = yield* Terminal.Terminal;
+  const screen = yield* Screen;
+  return Layer.mergeAll(
+    Layer.succeed(FileSystem.FileSystem, fileSystem),
+    Layer.succeed(Path.Path, path),
+    Layer.succeed(Terminal.Terminal, terminal),
+    Layer.succeed(Screen, screen),
+  );
+});
+
+/** The terminal implements only the skill interaction contract. */
+export const SkillSelectionLive = Layer.effect(SkillSelectionInteraction)(
+  Effect.map(selectionEnvironment, (environment) => ({
+    select: (candidates: Array.NonEmptyReadonlyArray<SkillExtensionRef>) =>
+      askForSelection(
+        "Select skills to install",
+        "Name the skills with --skill, take them all with --all, or rerun without --json.",
+        candidates.map((skill) => ({
+          title: skill.skill.name,
+          value: skill,
+          ...(Option.isSome(skill.skill.description)
+            ? { description: skill.skill.description.value }
+            : {}),
+        })),
+      ).pipe(
+        Effect.catchTag("PromptCancelled", (error) =>
+          Effect.fail(new SkillSelectionCancelled({ message: error.message })),
+        ),
+        Effect.catchTag("AppError", (cause) =>
+          Effect.fail(new SkillSelectionUnavailable({ cause })),
+        ),
+        Effect.provide(environment),
+      ),
+  })),
 );
+
+/** The terminal implements only the subagent interaction contract. */
+export const SubagentSelectionLive = Layer.effect(SubagentSelectionInteraction)(
+  Effect.map(selectionEnvironment, (environment) => ({
+    select: (candidates: Array.NonEmptyReadonlyArray<SubagentExtensionRef>) =>
+      askForSelection(
+        "Select subagents to install",
+        "Name the subagents with --subagent, take them all with --all, or rerun without --json.",
+        candidates.map((subagent) => ({
+          title: subagent.subagent.name,
+          value: subagent,
+          ...(Option.isSome(subagent.subagent.description)
+            ? { description: subagent.subagent.description.value }
+            : {}),
+        })),
+      ).pipe(
+        Effect.catchTag("PromptCancelled", (error) =>
+          Effect.fail(new SubagentSelectionCancelled({ message: error.message })),
+        ),
+        Effect.catchTag("AppError", (cause) =>
+          Effect.fail(new SubagentSelectionUnavailable({ cause })),
+        ),
+        Effect.provide(environment),
+      ),
+  })),
+);
+
+/** Root installation composes the two independently usable interfaces. */
+export const ExtensionSelectionLive = Layer.mergeAll(SkillSelectionLive, SubagentSelectionLive);

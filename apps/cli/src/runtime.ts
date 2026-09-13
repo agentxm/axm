@@ -25,7 +25,7 @@ import { WorkspaceCatalogLive } from "@agentxm/workspace-projection/live";
 import {
   BundledAxmSkillAssetLive,
   type CliTelemetryConfig,
-  ExtensionSelectionInteractionLive,
+  ExtensionSelectionLive,
   type ExpectedCliError,
   getCommandSemanticProperties,
   InterruptionSignalSourceLive,
@@ -542,7 +542,7 @@ export const withRuntime =
           WorkspaceInitializationInteractionLive,
           AuthLoginPresenterLive,
           InterruptionSignalSourceLive,
-          ExtensionSelectionInteractionLive,
+          ExtensionSelectionLive,
           BundledAxmSkillAssetLive,
         ),
         foundationLayer,

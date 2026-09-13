@@ -36,7 +36,7 @@ import {
   enabledConfiguredEntries,
 } from "@agentxm/workspace-state";
 
-import { expandGlobs } from "../glob.js";
+import { expandGlobs } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import type { WorkspaceUpdatableType } from "./configured.js";
 
 /** The flag spelling reported when a `--name` filter matches nothing. */

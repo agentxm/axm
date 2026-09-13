@@ -9,6 +9,9 @@ export function capabilityFileRules(elements, declaredRoles = []) {
   return [
     {
       pattern: [
+        ...elements
+          .filter(({ type }) => type === "test-support")
+          .flatMap(({ pattern }) => [pattern].flat().map((root) => `${root}/**/*`)),
         ...inCapabilities(`**/*.{test,spec,shared-spec}.${sourceExtension}`),
         ...inCapabilities(`**/{test-helpers,testing}.${sourceExtension}`),
         ...inCapabilities("**/{test-support,__fixtures__}/**/*"),
@@ -70,7 +73,7 @@ export function capabilityBoundaries(rootPath, elements, files, roleDescriptors 
       },
       rules: {
         "boundaries/no-unknown-files": "error",
-        "boundaries/no-unknown-dependencies": "error",
+        "boundaries/no-unknown-dependencies": ["error", { require: "all" }],
         "boundaries/no-ignored-dependencies": "error",
         "boundaries/dependencies": [
           "error",
@@ -204,7 +207,7 @@ export function capabilityBoundaries(rootPath, elements, files, roleDescriptors 
     },
     {
       name: "capabilities/placement",
-      files: inCapabilities(`**/*.${sourceExtension}`),
+      files,
       ignores: [
         ...testFiles,
         ...roleFiles("domain"),

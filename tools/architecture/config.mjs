@@ -5,6 +5,18 @@ import { readFileSync } from "node:fs";
 // existing constraints until the corresponding capability gate is active.
 export const capabilityElements = [
   {
+    type: "frontstage",
+    pattern: "packages/*/extension-lifecycle/src/skills",
+    capture: ["strategy"],
+    partialMatch: false,
+  },
+  {
+    type: "frontstage",
+    pattern: "packages/*/extension-lifecycle/src/subagents",
+    capture: ["strategy"],
+    partialMatch: false,
+  },
+  {
     type: "backstage",
     pattern: "packages/*/extension-model/src",
     capture: ["strategy"],
@@ -26,6 +38,12 @@ export const capabilityElements = [
 ];
 
 export const capabilityRoots = [
+  // Enforce the extracted owner policy and contracts. The remaining install,
+  // projection, and source-acquisition implementations still need migration.
+  "packages/core/extension-lifecycle/src/skills/domain",
+  "packages/core/extension-lifecycle/src/skills/application",
+  "packages/core/extension-lifecycle/src/subagents/domain",
+  "packages/core/extension-lifecycle/src/subagents/application",
   "packages/core/extension-model/src",
   "packages/supporting/cli-maintenance/src/official-skill",
   "packages/supporting/cli-maintenance/src/self-update",

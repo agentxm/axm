@@ -6,6 +6,20 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import {
+  SkillSelectionNotFound,
+  SkillSelectionUnavailable,
+} from "@agentxm/extension-lifecycle/skills/application";
+import {
+  SubagentSelectionNotFound,
+  SubagentSelectionUnavailable,
+} from "@agentxm/extension-lifecycle/subagents/application";
+import {
+  skillSelectionNotFoundToAppError,
+  subagentSelectionNotFoundToAppError,
+  selectionUnavailableToAppError,
+} from "./conversions/extension-selection.js";
+
 import * as Cause from "effect/Cause";
 import * as Option from "effect/Option";
 
@@ -1138,6 +1152,10 @@ export type KnownFailure =
   | SkillDefinitionInvalid
   | SkillMaterializationFailed
   | SkillInstallStateMissing
+  | SkillSelectionNotFound
+  | SkillSelectionUnavailable
+  | SubagentSelectionNotFound
+  | SubagentSelectionUnavailable
   | AxmSkillCompatibilityUnavailable
   | AxmSkillIncompatible
   | PackDefinitionInvalid
@@ -1292,6 +1310,10 @@ export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof SkillDefinitionInvalid ||
   error instanceof SkillMaterializationFailed ||
   error instanceof SkillInstallStateMissing ||
+  error instanceof SkillSelectionNotFound ||
+  error instanceof SkillSelectionUnavailable ||
+  error instanceof SubagentSelectionNotFound ||
+  error instanceof SubagentSelectionUnavailable ||
   error instanceof AxmSkillCompatibilityUnavailable ||
   error instanceof AxmSkillIncompatible ||
   error instanceof PackDefinitionInvalid ||
@@ -1570,6 +1592,13 @@ export const toAppError = (error: KnownFailure | AppError): AppError => {
       return skillMaterializationFailedToAppError(error);
     case "SkillInstallStateMissing":
       return skillInstallStateMissingToAppError(error);
+    case "SkillSelectionNotFound":
+      return skillSelectionNotFoundToAppError(error);
+    case "SubagentSelectionNotFound":
+      return subagentSelectionNotFoundToAppError(error);
+    case "SkillSelectionUnavailable":
+    case "SubagentSelectionUnavailable":
+      return selectionUnavailableToAppError(error);
     case "AxmSkillCompatibilityUnavailable":
       return axmSkillCompatibilityUnavailableToAppError(error);
     case "AxmSkillIncompatible":

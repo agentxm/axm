@@ -65,12 +65,6 @@ export {
   type SubagentInstallIntent,
 } from "./install/vocabulary.js";
 export {
-  ExtensionSelectionCancelled,
-  ExtensionSelectionInteraction,
-  type ExtensionSelectionFailure,
-  type ExtensionSelectionInteractionService,
-} from "./install/selection-interaction.js";
-export {
   resolveRootInstallIntent,
   rootInstallableTypeSegments,
   RootInstallableTypeSegmentSchema,

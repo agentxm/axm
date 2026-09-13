@@ -98,6 +98,8 @@ import {
 import { ExecutionDirectory } from "./execution-directory.js";
 import {
   UpgradePreparationLive,
+  PackageInstallationLive,
+  ScriptInstallationLive,
   InstallMetaLive,
   InstallMethodLive,
   SubprocessLive,
@@ -270,7 +272,7 @@ export const startupUpdateCheckLayer = Layer.provide(
 );
 
 export const selfUpdateLayer = Layer.provideMerge(
-  UpgradePreparationLive,
+  Layer.mergeAll(UpgradePreparationLive, PackageInstallationLive, ScriptInstallationLive),
   Layer.mergeAll(InstallMethodLive, InstallMetaLive, SubprocessLive, UpdateCheckCacheLive),
 );
 

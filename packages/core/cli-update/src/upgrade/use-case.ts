@@ -16,21 +16,21 @@
  */
 
 import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
-import type * as Path from "effect/Path";
-import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { observeUnit } from "@agentxm/workspace-operations";
-
-import { methodLabel } from "@agentxm/cli-maintenance/self-update/adapters/cli";
-import type {
-  InstallerAvailability,
-  UpgradeCoreResult,
-  UpgradeSettlement,
+import {
+  applyPackageUpgrade,
+  applyScriptUpgrade,
+  ScriptExecutableInstaller,
+  ScriptReleaseAssets,
+  PackageInstaller,
+  InstallationRecorder,
+  noMutationResult,
+  type BaseResultInput,
+  type InstallerAvailability,
+  type UpgradeCoreResult,
+  type UpgradeSettlement,
 } from "@agentxm/cli-maintenance/self-update/application";
 
-import { InstallMeta } from "../install-meta/install-meta.js";
-import { Subprocess } from "../subprocess/subprocess.js";
 import {
   UpdateCheckCache,
   rememberStableChannel,
@@ -44,16 +44,7 @@ import {
   type UpgradeCandidate,
   UpgradeFailed,
 } from "@agentxm/cli-maintenance/self-update/application";
-import {
-  methodName,
-  handleDelegated,
-  handleScript,
-  noMutationResult,
-  previewResult,
-  queryPackageAvailability,
-  recoveryInstaller,
-  type BaseResultInput,
-} from "./mechanism.js";
+import { previewResult, recoveryInstaller } from "./mechanism.js";
 
 /** How the prepared candidate is settled. */
 export interface UpgradeExecution {
@@ -61,13 +52,12 @@ export interface UpgradeExecution {
 }
 
 type UpgradeRequirements =
-  | InstallMeta
-  | Subprocess
+  | InstallationRecorder
+  | PackageInstaller
+  | ScriptExecutableInstaller
+  | ScriptReleaseAssets
   | UpdateCheckCache
-  | UpgradeWorkingDirectory
-  | HttpClient.HttpClient
-  | FileSystem.FileSystem
-  | Path.Path;
+  | UpgradeWorkingDirectory;
 
 const notRequired: InstallerAvailability = {
   state: "not-required",
@@ -99,8 +89,6 @@ export const previewOrApply: (
   const preview = execution.mode === "preview";
   const { method, platform, resolution, selectedAction } = candidate;
   const targetVersion = resolution.targetVersion;
-  const detectionCommands = [...candidate.detectionCommands];
-  const input: BaseResultInput = { ...baseInput(candidate), detectionCommands };
 
   // A preview leaves no trace: the channel cache is durable state the command
   // was not asked to change.
@@ -108,28 +96,12 @@ export const previewOrApply: (
     yield* rememberStableChannel(resolution.channel, resolution.etag);
   }
 
-  // A preview resolves ownership and the target and stops: publication state
-  // is established by the run that would use it.
+  const input = baseInput(candidate);
+  const action = selectedAction;
   const availability: InstallerAvailability =
-    selectedAction !== "mutate" || preview
-      ? notRequired
-      : method._tag === "Npm" || method._tag === "Pnpm" || method._tag === "Yarn"
-        ? yield* observeUnit(
-            {
-              id: "availability",
-              label: `${methodLabel(methodName(method))} availability`,
-            },
-            queryPackageAvailability(method, targetVersion, detectionCommands),
-          )
-        : { state: "ready", observedVersion: targetVersion, details: [] };
-
-  // The availability gate exists to stop a mutation that would fail. A
-  // preview performs none, so it is not gated by publication state it
-  // deliberately did not establish.
-  const action =
-    !preview && selectedAction === "mutate" && availability.state !== "ready"
-      ? "manual"
-      : selectedAction;
+    action === "mutate" && !preview
+      ? { state: "ready", observedVersion: targetVersion, details: [] }
+      : notRequired;
 
   const settle = (result: UpgradeCoreResult): UpgradeSettlement => {
     const { availability: installerAvailability, ...executionResult } = result;
@@ -156,12 +128,6 @@ export const previewOrApply: (
         case "refuse":
           return Effect.succeed(noMutationResult(input, "downgrade-refused", null));
         case "manual":
-          if (selectedAction === "mutate") {
-            return Effect.succeed({
-              ...noMutationResult(input, "manual-action-required", null, availability.details),
-              availability,
-            });
-          }
           return Effect.succeed(
             noMutationResult(input, "manual-action-required", recoveryInstaller(targetVersion)),
           );
@@ -177,30 +143,24 @@ export const previewOrApply: (
                 }),
               );
             }
-            return handleScript(input, method, platform, {
-              binaryAssetUrl,
-              checksumAssetUrl,
+            return applyScriptUpgrade({
+              ...input,
+              method,
+              binaryName: platform.binaryName,
+              release: { binaryAssetUrl, checksumAssetUrl },
+              recoveryCommand: recoveryInstaller(input.targetVersion),
             });
           }
-          return handleDelegated(input);
+          return method._tag === "Unknown"
+            ? Effect.succeed(
+                noMutationResult(input, "manual-action-required", recoveryInstaller(targetVersion)),
+              )
+            : applyPackageUpgrade({ ...input, method });
         }
       }
     })();
 
-  // The mutation unit stays on screen for the whole delegation, so its label
-  // carries the two facts the reader needs while it runs: what is being
-  // installed and which installer is doing it. The commands the installer
-  // runs nest under it.
-  const result =
-    action === "mutate"
-      ? yield* observeUnit(
-          {
-            id: "upgrade",
-            label: `AXM ${targetVersion} via ${methodLabel(methodName(method))}`,
-          },
-          resultEffect,
-        )
-      : yield* resultEffect;
+  const result = yield* resultEffect;
   return settle(result);
 });
 

@@ -93,7 +93,7 @@
     },
     "test": {
       "cache": true,
-      "dependsOn": ["^build"],
+      "dependsOn": ["specification-metadata:build", "^build"],
       "outputs": ["{workspaceRoot}/test-results/{projectName}"]
     },
     "nx-release-publish": {

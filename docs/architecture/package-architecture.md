@@ -191,12 +191,35 @@ messages, plan steps, and command display. The CLI maps a settlement once at its
 delivery boundary. Availability has one canonical value in the settlement, so
 failure wording and the machine disposition read the same observation.
 
-`cli-update` retains its current placement while installer execution, its
-remaining policy/I/O mixture, and progress integration are separated. Its
-existing entry returns the owned settlement contract; that change does not yet
-make the entry independent of concrete installers or CLI progress. Depending
-on the operation vocabulary explains the remaining source dependency; it does
-not make self-update strategically core.
+Package-managed upgrades use one application operation for availability,
+mutation, verification, bounded Homebrew reinstall recovery, and installation
+recording. `PackageInstaller` supplies protocol observations and command
+evidence; `InstallationRecorder` persists an accepted installation. Domain
+policy decides whether executable observations establish the selected version
+and whether an unchanged Homebrew installation earns one recovery attempt.
+The application can run without a terminal or native host services. An optional
+execution observer adapts its stage lifetimes to CLI progress without selecting
+the outcome. Each operation returns its evidence; callers do not share mutable
+command arrays across deferred work.
+
+Script upgrades also have an application-owned operation. Domain code selects
+the checksum and accepts executable-version observations; the application owns
+staging, protection, replacement, rollback, and installation-recording order.
+`ScriptReleaseAssets` supplies downloaded bytes with their digest and checksum
+manifest. `ScriptExecutableInstaller` supplies observations and scoped replacement
+leases. The native lease owns the lock, temporary files, backup, and interruption
+cleanup. A metadata failure preserves the verified new executable and its backup;
+acceptance releases the backup. A failed verification after restoration identifies
+the restored executable, rather than claiming the consumed backup still exists.
+
+`cli-update` retains its current placement while native inspection and the
+remaining preview/progress bindings are separated. Its installer adapters own
+command grammar, process execution, response decoding, downloads, and filesystem
+resources; composition selects those adapters and metadata storage. Package and
+script execution can both run without host services, but the combined preview and
+upgrade entry still selects native recovery guidance.
+The remaining operation-vocabulary dependency does not make self-update
+strategically core.
 
 The lower-level graph is deliberately small:
 

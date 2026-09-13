@@ -32,7 +32,7 @@
     "lint:fix": "nx run-many -t lint --fix",
     "ci": "pnpm run ci:workspace && pnpm run test:e2e",
     "ci:workspace": "pnpm run verify:clean && pnpm run format:check && pnpm run verify:workspace",
-    "verify:clean": "pnpm exec nx run axm:source-cli-smoke && pnpm run check:ci-toolchain && pnpm run generate:check && pnpm run sync:check",
+    "verify:clean": "pnpm exec nx run axm:check:workflows && pnpm exec nx run axm:source-cli-smoke && pnpm run check:ci-toolchain && pnpm run generate:check && pnpm run sync:check",
     "verify:affected": "pnpm exec nx run architecture:check && pnpm exec nx run axm:unused-code && pnpm exec nx affected -t lint typecheck build test verify-source-hygiene parity-ledger-check lint-bundled-skill test:policy-coverage --nxBail",
     "verify:pr": "pnpm run verify:clean && pnpm run format:check && pnpm run verify:affected && pnpm exec nx run axm:verify-release-packs && pnpm run test:e2e:affected",
     "verify:workspace": "pnpm exec nx run architecture:check && pnpm exec nx run axm:unused-code && pnpm exec nx run-many -t lint typecheck build test verify-source-hygiene parity-ledger-check lint-bundled-skill test:policy-coverage verify-release-packs --nxBail",

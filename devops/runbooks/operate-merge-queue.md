@@ -59,8 +59,9 @@ After the acceptance decision, enable auto-merge with squash integration:
 gh pr merge <number> --repo agentxm/axm --auto --squash
 ```
 
-For release pull requests, also supply the exact subject required by the
-[release runbook](release-cli.md). Do not update the source branch merely because
+For release pull requests, retain the generated release title and bind the
+accepted source commit as described in the [release runbook](release-cli.md).
+Do not update the source branch merely because
 `main` advances. GitHub creates or replaces a `gh-readonly-queue/main/...`
 revision and emits `merge_group.checks_requested`; inspect the CI run and record
 that exact head SHA, the pull requests represented by it, and the aggregate

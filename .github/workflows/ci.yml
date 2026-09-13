@@ -46,7 +46,6 @@ jobs:
       code: ${{ steps.classify.outputs.code }}
       documentation: ${{ steps.classify.outputs.documentation }}
       head: ${{ steps.set-shas.outputs.head }}
-      workflow: ${{ steps.classify.outputs.workflow }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -134,33 +133,6 @@ jobs:
           HEAD_SHA: ${{ needs.classify.outputs.head }}
         run: git diff --check "$BASE_SHA...$HEAD_SHA" -- '*.md' '*.mdx'
 
-  workflow-validation:
-    name: Workflow validation
-    needs: classify
-    if: >-
-      (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
-      needs.classify.outputs.workflow == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Install checksum-verified actionlint
-        run: |
-          version=1.7.12
-          asset="actionlint_${version}_linux_amd64.tar.gz"
-          release="https://github.com/rhysd/actionlint/releases/download/v${version}"
-          cd "$RUNNER_TEMP"
-          curl --fail --location --silent --show-error --output "$asset" "$release/$asset"
-          curl --fail --location --silent --show-error --output checksums.txt "$release/actionlint_${version}_checksums.txt"
-          grep " ${asset}$" checksums.txt | sha256sum --check --strict
-          tar --extract --gzip --file "$asset" actionlint
-          sudo install -m 0755 actionlint /usr/local/bin/actionlint
-
-      - name: Validate workflow syntax
-        run: actionlint
-
   verify-pr:
     name: Verify proposed change
     needs: classify
@@ -223,7 +195,7 @@ jobs:
             git log --format=%s "main..$HEAD_SHA" | grep --fixed-strings --line-regexp --quiet -- "$release_subject"; then
             release_preparation=true
           elif [[ "$EVENT_NAME" == "merge_group" ]] &&
-            git log --format=%s "main..$HEAD_SHA" | grep --extended-regexp --line-regexp --quiet -- 'release: cli-v[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?'; then
+            git log --format=%s "main..$HEAD_SHA" | grep --extended-regexp --line-regexp --quiet -- 'release: cli-v[0-9]+\.[0-9]+\.[0-9]+([-.+][0-9A-Za-z.-]+)?( \(#[0-9]+\))?'; then
             release_preparation=true
           fi
           echo "release_preparation=$release_preparation" >> "$GITHUB_OUTPUT"
@@ -635,7 +607,6 @@ jobs:
       - specification-verdict
       - extension-lint
       - documentation
-      - workflow-validation
       - verify-pr
       - verify-main
       - verify-e2e-main
@@ -651,12 +622,10 @@ jobs:
             ${{ toJSON(needs) }}
           EVENT_NAME: ${{ github.event_name }}
           DOCS_CHANGED: ${{ needs.classify.outputs.documentation }}
-          WORKFLOW_CHANGED: ${{ needs.classify.outputs.workflow }}
         run: |
           if [[ "$EVENT_NAME" == "pull_request" || "$EVENT_NAME" == "merge_group" ]]; then
             expected=(classify secrets specification-verdict extension-lint verify-pr windows-workspace)
             [[ "$DOCS_CHANGED" == "true" ]] && expected+=(documentation)
-            [[ "$WORKFLOW_CHANGED" == "true" ]] && expected+=(workflow-validation)
           else
             expected=(classify secrets verify-main verify-e2e-main windows-workspace binary-smoke npm-cohort)
           fi

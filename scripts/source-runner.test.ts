@@ -120,7 +120,12 @@ describe("source runner", () => {
     const scripts = manifest["scripts"];
     if (!isRecord(scripts)) throw new Error("package.json must declare scripts.");
     expect(scripts["axm"]).toBe("bun --conditions=axm-source apps/cli/src/main.ts");
-    expect(scripts["verify:clean"]).toMatch(/^pnpm exec nx run axm:source-cli-smoke &&/u);
+    const cleanVerification = scripts["verify:clean"];
+    if (typeof cleanVerification !== "string") throw new Error("verify:clean must be declared.");
+    const stages = cleanVerification.split(" && ");
+    const smokeIndex = stages.indexOf("pnpm exec nx run axm:source-cli-smoke");
+    expect(smokeIndex).toBeGreaterThanOrEqual(0);
+    expect(smokeIndex).toBeLessThan(stages.indexOf("pnpm run generate:check"));
 
     const project = readObject("project.json");
     const targets = project["targets"];

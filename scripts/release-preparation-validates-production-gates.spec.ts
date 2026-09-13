@@ -164,7 +164,10 @@ describe("Release preparation workflow", () => {
       expect(JSON.stringify(pullRequest)).toContain("gh pr create");
       expect(JSON.stringify(pullRequest)).toContain("${{ github.token }}");
       expect(JSON.stringify(dispatch)).toContain("gh workflow run ci.yml");
-      expect(JSON.stringify(dispatch)).toContain("--field runner=github-hosted");
+      expect(Reflect.get(dispatch, "run")).toContain('--ref "$BRANCH"');
+      expect(Reflect.get(dispatch, "env")).toMatchObject({
+        BRANCH: "${{ steps.candidate.outputs.branch }}",
+      });
       expect(workflow.steps.indexOf(dispatch)).toBeGreaterThan(workflow.steps.indexOf(pullRequest));
     }),
   );

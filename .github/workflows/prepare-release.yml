@@ -152,7 +152,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: >-
           gh workflow run ci.yml --repo "$GITHUB_REPOSITORY"
-          --ref "$BRANCH" --field runner=github-hosted
+          --ref "$BRANCH"
 
       - name: Report preparation result
         if: always()

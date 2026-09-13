@@ -15,6 +15,7 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readCachedProjectGraph } from "@nx/devkit";
 
 import { collectCatalog, formatIssue } from "./specification-catalog-lib.js";
 import {
@@ -26,13 +27,15 @@ import {
   captureEvidenceInputs,
   digestContent,
   readEvidenceRuns,
+  type EvidenceInputs,
+  type EvidenceRun,
 } from "./specification-evidence.js";
+import { resolveEvidenceRuntimeOutputs } from "./specification-evidence-task.js";
 import {
   discoverExecutionBindings,
   discoverSpecifications,
   gitRefWorkspace,
   readWorkspace,
-  runtimeOutputs,
 } from "./workspace-discovery.js";
 
 const scriptsRoot = fileURLToPath(new URL(".", import.meta.url));
@@ -107,10 +110,24 @@ const sourceDigests = new Map([
       [entry.source, digestContent(fs.readFileSync(path.join(repoRoot, entry.source)))] as const,
   ),
 ]);
-const outputs = runtimeOutputs(workspace);
+const graph = readCachedProjectGraph();
+const inputsByTask = new Map<string, EvidenceInputs>();
+const currentInputs = (run: EvidenceRun): EvidenceInputs | undefined => {
+  if (run.task === null) return undefined;
+  const key = JSON.stringify([run.task, run.inputs.runtimeMode]);
+  const cached = inputsByTask.get(key);
+  if (cached !== undefined) return cached;
+  const outputs = resolveEvidenceRuntimeOutputs(graph, run.task);
+  if (outputs === undefined) return undefined;
+  const inputs = captureEvidenceInputs(repoRoot, {
+    runtimeMode: run.inputs.runtimeMode,
+    runtimeOutputs: outputs,
+  });
+  inputsByTask.set(key, inputs);
+  return inputs;
+};
 const verdict = computeVerdict(baseSources, headSources, {
-  inputs: captureEvidenceInputs(repoRoot, { runtimeMode: "built", runtimeOutputs: outputs }),
-  sourceInputs: captureEvidenceInputs(repoRoot, { runtimeMode: "source", runtimeOutputs: outputs }),
+  currentInputs,
   runs: evidence.runs,
   executionBindings: headCatalog.executionBindings,
   sourceDigests,
@@ -118,4 +135,9 @@ const verdict = computeVerdict(baseSources, headSources, {
   issues: evidenceIssues,
   dispositions: ledger.ledger,
 });
-console.log(renderVerdictMarkdown(verdict));
+await new Promise<void>((resolve, reject) => {
+  process.stdout.write(`${renderVerdictMarkdown(verdict)}\n`, (error) => {
+    if (error) reject(error);
+    else resolve();
+  });
+});

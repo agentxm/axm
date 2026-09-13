@@ -58,6 +58,12 @@ the same `Required CI` context that gates pull requests. The
 [merge-queue runbook](../runbooks/operate-merge-queue.md) owns settings readback,
 enqueue, recovery, and rollback.
 
+Live readback on 2026-09-13 established repository ruleset `23123200` as the
+active native queue for `main`: squash integration, two entries building, one
+entry merging, all-green grouping, a 60-minute check response limit, and no
+bypass actors. The strict classic `Required CI` protection remains active as
+the rollback baseline.
+
 Readback on 2026-09-12 established that `main` requires pull requests, resolved
 conversations, linear history, and the `Required CI` context produced by GitHub
 Actions app `15368`; the rules include administrators and prohibit force pushes

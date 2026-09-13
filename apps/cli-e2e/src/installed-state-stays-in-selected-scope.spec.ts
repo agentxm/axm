@@ -136,7 +136,7 @@ describe("Installed state stays in the selected scope", () => {
       } finally {
         fixture.cleanup();
       }
-    }, 30000);
+    });
   }
 });
 

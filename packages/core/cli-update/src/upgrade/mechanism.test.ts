@@ -29,7 +29,6 @@ import {
   runUpgradeTrial,
   type SubprocessInvocation,
 } from "../testing.js";
-import { parseChecksum } from "./mechanism.js";
 
 const BINARY = new TextEncoder().encode("fixture-binary");
 const BINARY_HASH = createHash("sha256").update(BINARY).digest("hex");
@@ -40,27 +39,6 @@ const unavailableCommand = (executionState: "not-started" | "timed-out", stderr:
   exitCode: null,
   stdout: "",
   stderr,
-});
-
-describe("upgrade helpers", () => {
-  it.effect("requires exactly one valid checksum entry for the selected binary", () =>
-    Effect.gen(function* () {
-      expect(yield* parseChecksum(`${BINARY_HASH}  axm-linux-x64\n`, "axm-linux-x64")).toBe(
-        BINARY_HASH,
-      );
-      expect((yield* Effect.flip(parseChecksum("malformed\n", "axm-linux-x64"))).category).toBe(
-        "validation",
-      );
-      expect(
-        (yield* Effect.flip(
-          parseChecksum(
-            `${BINARY_HASH}  axm-linux-x64\n${BINARY_HASH}  axm-linux-x64\n`,
-            "axm-linux-x64",
-          ),
-        )).category,
-      ).toBe("validation");
-    }),
-  );
 });
 
 describe("delegated upgrades", () => {

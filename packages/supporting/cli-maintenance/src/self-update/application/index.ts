@@ -1,4 +1,15 @@
 /** Self-update preparation, release selection, and the contracts their adapters implement. */
+export { applyScriptUpgrade, type ScriptUpgradeInput } from "./apply-script-upgrade.js";
+export {
+  ScriptReleaseAssets,
+  ScriptExecutableInstaller,
+  type ScriptReleaseSource,
+  type DownloadedScriptRelease,
+  type ScriptExecutableObservation,
+  type StagedExecutable,
+  type ExecutableReplacementLease,
+  type ScriptExecutableInstallerService,
+} from "./script-installer.js";
 export { UpgradeFailed } from "./errors.js";
 export {
   CliReleaseCatalog,
@@ -48,3 +59,28 @@ export {
   type UpgradeSettlement,
   type VerificationExecutable,
 } from "./execution-result.js";
+
+export { applyPackageUpgrade, type PackageUpgradeInput } from "./apply-package-upgrade.js";
+export {
+  upgradeBaseFacts,
+  detectionResult,
+  noMutationResult,
+  type BaseResultInput,
+} from "./execution-facts.js";
+export {
+  PackageInstaller,
+  InstallationRecorder,
+  type PackageInstallerService,
+  type PackageManagedInstallation,
+  type RegistryManagedInstallation,
+  type AvailabilityObservation,
+  type PackageInstallationObservation,
+  type PackageMutationObservation,
+  type InstallationInspectionPhase,
+} from "./package-installer.js";
+
+export {
+  UpgradeExecutionObserver,
+  type UpgradeExecutionObserverService,
+  type UpgradeExecutionStage,
+} from "./execution-observer.js";

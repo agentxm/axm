@@ -11,7 +11,8 @@ import {
 import { observeUnit } from "@agentxm/workspace-operations";
 import type { InstallMethodService } from "../../install-method/install-method.js";
 import { Subprocess, type SubprocessService } from "../../subprocess/subprocess.js";
-import { methodName, resolveAmbiguousPackageManager } from "../../upgrade/mechanism.js";
+import { methodName } from "@agentxm/cli-maintenance/self-update/domain";
+import { resolveAmbiguousPackageManager } from "../../upgrade/mechanism.js";
 
 /** Adapt host probes to immutable installation facts and the CLI operation stream. */
 export const makeInstallationInspection = (

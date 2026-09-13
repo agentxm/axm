@@ -116,10 +116,10 @@ support, version comparison, and upgrade decisions now belong to the
 frontstage `cli-maintenance/self-update/domain` module. They have no dependency
 on workspace execution or installer I/O.
 
-The remaining `cli-update` implementation retains its placement until installer
-execution, its remaining policy/I/O mixture, and progress integration are
-separated. The current ownership of preparation, startup checking, settlement
-contracts, and CLI assessment is described in
+The remaining `cli-update` implementation retains its placement until native
+inspection and the remaining preview/progress bindings are separated. The current
+ownership of preparation, startup checking, package and script upgrade execution,
+settlement contracts, and CLI assessment is described in
 [Package architecture](../package-architecture.md). Do not widen the supporting allowlist or move CLI
 progress vocabulary into the shared extension model to make the move legal.
 The source dependency needs an architectural correction at its owning boundary.

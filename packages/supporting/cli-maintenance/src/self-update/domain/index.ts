@@ -1,4 +1,5 @@
 /** Installation facts and upgrade decisions owned by CLI maintenance. */
+export { selectReleaseChecksum, acceptsScriptExecutable } from "./script-verification.js";
 export {
   Script,
   Homebrew,
@@ -30,3 +31,12 @@ export {
   type CachedStableChannel,
   type StartupCheckContext,
 } from "./startup-check.js";
+
+export { methodName, methodExecutablePath } from "./installation.js";
+export {
+  verifyPackageInstallation,
+  verifyHomebrewInstallation,
+  shouldReinstallHomebrew,
+  type InstallationVerification,
+  type HomebrewInstallation,
+} from "./verification.js";

@@ -17,10 +17,28 @@ directory, command evidence, and typed upgrade failures. The
 `./self-update/adapters/releases` implementation reads the public stable channel
 and derives immutable GitHub coordinates; `./self-update/composition` connects
 it to the caller's HTTP client. Substitute catalogs exercise selection policy
-without HTTP, installation state, or a CLI. Host inspection and CLI progress
-implement these contracts in `@agentxm/cli-update`'s adapters and composition.
-Its installer mutation and assessment rendering remain to be separated and
-consolidated under CLI maintenance.
+without HTTP, installation state, or a CLI. Native host implementations live
+beside the application in `self-update/adapters/native`; their Layers are
+selected through `./self-update/composition/native`. The CLI owns concrete
+progress observation and cache-path selection in its composition.
+The same application owns package and script upgrade execution: availability
+checks, checksum and exact-version acceptance, backup and replacement order,
+rollback verification, and recording only accepted installations. Native
+adapters implement `PackageInstaller`, `ScriptReleaseAssets`,
+`ScriptExecutableInstaller`, and `InstallationRecorder`.
+
+`assessUpgrade` is a separate read-only query. It needs inspection, release
+selection, the invocation directory, and `InstallerInstructions`; no mutation
+or cache-write service is required. It returns a typed prospective command or
+executable replacement. `./self-update/adapters/cli` supplies preview wording
+and the assessment document. `applyUpgrade` accepts the prepared candidate
+and uses the mutation contracts. Installer command and recovery grammar remain
+behind `InstallerInstructions`, shared with the concrete native protocols.
+`./self-update/adapters/native` exposes native service contracts and
+`./self-update/testing/native` supplies controlled installation fixtures.
+Native trials run without delivery observation; the CLI owns the experience
+specifications and their operation-lifecycle fixture. Capability boundaries
+remain enforced inside this package without a separate native-adapter package.
 
 The same capability owns informational startup checks: suppression, cache
 freshness, version eligibility, conditional refresh, and the decision that an
@@ -29,7 +47,7 @@ unavailable check cannot fail an explicit command. `UpdateCheckCache` and
 snapshot; the application evaluates it once and returns version facts. Its
 optional refresh belongs to the invocation scope, with a three-second bound.
 The HTTP adapter validates the release authority's response; filesystem storage
-is supplied by `@agentxm/cli-update`. The CLI reads environment and invocation
+is supplied by the native cache adapter. The CLI reads environment and invocation
 signals and formats human or agent notifications. These decisions can be
 exercised without either adapter or a delivery interface.
 

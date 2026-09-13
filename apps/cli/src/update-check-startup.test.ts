@@ -15,7 +15,7 @@ import {
 } from "@agentxm/extension-model/unstable/release-channel";
 import { rememberStableChannel } from "@agentxm/cli-maintenance/self-update/application";
 import { StableChannelCheckLive } from "@agentxm/cli-maintenance/self-update/composition";
-import { makeUpdateCheckCacheLayer } from "@agentxm/cli-update/testing";
+import { makeUpdateCheckCacheLayer } from "@agentxm/cli-maintenance/self-update/testing/native";
 
 import { TestRenderer } from "./test-support/presenter-test.js";
 import {

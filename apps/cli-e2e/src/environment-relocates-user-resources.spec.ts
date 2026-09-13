@@ -109,7 +109,7 @@ describe("Application-resource home", () => {
   // The live-adapter example — the credential, pending-device-login and
   // install-metadata services reading back the selected home while populated
   // platform resources stay untouched — composes `@agentxm/registry-auth/live`
-  // and `@agentxm/cli-update/live`. An end-to-end project observes only shipped
+  // and `@agentxm/cli-maintenance/self-update/composition/native`. An end-to-end project observes only shipped
   // artifacts and may not declare a dependency on product source
   // (`system/architecture/e2e-observes-only-shipped-artifacts`), so it runs
   // unchanged beside the composition root that selects those homes, in

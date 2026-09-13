@@ -1,3 +1,4 @@
+import { CliUpgradeObservationLive } from "../cli-runtime/upgrade-observation.js";
 /**
  * The `upgrade` command adapter over the self-update capability's test ports.
  *
@@ -11,7 +12,7 @@ import {
   UpgradePreparationLive,
   PackageInstallationLive,
   ScriptInstallationLive,
-} from "@agentxm/cli-update/live";
+} from "@agentxm/cli-maintenance/self-update/composition/native";
 import { type InstallMethodType, Homebrew } from "@agentxm/cli-maintenance/self-update/domain";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -22,9 +23,9 @@ import * as TestClock from "effect/testing/TestClock";
 import * as Fiber from "effect/Fiber";
 import * as Option from "effect/Option";
 
-import { InstallMeta, InstallMethod } from "@agentxm/cli-update";
+import { InstallMeta, InstallMethod } from "@agentxm/cli-maintenance/self-update/adapters/native";
 import { UpdateCheckCache } from "@agentxm/cli-maintenance/self-update/application";
-import type { InstallMetaData } from "@agentxm/cli-update";
+import type { InstallMetaData } from "@agentxm/cli-maintenance/self-update/adapters/native";
 import {
   HOMEBREW_EXECUTABLE,
   LOCAL_VERSION,
@@ -33,7 +34,7 @@ import {
   makeSubprocessTest,
   type SubprocessInvocation,
   type SubprocessTestOptions,
-} from "@agentxm/cli-update/testing";
+} from "@agentxm/cli-maintenance/self-update/testing/native";
 
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
@@ -107,6 +108,7 @@ export const runUpgradeCommand = (options?: UpgradeCommandOptions) =>
     const layer = Layer.provideMerge(
       Layer.mergeAll(UpgradePreparationLive, PackageInstallationLive, ScriptInstallationLive),
       Layer.mergeAll(
+        CliUpgradeObservationLive,
         NodeServices.layer,
         options?.human === true
           ? humanScreenLayer(streams)

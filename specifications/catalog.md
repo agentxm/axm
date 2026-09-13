@@ -63,7 +63,7 @@ People and agents can understand invalid workspace state and recover it through 
 ##### A delegating operation narrates the external work it hands off
 
 - Requirement: `cli/delegated-operations-narrate-external-work`
-- Owner: `cli-update`
+- Owner: `cli`
 - Statement: An operation that delegates work to an external tool shall publish one unit for each command it delegates, nested under the unit that delegated it, and shall publish a wait naming its blocking class and subject for each poll that blocks on that tool, so the delegated work is observable while it runs rather than only after it settles.
 - Class: functional
 - Role: experience
@@ -73,7 +73,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Derived from: `cli/machine-progress-events-follow-the-lifecycle-schema`
 - Limitation: The conditional wait narration obligation has no product polling witness after upgrade stopped polling publication. Retires when: A command that polls an external tool supplies an event-log example for waiting and completion.
 - Limitation: Upgrade is the only delegating operation this specification exercises; another command that delegates to an external tool is covered by the statement but not yet by an example. Retires when: A second command delegates to an external tool and its event log is added to this specification.
-- Source: [`packages/core/cli-update/src/upgrade/delegated-operations-narrate-external-work.spec.ts`](../packages/core/cli-update/src/upgrade/delegated-operations-narrate-external-work.spec.ts)
+- Source: [`apps/cli/src/root/upgrade/delegated-operations-narrate-external-work.spec.ts`](../apps/cli/src/root/upgrade/delegated-operations-narrate-external-work.spec.ts)
 
 ##### Quiet takes precedence over debug and verbose diagnostics
 
@@ -2452,19 +2452,19 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### Upgrade preserves current and newer installations unless equal-version reinstall is requested
 
 - Requirement: `cli/upgrade/preserves-current-or-newer-installations`
-- Owner: `cli-update`
+- Owner: `cli-maintenance`
 - Statement: AXM shall leave an equal or newer installation unchanged unless equal-version reinstallation is explicitly requested, and shall refuse a downgrade even when reinstallation is requested.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Source: [`packages/core/cli-update/src/upgrade/preserves-current-or-newer-installations.spec.ts`](../packages/core/cli-update/src/upgrade/preserves-current-or-newer-installations.spec.ts)
+- Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/preserves-current-or-newer-installations.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/preserves-current-or-newer-installations.spec.ts)
 
 ##### Upgrade preview resolves the installation change without performing it
 
 - Requirement: `cli/upgrade/preview-is-pure`
-- Owner: `cli-update`
+- Owner: `cli-maintenance`
 - Statement: When upgrade runs in preview mode against an installation with a newer promoted release, it shall report the installer, the target, and the command it would run with a previewed outcome and shall invoke no installer command, persist no install metadata, and write no update-check cache.
 - Class: functional
 - Role: experience
@@ -2472,7 +2472,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `cli/upgrade/discloses-resolved-ownership-before-mutation`
-- Source: [`packages/core/cli-update/src/upgrade/preview-is-pure.spec.ts`](../packages/core/cli-update/src/upgrade/preview-is-pure.spec.ts)
+- Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/preview-is-pure.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/preview-is-pure.spec.ts)
 
 ##### Version preview describes the manifest bump without changing any state
 
@@ -2741,7 +2741,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 ##### Upgrade discloses the installer it resolved and the version it selected before mutating
 
 - Requirement: `cli/upgrade/discloses-resolved-ownership-before-mutation`
-- Owner: `cli-update`
+- Owner: `cli`
 - Statement: Upgrade shall disclose the install method it detected and the version it selected before it performs the first mutation, and shall disclose both without performing any mutation when asked for a preview.
 - Class: functional
 - Role: experience
@@ -2749,7 +2749,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `cli/upgrade/ownership-precedes-release-selection`
-- Source: [`packages/core/cli-update/src/upgrade/discloses-resolved-ownership-before-mutation.spec.ts`](../packages/core/cli-update/src/upgrade/discloses-resolved-ownership-before-mutation.spec.ts)
+- Source: [`apps/cli/src/root/upgrade/discloses-resolved-ownership-before-mutation.spec.ts`](../apps/cli/src/root/upgrade/discloses-resolved-ownership-before-mutation.spec.ts)
 
 ##### Exact upgrade bypasses release discovery
 
@@ -2766,7 +2766,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 ##### Homebrew checks selected-version availability once
 
 - Requirement: `cli/upgrade/homebrew-checks-availability-once`
-- Owner: `cli-update`
+- Owner: `cli`
 - Statement: When a Homebrew-owned installation requires mutation, upgrade shall perform at most one explicit metadata refresh and one formula query, then either proceed on an exact match or stop without polling for publication.
 - Class: functional
 - Role: experience
@@ -2774,7 +2774,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `cli/upgrade/installer-availability-gates-mutation`
-- Source: [`packages/core/cli-update/src/upgrade/homebrew-checks-availability-once.spec.ts`](../packages/core/cli-update/src/upgrade/homebrew-checks-availability-once.spec.ts)
+- Source: [`apps/cli/src/root/upgrade/homebrew-checks-availability-once.spec.ts`](../apps/cli/src/root/upgrade/homebrew-checks-availability-once.spec.ts)
 
 ##### Latest upgrade uses the promoted stable channel
 
@@ -2791,19 +2791,19 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 ##### Unsupported upgrade routes require explicit recovery
 
 - Requirement: `cli/upgrade/requires-a-supported-upgrade-route`
-- Owner: `cli-update`
+- Owner: `cli-maintenance`
 - Statement: When an installation is owned by a manager that AXM cannot use for in-place upgrade, AXM shall leave that installation unchanged and report an explicit recovery route without silently delegating to another manager.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Source: [`packages/core/cli-update/src/upgrade/requires-a-supported-upgrade-route.spec.ts`](../packages/core/cli-update/src/upgrade/requires-a-supported-upgrade-route.spec.ts)
+- Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/requires-a-supported-upgrade-route.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/requires-a-supported-upgrade-route.spec.ts)
 
 ##### Script upgrade restores the original after replacement fails verification
 
 - Requirement: `cli/upgrade/restores-original-after-failed-replacement`
-- Owner: `cli-update`
+- Owner: `cli-maintenance`
 - Statement: When a script-owned executable has been replaced but cannot be verified as the selected version, or the operation is interrupted before completion, AXM shall restore the original executable and shall not report a successful upgrade.
 - Class: functional
 - Role: experience
@@ -2812,12 +2812,12 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Methods: example
 - Assumptions: Filesystem restoration remains available; operating-system or storage failures that also prevent rollback require separate recovery evidence.
 - Limitation: Restoration after an externally terminated replacement is witnessed in process, through the finalizer the interrupt runs, rather than at the process boundary: the release channel and asset URLs are compiled constants with no environment override, so no installed-boundary run can serve a release fixture to the built executable. Retires when: The self-update capability accepts a release-origin override that a controlled run may point at a local fixture, and an installed-boundary example signals the running upgrade and observes the restored executable and exit status.
-- Source: [`packages/core/cli-update/src/upgrade/restores-original-after-failed-replacement.spec.ts`](../packages/core/cli-update/src/upgrade/restores-original-after-failed-replacement.spec.ts)
+- Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/restores-original-after-failed-replacement.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/restores-original-after-failed-replacement.spec.ts)
 
 ##### Script upgrade verifies a download before replacing the installed executable
 
 - Requirement: `cli/upgrade/verifies-download-before-replacement`
-- Owner: `cli-update`
+- Owner: `cli-maintenance`
 - Statement: For a script-owned installation, AXM shall preserve the installed executable unless the selected download has exactly one valid matching checksum and reports the selected version.
 - Class: functional
 - Role: experience
@@ -2825,12 +2825,12 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary: memory; selection: per-change
 - Methods: example
 - Assumptions: The controlled process port reports executable versions; native binary viability is established by installed-boundary evidence.
-- Source: [`packages/core/cli-update/src/upgrade/verifies-download-before-replacement.spec.ts`](../packages/core/cli-update/src/upgrade/verifies-download-before-replacement.spec.ts)
+- Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/verifies-download-before-replacement.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/verifies-download-before-replacement.spec.ts)
 
 ##### Package-manager upgrade success requires observed installation evidence
 
 - Requirement: `cli/upgrade/verifies-package-manager-upgrades`
-- Owner: `cli-update`
+- Owner: `cli-maintenance`
 - Statement: When an owning package manager performs an upgrade, AXM shall delegate the selected version to that owner and report success only after the owning installation and the executable selected by command lookup report that version, distinguishing failed commands, unchanged versions and unavailable verification.
 - Class: functional
 - Role: experience
@@ -2838,21 +2838,21 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary: memory; selection: per-change
 - Methods: example
 - Open questions: The automatic Homebrew reinstall used after a successful but unchanged upgrade remains subordinate recovery logic; its exact retry policy is not an independently accepted experience obligation.
-- Source: [`packages/core/cli-update/src/upgrade/verifies-package-manager-upgrades.spec.ts`](../packages/core/cli-update/src/upgrade/verifies-package-manager-upgrades.spec.ts)
+- Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/verifies-package-manager-upgrades.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/verifies-package-manager-upgrades.spec.ts)
 
 #### Constraints
 
 ##### Installer availability gates upgrade mutation
 
 - Requirement: `cli/upgrade/installer-availability-gates-mutation`
-- Owner: `cli-update`
+- Owner: `cli-maintenance`
 - Statement: Before mutating an npm-, pnpm-, Yarn-, or Homebrew-owned installation, upgrade shall establish that the selected exact version is available through that installer; lagging, leading, unavailable, or indeterminate publication state shall leave the installation unchanged and report recovery guidance.
 - Class: constraint
 - Role: experience
 - Product goals: `trustworthy-distribution`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Source: [`packages/core/cli-update/src/upgrade/installer-availability-gates-mutation.spec.ts`](../packages/core/cli-update/src/upgrade/installer-availability-gates-mutation.spec.ts)
+- Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/installer-availability-gates-mutation.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/installer-availability-gates-mutation.spec.ts)
 
 ### Goal: workspace-intent-fidelity
 
@@ -4844,14 +4844,14 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 ##### Upgrade establishes ownership before release selection
 
 - Requirement: `cli/upgrade/ownership-precedes-release-selection`
-- Owner: `cli-update`
+- Owner: `cli-maintenance`
 - Statement: Upgrade shall identify the installation owner before performing canonical release selection so unresolved ownership fails without an unnecessary release-authority request and every later availability and mutation decision is installer-specific.
 - Class: constraint
 - Role: supporting
 - Product goals: `trustworthy-distribution`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Source: [`packages/core/cli-update/src/upgrade/ownership-precedes-release-selection.spec.ts`](../packages/core/cli-update/src/upgrade/ownership-precedes-release-selection.spec.ts)
+- Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/ownership-precedes-release-selection.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/ownership-precedes-release-selection.spec.ts)
 
 #### Process
 

@@ -11,7 +11,6 @@ export const CommandRecordSchema = Schema.Struct({
   ] as const),
   executable: Schema.String,
   args: Schema.Array(Schema.String),
-  display: Schema.String,
   executionState: Schema.Literals(["not-started", "exited", "timed-out"] as const),
   exitCode: Schema.NullOr(Schema.Number),
   stdout: Schema.String,

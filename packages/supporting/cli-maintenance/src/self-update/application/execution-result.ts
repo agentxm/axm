@@ -34,6 +34,17 @@ export const RecommendedCommandSchema = Schema.Struct({
 });
 export type RecommendedCommand = typeof RecommendedCommandSchema.Type;
 
+/** A prospective change, before a delivery adapter chooses its wording. */
+export type UpgradePreviewIntent =
+  | { readonly kind: "package-command"; readonly command: RecommendedCommand }
+  | {
+      readonly kind: "executable-replacement";
+      readonly executablePath: string;
+      readonly binaryName: string;
+      readonly targetVersion: string;
+    }
+  | { readonly kind: "installer-unavailable"; readonly method: ResultInstallMethod };
+
 export const VerificationExecutableSchema = Schema.Struct({
   role: Schema.Literals(["invoked", "manager-owned", "path-resolved"] as const),
   path: Schema.String,
@@ -121,6 +132,7 @@ export interface InstallerAvailability {
 /** Execution facts; delivery adapters select their document and presentation. */
 export interface UpgradeSettlement {
   readonly result: Omit<UpgradeCoreResult, "availability">;
+  readonly previewIntent: UpgradePreviewIntent | null;
   readonly resolution: VersionResolutionResult;
   readonly platform: PlatformBinaryInfo;
   readonly requestedVersion: string | undefined;

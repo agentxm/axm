@@ -81,7 +81,6 @@ const makeTrial = (options: TrialOptions = {}) =>
                 purpose,
                 executable: path,
                 args: ["--version"],
-                display: `${path} --version`,
                 executionState: "exited",
                 exitCode: 0,
                 stdout: version,

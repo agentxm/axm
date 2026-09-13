@@ -10,6 +10,7 @@ import {
   type RecommendedCommand,
   type ResultInstallMethod,
   type UpgradeSettlement,
+  type UpgradePreviewIntent,
 } from "../../application/index.js";
 
 const displayArgument = (argument: string): string =>
@@ -132,7 +133,7 @@ export const UpgradeAssessmentResultSchema = Schema.Struct({
       }),
     ),
   }),
-  commands: Schema.Array(CommandRecordSchema),
+  commands: Schema.Array(Schema.Struct({ ...CommandRecordSchema.fields, display: Schema.String })),
   details: Schema.Struct({
     messages: Schema.Array(Schema.String),
     homebrewFailure: Schema.NullOr(HomebrewFailureSchema),
@@ -156,6 +157,20 @@ export const methodLabel = (method: ResultInstallMethod): string => {
       return "Yarn";
     case "unknown":
       return "an unknown installer";
+  }
+};
+
+const previewDetails = (intent: UpgradePreviewIntent | null): ReadonlyArray<string> => {
+  if (intent === null) return [];
+  switch (intent.kind) {
+    case "package-command":
+      return [`Would run ${formatRecommendedCommand(intent.command)}`];
+    case "executable-replacement":
+      return [
+        `Would replace ${intent.executablePath} with ${intent.binaryName} ${intent.targetVersion}, verifying its checksum first`,
+      ];
+    case "installer-unavailable":
+      return [`No installer command is available for ${methodLabel(intent.method)}`];
   }
 };
 
@@ -274,6 +289,7 @@ const planMapping = (result: UpgradeSettlement["result"]): PlanMapping => {
 const upgradePlanSteps = (
   result: UpgradeSettlement["result"],
   availability: InstallerAvailability,
+  details: ReadonlyArray<string>,
 ): ReadonlyArray<UpgradePlanStep> => {
   const mapping = planMapping(result);
   const artifact =
@@ -291,7 +307,7 @@ const upgradePlanSteps = (
       label: "AXM CLI",
       status: mapping.step,
       message: resultMessage(result, availability),
-      details: result.details,
+      details,
       ...(artifact === undefined ? {} : { artifact }),
     },
   ];
@@ -353,6 +369,7 @@ const assessmentOutcome = (
 
 export const toUpgradeAssessment = (input: UpgradeSettlement): UpgradeAssessmentResult => {
   const availability = input.availability;
+  const details = [...input.result.details, ...previewDetails(input.previewIntent)];
   return {
     contract: "axm.upgrade-assessment/v1",
     outcome: assessmentOutcome(input.result),
@@ -412,12 +429,15 @@ export const toUpgradeAssessment = (input: UpgradeSettlement): UpgradeAssessment
               display: formatRecommendedCommand(input.result.recommendedCommand),
             },
     },
-    commands: input.result.executedCommands,
+    commands: input.result.executedCommands.map((command) => ({
+      ...command,
+      display: formatRecommendedCommand({ ...command, shellRequired: false }),
+    })),
     details: {
-      messages: Array.from(new Set([...input.result.details, ...availability.details])),
+      messages: Array.from(new Set([...details, ...availability.details])),
       homebrewFailure: input.result.homebrewFailure ?? null,
       observedFormulaVersion: input.result.observedFormulaVersion ?? null,
     },
-    steps: upgradePlanSteps(input.result, availability),
+    steps: upgradePlanSteps(input.result, availability, details),
   };
 };

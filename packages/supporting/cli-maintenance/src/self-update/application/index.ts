@@ -1,4 +1,9 @@
 /** Self-update preparation, release selection, and the contracts their adapters implement. */
+export { assessUpgrade, applyUpgrade } from "./upgrade.js";
+export {
+  InstallerInstructions,
+  type InstallerInstructionsService,
+} from "./installer-instructions.js";
 export { applyScriptUpgrade, type ScriptUpgradeInput } from "./apply-script-upgrade.js";
 export {
   ScriptReleaseAssets,
@@ -57,6 +62,7 @@ export {
   type ResultStatus,
   type UpgradeCoreResult,
   type UpgradeSettlement,
+  type UpgradePreviewIntent,
   type VerificationExecutable,
 } from "./execution-result.js";
 

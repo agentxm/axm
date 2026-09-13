@@ -9,11 +9,13 @@ import {
   UpgradeFailed,
   UpgradeWorkingDirectory,
   prepareUpgrade,
+  assessUpgrade,
+  applyUpgrade,
 } from "@agentxm/cli-maintenance/self-update/application";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
-import { AssessUpgrade, HOMEBREW_FORMULA, previewOrApply } from "@agentxm/cli-update";
+import { HOMEBREW_FORMULA } from "@agentxm/cli-maintenance/self-update/adapters/native";
 import {
   toUpgradeAssessment,
   UpgradeAssessmentResultSchema,
@@ -144,10 +146,8 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
       ...(preview ? { successOutcome: "previewed" as const } : {}),
     },
     (preview
-      ? AssessUpgrade.query(request)
-      : prepareUpgrade(request).pipe(
-          Effect.flatMap((candidate) => previewOrApply(candidate, { mode: "apply" })),
-        )
+      ? assessUpgrade(request)
+      : prepareUpgrade(request).pipe(Effect.flatMap(applyUpgrade))
     ).pipe(
       Effect.provideService(UpgradeWorkingDirectory, { path: executionDirectory.path }),
       Effect.map(toUpgradeAssessment),

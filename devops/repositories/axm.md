@@ -51,16 +51,22 @@ separately operated AgentXM systems.
 contribution and review policy. CODEOWNERS routes review; it does not establish
 provider administration or operational ownership.
 
-GitHub repository settings are the live enforcement authority. Readback on
-2026-09-12 established that `main` requires pull requests, resolved
-conversations, linear history, and the strict `Required CI` context produced by
-GitHub Actions app `15368`; the rules include administrators and prohibit force
-pushes and deletion. Required approvals are zero, code-owner and last-push
-approval are off, and no actor or team has a bypass restriction. Squash is the
-only enabled merge method, automatic branch deletion and auto-merge are on, and
-the host permits branch updates. External-contributor maintainer acceptance
-therefore remains an explicit process boundary rather than a host-expressible
-conditional review rule.
+GitHub repository settings are the live enforcement authority. The native
+merge queue owns integration freshness: `ci.yml` handles `merge_group`
+`checks_requested`, evaluates the complete synthesized revision, and reports
+the same `Required CI` context that gates pull requests. The
+[merge-queue runbook](../runbooks/operate-merge-queue.md) owns settings readback,
+enqueue, recovery, and rollback.
+
+Readback on 2026-09-12 established that `main` requires pull requests, resolved
+conversations, linear history, and the `Required CI` context produced by GitHub
+Actions app `15368`; the rules include administrators and prohibit force pushes
+and deletion. Required approvals are zero, code-owner and last-push approval
+are off, and no actor or team has a bypass restriction. Squash is the only
+enabled merge method, automatic branch deletion and auto-merge are on, and the
+host permits branch updates. External-contributor maintainer acceptance remains
+an explicit process boundary rather than a host-expressible conditional review
+rule.
 
 Actions are enabled for all actions and default workflow permissions are
 read-only. This repository permits Actions to create and approve pull requests

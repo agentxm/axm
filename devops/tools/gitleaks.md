@@ -27,6 +27,11 @@ remain independently runnable inside the pinned CI image; Git secret detection
 is a separate required check. Neither the scan nor its Git-state observations
 are cached by Nx.
 
+The container launcher disables [Mise's automatic installation during command
+execution](https://mise.jdx.dev/configuration/settings.html#exec_auto_install).
+It uses the image's prepared toolchain; workstation scanner pins do
+not trigger installation into that image's read-only tool directory.
+
 Invocations explicitly request full redaction and ignore inline
 `gitleaks:allow` comments. Review findings at their source without copying
 detected values into issues or documentation. A historical exception requires

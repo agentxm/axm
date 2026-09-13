@@ -130,18 +130,24 @@ state in the [specification catalog](../../specifications/catalog.md).
    request events created with the workflow token do not recursively start CI.
    No preparation step publishes a package, release, skill, or channel.
 
-3. Wait for pull request CI, then squash-merge with the exact release subject.
+3. Wait for pull request CI, then enqueue the accepted release pull request with
+   the exact release subject.
 
    ```bash
-   gh pr merge --squash --subject "release: cli-v0.1.0" --delete-branch
+   gh pr merge --auto --squash --subject "release: cli-v0.1.0" --delete-branch
    ```
 
    The exact subject is part of the publishing contract. The default GitHub
-   squash subject includes the pull request number and must not be used.
+   squash subject includes the pull request number and must not be used. The
+   native merge queue verifies its synthesized integration SHA through
+   `merge_group`; that temporary SHA is evidence for queue admission, not a
+   release identity. Publication cannot run for a merge-group event.
 
-4. Wait for CI and automatic publication on the merged release commit.
+4. Wait for CI and automatic publication on the squash-merged release commit.
 
-   The release commit must complete the `ci.yml` workflow successfully before
+   The queue SHA and squash-merged `main` SHA are expected to differ. Resolve
+   the release identity from the resulting `main` commit. That release commit
+   must complete the `ci.yml` workflow successfully before
    publishing. That exact push run compiles and smoke-tests the native binaries,
    packs the fixed npm cohort once, verifies reproducible bytes and package
    contents, and uploads both artifact families with commit identity. CI

@@ -81,13 +81,14 @@ removal renders as one.
 
 Landing changes through short-lived pull requests with passing aggregate
 verification is repository policy. GitHub requires pull requests for `main`, a
-successful `Required CI` check produced by GitHub Actions against the current
-merge base, resolved conversations, linear history, and squash integration;
-the same rules bind administrators. Maintainer-authored changes need an explicit
-acceptance decision but not a second human reviewer, so the host requires zero
-approving reviews. External contributions still require maintainer acceptance
-as a process boundary because GitHub Team cannot require that conditionally
-without also requiring a second reviewer for maintainer-authored work.
+successful `Required CI` check produced by GitHub Actions for the native merge
+queue's synthesized integration revision, resolved conversations, linear
+history, and squash integration; the same rules bind administrators.
+Maintainer-authored changes need an explicit acceptance decision but not a
+second human reviewer, so the host requires zero approving reviews. External
+contributions still require maintainer acceptance as a process boundary because
+GitHub Team cannot require that conditionally without also requiring a second
+reviewer for maintainer-authored work.
 
 1. External contributors fork the repo; maintainers work from the main
    repository. In both cases, create a branch from current `main` before the
@@ -95,8 +96,12 @@ without also requiring a second reviewer for maintainer-authored work.
 2. Make your changes.
 3. Add or update tests for any new or changed behavior.
 4. Verify the complete change boundary: `pnpm run verify:pr`.
-5. Open a pull request against `main`. Maintainers may enable auto-merge after
-   acceptance; GitHub merges only after the current-base required check passes.
+5. Open a pull request against `main`. After acceptance, enable auto-merge to
+   enter GitHub's native merge queue. GitHub tests the synthesized merge-group
+   revision and squash-merges only after its `Required CI` succeeds. Do not
+   refresh an accepted branch solely because `main` advanced; GitHub rebuilds
+   or requeues it when the integration candidate changes. See
+   [Operate the merge queue](devops/runbooks/operate-merge-queue.md).
 
 Do not edit, commit, or push directly on `main`. Use a separate worktree for
 concurrent tasks or coding-agent sessions so the primary checkout can remain

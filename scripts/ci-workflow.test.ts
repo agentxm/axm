@@ -1,7 +1,7 @@
 /**
  * The aggregate verification gate: continuous integration runs on every pull
- * request, and one always-run `required` job aggregates every other job so a
- * skipped or failed check can never disappear from the verdict.
+ * request and merge group, and one always-run `required` job aggregates every
+ * other job so a skipped or failed check can never disappear from the verdict.
  *
  * Supersedes the retired specification identity
  * `system/process/merges-require-aggregate-verification`
@@ -19,14 +19,20 @@ import YAML from "yaml";
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 
 const readWorkflow = (): {
+  readonly concurrency: unknown;
   readonly jobs: Readonly<Record<string, unknown>>;
   readonly on: unknown;
 } => {
   const parsed: unknown = YAML.parse(
     fs.readFileSync(path.join(repoRoot, ".github", "workflows", "ci.yml"), "utf8"),
   );
-  if (typeof parsed !== "object" || parsed === null || !("jobs" in parsed)) {
-    throw new Error("ci.yml must declare jobs");
+  if (
+    typeof parsed !== "object" ||
+    parsed === null ||
+    !("jobs" in parsed) ||
+    !("concurrency" in parsed)
+  ) {
+    throw new Error("ci.yml must declare jobs and concurrency");
   }
   const jobs = parsed.jobs;
   if (typeof jobs !== "object" || jobs === null) {
@@ -35,12 +41,22 @@ const readWorkflow = (): {
   // YAML parses the `on:` trigger key as boolean true.
   const triggers =
     "on" in parsed ? parsed.on : (Object.fromEntries(Object.entries(parsed))["true"] ?? undefined);
-  return { jobs: Object.fromEntries(Object.entries(jobs)), on: triggers };
+  return {
+    concurrency: parsed.concurrency,
+    jobs: Object.fromEntries(Object.entries(jobs)),
+    on: triggers,
+  };
 };
 
 describe("aggregate required verification", () => {
   it("continuous integration runs for every pull request", () => {
     expect(JSON.stringify(readWorkflow().on)).toContain("pull_request");
+  });
+
+  it("continuous integration validates requested merge groups", () => {
+    const trigger = JSON.stringify(readWorkflow().on);
+    expect(trigger).toContain("merge_group");
+    expect(trigger).toContain("checks_requested");
   });
 
   it("one always-run aggregate job gates on every applicable check", () => {
@@ -78,6 +94,7 @@ describe("aggregate required verification", () => {
     expect(gate).toContain('.[$job].result // "missing"');
     expect(gate).toContain('[[ "$result" != "success" ]]');
     expect(gate).toContain("verify-pr");
+    expect(gate).toContain('"merge_group"');
   });
 
   it("derives one broad-fallback affected range for PR classification and verification", () => {
@@ -87,6 +104,14 @@ describe("aggregate required verification", () => {
     expect(serialized).toContain("git rev-list --max-parents=0 HEAD");
     expect(serialized).toContain("steps.set-shas.outputs.base");
     expect(serialized).toContain("steps.set-shas.outputs.head");
+  });
+
+  it("isolates queue cancellation and uses the tested revision in cache keys", () => {
+    const workflow = readWorkflow();
+    expect(JSON.stringify(workflow.concurrency)).toContain("github.event.merge_group.head_ref");
+    const jobs = JSON.stringify(workflow.jobs);
+    expect(jobs).toContain("needs.classify.outputs.head");
+    expect(jobs).not.toContain("github.event.pull_request.head.sha");
   });
 
   it("preserves workspace and E2E report evidence on hosted runners", () => {

@@ -1,7 +1,11 @@
 /** Controlled receipts and requirements for verdict verification. */
 import type { SpecificationMetadata } from "@agentxm/specification-metadata";
 import { digestSpecificationSource } from "./specification-catalog-lib.js";
-import { type EvidenceFile, type EvidenceRun } from "./specification-evidence.js";
+import {
+  type EvidenceFile,
+  type EvidenceInputs,
+  type EvidenceRun,
+} from "./specification-evidence.js";
 import type { VerdictEvidence, VerdictSource } from "./specification-verdict-lib.js";
 
 export const FIXTURE_SOURCE_PATH =
@@ -49,6 +53,7 @@ export const fixtureInputs = {
   runtimeDigest: "built-inputs",
   runtimeMode: "built",
   revision: "recorded-revision",
+  runtimeResolved: true,
 } as const;
 export const fixtureSourceInputs = {
   ...fixtureInputs,
@@ -75,8 +80,9 @@ export const fixtureRun = (
     ...file,
   };
   return {
-    format: 2,
+    format: 3,
     suite: "extension-lifecycle",
+    task: { project: result.owner, target: "test" },
     startedAt: "2026-09-05T10:00:00Z",
     finishedAt: "2026-09-05T10:01:00Z",
     inputs: fixtureInputs,
@@ -89,9 +95,11 @@ export const fixtureRun = (
     ...overrides,
   };
 };
-export const fixtureContext = (overrides: Partial<VerdictEvidence> = {}): VerdictEvidence => ({
-  inputs: fixtureInputs,
-  sourceInputs: fixtureSourceInputs,
+export const fixtureContext = (
+  overrides: Partial<VerdictEvidence> & { readonly inputs?: EvidenceInputs } = {},
+): VerdictEvidence => ({
+  currentInputs: (run) =>
+    run.inputs.runtimeMode === "source" ? fixtureSourceInputs : (overrides.inputs ?? fixtureInputs),
   runs: [fixtureRun()],
   executionBindings: [],
   sourceDigests: new Map(),

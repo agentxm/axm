@@ -99,6 +99,23 @@ only the cross-project views over that corpus — `generate:specification-catalo
 `specification-verdict`, and `verify-source-hygiene` — plus the `test:spec`
 selection wrapper, which resolves identities to owners and delegates.
 
+Execution receipts record the actual Nx project, target, configuration, and
+runtime mode. Built-runtime evidence observes that target's prerequisite
+artifacts, using Nx's task resolution and output expansion. The suite's own
+receipts and unrelated compilation outputs do not participate. This binds
+evidence to the declared task pipeline; it does not infer every runtime file
+read. [Nx input semantics](https://nx.dev/docs/reference/inputs) remain the
+authority for task caching.
+
+Source invalidation remains repository-wide, including the lockfile, with a
+frozen dependency installation assumed. A missing target, unresolved runtime,
+or receipt without execution identity cannot establish fresh evidence; run its
+owning target again. A target that consumes externally supplied artifacts
+without declaring their producer cannot establish built-runtime freshness from
+this receipt. Recorded platform details describe the observed host, not
+unexecuted environments. These limits are separate from whether the tests
+passed.
+
 `architecture:check` analyzes the complete source graph of capabilities in
 [the native boundary configuration](../../tools/architecture/config.mjs), with
 no prerequisite builds. Dependency-cruiser extracts dependencies, JS Boundaries

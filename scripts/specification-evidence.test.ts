@@ -8,6 +8,7 @@ import {
   captureEvidenceInputs as captureInputs,
   digestFiles,
   readEvidenceRuns,
+  sameEvidenceInputs,
   type EvidenceInputOptions,
 } from "./specification-evidence.js";
 import { fixtureRun } from "./specification-verdict-fixtures.js";
@@ -120,6 +121,44 @@ describe("repository execution inputs", () => {
     write(root, "apps/cli/src/index.ts", "after");
     const after = captureEvidenceInputs(root, { runtimeMode: "source" });
     expect(after.runtimeDigest).not.toBe(before.runtimeDigest);
+  });
+
+  it("never equates unresolved built inputs with fresh evidence", () => {
+    const root = repository();
+    for (const runtimeOutputs of [undefined, []]) {
+      const inputs = captureEvidenceInputs(root, { runtimeOutputs });
+      expect(inputs.runtimeResolved).toBe(false);
+      expect(sameEvidenceInputs(inputs, inputs)).toBe(false);
+    }
+  });
+
+  it("tracks additions and deletions in declared output globs", () => {
+    const root = repository();
+    const options = { runtimeOutputs: ["apps/cli/dist/*.js"] };
+    write(root, "apps/cli/dist/one.js", "one");
+    const before = captureEvidenceInputs(root, options);
+    write(root, "apps/cli/dist/ignored.txt", "not matched");
+    expect(captureEvidenceInputs(root, options)).toEqual(before);
+    write(root, "apps/cli/dist/two.js", "two");
+    expect(captureEvidenceInputs(root, options).runtimeDigest).not.toBe(before.runtimeDigest);
+    fs.rmSync(path.join(root, "apps/cli/dist/two.js"));
+    expect(captureEvidenceInputs(root, options)).toEqual(before);
+    expect(
+      captureEvidenceInputs(root, { runtimeOutputs: ["apps/cli/dist/missing/*.js"] }).runtimeDigest,
+    ).not.toBe(
+      captureEvidenceInputs(root, { runtimeOutputs: ["apps/cli/dist/another/*.js"] }).runtimeDigest,
+    );
+  });
+
+  it("uses Nx output exclusions rather than a separate glob interpretation", () => {
+    const root = repository();
+    const options = { runtimeOutputs: ["apps/cli/dist/**/*.js", "!apps/cli/dist/other/**"] };
+    write(root, "apps/cli/dist/one.js", "one");
+    const before = captureEvidenceInputs(root, options);
+    write(root, "apps/cli/dist/other/two.js", "excluded");
+    expect(captureEvidenceInputs(root, options)).toEqual(before);
+    write(root, "apps/cli/dist/one.js", "changed");
+    expect(captureEvidenceInputs(root, options).runtimeDigest).not.toBe(before.runtimeDigest);
   });
 
   it("detects removal, mode, and symlink target changes", () => {

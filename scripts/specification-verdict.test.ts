@@ -37,6 +37,7 @@ describe("native execution receipt validation", () => {
       parseEvidenceRun(JSON.stringify({ ...fixtureRun(), inputs: undefined })),
     ).toBeUndefined();
     expect(parseEvidenceRun(JSON.stringify({ ...fixtureRun(), format: 1 }))).toBeUndefined();
+    expect(parseEvidenceRun(JSON.stringify({ ...fixtureRun(), format: 2 }))).toBeUndefined();
     const [file] = fixtureRun().files;
     const { purpose: _purpose, ...withoutPurpose } = file ?? {};
     expect(
@@ -96,6 +97,34 @@ describe("native execution receipt validation", () => {
     expect(
       assess(fixtureContext({ inputs: { ...fixtureInputs, runtimeDigest: "new-build" } })).status,
     ).toBe("stale");
+  });
+
+  it("requires a current runtime snapshot for the recorded target and owner", () => {
+    expect(assess(fixtureContext({ currentInputs: () => undefined })).status).toBe("stale");
+    expect(assess(fixtureContext({ runs: [fixtureRun({}, { task: null })] })).status).toBe("stale");
+    expect(
+      assess(
+        fixtureContext({
+          runs: [fixtureRun({}, { task: { project: "another-owner", target: "test" } })],
+        }),
+      ).status,
+    ).toBe("stale");
+    expect(
+      assess(fixtureContext({ inputs: { ...fixtureInputs, runtimeResolved: false } })).status,
+    ).toBe("stale");
+  });
+
+  it("compares receipts against their own task inputs when suites use different runtimes", () => {
+    const run = fixtureRun({}, { task: { project: "extension-lifecycle", target: "test" } });
+    expect(
+      assess(
+        fixtureContext({
+          runs: [run],
+          currentInputs: (observed) =>
+            observed.task?.target === "test" ? fixtureInputs : undefined,
+        }),
+      ).status,
+    ).toBe("fresh");
   });
 });
 

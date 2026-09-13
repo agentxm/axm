@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { expandOutputs } from "nx/src/native";
 
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
@@ -13,11 +14,17 @@ export const digestContent = (content: string | Uint8Array): string =>
   createHash("sha256").update(content).digest("hex");
 
 const count = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
+const ExecutionTarget = Schema.Struct({
+  project: Schema.NonEmptyString,
+  target: Schema.NonEmptyString,
+  configuration: Schema.optionalKey(Schema.NonEmptyString),
+});
 const InputSnapshot = Schema.Struct({
   sourceDigest: Schema.NonEmptyString,
   runtimeDigest: Schema.NonEmptyString,
   runtimeMode: Schema.Literals(["source", "built"]),
   revision: Schema.NonEmptyString,
+  runtimeResolved: Schema.Boolean,
 });
 /**
  * The purpose a file executed under, as labelled by the shared purpose setup
@@ -40,8 +47,9 @@ const FileEvidence = Schema.Struct({
   filtered: Schema.Boolean,
 });
 export const EvidenceRunSchema = Schema.Struct({
-  format: Schema.Literal(2),
+  format: Schema.Literal(3),
   suite: Schema.NonEmptyString,
+  task: Schema.NullOr(ExecutionTarget),
   startedAt: Schema.NonEmptyString,
   finishedAt: Schema.NonEmptyString,
   inputs: InputSnapshot,
@@ -121,19 +129,19 @@ const outputFiles = (repoRoot: string, directory: string): string[] => {
 export interface EvidenceInputOptions {
   readonly runtimeMode?: EvidenceInputs["runtimeMode"];
   /**
-   * Repository-relative directories holding built runtime artifacts, as the
-   * project graph resolves each project's build and compile outputs
-   * (`runtimeOutputs` in `workspace-discovery.ts`). Ignored in source mode.
+   * Prerequisite outputs resolved by Nx for the actual execution target.
+   * Undefined means resolution failed, never an empty-but-verified runtime.
+   * Ignored in source mode.
    */
-  readonly runtimeOutputs: readonly string[];
+  readonly runtimeOutputs: readonly string[] | undefined;
 }
 
 /**
  * Conservative repository-wide invalidation is deliberate: no inferred import
  * graph can establish every file read by repository and command specifications.
  * Built runtime outputs are separate inputs because built-mode tests load
- * them; the caller names them from the project graph, so no layout is
- * enumerated here. node_modules is represented by the lockfile, assuming a
+ * them; Nx resolves the actual target's prerequisite outputs, so unrelated
+ * compilation does not invalidate the receipt. node_modules is represented by the lockfile, assuming a
  * frozen installation.
  */
 export const captureEvidenceInputs = (
@@ -157,16 +165,27 @@ export const captureEvidenceInputs = (
   const runtimeFiles =
     runtimeMode === "source"
       ? sources
-      : [...new Set(runtimeOutputs)].sort().flatMap((output) => outputFiles(repoRoot, output));
+      : expandOutputs(repoRoot, [...(runtimeOutputs ?? [])]).flatMap((output) =>
+          outputFiles(repoRoot, output),
+        );
   return {
     sourceDigest: digestFiles(repoRoot, sources),
-    runtimeDigest: digestFiles(repoRoot, runtimeFiles),
+    runtimeDigest: digestContent(
+      JSON.stringify({
+        outputs: runtimeMode === "source" ? [] : [...new Set(runtimeOutputs ?? [])].sort(),
+        files: digestFiles(repoRoot, runtimeFiles),
+      }),
+    ),
     runtimeMode,
+    runtimeResolved:
+      runtimeMode === "source" || (runtimeOutputs !== undefined && runtimeOutputs.length > 0),
     revision: git("rev-parse", "HEAD").trim(),
   };
 };
 
 export const sameEvidenceInputs = (left: EvidenceInputs, right: EvidenceInputs): boolean =>
+  left.runtimeResolved &&
+  right.runtimeResolved &&
   left.sourceDigest === right.sourceDigest &&
   left.runtimeDigest === right.runtimeDigest &&
   left.runtimeMode === right.runtimeMode;

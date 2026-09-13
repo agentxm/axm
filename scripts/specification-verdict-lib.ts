@@ -116,10 +116,8 @@ export interface Verdict {
   readonly evidenceIssues: readonly string[];
 }
 export interface VerdictEvidence {
-  /** Current built-artifact input snapshot. */
-  readonly inputs: EvidenceInputs;
-  /** Current source-runtime input snapshot. */
-  readonly sourceInputs?: EvidenceInputs;
+  /** Resolve current inputs for the recorded execution target and runtime. */
+  readonly currentInputs: (run: EvidenceRun) => EvidenceInputs | undefined;
   readonly runs: readonly EvidenceRun[];
   readonly executionBindings: readonly CatalogExecutionBinding[];
   readonly sourceDigests: ReadonlyMap<string, string>;
@@ -150,7 +148,7 @@ export const assessExecutionEvidence = (
   contentDigest: string | undefined,
   boundary: string,
   selection: string,
-  evidence: Pick<VerdictEvidence, "inputs" | "sourceInputs" | "runs">,
+  evidence: Pick<VerdictEvidence, "currentInputs" | "runs">,
 ): EvidenceAssessment => {
   const base = { source, boundary, selection };
   const run = [...evidence.runs]
@@ -180,11 +178,11 @@ export const assessExecutionEvidence = (
         : file.passed > 0
           ? "passed"
           : "not-run";
-  const currentInputs =
-    run.inputs.runtimeMode === "source"
-      ? (evidence.sourceInputs ?? evidence.inputs)
-      : evidence.inputs;
+  const currentInputs = evidence.currentInputs(run);
   if (
+    run.task === null ||
+    run.task.project !== file.owner ||
+    currentInputs === undefined ||
     !run.inputsStable ||
     !sameEvidenceInputs(run.inputs, currentInputs) ||
     file.contentDigest !== contentDigest
@@ -439,7 +437,7 @@ export const renderVerdictMarkdown = (verdict: Verdict): string => {
     lines.push(
       "### Execution evidence",
       "",
-      "Fresh means the recorded source and built runtime inputs match and the file ran as a labelled specification. Outcomes remain observations, not acceptance or completeness. Repository-wide invalidation assumes dependencies match the lockfile; recorded host context does not establish unobserved platform or external-system behavior.",
+      "Fresh means the recorded source and the execution target's prerequisite artifacts match and the file ran as a labelled specification. Outcomes remain observations, not acceptance or completeness. Source invalidation remains repository-wide and assumes dependencies match the lockfile. Runtime inputs follow Nx's declared task prerequisites; an unresolved target or runtime cannot establish fresh evidence. Recorded host context does not establish unobserved platform or external-system behavior.",
       "",
       "| Requirement | Source / boundary / selection | Evidence | Provenance and limits |",
       "| --- | --- | --- | --- |",

@@ -2,7 +2,7 @@
  * One inferred source of project metadata for every repository check that
  * asks "which projects exist, which project owns this file, and where does
  * that project keep its source": specification discovery, the catalog, the
- * verdict, execution-evidence fingerprints, selection, and source hygiene.
+ * verdict, selection, and source hygiene.
  *
  * The live workspace is the Nx project graph plus its project file map, so a
  * project exists because its `project.json` exists and a file belongs to the
@@ -19,8 +19,6 @@ import * as path from "node:path";
 import {
   createProjectFileMapUsingProjectGraph,
   createProjectGraphAsync,
-  getOutputsForTargetAndConfiguration,
-  readCachedProjectGraph,
   workspaceRoot as nxWorkspaceRoot,
   type ProjectGraph,
   type TargetConfiguration,
@@ -188,14 +186,6 @@ export const readWorkspace = (): Promise<Workspace> => {
   );
   return liveWorkspace;
 };
-
-/**
- * The working tree from the cached project graph, for in-process hosts such
- * as Vitest reporters that must not start graph construction. Inside
- * `nx run` the cache is current.
- */
-export const readCachedWorkspace = (): Promise<Workspace> =>
-  workspaceFromGraph(readCachedProjectGraph(), nxWorkspaceRoot);
 
 const SKIPPED_DIRECTORIES: ReadonlySet<string> = new Set(["node_modules", "dist", "out-tsc"]);
 
@@ -376,35 +366,4 @@ export const discoverExecutionBindings = (workspace: Workspace): ExecutionBindin
     }
   }
   return { bindings, issues };
-};
-
-const isRuntimeTarget = (name: string): boolean => name === "build" || name.startsWith("compile");
-
-/**
- * Repository-relative directories that hold built runtime artifacts, resolved
- * from every project's `build` and `compile*` outputs exactly as Nx resolves
- * them. Execution evidence fingerprints these instead of guessing a `dist`
- * beside each manifest.
- */
-export const runtimeOutputs = (workspace: Workspace): readonly string[] => {
-  const outputs = new Set<string>();
-  for (const project of workspace.projects) {
-    for (const [targetName, target] of Object.entries(project.targets)) {
-      if (!isRuntimeTarget(targetName) || (target.outputs ?? []).length === 0) continue;
-      const resolved = getOutputsForTargetAndConfiguration(
-        { project: project.name, target: targetName },
-        {},
-        {
-          name: project.name,
-          type: "lib",
-          data: { root: project.root === "" ? "." : project.root, targets: project.targets },
-        },
-      );
-      for (const output of resolved) {
-        const normalized = normalize(output).replace(/^\.\//u, "").replace(/\/+$/u, "");
-        if (normalized.length > 0 && !/[{}*]/u.test(normalized)) outputs.add(normalized);
-      }
-    }
-  }
-  return [...outputs].sort();
 };

@@ -12,10 +12,8 @@ import {
   discoverSpecifications,
   gitRefWorkspace,
   isSanctionedSpecificationOwner,
-  makeWorkspace,
   productionProjects,
   readWorkspace,
-  runtimeOutputs,
   workspaceFromProjectFiles,
 } from "./workspace-discovery.js";
 
@@ -229,49 +227,6 @@ describe("discoverExecutionBindings", () => {
   });
 });
 
-describe("runtimeOutputs", () => {
-  it("resolves build and compile outputs exactly as Nx interpolates them", () => {
-    const workspace = makeWorkspace({
-      describe: "fixture",
-      root: "/repo",
-      files: [],
-      read: () => "",
-      projects: [
-        {
-          name: "cli",
-          root: "apps/cli",
-          sourceRoot: "apps/cli/src",
-          tags: [],
-          targets: {
-            build: { outputs: ["{projectRoot}/dist"] },
-            "compile-host": { outputs: ["{projectRoot}/dist/host-bin"] },
-            generate: { outputs: ["{projectRoot}/README.md"] },
-          },
-        },
-        {
-          name: "model",
-          root: "packages/core/model",
-          sourceRoot: "packages/core/model/src",
-          tags: [],
-          targets: { build: { outputs: ["{workspaceRoot}/packages/core/model/dist"] } },
-        },
-        {
-          name: "support",
-          root: "tools/support",
-          sourceRoot: "tools/support/src",
-          tags: [],
-          targets: {},
-        },
-      ],
-    });
-    expect(runtimeOutputs(workspace)).toEqual([
-      "apps/cli/dist",
-      "apps/cli/dist/host-bin",
-      "packages/core/model/dist",
-    ]);
-  });
-});
-
 describe("gitRefWorkspace", () => {
   it("owns files by the nearest project.json in the committed tree", () => {
     const root = fixture({
@@ -330,6 +285,5 @@ describe("the live workspace", () => {
     for (const entry of discovered.specifications) {
       expect(workspace.ownerOf(entry.specification.source)?.name).toBe(entry.specification.owner);
     }
-    expect(runtimeOutputs(workspace)).toContain("apps/cli/dist/src");
   });
 });

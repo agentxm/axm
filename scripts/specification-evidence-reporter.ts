@@ -2,6 +2,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { Reporter, TestCase, TestModule, TestSpecification } from "vitest/node";
+import { readCachedProjectGraph } from "@nx/devkit";
 
 import {
   captureEvidenceInputs,
@@ -12,7 +13,7 @@ import {
   type ReceiptPurpose,
 } from "./specification-evidence.js";
 import { isTestPurpose } from "./test-purpose.js";
-import { readCachedWorkspace, runtimeOutputs } from "./workspace-discovery.js";
+import { resolveEvidenceRuntimeOutputs } from "./specification-evidence-task.js";
 
 interface Options {
   readonly repoRoot: string;
@@ -42,15 +43,23 @@ const filePurpose = (tests: readonly TestCase[]): ReceiptPurpose => {
 
 export default class SpecificationEvidenceReporter implements Reporter {
   private inputs: EvidenceInputs | undefined;
-  private outputs: readonly string[] = [];
+  private outputs: readonly string[] | undefined;
+  private task: EvidenceRun["task"] = null;
   private startedAt = "";
   private selected = new Map<string, { readonly digest: string; readonly filtered: boolean }>();
 
   constructor(private readonly options: Options) {}
 
-  async onTestRunStart(specifications: readonly TestSpecification[]): Promise<void> {
+  onTestRunStart(specifications: readonly TestSpecification[]): void {
     this.startedAt = new Date().toISOString();
-    this.outputs = await this.resolveRuntimeOutputs();
+    const project = process.env["NX_TASK_TARGET_PROJECT"];
+    const target = process.env["NX_TASK_TARGET_TARGET"];
+    const configuration = process.env["NX_TASK_TARGET_CONFIGURATION"];
+    this.task =
+      project === this.options.project && target !== undefined && target.length > 0
+        ? { project, target, ...(configuration ? { configuration } : {}) }
+        : null;
+    this.outputs = this.resolveRuntimeOutputs();
     this.inputs = captureEvidenceInputs(this.options.repoRoot, {
       runtimeMode: this.options.runtimeMode,
       runtimeOutputs: this.outputs,
@@ -86,8 +95,9 @@ export default class SpecificationEvidenceReporter implements Reporter {
     const relative = (file: string): string =>
       path.relative(this.options.repoRoot, file).split(path.sep).join("/");
     const run: EvidenceRun = {
-      format: 2,
+      format: 3,
       suite: this.options.suite,
+      task: this.task,
       startedAt: this.startedAt,
       finishedAt: new Date().toISOString(),
       inputs: this.inputs,
@@ -126,21 +136,21 @@ export default class SpecificationEvidenceReporter implements Reporter {
   }
 
   /**
-   * Built runtime inputs come from the project graph's resolved outputs. The
-   * cached graph is current inside `nx run`; without one the receipt records
-   * no runtime outputs, which the verdict then cannot match as fresh.
+   * The cached graph is current inside `nx run`. Missing graph or execution
+   * identity remains unresolved, so the verdict cannot call the receipt fresh.
    */
-  private async resolveRuntimeOutputs(): Promise<readonly string[]> {
+  private resolveRuntimeOutputs(): readonly string[] | undefined {
     if (this.options.runtimeMode === "source") return [];
+    if (this.task === null) return undefined;
     try {
-      return runtimeOutputs(await readCachedWorkspace());
+      return resolveEvidenceRuntimeOutputs(readCachedProjectGraph(), this.task);
     } catch (error) {
       console.error(
         `Execution evidence could not resolve runtime outputs from the cached project graph: ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
-      return [];
+      return undefined;
     }
   }
 }

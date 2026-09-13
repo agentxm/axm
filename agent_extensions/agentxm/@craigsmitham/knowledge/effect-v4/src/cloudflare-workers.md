@@ -14,7 +14,7 @@ sources:
   - id: applied-alchemy
     resource: https://github.com/alchemy-run/alchemy/blob/ba579a98ea24b41cbf77a89ec8602fe071d5e43a/examples/cloudflare-worker-async/src/worker.ts
     title: Alchemy Cloudflare Worker at ba579a9
-generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
+generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
 ---
 
 # Cloudflare Workers
@@ -40,5 +40,5 @@ generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
 
 - [Execution context](https://developers.cloudflare.com/workers/runtime-apis/context/)
 - [Bindings](https://developers.cloudflare.com/workers/runtime-apis/bindings/)
-- [Effect HttpApi web handler](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/ai-docs/src/51_http-server/10_basics.ts)
+- [Effect HttpApi web handler](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/51_http-server/10_basics.ts)
 - [Applied Cloudflare Worker in Alchemy](https://github.com/alchemy-run/alchemy/blob/ba579a98ea24b41cbf77a89ec8602fe071d5e43a/examples/cloudflare-worker-async/src/worker.ts)

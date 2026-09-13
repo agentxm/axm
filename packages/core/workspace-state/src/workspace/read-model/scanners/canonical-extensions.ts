@@ -46,6 +46,7 @@ import { parseSkillMd } from "@agentxm/extension-content";
 import { DISCOVERY_SKIPPED_DIRECTORIES } from "@agentxm/extension-model/unstable/discovery-walk";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { Diagnostics } from "../diagnostics.js";
+import { isInstallRootStagingName } from "../../install-root.js";
 import type { WorkspaceLayout } from "../../layout.js";
 import {
   childEntries,
@@ -262,7 +263,9 @@ const scanAcquiredDirectory = (
     }
 
     const childCandidates = entries
-      .filter((entry) => !DISCOVERY_SKIPPED_DIRECTORIES.has(entry))
+      .filter(
+        (entry) => !DISCOVERY_SKIPPED_DIRECTORIES.has(entry) && !isInstallRootStagingName(entry),
+      )
       .map((entry) => deps.path.join(dir, entry));
     const childDirs = yield* filterDirectories(deps.fs, childCandidates);
     const nested = yield* Effect.forEach(

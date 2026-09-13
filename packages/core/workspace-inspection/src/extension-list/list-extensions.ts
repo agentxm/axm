@@ -15,6 +15,7 @@ import * as Schema from "effect/Schema";
 
 import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
+import { ExtensionInventoryLifecycleSchema } from "@agentxm/workspace-state";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
 import {
@@ -53,7 +54,7 @@ const ExtensionListItemSchema = Schema.Struct({
   ref: Schema.String,
   type: ExtensionTypeSchema,
   name: Schema.String,
-  management: Schema.Literals(["configured", "implicit", "unmanaged"] as const),
+  management: ExtensionInventoryLifecycleSchema,
   installed: Schema.Boolean,
   enabled: Schema.NullOr(Schema.Boolean),
   version: Schema.optional(Schema.String),

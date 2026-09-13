@@ -6,15 +6,15 @@ tags: [effect, effect-v4, logging, tracing, metrics, opentelemetry, telemetry]
 status: stable
 sources:
   - id: effect-logging
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/ai-docs/src/08_observability/10_logging.ts
-    title: Effect 4.0.0-rc.112 logging guide
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/08_observability/10_logging.ts
+    title: Effect 4.0.0-rc.115 logging guide
   - id: effect-otlp
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/ai-docs/src/08_observability/20_otlp-tracing.ts
-    title: Effect 4.0.0-rc.112 OTLP tracing guide
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/08_observability/20_otlp-tracing.ts
+    title: Effect 4.0.0-rc.115 OTLP tracing guide
   - id: applied-effect-local
     resource: https://github.com/lucas-barake/effect-local/blob/05e9e2515eef548c97c0480c80aa2494e21740b1/packages/local-rpc/src/SyncClient.ts
     title: effect-local operation spans at 05e9e25
-generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
+generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
 ---
 
 # Observability
@@ -38,6 +38,6 @@ generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
 
 ## Resources
 
-- [Logging guide](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/ai-docs/src/08_observability/10_logging.ts)
-- [OTLP tracing guide](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/ai-docs/src/08_observability/20_otlp-tracing.ts)
+- [Logging guide](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/08_observability/10_logging.ts)
+- [OTLP tracing guide](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/08_observability/20_otlp-tracing.ts)
 - [Applied operation spans in effect-local](https://github.com/lucas-barake/effect-local/blob/05e9e2515eef548c97c0480c80aa2494e21740b1/packages/local-rpc/src/SyncClient.ts)

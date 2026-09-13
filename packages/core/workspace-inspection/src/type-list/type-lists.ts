@@ -269,7 +269,8 @@ export const listMcpServers: () => Effect.Effect<
         );
         const inspections =
           row.enabled !== false &&
-          row.classification.lifecycle !== "unmanaged" &&
+          (row.classification.lifecycle === "configured" ||
+            row.classification.lifecycle === "implicit") &&
           configuredEntry !== undefined
             ? yield* inspectMcpServerAcrossAgents({
                 workspaceRoot: location.baseDir,

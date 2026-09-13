@@ -117,7 +117,7 @@ const lintRuleIds = (stdout: string): ReadonlyArray<string> => {
   );
 };
 
-const writeSymbolicMcpPackage = (workspace: string): void => {
+const writeSymbolicMcpPackage = (workspace: string, withDefault = false): void => {
   const directory = path.join(workspace, "mcps", "mailer");
   fs.mkdirSync(directory, { recursive: true });
   writeJson(path.join(directory, "mcp.json"), {
@@ -144,6 +144,7 @@ const writeSymbolicMcpPackage = (workspace: string): void => {
               isRequired: true,
               isSecret: true,
             },
+            ...(withDefault ? [{ name: "REGION", value: "${REGION:-west}" }] : []),
           ],
         },
       ],
@@ -438,7 +439,7 @@ describe("extension activation lifecycle", () => {
     }
   }, 120_000);
 
-  it("reports symbolic-input capability and blocks incompatible shared MCP targets", async () => {
+  it("supports symbolic inputs and refuses incompatible shared default syntax", async () => {
     const shared = createTempDir();
     const independent = createTempDir();
     const mcpEntry = {
@@ -448,6 +449,7 @@ describe("extension activation lifecycle", () => {
     };
     try {
       for (const workspace of [shared.path, independent.path]) writeSymbolicMcpPackage(workspace);
+      writeSymbolicMcpPackage(shared.path, true);
       writeJson(path.join(shared.path, "axm.json"), {
         owner: "@test",
         agents: ["claude-code", "github-copilot-cli"],
@@ -470,6 +472,18 @@ describe("extension activation lifecycle", () => {
       }
       expect(snapshotTree(shared.path)).toEqual(before);
 
+      writeSymbolicMcpPackage(shared.path);
+      for (const flags of [["--preview"], []]) {
+        const supported = await runCli(
+          ["mcps", "enable", "mailer", ...flags, "--json", "--non-interactive"],
+          { cwd: shared.path },
+        );
+        expect(supported.exitCode, supported.stdout + supported.stderr).toBe(0);
+      }
+      expect(fs.readFileSync(path.join(shared.path, ".mcp.json"), "utf8")).toContain(
+        "${MAILER_TOKEN}",
+      );
+
       writeJson(path.join(independent.path, "axm.json"), {
         owner: "@test",
         agents: ["codex"],
@@ -484,7 +498,7 @@ describe("extension activation lifecycle", () => {
         independentPreview.stdout + independentPreview.stderr,
       ).toBe(0);
       expect(planAgentOutcomes(independentPreview.stdout)).toMatchObject([
-        { agentId: "codex", outcome: "unsupported", reasonCode: "mcp-unsupported" },
+        { agentId: "codex", outcome: "projected" },
       ]);
       const independentApply = await runCli(
         ["mcps", "enable", "mailer", "--json", "--non-interactive"],
@@ -492,13 +506,15 @@ describe("extension activation lifecycle", () => {
       );
       expect(independentApply.exitCode, independentApply.stdout + independentApply.stderr).toBe(0);
       expect(planAgentOutcomes(independentApply.stdout)).toMatchObject([
-        { agentId: "codex", outcome: "unsupported", reasonCode: "mcp-unsupported" },
+        { agentId: "codex", outcome: "current" },
       ]);
-      expect(fs.existsSync(path.join(independent.path, ".codex/config.toml"))).toBe(false);
+      expect(fs.readFileSync(path.join(independent.path, ".codex/config.toml"), "utf8")).toContain(
+        'env_vars = ["MAILER_TOKEN"]',
+      );
       const shown = await runCli(["mcps", "show", "mailer", "--json"], {
         cwd: independent.path,
       });
-      expect(showStatuses(shown.stdout)).toEqual({ codex: "unsupported" });
+      expect(showStatuses(shown.stdout)).toEqual({ codex: "current" });
     } finally {
       shared.cleanup();
       independent.cleanup();

@@ -1,5 +1,28 @@
 # Directory Update Log
 
+## 2026-09-11
+
+* **Retarget**: Reviewed the twenty-four checklists against the changes from
+  Effect `4.0.0-rc.112` through `4.0.0-rc.115` and refreshed all official
+  Effect source pins. Historical applied-example pins remain unchanged.
+* **Config and filesystem**: Refreshed Config references and the layer,
+  resource, and logging examples that use its renamed constructors. Added a
+  ByteSize reference for the filesystem size and offset API changes.
+* **Testing**: Added native Arbitrary and fast-check migration references.
+  Made property-result handling and retention of failing inputs across
+  generator upgrades explicit; reviewed current `@effect/vitest` examples.
+* **Schema**: Added checks for excess-property policy and boundaries that
+  require own fields, plus references for operation-wide parsing options and
+  the changed inherited-field behavior. Reviewed parser regression tests.
+* **SQL**: Added native PostgreSQL client and codec sources; clarified driver
+  representations and prepared-statement compatibility with connection
+  poolers. Reviewed the current PostgreSQL library and integration-test cases.
+* **HTTP API**: Added a bodyless-response and resource-release check, grounded
+  in the rc.115 Web response regression tests.
+* **Evidence ceiling**: This refresh reviews source and test definitions; it
+  does not claim execution of the upstream suites or field validation of the
+  checklists. The existing use protocol and validation plan remain in force.
+
 ## 2026-09-08
 
 * **Discovery**: Replaced the abbreviated root index entry summaries with each

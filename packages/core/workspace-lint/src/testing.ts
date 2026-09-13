@@ -139,6 +139,7 @@ export const lintWorkspaceServices = (args: {
   const state = WorkspaceStateLive({
     scope: "project",
     projectRoot: decodeAbsolutePathSync(args.workspaceRoot),
+    allowUninitialized: true,
   });
   const agents = Layer.provideMerge(
     Layer.mergeAll(CodingAgentRepositoryLive, ConfiguredAgentOutcomesProviderTest),

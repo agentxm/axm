@@ -2,7 +2,7 @@
 type: Runbook
 title: "Operate the merge queue"
 description: "Enqueue accepted AXM changes, inspect synthesized verification, recover rejected entries, and verify or roll back the live GitHub integration gate."
-status: draft
+status: stable
 applies-to:
   - ../repositories/axm.md
   - ../providers/github.md
@@ -14,6 +14,8 @@ Use this runbook after a pull request is accepted, when a queued change fails or
 conflicts, or when the live queue configuration must be verified or recovered.
 GitHub repository settings are the enforcement authority; this procedure does
 not authorize a merge, settings mutation, release, or deployment by itself.
+The public queue is active under a dedicated repository ruleset; classic strict
+branch protection remains the rollback baseline.
 
 ## Preconditions and outcome
 

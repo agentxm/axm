@@ -5,7 +5,9 @@ import type { GitHubReleaseObservation } from "./release-github-release.js";
 const RELEASES_PER_PAGE = 100;
 
 const ReleaseInventoryEntry = Schema.Struct({
+  id: Schema.Number,
   tag_name: Schema.String,
+  target_commitish: Schema.String,
   draft: Schema.Boolean,
   prerelease: Schema.Boolean,
   html_url: Schema.String,
@@ -28,6 +30,8 @@ export const readGitHubReleaseByTag = async (input: {
     const release = releases.find((candidate) => candidate.tag_name === input.tag);
     if (release !== undefined) {
       return {
+        id: release.id,
+        targetCommitish: release.target_commitish,
         draft: release.draft,
         prerelease: release.prerelease,
         url: release.html_url,

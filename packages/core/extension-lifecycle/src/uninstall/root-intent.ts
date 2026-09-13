@@ -20,6 +20,7 @@ export type RootUninstallableType = InstallableExtensionType;
 
 export interface RootUninstallIntent {
   readonly source: string;
+  readonly owner: string;
   readonly type: RootUninstallableType;
   readonly name: string;
 }
@@ -130,6 +131,7 @@ export const resolveRootUninstallIntent: (
 
   return {
     source,
+    owner: parsed.owner,
     type: toInstallableExtensionType(parsed.type),
     name: parsed.name,
   } satisfies RootUninstallIntent;

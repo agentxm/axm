@@ -82,7 +82,7 @@ describe("repository task interface", () => {
     const manifest = readObject(
       "agent_extensions/agentxm/@craigsmitham/knowledge/product-engineering/knowledge.json",
     );
-    expect(manifest["version"]).toBe("2.1.0");
+    expect(manifest["version"]).toBe("2.2.0");
 
     const binding = read("docs/guides/repository-task-interface.md");
     expect(binding).toContain(

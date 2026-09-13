@@ -12,9 +12,6 @@ sources:
     resource: https://learn.chatgpt.com/docs/build-skills
     title: OpenAI — Build skills
 generated: { by: "codex/gpt-5.6", at: 2026-08-09T20:48:38Z }
-verified:
-  - by: codex/gpt-5.6
-    at: 2026-08-09T22:13:44Z
 stale_after: 2027-02-09
 ---
 
@@ -129,9 +126,10 @@ environment requirements, and isolates host-specific configuration from the
 portable instructions.
 
 Portability does not mean lowest-common-denominator behavior. It means the
-skill tells the truth about its assumptions and does not accidentally depend on
-files, credentials, or sibling extensions that are present only on its author's
-machine.
+skill tells the truth about its assumptions and does not accidentally depend
+on files or credentials that are present only on its author's machine. It
+never reaches another extension by path; a required sibling is named and
+resolved through the host's or manager's own discovery.
 
 ## Common failure modes
 

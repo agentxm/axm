@@ -13,10 +13,20 @@ describe("resolveRootUninstallIntent", () => {
   it.effect("parses supported registry FQNs and strips version constraints from the name", () =>
     Effect.gen(function* () {
       const cases = [
-        { source: "@acme/skills/code-review", type: "skill", name: "code-review" },
-        { source: "@acme/mcps/dev-server", type: "mcp-server", name: "dev-server" },
-        { source: "@acme/subagents/researcher", type: "subagent", name: "researcher" },
-        { source: "@acme/packs/frontend-tools@1.2.3", type: "pack", name: "frontend-tools" },
+        { source: "@acme/skills/code-review", owner: "@acme", type: "skill", name: "code-review" },
+        { source: "@acme/mcps/dev-server", owner: "@acme", type: "mcp-server", name: "dev-server" },
+        {
+          source: "@acme/subagents/researcher",
+          owner: "@acme",
+          type: "subagent",
+          name: "researcher",
+        },
+        {
+          source: "@acme/packs/frontend-tools@1.2.3",
+          owner: "@acme",
+          type: "pack",
+          name: "frontend-tools",
+        },
       ] as const;
 
       const results = yield* Effect.forEach(cases, ({ source }) =>

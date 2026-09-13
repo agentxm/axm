@@ -3,9 +3,9 @@ import { appendFileSync } from "node:fs";
 import {
   fail,
   git,
-  currentHeadSha,
   releaseVersionFromTag,
   requireMatchingReleasePackageVersions,
+  requireMatchingReleasePackageVersionsAtRef,
 } from "./release-shared.js";
 
 const args = process.argv.slice(2);
@@ -24,20 +24,21 @@ const tag =
   process.env["RELEASE_TAG"] ??
   fail("Usage: pnpm resolve-release-meta -- <cli-vX.Y.Z> [expected-commit-sha]");
 const version = releaseVersionFromTag(tag);
-const releaseVersion = requireMatchingReleasePackageVersions();
-
-if (releaseVersion !== version) {
-  fail(`Release package versions (${releaseVersion}) do not match release tag (${version}).`);
-}
 
 const expectedSha = args[1] ?? process.env["RELEASE_SHA"];
 if (expectedSha !== undefined && !/^[0-9a-f]{40}$/u.test(expectedSha)) {
   fail("Expected a full lowercase release commit SHA.");
 }
-const sha = expectedSha ?? git("rev-list", "-n", "1", tag);
-if (expectedSha !== undefined && currentHeadSha() !== expectedSha) {
-  fail(`Checked-out release commit does not match ${expectedSha}.`);
+const releaseVersion =
+  expectedSha === undefined
+    ? requireMatchingReleasePackageVersions()
+    : requireMatchingReleasePackageVersionsAtRef(expectedSha);
+
+if (releaseVersion !== version) {
+  fail(`Release package versions (${releaseVersion}) do not match release tag (${version}).`);
 }
+
+const sha = expectedSha ?? git("rev-list", "-n", "1", tag);
 const githubOutput = process.env["GITHUB_OUTPUT"];
 
 if (githubOutput !== undefined && githubOutput !== "") {

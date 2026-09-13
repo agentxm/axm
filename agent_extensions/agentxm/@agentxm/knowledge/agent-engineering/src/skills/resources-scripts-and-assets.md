@@ -76,7 +76,9 @@ does not prevent cache creation or filter a release archive.
 
 ## Resource quality
 
-- Use synthetic fixtures, portable paths, and declared dependencies.
+- Use synthetic fixtures, package-internal paths, and declared dependencies.
+  Avoid absolute local paths, and never reference another extension's files by
+  path, declared pack sibling or not.
 - Keep only authoritative, used resources; omit placeholders, empty
   directories, duplication, and habit-added prose.
 - Review every packaged byte; non-`SKILL.md` content can still execute, leak,

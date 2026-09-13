@@ -36,6 +36,15 @@ export { LOCK_ENTRY_SCHEMA_BY_TYPE } from "./lockfile/schema.js";
 // Extension path and identity vocabulary
 export { ACQUIRED_EXTENSIONS_DIR, LOCK_FILENAME } from "./workspace/constants.js";
 export {
+  isInstallRootStagingName,
+  observeInstallRoot,
+  type InstallRootEntry,
+  type InstallRootInventory,
+  type InstalledPackageEntry,
+  type ObserveInstallRootArgs,
+  type UnrecognizedInstallRootEntry,
+} from "./workspace/install-root.js";
+export {
   acquiredExtensionDisplayPath,
   acquiredExtensionDisplayPathFromLockEntry,
   computeExtensionPathsForLayout,

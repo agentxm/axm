@@ -1,5 +1,6 @@
 4 skills (3 configured, 0 implicit, 3
-installed, 1 unmanaged)
+installed, 0 leftover, 0 undeclared, 1
+unmanaged)
 = @craigsmitham/effect-v4
   installed
   enabled

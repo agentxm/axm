@@ -6,12 +6,12 @@ tags: [effect, effect-v4, promise, callback, interop, cancellation, adapter]
 status: stable
 sources:
   - id: effect-source
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Effect.ts
-    title: Effect 4.0.0-rc.112 Effect source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Effect.ts
+    title: Effect 4.0.0-rc.115 Effect source
   - id: applied-opencode
     resource: https://github.com/anomalyco/opencode/blob/dc4449df0d52199704ea4989a5a993ebbc605612/packages/stats/server/src/ingest.ts
     title: opencode foreign SDK wrapping at dc4449d
-generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
+generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
 ---
 
 # Wrapping foreign APIs
@@ -35,5 +35,5 @@ generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
 
 ## Resources
 
-- [Effect interop constructors](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Effect.ts)
+- [Effect interop constructors](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Effect.ts)
 - [Applied SDK wrapper in opencode](https://github.com/anomalyco/opencode/blob/dc4449df0d52199704ea4989a5a993ebbc605612/packages/stats/server/src/ingest.ts)

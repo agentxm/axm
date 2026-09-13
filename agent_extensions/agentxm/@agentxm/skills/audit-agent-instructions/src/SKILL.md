@@ -8,14 +8,14 @@ Assess an exact effective instruction system against an explicit guidance
 baseline and the active harness contract. Review the sources that actually
 compose for representative work, not isolated Markdown files alone.
 
-This skill is coupled to a direct sibling in the agent-engineering pack. From
-the active AXM scope root, read:
+This skill is coupled to a direct sibling in the agent-engineering pack.
+Resolve the `@agentxm/knowledge/agent-engineering` bundle with
+`axm knowledge concepts` and read:
 
-- `knowledge/agent-engineering/src/domains/software-engineering/agent-instruction-files.md`;
-  and
-- `knowledge/agent-engineering/src/domains/software-engineering/authoring-agent-instruction-files.md`.
+- the `domains/software-engineering/agent-instruction-files` concept; and
+- the `domains/software-engineering/authoring-agent-instruction-files` concept.
 
-Read `knowledge/agent-engineering/src/evaluation/context-evaluation.md`
+Read the `evaluation/context-evaluation` concept from that bundle
 when the requested scope requires evidence about selection, use, or economy.
 
 When `axm.json`, AXM ownership markers, or `axm instructions` show
@@ -29,10 +29,9 @@ target health, and proposed reconciliation. Audit-only mode never applies
 
 - **Audit** is the default and leaves the instruction system unchanged.
 - **Audit and remediate** requires explicit mutation intent. Preserve the
-  pre-change audit, use the direct sibling
-  `skills/author-agent-instructions/src/SKILL.md` to
-  revise canonical sources, reconcile owned projections, and then audit the new
-  identity.
+  pre-change audit, invoke the direct sibling `author-agent-instructions`
+  skill by name to revise canonical sources, reconcile owned projections,
+  and then audit the new identity.
 - **Verify remediation** rechecks earlier findings against a supplied revised
   identity without further mutation unless remediation is also requested.
 
@@ -67,7 +66,10 @@ approval.
    mismatch, unresolved conflict, ineffective entry point, and unproven
    accretion. Require exact evidence and reject proposed cuts that would strand
    useful depth. Do not infer behavioral value or harm from length, loading, or
-   adherence alone.
+   adherence alone. Apply the guide's outcome-first criterion to distinguish
+   unnecessary procedure from mechanisms or ordering that protect required
+   constraints; assess the outcome and retained constraints, not adherence to
+   one preferred sequence.
 7. **Evaluate the interface.** Confirm broad guidance appears where intended,
    narrower guidance appears only for matching work, adjacent work excludes
    irrelevant detail, routes resolve, and documented precedence behaves as

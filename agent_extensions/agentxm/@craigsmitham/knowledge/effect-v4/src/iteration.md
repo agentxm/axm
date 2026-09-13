@@ -6,12 +6,12 @@ tags: [effect, effect-v4, foreach, all, schedule, retry, traversal]
 status: stable
 sources:
   - id: effect-source
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Effect.ts
-    title: Effect 4.0.0-rc.112 traversal and repetition source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Effect.ts
+    title: Effect 4.0.0-rc.115 traversal and repetition source
   - id: effect-schedule
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Schedule.ts
-    title: Effect 4.0.0-rc.112 Schedule source
-generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Schedule.ts
+    title: Effect 4.0.0-rc.115 Schedule source
+generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
 ---
 
 # Iteration
@@ -35,5 +35,5 @@ generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
 
 ## Resources
 
-- [Effect traversal and repetition source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Effect.ts)
-- [Schedule source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Schedule.ts)
+- [Effect traversal and repetition source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Effect.ts)
+- [Schedule source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Schedule.ts)

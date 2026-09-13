@@ -407,61 +407,71 @@ describe("installMcpServer", () => {
       }),
     );
 
-    it.effect("does not persist secret inputs in workspace settings", () =>
-      Effect.gen(function* () {
-        const { axmDir, base } = setupBase();
-        const canonicalPath = setupRegistryCanonical(base, "@community");
-        fs.writeFileSync(
-          path.join(canonicalPath, "mcp.json"),
-          JSON.stringify({
-            owner: "@community",
-            type: "mcp-server",
-            name: "my-server",
-            version: "1.0.0",
-            server: {
-              name: "io.github.community/my-server",
-              description: "MCP server my-server",
-              version: "1.0.0",
-              packages: [
-                {
-                  registryType: "npm",
-                  identifier: "@community/my-server",
+    for (const token of ["secret-token", "${API_TOKEN}"]) {
+      it.effect(
+        `stores literal credentials in the keychain and symbolic credentials in settings: ${token}`,
+        () =>
+          Effect.gen(function* () {
+            const { axmDir, base } = setupBase();
+            const canonicalPath = setupRegistryCanonical(base, "@community");
+            fs.writeFileSync(
+              path.join(canonicalPath, "mcp.json"),
+              JSON.stringify({
+                owner: "@community",
+                type: "mcp-server",
+                name: "my-server",
+                version: "1.0.0",
+                server: {
+                  name: "io.github.community/my-server",
+                  description: "MCP server my-server",
                   version: "1.0.0",
-                  transport: { type: "stdio" },
-                  environmentVariables: [
-                    { name: "PUBLIC_URL", isRequired: true },
-                    { name: "API_TOKEN", isRequired: true, isSecret: true },
+                  packages: [
+                    {
+                      registryType: "npm",
+                      identifier: "@community/my-server",
+                      version: "1.0.0",
+                      transport: { type: "stdio" },
+                      environmentVariables: [
+                        { name: "PUBLIC_URL", isRequired: true },
+                        { name: "API_TOKEN", isRequired: true, isSecret: true },
+                      ],
+                    },
                   ],
                 },
-              ],
-            },
-          }),
-        );
-        let persistedEnv: Readonly<Record<string, string>> | undefined;
+              }),
+            );
+            let persistedEnv: Readonly<Record<string, string>> | undefined;
 
-        const result = yield* installMcpServer(
-          makeOp({
-            ref: makeRegistryRef({ integrity: "" }),
-            env: {
-              PUBLIC_URL: "https://example.test",
-              API_TOKEN: "secret-token",
-            },
-          }),
-        ).pipe(
-          Effect.provide(
-            withServices(axmDir, {
-              setMcpServerFn: (args) =>
-                Effect.sync(() => {
-                  persistedEnv = args.env;
+            const result = yield* installMcpServer(
+              makeOp({
+                ref: makeRegistryRef({ integrity: "" }),
+                env: {
+                  PUBLIC_URL: "https://example.test",
+                  API_TOKEN: token,
+                },
+              }),
+            ).pipe(
+              Effect.provide(
+                withServices(axmDir, {
+                  setMcpServerFn: (args) =>
+                    Effect.sync(() => {
+                      persistedEnv = args.env;
+                    }),
                 }),
-            }),
-          ),
-        );
+              ),
+            );
 
-        expect(result.result).toBe("success");
-        expect(persistedEnv).toEqual({ PUBLIC_URL: "https://example.test" });
-      }),
-    );
+            expect(result.result).toBe("success");
+            expect(persistedEnv).toEqual({
+              PUBLIC_URL: "https://example.test",
+              ...(token === "${API_TOKEN}" ? { API_TOKEN: token } : {}),
+            });
+            expect([...secretStore.values.values()]).toEqual(
+              token === "${API_TOKEN}" ? [] : [token],
+            );
+          }),
+      );
+    }
 
     it.effect("warns when a secret cannot be saved to the system keychain", () =>
       Effect.gen(function* () {

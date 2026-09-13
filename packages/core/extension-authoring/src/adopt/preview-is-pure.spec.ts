@@ -18,7 +18,7 @@ export const specification = defineSpecification({
   requirement: "cli/adopt/preview-is-pure",
   title: "Adopt preview describes the authorship transition without changing any state",
   statement:
-    "When adopt runs in preview mode against a canonical package the workspace could author, it shall report the adoption it would apply with a previewed outcome and shall not move the package, create authored content, or change settings or the lockfile.",
+    "When adopt runs in preview mode against a canonical package the workspace could author, or an undeclared authored package it could declare in place, it shall report the adoption it would apply with a previewed outcome and shall not move the package, create authored content, realize projections, or change settings or the lockfile.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "authoring-and-creation"],
@@ -73,6 +73,28 @@ describe("Adopt preview purity", () => {
       expect(created.snapshot()).toEqual(before);
       expect(created.exists("skills/review")).toBe(false);
       expect(created.exists("agent_extensions/agentxm/@acme/skills/review/skill.json")).toBe(true);
+      expect(environment.interaction.confirmApplyChangesCalls).toEqual([]);
+    }),
+  );
+
+  it.effect("a previewed in-place adoption changes no protected state", () =>
+    Effect.gen(function* () {
+      const created = makeAuthoringWorkspace({ owner: "@acme", agents: ["claude-code"] });
+      cleanups.push(created.cleanup);
+      writeAuthoringPackage(created.root, authoringTypeFor("skill"), "review", {
+        parent: "skills",
+      });
+      const before = created.snapshot();
+      const { environment, run } = previewAdoption(created, "@acme/skills/review");
+
+      const resolution = yield* run;
+
+      expect(deriveOperationOutcome(resolution)).toBe("previewed");
+      expect(resolution.units).toEqual([
+        expect.objectContaining({ label: "Adopt @acme/skills/review", state: "ready" }),
+      ]);
+      expect(created.snapshot()).toEqual(before);
+      expect(created.exists(".claude/skills/review")).toBe(false);
       expect(environment.interaction.confirmApplyChangesCalls).toEqual([]);
     }),
   );

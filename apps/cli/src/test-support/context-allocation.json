@@ -362,6 +362,11 @@
       "interface": "inventory-lifecycle",
       "openTopics": ["inventory-nonconfigured"]
     },
+    "inventory-unexplained": {
+      "requirements": ["cli/list/classifies-unexplained-content"],
+      "when": "Detected content desired state does not explain is classified as leftover, undeclared, or unmanaged, with leftover and undeclared rows not assessed.",
+      "interface": "inventory-lifecycle"
+    },
     "activation": {
       "requirements": ["cli/activation-follows-desired-state"],
       "when": "Desired enabled/disabled state changes realization without replacing canonical content or accepted resolution.",
@@ -834,6 +839,10 @@
         {
           "members": ["implicit", "unmanaged"],
           "bindings": ["inventory"]
+        },
+        {
+          "members": ["leftover", "undeclared"],
+          "bindings": ["inventory-unexplained"]
         }
       ],
       "population": "inventory-lifecycle"

@@ -208,7 +208,14 @@ export const resolveSharedMcpTarget = (args: {
         detail: "one or more readers reject stdio",
       });
     }
-    if (!allEqual(dialects.map((dialect) => dialect.command + ":" + (dialect.envKey ?? "")))) {
+    if (
+      !allEqual(
+        dialects.map(
+          (dialect) =>
+            dialect.command + ":" + (dialect.envKey ?? "") + ":" + (dialect.envVarsKey ?? ""),
+        ),
+      )
+    ) {
       return conflict({
         members,
         axis: "stdio shape",

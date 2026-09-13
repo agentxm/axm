@@ -61,7 +61,16 @@ const COLLECTION_PAYLOADS = [
   [
     "axm <type> list",
     ExtensionInventorySchema.fields,
-    ["items", "count", "configuredCount", "implicitCount", "installedCount", "unmanagedCount"],
+    [
+      "items",
+      "count",
+      "configuredCount",
+      "implicitCount",
+      "installedCount",
+      "leftoverCount",
+      "undeclaredCount",
+      "unmanagedCount",
+    ],
   ],
 ] as const satisfies ReadonlyArray<
   readonly [command: string, fields: Record<string, unknown>, keys: ReadonlyArray<string>]

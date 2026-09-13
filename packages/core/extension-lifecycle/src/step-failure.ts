@@ -122,6 +122,19 @@ const carriedFailure = (failure: LifecycleStepFailure): StepFailure => {
  */
 export const lifecycleStepFailure = (failure: LifecycleStepFailure): StepFailure => {
   if (failure instanceof StepFailure) return failure;
+  if (failure._tag === "McpSharedTargetConflict") {
+    return new StepFailure({
+      category: "conflict",
+      detail: failure.reason,
+      suggestions: [
+        {
+          description:
+            "Use an MCP package whose transport and symbolic inputs are supported by every configured reader of the shared target.",
+        },
+      ],
+      cause: failure,
+    });
+  }
 
   if (failure instanceof ExtensionLifecycleFailed) {
     return new StepFailure({

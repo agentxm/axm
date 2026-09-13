@@ -6,15 +6,15 @@ tags: [effect, effect-v4, deferred, queue, pubsub, ref, semaphore, stm]
 status: stable
 sources:
   - id: effect-deferred
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Deferred.ts
-    title: Effect 4.0.0-rc.112 Deferred source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Deferred.ts
+    title: Effect 4.0.0-rc.115 Deferred source
   - id: effect-queue
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Queue.ts
-    title: Effect 4.0.0-rc.112 Queue source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Queue.ts
+    title: Effect 4.0.0-rc.115 Queue source
   - id: effect-semaphore
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Semaphore.ts
-    title: Effect 4.0.0-rc.112 Semaphore source
-generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Semaphore.ts
+    title: Effect 4.0.0-rc.115 Semaphore source
+generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
 ---
 
 # Async coordination
@@ -40,7 +40,7 @@ generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
 
 ## Resources
 
-- [Deferred source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Deferred.ts)
-- [Queue source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Queue.ts)
-- [Semaphore source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Semaphore.ts)
-- [Transactional modules](https://github.com/Effect-TS/effect/tree/effect%404.0.0-rc.112/packages/effect/src)
+- [Deferred source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Deferred.ts)
+- [Queue source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Queue.ts)
+- [Semaphore source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Semaphore.ts)
+- [Transactional modules](https://github.com/Effect-TS/effect/tree/effect%404.0.0-rc.115/packages/effect/src)

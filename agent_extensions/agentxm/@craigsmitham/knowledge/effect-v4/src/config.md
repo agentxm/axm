@@ -6,15 +6,15 @@ tags: [effect, effect-v4, config, environment, validation, redacted, secrets]
 status: stable
 sources:
   - id: effect-config
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Config.ts
-    title: Effect 4.0.0-rc.112 Config source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Config.ts
+    title: Effect 4.0.0-rc.115 Config source
   - id: effect-provider
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/ConfigProvider.ts
-    title: Effect 4.0.0-rc.112 ConfigProvider source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/ConfigProvider.ts
+    title: Effect 4.0.0-rc.115 ConfigProvider source
   - id: applied-opencode
     resource: https://github.com/anomalyco/opencode/blob/dc4449df0d52199704ea4989a5a993ebbc605612/packages/stats/server/src/server.ts
     title: opencode typed server config at dc4449d
-generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
+generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
 ---
 
 # Config
@@ -38,6 +38,6 @@ generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
 
 ## Resources
 
-- [Config source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Config.ts)
-- [ConfigProvider source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/ConfigProvider.ts)
+- [Config source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Config.ts)
+- [ConfigProvider source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/ConfigProvider.ts)
 - [Applied typed config in opencode](https://github.com/anomalyco/opencode/blob/dc4449df0d52199704ea4989a5a993ebbc605612/packages/stats/server/src/server.ts)

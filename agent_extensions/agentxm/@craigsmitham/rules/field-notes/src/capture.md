@@ -1,12 +1,12 @@
 # Capture a field note
 
-Write one new file per incident. Never edit an existing note: a second
+Write one new file per occurrence. Never edit an existing note: a second
 occurrence is a second file, and that recurrence is the signal.
 
 Use
 `field-notes/<subject>/<YYYY-MM-DD>T<HHMMSS>Z-<nonce>-<key>.md`, where
 `<nonce>` is a short lowercase alphanumeric value and `<key>` is a candidate
-pattern slug for the surface and symptom. Use UTC and a different root if the
+pattern slug for the surface and observation. Use UTC and a different root if the
 subjects table names one. The timestamp and nonce identify this occurrence;
 the key does not.
 
@@ -22,34 +22,36 @@ subject: <subject key>
 key: <slug>
 observed_at: "<ISO-8601 UTC timestamp>"
 session: <opaque session ID | unknown>
-kind: gap | workaround | blocked
+kind: observation | gap | workaround | blocked
 status: open
 ---
 
-**Expected:** what should have happened, and what led you to expect it
-**Observed:** what happened instead
-**Impact:** the observed consequence and direct cost to this work
-**Recovery:** what restored progress and whether the task completed
-**Detected by:** how the difference became visible
-**Observed factors:** relevant conditions directly seen during the incident
-**Diagnostic evidence:** safe identifiers and structured failure fields already
-available from the incident; omit when the incident was not machine-surfaced
+**Expected:** what you expected and why; use `none` for an unanticipated discovery
+**Observed:** what actually happened, including relevant first-attempt behavior
+**Impact:** the observed consequence for this work, including benefits or costs
+**Outcome:** how the attempt or task ended
+**Recovery:** what restored progress, or `not needed`
+**Detected by:** how the observation became visible
+**Observed factors:** relevant conditions directly seen during the occurrence
+**Diagnostic evidence:** safe identifiers and structured result fields already
+available from the occurrence; omit when the occurrence was not machine-surfaced
 **Hypothesis:** a tentative explanation, or `unknown`
 **Suggests:** an optional reporter idea; omit when none is grounded
 
 Evidence: the minimum observable facts needed to verify, interpret, and compare
-the incident. Include material context that could change the outcome; mark an
+the occurrence. Include material context that could change the outcome; mark an
 unavailable material fact as unknown rather than inferring it.
 ```
 
-Report one specific incident with observable evidence. Do not substitute a
+Report one specific occurrence with observable evidence. Use `observation` for
+useful feedback that is not a gap, workaround, or blocker. Do not substitute a
 general impression. Keep capture brief and continue the original work; do not
 investigate to fill a field.
 
-For a machine-surfaced incident, inspect the complete structured result before
+For a machine-surfaced occurrence, inspect the complete structured result before
 reducing it and preserve the process exit status. Keep primary result output
 separate from diagnostic output, and ensure a pipeline does not replace the
-failing command's status with a successful formatter status.
+original command's status with a successful formatter status.
 
 Record only already-observed, materially useful diagnostic fields, such as:
 
@@ -66,9 +68,10 @@ Do not infer either state, rerun a mutation to fill the note, or investigate for
 additional fields. Never record credentials, tokens, authorization headers,
 opaque response bodies, or unreviewed values that may contain sensitive data.
 
-For `Impact`, say what was delayed, degraded, repeated, or prevented and who or
-what was affected. Quantify directly observed retries, extra steps, elapsed
-time, rework, or unusable output when known; write `not measured` rather than
+For `Impact`, say what changed for the work and who or what was affected,
+whether the result was beneficial, adverse, or neutral. Quantify directly
+observed benefits, retries, extra steps, elapsed time, rework, or unusable output
+when known; write `not measured` rather than
 estimating. Do not assign a severity score or predict frequency, reach, or
 hypothetical harm.
 

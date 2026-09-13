@@ -42,7 +42,27 @@ can distinguish unit identity from extension provenance.
 `axm lint` reports `workspace/managed-file-unowned` when an artifact in a
 configured agent directory has neither a structured file marker nor a managed
 symlink proof. Inspect and preserve unfamiliar content; AXM does not claim or
-delete it automatically.
+delete it automatically. A valid authored package in its authoring folder is
+authored source, not an unowned artifact.
+
+`axm lint` also warns about content desired state does not explain:
+`workspace/installed-but-not-configured` for an installed package in the
+install root that no desired route reaches, `workspace/authored-package-declared`
+for a valid authored package in a standard authoring folder that `axm.json`
+does not declare, and `workspace/install-root-entries-recognized` for an
+install-root entry that is neither an installed package nor AXM staging.
+`axm lint --fix` adds no declarations and removes nothing.
+
+Agents read the user scope and the project together, so `axm lint` also
+reports what the other scope contributes. `workspace/project-outputs-not-shadowed`
+warns when a project skill or subagent shares its name with a user-scope output
+the same agent reads; the agent decides which copy it loads.
+`workspace/user-outputs-have-settings` warns when user-scope agent outputs carry
+AXM ownership proof but `~/.axm/workspace/axm.json` is missing or unreadable. In
+a folder without `axm.json`, lint reports `workspace/initialized` instead of
+failing, and `workspace/agent-content-has-settings` warns about agent
+instruction files and agent directories there. A project folder that is the
+user home has no separate user scope, so these checks skip it.
 
 User scope uses `~/.axm/workspace/axm.json`,
 `~/.axm/workspace/axm-lock.yaml`, and the same source-qualified acquired

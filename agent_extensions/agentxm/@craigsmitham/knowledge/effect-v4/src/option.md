@@ -6,12 +6,12 @@ tags: [effect, effect-v4, option, absence, nullable, schema]
 status: stable
 sources:
   - id: effect-option
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Option.ts
-    title: Effect 4.0.0-rc.112 Option source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Option.ts
+    title: Effect 4.0.0-rc.115 Option source
   - id: effect-schema
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Schema.ts
-    title: Effect 4.0.0-rc.112 Schema source
-generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Schema.ts
+    title: Effect 4.0.0-rc.115 Schema source
+generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
 ---
 
 # Option
@@ -34,5 +34,5 @@ generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
 
 ## Resources
 
-- [Option source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Option.ts)
-- [Schema source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Schema.ts)
+- [Option source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Option.ts)
+- [Schema source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Schema.ts)

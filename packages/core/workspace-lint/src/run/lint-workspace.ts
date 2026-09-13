@@ -38,8 +38,10 @@ import {
   observeWorkspaceOwnershipIssues,
 } from "@agentxm/workspace-projection";
 import {
+  LockfileReader,
   WorkspaceMutations,
   acceptedCanonicalObservation,
+  observeInstallRoot,
   type CanonicalObservation,
   type DesiredExtensionNode,
 } from "@agentxm/workspace-state";
@@ -56,6 +58,13 @@ import {
   type LintSummary,
 } from "../cli.js";
 import type { LintInput, LintJsonDocument } from "../json-schema.js";
+import { observeAuthoredPackages } from "./authored-packages.js";
+import {
+  observeProjectAgentContent,
+  observeUserScope,
+  type AgentContentEntry,
+  type UserScopeObservation,
+} from "./agent-scopes.js";
 import { LintStagingFailed } from "./errors.js";
 import {
   applyDeterminedRepairs,
@@ -169,6 +178,7 @@ export type LintWorkspaceRequirements =
   | AxmSkillCompatibilityPolicy
   | CodingAgentRepository
   | FileSystem.FileSystem
+  | LockfileReader
   | Path.Path
   | WorkspaceInvariantFacts
   | WorkspaceMutations;
@@ -243,6 +253,38 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
       skillOwnershipRoots,
       authoredSkills,
     });
+    // Cross-scope agent facts. The agents that read this workspace also read
+    // the user scope; a project folder that is the user home has no separate
+    // user scope, and a Git-index snapshot has no live agent folders.
+    const liveView = selection.input.view === "workspace";
+    const realRoot = (root: string) =>
+      fileSystem.realPath(root).pipe(Effect.orElseSucceed(() => path.resolve(root)));
+    const projectIsUserHome =
+      selection.scope === "project" &&
+      (yield* realRoot(selection.workspaceRoot)) === (yield* realRoot(userHome));
+    const userScope =
+      liveView && !projectIsUserHome
+        ? Option.some(yield* observeUserScope(userHome))
+        : Option.none<UserScopeObservation>();
+    const agentContent =
+      liveView && selection.scope === "project" && !projectIsUserHome && Option.isNone(settings)
+        ? Option.some(
+            yield* observeProjectAgentContent({
+              projectRoot: workspace.baseDir,
+              outputs: agentOutputs.outputs,
+            }),
+          )
+        : Option.none<ReadonlyArray<AgentContentEntry>>();
+    // Install-root and authoring-folder facts. An unreadable lockfile leaves
+    // the install root unobserved; its own rule reports the lockfile.
+    const installRoot = yield* observeInstallRoot({
+      layout: workspace.layout,
+      graph: desiredGraph,
+      locks: yield* LockfileReader,
+    }).pipe(Effect.option);
+    const authoredPackages = Option.isSome(settings)
+      ? yield* observeAuthoredPackages({ layout: workspace.layout, settings: settings.value })
+      : [];
     const canonicalObservations: Effect.Effect<
       ReadonlyArray<{
         readonly desired: DesiredExtensionNode;
@@ -290,6 +332,14 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
             ...workspaceContext,
             ownership: Effect.succeed(ownership),
             agentOutputs: Effect.succeed(agentOutputs),
+            ...(Option.isSome(installRoot)
+              ? { installRoot: Effect.succeed(installRoot.value) }
+              : {}),
+            authoredPackages: Effect.succeed(authoredPackages),
+            ...(Option.isSome(userScope) ? { userScope: Effect.succeed(userScope.value) } : {}),
+            ...(Option.isSome(agentContent)
+              ? { agentContent: Effect.succeed(agentContent.value) }
+              : {}),
             health: {
               desiredState: workspace.getDesiredStateGraph(),
               canonicalObservations,

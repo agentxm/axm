@@ -83,7 +83,7 @@ export const codexAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
+        lastVerified: "2026-09-12",
         writer: {
           config: {
             serversKey: "mcp_servers",
@@ -109,6 +109,7 @@ export const codexAgent = {
               typeField: { required: null, accepted: [null] },
               command: "split",
               envKey: "env",
+              envVarsKey: "env_vars",
             },
             remote: {
               typeField: { required: null, accepted: [null] },

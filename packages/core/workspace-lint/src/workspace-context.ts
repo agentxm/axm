@@ -21,7 +21,9 @@ import type {
   InstructionProjectionSnapshot,
 } from "@agentxm/workspace-projection";
 import type { ProjectionInvariantFact } from "@agentxm/workspace-projection";
-import type { CanonicalObservation } from "@agentxm/workspace-state";
+import type { CanonicalObservation, InstallRootInventory } from "@agentxm/workspace-state";
+import type { AuthoredPackageObservation } from "./run/authored-packages.js";
+import type { AgentContentEntry, UserScopeObservation } from "./run/agent-scopes.js";
 import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace-state";
 import type { LockfileReadError, SettingsReadError } from "@agentxm/workspace-state";
 import type { WorkspaceReadModel } from "@agentxm/workspace-state";
@@ -57,6 +59,14 @@ export interface WorkspaceRuleContext {
   readonly ownership?: Effect.Effect<ReadonlyArray<WorkspaceOwnershipIssue>>;
   /** Owned and unowned agent-native outputs observed from resolved containers. */
   readonly agentOutputs?: Effect.Effect<AgentOutputInventory>;
+  /** The scope's install root: installed packages, leftovers, and unrecognized entries. */
+  readonly installRoot?: Effect.Effect<InstallRootInventory>;
+  /** Valid authored packages in each type's standard authoring folder (project scope). */
+  readonly authoredPackages?: Effect.Effect<ReadonlyArray<AuthoredPackageObservation>>;
+  /** The user scope's agent outputs and settings readability; absent when it is the project itself. */
+  readonly userScope?: Effect.Effect<UserScopeObservation>;
+  /** Agent-native content in a project folder without workspace settings. */
+  readonly agentContent?: Effect.Effect<ReadonlyArray<AgentContentEntry>>;
   /**
    * Installed non-pack extension manifests, keyed by nothing — rules walk the
    * list. Landed for `workspace/recommended-packs-retained`, which needs the

@@ -323,7 +323,7 @@ const persistMcpSecrets = (
       secretNames,
       (inputName): Effect.Effect<McpSecretPersistenceOutcome> => {
         const value = values[inputName];
-        return value === undefined
+        return value === undefined || value === `\${${inputName}}`
           ? Effect.succeed({ _tag: "skipped", inputName })
           : secrets
               .write(mcpSecretAccount({ ...identity, inputName }), value)
@@ -364,7 +364,7 @@ const redactSettingsEnv = (
 ): Readonly<Record<string, string>> => {
   const redacted: Record<string, string> = {};
   for (const [name, value] of Object.entries(values)) {
-    if (!secretNames.has(name)) redacted[name] = value;
+    if (!secretNames.has(name) || value === `\${${name}}`) redacted[name] = value;
   }
   return redacted;
 };

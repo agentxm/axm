@@ -10,9 +10,9 @@
   "skills": {
     "axm": "workspace",
     "improve-whatever": "agentxm:@craigsmitham/skills/improve-whatever",
-    "author-okf": "agentxm:@craigsmitham/skills/author-okf",
     "spot-spew": "agentxm:@craigsmitham/skills/spot-spew",
-    "devops-docs": "agentxm:@craigsmitham/skills/devops-docs"
+    "devops-docs": "agentxm:@craigsmitham/skills/devops-docs",
+    "okf": "agentxm:@craigsmitham/skills/okf"
   },
   "knowledge": {
     "agentxm": "agentxm:@agentxm/knowledge/agentxm",

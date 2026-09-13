@@ -6,15 +6,15 @@ tags: [effect, effect-v4, http-client, schema, retry, timeout, testing]
 status: stable
 sources:
   - id: effect-http-client
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/ai-docs/src/50_http-client/10_basics.ts
-    title: Effect 4.0.0-rc.112 HttpClient basics
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/50_http-client/10_basics.ts
+    title: Effect 4.0.0-rc.115 HttpClient basics
   - id: effect-http-errors
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/unstable/http/HttpClientError.ts
-    title: Effect 4.0.0-rc.112 HttpClientError source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/unstable/http/HttpClientError.ts
+    title: Effect 4.0.0-rc.115 HttpClientError source
   - id: applied-recorder
     resource: https://github.com/anomalyco/effect-http-recorder/blob/89e1b85f7caa12ad076b8f9b65c804f89c60ecd0/src/http/recorder.ts
     title: effect-http-recorder client substitution at 89e1b85
-generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
+generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
 ---
 
 # HTTP client
@@ -38,6 +38,6 @@ generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
 
 ## Resources
 
-- [HttpClient basics](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/ai-docs/src/50_http-client/10_basics.ts)
-- [HttpClientError source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/unstable/http/HttpClientError.ts)
+- [HttpClient basics](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/50_http-client/10_basics.ts)
+- [HttpClientError source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/unstable/http/HttpClientError.ts)
 - [Applied client substitution in effect-http-recorder](https://github.com/anomalyco/effect-http-recorder/blob/89e1b85f7caa12ad076b8f9b65c804f89c60ecd0/src/http/recorder.ts)

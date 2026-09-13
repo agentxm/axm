@@ -57,6 +57,7 @@ jobs:
       mode: ${{ steps.source.outputs.mode }}
       tag: ${{ steps.source.outputs.tag }}
       sha: ${{ steps.source.outputs.sha }}
+      tooling_sha: ${{ steps.source.outputs.tooling_sha }}
       ci_run_id: ${{ steps.source.outputs.ci_run_id }}
     steps:
       - name: Checkout declared source
@@ -83,11 +84,13 @@ jobs:
           mode="${REQUESTED_MODE:-stable-auto}"
           tag=""
           sha="$(git rev-parse HEAD)"
+          tooling_sha="$sha"
           ci_run_id=""
 
           if [[ "$EVENT_NAME" == workflow_run ]]; then
             if [[ "$CI_CONCLUSION" != success || "$CI_EVENT" != push || "$CI_HEAD_BRANCH" != main ]]; then
-              printf 'eligible=false\nmode=stable-auto\ntag=\nsha=%s\nci_run_id=\n' "$sha" >> "$GITHUB_OUTPUT"
+              printf 'eligible=false\nmode=stable-auto\ntag=\nsha=%s\ntooling_sha=%s\nci_run_id=\n' \
+                "$sha" "$tooling_sha" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             if [[ "$sha" != "$CI_HEAD_SHA" ]]; then
@@ -96,7 +99,8 @@ jobs:
             fi
             subject="$(git show -s --format=%s HEAD)"
             if [[ "$subject" != "release: cli-v"* ]]; then
-              printf 'eligible=false\nmode=stable-auto\ntag=\nsha=%s\nci_run_id=\n' "$sha" >> "$GITHUB_OUTPUT"
+              printf 'eligible=false\nmode=stable-auto\ntag=\nsha=%s\ntooling_sha=%s\nci_run_id=\n' \
+                "$sha" "$tooling_sha" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             if [[ "$subject" =~ ^release:\ (cli-v[^[:space:]]+)(\ \(\#[0-9]+\))?$ ]]; then
@@ -152,8 +156,8 @@ jobs:
               exit 1
             fi
           fi
-          printf 'eligible=%s\nmode=%s\ntag=%s\nsha=%s\nci_run_id=%s\n' \
-            "$eligible" "$mode" "$tag" "$sha" "$ci_run_id" >> "$GITHUB_OUTPUT"
+          printf 'eligible=%s\nmode=%s\ntag=%s\nsha=%s\ntooling_sha=%s\nci_run_id=%s\n' \
+            "$eligible" "$mode" "$tag" "$sha" "$tooling_sha" "$ci_run_id" >> "$GITHUB_OUTPUT"
 
       - name: Report publication selection
         if: always()
@@ -162,6 +166,7 @@ jobs:
           MODE: ${{ steps.source.outputs.mode }}
           TAG: ${{ steps.source.outputs.tag }}
           SHA: ${{ steps.source.outputs.sha }}
+          TOOLING_SHA: ${{ steps.source.outputs.tooling_sha }}
           CI_RUN_ID: ${{ steps.source.outputs.ci_run_id }}
         run: |
           {
@@ -170,6 +175,7 @@ jobs:
             echo "- Mode: ${MODE:-unresolved}"
             echo "- Tag: ${TAG:-none}"
             echo "- Commit: ${SHA:-unresolved}"
+            echo "- Tooling commit: ${TOOLING_SHA:-unresolved}"
             echo "- Exact CI run: ${CI_RUN_ID:-resolved by recovery preflight}"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -190,7 +196,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          ref: ${{ needs.source.outputs.sha }}
+          ref: ${{ needs.source.outputs.tooling_sha }}
 
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
@@ -237,7 +243,7 @@ jobs:
           pnpm exec nx run axm:distribute-release --outputStyle=static --
           "${{ steps.release_meta.outputs.version }}"
           "${{ steps.release_meta.outputs.tag }}"
-          release-assets release-npm --preflight
+          release-assets release-npm "${{ steps.release_meta.outputs.sha }}" --preflight
 
       - name: Prepare exact draft GitHub Release
         id: prepare_release
@@ -259,7 +265,7 @@ jobs:
           pnpm exec nx run axm:distribute-release --outputStyle=static --
           "${{ steps.release_meta.outputs.version }}"
           "${{ steps.release_meta.outputs.tag }}"
-          release-assets release-npm
+          release-assets release-npm "${{ steps.release_meta.outputs.sha }}"
 
       - name: Publish verified GitHub Release
         id: publish_release

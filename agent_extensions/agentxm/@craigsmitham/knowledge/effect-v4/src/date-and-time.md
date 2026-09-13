@@ -6,12 +6,12 @@ tags: [effect, effect-v4, datetime, duration, clock, timezone, testing]
 status: stable
 sources:
   - id: effect-datetime
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/ai-docs/src/07_datetime/10_creating-and-formatting.ts
-    title: Effect 4.0.0-rc.112 DateTime basics
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/07_datetime/10_creating-and-formatting.ts
+    title: Effect 4.0.0-rc.115 DateTime basics
   - id: effect-testclock
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/testing/TestClock.ts
-    title: Effect 4.0.0-rc.112 TestClock source
-generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/testing/TestClock.ts
+    title: Effect 4.0.0-rc.115 TestClock source
+generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
 ---
 
 # Date and time
@@ -35,6 +35,6 @@ generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
 
 ## Resources
 
-- [DateTime basics](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/ai-docs/src/07_datetime/10_creating-and-formatting.ts)
-- [DateTime source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/DateTime.ts)
-- [TestClock source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/testing/TestClock.ts)
+- [DateTime basics](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/07_datetime/10_creating-and-formatting.ts)
+- [DateTime source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/DateTime.ts)
+- [TestClock source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/testing/TestClock.ts)

@@ -63,6 +63,17 @@ export const lintProject = (
   options: { readonly strict?: boolean } = {},
 ) => queryLintWorkspace(projectSelection(fixture), { strict: options.strict ?? false });
 
+/** Report the facts of a project whose user scope lives at a separate `userHome`. */
+export const lintProjectWithHome = (
+  fixture: LintWorkspaceFixture,
+  userHome: string,
+  options: { readonly strict?: boolean } = {},
+) =>
+  queryLintWorkspace(
+    { ...projectSelection(fixture), userHome },
+    { strict: options.strict ?? false },
+  );
+
 /** Repair the determined state, then report what remains. */
 export const fixProject = (
   fixture: LintWorkspaceFixture,

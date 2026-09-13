@@ -19,10 +19,14 @@ import { configuredAgentLifecycleOutcomes } from "./configured-agent-outcomes.js
 import type { DesiredStateGraph } from "./desired-state-graph.js";
 import type { LockfileReadError, SettingsReadError } from "./read-model/errors.js";
 import {
+  countExtensionInventory,
+  isDesiredInventoryLifecycle,
   projectExtensionInventory,
   type ExtensionInventory,
+  type ExtensionInventoryLifecycle,
   type LifecycleInventoryCandidate,
 } from "./read-model/extensions/inventory.js";
+import type { WorkspaceLayout } from "./layout.js";
 import type { WorkspaceReadModel } from "./read-model/service.js";
 import type { ActivationState, ExtensionKey } from "./read-model/types.js";
 import { deriveSourceMetaFromLockType } from "./source-metadata.js";
@@ -156,12 +160,49 @@ export const makeReadModelRecordReaders = (args: {
     };
   };
 
-  const lifecycleCandidateFromUnmanaged = (row: {
-    readonly key: ExtensionKey;
-    readonly actual: unknown;
-  }): LifecycleInventoryCandidate => ({
+  const isWithin = (root: string, candidate: string): boolean => {
+    const relative = args.path.relative(root, candidate);
+    return !relative.startsWith("..") && !args.path.isAbsolute(relative);
+  };
+
+  /**
+   * Classify one occurrence desired state does not explain: an AXM package
+   * under the install root is `leftover`, an AXM package under its type's
+   * standard authoring folder is `undeclared`, and anything else — native
+   * agent content — is `unmanaged`.
+   */
+  const unexplainedLifecycle = (
+    layout: Option.Option<WorkspaceLayout>,
+    key: ExtensionKey,
+    actual: unknown,
+  ): Exclude<ExtensionInventoryLifecycle, "configured" | "implicit"> => {
+    if (Option.isNone(layout) || typeof actual !== "object" || actual === null) return "unmanaged";
+    const originTag = stringProperty("origin" in actual ? actual.origin : undefined, "_tag");
+    const packageLocation =
+      stringProperty(actual, "packageRoot") ?? stringProperty(actual, "contentRoot");
+    if (originTag === null || packageLocation === null) return "unmanaged";
+    const canonical = originTag.startsWith("canonical-axm-");
+    if (!canonical && !originTag.startsWith("external-axm-")) return "unmanaged";
+    if (isWithin(layout.value.acquiredRoot, packageLocation)) return "leftover";
+    if (
+      canonical &&
+      layout.value.scope === "project" &&
+      isWithin(layout.value.authoredRoot(key.type), packageLocation)
+    ) {
+      return "undeclared";
+    }
+    return "unmanaged";
+  };
+
+  const lifecycleCandidateFromUnexplained = (
+    layout: Option.Option<WorkspaceLayout>,
+    row: {
+      readonly key: ExtensionKey;
+      readonly actual: unknown;
+    },
+  ): LifecycleInventoryCandidate => ({
     key: row.key,
-    lifecycle: "unmanaged",
+    lifecycle: unexplainedLifecycle(layout, row.key, row.actual),
     enabled: null,
     installed: true,
     ...observationFromActual(row.actual),
@@ -428,6 +469,7 @@ export const makeReadModelRecordReaders = (args: {
 
   const projectStandardInventory = (input: {
     readonly scope: WorkspaceReadModel["scope"];
+    readonly layout: WorkspaceReadModel["layout"];
     readonly type: WorkspaceManagedExtensionType;
     readonly installed: ReadonlyArray<{
       readonly key: ExtensionKey;
@@ -471,7 +513,7 @@ export const makeReadModelRecordReaders = (args: {
         paths: [],
       }));
     const implicitObserved = desiredUnmanaged.map((row) => ({
-      ...lifecycleCandidateFromUnmanaged(row),
+      ...lifecycleCandidateFromUnexplained(input.layout, row),
       lifecycle: "implicit" as const,
       enabled: true,
     }));
@@ -491,8 +533,8 @@ export const makeReadModelRecordReaders = (args: {
         ...implicitMissing,
         ...input.unmanaged
           .filter((row) => !desiredPackMembers.has(row.key.name))
-          .map(lifecycleCandidateFromUnmanaged),
-        ...stalePackActuals.map(lifecycleCandidateFromUnmanaged),
+          .map((row) => lifecycleCandidateFromUnexplained(input.layout, row)),
+        ...stalePackActuals.map((row) => lifecycleCandidateFromUnexplained(input.layout, row)),
       ],
       agents: input.agents,
     });
@@ -516,19 +558,18 @@ export const makeReadModelRecordReaders = (args: {
             const withOutcomes = inventory.items.map((row) => {
               return {
                 ...row,
-                agentOutcomes:
-                  row.classification.lifecycle === "unmanaged"
-                    ? []
-                    : configuredAgentLifecycleOutcomes({
-                        type: row.type,
-                        name: row.name,
-                        agentIds: configuredAgents,
-                        scope: row.scope,
-                        state: "current",
-                        targetState: row.enabled === false ? "disabled" : "enabled",
-                        installed: row.installed,
-                        observedAgentIds: row.agents,
-                      }),
+                agentOutcomes: isDesiredInventoryLifecycle(row.classification.lifecycle)
+                  ? configuredAgentLifecycleOutcomes({
+                      type: row.type,
+                      name: row.name,
+                      agentIds: configuredAgents,
+                      scope: row.scope,
+                      state: "current",
+                      targetState: row.enabled === false ? "disabled" : "enabled",
+                      installed: row.installed,
+                      observedAgentIds: row.agents,
+                    })
+                  : [],
               };
             });
             const items = withOutcomes.filter(
@@ -540,18 +581,7 @@ export const makeReadModelRecordReaders = (args: {
                     row.agentOutcomes.some((outcome) => outcome.agentId === agentId),
                 ),
             );
-            return {
-              items,
-              count: items.length,
-              configuredCount: items.filter(
-                (item) => item.classification.lifecycle === "configured",
-              ).length,
-              implicitCount: items.filter((item) => item.classification.lifecycle === "implicit")
-                .length,
-              installedCount: items.filter((item) => item.installed).length,
-              unmanagedCount: items.filter((item) => item.classification.lifecycle === "unmanaged")
-                .length,
-            };
+            return countExtensionInventory(items);
           };
 
           switch (type) {
@@ -562,6 +592,7 @@ export const makeReadModelRecordReaders = (args: {
               return finalizeInventory(
                 projectStandardInventory({
                   scope: scoped.scope,
+                  layout: scoped.layout,
                   type,
                   installed,
                   resolved: Option.getOrElse(resolved, () => []),
@@ -579,6 +610,7 @@ export const makeReadModelRecordReaders = (args: {
               return finalizeInventory(
                 projectStandardInventory({
                   scope: scoped.scope,
+                  layout: scoped.layout,
                   type,
                   installed,
                   resolved: Option.getOrElse(resolved, () => []),
@@ -596,6 +628,7 @@ export const makeReadModelRecordReaders = (args: {
               return finalizeInventory(
                 projectStandardInventory({
                   scope: scoped.scope,
+                  layout: scoped.layout,
                   type,
                   installed,
                   resolved: Option.getOrElse(resolved, () => []),
@@ -613,6 +646,7 @@ export const makeReadModelRecordReaders = (args: {
               return finalizeInventory(
                 projectStandardInventory({
                   scope: scoped.scope,
+                  layout: scoped.layout,
                   type,
                   installed,
                   resolved: Option.getOrElse(resolved, () => []),
@@ -630,6 +664,7 @@ export const makeReadModelRecordReaders = (args: {
               return finalizeInventory(
                 projectStandardInventory({
                   scope: scoped.scope,
+                  layout: scoped.layout,
                   type,
                   installed,
                   resolved: Option.getOrElse(resolved, () => []),
@@ -647,6 +682,7 @@ export const makeReadModelRecordReaders = (args: {
               return finalizeInventory(
                 projectStandardInventory({
                   scope: scoped.scope,
+                  layout: scoped.layout,
                   type,
                   installed,
                   resolved: Option.getOrElse(resolved, () => []),
@@ -664,6 +700,7 @@ export const makeReadModelRecordReaders = (args: {
               return finalizeInventory(
                 projectStandardInventory({
                   scope: scoped.scope,
+                  layout: scoped.layout,
                   type,
                   installed,
                   resolved: Option.getOrElse(resolved, () => []),
@@ -702,6 +739,11 @@ export const makeReadModelRecordReaders = (args: {
         implicitCount: inventories.reduce((total, inventory) => total + inventory.implicitCount, 0),
         installedCount: inventories.reduce(
           (total, inventory) => total + inventory.installedCount,
+          0,
+        ),
+        leftoverCount: inventories.reduce((total, inventory) => total + inventory.leftoverCount, 0),
+        undeclaredCount: inventories.reduce(
+          (total, inventory) => total + inventory.undeclaredCount,
           0,
         ),
         unmanagedCount: inventories.reduce(

@@ -6,9 +6,22 @@ import {
 } from "../../configured-agent-outcome.js";
 import type { ExtensionKey } from "../types.js";
 
+/**
+ * How desired state explains one detected extension.
+ *
+ * - `configured` — declared directly in workspace settings.
+ * - `implicit` — reached indirectly, such as through a desired Pack.
+ * - `leftover` — an installed package in the install root that desired state
+ *   no longer reaches.
+ * - `undeclared` — an authored package in its standard authoring folder with no
+ *   workspace declaration.
+ * - `unmanaged` — native agent content AXM does not own.
+ */
 export const ExtensionInventoryLifecycleSchema = Schema.Literals([
   "configured",
   "implicit",
+  "leftover",
+  "undeclared",
   "unmanaged",
 ]);
 
@@ -49,6 +62,8 @@ export const ExtensionInventorySchema = Schema.Struct({
   configuredCount: Schema.Number,
   implicitCount: Schema.Number,
   installedCount: Schema.Number,
+  leftoverCount: Schema.Number,
+  undeclaredCount: Schema.Number,
   unmanagedCount: Schema.Number,
 });
 
@@ -87,7 +102,31 @@ interface MutableInventoryAggregate {
 const lifecyclePriority: Readonly<Record<ExtensionInventoryLifecycle, number>> = {
   configured: 0,
   implicit: 1,
-  unmanaged: 2,
+  leftover: 2,
+  undeclared: 3,
+  unmanaged: 4,
+};
+
+/** Whether desired state reaches rows with this lifecycle. */
+export const isDesiredInventoryLifecycle = (lifecycle: ExtensionInventoryLifecycle): boolean =>
+  lifecycle === "configured" || lifecycle === "implicit";
+
+/** Aggregate counts for an inventory's already-filtered items. */
+export const countExtensionInventory = (
+  items: ReadonlyArray<ExtensionInventoryRow>,
+): ExtensionInventory => {
+  const withLifecycle = (lifecycle: ExtensionInventoryLifecycle): number =>
+    items.filter((item) => item.classification.lifecycle === lifecycle).length;
+  return {
+    items,
+    count: items.length,
+    configuredCount: withLifecycle("configured"),
+    implicitCount: withLifecycle("implicit"),
+    installedCount: items.filter((item) => item.installed).length,
+    leftoverCount: withLifecycle("leftover"),
+    undeclaredCount: withLifecycle("undeclared"),
+    unmanagedCount: withLifecycle("unmanaged"),
+  };
 };
 
 const keyString = (key: ExtensionKey): string => `${key.scope}:${key.type}:${key.name}`;
@@ -159,21 +198,7 @@ export const projectExtensionInventory = (
       paths: sorted(aggregate.paths),
     }));
 
-  const items = lifecycleRows.sort((left, right) => left.name.localeCompare(right.name));
-  const configuredCount = items.filter(
-    (item) => item.classification.lifecycle === "configured",
-  ).length;
-  const implicitCount = items.filter((item) => item.classification.lifecycle === "implicit").length;
-  const unmanagedCount = items.filter(
-    (item) => item.classification.lifecycle === "unmanaged",
-  ).length;
-
-  return {
-    items,
-    count: items.length,
-    configuredCount,
-    implicitCount,
-    installedCount: items.filter((item) => item.installed).length,
-    unmanagedCount,
-  };
+  return countExtensionInventory(
+    lifecycleRows.sort((left, right) => left.name.localeCompare(right.name)),
+  );
 };

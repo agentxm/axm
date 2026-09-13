@@ -368,3 +368,31 @@ describe("MCP projection", () => {
     });
   });
 });
+
+describe("stdio environment passthrough", () => {
+  const project = (env: Readonly<Record<string, string>>) =>
+    projectExpectedEntry({
+      serverName: "demo",
+      entry: { source: "inline", command: "server", env, enabled: true },
+      stdio: {
+        typeField: { required: null, accepted: [null] },
+        command: "split",
+        envKey: "env",
+        envVarsKey: "env_vars",
+      },
+      remote: null,
+      activationField: { required: null, accepted: [null] },
+      envExpansion: { variables: "none", defaults: false },
+    });
+  it("forwards same-name inputs alongside literal configuration", () => {
+    expect(project({ TOKEN: "${TOKEN}", REGION: "west" })).toMatchObject({
+      _tag: "projected",
+      entry: { env_vars: ["TOKEN"], env: { REGION: "west" } },
+    });
+  });
+  for (const value of ["${OTHER}", "prefix-${TOKEN}", "${TOKEN:-fallback}"]) {
+    it(`refuses unrepresentable input ${value}`, () => {
+      expect(project({ TOKEN: value })).toMatchObject({ _tag: "unsupported" });
+    });
+  }
+});

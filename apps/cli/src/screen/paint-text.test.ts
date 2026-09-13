@@ -109,7 +109,8 @@ const skillsList: Doc = [
     _tag: "table",
     columns: skillColumns,
     rows: skillRows,
-    caption: "3 skills (2 configured, 0 implicit, 2 installed, 1 unmanaged)",
+    caption:
+      "3 skills (2 configured, 0 implicit, 2 installed, 0 leftover, 0 undeclared, 1 unmanaged)",
   },
 ];
 
@@ -239,7 +240,7 @@ describe("paintText", () => {
       expect(header.indexOf("Activation")).toBe(firstRow.indexOf("enabled"));
       expect(header.indexOf("Agents")).toBe(firstRow.indexOf("claude-code, codex"));
       expect(lines).toEqual([
-        "3 skills (2 configured, 0 implicit, 2 installed, 1 unmanaged)",
+        "3 skills (2 configured, 0 implicit, 2 installed, 0 leftover, 0 undeclared, 1 unmanaged)",
         "  Name                        State       Activation   Type       Agents",
         "  @craigsmitham/effect-v4     installed   enabled      registry   claude-code, codex, cursor,",
         "                                                                  gemini-cli",

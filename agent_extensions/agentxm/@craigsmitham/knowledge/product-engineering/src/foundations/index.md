@@ -13,6 +13,7 @@ relationship between shared explanations and lifecycle guidance.
 | --- | --- |
 | Why does an offering matter, and where should we invest? | [Customer progress](#understand-customer-progress-behavior-and-models), [strategic choice](#understand-value-and-strategic-choice), and [business assumptions](#understand-assumptions-and-renewal) |
 | How do we explore experiences and make behavior coherent? | [Candidate experiences](#explore-candidate-experiences), [goals and models](#understand-customer-progress-behavior-and-models), and [architectural responsibility](#understand-architectural-responsibility) |
+| How is the service delivered, and which parts does the customer see? | [Service delivery and visibility](#understand-service-delivery-and-visibility) |
 | What can we commit to, and does the evidence still support it? | [Shaping and project commitment](#understand-shaping-and-project-commitment) |
 | Which measures inform decisions and service promises? | [Measures and service commitments](#understand-measures-and-service-commitments) |
 | What should we sustain, change, or stop? | [Assumptions and renewal](#understand-assumptions-and-renewal) and [the maintenance perspective](../maintenance/) |
@@ -52,6 +53,10 @@ alternative scopes and numerical exhibits remain explicit.
 ## Explore candidate experiences
 
 - [Bill Buxton's approach to design: sketching, alternatives, and experience](buxton-design.md) — How Bill Buxton connects experience, sketching, alternative concepts, and prototype evaluation, with an interpretation for choosing and revising product commitments.
+
+## Understand service delivery and visibility
+
+- [Service blueprinting: customer actions, visibility, and supporting processes](service-blueprinting.md) — How service blueprinting maps customer actions against onstage, backstage, and support activities separated by named lines of interaction, visibility, and internal interaction, and how that exposes touchpoints, fail points, and delivery responsibility.
 
 ## Understand architectural responsibility
 

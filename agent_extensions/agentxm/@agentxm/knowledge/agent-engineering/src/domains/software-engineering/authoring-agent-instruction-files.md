@@ -4,7 +4,7 @@ title: How to author agent instruction files
 description: How to create or revise a scoped agent instruction system such as AGENTS.md or CLAUDE.md without assuming one coding agent's loading or precedence behavior.
 tags: [agent-instructions, instruction-files, authoring, agents.md, claude.md, scope, progressive-disclosure]
 status: stable
-generated: { by: "codex/gpt-5.6", at: 2026-08-24T13:32:38Z }
+generated: { by: "codex/gpt-6", at: 2026-09-12T18:30:03Z }
 stale_after: 2027-02-24
 sources:
   - id: agent-instruction-files
@@ -123,18 +123,31 @@ the parent and retain only the difference locally. If the consuming harness
 does not support the intended scope, use an established conditional mechanism
 or keep the condition explicit in a broader source.
 
-## 7. Write actionable guidance
+## 7. Express outcomes and necessary constraints
 
-State what should change the agent's next action. Prefer concise condition,
-action, and target shapes:
+Prefer desired outcomes, invariants, and authority boundaries over prescribed
+steps. State when guidance applies and what observable state satisfies it; let
+the agent choose routine implementation details. “Use best practices” is not an
+observable outcome.
 
-- “Before changing migrations, read …”
-- “After modifying this package, run …”
-- “Do not edit generated output; change …”
+Specify a mechanism or sequence only when it is necessary for correctness,
+safety, authority, or repository integration. Preserve non-obvious requirements
+such as the system that owns configuration, a verification command that supplies
+required prerequisites, or backup-before-mutation ordering. Explain the reason
+briefly or link to its owner so the constraint can be distinguished from habit.
 
-Name exact commands, paths, or completion evidence when they are stable and
-non-obvious. Avoid topic-only labels, vague quality demands, unexplained
-preferences, and prose that requires the agent to infer when it matters.
+For each procedural detail, ask: **Does this protect a necessary constraint, or
+merely prescribe one way to achieve the outcome?** Remove incidental sequences;
+route reusable procedures to their existing owner. Preserve useful discovery
+conditions and paths rather than making the model rediscover local authority.
+
+For example, prefer “The infrastructure stack is authoritative; declared and
+live configuration must agree” to an inspection, editing, and dashboard-click
+sequence. Name a required tool when tool ownership is itself a constraint.
+Outcome-first guidance does not grant authority to bypass that owner.
+
+Validate the result by whether the outcome and constraints hold, accepting
+different compliant approaches rather than requiring one imagined trajectory.
 
 ## 8. Route depth to its owner
 

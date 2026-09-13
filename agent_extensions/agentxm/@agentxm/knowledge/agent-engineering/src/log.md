@@ -1,5 +1,21 @@
 # Agent engineering update log
 
+## 2026-09-12
+
+- **Outcome-oriented instructions**: Instruction authoring and audit guidance
+  now distinguishes desired outcomes and necessary constraints from incidental
+  procedure. Tool ownership, required verification, safety ordering, and useful
+  discovery remain valid constraints; compliant execution paths may differ.
+
+## 2026-09-08
+
+- **Name-based sibling resolution**: Required pack coupling now reaches a
+  sibling by extension identity or name through host or manager discovery
+  instead of a canonical same-pack path. Package paths stay inside the
+  extension, and portability treats any path into another extension as a
+  defect. The stale verification on `skills/agent-skills` was dropped because
+  the revision postdates it.
+
 ## 2026-08-26
 
 - **Generated-file boundaries**: Assigned runtime output, extension-root ignore

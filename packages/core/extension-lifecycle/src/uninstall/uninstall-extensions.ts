@@ -54,6 +54,7 @@ import {
 } from "../subagents/uninstall/plan.js";
 import type { InstallExecutionFailure, PrepareInstallRequirements } from "../install/vocabulary.js";
 import { resolveRootUninstallIntent } from "./root-intent.js";
+import { refuseUndesiredInstalledTarget, typedUninstallSubject } from "./undesired-target.js";
 
 // -----------------------------------------------------------------------------
 // Request
@@ -183,12 +184,25 @@ export const prepareUninstallExtensions: (
   PrepareUninstallRequirements
 > = Effect.fn("UninstallExtensions.prepare")(function* (request: UninstallExtensionsRequest) {
   const resolved = yield* Option.match(request.type, {
-    onSome: (type) => Effect.succeed({ type, selector: request.selector } as const),
+    onSome: (type) =>
+      Effect.succeed({
+        type,
+        selector: request.selector,
+        subject: typedUninstallSubject(type, request.selector),
+      }),
     onNone: () =>
       resolveRootUninstallIntent(request.selector).pipe(
-        Effect.map((intent) => ({ type: intent.type, selector: intent.name }) as const),
+        Effect.map((intent) => ({
+          type: intent.type,
+          selector: intent.name,
+          subject: { type: intent.type, name: intent.name, owner: intent.owner },
+        })),
       ),
   });
+  // An installed package no desired route reaches is sync's to reconcile, not
+  // intent this removal can withdraw.
+  if (resolved.type !== "pack" && resolved.subject !== undefined)
+    yield* refuseUndesiredInstalledTarget(resolved.subject);
   const planned = yield* planForType(resolved.type, resolved.selector);
   const proposal = yield* proposeDesiredState(
     planned.names.map((name) => ({ kind: "remove", type: resolved.type, name })),
@@ -249,13 +263,26 @@ export const prepareUninstallExtensions: (
       const steps = yield* Effect.forEach(job.steps, (step) =>
         Effect.gen(function* () {
           const artifact = artifactByName.get(step.label ?? "");
-          if (
-            artifact === undefined ||
-            step.readiness === "error" ||
-            leafType === undefined ||
-            ((artifact.targets?.length ?? 0) === 0 && (artifact.references?.length ?? 0) === 0)
-          )
+          if (artifact === undefined || step.readiness === "error" || leafType === undefined)
             return step;
+          if ((artifact.targets?.length ?? 0) === 0 && (artifact.references?.length ?? 0) === 0) {
+            // Nothing exists to withdraw: the planner's descriptive artifact
+            // would name paths that are neither present nor changed, so the
+            // step declares none, and a result that changed nothing reports
+            // the empty evidence instead.
+            const { artifact: _descriptive, ...withoutArtifact } = step;
+            return {
+              ...withoutArtifact,
+              run: step.run.pipe(
+                Effect.map((result) =>
+                  result.result === "success" &&
+                  (result.disposition === "unchanged" || result.artifact?.change === "unchanged")
+                    ? { ...result, artifact }
+                    : result,
+                ),
+              ),
+            };
+          }
           const cleanup = yield* collectCleanupStep({
             expectedSkillNames: activeNames("skill"),
             expectedSubagentNames: activeNames("subagent"),

@@ -6,15 +6,15 @@ tags: [effect, effect-v4, concurrency, fiber, supervision, interruption, shutdow
 status: stable
 sources:
   - id: effect-run-main
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/ai-docs/src/01_effect/06_running/10_run-main.ts
-    title: Effect 4.0.0-rc.112 scoped background work
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/01_effect/06_running/10_run-main.ts
+    title: Effect 4.0.0-rc.115 scoped background work
   - id: effect-fiberset
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/FiberSet.ts
-    title: Effect 4.0.0-rc.112 FiberSet source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/FiberSet.ts
+    title: Effect 4.0.0-rc.115 FiberSet source
   - id: applied-livestore
     resource: https://github.com/livestorejs/livestore/blob/c467b8439be89649e53c3ba76cca063537e030c2/packages/%40livestore/webmesh/src/worker/mod.ts
     title: LiveStore scoped worker fiber at c467b84
-generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
+generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
 ---
 
 # Structured concurrency
@@ -38,6 +38,6 @@ generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
 
 ## Resources
 
-- [Scoped background work](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/ai-docs/src/01_effect/06_running/10_run-main.ts)
-- [FiberSet source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/FiberSet.ts)
+- [Scoped background work](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/01_effect/06_running/10_run-main.ts)
+- [FiberSet source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/FiberSet.ts)
 - [Applied scoped worker in LiveStore](https://github.com/livestorejs/livestore/blob/c467b8439be89649e53c3ba76cca063537e030c2/packages/%40livestore/webmesh/src/worker/mod.ts)

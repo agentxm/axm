@@ -68,19 +68,20 @@ export const githubCopilotCliAgent = {
           "https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers",
           "https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference",
           "https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference",
+          "https://github.com/github/copilot-cli/issues/1232#issuecomment-4198097885",
         ],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
         transports: ["stdio", "http", "sse"],
         mcpEnvExpansion: {
-          variables: "none",
+          variables: "braced",
           defaults: false,
         },
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
+        lastVerified: "2026-09-12",
         writer: {
           config: {
             serversKey: "mcpServers",

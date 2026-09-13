@@ -603,7 +603,9 @@ const makeConstraintMismatchFixture = (
   };
 };
 
-describe("root sync handler", () => {
+// These integration cases run multiple real filesystem reconciliation passes.
+// Shared CI runners have exceeded the default five seconds in distinct cases.
+describe("root sync handler", { timeout: 15_000 }, () => {
   let tempDir: string;
   let originalCwd: string;
 

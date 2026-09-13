@@ -3,6 +3,8 @@ import { isTransientPublicationError, observePublication } from "./release-publi
 export type GitHubReleaseObservation = {
   readonly tagSha: string | null;
   readonly release: null | {
+    readonly id: number;
+    readonly targetCommitish: string;
     readonly draft: boolean;
     readonly prerelease: boolean;
     readonly url: string;
@@ -12,7 +14,7 @@ export type GitHubReleaseObservation = {
 export type GitHubReleaseHost = {
   readonly read: (signal: AbortSignal) => Promise<GitHubReleaseObservation>;
   readonly createDraft: (tagExists: boolean) => Promise<void>;
-  readonly publishDraft: () => Promise<void>;
+  readonly publishDraft: (releaseId: number) => Promise<void>;
 };
 
 const validateObservation = (
@@ -24,8 +26,13 @@ const validateObservation = (
       `Release tag integrity conflict: expected ${expectedSha}, observed ${observed.tagSha}.`,
     );
   }
-  if (observed.release !== null && observed.tagSha === null) {
-    throw new Error("GitHub Release exists without its release tag.");
+  if (observed.release !== null && observed.release.targetCommitish !== expectedSha) {
+    throw new Error(
+      `GitHub Release target integrity conflict: expected ${expectedSha}, observed ${observed.release.targetCommitish}.`,
+    );
+  }
+  if (observed.release?.draft === false && observed.tagSha === null) {
+    throw new Error("Published GitHub Release exists without its release tag.");
   }
   if (observed.release?.prerelease === true) {
     throw new Error("Stable AXM releases cannot be GitHub prereleases.");
@@ -88,7 +95,7 @@ export const publishExactDraftRelease = async (
 
   let submissionFailure: unknown;
   try {
-    await host.publishDraft();
+    await host.publishDraft(initial.release.id);
   } catch (error) {
     submissionFailure = error;
   }

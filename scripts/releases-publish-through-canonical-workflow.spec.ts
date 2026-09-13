@@ -103,6 +103,16 @@ describe("Canonical release workflow", () => {
         ),
       ).toBe(true);
       expect(workflow.jobs["release"]?.needs).toBe("source");
+      expect(workflow.jobs["release"]?.steps[0]?.with?.["ref"]).toBe(
+        "${{ needs.source.outputs.tooling_sha }}",
+      );
+      expect(
+        workflow.jobs["release"]?.steps.some(
+          (step) =>
+            step.run?.includes("axm:resolve-release-meta") === true &&
+            step.run.includes("needs.source.outputs.sha"),
+        ),
+      ).toBe(true);
     }),
   );
 

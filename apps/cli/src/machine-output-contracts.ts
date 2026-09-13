@@ -304,6 +304,8 @@ const inventoryFamily = defineResultFamily({
     "configuredCount",
     "implicitCount",
     "installedCount",
+    "leftoverCount",
+    "undeclaredCount",
     "unmanagedCount",
   ],
   scenarios: ["extensions present", "empty inventory", "mixed managed state"],

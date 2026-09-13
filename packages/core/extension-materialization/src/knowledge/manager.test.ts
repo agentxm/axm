@@ -223,6 +223,8 @@ describe("KnowledgeManager", () => {
                     configuredCount: 1,
                     implicitCount: 0,
                     installedCount: 1,
+                    leftoverCount: 0,
+                    undeclaredCount: 0,
                     unmanagedCount: 0,
                   }),
               },

@@ -154,7 +154,9 @@ const resolveInput = (
 };
 
 const substituteVariables = (value: string, values: Readonly<Record<string, string>>): string =>
-  value.replaceAll(/\{([^{}]+)\}/g, (match, key: string) => values[key] ?? match);
+  // Already-symbolic environment references belong to the native client.
+  // Expanding their inner braces would turn ${TOKEN} into $${TOKEN}.
+  value.replaceAll(/(?<!\$)\{([^{}]+)\}/g, (match, key: string) => values[key] ?? match);
 
 const materializeArgument = (
   argument: McpRegistryArgument,

@@ -56,6 +56,8 @@ const emptyInventory = (): Effect.Effect<ExtensionInventory, WorkspaceStateReadF
     configuredCount: 0,
     implicitCount: 0,
     installedCount: 0,
+    leftoverCount: 0,
+    undeclaredCount: 0,
     unmanagedCount: 0,
   });
 const fs = (() => {
@@ -154,6 +156,8 @@ export const readModelRecordStubs = {
       configuredCount: 0,
       implicitCount: 0,
       installedCount: 0,
+      leftoverCount: 0,
+      undeclaredCount: 0,
       unmanagedCount: 0,
     }),
   getExtensionInventory: emptyInventory,

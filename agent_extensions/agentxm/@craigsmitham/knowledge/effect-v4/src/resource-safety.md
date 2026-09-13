@@ -6,12 +6,12 @@ tags: [effect, effect-v4, scope, acquire-release, finalizer, resource]
 status: stable
 sources:
   - id: effect-acquire-release
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/ai-docs/src/01_effect/05_resources/10_acquire-release.ts
-    title: Effect 4.0.0-rc.112 acquire-release guide
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/01_effect/05_resources/10_acquire-release.ts
+    title: Effect 4.0.0-rc.115 acquire-release guide
   - id: effect-scope
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Scope.ts
-    title: Effect 4.0.0-rc.112 Scope source
-generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Scope.ts
+    title: Effect 4.0.0-rc.115 Scope source
+generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
 ---
 
 # Resource safety
@@ -36,5 +36,5 @@ generated: { by: codex/gpt-5.6, at: 2026-08-29T19:19:50Z }
 
 ## Resources
 
-- [Acquire-release guide](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/ai-docs/src/01_effect/05_resources/10_acquire-release.ts)
-- [Scope source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.112/packages/effect/src/Scope.ts)
+- [Acquire-release guide](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/01_effect/05_resources/10_acquire-release.ts)
+- [Scope source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Scope.ts)

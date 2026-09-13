@@ -12,13 +12,17 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import {
   resolveWorkspaceExtensionRef,
   type SkillEntry,
   type WorkspaceLayout,
 } from "@agentxm/workspace-state";
 import { AGENTS as CAPABILITY_AGENTS } from "@agentxm/extension-model/unstable/agent-capabilities";
-import type { PerAgentType } from "@agentxm/extension-model/unstable/extensions/common";
+import {
+  ExtensionNameSchema,
+  type PerAgentType,
+} from "@agentxm/extension-model/unstable/extensions/common";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { CodingAgentRepository } from "./agents/coding-agent-repository.js";
 import {
@@ -57,7 +61,10 @@ export interface ObserveAgentOutputsArgs {
   readonly desiredAgentIds: ReadonlySet<string>;
   readonly expectedNames: Readonly<Record<PerAgentType, ReadonlySet<string>>>;
   readonly skillOwnershipRoots: ReadonlyArray<string>;
-  /** Local declarations, including disabled skills; independent of graph resolution. */
+  /**
+   * The layout whose skill authoring folder holds authored packages, and local
+   * declarations (including disabled skills) that mark bundled entries.
+   */
   readonly authoredSkills: {
     readonly layout: WorkspaceLayout;
     readonly entries: Readonly<Record<string, SkillEntry>>;
@@ -94,7 +101,10 @@ const containerIsDesired = (
   desiredAgentIds: ReadonlySet<string>,
 ): boolean => claimantAgentIds.some((agentId) => desiredAgentIds.has(agentId));
 
-/** A declared source package is not an agent output eligible for retirement. */
+/**
+ * A valid authored package — declared or not — is authored source, never an
+ * agent output eligible for retirement or an unowned footprint.
+ */
 const isAuthoredSkillPackage = (
   args: ObserveAgentOutputsArgs["authoredSkills"],
   artifactPath: string,
@@ -102,20 +112,19 @@ const isAuthoredSkillPackage = (
 ) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const entry = args.entries[name];
     if (
       args.layout.scope !== "project" ||
-      entry?.source !== "workspace" ||
-      entry.origin === "bundled" ||
+      args.entries[name]?.origin === "bundled" ||
+      !Schema.is(ExtensionNameSchema)(name) ||
       artifactPath !== path.join(args.layout.authoredRoot("skill"), name)
     )
       return false;
 
-    // Failed validation supplies no exclusion: the output remains visible to
+    // Failed validation supplies no exclusion: a lookalike remains visible to
     // ownership diagnostics and the package's own canonical-content diagnostics.
     const source = yield* resolveWorkspaceExtensionRef({
       settingsName: name,
-      source: entry.source,
+      source: "workspace",
       expectedType: "skill",
       layout: args.layout,
       scope: args.layout.scope,

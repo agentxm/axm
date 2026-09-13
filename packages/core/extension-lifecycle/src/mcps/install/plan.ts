@@ -10,11 +10,15 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
-import { installMcpServer } from "@agentxm/workspace-reconciliation";
+import { installMcpServer, readMcpServerManifest } from "@agentxm/workspace-reconciliation";
+import { materializeRegistryPackage } from "@agentxm/extension-materialization";
+import { validateManifestMcpServerTargets } from "@agentxm/agent-integration";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
   type ConfigurableAgentId,
@@ -31,7 +35,7 @@ import { SourceHostProviders, resolveSource } from "@agentxm/extension-sources";
 import { operationPresentation, type Plan } from "@agentxm/workspace-operations";
 import { WorkspaceMutations, mcpRegistryResolutionKey } from "@agentxm/workspace-state";
 
-import type { ExtensionLifecycleFailed } from "../../errors.js";
+import { ExtensionLifecycleFailed } from "../../errors.js";
 import { lifecycleStepFailure } from "../../step-failure.js";
 import { registryLoginSuggestions } from "../../install/registry-login-suggestion.js";
 import { parseRegistryInstallTarget } from "../../install/registry-install-target.js";
@@ -416,6 +420,71 @@ export const planMcpServerInstall: (
       });
     }
   }
+
+  yield* Effect.scoped(
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const ref = intent.ref;
+      // Inspect verified package bytes outside the workspace. A fresh install
+      // has no canonical manifest for the usual projection inspection to read.
+      const manifestPath =
+        ref.refType === "registry"
+          ? yield* Effect.gen(function* () {
+              const scratch = yield* fs.makeTempDirectoryScoped({ prefix: "axm-mcp-preflight-" });
+              return yield* materializeRegistryPackage({
+                baseDir: scratch,
+                destinationPath: path.join(scratch, "package"),
+                sourceLocation: ref.source.location,
+                owner: ref.owner,
+                type: "mcp-server",
+                name: ref.name,
+                version: ref.version,
+                integrity: ref.integrity,
+                messages: {
+                  integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,
+                },
+              });
+            })
+          : ref.location;
+      const manifest = yield* readMcpServerManifest(manifestPath);
+      if (Option.isNone(manifest)) {
+        return yield* installRefused({
+          category: "validation",
+          detail: `Cannot read MCP manifest for ${intent.localName}`,
+        });
+      }
+      const entries = yield* ws.getConfiguredMcpServerEntries();
+      yield* validateManifestMcpServerTargets({
+        manifest: manifest.value,
+        agentIds: yield* ws.getConfiguredAgents(),
+        scope: ws.scope,
+        serverName: intent.localName,
+        values: { ...entries[intent.localName]?.env, ...intent.env },
+        enabled: entries[intent.localName]?.enabled ?? true,
+      }).pipe(
+        Effect.mapError((cause) =>
+          installRefused({
+            category: "conflict",
+            detail: cause.reason,
+            recover:
+              "Use an MCP package whose transport and symbolic inputs are supported by every configured reader of the shared target.",
+            cause,
+          }),
+        ),
+      );
+    }),
+  ).pipe(
+    Effect.mapError((cause) =>
+      cause instanceof ExtensionLifecycleFailed
+        ? cause
+        : installRefused({
+            category: "validation",
+            detail: `Cannot inspect MCP package ${intent.localName}`,
+            cause,
+          }),
+    ),
+  );
 
   return {
     _tag: "Plan",

@@ -21,13 +21,13 @@ import {
   type LifecycleFixture,
   type LifecycleRegistry,
 } from "../testing.js";
-import { applyInstall, installRequest, previewInstall } from "./test-helpers.js";
+import { applyInstall, installRequest, previewInstall, makeInstallWorld } from "./test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/install/preview-is-pure",
   title: "Install preview describes the plan without changing any state",
   statement:
-    "When an install of any extension type runs in preview mode, it shall not change settings, the lockfile, canonical content, or agent projections; when the request passes the applicable checks and requires workspace changes, it shall report the planned closure with a previewed outcome, including any publisher change the acceptance would make; and when the requested source cannot be resolved, it shall report the problem and still change nothing.",
+    "When an install of any extension type runs in preview mode, it shall not change settings, the lockfile, canonical content, or agent projections; when the request passes the applicable checks and requires workspace changes, it shall report the planned closure with a previewed outcome, including any publisher change the acceptance would make; and when the requested source cannot be resolved or configured readers require incompatible representations of a shared native target, it shall report the problem and still change nothing.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
@@ -256,6 +256,65 @@ describe("Install preview purity", () => {
             );
             expect(workspace.snapshot()).toEqual(before);
             expect(workspace.interactionState().confirmApplyChangesCalls).toEqual([]);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
+});
+
+describe("shared MCP target admission", () => {
+  const cleanups: Array<() => void> = [];
+  afterEach(() => {
+    for (const cleanup of cleanups.splice(0)) cleanup();
+  });
+  it.effect(
+    "refuses an incompatible shared environment dialect before preview or apply writes",
+    () => {
+      const world = makeInstallWorld({
+        settings: { agents: ["claude-code", "github-copilot-cli", "codex"] },
+      });
+      cleanups.push(world.cleanup);
+      world.registry.writeMcp("context", [
+        {
+          version: "1.0.0",
+          files: {
+            "mcp.json": JSON.stringify({
+              owner: "@acme",
+              type: "mcp-server",
+              name: "context",
+              version: "1.0.0",
+              server: {
+                name: "ai.acme/context",
+                version: "1.0.0",
+                description: "Context",
+                packages: [
+                  {
+                    registryType: "npm",
+                    identifier: "@acme/context",
+                    version: "1.0.0",
+                    transport: { type: "stdio" },
+                    environmentVariables: [{ name: "REGION", value: "${REGION:-west}" }],
+                  },
+                ],
+              },
+            }),
+          },
+        },
+      ]);
+      const request = installRequest({
+        type: "mcp-server",
+        subject: { kind: "source", source: "@acme/mcps/context" },
+      });
+      return world.workspace
+        .provide(
+          Effect.gen(function* () {
+            const before = world.workspace.snapshot();
+            for (const execute of [previewInstall, applyInstall]) {
+              const result = yield* Effect.result(execute(request));
+              expect(result).toMatchObject({ _tag: "Failure", failure: { category: "conflict" } });
+              expect(world.workspace.snapshot()).toEqual(before);
+            }
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));

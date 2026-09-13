@@ -1,0 +1,35 @@
+{
+  "$schema": "../../../node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "plugins": [],
+  "coverageAnalysis": "off",
+  "commandRunner": {
+    "command": "pnpm exec nx run extension-lifecycle:test:policy"
+  },
+  "ignorePatterns": [
+    "/.agents",
+    "/.claude",
+    "/.codex",
+    "/.axm",
+    "/.nx",
+    "/agent_extensions",
+    "/test-results",
+    "**/dist",
+    "**/build"
+  ],
+  "mutate": [
+    "packages/core/extension-lifecycle/src/skills/domain/**/*.ts",
+    "packages/core/extension-lifecycle/src/subagents/domain/**/*.ts",
+    "!**/*.test.ts",
+    "!**/*.spec.ts"
+  ],
+  "concurrency": 1,
+  "thresholds": { "high": 100, "low": 100, "break": 100 },
+  "reporters": ["clear-text", "json", "html"],
+  "jsonReporter": {
+    "fileName": "test-results/policy-quality/mutation/mutation.json"
+  },
+  "htmlReporter": {
+    "fileName": "test-results/policy-quality/mutation/index.html"
+  },
+  "tempDirName": "test-results/policy-quality/sandbox"
+}

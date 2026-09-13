@@ -29,7 +29,7 @@ instructions and contributor guides route here instead of copying this binding.
 | Resolved contract  | Nx configuration after plugins, target defaults, project configuration, and package scripts are combined |
 | Workflow surface   | Root `package.json` scripts invoked with `pnpm run`                                                      |
 | Bootstrap boundary | The toolchain pinned by `mise.toml` and dependencies explicitly installed by pnpm                        |
-| Host adapter       | CI, release, container, Git, and external-workspace launchers whose state Nx cannot model faithfully     |
+| Host adapter       | CI, release, Git, and external-workspace launchers whose state Nx cannot model faithfully                |
 | Diagnostic path    | Direct underlying-CLI invocation used for investigation, not equivalent repository evidence              |
 
 Invoke a unit of work as `pnpm exec nx run <project>:<target>`. Invoke a
@@ -51,7 +51,6 @@ nor links a missing build output. Use the source-CLI launchers for repository
 work. Release publication still owns the build and ships the same compiled
 entry point.
 
-- Container workflows additionally require Docker.
 - Release publication runs in GitHub Actions with repository credentials and
   platform-specific tool setup.
 - Windows verification uses the explicit `test-windows`, `e2e-windows`, and
@@ -262,7 +261,7 @@ flag only to the final stage.
 
 GitHub Actions may restore the repository's lockfile- and revision-scoped Nx
 cache. A restored entry is trusted only as a deterministic result for its Nx
-hash. Package-store and container-layer caches supply dependencies, not task
+hash. Package-store caches supply dependencies, not task
 verdicts.
 
 When task-level timing is needed for a diagnosed question, set Nx's native
@@ -280,8 +279,7 @@ launchers, and host adapters. These boundaries are intentional:
 | Boundary                                                              | Reason                                                                                                                          |
 | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `axm` and `axm:local`                                                 | Launch the source CLI, optionally against an external workspace                                                                 |
-| `container:*`                                                         | Create the environment in which the task graph can run                                                                          |
-| `classify:ci` and `check:ci-image`                                    | Run before workspace dependencies exist; their host jobs lower `verifyDepsBeforeRun` to `warn` only for these source-only tasks |
+| `classify:ci`                                                         | Run before workspace dependencies exist; their host jobs lower `verifyDepsBeforeRun` to `warn` only for these source-only tasks |
 | `test:spec`, `verify:artifact`, `verify:release`, `verify:deployment` | Resolve an exact subject, then invoke the target that owns the evidence                                                         |
 | `*:report` through `scripts/with-allure-report.sh`                    | Generate evidence even when the preceding gate fails; an Nx dependent would be skipped                                          |
 | `lint-staged`                                                         | Operate on the Git index, which Nx affected selection does not represent                                                        |
@@ -319,7 +317,7 @@ artifacts; installed and published consumers retain the artifact boundary.
 
 ## Enforcement
 
-`check:ci-image` verifies the pre-install and container contracts. Repository
+`check:ci-toolchain` verifies toolchain pins and verification contracts. Repository
 tooling tests verify hooks, release helpers, source hygiene, the source export
 invariant, explicit dependency preparation, and selected caller relationships.
 The uncached `axm:source-cli-smoke` target runs before builds in `verify:clean`,

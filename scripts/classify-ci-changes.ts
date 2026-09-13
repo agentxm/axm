@@ -6,7 +6,6 @@ export interface CiChangeClassification {
   readonly code: boolean;
   readonly documentation: boolean;
   readonly formatRequired: boolean;
-  readonly image: boolean;
   readonly releaseInfrastructure: boolean;
   readonly workflow: boolean;
 }
@@ -46,12 +45,6 @@ const isWorkspaceSourcePath = (path: string) =>
 const isDocumentationOnlyPath = (path: string) =>
   isDocumentationPath(path) && !isWorkspaceSourcePath(path);
 
-const isImagePath = (path: string) =>
-  path.startsWith("containers/ci/") ||
-  path === "scripts/check-ci-image.mjs" ||
-  path === ".github/workflows/ci-image.yml" ||
-  path === ".github/workflows/ci-image-publish.yml";
-
 const isReleaseInfrastructurePath = (path: string) =>
   path.startsWith("infra/") ||
   path.startsWith("scripts/release-") ||
@@ -63,13 +56,10 @@ const isReleaseInfrastructurePath = (path: string) =>
   path === "project.json";
 
 export const selectCodeVerificationPaths = (paths: readonly string[]) =>
-  paths.filter(
-    (path) => !isDocumentationOnlyPath(path) && !path.startsWith(".github/") && !isImagePath(path),
-  );
+  paths.filter((path) => !isDocumentationOnlyPath(path) && !path.startsWith(".github/"));
 
 export const classifyCiChanges = (paths: readonly string[]): CiChangeClassification => {
   const documentation = paths.some(isDocumentationPath);
-  const image = paths.some(isImagePath);
   const workflow = paths.some((path) => path.startsWith(".github/"));
   const releaseInfrastructure = paths.some(isReleaseInfrastructurePath);
   const codeVerificationPaths = selectCodeVerificationPaths(paths);
@@ -78,7 +68,6 @@ export const classifyCiChanges = (paths: readonly string[]): CiChangeClassificat
     code: codeVerificationPaths.length > 0 || releaseInfrastructure,
     documentation,
     formatRequired: true,
-    image,
     releaseInfrastructure,
     workflow,
   };
@@ -108,7 +97,6 @@ const writeGitHubOutputs = (classification: CiChangeClassification) => {
       `code=${classification.code}`,
       `documentation=${classification.documentation}`,
       `format_required=${classification.formatRequired}`,
-      `image=${classification.image}`,
       `release_infrastructure=${classification.releaseInfrastructure}`,
       `workflow=${classification.workflow}`,
       "",

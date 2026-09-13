@@ -452,7 +452,7 @@ jobs:
       # Because the composite cannot be used here, this job is the one place
       # that duplicates mise.toml's toolchain versions. They are not
       # independent pins: they must be kept in step with mise.toml, and
-      # `pnpm run check:ci-image` (scripts/check-ci-image.mjs) fails the build
+      # `pnpm run check:ci-toolchain` (scripts/check-ci-toolchain.mjs) fails the build
       # if they drift.
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -573,7 +573,7 @@ jobs:
 
       # The Windows leg needs the same Corepack setup as installer verification:
       # setup-workspace's mise-provisioned pnpm is not available as pnpm.cmd.
-      # Keep these pins aligned with mise.toml through check:ci-image.
+      # Keep these pins aligned with mise.toml through check:ci-toolchain.
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:

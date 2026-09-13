@@ -1,3 +1,22 @@
+## 0.30.2 (2026-09-13)
+
+### 🚀 Features
+
+- Own package and script self-update execution, verification, and recovery through capability ports. ([#304](https://github.com/agentxm/axm/pull/304))
+- Add a read-only AXM skill doctor mode with an actionable cleanup report, diagnose user and project scopes together in lint, classify leftover and undeclared workspace content, and resolve replacements named in deprecation notes. ([#305](https://github.com/agentxm/axm/pull/305))
+- Separate read-only upgrade assessment from installer execution ([#311](https://github.com/agentxm/axm/pull/311))
+
+### 🩹 Fixes
+
+- Fix shared MCP credential references, preflight conflicts, and failed-install rollback. ([#300](https://github.com/agentxm/axm/pull/300))
+- Preserve Effect service and failure contracts in CLI test fixtures. ([#328](https://github.com/agentxm/axm/pull/328))
+- Declare authorization exchange server failures and preserve bounded polling retries through the generated Registry client ([#326](https://github.com/agentxm/axm/pull/326))
+
+### ❤️ Thank You
+
+- Claude Opus 5 (1M context)
+- Craig Smitham
+
 ## 0.30.1 (2026-09-12)
 
 ### 🚀 Features

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { readGitHubReleaseByTag } from "./release-github-release-api.js";
+import {
+  decodeGitHubReleaseAssetView,
+  readGitHubReleaseByTag,
+} from "./release-github-release-api.js";
 
 const release = (tag: string, draft = false) => ({
   id: 123,
@@ -63,5 +66,21 @@ describe("GitHub Release API readback", () => {
         readPage: async () => [release("cli-v1.2.2")],
       }),
     ).resolves.toBeNull();
+  });
+});
+
+describe("GitHub Release asset readback", () => {
+  it("decodes the exact target and asset names returned by gh release view", () => {
+    expect(
+      decodeGitHubReleaseAssetView(
+        JSON.stringify({
+          targetCommitish: "a".repeat(40),
+          assets: [{ name: "axm-linux-x64" }, { name: "checksums.txt" }],
+        }),
+      ),
+    ).toEqual({
+      targetCommitish: "a".repeat(40),
+      assets: [{ name: "axm-linux-x64" }, { name: "checksums.txt" }],
+    });
   });
 });

@@ -11,7 +11,6 @@ on:
         type: string
 
 permissions:
-  actions: write
   contents: write
   pull-requests: write
 
@@ -146,14 +145,6 @@ jobs:
           url="$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$BRANCH" --title "release: ${TAG}" --body-file "$body_file")"
           echo "url=${url}" >> "$GITHUB_OUTPUT"
 
-      - name: Dispatch Required CI for candidate commit
-        env:
-          BRANCH: ${{ steps.candidate.outputs.branch }}
-          GH_TOKEN: ${{ github.token }}
-        run: >-
-          gh workflow run ci.yml --repo "$GITHUB_REPOSITORY"
-          --ref "$BRANCH"
-
       - name: Report preparation result
         if: always()
         env:
@@ -175,4 +166,5 @@ jobs:
             echo "| Pull request | ${PULL_REQUEST_URL:-not opened} |"
             echo
             echo "A pushed branch is a recoverable outcome; inspect it before retrying a failed run."
+            echo "After reviewing the prepared commit, approve its pull-request workflow in GitHub to start Required CI."
           } >> "$GITHUB_STEP_SUMMARY"

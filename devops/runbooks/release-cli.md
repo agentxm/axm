@@ -125,14 +125,20 @@ state in the [specification catalog](../../specifications/catalog.md).
    and regenerates the bundled skill, and previews the exact candidate against
    the production Registry. The workflow commits and pushes
    `release/cli-v{VERSION}`, opens the release pull request, records source and
-   candidate provenance in its summary, and explicitly dispatches CI for the
-   candidate commit. That dispatch is part of the contract: branch and pull
-   request events created with the workflow token do not recursively start CI.
-   No preparation step publishes a package, release, skill, or channel.
+   candidate provenance in its summary. GitHub creates the candidate's PR
+   workflow in an approval-required state. No preparation step publishes a
+   package, release, skill, or channel.
 
-3. Wait for pull request CI, then enqueue the accepted release pull request.
-   Keep its generated title exactly `release: cli-v{VERSION}` and bind the
-   command to the accepted source commit.
+3. Review the prepared commit, then approve its PR workflow using GitHub's
+   **Approve workflows to run** control or the workflow-run approval API.
+   Verify that the run belongs to the exact prepared commit before approving.
+   This uses the maintainer's existing release authority and repository write
+   access. [GitHub's token behavior](https://docs.github.com/en/actions/concepts/security/github_token)
+   explains the approval requirement for bot-created PRs.
+
+   Wait for that PR's Required CI, then enqueue the accepted release pull
+   request. Keep its generated title exactly `release: cli-v{VERSION}` and bind
+   the command to the accepted source commit.
 
    ```bash
    gh pr merge <number> --repo agentxm/axm --auto --squash \
@@ -309,8 +315,9 @@ refuses a stale source revision or a preview tag that has already advanced.
   outcome; do not delete shared remote state as rollback or blindly retry over
   it.
 - Preparation requires the `AXM_REGISTRY_TOKEN` repository secret. Candidate
-  branch, pull-request, and CI-dispatch authority comes from the job-scoped
-  workflow token; no separate personal token is used.
+  branch and pull-request authority comes from the job-scoped workflow token.
+  A maintainer approves the prepared PR workflow using their existing GitHub
+  access; preparation needs no additional credential or Actions write permission.
 - Homebrew automation requires the `HOMEBREW_TAP_TOKEN` repository secret in
   `agentxm/axm`.
 - Stable-channel promotion requires `AXM_RELEASE_CONTROL_TOKEN`,

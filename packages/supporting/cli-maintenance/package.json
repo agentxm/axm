@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/cli-maintenance",
   "version": "0.30.1",
-  "description": "CLI maintenance policies and application contracts for self-update and compatibility between the running AXM CLI and its official skill. Unstable and unsupported — use the axm.sh CLI.",
+  "description": "CLI maintenance policies and application contracts for self-update and compatibility between the running AXM CLI and its official skill. Unstable and unsupported \u2014 use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
@@ -65,6 +65,21 @@
       "types": "./dist/src/self-update/adapters/cli/index.d.ts",
       "axm-source": "./src/self-update/adapters/cli/index.ts",
       "default": "./dist/src/self-update/adapters/cli/index.js"
+    },
+    "./self-update/adapters/native": {
+      "types": "./dist/src/self-update/adapters/native/index.d.ts",
+      "axm-source": "./src/self-update/adapters/native/index.ts",
+      "default": "./dist/src/self-update/adapters/native/index.js"
+    },
+    "./self-update/composition/native": {
+      "types": "./dist/src/self-update/composition/native/index.d.ts",
+      "axm-source": "./src/self-update/composition/native/index.ts",
+      "default": "./dist/src/self-update/composition/native/index.js"
+    },
+    "./self-update/testing/native": {
+      "types": "./dist/src/self-update/adapters/native/testing.d.ts",
+      "axm-source": "./src/self-update/adapters/native/testing.ts",
+      "default": "./dist/src/self-update/adapters/native/testing.js"
     }
   },
   "files": [
@@ -92,6 +107,7 @@
     "@fast-check/vitest": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:",
-    "@agentxm/specification-metadata": "workspace:^"
+    "@agentxm/specification-metadata": "workspace:^",
+    "@effect/platform-node": "catalog:"
   }
 }

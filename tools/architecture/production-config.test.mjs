@@ -134,6 +134,22 @@ test("self-update policy cannot acquire installation facts from the filesystem",
   assert.ok(result.messages.some(({ ruleId }) => ruleId === "boundaries/dependencies"));
 });
 
+for (const role of ["domain", "application"]) {
+  test(`self-update ${role} cannot select a native adapter after package consolidation`, async () => {
+    const [result] = await eslint.lintText(
+      'import { InstallMeta } from "../adapters/native/index.js"; export const storage = InstallMeta;',
+      {
+        filePath: `packages/supporting/cli-maintenance/src/self-update/${role}/index.ts`,
+      },
+    );
+    assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages));
+    assert.ok(
+      result.messages.some(({ ruleId }) => ruleId === "boundaries/dependencies"),
+      JSON.stringify(result.messages),
+    );
+  });
+}
+
 test("backstage compatibility policy cannot depend on the frontstage upgrade decision", async () => {
   const [result] = await eslint.lintText(
     'export { decideUpgrade } from "../../self-update/domain/index.js";',

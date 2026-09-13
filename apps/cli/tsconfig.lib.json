@@ -88,9 +88,6 @@
       "path": "../../packages/core/extension-authoring/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/core/cli-update/tsconfig.lib.json"
-    },
-    {
       "path": "../../packages/supporting/agent-integration/tsconfig.lib.json"
     },
     {

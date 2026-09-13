@@ -1,3 +1,5 @@
+import { UpdateCheckCacheLive } from "./cli-runtime/update-cache.js";
+import { CliUpgradeObservationLive } from "./cli-runtime/upgrade-observation.js";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as HttpClient from "effect/unstable/http/HttpClient";
@@ -100,12 +102,10 @@ import {
   UpgradePreparationLive,
   PackageInstallationLive,
   ScriptInstallationLive,
-  CliUpgradeObservationLive,
   InstallMetaLive,
   InstallMethodLive,
   SubprocessLive,
-  UpdateCheckCacheLive,
-} from "@agentxm/cli-update/live";
+} from "@agentxm/cli-maintenance/self-update/composition/native";
 import { StableChannelCheckLive } from "@agentxm/cli-maintenance/self-update/composition";
 
 import { loadVersion } from "./version.js";

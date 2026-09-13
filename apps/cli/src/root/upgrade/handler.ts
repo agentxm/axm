@@ -15,7 +15,7 @@ import {
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
-import { HOMEBREW_FORMULA } from "@agentxm/cli-update";
+import { HOMEBREW_FORMULA } from "@agentxm/cli-maintenance/self-update/adapters/native";
 import {
   toUpgradeAssessment,
   UpgradeAssessmentResultSchema,

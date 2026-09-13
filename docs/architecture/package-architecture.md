@@ -62,8 +62,8 @@ capability and among the most distinctive code in the repository.
 
 ## Core packages
 
-`packages/core/` — twenty packages, all `domain:core`, all shipped in the
-fixed `release:cli` cohort.
+`packages/core/` contains the `domain:core` packages in the fixed `release:cli`
+cohort.
 
 ### Contracts
 
@@ -126,7 +126,6 @@ packages pending their application/adapter separation.
 | `@agentxm/extension-resolution`      | `role:capability` | What a configured or requested extension resolves to and whether that resolution may be accepted: release-age policy and evidence, version selection, configured-entry and Pack dependency resolution, workspace source authority, publisher-binding trust, and candidate inspection |
 | `@agentxm/extension-materialization` | `role:capability` | Type-specific canonical acquisition, inspection, staging, replacement, removal, and projection participation; managers return facts without writing desired declarations                                                                                                             |
 | `@agentxm/workspace-reconciliation`  | `role:capability` | Proposed desired state, shared lifecycle recipes, accepted-state realization, reachability-based retirement, native cleanup, semantic closure planning, and retained-state reporting                                                                                                 |
-| `@agentxm/cli-update`                | `role:capability` | Native installation inspection and verified executable replacement; CLI maintenance owns release selection, startup-update policy, settlement contracts, and the CLI assessment adapter                                                                                              |
 
 `extension-content` is a leaf. It reads the model and nothing else, which is
 why integrations and supporting packages may consume it by name without pulling
@@ -183,6 +182,15 @@ selection, and the immutable candidate used for preview and application.
 Stable-channel/GitHub access and CLI observation are separately composed
 adapters. Startup checking also belongs to the application; its cache and
 release-origin adapters supply facts without owning eligibility policy.
+
+Native host adapters live in `self-update/adapters/native`, with concrete
+Layers under `self-update/composition/native`. Their package, build, and release
+boundary is CLI maintenance; source rules still separate domain, application,
+adapters, and composition. The separate native-update package is removed.
+The CLI owns progress observation, operation-lifecycle experience tests, and
+selection of the user's cache path. Native fixtures can exercise installation
+without those delivery services. This consolidation removes a package and Nx
+project after moving their consumer-specific responsibilities to the CLI.
 
 The application owns `UpgradeSettlement`: installation, availability, mutation,
 verification, and recovery facts. The CLI adapter under

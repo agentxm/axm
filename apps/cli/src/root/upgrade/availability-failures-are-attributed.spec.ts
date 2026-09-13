@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import type { CommandResult } from "@agentxm/cli-update";
+import type { CommandResult } from "@agentxm/cli-maintenance/self-update/adapters/native";
 
 import {
   LOCAL_VERSION,

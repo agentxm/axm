@@ -14,8 +14,8 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { rememberStableChannel } from "@agentxm/cli-maintenance/self-update/application";
 import { StableChannelCheckLive } from "@agentxm/cli-maintenance/self-update/composition";
 import { stableChannelDocument } from "@agentxm/cli-maintenance/self-update/testing";
-import { UpdateCheckCacheLive } from "@agentxm/cli-update/live";
-import { snapshotDirectory } from "@agentxm/cli-update/testing";
+import { UpdateCheckCacheLive } from "./cli-runtime/update-cache.js";
+import { snapshotDirectory } from "@agentxm/cli-maintenance/self-update/testing/native";
 import { TestRenderer } from "./test-support/presenter-test.js";
 import { withUpdateCheck } from "./update-check-startup.js";
 

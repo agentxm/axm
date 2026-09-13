@@ -4,7 +4,7 @@
  * The specification lives in
  * `apps/cli-e2e/src/environment-relocates-user-resources.spec.ts` and states the
  * rule over the built CLI. This example composes `@agentxm/registry-auth/live`
- * and `@agentxm/cli-update/live` directly, which an end-to-end project may not
+ * and `@agentxm/cli-maintenance/self-update/composition/native` directly, which an end-to-end project may not
  * do (`system/architecture/e2e-observes-only-shipped-artifacts`), so it runs
  * here beside the composition root that selects those homes. Every assertion it
  * carried in the specification runs unchanged.
@@ -25,8 +25,8 @@ import { vi } from "vitest";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { CredentialStore, PendingDeviceLoginStore } from "@agentxm/registry-auth";
 import { CredentialStoreLive, PendingDeviceLoginStoreLive } from "@agentxm/registry-auth/live";
-import { InstallMeta } from "@agentxm/cli-update";
-import { InstallMetaLive } from "@agentxm/cli-update/live";
+import { InstallMeta } from "@agentxm/cli-maintenance/self-update/adapters/native";
+import { InstallMetaLive } from "@agentxm/cli-maintenance/self-update/composition/native";
 
 import { makeApplicationHomeFixture } from "./test-support/application-home-fixture.js";
 import { snapshotWorkspaceContent } from "./test-support/workspace-fixtures.js";

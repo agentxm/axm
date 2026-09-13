@@ -3,7 +3,7 @@
   "owner": "@agentxm",
   "type": "skill",
   "name": "audit-agent-instructions",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Audits effective repository agent instruction systems against context-engineering guidance and can verify explicitly authorized remediation",
   "keywords": [
     "agents.md",

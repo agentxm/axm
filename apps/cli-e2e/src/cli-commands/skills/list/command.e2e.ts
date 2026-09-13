@@ -48,6 +48,8 @@ describe("axm skills list", () => {
           configuredCount: 0,
           implicitCount: 0,
           installedCount: 1,
+          leftoverCount: 0,
+          undeclaredCount: 0,
           unmanagedCount: 1,
           items: [
             {

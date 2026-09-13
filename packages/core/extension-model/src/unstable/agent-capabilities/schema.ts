@@ -887,6 +887,8 @@ export const McpStdioDialectSchema = Schema.Struct({
   typeField: McpTypeFieldSchema,
   command: Schema.Literals(["split", "array"]),
   envKey: Schema.NullOr(Schema.NonEmptyString),
+  /** Native allowlist for forwarding same-name environment variables. */
+  envVarsKey: Schema.optional(Schema.NonEmptyString),
 }).annotate({
   identifier: "McpStdioDialect",
   title: "MCP Stdio Dialect",

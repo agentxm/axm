@@ -356,10 +356,12 @@ could eliminate copying while still supporting shared understanding.
 
 A **journey map** usually follows a person's experience across encounters and
 touchpoints. A **process map** can describe the activities, decisions, and
-handoffs through which work occurs. Those maps can reveal friction in an
-existing or proposed arrangement. The defining commitment of a JTBD job map is
-to represent accomplishment independently of that arrangement. Names alone do
-not settle the distinction; examine what the boxes describe.
+handoffs through which work occurs. A
+[**service blueprint**](service-blueprinting.md) adds the visible and invisible
+organizational activity delivering those touchpoints. Those maps can reveal
+friction in an existing or proposed arrangement. The defining commitment of a
+JTBD job map is to represent accomplishment independently of that arrangement.
+Names alone do not settle the distinction; examine what the boxes describe.
 
 ### Desired outcomes and success criteria
 

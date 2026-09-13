@@ -390,6 +390,7 @@
           "parameters": ["argument:extension"],
           "requirements": [
             "cli/adopt/moves-package-into-workspace-authorship",
+            "cli/adopt/declares-authored-package-in-place",
             "cli/authoring-uses-project-workspace"
           ],
           "when": "A canonical full identity for an existing package that this workspace may author.",
@@ -1670,6 +1671,7 @@
           "requirements": [
             "cli/uninstall/removes-direct-route-and-recomputes-reachability",
             "cli/uninstall/is-idempotent",
+            "cli/uninstall/refuses-undesired-target",
             "cli/uninstall/preserves-unrelated-and-unowned-state"
           ],
           "details": [
@@ -3188,6 +3190,7 @@
           "requirements": [
             "cli/uninstall/removes-direct-route-and-recomputes-reachability",
             "cli/uninstall/is-idempotent",
+            "cli/uninstall/refuses-undesired-target",
             "cli/uninstall/preserves-unrelated-and-unowned-state"
           ],
           "details": [
@@ -3340,7 +3343,10 @@
         "cli/lint/honors-configured-rule-severities",
         "cli/lint/machine-findings-carry-only-facts",
         "cli/lint/reports-facts-without-mutation",
-        "cli/lint/undeclared-official-skill-is-informational"
+        "cli/lint/undeclared-official-skill-is-informational",
+        "cli/lint/reports-installed-but-not-configured",
+        "cli/lint/reports-undeclared-authored-packages",
+        "cli/lint/reports-unrecognized-install-root-entries"
       ],
       "parameterBindings": [
         {
@@ -3425,7 +3431,8 @@
       "arguments": [],
       "relatedRequirements": [
         "cli/invalid-workspace-state-gates-operations",
-        "cli/inventories-can-run-before-setup"
+        "cli/inventories-can-run-before-setup",
+        "cli/list/classifies-unexplained-content"
       ],
       "parameterBindings": [
         {
@@ -4402,6 +4409,7 @@
           "requirements": [
             "cli/uninstall/removes-direct-route-and-recomputes-reachability",
             "cli/uninstall/is-idempotent",
+            "cli/uninstall/refuses-undesired-target",
             "cli/uninstall/preserves-unrelated-and-unowned-state",
             "cli/mcps/uninstall/removes-one-local-connection-at-a-time"
           ],
@@ -5205,6 +5213,7 @@
           "requirements": [
             "cli/uninstall/removes-direct-route-and-recomputes-reachability",
             "cli/uninstall/is-idempotent",
+            "cli/uninstall/refuses-undesired-target",
             "cli/uninstall/preserves-unrelated-and-unowned-state"
           ],
           "openTopics": ["pack-uninstall-selection"]
@@ -6134,6 +6143,7 @@
           "requirements": [
             "cli/uninstall/removes-direct-route-and-recomputes-reachability",
             "cli/uninstall/is-idempotent",
+            "cli/uninstall/refuses-undesired-target",
             "cli/uninstall/preserves-unrelated-and-unowned-state"
           ],
           "details": [
@@ -7027,6 +7037,7 @@
           "requirements": [
             "cli/uninstall/removes-direct-route-and-recomputes-reachability",
             "cli/uninstall/is-idempotent",
+            "cli/uninstall/refuses-undesired-target",
             "cli/uninstall/preserves-unrelated-and-unowned-state"
           ],
           "details": [
@@ -7844,6 +7855,7 @@
           "requirements": [
             "cli/uninstall/removes-direct-route-and-recomputes-reachability",
             "cli/uninstall/is-idempotent",
+            "cli/uninstall/refuses-undesired-target",
             "cli/uninstall/preserves-unrelated-and-unowned-state"
           ],
           "details": [
@@ -8004,7 +8016,10 @@
         "cli/sync/reports-aggregate-projection-drift-at-unit-precision",
         "cli/projection-currency-follows-state-authority",
         "cli/native-projections-compare-by-decoded-value",
-        "cli/relative-paths-start-in-selected-directory"
+        "cli/relative-paths-start-in-selected-directory",
+        "cli/sync/removes-leftover-installed-packages",
+        "cli/sync/preserves-undeclared-authored-packages",
+        "cli/sync/removes-obsolete-storage-root-links"
       ],
       "conditionalLinks": [
         {
@@ -8361,6 +8376,7 @@
           "requirements": [
             "cli/uninstall/removes-direct-route-and-recomputes-reachability",
             "cli/uninstall/is-idempotent",
+            "cli/uninstall/refuses-undesired-target",
             "cli/uninstall/preserves-unrelated-and-unowned-state",
             "extension-identity/references-are-a-name-with-an-optional-constraint",
             "cli/uninstall/retires-a-desired-pack-whose-package-is-unreadable"

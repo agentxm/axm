@@ -61,6 +61,8 @@ export const McpServerListQueryResultSchema = Schema.Struct({
   configuredCount: Schema.Number,
   implicitCount: Schema.Number,
   installedCount: Schema.Number,
+  leftoverCount: Schema.Number,
+  undeclaredCount: Schema.Number,
   unmanagedCount: Schema.Number,
 });
 export type McpServerListQueryResult = typeof McpServerListQueryResultSchema.Type;
@@ -170,13 +172,13 @@ export const mcpServerListRows = (args: {
     version: registryResolution?.resolvedVersion ?? "n/a",
     transport: args.origins.some((origin) => origin.includes("config")) ? "config" : "auto",
     status:
-      row.lifecycle === "unmanaged"
-        ? "unmanaged"
-        : configuredStatus({
+      row.lifecycle === "configured" || row.lifecycle === "implicit"
+        ? configuredStatus({
             enabled: row.enabled !== false,
             configuredEntry,
             inspections,
-          }),
+          })
+        : row.lifecycle,
     agentOutcomes:
       inspections.length === 0
         ? row.agentOutcomes

@@ -21,6 +21,7 @@ import {
 } from "@agentxm/extension-materialization";
 import { buildUninstallOperation } from "@agentxm/workspace-reconciliation";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-sources";
+import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import type { JobStepArtifactTarget, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import {
@@ -102,6 +103,12 @@ export const parseSkillUninstallRequest: (
     return { targets: [] } satisfies SkillUninstallIntent;
   }
 
+  // An identifier nothing installed answers to still names one skill: its
+  // extension name, never the fully qualified spelling as a name.
+  const unresolvedName = (input: string) => {
+    const fqn = parseExtensionFqnParts(input);
+    return fqn?.type === "skill" ? fqn.name : input;
+  };
   const names =
     matched.length > 0
       ? matched
@@ -110,6 +117,7 @@ export const parseSkillUninstallRequest: (
             input: selector,
             resourceType: "skill",
           }).pipe(
+            Effect.map((name) => (name === selector.trim() ? unresolvedName(name) : name)),
             Effect.mapError((cause) =>
               installRefused({
                 category: "not_found",

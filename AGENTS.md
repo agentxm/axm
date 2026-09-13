@@ -342,7 +342,7 @@ requirements.
 - Cross-repo work uses a separate AXM PR with self-contained public context;
   keep private coordination and private PR links out of this repo
 
-<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery gen=087979ea5056669e3bea1b1af541da9f64ca6a6a9706b9579009ea9e7bd27814 -->
+<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery gen=ff21a160698af98f430c70cb3f08e3484f7ea19b626bdb6a4465ca10a0e20892 -->
 
 ## Knowledge Bundles
 
@@ -373,12 +373,13 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 | [product-engineering](agent_extensions/agentxm/@craigsmitham/knowledge/product-engineering/src/index.md) | Opinionated product-development lifecycle from strategy through operations and maintenance, with shared conceptual foundations                                     |
 
 <!-- axm:end v=1 region=knowledge -->
-<!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions gen=32bead97ea1d124115737f9c69369b7df65a72b83cd4ed2b985f814b5ec6d768 -->
-<!-- axm:point v=1 ext=@craigsmitham/rules/use-effect-v4@0.1.1 kind=rule -->
+<!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions gen=f5de3767a11636a462e7541bfdcbb0f8db679c40835ef5b7a0cf1e8048253b88 -->
+<!-- axm:point v=1 ext=@craigsmitham/rules/use-effect-v4@0.2.0 kind=rule -->
 
 ## Use Effect v4
 
-When working with Effect, use Effect v4 APIs and conventions. Do not use Effect
-v3 APIs or carry v3 patterns forward; verify ambiguous guidance against current
-v4 sources.
+Use Effect v4 as the foundation for all TypeScript code, including applications
+and scripts. Each change should advance adoption by migrating relevant existing
+code toward a coherent Effect implementation. Keep migrations incremental and
+reviewable, preserve intended behavior, and avoid unrelated rewrites.
 <!-- axm:end v=1 region=rules -->

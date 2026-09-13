@@ -2121,6 +2121,8 @@ export const AuthExchangeToken400 = Schema.Union([
   Schema.Union([ProblemDetails, DecodeErrorResponseEncoded]),
   TokenOAuthErrorEncoded,
 ]);
+export type AuthExchangeToken500 = ProblemDetails;
+export const AuthExchangeToken500 = ProblemDetails;
 export type AuthExchangeToken503 = ProblemDetails;
 export const AuthExchangeToken503 = ProblemDetails;
 export type AuthRevokeOAuthTokenRequestFormUrlEncoded = {
@@ -2217,6 +2219,8 @@ export type AuthExchangePublishAuthorization409 = ProblemDetails;
 export const AuthExchangePublishAuthorization409 = ProblemDetails;
 export type AuthExchangePublishAuthorization410 = ProblemDetails;
 export const AuthExchangePublishAuthorization410 = ProblemDetails;
+export type AuthExchangePublishAuthorization500 = ProblemDetails;
+export const AuthExchangePublishAuthorization500 = ProblemDetails;
 export type TokensListParams = { readonly cursor?: string | null; readonly limit?: string | null };
 export const TokensListParams = Schema.Struct({
   cursor: Schema.optionalKey(
@@ -3479,6 +3483,7 @@ export const make = (
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(AuthExchangeToken200),
             "400": decodeError("AuthExchangeToken400", AuthExchangeToken400),
+            "500": decodeError("AuthExchangeToken500", AuthExchangeToken500),
             "503": decodeError("AuthExchangeToken503", AuthExchangeToken503),
             orElse: unexpectedStatus,
           }),
@@ -3589,6 +3594,10 @@ export const make = (
                 "410": decodeError(
                   "AuthExchangePublishAuthorization410",
                   AuthExchangePublishAuthorization410,
+                ),
+                "500": decodeError(
+                  "AuthExchangePublishAuthorization500",
+                  AuthExchangePublishAuthorization500,
                 ),
                 orElse: unexpectedStatus,
               }),
@@ -4594,6 +4603,7 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"AuthExchangeToken400", typeof AuthExchangeToken400.Type>
+    | RegistryClientError<"AuthExchangeToken500", typeof AuthExchangeToken500.Type>
     | RegistryClientError<"AuthExchangeToken503", typeof AuthExchangeToken503.Type>
   >;
   /**
@@ -4695,6 +4705,10 @@ export interface RegistryClient {
     | RegistryClientError<
         "AuthExchangePublishAuthorization410",
         typeof AuthExchangePublishAuthorization410.Type
+      >
+    | RegistryClientError<
+        "AuthExchangePublishAuthorization500",
+        typeof AuthExchangePublishAuthorization500.Type
       >
   >;
   /**

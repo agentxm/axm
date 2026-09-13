@@ -161,6 +161,16 @@
               }
             }
           },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
           "503": {
             "description": "ServiceUnavailableError",
             "content": {
@@ -672,6 +682,16 @@
           },
           "410": {
             "description": "GoneError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "InternalError",
             "content": {
               "application/problem+json": {
                 "schema": {

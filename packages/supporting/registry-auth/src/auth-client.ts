@@ -48,7 +48,7 @@ import {
   isHttpClientError,
   isRegistryClientError,
   isRegistryClientFailure,
-  isTransientHttpClientError,
+  isTransientRegistryError,
   mapRegistryFailure,
   type RegistryClientFailure,
 } from "@agentxm/registry-client";
@@ -573,7 +573,7 @@ const postTokenForm = (
         new OAuthTokenResponseError({
           ...(oauthCode === undefined ? {} : { oauthCode }),
           cause: error,
-          retryable: isTransientHttpClientError(error),
+          retryable: isTransientRegistryError(error),
         }),
       );
     }),

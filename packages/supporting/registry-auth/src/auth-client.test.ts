@@ -106,6 +106,14 @@ const makeOAuthError = (error: OAuthDeviceError) => ({
   error_description: `OAuth error: ${error}`,
 });
 
+const internalErrorResponse = {
+  type: "https://registry.agentxm.ai/problems/internal_error",
+  title: "Internal Server Error",
+  status: 500,
+  detail: "Publication authorization could not be exchanged.",
+  code: "internal_error",
+};
+
 /** Build an RFC 9457 DecodeErrorResponse-compatible JSON error body. */
 const makeDecodeError = (code: string, status: number) => ({
   kind: "DecodeErrorResponse",
@@ -569,11 +577,11 @@ describe("pollOnce", () => {
     });
   });
 
-  it.effect("preserves an undeclared 500 response after retry classification", () => {
+  it.effect("preserves an undeclared 502 response after retry classification", () => {
     const httpClient = makeMockHttpClient(
       () =>
         new Response(JSON.stringify({ message: "internal error" }), {
-          status: 500,
+          status: 502,
           headers: { "content-type": "application/json" },
         }),
     );
@@ -584,8 +592,29 @@ describe("pollOnce", () => {
       );
       expect(error.category).toBe("internal");
       expect(error.metadata?.response).toMatchObject({
-        status: 500,
+        status: 502,
         body: { message: "internal error" },
+      });
+    });
+  });
+
+  it.effect("preserves a declared server failure after retry classification", () => {
+    const httpClient = makeMockHttpClient(
+      () =>
+        new Response(JSON.stringify(internalErrorResponse), {
+          status: 500,
+          headers: { "content-type": "application/problem+json" },
+        }),
+    );
+
+    return Effect.gen(function* () {
+      const error = asRegistryFailure(
+        yield* pollOnce(httpClient, REGISTRY_URL, "dev_123").pipe(Effect.flip),
+      );
+      expect(error.category).toBe("internal");
+      expect(error.metadata?.response).toMatchObject({
+        status: 500,
+        body: internalErrorResponse,
       });
     });
   });
@@ -671,9 +700,9 @@ describe("AuthClient.pollDeviceToken", () => {
     const layer = makeTestLayer(() => {
       callCount++;
       if (callCount < 3) {
-        return new Response(JSON.stringify({ message: "internal error" }), {
+        return new Response(JSON.stringify(internalErrorResponse), {
           status: 500,
-          headers: { "content-type": "application/json" },
+          headers: { "content-type": "application/problem+json" },
         });
       }
       return new Response(
@@ -702,9 +731,9 @@ describe("AuthClient.pollDeviceToken", () => {
 
     const layer = makeTestLayer(() => {
       callCount++;
-      return new Response(JSON.stringify({ message: "internal error" }), {
+      return new Response(JSON.stringify(internalErrorResponse), {
         status: 500,
-        headers: { "content-type": "application/json" },
+        headers: { "content-type": "application/problem+json" },
       });
     });
 
@@ -718,9 +747,30 @@ describe("AuthClient.pollDeviceToken", () => {
       expect(error.category).toBe("internal");
       expect(error.metadata?.response).toMatchObject({
         status: 500,
-        body: { message: "internal error" },
+        body: internalErrorResponse,
       });
       expect(callCount).toBe(3);
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("does not retry a server response that violates its declared contract", () => {
+    let callCount = 0;
+    const layer = makeTestLayer(() => {
+      callCount++;
+      return new Response(JSON.stringify({ message: "internal error" }), {
+        status: 500,
+        headers: { "content-type": "application/json" },
+      });
+    });
+
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const error = asRegistryFailure(
+        yield* client.pollDeviceToken("dev_123", 0).pipe(Effect.flip),
+      );
+      expect(error.category).toBe("internal");
+      expect(error.cause).toMatchObject({ _tag: "SchemaError" });
+      expect(callCount).toBe(1);
     }).pipe(Effect.provide(layer));
   });
 

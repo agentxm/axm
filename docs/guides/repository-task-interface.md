@@ -112,10 +112,18 @@ existing Nx constraints remain active for unconverted scopes.
 
 Use the confidence ladder consistently. A focused Nx target answers one question
 during implementation. `verify:affected` is the fast source-only loop over the
-current Nx range. `verify:pr` is the complete change-boundary gate: clean and
+current Nx range. `verify:pr` is the source and artifact change-boundary gate: clean and
 format checks, affected source verification, packed artifacts, and affected CLI
 E2E. `ci` runs full-workspace source and CLI diagnostics for automation and scheduled
 coverage; it is not the routine substitute for `verify:pr`.
+
+Git secret detection has its own fresh `axm:scan-secrets` target and required CI
+host job, including documentation-only changes. It scans HEAD history, staged
+content, and tracked working changes; its staged configuration also runs in the
+commit hook. `axm:test:secret-scanning` proves native detection and the required
+CI failure behavior without package builds. These checks stay independent of
+the source/artifact container workflow. [Gitleaks operations](../../devops/tools/gitleaks.md)
+owns installation, exact historical exceptions, diagnostic handling, and limits.
 
 `axm:unused-code` uses [Knip](https://knip.dev/features/monorepos-and-workspaces)
 to check first-party software for unreachable files, unused or undeclared

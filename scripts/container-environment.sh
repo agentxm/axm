@@ -107,6 +107,7 @@ run_ci() {
     --env AXM_RELEASE_PREPARATION="${AXM_RELEASE_PREPARATION:-false}" \
     --env HOME=/tmp/axm-home \
     --env MISE_STATE_DIR=/tmp/axm-home/.local/state/mise \
+    --env MISE_EXEC_AUTO_INSTALL=false \
     --env pnpm_config_store_dir=/tmp/axm-home/.local/share/pnpm/store \
     --env NX_CACHE_DIRECTORY=/tmp/axm-home/.cache/nx/cache \
     --env NX_WORKSPACE_DATA_DIRECTORY=/tmp/axm-home/.cache/nx/workspace-data \

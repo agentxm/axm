@@ -1,11 +1,8 @@
 ---
 type: Provider
 title: "GitHub for AXM engineering and delivery"
-description: "Repository hosting, workflow execution, release distribution, and CI-image hosting used by AXM."
+description: "Repository hosting, workflow execution, and release distribution used by AXM."
 status: draft
-generated:
-  by: codex/gpt-5
-  at: 2026-09-12T16:23:31Z
 ---
 
 # GitHub for AXM engineering and delivery
@@ -13,8 +10,8 @@ generated:
 ## Relationship and account scope
 
 This draft groups the configured GitHub surfaces supporting `agentxm/axm`:
-repository hosting and Actions, GitHub Releases, and `ghcr.io/agentxm/axm-ci`.
-The repository and image use the `agentxm` namespace. The release workflow also
+repository hosting and Actions, and GitHub Releases.
+The repository uses the `agentxm` namespace. The release workflow also
 uses the separately permissioned Homebrew tap; its write authority must not be
 inferred from repository access. Whether these surfaces share billing and
 recovery administration is unverified; split this record if their maintainers
@@ -26,12 +23,8 @@ confirm independent relationship lifecycles.
   protection, Actions permissions, and secret administration.
 - [CI](../../.github/workflows/ci.yml),
   [release preparation](../../.github/workflows/prepare-release.yml),
-  [publication](../../.github/workflows/publish.yml), and
-  [CI-image publication](../../.github/workflows/ci-image-publish.yml) declare
+  [publication](../../.github/workflows/publish.yml) declare
   configured workflows and permissions; presence does not prove successful use.
-- [Package inventory](https://github.com/orgs/agentxm/packages) owns GHCR
-  visibility and published images. The [CI-image record](../tools/ci-image.md)
-  preserves public-pull and retention requirements.
 
 Workflow `GITHUB_TOKEN` permissions are job-scoped. Release preparation uses it
 to push one candidate branch, open its pull request, and explicitly dispatch CI;
@@ -51,7 +44,7 @@ bootstrap prereleases.
 ## Constraints and relationship gaps
 
 Replacement or cancellation affects source collaboration, CI, release assets,
-CI-image pulls, and tap automation. Public/fork PRs must retain ephemeral
+and tap automation. Public/fork PRs must retain ephemeral
 runner isolation. Commercial plan, billing/budget owner, renewal/cancellation
 terms, agreements, SLA references, and account recovery arrangements require
 evidence from the authorized account administrators; none is inferred from

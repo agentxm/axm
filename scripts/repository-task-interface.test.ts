@@ -100,7 +100,6 @@ describe("repository task interface", () => {
       "devops/environments/native-platform-ci.md",
       "devops/runbooks/run-source-cli.md",
       "devops/runbooks/reproduce-linux-ci.md",
-      "devops/runbooks/upgrade-ci-image.md",
       "scripts/lint-bundled-skill.ts",
     ]) {
       expect(read(path), path).not.toContain("command-execution-policy.md");
@@ -111,9 +110,6 @@ describe("repository task interface", () => {
   it("keeps pre-install host tasks reachable through their published names", () => {
     expect(read(".github/workflows/ci.yml")).toContain(
       "pnpm --config.verify-deps-before-run=warn run classify:ci",
-    );
-    expect(read(".github/workflows/ci-image.yml")).toContain(
-      "pnpm --config.verify-deps-before-run=warn run check:ci-image",
     );
   });
 

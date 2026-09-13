@@ -67,7 +67,7 @@ read-only. This repository permits Actions to create and approve pull requests
 so the preparation workflow can create a candidate; the workflow itself grants
 only the permissions it needs. Other organization repositories retain their
 separate settings. Pull-request jobs use GitHub-hosted
-ephemeral runners; trusted persistent-runner and release-production jobs are
+ephemeral runners; main verification and release-production jobs are
 limited by event and repository conditions in the workflows. SHA-only action
 selection is not enforced by the host, so workflow source owns action pinning.
 The repository is maintained for pre-launch development. Transfer and archival
@@ -95,8 +95,8 @@ prior versions; these paths explain older links and evidence, not aliases.
 | `contributing/guides/development-environment.md`: native context | [Native development](../environments/native-development.md)                                                                                                                            |
 | Its container/cache model                                        | [Linux CI](../environments/linux-ci.md)                                                                                                                                                |
 | Its native Windows and platform boundaries                       | [Native platform CI](../environments/native-platform-ci.md)                                                                                                                            |
-| Its source-CLI, container-use, and image-upgrade procedures      | [Source CLI](../runbooks/run-source-cli.md), [Linux CI reproduction](../runbooks/reproduce-linux-ci.md), [image upgrade](../runbooks/upgrade-ci-image.md)                              |
-| `containers/ci/README.md`: image contract and retention          | [CI image](../tools/ci-image.md); the source README remains a discovery pointer                                                                                                        |
+| Its source-CLI and Linux reproduction procedures                 | [Source CLI](../runbooks/run-source-cli.md), [Linux CI reproduction](../runbooks/reproduce-linux-ci.md); image upgrades retired with native CI.                                        |
+| `containers/ci/README.md`: image contract and retention          | Retired with the custom image; native execution is described in [Linux CI](../environments/linux-ci.md).                                                                               |
 | Its cache persistence and recovery detail                        | [Linux CI](../environments/linux-ci.md)                                                                                                                                                |
 | `docs/guides/smoke-testing-guide.md`                             | Retired without successor: install/uninstall checks duplicate the executable journeys linked above; custom-registry setup and lockfile-version-6 expectations were stale.              |
 

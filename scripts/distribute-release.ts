@@ -1,7 +1,6 @@
 import { appendFileSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import * as Schema from "effect/Schema";
 import { validateReleaseCohort } from "./release-packages.js";
 import { RELEASE_PACKAGES, RELEASE_REPO } from "./release-shared.js";
 import {
@@ -31,6 +30,7 @@ import {
   SupersededRelease,
 } from "./release-publication.js";
 import { formulaVersion, prepareFormula } from "./release-formula.js";
+import { decodeGitHubReleaseAssetView } from "./release-github-release-api.js";
 
 const version = process.argv[2];
 const tag = process.argv[3];
@@ -112,11 +112,21 @@ try {
           name: "artifacts",
           publish: async () => {
             const readAsset = async (name: string): Promise<string | null> => {
-              const release = Schema.decodeUnknownSync(
-                Schema.fromJsonString(
-                  Schema.Struct({ assets: Schema.Array(Schema.Struct({ name: Schema.String })) }),
-                ),
-              )(capture("gh", ["api", `repos/${RELEASE_REPO}/releases/tags/${tag}`]));
+              const release = decodeGitHubReleaseAssetView(
+                capture("gh", [
+                  "release",
+                  "view",
+                  tag,
+                  "--repo",
+                  RELEASE_REPO,
+                  "--json",
+                  "targetCommitish,assets",
+                ]),
+              );
+              if (release.targetCommitish !== releaseCommit)
+                throw new Error(
+                  `GitHub Release target integrity conflict: expected ${releaseCommit}, observed ${release.targetCommitish}.`,
+                );
               if (!release.assets.some((asset) => asset.name === name)) return null;
               const directory = mkdtempSync(join(temporary, "asset-"));
               run("gh", [

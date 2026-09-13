@@ -1,18 +1,19 @@
 # @agentxm/cli-update
 
-The AXM self-update capability. It answers three questions about the copy of
-`axm` running on this machine: which installer owns it, which release the
-request selects, and what happens when that release is installed.
+Native adapters for the CLI maintenance self-update capability: installation
+inspection, package-manager protocols, executable replacement, and local
+metadata and cache storage.
 
 Installation facts, platform support, version relationships, and upgrade
 eligibility are owned by
 [`@agentxm/cli-maintenance`](../../supporting/cli-maintenance/README.md)'s
 `self-update/domain` entry. Its `self-update/application` entry prepares the
-upgrade candidate through owned installation-inspection and release-catalog
-contracts. This package supplies native probes and CLI progress in `adapters/`
-and connects them in `composition/`. Its remaining installer orchestration and
-technology mechanisms have not yet been separated into application ports and
-adapters.
+upgrade candidate and owns separate `assessUpgrade` and `applyUpgrade` APIs.
+Assessment requires only read contracts and installer instructions; application
+owns availability, mutation, verification, recovery, and recording decisions.
+This package supplies native implementations and CLI progress in `adapters/`
+and connects them in `composition/`. Concrete progress dependencies and native
+ownership inspection remain to be separated before package consolidation.
 
 - **Install ownership.** Detection across the script installer, Homebrew, npm,
   pnpm, and Yarn, from executable paths, the module URL, the package-manager
@@ -47,6 +48,6 @@ Unstable and unsupported — use the [axm.sh](https://axm.sh) CLI.
 
 | Export                        | Contents                                                                                                                                         |
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `@agentxm/cli-update`         | `AssessUpgrade`, `previewOrApply`, the assessment contract, and native service declarations                                                      |
+| `@agentxm/cli-update`         | Native service declarations and Homebrew identifiers                                                                                             |
 | `@agentxm/cli-update/live`    | Environment-backed Layers the application composes once                                                                                          |
 | `@agentxm/cli-update/testing` | A recording subprocess, a chosen install method, an in-memory metadata record and channel cache, a fixture release origin, and `runUpgradeTrial` |

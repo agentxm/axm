@@ -3,6 +3,7 @@ import * as Layer from "effect/Layer";
 import {
   CliReleaseCatalog,
   InstallationInspection,
+  InstallerInstructions,
 } from "@agentxm/cli-maintenance/self-update/application";
 import { CliReleaseCatalogLive } from "@agentxm/cli-maintenance/self-update/composition";
 import { InstallMethod } from "../install-method/install-method.js";
@@ -11,6 +12,7 @@ import {
   makeInstallationInspection,
   observeReleaseCatalog,
 } from "../adapters/preparation/index.js";
+import { makeInstallerInstructions } from "../adapters/installer-instructions.js";
 
 const InstallationInspectionLive = Layer.effect(
   InstallationInspection,
@@ -26,6 +28,7 @@ const ObservedReleaseCatalogLive = Layer.effect(
 
 /** Select host inspection and CLI progress around the owned preparation contracts. */
 export const UpgradePreparationLive = Layer.mergeAll(
+  Layer.succeed(InstallerInstructions, makeInstallerInstructions(process.platform)),
   InstallationInspectionLive,
   Layer.provide(ObservedReleaseCatalogLive, CliReleaseCatalogLive),
 );

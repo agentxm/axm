@@ -1,5 +1,5 @@
 /**
- * Remaining native ownership inspection and preview descriptions.
+ * Native ownership inspection for ambiguous package-manager installations.
  * Installer adapters return observations to CLI maintenance, which owns package
  * and script mutation ordering, verification, and recovery decisions.
  *
@@ -12,7 +12,6 @@ import {
   Unknown,
   Yarn,
   type InstallMethodType,
-  methodName,
 } from "@agentxm/cli-maintenance/self-update/domain";
 
 import { fileURLToPath } from "node:url";
@@ -23,16 +22,8 @@ import { observeChildUnit } from "@agentxm/workspace-operations";
 
 import {
   UpgradeWorkingDirectory,
-  upgradeBaseFacts,
-  type BaseResultInput,
   type CommandRecord,
-  type RecommendedCommand,
-  type UpgradeCoreResult,
 } from "@agentxm/cli-maintenance/self-update/application";
-import {
-  methodLabel,
-  formatRecommendedCommand,
-} from "@agentxm/cli-maintenance/self-update/adapters/cli";
 
 import {
   Subprocess,
@@ -40,76 +31,11 @@ import {
   type RunCommandOptions,
 } from "../subprocess/subprocess.js";
 
-import { packageManagerCommand } from "../adapters/package-installers/commands.js";
-
 const displayArgument = (argument: string): string =>
   /^[A-Za-z0-9_./:@=-]+$/u.test(argument) ? argument : `'${argument.replaceAll("'", "'\\''")}'`;
 
 const displayCommand = (executable: string, args: ReadonlyArray<string>): string =>
   [executable, ...args].map(displayArgument).join(" ");
-
-const recommended = (
-  executable: string,
-  args: ReadonlyArray<string>,
-  shellRequired = false,
-): RecommendedCommand => ({
-  executable,
-  args: [...args],
-  shellRequired,
-});
-
-export const recoveryInstaller = (targetVersion: string): RecommendedCommand => {
-  if (process.platform === "win32") {
-    const display = `$env:AXM_INSTALL_VERSION='${targetVersion}'; irm https://axm.sh/install.ps1 | iex`;
-    return recommended("powershell", ["-Command", display], true);
-  }
-  const display = `curl -fsSL https://axm.sh/install.sh | AXM_INSTALL_VERSION=${targetVersion} sh`;
-  return recommended("sh", ["-c", display], true);
-};
-
-/**
- * What the mutation would hand to the installer, in the installer's own
- * terms. A package manager is named by the exact command; the script
- * installer has no delegate, so its own replacement is named instead.
- */
-const delegatedAction = (
-  method: InstallMethodType,
-  targetVersion: string,
-  reinstall: boolean,
-  binaryName: string,
-): string => {
-  const command = packageManagerCommand(method, targetVersion, reinstall);
-  if (command !== null) return `Would run ${formatRecommendedCommand(command)}`;
-  if (method._tag === "Script") {
-    return `Would replace ${method.execPath} with ${binaryName} ${targetVersion}, verifying its checksum first`;
-  }
-  return `No installer command is available for ${methodLabel(methodName(method))}`;
-};
-
-/**
- * The resolved plan, reported without performing it. Nothing here mutates:
- * the detection and selection that produced it are reads, and the delegated
- * action is described rather than run.
- */
-export const previewResult = (input: BaseResultInput, binaryName: string): UpgradeCoreResult => ({
-  ...upgradeBaseFacts(input),
-  resultStatus: "preview",
-  reportedVersion: null,
-  verification: "not-attempted",
-  mutationState: "not-attempted",
-  verificationExecutables: [],
-  executedCommands: [...input.detectionCommands],
-  recommendedCommand: null,
-  details: [
-    delegatedAction(
-      input.method,
-      input.targetVersion,
-      input.relation === "current" && input.reinstall,
-      binaryName,
-    ),
-  ],
-  backupPath: null,
-});
 
 const commandRecord = (
   purpose: CommandRecord["purpose"],

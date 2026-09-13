@@ -10,6 +10,7 @@ import {
   type RecommendedCommand,
   type ResultInstallMethod,
   type UpgradeSettlement,
+  type UpgradePreviewIntent,
 } from "../../application/index.js";
 
 const displayArgument = (argument: string): string =>
@@ -159,6 +160,20 @@ export const methodLabel = (method: ResultInstallMethod): string => {
   }
 };
 
+const previewDetails = (intent: UpgradePreviewIntent | null): ReadonlyArray<string> => {
+  if (intent === null) return [];
+  switch (intent.kind) {
+    case "package-command":
+      return [`Would run ${formatRecommendedCommand(intent.command)}`];
+    case "executable-replacement":
+      return [
+        `Would replace ${intent.executablePath} with ${intent.binaryName} ${intent.targetVersion}, verifying its checksum first`,
+      ];
+    case "installer-unavailable":
+      return [`No installer command is available for ${methodLabel(intent.method)}`];
+  }
+};
+
 const resultMessage = (
   result: UpgradeSettlement["result"],
   availability: InstallerAvailability,
@@ -274,6 +289,7 @@ const planMapping = (result: UpgradeSettlement["result"]): PlanMapping => {
 const upgradePlanSteps = (
   result: UpgradeSettlement["result"],
   availability: InstallerAvailability,
+  details: ReadonlyArray<string>,
 ): ReadonlyArray<UpgradePlanStep> => {
   const mapping = planMapping(result);
   const artifact =
@@ -291,7 +307,7 @@ const upgradePlanSteps = (
       label: "AXM CLI",
       status: mapping.step,
       message: resultMessage(result, availability),
-      details: result.details,
+      details,
       ...(artifact === undefined ? {} : { artifact }),
     },
   ];
@@ -353,6 +369,7 @@ const assessmentOutcome = (
 
 export const toUpgradeAssessment = (input: UpgradeSettlement): UpgradeAssessmentResult => {
   const availability = input.availability;
+  const details = [...input.result.details, ...previewDetails(input.previewIntent)];
   return {
     contract: "axm.upgrade-assessment/v1",
     outcome: assessmentOutcome(input.result),
@@ -414,10 +431,10 @@ export const toUpgradeAssessment = (input: UpgradeSettlement): UpgradeAssessment
     },
     commands: input.result.executedCommands,
     details: {
-      messages: Array.from(new Set([...input.result.details, ...availability.details])),
+      messages: Array.from(new Set([...details, ...availability.details])),
       homebrewFailure: input.result.homebrewFailure ?? null,
       observedFormulaVersion: input.result.observedFormulaVersion ?? null,
     },
-    steps: upgradePlanSteps(input.result, availability),
+    steps: upgradePlanSteps(input.result, availability, details),
   };
 };

@@ -19,8 +19,20 @@ and derives immutable GitHub coordinates; `./self-update/composition` connects
 it to the caller's HTTP client. Substitute catalogs exercise selection policy
 without HTTP, installation state, or a CLI. Host inspection and CLI progress
 implement these contracts in `@agentxm/cli-update`'s adapters and composition.
-Its installer mutation and assessment rendering remain to be separated and
-consolidated under CLI maintenance.
+The same application owns package and script upgrade execution: availability
+checks, checksum and exact-version acceptance, backup and replacement order,
+rollback verification, and recording only accepted installations. Native
+adapters implement `PackageInstaller`, `ScriptReleaseAssets`,
+`ScriptExecutableInstaller`, and `InstallationRecorder`.
+
+`assessUpgrade` is a separate read-only query. It needs inspection, release
+selection, the invocation directory, and `InstallerInstructions`; no mutation
+or cache-write service is required. It returns a typed prospective command or
+executable replacement. `./self-update/adapters/cli` supplies preview wording
+and the assessment document. `applyUpgrade` accepts the prepared candidate
+and uses the mutation contracts. Installer command and recovery grammar remain
+behind `InstallerInstructions`, shared with the concrete native protocols.
+Native adapter and progress consolidation remains unfinished.
 
 The same capability owns informational startup checks: suppression, cache
 freshness, version eligibility, conditional refresh, and the decision that an

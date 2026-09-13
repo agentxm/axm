@@ -43,10 +43,11 @@ import { UpdateCheckCache } from "@agentxm/cli-maintenance/self-update/applicati
 import {
   UpgradeWorkingDirectory,
   prepareUpgrade,
+  assessUpgrade,
+  applyUpgrade,
   type UpgradeRequest,
   type UpgradeFailed,
 } from "@agentxm/cli-maintenance/self-update/application";
-import { previewOrApply } from "./upgrade/use-case.js";
 import {
   toUpgradeAssessment,
   type UpgradeAssessmentResult,
@@ -412,12 +413,11 @@ export const makeUpgradeTrial = (
 
     const run = () =>
       Effect.gen(function* () {
-        const fiber = yield* prepareUpgrade(request).pipe(
-          Effect.flatMap((candidate) =>
-            previewOrApply(candidate, {
-              mode: options?.preview === true ? "preview" : "apply",
-            }),
-          ),
+        const operation =
+          options?.preview === true
+            ? assessUpgrade(request)
+            : prepareUpgrade(request).pipe(Effect.flatMap(applyUpgrade));
+        const fiber = yield* operation.pipe(
           Effect.map(toUpgradeAssessment),
           Effect.provide(layer),
           Effect.provideService(OperationLifecycle, lifecycle),

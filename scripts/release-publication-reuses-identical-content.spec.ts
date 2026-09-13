@@ -23,7 +23,7 @@ export const specification = defineSpecification({
 });
 export const boundEvidence = defineBoundEvidence([
   {
-    gate: "test: axm:test (scripts/release-publication.test.ts, scripts/release-channel-promotion.test.ts, scripts/update-homebrew-formula.test.ts)",
+    gate: "test: axm:test (scripts/release-publication.test.ts, scripts/release-github-release-api.test.ts, scripts/release-channel-promotion.test.ts, scripts/update-homebrew-formula.test.ts)",
     verifies:
       "Exercises absent and identical outputs, integrity conflicts, failed existence reads, partial publication reruns, and identical-coordinate promotion without credentials.",
   },
@@ -46,5 +46,7 @@ describe("Release reruns reuse only identical published content", () => {
     );
     expect(source).toContain("publishImmutable");
     expect(source).toContain("prepareFormula");
+    expect(source).toContain("targetCommitish,assets");
+    expect(source).not.toContain("releases/tags");
   });
 });

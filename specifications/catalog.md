@@ -4909,7 +4909,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary: repository; selection: per-change
 - Boundary rationale: Canonical publication adapters and bound failure-injection tooling provide evidence without publishing a real release.
 - Methods: contract
-- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/release-channel-promotion.test.ts, scripts/update-homebrew-formula.test.ts)` — Exercises absent and identical outputs, integrity conflicts, failed existence reads, partial publication reruns, and identical-coordinate promotion without credentials.
+- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/release-github-release-api.test.ts, scripts/release-channel-promotion.test.ts, scripts/update-homebrew-formula.test.ts)` — Exercises absent and identical outputs, integrity conflicts, failed existence reads, partial publication reruns, and identical-coordinate promotion without credentials.
 - Source: [`scripts/release-publication-reuses-identical-content.spec.ts`](../scripts/release-publication-reuses-identical-content.spec.ts)
 
 ##### Release results distinguish distribution and promotion state

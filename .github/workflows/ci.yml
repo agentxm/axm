@@ -672,3 +672,9 @@ jobs:
             echo
             echo "All applicable jobs succeeded."
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Controlled merge queue rejection exercise
+        if: github.event_name == 'merge_group'
+        run: |
+          echo "::error title=Controlled merge queue rejection::Repair this candidate before merging"
+          exit 1

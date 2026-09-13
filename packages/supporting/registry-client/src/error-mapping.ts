@@ -59,12 +59,13 @@ export const isHttpClientError = (e: unknown): e is HttpClientError.HttpClientEr
   HttpClientError.isHttpClientError(e);
 
 /**
- * Type predicate matching HttpClientErrors that are reasonable to retry:
- * transport-level failures (ECONNREFUSED, DNS, etc.) and 5xx status codes.
+ * Classify transient Registry boundary failures: transport failures and valid
+ * 5xx responses, including errors decoded by the generated client.
  * Deterministic failures — encode errors, invalid URLs, decode errors,
  * 4xx statuses — are excluded so they fail fast.
  */
-export const isTransientHttpClientError = (e: unknown): e is HttpClientError.HttpClientError => {
+export const isTransientRegistryError = (e: unknown): boolean => {
+  if (isAnyRegistryClientError(e)) return e.response.status >= 500;
   if (!HttpClientError.isHttpClientError(e)) return false;
   const reason = e.reason;
   if (reason._tag === "TransportError") return true;

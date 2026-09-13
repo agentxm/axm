@@ -124,7 +124,7 @@ export {
   isRegistryClientError,
   isHttpClientError,
   isSchemaError,
-  isTransientHttpClientError,
+  isTransientRegistryError,
   mapNetworkError,
   mapSchemaError,
   mapUnexpectedStatusError,

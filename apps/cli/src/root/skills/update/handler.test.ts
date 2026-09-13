@@ -26,6 +26,7 @@ import {
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
+import { SkillManagerLive } from "@agentxm/extension-materialization/live";
 
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";
 import { AXM_SKILL_VERSION } from "../../../__generated__/bundled-axm-skill.js";
@@ -270,7 +271,7 @@ describe("update.handler — error recovery", () => {
       LifecycleStepFailureConversionLive,
       makeAxmSkillCompatibilityPolicyLayer(AXM_SKILL_VERSION),
     );
-    const baseProvide = makeEffectProvide(FullLayer);
+    const baseProvide = makeEffectProvide(Layer.provideMerge(SkillManagerLive, FullLayer));
     // Registry fixtures are published at 2026-01-01; advance the virtual clock
     // past publish + minimumReleaseAge so release-age filtering sees them as mature.
     const provide: typeof baseProvide = (effect) =>
@@ -874,7 +875,7 @@ describe("update.handler — preview flag", () => {
       LifecycleStepFailureConversionLive,
       makeAxmSkillCompatibilityPolicyLayer(AXM_SKILL_VERSION),
     );
-    const baseProvide = makeEffectProvide(FullLayer);
+    const baseProvide = makeEffectProvide(Layer.provideMerge(SkillManagerLive, FullLayer));
     // Registry fixtures are published at 2026-01-01; advance the virtual clock
     // past publish + minimumReleaseAge so release-age filtering sees them as mature.
     const provide: typeof baseProvide = (effect) =>

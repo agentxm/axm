@@ -57,7 +57,6 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-  type StepFailure,
 } from "@agentxm/workspace-operations";
 import {
   acceptedResolutionRef,
@@ -68,7 +67,7 @@ import {
 
 import { ExtensionLifecycleFailed } from "../../errors.js";
 import { withPublisherTrustConditions } from "../../publisher-binding.js";
-import { installSkill, type InstallSkillOperation } from "../../skills/operations/install.js";
+import { planSkillInstallationStep } from "../../skills/install/plan.js";
 import { buildSelectiveUpdatePlan, type SelectiveUpdateUnit } from "./plan.js";
 import type { SelectiveUpdateStepRequirements } from "./requirements.js";
 import {
@@ -100,20 +99,6 @@ const allSkillResolutionsFailed = new ExtensionLifecycleFailed({
   recover: "Review the registries declared under `sources` in workspace settings",
   cmd: "axm help settings",
 });
-
-/**
- * The install operation reports more than the plan vocabulary carries. Only
- * the outcome and its sentence cross into the step result; a failed step
- * carries the typed failure the boundary renders.
- */
-const toJobStepResult = (result: {
-  readonly result: string;
-  readonly message: string;
-  readonly error?: StepFailure;
-}): JobStepResult =>
-  result.result === "error" && result.error !== undefined
-    ? { result: "error", message: result.message, error: result.error }
-    : { result: "success", message: result.message };
 
 /** Everything `skills update` needs beyond the workspace it runs in. */
 export interface SelectiveSkillUpdateRequest extends SelectiveUpdateSelectors {
@@ -724,37 +709,43 @@ export const prepareSelectiveSkillUpdate = Effect.fn("SelectiveSkillUpdate.prepa
     if (warnings.length > 0) warningsBySkill.set(item.ref.skill.name, warnings);
   }
 
-  const units: ReadonlyArray<SelectiveUpdateUnit<InstallSkillOperation>> = resolved.map((item) => ({
-    name: item.ref.skill.name,
-    ref: item.ref,
-    force: request.ignoreVersionConstraints || item.ref.refType !== "registry",
-    operation: {
-      name: "install-skill",
-      args: {
-        ref: item.ref,
-        force: request.ignoreVersionConstraints || item.ref.refType !== "registry",
-        versionRange: item.versionRange,
-
-        strictUnknownAgents: Option.none(),
-        sourceName: Option.none(),
-      },
-    } satisfies InstallSkillOperation,
-  }));
-
-  const makeRunClosure = (
-    operation: InstallSkillOperation,
-  ): Effect.Effect<JobStepResult, StepFailure, SelectiveUpdateStepRequirements> =>
-    installSkill(operation).pipe(
-      Effect.map(toJobStepResult),
-      Effect.map(appendWarningsToResult(warningsBySkill.get(operation.args.ref.skill.name) ?? [])),
-    );
+  const units = yield* Effect.forEach(
+    resolved,
+    (item) =>
+      Effect.gen(function* () {
+        const force = request.ignoreVersionConstraints || item.ref.refType !== "registry";
+        const step = yield* planSkillInstallationStep({
+          ref: item.ref,
+          force,
+          operation: "update",
+        });
+        const operation =
+          step.readiness === "error"
+            ? step
+            : {
+                ...step,
+                run: step.run.pipe(
+                  Effect.map(
+                    appendWarningsToResult(warningsBySkill.get(item.ref.skill.name) ?? []),
+                  ),
+                ),
+              };
+        return {
+          name: item.ref.skill.name,
+          ref: item.ref,
+          force,
+          operation,
+        } satisfies SelectiveUpdateUnit<typeof operation>;
+      }),
+    { concurrency: 1 },
+  );
 
   const rawPlan = buildSelectiveUpdatePlan(
     units,
     lockedSkills,
     PLAN_NAME,
     Option.some(PLAN_DESCRIPTION),
-    makeRunClosure,
+    (step) => step,
   );
   const basePlanWithWarnings: Plan<SelectiveUpdateStepRequirements> = {
     ...rawPlan,

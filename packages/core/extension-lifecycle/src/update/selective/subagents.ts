@@ -40,7 +40,6 @@ import { resolveSource, SourceHostProviders } from "@agentxm/extension-sources";
 import {
   operationPresentation,
   prepareExecutionCandidate,
-  StepFailure,
   type ConfiguredAgentOperation,
   type JobStepResult,
   type Plan,
@@ -403,18 +402,18 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
       }
     }
 
-    const makeRunClosure = (
+    const makeStep = (
       ref: SubagentExtensionRef,
-    ): Effect.Effect<JobStepResult, StepFailure, SelectiveUpdateStepRequirements> => {
+    ): PlannedJobStep<SelectiveUpdateStepRequirements> => {
       const step = buildInstallOperation(subagentManager, {
         toStepFailure: failureConversion.toStepFailure,
         ref,
-        declaration: { name: ref.subagent.name, versionRange: Option.none() },
       });
-      if (step.readiness === "error") {
-        return Effect.fail(new StepFailure({ category: "conflict", detail: step.errorMessage }));
-      }
-      return step.run.pipe(Effect.map(appendWarning(warningsBySubagent.get(ref.subagent.name))));
+      if (step.readiness === "error") return step;
+      return {
+        ...step,
+        run: step.run.pipe(Effect.map(appendWarning(warningsBySubagent.get(ref.subagent.name)))),
+      };
     };
 
     const units: ReadonlyArray<SelectiveUpdateUnit<SubagentExtensionRef>> = resolved.map(
@@ -431,7 +430,7 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
       lockedSubagents,
       PLAN_NAME,
       Option.some(PLAN_DESCRIPTION),
-      makeRunClosure,
+      makeStep,
     );
     const basePlanWithReleaseAge: Plan<SelectiveUpdateStepRequirements> = {
       ...rawPlan,

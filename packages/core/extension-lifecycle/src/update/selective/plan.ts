@@ -14,12 +14,7 @@
 import * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 
-import type {
-  JobStepResult,
-  Plan,
-  PlannedJobStep,
-  StepFailure,
-} from "@agentxm/workspace-operations";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { SkillLockEntry, SubagentLockEntry } from "@agentxm/workspace-state";
@@ -85,7 +80,7 @@ export const buildSelectiveUpdatePlan = <TOperation, R>(
   acceptedResolutions: Readonly<Record<string, AcceptedEntry | undefined>>,
   name: string,
   description: Option.Option<string>,
-  makeRunClosure: (operation: TOperation) => Effect.Effect<JobStepResult, StepFailure, R>,
+  makeStep: (operation: TOperation) => PlannedJobStep<R>,
 ): Plan<R> => ({
   _tag: "Plan",
   name,
@@ -97,7 +92,7 @@ export const buildSelectiveUpdatePlan = <TOperation, R>(
         const accepted = acceptedResolutions[unit.name];
         const needsUpdate = accepted === undefined || unit.force || hasChanged(unit.ref, accepted);
         return needsUpdate
-          ? { readiness: "ready", label: unit.name, run: makeRunClosure(unit.operation) }
+          ? { ...makeStep(unit.operation), label: unit.name }
           : unchangedStep<R>(unit.name);
       }),
     },

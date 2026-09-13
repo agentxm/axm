@@ -68,7 +68,24 @@ export interface ProjectExpectedEntryArgs {
   readonly remoteTransport?: InlineRemoteTransport | undefined;
 }
 
-const ENV_REF_RE = /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}/;
+const ENV_REF_START_RE = /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-|\})/;
+/** Find the closing brace once; repeated unterminated defaults must not rescan their tails. */
+const findEnvReference = (value: string) => {
+  const start = ENV_REF_START_RE.exec(value);
+  const variableName = start?.[1];
+  if (start === null || variableName === undefined) return undefined;
+  if (start[0].endsWith("}")) {
+    return { reference: start[0], variableName, defaultValue: undefined };
+  }
+  const contentStart = start.index + start[0].length;
+  const end = value.indexOf("}", contentStart);
+  if (end === -1) return undefined;
+  return {
+    reference: value.slice(start.index, end + 1),
+    variableName,
+    defaultValue: value.slice(contentStart, end),
+  };
+};
 const FULL_ENV_REF_RE = /^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/;
 const BEARER_ENV_REF_RE = /^Bearer\s+\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/i;
 const DEFAULT_ENV_EXPANSION: McpEnvExpansion = {
@@ -129,11 +146,9 @@ export const renderEnvValue = (
   raw: string,
   capability: McpEnvExpansion,
 ): { readonly value: string; readonly warning?: string } => {
-  const match = ENV_REF_RE.exec(raw);
-  if (match === null) return { value: raw };
-  const variableName = match[1];
-  const defaultValue = match[2];
-  if (variableName === undefined) return { value: raw };
+  const match = findEnvReference(raw);
+  if (match === undefined) return { value: raw };
+  const { variableName, defaultValue } = match;
   if (defaultValue !== undefined && (capability.variables === "none" || !capability.defaults)) {
     return {
       value: raw,
@@ -232,7 +247,7 @@ const projectRemoteHeaders = (args: {
     if (rendered.warning === undefined) {
       literal[name] = rendered.value;
     } else {
-      const reference = ENV_REF_RE.exec(value)?.[0] ?? value;
+      const reference = findEnvReference(value)?.reference ?? value;
       return {
         _tag: "unsupported",
         reason: `headers.${name}: cannot project environment reference ${reference} for this agent`,

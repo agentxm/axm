@@ -8,67 +8,6 @@
 const isPlainObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-export interface TomlStringEntry {
-  readonly key: string;
-  readonly value: string;
-}
-
-/**
- * Return the raw body for a TOML section.
- */
-export const readTomlSection = (content: string, sectionName: string): string | undefined => {
-  const escapedSectionName = sectionName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const sectionRegex = new RegExp(`^\\s*\\[${escapedSectionName}\\]\\s*$`, "m");
-  const sectionMatch = sectionRegex.exec(content);
-  if (sectionMatch === null) return undefined;
-
-  const sectionStart = sectionMatch.index + sectionMatch[0].length;
-  const nextSectionMatch = /\n\s*\[/.exec(content.slice(sectionStart));
-  const sectionEnd =
-    nextSectionMatch !== null ? sectionStart + nextSectionMatch.index : content.length;
-
-  return content.slice(sectionStart, sectionEnd);
-};
-
-/**
- * Extract key/value pairs whose value is a simple quoted TOML string.
- */
-export const parseTomlStringEntries = (
-  content: string,
-  keyPattern = "[A-Za-z0-9_-]+",
-): ReadonlyArray<TomlStringEntry> => {
-  const entries: Array<TomlStringEntry> = [];
-  const entryRegex = new RegExp(`^\\s*(${keyPattern})\\s*=\\s*"([^"]*)"`, "gm");
-  let match = entryRegex.exec(content);
-
-  while (match !== null) {
-    const key = match[1];
-    const value = match[2];
-    if (key !== undefined && value !== undefined) {
-      entries.push({ key, value });
-    }
-    match = entryRegex.exec(content);
-  }
-
-  return entries;
-};
-
-/**
- * Extract quoted strings from a TOML array body.
- */
-export const extractTomlQuotedStrings = (content: string): ReadonlyArray<string> => {
-  const strings: Array<string> = [];
-  const regex = /["']([^"']*?)["']/g;
-  let match = regex.exec(content);
-
-  while (match !== null) {
-    if (match[1] !== undefined) strings.push(match[1]);
-    match = regex.exec(content);
-  }
-
-  return strings;
-};
-
 /**
  * Serialize a TOML key, quoting keys that are not bare TOML keys.
  */

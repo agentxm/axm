@@ -257,17 +257,13 @@ export {
 
 // Codec wrappers used by the native writers
 export {
-  extractTomlQuotedStrings,
   parseTomlInlineString,
   parseTomlInlineTableArray,
-  parseTomlStringEntries,
   parseTomlValue,
-  readTomlSection,
   stringifyToml,
   stringifyTomlKey,
   stringifyTomlLines,
   stringifyTomlValue,
-  type TomlStringEntry,
 } from "./toml.js";
 export {
   deleteYamlEntry,

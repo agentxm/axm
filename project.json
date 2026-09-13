@@ -350,6 +350,42 @@
         "command": "bun --conditions=axm-source scripts/specification-catalog.ts",
         "cwd": "."
       }
+    },
+    "scan-secrets": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [],
+      "metadata": {
+        "description": "Scan HEAD history, staged content, and tracked working changes with pinned Gitleaks"
+      },
+      "options": {
+        "commands": [
+          "mise exec gitleaks -- gitleaks git --config .gitleaks.toml --redact=100 --no-banner --no-color --ignore-gitleaks-allow --log-opts=HEAD .",
+          "mise exec gitleaks -- gitleaks git --config .gitleaks.toml --redact=100 --no-banner --no-color --ignore-gitleaks-allow --staged .",
+          "mise exec gitleaks -- gitleaks git --config .gitleaks.toml --redact=100 --no-banner --no-color --ignore-gitleaks-allow --pre-commit ."
+        ],
+        "parallel": false,
+        "cwd": "."
+      },
+      "configurations": {
+        "staged": {
+          "commands": [
+            "mise exec gitleaks -- gitleaks git --config .gitleaks.toml --redact=100 --no-banner --no-color --ignore-gitleaks-allow --staged ."
+          ]
+        }
+      }
+    },
+    "test:secret-scanning": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [],
+      "metadata": {
+        "description": "Prove native secret detection, redaction, historical exceptions, and the CI rollup"
+      },
+      "options": {
+        "command": "node --test scripts/security/secret-scanning.test.mjs",
+        "cwd": "."
+      }
     }
   }
 }

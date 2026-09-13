@@ -242,6 +242,8 @@ jobs:
         # this job
         # installs no host toolchain, so no pnpm exists to resolve container:ci.
         run: |
+          # These variables belong to the container's shell environment.
+          # shellcheck disable=SC2016
           scripts/container-environment.sh ci bash -lc '
             set -euo pipefail
             pnpm install --frozen-lockfile
@@ -426,9 +428,10 @@ jobs:
         # Host-adapter boundary in docs/guides/repository-task-interface.md:
         # this job
         # installs no host toolchain, so no pnpm exists to resolve container:ci.
-        run: >-
-          scripts/container-environment.sh ci bash -lc
-          'pnpm install --frozen-lockfile && scripts/with-allure-report.sh bash -lc "$AXM_E2E_COMMAND"'
+        run: |
+          # Expand the selected command inside the container.
+          # shellcheck disable=SC2016
+          scripts/container-environment.sh ci bash -lc 'pnpm install --frozen-lockfile && scripts/with-allure-report.sh bash -lc "$AXM_E2E_COMMAND"'
 
       - name: Publish E2E verification summary
         if: always()
@@ -488,9 +491,11 @@ jobs:
       - name: Measure hosted runner capacity
         id: capacity
         run: |
-          echo "started=$(date +%s)" >> "$GITHUB_OUTPUT"
-          echo "disk_kb=$(df -Pk "$GITHUB_WORKSPACE" | awk 'NR==2 {print $4}')" >> "$GITHUB_OUTPUT"
-          echo "memory_mb=$(free -m | awk '/^Mem:/ {print $2}')" >> "$GITHUB_OUTPUT"
+          {
+            echo "started=$(date +%s)"
+            echo "disk_kb=$(df -Pk "$GITHUB_WORKSPACE" | awk 'NR==2 {print $4}')"
+            echo "memory_mb=$(free -m | awk '/^Mem:/ {print $2}')"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Verify main in pinned CI image
         id: verify
@@ -704,11 +709,27 @@ jobs:
           compression-level: 0
           retention-days: 90
 
+  secrets:
+    name: Secret scanning
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout complete history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up workspace and the pinned scanner
+        uses: ./.github/actions/setup-workspace
+      - name: Scan source and prove the scanner contract
+        run: pnpm exec nx run-many -t scan-secrets test:secret-scanning --projects=axm --nxBail
+
   required:
     name: Required CI
     if: always()
     needs:
       - classify
+      - secrets
       - specification-verdict
       - extension-lint
       - documentation
@@ -735,16 +756,16 @@ jobs:
           WORKFLOW_CHANGED: ${{ needs.classify.outputs.workflow }}
         run: |
           if [[ "$EVENT_NAME" == "pull_request" ]]; then
-            expected=(classify specification-verdict extension-lint verify-pr windows-workspace)
+            expected=(classify secrets specification-verdict extension-lint verify-pr windows-workspace)
             [[ "$DOCS_CHANGED" == "true" ]] && expected+=(documentation)
             [[ "$IMAGE_CHANGED" == "true" ]] && expected+=(image)
             [[ "$WORKFLOW_CHANGED" == "true" ]] && expected+=(workflow-validation)
           elif [[ "$EVENT_NAME" == "push" ]]; then
-            expected=(classify verify-main-trusted verify-e2e-main-trusted windows-workspace binary-smoke npm-cohort)
+            expected=(classify secrets verify-main-trusted verify-e2e-main-trusted windows-workspace binary-smoke npm-cohort)
           elif [[ "$SELECTED_RUNNER" == "github-hosted" ]]; then
-            expected=(classify verify-main-hosted windows-workspace binary-smoke npm-cohort)
+            expected=(classify secrets verify-main-hosted windows-workspace binary-smoke npm-cohort)
           else
-            expected=(classify verify-main-trusted verify-e2e-main-trusted windows-workspace binary-smoke npm-cohort)
+            expected=(classify secrets verify-main-trusted verify-e2e-main-trusted windows-workspace binary-smoke npm-cohort)
           fi
           expected_failures=""
           for job in "${expected[@]}"; do

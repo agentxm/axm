@@ -6,6 +6,41 @@
   "sourceRoot": "packages/core/extension-lifecycle/src",
   "tags": ["type:lib", "role:feature", "scope:extension-lifecycle", "release:cli"],
   "targets": {
+    "test:policy": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [],
+      "options": {
+        "command": "vitest run --config packages/core/extension-lifecycle/vitest.policy.config.ts",
+        "cwd": ".",
+        "env": { "NODE_OPTIONS": "--conditions=axm-source" }
+      }
+    },
+    "test:policy-coverage": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [],
+      "options": {
+        "command": "vitest run --config packages/core/extension-lifecycle/vitest.policy.config.ts --coverage",
+        "cwd": ".",
+        "env": { "NODE_OPTIONS": "--conditions=axm-source" }
+      }
+    },
+    "test:policy-mutation": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [],
+      "options": {
+        "command": "stryker run packages/core/extension-lifecycle/stryker.config.json",
+        "cwd": ".",
+        "env": {
+          "NODE_OPTIONS": "--conditions=axm-source",
+          "NX_DAEMON": "false",
+          "NX_CACHE_DIRECTORY": ".nx/cache",
+          "NX_WORKSPACE_DATA_DIRECTORY": ".nx/workspace-data"
+        }
+      }
+    },
     "build": {
       "executor": "@nx/js:tsc",
       "options": {

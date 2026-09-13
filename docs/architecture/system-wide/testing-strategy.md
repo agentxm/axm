@@ -258,6 +258,38 @@ is required to preserve, move the normative claim into an executable
 specification. Retain an internal test only when it supplies distinct
 white-box evidence rather than a duplicate source of truth.
 
+### Policy coverage and mutation evidence
+
+Skill and subagent selection have a bounded quality gate independent of
+specification completeness. The
+[policy test configuration](../../../packages/core/extension-lifecycle/vitest.policy.config.ts)
+includes every domain source file in those owners, including files no test
+imports. Its complete statement, branch, function, and line thresholds apply
+to that small policy boundary. They are not a repository-wide quality score.
+[Vitest coverage](https://vitest.dev/guide/coverage.html) supplies the source
+inclusion, diagnostics, and reports.
+
+The owner's `test:policy-coverage` target runs in affected and full source
+verification. `test:policy` executes the same ordinary domain/application tests
+without coverage. Both resolve workspace dependencies from source and avoid
+unrelated CLI builds. They emit no specification receipts.
+
+`test:policy-mutation` is an explicit, bounded diagnostic target. Stryker's
+[command runner](https://stryker-mutator.io/docs/stryker-js/configuration/#testrunner-string)
+invokes the uncached `test:policy` target for each mutant in its sandbox. This
+uses the supported task interface without depending on the Vitest plugin's
+internal rerun protocol. Serial execution prevents sibling Nx invocations from
+colliding in invocation tracking. The sandbox omits acquired agent content and
+build/test outputs, and reports remain under `test-results/policy-quality/`.
+
+Every generated mutant must be detected in the current pilot. A surviving or
+equivalent mutant requires review; a process, configuration, or runner failure
+is invalid evidence, even if a tool labels it killed. Review the recorded
+failure reasons before accepting a score. Mutation evidence supplements
+behavioral reasoning and adapter tests; it does not decide unresolved product
+requirements. Broader mutation coverage or a required CI mutation gate needs
+evidence that its diagnostic value justifies its execution cost.
+
 ### Tooling verification
 
 Tooling tests protect repository scripts, generators, release automation, and

@@ -133,6 +133,13 @@ format checks, affected source verification, packed artifacts, and affected CLI
 E2E. `ci` runs full-workspace source and CLI diagnostics for automation and scheduled
 coverage; it is not the routine substitute for `verify:pr`.
 
+`verify:pr:source` owns the source and packed-artifact portion of that gate.
+CI runs it alongside the existing CLI E2E shards, using the same Nx affected
+range for every partition. Other projects' E2E targets stay in the proposed-change
+job. Main and recovery runs use the full partitions. Each partition must succeed
+for Required CI; splitting execution does not make E2E optional. Locally,
+`verify:pr` remains the complete command.
+
 Git secret detection has its own fresh `axm:scan-secrets` target and required CI
 host job, including documentation-only changes. It scans HEAD history, staged
 content, and tracked working changes; its staged configuration also runs in the

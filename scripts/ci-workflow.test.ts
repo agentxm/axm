@@ -225,6 +225,60 @@ describe("aggregate required verification", () => {
     expect(serialized).toContain("steps.set-shas.outputs.head");
   });
 
+  it.each(["pull_request", "merge_group", "push", "workflow_dispatch"])(
+    "requires successful E2E partition completion for %s",
+    (event) => {
+      const jobs = readWorkflow().jobs;
+      const required = jobs["required"];
+      if (
+        typeof required !== "object" ||
+        required === null ||
+        !("steps" in required) ||
+        !Array.isArray(required.steps)
+      ) {
+        throw new Error("Required CI must declare its aggregation step.");
+      }
+      const step: unknown = required.steps.find(
+        (value: unknown) => typeof value === "object" && value !== null && "run" in value,
+      );
+      if (
+        typeof step !== "object" ||
+        step === null ||
+        !("run" in step) ||
+        typeof step.run !== "string"
+      ) {
+        throw new Error("Required CI must execute its aggregation script.");
+      }
+      const directory = fs.mkdtempSync(path.join(tmpdir(), "axm-e2e-gate-"));
+      try {
+        for (const result of ["success", "failure", "cancelled", "skipped", "missing"]) {
+          const results = Object.fromEntries(
+            Object.keys(jobs)
+              .filter((job) => job !== "required" && (job !== "verify-e2e" || result !== "missing"))
+              .map((job) => [job, { result: job === "verify-e2e" ? result : "success" }]),
+          );
+          const execution = spawnSync("bash", ["-e", "-o", "pipefail", "-c", step.run], {
+            encoding: "utf8",
+            env: {
+              ...process.env,
+              EVENT_NAME: event,
+              DOCS_CHANGED: "false",
+              RESULTS: JSON.stringify(results),
+              GITHUB_STEP_SUMMARY: path.join(directory, "summary.md"),
+            },
+          });
+          if (execution.error !== undefined) throw execution.error;
+          expect(
+            execution.status,
+            `${event}: ${result}\n${execution.stdout}${execution.stderr}`,
+          ).toBe(result === "success" ? 0 : 1);
+        }
+      } finally {
+        fs.rmSync(directory, { recursive: true, force: true });
+      }
+    },
+  );
+
   it("isolates queue cancellation and uses the tested revision in cache keys", () => {
     const workflow = readWorkflow();
     expect(JSON.stringify(workflow.concurrency)).toContain("github.event.merge_group.head_ref");
@@ -236,13 +290,18 @@ describe("aggregate required verification", () => {
   it("preserves workspace and E2E report evidence on hosted runners", () => {
     const jobs = readWorkflow().jobs;
     const workspace = JSON.stringify(jobs["verify-main"]);
-    const e2e = JSON.stringify(jobs["verify-e2e-main"]);
+    const e2e = JSON.stringify(jobs["verify-e2e"]);
     expect(workspace).toContain("ubuntu-latest");
     expect(workspace).toContain("pnpm run ci:workspace:report");
     expect(e2e).toContain("ubuntu-latest");
     expect(e2e).toContain("scripts/with-allure-report.sh");
     expect(e2e).toContain("cli-e2e:e2e-main");
     expect(e2e).toContain("binary-smoke install-suite");
+    expect(e2e).toContain("pnpm exec nx affected -t e2e-main");
+    expect(e2e).toContain("pnpm exec nx affected -t binary-smoke install-suite");
+    expect(e2e).toContain("needs.classify.outputs.base");
+    expect(e2e).toContain("needs.classify.outputs.head");
+    expect(JSON.stringify(jobs["verify-pr"])).toContain("--exclude=cli-e2e");
     expect(jobs).not.toHaveProperty("verify-main-hosted");
   });
 });

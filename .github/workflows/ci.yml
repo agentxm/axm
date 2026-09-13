@@ -213,9 +213,10 @@ jobs:
         run: |
           pnpm install --frozen-lockfile
           if [[ "$AXM_RELEASE_PREPARATION" != "true" ]]; then
-            pnpm release:plan:check
+            pnpm exec nx release plan:check
           fi
-          pnpm run verify:pr:report
+          scripts/with-allure-report.sh bash -c \
+            'pnpm run verify:pr:source && pnpm exec nx affected -t e2e --exclude=cli-e2e --nxBail --parallel=1'
 
       - name: Publish verification summary
         if: always()
@@ -347,11 +348,9 @@ jobs:
           check_name: Workspace Test Results
           include_passed: true
 
-  verify-e2e-main:
+  verify-e2e:
     name: Verify CLI E2E - ${{ matrix.name }}
     needs: classify
-    if: >-
-      github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -359,12 +358,15 @@ jobs:
           - id: main-1
             name: main shard 1/2
             command: pnpm exec nx run cli-e2e:e2e-main --outputStyle=static -- --shard=1/2
+            affected-command: pnpm exec nx affected -t e2e-main --nxBail --outputStyle=static -- --shard=1/2
           - id: main-2
             name: main shard 2/2
             command: pnpm exec nx run cli-e2e:e2e-main --outputStyle=static -- --shard=2/2
+            affected-command: pnpm exec nx affected -t e2e-main --nxBail --outputStyle=static -- --shard=2/2
           - id: distribution
             name: binary and install distribution
             command: pnpm exec nx run-many --projects cli-e2e -t binary-smoke install-suite --nxBail --outputStyle=static
+            affected-command: pnpm exec nx affected -t binary-smoke install-suite --nxBail --outputStyle=static
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -373,6 +375,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
@@ -385,7 +389,11 @@ jobs:
         env:
           NX_PARALLEL: "3"
           VITEST_MAX_WORKERS: "4"
-          AXM_E2E_COMMAND: ${{ matrix.command }}
+          NX_BASE: ${{ needs.classify.outputs.base }}
+          NX_HEAD: ${{ needs.classify.outputs.head }}
+          AXM_E2E_COMMAND: >-
+            ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
+            matrix.affected-command || matrix.command }}
         run: scripts/with-allure-report.sh bash -lc "$AXM_E2E_COMMAND"
 
       - name: Publish E2E verification summary
@@ -408,7 +416,7 @@ jobs:
         if: always() && steps.verify.outcome != 'skipped'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: test-results-main-e2e-${{ matrix.id }}
+          name: test-results-e2e-${{ matrix.id }}
           path: test-results/
           if-no-files-found: ignore
           retention-days: 14
@@ -417,7 +425,7 @@ jobs:
         if: always() && steps.verify.outcome != 'skipped'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: allure-report-main-e2e-${{ matrix.id }}
+          name: allure-report-e2e-${{ matrix.id }}
           path: test-results/allure-report/
           if-no-files-found: ignore
           retention-days: 14
@@ -609,7 +617,7 @@ jobs:
       - documentation
       - verify-pr
       - verify-main
-      - verify-e2e-main
+      - verify-e2e
       - windows-workspace
       - binary-smoke
       - npm-cohort
@@ -624,10 +632,10 @@ jobs:
           DOCS_CHANGED: ${{ needs.classify.outputs.documentation }}
         run: |
           if [[ "$EVENT_NAME" == "pull_request" || "$EVENT_NAME" == "merge_group" ]]; then
-            expected=(classify secrets specification-verdict extension-lint verify-pr windows-workspace)
+            expected=(classify secrets specification-verdict extension-lint verify-pr verify-e2e windows-workspace)
             [[ "$DOCS_CHANGED" == "true" ]] && expected+=(documentation)
           else
-            expected=(classify secrets verify-main verify-e2e-main windows-workspace binary-smoke npm-cohort)
+            expected=(classify secrets verify-main verify-e2e windows-workspace binary-smoke npm-cohort)
           fi
           expected_failures=""
           for job in "${expected[@]}"; do

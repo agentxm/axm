@@ -12,20 +12,10 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      runner:
-        description: Runner substrate for full verification
-        required: true
-        default: trusted-ci
-        type: choice
-        options:
-          - trusted-ci
-          - github-hosted
 
 concurrency:
   group: >-
-    ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{
-    github.event_name == 'workflow_dispatch' && inputs.runner || 'default' }}
+    ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
@@ -49,7 +39,6 @@ jobs:
       code: ${{ steps.classify.outputs.code }}
       documentation: ${{ steps.classify.outputs.documentation }}
       head: ${{ steps.set-shas.outputs.head }}
-      image: ${{ steps.classify.outputs.image }}
       workflow: ${{ steps.classify.outputs.workflow }}
     steps:
       - name: Checkout repository
@@ -150,26 +139,20 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Run actionlint from the pinned CI image
-        # Host-adapter boundary in docs/guides/repository-task-interface.md:
-        # this job
-        # installs no host toolchain, so no pnpm exists to resolve container:ci.
-        run: scripts/container-environment.sh ci actionlint
+      - name: Install checksum-verified actionlint
+        run: |
+          version=1.7.12
+          asset="actionlint_${version}_linux_amd64.tar.gz"
+          release="https://github.com/rhysd/actionlint/releases/download/v${version}"
+          cd "$RUNNER_TEMP"
+          curl --fail --location --silent --show-error --output "$asset" "$release/$asset"
+          curl --fail --location --silent --show-error --output checksums.txt "$release/actionlint_${version}_checksums.txt"
+          grep " ${asset}$" checksums.txt | sha256sum --check --strict
+          tar --extract --gzip --file "$asset" actionlint
+          sudo install -m 0755 actionlint /usr/local/bin/actionlint
 
-  image:
-    name: CI image
-    needs: classify
-    if: >-
-      github.event_name == 'pull_request' &&
-      needs.classify.outputs.image == 'true'
-    permissions:
-      attestations: read
-      contents: read
-    uses: ./.github/workflows/ci-image.yml
-    with:
-      base_sha: ${{ needs.classify.outputs.base }}
-      head_sha: ${{ needs.classify.outputs.head }}
-      runner: github-hosted
+      - name: Validate workflow syntax
+        run: actionlint
 
   verify-pr:
     name: Verify PR
@@ -185,6 +168,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+
+      - name: Set up workspace toolchain
+        uses: ./.github/actions/setup-workspace
+        with:
+          install: "false"
 
       - name: Create local main ref for release detection
         run: git fetch --no-tags origin main:main
@@ -205,11 +193,11 @@ jobs:
           path: ${{ runner.temp }}/axm-ci-cache/nx
           key: >-
             axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-${{
-            hashFiles('containers/ci/CI_IMAGE') }}-${{ hashFiles('pnpm-lock.yaml') }}-${{
+            hashFiles('mise.toml', '.github/actions/setup-workspace/action.yml') }}-${{ hashFiles('pnpm-lock.yaml') }}-${{
             github.event.pull_request.head.sha }}
           restore-keys: |
-            axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('containers/ci/CI_IMAGE') }}-${{ hashFiles('pnpm-lock.yaml') }}-
-            axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('containers/ci/CI_IMAGE') }}-
+            axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', '.github/actions/setup-workspace/action.yml') }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', '.github/actions/setup-workspace/action.yml') }}-
             axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Determine release verification mode
@@ -228,28 +216,22 @@ jobs:
           fi
           echo "release_preparation=$release_preparation" >> "$GITHUB_OUTPUT"
 
-      - name: Verify affected changes in pinned CI image
+      - name: Verify affected changes
         id: verify
         env:
-          AXM_CI_PNPM_CACHE_VOLUME: ${{ runner.temp }}/axm-ci-cache/pnpm-store
-          AXM_CI_NX_CACHE_VOLUME: ${{ runner.temp }}/axm-ci-cache/nx
-          AXM_CONTAINER_NX_PARALLEL: "3"
-          AXM_CONTAINER_VITEST_MAX_WORKERS: "2"
+          pnpm_config_store_dir: ${{ runner.temp }}/axm-ci-cache/pnpm-store
+          NX_CACHE_DIRECTORY: ${{ runner.temp }}/axm-ci-cache/nx
+          NX_PARALLEL: "3"
+          VITEST_MAX_WORKERS: "2"
           AXM_RELEASE_PREPARATION: ${{ steps.release-mode.outputs.release_preparation }}
           NX_BASE: ${{ needs.classify.outputs.base }}
           NX_HEAD: ${{ needs.classify.outputs.head }}
-        # Host-adapter boundary in docs/guides/repository-task-interface.md:
-        # this job
-        # installs no host toolchain, so no pnpm exists to resolve container:ci.
         run: |
-          scripts/container-environment.sh ci bash -lc '
-            set -euo pipefail
-            pnpm install --frozen-lockfile
-            if [[ "$AXM_RELEASE_PREPARATION" != "true" ]]; then
-              pnpm release:plan:check
-            fi
-            pnpm run verify:pr:report
-          '
+          pnpm install --frozen-lockfile
+          if [[ "$AXM_RELEASE_PREPARATION" != "true" ]]; then
+            pnpm release:plan:check
+          fi
+          pnpm run verify:pr:report
 
       - name: Publish verification summary
         if: always()
@@ -312,15 +294,12 @@ jobs:
           check_name: Test Results
           include_passed: true
 
-  verify-main-trusted:
-    name: Verify workspace (trusted-ci)
+  verify-main:
+    name: Verify main workspace
     needs: classify
     if: >-
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && inputs.runner == 'trusted-ci')
-    runs-on:
-      group: trusted-ci
-      labels: self-hosted
+      github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
       checks: write
@@ -329,20 +308,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Set up workspace toolchain
+        uses: ./.github/actions/setup-workspace
+
       - name: Clear prior workspace evidence
         run: rm -rf "$GITHUB_WORKSPACE/test-results"
 
-      - name: Verify workspace in pinned CI image
+      - name: Verify workspace
         id: verify
         env:
-          AXM_CONTAINER_NX_PARALLEL: "2"
-          AXM_CONTAINER_VITEST_MAX_WORKERS: "2"
-        # Host-adapter boundary in docs/guides/repository-task-interface.md:
-        # this job
-        # installs no host toolchain, so no pnpm exists to resolve container:ci.
-        run: >-
-          scripts/container-environment.sh ci bash -lc
-          'pnpm install --frozen-lockfile && pnpm run ci:workspace:report'
+          NX_PARALLEL: "2"
+          VITEST_MAX_WORKERS: "2"
+        run: pnpm run ci:workspace:report
 
       - name: Publish workspace verification summary
         if: always()
@@ -350,21 +327,21 @@ jobs:
           VERIFY_OUTCOME: ${{ steps.verify.outcome }}
         run: |
           {
-            echo "## Trusted workspace verification"
+            echo "## Hosted workspace verification"
             echo
             echo "| Signal | Result |"
             echo "| --- | --- |"
             echo "| Outcome | ${VERIFY_OUTCOME:-not run} |"
             echo "| Scope | Clean checkout, formatting, lint, typecheck, build, and unit tests |"
             echo "| Concurrency | Nx 2; Vitest 2 |"
-            echo "| Cache | Persistent image-and-lockfile-scoped pnpm and Nx volumes |"
+            echo "| Cache | Fresh hosted workspace |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload JUnit artifacts
         if: always() && steps.verify.outcome != 'skipped'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: test-results-main-trusted-workspace
+          name: test-results-main-workspace
           path: test-results/
           if-no-files-found: ignore
           retention-days: 14
@@ -373,7 +350,7 @@ jobs:
         if: always() && steps.verify.outcome != 'skipped'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: allure-report-main-trusted-workspace
+          name: allure-report-main-workspace
           path: test-results/allure-report/
           if-no-files-found: ignore
           retention-days: 14
@@ -386,12 +363,11 @@ jobs:
           check_name: Workspace Test Results
           include_passed: true
 
-  verify-e2e-main-trusted:
+  verify-e2e-main:
     name: Verify CLI E2E - ${{ matrix.name }}
     needs: classify
     if: >-
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && inputs.runner == 'trusted-ci')
+      github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
       matrix:
@@ -414,21 +390,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Set up workspace toolchain
+        uses: ./.github/actions/setup-workspace
+
       - name: Clear prior workspace evidence
         run: rm -rf "$GITHUB_WORKSPACE/test-results"
 
-      - name: Verify fresh CLI E2E partition in pinned CI image
+      - name: Verify fresh CLI E2E partition
         id: verify
         env:
-          AXM_CONTAINER_NX_PARALLEL: "3"
-          AXM_CONTAINER_VITEST_MAX_WORKERS: "4"
+          NX_PARALLEL: "3"
+          VITEST_MAX_WORKERS: "4"
           AXM_E2E_COMMAND: ${{ matrix.command }}
-        # Host-adapter boundary in docs/guides/repository-task-interface.md:
-        # this job
-        # installs no host toolchain, so no pnpm exists to resolve container:ci.
-        run: >-
-          scripts/container-environment.sh ci bash -lc
-          'pnpm install --frozen-lockfile && scripts/with-allure-report.sh bash -lc "$AXM_E2E_COMMAND"'
+        run: scripts/with-allure-report.sh bash -lc "$AXM_E2E_COMMAND"
 
       - name: Publish E2E verification summary
         if: always()
@@ -470,85 +444,6 @@ jobs:
         with:
           report_paths: "test-results/**/junit.xml"
           check_name: CLI E2E Test Results (${{ matrix.name }})
-          include_passed: true
-
-  verify-main-hosted:
-    name: Verify full workspace (GitHub-hosted fallback)
-    needs: classify
-    if: github.event_name == 'workflow_dispatch' && inputs.runner == 'github-hosted'
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    permissions:
-      checks: write
-      contents: read
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Measure hosted runner capacity
-        id: capacity
-        run: |
-          echo "started=$(date +%s)" >> "$GITHUB_OUTPUT"
-          echo "disk_kb=$(df -Pk "$GITHUB_WORKSPACE" | awk 'NR==2 {print $4}')" >> "$GITHUB_OUTPUT"
-          echo "memory_mb=$(free -m | awk '/^Mem:/ {print $2}')" >> "$GITHUB_OUTPUT"
-
-      - name: Verify main in pinned CI image
-        id: verify
-        # Host-adapter boundary in docs/guides/repository-task-interface.md:
-        # this job
-        # installs no host toolchain, so no pnpm exists to resolve container:ci.
-        run: >-
-          scripts/container-environment.sh ci bash -lc
-          'pnpm install --frozen-lockfile && scripts/with-allure-report.sh pnpm run ci'
-
-      - name: Report hosted runner measurement
-        if: always()
-        env:
-          STARTED: ${{ steps.capacity.outputs.started }}
-          DISK_KB: ${{ steps.capacity.outputs.disk_kb }}
-          MEMORY_MB: ${{ steps.capacity.outputs.memory_mb }}
-          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
-        run: |
-          started=${STARTED:-$(date +%s)}
-          disk_kb=${DISK_KB:-0}
-          memory_mb=${MEMORY_MB:-0}
-          elapsed=$(( $(date +%s) - started ))
-          {
-            echo "## GitHub-hosted pinned-image trial"
-            echo
-            echo "| Signal | Result |"
-            echo "| --- | --- |"
-            echo "| Outcome | ${VERIFY_OUTCOME:-not run} |"
-            echo "| Serial elapsed time | ${elapsed}s |"
-            echo "| Initial available disk | $((disk_kb / 1024)) MiB |"
-            echo "| Runner memory | ${memory_mb} MiB |"
-            echo "| Workload concurrency | Nx 2; Vitest 2 |"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload JUnit artifacts
-        if: always() && steps.verify.outcome != 'skipped'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: test-results-main-hosted
-          path: test-results/
-          if-no-files-found: ignore
-          retention-days: 14
-
-      - name: Upload Allure report
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: allure-report-main-hosted
-          path: test-results/allure-report/
-          if-no-files-found: ignore
-          retention-days: 14
-
-      - name: Publish JUnit report
-        if: always() && steps.verify.outcome != 'skipped'
-        uses: mikepenz/action-junit-report@d9f48fc87bc235f7e214acf696ca5abc0a986f16 # v6.4.2
-        with:
-          report_paths: "test-results/**/junit.xml"
-          check_name: Test Results
           include_passed: true
 
   windows-workspace:
@@ -713,11 +608,9 @@ jobs:
       - extension-lint
       - documentation
       - workflow-validation
-      - image
       - verify-pr
-      - verify-main-trusted
-      - verify-e2e-main-trusted
-      - verify-main-hosted
+      - verify-main
+      - verify-e2e-main
       - windows-workspace
       - binary-smoke
       - npm-cohort
@@ -729,22 +622,15 @@ jobs:
           RESULTS: >-
             ${{ toJSON(needs) }}
           EVENT_NAME: ${{ github.event_name }}
-          SELECTED_RUNNER: ${{ inputs.runner || '' }}
           DOCS_CHANGED: ${{ needs.classify.outputs.documentation }}
-          IMAGE_CHANGED: ${{ needs.classify.outputs.image }}
           WORKFLOW_CHANGED: ${{ needs.classify.outputs.workflow }}
         run: |
           if [[ "$EVENT_NAME" == "pull_request" ]]; then
             expected=(classify specification-verdict extension-lint verify-pr windows-workspace)
             [[ "$DOCS_CHANGED" == "true" ]] && expected+=(documentation)
-            [[ "$IMAGE_CHANGED" == "true" ]] && expected+=(image)
             [[ "$WORKFLOW_CHANGED" == "true" ]] && expected+=(workflow-validation)
-          elif [[ "$EVENT_NAME" == "push" ]]; then
-            expected=(classify verify-main-trusted verify-e2e-main-trusted windows-workspace binary-smoke npm-cohort)
-          elif [[ "$SELECTED_RUNNER" == "github-hosted" ]]; then
-            expected=(classify verify-main-hosted windows-workspace binary-smoke npm-cohort)
           else
-            expected=(classify verify-main-trusted verify-e2e-main-trusted windows-workspace binary-smoke npm-cohort)
+            expected=(classify verify-main verify-e2e-main windows-workspace binary-smoke npm-cohort)
           fi
           expected_failures=""
           for job in "${expected[@]}"; do

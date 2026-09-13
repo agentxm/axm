@@ -56,7 +56,6 @@ exception.
 | `pnpm run verify:affected`   | Run fast source checks selected by Nx     |
 | `pnpm run verify:pr`         | Verify the complete pull-request boundary |
 | `pnpm run ci`                | Run full-workspace automation diagnostics |
-| `pnpm run container:ci`      | Run full CI in the pinned Linux image     |
 | `pnpm build:affected`        | Build only packages changed since `main`  |
 | `pnpm test:affected`         | Test only packages changed since `main`   |
 | `pnpm lint:affected`         | Lint only packages changed since `main`   |

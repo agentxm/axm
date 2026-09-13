@@ -1,100 +1,51 @@
 ---
 type: Runbook
-title: "Reproduce AXM Linux CI"
-description: "Run the pinned Linux verification environment when reproducing a repository CI result locally or on a Docker-only host."
+title: Reproduce AXM Linux CI
+description: Reproduce a failed Linux verification job using its exact revision and native toolchain.
 status: draft
 applies-to:
   - ../repositories/axm.md
   - ../environments/linux-ci.md
 uses-tool:
-  - ../tools/ci-image.md
   - ../tools/nx.md
-sources:
-  - id: migration-source
-    resource: https://github.com/agentxm/axm/blob/42ed192e796a413246266f871da31bddfd70de10/contributing/guides/development-environment.md
-    title: Pre-migration repository guidance
-generated:
-  by: codex/gpt-6
-  at: 2026-09-11T16:07:00Z
 ---
 
 # Reproduce AXM Linux CI
 
 ## Preconditions
 
-Identify the checkout/commit and preserve its current changes. A Docker engine
-must be available; a pnpm-equipped host also needs the repository toolchain and
-explicit dependency preparation. The Docker-only exception below applies where
-that host toolchain is absent. Follow [Linux CI](../environments/linux-ci.md)
-for mount, cache, trust, and persistence boundaries.
+Identify the failed run, source SHA, job and command. Preserve existing work and
+use an isolated checkout of that revision. Native Linux reproduction requires
+the repository tools from `mise.toml` and the native prerequisites declared by
+the setup-workspace action. A run on macOS or Windows can diagnose shared code
+but does not establish Linux conformance.
 
-## CI Container Use
+## Procedure
 
-`pnpm run container:ci` and `pnpm run container:smoke` are the published
-workflow names for container CI, and are how the container environment is
-invoked:
+1. Inspect the failed job's setup and verification output. Distinguish unavailable
+   prerequisites, dependency installation, test failure and report publication.
+2. Install the pinned toolchain and run `pnpm install --frozen-lockfile`.
+3. Set the agent shell settings from the repository instructions. Run the exact
+   published workflow or Nx target shown by the failed job, preserving its
+   affected range and release-preparation context when applicable.
+4. Correct the cause and run the narrow relevant check, then `pnpm run verify:pr`
+   before delivery. Rerun the relevant Actions check on the resulting revision.
 
-```bash
-pnpm run container:ci
-pnpm run container:smoke
-```
+For an on-demand full main verification, dispatch `ci.yml` on the intended
+trusted revision. The workflow runs the workspace and E2E partitions on hosted
+runners. This dispatch verifies code; it does not authorize publication.
 
-Override `AXM_CI_IMAGE` only to test an intentional image upgrade.
+## Completion and recovery
 
-Both names run `scripts/container-environment.sh`, which is their
-implementation rather than a second entry point. Invoke that path directly only
-where no host toolchain is installed and there is therefore no `pnpm` to
-resolve the published name — Docker-only reproduction, and the CI container
-jobs, which install no toolchain by design:
+Record the revision, platform, command, exit status and report artifacts. A
+successful rerun establishes only the exercised scope. Preserve failures and
+partial reports; do not change test coverage or disable cache provenance checks
+to obtain a pass. Hosted job teardown owns the ephemeral machine; there are no
+project-maintained image digests or shared Docker volumes to reset.
 
-```bash
-scripts/container-environment.sh ci
-scripts/container-environment.sh smoke
-```
+## Accountability and maintenance
 
-That path invocation is a recorded exception in the
-[Repository task interface](../../docs/guides/repository-task-interface.md); do
-not add flags or environment to the `container:*` scripts without updating the
-CI call sites in the same change, since those two forms could otherwise
-diverge.
-
-The repository-owned CI image is public and must remain anonymously pullable.
-Public and fork PR code runs on ephemeral GitHub-hosted runners, never a
-persistent self-hosted runner.
-
-### Container Checklist
-
-- [ ] **Docker available** -- The host or VM Docker engine is running
-- [ ] **Smoke green** -- `pnpm run container:smoke` passes
-- [ ] **Normal commands used** -- CI runs through repository `pnpm` scripts
-- [ ] **Dependencies isolated** -- Container package payloads use the Docker
-      dependency volume rather than native `node_modules`
-
-## Completion, stop, and recovery
-
-Run the container smoke before the full CI workflow when establishing the host.
-Success is a zero exit result for the selected workflow against the identified
-checkout and image, with its emitted reports retained. Record commit, image
-digest, command, host architecture, and result; this does not establish native
-Windows/macOS or installed-release coverage.
-
-Stop on image-pull, Docker, dependency, or verification failure and retain the
-specific diagnostic. Correct the prerequisite or implementation through its
-owner before rerunning. Do not replace the pinned image merely to obtain a pass
-or delete shared cache volumes as blanket recovery. Container teardown owns
-ephemeral state; cache rotation follows the environment's scoped overrides.
-
-## Accountability, gaps, and maintenance
-
-Documentation maintainer: [@craigsmitham](https://github.com/craigsmitham), under
-the [adoption declaration](../README.md). The host operator controls Docker and local state; repository workflow maintainers own the verification contract. Named host-support escalation remains undocumented.
-
-Review this record when container entrypoints, image pins, Docker mounts, cache policy, or verification workflows change.
-
-Exercise history is unknown: this migration inspected repository sources on
-2026-09-11 and did not execute the procedure. Document status does not establish
-execution authority or operational readiness.
-
-Migration source: [pre-migration repository guidance][migration-source].
-
-[migration-source]: https://github.com/agentxm/axm/blob/42ed192e796a413246266f871da31bddfd70de10/contributing/guides/development-environment.md
+Workflow maintainers own repository verification; the operator owns local
+checkout state. Account and runner availability follow the GitHub provider
+record. Review on toolchain, command, cache or workflow changes. Native hosted
+migration has not yet established a live exercise record for this procedure.

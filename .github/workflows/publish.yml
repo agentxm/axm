@@ -30,9 +30,7 @@ on:
         type: string
 
 permissions:
-  actions: read
-  contents: write
-  id-token: write
+  contents: read
 
 env:
   NX_TUI: "false"
@@ -63,6 +61,7 @@ jobs:
       - name: Checkout declared source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || inputs.mode == 'bootstrap-prerelease' && inputs.source_sha || 'main' }}
 
@@ -184,6 +183,10 @@ jobs:
     needs: source
     if: needs.source.outputs.eligible == 'true' && needs.source.outputs.mode != 'bootstrap-prerelease'
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
     outputs:
       tag: ${{ steps.release_meta.outputs.tag }}
       version: ${{ steps.release_meta.outputs.version }}
@@ -195,6 +198,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
           ref: ${{ needs.source.outputs.tooling_sha }}
 
@@ -282,6 +286,10 @@ jobs:
     needs: source
     if: needs.source.outputs.eligible == 'true' && needs.source.outputs.mode == 'bootstrap-prerelease'
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
     outputs:
       version: ${{ steps.publish.outputs.version }}
       ci_run_id: ${{ steps.publish.outputs.ci_run_id }}
@@ -289,6 +297,7 @@ jobs:
       - name: Checkout exact current main
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
           ref: ${{ needs.source.outputs.sha }}
 
@@ -302,6 +311,8 @@ jobs:
 
       - name: Publish exact bootstrap npm cohort
         id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: >-
           pnpm exec nx run axm:publish-bootstrap-prerelease --outputStyle=static --
           "${{ needs.source.outputs.sha }}" "${{ github.run_id }}"
@@ -315,6 +326,7 @@ jobs:
       - name: Checkout exact source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ needs.source.outputs.sha }}
 
       - name: Set up repository toolchain
@@ -342,6 +354,7 @@ jobs:
       - name: Checkout released tree
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ needs.release.outputs.sha }}
 
       - name: Download released AXM binary
@@ -441,6 +454,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ needs.release.outputs.sha }}
 
       # Do NOT switch this job to the setup-workspace (mise) composite without
@@ -569,6 +583,7 @@ jobs:
       - name: Checkout candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ needs.release.outputs.sha }}
 
       # The Windows leg needs the same Corepack setup as installer verification:
@@ -619,6 +634,7 @@ jobs:
       - name: Checkout candidate
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ needs.release.outputs.sha }}
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace

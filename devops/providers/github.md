@@ -36,6 +36,10 @@ belong here. Repository owners administer those settings, but their current
 membership and recovery owner are not established by the checked-in review
 routes.
 
+[CodeQL](../tools/codeql.md) owns the local source-analysis adoption and
+verified managed configuration. GitHub supplies its scanner and alert surface;
+repository settings remain the authority for access and merge protection.
+
 Successful exact `push` CI on a merged canonical release commit continues into
 publication through `workflow_run`; it does not depend on a second token-created
 event. The publication workflow also owns bounded stable recovery and explicit

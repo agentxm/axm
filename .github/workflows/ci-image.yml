@@ -131,7 +131,7 @@ jobs:
           --severity HIGH,CRITICAL ${{ env.LOCAL_IMAGE }}:${{ matrix.arch }}
 
       - name: Generate SBOM for exact image artifact
-        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
         with:
           image: ${{ env.LOCAL_IMAGE }}:${{ matrix.arch }}
           format: spdx-json

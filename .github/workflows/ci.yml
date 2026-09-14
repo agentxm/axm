@@ -45,6 +45,7 @@ jobs:
       base: ${{ steps.set-shas.outputs.base }}
       code: ${{ steps.classify.outputs.code }}
       documentation: ${{ steps.classify.outputs.documentation }}
+      workflow: ${{ steps.classify.outputs.workflow }}
       head: ${{ steps.set-shas.outputs.head }}
     steps:
       - name: Checkout repository
@@ -449,19 +450,24 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
       - name: Set up workspace toolchain
         uses: ./.github/actions/setup-workspace
 
-      - name: Verify Windows instruction fallback
-        run: pnpm nx run workspace-projection:test-windows --outputStyle=static
-
-      - name: Verify Windows workspace mutations
+      - name: Verify Windows workspace lifecycle
         env:
           # This lifecycle target builds the portable JS CLI; dedicated main E2E
           # partitions own compiled-host coverage.
           AXM_E2E_CLI_SOURCE: built
-        run: pnpm nx run cli-e2e:e2e-windows --outputStyle=static
+          NX_BASE: ${{ needs.classify.outputs.base }}
+          NX_HEAD: ${{ needs.classify.outputs.head }}
+          WINDOWS_VERIFICATION_COMMAND: >-
+            ${{ (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
+            needs.classify.outputs.workflow != 'true' &&
+            'affected' || 'run-many' }}
+        run: pnpm exec nx $env:WINDOWS_VERIFICATION_COMMAND -t test-windows e2e-windows --nxBail --parallel=1 --outputStyle=static
 
       - name: Verify published-package launcher isolation
         run: pnpm exec nx run axm:test --args="verify-installed-package.test.ts" --outputStyle=static

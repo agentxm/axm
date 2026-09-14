@@ -1,5 +1,6 @@
+import { LifecyclePostconditionViolated } from "@agentxm/workspace-operations";
 import { usableAcceptedCanonical } from "@agentxm/workspace-state";
-import { LifecyclePostconditionViolated } from "../extensions/errors.js";
+
 // @effect-diagnostics anyUnknownInErrorContext:off — schema and filesystem errors are swept into KnowledgeIoFailed inside this manager
 /** Lifecycle manager for isolated Open Knowledge Format bundles. */
 

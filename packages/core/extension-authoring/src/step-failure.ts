@@ -1,3 +1,7 @@
+import {
+  LifecyclePostconditionViolated,
+  ScaffoldedExtensionUnresolved,
+} from "@agentxm/workspace-operations";
 /**
  * How an authoring closure serializes a failure into the plan-step vocabulary.
  *
@@ -27,11 +31,9 @@ import {
   ArchiveIntegrityMismatch,
   CanonicalPackageProbeFailed,
   CreateDestinationExists,
-  LifecyclePostconditionViolated,
   NativeMcpEntryRetirementFailed,
   PackageCopyFailed,
   PackageMaterializationFailed,
-  ScaffoldedExtensionUnresolved,
   StagedPackageInvalid,
   type ExtensionManagerFailure,
 } from "@agentxm/extension-materialization";
@@ -57,6 +59,7 @@ import {
 /** Every failure an authoring closure can settle a plan step with. */
 export type AuthoringStepFailure =
   | ExtensionManagerFailure
+  | ScaffoldedExtensionUnresolved
   | AuthoredPackageError
   | AuthoringFailed
   | NativeMcpEntryRetirementFailed

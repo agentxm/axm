@@ -1,3 +1,4 @@
+import { LifecyclePostconditionViolated } from "@agentxm/workspace-operations";
 /**
  * How a lifecycle closure serializes a failure into the plan-step vocabulary.
  *
@@ -23,10 +24,7 @@ import {
   workspaceTransactionFailureToStepFailure,
   type OperationErrorCategory,
 } from "@agentxm/workspace-operations";
-import {
-  LifecyclePostconditionViolated,
-  projectionErrorToStepFailure,
-} from "@agentxm/extension-materialization";
+import { projectionErrorToStepFailure } from "@agentxm/extension-materialization";
 import { isProjectionError } from "@agentxm/workspace-projection";
 import {
   WorkspaceRestorationIncomplete,

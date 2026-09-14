@@ -1,3 +1,7 @@
+import {
+  LifecyclePostconditionViolated,
+  ScaffoldedExtensionUnresolved,
+} from "@agentxm/workspace-operations";
 import { stripFileProtocol } from "@agentxm/registry-client";
 /**
  * Shared extension closure recipes — install, materialize, uninstall, and the
@@ -19,6 +23,8 @@ import {
   SettingsWriter,
   AcceptedResolutionWriter,
   WorkspaceMutations,
+  type WorkspaceStateReadFailure,
+  type WorkspaceStateMutationFailure,
 } from "@agentxm/workspace-state";
 import { declareMaterialization, recordMaterialization } from "./declaration.js";
 import * as Option from "effect/Option";
@@ -32,11 +38,7 @@ import type {
   SynchronizeMaterialization,
   UninstallMaterialization,
 } from "@agentxm/workspace-operations";
-import type { ExtensionManagerFailure } from "@agentxm/extension-materialization";
-import {
-  LifecyclePostconditionViolated,
-  ScaffoldedExtensionUnresolved,
-} from "@agentxm/extension-materialization";
+
 import { SourceAuthorityBlocked } from "@agentxm/extension-resolution";
 import {
   applyProjectionPlans,
@@ -52,7 +54,11 @@ import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sour
 import { evaluateSourceAuthority } from "@agentxm/extension-resolution";
 import { formatDeprecationWarning } from "@agentxm/registry-client";
 import { runWorkspaceTransaction } from "@agentxm/workspace-transactions";
-import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
+import type {
+  WorkspaceTransactionFailure,
+  WorkspaceRestorationIncomplete,
+  WorkspaceTransactionScope,
+} from "@agentxm/workspace-transactions";
 import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";
 
 // -----------------------------------------------------------------------------
@@ -164,11 +170,17 @@ export interface UninstallRetentionPolicy<F = never, R = never> {
 }
 
 /**
- * Failure channel for a recipe's typed inputs: the manager failures the recipe
- * itself can surface plus whatever failure family the calling feature supplies
- * through `F`. Nothing in this channel is `unknown`.
+ * Shared transition failures plus the caller's operation-specific failures.
+ * The shared algorithm does not depend on extension-kind adapter errors.
  */
-export type CallerStepFailure<F = never> = ExtensionManagerFailure | F;
+export type CallerStepFailure<F = never> =
+  | WorkspaceStateReadFailure
+  | WorkspaceStateMutationFailure
+  | WorkspaceTransactionFailure
+  | WorkspaceRestorationIncomplete
+  | SourceAuthorityBlocked
+  | LifecyclePostconditionViolated
+  | F;
 
 /**
  * The one conversion from a recipe's typed failure union into the serialized
@@ -201,9 +213,9 @@ const NO_PROJECTION_WARNINGS: ReadonlyArray<string> = [];
  * report for every desired contributor those units could not render. The
  * report travels with the step that performed the render.
  */
-const applyManagerProjectionPlans = <R>(
-  manager: MaterializationProjection<ExtensionManagerFailure, R>,
-): Effect.Effect<ReadonlyArray<string>, ExtensionManagerFailure, R> =>
+const applyManagerProjectionPlans = <F, R>(
+  manager: MaterializationProjection<F, R>,
+): Effect.Effect<ReadonlyArray<string>, F, R> =>
   manager.projectionPlans === undefined
     ? Effect.succeed(NO_PROJECTION_WARNINGS)
     : manager
@@ -257,7 +269,7 @@ export interface NewExtensionOperationArgs<
   F = never,
   R = never,
 > extends Omit<
-  InstallOperationArgs<TRef, TMaterialization, F, R>,
+  InstallOperationArgs<TRef, TMaterialization, F | ScaffoldedExtensionUnresolved, R>,
   "force" | "sourceReplacements" | "declaration"
 > {
   readonly versionRange: Option.Option<string>;
@@ -302,10 +314,10 @@ export interface AuthoredExtensionOperationArgs<
   readonly allowConfiguredSourceTransition?: boolean;
 }
 
-const isConfigured = <R>(
-  manager: MaterializationConfiguration<ExtensionManagerFailure, R>,
+const isConfigured = <F, R>(
+  manager: MaterializationConfiguration<F, R>,
   target: ExtensionTarget,
-): Effect.Effect<boolean, ExtensionManagerFailure, R> => {
+): Effect.Effect<boolean, F, R> => {
   if (manager.isConfigured !== undefined) return manager.isConfigured({ target });
   if (manager.getConfiguredSource === undefined) return Effect.succeed(false);
   return manager.getConfiguredSource({ target }).pipe(Effect.map(Option.isSome));
@@ -319,7 +331,7 @@ const isConfigured = <R>(
  * installs omit the root settings declaration while retaining that resolution.
  */
 const runInstallOperation = <TRef extends ExtensionRef, TMaterialization, F, R>(
-  manager: InstallMaterialization<TRef, TMaterialization, ExtensionManagerFailure, R>,
+  manager: InstallMaterialization<TRef, TMaterialization, CallerStepFailure<F>, R>,
   args: InstallOperationArgs<TRef, TMaterialization, F, R>,
 ): Effect.Effect<JobStepResult, StepFailure, R | RecipeRequirements> =>
   Effect.gen(function* () {
@@ -457,7 +469,7 @@ export const buildInstallOperation = <
   F = never,
   R = never,
 >(
-  manager: InstallMaterialization<TRef, TMaterialization, ExtensionManagerFailure, R>,
+  manager: InstallMaterialization<TRef, TMaterialization, CallerStepFailure<F>, R>,
   args: InstallOperationArgs<TRef, TMaterialization, F, R>,
 ): PlannedJobStep<R | RecipeRequirements> => {
   const target = targetFromRef(args.ref);
@@ -508,7 +520,7 @@ export const buildAuthoredExtensionStep = <
   F = never,
   R = never,
 >(
-  manager: AuthorMaterialization<TRef, TMaterialization, ExtensionManagerFailure, R>,
+  manager: AuthorMaterialization<TRef, TMaterialization, CallerStepFailure<F>, R>,
   args: AuthoredExtensionOperationArgs<TRef, TMaterialization, F, R>,
 ): PlannedJobStep<R | RecipeRequirements> => {
   const target = args.target;
@@ -635,7 +647,7 @@ export const buildNewExtensionStep = <
   F = never,
   R = never,
 >(
-  manager: AuthorMaterialization<TRef, TMaterialization, ExtensionManagerFailure, R>,
+  manager: AuthorMaterialization<TRef, TMaterialization, CallerStepFailure<F>, R>,
   args: NewExtensionOperationArgs<TRef, TMaterialization, F, R>,
 ): PlannedJobStep<R | RecipeRequirements> => {
   if (args.ref.refType !== "workspace") {
@@ -682,7 +694,7 @@ export interface MaterializeOperationArgs<
 }
 
 const runMaterializeOperation = <TRef extends ExtensionRef, TMaterialization, F, R>(
-  manager: SynchronizeMaterialization<TRef, TMaterialization, ExtensionManagerFailure, R>,
+  manager: SynchronizeMaterialization<TRef, TMaterialization, CallerStepFailure<F>, R>,
   args: MaterializeOperationArgs<TRef, TMaterialization, F, R>,
 ): Effect.Effect<JobStepResult, StepFailure, R | RecipeRequirements> =>
   Effect.gen(function* () {
@@ -733,7 +745,7 @@ export const buildMaterializeOperation = <
   F = never,
   R = never,
 >(
-  manager: SynchronizeMaterialization<TRef, TMaterialization, ExtensionManagerFailure, R>,
+  manager: SynchronizeMaterialization<TRef, TMaterialization, CallerStepFailure<F>, R>,
   args: MaterializeOperationArgs<TRef, TMaterialization, F, R>,
 ): PlannedJobStep<R | RecipeRequirements> => {
   const target = targetFromRef(args.ref);
@@ -829,9 +841,9 @@ const unreadablePackageWarning = (
 ): string =>
   `${toLabel(target)}: its package manifest ${retirement.reason === "missing" ? "is missing" : "cannot be read"} at ${retirement.manifestPath}, so AXM removed its configuration entry and accepted resolution and left its package content in place. Delete that content yourself once you no longer need it.`;
 
-const retireMaterialization = <TTarget extends ExtensionTarget, TMaterialization, R>(
+const retireMaterialization = <TTarget extends ExtensionTarget, TMaterialization, F, R>(
   manager: Pick<
-    UninstallMaterialization<TTarget, TMaterialization, ExtensionManagerFailure, R>,
+    UninstallMaterialization<TTarget, TMaterialization, F, R>,
     "withdrawnResolutionKeys"
   >,
   args: {
@@ -857,7 +869,7 @@ const retireMaterialization = <TTarget extends ExtensionTarget, TMaterialization
  *   3. Remove settings entry
  */
 const runUninstallOperation = <TTarget extends ExtensionTarget, TMaterialization, F, R>(
-  manager: UninstallMaterialization<TTarget, TMaterialization, ExtensionManagerFailure, R>,
+  manager: UninstallMaterialization<TTarget, TMaterialization, CallerStepFailure<F>, R>,
   retentionPolicy: UninstallRetentionPolicy<F, R>,
   args: UninstallOperationArgs<TTarget, TMaterialization, F, R>,
 ): Effect.Effect<JobStepResult, StepFailure, R | RecipeRequirements> =>
@@ -1035,7 +1047,7 @@ export const buildUninstallOperation = <
   F = never,
   R = never,
 >(
-  manager: UninstallMaterialization<TTarget, TMaterialization, ExtensionManagerFailure, R>,
+  manager: UninstallMaterialization<TTarget, TMaterialization, CallerStepFailure<F>, R>,
   retentionPolicy: UninstallRetentionPolicy<F, R>,
   args: UninstallOperationArgs<TTarget, TMaterialization, F, R>,
 ): PlannedJobStep<R | RecipeRequirements> => {

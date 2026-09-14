@@ -1,3 +1,7 @@
+import {
+  LifecyclePostconditionViolated,
+  ScaffoldedExtensionUnresolved,
+} from "@agentxm/workspace-operations";
 /**
  * Conversions from the extension-materialization typed failure families into
  * CLI-facing `AppError` values. Each converter reproduces the detail template
@@ -20,7 +24,6 @@ import type {
   KnowledgeObservableContractViolated,
   KnowledgeResolutionMissing,
   KnowledgeUnavailable,
-  LifecyclePostconditionViolated,
   McpAgentSyncRefused,
   McpCanonicalPathUnsafe,
   McpInstallStateMissing,
@@ -36,7 +39,6 @@ import type {
   PackageMaterializationFailed,
   RuleDefinitionInvalid,
   RuleInstallStateMissing,
-  ScaffoldedExtensionUnresolved,
   SkillDefinitionInvalid,
   SkillInstallStateMissing,
   SkillMaterializationFailed,

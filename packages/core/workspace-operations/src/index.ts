@@ -237,3 +237,8 @@ export type {
   SynchronizeMaterialization,
   UninstallMaterialization,
 } from "./materialization-ports.js";
+
+export {
+  LifecyclePostconditionViolated,
+  ScaffoldedExtensionUnresolved,
+} from "./materialization-errors.js";

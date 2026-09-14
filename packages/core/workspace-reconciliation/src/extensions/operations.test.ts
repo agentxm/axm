@@ -35,7 +35,7 @@ import {
 } from "./operations.js";
 import type { CallerStepFailure } from "./operations.js";
 import { SourceAuthorityBlocked } from "@agentxm/extension-resolution";
-import { StepFailure } from "@agentxm/workspace-operations";
+import { StepFailure, type ScaffoldedExtensionUnresolved } from "@agentxm/workspace-operations";
 import { computeSourceHash } from "@agentxm/workspace-state";
 import {
   recipeWorkspace,
@@ -100,7 +100,9 @@ const grounded = <A, E>(
 /** What a stub manager observed: these recipes never read the content facts. */
 const NO_FACTS = undefined;
 
-const toStepFailure = (failure: CallerStepFailure): StepFailure =>
+const toStepFailure = (
+  failure: CallerStepFailure<ExtensionManagerFailure | ScaffoldedExtensionUnresolved>,
+): StepFailure =>
   failure instanceof SourceAuthorityBlocked
     ? new StepFailure({
         category: "conflict",
@@ -777,7 +779,7 @@ describe("buildUninstallOperation", () => {
         const operation = buildUninstallOperation<
           SkillExtensionTarget,
           void,
-          never,
+          ExtensionManagerFailure,
           ManagerRequirements
         >(
           manager,
@@ -829,7 +831,7 @@ describe("buildUninstallOperation", () => {
       const operation = buildUninstallOperation<
         SkillExtensionTarget,
         void,
-        never,
+        ExtensionManagerFailure,
         ManagerRequirements
       >(
         manager,
@@ -881,7 +883,7 @@ describe("buildUninstallOperation", () => {
       const operation = buildUninstallOperation<
         SkillExtensionTarget,
         void,
-        never,
+        ExtensionManagerFailure,
         ManagerRequirements
       >(
         manager,
@@ -937,7 +939,7 @@ describe("buildUninstallOperation", () => {
       const operation = buildUninstallOperation<
         SkillExtensionTarget,
         void,
-        never,
+        ExtensionManagerFailure,
         ManagerRequirements
       >(
         manager,
@@ -990,7 +992,7 @@ describe("buildUninstallOperation", () => {
       const operation = buildUninstallOperation<
         SkillExtensionTarget,
         void,
-        never,
+        ExtensionManagerFailure,
         ManagerRequirements
       >(
         manager,
@@ -1037,7 +1039,7 @@ describe("buildUninstallOperation", () => {
       const operation = buildUninstallOperation<
         SkillExtensionTarget,
         void,
-        never,
+        ExtensionManagerFailure,
         ManagerRequirements
       >(
         manager,
@@ -1076,7 +1078,7 @@ describe("buildUninstallOperation", () => {
         const operation = buildUninstallOperation<
           SkillExtensionTarget,
           void,
-          never,
+          ExtensionManagerFailure,
           ManagerRequirements
         >(
           manager,
@@ -1124,7 +1126,7 @@ describe("buildUninstallOperation", () => {
       const operation = buildUninstallOperation<
         SkillExtensionTarget,
         void,
-        never,
+        ExtensionManagerFailure,
         ManagerRequirements
       >(
         manager,

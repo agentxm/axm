@@ -57,10 +57,8 @@ export {
   ArchiveIntegrityMismatch,
   CanonicalPackageProbeFailed,
   CreateDestinationExists,
-  LifecyclePostconditionViolated,
   PackageCopyFailed,
   PackageMaterializationFailed,
-  ScaffoldedExtensionUnresolved,
   StagedPackageInvalid,
   type MaterializationError,
 } from "./extensions/errors.js";

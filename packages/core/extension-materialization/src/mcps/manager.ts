@@ -1,5 +1,6 @@
+import { LifecyclePostconditionViolated } from "@agentxm/workspace-operations";
 import { usableAcceptedCanonical } from "@agentxm/workspace-state";
-import { LifecyclePostconditionViolated } from "../extensions/errors.js";
+
 /**
  * MCP server extension manager service.
  *

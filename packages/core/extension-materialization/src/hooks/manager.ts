@@ -1,6 +1,7 @@
+import { LifecyclePostconditionViolated } from "@agentxm/workspace-operations";
 import type { HookManagerService } from "../managers.js";
 import { usableAcceptedCanonical } from "@agentxm/workspace-state";
-import { LifecyclePostconditionViolated } from "../extensions/errors.js";
+
 /**
  * Hook manager service.
  *

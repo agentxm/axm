@@ -12,10 +12,8 @@
 
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import type * as Path from "effect/Path";
 import type * as Semaphore from "effect/Semaphore";
 
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
@@ -61,7 +59,7 @@ export interface DeclareArgsByType {
   readonly knowledge: SetKnowledgeArgs;
 }
 
-type Write = Effect.Effect<void, WorkspaceStateMutationFailure, FileSystem.FileSystem | Path.Path>;
+type Write = Effect.Effect<void, WorkspaceStateMutationFailure>;
 
 export interface DesiredStateWriterService {
   /** Declare the extension in settings and record its accepted resolution. */

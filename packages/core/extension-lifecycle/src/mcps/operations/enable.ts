@@ -73,8 +73,6 @@ export const enableMcpServer = (
   | StepFailureConversion
 > =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
     const agentRepo = yield* CodingAgentRepository;
 
@@ -96,10 +94,7 @@ export const enableMcpServer = (
             serverName: op.args.serverName,
             entry: { ...entry, enabled: true },
             scope: ws.scope,
-          }).pipe(
-            Effect.provideService(FileSystem.FileSystem, fs),
-            Effect.provideService(Path.Path, path),
-          );
+          });
           const agentOutcomes = agentIds.map((agentId, index) => ({
             agentId,
             outcome: synced[index] ?? {
@@ -201,10 +196,7 @@ export const enableMcpServer = (
           enabled: true,
         }));
         return synced;
-      }).pipe(
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, path),
-      ),
+      }),
       validate: () => Effect.void,
     });
     const warnings = mcpSyncWarnings(

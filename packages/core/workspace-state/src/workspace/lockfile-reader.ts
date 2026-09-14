@@ -8,10 +8,8 @@
 
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import type * as Path from "effect/Path";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { LockfileValidationError } from "../lockfile/errors.js";
@@ -43,11 +41,7 @@ export interface LockfileReaderService {
   /** Resolve a local MCP connection name to its shared accepted resolution. */
   readonly mcpServerForConnection: (
     localName: string,
-  ) => Effect.Effect<
-    Option.Option<McpServerLockEntry>,
-    WorkspaceStateReadFailure,
-    FileSystem.FileSystem | Path.Path
-  >;
+  ) => Effect.Effect<Option.Option<McpServerLockEntry>, WorkspaceStateReadFailure>;
 }
 
 export class LockfileReader extends ServiceMap.Service<LockfileReader, LockfileReaderService>()(

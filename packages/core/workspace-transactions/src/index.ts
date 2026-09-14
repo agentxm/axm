@@ -33,8 +33,10 @@ export { protectCreatedAncestors, protectWorkspacePath } from "./context.js";
 
 export {
   WorkspaceTransactionScope,
+  WorkspaceTransactionScopes,
   acquireWorkspaceTransition,
-  makeWorkspaceTransactionScope,
+  runWorkspaceTransaction,
+  type WorkspaceTransactionArgs,
   type WorkspaceTransactionPaths,
   type WorkspaceTransactionScopeService,
   type WorkspaceTransitionRequest,
@@ -52,10 +54,8 @@ export {
 export {
   pendingClosureRestorations,
   rollbackWorkspaceClosure,
-  runWorkspaceTransaction,
   settleWorkspaceClosure,
   withWorkspaceClosure,
-  type WorkspaceTransactionArgs,
 } from "./transaction.js";
 
 export type { PendingClosureRestoration } from "./ledger.js";

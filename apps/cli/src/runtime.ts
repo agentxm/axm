@@ -1,3 +1,4 @@
+import { WorkspaceTransactionScopesLive } from "@agentxm/workspace-transactions/live";
 import { UpdateCheckCacheLive } from "./cli-runtime/update-cache.js";
 import { CliUpgradeObservationLive } from "./cli-runtime/upgrade-observation.js";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -548,7 +549,12 @@ export const withRuntime =
       // the same layer again through withWorkspace, harmlessly.
       const appLayer = Layer.provideMerge(
         makeRuntimeLoggerLayer,
-        Layer.mergeAll(foundationLayer, interactionLayer, CodingAgentRepositoryLive),
+        Layer.mergeAll(
+          foundationLayer,
+          interactionLayer,
+          CodingAgentRepositoryLive,
+          Layer.provide(WorkspaceTransactionScopesLive, PlatformLayer),
+        ),
       );
 
       return yield* withCliErrorHandling(

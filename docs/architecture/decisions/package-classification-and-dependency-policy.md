@@ -190,7 +190,7 @@ weakens it for every supporting package, not only the one that asked.
   `system/architecture/public-system-depends-only-on-published-contracts` and
   `system/architecture/e2e-observes-only-shipped-artifacts` in the
   [specification catalog](../../../specifications/catalog.md). Dependency
-  direction, feature isolation, acyclicity and application-only composition are
+  direction, feature isolation, acyclicity and composition at designated roots are
   engineering policy verified natively by the module-boundary rules and by
   [`scripts/module-boundaries.test.ts`](../../../scripts/module-boundaries.test.ts)
   and

@@ -94,7 +94,7 @@ Production dependency direction points strictly inward: application toward
 features, features toward capabilities, integrations, and contracts, and
 contracts toward the extension model. No library depends on CLI interaction or
 output rendering. Inward dependency direction, acyclicity, feature isolation, and
-application-only composition of concrete implementations are engineering
+composition at designated roots are engineering
 policy enforced natively by the `@nx/enforce-module-boundaries` role and
 domain matrices in `eslint.config.mjs`, with
 [`scripts/module-boundaries.test.ts`](../../scripts/module-boundaries.test.ts)

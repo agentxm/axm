@@ -68,12 +68,11 @@ const makeServices = (
   return {
     layer: Layer.mergeAll(
       NativeWriteAuthorityPermissive,
-      NodeServices.layer,
       WorkspaceMutations.layer(workspace),
       MockWorkspaceTransactionScope(axmDir),
       TestStepFailureConversion,
       Layer.succeed(CodingAgentRepository, agentRepo),
-    ),
+    ).pipe(Layer.provideMerge(NodeServices.layer)),
   };
 };
 

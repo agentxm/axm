@@ -14,8 +14,7 @@ import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { acquireWorkspaceTransition } from "./scope.js";
-import { runWorkspaceTransaction } from "./transaction.js";
+import { acquireWorkspaceTransition, runWorkspaceTransaction } from "./index.js";
 import { startWorkspaceTransitionProcess } from "./test-support/contention-process.js";
 import { makeMemoryTransitionLockWorld, WorkspaceTransactionScopeTest } from "./testing.js";
 

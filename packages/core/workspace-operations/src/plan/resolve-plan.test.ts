@@ -1,3 +1,4 @@
+import { WorkspaceTransactionScopeLive } from "@agentxm/workspace-transactions/live";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
@@ -109,7 +110,7 @@ const transactionPaths = (path: Path.Path, workspaceDir: string) => ({
 const productionScope = (workspaceDir: string) =>
   Layer.unwrap(
     Effect.map(Path.Path, (path) =>
-      WorkspaceTransactionScope.layer(transactionPaths(path, workspaceDir)),
+      WorkspaceTransactionScopeLive(transactionPaths(path, workspaceDir)),
     ),
   );
 
@@ -1431,7 +1432,6 @@ describe("previewOrApply", () => {
       const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-lock-lifetime-" });
       const workspaceDir = path.join(directory, ".axm");
       yield* fs.makeDirectory(workspaceDir, { recursive: true });
-      const resolved = path.resolve(workspaceDir);
       const lockPath = path.join(workspaceDir, "tmp", "workspace-transition.lock");
       const heldDuringApply: Array<boolean> = [];
       const lockOnDisk: Array<boolean> = [];
@@ -1457,7 +1457,7 @@ describe("previewOrApply", () => {
                 label: "observe",
                 run: Effect.gen(function* () {
                   const scope = yield* WorkspaceTransactionScope;
-                  heldDuringApply.push(Option.isSome(yield* scope.lock.held(resolved)));
+                  heldDuringApply.push(yield* scope.isHeld);
                   lockOnDisk.push(yield* fs.exists(lockPath).pipe(Effect.orDie));
                   return { result: "success" as const, message: "observed" };
                 }),
@@ -1470,7 +1470,7 @@ describe("previewOrApply", () => {
       const { result, heldAfter } = yield* Effect.gen(function* () {
         const result = yield* previewOrApply(plan, { execution: preapprovedPlanExecution });
         const scope = yield* WorkspaceTransactionScope;
-        return { result, heldAfter: Option.isSome(yield* scope.lock.held(resolved)) };
+        return { result, heldAfter: yield* scope.isHeld };
       }).pipe(Effect.provide(context.layer));
 
       expect(deriveOperationOutcome(result)).toBe("applied");

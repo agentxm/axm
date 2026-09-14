@@ -17,11 +17,9 @@ import * as Layer from "effect/Layer";
 import * as PlatformError from "effect/PlatformError";
 
 import { makeMemoryTransitionLockWorld } from "./memory-transition-lock.js";
-import {
-  makeWorkspaceTransactionScope,
-  WorkspaceTransactionScope,
-  type WorkspaceTransactionPaths,
-} from "./scope.js";
+import { WorkspaceTransactionScope, type WorkspaceTransactionPaths } from "./scope.js";
+import { makeWorkspaceTransactionScope } from "./live.js";
+import type * as Path from "effect/Path";
 import type { WorkspaceTransitionLock } from "./transition-lock.js";
 
 export {
@@ -38,7 +36,7 @@ export {
 export const WorkspaceTransactionScopeTest = (
   paths: WorkspaceTransactionPaths,
   options?: { readonly lock?: WorkspaceTransitionLock },
-): Layer.Layer<WorkspaceTransactionScope> =>
+): Layer.Layer<WorkspaceTransactionScope, never, FileSystem.FileSystem | Path.Path> =>
   Layer.effect(
     WorkspaceTransactionScope,
     makeWorkspaceTransactionScope(

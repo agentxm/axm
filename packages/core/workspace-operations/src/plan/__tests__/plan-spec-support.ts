@@ -1,3 +1,4 @@
+import { WorkspaceTransactionScopeLive } from "@agentxm/workspace-transactions/live";
 /**
  * Shared fixtures for the plan-family specifications and tests in this area.
  *
@@ -11,11 +12,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 
-import {
-  FootprintRecorder,
-  WorkspaceTransactionScope,
-  makeFootprintRecorder,
-} from "@agentxm/workspace-transactions";
+import { FootprintRecorder, makeFootprintRecorder } from "@agentxm/workspace-transactions";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   ConfiguredAgentOutcomesProviderTest,
@@ -70,7 +67,7 @@ export const makeSpecContext = (
       Layer.effect(FootprintRecorder, makeFootprintRecorder),
       Layer.unwrap(
         Effect.map(Path.Path, (path) =>
-          WorkspaceTransactionScope.layer({
+          WorkspaceTransactionScopeLive({
             workspaceDir,
             settingsPath: path.join(path.dirname(workspaceDir), "axm.json"),
             lockPath: path.join(path.dirname(workspaceDir), "axm-lock.yaml"),

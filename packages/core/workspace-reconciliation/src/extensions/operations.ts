@@ -1,3 +1,5 @@
+import type * as FileSystem from "effect/FileSystem";
+import type * as Path from "effect/Path";
 import {
   LifecyclePostconditionViolated,
   ScaffoldedExtensionUnresolved,
@@ -28,8 +30,6 @@ import {
 } from "@agentxm/workspace-state";
 import { declareMaterialization, recordMaterialization } from "./declaration.js";
 import * as Option from "effect/Option";
-import type * as FileSystem from "effect/FileSystem";
-import type * as Path from "effect/Path";
 import type {
   AuthorMaterialization,
   InstallMaterialization,
@@ -194,8 +194,8 @@ export interface StepFailureAdapter<F = never> {
 
 /**
  * What every recipe adds on top of its manager's own requirements: the
- * transaction scope its closure opens, and the platform that scope reads and
- * writes through.
+ * transaction scope its closure opens, workspace state services, and the
+ * platform dependencies still required by those state writers.
  */
 export type RecipeRequirements =
   | WorkspaceTransactionScope

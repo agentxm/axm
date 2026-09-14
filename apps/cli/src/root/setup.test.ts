@@ -1,3 +1,4 @@
+import { WorkspaceTransactionScopesLive } from "@agentxm/workspace-transactions/live";
 // Raw node:fs/node:os/node:path is the repo-wide convention for test fixtures.
 import * as fs from "node:fs";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
@@ -97,6 +98,7 @@ const makeSetupTestContext = (opts?: {
     NodeServices.layer,
     FetchHttpClient.layer,
     CodingAgentRepositoryLive,
+    Layer.provide(WorkspaceTransactionScopesLive, NodeServices.layer),
     // Setup applies the bundled official skill inside the initialization
     // closure, through the same asset layer the executable composes.
     BundledAxmSkillAssetLive,

@@ -15,6 +15,9 @@
         "clean": true,
         "generatePackageJson": false
       }
+    },
+    "test": {
+      "dependsOn": ["build", "specification-metadata:build"]
     }
   }
 }

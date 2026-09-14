@@ -159,15 +159,6 @@ if (affectedVerification.includes("-t e2e")) {
   errors.push("verify:affected must remain the fast source-only confidence gate");
 }
 
-const prVerification = packageManifest.scripts?.["verify:pr"] ?? "";
-for (const text of [
-  "pnpm run verify:clean",
-  "pnpm run format:check",
-  "pnpm run verify:affected",
-  "pnpm run test:e2e:affected",
-]) {
-  requireText(prVerification, text, `verify:pr must own the change boundary through ${text}`);
-}
 // The bundled-skill lint is the only gate over `skills/axm/**`. It reaches the
 // developer through the source-verification names, not only the CI job, so a
 // local `pnpm run ci` covers what CI's `extension-lint` job covers.

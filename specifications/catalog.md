@@ -4787,10 +4787,10 @@ Changes and releases land through the governed repository process with required 
 - Role: supporting
 - Product goals: `dependable-change-process`, `trustworthy-distribution`
 - Boundary: repository; selection: per-change
-- Boundary rationale: The committed preparation workflow, source resolver, candidate orchestration, and CI dispatch declare the ordering, provenance, credentials, and verification path without requiring a developer checkout.
+- Boundary rationale: The committed preparation workflow, source resolver, candidate orchestration, and approved PR workflow declare the ordering, provenance, credentials, and verification path without requiring a developer checkout.
 - Methods: example, contract
-- Assumptions: A preview publication against the production Registry reports the same gate outcomes a real publication would enforce.; Repository Actions policy permits the preparation job's declared contents, pull-request, and workflow-dispatch permissions.; Release tags are created only by the canonical GitHub Release workflow.
-- Bound evidence: `test: axm:test (scripts/release-preparation-validates-production-gates.spec.ts)` — Checks explicit dispatch, exact-source and stale-main guards, released-skill and exact-candidate Registry previews, reviewable pull-request creation, and explicit Required CI dispatch for the candidate commit.
+- Assumptions: A preview publication against the production Registry reports the same gate outcomes a real publication would enforce.; Repository Actions policy permits the preparation job's contents and pull-request permissions, and a release maintainer can approve the prepared PR workflow.; Release tags are created only by the canonical GitHub Release workflow.
+- Bound evidence: `test: axm:test (scripts/release-preparation-validates-production-gates.spec.ts)` — Checks explicit preparation dispatch, exact-source and stale-main guards, released-skill and exact-candidate Registry previews, reviewable pull-request creation, and the declared PR verification path for the candidate commit.
 - Bound evidence: `test: axm:test (scripts/repository-task-interface.test.ts)` — Checks that local release-preparation orchestration has no root alias and that source resolution and candidate generation are fresh internal targets owned by the Actions workflow.
 - Source: [`scripts/release-preparation-validates-production-gates.spec.ts`](../scripts/release-preparation-validates-production-gates.spec.ts)
 

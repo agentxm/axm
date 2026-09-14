@@ -1,17 +1,11 @@
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
-import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import type { Lockfile } from "../lockfile/schema.js";
 import { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
-import {
-  PACK_MANIFEST_FILENAME,
-  PackManifestSchema,
-} from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import { computePackPathsForLayout } from "./pack-paths.js";
+import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import {
   isInlineDesiredExtension,
   type DesiredStateGraph,
@@ -20,8 +14,10 @@ import {
 } from "./desired-state-graph.js";
 import { isDesiredExtensionActive } from "./desired-state-enabled.js";
 import type { WorkspaceLayout } from "./layout.js";
+import type { PackManifestsPort } from "./pack-manifests.js";
 
 interface ValidateDesiredPackLockArgs {
+  readonly manifests: PackManifestsPort;
   readonly graph: DesiredStateGraph;
   readonly lockfile: Lockfile;
   readonly layout: WorkspaceLayout;
@@ -85,18 +81,13 @@ const decodeManifest = Schema.decodeUnknownSync(PackManifestSchema, {
  * Workspace-authored Pack manifests are desired authority and need no lock row.
  */
 export const validateDesiredPackLock = ({
+  manifests,
   graph,
   lockfile,
   layout,
   prospectivePacks = [],
-}: ValidateDesiredPackLockArgs): Effect.Effect<
-  DesiredStateGraph,
-  never,
-  FileSystem.FileSystem | Path.Path
-> =>
+}: ValidateDesiredPackLockArgs): Effect.Effect<DesiredStateGraph, never> =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
     const problems: DesiredStateProblem[] = [];
     const invalidPacks = new Set(
       graph.problems.flatMap((problem) =>
@@ -132,26 +123,24 @@ export const validateDesiredPackLock = ({
         continue;
       }
 
-      const manifestPath = path.join(
-        computePackPathsForLayout(
-          path.join,
-          layout,
-          entry.sourceName,
-          identity.owner,
-          identity.name,
-        ).canonicalPath,
-        PACK_MANIFEST_FILENAME,
-      );
+      const document = manifests.locate({
+        owner: identity.owner,
+        name: identity.name,
+        sourceName: entry.sourceName,
+        relativeTo: layout.workspaceRoot,
+        workspace: { layout },
+      });
+      const manifestPath = document.path;
       const prospective = prospectivePacks.find(
         (ref) => ref.owner === identity.owner && ref.pack.name === identity.name,
       );
       const observedManifest =
         prospective === undefined
           ? yield* Effect.gen(function* () {
-              const readResult = yield* Effect.result(fs.readFileString(manifestPath));
-              if (Result.isFailure(readResult)) return undefined;
+              const contents = yield* document.contents;
+              if (contents === undefined) return undefined;
               const decoded = Result.try({
-                try: () => decodeManifest(JSON.parse(readResult.success)),
+                try: () => decodeManifest(JSON.parse(contents)),
                 catch: () => undefined,
               });
               return Result.isSuccess(decoded) ? decoded.success : undefined;

@@ -1,3 +1,6 @@
+import * as Layer from "effect/Layer";
+import { PackManifests } from "./pack-manifests.js";
+import { FilesystemPackManifests } from "./adapters/filesystem/pack-manifests.js";
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
@@ -72,7 +75,9 @@ const prospectivePack = (
   };
 };
 
-layer(NodeServices.layer, { excludeTestServices: true })("desired workspace state graph", (it) => {
+layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
+  excludeTestServices: true,
+})("desired workspace state graph", (it) => {
   let root: string;
 
   beforeEach(() => {
@@ -95,6 +100,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
       });
 
       const graph = yield* buildDesiredStateGraph({
+        manifests: yield* PackManifests,
         baseDir: root,
         settings: {
           packs: {
@@ -130,6 +136,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
       });
 
       const graph = yield* buildDesiredStateGraph({
+        manifests: yield* PackManifests,
         baseDir: root,
         settings: {
           packs: {
@@ -173,6 +180,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
   it.effect("gates prospective Pack manifests before either Pack is materialized", () =>
     Effect.gen(function* () {
       const graph = yield* buildDesiredStateGraph({
+        manifests: yield* PackManifests,
         baseDir: root,
         settings: {
           packs: {
@@ -218,6 +226,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
       });
 
       const graph = yield* buildDesiredStateGraph({
+        manifests: yield* PackManifests,
         baseDir: root,
         settings: {
           packs: {
@@ -244,6 +253,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
   it.effect("treats a missing authoritative pack manifest as unknown desired state", () =>
     Effect.gen(function* () {
       const graph = yield* buildDesiredStateGraph({
+        manifests: yield* PackManifests,
         baseDir: root,
         settings: {
           packs: {
@@ -269,6 +279,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
       });
 
       const graph = yield* buildDesiredStateGraph({
+        manifests: yield* PackManifests,
         baseDir: root,
         settings: {
           skills: {
@@ -306,6 +317,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
         };
 
         const withPack = yield* buildDesiredStateGraph({
+          manifests: yield* PackManifests,
           baseDir: root,
           settings: {
             knowledge,
@@ -315,6 +327,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
           },
         });
         const directOnly = yield* buildDesiredStateGraph({
+          manifests: yield* PackManifests,
           baseDir: root,
           settings: { knowledge },
         });
@@ -357,6 +370,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
       });
 
       const graph = yield* buildDesiredStateGraph({
+        manifests: yield* PackManifests,
         baseDir: root,
         settings: {
           packs: {
@@ -381,6 +395,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
       });
 
       const graph = yield* buildDesiredStateGraph({
+        manifests: yield* PackManifests,
         baseDir: root,
         settings: {
           skills: {
@@ -407,6 +422,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
       });
 
       const graph = yield* buildDesiredStateGraph({
+        manifests: yield* PackManifests,
         baseDir: root,
         settings: {
           packs: {
@@ -427,6 +443,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
     () =>
       Effect.gen(function* () {
         const graph = yield* buildDesiredStateGraph({
+          manifests: yield* PackManifests,
           baseDir: root,
           settings: {
             packs: {
@@ -450,6 +467,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
       });
 
       const graph = yield* buildDesiredStateGraph({
+        manifests: yield* PackManifests,
         baseDir: root,
         settings: {
           owner: handle("@acme"),
@@ -483,6 +501,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
       });
 
       const graph = yield* buildDesiredStateGraph({
+        manifests: yield* PackManifests,
         baseDir: root,
         settings: {
           packs: {
@@ -522,6 +541,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("desired workspace stat
       nodeFs.writeFileSync(manifestPath, JSON.stringify(manifest));
 
       const graph = yield* buildDesiredStateGraph({
+        manifests: yield* PackManifests,
         baseDir: root,
         settings: {
           packs: {

@@ -19,6 +19,7 @@ import type * as Path from "effect/Path";
 
 import { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 import { WorkspaceTransactionScopeLive as TransactionScopeLive } from "@agentxm/workspace-transactions/live";
+import { FilesystemPackManifests } from "./workspace/adapters/filesystem/pack-manifests.js";
 import { FilesystemWorkspaceDocuments } from "./workspace/adapters/filesystem/documents.js";
 import {
   AcceptedResolutionWriter,
@@ -79,7 +80,7 @@ const stateServicesOver = (
   const readers = Layer.provideMerge(
     Layer.mergeAll(WorkspaceRecordsLive, LockfileReaderLive),
     Layer.provideMerge(
-      DesiredStateReaderLive,
+      Layer.provide(DesiredStateReaderLive, FilesystemPackManifests),
       Layer.provideMerge(Layer.provide(SettingsReaderLive, shared), documents),
     ),
   );

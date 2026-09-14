@@ -8,9 +8,7 @@
 
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
-import type * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 
 import {
@@ -22,6 +20,7 @@ import type { Settings } from "../settings/index.js";
 import type { Lockfile } from "../lockfile/index.js";
 import { validateDesiredPackLock } from "./desired-pack-lock.js";
 import { DesiredPackGraphIncomplete } from "./errors.js";
+import { PackManifests, type PackManifestsPort } from "./pack-manifests.js";
 import { WorkspaceDocuments, type WorkspaceDocumentsService } from "./documents.js";
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
 import type { ExtensionTarget, WorkspaceStateReadFailure } from "./service-interface.js";
@@ -38,19 +37,11 @@ export interface DesiredStateReaderService {
   /** Build desired extension state from settings and installed or prospective Pack manifests. */
   readonly graph: (
     options?: DesiredStateGraphInputs,
-  ) => Effect.Effect<
-    DesiredStateGraph,
-    WorkspaceStateReadFailure,
-    FileSystem.FileSystem | Path.Path
-  >;
+  ) => Effect.Effect<DesiredStateGraph, WorkspaceStateReadFailure>;
   /** Whether an installed Pack's dependency maps reference the target. */
   readonly isRequiredByInstalledPack: (
     target: ExtensionTarget,
-  ) => Effect.Effect<
-    boolean,
-    WorkspaceStateReadFailure | DesiredPackGraphIncomplete,
-    FileSystem.FileSystem | Path.Path
-  >;
+  ) => Effect.Effect<boolean, WorkspaceStateReadFailure | DesiredPackGraphIncomplete>;
 }
 
 export class DesiredStateReader extends ServiceMap.Service<
@@ -62,6 +53,7 @@ export const makeDesiredStateReader = (
   location: WorkspaceLocationService,
   settings: SettingsReaderService,
   documents: WorkspaceDocumentsService,
+  manifests: PackManifestsPort,
 ): DesiredStateReaderService => {
   const graph: DesiredStateReaderService["graph"] = (options) =>
     Effect.gen(function* () {
@@ -74,6 +66,7 @@ export const makeDesiredStateReader = (
         ),
       );
       const built = yield* buildDesiredStateGraph({
+        manifests,
         baseDir: location.baseDir,
         settings: current,
         layout,
@@ -84,6 +77,7 @@ export const makeDesiredStateReader = (
       });
       const lockfile = options?.acceptedResolutions ?? (yield* documents.acceptedResolutions);
       return yield* validateDesiredPackLock({
+        manifests,
         graph: built,
         lockfile,
         layout,
@@ -114,7 +108,7 @@ export const makeDesiredStateReader = (
 export const DesiredStateReaderLive: Layer.Layer<
   DesiredStateReader,
   never,
-  WorkspaceLocation | SettingsReader | WorkspaceDocuments
+  WorkspaceLocation | SettingsReader | WorkspaceDocuments | PackManifests
 > = Layer.effect(
   DesiredStateReader,
   Effect.gen(function* () {
@@ -122,6 +116,7 @@ export const DesiredStateReaderLive: Layer.Layer<
       yield* WorkspaceLocation,
       yield* SettingsReader,
       yield* WorkspaceDocuments,
+      yield* PackManifests,
     );
   }),
 );

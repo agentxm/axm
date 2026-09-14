@@ -1,6 +1,4 @@
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
-import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
@@ -12,18 +10,14 @@ import {
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import {
-  PACK_MANIFEST_FILENAME,
-  PackManifestSchema,
-} from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
-import { computePackPathsForLayout } from "./pack-paths.js";
 import type { Settings } from "../settings/index.js";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { isDesiredExtensionActive } from "./desired-state-enabled.js";
-import { configuredAuthoredDirectory, type WorkspaceLayout } from "./layout.js";
+import type { WorkspaceLayout } from "./layout.js";
+import type { PackManifestsPort } from "./pack-manifests.js";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
-import { ACQUIRED_EXTENSIONS_DIR } from "./constants.js";
 import { intersectVersionConstraints } from "@agentxm/extension-model/unstable/version-constraints";
 import { mcpRegistryResolutionKey } from "./mcp-source-identity.js";
 
@@ -156,6 +150,7 @@ export interface DesiredMcpSourceClosure {
 export type ProspectivePackRef = Pick<PackRef, "owner" | "pack" | "version">;
 
 interface DesiredStateGraphArgs {
+  readonly manifests: PackManifestsPort;
   readonly baseDir: string;
   readonly settings: Settings;
   readonly layout?: WorkspaceLayout;
@@ -286,7 +281,6 @@ const packIdentity = (
 };
 
 export const collectDesiredConstraintContributors = (
-  _path: Path.Path,
   origins: ReadonlyArray<DesiredExtensionOrigin>,
 ): ReadonlyArray<DesiredConstraintContributor> =>
   origins
@@ -331,19 +325,14 @@ const parsePackManifest = (raw: string) => {
 };
 
 export const buildDesiredStateGraph = ({
+  manifests,
   baseDir,
   settings,
   layout,
   prospectivePacks = [],
   registryAuthorities = {},
-}: DesiredStateGraphArgs): Effect.Effect<
-  DesiredStateGraph,
-  never,
-  FileSystem.FileSystem | Path.Path
-> =>
+}: DesiredStateGraphArgs): Effect.Effect<DesiredStateGraph, never> =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
     const candidates: Candidate[] = [];
     const problems: DesiredStateProblem[] = [];
     const prospectivePacksByIdentity = new Map(
@@ -480,34 +469,19 @@ export const buildDesiredStateGraph = ({
       const configuredRegistrySource = registryLocator(entry.source)?.sourceName ?? "agentxm";
       if (entry.enabled === false) continue;
 
-      const manifestPath = path.join(
-        layout === undefined
-          ? path.join(
-              baseDir,
-              workspacePack
-                ? configuredAuthoredDirectory(settings, "pack")
-                : path.join(
-                    ACQUIRED_EXTENSIONS_DIR,
-                    configuredRegistrySource,
-                    identity.owner,
-                    "packs",
-                  ),
-              identity.name,
-            )
-          : computePackPathsForLayout(
-              path.join,
-              layout,
-              workspacePack ? "workspace" : configuredRegistrySource,
-              identity.owner,
-              identity.name,
-            ).canonicalPath,
-        PACK_MANIFEST_FILENAME,
-      );
+      const document = manifests.locate({
+        owner: identity.owner,
+        name: identity.name,
+        sourceName: workspacePack ? "workspace" : configuredRegistrySource,
+        relativeTo: baseDir,
+        workspace: layout === undefined ? { baseDir, settings } : { layout },
+      });
+      const manifestPath = document.path;
       const prospective = prospectivePacksByIdentity.get(identity.fqn);
       const manifest = yield* prospective === undefined
         ? Effect.gen(function* () {
-            const readResult = yield* Effect.result(fs.readFileString(manifestPath));
-            if (Result.isFailure(readResult)) {
+            const contents = yield* document.contents;
+            if (contents === undefined) {
               problems.push({
                 type: "pack-manifest-unavailable",
                 pack: identity.fqn,
@@ -516,7 +490,7 @@ export const buildDesiredStateGraph = ({
               return undefined;
             }
 
-            const decoded = parsePackManifest(readResult.success);
+            const decoded = parsePackManifest(contents);
             if (decoded === undefined) {
               problems.push({
                 type: "pack-manifest-invalid",
@@ -572,7 +546,7 @@ export const buildDesiredStateGraph = ({
           origin: {
             type: "pack",
             pack: workspacePack ? `workspace:${identity.fqn}` : identity.fqn,
-            manifestPath: path.relative(baseDir, manifestPath),
+            manifestPath: document.relativePath,
             source: fqn,
             constraint,
             enabled: true,
@@ -670,7 +644,7 @@ export const buildDesiredStateGraph = ({
           extensionType: node.type,
           name: node.name,
           constraints: node.constraints,
-          contributors: collectDesiredConstraintContributors(path, node.origins),
+          contributors: collectDesiredConstraintContributors(node.origins),
         });
       }
     }
@@ -685,7 +659,7 @@ export const buildDesiredStateGraph = ({
           extensionType: "mcp-server",
           name: closure.localNames.join(", "),
           constraints: closure.constraints,
-          contributors: collectDesiredConstraintContributors(path, closure.origins),
+          contributors: collectDesiredConstraintContributors(closure.origins),
         });
       }
     }

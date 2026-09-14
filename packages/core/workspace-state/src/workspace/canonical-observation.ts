@@ -181,7 +181,7 @@ const constraintMismatchObservation = (args: {
     source: "desired-state-graph",
     identity: args.desired.identity,
     locator: args.desired.source,
-    constraints: collectDesiredConstraintContributors(args.path, args.desired.origins),
+    constraints: collectDesiredConstraintContributors(args.desired.origins),
   },
   ...(args.acceptedVersion === undefined ? {} : { acceptedVersion: args.acceptedVersion }),
   ...(args.observedVersion === undefined ? {} : { observedVersion: args.observedVersion }),

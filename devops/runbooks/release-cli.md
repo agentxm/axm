@@ -111,6 +111,14 @@ state in the [specification catalog](../../specifications/catalog.md).
    pushed. If `main` advances, dispatch a fresh run for the new commit; do not
    update a generated release branch with a generic branch update.
 
+   Source preparation checks that every npm cohort package already exists,
+   before candidate generation or production previews. A new version of an
+   existing package passes this check; a new package name requires first
+   publication and canonical trusted-publisher setup. npm requires a package
+   to exist before configuring its [trusted publisher](https://docs.npmjs.com/cli/v11/commands/npm-trust/#prerequisites).
+   Public package metadata establishes existence, not publisher permissions.
+   Failed registry reads stop preparation rather than being treated as absence.
+
    The workflow installs the locked workspace in its ephemeral checkout. Before
    candidate state exists, it uses the committed source CLI and the skill source
    from the latest reachable release tag at or before the current version to
@@ -171,6 +179,8 @@ state in the [specification catalog](../../specifications/catalog.md).
    The publication workflow validates the exact release commit and successful
    merged-revision CI run, downloads and validates its binaries, npm tarballs,
    metadata, and checksums, and preflights every mutable distribution owner.
+   The distribution preflight also rejects uninitialized npm packages before
+   any output is written.
    It then prepares an exact draft GitHub Release, distributes those exact
    bytes and the Homebrew formula, and publishes the release only after
    distribution succeeds. The publish job never rebuilds or repacks stable npm

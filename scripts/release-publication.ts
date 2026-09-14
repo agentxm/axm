@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 import { setTimeout as sleepFor } from "node:timers/promises";
+import * as Data from "effect/Data";
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
 
@@ -303,6 +305,23 @@ const NpmMetadata = Schema.Struct({
 });
 const PublishedVersion = Schema.Struct({ dist: Schema.Struct({ integrity: Schema.String }) });
 
+export class NpmPackagesUninitialized extends Data.TaggedError("NpmPackagesUninitialized")<{
+  readonly packages: ReadonlyArray<string>;
+}> {
+  override get message(): string {
+    return `npm packages are not initialized: ${this.packages.join(", ")}. Complete first publication and canonical trusted-publisher setup before preparing or distributing a release.`;
+  }
+}
+
+export class NpmPackageQueryFailed extends Data.TaggedError("NpmPackageQueryFailed")<{
+  readonly packageName: string;
+  readonly cause: unknown;
+}> {
+  override get message(): string {
+    return `Could not verify npm package initialization for ${this.packageName}.`;
+  }
+}
+
 const readNpmMetadata = async (
   name: string,
   fetchImplementation: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>,
@@ -322,16 +341,37 @@ const readNpmMetadata = async (
   return Schema.decodeUnknownSync(NpmMetadata)(await response.json());
 };
 
+/** Public existence is necessary for OIDC setup; it does not prove publisher permissions. */
+export const requireInitializedNpmPackages = (
+  names: ReadonlyArray<string>,
+  fetchImplementation: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch> = fetch,
+) =>
+  Effect.gen(function* () {
+    // Keep these cheap public reads sequential; no release mutation has started.
+    const missing = yield* Effect.filter(names, (packageName) =>
+      Effect.tryPromise({
+        try: (signal) => readNpmMetadata(packageName, fetchImplementation, signal),
+        catch: (cause) => new NpmPackageQueryFailed({ packageName, cause }),
+      }).pipe(Effect.map((metadata) => metadata === null)),
+    );
+    if (missing.length > 0) return yield* new NpmPackagesUninitialized({ packages: missing });
+  });
+
 export const readNpmPublication = async (
   name: string,
   version: string,
   fetchImplementation: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch> = fetch,
   signal?: AbortSignal,
-): Promise<{ readonly latest: string | null; readonly integrity: string | null }> => {
+): Promise<{
+  readonly packageExists: boolean;
+  readonly latest: string | null;
+  readonly integrity: string | null;
+}> => {
   const metadata = await readNpmMetadata(name, fetchImplementation, signal);
-  if (metadata === null) return { latest: null, integrity: null };
+  if (metadata === null) return { packageExists: false, latest: null, integrity: null };
   const published = metadata.versions[version];
   return {
+    packageExists: true,
     latest: metadata["dist-tags"]["latest"] ?? null,
     integrity:
       published === undefined

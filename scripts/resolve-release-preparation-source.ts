@@ -1,13 +1,16 @@
 /** Resolve an exact main revision and released skill for Actions preparation. */
 
 import { appendFileSync } from "node:fs";
+import * as Effect from "effect/Effect";
 
 import { selectReleasedSkillTag, validateReleasePreparationSource } from "./release-preflight.js";
+import { requireInitializedNpmPackages } from "./release-publication.js";
 import {
   currentHeadSha,
   fail,
   fetchOriginMain,
   git,
+  RELEASE_PACKAGES,
   requireCleanWorkingTree,
   requireMatchingReleasePackageVersions,
 } from "./release-shared.js";
@@ -26,6 +29,8 @@ const version = requireMatchingReleasePackageVersions();
 const headSha = currentHeadSha();
 const originMainSha = git("rev-parse", "origin/main");
 validateReleasePreparationSource(sourceSha, headSha, originMainSha);
+
+await Effect.runPromise(requireInitializedNpmPackages(RELEASE_PACKAGES.map((pkg) => pkg.name)));
 
 const reachableTags = git("tag", "--merged", "HEAD", "--list", "cli-v*").split("\n");
 const releasedSkillTag = selectReleasedSkillTag(version, reachableTags);

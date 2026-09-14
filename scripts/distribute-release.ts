@@ -73,8 +73,16 @@ const readFormula = async (
       ? AbortSignal.timeout(30_000)
       : AbortSignal.any([signal, AbortSignal.timeout(30_000)]);
   const response = await fetchImplementation(
-    "https://raw.githubusercontent.com/agentxm/homebrew-tap/main/Formula/axm.rb",
-    { cache: "no-store", signal: requestSignal },
+    "https://api.github.com/repos/agentxm/homebrew-tap/contents/Formula/axm.rb?ref=main",
+    {
+      headers: {
+        Accept: "application/vnd.github.raw+json",
+        "Cache-Control": "no-cache",
+        "X-GitHub-Api-Version": "2026-03-10",
+      },
+      cache: "no-store",
+      signal: requestSignal,
+    },
   );
   if (response.status !== 200)
     throw publicationHttpError("Homebrew formula query failed", response);

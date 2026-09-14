@@ -50,7 +50,11 @@ const verifyStableChannelRepresentations = async (
   // concurrent promotion invalidates the preflight; the caller must rerun.
   for (const encoding of ["gzip", "br", "zstd"]) {
     const response = await fetchImplementation(STABLE_CHANNEL_URL, {
-      headers: { Accept: "application/json", "Accept-Encoding": encoding },
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": encoding,
+        "Cache-Control": "no-cache",
+      },
       cache: "no-store",
       signal: AbortSignal.timeout(30_000),
     });
@@ -164,7 +168,11 @@ export const promoteStableRelease = async (
   validateCoordinate(input);
 
   const currentResponse = await fetchImplementation(STABLE_CHANNEL_URL, {
-    headers: { Accept: "application/json", "Accept-Encoding": "identity" },
+    headers: {
+      Accept: "application/json",
+      "Accept-Encoding": "identity",
+      "Cache-Control": "no-cache",
+    },
     cache: "no-store",
     signal: AbortSignal.timeout(30_000),
   });
@@ -243,7 +251,11 @@ const reconcileSubmittedPromotion = async (
 ): Promise<ReleaseChannelPromotionResult> => {
   try {
     const response = await fetchImplementation(STABLE_CHANNEL_URL, {
-      headers: { Accept: "application/json", "Accept-Encoding": "identity" },
+      headers: {
+        Accept: "application/json",
+        "Accept-Encoding": "identity",
+        "Cache-Control": "no-cache",
+      },
       cache: "no-store",
       signal: AbortSignal.timeout(30_000),
     });

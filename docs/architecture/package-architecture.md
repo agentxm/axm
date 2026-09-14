@@ -363,7 +363,7 @@ may compose them.
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@agentxm/specification-metadata` | The executable-specification metadata contract shared across AgentXM repositories: specification, product-goal, execution-binding, and bound-evidence definitions, their decoders, and corpus conformance checks |
 | `@agentxm/test-support`           | Shared deterministic test-world adapters                                                                                                                                                                         |
-| `@agentxm/extension-type-parity`  | Extension-type parity obligations, the lifecycle contract, the reconciliation table, and the exemption ledger the conformance suites read                                                                        |
+| `@agentxm/extension-type-parity`  | Extension-type parity obligations, the lifecycle contract and the exemption ledger the conformance suites read                                                                                                   |
 | `@agentxm/client-e2e-utils`       | Shared end-to-end utilities (`tools/e2e-utils`)                                                                                                                                                                  |
 
 `specification-metadata` ships with the release cohort so other repositories

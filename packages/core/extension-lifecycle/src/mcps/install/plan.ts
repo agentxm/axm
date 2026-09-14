@@ -30,12 +30,12 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
-import { intersectVersionConstraints } from "@agentxm/extension-model/unstable/version-constraints";
 import { SourceHostProviders, resolveSource } from "@agentxm/extension-sources";
 import { operationPresentation, type Plan } from "@agentxm/workspace-operations";
 import { WorkspaceMutations, mcpRegistryResolutionKey } from "@agentxm/workspace-state";
 
 import { ExtensionLifecycleFailed } from "../../errors.js";
+import { selectMcpSourceConstraint } from "../domain/source-admission.js";
 import { lifecycleStepFailure } from "../../step-failure.js";
 import { registryLoginSuggestions } from "../../install/registry-login-suggestion.js";
 import { parseRegistryInstallTarget } from "../../install/registry-install-target.js";
@@ -259,50 +259,40 @@ export const resolveMcpServerSourceRequest: (
   const existingLocalNode = graph.nodes.find(
     (node) => node.type === "mcp-server" && node.name === request.localName,
   );
-  if (
-    existingLocalNode !== undefined &&
-    (existingLocalNode.authority === "inline" || existingLocalNode.identity !== identity)
-  ) {
-    return yield* installRefused({
-      category: "conflict",
-      detail: `Local MCP name "${request.localName}" is already owned by a different source`,
-    });
-  }
-
   const closure = graph.mcpSourceClosures.find((candidate) => candidate.identity === identity);
-  const retainedConstraints = (closure?.origins ?? []).flatMap((origin) => {
-    if (origin.constraint === undefined) return [];
-    if (origin.type === "settings" && origin.localName === request.localName) return [];
-    return [origin.constraint];
-  });
-  const requestedConstraints = Option.match(request.versionRange, {
-    onNone: () => retainedConstraints,
-    onSome: (range) => [...retainedConstraints, range],
-  });
-  const combinedConstraint = intersectVersionConstraints(requestedConstraints);
-  if (requestedConstraints.length > 0 && combinedConstraint === undefined) {
-    const contributors = (closure?.origins ?? [])
-      .filter((origin) => origin.constraint !== undefined)
-      .map((origin) =>
+  const versionRange = yield* selectMcpSourceConstraint(
+    {
+      owner: request.owner,
+      serverName: request.serverName,
+      localName: request.localName,
+      sourceIdentity: identity,
+      versionRange: request.versionRange,
+    },
+    {
+      localConnection:
+        existingLocalNode === undefined
+          ? undefined
+          : {
+              sourceIdentity:
+                existingLocalNode.authority === "inline" ? null : existingLocalNode.identity,
+            },
+      origins: (closure?.origins ?? []).map((origin) =>
         origin.type === "settings"
-          ? `${origin.localName ?? "settings"}:${origin.constraint}`
-          : `${origin.pack}:${origin.constraint}`,
-      );
-    return yield* installRefused({
-      category: "conflict",
-      detail: `MCP source constraints do not intersect for ${request.owner}/mcps/${request.serverName}: ${[
-        ...contributors,
-        `${request.localName}:${Option.getOrElse(request.versionRange, () => "*")}`,
-      ].join(", ")}`,
-    });
-  }
+          ? { kind: "connection", name: origin.localName, constraint: origin.constraint }
+          : { kind: "pack", name: origin.pack, constraint: origin.constraint },
+      ),
+    },
+  ).pipe(
+    Effect.mapError((cause) =>
+      installRefused({ category: "conflict", detail: cause.reason, cause }),
+    ),
+  );
 
   return {
     source,
     owner: request.owner,
     serverName: request.serverName,
-    versionRange:
-      combinedConstraint === undefined ? Option.none<string>() : Option.some(combinedConstraint),
+    versionRange,
   };
 });
 

@@ -6,6 +6,12 @@ import { readFileSync } from "node:fs";
 export const capabilityElements = [
   {
     type: "frontstage",
+    pattern: "packages/*/extension-lifecycle/src/mcps",
+    capture: ["strategy"],
+    partialMatch: false,
+  },
+  {
+    type: "frontstage",
     pattern: "packages/*/extension-lifecycle/src/skills",
     capture: ["strategy"],
     partialMatch: false,
@@ -38,6 +44,7 @@ export const capabilityElements = [
 ];
 
 export const capabilityRoots = [
+  "packages/core/extension-lifecycle/src/mcps/domain",
   // Enforce the extracted owner policy and contracts. The remaining install,
   // projection, and source-acquisition implementations still need migration.
   "packages/core/extension-lifecycle/src/skills/domain",

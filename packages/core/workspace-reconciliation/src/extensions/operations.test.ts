@@ -90,9 +90,8 @@ const grounded = <A, E>(
             lockPath: nodePath.join(transactionDir, "axm-lock.yaml"),
           }),
           NativeWriteAuthorityPermissive,
-          NodeServices.layer,
           FetchHttpClient.layer,
-        ),
+        ).pipe(Layer.provideMerge(NodeServices.layer)),
       ),
     ),
   );

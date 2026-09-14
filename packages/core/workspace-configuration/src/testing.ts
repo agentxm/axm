@@ -1,3 +1,4 @@
+import { WorkspaceTransactionScopesLive } from "@agentxm/workspace-transactions/live";
 /**
  * @agentxm/workspace-configuration deterministic fixtures and ports.
  *
@@ -287,6 +288,7 @@ export const makeSetupFixture = (options: SetupFixtureOptions = {}) => {
   });
   const installedExecutables = new Set(options.installedExecutables ?? []);
   const services = Layer.mergeAll(
+    WorkspaceTransactionScopesLive,
     ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: home, HOME: home } })),
     CodingAgentRepositoryLive,
     Layer.succeed(AgentExecutableResolver, {

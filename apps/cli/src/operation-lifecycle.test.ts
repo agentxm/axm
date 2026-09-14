@@ -1,3 +1,4 @@
+import { WorkspaceTransactionScopeLive } from "@agentxm/workspace-transactions/live";
 import * as nodeFs from "node:fs";
 import * as os from "node:os";
 import * as nodePath from "node:path";
@@ -10,7 +11,6 @@ import { TestFlagsLayer } from "./cli-flags/index.js";
 import { TestRenderer } from "./test-support/presenter-test.js";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
-import * as Option from "effect/Option";
 
 import { makeBaseWorkspaceMock } from "./test-support/test-stubs.js";
 import { withLiveOperation, withOperationLifecycle } from "./operation-lifecycle.js";
@@ -77,7 +77,6 @@ describe("withOperationLifecycle", () => {
   it.effect("does not hold the workspace transition before the body confirms", () =>
     Effect.gen(function* () {
       const workspaceDir = nodePath.join(tempDir, ".axm");
-      const resolved = nodePath.resolve(workspaceDir);
       const renderer = TestRenderer.make();
       // Planning, registry acquisition, preview, and the confirmation
       // decision all run inside the body; holding the workspace transition
@@ -89,21 +88,20 @@ describe("withOperationLifecycle", () => {
         { command: "update", mode: "apply", planName: "Update extensions" },
         Effect.gen(function* () {
           const scope = yield* WorkspaceTransactionScope;
-          heldAtBodyStart = Option.isSome(yield* scope.lock.held(resolved));
+          heldAtBodyStart = yield* scope.isHeld;
         }),
       ).pipe(
         Effect.provide(
           Layer.mergeAll(
-            NodeServices.layer,
             renderer.layer,
             TestFlagsLayer({ nonInteractive: true }),
             WorkspaceMutations.layer(makeBaseWorkspaceMock(workspaceDir)),
-            WorkspaceTransactionScope.layer({
+            WorkspaceTransactionScopeLive({
               workspaceDir,
               settingsPath: nodePath.join(nodePath.dirname(workspaceDir), "axm.json"),
               lockPath: nodePath.join(nodePath.dirname(workspaceDir), "axm-lock.yaml"),
             }),
-          ),
+          ).pipe(Layer.provideMerge(NodeServices.layer)),
         ),
       );
       expect(heldAtBodyStart).toBe(false);

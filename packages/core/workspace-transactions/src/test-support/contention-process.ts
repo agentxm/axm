@@ -14,7 +14,8 @@ import * as path from "node:path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { WorkspaceTransactionScope, acquireWorkspaceTransition, runWorkspaceTransaction } from "@agentxm/workspace-transactions";
+import { acquireWorkspaceTransition, runWorkspaceTransaction } from "@agentxm/workspace-transactions";
+import { WorkspaceTransactionScopeLive } from "@agentxm/workspace-transactions/live";
 const [root, label] = process.argv.slice(1);
 if (root === undefined || (label !== "first" && label !== "second")) throw new Error("Invalid worker inputs");
 const statePath = path.join(root, "state.json");
@@ -60,7 +61,7 @@ await Effect.runPromise(Effect.scoped(Effect.gen(function* () {
     }),
   });
   send("transaction-finished");
-})).pipe(Effect.provide(WorkspaceTransactionScope.layer({
+})).pipe(Effect.provide(WorkspaceTransactionScopeLive({
   workspaceDir: path.join(root, ".axm"),
   settingsPath: path.join(root, "axm.json"),
   lockPath: path.join(root, "axm-lock.yaml"),

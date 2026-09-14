@@ -25,6 +25,11 @@
       "types": "./dist/src/testing.d.ts",
       "axm-source": "./src/testing.ts",
       "default": "./dist/src/testing.js"
+    },
+    "./live": {
+      "types": "./dist/src/live.d.ts",
+      "axm-source": "./src/live.ts",
+      "default": "./dist/src/live.js"
     }
   },
   "files": [

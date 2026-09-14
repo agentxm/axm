@@ -48,8 +48,9 @@ import {
   type WorkspaceMutationsOptions,
 } from "@agentxm/workspace-state";
 import {
-  WorkspaceTransactionScope,
   runWorkspaceTransaction,
+  WorkspaceTransactionScope,
+  WorkspaceTransactionScopes,
   type WorkspaceRestorationIncomplete,
   type WorkspaceTransactionFailure,
 } from "@agentxm/workspace-transactions";
@@ -374,6 +375,7 @@ export const previewOrApplySetupWorkspace = <
   SetupTransition,
   SetupWorkspaceFailure | BundledSkillError,
   | BundledSkillRequirements
+  | WorkspaceTransactionScopes
   | FileSystem.FileSystem
   | Path.Path
   | WorkspaceInitializationInteraction
@@ -399,19 +401,17 @@ export const previewOrApplySetupWorkspace = <
       return settled;
     });
     if (candidate.request.preview === true || candidate.settingsExist) return yield* initialize;
+    const scopes = yield* WorkspaceTransactionScopes;
+    const scope = yield* scopes.forWorkspace({
+      workspaceDir: candidate.workspaceDir,
+      settingsPath: candidate.settingsPath,
+      lockPath: path.join(path.dirname(candidate.settingsPath), LOCK_FILENAME),
+    });
     return yield* runWorkspaceTransaction({
       claimDefaultTargets: false,
       transition: initialize,
       validate: () => Effect.void,
-    }).pipe(
-      Effect.provide(
-        WorkspaceTransactionScope.layer({
-          workspaceDir: candidate.workspaceDir,
-          settingsPath: candidate.settingsPath,
-          lockPath: path.join(path.dirname(candidate.settingsPath), LOCK_FILENAME),
-        }),
-      ),
-    );
+    }).pipe(Effect.provideService(WorkspaceTransactionScope, scope));
   });
 
 // -----------------------------------------------------------------------------

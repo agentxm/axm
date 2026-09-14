@@ -12,9 +12,10 @@
 
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
+import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
-import * as Path from "effect/Path";
+import type * as Path from "effect/Path";
+import type * as Semaphore from "effect/Semaphore";
 import * as SynchronizedRef from "effect/SynchronizedRef";
 
 import {
@@ -43,26 +44,19 @@ import {
   verifySnapshots,
   workspaceRelative,
 } from "./restoration.js";
-import { WorkspaceTransactionScope } from "./scope.js";
+import type {
+  WorkspaceTransactionArgs,
+  WorkspaceTransactionPaths,
+  WorkspaceTransactionScopeService,
+} from "./scope.js";
+import type { HeldWorkspaceTransition } from "./transition-lock.js";
 
-export interface WorkspaceTransactionArgs<A, E = never, R = never> {
-  /** Authoritative files or directories that the transition may mutate. */
-  readonly targets?: ReadonlyArray<string>;
-  /** Desired, lock, canonical, projection, and native-configuration mutation. */
-  readonly transition: Effect.Effect<A, E, R>;
-  /** Confirms the complete durable postcondition before the transaction commits. */
-  readonly validate: (value: A) => Effect.Effect<void, E, R>;
-  /** Observes the start of rollback restoration; never controls it. */
-  readonly onRestorationStarted?: Effect.Effect<void>;
-  /**
-   * When `false`, the transaction does not claim the shared settings and
-   * lockfile targets up front. A closure-scoped plan apply passes `false`:
-   * each closure protects the shared files at its own first touch, so a
-   * closure's rollback restores only its own delta and never tears an
-   * earlier closure's settled commit out of the shared files. Defaults to
-   * `true` — a direct transaction is one closure and claims them itself.
-   */
-  readonly claimDefaultTargets?: boolean;
+export interface FilesystemTransactionRuntime extends WorkspaceTransactionPaths {
+  readonly fs: FileSystem.FileSystem;
+  readonly path: Path.Path;
+  readonly admission: Semaphore.Semaphore;
+  readonly acquire: WorkspaceTransactionScopeService["acquire"];
+  readonly held: Effect.Effect<Option.Option<HeldWorkspaceTransition>>;
 }
 
 // ---------------------------------------------------------------------------
@@ -173,15 +167,11 @@ export const pendingClosureRestorations: Effect.Effect<
  * active transaction joins it: its targets are protected in the active
  * closure and its failure is the outer transaction's to restore.
  */
-export const runWorkspaceTransaction = <A, E, R>(
+export const runFilesystemTransaction = <A, E, R>(
+  scope: FilesystemTransactionRuntime,
   args: WorkspaceTransactionArgs<A, E, R>,
-): Effect.Effect<
-  A,
-  WorkspaceTransactionFailure | WorkspaceRestorationIncomplete | E,
-  R | WorkspaceTransactionScope | FileSystem.FileSystem | Path.Path
-> =>
+): Effect.Effect<A, WorkspaceTransactionFailure | WorkspaceRestorationIncomplete | E, R> =>
   Effect.gen(function* () {
-    const scope = yield* WorkspaceTransactionScope;
     const targets = [
       ...(args.claimDefaultTargets === false ? [] : [scope.settingsPath, scope.lockPath]),
       ...(args.targets ?? []),
@@ -199,8 +189,7 @@ export const runWorkspaceTransaction = <A, E, R>(
       return value;
     }
 
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
+    const { fs, path } = scope;
     const workspaceDir = path.resolve(scope.workspaceDir);
     const missingWorkspaceAncestors: Array<string> = [];
     let ancestor = workspaceDir;
@@ -255,11 +244,8 @@ export const runWorkspaceTransaction = <A, E, R>(
             // The invocation-level transition hold already provides
             // cross-process exclusion; acquiring here again would deadlock on
             // our own lock.
-            if (Option.isNone(yield* scope.lock.held(workspaceDir))) {
-              const contention = yield* scope.lock.acquire({
-                workspaceDir,
-                holder: { command: "workspace-transaction", pid: process.pid },
-              });
+            if (Option.isNone(yield* scope.held)) {
+              const contention = yield* scope.acquire({ command: "workspace-transaction" });
               if (Option.isSome(contention)) {
                 return yield* new TransitionLockUnavailable({
                   holder: Option.getOrUndefined(contention.value.holder),
@@ -267,7 +253,7 @@ export const runWorkspaceTransaction = <A, E, R>(
                 });
               }
             }
-            const held = Option.getOrUndefined(yield* scope.lock.held(workspaceDir));
+            const held = Option.getOrUndefined(yield* scope.held);
             const ledger = yield* SynchronizedRef.make(emptyLedger);
             const context: WorkspaceTransactionContext = {
               isTransitionCompromised: held?.isCompromised ?? (() => false),

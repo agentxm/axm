@@ -430,7 +430,7 @@ barrel is not added merely to make an import legal.
 ## Enforcement
 
 The durable obligations are inward dependency direction, feature isolation,
-acyclicity, public package APIs, and application-only composition of concrete
+acyclicity, public package APIs, and composition of concrete
 implementations. The exact set of edges present at any moment is implementation
 state derived by Nx, not a second normative graph to maintain.
 
@@ -474,8 +474,10 @@ Nx tags cannot distinguish the CLI composition root from command handlers in
 the same project, or a package root from its `./live` entry. Focused ESLint
 `no-restricted-imports` overrides therefore:
 
-- forbid `@agentxm/*/live` and `@agentxm/*/testing` in production source
-  outside the composition root and the enumerated fixtures;
+- allow concrete `@agentxm/*/live` composition in the CLI runtime and each
+  package's `./live` entry; feature source retains the owned services in its
+  Effect requirements;
+- reserve `@agentxm/*/testing` for the enumerated fixtures and tests;
 - forbid handlers under `apps/cli/src/root/**` from constructing plans, calling
   workspace writers, or reaching transactions, sources, and the Registry client
   directly, while leaving contract types importable for rendering;
@@ -494,7 +496,8 @@ Structural policy is enforced natively and verified by ordinary tooling tests:
 exercises real allowed and forbidden fixture imports through the flat
 configuration rather than asserting on configuration strings, and
 [`scripts/composition-root-lint-exceptions.test.ts`](../../scripts/composition-root-lint-exceptions.test.ts)
-keeps the enumerated composition exceptions honest. These are engineering
+exercises allowed and forbidden composition and handler imports. ESLint
+configuration owns the exception lists; tests do not duplicate their text. These are engineering
 policy, not product requirements, and they do not appear in the specification
 catalog.
 

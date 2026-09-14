@@ -18,6 +18,7 @@ import * as Layer from "effect/Layer";
 import type * as Path from "effect/Path";
 
 import { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
+import { WorkspaceTransactionScopeLive as TransactionScopeLive } from "@agentxm/workspace-transactions/live";
 import {
   AcceptedResolutionWriter,
   AcceptedResolutionWriterLive,
@@ -113,10 +114,10 @@ export const WorkspaceStateLive = (
 export const WorkspaceTransactionScopeLive: Layer.Layer<
   WorkspaceTransactionScope,
   never,
-  WorkspaceLocation
+  WorkspaceLocation | FileSystem.FileSystem | Path.Path
 > = Layer.unwrap(
   Effect.map(WorkspaceLocation, (location) =>
-    WorkspaceTransactionScope.layer({
+    TransactionScopeLive({
       workspaceDir: location.runtimeDir,
       settingsPath: location.settingsPath,
       lockPath: location.lockPath,

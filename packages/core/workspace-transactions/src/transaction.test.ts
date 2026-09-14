@@ -15,11 +15,13 @@ import * as Data from "effect/Data";
 
 import { protectWorkspacePath } from "./context.js";
 import { WorkspaceRestorationIncomplete, type WorkspaceTransactionFailure } from "./errors.js";
-import { makeWorkspaceTransactionScope, WorkspaceTransactionScope } from "./scope.js";
+import { WorkspaceTransactionScope } from "./scope.js";
+import { makeWorkspaceTransactionScope } from "./live.js";
+import { makeWorkspaceTransitionLock, type WorkspaceTransitionLock } from "./transition-lock.js";
 import {
   runWorkspaceTransaction as runWorkspaceTransactionInScope,
   type WorkspaceTransactionArgs,
-} from "./transaction.js";
+} from "./scope.js";
 
 /** The step failure a transition raises in these tests: a typed, detailed reason. */
 class StepFailure extends Data.TaggedError("StepFailure")<{
@@ -28,14 +30,17 @@ class StepFailure extends Data.TaggedError("StepFailure")<{
 }> {}
 
 /** One production scope per workspace directory, with the process lock. */
-const scopeFor = (workspaceDir: string) =>
+const scopeFor = (workspaceDir: string, lock?: WorkspaceTransitionLock) =>
   Layer.effect(
     WorkspaceTransactionScope,
-    makeWorkspaceTransactionScope({
-      workspaceDir,
-      settingsPath: nodePath.join(nodePath.dirname(workspaceDir), "axm.json"),
-      lockPath: nodePath.join(nodePath.dirname(workspaceDir), "axm-lock.yaml"),
-    }),
+    makeWorkspaceTransactionScope(
+      {
+        workspaceDir,
+        settingsPath: nodePath.join(nodePath.dirname(workspaceDir), "axm.json"),
+        lockPath: nodePath.join(nodePath.dirname(workspaceDir), "axm-lock.yaml"),
+      },
+      lock,
+    ),
   );
 
 /**
@@ -350,8 +355,8 @@ describe("runWorkspaceTransaction", () => {
           // The invocation-level hold, with fast staleness so compromise
           // detection is prompt enough for a deterministic test. The
           // transaction runs in the same scope, so it reuses this hold.
-          const scope = yield* WorkspaceTransactionScope;
-          const contention = yield* scope.lock.acquire({
+          const lock = yield* makeWorkspaceTransitionLock;
+          const contention = yield* lock.acquire({
             workspaceDir: nodePath.resolve(workspaceDir),
             holder: { command: "update", pid: process.pid },
             timingMillis: { stale: 2000, update: 1000 },
@@ -376,7 +381,7 @@ describe("runWorkspaceTransaction", () => {
               continued = true;
             }),
             validate: () => Effect.void,
-          }).pipe(Effect.flip);
+          }).pipe(Effect.provide(scopeFor(workspaceDir, lock)), Effect.flip);
           expect(failure._tag).toBe("WorkspaceRestorationIncomplete");
           if (failure._tag !== "WorkspaceRestorationIncomplete") return;
           snapshotDir = failure.snapshotDir;
@@ -401,7 +406,6 @@ describe("runWorkspaceTransaction", () => {
           }
         }),
       ).pipe(
-        Effect.provide(scopeFor(workspaceDir)),
         Effect.ensuring(
           Effect.sync(() => {
             if (snapshotDir !== undefined) {

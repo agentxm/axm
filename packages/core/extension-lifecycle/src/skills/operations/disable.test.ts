@@ -53,11 +53,10 @@ const makeWorkspaceMock = (
 const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMock>[1]) => {
   const mockWs = makeWorkspaceMock(axmDir, wsOpts);
   return Layer.mergeAll(
-    NodeServices.layer,
     WorkspaceMutations.layer(mockWs),
     MockWorkspaceTransactionScope(axmDir),
     TestStepFailureConversion,
-  );
+  ).pipe(Layer.provideMerge(NodeServices.layer));
 };
 
 /** Creates a minimal DisableSkillOperation for testing. */
@@ -406,11 +405,10 @@ describe("disableSkill", () => {
         const result = yield* disableSkill(makeOp()).pipe(
           Effect.provide(
             Layer.mergeAll(
-              NodeServices.layer,
               WorkspaceMutations.layer(mockWs),
               MockWorkspaceTransactionScope(axmDir),
               TestStepFailureConversion,
-            ),
+            ).pipe(Layer.provideMerge(NodeServices.layer)),
           ),
         );
 
@@ -473,11 +471,10 @@ describe("disableSkill", () => {
         const result = yield* disableSkill(makeOp()).pipe(
           Effect.provide(
             Layer.mergeAll(
-              NodeServices.layer,
               WorkspaceMutations.layer(mockWs),
               MockWorkspaceTransactionScope(axmDir),
               TestStepFailureConversion,
-            ),
+            ).pipe(Layer.provideMerge(NodeServices.layer)),
           ),
         );
 
@@ -508,11 +505,10 @@ describe("disableSkill", () => {
         const result = yield* disableSkill(makeOp()).pipe(
           Effect.provide(
             Layer.mergeAll(
-              NodeServices.layer,
               WorkspaceMutations.layer(mockWs),
               MockWorkspaceTransactionScope(axmDir),
               TestStepFailureConversion,
-            ),
+            ).pipe(Layer.provideMerge(NodeServices.layer)),
           ),
           Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
         );
@@ -541,11 +537,10 @@ describe("disableSkill", () => {
         const result = yield* disableSkill(makeOp()).pipe(
           Effect.provide(
             Layer.mergeAll(
-              NodeServices.layer,
               WorkspaceMutations.layer(mockWs),
               MockWorkspaceTransactionScope(axmDir),
               TestStepFailureConversion,
-            ),
+            ).pipe(Layer.provideMerge(NodeServices.layer)),
           ),
           Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
         );

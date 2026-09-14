@@ -94,12 +94,11 @@ describe("disableSubagent", () => {
 
       const layers = Layer.mergeAll(
         NativeWriteAuthorityPermissive,
-        NodeServices.layer,
         WorkspaceMutations.layer(wsMock),
         MockWorkspaceTransactionScope(axmDir),
         Layer.succeed(CodingAgentRepository, fakeRepo),
         TestStepFailureConversion,
-      );
+      ).pipe(Layer.provideMerge(NodeServices.layer));
 
       const result = yield* disableSubagent(makeOp("my-subagent")).pipe(Effect.provide(layers));
 

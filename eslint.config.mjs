@@ -289,7 +289,7 @@ const moduleBoundaryConstraints = ({ production }) => [
  * renders. A command family that owns no feature — because the thing it
  * drives has none above it — is named here rather than the restriction being
  * widened for every handler.
- * `scripts/composition-root-lint-exceptions.test.ts` pins this list.
+ * `scripts/composition-root-lint-exceptions.test.ts` exercises the restriction.
  */
 const cliHandlerBoundaryExceptions = [
   // `cache *` is a CLI-adapter-only command family: the archive cache is the
@@ -648,6 +648,8 @@ export default [
     // bounded non-test exceptions.
     ignores: [
       "apps/cli/src/runtime.ts",
+      // Owned package composition roots select the Layers they compose.
+      "packages/**/src/live.ts",
       // Test support excluded from the library build and the published files.
       "apps/cli/src/test-support/**",
       "packages/core/workspace-lint/src/catalog/workspace/conformance/test-helpers.ts",
@@ -693,7 +695,7 @@ export default [
             {
               group: ["@agentxm/*/live"],
               message:
-                "Concrete environment-backed Layers compose only in the application composition root (apps/cli/src/runtime.ts); feature logic keeps service requirements in its Effect environment.",
+                "Concrete environment-backed Layers compose in application or package composition roots; feature logic keeps service requirements in its Effect environment.",
             },
             {
               group: ["@agentxm/*/testing"],
@@ -747,7 +749,7 @@ export default [
             {
               group: ["@agentxm/*/live"],
               message:
-                "Concrete environment-backed Layers compose only in the application composition root (apps/cli/src/runtime.ts); feature logic keeps service requirements in its Effect environment.",
+                "Concrete environment-backed Layers compose in application or package composition roots; feature logic keeps service requirements in its Effect environment.",
             },
             {
               group: ["@agentxm/*/src/*", "@agentxm/*/dist/*", "axm.sh/src/*", "axm.sh/dist/*"],

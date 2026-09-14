@@ -64,10 +64,9 @@ const makeWorkspaceMock = (
 const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMock>[1]) => {
   const mockWs = makeWorkspaceMock(axmDir, wsOpts);
   return Layer.mergeAll(
-    NodeServices.layer,
     WorkspaceMutations.layer(mockWs),
     MockWorkspaceTransactionScope(axmDir),
-  );
+  ).pipe(Layer.provideMerge(NodeServices.layer));
 };
 
 /** Creates a pack manifest on disk and returns its content hash. */

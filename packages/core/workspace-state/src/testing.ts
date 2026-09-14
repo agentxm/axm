@@ -13,11 +13,12 @@ import * as nodePath from "node:path";
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import type * as FileSystem from "effect/FileSystem";
+import type * as Path from "effect/Path";
 
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import {
   WorkspaceTransactionScope,
-  makeWorkspaceTransactionScope,
   type WorkspaceTransitionLock,
 } from "@agentxm/workspace-transactions";
 import { WorkspaceTransactionScopeTest } from "@agentxm/workspace-transactions/testing";
@@ -36,17 +37,20 @@ export * from "./workspace/test-stubs.js";
  */
 export const MemoryWorkspaceTransactionScope = (
   lock: WorkspaceTransitionLock,
-): Layer.Layer<WorkspaceTransactionScope, never, WorkspaceLocation> =>
-  Layer.effect(
-    WorkspaceTransactionScope,
-    Effect.flatMap(WorkspaceLocation, (location) =>
-      makeWorkspaceTransactionScope(
+): Layer.Layer<
+  WorkspaceTransactionScope,
+  never,
+  WorkspaceLocation | FileSystem.FileSystem | Path.Path
+> =>
+  Layer.unwrap(
+    Effect.map(WorkspaceLocation, (location) =>
+      WorkspaceTransactionScopeTest(
         {
           workspaceDir: location.runtimeDir,
           settingsPath: location.settingsPath,
           lockPath: location.lockPath,
         },
-        lock,
+        { lock },
       ),
     ),
   );
@@ -61,7 +65,7 @@ export const MemoryWorkspaceTransactionScope = (
 export const MockWorkspaceTransactionScope = (
   axmDir = "/tmp/axm",
   options?: { readonly lock?: WorkspaceTransitionLock },
-): Layer.Layer<WorkspaceTransactionScope> =>
+): Layer.Layer<WorkspaceTransactionScope, never, FileSystem.FileSystem | Path.Path> =>
   WorkspaceTransactionScopeTest(
     {
       workspaceDir: axmDir,

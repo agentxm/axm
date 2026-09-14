@@ -1,3 +1,4 @@
+import { WorkspaceTransactionScopeLive } from "@agentxm/workspace-transactions/live";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -118,7 +119,7 @@ const context = (
       Layer.effect(FootprintRecorder, makeFootprintRecorder),
       Layer.unwrap(
         Effect.map(Path.Path, (path) =>
-          WorkspaceTransactionScope.layer({
+          WorkspaceTransactionScopeLive({
             workspaceDir,
             settingsPath: path.join(path.dirname(workspaceDir), "axm.json"),
             lockPath: path.join(path.dirname(workspaceDir), "axm-lock.yaml"),

@@ -14,10 +14,13 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Path from "effect/Path";
 
 import { protectWorkspacePath } from "./context.js";
-import { acquireWorkspaceTransition, WorkspaceTransactionScope } from "./scope.js";
+import {
+  acquireWorkspaceTransition,
+  WorkspaceTransactionScope,
+  runWorkspaceTransaction,
+} from "./scope.js";
 import {
   injectWriteFaults,
   makeMemoryTransitionLockWorld,
@@ -26,7 +29,6 @@ import {
 import {
   pendingClosureRestorations,
   rollbackWorkspaceClosure,
-  runWorkspaceTransaction,
   settleWorkspaceClosure,
   withWorkspaceClosure,
 } from "./transaction.js";
@@ -95,7 +97,7 @@ describe("closure settlement", () => {
           expect(read(target)).toBe(`alpha: ${target}\n`);
         }
         expect(nodeFs.existsSync(nodePath.join(workspaceDir, "tmp"))).toBe(false);
-      }).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, scope()))),
+      }).pipe(Effect.provide(scope().pipe(Layer.provideMerge(NodeServices.layer)))),
   );
 
   it.effect(
@@ -120,7 +122,7 @@ describe("closure settlement", () => {
         });
         expect([read(a), read(b), read(c)]).toEqual(["changed\n", "original\n", "changed\n"]);
         expect(yield* pendingClosureRestorations).toEqual(Option.none());
-      }).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, scope()))),
+      }).pipe(Effect.provide(scope().pipe(Layer.provideMerge(NodeServices.layer)))),
   );
 
   it.effect(
@@ -151,13 +153,15 @@ describe("closure settlement", () => {
         expect(read(projectionPath)).toBe("# projected v1\n");
       }).pipe(
         Effect.provide(
-          Layer.mergeAll(
-            injectWriteFaults(
-              (operation) =>
-                operation.kind === "writeFileString" && operation.path === projectionPath,
+          scope().pipe(
+            Layer.provideMerge(
+              injectWriteFaults(
+                (operation) =>
+                  operation.kind === "writeFileString" && operation.path === projectionPath,
+              ),
             ),
-            scope(),
-          ).pipe(Layer.provideMerge(NodeServices.layer)),
+            Layer.provideMerge(NodeServices.layer),
+          ),
         ),
       ),
   );
@@ -189,13 +193,15 @@ describe("closure settlement", () => {
         if (snapshotDir !== undefined) nodeFs.rmSync(snapshotDir, { recursive: true, force: true });
       }).pipe(
         Effect.provide(
-          Layer.mergeAll(
-            injectWriteFaults(
-              (operation) =>
-                operation.kind === "copy" && operation.source.includes("axm-rollback-"),
+          scope().pipe(
+            Layer.provideMerge(
+              injectWriteFaults(
+                (operation) =>
+                  operation.kind === "copy" && operation.source.includes("axm-rollback-"),
+              ),
             ),
-            scope(),
-          ).pipe(Layer.provideMerge(NodeServices.layer)),
+            Layer.provideMerge(NodeServices.layer),
+          ),
         ),
       ),
   );
@@ -220,7 +226,7 @@ describe("closure settlement", () => {
         validate: () => Effect.void,
       });
       expect(read(nested)).toBe("original\n");
-    }).pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, scope()))),
+    }).pipe(Effect.provide(scope().pipe(Layer.provideMerge(NodeServices.layer)))),
   );
 
   it.effect("the closure API is a no-op outside a transaction", () =>
@@ -246,13 +252,12 @@ describe("closure settlement", () => {
             nodeFs.writeFileSync(settingsPath, '{"skills":{"intruder":1}}\n');
           }),
         );
-        const path = yield* Path.Path;
         yield* Effect.scoped(
           Effect.gen(function* () {
             const contention = yield* acquireWorkspaceTransition({ command: "install" });
             expect(Option.isNone(contention)).toBe(true);
             const scope = yield* WorkspaceTransactionScope;
-            expect(Option.isSome(yield* scope.lock.held(path.resolve(workspaceDir)))).toBe(true);
+            expect(yield* scope.isHeld).toBe(true);
             expect(nodeFs.existsSync(nodePath.join(workspaceDir, "tmp"))).toBe(false);
           }),
         );
@@ -261,13 +266,10 @@ describe("closure settlement", () => {
         expect(world.counts()).toEqual({ acquisitions: 1, releases: 1 });
       }).pipe(
         Effect.provide(
-          Layer.mergeAll(
-            NodeServices.layer,
-            WorkspaceTransactionScopeTest(
-              { workspaceDir, settingsPath, lockPath },
-              { lock: world.invocation() },
-            ),
-          ),
+          WorkspaceTransactionScopeTest(
+            { workspaceDir, settingsPath, lockPath },
+            { lock: world.invocation() },
+          ).pipe(Layer.provideMerge(NodeServices.layer)),
         ),
       );
     },

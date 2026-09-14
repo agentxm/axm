@@ -1,3 +1,4 @@
+import { WorkspaceTransactionScopesLive } from "@agentxm/workspace-transactions/live";
 /**
  * Uninitialized-directory harness for setup-driven specifications.
  *
@@ -93,6 +94,7 @@ export const makeSetupSpecContext = (options: SetupSpecContextOptions = {}) => {
         )
       : NodeServices.layer;
   const layer = Layer.mergeAll(
+    Layer.provide(WorkspaceTransactionScopesLive, platformLayer),
     platformLayer,
     FetchHttpClient.layer,
     CodingAgentRepositoryLive,

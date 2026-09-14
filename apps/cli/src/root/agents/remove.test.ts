@@ -98,13 +98,12 @@ describe("agents remove.handler", () => {
       getUnknownConfiguredAgentIds: () => Effect.succeed([]),
     };
     const fullLayer = Layer.mergeAll(
-      baseLayer,
       wsLayer,
       Layer.succeed(CodingAgentRepository, agentRepo),
       ConfiguredAgentOutcomesProviderTest,
       MockWorkspaceTransactionScope(path.join(tempDir, ".axm")),
       LifecycleStepFailureConversionLive,
-    );
+    ).pipe(Layer.provideMerge(baseLayer));
 
     return {
       provide: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect.pipe(Effect.provide(fullLayer)),

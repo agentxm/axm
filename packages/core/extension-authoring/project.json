@@ -4,7 +4,7 @@
   "projectType": "library",
   "root": "packages/core/extension-authoring",
   "sourceRoot": "packages/core/extension-authoring/src",
-  "tags": ["type:lib", "role:feature", "scope:extension-authoring", "release:cli"],
+  "tags": ["type:lib", "role:feature", "scope:extension-authoring"],
   "targets": {
     "build": {
       "executor": "@nx/js:tsc",
@@ -15,9 +15,6 @@
         "clean": true,
         "generatePackageJson": false
       }
-    },
-    "nx-release-publish": {
-      "executor": "@nx/js:release-publish"
     }
   }
 }

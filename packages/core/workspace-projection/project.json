@@ -4,7 +4,7 @@
   "projectType": "library",
   "root": "packages/core/workspace-projection",
   "sourceRoot": "packages/core/workspace-projection/src",
-  "tags": ["type:lib", "role:capability", "scope:workspace-projection", "release:cli"],
+  "tags": ["type:lib", "role:capability", "scope:workspace-projection"],
   "targets": {
     "build": {
       "executor": "@nx/js:tsc",
@@ -15,9 +15,6 @@
         "clean": true,
         "generatePackageJson": false
       }
-    },
-    "nx-release-publish": {
-      "executor": "@nx/js:release-publish"
     },
     "test-windows": {
       "executor": "nx:run-commands",

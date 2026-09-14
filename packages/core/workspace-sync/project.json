@@ -4,7 +4,7 @@
   "projectType": "library",
   "root": "packages/core/workspace-sync",
   "sourceRoot": "packages/core/workspace-sync/src",
-  "tags": ["type:lib", "role:feature", "scope:workspace-sync", "release:cli"],
+  "tags": ["type:lib", "role:feature", "scope:workspace-sync"],
   "targets": {
     "build": {
       "executor": "@nx/js:tsc",
@@ -15,9 +15,6 @@
         "clean": true,
         "generatePackageJson": false
       }
-    },
-    "nx-release-publish": {
-      "executor": "@nx/js:release-publish"
     }
   }
 }

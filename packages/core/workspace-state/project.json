@@ -4,7 +4,7 @@
   "projectType": "library",
   "root": "packages/core/workspace-state",
   "sourceRoot": "packages/core/workspace-state/src",
-  "tags": ["type:lib", "role:capability", "scope:workspace-state", "release:cli"],
+  "tags": ["type:lib", "role:capability", "scope:workspace-state"],
   "targets": {
     "build": {
       "executor": "@nx/js:tsc",
@@ -15,9 +15,6 @@
         "clean": true,
         "generatePackageJson": false
       }
-    },
-    "nx-release-publish": {
-      "executor": "@nx/js:release-publish"
     }
   }
 }

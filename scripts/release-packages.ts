@@ -1,12 +1,16 @@
 import { copyFileSync, readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import * as Schema from "effect/Schema";
+import * as Effect from "effect/Effect";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as semver from "semver";
 import { publint } from "publint";
 import { formatMessage } from "publint/utils";
 import { RELEASE_PACKAGES } from "./release-shared.js";
 import { capture, run } from "./release-command.js";
 import { contentIntegrity } from "./release-publication.js";
+import { packCliPackage } from "./cli-package.js";
+import { readProductionPackages } from "./production-packages.js";
 
 const packedManifest = Schema.Struct({
   name: Schema.String,
@@ -61,10 +65,22 @@ export const packReleaseCohort = async (version: string, directory: string): Pro
   const second = join(directory, "second");
   mkdirSync(first);
   mkdirSync(second);
+  const published = new Set(RELEASE_PACKAGES.map(({ name }) => name));
+  const internalPackages = readProductionPackages(process.cwd()).filter(
+    ({ name }) => !published.has(name),
+  );
   for (const pkg of RELEASE_PACKAGES) {
     const filename = `${pkg.tarballPrefix}${version}.tgz`;
     for (const destination of [first, second]) {
-      run("pnpm", ["--filter", pkg.name, "pack", "--pack-destination", destination]);
+      if (pkg.name === "axm.sh" && internalPackages.length > 0) {
+        await Effect.runPromise(
+          packCliPackage({ repository: process.cwd(), destination, internalPackages }).pipe(
+            Effect.provide(NodeServices.layer),
+          ),
+        );
+      } else {
+        run("pnpm", ["--filter", pkg.name, "pack", "--pack-destination", destination]);
+      }
     }
     const tarball = join(first, filename);
     await validatePack(tarball, pkg.name, version);

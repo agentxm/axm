@@ -74,17 +74,21 @@ import type {
 } from "@agentxm/registry-protocol/unstable/publish";
 import {
   PUBLICATION_SET_CONTRACT,
-  evaluateProspectivePackDependencyState,
+  formatPackDependencyFinding,
   publicationDescriptorDigest,
   publicationSetDigest,
   validatePublicationDescriptors,
   validatePublicationSetResponse,
   type PublicationCandidateResult,
   type PublicationDescriptor,
-  type ProspectivePublicationCandidate,
   type PublicationPackResult,
-  type PublicationDependencySnapshot,
 } from "@agentxm/registry-protocol/unstable/registry/publication-set";
+
+import {
+  evaluatePackDependencies,
+  type PackPublicationCandidate,
+  type PackDependencySnapshot,
+} from "@agentxm/extension-model/unstable/packs/dependency-policy";
 
 /** A publish target version already exists: a conflict naming the version. */
 const publishConflict = (args: { readonly version?: string; readonly cause?: unknown }) =>
@@ -581,7 +585,7 @@ export const createLocalRegistryClient = (
       );
       const snapshots = yield* Effect.forEach(
         dependencyDescriptors,
-        (dependency): Effect.Effect<PublicationDependencySnapshot, RegistryClientFailure> =>
+        (dependency): Effect.Effect<PackDependencySnapshot, RegistryClientFailure> =>
           Effect.gen(function* () {
             const indexPath = path.join(
               extensionDir(
@@ -596,7 +600,7 @@ export const createLocalRegistryClient = (
             const exists = yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));
             const index = exists ? yield* readExtensionIndex(fs, indexPath) : undefined;
             return {
-              dependency,
+              target: { owner: dependency.owner, type: dependency.type, name: dependency.name },
               exists: index !== undefined,
               visibility: index?.visibility ?? (index === undefined ? null : "public"),
               lifecycleState: index === undefined ? null : "active",
@@ -611,38 +615,26 @@ export const createLocalRegistryClient = (
             };
           }),
       );
-      const prospectiveCandidates: ReadonlyArray<ProspectivePublicationCandidate> = descriptors.map(
+      const prospectiveCandidates: ReadonlyArray<PackPublicationCandidate> = descriptors.map(
         (descriptor) => {
           const result = candidateByTarget.get(
             `${descriptor.target.owner}\u0000${descriptor.target.type}\u0000${descriptor.target.name}`,
           );
-          if (result?.kind === "resolved") {
-            return { descriptor, kind: "resolved", visibility: result.visibility };
-          }
-          return {
-            descriptor,
-            kind: "unavailable",
-            visibility: {
-              target: Schema.decodeUnknownSync(ExtensionFqnSchema)(
-                `${descriptor.target.owner}/${toExtensionTypePlural(descriptor.target.type)}/${descriptor.target.name}`,
-              ),
-              unavailable: true,
-              findings: [
-                {
-                  code: "visibility/unavailable",
-                  severity: "error",
-                  message: "The visibility target is unavailable.",
-                },
-              ],
-            },
-          };
+          return result?.kind === "resolved"
+            ? {
+                target: descriptor.target,
+                kind: "resolved",
+                participation: descriptor.participation,
+                visibility: result.visibility.resolved?.value ?? null,
+              }
+            : { target: descriptor.target, kind: "unavailable" };
         },
       );
       const packs: ReadonlyArray<PublicationPackResult> = packDescriptors.map((descriptor) => {
         const packCandidate = candidateByTarget.get(
           `${descriptor.target.owner}\u0000${descriptor.target.type}\u0000${descriptor.target.name}`,
         );
-        const evaluated = evaluateProspectivePackDependencyState({
+        const evaluated = evaluatePackDependencies({
           packVisibility:
             packCandidate?.kind === "resolved" && packCandidate.visibility.resolved !== null
               ? packCandidate.visibility.resolved.value
@@ -655,7 +647,7 @@ export const createLocalRegistryClient = (
         return {
           target: descriptor.target,
           status: blocked ? "blocked" : "admitted",
-          findings: evaluated.findings,
+          findings: evaluated.findings.map(formatPackDependencyFinding),
           resolutions: blocked ? [] : evaluated.resolutions,
         };
       });

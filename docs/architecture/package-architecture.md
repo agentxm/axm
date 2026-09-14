@@ -86,6 +86,13 @@ only the version and yank facts the algorithm needs; the selected candidate
 retains consumer metadata. Registry serialization remains in the protocol, and
 CLI release-age admission remains in extension resolution.
 
+Pack dependency admission and prospective version resolution belong to the
+model's `unstable/packs/dependency-policy` capability. Extension snapshots carry
+shared facts; each pack retains its own requested constraints. The policy
+evaluates admission and resolution together and returns only disclosable domain
+facts. Registry protocol code owns wire encoding and recovery-command wording;
+publication workflows retain their authorization and commit decisions.
+
 Agent identity lives in `unstable/agent-capabilities/identity`, independently of
 catalog data. Agent schemas and extension types can use identities without
 importing the catalog whose entries those schemas describe. Catalog records are

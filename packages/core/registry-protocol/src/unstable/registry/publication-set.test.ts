@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import * as DateTime from "effect/DateTime";
 import * as Schema from "effect/Schema";
 
 import {
@@ -14,8 +13,8 @@ import {
 } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   archiveSha256Hex,
-  evaluateProspectivePackDependencyState,
-  evaluateProspectivePackDependencies,
+  formatPackDependencyFinding,
+  PackDependencyFindingSchema,
   normalizePublicationSet,
   publicationDescriptorDigest,
   publicationSetDigest,
@@ -165,143 +164,63 @@ describe("publication set contract", () => {
     ).toThrow("conditions");
   });
 
-  it("evaluates pack dependencies against the complete prospective set", () => {
+  it("encodes concealed domain findings without adding state", () => {
     const dependency = pack.pack?.dependencies[1];
     if (dependency === undefined) throw new Error("Expected the review dependency");
-
-    expect(
-      evaluateProspectivePackDependencies({
-        packVisibility: "public",
-        dependencies: [dependency],
-        snapshots: [],
-        candidates: [
-          {
-            descriptor: skill,
-            kind: "resolved",
-            visibility: evaluation(skill, "public"),
-          },
-        ],
-      }),
-    ).toEqual([]);
-
-    expect(
-      evaluateProspectivePackDependencies({
-        packVisibility: "public",
-        dependencies: [dependency],
-        snapshots: [],
-        candidates: [
-          {
-            descriptor: skill,
-            kind: "resolved",
-            visibility: evaluation(skill, "private"),
-          },
-        ],
-      }),
-    ).toMatchObject([
-      {
-        ruleId: "pack/dependency-version-resolvable",
-        severity: "error",
-        reason: "selected-new-private",
-        path: "./pack.json",
-      },
-    ]);
-  });
-
-  it("returns the highest effective satisfying version from the admitted snapshot", () => {
-    const dependency = pack.pack?.dependencies[1];
-    if (dependency === undefined) throw new Error("Expected the review dependency");
-
-    expect(
-      evaluateProspectivePackDependencyState({
-        packVisibility: "public",
-        dependencies: [dependency],
-        snapshots: [
-          {
-            dependency,
-            exists: true,
-            visibility: "public",
-            lifecycleState: "active",
-            deprecation: null,
-            versions: [
-              { version: "1.2.0", status: "available", yanked: false, purged: false },
-              { version: "1.4.0", status: "available", yanked: false, purged: false },
-            ],
-          },
-        ],
-        candidates: [],
-      }),
-    ).toMatchObject({
-      findings: [],
-      resolutions: [{ dependency, effectiveVersion: "1.4.0" }],
+    const finding = formatPackDependencyFinding({
+      dependency,
+      severity: "error",
+      reason: "selected-unavailable",
     });
-  });
-
-  it("allows a private pack to resolve a readable private dependency", () => {
-    const dependency = pack.pack?.dependencies[1];
-    if (dependency === undefined) throw new Error("Expected the review dependency");
-
-    expect(
-      evaluateProspectivePackDependencyState({
-        packVisibility: "private",
-        dependencies: [dependency],
-        snapshots: [
-          {
-            dependency,
-            exists: true,
-            visibility: "private",
-            lifecycleState: "active",
-            deprecation: null,
-            versions: [{ version: "1.4.0", status: "available", yanked: false, purged: false }],
-          },
-        ],
-        candidates: [],
-      }),
-    ).toMatchObject({
-      findings: [],
-      resolutions: [{ dependency, effectiveVersion: "1.4.0" }],
-    });
-  });
-
-  it("carries structured lifecycle guidance for deprecated dependencies", () => {
-    const dependency = pack.pack?.dependencies[1];
-    if (dependency === undefined) throw new Error("Expected the review dependency");
-
-    expect(
-      evaluateProspectivePackDependencies({
-        packVisibility: "public",
-        dependencies: [dependency],
-        snapshots: [
-          {
-            dependency,
-            exists: true,
-            visibility: "public",
-            lifecycleState: "active",
-            deprecation: {
-              deprecatedAt: DateTime.makeUnsafe("2026-08-15T20:00:00.000Z"),
-              message: "Use the maintained replacement.",
-              replacement: {
-                status: "available",
-                fqn: "@acme/skills/review-next",
-              },
-            },
-            versions: [{ version: "1.4.0", status: "available", yanked: false, purged: false }],
-          },
-        ],
-        candidates: [],
-      }),
-    ).toMatchObject([
-      {
-        ruleId: "pack/dependency-deprecated",
-        severity: "warning",
-        reason: "deprecated",
-        deprecation: {
-          message: "Use the maintained replacement.",
-          replacement: {
-            status: "available",
-            fqn: "@acme/skills/review-next",
-          },
+    expect(finding).toEqual({
+      kind: "advisory",
+      ruleId: "pack/dependency-version-resolvable",
+      severity: "error",
+      reason: "target-unavailable",
+      dependency,
+      location: { file: "pack.json" },
+      path: "./pack.json",
+      message:
+        'Dependency @acme/skills/review requests range "^1.2.0", but that selected target is unavailable.',
+      suggestions: [
+        {
+          description:
+            "Verify authority and availability for @acme/skills/review, then preview the complete set again",
         },
+      ],
+    });
+    expect(Schema.decodeUnknownSync(PackDependencyFindingSchema)(finding)).toEqual(finding);
+  });
+
+  it("encodes different recovery guidance for new and existing private dependencies", () => {
+    const dependency = pack.pack?.dependencies[1];
+    if (dependency === undefined) throw new Error("Expected the review dependency");
+    const newFinding = formatPackDependencyFinding({
+      dependency,
+      severity: "error",
+      reason: "selected-new-private",
+      effectiveVisibility: "private",
+    });
+    const existingFinding = formatPackDependencyFinding({
+      dependency,
+      severity: "error",
+      reason: "selected-existing-private",
+      effectiveVisibility: "private",
+    });
+    expect(newFinding.suggestions).toEqual([
+      {
+        description: "Publish @acme/skills/review as public, then preview the complete set again",
+        cmd: "axm publish @acme/skills/review --visibility public",
       },
     ]);
+    expect(existingFinding.suggestions).toEqual([
+      {
+        description:
+          "Make @acme/skills/review public explicitly, then preview the complete set again",
+      },
+    ]);
+    expect(Schema.decodeUnknownSync(PackDependencyFindingSchema)(existingFinding)).toEqual(
+      existingFinding,
+    );
   });
 });

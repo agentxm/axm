@@ -40,7 +40,6 @@ import {
 } from "@agentxm/extension-materialization/live";
 const stubKnowledgeManager = {
   ...managerLifecycleStubs,
-  type: "knowledge",
   refreshCatalog: () => Effect.void,
   sync: () => Effect.succeed({ changed: false, warnings: [], artifacts: [] }),
   install: () => Effect.void,

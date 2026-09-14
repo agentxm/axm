@@ -1,3 +1,4 @@
+import type { RuleManagerService } from "../managers.js";
 import { usableAcceptedCanonical } from "@agentxm/workspace-state";
 import { LifecyclePostconditionViolated } from "../extensions/errors.js";
 /**
@@ -59,11 +60,7 @@ import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstab
 import { removeIfExists } from "@agentxm/workspace-state";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import type {
-  ExtensionManager,
-  ManagerRequirements,
-  MaterializationObservation,
-} from "../manager-contract.js";
+import type { MaterializationObservation } from "../manager-contract.js";
 import { NO_MATERIALIZATION_OBSERVATION } from "../manager-contract.js";
 import type { RuleMaterializationFacts } from "../managers.js";
 import type { ExtensionTarget } from "@agentxm/workspace-state";
@@ -576,14 +573,9 @@ export const RuleManagerLive = Layer.effect(
 
     const applyRulesProjection = projectionPlans().pipe(Effect.flatMap(applyProjectionPlans));
 
-    const materializeInstall: ExtensionManager<
-      RuleExtensionRef,
-      RuleMaterializationFacts,
-      ManagerRequirements
-    >["materializeInstall"] = Effect.fn("RuleManager.materializeInstall")(function* ({
-      ref,
-      force,
-    }) {
+    const materializeInstall: RuleManagerService["materializeInstall"] = Effect.fn(
+      "RuleManager.materializeInstall",
+    )(function* ({ ref, force }) {
       const materialized = yield* materializePackage(ref, force === true);
       const packageRoot = materialized.packageRoot;
       yield* readManifest(packageRoot);
@@ -661,13 +653,9 @@ export const RuleManagerLive = Layer.effect(
       treeIntegrity: Option.none(),
       acquired: Option.none(),
     };
-    const materializeUninstall: ExtensionManager<
-      RuleExtensionRef,
-      RuleMaterializationFacts,
-      ManagerRequirements
-    >["materializeUninstall"] = Effect.fn("RuleManager.materializeUninstall")(function* ({
-      target,
-    }) {
+    const materializeUninstall: RuleManagerService["materializeUninstall"] = Effect.fn(
+      "RuleManager.materializeUninstall",
+    )(function* ({ target }) {
       const canonical = yield* provide(
         acceptedCanonicalObservation({
           workspace: ws,
@@ -683,16 +671,11 @@ export const RuleManagerLive = Layer.effect(
     });
     // Deactivation retains canonical content; the caller updates settings
     // first, so re-rendering the whole region drops this rule's contribution.
-    const materializeDeactivate: ExtensionManager<
-      RuleExtensionRef,
-      RuleMaterializationFacts,
-      ManagerRequirements
-    >["materializeDeactivate"] = Effect.fn("RuleManager.materializeDeactivate")(() =>
-      applyRulesProjection.pipe(Effect.as(withdrawn)),
-    );
+    const materializeDeactivate: RuleManagerService["materializeDeactivate"] = Effect.fn(
+      "RuleManager.materializeDeactivate",
+    )(() => applyRulesProjection.pipe(Effect.as(withdrawn)));
 
     return {
-      type: "rule",
       projectionPlans,
       aggregateProjectionObservation: Ref.get(lastProjection),
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
@@ -775,6 +758,6 @@ export const RuleManagerLive = Layer.effect(
       }),
 
       withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
-    } satisfies ExtensionManager<RuleExtensionRef, RuleMaterializationFacts, ManagerRequirements>;
+    } satisfies RuleManagerService;
   }),
 );

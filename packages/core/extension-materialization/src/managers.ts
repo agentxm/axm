@@ -1,3 +1,10 @@
+import type {
+  AuthorMaterialization,
+  InstallMaterialization,
+  SynchronizeMaterialization,
+  UninstallMaterialization,
+} from "@agentxm/workspace-operations";
+import type { ExtensionTargetFor } from "@agentxm/workspace-state";
 import type { DesiredStateGraph } from "@agentxm/workspace-state";
 /**
  * Per-extension-type manager service tags and the materialization facts each
@@ -18,7 +25,7 @@ import type * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
 
 import type {
-  ExtensionManager,
+  CanonicalMaterializationRequirements,
   ManagerRequirements,
   MaterializationFacts,
   MaterializationObservation,
@@ -99,22 +106,78 @@ export interface McpServerMaterializationFacts extends AcquiredContentFacts {
 }
 
 /** What a Pack materialization observed: the acquired content identity alone. */
-export type PackMaterializationFacts = AcquiredContentFacts;
+export interface PackMaterializationFacts {
+  readonly treeIntegrity: Option.Option<TreeIntegrity>;
+}
 
 // -----------------------------------------------------------------------------
 // Service tags
 // -----------------------------------------------------------------------------
 
-export class SkillManager extends ServiceMap.Service<
-  SkillManager,
-  ExtensionManager<SkillExtensionRef, SkillMaterializationFacts, ManagerRequirements>
->()("@agentxm/extension-materialization/managers/SkillManager") {}
+export interface SkillManagerService
+  extends
+    InstallMaterialization<
+      SkillExtensionRef,
+      SkillMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    >,
+    AuthorMaterialization<
+      SkillExtensionRef,
+      SkillMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    >,
+    SynchronizeMaterialization<
+      SkillExtensionRef,
+      SkillMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    >,
+    UninstallMaterialization<
+      ExtensionTargetFor<SkillExtensionRef>,
+      SkillMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    > {
+  readonly materializeDeactivate: (args: {
+    readonly target: ExtensionTargetFor<SkillExtensionRef>;
+  }) => Effect.Effect<SkillMaterializationFacts, ExtensionManagerFailure, ManagerRequirements>;
+}
 
-export interface McpServerManagerService extends ExtensionManager<
-  McpServerExtensionRef,
-  McpServerMaterializationFacts,
-  ManagerRequirements
-> {
+export class SkillManager extends ServiceMap.Service<SkillManager, SkillManagerService>()(
+  "@agentxm/extension-materialization/managers/SkillManager",
+) {}
+
+export interface McpServerManagerService
+  extends
+    InstallMaterialization<
+      McpServerExtensionRef,
+      McpServerMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    >,
+    AuthorMaterialization<
+      McpServerExtensionRef,
+      McpServerMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    >,
+    SynchronizeMaterialization<
+      McpServerExtensionRef,
+      McpServerMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    >,
+    UninstallMaterialization<
+      ExtensionTargetFor<McpServerExtensionRef>,
+      McpServerMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    > {
+  readonly materializeDeactivate: (args: {
+    readonly target: ExtensionTargetFor<McpServerExtensionRef>;
+  }) => Effect.Effect<McpServerMaterializationFacts, ExtensionManagerFailure, ManagerRequirements>;
   readonly configuredAgentOutcomes: (
     state: "projected" | "current",
   ) => Effect.Effect<
@@ -138,11 +201,35 @@ export class McpServerManager extends ServiceMap.Service<
   McpServerManagerService
 >()("@agentxm/extension-materialization/managers/McpServerManager") {}
 
-export interface SubagentManagerService extends ExtensionManager<
-  SubagentExtensionRef,
-  SubagentMaterializationFacts,
-  ManagerRequirements
-> {
+export interface SubagentManagerService
+  extends
+    InstallMaterialization<
+      SubagentExtensionRef,
+      SubagentMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    >,
+    AuthorMaterialization<
+      SubagentExtensionRef,
+      SubagentMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    >,
+    SynchronizeMaterialization<
+      SubagentExtensionRef,
+      SubagentMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    >,
+    UninstallMaterialization<
+      ExtensionTargetFor<SubagentExtensionRef>,
+      SubagentMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    > {
+  readonly materializeDeactivate: (args: {
+    readonly target: ExtensionTargetFor<SubagentExtensionRef>;
+  }) => Effect.Effect<SubagentMaterializationFacts, ExtensionManagerFailure, ManagerRequirements>;
   readonly projectionObservation: (
     ref: SubagentExtensionRef,
   ) => Effect.Effect<
@@ -156,11 +243,35 @@ export class SubagentManager extends ServiceMap.Service<SubagentManager, Subagen
   "@agentxm/extension-materialization/managers/SubagentManager",
 ) {}
 
-export interface RuleManagerService extends ExtensionManager<
-  RuleExtensionRef,
-  RuleMaterializationFacts,
-  ManagerRequirements
-> {
+export interface RuleManagerService
+  extends
+    InstallMaterialization<
+      RuleExtensionRef,
+      RuleMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    >,
+    AuthorMaterialization<
+      RuleExtensionRef,
+      RuleMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    >,
+    SynchronizeMaterialization<
+      RuleExtensionRef,
+      RuleMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    >,
+    UninstallMaterialization<
+      ExtensionTargetFor<RuleExtensionRef>,
+      RuleMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    > {
+  readonly materializeDeactivate: (args: {
+    readonly target: ExtensionTargetFor<RuleExtensionRef>;
+  }) => Effect.Effect<RuleMaterializationFacts, ExtensionManagerFailure, ManagerRequirements>;
   readonly aggregateProjectionObservation: Effect.Effect<
     MaterializationObservation,
     ExtensionManagerFailure,
@@ -187,11 +298,35 @@ export interface PreparedHookProjection {
   }>;
 }
 
-export interface HookManagerService extends ExtensionManager<
-  HookExtensionRef,
-  HookMaterializationFacts,
-  ManagerRequirements
-> {
+export interface HookManagerService
+  extends
+    InstallMaterialization<
+      HookExtensionRef,
+      HookMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    >,
+    AuthorMaterialization<
+      HookExtensionRef,
+      HookMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    >,
+    SynchronizeMaterialization<
+      HookExtensionRef,
+      HookMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    >,
+    UninstallMaterialization<
+      ExtensionTargetFor<HookExtensionRef>,
+      HookMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    > {
+  readonly materializeDeactivate: (args: {
+    readonly target: ExtensionTargetFor<HookExtensionRef>;
+  }) => Effect.Effect<HookMaterializationFacts, ExtensionManagerFailure, ManagerRequirements>;
   readonly prepareProjection: (
     refs: ReadonlyArray<HookExtensionRef>,
   ) => Effect.Effect<PreparedHookProjection, ExtensionManagerFailure, ManagerRequirements>;
@@ -237,11 +372,35 @@ export interface KnowledgeSyncResult {
   }>;
 }
 
-export interface KnowledgeManagerService extends ExtensionManager<
-  KnowledgeExtensionRef,
-  KnowledgeMaterializationFacts,
-  ManagerRequirements
-> {
+export interface KnowledgeManagerService
+  extends
+    InstallMaterialization<
+      KnowledgeExtensionRef,
+      KnowledgeMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    >,
+    AuthorMaterialization<
+      KnowledgeExtensionRef,
+      KnowledgeMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    >,
+    SynchronizeMaterialization<
+      KnowledgeExtensionRef,
+      KnowledgeMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    >,
+    UninstallMaterialization<
+      ExtensionTargetFor<KnowledgeExtensionRef>,
+      KnowledgeMaterializationFacts,
+      ExtensionManagerFailure,
+      ManagerRequirements
+    > {
+  readonly materializeDeactivate: (args: {
+    readonly target: ExtensionTargetFor<KnowledgeExtensionRef>;
+  }) => Effect.Effect<KnowledgeMaterializationFacts, ExtensionManagerFailure, ManagerRequirements>;
   readonly projectionPlans: () => Effect.Effect<
     ReadonlyArray<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>>,
     ExtensionManagerFailure,
@@ -280,7 +439,33 @@ export class KnowledgeManager extends ServiceMap.Service<
   KnowledgeManagerService
 >()("@agentxm/extension-materialization/managers/KnowledgeManager") {}
 
-export class PackManager extends ServiceMap.Service<
-  PackManager,
-  ExtensionManager<PackRef, PackMaterializationFacts, ManagerRequirements>
->()("@agentxm/extension-materialization/managers/PackManager") {}
+export interface PackManagerService
+  extends
+    InstallMaterialization<
+      PackRef,
+      PackMaterializationFacts,
+      ExtensionManagerFailure,
+      CanonicalMaterializationRequirements
+    >,
+    AuthorMaterialization<
+      PackRef,
+      PackMaterializationFacts,
+      ExtensionManagerFailure,
+      CanonicalMaterializationRequirements
+    >,
+    SynchronizeMaterialization<
+      PackRef,
+      PackMaterializationFacts,
+      ExtensionManagerFailure,
+      CanonicalMaterializationRequirements
+    >,
+    UninstallMaterialization<
+      ExtensionTargetFor<PackRef>,
+      PackMaterializationFacts,
+      ExtensionManagerFailure,
+      CanonicalMaterializationRequirements
+    > {}
+
+export class PackManager extends ServiceMap.Service<PackManager, PackManagerService>()(
+  "@agentxm/extension-materialization/managers/PackManager",
+) {}

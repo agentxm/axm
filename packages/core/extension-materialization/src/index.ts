@@ -15,7 +15,6 @@
 // Manager contract
 export {
   NO_MATERIALIZATION_OBSERVATION,
-  type ExtensionManager,
   type ManagerRequirements,
   type MaterializationFacts,
   type MaterializationObservation,
@@ -30,8 +29,10 @@ export {
   KnowledgeManager,
   McpServerManager,
   PackManager,
+  type PackManagerService,
   RuleManager,
   SkillManager,
+  type SkillManagerService,
   SubagentManager,
   type AcquiredContentFacts,
   type HookManagerService,

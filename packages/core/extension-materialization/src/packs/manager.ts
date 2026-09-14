@@ -1,9 +1,10 @@
+import type { PackManagerService } from "../managers.js";
 import { usableAcceptedCanonical } from "@agentxm/workspace-state";
 import { LifecyclePostconditionViolated } from "../extensions/errors.js";
 /**
  * Pack manager service.
  *
- * Implements ExtensionManager<PackRef>. Delegates to existing
+ * Implements Pack materialization. Delegates to existing
  * pack materialization functions and workspace service methods.
  *
  * @experimental This API is unstable and may change without notice.
@@ -30,8 +31,6 @@ import type {
   RegistryPackRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { SourceHostProviders } from "@agentxm/extension-sources";
-import type { ExtensionManager, ManagerRequirements } from "../manager-contract.js";
-import { NO_MATERIALIZATION_OBSERVATION } from "../manager-contract.js";
 import { PackManager, type PackMaterializationFacts } from "../managers.js";
 import type { ExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations, type SetPackArgs } from "@agentxm/workspace-state";
@@ -100,25 +99,15 @@ export const PackManagerLive = Layer.effect(
     const baseDir = ws.baseDir;
 
     const noContent: PackMaterializationFacts = {
-      observation: NO_MATERIALIZATION_OBSERVATION,
       treeIntegrity: Option.none(),
     };
     const acquired = (treeIntegrity: TreeIntegrity): PackMaterializationFacts => ({
-      observation: NO_MATERIALIZATION_OBSERVATION,
       treeIntegrity: Option.some(treeIntegrity),
     });
 
-    const materializeInstall: ExtensionManager<
-      PackRef,
-      PackMaterializationFacts,
-      ManagerRequirements
-    >["materializeInstall"] = Effect.fn("PackManager.materializeInstall")(function* ({
-      ref,
-      force,
-    }: {
-      readonly ref: PackRef;
-      readonly force?: boolean;
-    }) {
+    const materializeInstall: PackManagerService["materializeInstall"] = Effect.fn(
+      "PackManager.materializeInstall",
+    )(function* ({ ref, force }: { readonly ref: PackRef; readonly force?: boolean }) {
       if (ref.refType === "registry") {
         yield* validateExactResolvedVersion(`packs.${ref.pack.name}.resolvedVersion`, ref.version);
       }
@@ -191,13 +180,9 @@ export const PackManagerLive = Layer.effect(
         }),
       );
     });
-    const materializeUninstall: ExtensionManager<
-      PackRef,
-      PackMaterializationFacts,
-      ManagerRequirements
-    >["materializeUninstall"] = Effect.fn("PackManager.materializeUninstall")(function* ({
-      target,
-    }) {
+    const materializeUninstall: PackManagerService["materializeUninstall"] = Effect.fn(
+      "PackManager.materializeUninstall",
+    )(function* ({ target }) {
       const canonical = yield* acceptedCanonicalObservation({
         workspace: ws,
         type: "pack",
@@ -207,11 +192,6 @@ export const PackManagerLive = Layer.effect(
       if (Option.isSome(packDir)) yield* removeIfExists(fs, packDir.value);
       return noContent;
     });
-    const materializeDeactivate: ExtensionManager<
-      PackRef,
-      PackMaterializationFacts,
-      ManagerRequirements
-    >["materializeDeactivate"] = () => Effect.succeed(noContent);
 
     const buildCurrentPackArgs = (
       ref: PackRef,
@@ -228,7 +208,6 @@ export const PackManagerLive = Layer.effect(
       });
 
     return {
-      type: "pack",
       isInstalled: Effect.fn("PackManager.isInstalled")(function* ({
         target,
       }: {
@@ -257,7 +236,6 @@ export const PackManagerLive = Layer.effect(
         );
       }),
       materializeUninstall,
-      materializeDeactivate,
       materializeRetained: ({ target }) =>
         Effect.gen(function* () {
           const canonical = yield* usableAcceptedCanonical({
@@ -272,7 +250,7 @@ export const PackManagerLive = Layer.effect(
               targetName: target.name,
             });
           }
-          return yield* materializeDeactivate({ target });
+          return noContent;
         }),
 
       acceptedResolution: Effect.fn("PackManager.acceptedResolution")(function* ({
@@ -287,6 +265,6 @@ export const PackManagerLive = Layer.effect(
       }),
 
       withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
-    } satisfies ExtensionManager<PackRef, PackMaterializationFacts, ManagerRequirements>;
+    } satisfies PackManagerService;
   }),
 );

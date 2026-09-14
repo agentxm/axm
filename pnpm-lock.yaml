@@ -1181,6 +1181,9 @@ importers:
       '@agentxm/registry-protocol':
         specifier: workspace:^
         version: link:../registry-protocol
+      '@agentxm/workspace-projection':
+        specifier: workspace:^
+        version: link:../workspace-projection
       '@agentxm/workspace-state':
         specifier: workspace:^
         version: link:../workspace-state

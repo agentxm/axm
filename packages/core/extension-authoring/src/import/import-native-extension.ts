@@ -1,3 +1,4 @@
+import type { AuthorMaterialization } from "@agentxm/workspace-operations";
 /**
  * Importing native, unmanaged content as an authored AXM package.
  *
@@ -32,9 +33,8 @@ import {
   createCanonicalDirectory,
   recoverCanonicalDirectory,
   retireNativeMcpEntry,
-  type ExtensionManager,
+  type ExtensionManagerFailure,
   type ManagerRequirements,
-  type MaterializationFacts,
   type NativeMcpEntryRef,
 } from "@agentxm/extension-materialization";
 import { materializeAuthoredMcpServer } from "@agentxm/workspace-reconciliation";
@@ -231,8 +231,8 @@ export type PrepareImportNativeExtensionRequirements =
   | ConfiguredAgentOutcomesProvider;
 
 /** Build the import step with the requirements this use case keeps in `R`. */
-const importStep = <TRef extends ExtensionRef, TFacts extends MaterializationFacts>(
-  manager: ExtensionManager<TRef, TFacts, ManagerRequirements>,
+const importStep = <TRef extends ExtensionRef, TFacts>(
+  manager: AuthorMaterialization<TRef, TFacts, ExtensionManagerFailure, ManagerRequirements>,
   args: AuthoredExtensionOperationArgs<
     TRef,
     TFacts,

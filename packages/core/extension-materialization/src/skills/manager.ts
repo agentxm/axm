@@ -1,9 +1,10 @@
+import type { SkillManagerService } from "../managers.js";
 import { usableAcceptedCanonical } from "@agentxm/workspace-state";
 import { LifecyclePostconditionViolated } from "../extensions/errors.js";
 /**
  * Skill extension manager service.
  *
- * Implements ExtensionManager<SkillExtensionRef> with native/non-native
+ * Implements Skill materialization with native/non-native
  * branching in materializeInstall and agent symlink creation for all
  * configured agents.
  *
@@ -22,7 +23,6 @@ import { sourceToLockEntry } from "@agentxm/workspace-state";
 import { configuredSkillsToDiskRefs } from "../extensions/materializable-from-disk.js";
 import { enabledConfiguredEntries } from "@agentxm/workspace-state";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import type { ExtensionManager, ManagerRequirements } from "../manager-contract.js";
 import type { SkillMaterializationFacts } from "../managers.js";
 import type { ExtensionTarget } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
@@ -91,14 +91,9 @@ export const SkillManagerLive = Layer.effect(
     const agentRepo = yield* CodingAgentRepository;
     const baseDir = ws.baseDir;
 
-    const materializeInstall: ExtensionManager<
-      SkillExtensionRef,
-      SkillMaterializationFacts,
-      ManagerRequirements
-    >["materializeInstall"] = Effect.fn("SkillManager.materializeInstall")(function* ({
-      ref,
-      force,
-    }) {
+    const materializeInstall: SkillManagerService["materializeInstall"] = Effect.fn(
+      "SkillManager.materializeInstall",
+    )(function* ({ ref, force }) {
       const sanitized = sanitizeName(ref.skill.name);
 
       const lockedEntry = yield* ws.getLockedSkill(ref.skill.name);
@@ -225,11 +220,7 @@ export const SkillManagerLive = Layer.effect(
 
     const makeMaterializeRemoval = (
       retainCanonical: boolean,
-    ): ExtensionManager<
-      SkillExtensionRef,
-      SkillMaterializationFacts,
-      ManagerRequirements
-    >["materializeUninstall"] =>
+    ): SkillManagerService["materializeUninstall"] =>
       Effect.fn("SkillManager.materializeRemoval")(function* ({ target }) {
         const sanitized = sanitizeName(target.name);
 
@@ -304,7 +295,6 @@ export const SkillManagerLive = Layer.effect(
     const materializeDeactivate = makeMaterializeRemoval(true);
 
     return {
-      type: "skill",
       isInstalled: Effect.fn("SkillManager.isInstalled")(function* ({
         target,
       }: {
@@ -465,7 +455,7 @@ export const SkillManagerLive = Layer.effect(
       }),
 
       withdrawnResolutionKeys: ({ target }) => Effect.succeed([target.name]),
-    } satisfies ExtensionManager<SkillExtensionRef, SkillMaterializationFacts, ManagerRequirements>;
+    } satisfies SkillManagerService;
   }),
 );
 

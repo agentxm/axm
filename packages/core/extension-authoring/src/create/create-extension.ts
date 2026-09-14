@@ -1,3 +1,4 @@
+import type { AuthorMaterialization } from "@agentxm/workspace-operations";
 /**
  * Creating a new authored extension.
  *
@@ -35,10 +36,9 @@ import {
   recoverCanonicalDirectory,
   artifactAgentIdsFromTargets,
   artifactTargetAgentIds,
-  type ExtensionManager,
+  type ExtensionManagerFailure,
   type InstallableSkillTarget,
   type ManagerRequirements,
-  type MaterializationFacts,
 } from "@agentxm/extension-materialization";
 import {
   buildAuthoredExtensionStep,
@@ -390,8 +390,8 @@ const mcpAgentConfigTargets = Effect.fn("CreateExtension.mcpAgentConfigTargets")
  * Build the authored-creation step for a type whose canonical content is
  * realized by an installer rather than by its own manager.
  */
-const authoredPackageStep = <TRef extends ExtensionRef, TFacts extends MaterializationFacts>(
-  manager: ExtensionManager<TRef, TFacts, ManagerRequirements>,
+const authoredPackageStep = <TRef extends ExtensionRef, TFacts>(
+  manager: AuthorMaterialization<TRef, TFacts, ExtensionManagerFailure, ManagerRequirements>,
   args: AuthoredExtensionOperationArgs<
     TRef,
     TFacts,
@@ -410,8 +410,8 @@ const authoredPackageStep = <TRef extends ExtensionRef, TFacts extends Materiali
  * closures, so naming it here is what lets the workspace facade and the agent
  * repository stay requirements instead of captured values.
  */
-const authoredStep = <TRef extends ExtensionRef, TFacts extends MaterializationFacts>(
-  manager: ExtensionManager<TRef, TFacts, ManagerRequirements>,
+const authoredStep = <TRef extends ExtensionRef, TFacts>(
+  manager: AuthorMaterialization<TRef, TFacts, ExtensionManagerFailure, ManagerRequirements>,
   args: NewExtensionOperationArgs<TRef, TFacts, AuthoringStepFailure, CreateExtensionRequirements>,
 ): PlannedJobStep<CreateExtensionRequirements | RecipeRequirements> =>
   buildNewExtensionStep<TRef, TFacts, AuthoringStepFailure, CreateExtensionRequirements>(

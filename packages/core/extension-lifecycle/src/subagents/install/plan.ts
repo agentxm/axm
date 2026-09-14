@@ -31,13 +31,7 @@ import {
   sourceResolutionFailureCategory,
   type SourceResolutionFailure,
 } from "@agentxm/extension-sources";
-import {
-  operationPresentation,
-  type JobStepArtifact,
-  type Plan,
-} from "@agentxm/workspace-operations";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { operationPresentation, type Plan } from "@agentxm/workspace-operations";
 
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { lifecycleStepFailure } from "../../step-failure.js";
@@ -57,6 +51,8 @@ import {
   type SubagentSelectionFailure,
 } from "../application/index.js";
 import { resolveSubagentInstallSource } from "./source.js";
+import { prepareSubagentInstallations } from "../application/installation.js";
+import { makeSubagentInstallationFacts } from "../adapters/installation.js";
 
 /** A subagent source after grammar parsing, before anything is discovered. */
 export interface ParsedSubagentInstallRequest {
@@ -119,35 +115,6 @@ const extractRequestedOwner = (
     : source.type === "registry"
       ? source.owner
       : Option.none<Handle>();
-
-const previousResolvedVersion = (entry: unknown): string | undefined => {
-  if (typeof entry !== "object" || entry === null) return undefined;
-  if (!("type" in entry) || entry.type !== "registry") return undefined;
-  if (!("resolvedVersion" in entry) || typeof entry.resolvedVersion !== "string") return undefined;
-  return entry.resolvedVersion;
-};
-
-const previousContentIdentity = (entry: unknown): string | undefined => {
-  if (typeof entry !== "object" || entry === null) return undefined;
-  if (!("contentIdentity" in entry) || typeof entry.contentIdentity !== "string") return undefined;
-  return entry.contentIdentity;
-};
-
-const artifactChange = (args: {
-  readonly installedBefore: boolean;
-  readonly previousVersion: string | undefined;
-  readonly version: string | undefined;
-  readonly previousSourceHash: string | undefined;
-  readonly sourceHash: string | undefined;
-}): JobStepArtifact["change"] => {
-  if (!args.installedBefore) return "created";
-  const sameVersion = args.previousVersion === args.version;
-  const sameSource =
-    args.previousSourceHash === undefined ||
-    args.sourceHash === undefined ||
-    args.previousSourceHash === args.sourceHash;
-  return sameVersion && sameSource ? "unchanged" : "updated";
-};
 
 /** What a subagent install command supplies before anything is parsed. */
 export interface SubagentInstallArgs {
@@ -288,129 +255,34 @@ export const planSubagentInstall: (
   ExtensionLifecycleFailed,
   InstallStepRequirements | SubagentManager
 > = Effect.fn("InstallExtensions.planSubagents")(function* (intent: SubagentInstallIntent) {
-  const ws = yield* WorkspaceMutations;
   const subagentManager = yield* SubagentManager;
-  const agentRepo = yield* CodingAgentRepository;
-
-  // A user-scope workspace can only hold subagents when every configured
-  // agent has a user-scope placement to render them into.
-  if (ws.scope === "user") {
-    const agents = yield* agentRepo.getConfiguredAgents().pipe(
-      Effect.mapError((cause) =>
-        installRefused({
-          category: "internal",
-          detail: "Configured agents could not be read",
-          cause,
-        }),
-      ),
-    );
-    const placements = yield* Effect.forEach(
-      agents,
-      (agent) =>
-        agent
-          .resolveEffectiveSubagentsDir({ workspaceRoot: ws.baseDir, scope: ws.scope })
-          .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
-      { concurrency: "unbounded" },
-    ).pipe(
-      Effect.mapError((cause) =>
-        installRefused({
-          category: "internal",
-          detail: "Configured subagent placement could not be resolved",
-          cause,
-        }),
-      ),
-    );
-    const refused = placements.flatMap(({ agentId, outcome }) =>
-      outcome._tag === "unsupported" ||
-      outcome._tag === "misconfigured" ||
-      outcome._tag === "disabled"
-        ? [`${agentId}: ${outcome.reason}`]
-        : [],
-    );
-    if (refused.length > 0) {
-      return yield* installRefused({
-        category: "validation",
-        detail: `Cannot install subagents in user scope for the configured agent placement: ${refused.join("; ")}`,
-      });
-    }
-  }
-
-  const steps = yield* Effect.forEach(
-    intent.subagentsToInstall,
-    (entry) =>
-      Effect.gen(function* () {
-        const ref = entry.ref;
-        const previousLockEntry = yield* ws
-          .getLockedSubagent(ref.subagent.name)
-          .pipe(Effect.catch(() => Effect.succeed(Option.none())));
-        const previousVersion = Option.match(previousLockEntry, {
-          onNone: () => undefined,
-          onSome: previousResolvedVersion,
-        });
-        const sourceHashBeforeInstall = Option.match(previousLockEntry, {
-          onNone: () => undefined,
-          onSome: previousContentIdentity,
-        });
-        const version = ref.refType === "registry" ? ref.version : undefined;
-
-        return buildInstallOperation(subagentManager, {
-          toStepFailure: lifecycleStepFailure,
-          ref,
-          declaration: { name: ref.subagent.name, versionRange: entry.versionRange },
-          installedBefore: subagentManager
-            .isInstalled({ target: { type: "subagent", name: ref.subagent.name } })
-            .pipe(Effect.catch(() => Effect.succeed(false))),
-          buildArtifact: ({
-            installedBefore,
-            materialization,
-          }: {
-            readonly installedBefore: boolean;
-            readonly materialization: Option.Option<SubagentMaterializationFacts>;
-          }) =>
-            Effect.gen(function* () {
-              const lockEntryOption = yield* ws
-                .getLockedSubagent(ref.subagent.name)
-                .pipe(Effect.catch(() => Effect.succeed(Option.none())));
-              const sourceHash = previousContentIdentity(Option.getOrUndefined(lockEntryOption));
-              const change = artifactChange({
-                installedBefore,
-                previousVersion,
-                version,
-                previousSourceHash: sourceHashBeforeInstall,
-                sourceHash,
-              });
-              const observation = Option.match(materialization, {
-                onNone: () => NO_MATERIALIZATION_OBSERVATION,
-                onSome: (facts) => facts.observation,
-              });
-              const targets = observation.targets.map((target) => ({
-                path: target.path,
-                change,
-                ...(target.agentIds === undefined ? {} : { agentIds: target.agentIds }),
-              }));
-              return {
-                path: targets[0]?.path ?? ref.subagent.name,
-                scope: ws.scope,
-                agents: observation.agents,
-                ...(version !== undefined ? { version } : {}),
-                change,
-                ...(previousVersion !== undefined && previousVersion !== version
-                  ? { previousVersion }
-                  : {}),
-                ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
-              } satisfies JobStepArtifact;
-            }),
-        });
-      }).pipe(
-        Effect.mapError((cause) =>
-          installRefused({
-            category: "internal",
-            detail: `Subagent install planning failed for ${entry.ref.subagent.name}`,
-            cause,
+  const facts = yield* makeSubagentInstallationFacts;
+  const prepared = yield* prepareSubagentInstallations(facts, intent.subagentsToInstall).pipe(
+    Effect.catchTag("SubagentPlacementUnavailable", (error) =>
+      installRefused({ category: "validation", detail: error.reason }),
+    ),
+  );
+  const steps = prepared.map((entry) =>
+    buildInstallOperation(subagentManager, {
+      toStepFailure: lifecycleStepFailure,
+      ref: entry.ref,
+      declaration: { name: entry.ref.subagent.name, versionRange: entry.versionRange },
+      installedBefore: entry.installedBefore,
+      buildArtifact: ({
+        installedBefore,
+        materialization,
+      }: {
+        readonly installedBefore: boolean;
+        readonly materialization: Option.Option<SubagentMaterializationFacts>;
+      }) =>
+        entry.buildArtifact({
+          installedBefore,
+          observation: Option.match(materialization, {
+            onNone: () => NO_MATERIALIZATION_OBSERVATION,
+            onSome: (facts) => facts.observation,
           }),
-        ),
-      ),
-    { concurrency: 1 },
+        }),
+    }),
   );
 
   return {

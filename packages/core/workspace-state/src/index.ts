@@ -307,6 +307,7 @@ export type {
 } from "./workspace/read-model/__fixtures__/builder.js";
 
 // Narrow workspace-state services
+export { WorkspaceDocuments, type WorkspaceDocumentsService } from "./workspace/documents.js";
 export { WorkspaceLocation, type WorkspaceLocationService } from "./workspace/location.js";
 export { SettingsReader, type SettingsReaderService } from "./workspace/settings-reader.js";
 export { LockfileReader, type LockfileReaderService } from "./workspace/lockfile-reader.js";

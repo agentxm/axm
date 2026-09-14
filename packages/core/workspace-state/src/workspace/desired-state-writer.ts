@@ -21,16 +21,15 @@ import type * as Semaphore from "effect/Semaphore";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
-import { commitLockfileSnapshotUpdateAtPath } from "../lockfile/index.js";
 import type { HookLockEntry, Lockfile, RuleLockEntry } from "../lockfile/schema.js";
-import {
-  writeSettingsAtPath,
-  type HookEntry,
-  type RuleEntry,
-  type Settings,
-  type SkillEntry,
-  type SubagentEntry,
+import type {
+  HookEntry,
+  RuleEntry,
+  Settings,
+  SkillEntry,
+  SubagentEntry,
 } from "../settings/index.js";
+import { WorkspaceDocuments, type WorkspaceDocumentsService } from "./documents.js";
 import {
   lockEntrySemanticallyEqual,
   preserveAcceptedResolutionOnNoop,
@@ -39,7 +38,6 @@ import {
 import { DesiredStateReader, type DesiredStateReaderService } from "./desired-state-reader.js";
 import { lockEntries, settingsEntries, type EntriesAccessor } from "./entry-accessors.js";
 import { lockEntryToSourceParams } from "./lock-entry-to-source-params.js";
-import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
 import type {
   SetHookArgs,
   SetKnowledgeArgs,
@@ -51,7 +49,6 @@ import type {
   WorkspaceStateMutationFailure,
 } from "./service-interface.js";
 import { WorkspaceStateShared } from "./shared.js";
-import { readLockfileCell, readSettingsOrDefault } from "./state-cells.js";
 
 /** The declaration each installable extension type accepts. */
 export interface DeclareArgsByType {
@@ -89,15 +86,14 @@ const registryLocator = (
 ): string => `${sourceName}:${Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn}`;
 
 export const makeDesiredStateWriter = (
-  location: WorkspaceLocationService,
+  documents: WorkspaceDocumentsService,
   desiredState: DesiredStateReaderService,
   mutex: Semaphore.Semaphore,
 ): DesiredStateWriterService => {
-  const settings = readSettingsOrDefault(location, location.runtimeDir);
-  const lockfile = readLockfileCell(location, location.runtimeDir);
-  const writeSettings = (next: Settings) => writeSettingsAtPath(location.settingsPath, next);
-  const commit = (base: Lockfile, next: Lockfile) =>
-    commitLockfileSnapshotUpdateAtPath(location.lockPath, base, next);
+  const settings = documents.settings();
+  const lockfile = documents.acceptedResolutions;
+  const writeSettings = documents.writeSettings;
+  const commit = documents.commitAcceptedResolutions;
   const serialized = mutex.withPermits(1);
 
   /** Declare a sourced entry then record the resolution, always writing both. */
@@ -418,12 +414,12 @@ export const makeDesiredStateWriter = (
 export const DesiredStateWriterLive: Layer.Layer<
   DesiredStateWriter,
   never,
-  WorkspaceLocation | DesiredStateReader | WorkspaceStateShared
+  WorkspaceDocuments | DesiredStateReader | WorkspaceStateShared
 > = Layer.effect(
   DesiredStateWriter,
   Effect.gen(function* () {
     return makeDesiredStateWriter(
-      yield* WorkspaceLocation,
+      yield* WorkspaceDocuments,
       yield* DesiredStateReader,
       (yield* WorkspaceStateShared).mutex,
     );

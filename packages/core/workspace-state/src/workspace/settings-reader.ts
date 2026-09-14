@@ -4,18 +4,16 @@
  * publication default, release-age policy, configured agents, instruction
  * and Knowledge discovery configuration, and the per-type entry maps.
  *
- * Every member keeps `FileSystem` and `Path` in `R`; the live layer captures
- * only the workspace location and the shared source cache.
+ * Persistence is supplied through the workspace's document operations; this
+ * reader owns precedence, defaults, and the shared source cache.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import type * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 
 import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions/common";
@@ -34,12 +32,12 @@ import type {
   SourceHostConfig,
 } from "../settings/index.js";
 import { settingsEntries, type SettingsEntriesOf } from "./entry-accessors.js";
+import { WorkspaceDocuments, type WorkspaceDocumentsService } from "./documents.js";
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
 import type { WorkspaceSettingsReadFailure } from "./service-interface.js";
 import { WorkspaceStateShared } from "./shared.js";
-import { readSettingsOrDefault } from "./state-cells.js";
 
-type Read<A> = Effect.Effect<A, WorkspaceSettingsReadFailure, FileSystem.FileSystem | Path.Path>;
+type Read<A> = Effect.Effect<A, WorkspaceSettingsReadFailure>;
 
 export interface SettingsReaderService {
   /** The selected scope's settings, defaulting when the file is absent. */
@@ -90,11 +88,12 @@ const mergeSources = (
 
 export const makeSettingsReader = (
   location: WorkspaceLocationService,
+  documents: WorkspaceDocumentsService,
   sourcesCache: Ref.Ref<Option.Option<ReadonlyArray<SourceHostConfig>>>,
 ): SettingsReaderService => {
-  const settings = readSettingsOrDefault(location, location.runtimeDir);
-  const userSettings = readSettingsOrDefault(location, location.userRuntimeDir, "user");
-  const projectSettings = readSettingsOrDefault(location, location.projectRuntimeDir, "project");
+  const settings = documents.settings();
+  const userSettings = documents.settings("user");
+  const projectSettings = documents.settings("project");
 
   const configuredSources: Read<ReadonlyArray<SourceHostConfig>> = Effect.gen(function* () {
     const cached = yield* Ref.get(sourcesCache);
@@ -187,12 +186,12 @@ export const makeSettingsReader = (
 export const SettingsReaderLive: Layer.Layer<
   SettingsReader,
   never,
-  WorkspaceLocation | WorkspaceStateShared
+  WorkspaceLocation | WorkspaceDocuments | WorkspaceStateShared
 > = Layer.effect(
   SettingsReader,
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const shared = yield* WorkspaceStateShared;
-    return makeSettingsReader(location, shared.sourcesCache);
+    return makeSettingsReader(location, yield* WorkspaceDocuments, shared.sourcesCache);
   }),
 );

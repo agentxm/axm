@@ -687,7 +687,6 @@ export const prepareSelectiveSkillUpdate = Effect.fn("SelectiveSkillUpdate.prepa
         ? Option.none<PublisherBindingTransition>()
         : classifyPublisherBindingTransition({
             accepted: yield* acceptedResolutionRef({
-              workspace: ws,
               type: "skill",
               name: proposed.target,
             }).pipe(

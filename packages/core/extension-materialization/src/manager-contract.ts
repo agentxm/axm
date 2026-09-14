@@ -4,10 +4,22 @@ import type * as Path from "effect/Path";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import type { NativeWriteAuthority } from "@agentxm/agent-integration";
+import type {
+  DesiredStateReader,
+  LockfileReader,
+  SettingsReader,
+  WorkspaceLocation,
+} from "@agentxm/workspace-state";
 
 /** Canonical acquisition leaves filesystem and source transport services in R. */
 export type CanonicalMaterializationRequirements =
-  FileSystem.FileSystem | Path.Path | HttpClient.HttpClient;
+  | FileSystem.FileSystem
+  | Path.Path
+  | HttpClient.HttpClient
+  | WorkspaceLocation
+  | SettingsReader
+  | LockfileReader
+  | DesiredStateReader;
 
 export type ManagerRequirements = CanonicalMaterializationRequirements | NativeWriteAuthority;
 

@@ -20,7 +20,13 @@ import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import type { StepFailure } from "@agentxm/workspace-operations";
 import { appendWarningsToMessage } from "@agentxm/workspace-operations";
 import type { JobStepResult, Operation } from "@agentxm/workspace-operations";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import {
+  type DesiredStateReader,
+  type LockfileReader,
+  type SettingsReader,
+  type WorkspaceLocation,
+  WorkspaceMutations,
+} from "@agentxm/workspace-state";
 import { removeIfExists } from "@agentxm/workspace-state";
 import {
   acceptedCanonicalObservation,
@@ -229,6 +235,10 @@ export const uninstallMcpServer: (
   | FileSystem.FileSystem
   | Path.Path
   | WorkspaceMutations
+  | WorkspaceLocation
+  | SettingsReader
+  | LockfileReader
+  | DesiredStateReader
   | CodingAgentRepository
   | NativeWriteAuthority
   | McpSecretStore
@@ -260,12 +270,10 @@ export const uninstallMcpServer: (
       (sourceClosure.localNames.some((name) => name !== op.args.serverName) ||
         sourceClosure.origins.some((origin) => origin.type === "pack"));
     const acceptedCanonical = yield* acceptedCanonicalObservation({
-      workspace: ws,
       type: "mcp-server",
       name: op.args.serverName,
     });
     const lockedCanonical = yield* acceptedLockedCanonicalPath({
-      workspace: ws,
       type: "mcp-server",
       name: op.args.serverName,
     });

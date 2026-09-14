@@ -84,7 +84,6 @@ export const planMcpServerUninstall: (
             .pipe(Effect.catch(() => Effect.succeed(Option.none()))),
         );
         const canonicalPath = yield* acceptedLockedCanonicalPath({
-          workspace: ws,
           type: "mcp-server",
           name: target.name,
         }).pipe(Effect.catch(() => Effect.succeed(Option.none())));

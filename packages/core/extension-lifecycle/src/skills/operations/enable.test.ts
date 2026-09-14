@@ -19,6 +19,7 @@ import {
   rowsFor,
   TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
+  WorkspaceReadTest,
 } from "@agentxm/workspace-state/testing";
 import { sanitizeName } from "@agentxm/workspace-state";
 import type { EnableSkillOperation } from "./enable.js";
@@ -30,6 +31,7 @@ import {
   handle,
 } from "../../test-helpers.js";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/extensions";
 import { computePackageContentHash } from "@agentxm/workspace-state";
 import { type SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 
@@ -54,7 +56,7 @@ const isConfiguredSkillEnabled = (value: SettingsSkillValue): boolean =>
 const makeWorkspaceMock = (
   axmDir: string,
   opts: {
-    configuredAgents?: ReadonlyArray<string>;
+    configuredAgents?: ReadonlyArray<ConfigurableAgentId>;
     lockfileSkills?: Record<string, SkillLockEntry>;
     settingsSkills?: Record<string, SettingsSkillValue>;
     updateSkillEntryFn?: WorkspaceMutationsService["updateSkillEntry"];
@@ -110,8 +112,44 @@ const makeWorkspaceMock = (
 /** Creates a layer providing FileSystem + a minimal WorkspaceMutations service. */
 const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMock>[1]) => {
   const mockWs = makeWorkspaceMock(axmDir, wsOpts);
+  const configuredAgents = wsOpts?.configuredAgents ?? ["claude-code"];
+  const settingsSkills = wsOpts?.settingsSkills ?? {};
+  const normalizedSettingsSkills = Object.fromEntries(
+    Object.entries(settingsSkills).map(([name, value]) => [
+      name,
+      {
+        source: getConfiguredSkillSource(value),
+        enabled: isConfiguredSkillEnabled(value),
+      },
+    ]),
+  );
+  const graph = {
+    complete: true as const,
+    nodes: Object.entries(settingsSkills).map(([name, value]) => {
+      const source = getConfiguredSkillSource(value);
+      const enabled = isConfiguredSkillEnabled(value);
+      return {
+        type: "skill" as const,
+        name,
+        identity: source,
+        source,
+        enabled,
+        constraints: [],
+        origins: [{ type: "settings" as const, source, enabled }],
+      };
+    }),
+    mcpSourceClosures: [],
+    problems: [],
+  };
   return Layer.mergeAll(
     WorkspaceMutations.layer(mockWs),
+    WorkspaceReadTest({
+      baseDir: path.dirname(axmDir),
+      runtimeDir: axmDir,
+      settings: { agents: configuredAgents, skills: normalizedSettingsSkills },
+      lockfile: { lockfileVersion: 7, skills: wsOpts?.lockfileSkills ?? {} },
+      graph,
+    }),
     MockWorkspaceTransactionScope(axmDir),
     TestStepFailureConversion,
   ).pipe(Layer.provideMerge(NodeServices.layer));

@@ -313,7 +313,6 @@ const scanWorkspaceAuthority: (
   pack: PackRef,
 ) => Effect.Effect<WorkspaceAuthorityScan, ExtensionLifecycleFailed, InstallStepRequirements> =
   Effect.fn("InstallExtensions.scanWorkspaceAuthority")(function* (pack: PackRef) {
-    const ws = yield* WorkspaceMutations;
     const graph = yield* readDesiredGraph;
     const packIdentity = `${pack.owner}/packs/${pack.name}`;
     const blockers: Array<SourceAuthorityBlockedFact> = [];
@@ -366,7 +365,6 @@ const scanWorkspaceAuthority: (
       if (desired === undefined) continue;
 
       const canonical = yield* usableAcceptedCanonical({
-        workspace: ws,
         type: parsed.type,
         name: parsed.name,
       }).pipe(
@@ -915,7 +913,6 @@ export const planPackInstall: (
       const graph = yield* readDesiredGraph;
       if (graph.complete) {
         const currentPack = yield* usableAcceptedCanonical({
-          workspace: ws,
           type: "pack",
           name: intent.packToInstall.pack.name,
         }).pipe(
@@ -941,7 +938,7 @@ export const planPackInstall: (
               node.origins.some((origin) => origin.type === "pack" && origin.pack === packIdentity),
           );
           const usable = yield* Effect.forEach(nodes, (node) =>
-            usableAcceptedCanonical({ workspace: ws, type: node.type, name: node.name }).pipe(
+            usableAcceptedCanonical({ type: node.type, name: node.name }).pipe(
               Effect.map(Option.isSome),
               Effect.mapError((cause) =>
                 installRefused({
@@ -1050,7 +1047,6 @@ export const planPackInstall: (
     unresolvedDroppedTargets,
     (dropped) =>
       acceptedLockedCanonicalPath({
-        workspace: ws,
         type: dropped.target.type,
         name: dropped.target.name,
       }).pipe(

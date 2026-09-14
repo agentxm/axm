@@ -325,7 +325,6 @@ const preservableRegistryVersion = Effect.fn("UpdateExtensions.preservableVersio
   if (desired === undefined) return Option.none<string>();
 
   const canonical = yield* usableAcceptedCanonical({
-    workspace,
     type: intent.type,
     name: desired.name,
   });
@@ -351,9 +350,7 @@ const preservableRegistryVersion = Effect.fn("UpdateExtensions.preservableVersio
         ),
     );
     const usable = yield* Effect.forEach(graphNodes, (node) =>
-      usableAcceptedCanonical({ workspace, type: node.type, name: node.name }).pipe(
-        Effect.map(Option.isSome),
-      ),
+      usableAcceptedCanonical({ type: node.type, name: node.name }).pipe(Effect.map(Option.isSome)),
     );
     if (usable.some((value) => !value)) return Option.none<string>();
   }
@@ -372,7 +369,6 @@ const acceptedRegistryFloor = Effect.fn("UpdateExtensions.acceptedFloor")(functi
     return Option.none<{ readonly version: string; readonly publisherBindingId: string }>();
   }
   const accepted = yield* acceptedResolutionRef({
-    workspace,
     type: intent.type,
     name: desired.name,
   });

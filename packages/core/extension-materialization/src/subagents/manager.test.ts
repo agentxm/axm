@@ -23,12 +23,14 @@ import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   makeBaseWorkspaceMock,
+  WorkspaceReadTest,
   MockWorkspaceTransactionScope,
   TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
 } from "@agentxm/workspace-state/testing";
 import { SubagentManagerLive } from "./manager.js";
 import type { SubagentLockEntry } from "@agentxm/workspace-state";
+import type { Settings } from "@agentxm/workspace-state";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { describeTestFailure, exactVersion, extensionName, handle } from "../test-helpers.js";
 
@@ -105,6 +107,8 @@ const makeTestLayer = (overrides?: {
   readonly wsOverrides?: Partial<import("@agentxm/workspace-state").WorkspaceMutationsService>;
   readonly agents?: ReadonlyArray<CodingAgent>;
   readonly axmDir?: string;
+  readonly configuredSubagents?: NonNullable<Settings["subagents"]>;
+  readonly lockedSubagents?: Readonly<Record<string, SubagentLockEntry>>;
 }) => {
   const axmDir = overrides?.axmDir ?? "/tmp/test-project/.axm";
   const wsMock = makeBaseWorkspaceMock(axmDir, {
@@ -113,6 +117,25 @@ const makeTestLayer = (overrides?: {
   });
 
   const testAgents = overrides?.agents ?? [makeMockCodingAgent("claude-code")];
+  const configuredSubagents = overrides?.configuredSubagents ?? {};
+  const graph = {
+    complete: true,
+    nodes: Object.entries(configuredSubagents).map(([name, entry]) => {
+      const source = typeof entry === "string" ? entry : entry.source;
+      const enabled = typeof entry === "string" || entry.enabled !== false;
+      return {
+        type: "subagent" as const,
+        name,
+        identity: source,
+        source,
+        enabled,
+        constraints: [],
+        origins: [{ type: "settings" as const, source, enabled }],
+      };
+    }),
+    mcpSourceClosures: [],
+    problems: [],
+  };
 
   const agentRepoLayer = Layer.succeed(CodingAgentRepository, {
     get: (id) => {
@@ -133,7 +156,25 @@ const makeTestLayer = (overrides?: {
   });
 
   return SubagentManagerLive.pipe(
-    Layer.provide(Layer.succeed(WorkspaceMutations, wsMock)),
+    Layer.provideMerge(
+      Layer.merge(
+        Layer.succeed(WorkspaceMutations, wsMock),
+        WorkspaceReadTest({
+          baseDir: nodePath.dirname(axmDir),
+          runtimeDir: axmDir,
+          settings: {
+            agents: testAgents.map(({ id }) => id).filter((id) => id !== "universal"),
+            subagents: configuredSubagents,
+          },
+          lockfile: {
+            lockfileVersion: 7,
+            skills: {},
+            subagents: overrides?.lockedSubagents ?? {},
+          },
+          graph,
+        }),
+      ),
+    ),
     Layer.provideMerge(MockWorkspaceTransactionScope(axmDir)),
     Layer.provide(agentRepoLayer),
     Layer.provideMerge(
@@ -166,23 +207,20 @@ describe("SubagentManager", () => {
       }).pipe(
         Effect.provide(
           makeTestLayer({
-            wsOverrides: {
-              getLockedSubagents: () =>
-                Effect.succeed({
-                  planner: {
-                    type: "local",
-                    sourceType: "local",
-                    sourceName: "local",
-                    extensionType: "subagent",
-                    workspaceName: extensionName("planner"),
-                    packageFormat: "agentxm",
-                    packageOwner: handle("@acme"),
-                    packageName: extensionName("planner"),
-                    path: decodeRelativePathSync("test"),
-                    contentIdentity: TEST_CONTENT_IDENTITY,
-                    treeIntegrity: TEST_TREE_INTEGRITY,
-                  },
-                }),
+            lockedSubagents: {
+              planner: {
+                type: "local",
+                sourceType: "local",
+                sourceName: "local",
+                extensionType: "subagent",
+                workspaceName: extensionName("planner"),
+                packageFormat: "agentxm",
+                packageOwner: handle("@acme"),
+                packageName: extensionName("planner"),
+                path: decodeRelativePathSync("test"),
+                contentIdentity: TEST_CONTENT_IDENTITY,
+                treeIntegrity: TEST_TREE_INTEGRITY,
+              },
             },
           }),
         ),
@@ -285,7 +323,6 @@ describe("SubagentManager", () => {
             agents: [agentWithSpy],
             wsOverrides: {
               setSubagentLock: setSubagentLockSpy,
-              getLockedSubagent: () => Effect.succeed(Option.none()),
             },
           }),
         ),
@@ -324,24 +361,23 @@ describe("SubagentManager", () => {
           makeTestLayer({
             axmDir,
             agents: [agentWithSpy],
+            lockedSubagents: {
+              planner: {
+                type: "local",
+                sourceType: "local",
+                sourceName: "local",
+                extensionType: "subagent",
+                workspaceName: extensionName("planner"),
+                packageFormat: "agentxm",
+                packageOwner: handle("@acme"),
+                packageName: extensionName("planner"),
+                path: decodeRelativePathSync("sources/planner"),
+                contentIdentity: TEST_CONTENT_IDENTITY,
+                treeIntegrity: TEST_TREE_INTEGRITY,
+              },
+            },
             wsOverrides: {
               setSubagentLock: setSubagentLockSpy,
-              getLockedSubagent: () =>
-                Effect.succeed(
-                  Option.some({
-                    type: "local",
-                    sourceType: "local",
-                    sourceName: "local",
-                    extensionType: "subagent",
-                    workspaceName: extensionName("planner"),
-                    packageFormat: "agentxm",
-                    packageOwner: handle("@acme"),
-                    packageName: extensionName("planner"),
-                    path: decodeRelativePathSync("sources/planner"),
-                    contentIdentity: TEST_CONTENT_IDENTITY,
-                    treeIntegrity: TEST_TREE_INTEGRITY,
-                  } satisfies SubagentLockEntry),
-                ),
             },
           }),
         ),
@@ -474,23 +510,20 @@ describe("SubagentManager", () => {
         Effect.provide(
           makeTestLayer({
             agents: [agentWithSpy],
-            wsOverrides: {
-              getLockedSubagent: () =>
-                Effect.succeed(
-                  Option.some({
-                    type: "local",
-                    sourceType: "local",
-                    sourceName: "local",
-                    extensionType: "subagent",
-                    workspaceName: extensionName("planner"),
-                    packageFormat: "agentxm",
-                    packageOwner: handle("@acme"),
-                    packageName: extensionName("planner"),
-                    path: decodeRelativePathSync("tmp/source/planner"),
-                    contentIdentity: TEST_CONTENT_IDENTITY,
-                    treeIntegrity: TEST_TREE_INTEGRITY,
-                  } satisfies SubagentLockEntry),
-                ),
+            lockedSubagents: {
+              planner: {
+                type: "local",
+                sourceType: "local",
+                sourceName: "local",
+                extensionType: "subagent",
+                workspaceName: extensionName("planner"),
+                packageFormat: "agentxm",
+                packageOwner: handle("@acme"),
+                packageName: extensionName("planner"),
+                path: decodeRelativePathSync("tmp/source/planner"),
+                contentIdentity: TEST_CONTENT_IDENTITY,
+                treeIntegrity: TEST_TREE_INTEGRITY,
+              },
             },
           }),
         ),
@@ -534,29 +567,25 @@ describe("SubagentManager", () => {
         Effect.provide(
           makeTestLayer({
             axmDir,
-            wsOverrides: {
-              getConfiguredSubagentEntries: () =>
-                Effect.succeed({
-                  planner: { source: "@test/subagents/planner", enabled: true },
-                }),
-              getLockedSubagent: () =>
-                Effect.succeed(
-                  Option.some({
-                    type: "registry",
-                    sourceType: "registry",
-                    packageFormat: "agentxm",
-                    endpoint: new URL("https://registry.agentxm.ai"),
-                    extensionType: "subagent",
-                    workspaceName: extensionName("planner"),
-                    owner: handle("@test"),
-                    name: extensionName("planner"),
-                    resolvedVersion: exactVersion("1.0.0"),
-                    integrity: "sha512-test",
-                    sourceName: "agentxm",
-                    publisherBindingId: "hbnd_test",
-                    treeIntegrity: TEST_TREE_INTEGRITY,
-                  } satisfies SubagentLockEntry),
-                ),
+            configuredSubagents: {
+              planner: { source: "@test/subagents/planner", enabled: true },
+            },
+            lockedSubagents: {
+              planner: {
+                type: "registry",
+                sourceType: "registry",
+                packageFormat: "agentxm",
+                endpoint: new URL("https://registry.agentxm.ai"),
+                extensionType: "subagent",
+                workspaceName: extensionName("planner"),
+                owner: handle("@test"),
+                name: extensionName("planner"),
+                resolvedVersion: exactVersion("1.0.0"),
+                integrity: "sha512-test",
+                sourceName: "agentxm",
+                publisherBindingId: "hbnd_test",
+                treeIntegrity: TEST_TREE_INTEGRITY,
+              },
             },
           }),
         ),
@@ -570,15 +599,7 @@ describe("SubagentManager", () => {
         yield* manager.materializeUninstall({
           target: { type: "subagent", name: "nonexistent" },
         });
-      }).pipe(
-        Effect.provide(
-          makeTestLayer({
-            wsOverrides: {
-              getLockedSubagent: () => Effect.succeed(Option.none()),
-            },
-          }),
-        ),
-      ),
+      }).pipe(Effect.provide(makeTestLayer())),
     );
   });
 });

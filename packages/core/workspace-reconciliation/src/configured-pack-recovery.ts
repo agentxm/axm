@@ -179,7 +179,7 @@ export const collectConfiguredPackRecovery = (args: {
           // A lock row records the accepted version but not the member
           // constraints its manifest declares, so the accepted reference is
           // completed from the accepted archive rather than re-resolved.
-          const accepted = yield* acceptedResolutionRef({ workspace: ws, type: "pack", name });
+          const accepted = yield* acceptedResolutionRef({ type: "pack", name });
           const acceptedPack =
             Option.isSome(accepted) && accepted.value.type === "pack" ? accepted.value : undefined;
           const packRef =
@@ -268,7 +268,6 @@ export const collectConfiguredPackRecovery = (args: {
                     for (const ref of [packRef, ...memberRefs]) {
                       const target = targetFromRef(ref).name;
                       const canonical = yield* acceptedCanonicalObservation({
-                        workspace: ws,
                         type: ref.type,
                         name: target,
                       });

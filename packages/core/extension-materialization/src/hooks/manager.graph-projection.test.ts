@@ -25,9 +25,11 @@ import { applyPlannedProjections, observeProjectionPlans } from "@agentxm/worksp
 import { SourceHostProviders } from "@agentxm/extension-sources";
 import type { SourceHostProvidersService } from "@agentxm/extension-sources";
 import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace-state";
+import type { Settings } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   makeBaseWorkspaceMock,
+  WorkspaceReadTest,
   MockWorkspaceTransactionScope,
 } from "@agentxm/workspace-state/testing";
 import {
@@ -124,7 +126,7 @@ describe("HookManager graph-derived unit projection", () => {
   const makeTestLayer = (args: {
     readonly graph: DesiredStateGraph;
     readonly locked: HooksLockMap;
-    readonly configuredAgents: ReadonlyArray<string>;
+    readonly configuredAgents: NonNullable<Settings["agents"]>;
   }) => {
     const axmDir = nodePath.join(baseDir, ".axm");
     const wsMock = makeBaseWorkspaceMock(axmDir, {
@@ -138,7 +140,18 @@ describe("HookManager graph-derived unit projection", () => {
     return HookManagerLive.pipe(
       Layer.provideMerge(WorkspaceCatalogTestLive),
       Layer.provideMerge(CodingAgentRepositoryLive),
-      Layer.provide(Layer.succeed(WorkspaceMutations, wsMock)),
+      Layer.provideMerge(
+        Layer.merge(
+          Layer.succeed(WorkspaceMutations, wsMock),
+          WorkspaceReadTest({
+            baseDir,
+            runtimeDir: axmDir,
+            settings: { agents: [...args.configuredAgents], instructionFiles: {} },
+            lockfile: { lockfileVersion: 7, skills: {}, hooks: args.locked },
+            graph: args.graph,
+          }),
+        ),
+      ),
       Layer.provideMerge(MockWorkspaceTransactionScope(axmDir)),
       Layer.provide(Layer.succeed(SourceHostProviders, providersStub)),
       Layer.provideMerge(NativeWriteAuthorityLive),

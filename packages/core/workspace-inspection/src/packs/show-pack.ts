@@ -32,7 +32,6 @@ import {
   LockfileReader,
   SettingsReader,
   WorkspaceLocation,
-  WorkspaceMutations,
 } from "@agentxm/workspace-state";
 
 import { PackInspectionRefused } from "../errors.js";
@@ -75,7 +74,6 @@ export const ShowPack = {
     const settings = yield* SettingsReader;
     const lockfile = yield* LockfileReader;
     const desiredState = yield* DesiredStateReader;
-    const workspace = yield* WorkspaceMutations;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 
@@ -133,7 +131,6 @@ export const ShowPack = {
       });
     }
     const canonical = yield* acceptedCanonicalObservation({
-      workspace,
       type: "pack",
       name,
     });

@@ -15,7 +15,12 @@ import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 
-import { acceptedLockedResolutionRef, WorkspaceMutations } from "@agentxm/workspace-state";
+import {
+  acceptedLockedResolutionRef,
+  LockfileReader,
+  SettingsReader,
+  WorkspaceLocation,
+} from "@agentxm/workspace-state";
 import type { AcceptedCanonicalRefError } from "@agentxm/workspace-state";
 
 import { ExtensionResolutionFailed } from "./errors.js";
@@ -28,12 +33,11 @@ import type { PackDependencyRefResolver } from "./pack-dependency-resolution.js"
 export const acceptedPackDependencyResolver =
   (): PackDependencyRefResolver<
     AcceptedCanonicalRefError | ExtensionResolutionFailed,
-    WorkspaceMutations | FileSystem.FileSystem | Path.Path
+    WorkspaceLocation | SettingsReader | LockfileReader | FileSystem.FileSystem | Path.Path
   > =>
   ({ owner, type, name, root }) =>
     Effect.gen(function* () {
-      const workspace = yield* WorkspaceMutations;
-      const accepted = yield* acceptedLockedResolutionRef({ workspace, type, name });
+      const accepted = yield* acceptedLockedResolutionRef({ type, name });
       if (Option.isNone(accepted)) {
         return yield* new ExtensionResolutionFailed({
           category: "conflict",

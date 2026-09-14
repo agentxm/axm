@@ -280,9 +280,7 @@ const resolvePackIntent: (args: ConfiguredPackIntentArgs) => Effect.Effect<
 > = Effect.fn("InstallExtensions.resolveConfiguredPackIntent")(function* (
   args: ConfiguredPackIntentArgs,
 ) {
-  const ws = yield* WorkspaceMutations;
   const accepted = yield* acceptedResolutionRef({
-    workspace: ws,
     type: "pack",
     name: args.name,
   }).pipe(Effect.mapError(resolutionFailed(args.name)));

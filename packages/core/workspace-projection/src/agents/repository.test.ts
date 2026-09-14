@@ -2,23 +2,17 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
-import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
 import { NativeWriteAuthorityPermissive } from "@agentxm/agent-integration/testing";
+import { SettingsReader } from "@agentxm/workspace-state";
 import { handle } from "../test-helpers.js";
 import { DefaultCodingAgentRepository } from "./repository.js";
 
-const withWorkspace = (configuredAgents: ReadonlyArray<string>) => {
-  const wsMock: WorkspaceMutationsService = makeBaseWorkspaceMock("/tmp/axm", {
-    getConfiguredAgents: () => Effect.succeed(configuredAgents),
-  });
-
-  return Layer.mergeAll(
+const withWorkspace = (configuredAgents: ReadonlyArray<string>) =>
+  Layer.mergeAll(
+    Layer.mock(SettingsReader, { configuredAgents: Effect.succeed(configuredAgents) }),
     NodeServices.layer,
     NativeWriteAuthorityPermissive,
-    WorkspaceMutations.layer(wsMock),
   );
-};
 
 describe("DefaultCodingAgentRepository", () => {
   it.effect("returns fallback MCP contract for configured agents without custom adapter", () =>

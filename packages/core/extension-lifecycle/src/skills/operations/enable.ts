@@ -18,7 +18,13 @@ import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failu
 import type { OperationHandler } from "@agentxm/workspace-operations";
 import type { Operation } from "@agentxm/workspace-operations";
 import type { JobStepResult } from "@agentxm/workspace-operations";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import {
+  type DesiredStateReader,
+  type LockfileReader,
+  type SettingsReader,
+  type WorkspaceLocation,
+  WorkspaceMutations,
+} from "@agentxm/workspace-state";
 import {
   WorkspaceTransactionScope,
   runWorkspaceTransaction,
@@ -57,6 +63,10 @@ export const enableSkill: OperationHandler<
   | FileSystem.FileSystem
   | Path.Path
   | WorkspaceMutations
+  | WorkspaceLocation
+  | SettingsReader
+  | LockfileReader
+  | DesiredStateReader
   | WorkspaceTransactionScope
   | StepFailureConversion
 > = (op) =>
@@ -65,7 +75,6 @@ export const enableSkill: OperationHandler<
     const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
     const canonical = yield* usableAcceptedCanonicalObservation({
-      workspace: ws,
       type: "skill",
       name: op.args.skillName,
     });

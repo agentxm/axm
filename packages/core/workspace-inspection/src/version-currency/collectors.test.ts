@@ -21,15 +21,23 @@ import {
   makeRegistryPackLockEntry,
   TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
+  WorkspaceReadTest,
 } from "@agentxm/workspace-state/testing";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 
 const workspaceWithCatalogLayer = (ws: WorkspaceMutationsService) => {
   const wsLayer = Layer.succeed(WorkspaceMutations, ws);
+  const readLayer = WorkspaceReadTest({
+    baseDir: ws.baseDir,
+    runtimeDir: ws.path,
+    settings: { agents: ["claude-code"] },
+  });
   return Layer.mergeAll(
     wsLayer,
+    readLayer,
     WorkspaceCatalogTestLive.pipe(
       Layer.provide(wsLayer),
+      Layer.provide(readLayer),
       Layer.provide(CodingAgentRepositoryLive),
       Layer.provide(NodeServices.layer),
     ),

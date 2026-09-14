@@ -18,9 +18,11 @@ import type { McpServerLockEntry } from "@agentxm/workspace-state";
 import { SettingsWriteError, type WorkspaceSettingsReadFailure } from "@agentxm/workspace-state";
 import type { WorkspaceStateMutationFailure } from "@agentxm/workspace-state";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
+import { mcpResolutionKey } from "@agentxm/workspace-state";
 import {
   makeBaseWorkspaceMock,
   makeRegistryMcpServerLockEntry,
+  WorkspaceReadTest,
 } from "@agentxm/workspace-state/testing";
 import { TestStepFailureConversion, handle, makeCodingAgentStub } from "../../test-helpers.js";
 import { makeMemoryMcpSecretStore } from "@agentxm/extension-materialization/testing";
@@ -94,11 +96,39 @@ const makeServices = (
   },
   agentRepo?: CodingAgentRepositoryService,
 ) => {
+  const acceptedMcpServers = Object.fromEntries(
+    Object.values(lockfileMcpServers).map((entry) => [mcpResolutionKey(entry), entry]),
+  );
+  const desiredNodes = Object.entries(lockfileMcpServers).map(([name, entry]) => {
+    const identity = mcpResolutionKey(entry);
+    return {
+      type: "mcp-server" as const,
+      name,
+      identity,
+      authority: "sourced" as const,
+      source: identity,
+      enabled: true,
+      constraints: [],
+      origins: [{ type: "settings" as const, localName: name, source: identity, enabled: true }],
+    };
+  });
   return {
     layer: Layer.mergeAll(
       NativeWriteAuthorityPermissive,
       NodeServices.layer,
       WorkspaceMutations.layer(makeWorkspaceMock(axmDir, lockfileMcpServers, wsOverrides)),
+      WorkspaceReadTest({
+        baseDir: path.dirname(axmDir),
+        runtimeDir: axmDir,
+        settings: { agents: [] },
+        lockfile: { lockfileVersion: 7, skills: {}, mcpServers: acceptedMcpServers },
+        graph: {
+          complete: true,
+          nodes: desiredNodes,
+          mcpSourceClosures: [],
+          problems: [],
+        },
+      }),
       TestStepFailureConversion,
       makeMemoryMcpSecretStore().layer,
       Layer.succeed(CodingAgentRepository, agentRepo ?? defaultAgentRepo),

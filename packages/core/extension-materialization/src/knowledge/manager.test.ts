@@ -23,6 +23,8 @@ import {
   MockWorkspaceTransactionScope,
   readModelRecordStubs,
   TEST_CONTENT_IDENTITY,
+  WorkspaceReadTest,
+  type WorkspaceReadTestFacts,
 } from "@agentxm/workspace-state/testing";
 import {
   CodingAgentRepositoryLive,
@@ -104,13 +106,14 @@ const workspaceRef = (name: string, root: string): WorkspaceKnowledgeRef => ({
 });
 
 /** Desired-state and lock overrides for a locally sourced `handbook` bundle. */
-const desiredHandbookOverrides = (
+const desiredHandbookReadFacts = (
   workspaceRoot: string,
-): NonNullable<Parameters<typeof makeBaseWorkspaceMock>[1]> => ({
-  getConfiguredKnowledgeEntries: () =>
-    Effect.succeed({ handbook: { source: "./source", enabled: true } }),
-  getLockedKnowledge: () =>
-    Effect.sync(() => ({
+): Omit<WorkspaceReadTestFacts, "baseDir" | "runtimeDir"> => ({
+  settings: { knowledge: { handbook: { source: "./source", enabled: true } } },
+  acceptedResolutions: Effect.sync(() => ({
+    lockfileVersion: 7 as const,
+    skills: {},
+    knowledge: {
       handbook: {
         type: "local" as const,
         sourceType: "local" as const,
@@ -126,24 +129,66 @@ const desiredHandbookOverrides = (
           nodePath.join(workspaceRoot, "agent_extensions", "local", "source"),
         ),
       },
-    })),
+    },
+  })),
+  graph: {
+    complete: true,
+    nodes: [
+      {
+        type: "knowledge",
+        name: "handbook",
+        identity: "./source",
+        source: "./source",
+        enabled: true,
+        constraints: [],
+        origins: [{ type: "settings", source: "./source", enabled: true }],
+      },
+    ],
+    mcpSourceClosures: [],
+    problems: [],
+  },
 });
 
 const managerLayer = (
   workspaceRoot: string,
-  overrides: NonNullable<Parameters<typeof makeBaseWorkspaceMock>[1]> = {},
+  options: {
+    readonly workspace?: NonNullable<Parameters<typeof makeBaseWorkspaceMock>[1]>;
+    readonly read?: Omit<WorkspaceReadTestFacts, "baseDir" | "runtimeDir">;
+  } = {},
 ) => {
   const axmDir = nodePath.join(workspaceRoot, ".axm");
+  const readSettings = options.read?.settings ?? {};
+  const readGraph = options.read?.graph ?? {
+    complete: true,
+    nodes: [],
+    mcpSourceClosures: [],
+    problems: [],
+  };
+  const acceptedResolutions =
+    options.read?.acceptedResolutions ??
+    Effect.succeed(options.read?.lockfile ?? { lockfileVersion: 7, skills: {} });
+  const workspace = makeBaseWorkspaceMock(axmDir, {
+    getConfiguredKnowledgeEntries: () => Effect.succeed(readSettings.knowledge ?? {}),
+    getInstructionsConfig: () =>
+      Effect.succeed(Option.fromUndefinedOr(readSettings.instructionFiles ?? {})),
+    getKnowledgeDiscoveryConfig: () =>
+      Effect.succeed({ instructions: readSettings.knowledgeConfig?.instructions !== false }),
+    getDesiredStateGraph: () => Effect.succeed(readGraph),
+    getLockedKnowledge: () =>
+      acceptedResolutions.pipe(Effect.map((lockfile) => lockfile.knowledge ?? {})),
+    ...options.workspace,
+  });
   return KnowledgeManagerLive.pipe(
     Layer.provideMerge(WorkspaceCatalogTestLive),
     Layer.provideMerge(CodingAgentRepositoryLive),
-    Layer.provide(
-      Layer.succeed(
-        WorkspaceMutations,
-        makeBaseWorkspaceMock(axmDir, {
-          getConfiguredKnowledgeEntries: () => Effect.succeed({}),
-          getInstructionsConfig: () => Effect.succeed(Option.some({})),
-          ...overrides,
+    Layer.provideMerge(
+      Layer.merge(
+        Layer.succeed(WorkspaceMutations, workspace),
+        WorkspaceReadTest({
+          baseDir: workspaceRoot,
+          runtimeDir: axmDir,
+          ...options.read,
+          settings: { instructionFiles: {}, ...options.read?.settings },
         }),
       ),
     ),
@@ -181,10 +226,9 @@ describe("KnowledgeManager", () => {
         }).pipe(
           Effect.provide(
             managerLayer(workspaceRoot, {
-              getConfiguredKnowledgeEntries: () =>
-                Effect.succeed({ handbook: { source: "workspace", enabled: true } }),
-              getDesiredStateGraph: () =>
-                Effect.succeed({
+              read: {
+                settings: { knowledge: { handbook: { source: "workspace", enabled: true } } },
+                graph: {
                   complete: true,
                   mcpSourceClosures: [],
                   nodes: [
@@ -199,39 +243,42 @@ describe("KnowledgeManager", () => {
                     },
                   ],
                   problems: [],
-                }),
-              records: {
-                ...readModelRecordStubs,
-                getExtensionInventory: () =>
-                  Effect.succeed({
-                    items: [
-                      {
-                        scope: "project",
-                        type: "knowledge",
-                        name: "handbook",
-                        classification: { kind: "lifecycle", lifecycle: "configured" },
-                        enabled: true,
-                        installed: true,
-                        agents: [],
-                        agentOutcomes: [],
-                        origins: ["settings"],
-                        paths: [sourceRoot],
-                        source: "workspace",
-                      },
-                    ],
-                    count: 1,
-                    configuredCount: 1,
-                    implicitCount: 0,
-                    installedCount: 1,
-                    leftoverCount: 0,
-                    undeclaredCount: 0,
-                    unmanagedCount: 0,
+                },
+              },
+              workspace: {
+                records: {
+                  ...readModelRecordStubs,
+                  getExtensionInventory: () =>
+                    Effect.succeed({
+                      items: [
+                        {
+                          scope: "project",
+                          type: "knowledge",
+                          name: "handbook",
+                          classification: { kind: "lifecycle", lifecycle: "configured" },
+                          enabled: true,
+                          installed: true,
+                          agents: [],
+                          agentOutcomes: [],
+                          origins: ["settings"],
+                          paths: [sourceRoot],
+                          source: "workspace",
+                        },
+                      ],
+                      count: 1,
+                      configuredCount: 1,
+                      implicitCount: 0,
+                      installedCount: 1,
+                      leftoverCount: 0,
+                      undeclaredCount: 0,
+                      unmanagedCount: 0,
+                    }),
+                },
+                setKnowledgeEntry: (_name, entry) =>
+                  Effect.sync(() => {
+                    written.push(entry);
                   }),
               },
-              setKnowledgeEntry: (_name, entry) =>
-                Effect.sync(() => {
-                  written.push(entry);
-                }),
             }),
           ),
         );
@@ -261,8 +308,10 @@ describe("KnowledgeManager", () => {
 
         const staged = yield* Deferred.make<void>();
         const layer = managerLayer(workspaceRoot, {
-          setKnowledge: () =>
-            Deferred.succeed(staged, undefined).pipe(Effect.andThen(Effect.never)),
+          workspace: {
+            setKnowledge: () =>
+              Deferred.succeed(staged, undefined).pipe(Effect.andThen(Effect.never)),
+          },
         });
         const fiber = yield* Effect.gen(function* () {
           const manager = yield* KnowledgeManager;
@@ -295,7 +344,9 @@ describe("KnowledgeManager", () => {
           yield* manager.materializeInstall({ ref: localRef("handbook", sourceRoot) });
           yield* applyPlannedProjections(manager);
         }).pipe(
-          Effect.provide(managerLayer(workspaceRoot, desiredHandbookOverrides(workspaceRoot))),
+          Effect.provide(
+            managerLayer(workspaceRoot, { read: desiredHandbookReadFacts(workspaceRoot) }),
+          ),
         );
 
         expect(
@@ -343,8 +394,8 @@ describe("KnowledgeManager", () => {
           }).pipe(
             Effect.provide(
               managerLayer(workspaceRoot, {
-                getDesiredStateGraph: () =>
-                  Effect.succeed({
+                read: {
+                  graph: {
                     complete: false,
                     nodes: [],
                     mcpSourceClosures: [],
@@ -355,7 +406,8 @@ describe("KnowledgeManager", () => {
                         detail: "accepted resolution is missing",
                       },
                     ],
-                  }),
+                  },
+                },
               }),
             ),
           );
@@ -397,8 +449,8 @@ describe("KnowledgeManager", () => {
           }).pipe(
             Effect.provide(
               managerLayer(workspaceRoot, {
-                getDesiredStateGraph: () =>
-                  Effect.succeed({
+                read: {
+                  graph: {
                     complete: true,
                     mcpSourceClosures: [],
                     nodes: [
@@ -434,7 +486,8 @@ describe("KnowledgeManager", () => {
                       },
                     ],
                     problems: [],
-                  }),
+                  },
+                },
               }),
             ),
           );
@@ -559,7 +612,9 @@ describe("KnowledgeManager", () => {
               .materializeInstall({ ref: localRef("handbook", validRoot) })
               .pipe(Effect.flip);
           }).pipe(
-            Effect.provide(managerLayer(workspaceRoot, desiredHandbookOverrides(workspaceRoot))),
+            Effect.provide(
+              managerLayer(workspaceRoot, { read: desiredHandbookReadFacts(workspaceRoot) }),
+            ),
           );
 
           const canonicalConcept = nodePath.join(
@@ -636,16 +691,34 @@ describe("KnowledgeManager", () => {
             },
           } satisfies Readonly<Record<string, KnowledgeLockEntry>>;
           const layer = managerLayer(workspaceRoot, {
-            getConfiguredKnowledgeEntries: () =>
-              Effect.succeed({
-                healthy: { source: "./sources/healthy", enabled: true, packagingKind: "native" },
-                unavailable: {
-                  source: "./sources/unavailable",
-                  enabled: true,
-                  packagingKind: "native",
+            read: {
+              settings: {
+                knowledge: {
+                  healthy: { source: "./sources/healthy", enabled: true },
+                  unavailable: {
+                    source: "./sources/unavailable",
+                    enabled: true,
+                  },
                 },
-              }),
-            getLockedKnowledge: () => Effect.succeed(locked),
+              },
+              lockfile: { lockfileVersion: 7, skills: {}, knowledge: locked },
+              graph: {
+                complete: true,
+                nodes: ["healthy", "unavailable"].map((name) => ({
+                  type: "knowledge" as const,
+                  name,
+                  identity: `./sources/${name}`,
+                  source: `./sources/${name}`,
+                  enabled: true,
+                  constraints: [],
+                  origins: [
+                    { type: "settings" as const, source: `./sources/${name}`, enabled: true },
+                  ],
+                })),
+                mcpSourceClosures: [],
+                problems: [],
+              },
+            },
           });
 
           const result = yield* Effect.gen(function* () {

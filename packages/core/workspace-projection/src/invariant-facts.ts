@@ -20,6 +20,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
+import * as Ref from "effect/Ref";
 import * as ServiceMap from "effect/Context";
 import { observeProjectionPlans } from "./planning.js";
 import type { ProjectionParticipantFailure } from "./errors.js";
@@ -28,9 +29,14 @@ import {
   ProjectionParticipants,
   type ProjectionParticipant,
 } from "./participants.js";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { acceptedResolutionRef } from "@agentxm/workspace-state";
-import { resolveWorkspaceExtensionRef } from "@agentxm/workspace-state";
+import {
+  acceptedResolutionRef,
+  DesiredStateReader,
+  LockfileReader,
+  resolveWorkspaceExtensionRef,
+  SettingsReader,
+  WorkspaceLocation,
+} from "@agentxm/workspace-state";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { OwnershipUnitId, ProjectionUnitObservation } from "./units.js";
 import type { ProjectionContributorExclusion } from "./exclusions.js";
@@ -241,7 +247,10 @@ export class WorkspaceInvariantFacts extends ServiceMap.Service<
 export const WorkspaceInvariantFactsLive = Layer.effect(
   WorkspaceInvariantFacts,
   Effect.gen(function* () {
-    const workspace = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const desiredState = yield* DesiredStateReader;
+    const settings = yield* SettingsReader;
+    const lockfile = yield* LockfileReader;
     const participants = yield* ProjectionParticipants;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -251,10 +260,17 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
     );
+    const workspaceReadLayer = Layer.mergeAll(
+      Layer.succeed(WorkspaceLocation, location),
+      Layer.succeed(DesiredStateReader, desiredState),
+      Layer.succeed(SettingsReader, settings),
+      Layer.succeed(LockfileReader, lockfile),
+      fsPathLayer,
+    );
     // Participants keep their requirements explicit; the layer that evaluates
     // the facts is the boundary that composes them.
     const participantLayer = Layer.mergeAll(
-      fsPathLayer,
+      workspaceReadLayer,
       Layer.succeed(HttpClient.HttpClient, httpClient),
       Layer.succeed(NativeWriteAuthority, nativeWriteAuthority),
     );
@@ -266,17 +282,18 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
       );
     return {
       projectionFacts: Effect.gen(function* () {
+        const layout = yield* Ref.get(location.layout);
         const observed = yield* Effect.forEach(participants.aggregates, observeParticipant, {
           concurrency: "unbounded",
         });
         const facts: Array<ProjectionInvariantFact> = observed.flatMap((result) =>
           Result.isSuccess(result)
             ? result.success.map((observation) =>
-                makeProjectionInvariantFact(observation, workspace.scope),
+                makeProjectionInvariantFact(observation, location.scope),
               )
             : [],
         );
-        const graph = yield* Effect.result(workspace.getDesiredStateGraph());
+        const graph = yield* Effect.result(desiredState.graph());
         const completeGraph =
           Result.isSuccess(graph) && graph.success.complete
             ? Option.some(graph.success)
@@ -292,16 +309,15 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
                       settingsName: node.name,
                       source: node.source,
                       expectedType: "subagent",
-                      layout: workspace.layout,
-                      scope: workspace.scope,
+                      layout,
+                      scope: location.scope,
                     }).pipe(Effect.map(Option.some))
                   : acceptedResolutionRef({
-                      workspace,
                       type: "subagent",
                       name: node.name,
                     })
                 ).pipe(
-                  Effect.provide(fsPathLayer),
+                  Effect.provide(workspaceReadLayer),
                   Effect.flatMap(
                     Option.match({
                       onNone: () => Effect.succeed(Option.none<ProjectionInvariantFact>()),
@@ -323,7 +339,7 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
                                         ? [node.identity]
                                         : [],
                                     },
-                                    workspace.scope,
+                                    location.scope,
                                   ),
                                 ),
                               ),
@@ -357,7 +373,7 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
               makeUnavailableProjectionFact({
                 unitId,
                 path: subject.path,
-                scope: workspace.scope,
+                scope: location.scope,
                 expectedContributors: contributorsFor(subject.contributorType),
                 ...(subject.owner === undefined ? {} : { owner: subject.owner }),
                 failure: result.failure,

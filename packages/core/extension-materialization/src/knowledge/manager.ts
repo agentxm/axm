@@ -936,7 +936,6 @@ export const KnowledgeManagerLive = Layer.effect(
           }
           const cleanupSupersededCanonical = yield* provide(
             prepareAcceptedCanonicalTransition({
-              workspace: ws,
               type: "knowledge",
               name,
               ref: args.ref,
@@ -987,7 +986,6 @@ export const KnowledgeManagerLive = Layer.effect(
     )(function* ({ target }) {
       const canonical = yield* provide(
         acceptedCanonicalObservation({
-          workspace: ws,
           type: "knowledge",
           name: target.name,
         }),
@@ -1062,7 +1060,6 @@ export const KnowledgeManagerLive = Layer.effect(
       prepareSourceTransition: ({ ref }) =>
         provide(
           prepareAcceptedCanonicalTransition({
-            workspace: ws,
             type: "knowledge",
             name: ref.knowledge.name,
             ref,
@@ -1088,7 +1085,6 @@ export const KnowledgeManagerLive = Layer.effect(
             (node) =>
               provide(
                 usableAcceptedCanonicalRef({
-                  workspace: ws,
                   type: "knowledge",
                   name: node.name,
                 }).pipe(
@@ -1106,7 +1102,6 @@ export const KnowledgeManagerLive = Layer.effect(
       materializeRetained: ({ target }) =>
         Effect.gen(function* () {
           const canonical = yield* usableAcceptedCanonical({
-            workspace: ws,
             type: "knowledge",
             name: target.name,
           });

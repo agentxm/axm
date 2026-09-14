@@ -58,6 +58,7 @@ import {
 import type { ReleaseAgeOperationEvidence } from "@agentxm/extension-resolution";
 import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 import {
+  type SettingsReader,
   WorkspaceMutations,
   type DesiredStateGraph,
   type McpServerEntry,
@@ -391,6 +392,7 @@ export const collectCleanupStep: (args: {
   | FileSystem.FileSystem
   | Path.Path
   | WorkspaceMutations
+  | SettingsReader
   | NativeWriteAuthority
 > = Effect.fn("Sync.collectCleanupStep")(function* (args) {
   const ws = yield* WorkspaceMutations;

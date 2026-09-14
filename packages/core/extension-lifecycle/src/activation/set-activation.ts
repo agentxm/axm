@@ -489,7 +489,6 @@ const settleActivation = (
           );
         if (request.enabled && node.authority !== "inline") {
           const canonical = yield* usableAcceptedCanonical({
-            workspace: ws,
             type: request.type,
             name,
           });
@@ -645,7 +644,7 @@ const settleActivation = (
             )
           : undefined;
         const retainedReferences = (yield* Effect.forEach(members, (node) =>
-          acceptedCanonicalObservation({ workspace: ws, type: node.type, name: node.name }).pipe(
+          acceptedCanonicalObservation({ type: node.type, name: node.name }).pipe(
             Effect.map((canonical): ReadonlyArray<JobStepArtifactReference> => {
               if (Option.isNone(canonical) || canonical.value.observation.path === undefined)
                 return [];

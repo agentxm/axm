@@ -33,7 +33,7 @@ import {
 } from "@agentxm/workspace-state";
 import { appendWarningsToMessage } from "@agentxm/workspace-operations";
 import type { JobStepResult, Operation } from "@agentxm/workspace-operations";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { type SettingsReader, WorkspaceMutations } from "@agentxm/workspace-state";
 import { canReuseInstalledPackage } from "@agentxm/extension-materialization";
 import { materializeRegistryPackage } from "@agentxm/extension-materialization";
 import { computeExtensionPathsForLayout } from "@agentxm/workspace-state";
@@ -567,6 +567,7 @@ export type McpServerInstallRequirements =
   | HttpClient.HttpClient
   | Path.Path
   | WorkspaceMutations
+  | SettingsReader
   | CodingAgentRepository
   | NativeWriteAuthority
   | McpSecretStore;

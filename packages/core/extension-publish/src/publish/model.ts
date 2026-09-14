@@ -294,7 +294,7 @@ export const identityFromManagedPackage = Effect.fn("Publish.identityFromManaged
     const authored = isWorkspaceSourceLocator(entry.source);
     const accepted = authored
       ? Option.none()
-      : yield* acceptedCanonicalObservation({ workspace: ws, type: entry.type, name: entry.name });
+      : yield* acceptedCanonicalObservation({ type: entry.type, name: entry.name });
     const extensionRoots = authored
       ? ws.layout.scope === "project"
         ? [path.join(ws.layout.authoredRoot(entry.type), entry.name)]

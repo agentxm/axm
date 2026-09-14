@@ -8,6 +8,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import type { SkillLockEntry } from "@agentxm/workspace-state";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/extensions";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import {
   implicitRow,
@@ -17,6 +18,7 @@ import {
   rowsFor,
   TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
+  WorkspaceReadTest,
 } from "@agentxm/workspace-state/testing";
 import type { DisableSkillOperation } from "./disable.js";
 import { disableSkill } from "./disable.js";
@@ -31,7 +33,7 @@ import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-t
 const makeWorkspaceMock = (
   axmDir: string,
   opts: {
-    configuredAgents?: ReadonlyArray<string>;
+    configuredAgents?: ReadonlyArray<ConfigurableAgentId>;
     lockfileSkills?: Record<string, SkillLockEntry>;
     updateSkillEntryFn?: WorkspaceMutationsService["updateSkillEntry"];
     setSkillLockFn?: WorkspaceMutationsService["setSkillLock"];
@@ -54,6 +56,11 @@ const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMo
   const mockWs = makeWorkspaceMock(axmDir, wsOpts);
   return Layer.mergeAll(
     WorkspaceMutations.layer(mockWs),
+    WorkspaceReadTest({
+      baseDir: path.dirname(axmDir),
+      runtimeDir: axmDir,
+      settings: { agents: wsOpts?.configuredAgents ?? ["claude-code"] },
+    }),
     MockWorkspaceTransactionScope(axmDir),
     TestStepFailureConversion,
   ).pipe(Layer.provideMerge(NodeServices.layer));
@@ -406,6 +413,7 @@ describe("disableSkill", () => {
           Effect.provide(
             Layer.mergeAll(
               WorkspaceMutations.layer(mockWs),
+              WorkspaceReadTest({ baseDir: base, runtimeDir: axmDir }),
               MockWorkspaceTransactionScope(axmDir),
               TestStepFailureConversion,
             ).pipe(Layer.provideMerge(NodeServices.layer)),
@@ -472,6 +480,7 @@ describe("disableSkill", () => {
           Effect.provide(
             Layer.mergeAll(
               WorkspaceMutations.layer(mockWs),
+              WorkspaceReadTest({ baseDir: base, runtimeDir: axmDir }),
               MockWorkspaceTransactionScope(axmDir),
               TestStepFailureConversion,
             ).pipe(Layer.provideMerge(NodeServices.layer)),
@@ -506,6 +515,7 @@ describe("disableSkill", () => {
           Effect.provide(
             Layer.mergeAll(
               WorkspaceMutations.layer(mockWs),
+              WorkspaceReadTest({ baseDir: base, runtimeDir: axmDir }),
               MockWorkspaceTransactionScope(axmDir),
               TestStepFailureConversion,
             ).pipe(Layer.provideMerge(NodeServices.layer)),
@@ -538,6 +548,7 @@ describe("disableSkill", () => {
           Effect.provide(
             Layer.mergeAll(
               WorkspaceMutations.layer(mockWs),
+              WorkspaceReadTest({ baseDir: base, runtimeDir: axmDir }),
               MockWorkspaceTransactionScope(axmDir),
               TestStepFailureConversion,
             ).pipe(Layer.provideMerge(NodeServices.layer)),

@@ -40,10 +40,13 @@ import {
 import {
   LockfileReader,
   WorkspaceMutations,
+  DesiredStateReader,
+  WorkspaceLocation,
   acceptedCanonicalObservation,
   observeInstallRoot,
   type CanonicalObservation,
   type DesiredExtensionNode,
+  type SettingsReader,
 } from "@agentxm/workspace-state";
 
 import { buildLintWorkspace } from "../catalog/index.js";
@@ -180,6 +183,9 @@ export type LintWorkspaceRequirements =
   | FileSystem.FileSystem
   | LockfileReader
   | Path.Path
+  | WorkspaceLocation
+  | SettingsReader
+  | DesiredStateReader
   | WorkspaceInvariantFacts
   | WorkspaceMutations;
 
@@ -195,6 +201,9 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const workspace = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const desiredState = yield* DesiredStateReader;
+    const lockfile = yield* LockfileReader;
     const agentRepository = yield* CodingAgentRepository;
     const axmSkillCompatibilityPolicy = yield* AxmSkillCompatibilityPolicy;
     const invariantFacts = yield* WorkspaceInvariantFacts;
@@ -280,7 +289,7 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
     const installRoot = yield* observeInstallRoot({
       layout: workspace.layout,
       graph: desiredGraph,
-      locks: yield* LockfileReader,
+      locks: lockfile,
     }).pipe(Effect.option);
     const authoredPackages = Option.isSome(settings)
       ? yield* observeAuthoredPackages({ layout: workspace.layout, settings: settings.value })
@@ -297,7 +306,6 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
         graph.nodes,
         (node) =>
           acceptedCanonicalObservation({
-            workspace,
             type: node.type,
             name: node.name,
           }).pipe(
@@ -315,6 +323,9 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
     }).pipe(
       Effect.provideService(FileSystem.FileSystem, fileSystem),
       Effect.provideService(Path.Path, path),
+      Effect.provideService(WorkspaceLocation, location),
+      Effect.provideService(LockfileReader, lockfile),
+      Effect.provideService(DesiredStateReader, desiredState),
     );
 
     const evaluations = yield* evaluateAllCatalogs({

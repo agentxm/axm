@@ -265,6 +265,40 @@ describe("normalizePublishInput", () => {
 });
 
 describe("defaultReadEntry", () => {
+  for (const size of [0, 1, 16_384, 65_536, 65_642]) {
+    it.effect(`reads all ${size} bytes of a valid deflate entry`, () =>
+      Effect.gen(function* () {
+        const content = Uint8Array.from({ length: size }, (_, index) => index % 251);
+        const zip = buildZip([{ fileName: "content.bin", content, compressionMethod: 8 }]);
+        const entries = yield* parseZipCentralDirectory(zip);
+        const entry = entries[0];
+        expect(entry).toBeDefined();
+        if (entry === undefined) return;
+
+        expect(yield* defaultReadEntry(zip, entry)).toEqual(content);
+      }),
+    );
+  }
+
+  for (const declaredSize of [0, 16, 65_642]) {
+    it.effect(`rejects expansion one byte beyond the declared ${declaredSize} bytes`, () =>
+      Effect.gen(function* () {
+        const content = new Uint8Array(declaredSize + 1);
+        const zip = buildZip([{ fileName: "content.bin", content, compressionMethod: 8 }]);
+        const entries = yield* parseZipCentralDirectory(zip);
+        const entry = entries[0];
+        expect(entry).toBeDefined();
+        if (entry === undefined) return;
+
+        const result = yield* defaultReadEntry(zip, {
+          ...entry,
+          uncompressedSize: declaredSize,
+        }).pipe(Effect.flip);
+        expect(result.code).toBe("decompression_limit_exceeded");
+      }),
+    );
+  }
+
   it.effect("rejects a deflate entry that inflates beyond its declared size (zip bomb)", () =>
     Effect.gen(function* () {
       // 1 MiB of zeros deflates to a few bytes; the central directory declares a

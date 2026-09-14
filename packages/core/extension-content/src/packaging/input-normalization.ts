@@ -61,6 +61,7 @@ export interface PublishInput {
 }
 
 const LOCAL_FILE_HEADER_SIZE = 30;
+const INFLATE_CHUNK_SIZE = 16 * 1024;
 
 export const defaultReadEntry = (
   archiveBytes: Uint8Array,
@@ -112,11 +113,21 @@ export const defaultReadEntry = (
     }
 
     if (compressionMethod === 8) {
-      // Cap actual decompression at the declared (guardrail-validated) size so a
-      // small deflate stream cannot expand into a memory bomb, and route any
-      // inflate throw into the typed error channel instead of an uncaught defect.
+      const expansionFailure = () =>
+        new ArchiveGuardrailError({
+          code: "decompression_limit_exceeded",
+          message: `Entry "${fileName}" decompresses beyond its declared size of ${entry.uncompressedSize} bytes.`,
+          entry: fileName,
+        });
+      // workerd grows its bounded zlib buffer by whole chunks, including the
+      // final partial chunk. Reserve one chunk of codec headroom, then enforce
+      // the exact declared size below. Expansion remains bounded during decode.
       const result = yield* Effect.try({
-        try: () => inflateRawSync(compressedData, { maxOutputLength: entry.uncompressedSize }),
+        try: () =>
+          inflateRawSync(compressedData, {
+            chunkSize: INFLATE_CHUNK_SIZE,
+            maxOutputLength: entry.uncompressedSize + INFLATE_CHUNK_SIZE,
+          }),
         catch: (error) => {
           const errorCode =
             typeof error === "object" &&
@@ -125,12 +136,9 @@ export const defaultReadEntry = (
             typeof error.code === "string"
               ? error.code
               : "";
-          return errorCode === "ERR_BUFFER_TOO_LARGE"
-            ? new ArchiveGuardrailError({
-                code: "decompression_limit_exceeded",
-                message: `Entry "${fileName}" decompresses beyond its declared size of ${entry.uncompressedSize} bytes.`,
-                entry: fileName,
-              })
+          return errorCode === "ERR_BUFFER_TOO_LARGE" ||
+            (error instanceof RangeError && error.message === "Memory limit exceeded")
+            ? expansionFailure()
             : new ArchiveGuardrailError({
                 code: "malformed_archive",
                 message: `Failed to decompress entry "${fileName}".`,
@@ -138,6 +146,7 @@ export const defaultReadEntry = (
               });
         },
       });
+      if (result.byteLength > entry.uncompressedSize) return yield* expansionFailure();
       return new Uint8Array(result.buffer, result.byteOffset, result.byteLength);
     }
 

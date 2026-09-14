@@ -292,6 +292,56 @@ describe("dependency-ordered immutable publication", () => {
 });
 
 describe("bounded publication observation", () => {
+  it.each(["absent", "transient failure"])(
+    "reports the readback deadline when the last wait aborts after %s",
+    async (outcome) => {
+      let current = 0;
+      const read = vi.fn(async () => {
+        if (outcome === "transient failure") throw new PublicationHttpError("busy", 503);
+        return null;
+      });
+      await expect(
+        observePublication({
+          name: "candidate@1.2.3",
+          read,
+          matches: () => false,
+          retryError: (error) => error instanceof PublicationHttpError && error.retryable,
+          timeoutMs: 10,
+          initialDelayMs: 10,
+          maxDelayMs: 10,
+          random: () => 0.5,
+          now: () => current,
+          sleep: async (delayMs) => {
+            current += delayMs;
+            throw new DOMException("The operation was aborted.", "AbortError");
+          },
+        }),
+      ).rejects.toThrow("Published content readback timed out: candidate@1.2.3.");
+      expect(read).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("preserves caller cancellation during the last observation wait", async () => {
+    let current = 0;
+    const controller = new AbortController();
+    const cancellation = new Error("release cancelled");
+    await expect(
+      observePublication({
+        name: "candidate",
+        read: async () => null,
+        matches: () => false,
+        timeoutMs: 10,
+        now: () => current,
+        signal: controller.signal,
+        sleep: async (delayMs) => {
+          current += delayMs;
+          controller.abort(cancellation);
+          throw new DOMException("The operation was aborted.", "AbortError");
+        },
+      }),
+    ).rejects.toBe(cancellation);
+  });
+
   it("retries explicit transient failures and honors retry-after", async () => {
     let reads = 0;
     const delays: number[] = [];
@@ -438,6 +488,21 @@ describe("Homebrew formula identity", () => {
 });
 
 describe("npm publication observations", () => {
+  it("requests revalidation of cached npm metadata before accepting publication facts", async () => {
+    await expect(
+      readNpmPublication("@agentxm/new-capability", "1.2.3", async (url, init) => {
+        const headers = new Headers(init?.headers);
+        return new URL(String(url)).searchParams.get("write") === "true" &&
+          headers.get("cache-control") === "no-cache"
+          ? Response.json({
+              "dist-tags": { latest: "1.2.3" },
+              versions: { "1.2.3": { dist: { integrity } } },
+            })
+          : new Response(null, { status: 404 });
+      }),
+    ).resolves.toEqual({ packageExists: true, latest: "1.2.3", integrity });
+  });
+
   it("distinguishes a new package from a new version of an initialized package", async () => {
     await expect(
       readNpmPublication(
@@ -498,7 +563,7 @@ describe("npm cohort initialization", () => {
             ["@agentxm/first", "@agentxm/ready", "@agentxm/second"],
             async (url) => {
               requests.push(String(url));
-              return String(url).endsWith("%2Fready")
+              return new URL(String(url)).pathname.endsWith("%2Fready")
                 ? new Response(JSON.stringify({ "dist-tags": {}, versions: { "0.1.0": {} } }))
                 : new Response(null, { status: 404 });
             },
@@ -509,9 +574,9 @@ describe("npm cohort initialization", () => {
           packages: ["@agentxm/first", "@agentxm/second"],
         });
         expect(requests).toEqual([
-          "https://registry.npmjs.org/%40agentxm%2Ffirst",
-          "https://registry.npmjs.org/%40agentxm%2Fready",
-          "https://registry.npmjs.org/%40agentxm%2Fsecond",
+          "https://registry.npmjs.org/%40agentxm%2Ffirst?write=true",
+          "https://registry.npmjs.org/%40agentxm%2Fready?write=true",
+          "https://registry.npmjs.org/%40agentxm%2Fsecond?write=true",
         ]);
       }),
   );

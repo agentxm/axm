@@ -101,6 +101,22 @@ export const observePublication = async <Value>(input: {
   const maxDelayMs = input.maxDelayMs ?? 5_000;
   let lastFailure: unknown;
   let attempt = 0;
+  const waitForNextRead = async (delayMs: number): Promise<void> => {
+    if (delayMs <= 0) return;
+    try {
+      await sleep(delayMs, observationSignal(input.signal, deadlineAt - now()));
+    } catch (error) {
+      if (input.signal?.aborted === true) input.signal.throwIfAborted();
+      if (
+        now() < deadlineAt ||
+        !(error instanceof Error) ||
+        (error.name !== "AbortError" && error.name !== "TimeoutError")
+      )
+        throw error;
+      // A deadline can cancel the final sleep before its timer completes.
+      // Report the owning readback timeout, retaining any preceding read failure.
+    }
+  };
   while (now() < deadlineAt) {
     attempt += 1;
     if (input.signal?.aborted === true) input.signal.throwIfAborted();
@@ -116,9 +132,7 @@ export const observePublication = async <Value>(input: {
       const backoff = Math.min(maxDelayMs, initialDelayMs * 2 ** Math.min(attempt - 1, 8));
       const jittered = Math.round(backoff * (0.8 + random() * 0.4));
       const delayMs = Math.min(deadlineAt - now(), Math.max(jittered, retryAfterMs ?? 0));
-      if (delayMs > 0) {
-        await sleep(delayMs, observationSignal(input.signal, deadlineAt - now()));
-      }
+      await waitForNextRead(delayMs);
       continue;
     }
     if (input.matches(value)) return value;
@@ -126,9 +140,7 @@ export const observePublication = async <Value>(input: {
       throw new Error(`Published content integrity conflict: ${input.name}.`);
     const backoff = Math.min(maxDelayMs, initialDelayMs * 2 ** Math.min(attempt - 1, 8));
     const delayMs = Math.min(deadlineAt - now(), Math.round(backoff * (0.8 + random() * 0.4)));
-    if (delayMs > 0) {
-      await sleep(delayMs, observationSignal(input.signal, deadlineAt - now()));
-    }
+    await waitForNextRead(delayMs);
   }
   throw new Error(`Published content readback timed out: ${input.name}.`, {
     ...(lastFailure === undefined ? {} : { cause: lastFailure }),
@@ -389,9 +401,16 @@ const readNpmMetadata = async (
     signal === undefined
       ? AbortSignal.timeout(30_000)
       : AbortSignal.any([signal, AbortSignal.timeout(30_000)]);
+  // npm's documented GET query revalidates registry caches before a write or readback.
+  // https://github.com/npm/npm-registry-fetch#caching-and-writetrue-query-strings
   const response = await fetchImplementation(
-    `https://registry.npmjs.org/${encodeURIComponent(name)}`,
-    { cache: "no-store", signal: requestSignal },
+    `https://registry.npmjs.org/${encodeURIComponent(name)}?write=true`,
+    {
+      cache: "no-store",
+      // Bun does not translate the cache option into an HTTP request directive.
+      headers: { "cache-control": "no-cache" },
+      signal: requestSignal,
+    },
   );
   if (response.status === 404) return null;
   if (response.status !== 200)

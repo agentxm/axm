@@ -11,6 +11,7 @@
       "dependsOn": [],
       "inputs": [
         "{projectRoot}/**/*",
+        "{workspaceRoot}/packages/**/src/**/*",
         "{workspaceRoot}/tsconfig*.json",
         {
           "runtime": "node -p \"[process.version, process.platform, process.arch].join('/')\""

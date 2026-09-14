@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { ESLint } from "eslint";
 import { createTypeScriptImportResolver } from "eslint-import-resolver-typescript";
 import { createRequire } from "node:module";
+import { globSync } from "node:fs";
 import { capabilityElements, capabilityFileDescriptors } from "./config.mjs";
 
 const root = resolve(import.meta.dirname, "../..");
@@ -76,17 +77,25 @@ test("root configuration composes a tooling project without a package facade", a
   );
 });
 
-test("every published domain entry has a valid native file classification", () => {
+test("every published policy entry exists and has its declared file classification", () => {
   const matcher = new Elements({ rootPath: root }).getMatcher({
     elements: capabilityElements,
     files: capabilityFileDescriptors,
     filesSingleMatch: true,
   });
   for (const descriptor of capabilityFileDescriptors.filter(
-    ({ category }) => category === "domain-api",
+    ({ category }) => category === "domain-api" || category === "application-api",
   )) {
-    for (const path of [descriptor.pattern].flat()) {
-      assert.deepEqual(matcher.describeFile(resolve(root, path)).categories, ["domain-api"], path);
+    for (const pattern of [descriptor.pattern].flat()) {
+      const entries = globSync(pattern, { cwd: root });
+      assert.ok(entries.length > 0, `Missing published policy entry: ${pattern}`);
+      for (const file of entries) {
+        assert.deepEqual(
+          matcher.describeFile(resolve(root, file)).categories,
+          [descriptor.category],
+          file,
+        );
+      }
     }
   }
 });

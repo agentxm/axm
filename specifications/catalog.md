@@ -4835,6 +4835,26 @@ AXM works on every supported operating system, runtime, shell, and filesystem.
 - Additional evidence: platform via [`apps/cli-e2e/src/windows/workspace-mutation.windows.e2e.test.ts`](../apps/cli-e2e/src/windows/workspace-mutation.windows.e2e.test.ts) — Exercises workspace mutation semantics on a real Windows filesystem, where path, symlink, and lock behavior differ from POSIX.
 - Source: [`scripts/supported-platform-matrix.spec.ts`](../scripts/supported-platform-matrix.spec.ts)
 
+### Goal: safe-repetition
+
+Every operation is safe to repeat and safe to interrupt: reruns are no-ops, failures roll back their closure, and surviving authority converges.
+
+#### Quality
+
+##### Local Registry storage failures remain failures
+
+- Requirement: `registry/local-storage-failures-remain-failures`
+- Owner: `registry-client`
+- Statement: AXM shall distinguish an absent local Registry entry from a failed existence or directory read, report an attributed operation failure for the latter instead of claiming absence or an empty catalog, and preserve existing publication files when index existence cannot be determined.
+- Class: quality (reliability)
+- Role: supporting
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Controlled FileSystem failures exercise the public local Registry client over temporary native files; byte and directory readback proves failed inspection preserves existing publications and releases the publication lock.
+- Methods: example, contract
+- Derived from: `cli/publish/preview-is-pure`
+- Source: [`packages/supporting/registry-client/src/local-storage-failures.spec.ts`](../packages/supporting/registry-client/src/local-storage-failures.spec.ts)
+
 ### Goal: trustworthy-distribution
 
 Publishing and acquiring extensions preserves integrity, provenance, and immutable accepted resolutions.

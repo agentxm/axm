@@ -4,7 +4,7 @@
   "projectType": "library",
   "root": "packages/supporting/registry-client",
   "sourceRoot": "packages/supporting/registry-client/src",
-  "tags": ["type:lib", "role:integration", "scope:registry-client", "release:cli"],
+  "tags": ["type:lib", "role:integration", "scope:registry-client"],
   "targets": {
     "generate": {
       "executor": "nx:noop",
@@ -44,9 +44,6 @@
         "clean": true,
         "generatePackageJson": false
       }
-    },
-    "nx-release-publish": {
-      "executor": "@nx/js:release-publish"
     }
   }
 }

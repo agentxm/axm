@@ -4,7 +4,7 @@
   "projectType": "library",
   "root": "packages/core/workspace-lint",
   "sourceRoot": "packages/core/workspace-lint/src",
-  "tags": ["type:lib", "role:feature", "scope:workspace-lint", "release:cli"],
+  "tags": ["type:lib", "role:feature", "scope:workspace-lint"],
   "targets": {
     "build": {
       "executor": "@nx/js:tsc",
@@ -15,9 +15,6 @@
         "clean": true,
         "generatePackageJson": false
       }
-    },
-    "nx-release-publish": {
-      "executor": "@nx/js:release-publish"
     }
   }
 }

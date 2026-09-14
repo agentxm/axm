@@ -31,9 +31,6 @@
     "dist/src/",
     "!**/*.map"
   ],
-  "publishConfig": {
-    "access": "public"
-  },
   "engines": {
     "node": ">=22.19.0"
   },
@@ -63,5 +60,6 @@
     "typescript": "catalog:",
     "vitest": "catalog:",
     "yaml": "catalog:"
-  }
+  },
+  "private": true
 }

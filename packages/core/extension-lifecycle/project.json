@@ -4,7 +4,7 @@
   "projectType": "library",
   "root": "packages/core/extension-lifecycle",
   "sourceRoot": "packages/core/extension-lifecycle/src",
-  "tags": ["type:lib", "role:feature", "scope:extension-lifecycle", "release:cli"],
+  "tags": ["type:lib", "role:feature", "scope:extension-lifecycle"],
   "targets": {
     "test:policy": {
       "executor": "nx:run-commands",
@@ -13,7 +13,9 @@
       "options": {
         "command": "vitest run --config packages/core/extension-lifecycle/vitest.policy.config.ts",
         "cwd": ".",
-        "env": { "NODE_OPTIONS": "--conditions=axm-source" }
+        "env": {
+          "NODE_OPTIONS": "--conditions=axm-source"
+        }
       }
     },
     "test:policy-coverage": {
@@ -23,7 +25,9 @@
       "options": {
         "command": "vitest run --config packages/core/extension-lifecycle/vitest.policy.config.ts --coverage",
         "cwd": ".",
-        "env": { "NODE_OPTIONS": "--conditions=axm-source" }
+        "env": {
+          "NODE_OPTIONS": "--conditions=axm-source"
+        }
       }
     },
     "test:policy-mutation": {
@@ -50,9 +54,6 @@
         "clean": true,
         "generatePackageJson": false
       }
-    },
-    "nx-release-publish": {
-      "executor": "@nx/js:release-publish"
     }
   }
 }

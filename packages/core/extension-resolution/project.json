@@ -4,7 +4,7 @@
   "projectType": "library",
   "root": "packages/core/extension-resolution",
   "sourceRoot": "packages/core/extension-resolution/src",
-  "tags": ["type:lib", "role:capability", "scope:extension-resolution", "release:cli"],
+  "tags": ["type:lib", "role:capability", "scope:extension-resolution"],
   "targets": {
     "build": {
       "executor": "@nx/js:tsc",
@@ -15,9 +15,6 @@
         "clean": true,
         "generatePackageJson": false
       }
-    },
-    "nx-release-publish": {
-      "executor": "@nx/js:release-publish"
     }
   }
 }

@@ -115,6 +115,7 @@
     "typescript-eslint": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:",
-    "yaml": "catalog:"
+    "yaml": "catalog:",
+    "@effect/platform-node": "catalog:"
   }
 }

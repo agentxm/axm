@@ -28,6 +28,31 @@ capabilities are vertical feature packages. Reusable state, mechanics, policy,
 and integrations sit behind narrower inward-facing boundaries. `axm.sh` is the
 composition and interaction boundary and owns no reusable business policy.
 
+## Package and publication boundaries
+
+A package is a source/compiler boundary; its existence does not require an npm
+publication. The fixed published cohort contains `axm.sh`,
+`@agentxm/extension-model`, `@agentxm/registry-protocol`,
+`@agentxm/extension-content`, and `@agentxm/specification-metadata`. The domain,
+wire, portable-content, and specification contracts have consumers outside the
+CLI. The CLI publishes its application/runtime entries and site assets.
+
+Other runtime packages are private workspace dependencies. The canonical
+cohort packer includes their compiled JavaScript, declarations, manifests, and
+licenses under the CLI package's `node_modules`, using pnpm's native bundled
+dependency format. External dependencies remain declared by the CLI, so its
+internal modules resolve the same Effect and shared-contract instances. No
+declaration or module-specifier rewriting is involved. The packer stages that
+hoisted package outside the workspace; source development retains pnpm's
+isolated linker. Native compilation continues to use the same source through
+the existing Bun targets.
+
+Use `axm:produce-release-cohort` to prepare deliverable packages and
+`axm:verify-artifacts` to check them. Packing an individual workspace package
+produces an input to composition, not a complete CLI distribution. Production
+capability boundaries apply equally to published and bundled modules, including
+the distinct self-update and official-skill compatibility owners.
+
 ## Two classifications
 
 Each package carries two orthogonal classifications, and both constrain what it

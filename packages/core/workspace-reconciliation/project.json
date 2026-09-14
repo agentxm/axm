@@ -4,7 +4,7 @@
   "projectType": "library",
   "root": "packages/core/workspace-reconciliation",
   "sourceRoot": "packages/core/workspace-reconciliation/src",
-  "tags": ["type:lib", "role:capability", "scope:workspace-reconciliation", "release:cli"],
+  "tags": ["type:lib", "role:capability", "scope:workspace-reconciliation"],
   "targets": {
     "build": {
       "executor": "@nx/js:tsc",
@@ -15,9 +15,6 @@
         "clean": true,
         "generatePackageJson": false
       }
-    },
-    "nx-release-publish": {
-      "executor": "@nx/js:release-publish"
     }
   }
 }

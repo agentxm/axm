@@ -4,7 +4,7 @@
   "projectType": "library",
   "root": "packages/supporting/agent-integration",
   "sourceRoot": "packages/supporting/agent-integration/src",
-  "tags": ["type:lib", "role:integration", "scope:agent-integration", "release:cli"],
+  "tags": ["type:lib", "role:integration", "scope:agent-integration"],
   "targets": {
     "build": {
       "executor": "@nx/js:tsc",
@@ -15,9 +15,6 @@
         "clean": true,
         "generatePackageJson": false
       }
-    },
-    "nx-release-publish": {
-      "executor": "@nx/js:release-publish"
     }
   }
 }

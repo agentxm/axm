@@ -28,6 +28,11 @@ on:
         description: Exact current main commit; required for bootstrap-prerelease
         required: false
         type: string
+      initialize_npm_packages:
+        description: Create missing npm packages using the temporary initial-publish credential
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -212,6 +217,13 @@ jobs:
           npm install -g npm@11.5.1
           npm --version
 
+      - name: Configure npm authentication for initial package creation
+        if: github.event_name == 'workflow_dispatch' && inputs.initialize_npm_packages
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
       - name: Resolve release tag and commit
         id: release_meta
         run: >-
@@ -243,6 +255,8 @@ jobs:
 
       - name: Preflight mutable distribution owners
         id: distribution_preflight
+        env:
+          NPM_INITIAL_PUBLISH_TOKEN: ${{ github.event_name == 'workflow_dispatch' && inputs.initialize_npm_packages && secrets.NPM_INITIAL_PUBLISH_TOKEN || '' }}
         run: >-
           pnpm exec nx run axm:distribute-release --outputStyle=static --
           "${{ steps.release_meta.outputs.version }}"
@@ -265,6 +279,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          NPM_INITIAL_PUBLISH_TOKEN: ${{ github.event_name == 'workflow_dispatch' && inputs.initialize_npm_packages && secrets.NPM_INITIAL_PUBLISH_TOKEN || '' }}
         run: >-
           pnpm exec nx run axm:distribute-release --outputStyle=static --
           "${{ steps.release_meta.outputs.version }}"
@@ -309,10 +324,18 @@ jobs:
           npm install -g npm@11.5.1
           npm --version
 
+      - name: Configure npm authentication for initial package creation
+        if: github.event_name == 'workflow_dispatch' && inputs.initialize_npm_packages
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          registry-url: https://registry.npmjs.org
+          package-manager-cache: false
+
       - name: Publish exact bootstrap npm cohort
         id: publish
         env:
           GH_TOKEN: ${{ github.token }}
+          NPM_INITIAL_PUBLISH_TOKEN: ${{ github.event_name == 'workflow_dispatch' && inputs.initialize_npm_packages && secrets.NPM_INITIAL_PUBLISH_TOKEN || '' }}
         run: >-
           pnpm exec nx run axm:publish-bootstrap-prerelease --outputStyle=static --
           "${{ needs.source.outputs.sha }}" "${{ github.run_id }}"

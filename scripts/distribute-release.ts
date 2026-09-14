@@ -2,6 +2,7 @@ import { appendFileSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import * as Effect from "effect/Effect";
+import * as ConfigProvider from "effect/ConfigProvider";
 import { validateReleaseCohort } from "./release-packages.js";
 import { RELEASE_PACKAGES, RELEASE_REPO } from "./release-shared.js";
 import {
@@ -23,7 +24,6 @@ import {
   guardPublicationVersion,
   isTransientPublicationError,
   mapWithConcurrency,
-  NpmPackagesUninitialized,
   observePublication,
   publicationHttpError,
   publishImmutableCohort,
@@ -34,6 +34,16 @@ import {
 } from "./release-publication.js";
 import { formulaVersion, prepareFormula } from "./release-formula.js";
 import { decodeGitHubReleaseAssetView } from "./release-github-release-api.js";
+
+import {
+  loadNpmPublicationAuth,
+  npmPublicationEnvironment,
+  requireNpmPackageInitialization,
+} from "./release-npm-auth.js";
+
+const npmAuthentication = await Effect.runPromise(
+  loadNpmPublicationAuth(ConfigProvider.fromEnvRecord(process.env)),
+);
 
 const version = process.argv[2];
 const tag = process.argv[3];
@@ -72,7 +82,9 @@ const readFormula = async (
 };
 const latestGuard = async (name: string, signal?: AbortSignal) => {
   const metadata = await readNpmPublication(name, version, fetch, signal);
-  if (!metadata.packageExists) throw new NpmPackagesUninitialized({ packages: [name] });
+  await Effect.runPromise(
+    requireNpmPackageInitialization(name, metadata.packageExists, npmAuthentication),
+  );
   guardPublicationVersion(version, metadata.latest, name);
   return metadata;
 };
@@ -162,9 +174,6 @@ try {
         {
           name: "npm",
           publish: async () => {
-            const publicationEnv = { ...process.env };
-            delete publicationEnv["NODE_AUTH_TOKEN"];
-            delete publicationEnv["NPM_CONFIG_USERCONFIG"];
             const publications = RELEASE_PACKAGES.map((pkg) => {
               const tarball = join(npmCohort, `${pkg.tarballPrefix}${version}.tgz`);
               const integrity = contentIntegrity(readFileSync(tarball));
@@ -174,7 +183,15 @@ try {
                 read: async (signal: AbortSignal) =>
                   (await latestGuard(pkg.name, signal)).integrity,
                 publish: async () => {
-                  await latestGuard(pkg.name);
+                  const metadata = await latestGuard(pkg.name);
+                  const publicationEnv = await Effect.runPromise(
+                    npmPublicationEnvironment(
+                      pkg.name,
+                      metadata.packageExists,
+                      npmAuthentication,
+                      process.env,
+                    ),
+                  );
                   run(
                     "npm",
                     [
@@ -202,6 +219,9 @@ try {
                 read: async (signal) => (await latestGuard(pkg.name, signal)).latest,
                 promote: async () => {
                   await latestGuard(pkg.name);
+                  const publicationEnv = await Effect.runPromise(
+                    npmPublicationEnvironment(pkg.name, true, npmAuthentication, process.env),
+                  );
                   run(
                     "npm",
                     ["dist-tag", "add", `${pkg.name}@${version}`, "latest"],

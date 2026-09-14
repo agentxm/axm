@@ -1,10 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "@effect/vitest";
+import * as Deferred from "effect/Deferred";
+import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import {
   contentIntegrity,
   observePublication,
   PublicationHttpError,
   readNpmDistTag,
   readNpmPublication,
+  requireInitializedNpmPackages,
   reconcileNpmStableTag,
   distributeRelease,
   guardPublicationVersion,
@@ -289,6 +293,15 @@ describe("Homebrew formula identity", () => {
 });
 
 describe("npm publication observations", () => {
+  it("distinguishes a new package from a new version of an initialized package", async () => {
+    await expect(
+      readNpmPublication(
+        "@agentxm/new-capability",
+        "1.2.3",
+        async () => new Response(null, { status: 404 }),
+      ),
+    ).resolves.toEqual({ packageExists: false, latest: null, integrity: null });
+  });
   it.each([401, 403, 429, 503])("does not interpret HTTP %i as absence", async (status) => {
     await expect(
       readNpmPublication("axm.sh", "1.2.3", async () => new Response(null, { status })),
@@ -298,6 +311,7 @@ describe("npm publication observations", () => {
     const response = (versions: unknown) => async () =>
       new Response(JSON.stringify({ "dist-tags": { latest: "1.2.4" }, versions }));
     await expect(readNpmPublication("axm.sh", "1.2.3", response({}))).resolves.toEqual({
+      packageExists: true,
       latest: "1.2.4",
       integrity: null,
     });
@@ -310,7 +324,7 @@ describe("npm publication observations", () => {
         "1.2.3",
         response({ "0.1.0": {}, "1.2.3": { dist: { integrity } } }),
       ),
-    ).resolves.toEqual({ latest: "1.2.4", integrity });
+    ).resolves.toEqual({ packageExists: true, latest: "1.2.4", integrity });
   });
 
   it("reads an exact npm distribution tag without treating package absence as a version", async () => {
@@ -326,6 +340,98 @@ describe("npm publication observations", () => {
       readNpmDistTag("axm.sh", "preview", async () => new Response(null, { status: 404 })),
     ).resolves.toBeNull();
   });
+});
+
+describe("npm cohort initialization", () => {
+  it.effect(
+    "reports every missing package while accepting an initialized package without latest",
+    () =>
+      Effect.gen(function* () {
+        const requests: string[] = [];
+        const failure = yield* Effect.flip(
+          requireInitializedNpmPackages(
+            ["@agentxm/first", "@agentxm/ready", "@agentxm/second"],
+            async (url) => {
+              requests.push(String(url));
+              return String(url).endsWith("%2Fready")
+                ? new Response(JSON.stringify({ "dist-tags": {}, versions: { "0.1.0": {} } }))
+                : new Response(null, { status: 404 });
+            },
+          ),
+        );
+        expect(failure).toMatchObject({
+          _tag: "NpmPackagesUninitialized",
+          packages: ["@agentxm/first", "@agentxm/second"],
+        });
+        expect(requests).toEqual([
+          "https://registry.npmjs.org/%40agentxm%2Ffirst",
+          "https://registry.npmjs.org/%40agentxm%2Fready",
+          "https://registry.npmjs.org/%40agentxm%2Fsecond",
+        ]);
+      }),
+  );
+
+  it.effect("accepts existing packages before their next version is published", () =>
+    requireInitializedNpmPackages(
+      ["@agentxm/ready"],
+      async () =>
+        new Response(
+          JSON.stringify({ "dist-tags": { latest: "0.1.0" }, versions: { "0.1.0": {} } }),
+        ),
+    ),
+  );
+
+  for (const status of [401, 403, 429, 503]) {
+    it.effect(`preserves HTTP ${status} as a failed query instead of claiming absence`, () =>
+      Effect.gen(function* () {
+        const failure = yield* Effect.flip(
+          requireInitializedNpmPackages(
+            ["@agentxm/ready"],
+            async () => new Response(null, { status }),
+          ),
+        );
+        expect(failure).toMatchObject({
+          _tag: "NpmPackageQueryFailed",
+          packageName: "@agentxm/ready",
+          cause: { status },
+        });
+      }),
+    );
+  }
+
+  it.effect("rejects an invalid registry response", () =>
+    Effect.gen(function* () {
+      const failure = yield* Effect.flip(
+        requireInitializedNpmPackages(["@agentxm/ready"], async () => new Response("{}")),
+      );
+      expect(failure._tag).toBe("NpmPackageQueryFailed");
+    }),
+  );
+
+  it.effect("cancels the pending registry read when preparation is interrupted", () =>
+    Effect.gen(function* () {
+      const started = yield* Deferred.make<void>();
+      const aborted = yield* Deferred.make<void>();
+      const read = yield* requireInitializedNpmPackages(
+        ["@agentxm/ready"],
+        (_url, options) =>
+          new Promise<Response>((_resolve, reject) => {
+            options?.signal?.addEventListener(
+              "abort",
+              () => {
+                Deferred.doneUnsafe(aborted, Effect.void);
+                reject(new DOMException("Registry read aborted", "AbortError"));
+              },
+              { once: true },
+            );
+            Deferred.doneUnsafe(started, Effect.void);
+          }),
+      ).pipe(Effect.forkChild);
+      yield* Deferred.await(started);
+      yield* Fiber.interrupt(read);
+      yield* Deferred.await(aborted);
+    }),
+  );
 });
 
 describe("npm stable tag reconciliation", () => {

@@ -22,6 +22,7 @@ import {
   guardPublicationVersion,
   isTransientPublicationError,
   mapWithConcurrency,
+  NpmPackagesUninitialized,
   observePublication,
   publicationHttpError,
   publishImmutableCohort,
@@ -69,6 +70,7 @@ const readFormula = async (
 };
 const latestGuard = async (name: string, signal?: AbortSignal) => {
   const metadata = await readNpmPublication(name, version, fetch, signal);
+  if (!metadata.packageExists) throw new NpmPackagesUninitialized({ packages: [name] });
   guardPublicationVersion(version, metadata.latest, name);
   return metadata;
 };

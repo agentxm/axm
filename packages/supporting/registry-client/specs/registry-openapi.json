@@ -486,6 +486,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "ServiceUnavailableError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Poll step-up request status"
@@ -932,6 +942,16 @@
           },
           "500": {
             "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ServiceUnavailableError",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1868,6 +1888,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "ServiceUnavailableError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Update extension visibility",
@@ -2096,6 +2126,16 @@
           },
           "500": {
             "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ServiceUnavailableError",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -3783,6 +3823,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "ServiceUnavailableError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Yank an extension version",
@@ -3984,6 +4034,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "ServiceUnavailableError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
           }
         },
         "summary": "Un-yank an extension version"
@@ -4143,6 +4203,16 @@
           },
           "500": {
             "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ServiceUnavailableError",
             "content": {
               "application/problem+json": {
                 "schema": {

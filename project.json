@@ -94,14 +94,7 @@
     "test": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": [
-        "build-test-reporting",
-        "^build",
-        {
-          "projects": "*",
-          "target": "build"
-        }
-      ],
+      "dependsOn": ["build-test-reporting", "^build"],
       "inputs": [
         "{workspaceRoot}/package.json",
         "{workspaceRoot}/scripts/**/*",
@@ -324,17 +317,17 @@
         "cwd": "."
       }
     },
-    "verify-release-packs": {
+    "verify-artifacts": {
       "executor": "nx:run-commands",
       "cache": false,
       "dependsOn": [
         {
-          "projects": ["tag:release:cli"],
+          "projects": "*",
           "target": "build"
         }
       ],
       "options": {
-        "command": "bun scripts/verify-release-packs.ts",
+        "command": "bun scripts/verify-artifacts.ts",
         "cwd": "."
       }
     },

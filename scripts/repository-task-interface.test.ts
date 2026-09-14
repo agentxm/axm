@@ -140,10 +140,10 @@ describe("repository task interface", () => {
     expect(verifyPrSource).toContain("pnpm run verify:clean");
     expect(verifyPrSource).toContain("pnpm run format:check");
     expect(verifyPrSource).toContain("pnpm run verify:affected");
-    expect(verifyPrSource).toContain("pnpm exec nx run axm:verify-release-packs");
+    expect(verifyPrSource).toContain("pnpm exec nx run axm:verify-artifacts");
     expect(verifyPr).toContain("pnpm run test:e2e:affected");
-    expect(scripts["verify:workspace"]).toContain("verify-release-packs");
-    expect(scripts["verify:affected"]).not.toContain("verify-release-packs");
+    expect(scripts["verify:workspace"]).toContain("verify-artifacts");
+    expect(scripts["verify:affected"]).not.toContain("verify-artifacts");
 
     const affectedE2e = scripts["test:e2e:affected"];
     if (typeof affectedE2e !== "string") {
@@ -374,7 +374,7 @@ describe("repository task interface", () => {
       "specification-verdict",
       "distribute-release",
       "verify-installed-package",
-      "verify-release-packs",
+      "verify-artifacts",
       "update-homebrew-formula",
       "promote-release-channel",
       "validate-release-tag",

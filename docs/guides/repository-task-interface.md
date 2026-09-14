@@ -201,8 +201,15 @@ concurrent push is not retried.
 published package in temporary global state and runs its installed executable
 outside the repository, without source export conditions or workspace module
 resolution. Release automation owns the platform matrix and credentials.
-`axm:verify-release-packs` builds and checks the complete candidate cohort in
-`verify:pr` and `verify:workspace`. [Publint](https://publint.dev/docs/javascript-api)
+`axm:test` builds its graph dependencies and reporting support. Its focused
+tooling tests do not require unrelated packages to be built. The full-workspace
+declaration guard belongs to `axm:verify-artifacts`, which builds every buildable
+project, checks emitted first-party references against the owning manifests,
+then verifies the complete packed release cohort. Missing build output fails
+that guard instead of silently reducing its coverage.
+
+`verify:pr` and `verify:workspace` include this artifact gate.
+[Publint](https://publint.dev/docs/javascript-api)
 validates the exact tarballs with warnings treated as errors, covering package
 entries, declaration and module format, conditional exports, and executables.
 AXM retains its own fixed-cohort coordinates, dependency closure, compiled CLI

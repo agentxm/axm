@@ -45,7 +45,7 @@ export const boundEvidence = defineBoundEvidence([
   {
     gate: "ci: windows-workspace",
     verifies:
-      "Runs the Windows workspace mutation execution on a real Windows runner for every change.",
+      "Runs affected Windows workspace checks for pull requests and merge groups, and the full lifecycle checks for main and workflow changes, on a real Windows runner.",
   },
   {
     gate: "publish: install-verify",
@@ -54,7 +54,7 @@ export const boundEvidence = defineBoundEvidence([
   },
 ]);
 
-const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "..");
+const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 
 /** The supported binary targets AXM promises. */
 const SUPPORTED_BINARIES = [
@@ -164,7 +164,6 @@ describe("Supported platform matrix", () => {
       const jobs = readWorkflowJobs("ci.yml");
       const windowsWorkspace = readJob(jobs, "windows-workspace");
       expect(windowsWorkspace["runs-on"]).toMatch(/^windows-/);
-      expect(jobSteps(windowsWorkspace)).toContain("cli-e2e:e2e-windows");
       expect(jobNeeds(readJob(jobs, "required"))).toContain("windows-workspace");
     }),
   );

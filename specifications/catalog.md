@@ -4817,7 +4817,7 @@ AXM works on every supported operating system, runtime, shell, and filesystem.
 ##### Every supported platform and shell receives release-blocking verification
 
 - Requirement: `system/compatibility/supported-platform-matrix`
-- Owner: `cli-e2e`
+- Owner: `axm`
 - Statement: Every supported operating system and architecture shall receive release-blocking verification of the compiled binary, every supported installer shell shall receive release-blocking verification of the installed product, and Windows workspace behavior shall be verified on a real Windows runner.
 - Class: quality (compatibility)
 - Role: supporting
@@ -4828,12 +4828,12 @@ AXM works on every supported operating system, runtime, shell, and filesystem.
 - Derived from: `system/installability/product-installs-through-supported-channels`
 - Assumptions: A job named in the workflow files blocks its merge or release rather than running as an advisory check.
 - Bound evidence: `ci: binary-smoke` — Runs the compiled-binary smoke execution on every supported operating system and architecture for every change that reaches the main branch, producing the binaries a release attaches.
-- Bound evidence: `ci: windows-workspace` — Runs the Windows workspace mutation execution on a real Windows runner for every change.
+- Bound evidence: `ci: windows-workspace` — Runs affected Windows workspace checks for pull requests and merge groups, and the full lifecycle checks for main and workflow changes, on a real Windows runner.
 - Bound evidence: `publish: install-verify` — Runs the installer verification execution against the real release assets on every supported installer shell before the release workflow completes.
 - Additional evidence: binary via [`apps/cli-e2e/src/binary-smoke.e2e.test.ts`](../apps/cli-e2e/src/binary-smoke.e2e.test.ts) — Executes the compiled platform binary, proving the shipped artifact starts and answers on the target operating system and architecture.
 - Additional evidence: installed via [`apps/cli-e2e/src/install-verification.e2e.test.ts`](../apps/cli-e2e/src/install-verification.e2e.test.ts) — Runs the published installer scripts end to end against a served release layout on the selected installer shell, proving checksum-specific rejection, custom destination placement, executable PATH and absolute-path guidance, and a working installed product on that shell. Profile and prior-binary preservation remain observations beyond the installation owner's current meaning.
 - Additional evidence: platform via [`apps/cli-e2e/src/windows/workspace-mutation.windows.e2e.test.ts`](../apps/cli-e2e/src/windows/workspace-mutation.windows.e2e.test.ts) — Exercises workspace mutation semantics on a real Windows filesystem, where path, symlink, and lock behavior differ from POSIX.
-- Source: [`apps/cli-e2e/src/supported-platform-matrix.spec.ts`](../apps/cli-e2e/src/supported-platform-matrix.spec.ts)
+- Source: [`scripts/supported-platform-matrix.spec.ts`](../scripts/supported-platform-matrix.spec.ts)
 
 ### Goal: trustworthy-distribution
 

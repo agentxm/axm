@@ -14,6 +14,7 @@ import {
   guardPublicationVersion,
   publishImmutable,
   publishImmutableCohort,
+  publishImmutableInDependencyOrder,
   SupersededRelease,
   type PublicationStates,
 } from "./release-publication.js";
@@ -144,6 +145,150 @@ describe("immutable release publication", () => {
     ).rejects.toThrow("integrity conflict");
     expect(publish).not.toHaveBeenCalled();
   });
+});
+
+describe("dependency-ordered immutable publication", () => {
+  it.effect("waits for dependency visibility before publishing its consumer", () =>
+    Effect.gen(function* () {
+      const events: string[] = [];
+      const stored = new Set<string>();
+      let dependencyReads = 0;
+      const publications = ["dependency", "consumer"].map((name) => ({
+        name,
+        integrity,
+        read: async () => {
+          if (!stored.has(name)) return null;
+          if (name === "dependency" && ++dependencyReads < 3) return null;
+          events.push(`confirmed:${name}`);
+          return integrity;
+        },
+        publish: async () => {
+          events.push(`published:${name}`);
+          stored.add(name);
+        },
+      }));
+      const result = yield* publishImmutableInDependencyOrder(publications, boundedObservation(20));
+      expect(result).toEqual([
+        { name: "dependency", outcome: "published" },
+        { name: "consumer", outcome: "published" },
+      ]);
+      expect(events).toEqual([
+        "published:dependency",
+        "confirmed:dependency",
+        "published:consumer",
+        "confirmed:consumer",
+      ]);
+    }),
+  );
+
+  it.effect("stops before the consumer when its dependency cannot be published", () =>
+    Effect.gen(function* () {
+      const writes: string[] = [];
+      const failure = yield* Effect.flip(
+        publishImmutableInDependencyOrder(
+          ["dependency", "consumer"].map((name) => ({
+            name,
+            integrity,
+            read: async () => null,
+            publish: async () => {
+              writes.push(name);
+              throw new Error("ENEEDAUTH");
+            },
+          })),
+          boundedObservation(3),
+        ),
+      );
+      expect(writes).toEqual(["dependency"]);
+      expect(failure).toMatchObject({
+        _tag: "ImmutablePublicationFailed",
+        name: "dependency",
+        phase: "publication",
+      });
+    }),
+  );
+
+  it.effect(
+    "detects conflicting consumer bytes before publishing an earlier missing dependency",
+    () =>
+      Effect.gen(function* () {
+        const publish = vi.fn(async () => undefined);
+        const failure = yield* Effect.flip(
+          publishImmutableInDependencyOrder([
+            { name: "dependency", integrity, read: async () => null, publish },
+            { name: "consumer", integrity, read: async () => "different", publish },
+          ]),
+        );
+        expect(publish).not.toHaveBeenCalled();
+        expect(failure).toMatchObject({
+          _tag: "ImmutablePublicationFailed",
+          name: "consumer",
+          phase: "preflight",
+        });
+      }),
+  );
+
+  it.effect("reuses a confirmed write after a lost response without submitting it again", () =>
+    Effect.gen(function* () {
+      const stored = new Set<string>();
+      const writes: string[] = [];
+      yield* publishImmutableInDependencyOrder(
+        ["dependency", "consumer"].map((name) => ({
+          name,
+          integrity,
+          read: async () => (stored.has(name) ? integrity : null),
+          publish: async () => {
+            writes.push(name);
+            stored.add(name);
+            if (name === "dependency") throw new Error("response lost after publication");
+          },
+        })),
+        boundedObservation(),
+      );
+      expect(writes).toEqual(["dependency", "consumer"]);
+    }),
+  );
+
+  it.effect("gives each dependent publication its own observation window", () =>
+    Effect.gen(function* () {
+      let current = 0;
+      const stored = new Set<string>();
+      const results = yield* publishImmutableInDependencyOrder(
+        ["dependency", "consumer"].map((name) => ({
+          name,
+          integrity,
+          read: async () => (stored.has(name) ? integrity : null),
+          publish: async () => {
+            current += 2;
+            stored.add(name);
+          },
+        })),
+        { timeoutMs: 3, now: () => current },
+      );
+      expect(current).toBe(4);
+      expect(results.every((result) => result.outcome === "published")).toBe(true);
+    }),
+  );
+
+  it.effect("preserves supersession for the release orchestrator", () =>
+    Effect.gen(function* () {
+      const superseded = new SupersededRelease("1.0.0", "1.1.0", "npm latest");
+      const publish = vi.fn(async () => undefined);
+      const failure = yield* Effect.flip(
+        publishImmutableInDependencyOrder([
+          {
+            name: "dependency",
+            integrity,
+            read: async () => {
+              throw superseded;
+            },
+            publish,
+          },
+        ]),
+      );
+      expect(failure).toBe(superseded);
+      expect(publish).not.toHaveBeenCalled();
+    }),
+  );
 });
 
 describe("bounded publication observation", () => {

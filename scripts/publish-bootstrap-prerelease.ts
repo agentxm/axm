@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import * as Schema from "effect/Schema";
+import * as Effect from "effect/Effect";
 import * as semver from "semver";
 
 import { run } from "./release-command.js";
@@ -12,7 +13,7 @@ import {
   isTransientPublicationError,
   mapWithConcurrency,
   observePublication,
-  publishImmutableCohort,
+  publishImmutableInDependencyOrder,
   readNpmDistTag,
   readNpmPublication,
 } from "./release-publication.js";
@@ -90,24 +91,35 @@ try {
   const publicationEnv = { ...process.env };
   delete publicationEnv["NODE_AUTH_TOKEN"];
   delete publicationEnv["NPM_CONFIG_USERCONFIG"];
-  await publishImmutableCohort(
-    RELEASE_PACKAGES.map((pkg) => {
-      const tarball = join(cohort, `${pkg.tarballPrefix}${version}.tgz`);
-      return {
-        name: `${pkg.name}@${version}`,
-        integrity: contentIntegrity(readFileSync(tarball)),
-        read: async (signal: AbortSignal) =>
-          (await readNpmPublication(pkg.name, version, fetch, signal)).integrity,
-        publish: async () => {
-          run(
-            "npm",
-            ["publish", tarball, "--provenance", "--access", "public", "--tag", distTag],
-            publicationEnv,
-          );
-        },
-      };
-    }),
-    { concurrency: 6, timeoutMs: 120_000 },
+  await Effect.runPromise(
+    publishImmutableInDependencyOrder(
+      RELEASE_PACKAGES.map((pkg) => {
+        const tarball = join(cohort, `${pkg.tarballPrefix}${version}.tgz`);
+        return {
+          name: `${pkg.name}@${version}`,
+          integrity: contentIntegrity(readFileSync(tarball)),
+          read: async (signal: AbortSignal) =>
+            (await readNpmPublication(pkg.name, version, fetch, signal)).integrity,
+          publish: async () => {
+            run(
+              "npm",
+              [
+                "publish",
+                tarball,
+                "--provenance",
+                "--access",
+                "public",
+                "--tag",
+                distTag,
+                "--loglevel=warn",
+              ],
+              publicationEnv,
+            );
+          },
+        };
+      }),
+      { timeoutMs: 120_000 },
+    ),
   );
 
   for (const { pkg, current } of tagStates) {

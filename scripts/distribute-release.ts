@@ -1,6 +1,7 @@
 import { appendFileSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import * as Effect from "effect/Effect";
 import { validateReleaseCohort } from "./release-packages.js";
 import { RELEASE_PACKAGES, RELEASE_REPO } from "./release-shared.js";
 import {
@@ -26,6 +27,7 @@ import {
   observePublication,
   publicationHttpError,
   publishImmutableCohort,
+  publishImmutableInDependencyOrder,
   readNpmPublication,
   reconcileNpmStableTag,
   SupersededRelease,
@@ -175,13 +177,24 @@ try {
                   await latestGuard(pkg.name);
                   run(
                     "npm",
-                    ["publish", tarball, "--provenance", "--access", "public", "--tag", "latest"],
+                    [
+                      "publish",
+                      tarball,
+                      "--provenance",
+                      "--access",
+                      "public",
+                      "--tag",
+                      "latest",
+                      "--loglevel=warn",
+                    ],
                     publicationEnv,
                   );
                 },
               };
             });
-            await publishImmutableCohort(publications, { concurrency: 6, timeoutMs: 120_000 });
+            await Effect.runPromise(
+              publishImmutableInDependencyOrder(publications, { timeoutMs: 120_000 }),
+            );
             await mapWithConcurrency(RELEASE_PACKAGES, 6, async (pkg) =>
               reconcileNpmStableTag({
                 name: pkg.name,

@@ -261,6 +261,64 @@ export const publishImmutable = async (input: {
   return outcome.outcome;
 };
 
+export class ImmutablePublicationFailed extends Data.TaggedError("ImmutablePublicationFailed")<{
+  readonly name: string;
+  readonly phase: "preflight" | "publication";
+  readonly cause: unknown;
+}> {
+  override get message(): string {
+    return `Immutable ${this.phase} failed for ${this.name}.`;
+  }
+}
+
+/**
+ * The caller supplies dependency-first order. Verify the complete cohort before
+ * writes, then confirm each immutable dependency before publishing its consumers.
+ */
+export const publishImmutableInDependencyOrder = (
+  publications: ReadonlyArray<ImmutablePublication>,
+  observation: Omit<
+    NonNullable<Parameters<typeof publishImmutable>[0]["observation"]>,
+    "signal"
+  > = {},
+) =>
+  Effect.gen(function* () {
+    const prepared = yield* Effect.forEach(publications, (publication) =>
+      Effect.tryPromise({
+        try: (signal) => publication.read(signal),
+        catch: (cause) =>
+          cause instanceof SupersededRelease
+            ? cause
+            : new ImmutablePublicationFailed({ name: publication.name, phase: "preflight", cause }),
+      }).pipe(Effect.map((existing) => ({ publication, existing }))),
+    ).pipe(Effect.timeout(observation.timeoutMs ?? 90_000));
+    for (const { publication, existing } of prepared) {
+      if (existing !== null && existing !== publication.integrity) {
+        return yield* new ImmutablePublicationFailed({
+          name: publication.name,
+          phase: "preflight",
+          cause: new Error(`Published content integrity conflict: ${publication.name}.`),
+        });
+      }
+    }
+    return yield* Effect.forEach(prepared, ({ publication, existing }) =>
+      existing === publication.integrity
+        ? Effect.succeed({ name: publication.name, outcome: "reused" } as const)
+        : Effect.tryPromise({
+            try: (signal) =>
+              publishImmutable({ ...publication, observation: { ...observation, signal } }),
+            catch: (cause) =>
+              cause instanceof SupersededRelease
+                ? cause
+                : new ImmutablePublicationFailed({
+                    name: publication.name,
+                    phase: "publication",
+                    cause,
+                  }),
+          }).pipe(Effect.map((outcome) => ({ name: publication.name, outcome }))),
+    );
+  });
+
 export interface PublicationBoundary {
   readonly name: "artifacts" | "npm" | "tap";
   readonly publish: () => Promise<void>;

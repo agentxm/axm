@@ -217,6 +217,12 @@ state in the [specification catalog](../../specifications/catalog.md).
    public visibility is delayed. Missing tap credentials fail when a formula
    write is needed.
 
+   npm publication preflights the complete cohort, then publishes in dependency
+   order. Each package must have confirmed matching bytes before its consumers
+   can be published. A dependency failure stops subsequent publication; an
+   ambiguous response gets readback within that package's observation window.
+   Independent binary assets retain concurrent readback.
+
    If an exact-commit CI artifact has expired or is missing, publication fails
    before writes. Regenerate it only by dispatching `ci.yml` at the release tag,
    then rerun `publish.yml` for the same tag. CI verifies the commit, versions,

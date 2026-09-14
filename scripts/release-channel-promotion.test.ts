@@ -93,6 +93,7 @@ describe("release channel promotion", () => {
     for (const [, options] of reads) {
       expect(options?.cache).toBe("no-store");
       const headers = new Headers(options?.headers);
+      expect(headers.get("Cache-Control")).toBe("no-cache");
       expect(headers.has("Authorization")).toBe(false);
       expect(headers.has("CF-Access-Client-Secret")).toBe(false);
     }
@@ -228,7 +229,7 @@ describe("normal promotion recovery", () => {
         submitted = true;
         throw new Error("connection lost");
       }
-      return submitted
+      return submitted && new Headers(options?.headers).get("Cache-Control") === "no-cache"
         ? new Response(JSON.stringify(document()), { headers: { etag: '"current"' } })
         : new Response(null, { status: 404 });
     });

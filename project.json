@@ -102,7 +102,12 @@
           "target": "build"
         }
       ],
-      "inputs": ["{workspaceRoot}/package.json", "{workspaceRoot}/scripts/**/*", "sharedGlobals"],
+      "inputs": [
+        "{workspaceRoot}/package.json",
+        "{workspaceRoot}/scripts/**/*",
+        "{workspaceRoot}/.github/**/*",
+        "sharedGlobals"
+      ],
       "outputs": ["{workspaceRoot}/test-results/scripts"],
       "options": {
         "command": "pnpm exec vitest run --config scripts/vitest.config.ts",

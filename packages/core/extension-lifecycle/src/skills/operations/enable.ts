@@ -11,7 +11,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Layer from "effect/Layer";
 import { DefaultCodingAgentRepository } from "@agentxm/workspace-projection";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { ExtensionLifecycleFailed } from "../../errors.js";
@@ -62,14 +61,9 @@ export const enableSkill: OperationHandler<
   | StepFailureConversion
 > = (op) =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
-    const fsPathLayer = Layer.mergeAll(
-      Layer.succeed(FileSystem.FileSystem, fs),
-      Layer.succeed(Path.Path, path),
-    );
     const canonical = yield* usableAcceptedCanonicalObservation({
       workspace: ws,
       type: "skill",
@@ -89,10 +83,7 @@ export const enableSkill: OperationHandler<
     }
 
     const sanitizedName = sanitizeName(op.args.skillName);
-    const materializationAgents =
-      yield* DefaultCodingAgentRepository.getMaterializationAgents().pipe(
-        Effect.provideService(WorkspaceMutations, ws),
-      );
+    const materializationAgents = yield* DefaultCodingAgentRepository.getMaterializationAgents();
 
     const accepted = canonical.value.accepted;
     const portable =
@@ -108,10 +99,9 @@ export const enableSkill: OperationHandler<
         const resolvedTargets = yield* Effect.forEach(
           materializationAgents,
           (agent) =>
-            agent.resolveEffectiveSkillsDir({ workspaceRoot: base }).pipe(
-              Effect.provide(fsPathLayer),
-              Effect.map((outcome) => ({ agent, outcome })),
-            ),
+            agent
+              .resolveEffectiveSkillsDir({ workspaceRoot: base })
+              .pipe(Effect.map((outcome) => ({ agent, outcome }))),
           { concurrency: "unbounded" },
         );
         const targets: ReadonlyArray<InstallableSkillTarget> = resolvedTargets.flatMap(
@@ -151,10 +141,7 @@ export const enableSkill: OperationHandler<
           enabled: true,
         }));
         return targets;
-      }).pipe(
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, path),
-      ),
+      }),
       validate: () => Effect.void,
     });
     const artifact = yield* skillArtifactFromTargets({
@@ -169,10 +156,7 @@ export const enableSkill: OperationHandler<
           change: "updated",
         },
       ],
-    }).pipe(
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, path),
-    );
+    });
 
     return {
       result: "success",

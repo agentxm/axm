@@ -50,8 +50,6 @@ export const disableMcpServer = (
   | StepFailureConversion
 > =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
     const agentRepo = yield* CodingAgentRepository;
 
@@ -93,10 +91,7 @@ export const disableMcpServer = (
           enabled: false,
         }));
         return synced;
-      }).pipe(
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, path),
-      ),
+      }),
       validate: () => Effect.void,
     });
     const syncedAgents: ReadonlyArray<{

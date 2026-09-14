@@ -12,7 +12,6 @@ import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Layer from "effect/Layer";
 import { DefaultCodingAgentRepository } from "@agentxm/workspace-projection";
 import { ExtensionLifecycleFailed } from "../../errors.js";
 import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";
@@ -63,14 +62,9 @@ export const disableSkill: OperationHandler<
   | StepFailureConversion
 > = (op) =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const ws = yield* WorkspaceMutations;
     const base = ws.baseDir;
-    const fsPathLayer = Layer.mergeAll(
-      Layer.succeed(FileSystem.FileSystem, fs),
-      Layer.succeed(Path.Path, path),
-    );
 
     // Read lifecycle to determine promotion needs
     const installedSkills = yield* ws.records.rows("skill").pipe(Effect.map(installedRowsByName));
@@ -88,10 +82,7 @@ export const disableSkill: OperationHandler<
     );
 
     const sanitizedName = sanitizeName(op.args.skillName);
-    const materializationAgents =
-      yield* DefaultCodingAgentRepository.getMaterializationAgents().pipe(
-        Effect.provideService(WorkspaceMutations, ws),
-      );
+    const materializationAgents = yield* DefaultCodingAgentRepository.getMaterializationAgents();
     const installableTargetOptions = yield* runWorkspaceTransaction({
       transition: Effect.gen(function* () {
         if (isImplicit) {
@@ -116,7 +107,6 @@ export const disableSkill: OperationHandler<
           materializationAgents,
           (agent) =>
             agent.resolveEffectiveSkillsDir({ workspaceRoot: base }).pipe(
-              Effect.provide(fsPathLayer),
               Effect.flatMap((outcome) =>
                 outcome._tag === "supported"
                   ? Effect.gen(function* () {
@@ -132,10 +122,7 @@ export const disableSkill: OperationHandler<
             ),
           { concurrency: "unbounded" },
         );
-      }).pipe(
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, path),
-      ),
+      }),
       validate: () => Effect.void,
     });
     const installableTargets = Array.getSomes(installableTargetOptions);
@@ -152,10 +139,7 @@ export const disableSkill: OperationHandler<
           change: "updated",
         },
       ],
-    }).pipe(
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, path),
-    );
+    });
 
     return {
       result: "success",

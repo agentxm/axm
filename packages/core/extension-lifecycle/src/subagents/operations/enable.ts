@@ -1,3 +1,4 @@
+import * as Array from "effect/Array";
 /**
  * Enable subagent executor — re-renders agent-native files for a previously disabled subagent.
  *
@@ -10,7 +11,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 import { subagentContentFilename, subagentContentPath } from "@agentxm/workspace-state";
 import {
   CodingAgentRepository,
@@ -28,7 +28,6 @@ import {
   WorkspaceTransactionScope,
   runWorkspaceTransaction,
 } from "@agentxm/workspace-transactions";
-import { RenderedFilesMapSchema } from "@agentxm/workspace-state";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
 import { parseSubagentMd } from "@agentxm/extension-content";
 import { subagentLifecycleArtifact } from "./artifact.js";
@@ -150,11 +149,9 @@ export const enableSubagent: OperationHandler<
       configuredAgents.map((a) => a.id),
     );
 
-    const renderedFilesMap: Record<string, Array<{ path: string }>> = {};
-
-    yield* runWorkspaceTransaction({
+    const renderedFiles = yield* runWorkspaceTransaction({
       transition: Effect.gen(function* () {
-        yield* Effect.forEach(
+        const rendered = yield* Effect.forEach(
           configuredAgents,
           (agent) =>
             agent
@@ -181,7 +178,7 @@ export const enableSubagent: OperationHandler<
                       detail: `Subagent rendering failed for ${agent.id}: ${outcome.reason}`,
                     });
                   }
-                  if (outcome._tag !== "success") return Effect.void;
+                  if (outcome._tag !== "success") return Effect.succeed(Option.none());
                   return Effect.forEach(outcome.renderedFilePaths, (renderedPath) => {
                     const relativePath = makeWorkspaceRelativePath(path, baseDir, renderedPath);
                     if (Option.isNone(relativePath)) {
@@ -193,11 +190,7 @@ export const enableSubagent: OperationHandler<
                       );
                     }
                     return Effect.succeed({ path: relativePath.value });
-                  }).pipe(
-                    Effect.map((entries) => {
-                      renderedFilesMap[agent.id] = entries;
-                    }),
-                  );
+                  }).pipe(Effect.map((entries) => Option.some([agent.id, entries] as const)));
                 }),
               ),
           { concurrency: "unbounded" },
@@ -206,15 +199,10 @@ export const enableSubagent: OperationHandler<
           ...entry,
           enabled: true,
         }));
-      }).pipe(
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, path),
-      ),
+        return Object.fromEntries(Array.getSomes(rendered));
+      }),
       validate: () => Effect.void,
     });
-
-    const decodeRenderedFiles = Schema.decodeUnknownSync(RenderedFilesMapSchema);
-    const renderedFiles = decodeRenderedFiles(renderedFilesMap);
 
     const version =
       canonical.value.accepted?.type === "registry"

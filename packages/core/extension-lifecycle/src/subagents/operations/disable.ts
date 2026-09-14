@@ -1,3 +1,4 @@
+import * as Array from "effect/Array";
 /**
  * Disable subagent executor — removes rendered files but preserves canonical source.
  *
@@ -24,7 +25,6 @@ import {
   runWorkspaceTransaction,
 } from "@agentxm/workspace-transactions";
 import { subagentLifecycleArtifact } from "./artifact.js";
-import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import { RenderedFilePathSchema } from "@agentxm/workspace-state";
 import { sanitizeName } from "@agentxm/workspace-state";
@@ -70,12 +70,7 @@ export const disableSubagent: OperationHandler<
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
     const agentRepo = yield* CodingAgentRepository;
-    const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const fsPathLayer = Layer.mergeAll(
-      Layer.succeed(FileSystem.FileSystem, fs),
-      Layer.succeed(Path.Path, path),
-    );
 
     // Read lifecycle to determine promotion needs
     const installedSubagents = yield* ws.records
@@ -94,10 +89,9 @@ export const disableSubagent: OperationHandler<
       (node) => node.type === "subagent" && node.name === op.args.subagentName,
     );
 
-    const renderedFiles: Record<string, ReadonlyArray<{ readonly path: string }>> = {};
     const configuredAgents = yield* agentRepo.getConfiguredAgents();
 
-    yield* runWorkspaceTransaction({
+    const renderedFiles = yield* runWorkspaceTransaction({
       transition: Effect.gen(function* () {
         if (isImplicit) {
           const source =
@@ -120,49 +114,40 @@ export const disableSubagent: OperationHandler<
           }));
         }
 
-        yield* Effect.forEach(
+        const removed = yield* Effect.forEach(
           configuredAgents,
           (agent) =>
-            agent.resolveEffectiveSubagentsDir({ workspaceRoot: ws.baseDir, scope: ws.scope }).pipe(
-              Effect.provide(fsPathLayer),
-              Effect.flatMap((resolved) =>
-                resolved._tag === "supported"
-                  ? findManagedSubagentFiles(resolved.dir, sanitizeName(op.args.subagentName)).pipe(
-                      Effect.provide(fsPathLayer),
-                      Effect.flatMap((managedPaths) => {
-                        renderedFiles[agent.id] = managedPaths.map((filePath) => ({
-                          path: path.relative(ws.baseDir, filePath),
-                        }));
-                        return agent
-                          .removeSubagent({
-                            workspaceRoot: ws.baseDir,
-                            scope: ws.scope,
-                            subagentName: op.args.subagentName,
-                            renderedFilePaths: managedPaths.map((filePath) =>
-                              decodeRenderedFilePath(path.relative(ws.baseDir, filePath)),
-                            ),
-                          })
-                          .pipe(
-                            Effect.flatMap((outcome) =>
-                              outcome._tag === "conflict"
-                                ? new ExtensionLifecycleFailed({
-                                    category: "conflict",
-                                    detail: `Subagent removal failed for ${agent.id}: ${outcome.reason}`,
-                                  })
-                                : Effect.void,
-                            ),
-                          );
-                      }),
-                    )
-                  : Effect.void,
-              ),
-            ),
+            Effect.gen(function* () {
+              const resolved = yield* agent.resolveEffectiveSubagentsDir({
+                workspaceRoot: ws.baseDir,
+                scope: ws.scope,
+              });
+              if (resolved._tag !== "supported") return Option.none();
+              const managedPaths = yield* findManagedSubagentFiles(
+                resolved.dir,
+                sanitizeName(op.args.subagentName),
+              );
+              const entries = managedPaths.map((filePath) => ({
+                path: path.relative(ws.baseDir, filePath),
+              }));
+              const outcome = yield* agent.removeSubagent({
+                workspaceRoot: ws.baseDir,
+                scope: ws.scope,
+                subagentName: op.args.subagentName,
+                renderedFilePaths: entries.map((entry) => decodeRenderedFilePath(entry.path)),
+              });
+              if (outcome._tag === "conflict") {
+                return yield* new ExtensionLifecycleFailed({
+                  category: "conflict",
+                  detail: `Subagent removal failed for ${agent.id}: ${outcome.reason}`,
+                });
+              }
+              return Option.some([agent.id, entries] as const);
+            }),
           { concurrency: "unbounded" },
         );
-      }).pipe(
-        Effect.provideService(FileSystem.FileSystem, fs),
-        Effect.provideService(Path.Path, path),
-      ),
+        return Object.fromEntries(Array.getSomes(removed));
+      }),
       validate: () => Effect.void,
     });
 

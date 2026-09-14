@@ -3,7 +3,6 @@ import type {
   GitHostedSkillRef,
   SkillExtensionRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import type { JobStepArtifactSource } from "@agentxm/workspace-operations";
 
 const gitHostedSourceOrigin = (ref: GitHostedSkillRef): string => {
   const source = ref.source;
@@ -19,9 +18,7 @@ const gitHostedSourceOrigin = (ref: GitHostedSkillRef): string => {
   }
 };
 
-export const gitHostedSkillArtifactSource = (
-  ref: SkillExtensionRef,
-): JobStepArtifactSource | undefined => {
+export const gitHostedSkillArtifactSource = (ref: SkillExtensionRef) => {
   if (ref.refType !== "git-hosted") return undefined;
 
   const gitTreeHash = ref.gitTreeSha;

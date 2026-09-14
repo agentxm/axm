@@ -11,7 +11,6 @@
  */
 
 import * as Array from "effect/Array";
-import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -20,19 +19,11 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 
-import {
-  SkillManager,
-  artifactAgentIdsFromTargets,
-  artifactTargetAgentIds,
-  computeSkillSourceHash,
-  groupInstallTargetsByDirectory,
-  type InstallableSkillTarget,
-} from "@agentxm/extension-materialization";
+import { SkillManager } from "@agentxm/extension-materialization";
+import { prepareSkillInstallation } from "../application/installation.js";
+import { skillInstallationFacts } from "../adapters/installation.js";
 import { buildInstallOperation } from "@agentxm/workspace-reconciliation";
-import {
-  matchesReleaseAgeExcludePattern,
-  type Handle,
-} from "@agentxm/extension-model/unstable/extensions";
+import type { Handle } from "@agentxm/extension-model/unstable/extensions";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import {
   PackageUrlPartsSchema,
@@ -45,22 +36,15 @@ import {
 } from "@agentxm/extension-model/unstable/sources/parser";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
-import { isVersionEntryMature, parseMinimumReleaseAge } from "@agentxm/extension-resolution";
 import { SourceHostProviders, type SourceResolutionFailure } from "@agentxm/extension-sources";
-import { createRegistryClient } from "@agentxm/registry-client";
 import {
   operationPresentation,
-  type JobStepArtifact,
-  type JobStepArtifactTarget,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
-import { WorkspaceMutations, sanitizeName, type SkillPathSource } from "@agentxm/workspace-state";
 
 import type { ExtensionLifecycleFailed } from "../../errors.js";
-import { gitHostedSkillArtifactSource } from "./artifact.js";
 import { lifecycleStepFailure } from "../../step-failure.js";
 import type { RegistryLookupProbe } from "../../install/registry-source-resolution.js";
 import {
@@ -100,75 +84,6 @@ const noSkillsFoundHowToFix = (source: Source): string => {
 };
 
 const decodePackageUrlParts = Schema.decodeUnknownResult(Schema.toType(PackageUrlPartsSchema));
-
-const countFiles = (
-  fs: FileSystem.FileSystem,
-  path: Path.Path,
-  dir: string,
-): Effect.Effect<number> =>
-  Effect.gen(function* () {
-    const entries = yield* fs.readDirectory(dir).pipe(Effect.catch(() => Effect.succeed([])));
-    let total = 0;
-    for (const entry of entries) {
-      const fullPath = path.join(dir, entry);
-      const statOption = yield* fs.stat(fullPath).pipe(Effect.option);
-      if (Option.isNone(statOption)) continue;
-      if (statOption.value.type === "Directory") {
-        total += yield* countFiles(fs, path, fullPath);
-      } else {
-        total += 1;
-      }
-    }
-    return total;
-  });
-
-const skillPathSourceFor = (ref: SkillExtensionRef): SkillPathSource => {
-  switch (ref.refType) {
-    case "registry":
-      return { refType: "registry", owner: ref.owner, source: ref.source };
-    case "git-hosted":
-      return {
-        refType: "git-hosted",
-        source: ref.source,
-        ...(ref.sourcePath === undefined ? {} : { sourcePath: ref.sourcePath }),
-        ...(ref.portable === undefined ? {} : { portable: ref.portable }),
-      };
-    case "local":
-      return {
-        refType: "local",
-        source: ref.source,
-        ...(ref.sourcePath === undefined ? {} : { sourcePath: ref.sourcePath }),
-        ...(ref.portable === undefined ? {} : { portable: ref.portable }),
-      };
-    case "workspace":
-      return { refType: "workspace", owner: ref.owner };
-  }
-};
-
-const previousResolvedVersion = (entry: unknown): string | undefined => {
-  if (typeof entry !== "object" || entry === null) return undefined;
-  if (!("type" in entry) || entry.type !== "registry") return undefined;
-  if (!("resolvedVersion" in entry) || typeof entry.resolvedVersion !== "string") return undefined;
-  return entry.resolvedVersion;
-};
-
-const previousSourceHash = (entry: unknown): string | undefined => {
-  if (typeof entry !== "object" || entry === null) return undefined;
-  if (!("sourceHash" in entry) || typeof entry.sourceHash !== "string") return undefined;
-  return entry.sourceHash;
-};
-
-const artifactChangeFromTargets = (
-  fallback: JobStepArtifact["change"],
-  targets: ReadonlyArray<{ readonly change?: JobStepArtifact["change"] }>,
-): JobStepArtifact["change"] => {
-  if (targets.length === 0) return fallback;
-  if (targets.some((target) => target.change === "created")) return "created";
-  if (targets.some((target) => target.change === "updated" || target.change === undefined)) {
-    return "updated";
-  }
-  return fallback === "updated" ? "updated" : "unchanged";
-};
 
 const appendWarningToResult =
   (warning: string) =>
@@ -394,72 +309,6 @@ export const finalizeSkillInstallIntent: (
  * workspace's minimum release age. The version was requested explicitly, so
  * the policy does not hold it back — it only says so.
  */
-const brandNewReleaseAgeWarning = (ref: SkillExtensionRef, installedBefore: boolean) =>
-  Effect.gen(function* () {
-    if (installedBefore || ref.refType !== "registry") return Option.none<string>();
-    const ws = yield* WorkspaceMutations;
-
-    const excluded = (yield* ws.getMinimumReleaseAgeExclude()).some(({ pattern }) =>
-      matchesReleaseAgeExcludePattern(pattern, {
-        owner: ref.owner,
-        type: "skill",
-        name: ref.name,
-      }),
-    );
-    if (excluded) return Option.none<string>();
-
-    const minimumReleaseAge = yield* ws.getMinimumReleaseAge();
-    const minimumAge = parseMinimumReleaseAge(minimumReleaseAge);
-    if (
-      Option.isNone(minimumAge) ||
-      Duration.isLessThanOrEqualTo(minimumAge.value, Duration.zero)
-    ) {
-      return Option.none<string>();
-    }
-
-    const location =
-      ref.source.location.protocol === "file:"
-        ? ref.source.location.pathname
-        : ref.source.location.href;
-    const client = yield* createRegistryClient(location);
-    const index = yield* client.getExtensionIndex({
-      owner: ref.owner,
-      type: "skill",
-      name: ref.name,
-    });
-    if (Option.isNone(index)) return Option.none<string>();
-
-    const versionEntry = index.value.versions.find((entry) => entry.version === ref.version);
-    if (versionEntry === undefined) return Option.none<string>();
-    if (yield* isVersionEntryMature(versionEntry, minimumAge.value)) return Option.none<string>();
-
-    return Option.some(
-      `${ref.owner}/skills/${ref.name}@${ref.version} was published less than ${minimumReleaseAge} ago — installing it because you requested this version explicitly`,
-    );
-  }).pipe(Effect.catch(() => Effect.succeed(Option.none<string>())));
-
-const targetChangeBeforeInstall = (args: {
-  readonly linkPath: string;
-  readonly canonicalSkillSrcPath: string;
-}) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const linkTarget = yield* fs.readLink(args.linkPath).pipe(Effect.option);
-    if (Option.isSome(linkTarget)) {
-      const currentAbsoluteTarget = path.resolve(path.dirname(args.linkPath), linkTarget.value);
-      const resolvedCurrentTarget = yield* fs
-        .realPath(currentAbsoluteTarget)
-        .pipe(Effect.catch(() => Effect.succeed(currentAbsoluteTarget)));
-      const resolvedExpectedTarget = yield* fs
-        .realPath(args.canonicalSkillSrcPath)
-        .pipe(Effect.catch(() => Effect.succeed(args.canonicalSkillSrcPath)));
-      return resolvedCurrentTarget === resolvedExpectedTarget ? "unchanged" : "updated";
-    }
-    const exists = yield* fs.exists(args.linkPath).pipe(Effect.catch(() => Effect.succeed(false)));
-    return exists ? "updated" : "created";
-  });
-
 /** Installing declares intent; an update advances the resolution of existing intent. */
 export type SkillInstallationStepInput = {
   readonly ref: SkillExtensionRef;
@@ -478,146 +327,21 @@ export const planSkillInstallationStep = (
   InstallStepRequirements | SkillManager | FileSystem.FileSystem | Path.Path | HttpClient.HttpClient
 > =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
     const skillManager = yield* SkillManager;
-    const agentRepo = yield* CodingAgentRepository;
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-
-    const ref = input.ref;
-    const previousLockEntry = yield* ws
-      .getLockedSkill(ref.skill.name)
-      .pipe(Effect.catch(() => Effect.succeed(Option.none())));
-    const previousVersion = Option.match(previousLockEntry, {
-      onNone: () => undefined,
-      onSome: previousResolvedVersion,
+    const prepared = yield* prepareSkillInstallation(skillInstallationFacts, input);
+    let step = buildInstallOperation(skillManager, {
+      toStepFailure: lifecycleStepFailure,
+      ref: input.ref,
+      ...(input.operation === "install"
+        ? { declaration: { name: input.ref.skill.name, versionRange: input.versionRange } }
+        : {}),
+      force: input.force,
+      installedBefore: Effect.succeed(prepared.installedBefore),
+      buildArtifact: prepared.buildArtifact,
     });
-    const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, skillPathSourceFor(ref));
-    const sourceHashBeforeInstall =
-      Option.match(previousLockEntry, {
-        onNone: () => undefined,
-        onSome: previousSourceHash,
-      }) ??
-      (yield* Effect.gen(function* () {
-        const exists = yield* fs
-          .exists(skillSrcPath)
-          .pipe(Effect.catch(() => Effect.succeed(false)));
-        if (!exists) return undefined;
-        return yield* computeSkillSourceHash(skillSrcPath);
-      }));
-    const configuredAgents = yield* agentRepo.getMaterializationAgents();
-    const resolvedAgents = yield* Effect.forEach(
-      configuredAgents,
-      (agent) =>
-        agent
-          .resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir })
-          .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
-      { concurrency: "unbounded" },
-    );
-    const unknownAgents = yield* agentRepo.getUnknownConfiguredAgentIds();
-    const skippedAgents = resolvedAgents.flatMap(({ agentId, outcome }) =>
-      outcome._tag === "unsupported" || outcome._tag === "disabled"
-        ? [`${agentId}: ${outcome.reason}`]
-        : [],
-    );
-    const warnings = [
-      ...(unknownAgents.length === 0
-        ? []
-        : [`Skipping unknown configured agents: ${unknownAgents.join(", ")}`]),
-      ...(skippedAgents.length === 0
-        ? []
-        : [`Skipping non-installable configured agents: ${skippedAgents.join(", ")}`]),
-    ];
-    const sanitizedName = sanitizeName(ref.skill.name);
-    const installableTargets = resolvedAgents.flatMap(
-      ({ agentId, outcome }): ReadonlyArray<InstallableSkillTarget> =>
-        outcome._tag === "supported" ? [{ agentId, targetDir: path.normalize(outcome.dir) }] : [],
-    );
-    const targetLocations = yield* groupInstallTargetsByDirectory(installableTargets, ws.baseDir);
-    const artifactAgents = artifactAgentIdsFromTargets(installableTargets);
-    const targets = yield* Effect.forEach(
-      targetLocations,
-      (location) => {
-        const linkPath = path.join(location.targetDir, sanitizedName);
-        return targetChangeBeforeInstall({
-          linkPath,
-          canonicalSkillSrcPath: skillSrcPath,
-        }).pipe(
-          Effect.map((change) => {
-            const agentIds = artifactTargetAgentIds(location.agentIds);
-            return {
-              path: path.relative(ws.baseDir, linkPath),
-              change,
-              ...(agentIds.length > 0 ? { agentIds } : {}),
-            } satisfies JobStepArtifactTarget;
-          }),
-        );
-      },
-      { concurrency: "unbounded" },
-    );
-    const firstTarget = targets[0];
-    const rawDisplayPath =
-      firstTarget === undefined ? path.relative(ws.baseDir, skillSrcPath) : firstTarget.path;
-    const version = ref.refType === "registry" ? ref.version : undefined;
-
-    const installedBefore = yield* skillManager
-      .isInstalled({ target: { type: "skill", name: ref.skill.name } })
-      .pipe(Effect.catch(() => Effect.succeed(false)));
-    const releaseAgeWarning =
-      input.operation === "install"
-        ? yield* brandNewReleaseAgeWarning(ref, installedBefore)
-        : Option.none<string>();
-
-    const step = withPlanWarning(
-      buildInstallOperation(skillManager, {
-        toStepFailure: lifecycleStepFailure,
-        ref,
-        ...(input.operation === "install"
-          ? { declaration: { name: ref.skill.name, versionRange: input.versionRange } }
-          : {}),
-        force: input.force,
-        installedBefore: Effect.succeed(installedBefore),
-        buildArtifact: ({ installedBefore }) =>
-          Effect.gen(function* () {
-            const fileCount = yield* countFiles(fs, path, skillSrcPath);
-            const currentSourceHash = yield* computeSkillSourceHash(skillSrcPath);
-            const sameVersion = previousVersion === version;
-            const sameSource = sourceHashBeforeInstall === currentSourceHash;
-            const fallbackChange: JobStepArtifact["change"] = !installedBefore
-              ? "created"
-              : sameVersion && sameSource
-                ? "unchanged"
-                : "updated";
-            const artifactChange = artifactChangeFromTargets(fallbackChange, targets);
-            const sourceDetails = gitHostedSkillArtifactSource(ref);
-            return {
-              path: rawDisplayPath.length === 0 ? "." : rawDisplayPath,
-              scope: ws.scope,
-              agents: artifactAgents,
-              ...(version !== undefined ? { version } : {}),
-              change: artifactChange,
-              ...(previousVersion !== undefined && previousVersion !== version
-                ? { previousVersion }
-                : {}),
-              fileCount,
-              ...(targets.length > 0 ? { targets } : {}),
-              ...(sourceDetails !== undefined ? { source: sourceDetails } : {}),
-            } satisfies JobStepArtifact;
-          }),
-      }),
-      releaseAgeWarning,
-    );
-    return warnings.length === 0 ? step : withPlanWarning(step, Option.some(warnings.join("; ")));
-  }).pipe(
-    Effect.mapError((cause) =>
-      installRefused({
-        category: "internal",
-        detail: `Skill install planning failed for ${input.ref.skill.name}`,
-        cause,
-      }),
-    ),
-    Effect.withSpan("SkillInstallation.planStep"),
-  );
+    for (const warning of prepared.warnings) step = withPlanWarning(step, Option.some(warning));
+    return step;
+  }).pipe(Effect.withSpan("SkillInstallation.planStep"));
 
 /** The closures a settled skill intent becomes. */
 export const planSkillInstall: (

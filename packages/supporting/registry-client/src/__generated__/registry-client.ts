@@ -2166,6 +2166,8 @@ export type AuthGetStepUpRequest404 = ProblemDetails;
 export const AuthGetStepUpRequest404 = ProblemDetails;
 export type AuthGetStepUpRequest500 = ProblemDetails;
 export const AuthGetStepUpRequest500 = ProblemDetails;
+export type AuthGetStepUpRequest503 = ProblemDetails;
+export const AuthGetStepUpRequest503 = ProblemDetails;
 export type AuthCreatePublishAuthorizationRequestRequestJson = {
   readonly client_id: string;
   readonly delivery: PublishAuthorizationDelivery;
@@ -2274,6 +2276,8 @@ export type TokensCreate422 = ProblemDetails;
 export const TokensCreate422 = ProblemDetails;
 export type TokensCreate500 = ProblemDetails;
 export const TokensCreate500 = ProblemDetails;
+export type TokensCreate503 = ProblemDetails;
+export const TokensCreate503 = ProblemDetails;
 export type TokensDelete400 = DecodeErrorResponseEncoded;
 export const TokensDelete400 = DecodeErrorResponseEncoded;
 export type TokensDelete401 = ProblemDetails;
@@ -2496,6 +2500,8 @@ export type ExtensionsDeleteExtension410 = ProblemDetails;
 export const ExtensionsDeleteExtension410 = ProblemDetails;
 export type ExtensionsDeleteExtension500 = ProblemDetails;
 export const ExtensionsDeleteExtension500 = ProblemDetails;
+export type ExtensionsDeleteExtension503 = ProblemDetails;
+export const ExtensionsDeleteExtension503 = ProblemDetails;
 export type ExtensionsUpdateVisibilityParams = {
   readonly "x-axm-step-up-request"?: StepUpRequestId | null;
   readonly "if-match": string;
@@ -2530,6 +2536,8 @@ export type ExtensionsUpdateVisibility412 = PreconditionFailedErrorEncoded;
 export const ExtensionsUpdateVisibility412 = PreconditionFailedErrorEncoded;
 export type ExtensionsUpdateVisibility500 = ProblemDetails;
 export const ExtensionsUpdateVisibility500 = ProblemDetails;
+export type ExtensionsUpdateVisibility503 = ProblemDetails;
+export const ExtensionsUpdateVisibility503 = ProblemDetails;
 export type ExtensionsGetVersion200 = {
   readonly name: ExtensionName;
   readonly owner: Handle;
@@ -2860,6 +2868,8 @@ export type ExtensionsYankVersion410 = ProblemDetails;
 export const ExtensionsYankVersion410 = ProblemDetails;
 export type ExtensionsYankVersion500 = ProblemDetails;
 export const ExtensionsYankVersion500 = ProblemDetails;
+export type ExtensionsYankVersion503 = ProblemDetails;
+export const ExtensionsYankVersion503 = ProblemDetails;
 export type ExtensionsUnyankVersionParams = {
   readonly "x-axm-step-up-request"?: StepUpRequestId | null;
 };
@@ -2903,6 +2913,8 @@ export type ExtensionsUnyankVersion410 = ProblemDetails;
 export const ExtensionsUnyankVersion410 = ProblemDetails;
 export type ExtensionsUnyankVersion500 = ProblemDetails;
 export const ExtensionsUnyankVersion500 = ProblemDetails;
+export type ExtensionsUnyankVersion503 = ProblemDetails;
+export const ExtensionsUnyankVersion503 = ProblemDetails;
 export type ExtensionsYankAvailableVersionsParams = {
   readonly "x-axm-step-up-request"?: StepUpRequestId | null;
 };
@@ -2938,6 +2950,8 @@ export type ExtensionsYankAvailableVersions410 = ProblemDetails;
 export const ExtensionsYankAvailableVersions410 = ProblemDetails;
 export type ExtensionsYankAvailableVersions500 = ProblemDetails;
 export const ExtensionsYankAvailableVersions500 = ProblemDetails;
+export type ExtensionsYankAvailableVersions503 = ProblemDetails;
+export const ExtensionsYankAvailableVersions503 = ProblemDetails;
 export type ExtensionsGetDeletionPreview200 = {
   readonly requiredConfirmation: string;
   readonly warnings: {
@@ -3529,6 +3543,7 @@ export const make = (
                 "403": decodeError("AuthGetStepUpRequest403", AuthGetStepUpRequest403),
                 "404": decodeError("AuthGetStepUpRequest404", AuthGetStepUpRequest404),
                 "500": decodeError("AuthGetStepUpRequest500", AuthGetStepUpRequest500),
+                "503": decodeError("AuthGetStepUpRequest503", AuthGetStepUpRequest503),
                 orElse: unexpectedStatus,
               }),
             ),
@@ -3639,6 +3654,7 @@ export const make = (
             "410": decodeError("TokensCreate410", TokensCreate410),
             "422": decodeError("TokensCreate422", TokensCreate422),
             "500": decodeError("TokensCreate500", TokensCreate500),
+            "503": decodeError("TokensCreate503", TokensCreate503),
             orElse: unexpectedStatus,
           }),
         ),
@@ -3782,6 +3798,7 @@ export const make = (
                 "409": decodeError("ExtensionsDeleteExtension409", ExtensionsDeleteExtension409),
                 "410": decodeError("ExtensionsDeleteExtension410", ExtensionsDeleteExtension410),
                 "500": decodeError("ExtensionsDeleteExtension500", ExtensionsDeleteExtension500),
+                "503": decodeError("ExtensionsDeleteExtension503", ExtensionsDeleteExtension503),
                 orElse: unexpectedStatus,
               }),
             ),
@@ -3846,6 +3863,7 @@ export const make = (
                 "410": decodeError("ExtensionsUpdateVisibility410", ExtensionsUpdateVisibility410),
                 "412": decodeError("ExtensionsUpdateVisibility412", ExtensionsUpdateVisibility412),
                 "500": decodeError("ExtensionsUpdateVisibility500", ExtensionsUpdateVisibility500),
+                "503": decodeError("ExtensionsUpdateVisibility503", ExtensionsUpdateVisibility503),
                 orElse: unexpectedStatus,
               }),
             ),
@@ -4221,6 +4239,7 @@ export const make = (
                 "409": decodeError("ExtensionsYankVersion409", ExtensionsYankVersion409),
                 "410": decodeError("ExtensionsYankVersion410", ExtensionsYankVersion410),
                 "500": decodeError("ExtensionsYankVersion500", ExtensionsYankVersion500),
+                "503": decodeError("ExtensionsYankVersion503", ExtensionsYankVersion503),
                 orElse: unexpectedStatus,
               }),
             ),
@@ -4257,6 +4276,7 @@ export const make = (
                 "409": decodeError("ExtensionsUnyankVersion409", ExtensionsUnyankVersion409),
                 "410": decodeError("ExtensionsUnyankVersion410", ExtensionsUnyankVersion410),
                 "500": decodeError("ExtensionsUnyankVersion500", ExtensionsUnyankVersion500),
+                "503": decodeError("ExtensionsUnyankVersion503", ExtensionsUnyankVersion503),
                 orElse: unexpectedStatus,
               }),
             ),
@@ -4312,6 +4332,10 @@ export const make = (
                 "500": decodeError(
                   "ExtensionsYankAvailableVersions500",
                   ExtensionsYankAvailableVersions500,
+                ),
+                "503": decodeError(
+                  "ExtensionsYankAvailableVersions503",
+                  ExtensionsYankAvailableVersions503,
                 ),
                 orElse: unexpectedStatus,
               }),
@@ -4647,6 +4671,7 @@ export interface RegistryClient {
     | RegistryClientError<"AuthGetStepUpRequest403", typeof AuthGetStepUpRequest403.Type>
     | RegistryClientError<"AuthGetStepUpRequest404", typeof AuthGetStepUpRequest404.Type>
     | RegistryClientError<"AuthGetStepUpRequest500", typeof AuthGetStepUpRequest500.Type>
+    | RegistryClientError<"AuthGetStepUpRequest503", typeof AuthGetStepUpRequest503.Type>
   >;
   /**
    * Create an exact browser-reviewed publish authorization request
@@ -4749,6 +4774,7 @@ export interface RegistryClient {
     | RegistryClientError<"TokensCreate410", typeof TokensCreate410.Type>
     | RegistryClientError<"TokensCreate422", typeof TokensCreate422.Type>
     | RegistryClientError<"TokensCreate500", typeof TokensCreate500.Type>
+    | RegistryClientError<"TokensCreate503", typeof TokensCreate503.Type>
   >;
   /**
    * Revokes the access token identified by tokenId.
@@ -4849,6 +4875,7 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsDeleteExtension409", typeof ExtensionsDeleteExtension409.Type>
     | RegistryClientError<"ExtensionsDeleteExtension410", typeof ExtensionsDeleteExtension410.Type>
     | RegistryClientError<"ExtensionsDeleteExtension500", typeof ExtensionsDeleteExtension500.Type>
+    | RegistryClientError<"ExtensionsDeleteExtension503", typeof ExtensionsDeleteExtension503.Type>
   >;
   /**
    * Check whether an extension exists
@@ -4913,6 +4940,10 @@ export interface RegistryClient {
     | RegistryClientError<
         "ExtensionsUpdateVisibility500",
         typeof ExtensionsUpdateVisibility500.Type
+      >
+    | RegistryClientError<
+        "ExtensionsUpdateVisibility503",
+        typeof ExtensionsUpdateVisibility503.Type
       >
   >;
   /**
@@ -5171,6 +5202,7 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsYankVersion409", typeof ExtensionsYankVersion409.Type>
     | RegistryClientError<"ExtensionsYankVersion410", typeof ExtensionsYankVersion410.Type>
     | RegistryClientError<"ExtensionsYankVersion500", typeof ExtensionsYankVersion500.Type>
+    | RegistryClientError<"ExtensionsYankVersion503", typeof ExtensionsYankVersion503.Type>
   >;
   /**
    * Un-yank an extension version
@@ -5197,6 +5229,7 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsUnyankVersion409", typeof ExtensionsUnyankVersion409.Type>
     | RegistryClientError<"ExtensionsUnyankVersion410", typeof ExtensionsUnyankVersion410.Type>
     | RegistryClientError<"ExtensionsUnyankVersion500", typeof ExtensionsUnyankVersion500.Type>
+    | RegistryClientError<"ExtensionsUnyankVersion503", typeof ExtensionsUnyankVersion503.Type>
   >;
   /**
    * Yank all currently available extension versions
@@ -5241,6 +5274,10 @@ export interface RegistryClient {
     | RegistryClientError<
         "ExtensionsYankAvailableVersions500",
         typeof ExtensionsYankAvailableVersions500.Type
+      >
+    | RegistryClientError<
+        "ExtensionsYankAvailableVersions503",
+        typeof ExtensionsYankAvailableVersions503.Type
       >
   >;
   /**

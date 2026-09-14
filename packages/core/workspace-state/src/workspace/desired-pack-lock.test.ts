@@ -1,3 +1,6 @@
+import * as Layer from "effect/Layer";
+import { PackManifests } from "./pack-manifests.js";
+import { FilesystemPackManifests } from "./adapters/filesystem/pack-manifests.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -102,6 +105,7 @@ describe("validateDesiredPackLock", () => {
       const { baseDir } = setupCanonicalPack();
       const layout = yield* resolveProjectWorkspaceLayout(decodeAbsolutePathSync(baseDir), {});
       const validated = yield* validateDesiredPackLock({
+        manifests: yield* PackManifests,
         layout,
         graph: externalPackGraph,
         lockfile: { lockfileVersion: 7, skills: {} },
@@ -111,7 +115,7 @@ describe("validateDesiredPackLock", () => {
       expect(validated.problems).toContainEqual(
         expect.objectContaining({ type: "pack-resolution-unavailable" }),
       );
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer))),
   );
 
   it.effect("accepts decoded-equivalent Pack manifest formatting", () =>
@@ -128,12 +132,13 @@ describe("validateDesiredPackLock", () => {
       );
 
       const validated = yield* validateDesiredPackLock({
+        manifests: yield* PackManifests,
         layout,
         graph: externalPackGraph,
         lockfile: lockfile(),
       });
       expect(validated.complete).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer))),
   );
 
   it.effect(
@@ -144,6 +149,7 @@ describe("validateDesiredPackLock", () => {
         const layout = yield* resolveProjectWorkspaceLayout(decodeAbsolutePathSync(baseDir), {});
         fs.writeFileSync(path.join(canonical, "README.md"), "locally edited\n");
         const withOtherDrift = yield* validateDesiredPackLock({
+          manifests: yield* PackManifests,
           layout,
           graph: externalPackGraph,
           lockfile: lockfile(),
@@ -155,6 +161,7 @@ describe("validateDesiredPackLock", () => {
           JSON.stringify({ ...manifest, dependencies: { "@evil/skills/injected": "*" } }),
         );
         const changed = yield* validateDesiredPackLock({
+          manifests: yield* PackManifests,
           layout,
           graph: externalPackGraph,
           lockfile: lockfile(),
@@ -163,7 +170,7 @@ describe("validateDesiredPackLock", () => {
         expect(changed.problems).toContainEqual(
           expect.objectContaining({ type: "pack-manifest-content-mismatch", status: "changed" }),
         );
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }).pipe(Effect.provide(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer))),
   );
 
   it.effect("does not require a lock row for a workspace-authored Pack", () =>
@@ -179,11 +186,12 @@ describe("validateDesiredPackLock", () => {
         })),
       };
       const validated = yield* validateDesiredPackLock({
+        manifests: yield* PackManifests,
         layout,
         graph,
         lockfile: { lockfileVersion: 7, skills: {} },
       });
       expect(validated.complete).toBe(true);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.provide(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer))),
   );
 });

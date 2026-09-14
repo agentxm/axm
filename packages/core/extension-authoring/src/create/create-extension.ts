@@ -23,7 +23,13 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
 import {
-  ExtensionManagers,
+  SkillManager,
+  SubagentManager,
+  RuleManager,
+  HookManager,
+  KnowledgeManager,
+  McpServerManager,
+  PackManager,
   createCanonicalDirectory,
   groupInstallTargetsByDirectory,
   recoverCanonicalDirectory,
@@ -214,7 +220,13 @@ export type PrepareCreateExtensionRequirements =
   | WorkspaceMutations
   | CodingAgentRepository
   | ConfiguredAgentOutcomesProvider
-  | ExtensionManagers;
+  | SkillManager
+  | SubagentManager
+  | RuleManager
+  | HookManager
+  | KnowledgeManager
+  | McpServerManager
+  | PackManager;
 
 // -----------------------------------------------------------------------------
 // Per-type facts
@@ -427,7 +439,7 @@ export const prepareCreateExtension: (
 > = Effect.fn("CreateExtension.prepare")(function* (request) {
   const ws = yield* WorkspaceMutations;
   const path = yield* Path.Path;
-  const managers = yield* ExtensionManagers;
+
   const { subject, command } = route(request.type);
 
   const { owner, establish } = yield* resolveAuthoringOwner(
@@ -531,10 +543,10 @@ export const prepareCreateExtension: (
     location,
   } as const;
 
-  const step = (() => {
+  const step = yield* Effect.gen(function* () {
     switch (request.type) {
       case "skill":
-        return authoredStep(managers.skill, {
+        return authoredStep(yield* SkillManager, {
           ...common,
           ref: {
             ...sourceRef,
@@ -570,7 +582,7 @@ export const prepareCreateExtension: (
             }),
         });
       case "subagent":
-        return authoredStep(managers.subagent, {
+        return authoredStep(yield* SubagentManager, {
           ...common,
           ref: {
             ...sourceRef,
@@ -582,7 +594,7 @@ export const prepareCreateExtension: (
           buildArtifact: () => Effect.succeed(plannedArtifact),
         });
       case "rule":
-        return authoredStep(managers.rule, {
+        return authoredStep(yield* RuleManager, {
           ...common,
           ref: {
             ...sourceRef,
@@ -593,8 +605,9 @@ export const prepareCreateExtension: (
           target: { type: "rule", name },
           buildArtifact: () => Effect.succeed(plannedArtifact),
         });
-      case "hook":
-        return authoredStep(managers.hook, {
+      case "hook": {
+        const hook = yield* HookManager;
+        return authoredStep(hook, {
           ...common,
           ref: {
             ...sourceRef,
@@ -608,7 +621,7 @@ export const prepareCreateExtension: (
               // A hook becomes observable through the shared agent hook
               // configurations, so its realized targets are the aggregate
               // projection's, not the package's own files.
-              const observation = yield* managers.hook.aggregateProjectionObservation;
+              const observation = yield* hook.aggregateProjectionObservation;
               const targets = observation.targets.map((target) => ({
                 ...target,
                 change: "created" as const,
@@ -622,8 +635,9 @@ export const prepareCreateExtension: (
               } satisfies JobStepArtifact;
             }),
         });
+      }
       case "knowledge":
-        return authoredStep(managers.knowledge, {
+        return authoredStep(yield* KnowledgeManager, {
           ...common,
           ref: {
             ...sourceRef,
@@ -635,7 +649,7 @@ export const prepareCreateExtension: (
           buildArtifact: () => Effect.succeed(plannedArtifact),
         });
       case "pack":
-        return authoredStep(managers.pack, {
+        return authoredStep(yield* PackManager, {
           ...common,
           ref: {
             ...sourceRef,
@@ -651,7 +665,7 @@ export const prepareCreateExtension: (
         // operation rather than by its manager, so the authored closure names
         // that realization instead of the manager's default.
         const nonInteractive = request.nonInteractive;
-        return authoredPackageStep(managers["mcp-server"], {
+        return authoredPackageStep(yield* McpServerManager, {
           ...common,
           target: { type: "mcp-server", name },
           location,
@@ -661,7 +675,7 @@ export const prepareCreateExtension: (
         });
       }
     }
-  })();
+  });
 
   // A description is the one piece of package content a creation flag
   // controls, so the operation says what it will record rather than leaving

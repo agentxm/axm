@@ -31,7 +31,6 @@ import { KnowledgeManager } from "@agentxm/extension-materialization";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import {
-  ExtensionManagersLive,
   HookManagerLive,
   McpServerManagerLive,
   PackManagerLive,
@@ -55,23 +54,19 @@ const stubKnowledgeManager = {
 const knowledgeManagerLayer = Layer.succeed(KnowledgeManager, stubKnowledgeManager);
 
 /**
- * Activation resolves its manager by extension type through the registry, so
- * the stub answers for Knowledge inside the same registry the runtime builds.
+ * Substitute Knowledge behavior in the ordinary per-kind service composition.
  */
 const knowledgeActivationLayer = Layer.provideMerge(
-  ExtensionManagersLive,
-  Layer.provideMerge(
-    Layer.mergeAll(
-      knowledgeManagerLayer,
-      SkillManagerLive,
-      SubagentManagerLive,
-      RuleManagerLive,
-      HookManagerLive,
-      McpServerManagerLive,
-      PackManagerLive,
-    ),
-    Layer.mergeAll(CodingAgentRepositoryLive, SourceHostProvidersLive),
+  Layer.mergeAll(
+    knowledgeManagerLayer,
+    SkillManagerLive,
+    SubagentManagerLive,
+    RuleManagerLive,
+    HookManagerLive,
+    McpServerManagerLive,
+    PackManagerLive,
   ),
+  Layer.mergeAll(CodingAgentRepositoryLive, SourceHostProvidersLive),
 );
 
 /**

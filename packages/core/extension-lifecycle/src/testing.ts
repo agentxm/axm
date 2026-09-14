@@ -25,7 +25,6 @@ import { AgentExecutableResolver } from "@agentxm/agent-integration";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
-  ExtensionManagersLive,
   HookManagerLive,
   KnowledgeManagerLive,
   McpSecretStoreLive,
@@ -303,7 +302,7 @@ export const makeLifecycleFixture = (options: LifecycleFixtureOptions = {}) => {
 
   // One environment, built outward: the workspace state and the ports over it,
   // then the projection services that read them, then the managers that read
-  // both, then the registry that indexes the managers. `provideMerge` keeps
+  // both. `provideMerge` keeps
   // every layer's output, so a service a manager keeps in `R` is still there.
   const base = Layer.provideMerge(
     Layer.mergeAll(
@@ -365,10 +364,7 @@ export const makeLifecycleFixture = (options: LifecycleFixtureOptions = {}) => {
   // The participant registry indexes the managers, and the invariant facts
   // read the registry, so both come after every manager is available.
   const withParticipants = Layer.provideMerge(ProjectionParticipantsLive, withPack);
-  const services = Layer.provideMerge(
-    Layer.mergeAll(ExtensionManagersLive, WorkspaceInvariantFactsLive),
-    withParticipants,
-  );
+  const services = Layer.provideMerge(WorkspaceInvariantFactsLive, withParticipants);
 
   return {
     root,

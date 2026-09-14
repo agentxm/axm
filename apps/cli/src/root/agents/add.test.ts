@@ -9,7 +9,6 @@ import type * as ServiceMap from "effect/Context";
 import { afterEach, beforeEach } from "vitest";
 import { AgentExecutableResolver } from "@agentxm/agent-integration";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
-import { ExtensionManagersLive } from "@agentxm/extension-materialization/live";
 import { workspaceInvariantFactsLive } from "../../test-support/workspace-invariant-facts-live.js";
 import {
   expectAppliedPlanResult,
@@ -171,10 +170,7 @@ describe("agents add.handler", () => {
       }),
     );
     const fullLayer = Layer.provideMerge(
-      Layer.provideMerge(
-        Layer.merge(ExtensionManagersLive, workspaceInvariantFactsLive),
-        managersLayer(opts?.skillManager),
-      ),
+      Layer.provideMerge(workspaceInvariantFactsLive, managersLayer(opts?.skillManager)),
       foundation,
     );
 

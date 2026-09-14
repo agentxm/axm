@@ -23,7 +23,6 @@ export {
 
 // The seven managers under one lookup, for use cases that decide the
 // extension type at runtime.
-export { ExtensionManagers, type ExtensionManagersService } from "./manager-registry.js";
 
 // Manager service tags and the facts each manager reports
 export {

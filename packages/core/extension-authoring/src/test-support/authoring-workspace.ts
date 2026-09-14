@@ -40,7 +40,6 @@ import {
   RuleManagerLive,
   SkillManagerLive,
   SubagentManagerLive,
-  ExtensionManagersLive,
 } from "@agentxm/extension-materialization/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { previewPlanExecution, type PlanExecution } from "@agentxm/workspace-operations";
@@ -237,13 +236,7 @@ export const authoringWorkspaceEnvironment = (workspace: AuthoringWorkspace) => 
   // same typed outcomes the real one does.
   const secrets = makeMemoryMcpSecretStore();
   return {
-    layer: Layer.mergeAll(
-      Layer.provideMerge(ExtensionManagersLive, managers),
-      PlanInvocationTest,
-      interaction.layer,
-      identity,
-      secrets.layer,
-    ),
+    layer: Layer.mergeAll(managers, PlanInvocationTest, interaction.layer, identity, secrets.layer),
     /** Every plan presentation and confirmation the run asked for. */
     interaction: interaction.state,
     /** MCP connection secrets the run persisted, keyed by account digest. */

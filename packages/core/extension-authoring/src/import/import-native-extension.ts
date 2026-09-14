@@ -24,7 +24,9 @@ import * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 
 import {
-  ExtensionManagers,
+  SkillManager,
+  SubagentManager,
+  McpServerManager,
   McpSecretStore,
   copyExtensionDirectory,
   createCanonicalDirectory,
@@ -221,7 +223,9 @@ export type PrepareImportNativeExtensionRequirements =
   | Scope.Scope
   | HttpClient.HttpClient
   | WorkspaceMutations
-  | ExtensionManagers
+  | SkillManager
+  | SubagentManager
+  | McpServerManager
   | SourceHostProviders
   | WorkspaceCatalog
   | ConfiguredAgentOutcomesProvider;
@@ -488,7 +492,6 @@ export const prepareImportNativeExtension: (
 > = Effect.fn("ImportNativeExtension.prepare")(function* (request) {
   const ws = yield* WorkspaceMutations;
   const path = yield* Path.Path;
-  const managers = yield* ExtensionManagers;
 
   const target = yield* Effect.fromResult(parseFqn(request.target));
   if (target.type !== request.type) {
@@ -578,14 +581,17 @@ export const prepareImportNativeExtension: (
     }).pipe(Effect.asVoid),
   } as const;
 
-  const step = (() => {
+  const step = yield* Effect.gen(function* () {
     switch (request.type) {
       case "skill":
-        return importStep(managers.skill, { ...common, target: { type: "skill", name } });
+        return importStep(yield* SkillManager, { ...common, target: { type: "skill", name } });
       case "subagent":
-        return importStep(managers.subagent, { ...common, target: { type: "subagent", name } });
+        return importStep(yield* SubagentManager, {
+          ...common,
+          target: { type: "subagent", name },
+        });
       case "mcp-server":
-        return importStep(managers["mcp-server"], {
+        return importStep(yield* McpServerManager, {
           ...common,
           target: { type: "mcp-server", name },
           materializeWhenDisabled: true,
@@ -593,7 +599,7 @@ export const prepareImportNativeExtension: (
             materializeAuthoredMcpServer({ ref, nonInteractive: request.nonInteractive }),
         });
     }
-  })();
+  });
 
   const plan: Plan<ImportNativeExtensionRequirements> = {
     _tag: "Plan",

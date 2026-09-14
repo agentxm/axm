@@ -36,7 +36,6 @@ import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
   SourceHostProvidersLive,
-  ExtensionManagersLive,
   HookManagerLive,
   KnowledgeManagerLive,
   LifecycleStepFailureConversionLive,
@@ -264,10 +263,7 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
     KnowledgeIndexLive,
   );
   const extensionsLayer = Layer.provideMerge(PackManagerLive, coreExtensions);
-  // The use cases resolve a manager by extension type through the registry,
-  // exactly as the runtime composes it over the per-type managers.
-  const managedExtensionsLayer = Layer.provideMerge(ExtensionManagersLive, extensionsLayer);
-  const fullLayer = Layer.provideMerge(managedExtensionsLayer, workspaceServiceLayer);
+  const fullLayer = Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
   const invariantFactsLayer = Layer.provide(workspaceInvariantFactsLive, fullLayer);
   const composed = Layer.mergeAll(
     fullLayer,

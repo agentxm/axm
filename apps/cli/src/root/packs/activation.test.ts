@@ -10,7 +10,6 @@ import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
-import { ExtensionManagersLive } from "@agentxm/extension-materialization/live";
 import { ProjectionParticipantsLive } from "@agentxm/extension-materialization/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-projection/live";
 import { HookManagerLive } from "@agentxm/extension-materialization/live";
@@ -164,13 +163,7 @@ describe("packs activation", () => {
       PackManagerLive,
       Layer.mergeAll(managerDependencies, managersLayer),
     );
-    // Activation resolves a manager by extension type through the registry,
-    // exactly as the runtime composes it over the per-type managers, and
-    // renders shared units from the participant registry over them.
-    const extensionManagersLayer = Layer.provide(
-      ExtensionManagersLive,
-      Layer.mergeAll(managersLayer, packManagerLayer),
-    );
+    // Render shared units from the participants over the individual kind services.
     const projectionLayer = Layer.provide(
       Layer.mergeAll(
         ProjectionParticipantsLive,
@@ -188,7 +181,6 @@ describe("packs activation", () => {
           LifecycleStepFailureConversionLive,
           managersLayer,
           packManagerLayer,
-          extensionManagersLayer,
           projectionLayer,
         ),
       ),

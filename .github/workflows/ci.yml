@@ -506,6 +506,7 @@ jobs:
 
   binary-smoke:
     name: Binary Smoke - ${{ matrix.os }}
+    timeout-minutes: 25
     needs: classify
     if: >-
       always() &&

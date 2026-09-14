@@ -506,9 +506,10 @@ jobs:
 
   binary-smoke:
     name: Binary Smoke - ${{ matrix.os }}
+    timeout-minutes: 25
     needs: classify
     if: >-
-      always() &&
+      !cancelled() &&
       ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
       github.event_name == 'workflow_dispatch')
     strategy:

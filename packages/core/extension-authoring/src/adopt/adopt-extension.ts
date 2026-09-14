@@ -1,3 +1,4 @@
+import type { AuthorMaterialization } from "@agentxm/workspace-operations";
 /**
  * Adopting an acquired package into workspace authorship.
  *
@@ -36,9 +37,8 @@ import {
   McpServerManager,
   PackManager,
   McpSecretStore,
-  type ExtensionManager,
+  type ExtensionManagerFailure,
   type ManagerRequirements,
-  type MaterializationFacts,
 } from "@agentxm/extension-materialization";
 import { materializeAuthoredMcpServer } from "@agentxm/workspace-reconciliation";
 import {
@@ -178,8 +178,8 @@ export type PrepareAdoptExtensionRequirements =
 /**
  * Build the adoption step with the requirements this use case keeps in `R`.
  */
-const adoptStep = <TRef extends ExtensionRef, TFacts extends MaterializationFacts>(
-  manager: ExtensionManager<TRef, TFacts, ManagerRequirements>,
+const adoptStep = <TRef extends ExtensionRef, TFacts>(
+  manager: AuthorMaterialization<TRef, TFacts, ExtensionManagerFailure, ManagerRequirements>,
   args: AuthoredExtensionOperationArgs<
     TRef,
     TFacts,

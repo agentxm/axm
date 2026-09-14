@@ -41,7 +41,6 @@ const cursorSuggestion = {
 
 const emptySkillManager = {
   ...managerLifecycleStubs,
-  type: "skill",
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   listMaterializable: () => Effect.succeed([]),
@@ -50,7 +49,6 @@ const emptySkillManager = {
 
 const emptyMcpServerManager = {
   ...managerLifecycleStubs,
-  type: "mcp-server",
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   listMaterializable: () => Effect.succeed([]),
@@ -61,7 +59,6 @@ const emptyMcpServerManager = {
 
 const emptyHookManager = {
   ...managerLifecycleStubs,
-  type: "hook",
   prepareProjection: () => Effect.succeed({ plans: [], agentOutcomes: [], acquisitions: [] }),
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
@@ -72,7 +69,6 @@ const emptyHookManager = {
 
 const emptyRuleManager = {
   ...managerLifecycleStubs,
-  type: "rule",
   projectionPlans: () => Effect.succeed([]),
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
@@ -82,7 +78,6 @@ const emptyRuleManager = {
 
 const emptySubagentManager = {
   ...managerLifecycleStubs,
-  type: "subagent",
   projectionObservation: () => Effect.succeed({ present: false, current: false }),
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
@@ -92,7 +87,6 @@ const emptySubagentManager = {
 
 const emptyKnowledgeManager = {
   ...managerLifecycleStubs,
-  type: "knowledge",
   refreshCatalog: () => Effect.void,
   sync: () => Effect.succeed({ changed: false, warnings: [], artifacts: [] }),
   install: () => Effect.void,
@@ -105,7 +99,6 @@ const emptyKnowledgeManager = {
 
 const emptyPackManager = {
   ...managerLifecycleStubs,
-  type: "pack",
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
   listMaterializable: () => Effect.succeed([]),

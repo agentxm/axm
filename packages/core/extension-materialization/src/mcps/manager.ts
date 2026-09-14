@@ -3,7 +3,7 @@ import { LifecyclePostconditionViolated } from "../extensions/errors.js";
 /**
  * MCP server extension manager service.
  *
- * Implements ExtensionManager<McpServerExtensionRef>. Delegates to existing
+ * Implements McpServer materialization. Delegates to existing
  * MCP server materialization functions and workspace service methods.
  *
  * @experimental This API is unstable and may change without notice.
@@ -21,7 +21,6 @@ import {
   planSingletonProjection,
 } from "@agentxm/workspace-projection";
 import { McpConfigIoFailed, removeMcpServerFromManifest } from "@agentxm/agent-integration";
-import type { ExtensionManager, ManagerRequirements } from "../manager-contract.js";
 import { NO_MATERIALIZATION_OBSERVATION } from "../manager-contract.js";
 import {
   McpServerManager,
@@ -94,14 +93,9 @@ export const McpServerManagerLive = Layer.effect(
       removal: Option.none(),
     });
 
-    const materializeInstall: ExtensionManager<
-      McpServerExtensionRef,
-      McpServerMaterializationFacts,
-      ManagerRequirements
-    >["materializeInstall"] = Effect.fn("McpServerManager.materializeInstall")(function* ({
-      ref,
-      force,
-    }) {
+    const materializeInstall: McpServerManagerService["materializeInstall"] = Effect.fn(
+      "McpServerManager.materializeInstall",
+    )(function* ({ ref, force }) {
       if (ref.refType !== "registry") {
         return yield* new McpRegistryOnlyInstall({
           serverName: ref.server.name,
@@ -159,11 +153,7 @@ export const McpServerManagerLive = Layer.effect(
 
     const makeMaterializeRemoval = (
       retainCanonical: boolean,
-    ): ExtensionManager<
-      McpServerExtensionRef,
-      McpServerMaterializationFacts,
-      ManagerRequirements
-    >["materializeUninstall"] =>
+    ): McpServerManagerService["materializeUninstall"] =>
       Effect.fn("McpServerManager.materializeRemoval")(function* ({ target }) {
         const graph = yield* ws.getDesiredStateGraph();
         const desiredNode = graph.nodes.find(
@@ -312,7 +302,6 @@ export const McpServerManagerLive = Layer.effect(
       });
 
     return {
-      type: "mcp-server",
       isInstalled: Effect.fn("McpServerManager.isInstalled")(function* ({
         target,
       }: {

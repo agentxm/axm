@@ -41,6 +41,7 @@
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/extension-resolution": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
+    "@agentxm/workspace-projection": "workspace:^",
     "@agentxm/workspace-state": "workspace:^",
     "@agentxm/workspace-transactions": "workspace:^",
     "effect": "catalog:"

@@ -64,7 +64,7 @@ import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-con
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import { usableAcceptedCanonicalRef } from "@agentxm/workspace-state";
 import { getKnowledgeLockEntries } from "@agentxm/workspace-state";
-import type { ExtensionManager, ManagerRequirements } from "../manager-contract.js";
+import type { ManagerRequirements } from "../manager-contract.js";
 import { NO_MATERIALIZATION_OBSERVATION } from "../manager-contract.js";
 import type { KnowledgeMaterializationFacts } from "../managers.js";
 import type { ExtensionManagerFailure } from "../errors.js";
@@ -981,13 +981,9 @@ export const KnowledgeManagerLive = Layer.effect(
     // Canonical removal only. The shared operation flow re-renders the
     // discovery region after settings and lock removal, once the target has
     // left the graph.
-    const materializeUninstall: ExtensionManager<
-      KnowledgeExtensionRef,
-      KnowledgeMaterializationFacts,
-      ManagerRequirements
-    >["materializeUninstall"] = Effect.fn("KnowledgeManager.materializeUninstall")(function* ({
-      target,
-    }) {
+    const materializeUninstall: KnowledgeManagerService["materializeUninstall"] = Effect.fn(
+      "KnowledgeManager.materializeUninstall",
+    )(function* ({ target }) {
       const canonical = yield* provide(
         acceptedCanonicalObservation({
           workspace: ws,
@@ -1016,13 +1012,9 @@ export const KnowledgeManagerLive = Layer.effect(
     });
     // Deactivation retains canonical content; the caller updates settings
     // first, so re-rendering the whole region drops this bundle's routing.
-    const materializeDeactivate: ExtensionManager<
-      KnowledgeExtensionRef,
-      KnowledgeMaterializationFacts,
-      ManagerRequirements
-    >["materializeDeactivate"] = Effect.fn("KnowledgeManager.materializeDeactivate")(() =>
-      applyKnowledgeProjection.pipe(Effect.as(withdrawn)),
-    );
+    const materializeDeactivate: KnowledgeManagerService["materializeDeactivate"] = Effect.fn(
+      "KnowledgeManager.materializeDeactivate",
+    )(() => applyKnowledgeProjection.pipe(Effect.as(withdrawn)));
 
     const acquireCanonical: KnowledgeManagerService["materializeInstall"] = Effect.fn(
       "KnowledgeManager.materializeInstall",
@@ -1046,7 +1038,6 @@ export const KnowledgeManagerLive = Layer.effect(
     }, Effect.scoped);
 
     return {
-      type: "knowledge",
       projectionPlans,
       refreshCatalog: () =>
         runWorkspaceTransaction({

@@ -24,7 +24,14 @@ import { declareMaterialization, recordMaterialization } from "./declaration.js"
 import * as Option from "effect/Option";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
-import type { ExtensionManager, MaterializationFacts } from "@agentxm/extension-materialization";
+import type {
+  AuthorMaterialization,
+  InstallMaterialization,
+  MaterializationConfiguration,
+  MaterializationProjection,
+  SynchronizeMaterialization,
+  UninstallMaterialization,
+} from "@agentxm/workspace-operations";
 import type { ExtensionManagerFailure } from "@agentxm/extension-materialization";
 import {
   LifecyclePostconditionViolated,
@@ -194,12 +201,8 @@ const NO_PROJECTION_WARNINGS: ReadonlyArray<string> = [];
  * report for every desired contributor those units could not render. The
  * report travels with the step that performed the render.
  */
-const applyManagerProjectionPlans = <
-  TRef extends ExtensionRef,
-  TMaterialization extends MaterializationFacts,
-  R,
->(
-  manager: ExtensionManager<TRef, TMaterialization, R>,
+const applyManagerProjectionPlans = <R>(
+  manager: MaterializationProjection<ExtensionManagerFailure, R>,
 ): Effect.Effect<ReadonlyArray<string>, ExtensionManagerFailure, R> =>
   manager.projectionPlans === undefined
     ? Effect.succeed(NO_PROJECTION_WARNINGS)
@@ -221,7 +224,7 @@ const sourceMaterialPaths = (ref: ExtensionRef): ReadonlyArray<string> =>
 
 export interface InstallOperationArgs<
   TRef extends ExtensionRef,
-  TMaterialization extends MaterializationFacts,
+  TMaterialization,
   F = never,
   R = never,
 > extends StepFailureAdapter<F> {
@@ -250,7 +253,7 @@ export interface InstallOperationArgs<
 
 export interface NewExtensionOperationArgs<
   TRef extends ExtensionRef,
-  TMaterialization extends MaterializationFacts,
+  TMaterialization,
   F = never,
   R = never,
 > extends Omit<
@@ -271,7 +274,7 @@ export interface NewExtensionOperationArgs<
 
 export interface AuthoredExtensionOperationArgs<
   TRef extends ExtensionRef,
-  TMaterialization extends MaterializationFacts,
+  TMaterialization,
   F = never,
   R = never,
 > extends Omit<NewExtensionOperationArgs<TRef, TMaterialization, F, R>, "ref"> {
@@ -299,8 +302,8 @@ export interface AuthoredExtensionOperationArgs<
   readonly allowConfiguredSourceTransition?: boolean;
 }
 
-const isConfigured = <TRef extends ExtensionRef, TMaterialization extends MaterializationFacts, R>(
-  manager: ExtensionManager<TRef, TMaterialization, R>,
+const isConfigured = <R>(
+  manager: MaterializationConfiguration<ExtensionManagerFailure, R>,
   target: ExtensionTarget,
 ): Effect.Effect<boolean, ExtensionManagerFailure, R> => {
   if (manager.isConfigured !== undefined) return manager.isConfigured({ target });
@@ -315,13 +318,8 @@ const isConfigured = <TRef extends ExtensionRef, TMaterialization extends Materi
  * resolution before validating the observable postcondition. Pack-derived
  * installs omit the root settings declaration while retaining that resolution.
  */
-const runInstallOperation = <
-  TRef extends ExtensionRef,
-  TMaterialization extends MaterializationFacts,
-  F,
-  R,
->(
-  manager: ExtensionManager<TRef, TMaterialization, R>,
+const runInstallOperation = <TRef extends ExtensionRef, TMaterialization, F, R>(
+  manager: InstallMaterialization<TRef, TMaterialization, ExtensionManagerFailure, R>,
   args: InstallOperationArgs<TRef, TMaterialization, F, R>,
 ): Effect.Effect<JobStepResult, StepFailure, R | RecipeRequirements> =>
   Effect.gen(function* () {
@@ -385,7 +383,9 @@ const runInstallOperation = <
         const resulting = graph.nodes.find(
           (node) => node.type === target.type && node.name === target.name,
         );
-        if (resulting?.enabled === false) yield* manager.materializeDeactivate({ target });
+        if (resulting?.enabled === false && manager.materializeDeactivate !== undefined) {
+          yield* manager.materializeDeactivate({ target });
+        }
         yield* cleanupSupersededCanonical;
         // Desired state and canonical content are committed; render every
         // shared aggregate unit once from the complete contributor set.
@@ -453,11 +453,11 @@ const runInstallOperation = <
  */
 export const buildInstallOperation = <
   TRef extends ExtensionRef,
-  TMaterialization extends MaterializationFacts,
+  TMaterialization,
   F = never,
   R = never,
 >(
-  manager: ExtensionManager<TRef, TMaterialization, R>,
+  manager: InstallMaterialization<TRef, TMaterialization, ExtensionManagerFailure, R>,
   args: InstallOperationArgs<TRef, TMaterialization, F, R>,
 ): PlannedJobStep<R | RecipeRequirements> => {
   const target = targetFromRef(args.ref);
@@ -504,11 +504,11 @@ export const buildInstallOperation = <
  */
 export const buildAuthoredExtensionStep = <
   TRef extends ExtensionRef,
-  TMaterialization extends MaterializationFacts,
+  TMaterialization,
   F = never,
   R = never,
 >(
-  manager: ExtensionManager<TRef, TMaterialization, R>,
+  manager: AuthorMaterialization<TRef, TMaterialization, ExtensionManagerFailure, R>,
   args: AuthoredExtensionOperationArgs<TRef, TMaterialization, F, R>,
 ): PlannedJobStep<R | RecipeRequirements> => {
   const target = args.target;
@@ -559,7 +559,11 @@ export const buildAuthoredExtensionStep = <
             if (args.finalizeAuthored !== undefined) {
               yield* args.finalizeAuthored;
             }
-            if (args.enabled === false && args.materializeWhenDisabled === true) {
+            if (
+              args.enabled === false &&
+              args.materializeWhenDisabled === true &&
+              manager.materializeDeactivate !== undefined
+            ) {
               yield* manager.materializeDeactivate({ target });
             } else if (args.enabled !== false) {
               // Desired state is committed; render shared aggregate units once
@@ -627,11 +631,11 @@ export const buildAuthoredExtensionStep = <
  */
 export const buildNewExtensionStep = <
   TRef extends ExtensionRef,
-  TMaterialization extends MaterializationFacts,
+  TMaterialization,
   F = never,
   R = never,
 >(
-  manager: ExtensionManager<TRef, TMaterialization, R>,
+  manager: AuthorMaterialization<TRef, TMaterialization, ExtensionManagerFailure, R>,
   args: NewExtensionOperationArgs<TRef, TMaterialization, F, R>,
 ): PlannedJobStep<R | RecipeRequirements> => {
   if (args.ref.refType !== "workspace") {
@@ -655,7 +659,7 @@ export const buildNewExtensionStep = <
 
 export interface MaterializeOperationArgs<
   TRef extends ExtensionRef,
-  TMaterialization extends MaterializationFacts,
+  TMaterialization,
   F = never,
   R = never,
 > extends StepFailureAdapter<F> {
@@ -677,13 +681,8 @@ export interface MaterializeOperationArgs<
   readonly message?: string;
 }
 
-const runMaterializeOperation = <
-  TRef extends ExtensionRef,
-  TMaterialization extends MaterializationFacts,
-  F,
-  R,
->(
-  manager: ExtensionManager<TRef, TMaterialization, R>,
+const runMaterializeOperation = <TRef extends ExtensionRef, TMaterialization, F, R>(
+  manager: SynchronizeMaterialization<TRef, TMaterialization, ExtensionManagerFailure, R>,
   args: MaterializeOperationArgs<TRef, TMaterialization, F, R>,
 ): Effect.Effect<JobStepResult, StepFailure, R | RecipeRequirements> =>
   Effect.gen(function* () {
@@ -730,11 +729,11 @@ const runMaterializeOperation = <
 
 export const buildMaterializeOperation = <
   TRef extends ExtensionRef,
-  TMaterialization extends MaterializationFacts,
+  TMaterialization,
   F = never,
   R = never,
 >(
-  manager: ExtensionManager<TRef, TMaterialization, R>,
+  manager: SynchronizeMaterialization<TRef, TMaterialization, ExtensionManagerFailure, R>,
   args: MaterializeOperationArgs<TRef, TMaterialization, F, R>,
 ): PlannedJobStep<R | RecipeRequirements> => {
   const target = targetFromRef(args.ref);
@@ -754,13 +753,13 @@ export const buildMaterializeOperation = <
 // -----------------------------------------------------------------------------
 
 export interface UninstallOperationArgs<
-  TRef extends ExtensionRef,
-  TMaterialization extends MaterializationFacts,
+  TTarget extends ExtensionTarget,
+  TMaterialization,
   F = never,
   R = never,
 > extends StepFailureAdapter<F> {
   readonly artifact?: JobStepArtifact;
-  readonly target: ExtensionTargetFor<TRef>;
+  readonly target: TTarget;
   /** Aggregate projections owned by the enclosing removal closure. */
   readonly enclosingClosure?: { readonly projections: ReadonlyArray<ExtensionRef["type"]> };
   /**
@@ -830,14 +829,13 @@ const unreadablePackageWarning = (
 ): string =>
   `${toLabel(target)}: its package manifest ${retirement.reason === "missing" ? "is missing" : "cannot be read"} at ${retirement.manifestPath}, so AXM removed its configuration entry and accepted resolution and left its package content in place. Delete that content yourself once you no longer need it.`;
 
-const retireMaterialization = <
-  TRef extends ExtensionRef,
-  TMaterialization extends MaterializationFacts,
-  R,
->(
-  manager: ExtensionManager<TRef, TMaterialization, R>,
+const retireMaterialization = <TTarget extends ExtensionTarget, TMaterialization, R>(
+  manager: Pick<
+    UninstallMaterialization<TTarget, TMaterialization, ExtensionManagerFailure, R>,
+    "withdrawnResolutionKeys"
+  >,
   args: {
-    readonly target: ExtensionTargetFor<TRef>;
+    readonly target: TTarget;
     readonly materialization: Option.Option<TMaterialization>;
   },
 ) =>
@@ -858,15 +856,10 @@ const retireMaterialization = <
  *   2. Remove lockfile entry
  *   3. Remove settings entry
  */
-const runUninstallOperation = <
-  TRef extends ExtensionRef,
-  TMaterialization extends MaterializationFacts,
-  F,
-  R,
->(
-  manager: ExtensionManager<TRef, TMaterialization, R>,
+const runUninstallOperation = <TTarget extends ExtensionTarget, TMaterialization, F, R>(
+  manager: UninstallMaterialization<TTarget, TMaterialization, ExtensionManagerFailure, R>,
   retentionPolicy: UninstallRetentionPolicy<F, R>,
-  args: UninstallOperationArgs<TRef, TMaterialization, F, R>,
+  args: UninstallOperationArgs<TTarget, TMaterialization, F, R>,
 ): Effect.Effect<JobStepResult, StepFailure, R | RecipeRequirements> =>
   Effect.gen(function* () {
     const configuredSource =
@@ -1037,14 +1030,14 @@ const runUninstallOperation = <
  * `run` effect; the command boundary composes them once.
  */
 export const buildUninstallOperation = <
-  TRef extends ExtensionRef,
-  TMaterialization extends MaterializationFacts,
+  TTarget extends ExtensionTarget,
+  TMaterialization,
   F = never,
   R = never,
 >(
-  manager: ExtensionManager<TRef, TMaterialization, R>,
+  manager: UninstallMaterialization<TTarget, TMaterialization, ExtensionManagerFailure, R>,
   retentionPolicy: UninstallRetentionPolicy<F, R>,
-  args: UninstallOperationArgs<TRef, TMaterialization, F, R>,
+  args: UninstallOperationArgs<TTarget, TMaterialization, F, R>,
 ): PlannedJobStep<R | RecipeRequirements> => {
   return {
     label: toLabel(args.target),

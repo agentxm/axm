@@ -228,3 +228,12 @@ export {
   type AugmentedPlanResult,
   type DegradedLockfileState,
 } from "./operations/augment-plan.js";
+
+export type {
+  AuthorMaterialization,
+  InstallMaterialization,
+  MaterializationConfiguration,
+  MaterializationProjection,
+  SynchronizeMaterialization,
+  UninstallMaterialization,
+} from "./materialization-ports.js";

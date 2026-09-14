@@ -1,3 +1,4 @@
+import type { AuthorMaterialization } from "@agentxm/workspace-operations";
 /**
  * Forking a managed AXM package into workspace authorship.
  *
@@ -37,9 +38,8 @@ import {
   copyExtensionDirectory,
   createCanonicalDirectory,
   recoverCanonicalDirectory,
-  type ExtensionManager,
+  type ExtensionManagerFailure,
   type ManagerRequirements,
-  type MaterializationFacts,
 } from "@agentxm/extension-materialization";
 import { materializeAuthoredMcpServer } from "@agentxm/workspace-reconciliation";
 import {
@@ -260,8 +260,8 @@ const selectPackage = (
  * in `R`, so the workspace facade and the credential store stay requirements
  * rather than captured values.
  */
-const forkStep = <TRef extends ExtensionRef, TFacts extends MaterializationFacts>(
-  manager: ExtensionManager<TRef, TFacts, ManagerRequirements>,
+const forkStep = <TRef extends ExtensionRef, TFacts>(
+  manager: AuthorMaterialization<TRef, TFacts, ExtensionManagerFailure, ManagerRequirements>,
   args: AuthoredExtensionOperationArgs<
     TRef,
     TFacts,

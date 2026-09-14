@@ -3,7 +3,7 @@ import { LifecyclePostconditionViolated } from "../extensions/errors.js";
 /**
  * Subagent extension manager service.
  *
- * Implements ExtensionManager<SubagentExtensionRef> with canonical source
+ * Implements Subagent materialization with canonical source
  * materialization, per-agent rendering via CodingAgent.addSubagent(),
  * and source-hash-based skip logic.
  *
@@ -21,7 +21,7 @@ import type {
   SubagentExtensionRef,
   RegistrySubagentRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
-import type { ExtensionManager, ManagerRequirements } from "../manager-contract.js";
+import type { ManagerRequirements } from "../manager-contract.js";
 import type { SubagentMaterializationFacts } from "../managers.js";
 import type { ExtensionManagerFailure } from "../errors.js";
 import type { SubagentPathSource } from "@agentxm/workspace-state";
@@ -428,14 +428,9 @@ export const SubagentManagerLive = Layer.effect(
         }
       });
 
-    const materializeInstall: ExtensionManager<
-      SubagentExtensionRef,
-      SubagentMaterializationFacts,
-      ManagerRequirements
-    >["materializeInstall"] = Effect.fn("SubagentManager.materializeInstall")(function* ({
-      ref,
-      force,
-    }) {
+    const materializeInstall: SubagentManagerService["materializeInstall"] = Effect.fn(
+      "SubagentManager.materializeInstall",
+    )(function* ({ ref, force }) {
       const { sanitized, paths } = getCanonicalPaths(ref);
       const { canonicalPath, subagentSrcPath } = paths;
 
@@ -615,11 +610,7 @@ export const SubagentManagerLive = Layer.effect(
 
     const makeMaterializeRemoval = (
       retainCanonical: boolean,
-    ): ExtensionManager<
-      SubagentExtensionRef,
-      SubagentMaterializationFacts,
-      ManagerRequirements
-    >["materializeUninstall"] =>
+    ): SubagentManagerService["materializeUninstall"] =>
       Effect.fn("SubagentManager.materializeRemoval")(function* ({ target }) {
         const sanitized = sanitizeName(target.name);
 
@@ -883,7 +874,6 @@ export const SubagentManagerLive = Layer.effect(
     });
 
     return {
-      type: "subagent",
       projectionObservation,
       isInstalled: Effect.fn("SubagentManager.isInstalled")(function* ({
         target,

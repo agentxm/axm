@@ -1,3 +1,4 @@
+import type { HookManagerService } from "../managers.js";
 import { usableAcceptedCanonical } from "@agentxm/workspace-state";
 import { LifecyclePostconditionViolated } from "../extensions/errors.js";
 /**
@@ -74,7 +75,6 @@ import {
 } from "@agentxm/extension-model/unstable/path-types";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { usableAcceptedCanonicalRef } from "@agentxm/workspace-state";
-import type { ExtensionManager, ManagerRequirements } from "../manager-contract.js";
 import { NO_MATERIALIZATION_OBSERVATION } from "../manager-contract.js";
 import type { HookMaterializationFacts } from "../managers.js";
 import { HookManager } from "../managers.js";
@@ -1076,11 +1076,9 @@ export const HookManagerLive = Layer.effect(
     const projectionPlans = () => makeHookProjectionPlans();
     const applyHookProjections = projectionPlans().pipe(Effect.flatMap(applyProjectionPlans));
 
-    const materializeInstall: ExtensionManager<
-      HookExtensionRef,
-      HookMaterializationFacts,
-      ManagerRequirements
-    >["materializeInstall"] = Effect.fn("HookManager.materializeInstall")(function* ({ ref }) {
+    const materializeInstall: HookManagerService["materializeInstall"] = Effect.fn(
+      "HookManager.materializeInstall",
+    )(function* ({ ref }) {
       const materialized = yield* materializePackage(ref);
       const packageRoot = materialized.packageRoot;
       yield* readManifest(packageRoot);
@@ -1158,13 +1156,9 @@ export const HookManagerLive = Layer.effect(
       treeIntegrity: Option.none(),
       acquired: Option.none(),
     };
-    const materializeUninstall: ExtensionManager<
-      HookExtensionRef,
-      HookMaterializationFacts,
-      ManagerRequirements
-    >["materializeUninstall"] = Effect.fn("HookManager.materializeUninstall")(function* ({
-      target,
-    }) {
+    const materializeUninstall: HookManagerService["materializeUninstall"] = Effect.fn(
+      "HookManager.materializeUninstall",
+    )(function* ({ target }) {
       const canonical = yield* provide(
         acceptedCanonicalObservation({
           workspace: ws,
@@ -1189,16 +1183,11 @@ export const HookManagerLive = Layer.effect(
     });
     // Deactivation retains canonical content; the caller updates settings
     // first, so re-rendering the whole unit set drops this hook's entries.
-    const materializeDeactivate: ExtensionManager<
-      HookExtensionRef,
-      HookMaterializationFacts,
-      ManagerRequirements
-    >["materializeDeactivate"] = Effect.fn("HookManager.materializeDeactivate")(() =>
-      applyHookProjections.pipe(Effect.as(withdrawn)),
-    );
+    const materializeDeactivate: HookManagerService["materializeDeactivate"] = Effect.fn(
+      "HookManager.materializeDeactivate",
+    )(() => applyHookProjections.pipe(Effect.as(withdrawn)));
 
     return {
-      type: "hook",
       projectionPlans,
       prepareProjection,
       aggregateProjectionObservation: Ref.get(lastProjection),

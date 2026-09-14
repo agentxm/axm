@@ -36,7 +36,6 @@ import {
   type SourceResolutionFailure,
 } from "@agentxm/extension-sources";
 import {
-  ExtensionManagers,
   HookManager,
   SkillManager,
   RuleManager,
@@ -209,7 +208,6 @@ export type SetActivationFailure =
 export type SetActivationRequirements =
   | CodingAgentRepository
   | ConfiguredAgentOutcomesProvider
-  | ExtensionManagers
   | HookManager
   | SkillManager
   | RuleManager
@@ -365,7 +363,6 @@ const settleActivation = (
   ActivationRealization | ActivationUnchanged,
   SetActivationFailure,
   | CodingAgentRepository
-  | ExtensionManagers
   | HookManager
   | SkillManager
   | RuleManager
@@ -511,21 +508,25 @@ const settleActivation = (
                 blocked: Option.none<ExtensionLifecycleFailed>(),
               };
         const entry = settingsEntries["mcp-server"].entry(proposal.settings, name);
-        const managers = yield* ExtensionManagers;
-        const agentOutcomes =
-          request.type === "mcp-server" && request.enabled && Option.isSome(entry)
-            ? yield* managers["mcp-server"].configuredAgentOutcomesForEntry({
-                name,
-                entry: entry.value,
-                state: "projected",
-              })
-            : request.type === "hook" &&
-                request.enabled &&
-                managers.hook.configuredAgentOutcomes !== undefined
-              ? (yield* managers.hook.configuredAgentOutcomes("projected", proposal.after)).filter(
-                  (outcome) => outcome.name === name,
-                )
-              : [];
+        const agentOutcomes = yield* Effect.gen(function* () {
+          if (request.type === "mcp-server" && request.enabled && Option.isSome(entry)) {
+            const mcp = yield* McpServerManager;
+            return yield* mcp.configuredAgentOutcomesForEntry({
+              name,
+              entry: entry.value,
+              state: "projected",
+            });
+          }
+          if (request.type === "hook" && request.enabled) {
+            const hook = yield* HookManager;
+            if (hook.configuredAgentOutcomes !== undefined) {
+              return (yield* hook.configuredAgentOutcomes("projected", proposal.after)).filter(
+                (outcome) => outcome.name === name,
+              );
+            }
+          }
+          return [];
+        });
         return {
           _tag: "SetActivation",
           type: request.type,
@@ -715,7 +716,6 @@ const dematerializeMember = (
   void,
   LifecycleFailure,
   | CodingAgentRepository
-  | ExtensionManagers
   | HookManager
   | SkillManager
   | RuleManager
@@ -731,11 +731,10 @@ const dematerializeMember = (
     const ws = yield* WorkspaceMutations;
     const path = yield* Path.Path;
     const agentRepo = yield* CodingAgentRepository;
-    const managers = yield* ExtensionManagers;
 
     switch (node.type) {
       case "skill":
-        return yield* managers.skill.materializeDeactivate({
+        return yield* (yield* SkillManager).materializeDeactivate({
           target: { type: "skill", name: node.name },
         });
       case "mcp-server": {
@@ -825,14 +824,13 @@ const reconcileAggregateProjections = (
 ): Effect.Effect<
   ReadonlyArray<string>,
   ExtensionManagerFailure,
-  ExtensionManagers | ManagerRequirements | WorkspaceMutations
+  RuleManager | HookManager | KnowledgeManager | ManagerRequirements | WorkspaceMutations
 > =>
   Effect.gen(function* () {
-    const managers = yield* ExtensionManagers;
     const plans: Array<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>> = [];
-    if (types.has("rule")) plans.push(...(yield* managers.rule.projectionPlans()));
-    if (types.has("hook")) plans.push(...(yield* managers.hook.projectionPlans()));
-    if (types.has("knowledge")) plans.push(...(yield* managers.knowledge.projectionPlans()));
+    if (types.has("rule")) plans.push(...(yield* (yield* RuleManager).projectionPlans()));
+    if (types.has("hook")) plans.push(...(yield* (yield* HookManager).projectionPlans()));
+    if (types.has("knowledge")) plans.push(...(yield* (yield* KnowledgeManager).projectionPlans()));
     yield* applyProjectionPlans(plans);
     return projectionPlanExclusionWarnings(plans);
   });
@@ -881,7 +879,6 @@ const validatePackActivation = (candidate: {
 /** Services the transaction-scoped transitions need while they run. */
 type TransitionRequirements =
   | CodingAgentRepository
-  | ExtensionManagers
   | HookManager
   | SkillManager
   | RuleManager

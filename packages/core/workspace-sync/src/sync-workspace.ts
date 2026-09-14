@@ -25,7 +25,6 @@ import {
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 import type {
-  ExtensionManagers,
   HookManager,
   PackManager,
   McpServerManager,
@@ -94,11 +93,9 @@ import {
 export type SyncWorkspaceRequirements =
   | ConfiguredAgentOutcomesProvider
   | ConfiguredEntryResolutionRequirements
-  | ExtensionManagers
   | FootprintRecorder
   | HookManager
   | PackManager
-  | McpServerManager
   | LockfileReader
   | KnowledgeManager
   | McpServerManager

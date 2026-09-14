@@ -28,7 +28,13 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
 import {
-  ExtensionManagers,
+  SkillManager,
+  SubagentManager,
+  RuleManager,
+  HookManager,
+  KnowledgeManager,
+  McpServerManager,
+  PackManager,
   McpSecretStore,
   type ExtensionManager,
   type ManagerRequirements,
@@ -160,7 +166,13 @@ export type PrepareAdoptExtensionRequirements =
   | HttpClient.HttpClient
   | WorkspaceMutations
   | LockfileReader
-  | ExtensionManagers
+  | SkillManager
+  | SubagentManager
+  | RuleManager
+  | HookManager
+  | KnowledgeManager
+  | McpServerManager
+  | PackManager
   | ConfiguredAgentOutcomesProvider;
 
 /**
@@ -198,7 +210,7 @@ export const prepareAdoptExtension: (
   const ws = yield* WorkspaceMutations;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const managers = yield* ExtensionManagers;
+
   const locks = yield* LockfileReader;
 
   const parsed = yield* Effect.fromResult(parseFqn(request.fqn));
@@ -368,32 +380,35 @@ export const prepareAdoptExtension: (
           ),
         };
 
-  const step = (() => {
+  const step = yield* Effect.gen(function* () {
     switch (parsed.type) {
       case "skill":
-        return adoptStep(managers.skill, { ...common, target: { type: "skill", name } });
+        return adoptStep(yield* SkillManager, { ...common, target: { type: "skill", name } });
       case "subagent":
-        return adoptStep(managers.subagent, { ...common, target: { type: "subagent", name } });
+        return adoptStep(yield* SubagentManager, { ...common, target: { type: "subagent", name } });
       case "rule":
-        return adoptStep(managers.rule, { ...common, target: { type: "rule", name } });
+        return adoptStep(yield* RuleManager, { ...common, target: { type: "rule", name } });
       case "hook":
-        return adoptStep(managers.hook, { ...common, target: { type: "hook", name } });
+        return adoptStep(yield* HookManager, { ...common, target: { type: "hook", name } });
       case "knowledge":
-        return adoptStep(managers.knowledge, { ...common, target: { type: "knowledge", name } });
+        return adoptStep(yield* KnowledgeManager, {
+          ...common,
+          target: { type: "knowledge", name },
+        });
       case "pack":
-        return adoptStep(managers.pack, {
+        return adoptStep(yield* PackManager, {
           ...common,
           target: { type: "pack", owner: parsed.owner, name },
         });
       case "mcp-server":
-        return adoptStep(managers["mcp-server"], {
+        return adoptStep(yield* McpServerManager, {
           ...common,
           target: { type: "mcp-server", name },
           materializeInstall: (ref) =>
             materializeAuthoredMcpServer({ ref, nonInteractive: request.nonInteractive }),
         });
     }
-  })();
+  });
 
   const plan: Plan<AdoptExtensionRequirements> = {
     _tag: "Plan",

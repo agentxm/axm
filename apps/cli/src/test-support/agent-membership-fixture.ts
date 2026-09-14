@@ -26,7 +26,6 @@ import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/o
 
 import {
   CodingAgentRepositoryLive,
-  ExtensionManagersLive,
   HookManagerLive,
   KnowledgeManagerLive,
   McpServerManagerLive,
@@ -131,8 +130,7 @@ export const makeAgentMembershipFixture = (options: AgentMembershipFixtureOption
     KnowledgeManagerLive,
   );
   const extensionsLayer = Layer.provideMerge(PackManagerLive, coreExtensions);
-  const managedExtensionsLayer = Layer.provideMerge(ExtensionManagersLive, extensionsLayer);
-  const fullLayer = Layer.provideMerge(managedExtensionsLayer, workspaceServiceLayer);
+  const fullLayer = Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
   const composed = Layer.mergeAll(
     fullLayer,
     Layer.provide(workspaceInvariantFactsLive, fullLayer),

@@ -22,7 +22,15 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import { ExtensionManagers } from "@agentxm/extension-materialization";
+import {
+  SkillManager,
+  SubagentManager,
+  RuleManager,
+  HookManager,
+  KnowledgeManager,
+  McpServerManager,
+  PackManager,
+} from "@agentxm/extension-materialization";
 import { buildInstallOperation } from "@agentxm/workspace-reconciliation";
 import {
   formatFqn,
@@ -191,7 +199,6 @@ const replacementStep = Effect.fn("Demote.replacementStep")(function* (
   name: string,
   source: string,
 ) {
-  const managers = yield* ExtensionManagers;
   const evaluation = yield* makeConfiguredReleaseAgeEvaluation();
   // The one place source authority is deliberately overridden.
   const common = {
@@ -203,7 +210,7 @@ const replacementStep = Effect.fn("Demote.replacementStep")(function* (
     case "skill":
       return yield* Effect.gen(function* () {
         const resolved = yield* resolveConfiguredSkill(name, source, evaluation);
-        return buildInstallOperation(managers.skill, {
+        return buildInstallOperation(yield* SkillManager, {
           ...common,
           ...resolved,
           declaration: { name, versionRange: resolved.versionRange },
@@ -212,7 +219,7 @@ const replacementStep = Effect.fn("Demote.replacementStep")(function* (
     case "mcp-server":
       return yield* Effect.gen(function* () {
         const resolved = yield* resolveConfiguredMcpServer(name, source, evaluation);
-        return buildInstallOperation(managers["mcp-server"], {
+        return buildInstallOperation(yield* McpServerManager, {
           ...common,
           ...resolved,
           declaration: { name, versionRange: resolved.versionRange },
@@ -221,7 +228,7 @@ const replacementStep = Effect.fn("Demote.replacementStep")(function* (
     case "subagent":
       return yield* Effect.gen(function* () {
         const resolved = yield* resolveConfiguredSubagent(name, source, evaluation);
-        return buildInstallOperation(managers.subagent, {
+        return buildInstallOperation(yield* SubagentManager, {
           ...common,
           ...resolved,
           declaration: { name, versionRange: resolved.versionRange },
@@ -230,7 +237,7 @@ const replacementStep = Effect.fn("Demote.replacementStep")(function* (
     case "rule":
       return yield* Effect.gen(function* () {
         const resolved = yield* resolveConfiguredRule(name, source, evaluation);
-        return buildInstallOperation(managers.rule, {
+        return buildInstallOperation(yield* RuleManager, {
           ...common,
           ...resolved,
           declaration: { name, versionRange: resolved.versionRange },
@@ -239,7 +246,7 @@ const replacementStep = Effect.fn("Demote.replacementStep")(function* (
     case "hook":
       return yield* Effect.gen(function* () {
         const resolved = yield* resolveConfiguredHook(name, source, evaluation);
-        return buildInstallOperation(managers.hook, {
+        return buildInstallOperation(yield* HookManager, {
           ...common,
           ...resolved,
           declaration: { name, versionRange: resolved.versionRange },
@@ -248,7 +255,7 @@ const replacementStep = Effect.fn("Demote.replacementStep")(function* (
     case "knowledge":
       return yield* Effect.gen(function* () {
         const resolved = yield* resolveConfiguredKnowledge(name, source, evaluation);
-        return buildInstallOperation(managers.knowledge, {
+        return buildInstallOperation(yield* KnowledgeManager, {
           ...common,
           ...resolved,
           declaration: { name, versionRange: resolved.versionRange },
@@ -257,7 +264,7 @@ const replacementStep = Effect.fn("Demote.replacementStep")(function* (
     case "pack":
       return yield* Effect.gen(function* () {
         const resolved = yield* resolveConfiguredPack(name, source, evaluation);
-        return buildInstallOperation(managers.pack, {
+        return buildInstallOperation(yield* PackManager, {
           ...common,
           ...resolved,
           declaration: { name, versionRange: resolved.versionRange },

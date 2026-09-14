@@ -58,10 +58,7 @@ import {
   SkillManagerLive,
   SubagentManagerLive,
 } from "@agentxm/extension-materialization/live";
-import {
-  ExtensionManagersLive,
-  ProjectionParticipantsLive,
-} from "@agentxm/extension-materialization/live";
+import { ProjectionParticipantsLive } from "@agentxm/extension-materialization/live";
 import { KnowledgeIndexLive } from "@agentxm/knowledge-query/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-projection/live";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
@@ -411,8 +408,7 @@ const makeWorkspaceProgramLayer = (
     KnowledgeIndexLive,
   );
   const extensionsLayer = Layer.provideMerge(PackManagerLive, coreExtensions);
-  const managedExtensionsLayer = Layer.provideMerge(ExtensionManagersLive, extensionsLayer);
-  const fullLayer = Layer.provideMerge(managedExtensionsLayer, workspaceServiceLayer);
+  const fullLayer = Layer.provideMerge(extensionsLayer, workspaceServiceLayer);
   const participantsLayer = Layer.provide(ProjectionParticipantsLive, fullLayer);
   const invariantFactsLayer = Layer.provide(
     WorkspaceInvariantFactsLive,

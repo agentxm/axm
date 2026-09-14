@@ -25,8 +25,12 @@ import * as Path from "effect/Path";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions/fqn";
 import {
-  ExtensionManagers,
-  type ExtensionManagersService,
+  SkillManager,
+  SubagentManager,
+  RuleManager,
+  HookManager,
+  KnowledgeManager,
+  PackManager,
 } from "@agentxm/extension-materialization";
 import { installMcpServer, type McpServerInstallRequirements } from "./mcps/install-operation.js";
 import { buildInstallOperation, targetFromRef } from "./extensions/operations.js";
@@ -82,48 +86,52 @@ const RECOVERABLE_DEPENDENCY_TYPES = [
 const recoveryStep = (args: {
   readonly ref: ExtensionRef;
   readonly isPack: boolean;
-  readonly managers: ExtensionManagersService;
   readonly adapter: SyncFailureAdapter;
-}): PlannedJobStep<SyncStepRequirements | McpServerInstallRequirements> => {
-  const { ref, isPack, managers, adapter } = args;
-  // Members are acquired without touching settings: recovery restores what the
-  // Pack already declares, and must not change what the operator configured.
-  // Only the Pack package is re-acquired unconditionally — its manifest is the
-  // thing that diverged; a member whose accepted content is still usable is
-  // reused rather than fetched again.
-  const common = {
-    toStepFailure: adapter.toStepFailure,
-    force: isPack,
-    enclosingClosure: { projections: [ref.type], postconditions: [ref.type] },
-  } as const;
-  switch (ref.type) {
-    case "pack":
-      return buildInstallOperation(managers.pack, { ...common, ref });
-    case "skill":
-      return buildInstallOperation(managers.skill, { ...common, ref });
-    case "subagent":
-      return buildInstallOperation(managers.subagent, { ...common, ref });
-    case "rule":
-      return buildInstallOperation(managers.rule, { ...common, ref });
-    case "hook":
-      return buildInstallOperation(managers.hook, { ...common, ref });
-    case "knowledge":
-      return buildInstallOperation(managers.knowledge, { ...common, ref });
-    case "mcp-server":
-      return {
-        label: ref.server.name,
-        readiness: "ready",
-        run: installMcpServer({
-          name: "install-mcp-server",
-          args: {
-            ref,
-            nonInteractive: true,
-            force: true,
-          },
-        }).pipe(Effect.mapError(adapter.toStepFailure)),
-      };
-  }
-};
+}): Effect.Effect<
+  PlannedJobStep<SyncStepRequirements | McpServerInstallRequirements>,
+  never,
+  SkillManager | SubagentManager | RuleManager | HookManager | KnowledgeManager | PackManager
+> =>
+  Effect.gen(function* () {
+    const { ref, isPack, adapter } = args;
+    // Members are acquired without touching settings: recovery restores what the
+    // Pack already declares, and must not change what the operator configured.
+    // Only the Pack package is re-acquired unconditionally — its manifest is the
+    // thing that diverged; a member whose accepted content is still usable is
+    // reused rather than fetched again.
+    const common = {
+      toStepFailure: adapter.toStepFailure,
+      force: isPack,
+      enclosingClosure: { projections: [ref.type], postconditions: [ref.type] },
+    } as const;
+    switch (ref.type) {
+      case "pack":
+        return buildInstallOperation(yield* PackManager, { ...common, ref });
+      case "skill":
+        return buildInstallOperation(yield* SkillManager, { ...common, ref });
+      case "subagent":
+        return buildInstallOperation(yield* SubagentManager, { ...common, ref });
+      case "rule":
+        return buildInstallOperation(yield* RuleManager, { ...common, ref });
+      case "hook":
+        return buildInstallOperation(yield* HookManager, { ...common, ref });
+      case "knowledge":
+        return buildInstallOperation(yield* KnowledgeManager, { ...common, ref });
+      case "mcp-server":
+        return {
+          label: ref.server.name,
+          readiness: "ready",
+          run: installMcpServer({
+            name: "install-mcp-server",
+            args: {
+              ref,
+              nonInteractive: true,
+              force: true,
+            },
+          }).pipe(Effect.mapError(adapter.toStepFailure)),
+        };
+    }
+  });
 
 /**
  * Plan the recovery of every configured Pack the selection's problems name as
@@ -136,7 +144,14 @@ export const collectConfiguredPackRecovery = (args: {
 }): Effect.Effect<
   ConfiguredPackRecovery | undefined,
   SyncPolicyFailure,
-  ConfiguredEntryResolutionRequirements | ExtensionManagers | McpServerInstallRequirements
+  | ConfiguredEntryResolutionRequirements
+  | SkillManager
+  | SubagentManager
+  | RuleManager
+  | HookManager
+  | KnowledgeManager
+  | PackManager
+  | McpServerInstallRequirements
 > =>
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
@@ -152,7 +167,6 @@ export const collectConfiguredPackRecovery = (args: {
     );
     if (packNames.size === 0) return undefined;
 
-    const managers = yield* ExtensionManagers;
     const sources = yield* SourceHostProviders;
     const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation();
     const configured = yield* ws.getConfiguredPackEntries();
@@ -216,12 +230,12 @@ export const collectConfiguredPackRecovery = (args: {
             stepProblems.length === 0 ? recoveryProblems : stepProblems,
           )})`;
           const packStep = {
-            ...recoveryStep({ ref: packRef, isPack: true, managers, adapter: args.adapter }),
+            ...(yield* recoveryStep({ ref: packRef, isPack: true, adapter: args.adapter })),
             key: `${SYNC_RECOVERY_IDS.packManifestDivergence}:${name}`,
             label,
           };
-          const memberSteps = memberRefs.map((ref) =>
-            recoveryStep({ ref, isPack: false, managers, adapter: args.adapter }),
+          const memberSteps = yield* Effect.forEach(memberRefs, (ref) =>
+            recoveryStep({ ref, isPack: false, adapter: args.adapter }),
           );
           return {
             steps: [

@@ -60,7 +60,6 @@ import { workspaceInvariantFactsLive } from "./workspace-invariant-facts-live.js
 export { KnowledgeIndexLive };
 export { ConfiguredAgentOutcomesProviderLive } from "@agentxm/extension-lifecycle/live";
 import {
-  ExtensionManagersLive,
   HookManagerLive,
   KnowledgeManagerLive,
   McpSecretStoreLive,
@@ -71,7 +70,6 @@ import {
   SubagentManagerLive,
 } from "@agentxm/extension-materialization/live";
 export {
-  ExtensionManagersLive,
   HookManagerLive,
   KnowledgeManagerLive,
   McpServerManagerLive,
@@ -750,23 +748,18 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
 };
 
 /**
- * Every per-type manager and the registry a use case resolves them through,
- * composed the way the runtime composes them. A handler test that drives a
- * use case which decides its extension type at runtime provides this over its
- * workspace layer instead of naming one manager.
+ * Individual per-kind services composed as they are in the runtime. Tests of
+ * workflows that dispatch across kinds provide this over their workspace layer.
  */
 export const AllExtensionManagersLive = Layer.provideMerge(
-  ExtensionManagersLive,
-  Layer.provideMerge(
-    PackManagerLive,
-    Layer.mergeAll(
-      SkillManagerLive,
-      SubagentManagerLive,
-      RuleManagerLive,
-      HookManagerLive,
-      KnowledgeManagerLive,
-      McpServerManagerLive,
-    ),
+  PackManagerLive,
+  Layer.mergeAll(
+    SkillManagerLive,
+    SubagentManagerLive,
+    RuleManagerLive,
+    HookManagerLive,
+    KnowledgeManagerLive,
+    McpServerManagerLive,
   ),
 );
 

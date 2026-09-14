@@ -14,11 +14,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
-import {
-  ExtensionManagersLive,
-  HookManagerLive,
-  McpSecretStoreLive,
-} from "@agentxm/extension-materialization/live";
+import { HookManagerLive, McpSecretStoreLive } from "@agentxm/extension-materialization/live";
 import { ProjectionParticipantsLive } from "@agentxm/extension-materialization/live";
 import { KnowledgeManagerLive } from "@agentxm/extension-materialization/live";
 import { McpServerManagerLive } from "@agentxm/extension-materialization/live";
@@ -652,10 +648,6 @@ describe("root sync handler", { timeout: 15_000 }, () => {
       PackManagerLive,
       Layer.mergeAll(managerDependencies, managersLayer),
     );
-    const extensionManagersLayer = Layer.provide(
-      ExtensionManagersLive,
-      Layer.mergeAll(managerDependencies, managersLayer, packManagerLayer),
-    );
     const invariantFactsLayer = Layer.provide(
       Layer.provide(WorkspaceInvariantFactsLive, ProjectionParticipantsLive),
       Layer.mergeAll(managerDependencies, managersLayer),
@@ -672,7 +664,6 @@ describe("root sync handler", { timeout: 15_000 }, () => {
           McpSecretStoreLive,
           managersLayer,
           packManagerLayer,
-          extensionManagersLayer,
           invariantFactsLayer,
         ),
       ),

@@ -26,7 +26,13 @@ import * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 
 import {
-  ExtensionManagers,
+  SkillManager,
+  SubagentManager,
+  RuleManager,
+  HookManager,
+  KnowledgeManager,
+  McpServerManager,
+  PackManager,
   McpSecretStore,
   copyExtensionDirectory,
   createCanonicalDirectory,
@@ -177,7 +183,13 @@ export type PrepareForkExtensionRequirements =
   | Scope.Scope
   | HttpClient.HttpClient
   | WorkspaceMutations
-  | ExtensionManagers
+  | SkillManager
+  | SubagentManager
+  | RuleManager
+  | HookManager
+  | KnowledgeManager
+  | McpServerManager
+  | PackManager
   | SourceHostProviders
   | WorkspaceCatalog
   | ConfiguredAgentOutcomesProvider;
@@ -277,7 +289,7 @@ export const prepareForkExtension: (
     const ws = yield* WorkspaceMutations;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const managers = yield* ExtensionManagers;
+
     const providers = yield* SourceHostProviders;
 
     const target = yield* Effect.fromResult(parseFqn(request.target));
@@ -403,32 +415,38 @@ export const prepareForkExtension: (
       }).pipe(Effect.asVoid),
     } as const;
 
-    const step = (() => {
+    const step = yield* Effect.gen(function* () {
       switch (target.type) {
         case "skill":
-          return forkStep(managers.skill, { ...common, target: { type: "skill", name } });
+          return forkStep(yield* SkillManager, { ...common, target: { type: "skill", name } });
         case "subagent":
-          return forkStep(managers.subagent, { ...common, target: { type: "subagent", name } });
+          return forkStep(yield* SubagentManager, {
+            ...common,
+            target: { type: "subagent", name },
+          });
         case "rule":
-          return forkStep(managers.rule, { ...common, target: { type: "rule", name } });
+          return forkStep(yield* RuleManager, { ...common, target: { type: "rule", name } });
         case "hook":
-          return forkStep(managers.hook, { ...common, target: { type: "hook", name } });
+          return forkStep(yield* HookManager, { ...common, target: { type: "hook", name } });
         case "knowledge":
-          return forkStep(managers.knowledge, { ...common, target: { type: "knowledge", name } });
+          return forkStep(yield* KnowledgeManager, {
+            ...common,
+            target: { type: "knowledge", name },
+          });
         case "pack":
-          return forkStep(managers.pack, {
+          return forkStep(yield* PackManager, {
             ...common,
             target: { type: "pack", owner: target.owner, name },
           });
         case "mcp-server":
-          return forkStep(managers["mcp-server"], {
+          return forkStep(yield* McpServerManager, {
             ...common,
             target: { type: "mcp-server", name },
             materializeInstall: (ref) =>
               materializeAuthoredMcpServer({ ref, nonInteractive: request.nonInteractive }),
           });
       }
-    })();
+    });
 
     const plan: Plan<ForkExtensionRequirements> = {
       _tag: "Plan",

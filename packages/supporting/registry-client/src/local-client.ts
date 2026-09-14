@@ -250,6 +250,40 @@ const makeLocalPublishCondition = (args: {
 // Helpers
 // -----------------------------------------------------------------------------
 
+const registryPathExists = (
+  fs: FileSystem.FileSystem,
+  filePath: string,
+): Effect.Effect<boolean, RegistryClientFailure> =>
+  // FileSystem.exists already distinguishes NotFound from other platform failures.
+  fs.exists(filePath).pipe(
+    Effect.mapError(
+      (cause) =>
+        new RegistryOperationFailed({
+          category: "internal",
+          detail: `Failed to inspect registry path: ${filePath}`,
+          cause,
+        }),
+    ),
+  );
+
+const readRegistryDirectory = (
+  fs: FileSystem.FileSystem,
+  directory: string,
+): Effect.Effect<ReadonlyArray<string>, RegistryClientFailure> =>
+  fs.readDirectory(directory).pipe(
+    Effect.catchTag("PlatformError", (cause) =>
+      cause.reason._tag === "NotFound" ? Effect.succeed([]) : Effect.fail(cause),
+    ),
+    Effect.mapError(
+      (cause) =>
+        new RegistryOperationFailed({
+          category: "internal",
+          detail: `Failed to read registry directory: ${directory}`,
+          cause,
+        }),
+    ),
+  );
+
 const readExtensionIndex = (
   fs: FileSystem.FileSystem,
   idxPath: string,
@@ -386,7 +420,7 @@ const processNameDir = (
   Effect.gen(function* () {
     const dir = path.join(typeDir, nameDir);
     const idxPath = path.join(dir, "index.json");
-    const idxExists = yield* fs.exists(idxPath).pipe(Effect.orElseSucceed(() => false));
+    const idxExists = yield* registryPathExists(fs, idxPath);
     if (!idxExists) return Option.none();
 
     const index = yield* readExtensionIndex(fs, idxPath);
@@ -454,9 +488,7 @@ const scanAllExtensions = (
   extensionsRoot: string,
 ): Effect.Effect<ReadonlyArray<ExtensionIndex>, RegistryClientFailure> =>
   Effect.gen(function* () {
-    const ownerDirs = yield* fs
-      .readDirectory(extensionsRoot)
-      .pipe(Effect.orElseSucceed((): readonly string[] => []));
+    const ownerDirs = yield* readRegistryDirectory(fs, extensionsRoot);
 
     // Cap concurrency at each nesting level to bound resource usage on large registries.
     const nestedResults = yield* Effect.forEach(
@@ -464,27 +496,21 @@ const scanAllExtensions = (
       (ownerDir) =>
         Effect.gen(function* () {
           const ownerPath = path.join(extensionsRoot, ownerDir);
-          const typeDirs = yield* fs
-            .readDirectory(ownerPath)
-            .pipe(Effect.orElseSucceed((): readonly string[] => []));
+          const typeDirs = yield* readRegistryDirectory(fs, ownerPath);
 
           const typeResults = yield* Effect.forEach(
             typeDirs.filter((d) => isExtensionTypePlural(d)),
             (typeDir) =>
               Effect.gen(function* () {
                 const typePath = path.join(ownerPath, typeDir);
-                const nameDirs = yield* fs
-                  .readDirectory(typePath)
-                  .pipe(Effect.orElseSucceed((): readonly string[] => []));
+                const nameDirs = yield* readRegistryDirectory(fs, typePath);
 
                 return yield* Effect.forEach(
                   nameDirs,
                   (nameDir) =>
                     Effect.gen(function* () {
                       const idxPath = path.join(typePath, nameDir, "index.json");
-                      const exists = yield* fs
-                        .exists(idxPath)
-                        .pipe(Effect.orElseSucceed(() => false));
+                      const exists = yield* registryPathExists(fs, idxPath);
                       if (!exists) return Option.none<ExtensionIndex>();
 
                       const index = yield* readExtensionIndex(fs, idxPath);
@@ -544,7 +570,7 @@ export const createLocalRegistryClient = (
             "index.json",
           );
           return Effect.gen(function* () {
-            const exists = yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));
+            const exists = yield* registryPathExists(fs, indexPath);
             const index = exists ? yield* readExtensionIndex(fs, indexPath) : undefined;
             const visibility = evaluateLocalPublishVisibility({
               target,
@@ -597,7 +623,7 @@ export const createLocalRegistryClient = (
               ),
               "index.json",
             );
-            const exists = yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));
+            const exists = yield* registryPathExists(fs, indexPath);
             const index = exists ? yield* readExtensionIndex(fs, indexPath) : undefined;
             return {
               target: { owner: dependency.owner, type: dependency.type, name: dependency.name },
@@ -711,14 +737,10 @@ export const createLocalRegistryClient = (
             (extType) =>
               Effect.gen(function* () {
                 const typeDir = path.join(extensionsDir, args.owner, pluralizeType(extType));
-                const typeDirExists = yield* fs
-                  .exists(typeDir)
-                  .pipe(Effect.orElseSucceed(() => false));
+                const typeDirExists = yield* registryPathExists(fs, typeDir);
                 if (!typeDirExists) return [];
 
-                const nameDirs = yield* fs
-                  .readDirectory(typeDir)
-                  .pipe(Effect.orElseSucceed((): readonly string[] => []));
+                const nameDirs = yield* readRegistryDirectory(fs, typeDir);
                 const filtered = name !== "" ? nameDirs.filter((d) => d === name) : nameDirs;
 
                 return yield* Effect.forEach(
@@ -757,7 +779,7 @@ export const createLocalRegistryClient = (
   ownerExists: (owner) =>
     Effect.gen(function* () {
       const scopeDir = path.join(registryRoot, "extensions", owner);
-      const exists = yield* fs.exists(scopeDir).pipe(Effect.orElseSucceed(() => false));
+      const exists = yield* registryPathExists(fs, scopeDir);
       return { exists };
     }),
 
@@ -765,7 +787,7 @@ export const createLocalRegistryClient = (
     Effect.gen(function* () {
       const dir = extensionDir(registryRoot, args.owner, args.type, args.name, path.join);
       const idxPath = path.join(dir, "index.json");
-      const exists = yield* fs.exists(idxPath).pipe(Effect.orElseSucceed(() => false));
+      const exists = yield* registryPathExists(fs, idxPath);
       if (!exists) {
         return Option.none<ExtensionIndex>();
       }
@@ -777,7 +799,7 @@ export const createLocalRegistryClient = (
     Effect.gen(function* () {
       const dir = extensionDir(registryRoot, args.owner, args.type, args.name, path.join);
       const idxPath = path.join(dir, "index.json");
-      const exists = yield* fs.exists(idxPath).pipe(Effect.orElseSucceed(() => false));
+      const exists = yield* registryPathExists(fs, idxPath);
       if (!exists) return Option.none();
       const index = yield* readExtensionIndex(fs, idxPath);
       const version = index.versions.find((entry) => entry.version === args.version);
@@ -816,9 +838,7 @@ export const createLocalRegistryClient = (
         onSome: (requestedVersion) =>
           Effect.gen(function* () {
             const requestedArchivePath = path.join(dir, `${requestedVersion}.zip`);
-            const requestedExists = yield* fs
-              .exists(requestedArchivePath)
-              .pipe(Effect.orElseSucceed(() => false));
+            const requestedExists = yield* registryPathExists(fs, requestedArchivePath);
 
             // Fast path: exact version archive exists.
             if (requestedExists) {
@@ -842,7 +862,7 @@ export const createLocalRegistryClient = (
 
       const archivePath = path.join(dir, `${version}.zip`);
 
-      const exists = yield* fs.exists(archivePath).pipe(Effect.orElseSucceed(() => false));
+      const exists = yield* registryPathExists(fs, archivePath);
       if (!exists) {
         return yield* new RegistryOperationFailed({
           category: "internal",
@@ -886,7 +906,7 @@ export const createLocalRegistryClient = (
         fs,
         lockPath,
         Effect.gen(function* () {
-          const indexExists = yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));
+          const indexExists = yield* registryPathExists(fs, indexPath);
           const currentIndex = indexExists
             ? yield* fs.readFileString(indexPath).pipe(
                 Effect.flatMap(decodeExtensionIndexFromJsonString),
@@ -1089,14 +1109,14 @@ export const createLocalRegistryClient = (
       const owner = args.owner;
       const dir = extensionDir(registryRoot, owner, args.type, args.name, path.join);
       const indexPath = path.join(dir, "index.json");
-      const exists = yield* fs.exists(indexPath).pipe(Effect.orElseSucceed(() => false));
+      const exists = yield* registryPathExists(fs, indexPath);
       return { exists };
     }),
 
   discoverPackages: (args: DiscoverPackagesArgs) =>
     Effect.gen(function* () {
       const extensionsRoot = path.join(registryRoot, "extensions");
-      const rootExists = yield* fs.exists(extensionsRoot).pipe(Effect.orElseSucceed(() => false));
+      const rootExists = yield* registryPathExists(fs, extensionsRoot);
       if (!rootExists) {
         return { results: [] } satisfies DiscoverPackagesResponse;
       }

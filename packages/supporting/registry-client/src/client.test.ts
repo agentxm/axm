@@ -645,6 +645,52 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
     // -----------------------------------------------------------------------------
 
     describe("LocalRegistryClient.previewExtensionPublishes", () => {
+      it.effect(
+        "evaluates two packs' constraints independently against shared extension facts",
+        () =>
+          Effect.gen(function* () {
+            const fs = yield* FileSystem.FileSystem;
+            const path = yield* Path.Path;
+            const registryRoot = yield* fs.makeTempDirectoryScoped({ prefix: "axm-pack-preview-" });
+            const skillDir = path.join(registryRoot, "extensions", "@test", "skills", "my-skill");
+            yield* fs.makeDirectory(skillDir, { recursive: true });
+            yield* fs.writeFileString(
+              path.join(skillDir, "index.json"),
+              JSON.stringify(makeIndex()),
+            );
+            const client = createLocalRegistryClient(registryRoot, fs, path);
+            const dependency = { ...makeIndexArgs(), range: versionRange("^1.0.0") };
+            const preview = yield* client.previewExtensionPublishes({
+              contract: PUBLICATION_SET_CONTRACT,
+              candidates: [
+                { name: "first", range: "^1.0.0" },
+                { name: "second", range: "^2.0.0" },
+              ].map(({ name, range }) => ({
+                target: {
+                  owner: handle("@test"),
+                  type: "pack",
+                  name: extensionName(name),
+                  version: exactVersion("1.0.0"),
+                },
+                participation: "publish",
+                archiveSha256Hex: archiveSha256Hex(new Uint8Array([1])),
+                visibility: publicVisibilityInput,
+                pack: { dependencies: [{ ...dependency, range: versionRange(range) }] },
+              })),
+            });
+            expect(preview.packs.find((pack) => pack.target.name === "first")).toMatchObject({
+              status: "admitted",
+              findings: [],
+              resolutions: [{ dependency, effectiveVersion: "1.0.0" }],
+            });
+            expect(preview.packs.find((pack) => pack.target.name === "second")).toMatchObject({
+              status: "blocked",
+              findings: [{ reason: "range-unsatisfied", dependency: { range: "^2.0.0" } }],
+              resolutions: [],
+            });
+          }).pipe(Effect.scoped),
+      );
+
       it.effect("resolves omitted visibility to the local platform default", () => {
         const registryRoot = makeRegistryDir();
         return Effect.gen(function* () {

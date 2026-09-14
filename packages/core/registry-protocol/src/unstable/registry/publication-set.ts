@@ -4,13 +4,13 @@ import * as Schema from "effect/Schema";
 import * as semver from "semver";
 
 import { SuggestedActionSchema, type SuggestedAction } from "../suggested-action.js";
+import type { PackDependencyPolicyFinding } from "@agentxm/extension-model/unstable/packs/dependency-policy";
 import {
   ExtensionNameSchema,
   ExtensionTypeSchema,
   ExtensionVisibilitySchema,
   type ExtensionName,
   type ExtensionType,
-  type ExtensionVisibility,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions/fqn";
 import { HandleSchema, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
@@ -25,10 +25,7 @@ import {
   type Version,
   type VersionRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
-import {
-  DeprecationViewSchema,
-  type DeprecationView,
-} from "@agentxm/extension-model/unstable/extensions/deprecation";
+import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 
 export const PUBLICATION_SET_CONTRACT = "publication-set-v2" as const;
 export const MAX_PUBLICATION_SET_CANDIDATES = 100;
@@ -136,6 +133,113 @@ export const PackDependencyFindingSchema = Schema.Struct({
 
 export type PackDependencyFinding = typeof PackDependencyFindingSchema.Type;
 
+const packDependencyGuidance = (
+  finding: PackDependencyPolicyFinding,
+): { readonly explanation: string; readonly suggestions: ReadonlyArray<SuggestedAction> } => {
+  const fqn = formatFqn(finding.dependency);
+  switch (finding.reason) {
+    case "missing":
+      return {
+        explanation: "that extension does not exist in the registry",
+        suggestions: [
+          {
+            description: `Publish ${fqn} or correct the dependency identity`,
+            cmd: `axm publish ${fqn}`,
+          },
+        ],
+      };
+    case "not-public":
+      return {
+        explanation: "that extension is not public",
+        suggestions: [{ description: `Make ${fqn} public or depend on a public extension` }],
+      };
+    case "selected-unavailable":
+      return {
+        explanation: "that selected target is unavailable",
+        suggestions: [
+          {
+            description: `Verify authority and availability for ${fqn}, then preview the complete set again`,
+          },
+        ],
+      };
+    case "selected-new-private":
+      return {
+        explanation: "the selected dependency will remain private",
+        suggestions: [
+          {
+            description: `Publish ${fqn} as public, then preview the complete set again`,
+            cmd: `axm publish ${fqn} --visibility public`,
+          },
+        ],
+      };
+    case "selected-existing-private":
+      return {
+        explanation: "the selected dependency will remain private",
+        suggestions: [
+          { description: `Make ${fqn} public explicitly, then preview the complete set again` },
+        ],
+      };
+    case "lifecycle-unavailable":
+      return {
+        explanation: "that extension is not active",
+        suggestions: [{ description: `Restore ${fqn} to active state or remove it from the pack` }],
+      };
+    case "no-installable-version":
+      return {
+        explanation: "it has no installable versions",
+        suggestions: [
+          {
+            description: `Publish an installable version of ${fqn} or remove it from the pack`,
+            cmd: `axm publish ${fqn}`,
+          },
+        ],
+      };
+    case "range-unsatisfied":
+      return {
+        explanation: "no installable version satisfies the requested range",
+        suggestions: [
+          {
+            description: `Publish a version of ${fqn} satisfying "${finding.dependency.range}" or correct the requested range`,
+            cmd: `axm publish ${fqn}`,
+          },
+        ],
+      };
+    case "deprecated":
+      return {
+        explanation: "resolves to a deprecated extension",
+        suggestions: [
+          { description: `Prefer a supported replacement for ${fqn} when one is available` },
+        ],
+      };
+  }
+};
+
+/** Encode domain findings without deciding pack admission or version selection. */
+export const formatPackDependencyFinding = (
+  finding: PackDependencyPolicyFinding,
+): PackDependencyFinding => {
+  const { reason, ...facts } = finding;
+  const guidance = packDependencyGuidance(finding);
+  const subject = `Dependency ${formatFqn(finding.dependency)} requests range "${finding.dependency.range}"`;
+  return {
+    ...facts,
+    kind: "advisory",
+    ruleId:
+      reason === "deprecated" ? "pack/dependency-deprecated" : "pack/dependency-version-resolvable",
+    reason:
+      reason === "missing" || reason === "not-public" || reason === "selected-unavailable"
+        ? "target-unavailable"
+        : reason,
+    location: { file: "pack.json" },
+    path: "./pack.json",
+    message:
+      reason === "deprecated"
+        ? `${subject} and ${guidance.explanation}.`
+        : `${subject}, but ${guidance.explanation}.`,
+    suggestions: guidance.suggestions,
+  };
+};
+
 const ResolvedPublicationCandidateSchema = Schema.Struct({
   kind: Schema.Literal("resolved"),
   target: PublicationTargetSchema,
@@ -179,34 +283,6 @@ export const PreviewPublicationSetResponseSchema = Schema.Struct({
 export type PreviewPublicationSetResponse = typeof PreviewPublicationSetResponseSchema.Type;
 export type PublicationCandidateResult = PreviewPublicationSetResponse["candidates"][number];
 export type PublicationPackResult = PreviewPublicationSetResponse["packs"][number];
-
-export interface PublicationDependencyVersionSnapshot {
-  readonly version: string;
-  readonly status: string;
-  readonly yanked: boolean;
-  readonly purged: boolean;
-}
-
-export interface PublicationDependencySnapshot {
-  readonly dependency: PackDependencyDescriptor;
-  readonly exists: boolean;
-  readonly visibility: string | null;
-  readonly lifecycleState: string | null;
-  readonly deprecation: DeprecationView | null;
-  readonly versions: ReadonlyArray<PublicationDependencyVersionSnapshot>;
-}
-
-export type ProspectivePublicationCandidate =
-  | {
-      readonly descriptor: PublicationDescriptor;
-      readonly kind: "resolved";
-      readonly visibility: typeof VisibilityEvaluationSchema.Type;
-    }
-  | {
-      readonly descriptor: PublicationDescriptor;
-      readonly kind: "unavailable";
-      readonly visibility: typeof VisibilityEvaluationUnavailableSchema.Type;
-    };
 
 const compareText = (left: string, right: string): number =>
   left < right ? -1 : left > right ? 1 : 0;
@@ -315,330 +391,8 @@ export const validatePublicationDescriptors = (
   return normalizePublicationSet(descriptors);
 };
 
-const findingBase = (
-  finding: Omit<PackDependencyFinding, "kind" | "location" | "path">,
-): PackDependencyFinding => ({
-  kind: "advisory",
-  location: { file: "pack.json" },
-  path: "./pack.json",
-  ...finding,
-});
-
-const dependencyError = (input: {
-  readonly snapshot: PublicationDependencySnapshot;
-  readonly reason: PackDependencyFinding["reason"];
-  readonly explanation: string;
-  readonly suggestions: ReadonlyArray<SuggestedAction>;
-  readonly discloseState?: boolean;
-}): PackDependencyFinding => {
-  const fqn = formatFqn(input.snapshot.dependency);
-  return findingBase({
-    ruleId: "pack/dependency-version-resolvable",
-    severity: "error",
-    reason: input.reason,
-    dependency: input.snapshot.dependency,
-    ...(input.discloseState !== true
-      ? {}
-      : {
-          ...(input.snapshot.visibility === "public" || input.snapshot.visibility === "private"
-            ? { effectiveVisibility: input.snapshot.visibility }
-            : {}),
-          ...(input.snapshot.lifecycleState === null
-            ? {}
-            : { lifecycle: input.snapshot.lifecycleState === "active" ? "active" : "unavailable" }),
-        }),
-    message: `Dependency ${fqn} requests range "${input.snapshot.dependency.range}", but ${input.explanation}.`,
-    suggestions: input.suggestions,
-  });
-};
-
-const evaluateDependencySnapshot = (
-  snapshot: PublicationDependencySnapshot,
-  packVisibility: ExtensionVisibility,
-): ReadonlyArray<PackDependencyFinding> => {
-  const fqn = formatFqn(snapshot.dependency);
-  if (!snapshot.exists) {
-    return [
-      dependencyError({
-        snapshot,
-        reason: "target-unavailable",
-        explanation: "that extension does not exist in the registry",
-        suggestions: [
-          {
-            description: `Publish ${fqn} or correct the dependency identity`,
-            cmd: `axm publish ${fqn}`,
-          },
-        ],
-      }),
-    ];
-  }
-  if (packVisibility === "public" && snapshot.visibility !== "public") {
-    return [
-      dependencyError({
-        snapshot,
-        reason: "target-unavailable",
-        explanation: "that extension is not public",
-        suggestions: [{ description: `Make ${fqn} public or depend on a public extension` }],
-      }),
-    ];
-  }
-  if (snapshot.lifecycleState !== "active") {
-    return [
-      dependencyError({
-        snapshot,
-        reason: "lifecycle-unavailable",
-        explanation: "that extension is not active",
-        discloseState: true,
-        suggestions: [{ description: `Restore ${fqn} to active state or remove it from the pack` }],
-      }),
-    ];
-  }
-  const installable = snapshot.versions.filter(
-    (version) => version.status === "available" && !version.yanked && !version.purged,
-  );
-  if (installable.length === 0) {
-    return [
-      dependencyError({
-        snapshot,
-        reason: "no-installable-version",
-        explanation: "it has no installable versions",
-        discloseState: true,
-        suggestions: [
-          {
-            description: `Publish an installable version of ${fqn} or remove it from the pack`,
-            cmd: `axm publish ${fqn}`,
-          },
-        ],
-      }),
-    ];
-  }
-  if (
-    !installable.some((candidate) => semver.satisfies(candidate.version, snapshot.dependency.range))
-  ) {
-    return [
-      dependencyError({
-        snapshot,
-        reason: "range-unsatisfied",
-        explanation: "no installable version satisfies the requested range",
-        discloseState: true,
-        suggestions: [
-          {
-            description: `Publish a version of ${fqn} satisfying "${snapshot.dependency.range}" or correct the requested range`,
-            cmd: `axm publish ${fqn}`,
-          },
-        ],
-      }),
-    ];
-  }
-  return snapshot.deprecation !== null
-    ? [
-        findingBase({
-          ruleId: "pack/dependency-deprecated",
-          severity: "warning",
-          reason: "deprecated",
-          dependency: snapshot.dependency,
-          effectiveVisibility: snapshot.visibility === "private" ? "private" : "public",
-          lifecycle: "active",
-          deprecation: snapshot.deprecation,
-          message: `Dependency ${fqn} requests range "${snapshot.dependency.range}" and resolves to a deprecated extension.`,
-          suggestions: [
-            { description: `Prefer a supported replacement for ${fqn} when one is available` },
-          ],
-        }),
-      ]
-    : [];
-};
-
 const dependencyIdentityKey = (dependency: PackDependencyDescriptor): string =>
   `${dependency.owner}\u0000${dependency.type}\u0000${dependency.name}`;
-
-export const evaluateProspectivePackDependencies = (input: {
-  readonly packVisibility: ExtensionVisibility;
-  readonly dependencies: ReadonlyArray<PackDependencyDescriptor>;
-  readonly snapshots: ReadonlyArray<PublicationDependencySnapshot>;
-  readonly candidates: ReadonlyArray<ProspectivePublicationCandidate>;
-}): ReadonlyArray<PackDependencyFinding> => {
-  const snapshots = new Map(
-    input.snapshots.map((snapshot) => [dependencyIdentityKey(snapshot.dependency), snapshot]),
-  );
-  const candidates = new Map(
-    input.candidates.map((candidate) => [
-      publicationIdentityKey(candidate.descriptor.target),
-      candidate,
-    ]),
-  );
-  return input.dependencies
-    .flatMap((dependency) => {
-      const current =
-        snapshots.get(dependencyIdentityKey(dependency)) ??
-        ({
-          dependency,
-          exists: false,
-          visibility: null,
-          lifecycleState: null,
-          deprecation: null,
-          versions: [],
-        } satisfies PublicationDependencySnapshot);
-      const selected = candidates.get(dependencyIdentityKey(dependency));
-      if (selected === undefined) return evaluateDependencySnapshot(current, input.packVisibility);
-      if (selected.kind === "unavailable") {
-        return [
-          dependencyError({
-            snapshot: current,
-            reason: "target-unavailable",
-            explanation: "that selected target is unavailable",
-            suggestions: [
-              {
-                description: `Verify authority and availability for ${formatFqn(dependency)}, then preview the complete set again`,
-              },
-            ],
-          }),
-        ];
-      }
-      if (input.packVisibility === "public" && selected.visibility.resolved?.value === "private") {
-        return [
-          dependencyError({
-            snapshot: { ...current, exists: true, visibility: "private" },
-            reason: current.exists ? "selected-existing-private" : "selected-new-private",
-            explanation: "the selected dependency will remain private",
-            discloseState: true,
-            suggestions: current.exists
-              ? [
-                  {
-                    description: `Make ${formatFqn(dependency)} public explicitly, then preview the complete set again`,
-                  },
-                ]
-              : [
-                  {
-                    description: `Publish ${formatFqn(dependency)} as public, then preview the complete set again`,
-                    cmd: `axm publish ${formatFqn(dependency)} --visibility public`,
-                  },
-                ],
-          }),
-        ];
-      }
-      return evaluateDependencySnapshot(
-        {
-          ...current,
-          exists: true,
-          visibility: selected.visibility.resolved?.value ?? current.visibility,
-          lifecycleState: current.exists ? current.lifecycleState : "active",
-          versions:
-            selected.descriptor.participation === "publish"
-              ? [
-                  ...current.versions,
-                  {
-                    version: selected.descriptor.target.version,
-                    status: "available",
-                    yanked: false,
-                    purged: false,
-                  },
-                ]
-              : current.versions,
-        },
-        input.packVisibility,
-      );
-    })
-    .sort(
-      (left, right) =>
-        compareText(formatFqn(left.dependency), formatFqn(right.dependency)) ||
-        compareText(left.dependency.range, right.dependency.range),
-    );
-};
-
-export interface ProspectivePackDependencyState {
-  readonly findings: ReadonlyArray<PackDependencyFinding>;
-  readonly resolutions: PublicationPackResult["resolutions"];
-}
-
-/**
- * Evaluate dependency admission and expose the exact version an ordinary
- * Registry consumer would resolve from the same prospective snapshot.
- */
-export const evaluateProspectivePackDependencyState = (input: {
-  readonly packVisibility: ExtensionVisibility;
-  readonly dependencies: ReadonlyArray<PackDependencyDescriptor>;
-  readonly snapshots: ReadonlyArray<PublicationDependencySnapshot>;
-  readonly candidates: ReadonlyArray<ProspectivePublicationCandidate>;
-}): ProspectivePackDependencyState => {
-  const findings = evaluateProspectivePackDependencies(input);
-  const snapshots = new Map(
-    input.snapshots.map((snapshot) => [dependencyIdentityKey(snapshot.dependency), snapshot]),
-  );
-  const candidates = new Map(
-    input.candidates.map((candidate) => [
-      publicationIdentityKey(candidate.descriptor.target),
-      candidate,
-    ]),
-  );
-  const resolutions = input.dependencies.flatMap((dependency) => {
-    const current =
-      snapshots.get(dependencyIdentityKey(dependency)) ??
-      ({
-        dependency,
-        exists: false,
-        visibility: null,
-        lifecycleState: null,
-        deprecation: null,
-        versions: [],
-      } satisfies PublicationDependencySnapshot);
-    const selected = candidates.get(dependencyIdentityKey(dependency));
-    if (
-      selected?.kind === "unavailable" ||
-      (input.packVisibility === "public" && selected?.visibility.resolved?.value === "private")
-    ) {
-      return [];
-    }
-    const prospective =
-      selected === undefined
-        ? current
-        : {
-            ...current,
-            exists: true,
-            visibility: selected.visibility.resolved?.value ?? current.visibility,
-            lifecycleState: current.exists ? current.lifecycleState : "active",
-            versions:
-              selected.descriptor.participation === "publish"
-                ? [
-                    ...current.versions,
-                    {
-                      version: selected.descriptor.target.version,
-                      status: "available",
-                      yanked: false,
-                      purged: false,
-                    },
-                  ]
-                : current.versions,
-          };
-    if (
-      !prospective.exists ||
-      (input.packVisibility === "public" && prospective.visibility !== "public") ||
-      prospective.lifecycleState !== "active"
-    ) {
-      return [];
-    }
-    const effectiveVersion = semver.maxSatisfying(
-      prospective.versions
-        .filter((version) => version.status === "available" && !version.yanked && !version.purged)
-        .map((version) => version.version),
-      dependency.range,
-    );
-    return effectiveVersion === null
-      ? []
-      : [
-          {
-            dependency,
-            effectiveVersion: Schema.decodeUnknownSync(VersionSchema)(effectiveVersion),
-          },
-        ];
-  });
-  return {
-    findings,
-    resolutions: [...resolutions].sort((left, right) =>
-      compareDependencies(left.dependency, right.dependency),
-    ),
-  };
-};
 
 export const validatePublicationSetResponse = (
   descriptors: ReadonlyArray<PublicationDescriptor>,

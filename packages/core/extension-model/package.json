@@ -231,6 +231,11 @@
       "axm-source": "./src/unstable/packaging/package-url.ts",
       "default": "./dist/src/unstable/packaging/package-url.js"
     },
+    "./unstable/packs/dependency-policy": {
+      "types": "./dist/src/unstable/packs/dependency-policy.d.ts",
+      "axm-source": "./src/unstable/packs/dependency-policy.ts",
+      "default": "./dist/src/unstable/packs/dependency-policy.js"
+    },
     "./unstable/packs/manifest-schema": {
       "types": "./dist/src/unstable/packs/manifest-schema.d.ts",
       "axm-source": "./src/unstable/packs/manifest-schema.ts",

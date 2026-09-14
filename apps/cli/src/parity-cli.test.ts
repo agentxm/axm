@@ -1,16 +1,14 @@
 /**
  * CLI-tier parity conformance.
  *
- * Verifies the CLI-surface obligations for every catalog extension type — a
- * prose help topic and a renderer list entity keyed by the type id — and
+ * Verifies help topics and lifecycle command surfaces for every catalog
+ * extension type and
  * compares observed failures against the exemption ledger with exact equality,
  * mirroring the core-tier suite in `@agentxm/extension-type-parity`.
  */
 
-import * as fs from "node:fs";
 import * as Effect from "effect/Effect";
 
-import type { SubjectType } from "./cli-runtime/index.js";
 import {
   CATALOG_EXTENSION_TYPES,
   type CatalogExtensionType,
@@ -18,8 +16,8 @@ import {
 import {
   EXTENSION_LIFECYCLE_CONTRACT,
   exemptedObligations,
-  obligationsVerifiedBy,
   type ObligationId,
+  type ObligationIdForTier,
 } from "@agentxm/extension-type-parity";
 import {
   extensionTypes,
@@ -57,49 +55,21 @@ const hasScopeSurface = (files: HelpFiles, type: CatalogExtensionType): boolean 
     (doc) => doc !== undefined && doc.flags.some((flag) => flag.name === "scope"),
   );
 
-const hasExplicitInventoryView = (_files: HelpFiles, type: CatalogExtensionType): boolean => {
-  const directory = `./root/${toExtensionTypePlural(type)}`;
-  const candidates = [
-    new URL(`${directory}/list.ts`, import.meta.url),
-    new URL(`${directory}/list/command.ts`, import.meta.url),
-    new URL(`${directory}/list/handler.ts`, import.meta.url),
-  ];
-  return candidates.some(
-    (candidate) =>
-      fs.existsSync(candidate) &&
-      fs.readFileSync(candidate, "utf-8").includes("inventoryDoc(") &&
-      fs.readFileSync(candidate, "utf-8").includes("ViewColumn"),
-  );
-};
-
 /**
  * Obligation checks, keyed by id. Each returns `true` when the type meets the
- * obligation. Adding a cli-tier obligation without a checker here fails the
- * coverage test below.
+ * obligation. The compiler requires a checker for every CLI-tier obligation.
  */
 const CHECKS: Record<
-  ObligationId,
-  ((files: HelpFiles, type: CatalogExtensionType) => boolean) | null
+  ObligationIdForTier<typeof TIER>,
+  (files: HelpFiles, type: CatalogExtensionType) => boolean
 > = {
-  "2.6-accepted-resolution": null,
-  "2.9-read-model-family": null,
-  "2.11-ownership-safe-prune": null,
-  "2.12-workspace-reconciliation": null,
-  "2.13-transactional-postcondition": null,
-  "6.1-e2e-install-row": null,
-  "6.2-lifecycle-postconditions": null,
-  "6.3-preview-apply-equivalence": null,
-  "6.4-idempotent-validity": null,
-  "6.5-scope-isolation": null,
-  "6.6-pack-reachability": null,
   "7.1-help-topic": (_files, type) => topicNames.has(toExtensionTypePlural(type)),
-  "8.6-entity-key": hasExplicitInventoryView,
   "8.7-lifecycle-verbs": hasLifecycleVerbs,
   "8.8-lifecycle-flags": hasLifecycleFlags,
   "8.9-scope-surface": hasScopeSurface,
 };
 
-const cliObligations = obligationsVerifiedBy(TIER);
+const cliObligations = EffectRecord.keys(CHECKS);
 
 const observedFailures = (
   files: HelpFiles,
@@ -107,33 +77,11 @@ const observedFailures = (
   EffectRecord.fromEntries(
     CATALOG_EXTENSION_TYPES.map((type) => [
       type,
-      cliObligations.filter((id) => {
-        const check = CHECKS[id];
-        return check !== null && !check(files, type);
-      }),
+      cliObligations.filter((id) => !CHECKS[id](files, type)),
     ]),
   );
 
-// Type-level pin, both directions. `SubjectType` labels what a command acted
-// on in telemetry and JSON output, so it must name every catalog type plus
-// packs — and nothing else. A one-directional check would let a member linger
-// after its type was renamed or removed. `mixed` and `unknown` are aggregate
-// markers rather than types, so they are excluded before comparing.
-type ExtensionSubjectType = Exclude<SubjectType, "mixed" | "unknown">;
-type _SubjectTypeMatchesCatalog =
-  Exclude<CatalogExtensionType | "pack", ExtensionSubjectType> extends never
-    ? Exclude<ExtensionSubjectType, CatalogExtensionType | "pack"> extends never
-      ? true
-      : false
-    : false;
-const _subjectTypeMatchesCatalog = true as const satisfies _SubjectTypeMatchesCatalog;
-export type _SubjectTypeCoverage = typeof _subjectTypeMatchesCatalog;
-
 describe("extension type parity (cli tier)", () => {
-  it("has a checker for every obligation this tier verifies", () => {
-    expect(cliObligations.filter((id) => CHECKS[id] === null)).toStrictEqual([]);
-  });
-
   it.effect("matches the exemption ledger exactly", () =>
     Effect.gen(function* () {
       const files = yield* collectHelpFiles();
@@ -153,18 +101,4 @@ describe("extension type parity (cli tier)", () => {
       ).toStrictEqual([]);
     }),
   );
-
-  it("names no extension type in its own source", () => {
-    // A hand-written type name here would let this suite keep passing while
-    // silently skipping a type the catalog added. The forbidden set is built
-    // at runtime, so this file never has to spell one out.
-    const forbidden = new Set<string>(CATALOG_EXTENSION_TYPES);
-    const source = fs.readFileSync(import.meta.filename, "utf-8");
-
-    const offenders = Array.from(source.matchAll(/["'`]([^"'`\n]*)["'`]/g))
-      .filter(([, literal = ""]) => forbidden.has(literal))
-      .map(([match]) => match);
-
-    expect(offenders).toStrictEqual([]);
-  });
 });

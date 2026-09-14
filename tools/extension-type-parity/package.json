@@ -2,7 +2,7 @@
   "name": "@agentxm/extension-type-parity",
   "version": "0.0.1",
   "private": true,
-  "description": "Extension-type parity obligations, lifecycle contract, reconciliation table, and exemption ledger for AXM conformance suites",
+  "description": "Extension-type parity obligations, lifecycle contract and exemption ledger for AXM conformance suites",
   "type": "module",
   "exports": {
     ".": {

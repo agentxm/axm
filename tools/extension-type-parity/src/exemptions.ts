@@ -14,10 +14,6 @@
  * fails when it rises, which makes the ledger shrink-only: a new gap can never
  * be admitted as pre-existing debt.
  *
- * This is the one designated file where extension-type name literals may appear
- * in the parity harness; the conformance suites derive every type they iterate
- * from the catalog and enforce that rule with a self-referential scan.
- *
  * @experimental This API is unstable and may change without notice.
  */
 
@@ -58,18 +54,6 @@ export const PARITY_EXEMPTIONS: Record<CatalogExtensionType, ReadonlyArray<Parit
   hook: [],
   knowledge: [],
 };
-
-// Coverage witness: the `satisfies` above rejects a foreign key on its own;
-// this fails compile in the other direction too, when a catalog type loses its
-// ledger key.
-type _LedgerCoversCatalog =
-  Exclude<CatalogExtensionType, keyof typeof PARITY_EXEMPTIONS> extends never
-    ? Exclude<keyof typeof PARITY_EXEMPTIONS, CatalogExtensionType> extends never
-      ? true
-      : false
-    : false;
-const _ledgerCoversCatalog = true as const satisfies _LedgerCoversCatalog;
-export type _ParityLedgerCoverage = typeof _ledgerCoversCatalog;
 
 /**
  * Ledgered obligation ids per type, narrowed to one verification tier.

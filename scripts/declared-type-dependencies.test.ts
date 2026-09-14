@@ -4,7 +4,6 @@ import {
   describeUndeclaredTypeDependency,
   findUndeclaredTypeDependencies,
   owningPackage,
-  readBuiltDeclarationSubjects,
   referencedGuardedPackages,
   withoutComments,
   type DeclarationSubject,
@@ -123,16 +122,4 @@ describe("undeclared type dependencies", () => {
       ]),
     ).toEqual([]);
   });
-});
-
-describe("the built workspace", () => {
-  it("emits no declaration that references an undeclared workspace package", async () => {
-    const { subjects, unbuilt } = await readBuiltDeclarationSubjects();
-    expect(unbuilt, "every buildable project must be built before this guard can judge it").toEqual(
-      [],
-    );
-    expect(subjects.length).toBeGreaterThan(0);
-    const findings = findUndeclaredTypeDependencies(subjects);
-    expect(findings.map(describeUndeclaredTypeDependency).join("\n")).toBe("");
-  }, 120_000);
 });

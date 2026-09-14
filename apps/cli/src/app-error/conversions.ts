@@ -1,3 +1,7 @@
+import {
+  LifecyclePostconditionViolated,
+  ScaffoldedExtensionUnresolved,
+} from "@agentxm/workspace-operations";
 /**
  * Conversions from model- and protocol-level typed failures into CLI-facing
  * `AppError` values. These live with the application error vocabulary so the
@@ -90,10 +94,8 @@ import {
 import {
   ArchiveIntegrityMismatch,
   CanonicalPackageProbeFailed,
-  LifecyclePostconditionViolated,
   PackageCopyFailed,
   PackageMaterializationFailed,
-  ScaffoldedExtensionUnresolved,
   StagedPackageInvalid,
   RuleDefinitionInvalid,
   RuleInstallStateMissing,

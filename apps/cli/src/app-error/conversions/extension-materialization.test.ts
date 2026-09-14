@@ -1,3 +1,7 @@
+import {
+  LifecyclePostconditionViolated,
+  ScaffoldedExtensionUnresolved,
+} from "@agentxm/workspace-operations";
 /**
  * Byte-for-byte conversion table for the extension-materialization typed failure family.
  * Each row travels the real `toAppError` path and pins the envelope its
@@ -23,7 +27,6 @@ import {
   KnowledgeObservableContractViolated,
   KnowledgeResolutionMissing,
   KnowledgeUnavailable,
-  LifecyclePostconditionViolated,
   McpInstallStateMissing,
   McpRegistryOnlyInstall,
   PackArchiveFetchFailed,
@@ -34,7 +37,6 @@ import {
   PackageMaterializationFailed,
   RuleDefinitionInvalid,
   RuleInstallStateMissing,
-  ScaffoldedExtensionUnresolved,
   SkillDefinitionInvalid,
   SkillInstallStateMissing,
   SkillMaterializationFailed,

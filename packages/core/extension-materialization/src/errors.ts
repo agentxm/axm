@@ -13,6 +13,7 @@
 
 import type { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions/fqn";
 import type { FrontmatterParseFailure, SubagentContentError } from "@agentxm/extension-content";
+import type { LifecyclePostconditionViolated } from "@agentxm/workspace-operations";
 import type { MaterializationError } from "./extensions/errors.js";
 import type { SourceAuthorityBlocked } from "@agentxm/extension-resolution";
 import type { SourceResolutionFailure } from "@agentxm/extension-sources";
@@ -61,6 +62,7 @@ import type { LockfileResolvedVersionInvalid } from "@agentxm/workspace-state";
 /** Every typed failure the materialization modules construct themselves. */
 export type ExtensionMaterializationError =
   | MaterializationError
+  | LifecyclePostconditionViolated
   | SourceAuthorityBlocked
   | ProjectionError
   | InstructionMaintenanceFailed

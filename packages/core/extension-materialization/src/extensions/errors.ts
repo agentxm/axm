@@ -1,6 +1,6 @@
 /**
  * Typed failure family for canonical package materialization: staging, swap,
- * copy, integrity, and the shared lifecycle closure postconditions. Fields are
+ * copy, and integrity. Fields are
  * domain facts; the application error boundary owns rendering, codes, and
  * suggestions.
  *
@@ -57,37 +57,13 @@ export class ArchiveIntegrityMismatch extends Data.TaggedError("ArchiveIntegrity
   readonly subject: string;
 }> {}
 
-/** A lifecycle transition committed but its observable postcondition failed. */
-export class LifecyclePostconditionViolated extends Data.TaggedError(
-  "LifecyclePostconditionViolated",
-)<{
-  readonly postcondition:
-    | "install-observable"
-    | "install-declared"
-    | "new-observable"
-    | "new-declared"
-    | "materialize-observable"
-    | "uninstall-remains-declared"
-    | "uninstall-observed-state";
-  readonly targetType: string;
-  readonly targetName: string;
-}> {}
-
-/** A newly scaffolded extension could not be resolved from its workspace source. */
-export class ScaffoldedExtensionUnresolved extends Data.TaggedError(
-  "ScaffoldedExtensionUnresolved",
-)<{
-  readonly targetType: string;
-  readonly targetName: string;
-}> {}
-
 /** A create-only operation found existing state at its destination path. */
 export class CreateDestinationExists extends Data.TaggedError("CreateDestinationExists")<{
   readonly subject: string;
   readonly path: string;
 }> {}
 
-/** Every failure canonical materialization and the closure recipes construct. */
+/** Every failure canonical package materialization constructs. */
 export type MaterializationError =
   | PackageMaterializationFailed
   | StagedPackageInvalid
@@ -95,6 +71,4 @@ export type MaterializationError =
   | PackageCopyFailed
   | ArchiveIntegrityMismatch
   | CreateDestinationExists
-  | PathTraversalDetected
-  | LifecyclePostconditionViolated
-  | ScaffoldedExtensionUnresolved;
+  | PathTraversalDetected;

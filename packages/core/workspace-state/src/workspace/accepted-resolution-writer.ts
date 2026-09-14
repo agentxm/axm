@@ -10,25 +10,16 @@
 import * as ServiceMap from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
-import type * as Path from "effect/Path";
 import type * as Semaphore from "effect/Semaphore";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import { commitLockfileSnapshotUpdateAtPath } from "../lockfile/index.js";
-import type { Lockfile } from "../lockfile/schema.js";
+import { WorkspaceDocuments, type WorkspaceDocumentsService } from "./documents.js";
 import { lockEntries, type LockEntryByType } from "./entry-accessors.js";
-import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
 import type { WorkspaceLockfileMutationFailure } from "./service-interface.js";
 import { WorkspaceStateShared } from "./shared.js";
-import { readLockfileCell } from "./state-cells.js";
 
-type Write = Effect.Effect<
-  void,
-  WorkspaceLockfileMutationFailure,
-  FileSystem.FileSystem | Path.Path
->;
+type Write = Effect.Effect<void, WorkspaceLockfileMutationFailure>;
 
 export interface AcceptedResolutionWriterService {
   /**
@@ -82,12 +73,11 @@ export const preserveAcceptedResolutionOnNoop = <TEntry>(
 ): TEntry => (lockEntrySemanticallyEqual(current, next) && current !== undefined ? current : next);
 
 export const makeAcceptedResolutionWriter = (
-  location: WorkspaceLocationService,
+  documents: WorkspaceDocumentsService,
   mutex: Semaphore.Semaphore,
 ): AcceptedResolutionWriterService => {
-  const current = readLockfileCell(location, location.runtimeDir);
-  const commit = (base: Lockfile, next: Lockfile) =>
-    commitLockfileSnapshotUpdateAtPath(location.lockPath, base, next);
+  const current = documents.acceptedResolutions;
+  const commit = documents.commitAcceptedResolutions;
   const serialized = mutex.withPermits(1);
   return {
     setAccepted: (type, key, entry) =>
@@ -118,12 +108,12 @@ export const makeAcceptedResolutionWriter = (
 export const AcceptedResolutionWriterLive: Layer.Layer<
   AcceptedResolutionWriter,
   never,
-  WorkspaceLocation | WorkspaceStateShared
+  WorkspaceDocuments | WorkspaceStateShared
 > = Layer.effect(
   AcceptedResolutionWriter,
   Effect.gen(function* () {
     return makeAcceptedResolutionWriter(
-      yield* WorkspaceLocation,
+      yield* WorkspaceDocuments,
       (yield* WorkspaceStateShared).mutex,
     );
   }),

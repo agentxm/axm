@@ -10,10 +10,8 @@
 
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import type * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import type * as Semaphore from "effect/Semaphore";
@@ -21,25 +19,16 @@ import type * as Semaphore from "effect/Semaphore";
 import { ConfigurableAgentIdSchema } from "@agentxm/extension-model/unstable/extensions";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import {
-  writeSettingsAtPath,
-  type InstructionsConfigValue,
-  type Settings,
-  type SourceHostConfig,
-} from "../settings/index.js";
+import type { InstructionsConfigValue, SourceHostConfig } from "../settings/index.js";
+import { WorkspaceDocuments, type WorkspaceDocumentsService } from "./documents.js";
 import { settingsEntries, type SettingsEntryByType } from "./entry-accessors.js";
 import { InvalidAgentId, SettingsEntryMissing } from "./errors.js";
 import { withLayoutOwner, type WorkspaceLayout } from "./layout.js";
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
 import type { WorkspaceSettingsMutationFailure } from "./service-interface.js";
 import { WorkspaceStateShared } from "./shared.js";
-import { readSettingsOrDefault } from "./state-cells.js";
 
-type Write<A = void, E = never> = Effect.Effect<
-  A,
-  WorkspaceSettingsMutationFailure | E,
-  FileSystem.FileSystem | Path.Path
->;
+type Write<A = void, E = never> = Effect.Effect<A, WorkspaceSettingsMutationFailure | E>;
 
 export interface SettingsWriterService {
   /** Record the owner in the selected scope's settings and in the resolved layout. */
@@ -86,11 +75,12 @@ const missingEntryFailure = (
 
 export const makeSettingsWriter = (
   location: WorkspaceLocationService,
+  documents: WorkspaceDocumentsService,
   mutex: Semaphore.Semaphore,
   invalidateSources: Effect.Effect<void>,
 ): SettingsWriterService => {
-  const current = readSettingsOrDefault(location, location.runtimeDir);
-  const write = (settings: Settings) => writeSettingsAtPath(location.settingsPath, settings);
+  const current = documents.settings();
+  const write = documents.writeSettings;
   const serialized = mutex.withPermits(1);
   const validAgentId = (agentId: string) =>
     Schema.decodeUnknownEffect(ConfigurableAgentIdSchema)(agentId).pipe(
@@ -176,12 +166,17 @@ export const makeSettingsWriter = (
 export const SettingsWriterLive: Layer.Layer<
   SettingsWriter,
   never,
-  WorkspaceLocation | WorkspaceStateShared
+  WorkspaceLocation | WorkspaceDocuments | WorkspaceStateShared
 > = Layer.effect(
   SettingsWriter,
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const shared = yield* WorkspaceStateShared;
-    return makeSettingsWriter(location, shared.mutex, Ref.set(shared.sourcesCache, Option.none()));
+    return makeSettingsWriter(
+      location,
+      yield* WorkspaceDocuments,
+      shared.mutex,
+      Ref.set(shared.sourcesCache, Option.none()),
+    );
   }),
 );

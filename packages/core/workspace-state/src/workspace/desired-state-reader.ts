@@ -22,10 +22,10 @@ import type { Settings } from "../settings/index.js";
 import type { Lockfile } from "../lockfile/index.js";
 import { validateDesiredPackLock } from "./desired-pack-lock.js";
 import { DesiredPackGraphIncomplete } from "./errors.js";
+import { WorkspaceDocuments, type WorkspaceDocumentsService } from "./documents.js";
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
 import type { ExtensionTarget, WorkspaceStateReadFailure } from "./service-interface.js";
 import { SettingsReader, type SettingsReaderService } from "./settings-reader.js";
-import { readLockfileCell } from "./state-cells.js";
 
 /** Authoritative inputs for evaluating a candidate without publishing it. */
 export interface DesiredStateGraphInputs {
@@ -61,6 +61,7 @@ export class DesiredStateReader extends ServiceMap.Service<
 export const makeDesiredStateReader = (
   location: WorkspaceLocationService,
   settings: SettingsReaderService,
+  documents: WorkspaceDocumentsService,
 ): DesiredStateReaderService => {
   const graph: DesiredStateReaderService["graph"] = (options) =>
     Effect.gen(function* () {
@@ -81,8 +82,7 @@ export const makeDesiredStateReader = (
           ? {}
           : { prospectivePacks: options.prospectivePacks }),
       });
-      const lockfile =
-        options?.acceptedResolutions ?? (yield* readLockfileCell(location, location.runtimeDir));
+      const lockfile = options?.acceptedResolutions ?? (yield* documents.acceptedResolutions);
       return yield* validateDesiredPackLock({
         graph: built,
         lockfile,
@@ -114,10 +114,14 @@ export const makeDesiredStateReader = (
 export const DesiredStateReaderLive: Layer.Layer<
   DesiredStateReader,
   never,
-  WorkspaceLocation | SettingsReader
+  WorkspaceLocation | SettingsReader | WorkspaceDocuments
 > = Layer.effect(
   DesiredStateReader,
   Effect.gen(function* () {
-    return makeDesiredStateReader(yield* WorkspaceLocation, yield* SettingsReader);
+    return makeDesiredStateReader(
+      yield* WorkspaceLocation,
+      yield* SettingsReader,
+      yield* WorkspaceDocuments,
+    );
   }),
 );

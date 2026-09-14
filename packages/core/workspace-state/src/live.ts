@@ -19,6 +19,7 @@ import type * as Path from "effect/Path";
 
 import { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 import { WorkspaceTransactionScopeLive as TransactionScopeLive } from "@agentxm/workspace-transactions/live";
+import { FilesystemWorkspaceDocuments } from "./workspace/adapters/filesystem/documents.js";
 import {
   AcceptedResolutionWriter,
   AcceptedResolutionWriterLive,
@@ -74,11 +75,12 @@ const stateServicesOver = (
   // layer is memoized by reference within a build) provided to every service
   // that needs it and never published to consumers.
   const shared = Layer.effect(WorkspaceStateShared, makeWorkspaceStateShared);
+  const documents = Layer.provideMerge(FilesystemWorkspaceDocuments, location);
   const readers = Layer.provideMerge(
     Layer.mergeAll(WorkspaceRecordsLive, LockfileReaderLive),
     Layer.provideMerge(
       DesiredStateReaderLive,
-      Layer.provideMerge(Layer.provide(SettingsReaderLive, shared), location),
+      Layer.provideMerge(Layer.provide(SettingsReaderLive, shared), documents),
     ),
   );
   const withPaths = Layer.provideMerge(ExtensionPathsLive, readers);

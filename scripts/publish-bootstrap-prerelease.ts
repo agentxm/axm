@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import * as Schema from "effect/Schema";
 import * as Effect from "effect/Effect";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as semver from "semver";
 
 import { run } from "./release-command.js";
@@ -28,6 +29,16 @@ import {
   requireSuccessfulCiRun,
   runNx,
 } from "./release-shared.js";
+
+import {
+  loadNpmPublicationAuth,
+  npmPublicationEnvironment,
+  requireNpmPackageInitialization,
+} from "./release-npm-auth.js";
+
+const npmAuthentication = await Effect.runPromise(
+  loadNpmPublicationAuth(ConfigProvider.fromEnvRecord(process.env)),
+);
 
 const [sourceSha, sequenceText] = Schema.decodeUnknownSync(
   Schema.Tuple([Schema.String, Schema.String]),
@@ -88,9 +99,6 @@ try {
     }
   }
 
-  const publicationEnv = { ...process.env };
-  delete publicationEnv["NODE_AUTH_TOKEN"];
-  delete publicationEnv["NPM_CONFIG_USERCONFIG"];
   await Effect.runPromise(
     publishImmutableInDependencyOrder(
       RELEASE_PACKAGES.map((pkg) => {
@@ -98,9 +106,23 @@ try {
         return {
           name: `${pkg.name}@${version}`,
           integrity: contentIntegrity(readFileSync(tarball)),
-          read: async (signal: AbortSignal) =>
-            (await readNpmPublication(pkg.name, version, fetch, signal)).integrity,
+          read: async (signal: AbortSignal) => {
+            const metadata = await readNpmPublication(pkg.name, version, fetch, signal);
+            await Effect.runPromise(
+              requireNpmPackageInitialization(pkg.name, metadata.packageExists, npmAuthentication),
+            );
+            return metadata.integrity;
+          },
           publish: async () => {
+            const metadata = await readNpmPublication(pkg.name, version);
+            const publicationEnv = await Effect.runPromise(
+              npmPublicationEnvironment(
+                pkg.name,
+                metadata.packageExists,
+                npmAuthentication,
+                process.env,
+              ),
+            );
             run(
               "npm",
               [
@@ -123,9 +145,12 @@ try {
   );
 
   for (const { pkg, current } of tagStates) {
-    if (current === version) continue;
+    if (current === version || (await readNpmDistTag(pkg.name, distTag)) === version) continue;
     let submissionFailure: unknown;
     try {
+      const publicationEnv = await Effect.runPromise(
+        npmPublicationEnvironment(pkg.name, true, npmAuthentication, process.env),
+      );
       run("npm", ["dist-tag", "add", `${pkg.name}@${version}`, distTag], publicationEnv);
     } catch (error) {
       submissionFailure = error;

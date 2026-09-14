@@ -180,7 +180,7 @@ state in the [specification catalog](../../specifications/catalog.md).
    merged-revision CI run, downloads and validates its binaries, npm tarballs,
    metadata, and checksums, and preflights every mutable distribution owner.
    The distribution preflight also rejects uninitialized npm packages before
-   any output is written.
+   any output is written, except during the explicit first-package setup below.
    It then prepares an exact draft GitHub Release, distributes those exact
    bytes and the Homebrew formula, and publishes the release only after
    distribution succeeds. The publish job never rebuilds or repacks stable npm
@@ -318,6 +318,46 @@ working-tree publisher. It derives a deterministic preview version from the
 workflow run and source commit, publishes the fixed cohort with provenance
 under the `preview` dist-tag, and verifies an exact global installation. It
 refuses a stale source revision or a preview tag that has already advanced.
+
+## First npm package setup
+
+Use this only when the reviewed cohort introduces package names that do not yet
+exist on npm. Inspect the names and ownership through the npm account before
+creating them. npm's [trusted-publisher setup](https://docs.npmjs.com/trusted-publishers/)
+requires an existing package, so the first publication needs an authenticated
+creation step.
+
+1. Create a short-lived npm credential with only the scope needed for those
+   package creations and permission for authenticated CI publishing, following
+   [npm's access-token instructions](https://docs.npmjs.com/creating-and-viewing-access-tokens/).
+   Store it as the repository Actions secret `NPM_INITIAL_PUBLISH_TOKEN` through
+   the secret interface; never place its value in a command argument or log.
+2. Dispatch the canonical `publish.yml` workflow with
+   `initialize_npm_packages=true`. For a partially distributed stable release,
+   use `mode=stable-recovery` and its existing `release_tag`; stable recovery
+   consumes the original verified CI tarballs. For package setup before candidate
+   preparation, use the bootstrap-prerelease dispatch above with the additional
+   flag. All source, integrity, dependency-order and verification gates still
+   apply.
+3. Confirm the missing packages' exact versions and integrity in the workflow's
+   readback. Configure each new package's trusted publisher for GitHub
+   organization `agentxm`, repository `axm`, workflow `publish.yml`, with direct
+   publication enabled. Do not add an environment restriction unless the
+   corresponding job declares that environment.
+4. Revoke the temporary npm credential and remove `NPM_INITIAL_PUBLISH_TOKEN`
+   from Actions. Continue normal preparation or exact-tag recovery with the
+   initialization input disabled, and retain the completed cohort evidence.
+
+The initialization input defaults to false and is effective only on an explicit
+dispatch. `setup-node` supplies npm's registry-auth configuration; Effect Config
+loads the credential once as a redacted value. Only a missing package's npm
+publish process receives it. Existing packages use trusted publishing, and tag
+repair never receives this credential. A missing or rejected credential stops
+publication; package existence alone does not establish publisher authorization.
+
+This setup path has local configuration and failure-path coverage; its first
+authenticated workflow exercise remains outstanding until recorded by the
+maintainer. It does not provide a local or placeholder-package publisher.
 
 ## Notes
 

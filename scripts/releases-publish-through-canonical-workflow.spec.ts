@@ -138,6 +138,7 @@ const PUBLICATION_SIGNALS = [
   "axm:update-homebrew-formula",
   "HOMEBREW_TAP_TOKEN",
   "AXM_RELEASE_CONTROL_TOKEN",
+  "NPM_INITIAL_PUBLISH_TOKEN",
 ] as const;
 
 describe("Canonical release workflow", () => {
@@ -149,10 +150,16 @@ describe("Canonical release workflow", () => {
         "mode",
         "release_tag",
         "source_sha",
+        "initialize_npm_packages",
       ]);
       expect(triggers.workflow_dispatch.inputs["mode"]).toMatchObject({
         required: true,
         options: ["stable-recovery", "bootstrap-prerelease"],
+      });
+      expect(triggers.workflow_dispatch.inputs["initialize_npm_packages"]).toMatchObject({
+        required: false,
+        type: "boolean",
+        default: false,
       });
       expect(Object.keys(triggers)).toEqual(["workflow_run", "workflow_dispatch"]);
     }),

@@ -718,7 +718,6 @@ export const SubagentManagerLive = Layer.effect(
         // --- Remove canonical source directory ---
         if (!retainCanonical) {
           const canonical = yield* acceptedCanonicalObservation({
-            workspace: ws,
             type: "subagent",
             name: target.name,
           });
@@ -908,7 +907,6 @@ export const SubagentManagerLive = Layer.effect(
       materializeRetained: ({ target }) =>
         Effect.gen(function* () {
           const canonical = yield* usableAcceptedCanonical({
-            workspace: ws,
             type: "subagent",
             name: target.name,
           });
@@ -923,7 +921,6 @@ export const SubagentManagerLive = Layer.effect(
         }),
       prepareSourceTransition: ({ ref }) =>
         prepareAcceptedCanonicalTransition({
-          workspace: ws,
           type: "subagent",
           name: ref.subagent.name,
           ref,

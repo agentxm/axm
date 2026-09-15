@@ -20,10 +20,12 @@ import { applyPlannedProjections } from "@agentxm/workspace-projection";
 import { SourceHostProviders, SourceNotResolvable } from "@agentxm/extension-sources";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
+import type { Settings } from "@agentxm/workspace-state";
 import {
   makeBaseWorkspaceMock,
   MockWorkspaceTransactionScope,
   TEST_CONTENT_IDENTITY,
+  WorkspaceReadTest,
 } from "@agentxm/workspace-state/testing";
 import {
   CodingAgentRepositoryLive,
@@ -94,7 +96,7 @@ const makeSourceHostProviders = () =>
 const makeHookManagerLayer = (
   workspaceRoot: string,
   options?: {
-    readonly configuredAgents?: ReadonlyArray<string>;
+    readonly configuredAgents?: NonNullable<Settings["agents"]>;
     /** Hook names exposed as desired local-source hooks with accepted lock rows. */
     readonly hooks?: ReadonlyArray<string>;
   },
@@ -104,38 +106,64 @@ const makeHookManagerLayer = (
   const entries = Object.fromEntries(
     hookNames.map((name) => [name, { source: "./source-hook", enabled: true }]),
   );
+  const readLockedHooks = () =>
+    Effect.sync(() =>
+      Object.fromEntries(
+        hookNames.map((name) => [
+          name,
+          {
+            type: "local" as const,
+            sourceType: "local" as const,
+            sourceName: "local" as const,
+            extensionType: "hook" as const,
+            workspaceName: extensionName(name),
+            packageFormat: "agentxm" as const,
+            packageOwner: handle("@acme"),
+            packageName: extensionName(name),
+            path: decodeRelativePathSync("source-hook"),
+            contentIdentity: TEST_CONTENT_IDENTITY,
+            treeIntegrity: computeMaterializedTreeIntegritySync(
+              nodePath.join(workspaceRoot, "agent_extensions", "local", "source-hook"),
+            ),
+          },
+        ]),
+      ),
+    );
+  const workspace = makeBaseWorkspaceMock(axmDir, {
+    getConfiguredAgents: () => Effect.succeed(options?.configuredAgents ?? ["claude-code"]),
+    getConfiguredHookEntries: () => Effect.succeed(entries),
+    getLockedHooks: readLockedHooks,
+  });
   return HookManagerLive.pipe(
     Layer.provideMerge(WorkspaceCatalogTestLive),
     Layer.provideMerge(CodingAgentRepositoryLive),
-    Layer.provide(
-      Layer.succeed(
-        WorkspaceMutations,
-        makeBaseWorkspaceMock(axmDir, {
-          getConfiguredAgents: () => Effect.succeed(options?.configuredAgents ?? ["claude-code"]),
-          getConfiguredHookEntries: () => Effect.succeed(entries),
-          getLockedHooks: () =>
-            Effect.sync(() =>
-              Object.fromEntries(
-                hookNames.map((name) => [
-                  name,
-                  {
-                    type: "local" as const,
-                    sourceType: "local" as const,
-                    sourceName: "local" as const,
-                    extensionType: "hook" as const,
-                    workspaceName: extensionName(name),
-                    packageFormat: "agentxm" as const,
-                    packageOwner: handle("@acme"),
-                    packageName: extensionName(name),
-                    path: decodeRelativePathSync("source-hook"),
-                    contentIdentity: TEST_CONTENT_IDENTITY,
-                    treeIntegrity: computeMaterializedTreeIntegritySync(
-                      nodePath.join(workspaceRoot, "agent_extensions", "local", "source-hook"),
-                    ),
-                  },
-                ]),
-              ),
-            ),
+    Layer.provideMerge(
+      Layer.merge(
+        Layer.succeed(WorkspaceMutations, workspace),
+        WorkspaceReadTest({
+          baseDir: workspaceRoot,
+          runtimeDir: axmDir,
+          settings: {
+            agents: [...(options?.configuredAgents ?? ["claude-code"])],
+            hooks: entries,
+          },
+          acceptedResolutions: readLockedHooks().pipe(
+            Effect.map((hooks) => ({ lockfileVersion: 7, skills: {}, hooks })),
+          ),
+          graph: {
+            complete: true,
+            nodes: hookNames.map((name) => ({
+              type: "hook" as const,
+              name,
+              identity: "./source-hook",
+              source: "./source-hook",
+              enabled: true,
+              constraints: [],
+              origins: [{ type: "settings" as const, source: "./source-hook", enabled: true }],
+            })),
+            mcpSourceClosures: [],
+            problems: [],
+          },
         }),
       ),
     ),

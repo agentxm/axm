@@ -211,7 +211,6 @@ export const McpServerManagerLive = Layer.effect(
 
         if (retainCanonical || retainShared) return withdrawn;
         const canonical = yield* acceptedCanonicalObservation({
-          workspace: ws,
           type: "mcp-server",
           name: target.name,
         });
@@ -244,7 +243,6 @@ export const McpServerManagerLive = Layer.effect(
           entry.kind === "inline"
             ? Option.none<string>()
             : (yield* acceptedCanonicalObservation({
-                workspace: ws,
                 type: "mcp-server",
                 name,
               })).pipe(
@@ -316,7 +314,6 @@ export const McpServerManagerLive = Layer.effect(
       materializeRetained: ({ target }) =>
         Effect.gen(function* () {
           const canonical = yield* usableAcceptedCanonical({
-            workspace: ws,
             type: "mcp-server",
             name: target.name,
           });
@@ -331,7 +328,6 @@ export const McpServerManagerLive = Layer.effect(
         }),
       prepareSourceTransition: ({ ref }) =>
         prepareAcceptedCanonicalTransition({
-          workspace: ws,
           type: "mcp-server",
           name: ref.server.name,
           ref,

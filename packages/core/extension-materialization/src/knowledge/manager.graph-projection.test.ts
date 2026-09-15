@@ -24,6 +24,7 @@ import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   makeBaseWorkspaceMock,
+  WorkspaceReadTest,
   MockWorkspaceTransactionScope,
   TEST_CONTENT_IDENTITY,
 } from "@agentxm/workspace-state/testing";
@@ -137,7 +138,24 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
     return KnowledgeManagerLive.pipe(
       Layer.provideMerge(WorkspaceCatalogTestLive),
       Layer.provideMerge(CodingAgentRepositoryLive),
-      Layer.provide(Layer.succeed(WorkspaceMutations, wsMock)),
+      Layer.provideMerge(
+        Layer.merge(
+          Layer.succeed(WorkspaceMutations, wsMock),
+          WorkspaceReadTest({
+            baseDir,
+            runtimeDir: axmDir,
+            settings: {
+              knowledge: args.configured ?? {},
+              ...(args.knowledgeInstructions === false
+                ? { knowledgeConfig: { instructions: false } }
+                : {}),
+              ...(args.instructionFiles === false ? {} : { instructionFiles: {} }),
+            },
+            lockfile: { lockfileVersion: 7, skills: {}, knowledge: args.locked },
+            graph: args.graph,
+          }),
+        ),
+      ),
       Layer.provideMerge(MockWorkspaceTransactionScope(axmDir)),
       Layer.provide(
         Layer.succeed(SourceHostProviders, {

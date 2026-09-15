@@ -6,7 +6,7 @@
  * workspace projects onto is a core decision, so the repository that answers
  * it lives here.
  *
- * The settings-derived members keep `WorkspaceMutations` in `R`. The decisions
+ * The settings-derived members keep `SettingsReader` in `R`. The decisions
  * themselves are pure over the configured agent IDs (`selection.ts`), so a
  * caller that already holds those IDs never needs the service at all.
  *
@@ -18,7 +18,7 @@ import type * as Effect from "effect/Effect";
 import * as ServiceMap from "effect/Context";
 import type { CodingAgent } from "@agentxm/agent-integration";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import type { WorkspaceMutations, WorkspaceSettingsReadFailure } from "@agentxm/workspace-state";
+import type { SettingsReader, WorkspaceSettingsReadFailure } from "@agentxm/workspace-state";
 
 /** Repository for coding-agent implementations. */
 export interface CodingAgentRepositoryService {
@@ -27,17 +27,17 @@ export interface CodingAgentRepositoryService {
   readonly getConfiguredAgents: () => Effect.Effect<
     ReadonlyArray<CodingAgent>,
     WorkspaceSettingsReadFailure,
-    WorkspaceMutations
+    SettingsReader
   >;
   readonly getMaterializationAgents: () => Effect.Effect<
     ReadonlyArray<CodingAgent>,
     WorkspaceSettingsReadFailure,
-    WorkspaceMutations
+    SettingsReader
   >;
   readonly getUnknownConfiguredAgentIds: () => Effect.Effect<
     ReadonlyArray<string>,
     WorkspaceSettingsReadFailure,
-    WorkspaceMutations
+    SettingsReader
   >;
 }
 

@@ -37,7 +37,11 @@ import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/e
 import type { SourceResolutionFailure } from "@agentxm/extension-sources";
 import {
   acceptedResolutionRef,
+  DesiredStateReader,
+  LockfileReader,
   resolveWorkspaceExtensionRef,
+  SettingsReader,
+  WorkspaceLocation,
   WorkspaceMutations,
 } from "@agentxm/workspace-state";
 import type { AcceptedCanonicalRefError } from "@agentxm/workspace-state";
@@ -181,6 +185,10 @@ export const resolveConfiguredRegistryEntry = (
   | SourceHostProviders
   | WorkspaceCatalog
   | WorkspaceMutations
+  | WorkspaceLocation
+  | SettingsReader
+  | LockfileReader
+  | DesiredStateReader
   | FileSystem.FileSystem
   | HttpClient.HttpClient
   | Path.Path
@@ -234,9 +242,7 @@ export const resolveConfiguredRegistryEntry = (
     }
     const versionRange = Option.fromUndefinedOr(parsedPattern?.versionRange);
     const registryName = expectedType === "mcp-server" ? (parsedPattern?.name ?? name) : name;
-    const workspace = yield* WorkspaceMutations;
     const acceptedRef = yield* acceptedResolutionRef({
-      workspace,
       type: expectedType,
       name,
     });

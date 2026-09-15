@@ -23,7 +23,13 @@ import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failu
 import type { OperationHandler } from "@agentxm/workspace-operations";
 import type { Operation } from "@agentxm/workspace-operations";
 import type { JobStepResult } from "@agentxm/workspace-operations";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import {
+  type DesiredStateReader,
+  type LockfileReader,
+  type SettingsReader,
+  type WorkspaceLocation,
+  WorkspaceMutations,
+} from "@agentxm/workspace-state";
 import {
   WorkspaceTransactionScope,
   runWorkspaceTransaction,
@@ -74,6 +80,10 @@ export const enableSubagent: OperationHandler<
   | FileSystem.FileSystem
   | Path.Path
   | WorkspaceMutations
+  | WorkspaceLocation
+  | SettingsReader
+  | LockfileReader
+  | DesiredStateReader
   | WorkspaceTransactionScope
   | CodingAgentRepository
   | NativeWriteAuthority
@@ -86,7 +96,6 @@ export const enableSubagent: OperationHandler<
     const agentRepo = yield* CodingAgentRepository;
 
     const canonical = yield* usableAcceptedCanonical({
-      workspace: ws,
       type: "subagent",
       name: op.args.subagentName,
     });

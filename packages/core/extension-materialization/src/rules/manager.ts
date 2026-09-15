@@ -659,7 +659,6 @@ export const RuleManagerLive = Layer.effect(
     )(function* ({ target }) {
       const canonical = yield* provide(
         acceptedCanonicalObservation({
-          workspace: ws,
           type: "rule",
           name: target.name,
         }),
@@ -689,7 +688,6 @@ export const RuleManagerLive = Layer.effect(
       materializeRetained: ({ target }) =>
         Effect.gen(function* () {
           const canonical = yield* usableAcceptedCanonical({
-            workspace: ws,
             type: "rule",
             name: target.name,
           });
@@ -705,7 +703,6 @@ export const RuleManagerLive = Layer.effect(
       prepareSourceTransition: ({ ref }) =>
         provide(
           prepareAcceptedCanonicalTransition({
-            workspace: ws,
             type: "rule",
             name: ref.rule.name,
             ref,
@@ -729,7 +726,7 @@ export const RuleManagerLive = Layer.effect(
           enabledConfiguredEntries(configured),
           ([name]) =>
             provide(
-              usableAcceptedCanonicalRef({ workspace: ws, type: "rule", name }).pipe(
+              usableAcceptedCanonicalRef({ type: "rule", name }).pipe(
                 Effect.map(Option.filter((ref): ref is RuleExtensionRef => ref.type === "rule")),
               ),
             ),

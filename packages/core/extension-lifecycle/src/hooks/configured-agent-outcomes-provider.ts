@@ -20,6 +20,10 @@ import { NativeWriteAuthority } from "@agentxm/agent-integration";
 import {
   ConfiguredAgentOutcomesProvider,
   ConfiguredAgentOutcomesUnavailable,
+  DesiredStateReader,
+  LockfileReader,
+  SettingsReader,
+  WorkspaceLocation,
 } from "@agentxm/workspace-state";
 import { StepFailureConversion } from "../step-failure-conversion.js";
 import { HookManager, McpServerManager } from "@agentxm/extension-materialization";
@@ -36,6 +40,10 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
       Layer.succeed(Path.Path, yield* Path.Path),
       Layer.succeed(HttpClient.HttpClient, yield* HttpClient.HttpClient),
       Layer.succeed(NativeWriteAuthority, yield* NativeWriteAuthority),
+      Layer.succeed(WorkspaceLocation, yield* WorkspaceLocation),
+      Layer.succeed(SettingsReader, yield* SettingsReader),
+      Layer.succeed(LockfileReader, yield* LockfileReader),
+      Layer.succeed(DesiredStateReader, yield* DesiredStateReader),
     );
     const mapFailure = (failure: Parameters<typeof adapter.toStepFailure>[0]) => {
       const step = adapter.toStepFailure(failure);

@@ -29,6 +29,7 @@ import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   makeBaseWorkspaceMock,
+  WorkspaceReadTest,
   MockWorkspaceTransactionScope,
 } from "@agentxm/workspace-state/testing";
 import {
@@ -190,7 +191,18 @@ describe("RuleManager graph-derived region projection", () => {
     return RuleManagerLive.pipe(
       Layer.provideMerge(WorkspaceCatalogTestLive),
       Layer.provideMerge(CodingAgentRepositoryLive),
-      Layer.provide(Layer.succeed(WorkspaceMutations, wsMock)),
+      Layer.provideMerge(
+        Layer.merge(
+          Layer.succeed(WorkspaceMutations, wsMock),
+          WorkspaceReadTest({
+            baseDir,
+            runtimeDir: axmDir,
+            settings: { agents: [], instructionFiles: {} },
+            lockfile: { lockfileVersion: 7, skills: {}, rules: args.locked },
+            graph: args.graph,
+          }),
+        ),
+      ),
       Layer.provideMerge(MockWorkspaceTransactionScope(axmDir)),
       Layer.provide(Layer.succeed(SourceHostProviders, providersStub)),
       Layer.provideMerge(NativeWriteAuthorityLive),

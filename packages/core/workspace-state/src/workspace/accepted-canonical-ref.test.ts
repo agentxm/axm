@@ -6,11 +6,13 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { SkillLockEntry } from "../lockfile/schema.js";
+import { LOCKFILE_VERSION, type SkillLockEntry } from "../lockfile/schema.js";
 import type { GitHostedSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { prepareAcceptedCanonicalTransition } from "./accepted-canonical-ref.js";
-import { makeBaseWorkspaceMock, TEST_TREE_INTEGRITY } from "./test-stubs.js";
+import { TEST_TREE_INTEGRITY } from "./test-stubs.js";
+import { WorkspaceStateLive } from "../live.js";
 
 describe("accepted canonical source transitions", () => {
   it.effect("removes only the superseded accepted package", () =>
@@ -55,9 +57,11 @@ describe("accepted canonical source transitions", () => {
         publisherBindingId: "hbnd_review",
         treeIntegrity: TEST_TREE_INTEGRITY,
       } satisfies SkillLockEntry;
-      const workspace = makeBaseWorkspaceMock(nodePath.join(root, ".axm"), {
-        getLockedSkill: () => Effect.succeed(Option.some(accepted)),
-      });
+      nodeFs.writeFileSync(nodePath.join(root, "axm.json"), "{}\n");
+      nodeFs.writeFileSync(
+        nodePath.join(root, "axm-lock.yaml"),
+        JSON.stringify({ lockfileVersion: LOCKFILE_VERSION, skills: { review: accepted } }),
+      );
       const sourcePath = "skills/review";
       const sourceRoot = nodePath.join(root, "checkout", sourcePath);
       const ref = {
@@ -86,11 +90,17 @@ describe("accepted canonical source transitions", () => {
       } satisfies GitHostedSkillRef;
 
       const cleanup = yield* prepareAcceptedCanonicalTransition({
-        workspace,
         type: "skill",
         name: "review",
         ref,
-      });
+      }).pipe(
+        Effect.provide(
+          WorkspaceStateLive({
+            scope: "project",
+            projectRoot: decodeAbsolutePathSync(root),
+          }),
+        ),
+      );
       expect(nodeFs.existsSync(previousPath)).toBe(true);
 
       yield* cleanup;

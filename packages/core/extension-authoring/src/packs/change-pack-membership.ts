@@ -146,7 +146,7 @@ const memberCandidates = Effect.fn("ChangePackMembership.memberCandidates")(func
           layout: ws.layout,
           scope: ws.scope,
         }).pipe(Effect.map(Option.some))
-      : yield* usableAcceptedCanonical({ workspace: ws, type: node.type, name: node.name }).pipe(
+      : yield* usableAcceptedCanonical({ type: node.type, name: node.name }).pipe(
           Effect.map(Option.map((canonical) => canonical.ref)),
         );
     if (

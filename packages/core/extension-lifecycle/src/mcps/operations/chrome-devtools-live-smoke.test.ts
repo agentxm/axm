@@ -20,7 +20,7 @@ import {
   handle,
 } from "../../test-helpers.js";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
+import { makeBaseWorkspaceMock, WorkspaceReadTest } from "@agentxm/workspace-state/testing";
 import { installMcpServer } from "@agentxm/workspace-reconciliation";
 import { makeMemoryMcpSecretStore } from "@agentxm/extension-materialization/testing";
 import { uninstallMcpServer } from "./uninstall.js";
@@ -136,6 +136,7 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
               NativeWriteAuthorityPermissive,
             ),
             WorkspaceMutations.layer(wsMock),
+            WorkspaceReadTest({ baseDir: base, runtimeDir: axmDir }),
             TestStepFailureConversion,
             secretStore.layer,
             Layer.succeed(CodingAgentRepository, mockAgentRepo),
@@ -160,6 +161,7 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
               NativeWriteAuthorityPermissive,
             ),
             WorkspaceMutations.layer(wsMock),
+            WorkspaceReadTest({ baseDir: base, runtimeDir: axmDir }),
             TestStepFailureConversion,
             secretStore.layer,
             Layer.succeed(CodingAgentRepository, mockAgentRepo),

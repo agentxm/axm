@@ -6,10 +6,19 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
 import type { WorkspaceMutationsService } from "./service-interface.js";
+import { DesiredStateReader, type DesiredStateReaderService } from "./desired-state-reader.js";
+import { LockfileReader, makeLockfileReader } from "./lockfile-reader.js";
+import { makeSettingsReader, SettingsReader } from "./settings-reader.js";
+import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
+import type { WorkspaceDocumentsService } from "./documents.js";
+import type { WorkspaceLayout } from "./layout.js";
+import type { DesiredStateGraph } from "./desired-state-graph.js";
 import type { ReadModelRecordRow, PackagingKind } from "./read-model-record-types.js";
 import type {
   WorkspaceLockfileReadFailure,
@@ -19,11 +28,14 @@ import type {
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import {
   makeRegistryPackLockEntry as buildRegistryPackLockEntry,
+  LOCKFILE_VERSION,
+  type Lockfile,
   type McpServerLockEntry,
   type RegistryPackLockEntry,
   type RuleLockEntry,
   type SkillLockEntry,
 } from "../lockfile/index.js";
+import { createDefaultSettings, type Settings, type SourceHostConfig } from "../settings/index.js";
 import {
   decodeExtensionNameSync,
   extensionTypes,
@@ -411,6 +423,95 @@ export const makeBaseWorkspaceMock = (
     layout: serviceOverrides.layout ?? base.layout,
   };
 };
+
+export interface WorkspaceReadTestFacts {
+  readonly baseDir: string;
+  readonly runtimeDir?: string;
+  readonly layout?: WorkspaceLayout;
+  readonly settings?: Settings;
+  readonly lockfile?: Lockfile;
+  readonly acceptedResolutions?: Effect.Effect<Lockfile, WorkspaceLockfileReadFailure>;
+  readonly graph?: DesiredStateGraph;
+}
+
+/** Owned workspace read ports built from explicit test facts. */
+export const WorkspaceReadTest = (
+  facts: WorkspaceReadTestFacts,
+): Layer.Layer<WorkspaceLocation | SettingsReader | LockfileReader | DesiredStateReader> =>
+  Layer.unwrap(
+    Effect.gen(function* () {
+      const runtimeDir = facts.runtimeDir ?? path.join(facts.baseDir, ".axm");
+      const defaultLayout: WorkspaceLayout = {
+        scope: "project",
+        workspaceRoot: decodeAbsolutePathSync(path.resolve(facts.baseDir)),
+        projectRoot: decodeAbsolutePathSync(path.resolve(facts.baseDir)),
+        settingsPath: decodeAbsolutePathSync(path.resolve(facts.baseDir, "axm.json")),
+        lockPath: decodeAbsolutePathSync(path.resolve(facts.baseDir, "axm-lock.yaml")),
+        runtimeDir: decodeAbsolutePathSync(path.resolve(runtimeDir)),
+        acquiredRoot: decodeAbsolutePathSync(path.resolve(facts.baseDir, "agent_extensions")),
+        authoredRoot: (type) =>
+          decodeAbsolutePathSync(
+            path.resolve(facts.baseDir, type === "mcp-server" ? "mcps" : `${type}s`),
+          ),
+      };
+      const selectedLayout = facts.layout ?? defaultLayout;
+      const location: WorkspaceLocationService = {
+        scope: selectedLayout.scope,
+        projectRoot: decodeAbsolutePathSync(path.resolve(facts.baseDir)),
+        userHome: decodeAbsolutePathSync(path.resolve(facts.baseDir)),
+        projectRuntimeDir: runtimeDir,
+        userRuntimeDir: runtimeDir,
+        baseDir: facts.baseDir,
+        runtimeDir,
+        settingsPath: selectedLayout.settingsPath,
+        lockPath: selectedLayout.lockPath,
+        layout: yield* Ref.make(selectedLayout),
+        builtInSources: [],
+      };
+      const settingsDocument = facts.settings ?? createDefaultSettings();
+      const lockfileDocument =
+        facts.lockfile ?? ({ lockfileVersion: LOCKFILE_VERSION, skills: {} } satisfies Lockfile);
+      const documents: WorkspaceDocumentsService = {
+        settings: () => Effect.succeed(settingsDocument),
+        acceptedResolutions: facts.acceptedResolutions ?? Effect.succeed(lockfileDocument),
+        acceptedResolutionState: Effect.succeed("ok"),
+        writeSettings: () => Effect.void,
+        commitAcceptedResolutions: () => Effect.void,
+      };
+      const desired: DesiredStateReaderService = {
+        graph: () =>
+          Effect.succeed(
+            facts.graph ?? {
+              complete: true,
+              nodes: [],
+              mcpSourceClosures: [],
+              problems: [],
+            },
+          ),
+        isRequiredByInstalledPack: (target) =>
+          Effect.succeed(
+            facts.graph?.nodes.some(
+              (node) =>
+                node.type === target.type &&
+                node.name === target.name &&
+                node.origins.some((origin) => origin.type === "pack"),
+            ) ?? false,
+          ),
+      };
+      const settings = makeSettingsReader(
+        location,
+        documents,
+        yield* Ref.make<Option.Option<ReadonlyArray<SourceHostConfig>>>(Option.none()),
+      );
+      const lockfile = makeLockfileReader(documents, desired);
+      return Layer.mergeAll(
+        Layer.succeed(WorkspaceLocation, location),
+        Layer.succeed(SettingsReader, settings),
+        Layer.succeed(LockfileReader, lockfile),
+        Layer.succeed(DesiredStateReader, desired),
+      );
+    }),
+  );
 
 export const TEST_CONTENT_IDENTITY = Schema.decodeUnknownSync(SourceHashSchema)("test-content");
 export const TEST_TREE_INTEGRITY = Schema.decodeUnknownSync(TreeIntegritySchema)(

@@ -19,7 +19,7 @@ import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failu
 import type { OperationHandler } from "@agentxm/workspace-operations";
 import type { Operation } from "@agentxm/workspace-operations";
 import type { JobStepResult } from "@agentxm/workspace-operations";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { type SettingsReader, WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   WorkspaceTransactionScope,
   runWorkspaceTransaction,
@@ -62,6 +62,7 @@ export const disableSubagent: OperationHandler<
   | FileSystem.FileSystem
   | Path.Path
   | WorkspaceMutations
+  | SettingsReader
   | WorkspaceTransactionScope
   | CodingAgentRepository
   | NativeWriteAuthority

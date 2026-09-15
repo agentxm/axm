@@ -123,7 +123,6 @@ const inspectOwnership: (
       desired === undefined
         ? Option.none()
         : yield* acceptedCanonicalObservation({
-            workspace: ws,
             type: "knowledge",
             name: target.name,
           });

@@ -22,7 +22,13 @@ import {
   type PublisherBindingTransition,
 } from "@agentxm/extension-resolution";
 import type { Plan, PlanRiskCondition, PlannedJobStep } from "@agentxm/workspace-operations";
-import { acceptedResolutionRef, WorkspaceMutations } from "@agentxm/workspace-state";
+import {
+  acceptedResolutionRef,
+  type DesiredStateReader,
+  type LockfileReader,
+  type SettingsReader,
+  type WorkspaceLocation,
+} from "@agentxm/workspace-state";
 
 export const PUBLISHER_CHANGE_CONDITION_ID = "publisher-ownership-change";
 
@@ -82,9 +88,17 @@ const stepWithTransitionWarning = <R, O>(
  */
 export const withPublisherTrust = <R, O>(
   plan: Plan<R, O>,
-): Effect.Effect<Plan<R, O>, never, WorkspaceMutations | FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  Plan<R, O>,
+  never,
+  | WorkspaceLocation
+  | SettingsReader
+  | LockfileReader
+  | DesiredStateReader
+  | FileSystem.FileSystem
+  | Path.Path
+> =>
   Effect.gen(function* () {
-    const workspace = yield* WorkspaceMutations;
     const proposals = plan.jobs.flatMap((job) =>
       job.steps.flatMap((step) => (step.registryBinding === undefined ? [] : [step])),
     );
@@ -96,7 +110,6 @@ export const withPublisherTrust = <R, O>(
       const proposed = step.registryBinding;
       if (proposed === undefined) continue;
       const accepted = yield* acceptedResolutionRef({
-        workspace,
         type: proposed.extensionType,
         name: proposed.target,
       }).pipe(Effect.option);

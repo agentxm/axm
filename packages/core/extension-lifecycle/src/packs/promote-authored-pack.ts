@@ -220,7 +220,6 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
     node: DesiredExtensionNode,
   ) {
     const canonical = yield* usableAcceptedCanonical({
-      workspace: ws,
       type: node.type,
       name: node.name,
     });

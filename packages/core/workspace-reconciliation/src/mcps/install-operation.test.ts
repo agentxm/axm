@@ -28,7 +28,7 @@ import type {
 import { SourceHostProviders } from "@agentxm/extension-sources";
 import type { SourceHostProvidersService } from "@agentxm/extension-sources";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
-import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
+import { makeBaseWorkspaceMock, WorkspaceReadTest } from "@agentxm/workspace-state/testing";
 import { expectRecord, makeCodingAgentStub } from "./test-helpers.js";
 import type { McpSecretStoreService } from "@agentxm/extension-materialization";
 import { McpSecretStore, mcpSecretAccount } from "@agentxm/extension-materialization";
@@ -192,6 +192,7 @@ const makeServices = (
     layer: Layer.mergeAll(
       Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer, NativeWriteAuthorityPermissive),
       WorkspaceMutations.layer(mockWs),
+      WorkspaceReadTest({ baseDir: path.dirname(axmDir), runtimeDir: axmDir }),
       Layer.succeed(McpSecretStore, secretStore.service),
       Layer.succeed(SourceHostProviders, sourceProviders),
       Layer.succeed(CodingAgentRepository, agentRepo ?? defaultAgentRepo),

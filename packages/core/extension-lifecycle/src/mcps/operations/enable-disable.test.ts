@@ -27,6 +27,8 @@ import {
   makeBaseWorkspaceMock,
   makeRegistryMcpServerLockEntry,
   MockWorkspaceTransactionScope,
+  WorkspaceReadTest,
+  type WorkspaceReadTestFacts,
 } from "@agentxm/workspace-state/testing";
 import { mcpResolutionKey } from "@agentxm/workspace-state";
 import { disableMcpServer } from "./disable.js";
@@ -62,6 +64,7 @@ const makeServices = (
   axmDir: string,
   wsOverrides: Partial<WorkspaceMutationsService>,
   agentRepo: CodingAgentRepositoryService,
+  read: Omit<WorkspaceReadTestFacts, "baseDir" | "runtimeDir"> = {},
 ) => {
   const workspace = makeBaseWorkspaceMock(axmDir, wsOverrides);
 
@@ -69,6 +72,7 @@ const makeServices = (
     layer: Layer.mergeAll(
       NativeWriteAuthorityPermissive,
       WorkspaceMutations.layer(workspace),
+      WorkspaceReadTest({ baseDir: path.dirname(axmDir), runtimeDir: axmDir, ...read }),
       MockWorkspaceTransactionScope(axmDir),
       TestStepFailureConversion,
       Layer.succeed(CodingAgentRepository, agentRepo),
@@ -135,52 +139,55 @@ describe("enableMcpServer and disableMcpServer", () => {
         addMcpServer: () => Effect.succeed({ _tag: "unsupported", reason: "not called" }),
         removeMcpServer: () => Effect.succeed({ _tag: "success" }),
       });
+      const lockEntry = makeLockEntry(projectDir);
+      const identity = mcpResolutionKey(lockEntry);
+      const graph = {
+        complete: true as const,
+        nodes: [
+          {
+            type: "mcp-server" as const,
+            name: serverName,
+            identity,
+            authority: "sourced" as const,
+            source: "@community/mcps/my-server",
+            enabled: false,
+            constraints: [],
+            origins: [
+              {
+                type: "settings" as const,
+                localName: serverName,
+                source: "@community/mcps/my-server",
+                enabled: false,
+              },
+            ],
+          },
+        ],
+        mcpSourceClosures: [
+          {
+            identity,
+            localNames: [serverName],
+            constraints: [],
+            origins: [],
+          },
+        ],
+        problems: [],
+      };
       const services = makeServices(
         axmDir,
         {
           getConfiguredMcpServerEntries: () => Effect.succeed({ [serverName]: entry }),
-          getLockedMcpServers: () => Effect.succeed({ [serverName]: makeLockEntry(projectDir) }),
-          getLockedMcpServer: () => Effect.succeed(Option.some(makeLockEntry(projectDir))),
-          getLockedMcpServerForConnection: () =>
-            Effect.succeed(Option.some(makeLockEntry(projectDir))),
-          getDesiredStateGraph: () => {
-            const lockEntry = makeLockEntry(projectDir);
-            const identity = mcpResolutionKey(lockEntry);
-            return Effect.succeed({
-              complete: true,
-              nodes: [
-                {
-                  type: "mcp-server",
-                  name: serverName,
-                  identity,
-                  authority: "sourced",
-                  source: "@community/mcps/my-server",
-                  enabled: false,
-                  constraints: [],
-                  origins: [
-                    {
-                      type: "settings",
-                      localName: serverName,
-                      source: "@community/mcps/my-server",
-                      enabled: false,
-                    },
-                  ],
-                },
-              ],
-              mcpSourceClosures: [
-                {
-                  identity,
-                  localNames: [serverName],
-                  constraints: [],
-                  origins: [],
-                },
-              ],
-              problems: [],
-            });
-          },
+          getLockedMcpServers: () => Effect.succeed({ [serverName]: lockEntry }),
+          getLockedMcpServer: () => Effect.succeed(Option.some(lockEntry)),
+          getLockedMcpServerForConnection: () => Effect.succeed(Option.some(lockEntry)),
+          getDesiredStateGraph: () => Effect.succeed(graph),
           updateMcpServerEntry: () => Effect.void,
         },
         makeAgentRepo(agent),
+        {
+          settings: { mcpServers: { [serverName]: entry } },
+          lockfile: { lockfileVersion: 7, skills: {}, mcpServers: { [identity]: lockEntry } },
+          graph,
+        },
       );
 
       const result = yield* enableMcpServer({

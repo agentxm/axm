@@ -48,6 +48,7 @@ import {
   installedRowsByName,
   unmanagedRowsByName,
 } from "@agentxm/workspace-state";
+import { SettingsReader } from "@agentxm/workspace-state";
 import { TreeIntegritySchema, type TreeIntegrity } from "@agentxm/workspace-state";
 import { WorkspaceMutations } from "@agentxm/workspace-state";
 
@@ -200,6 +201,7 @@ export const WorkspaceCatalogTestLive = Layer.effect(
   WorkspaceCatalog,
   Effect.gen(function* () {
     const ws = yield* WorkspaceMutations;
+    const settings = yield* SettingsReader;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const agentRepo = yield* CodingAgentRepository;
@@ -221,7 +223,10 @@ export const WorkspaceCatalogTestLive = Layer.effect(
           .pipe(Effect.map(configuredRowsByName));
         const configuredAgents = yield* agentRepo
           .getMaterializationAgents()
-          .pipe(Effect.mapError(catalogUnavailable), Effect.provideService(WorkspaceMutations, ws));
+          .pipe(
+            Effect.mapError(catalogUnavailable),
+            Effect.provideService(SettingsReader, settings),
+          );
         const resolvedAgents = yield* Effect.forEach(
           configuredAgents,
           (agent) =>

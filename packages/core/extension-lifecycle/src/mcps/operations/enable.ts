@@ -25,7 +25,13 @@ import type {
   JobStepResult,
   Operation,
 } from "@agentxm/workspace-operations";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import {
+  type DesiredStateReader,
+  type LockfileReader,
+  type SettingsReader,
+  type WorkspaceLocation,
+  WorkspaceMutations,
+} from "@agentxm/workspace-state";
 import {
   WorkspaceTransactionScope,
   runWorkspaceTransaction,
@@ -67,6 +73,10 @@ export const enableMcpServer = (
   | FileSystem.FileSystem
   | Path.Path
   | WorkspaceMutations
+  | WorkspaceLocation
+  | SettingsReader
+  | LockfileReader
+  | DesiredStateReader
   | WorkspaceTransactionScope
   | CodingAgentRepository
   | NativeWriteAuthority
@@ -137,7 +147,6 @@ export const enableMcpServer = (
     }
 
     const canonical = yield* usableAcceptedCanonicalObservation({
-      workspace: ws,
       type: "mcp-server",
       name: op.args.serverName,
     });

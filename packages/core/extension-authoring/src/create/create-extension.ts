@@ -83,6 +83,10 @@ import {
   computePackPathsForLayout,
   computeSourceHash,
   type ConfiguredAgentOutcomesProvider,
+  type DesiredStateReader,
+  type LockfileReader,
+  type SettingsReader,
+  type WorkspaceLocation,
   type WorkspaceMutationsService,
 } from "@agentxm/workspace-state";
 
@@ -218,6 +222,10 @@ export type PrepareCreateExtensionRequirements =
   | CredentialStore
   | RegistryUrl
   | WorkspaceMutations
+  | WorkspaceLocation
+  | SettingsReader
+  | LockfileReader
+  | DesiredStateReader
   | CodingAgentRepository
   | ConfiguredAgentOutcomesProvider
   | SkillManager

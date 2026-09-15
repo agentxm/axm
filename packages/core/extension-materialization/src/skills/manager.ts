@@ -274,7 +274,6 @@ export const SkillManagerLive = Layer.effect(
 
         if (!retainCanonical) {
           const canonical = yield* acceptedCanonicalObservation({
-            workspace: ws,
             type: "skill",
             name: target.name,
           });
@@ -335,7 +334,6 @@ export const SkillManagerLive = Layer.effect(
       materializeRetained: ({ target }) =>
         Effect.gen(function* () {
           const canonical = yield* usableAcceptedCanonical({
-            workspace: ws,
             type: "skill",
             name: target.name,
           });
@@ -350,7 +348,6 @@ export const SkillManagerLive = Layer.effect(
         }),
       prepareSourceTransition: ({ ref }) =>
         prepareAcceptedCanonicalTransition({
-          workspace: ws,
           type: "skill",
           name: ref.skill.name,
           ref,
@@ -383,7 +380,7 @@ export const SkillManagerLive = Layer.effect(
           ([name]) =>
             configuredEntries[name]?.origin === "bundled"
               ? Effect.succeed(Option.none<SkillExtensionRef>())
-              : usableAcceptedCanonicalRef({ workspace: ws, type: "skill", name }).pipe(
+              : usableAcceptedCanonicalRef({ type: "skill", name }).pipe(
                   Effect.map(
                     Option.filter((ref): ref is SkillExtensionRef => ref.type === "skill"),
                   ),

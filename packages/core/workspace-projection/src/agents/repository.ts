@@ -11,7 +11,7 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { codingAgentForId, type CodingAgent } from "@agentxm/agent-integration";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { SettingsReader } from "@agentxm/workspace-state";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   CodingAgentRepository,
@@ -25,7 +25,7 @@ import {
 } from "./selection.js";
 
 const configuredAgentIds = () =>
-  WorkspaceMutations.pipe(Effect.flatMap((ws) => ws.getConfiguredAgents()));
+  SettingsReader.pipe(Effect.flatMap((settings) => settings.configuredAgents));
 
 export const DefaultCodingAgentRepository: CodingAgentRepositoryService = {
   get: (id: AgentId): Effect.Effect<CodingAgent> => Effect.succeed(codingAgentForId(id)),

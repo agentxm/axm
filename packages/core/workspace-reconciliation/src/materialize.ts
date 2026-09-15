@@ -65,7 +65,11 @@ import {
   lockEntryToSourceParams,
   isSourcedDesiredExtension,
   desiredStateProblemsText,
+  type DesiredStateReader,
+  type LockfileReader,
+  type SettingsReader,
   WorkspaceMutations,
+  type WorkspaceLocation,
   usableAcceptedCanonical,
   type CanonicalObservationStatus,
   type DesiredExtensionNode,
@@ -320,7 +324,11 @@ export type ConfiguredEntryResolutionRequirements =
   | Scope.Scope
   | SourceHostProviders
   | WorkspaceCatalog
-  | WorkspaceMutations;
+  | WorkspaceMutations
+  | WorkspaceLocation
+  | SettingsReader
+  | LockfileReader
+  | DesiredStateReader;
 
 const SYNC_CATEGORIES = ["conflict", "internal", "not_found", "validation"] as const;
 
@@ -531,7 +539,6 @@ export const collectMaterializeSteps = (args: {
       (node) =>
         Effect.gen(function* () {
           const canonical = yield* acceptedCanonicalObservation({
-            workspace: ws,
             type: node.type,
             name: node.name,
             desired: node,
@@ -564,7 +571,6 @@ export const collectMaterializeSteps = (args: {
           const resolved = yield* Effect.gen(function* () {
             if (observation.status === "usable") {
               const usable = yield* usableAcceptedCanonical({
-                workspace: ws,
                 type: node.type,
                 name: node.name,
                 desired: node,
@@ -575,7 +581,6 @@ export const collectMaterializeSteps = (args: {
             }
             if (accepted !== undefined) {
               const immutable = yield* acceptedResolutionRef({
-                workspace: ws,
                 type: node.type,
                 name: node.name,
                 desired: node,
@@ -813,7 +818,6 @@ export const collectMaterializeSteps = (args: {
           (node) => node.type === target.type && node.name === target.name,
         );
         const canonical = yield* acceptedCanonicalObservation({
-          workspace: ws,
           type: target.type,
           name: target.name,
           ...(proposed === undefined ? {} : { desired: proposed }),

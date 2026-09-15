@@ -1162,7 +1162,6 @@ export const HookManagerLive = Layer.effect(
     )(function* ({ target }) {
       const canonical = yield* provide(
         acceptedCanonicalObservation({
-          workspace: ws,
           type: "hook",
           name: target.name,
         }),
@@ -1204,7 +1203,6 @@ export const HookManagerLive = Layer.effect(
       materializeRetained: ({ target }) =>
         Effect.gen(function* () {
           const canonical = yield* usableAcceptedCanonical({
-            workspace: ws,
             type: "hook",
             name: target.name,
           });
@@ -1220,7 +1218,6 @@ export const HookManagerLive = Layer.effect(
       prepareSourceTransition: ({ ref }) =>
         provide(
           prepareAcceptedCanonicalTransition({
-            workspace: ws,
             type: "hook",
             name: ref.hook.name,
             ref,
@@ -1244,7 +1241,7 @@ export const HookManagerLive = Layer.effect(
           enabledConfiguredEntries(configured),
           ([name]) =>
             provide(
-              usableAcceptedCanonicalRef({ workspace: ws, type: "hook", name }).pipe(
+              usableAcceptedCanonicalRef({ type: "hook", name }).pipe(
                 Effect.map(Option.filter((ref): ref is HookExtensionRef => ref.type === "hook")),
               ),
             ),

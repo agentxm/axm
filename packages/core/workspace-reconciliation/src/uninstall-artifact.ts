@@ -46,7 +46,6 @@ export const prepareUninstallArtifact = (
         (node) => node.type === before.type && node.identity === before.identity,
       );
     const canonical = yield* acceptedCanonicalObservation({
-      workspace: ws,
       type: target.type,
       name: target.name,
     });

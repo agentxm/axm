@@ -22,6 +22,12 @@ import type * as Path from "effect/Path";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as ServiceMap from "effect/Context";
 import type { NativeWriteAuthority } from "@agentxm/agent-integration";
+import type {
+  DesiredStateReader,
+  LockfileReader,
+  SettingsReader,
+  WorkspaceLocation,
+} from "@agentxm/workspace-state";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { ProjectionParticipantFailure } from "./errors.js";
@@ -39,7 +45,14 @@ import {
  * evaluates the facts composes them once.
  */
 export type ProjectionParticipantRequirements =
-  FileSystem.FileSystem | Path.Path | HttpClient.HttpClient | NativeWriteAuthority;
+  | FileSystem.FileSystem
+  | Path.Path
+  | HttpClient.HttpClient
+  | NativeWriteAuthority
+  | WorkspaceLocation
+  | SettingsReader
+  | LockfileReader
+  | DesiredStateReader;
 
 /** Plans an owner exposes for the aggregate units it materializes. */
 export type ParticipantProjectionPlans = Effect.Effect<

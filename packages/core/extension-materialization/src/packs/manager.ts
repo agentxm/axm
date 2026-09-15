@@ -185,7 +185,6 @@ export const PackManagerLive = Layer.effect(
       "PackManager.materializeUninstall",
     )(function* ({ target }) {
       const canonical = yield* acceptedCanonicalObservation({
-        workspace: ws,
         type: "pack",
         name: target.name,
       });
@@ -220,7 +219,6 @@ export const PackManagerLive = Layer.effect(
       acquireCanonical: materializeInstall,
       prepareSourceTransition: ({ ref }) =>
         prepareAcceptedCanonicalTransition({
-          workspace: ws,
           type: "pack",
           name: ref.pack.name,
           ref,
@@ -240,7 +238,6 @@ export const PackManagerLive = Layer.effect(
       materializeRetained: ({ target }) =>
         Effect.gen(function* () {
           const canonical = yield* usableAcceptedCanonical({
-            workspace: ws,
             type: "pack",
             name: target.name,
           });

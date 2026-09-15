@@ -12,7 +12,7 @@ import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/
 import { SourceHostProviders, type SourceHostProvidersService } from "@agentxm/extension-sources";
 import { assessExtensionListItems, type ExtensionListItem } from "./assessment.js";
 import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
-import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
+import { makeBaseWorkspaceMock, WorkspaceReadTest } from "@agentxm/workspace-state/testing";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
 import {
   handle,
@@ -22,11 +22,18 @@ import {
 
 const workspaceWithCatalogLayer = (ws: WorkspaceMutationsService) => {
   const wsLayer = Layer.succeed(WorkspaceMutations, ws);
+  const readLayer = WorkspaceReadTest({
+    baseDir: ws.baseDir,
+    runtimeDir: ws.path,
+    settings: { agents: ["claude-code"] },
+  });
   return Layer.mergeAll(
     wsLayer,
+    readLayer,
     RegistryClientFactoryTestLive(),
     WorkspaceCatalogTestLive.pipe(
       Layer.provide(wsLayer),
+      Layer.provide(readLayer),
       Layer.provide(CodingAgentRepositoryLive),
       Layer.provide(NodeServices.layer),
     ),

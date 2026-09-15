@@ -14,6 +14,7 @@ import {
   makeBaseWorkspaceMock,
   MockWorkspaceTransactionScope,
   rowsFor,
+  WorkspaceReadTest,
 } from "@agentxm/workspace-state/testing";
 import {
   CodingAgentRepository,
@@ -95,6 +96,7 @@ describe("disableSubagent", () => {
       const layers = Layer.mergeAll(
         NativeWriteAuthorityPermissive,
         WorkspaceMutations.layer(wsMock),
+        WorkspaceReadTest({ baseDir: base, runtimeDir: axmDir }),
         MockWorkspaceTransactionScope(axmDir),
         Layer.succeed(CodingAgentRepository, fakeRepo),
         TestStepFailureConversion,

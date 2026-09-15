@@ -45,8 +45,11 @@ import type { CodingAgentRepository, WorkspaceInvariantFacts } from "@agentxm/wo
 import type {
   AcceptedCanonicalRefError,
   ConfiguredAgentOutcomesProvider,
+  DesiredStateReader,
   LockfileValidationError,
   LockfileReader,
+  SettingsReader,
+  WorkspaceLocation,
   WorkspaceMutations,
   WorkspaceSettingsReadFailure,
   WorkspaceStateReadFailure,
@@ -92,7 +95,11 @@ export type ResolveInstallRequirements =
   | Scope.Scope
   | SourceHostProviders
   | WorkspaceCatalog
-  | WorkspaceMutations;
+  | WorkspaceMutations
+  | WorkspaceLocation
+  | SettingsReader
+  | LockfileReader
+  | DesiredStateReader;
 
 /**
  * Every failure resolving a settled install or removal can surface: the
@@ -209,7 +216,7 @@ export interface McpServerInstallIntent {
  */
 export type PackRecoveryDependencyResolver = PackDependencyRefResolver<
   AcceptedCanonicalRefError | ExtensionResolutionFailed,
-  WorkspaceMutations | FileSystem.FileSystem | Path.Path
+  WorkspaceLocation | SettingsReader | LockfileReader | FileSystem.FileSystem | Path.Path
 >;
 
 /** One pack graph transition and the policy that governs it. */

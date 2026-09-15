@@ -378,7 +378,6 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
       if (proposed === undefined || accepted?.type !== "registry") continue;
       const transition = classifyPublisherBindingTransition({
         accepted: yield* acceptedResolutionRef({
-          workspace: ws,
           type: "subagent",
           name: proposed.target,
         }).pipe(

@@ -6,7 +6,7 @@
  */
 
 import * as Data from "effect/Data";
-import type { SubagentIoFailed } from "@agentxm/agent-integration";
+import type { SubagentIoFailed } from "../projection/agent-adapters/index.js";
 
 /**
  * A subagent package, source, or binding did not validate. `detail` carries

@@ -148,10 +148,10 @@ packages pending their application/adapter separation.
 
 ### Capabilities
 
-| Package                      | Role              | Owns                                                                                                                                                                                                                                                                                                                                                                                |
-| ---------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@agentxm/extension-content` | `role:capability` | Skill and subagent content parsing, Knowledge bundle inspection and search, the lint rule catalog, and archive and manifest validation                                                                                                                                                                                                                                              |
-| `@agentxm/workspace`         | `role:capability` | Desired and observed state; accepted resolution; owned projection; kind-specific acquisition and materialization for skills, subagents, MCP connections, instructions, hooks, Knowledge, and Packs; reconciliation planning; transition execution; and transaction settlement. Its public subpaths expose these cohesive capabilities without creating separate package identities. |
+| Package                      | Role              | Owns                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ---------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@agentxm/extension-content` | `role:capability` | Skill and subagent content parsing, Knowledge bundle inspection and search, the lint rule catalog, and archive and manifest validation                                                                                                                                                                                                                                                                        |
+| `@agentxm/workspace`         | `role:capability` | Desired and observed state; accepted resolution; owned projection and native agent adapters; kind-specific acquisition and materialization for skills, subagents, MCP connections, instructions, hooks, Knowledge, and Packs; reconciliation planning; transition execution; and transaction settlement. Its public subpaths expose these cohesive capabilities without creating separate package identities. |
 
 `extension-content` is a leaf. It reads the model and nothing else, which is
 why integrations and supporting packages may consume it by name without pulling
@@ -189,6 +189,13 @@ provenance that proves a claim, and the facts lint and sync reconcile against.
 It reaches the capabilities that materialize those units only through the
 `ProjectionParticipants` registry they register with, so a fact never depends
 on the module that writes the unit.
+
+`workspace/projection/agent-adapters` owns installed-agent detection and the
+native format mechanics used by projection: coding-agent adapters, subagent
+rendering, MCP configuration, hook-group editing, ownership markers, and the
+YAML, TOML, and JSON codecs used by those writers. Its inputs are plain data,
+and native writes use the `NativeWriteAuthority` port so the enclosing workspace
+transaction protects and records every target.
 
 `workspace/resolution` decides acceptance, so it needs workspace facts, source
 acquisition, and `extension-content`. It sits above desired state, never below
@@ -263,7 +270,7 @@ flowchart LR
   STATE --> TRANSACTIONS
   PROJECTION["workspace/projection"] --> STATE
   PROJECTION --> TRANSACTIONS
-  PROJECTION --> AGENT_INTEGRATION["agent-integration"]
+  PROJECTION --> AGENT_ADAPTERS["workspace/projection/agent-adapters"]
   RECONCILIATION["workspace/reconciliation"] --> MATERIALIZATION["workspace/materialization + kind owners"]
   RECONCILIATION --> OPERATIONS
   RECONCILIATION --> STATE
@@ -272,13 +279,13 @@ flowchart LR
   MATERIALIZATION --> OPERATIONS
   MATERIALIZATION --> STATE
   MATERIALIZATION --> TRANSACTIONS
-  MATERIALIZATION --> AGENT_INTEGRATION
+  MATERIALIZATION --> AGENT_ADAPTERS
   MATERIALIZATION --> PROTOCOL["registry-protocol"]
   MATERIALIZATION --> MODEL["extension-model"]
-  STATE --> AGENT_INTEGRATION
+  STATE --> AGENT_ADAPTERS
   STATE --> PROTOCOL
   STATE --> MODEL
-  AGENT_INTEGRATION --> MODEL
+  AGENT_ADAPTERS --> MODEL
   PROTOCOL --> MODEL
 ```
 
@@ -323,24 +330,15 @@ only each other, `packages/generic/`, and the three named seams
 under `packages/core/` is reachable from a supporting package, which is what
 keeps the distinctive model from leaking outward through an adapter.
 
-| Package                      | Role               | Owns                                                                                                                                                                                                                                                                       |
-| ---------------------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@agentxm/extension-sources` | `role:integration` | Source locator routing over the contract grammar, host providers for Registry, GitHub, GitLab, Bitbucket, Azure Repos, generic Git and local paths, convention and manifest package discovery, identifier resolution, and shallow Git acquisition                          |
-| `@agentxm/registry-client`   | `role:integration` | Local and remote Registry clients over the generated OpenAPI transport, request policy and retries, typed Registry failures, the archive cache, and lifecycle administration                                                                                               |
-| `@agentxm/agent-integration` | `role:integration` | Detection of installed coding agents plus every native format mechanic AXM writes into one: agent adapters, subagent rendering, MCP entry projection and config writing, hook-group editing, the ownership marker grammar, and the YAML/TOML/JSON codecs those writers use |
-| `@agentxm/registry-auth`     | `role:capability`  | Login, logout, token and identity inspection, device and loopback flows, step-up authorization, and credential lifecycle                                                                                                                                                   |
-| `@agentxm/cli-maintenance`   | `role:capability`  | Self-update decisions and official-skill compatibility, with independent capability visibility and architectural-role constraints inside the package                                                                                                                       |
+| Package                      | Role               | Owns                                                                                                                                                                                                                                              |
+| ---------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@agentxm/extension-sources` | `role:integration` | Source locator routing over the contract grammar, host providers for Registry, GitHub, GitLab, Bitbucket, Azure Repos, generic Git and local paths, convention and manifest package discovery, identifier resolution, and shallow Git acquisition |
+| `@agentxm/registry-client`   | `role:integration` | Local and remote Registry clients over the generated OpenAPI transport, request policy and retries, typed Registry failures, the archive cache, and lifecycle administration                                                                      |
+| `@agentxm/registry-auth`     | `role:capability`  | Login, logout, token and identity inspection, device and loopback flows, step-up authorization, and credential lifecycle                                                                                                                          |
+| `@agentxm/cli-maintenance`   | `role:capability`  | Self-update decisions and official-skill compatibility, with independent capability visibility and architectural-role constraints inside the package                                                                                              |
 
 `extension-sources` may depend on `registry-client`; that asymmetric edge is a
 named constraint rather than a tier rule.
-
-`agent-integration` depends only on `extension-model`, so every input crosses
-as plain data: a rendered MCP entry, an ownership metadata record, a generation
-token, banner text. It never protects or accounts for its own writes. It
-declares the `NativeWriteAuthority` port (`protect`, `record`) and a core
-capability supplies the layer that joins it to the enclosing workspace
-transaction, so a native target that cannot be snapshotted is refused before it
-is mutated.
 
 `registry-auth` is a capability rather than a feature because publish,
 authoring, and visibility consume it; its own command surface is a thin use of

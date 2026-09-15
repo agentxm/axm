@@ -21,7 +21,7 @@ import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as ServiceMap from "effect/Context";
-import type { NativeWriteAuthority } from "@agentxm/agent-integration";
+import type { NativeWriteAuthority } from "./agent-adapters/index.js";
 import type {
   DesiredStateReader,
   LockfileReader,

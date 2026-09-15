@@ -8,7 +8,7 @@ import {
   serializeMarker,
   type FileCommentStyle,
   type ManagedMarker,
-} from "@agentxm/agent-integration";
+} from "./agent-adapters/index.js";
 import { parseFrontmatterSync } from "@agentxm/extension-content";
 
 export type ManagedFileFormat = "markdown" | "toml";

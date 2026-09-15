@@ -177,9 +177,12 @@ import {
   McpSharedTargetConflict,
   SubagentIoFailed,
   WriteBackupRetained,
-} from "@agentxm/agent-integration";
+} from "@agentxm/workspace/projection/agent-adapters";
 import { MaterializedTreeInvalid, PathTraversalDetected } from "@agentxm/workspace/desired-state";
-import { AgentDetectionFailed, NativeWriteRefused } from "@agentxm/agent-integration";
+import {
+  AgentDetectionFailed,
+  NativeWriteRefused,
+} from "@agentxm/workspace/projection/agent-adapters";
 import {
   RegistryOperationFailed,
   RegistryProblem,

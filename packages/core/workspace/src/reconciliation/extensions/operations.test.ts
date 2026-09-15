@@ -18,7 +18,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { protectWorkspacePath } from "../../transitions/settlement/index.js";
 import { WorkspaceTransactionScopeTest } from "../../transitions/settlement/testing.js";
-import { NativeWriteAuthorityPermissive } from "@agentxm/agent-integration/testing";
+import { NativeWriteAuthorityPermissive } from "../../projection/agent-adapters/testing.js";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as DateTime from "effect/DateTime";

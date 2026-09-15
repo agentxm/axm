@@ -15,7 +15,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/extension-model/unstable/agent-capabilities/catalog";
-import { detectAgentScopeResults, type AgentScopeDetection } from "@agentxm/agent-integration";
+import {
+  detectAgentScopeResults,
+  type AgentScopeDetection,
+} from "../../projection/agent-adapters/index.js";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import {
   isConfigurableAgentId,

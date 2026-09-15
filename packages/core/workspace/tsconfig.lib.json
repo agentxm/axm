@@ -40,9 +40,6 @@
       "path": "../../supporting/cli-maintenance/tsconfig.lib.json"
     },
     {
-      "path": "../../supporting/agent-integration/tsconfig.lib.json"
-    },
-    {
       "path": "../../../tools/specification-metadata/tsconfig.lib.json"
     },
     {

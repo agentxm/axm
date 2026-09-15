@@ -1,5 +1,5 @@
 /**
- * @agentxm/agent-integration public API.
+ * @agentxm/workspace/projection/agent-adapters public API.
  *
  * Everything AXM knows about a coding agent's native surfaces: detection,
  * path primitives, the per-agent `CodingAgent` adapter, subagent rendering,
@@ -46,7 +46,7 @@ export {
   McpSharedTargetConflict,
   SubagentIoFailed,
   WriteBackupRetained,
-  type AgentIntegrationError,
+  type AgentAdapterError,
   type CodingAgentFailure,
   type NativeFormatFailure,
 } from "./errors.js";

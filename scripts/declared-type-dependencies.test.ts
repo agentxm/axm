@@ -23,12 +23,11 @@ describe("emitted declaration references", () => {
       'import type { A } from "@agentxm/workspace/desired-state";',
       'export declare const a: import("@agentxm/registry-client").RegistryProblem;',
       'export * from "@agentxm/extension-model/unstable/extensions";',
-      'import "@agentxm/agent-integration";',
+      'import "@agentxm/workspace/projection/agent-adapters";',
       'declare module "@agentxm/extension-sources" {}',
       '/// <reference types="@agentxm/extension-content" />',
     ].join("\n");
     expect([...referencedGuardedPackages(declaration)].sort()).toEqual([
-      "@agentxm/agent-integration",
       "@agentxm/extension-content",
       "@agentxm/extension-model",
       "@agentxm/extension-sources",

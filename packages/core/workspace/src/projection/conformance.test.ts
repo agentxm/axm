@@ -25,10 +25,11 @@ const productionTypeScriptFiles = (root: string): ReadonlyArray<string> =>
 
 describe("aggregate ownership unit conformance", () => {
   it("keeps managed-region reconciliation sealed and exposes the marker grammar", () => {
-    // Reading and rendering a managed region is a single decision. Only the
-    // adapter may reach the region primitives; every other module reconciles
-    // through `reconcileManagedRegionFile`.
+    // Reading and rendering a managed region is a single decision. Native
+    // format adapters own the primitives; workspace projection policy reaches
+    // them only through `reconcileManagedRegionFile`.
     const regionOffenders = productionTypeScriptFiles(packageSrc)
+      .filter((file) => !file.includes(`${nodePath.sep}agent-adapters${nodePath.sep}`))
       .filter((file) => nodePath.basename(file) !== "managed-region-adapter.ts")
       .filter((file) => {
         const source = nodeFs.readFileSync(file, "utf8");
@@ -51,11 +52,11 @@ describe("aggregate ownership unit conformance", () => {
     expect(planningSource).toContain("planAggregateProjection");
     expect(planningSource).toContain("planSingletonProjection");
 
-    // The ownership marker grammar is native format mechanics and lives in the
-    // agent-integration package; it remains the single marker reader.
+    // The ownership marker grammar is native format mechanics and remains the
+    // single marker reader in the workspace's agent adapter boundary.
     expect(
       nodeFs.readFileSync(
-        nodePath.join(packagesRoot, "supporting", "agent-integration", "src", "managed-markers.ts"),
+        nodePath.join(packageSrc, "agent-adapters", "managed-markers.ts"),
         "utf8",
       ),
     ).toContain("export const parseMarker");

@@ -45,7 +45,7 @@ import {
   readManagedHookCommands,
   updateHooksJson,
   WriteBackupRetained,
-} from "@agentxm/agent-integration";
+} from "../projection/agent-adapters/index.js";
 import {
   AGENTS as CAPABILITY_AGENTS,
   type Agent as CapabilityAgent,

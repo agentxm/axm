@@ -38,7 +38,7 @@ export interface AgentExecutableResolverService {
 export class AgentExecutableResolver extends ServiceMap.Service<
   AgentExecutableResolver,
   AgentExecutableResolverService
->()("@agentxm/agent-integration/detection/AgentExecutableResolver") {}
+>()("@agentxm/workspace/projection/agent-adapters/detection/AgentExecutableResolver") {}
 
 const hasPathSeparator = (command: string): boolean =>
   command.includes("/") || command.includes("\\");

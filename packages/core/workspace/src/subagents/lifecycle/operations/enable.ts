@@ -17,7 +17,10 @@ import {
   managedSubagentRenderInput,
   managedSubagentFile,
 } from "../../../projection/index.js";
-import { NativeWriteAuthority, warnOnOrphanOverrides } from "@agentxm/agent-integration";
+import {
+  NativeWriteAuthority,
+  warnOnOrphanOverrides,
+} from "../../../projection/agent-adapters/index.js";
 import { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 import {
   StepFailureConversion,

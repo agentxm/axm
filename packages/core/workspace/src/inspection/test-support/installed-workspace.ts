@@ -33,7 +33,7 @@ import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { strToU8, zipSync } from "fflate";
 
-import { AgentPresenceProbeLive } from "@agentxm/agent-integration/live";
+import { AgentPresenceProbeLive } from "../../projection/agent-adapters/live.js";
 import {
   PackManager,
   SkillManager,

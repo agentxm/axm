@@ -38,7 +38,11 @@ import {
   reconcileInstructionTargets,
   resolveInstructionsConfig,
 } from "../projection/index.js";
-import { MARKER_KIND_POINT, MARKER_VERSION, serializeMarker } from "@agentxm/agent-integration";
+import {
+  MARKER_KIND_POINT,
+  MARKER_VERSION,
+  serializeMarker,
+} from "../projection/agent-adapters/index.js";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import {
   canReuseInstalledPackage,

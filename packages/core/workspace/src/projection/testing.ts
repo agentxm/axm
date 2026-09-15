@@ -12,7 +12,7 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { codingAgentForId } from "@agentxm/agent-integration";
+import { codingAgentForId } from "./agent-adapters/index.js";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   CodingAgentRepository,

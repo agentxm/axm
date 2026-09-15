@@ -2,7 +2,7 @@
  * The coding-agent repository service.
  *
  * The per-agent adapter contract (`CodingAgent`) is native format mechanics
- * and lives in `@agentxm/agent-integration`; deciding which agents a
+ * and lives in `@agentxm/workspace/projection/agent-adapters`; deciding which agents a
  * workspace projects onto is a core decision, so the repository that answers
  * it lives here.
  *
@@ -16,7 +16,7 @@
 
 import type * as Effect from "effect/Effect";
 import * as ServiceMap from "effect/Context";
-import type { CodingAgent } from "@agentxm/agent-integration";
+import type { CodingAgent } from "../agent-adapters/index.js";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { SettingsReader, WorkspaceSettingsReadFailure } from "../../desired-state/index.js";
 

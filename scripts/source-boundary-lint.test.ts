@@ -144,7 +144,7 @@ describe("module boundary constraints", () => {
     "packages/core/workspace/src/lifecycle/workflows/install-command/workflow.test.ts";
   const CAPABILITY = "packages/core/workspace/src/transitions/planning/index.ts";
   const SUPPORTING_INTEGRATION = "packages/supporting/registry-auth/src/index.ts";
-  const SUPPORTING_INTEGRATION_B = "packages/supporting/agent-integration/src/index.ts";
+  const SUPPORTING_INTEGRATION_B = "packages/supporting/registry-client/src/index.ts";
   const APPLICATION = "apps/cli/src/main.ts";
   const HANDLER = "apps/cli/src/root/list/command.ts";
   const E2E = "apps/cli-e2e/src/utils.ts";

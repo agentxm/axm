@@ -25,7 +25,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 
-import { AgentExecutableResolver } from "@agentxm/agent-integration";
+import { AgentExecutableResolver } from "@agentxm/workspace/projection/agent-adapters";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { TestMachineRenderer, TestRenderer } from "./presenter-test.js";

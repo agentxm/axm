@@ -1,6 +1,6 @@
 import * as DateTime from "effect/DateTime";
 
-import { isAxmManagedMcpEntry } from "@agentxm/agent-integration";
+import { isAxmManagedMcpEntry } from "../../projection/agent-adapters/index.js";
 export type InlineMcpDefinition =
   | {
       readonly type: "stdio";

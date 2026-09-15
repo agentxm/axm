@@ -76,7 +76,6 @@
     "node": ">=22.19.0"
   },
   "dependencies": {
-    "@agentxm/agent-integration": "workspace:^",
     "@agentxm/cli-maintenance": "workspace:^",
     "@agentxm/extension-content": "workspace:^",
     "@agentxm/extension-model": "workspace:^",

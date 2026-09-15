@@ -163,7 +163,6 @@ const moduleBoundaryOptions = {
 // Product packages that the end-to-end and test-support projects observe only
 // as shipped artifacts, never as imported code.
 const productScopeBans = [
-  "scope:agent-integration",
   "scope:extension-content",
   "scope:extension-model",
   "scope:extension-sources",

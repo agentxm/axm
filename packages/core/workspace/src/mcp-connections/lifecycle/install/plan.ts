@@ -24,7 +24,7 @@ import * as Schema from "effect/Schema";
 
 import { installMcpServer, readMcpServerManifest } from "../../../reconciliation/index.js";
 import { materializeRegistryPackage } from "../../../materialization/index.js";
-import { validateManifestMcpServerTargets } from "@agentxm/agent-integration";
+import { validateManifestMcpServerTargets } from "../../../projection/agent-adapters/index.js";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
   type ConfigurableAgentId,

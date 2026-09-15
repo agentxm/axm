@@ -1,5 +1,5 @@
 import * as fs from "node:fs";
-import { NativeWriteAuthorityPermissive } from "@agentxm/agent-integration/testing";
+import { NativeWriteAuthorityPermissive } from "../../../projection/agent-adapters/testing.js";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -11,7 +11,7 @@ import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
 } from "../../../projection/index.js";
-import type { CodingAgent } from "@agentxm/agent-integration";
+import type { CodingAgent } from "../../../projection/agent-adapters/index.js";
 import type { McpServerLockEntry } from "../../../desired-state/index.js";
 import type { McpServerEntry } from "../../../desired-state/index.js";
 import {

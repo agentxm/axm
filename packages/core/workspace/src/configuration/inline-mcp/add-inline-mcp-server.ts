@@ -20,7 +20,7 @@ import {
   syncInlineMcpServerToAgents,
   type McpServerSyncTarget,
   type NativeFormatFailure,
-} from "@agentxm/agent-integration";
+} from "../../projection/agent-adapters/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   OperationJournal,

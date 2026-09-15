@@ -28,7 +28,7 @@ import type {
   WorkspaceStateMutationFailure,
   WorkspaceStateReadFailure,
 } from "../desired-state/index.js";
-import type { CodingAgentFailure } from "@agentxm/agent-integration";
+import type { CodingAgentFailure } from "../projection/agent-adapters/index.js";
 import type { RuleManagerError } from "../instructions/errors.js";
 import type { HookManagerError } from "../hooks/errors.js";
 import type { SubagentManagerError } from "../subagents/errors.js";

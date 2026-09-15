@@ -1,5 +1,5 @@
 /**
- * @agentxm/agent-integration test doubles.
+ * @agentxm/workspace/projection/agent-adapters test doubles.
  *
  * Native writers keep `NativeWriteAuthority` in `R`; tests that exercise a
  * writer without a workspace transaction provide one of these layers.

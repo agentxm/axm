@@ -319,9 +319,6 @@ importers:
 
   apps/cli:
     dependencies:
-      '@agentxm/agent-integration':
-        specifier: workspace:^
-        version: link:../../packages/supporting/agent-integration
       '@agentxm/cli-maintenance':
         specifier: workspace:^
         version: link:../../packages/supporting/cli-maintenance
@@ -533,9 +530,6 @@ importers:
 
   packages/core/workspace:
     dependencies:
-      '@agentxm/agent-integration':
-        specifier: workspace:^
-        version: link:../../supporting/agent-integration
       '@agentxm/cli-maintenance':
         specifier: workspace:^
         version: link:../../supporting/cli-maintenance
@@ -609,43 +603,6 @@ importers:
       '@typescript/native':
         specifier: 'catalog:'
         version: typescript@7.0.2
-      typescript:
-        specifier: 'catalog:'
-        version: '@typescript/typescript6@6.0.2'
-      vitest:
-        specifier: 'catalog:'
-        version: 5.0.0(@types/node@26.1.1)(@vitest/coverage-v8@5.0.0)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
-
-  packages/supporting/agent-integration:
-    dependencies:
-      '@agentxm/extension-model':
-        specifier: workspace:^
-        version: link:../../core/extension-model
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115
-      jsonc-parser:
-        specifier: 'catalog:'
-        version: 3.3.1
-      yaml:
-        specifier: 'catalog:'
-        version: 2.9.0
-    devDependencies:
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)
-      '@fast-check/vitest':
-        specifier: 'catalog:'
-        version: 0.5.0(vitest@5.0.0)
-      '@typescript/native':
-        specifier: 'catalog:'
-        version: typescript@7.0.2
-      smol-toml:
-        specifier: 'catalog:'
-        version: 1.8.0
       typescript:
         specifier: 'catalog:'
         version: '@typescript/typescript6@6.0.2'

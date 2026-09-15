@@ -19,7 +19,7 @@ import type {
   McpSharedTargetConflict,
   SubagentIoFailed,
   TransientBackupFailed,
-} from "@agentxm/agent-integration";
+} from "@agentxm/workspace/projection/agent-adapters";
 import { makeAppError, type AppError } from "../app-error.js";
 
 /** Detection evidence gathering failed: an internal error carrying the facts. */

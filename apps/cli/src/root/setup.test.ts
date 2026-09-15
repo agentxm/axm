@@ -16,7 +16,7 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { afterEach, beforeEach } from "vitest";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { BRANDING } from "../branding/index.js";
-import { AgentExecutableResolver } from "@agentxm/agent-integration";
+import { AgentExecutableResolver } from "@agentxm/workspace/projection/agent-adapters";
 import { TestMachineRenderer, TestRenderer } from "../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { BundledAxmSkillAssetLive } from "../cli-runtime/index.js";

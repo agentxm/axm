@@ -15,7 +15,7 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as HttpClient from "effect/unstable/http/HttpClient";
-import { NativeWriteAuthority } from "@agentxm/agent-integration";
+import { NativeWriteAuthority } from "./agent-adapters/index.js";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";

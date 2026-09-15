@@ -21,7 +21,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import type { CodingAgentFailure } from "@agentxm/agent-integration";
+import type { CodingAgentFailure } from "./agent-adapters/index.js";
 import {
   fileUrlToPath,
   WorkspaceCatalog,

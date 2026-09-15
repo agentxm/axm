@@ -1,6 +1,6 @@
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { execSync } from "node:child_process";
-import { NativeWriteAuthorityPermissive } from "@agentxm/agent-integration/testing";
+import { NativeWriteAuthorityPermissive } from "../../projection/agent-adapters/testing.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -15,7 +15,7 @@ import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
 } from "../../projection/index.js";
-import type { CodingAgent } from "@agentxm/agent-integration";
+import type { CodingAgent } from "../../projection/agent-adapters/index.js";
 import {
   SettingsWriteError,
   type WorkspaceSettingsReadFailure,

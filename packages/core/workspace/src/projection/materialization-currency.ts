@@ -24,7 +24,7 @@ import {
   type DesiredExtensionNode,
   type WorkspaceStateReadFailure,
 } from "../desired-state/index.js";
-import type { CodingAgentFailure } from "@agentxm/agent-integration";
+import type { CodingAgentFailure } from "./agent-adapters/index.js";
 import type { McpInspectionError } from "./mcps/errors.js";
 import type { CodingAgentRepositoryService } from "./agents/coding-agent-repository.js";
 import { collectManagedAgentMcpServers } from "./mcps/inspection.js";

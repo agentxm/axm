@@ -9,7 +9,7 @@ import { projectionGeneration } from "../generation.js";
 import { reconcileManagedRegionFile } from "../managed-region-adapter.js";
 import { KNOWLEDGE_REGION_OWNER } from "../units.js";
 import type { WorkspaceSnapshotError } from "../../transitions/settlement/index.js";
-import { MARKER_KIND_POINT, MARKER_VERSION, serializeMarker } from "@agentxm/agent-integration";
+import { MARKER_KIND_POINT, MARKER_VERSION, serializeMarker } from "../agent-adapters/index.js";
 import type { ResolvedKnowledgeDiscoveryConfig } from "../../desired-state/index.js";
 
 const KNOWLEDGE_REGION = "knowledge";

@@ -220,6 +220,21 @@
       "types": "./dist/src/publishing/testing.d.ts",
       "axm-source": "./src/publishing/testing.ts",
       "default": "./dist/src/publishing/testing.js"
+    },
+    "./projection/agent-adapters": {
+      "types": "./dist/src/projection/agent-adapters/index.d.ts",
+      "axm-source": "./src/projection/agent-adapters/index.ts",
+      "default": "./dist/src/projection/agent-adapters/index.js"
+    },
+    "./projection/agent-adapters/live": {
+      "types": "./dist/src/projection/agent-adapters/live.d.ts",
+      "axm-source": "./src/projection/agent-adapters/live.ts",
+      "default": "./dist/src/projection/agent-adapters/live.js"
+    },
+    "./projection/agent-adapters/testing": {
+      "types": "./dist/src/projection/agent-adapters/testing.d.ts",
+      "axm-source": "./src/projection/agent-adapters/testing.ts",
+      "default": "./dist/src/projection/agent-adapters/testing.js"
     }
   },
   "files": [
@@ -233,7 +248,6 @@
     "includedScripts": []
   },
   "dependencies": {
-    "@agentxm/agent-integration": "workspace:^",
     "@agentxm/cli-maintenance": "workspace:^",
     "@agentxm/extension-content": "workspace:^",
     "@agentxm/extension-model": "workspace:^",

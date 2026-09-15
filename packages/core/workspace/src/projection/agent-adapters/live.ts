@@ -1,5 +1,5 @@
 /**
- * @agentxm/agent-integration environment-backed composition.
+ * @agentxm/workspace/projection/agent-adapters environment-backed composition.
  *
  * The PATH-probing executable resolver and the detection-backed agent-presence
  * probe. Only application composition roots import this module; feature logic

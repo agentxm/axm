@@ -64,7 +64,7 @@ import {
   SubagentIoFailed,
   warnOnOrphanOverrides,
   buildRooModeEntry,
-} from "@agentxm/agent-integration";
+} from "../projection/agent-adapters/index.js";
 import { copyExtensionDirectory } from "../acquisition/copy-directory.js";
 import { sanitizeName } from "../desired-state/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";

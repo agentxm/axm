@@ -3,7 +3,7 @@
  *
  * The projection owns the provenance token and the banner wording; the agent
  * adapter owns where a banner may sit in its own format, so the banner text
- * crosses into `@agentxm/agent-integration` as plain data.
+ * crosses into `@agentxm/workspace/projection/agent-adapters` as plain data.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -13,7 +13,7 @@ import {
   type OwnershipBannerText,
   type SubagentRenderInput,
   type SubagentRenderOutcome,
-} from "@agentxm/agent-integration";
+} from "../agent-adapters/index.js";
 import { managedFileBanners, type ManagedFileProvenance } from "../managed-file-banner.js";
 import { projectionGeneration } from "../generation.js";
 

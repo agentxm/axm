@@ -5,7 +5,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { isAxmManagedMcpEntry, type ExpectedAgentEntry } from "@agentxm/agent-integration";
+import { isAxmManagedMcpEntry, type ExpectedAgentEntry } from "../agent-adapters/index.js";
 
 export type DriftReport =
   | { readonly _tag: "absent" }

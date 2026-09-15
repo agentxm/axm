@@ -16,7 +16,7 @@ import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 
-import type { NativeWriteAuthority } from "@agentxm/agent-integration";
+import type { NativeWriteAuthority } from "../../projection/agent-adapters/index.js";
 import type { ManagerRequirements, McpSecretStore } from "../../materialization/index.js";
 import type { RecipeRequirements } from "../../reconciliation/index.js";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";

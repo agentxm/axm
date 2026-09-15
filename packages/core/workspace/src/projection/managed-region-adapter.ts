@@ -20,7 +20,7 @@ import {
   renderManagedRegion,
   type ManagedRegionState,
   type RegionName,
-} from "@agentxm/agent-integration";
+} from "./agent-adapters/index.js";
 
 export interface ManagedRegionReconciliation {
   readonly existed: boolean;

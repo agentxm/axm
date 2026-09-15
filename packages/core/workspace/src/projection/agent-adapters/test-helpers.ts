@@ -1,4 +1,4 @@
-/** Shared decode helpers for agent-integration tests. */
+/** Shared decode helpers for workspace agent-adapter tests. */
 
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 

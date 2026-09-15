@@ -43,9 +43,6 @@
       "path": "../../packages/supporting/cli-maintenance/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/supporting/agent-integration/tsconfig.lib.json"
-    },
-    {
       "path": "../../tools/test-support/tsconfig.lib.json"
     },
     {

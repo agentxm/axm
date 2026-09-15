@@ -20,7 +20,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Layer from "effect/Layer";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 
-import { AgentPresenceProbeLive } from "@agentxm/agent-integration/live";
+import { AgentPresenceProbeLive } from "../../projection/agent-adapters/live.js";
 import { CredentialStoreTest } from "@agentxm/registry-auth/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { AxmSkillCandidateGateLive } from "../../resolution/live.js";

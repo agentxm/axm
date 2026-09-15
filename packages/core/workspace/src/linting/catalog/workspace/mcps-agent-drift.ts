@@ -8,14 +8,14 @@ import {
   type McpConfig,
   type McpEnvExpansion,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { isAxmManagedMcpEntry } from "@agentxm/agent-integration";
+import { isAxmManagedMcpEntry } from "../../../projection/agent-adapters/index.js";
 import { diffAgentEntry } from "../../../projection/index.js";
 import {
   inferInlineRemoteTransport,
   projectExpectedEntry,
   resolveSharedMcpTarget,
   groupConfiguredMcpTargets,
-} from "@agentxm/agent-integration";
+} from "../../../projection/agent-adapters/index.js";
 import type { McpServerEntry } from "../../../desired-state/index.js";
 import type { ActualMcpServer, InstalledMcpServer } from "../../../desired-state/index.js";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";

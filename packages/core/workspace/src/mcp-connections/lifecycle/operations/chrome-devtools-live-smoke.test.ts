@@ -1,5 +1,5 @@
 import * as fs from "node:fs";
-import { NativeWriteAuthorityPermissive } from "@agentxm/agent-integration/testing";
+import { NativeWriteAuthorityPermissive } from "../../../projection/agent-adapters/testing.js";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";

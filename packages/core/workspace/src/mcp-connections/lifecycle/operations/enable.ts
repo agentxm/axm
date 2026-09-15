@@ -13,7 +13,7 @@ import {
   NativeWriteAuthority,
   syncInlineMcpServerToAgents,
   syncManifestMcpServerToAgents,
-} from "@agentxm/agent-integration";
+} from "../../../projection/agent-adapters/index.js";
 import {
   normalizeHandle,
   parseExtensionFqnParts,

@@ -1,5 +1,5 @@
 /**
- * Private environment helpers for agent-integration.
+ * Private environment helpers for workspace agent adapters.
  *
  * Deliberately duplicated from the CLI-destined environment module: the
  * integration may not depend on application utilities, and these helpers are

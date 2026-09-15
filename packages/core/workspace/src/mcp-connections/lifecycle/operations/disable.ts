@@ -4,7 +4,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { NativeWriteAuthority } from "@agentxm/agent-integration";
+import { NativeWriteAuthority } from "../../../projection/agent-adapters/index.js";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";

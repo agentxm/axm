@@ -24,7 +24,7 @@ import type {
 import type { SourceResolutionFailure } from "@agentxm/extension-sources";
 import type { AcceptedCanonicalRefError } from "../desired-state/index.js";
 import type { InstructionMaintenanceFailure } from "../projection/index.js";
-import type { McpConfigSyncFailure } from "@agentxm/agent-integration";
+import type { McpConfigSyncFailure } from "../projection/agent-adapters/index.js";
 import type {
   WorkspaceTransactionFailure,
   WorkspaceRestorationIncomplete,

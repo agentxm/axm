@@ -16,13 +16,16 @@ import {
   CONFIGURABLE_AGENTS_BY_ID,
   type ConfigurableAgentId,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { buildAxmMcpMetadataFromSettingsSource } from "@agentxm/agent-integration";
+import { buildAxmMcpMetadataFromSettingsSource } from "../../projection/agent-adapters/index.js";
 import type {
   SettingsReaderService,
   SettingsWriterService,
   WorkspaceLocationService,
 } from "../../desired-state/index.js";
-import { AXM_MCP_METADATA_KEY, isAxmManagedMcpEntry } from "@agentxm/agent-integration";
+import {
+  AXM_MCP_METADATA_KEY,
+  isAxmManagedMcpEntry,
+} from "../../projection/agent-adapters/index.js";
 import type { McpServerEntry } from "../../desired-state/index.js";
 import { runWorkspaceTransaction } from "../../transitions/settlement/index.js";
 import { WorkspaceConfigurationFailed } from "../errors.js";

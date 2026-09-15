@@ -6,8 +6,8 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import type { McpServerEntry } from "../../desired-state/index.js";
 import * as Layer from "effect/Layer";
-import { readYamlEntry, writeAgentMcpConfig } from "@agentxm/agent-integration";
-import { NativeWriteAuthorityPermissive } from "@agentxm/agent-integration/testing";
+import { readYamlEntry, writeAgentMcpConfig } from "../agent-adapters/index.js";
+import { NativeWriteAuthorityPermissive } from "../agent-adapters/testing.js";
 import { collectManagedAgentMcpServers, inspectAgentMcpServer } from "./inspection.js";
 
 const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>

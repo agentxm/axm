@@ -16,7 +16,7 @@ import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace
 import { protectWorkspacePath } from "../../transitions/settlement/index.js";
 import { recordFootprint } from "../../transitions/settlement/index.js";
 import { projectionGeneration } from "../generation.js";
-import { reconcilePatternList } from "@agentxm/agent-integration";
+import { reconcilePatternList } from "../agent-adapters/index.js";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type {
   AgentDescriptor,

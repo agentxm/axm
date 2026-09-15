@@ -6,14 +6,14 @@ import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   AgentPresenceUnavailable,
   type AgentPresenceProbeService,
-} from "@agentxm/agent-integration";
+} from "../../../projection/agent-adapters/index.js";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import {
   runScenario,
   SCENARIO_USER_HOME,
   SCENARIO_WORKSPACE_ROOT,
 } from "../../../desired-state/testing.js";
-import { detectAgentsForScope } from "@agentxm/agent-integration";
+import { detectAgentsForScope } from "../../../projection/agent-adapters/index.js";
 import { agentsDetectedDeclaredRule } from "./agents-detected-declared.js";
 
 // The fixture layer detects no agents by default; these scenarios assert

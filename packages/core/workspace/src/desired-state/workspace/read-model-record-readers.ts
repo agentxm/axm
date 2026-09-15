@@ -13,7 +13,7 @@ import {
   type InstallableExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { WorkspaceStateReadFailure } from "./contracts.js";
-import { isAxmManagedMcpEntry } from "@agentxm/agent-integration";
+import { isAxmManagedMcpEntry } from "../../projection/agent-adapters/index.js";
 import { createDefaultSettings } from "../settings/index.js";
 import { configuredAgentLifecycleOutcomes } from "./configured-agent-outcomes.js";
 import type { DesiredStateGraph } from "./desired-state-graph.js";

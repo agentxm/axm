@@ -4,8 +4,8 @@ The private AXM workspace compiler. Its child entry points own desired and
 observed state, resolution, projection, kind-specific acquisition and
 materialization, configuration, inspection, linting, Knowledge queries,
 kind-owned authoring and lifecycle workflows, discovery, publishing and
-release management, reconciliation, transition planning, and transaction
-settlement.
+release management, native coding-agent adapters, reconciliation, transition
+planning, and transaction settlement.
 
 Consumers import the narrow child capability they use, such as
 `./desired-state`, `./projection`, `./configuration`, `./inspection`,

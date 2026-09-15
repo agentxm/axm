@@ -22,8 +22,11 @@ import {
 
 import * as Option from "effect/Option";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import { NativeWriteAuthority } from "@agentxm/agent-integration";
-import type { CodingAgent, McpServerSyncOutcome } from "@agentxm/agent-integration";
+import { NativeWriteAuthority } from "../../../projection/agent-adapters/index.js";
+import type {
+  CodingAgent,
+  McpServerSyncOutcome,
+} from "../../../projection/agent-adapters/index.js";
 import { CodingAgentRepository } from "../../../projection/index.js";
 import type { StepFailure } from "../../../transitions/planning/index.js";
 import { appendWarningsToMessage } from "../../../transitions/planning/index.js";

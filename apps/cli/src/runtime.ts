@@ -19,7 +19,7 @@ import { resolve as resolvePath } from "node:path";
 
 import { AppError, makeAppError } from "./app-error/index.js";
 
-import { AgentPresenceProbeLive } from "@agentxm/agent-integration/live";
+import { AgentPresenceProbeLive } from "@agentxm/workspace/projection/agent-adapters/live";
 import { RegistryResolutionPolicyLive } from "./cli-runtime/index.js";
 import { AxmSkillCandidateGateLive } from "@agentxm/workspace/resolution/live";
 import { WorkspaceCatalogLive } from "@agentxm/workspace/projection/live";

@@ -20,7 +20,7 @@ import {
   NativeWriteAuthority,
   pruneManagedHooksFromJson,
   pruneManagedMcpServersForAgent,
-} from "@agentxm/agent-integration";
+} from "../projection/agent-adapters/index.js";
 import { AGENTS as CAPABILITY_AGENTS } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { PerAgentType } from "@agentxm/extension-model/unstable/extensions/common";
 import { SettingsReader, WorkspaceLocation } from "../desired-state/index.js";

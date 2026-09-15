@@ -1,5 +1,5 @@
 /**
- * Failure vocabulary for the agent-integration layer: agent detection plus the
+ * Failure vocabulary for the agent adapter boundary: agent detection plus the
  * native-format readers, writers, and config editors.
  *
  * Fields are domain facts; the application boundary owns the mapping into
@@ -109,5 +109,5 @@ export type NativeFormatFailure =
 /** Every failure a `CodingAgent` member may surface. */
 export type CodingAgentFailure = NativeFormatFailure;
 
-/** Every typed failure the agent-integration modules construct. */
-export type AgentIntegrationError = AgentDetectionFailed | NativeFormatFailure;
+/** Every typed failure the agent adapter modules construct. */
+export type AgentAdapterError = AgentDetectionFailed | NativeFormatFailure;

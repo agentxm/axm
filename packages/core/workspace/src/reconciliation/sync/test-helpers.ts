@@ -21,7 +21,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { AgentExecutableResolver } from "@agentxm/agent-integration";
+import { AgentExecutableResolver } from "../../projection/agent-adapters/index.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {

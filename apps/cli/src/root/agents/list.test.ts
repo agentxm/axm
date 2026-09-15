@@ -8,7 +8,7 @@ import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { TestRenderer } from "../../test-support/presenter-test.js";
-import { AgentExecutableResolver } from "@agentxm/agent-integration";
+import { AgentExecutableResolver } from "@agentxm/workspace/projection/agent-adapters";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace/desired-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { SET_UP_AXM_WORKSPACE } from "../suggested-actions.js";

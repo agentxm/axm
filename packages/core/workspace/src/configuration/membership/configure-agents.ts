@@ -25,7 +25,7 @@ import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import { detectAgentsForScope } from "@agentxm/agent-integration";
+import { detectAgentsForScope } from "../../projection/agent-adapters/index.js";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
 import type { PerAgentType } from "@agentxm/extension-model/unstable/extensions/common";

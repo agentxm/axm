@@ -33,7 +33,7 @@ import {
   type WorkspaceOwnershipIssue,
 } from "./managed-file-discovery.js";
 import { collectManagedAgentMcpServers } from "./mcps/inspection.js";
-import { readAmbiguousHookCommands, readManagedHookUnits } from "@agentxm/agent-integration";
+import { readAmbiguousHookCommands, readManagedHookUnits } from "./agent-adapters/index.js";
 
 export type AgentOutputOwnershipProof =
   "storage-root-symlink" | "managed-banner" | "managed-mcp-entry" | "managed-hook-group";

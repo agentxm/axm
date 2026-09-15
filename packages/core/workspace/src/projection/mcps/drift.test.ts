@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { projectExpectedEntry } from "@agentxm/agent-integration";
+import { projectExpectedEntry } from "../agent-adapters/index.js";
 
 import { diffAgentEntry } from "./drift.js";
 

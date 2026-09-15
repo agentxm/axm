@@ -5,7 +5,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { LintWorkspace, lintSelectionRoot, type LintView } from "@agentxm/workspace-lint";
+import { LintWorkspace, lintSelectionRoot, type LintView } from "@agentxm/workspace/linting";
 import { resolveUserHome } from "@agentxm/workspace/desired-state";
 
 import { scopeFlag } from "../../cli-flags/scope-flag.js";

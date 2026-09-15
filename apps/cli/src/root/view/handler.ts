@@ -14,11 +14,11 @@ import {
   type ViewExtensionResult,
   type ViewFieldValue,
   type ViewTargetRegistry,
-} from "@agentxm/workspace-inspection";
-import type { PublishedMetadataUnavailable } from "@agentxm/workspace-inspection";
+} from "@agentxm/workspace/inspection";
+import type { PublishedMetadataUnavailable } from "@agentxm/workspace/inspection";
 import type { ExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
-import type { IdentifierResourceType } from "@agentxm/extension-sources";
+import type { IdentifierResourceType } from "@agentxm/workspace/resolution/sources";
 
 import { Screen, rawDoc, tableViewDoc, type TableView } from "../../screen/index.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";

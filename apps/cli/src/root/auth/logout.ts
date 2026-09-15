@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import { Command } from "effect/unstable/cli";
 
-import { logout, selectedRegistry } from "@agentxm/registry-auth";
+import { logout, selectedRegistry } from "@agentxm/registry-access/authentication";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { Screen, successDoc } from "../../screen/index.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";

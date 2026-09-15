@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import type * as ServiceMap from "effect/Context";
 import { afterEach, beforeEach } from "vitest";
-import { AgentExecutableResolver } from "@agentxm/agent-integration";
+import { AgentExecutableResolver } from "@agentxm/workspace/projection/agent-adapters";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
 import { workspaceInvariantFactsLive } from "../../test-support/workspace-invariant-facts-live.js";
 import {

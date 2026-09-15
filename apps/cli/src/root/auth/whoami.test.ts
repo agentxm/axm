@@ -7,7 +7,7 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { AuthClientTest, CredentialStoreTest } from "@agentxm/registry-auth/testing";
+import { AuthClientTest, CredentialStoreTest } from "@agentxm/registry-access/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";

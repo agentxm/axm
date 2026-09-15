@@ -3,12 +3,12 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
-import { type CreatePublishAuthorizationRequestParams } from "@agentxm/registry-auth";
+import { type CreatePublishAuthorizationRequestParams } from "@agentxm/registry-access/authentication";
 import {
   AuthClientTest,
   DeviceLoginInteractionTest,
   PendingPublishAuthorizationStoreTest,
-} from "@agentxm/registry-auth/testing";
+} from "@agentxm/registry-access/testing";
 import {
   CommandSemanticPropertiesLive,
   getCommandSemanticProperties,
@@ -38,9 +38,9 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { RegistryAuthFailed } from "@agentxm/registry-auth";
+import { RegistryAccessFailed } from "@agentxm/registry-access/authentication";
 import { RegistryProblem } from "@agentxm/registry-client";
-import { GitDirectoryComparisonLive } from "@agentxm/extension-sources/live";
+import { GitDirectoryComparisonLive } from "@agentxm/workspace/resolution/sources/live";
 
 import {
   at,
@@ -61,7 +61,7 @@ import {
   normalizePublishResult,
   publishCause,
   type PublishResultItem,
-} from "@agentxm/extension-publish";
+} from "@agentxm/workspace/publishing";
 import {
   buildPublishJobs,
   exactPublishUploadBinding,
@@ -72,7 +72,7 @@ import {
   publishRecoverySelection,
   validatePublishOwners,
   PUBLISHABLE_TYPES,
-} from "@agentxm/extension-publish";
+} from "@agentxm/workspace/publishing";
 import {
   handleRootPublish,
   makeExactPublishRecovery,
@@ -392,7 +392,7 @@ describe("root publish", () => {
       createPublishAuthorizationRequest: () => {
         authorizationRequests += 1;
         return Effect.fail(
-          new RegistryAuthFailed({
+          new RegistryAccessFailed({
             category: "internal",
             detail: "Preview must not create publish authority",
           }),
@@ -476,14 +476,14 @@ describe("root publish", () => {
       Effect.gen(function* () {
         const request = authorizationRequest;
         if (request === undefined) {
-          return yield* new RegistryAuthFailed({
+          return yield* new RegistryAccessFailed({
             category: "internal",
             detail: "Missing auth request",
           });
         }
         const descriptor = request.publicationSet.candidates[0];
         if (descriptor === undefined) {
-          return yield* new RegistryAuthFailed({
+          return yield* new RegistryAccessFailed({
             category: "internal",
             detail: "Missing descriptor",
           });

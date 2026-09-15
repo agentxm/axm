@@ -42,7 +42,7 @@ import {
   pruneManagedMcpServersForAgent,
   syncInlineMcpServerToAgents,
   type NativeWriteAuthority,
-} from "@agentxm/agent-integration";
+} from "../projection/agent-adapters/index.js";
 import type { ManagerRequirements } from "../materialization/index.js";
 import type { RecipeRequirements } from "./extensions/operations.js";
 import {

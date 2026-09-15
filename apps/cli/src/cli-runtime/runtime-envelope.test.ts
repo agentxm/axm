@@ -4,8 +4,8 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { SkillSelectionCancelled } from "@agentxm/extension-lifecycle/skills/application";
-import { SubagentSelectionCancelled } from "@agentxm/extension-lifecycle/subagents/application";
+import { SkillSelectionCancelled } from "@agentxm/workspace/skills/lifecycle/application";
+import { SubagentSelectionCancelled } from "@agentxm/workspace/subagents/lifecycle/application";
 
 import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/unstable/http/HttpClient";
@@ -27,7 +27,7 @@ import {
 } from "./runtime-envelope.js";
 
 /**
- * Structural stand-in for the workspace-configuration feature's typed
+ * Structural stand-in for the workspace configuration feature's typed
  * cancellation: the envelope dispatches on the tag alone, and the residue may
  * not depend on feature packages.
  */

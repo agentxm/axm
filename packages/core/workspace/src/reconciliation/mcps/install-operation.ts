@@ -22,8 +22,11 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import { NativeWriteAuthority, syncManifestMcpServerToAgents } from "@agentxm/agent-integration";
-import type { McpServerSyncOutcome } from "@agentxm/agent-integration";
+import {
+  NativeWriteAuthority,
+  syncManifestMcpServerToAgents,
+} from "../../projection/agent-adapters/index.js";
+import type { McpServerSyncOutcome } from "../../projection/agent-adapters/index.js";
 import { CodingAgentRepository } from "../../projection/index.js";
 import { mcpRegistryResolutionKey } from "../../desired-state/index.js";
 import { isPathSafe } from "@agentxm/extension-model/unstable/path-types";

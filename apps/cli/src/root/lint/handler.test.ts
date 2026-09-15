@@ -32,7 +32,7 @@ import { RuleManagerLive } from "@agentxm/workspace/materialization/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
 import { SkillManagerLive } from "@agentxm/workspace/materialization/live";
 
-import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
+import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/live";
 import { RegistryResolutionPolicyLive } from "../../cli-runtime/index.js";
 import { AxmSkillCandidateGateLive } from "@agentxm/workspace/resolution/live";
 import { WorkspaceCatalogLive } from "@agentxm/workspace/projection/live";
@@ -43,7 +43,7 @@ import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-t
 
 import { ExecutionDirectory } from "../../execution-directory.js";
 import { handleLint } from "./handler.js";
-import { remapLintSummaryPaths, resolveLintRoot } from "@agentxm/workspace-lint";
+import { remapLintSummaryPaths, resolveLintRoot } from "@agentxm/workspace/linting";
 import { LifecycleStepFailureConversionLive } from "../../feature-errors.js";
 import { AxmSkillCompatibilityPolicy } from "@agentxm/cli-maintenance/official-skill/application";
 

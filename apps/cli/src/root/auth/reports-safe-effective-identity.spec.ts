@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { AuthClientTest, CredentialStoreTest } from "@agentxm/registry-auth/testing";
+import { AuthClientTest, CredentialStoreTest } from "@agentxm/registry-access/testing";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { RegistryUrl } from "@agentxm/registry-client";

@@ -22,7 +22,7 @@ import {
   SubagentIoFailed,
   TransientBackupFailed,
   WriteBackupRetained,
-} from "@agentxm/agent-integration";
+} from "@agentxm/workspace/projection/agent-adapters";
 
 const ioCause = new Error("EACCES");
 

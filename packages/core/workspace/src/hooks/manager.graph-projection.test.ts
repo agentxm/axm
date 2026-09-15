@@ -25,8 +25,8 @@ import {
 } from "../materialization/test-helpers.js";
 import { HookManager } from "../materialization/managers.js";
 import { applyPlannedProjections, observeProjectionPlans } from "../projection/index.js";
-import { SourceHostProviders } from "@agentxm/extension-sources";
-import type { SourceHostProvidersService } from "@agentxm/extension-sources";
+import { SourceHostProviders } from "../resolution/sources/index.js";
+import type { SourceHostProvidersService } from "../resolution/sources/index.js";
 import type { DesiredExtensionNode, DesiredStateGraph } from "../desired-state/index.js";
 import type { Settings } from "../desired-state/index.js";
 import { WorkspaceReadTest, MockWorkspaceTransactionScope } from "../desired-state/testing.js";

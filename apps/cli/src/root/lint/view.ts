@@ -1,4 +1,4 @@
-import type { LintHumanBlock, LintHumanDiagnostic, LintSummary } from "@agentxm/workspace-lint";
+import type { LintHumanBlock, LintHumanDiagnostic, LintSummary } from "@agentxm/workspace/linting";
 
 import type { VerbosityLevel } from "../../cli-flags/index.js";
 import type { Doc } from "../../screen/index.js";

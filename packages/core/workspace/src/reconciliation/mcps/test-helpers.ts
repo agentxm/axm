@@ -1,6 +1,6 @@
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
-import type { CodingAgent } from "@agentxm/agent-integration";
+import type { CodingAgent } from "../../projection/agent-adapters/index.js";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 export const expectRecord = (
   value: unknown,

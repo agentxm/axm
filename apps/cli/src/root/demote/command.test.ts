@@ -9,7 +9,7 @@ import * as Schema from "effect/Schema";
 
 import { SettingsSchema } from "@agentxm/workspace/desired-state";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
-import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
+import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/live";
 
 import {
   AllExtensionManagersLive,

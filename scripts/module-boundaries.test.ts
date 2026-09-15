@@ -1,6 +1,6 @@
 /**
- * The module-boundary controls: dependency direction, feature peerage, and
- * acyclicity across production packages.
+ * The module-boundary controls: dependency direction and acyclicity across
+ * production packages.
  *
  * Native enforcement is the `@nx/enforce-module-boundaries` depConstraint
  * matrix in `eslint.config.mjs` (role and domain tables, cycle detection,
@@ -98,20 +98,6 @@ describe("production package dependency structure", () => {
     expect(outward).toEqual([]);
   });
 
-  it("no feature package depends on another feature package", () => {
-    const packages = readProductionPackages(repoRoot);
-    const features = packages.filter((entry) => entry.levels.includes("feature"));
-    expect(features.length).toBeGreaterThan(0);
-    const featureNames = new Set(features.map((entry) => entry.name));
-    expect(
-      features.flatMap((entry) =>
-        entry.dependencies
-          .filter((dependency) => featureNames.has(dependency))
-          .map((dependency) => `${entry.name} -> ${dependency}`),
-      ),
-    ).toEqual([]);
-  });
-
   it("no chain of production package dependencies returns to its starting package", () => {
     const packages = readProductionPackages(repoRoot);
     expect(packages.length).toBeGreaterThan(0);
@@ -154,27 +140,19 @@ describe("module-boundary constraint reachability", () => {
     };
   });
 
-  it("reports a feature importing a peer feature", async () => {
-    const reported = await boundaryViolations(
-      'import { PublishExtensions } from "@agentxm/extension-publish";\nvoid PublishExtensions;\n',
-      "packages/core/workspace-sync/src/index.ts",
-    );
-    expect(reported.length).toBeGreaterThan(0);
-  });
-
-  it("reports a supporting package importing a core capability outside the sanctioned seams", async () => {
+  it("reports a supporting capability importing a core capability outside the sanctioned seams", async () => {
     const reported = await boundaryViolations(
       'import { SettingsReader } from "@agentxm/workspace/desired-state";\nvoid SettingsReader;\n',
-      "packages/supporting/registry-auth/src/index.ts",
+      "packages/supporting/registry-access/src/authentication/index.ts",
     );
     expect(reported.length).toBeGreaterThan(0);
   });
 
-  it("permits a feature importing a capability", async () => {
+  it("permits a core capability importing a supporting capability", async () => {
     expect(
       await boundaryViolations(
-        'import { observeUnit } from "@agentxm/workspace/transitions/planning";\nvoid observeUnit;\n',
-        "packages/core/workspace-sync/src/index.ts",
+        'import { AuthClient } from "@agentxm/registry-access/authentication";\nvoid AuthClient;\n',
+        "packages/core/workspace/src/reconciliation/sync/index.ts",
       ),
     ).toEqual([]);
   });

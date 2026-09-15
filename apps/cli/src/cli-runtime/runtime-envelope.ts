@@ -18,12 +18,12 @@ import {
   redactSensitiveText,
 } from "../app-error/index.js";
 import { isKnownFailure, toAppError, type KnownFailure } from "../app-error/conversions.js";
-import type { SkillSelectionCancelled } from "@agentxm/extension-lifecycle/skills/application";
-import type { SubagentSelectionCancelled } from "@agentxm/extension-lifecycle/subagents/application";
+import type { SkillSelectionCancelled } from "@agentxm/workspace/skills/lifecycle/application";
+import type { SubagentSelectionCancelled } from "@agentxm/workspace/subagents/lifecycle/application";
 import type { PromptCancelled } from "../prompt/prompt-cancelled.js";
 
 /**
- * Structural shape of the workspace-configuration feature's typed
+ * Structural shape of the workspace configuration feature's typed
  * initialization cancellation. The envelope dispatches on the tag alone, so
  * it does not import the feature package (the transitional residue may not
  * depend on features).

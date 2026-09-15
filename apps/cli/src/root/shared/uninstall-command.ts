@@ -10,7 +10,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { UninstallExtensions, type UninstallExtensionsRequest } from "@agentxm/extension-lifecycle";
+import { UninstallExtensions, type UninstallExtensionsRequest } from "@agentxm/workspace/lifecycle";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {

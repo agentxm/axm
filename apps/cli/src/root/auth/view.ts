@@ -1,4 +1,7 @@
-import type { AuthLoginProgress, DeviceLoginPendingResult } from "@agentxm/registry-auth";
+import type {
+  AuthLoginProgress,
+  DeviceLoginPendingResult,
+} from "@agentxm/registry-access/authentication";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import type { Doc } from "../../screen/index.js";

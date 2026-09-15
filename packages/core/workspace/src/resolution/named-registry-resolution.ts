@@ -3,7 +3,7 @@
  * candidates a provider may verify before selecting, under one release-age
  * evaluation and the caller's accepted identity.
  *
- * The provider that owns the index (`@agentxm/extension-sources`) consumes
+ * The provider that owns the index (`@agentxm/workspace/resolution/sources`) consumes
  * these through its `RegistryResolutionPolicy` port, so an integration never
  * carries selection policy of its own.
  *

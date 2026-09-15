@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { findingsForProjectionOwnership } from "@agentxm/workspace-lint";
+import { findingsForProjectionOwnership } from "@agentxm/workspace/linting";
 import { makeProjectionInvariantFact } from "@agentxm/workspace/projection";
 import { type ProjectionUnitObservation } from "@agentxm/workspace/projection";
 import {

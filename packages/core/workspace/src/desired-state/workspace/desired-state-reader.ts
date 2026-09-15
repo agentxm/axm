@@ -60,7 +60,7 @@ export const makeDesiredStateReader = (
       const current = options?.settings ?? (yield* settings.settings);
       const configuredSources = yield* settings.configuredSources;
       const layout = yield* Ref.get(location.layout);
-      const registryAuthorities = Object.fromEntries(
+      const registryAccessorities = Object.fromEntries(
         configuredSources.flatMap((source) =>
           source.type === "registry" ? [[source.name, source.location] as const] : [],
         ),
@@ -70,7 +70,7 @@ export const makeDesiredStateReader = (
         baseDir: location.baseDir,
         settings: current,
         layout,
-        registryAuthorities,
+        registryAccessorities,
         ...(options?.prospectivePacks === undefined
           ? {}
           : { prospectivePacks: options.prospectivePacks }),

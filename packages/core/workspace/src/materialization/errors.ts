@@ -16,7 +16,7 @@ import type { FrontmatterParseFailure, SubagentContentError } from "@agentxm/ext
 import type { LifecyclePostconditionViolated } from "../transitions/planning/index.js";
 import type { MaterializationError } from "../acquisition/errors.js";
 import type { SourceAuthorityBlocked } from "../resolution/index.js";
-import type { SourceResolutionFailure } from "@agentxm/extension-sources";
+import type { SourceResolutionFailure } from "../resolution/sources/index.js";
 import type { RegistryClientFailure } from "@agentxm/registry-client";
 import type { InstructionMaintenanceFailed, ProjectionError } from "../projection/index.js";
 import type { MaterializedTreeInvalid } from "../desired-state/index.js";
@@ -28,7 +28,7 @@ import type {
   WorkspaceStateMutationFailure,
   WorkspaceStateReadFailure,
 } from "../desired-state/index.js";
-import type { CodingAgentFailure } from "@agentxm/agent-integration";
+import type { CodingAgentFailure } from "../projection/agent-adapters/index.js";
 import type { RuleManagerError } from "../instructions/errors.js";
 import type { HookManagerError } from "../hooks/errors.js";
 import type { SubagentManagerError } from "../subagents/errors.js";

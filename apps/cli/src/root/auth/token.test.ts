@@ -13,16 +13,16 @@ import {
   AuthClientTest,
   AuthLoginInteractionTest,
   CredentialStoreTest,
-} from "@agentxm/registry-auth/testing";
+} from "@agentxm/registry-access/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { StepUpRequired } from "@agentxm/registry-auth";
+import { StepUpRequired } from "@agentxm/registry-access/authentication";
 import { RegistryRequestFailed } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { AuthLoginPresenterLive } from "../../auth-login-presenter.js";
 import { expectNoPlanEnvelope, expectRecord, property } from "../../test-support/test-helpers.js";
-import { parseExpiresInSeconds } from "@agentxm/registry-auth";
+import { parseExpiresInSeconds } from "@agentxm/registry-access/authentication";
 import { handleCreateToken, handleListTokens, handleRevokeToken, handleToken } from "./token.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";

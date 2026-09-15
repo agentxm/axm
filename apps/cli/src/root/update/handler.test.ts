@@ -6,7 +6,7 @@
  * and how a withheld or exempted release reads. They are bound to the
  * handler because the feature package cannot yet compose a workspace
  * fixture of its own; they belong beside
- * `packages/core/extension-lifecycle/src/update/configured.ts`.
+ * `packages/core/workspace/src/lifecycle/update/configured.ts`.
  */
 
 import * as fs from "node:fs";
@@ -19,7 +19,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
-import { SourceHostProviders, type SourceHostProvidersService } from "@agentxm/extension-sources";
+import {
+  SourceHostProviders,
+  type SourceHostProvidersService,
+} from "@agentxm/workspace/resolution/sources";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import {
   decodeVersionRangeSync,

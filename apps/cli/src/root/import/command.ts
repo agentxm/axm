@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { ImportNativeExtension, importNativeExtensionPlanName } from "@agentxm/extension-authoring";
+import { ImportNativeExtension, importNativeExtensionPlanName } from "@agentxm/workspace/authoring";
 import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
 import {
   credentialFreeLocatorRecoveryValue,

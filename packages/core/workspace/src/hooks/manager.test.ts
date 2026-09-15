@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { HookManager } from "../materialization/managers.js";
 import { applyPlannedProjections } from "../projection/index.js";
-import { SourceHostProviders, SourceNotResolvable } from "@agentxm/extension-sources";
+import { SourceHostProviders, SourceNotResolvable } from "../resolution/sources/index.js";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { Settings } from "../desired-state/index.js";
 import {

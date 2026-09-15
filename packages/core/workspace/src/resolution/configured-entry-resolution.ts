@@ -34,8 +34,8 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions/release-age";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
-import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
-import type { SourceResolutionFailure } from "@agentxm/extension-sources";
+import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "./sources/index.js";
+import type { SourceResolutionFailure } from "./sources/index.js";
 import {
   acceptedResolutionRef,
   DesiredStateReader,

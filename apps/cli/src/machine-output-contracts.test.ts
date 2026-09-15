@@ -5,8 +5,8 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 
 import { JsonHelpDocSchema, JsonVersionDocSchema } from "./cli-runtime/index.js";
-import { LoginDocumentSchema } from "@agentxm/registry-auth";
-import { PublishResultSchema } from "@agentxm/extension-publish";
+import { LoginDocumentSchema } from "@agentxm/registry-access/authentication";
+import { PublishResultSchema } from "@agentxm/workspace/publishing";
 import {
   VisibilityEvaluationSchema,
   VisibilityMutationResultSchema,
@@ -40,7 +40,7 @@ import {
   CacheStatusOutputSchema,
   CacheVerifyOutputSchema,
 } from "./root/cache/command.js";
-import { DiscoverOutputSchema } from "@agentxm/extension-discovery";
+import { DiscoverOutputSchema } from "@agentxm/workspace/discovery";
 import { HelpIndexResultSchema, HelpTopicResultSchema } from "./root/help/command.js";
 import {
   KnowledgeConceptGetOutputSchema,
@@ -51,7 +51,7 @@ import {
   KnowledgeConceptResolveOutputSchema,
   KnowledgeConceptStatusOutputSchema,
   KnowledgeLintQueryResultSchema,
-} from "@agentxm/knowledge-query";
+} from "@agentxm/workspace/knowledge/query";
 import { LintResultDocumentSchema } from "./root/lint/handler.js";
 import { LifecycleTransitionOutputSchema } from "./root/lifecycle/command.js";
 
@@ -64,7 +64,7 @@ import {
   PackShowResultSchema,
   ViewDocumentSchema,
   ViewFieldValueSchema,
-} from "@agentxm/workspace-inspection";
+} from "@agentxm/workspace/inspection";
 import { UpgradeDocumentSchema } from "./root/upgrade/handler.js";
 
 const sorted = (values: Iterable<string>): ReadonlyArray<string> => [...values].sort();

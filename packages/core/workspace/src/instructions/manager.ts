@@ -38,7 +38,11 @@ import {
   reconcileInstructionTargets,
   resolveInstructionsConfig,
 } from "../projection/index.js";
-import { MARKER_KIND_POINT, MARKER_VERSION, serializeMarker } from "@agentxm/agent-integration";
+import {
+  MARKER_KIND_POINT,
+  MARKER_VERSION,
+  serializeMarker,
+} from "../projection/agent-adapters/index.js";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import {
   canReuseInstalledPackage,
@@ -61,7 +65,7 @@ import {
 } from "../desired-state/index.js";
 import { MaterializedFileTargetSchema } from "../desired-state/index.js";
 import { gitSourceLockFields } from "../desired-state/index.js";
-import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
+import { SourceHostProviders, WorkspaceCatalog } from "../resolution/sources/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { removeIfExists } from "../desired-state/index.js";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";

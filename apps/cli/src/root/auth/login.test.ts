@@ -11,22 +11,22 @@ import * as Layer from "effect/Layer";
 import * as ConfigProvider from "effect/ConfigProvider";
 import {
   type MeResponse,
-  AuthEnvironment,
   AuthLoginPresenter,
   LoopbackCallbackRejected,
   LoopbackLoginFallback,
-  CredentialStore,
-  RegistryAuthFailed,
+  RegistryAccessFailed,
   classifyLoopbackFailure,
   deviceLoginOptions,
   resumeLoginOptions,
-} from "@agentxm/registry-auth";
+} from "@agentxm/registry-access/authentication";
+import { CredentialStore } from "@agentxm/registry-access/credentials";
+import { AuthEnvironment } from "@agentxm/registry-access/adapters";
 import {
   AuthClientTest,
   AuthLoginInteractionTest,
   CredentialStoreTest,
   PendingDeviceLoginStoreTest,
-} from "@agentxm/registry-auth/testing";
+} from "@agentxm/registry-access/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
@@ -111,7 +111,7 @@ const makeLayers = (opts?: {
     getMe: opts?.getMeFails
       ? () =>
           Effect.fail(
-            new RegistryAuthFailed({
+            new RegistryAccessFailed({
               category: "auth",
               detail: "Token invalid",
             }),
@@ -367,7 +367,7 @@ describe("auth login handler", () => {
   });
 
   // The bind-failure branch runs the device flow after this note. Forcing a
-  // real loopback bind failure needs a server seam registry-auth does not
+  // real loopback bind failure needs a server seam registry-access does not
   // expose, so the wording it prints is proved at the view boundary.
   it("names the loopback fallback before the device flow it replaces it with", () => {
     expect(deviceCodeFallbackNote("loopback-bind-failed").doc).toEqual(
@@ -617,7 +617,7 @@ describe("auth login handler", () => {
         }),
       getMe: () =>
         Effect.fail(
-          new RegistryAuthFailed({
+          new RegistryAccessFailed({
             category: "auth",
             detail: "Not authenticated or token is invalid",
           }),

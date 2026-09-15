@@ -2,7 +2,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { KnowledgeConceptGetOutputSchema, KnowledgeDiscovery } from "@agentxm/knowledge-query";
+import {
+  KnowledgeConceptGetOutputSchema,
+  KnowledgeDiscovery,
+} from "@agentxm/workspace/knowledge/query";
 
 import { ExitCode } from "../../../app-error/index.js";
 import { Screen, errorDoc, rawDoc } from "../../../screen/index.js";

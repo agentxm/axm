@@ -1,5 +1,5 @@
 /**
- * Conversions from the extension-sources typed failure families into
+ * Conversions from the workspace source-resolution failure families into
  * CLI-facing `AppError` values. Each converter is a field copy: the carried
  * category (or the tag's fixed category) becomes the code, the resolution
  * site's sentence carries over verbatim, and `recover`/`cmd` reproduce the
@@ -19,7 +19,7 @@ import {
   type SourceNotResolvable,
   type SourceSyntaxInvalid,
   type WorkspaceCatalogUnavailable,
-} from "@agentxm/extension-sources";
+} from "@agentxm/workspace/resolution/sources";
 import { makeAppError, type AppError, type AppErrorCode } from "../app-error.js";
 
 // The source category vocabulary and the CLI's AppErrorCode must stay the

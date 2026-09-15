@@ -3,7 +3,7 @@
  *
  * Reading a native MCP config and classifying what it holds fails only in the
  * ways the native writers already model, so this family is exactly the
- * agent-integration native-config vocabulary under one name. The failures a
+ * agent-adapter native-config vocabulary under one name. The failures a
  * manager decides for itself belong to the manager, not here.
  *
  * @experimental This API is unstable and may change without notice.
@@ -16,7 +16,7 @@ import type {
   McpEntryUnmanaged,
   McpOwnershipMarkerInvalid,
   McpSharedTargetConflict,
-} from "@agentxm/agent-integration";
+} from "../agent-adapters/index.js";
 
 /** Every failure MCP inspection and drift classification surface. */
 export type McpInspectionError =

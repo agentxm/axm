@@ -259,7 +259,7 @@
   - The lint rule `workspace/mcps-shared-target-compatible` is retired from the
     published rule catalog and settings schema.
   - The `uninstallSkill` lifecycle operation is removed from
-    `@agentxm/extension-lifecycle`; `SkillManager` owns skill removal.
+    `@agentxm/workspace/lifecycle`; `SkillManager` owns skill removal.
   - `mcps import` records an adopted server once, without an agent subset; the
     next reconciliation projects it to every configured, capable agent.
 

@@ -25,13 +25,13 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 
-import { AgentExecutableResolver } from "@agentxm/agent-integration";
+import { AgentExecutableResolver } from "@agentxm/workspace/projection/agent-adapters";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { TestMachineRenderer, TestRenderer } from "./presenter-test.js";
 import { recordingFileSystemLayer, type FileSystemWriteEvent } from "./test-helpers.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-configuration/testing";
+import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace/configuration/testing";
 import { BundledAxmSkillAssetLive } from "../cli-runtime/index.js";
 import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "./test-helpers.js";
 import { ExecutionDirectory } from "../execution-directory.js";

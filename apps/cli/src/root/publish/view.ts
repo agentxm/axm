@@ -15,7 +15,7 @@ import {
   publishReason,
   successDoc,
 } from "../../screen/index.js";
-import type { PublishResult, PublishResultItem } from "@agentxm/extension-publish";
+import type { PublishResult, PublishResultItem } from "@agentxm/workspace/publishing";
 
 const publishIdentity = (item: PublishResultItem): string => {
   const fqn = formatFqn({ owner: item.owner, type: item.type, name: item.name });

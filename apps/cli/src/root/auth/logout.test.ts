@@ -7,13 +7,13 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { AuthClientTest, CredentialStoreTest } from "@agentxm/registry-auth/testing";
+import { AuthClientTest, CredentialStoreTest } from "@agentxm/registry-access/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { TestMachineRenderer, TestRenderer, logsByTag } from "../../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { AuthLoginPresenterLive } from "../../auth-login-presenter.js";
-import { RegistryAuthFailed } from "@agentxm/registry-auth";
+import { RegistryAccessFailed } from "@agentxm/registry-access/authentication";
 import { expectRecord, property } from "../../test-support/test-helpers.js";
 import { handleLogout } from "./logout.js";
 
@@ -53,7 +53,7 @@ const makeLayers = (opts?: {
     revokeToken: opts?.revokeFails
       ? () =>
           Effect.fail(
-            new RegistryAuthFailed({
+            new RegistryAccessFailed({
               category: "internal",
               detail: "Revoke failed",
             }),

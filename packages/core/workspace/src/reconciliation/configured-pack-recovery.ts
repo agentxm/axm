@@ -43,7 +43,7 @@ import {
   resolveConfiguredPack,
   resolvePackDependenciesWithReleaseAge,
 } from "../resolution/index.js";
-import { SourceHostProviders } from "@agentxm/extension-sources";
+import { SourceHostProviders } from "../resolution/sources/index.js";
 import {
   acceptedResolutionRef,
   acceptedCanonicalObservation,

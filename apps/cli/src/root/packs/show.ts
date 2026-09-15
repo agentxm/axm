@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { Screen, detailViewDoc, type DetailView } from "../../screen/index.js";
-import { PackShowResultSchema, ShowPack, type PackShowResult } from "@agentxm/workspace-inspection";
+import { PackShowResultSchema, ShowPack, type PackShowResult } from "@agentxm/workspace/inspection";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

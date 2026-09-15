@@ -24,10 +24,10 @@ import {
   WorkspaceCatalogTestLive,
   computeMaterializedTreeIntegritySync,
 } from "../materialization/test-helpers.js";
-import { SourceHostProviders } from "@agentxm/extension-sources";
+import { SourceHostProviders } from "../resolution/sources/index.js";
 import { RuleManager } from "../materialization/managers.js";
 import { applyPlannedProjections, observeProjectionPlans } from "../projection/index.js";
-import type { SourceHostProvidersService } from "@agentxm/extension-sources";
+import type { SourceHostProvidersService } from "../resolution/sources/index.js";
 import type { DesiredExtensionNode, DesiredStateGraph } from "../desired-state/index.js";
 import { WorkspaceReadTest, MockWorkspaceTransactionScope } from "../desired-state/testing.js";
 import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "../projection/live.js";

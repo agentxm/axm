@@ -19,7 +19,7 @@ import { resolve as resolvePath } from "node:path";
 
 import { AppError, makeAppError } from "./app-error/index.js";
 
-import { AgentPresenceProbeLive } from "@agentxm/agent-integration/live";
+import { AgentPresenceProbeLive } from "@agentxm/workspace/projection/agent-adapters/live";
 import { RegistryResolutionPolicyLive } from "./cli-runtime/index.js";
 import { AxmSkillCandidateGateLive } from "@agentxm/workspace/resolution/live";
 import { WorkspaceCatalogLive } from "@agentxm/workspace/projection/live";
@@ -48,7 +48,7 @@ import {
   directoryFlag,
 } from "./cli-flags/index.js";
 
-import { ConfiguredAgentOutcomesProviderLive } from "@agentxm/extension-lifecycle/live";
+import { ConfiguredAgentOutcomesProviderLive } from "@agentxm/workspace/lifecycle/live";
 import {
   HookManagerLive,
   KnowledgeManagerLive,
@@ -60,7 +60,7 @@ import {
   SubagentManagerLive,
 } from "@agentxm/workspace/materialization/live";
 import { ProjectionParticipantsLive } from "@agentxm/workspace/materialization/live";
-import { KnowledgeIndexLive } from "@agentxm/knowledge-query/live";
+import { KnowledgeIndexLive } from "@agentxm/workspace/knowledge/query/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
 import {
@@ -71,7 +71,7 @@ import { WorkspaceInitializationInteractionLive } from "./workspace-initializati
 import {
   GitDirectoryComparisonLive,
   SourceHostProvidersLive,
-} from "@agentxm/extension-sources/live";
+} from "@agentxm/workspace/resolution/sources/live";
 import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
@@ -84,7 +84,7 @@ import {
   CredentialStoreSessionLive,
   PendingDeviceLoginStoreLive,
   PendingPublishAuthorizationStoreLive,
-} from "@agentxm/registry-auth/live";
+} from "@agentxm/registry-access/adapters";
 import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
 import { resolveTelemetryMode } from "./telemetry/index.js";
 import type { WorkspaceStateOptions } from "@agentxm/workspace/desired-state";

@@ -17,7 +17,7 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
-import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
+import { SourceHostProviders, WorkspaceCatalog } from "../resolution/sources/index.js";
 import * as semver from "semver";
 import {
   PackManager,

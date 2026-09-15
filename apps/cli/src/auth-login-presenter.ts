@@ -24,7 +24,7 @@ import {
   type AuthLoginPresenterService,
   type AuthLoginProgress,
   type SessionReplacementDecision,
-} from "@agentxm/registry-auth";
+} from "@agentxm/registry-access/authentication";
 import { Screen } from "./screen/index.js";
 import { requireInteractive } from "./prompt/index.js";
 import {

@@ -7,7 +7,7 @@ import {
   ChangeAuthoredVersion,
   changeAuthoredVersionPlanName,
   type AuthoredVersionChange,
-} from "@agentxm/extension-authoring";
+} from "@agentxm/workspace/authoring";
 import {
   extensionTypeSentenceLabels,
   extensionTypeToPlural,

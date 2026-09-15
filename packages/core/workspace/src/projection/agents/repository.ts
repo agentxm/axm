@@ -3,14 +3,14 @@
  *
  * Selecting the configured and materialization agents is a workspace
  * decision made from settings; the decision itself is pure (`selection.ts`)
- * and the per-agent adapters come from `@agentxm/agent-integration`.
+ * and the per-agent adapters come from `@agentxm/workspace/projection/agent-adapters`.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { codingAgentForId, type CodingAgent } from "@agentxm/agent-integration";
+import { codingAgentForId, type CodingAgent } from "../agent-adapters/index.js";
 import { SettingsReader } from "../../desired-state/index.js";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import {

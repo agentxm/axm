@@ -16,7 +16,7 @@ import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace
 import { protectWorkspacePath } from "../../transitions/settlement/index.js";
 import { recordFootprint } from "../../transitions/settlement/index.js";
 import { projectionGeneration } from "../generation.js";
-import { reconcilePatternList } from "@agentxm/agent-integration";
+import { reconcilePatternList } from "../agent-adapters/index.js";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type {
   AgentDescriptor,
@@ -26,7 +26,7 @@ import type {
 
 /**
  * Whether the workspace sits inside a Git checkout. A private duplicate of the
- * trivial `.git`-entry walk in `@agentxm/extension-sources`: the kernel cannot
+ * trivial `.git`-entry walk in `@agentxm/workspace/resolution/sources`: the kernel cannot
  * depend on an integration package, and the check carries no source-resolution
  * semantics.
  */

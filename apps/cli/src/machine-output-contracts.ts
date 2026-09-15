@@ -184,8 +184,8 @@ const loginFamily = defineResultFamily({
   humanOutputKind: "mutation",
   commandCoverage: [
     "apps/cli/src/root/auth/login.test.ts",
-    "packages/supporting/registry-auth/src/device-login.test.ts",
-    "packages/supporting/registry-auth/src/loopback-login.test.ts",
+    "packages/supporting/registry-access/src/authentication/device-login.test.ts",
+    "packages/supporting/registry-access/src/adapters/loopback-login.test.ts",
   ],
 });
 
@@ -291,7 +291,7 @@ const discoverFamily = defineResultFamily({
   rationale: "Discovery is a read query with registry availability metadata.",
   commandCoverage: [
     "apps/cli/src/root/discover/handler.test.ts",
-    "packages/core/extension-discovery/src/discover/reports-companions-for-detected-dependencies.spec.ts",
+    "packages/core/workspace/src/discovery/discover/reports-companions-for-detected-dependencies.spec.ts",
   ],
 });
 
@@ -415,8 +415,8 @@ const knowledgeConceptResolveFamily = defineResultFamily({
   scenarios: ["resolved", "ambiguous", "not found", "corpus changing"],
   rationale: "Concept resolution returns one identity or bounded candidates.",
   commandCoverage: [
-    "packages/core/knowledge-query/src/graph/resolves-exact-reference.spec.ts",
-    "packages/core/knowledge-query/src/graph/requires-explicit-fuzzy-resolution.spec.ts",
+    "packages/core/workspace/src/knowledge/query/graph/resolves-exact-reference.spec.ts",
+    "packages/core/workspace/src/knowledge/query/graph/requires-explicit-fuzzy-resolution.spec.ts",
   ],
 });
 
@@ -439,7 +439,9 @@ const knowledgeConceptRelatedFamily = defineResultFamily({
   ],
   scenarios: ["related concepts", "empty", "missing root", "corpus changing"],
   rationale: "Related traversal returns bounded graph results and corpus identity.",
-  commandCoverage: ["packages/core/knowledge-query/src/graph/traverses-authored-links.spec.ts"],
+  commandCoverage: [
+    "packages/core/workspace/src/knowledge/query/graph/traverses-authored-links.spec.ts",
+  ],
 });
 
 const knowledgeConceptStatusFamily = defineResultFamily({
@@ -532,7 +534,7 @@ const visibilityEvaluationFamily = defineResultFamily({
   rationale:
     "Visibility status reports repository intent and authoritative Registry state without mutation.",
   commandCoverage: [
-    "packages/core/extension-publish/src/visibility/status-reports-repository-intent-and-registry-evaluation.spec.ts",
+    "packages/core/workspace/src/publishing/visibility/status-reports-repository-intent-and-registry-evaluation.spec.ts",
   ],
 });
 
@@ -545,8 +547,8 @@ const visibilityMutationFamily = defineResultFamily({
     "Visibility administration reports the conditional whole-Extension mutation and resulting revision.",
   humanOutputKind: "mutation",
   commandCoverage: [
-    "packages/core/extension-publish/src/visibility/set-uses-explicit-intent-and-observed-revision.spec.ts",
-    "packages/core/extension-publish/src/visibility/reconcile-applies-declared-repository-intent.spec.ts",
+    "packages/core/workspace/src/publishing/visibility/set-uses-explicit-intent-and-observed-revision.spec.ts",
+    "packages/core/workspace/src/publishing/visibility/reconcile-applies-declared-repository-intent.spec.ts",
   ],
 });
 
@@ -559,8 +561,8 @@ const lifecycleTransitionFamily = defineResultFamily({
     "Deprecation administration reports the authoritative conditional Registry transition without a local workspace artifact.",
   humanOutputKind: "mutation",
   commandCoverage: [
-    "packages/core/extension-publish/src/deprecation/updates-guidance-at-the-observed-revision.spec.ts",
-    "packages/core/extension-publish/src/deprecation/removes-guidance-at-the-observed-revision.spec.ts",
+    "packages/core/workspace/src/publishing/deprecation/updates-guidance-at-the-observed-revision.spec.ts",
+    "packages/core/workspace/src/publishing/deprecation/removes-guidance-at-the-observed-revision.spec.ts",
   ],
 });
 

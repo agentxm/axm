@@ -3,7 +3,7 @@
  *
  * The specification lives in
  * `apps/cli-e2e/src/environment-relocates-user-resources.spec.ts` and states the
- * rule over the built CLI. This example composes `@agentxm/registry-auth/live`
+ * rule over the built CLI. This example composes `@agentxm/registry-access/adapters`
  * and `@agentxm/cli-maintenance/self-update/composition/native` directly, which an end-to-end project may not
  * do (`system/architecture/e2e-observes-only-shipped-artifacts`), so it runs
  * here beside the composition root that selects those homes. Every assertion it
@@ -23,8 +23,12 @@ import { afterEach, describe, expect, it } from "@effect/vitest";
 import { vi } from "vitest";
 
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
-import { CredentialStore, PendingDeviceLoginStore } from "@agentxm/registry-auth";
-import { CredentialStoreLive, PendingDeviceLoginStoreLive } from "@agentxm/registry-auth/live";
+import { PendingDeviceLoginStore } from "@agentxm/registry-access/authentication";
+import { CredentialStore } from "@agentxm/registry-access/credentials";
+import {
+  CredentialStoreLive,
+  PendingDeviceLoginStoreLive,
+} from "@agentxm/registry-access/adapters";
 import { InstallMeta } from "@agentxm/cli-maintenance/self-update/adapters/native";
 import { InstallMetaLive } from "@agentxm/cli-maintenance/self-update/composition/native";
 

@@ -22,8 +22,8 @@ import {
   runCliInvocation,
   syncInlineMcpServerToAgent,
   syncInlineMcpServerToAgents,
-} from "@agentxm/agent-integration";
-import { NativeWriteAuthorityPermissive } from "@agentxm/agent-integration/testing";
+} from "../agent-adapters/index.js";
+import { NativeWriteAuthorityPermissive } from "../agent-adapters/testing.js";
 import { inspectMcpServerAcrossAgents } from "./inspection.js";
 
 const configurableMcpCases = CONFIGURABLE_AGENT_IDS.flatMap((agentId) => {

@@ -2,7 +2,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { NativeWriteAuthorityPermissive } from "@agentxm/agent-integration/testing";
+import { NativeWriteAuthorityPermissive } from "../agent-adapters/testing.js";
 import { SettingsReader } from "../../desired-state/index.js";
 import { handle } from "../test-helpers.js";
 import { DefaultCodingAgentRepository } from "./repository.js";

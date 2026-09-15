@@ -42,7 +42,7 @@ import {
   type ExpectedAgentEntry,
   type SharedMcpTransport,
   validateManifestMcpServerTargets,
-} from "@agentxm/agent-integration";
+} from "../agent-adapters/index.js";
 import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import { diffAgentEntry } from "./drift.js";
 

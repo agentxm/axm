@@ -8,7 +8,7 @@ import { effectCliExit } from "./effect-cli-exit.js";
 import { ExitCode, makeAppError } from "../app-error/index.js";
 import { toAppError } from "../app-error/conversions.js";
 import { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions/fqn";
-import { SourceNotResolvable } from "@agentxm/extension-sources";
+import { SourceNotResolvable } from "@agentxm/workspace/resolution/sources";
 
 /** Parse the NDJSON stderr lines a classification would write, in order. */
 const stderrEvents = (lines: ReadonlyArray<string> | undefined): ReadonlyArray<unknown> =>

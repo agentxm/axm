@@ -19,7 +19,7 @@ import {
   agentLifecycle,
   isCatalogAgentId,
   validateAgentIds,
-} from "@agentxm/workspace-configuration";
+} from "@agentxm/workspace/configuration";
 import { configurationFailureToAppError } from "../../feature-errors.js";
 
 const NONE = "-";

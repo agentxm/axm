@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
-import { currentIdentity, selectedRegistry } from "@agentxm/registry-auth";
+import { currentIdentity, selectedRegistry } from "@agentxm/registry-access/authentication";
 import { Screen, rawDoc } from "../../screen/index.js";
 import { observeUnit } from "@agentxm/workspace/transitions/planning";
 import { withLiveOperation } from "../../operation-lifecycle.js";

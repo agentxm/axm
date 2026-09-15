@@ -6,19 +6,19 @@ import { readFileSync } from "node:fs";
 export const capabilityElements = [
   {
     type: "frontstage",
-    pattern: "packages/*/extension-lifecycle/src/mcps",
+    pattern: "packages/core/workspace/src/mcp-connections/lifecycle",
     capture: ["strategy"],
     partialMatch: false,
   },
   {
     type: "frontstage",
-    pattern: "packages/*/extension-lifecycle/src/skills",
+    pattern: "packages/core/workspace/src/skills/lifecycle",
     capture: ["strategy"],
     partialMatch: false,
   },
   {
     type: "frontstage",
-    pattern: "packages/*/extension-lifecycle/src/subagents",
+    pattern: "packages/core/workspace/src/subagents/lifecycle",
     capture: ["strategy"],
     partialMatch: false,
   },
@@ -44,13 +44,13 @@ export const capabilityElements = [
 ];
 
 export const capabilityRoots = [
-  "packages/core/extension-lifecycle/src/mcps/domain",
+  "packages/core/workspace/src/mcp-connections/lifecycle/domain",
   // Enforce the extracted owner policy and contracts. The remaining install,
   // projection, and source-acquisition implementations still need migration.
-  "packages/core/extension-lifecycle/src/skills/domain",
-  "packages/core/extension-lifecycle/src/skills/application",
-  "packages/core/extension-lifecycle/src/subagents/domain",
-  "packages/core/extension-lifecycle/src/subagents/application",
+  "packages/core/workspace/src/skills/lifecycle/domain",
+  "packages/core/workspace/src/skills/lifecycle/application",
+  "packages/core/workspace/src/subagents/lifecycle/domain",
+  "packages/core/workspace/src/subagents/lifecycle/application",
   "packages/core/extension-model/src",
   "packages/supporting/cli-maintenance/src/official-skill",
   "packages/supporting/cli-maintenance/src/self-update",

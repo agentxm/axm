@@ -1,7 +1,7 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { AddInlineMcpServer } from "@agentxm/workspace-configuration";
+import { AddInlineMcpServer } from "@agentxm/workspace/configuration";
 import { acceptWarningsFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {

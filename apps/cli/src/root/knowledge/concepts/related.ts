@@ -2,7 +2,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { KnowledgeConceptRelatedOutputSchema, KnowledgeDiscovery } from "@agentxm/knowledge-query";
+import {
+  KnowledgeConceptRelatedOutputSchema,
+  KnowledgeDiscovery,
+} from "@agentxm/workspace/knowledge/query";
 
 import { Screen, headlineDoc, tableViewDoc, type TableView } from "../../../screen/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";

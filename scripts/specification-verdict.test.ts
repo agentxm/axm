@@ -341,7 +341,7 @@ describe("requirement change classification", () => {
       {
         owner: "extension-lifecycle",
         source:
-          "packages/core/extension-lifecycle/src/lifecycle/installs-selected-extension.spec.ts",
+          "packages/core/workspace/src/lifecycle/lifecycle/installs-selected-extension.spec.ts",
       },
     );
     const verdict = computeVerdict([base], [moved], fixtureContext());
@@ -364,14 +364,14 @@ describe("requirement change classification", () => {
 
   it("classifies a moved file whose import paths were rewritten as moved", () => {
     const original = fixtureSource(
-      'import { install } from "@agentxm/extension-lifecycle";\ndescribe("Install", () => { it("installs the selected extension", () => install()); });',
+      'import { install } from "@agentxm/workspace/lifecycle";\ndescribe("Install", () => { it("installs the selected extension", () => install()); });',
     );
     const moved = fixtureSource(
       'import { install } from "./install.js";\ndescribe("Install", () => { it("installs the selected extension", () => install()); });',
       {},
       {
         source:
-          "packages/core/extension-lifecycle/src/lifecycle/installs-selected-extension.spec.ts",
+          "packages/core/workspace/src/lifecycle/lifecycle/installs-selected-extension.spec.ts",
       },
     );
     expect(computeVerdict([original], [moved], fixtureContext()).affected[0]?.change).toBe("moved");
@@ -381,7 +381,7 @@ describe("requirement change classification", () => {
     const moved = fixtureSource(
       'describe("Install", () => { const x = 1; it("installs the selected extension", () => {}); });',
       {},
-      { source: "packages/core/extension-lifecycle/src/other/installs.spec.ts" },
+      { source: "packages/core/workspace/src/lifecycle/other/installs.spec.ts" },
     );
     expect(change(moved)).toBe("revised-evidence");
     expect(renderVerdictMarkdown(computeVerdict([base], [moved], fixtureContext()))).toContain(

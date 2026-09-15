@@ -12,7 +12,7 @@ import {
   revokeToken,
   selectedRegistry,
   type CreateTokenRequest,
-} from "@agentxm/registry-auth";
+} from "@agentxm/registry-access/authentication";
 import { HumanVerificationOptions, isNonInteractive, jsonFlag } from "../../cli-flags/index.js";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import {

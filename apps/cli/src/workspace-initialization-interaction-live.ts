@@ -21,7 +21,7 @@ import {
   WorkspaceInitializationCancelled,
   WorkspaceInitializationInteraction,
   type WorkspaceInitializationInteractionService,
-} from "@agentxm/workspace-configuration";
+} from "@agentxm/workspace/configuration";
 import { setupAgentScanDoc, setupPlanDoc, setupScopeSupportDoc } from "./root/setup/view.js";
 
 const selectAgentsMessage = "Select agents to configure";

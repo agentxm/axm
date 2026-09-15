@@ -30,7 +30,10 @@ import {
   inspectMcpServerAcrossAgents,
   planSingletonProjection,
 } from "../projection/index.js";
-import { McpConfigIoFailed, removeMcpServerFromManifest } from "@agentxm/agent-integration";
+import {
+  McpConfigIoFailed,
+  removeMcpServerFromManifest,
+} from "../projection/agent-adapters/index.js";
 import { NO_MATERIALIZATION_OBSERVATION } from "../materialization/manager-contract.js";
 import {
   McpServerManager,

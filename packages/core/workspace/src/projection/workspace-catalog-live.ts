@@ -1,7 +1,7 @@
 /**
  * Workspace-backed implementation of source resolution's workspace catalog.
  *
- * The port is declared by `@agentxm/extension-sources`; the facts behind it —
+ * The port is declared by `@agentxm/workspace/resolution/sources`; the facts behind it —
  * which agents this workspace materializes onto, where each of them keeps its
  * Skills, and what the workspace has configured, locked, and observed — are
  * projection decisions, so the implementation lives here rather than in the
@@ -21,13 +21,13 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import type { CodingAgentFailure } from "@agentxm/agent-integration";
+import type { CodingAgentFailure } from "./agent-adapters/index.js";
 import {
   fileUrlToPath,
   WorkspaceCatalog,
   WorkspaceCatalogUnavailable,
   type SkillCandidates,
-} from "@agentxm/extension-sources";
+} from "../resolution/sources/index.js";
 import { skillsInDir, type DiscoveredSkill } from "../desired-state/index.js";
 import {
   configuredRowsByName,

@@ -29,7 +29,7 @@ import { handleKnowledgeConceptSearch } from "./concepts/search.js";
 import { handleKnowledgeConceptStatus } from "./concepts/status.js";
 import { KnowledgeManager } from "@agentxm/workspace/materialization";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
-import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
+import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/live";
 import {
   HookManagerLive,
   McpServerManagerLive,

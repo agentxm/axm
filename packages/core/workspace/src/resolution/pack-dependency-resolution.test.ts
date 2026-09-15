@@ -9,7 +9,7 @@ import { evaluateSourceAuthority } from "./source-authority.js";
 import { computeSourceHash } from "../desired-state/index.js";
 import { ReleaseAgeExcludePatternSchema } from "@agentxm/extension-model/unstable/extensions";
 import type { RegistrySkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import type { SourceHostProvidersService } from "@agentxm/extension-sources";
+import type { SourceHostProvidersService } from "./sources/index.js";
 import {
   describeTestFailure,
   exactVersion,

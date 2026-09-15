@@ -6,9 +6,9 @@ import {
   ImportNativeExtension,
   importNativeExtensionPlanName,
   type NativeMcpCandidate,
-} from "@agentxm/extension-authoring";
+} from "@agentxm/workspace/authoring";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { ImportMcpServers, type McpImportPreflight } from "@agentxm/workspace-configuration";
+import { ImportMcpServers, type McpImportPreflight } from "@agentxm/workspace/configuration";
 import type { OperationResolution } from "@agentxm/workspace/transitions/planning";
 
 import { makeAppError } from "../../app-error/index.js";

@@ -3,7 +3,7 @@
  * and MCP inspection.
  *
  * The native-config failures the agent writers construct live in
- * `@agentxm/agent-integration`; this module owns what materialization itself
+ * `@agentxm/workspace/projection/agent-adapters`; this module owns what materialization itself
  * decides. Fields are domain facts; the application error boundary owns
  * rendering, codes, and suggestions.
  *

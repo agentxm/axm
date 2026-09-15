@@ -39,7 +39,7 @@ import type {
   PackRef,
   RegistryPackRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/pack";
-import { SourceHostProviders } from "@agentxm/extension-sources";
+import { SourceHostProviders } from "../resolution/sources/index.js";
 import { PackManager, type PackMaterializationFacts } from "../materialization/managers.js";
 import type { ExtensionTarget } from "../desired-state/index.js";
 import { type SetPackArgs } from "../desired-state/index.js";

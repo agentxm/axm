@@ -1,6 +1,6 @@
 /**
  * Exit codes and rendered JSON envelope for the two human-handoff failures
- * registry-auth raises: a pending publish authorization and a pending step-up
+ * registry-access raises: a pending publish authorization and a pending step-up
  * verification, plus the terminal categories their resume paths report.
  *
  * The capability's own specifications assert the typed outcomes
@@ -14,9 +14,9 @@ import * as Schema from "effect/Schema";
 
 import {
   PublishAuthorizationPending,
-  RegistryAuthFailed,
+  RegistryAccessFailed,
   StepUpVerificationPending,
-} from "@agentxm/registry-auth";
+} from "@agentxm/registry-access/authentication";
 import type { HumanHandoffAction } from "@agentxm/registry-protocol/unstable/human-handoff";
 
 import { authFailureToAppError } from "./feature-errors.js";
@@ -109,7 +109,7 @@ describe("human-handoff exit codes and envelope", () => {
   ] as const) {
     it(`exits ${exitCode} for a ${category} resume outcome`, () => {
       expect(
-        classify(new RegistryAuthFailed({ category, detail: "Fixture resume outcome" })).exitCode,
+        classify(new RegistryAccessFailed({ category, detail: "Fixture resume outcome" })).exitCode,
       ).toBe(exitCode);
     });
   }

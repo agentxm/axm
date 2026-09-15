@@ -9,7 +9,10 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { AuthLoginPresenter, type DeviceLoginPendingResult } from "@agentxm/registry-auth";
+import {
+  AuthLoginPresenter,
+  type DeviceLoginPendingResult,
+} from "@agentxm/registry-access/authentication";
 import {
   TestMachineRenderer,
   TestRenderer,

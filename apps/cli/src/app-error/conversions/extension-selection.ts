@@ -1,11 +1,11 @@
 import type {
   SkillSelectionNotFound,
   SkillSelectionUnavailable,
-} from "@agentxm/extension-lifecycle/skills/application";
+} from "@agentxm/workspace/skills/lifecycle/application";
 import type {
   SubagentSelectionNotFound,
   SubagentSelectionUnavailable,
-} from "@agentxm/extension-lifecycle/subagents/application";
+} from "@agentxm/workspace/subagents/lifecycle/application";
 import { AppError, makeAppError } from "../app-error.js";
 
 export const skillSelectionNotFoundToAppError = (error: SkillSelectionNotFound): AppError =>

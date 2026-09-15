@@ -15,7 +15,7 @@ import { computeSourceHash } from "../desired-state/index.js";
 import type { KnowledgeLockEntry } from "../desired-state/index.js";
 import { KnowledgeManager } from "../materialization/managers.js";
 import { applyPlannedProjections } from "../projection/index.js";
-import { SourceHostProviders, SourceNotResolvable } from "@agentxm/extension-sources";
+import { SourceHostProviders, SourceNotResolvable } from "../resolution/sources/index.js";
 import {
   DesiredStateWriter,
   SettingsWriter,

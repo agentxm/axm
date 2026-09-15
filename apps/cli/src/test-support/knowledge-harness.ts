@@ -6,7 +6,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
-import { KnowledgeConceptQueryPageSchema } from "@agentxm/knowledge-query";
+import { KnowledgeConceptQueryPageSchema } from "@agentxm/workspace/knowledge/query";
 import { makeSpecWorkspace } from "./install-harness.js";
 
 export const knowledgeBundle = "@acme/knowledge/platform";

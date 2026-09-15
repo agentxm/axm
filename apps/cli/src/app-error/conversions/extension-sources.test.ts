@@ -1,5 +1,5 @@
 /**
- * Table-driven conversion tests pinning the extension-sources boundary
+ * Table-driven conversion tests pinning the workspace source-resolution boundary
  * byte-for-byte: each tag's converter must produce exactly the envelope the
  * former in-module `makeAppError` construction produced — code, title,
  * detail, folded recovery suggestions, and cause.
@@ -15,7 +15,7 @@ import {
   SourceNotResolvable,
   SourceSyntaxInvalid,
   WorkspaceCatalogUnavailable,
-} from "@agentxm/extension-sources";
+} from "@agentxm/workspace/resolution/sources";
 import { toAppError } from "../conversions.js";
 
 describe("extension-sources failure conversion (golden pairs)", () => {

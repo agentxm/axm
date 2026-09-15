@@ -8,7 +8,7 @@ import {
   KnowledgeListQueryResultSchema,
   ListKnowledge,
   type KnowledgeListRow,
-} from "@agentxm/workspace-inspection";
+} from "@agentxm/workspace/inspection";
 import type { KnowledgeInstructionEntryResolution } from "@agentxm/workspace/projection";
 
 import { inspectionFailureToAppError } from "../../feature-errors.js";

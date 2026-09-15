@@ -16,7 +16,7 @@ import {
   RegistryTransitionSchema,
   RetirePublishedVersion,
   type RegistryTransition,
-} from "@agentxm/extension-publish";
+} from "@agentxm/workspace/publishing";
 import {
   DeprecationTransitionSchema,
   type DeprecationTransition,

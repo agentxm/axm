@@ -30,7 +30,7 @@ import {
   type OnExistingPolicy,
   type PublishOutcome,
   type PublishRequest,
-} from "@agentxm/extension-publish";
+} from "@agentxm/workspace/publishing";
 import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import {

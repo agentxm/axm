@@ -16,7 +16,7 @@ import { makeCliTestContext } from "../test-support/test-helpers.js";
 import {
   AuthLoginInteractionTest,
   DeviceLoginInteractionTest,
-} from "@agentxm/registry-auth/testing";
+} from "@agentxm/registry-access/testing";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 

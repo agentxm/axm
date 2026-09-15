@@ -1,0 +1,17 @@
+/**
+ * Environment-backed Registry access adapters for application composition.
+ *
+ * @experimental This API is unstable and may change without notice.
+ * @packageDocumentation
+ */
+
+export { AuthEnvironment } from "./environment.js";
+export { AuthMiddlewareLive, makeAuthMiddlewareLive } from "./auth-middleware.js";
+export { AuthLoginInteractionLive } from "./login-interaction.js";
+export { AuthClientLive } from "../authentication/auth-client.js";
+export { PendingDeviceLoginStoreLive } from "../authentication/pending-device-login-store.js";
+export { PendingPublishAuthorizationStoreLive } from "../authentication/pending-publish-authorization-store.js";
+export {
+  CredentialStoreLive,
+  CredentialStoreSessionLive,
+} from "../credentials/credential-store.js";

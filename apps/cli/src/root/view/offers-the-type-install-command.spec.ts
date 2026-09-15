@@ -20,7 +20,7 @@ export const specification = defineSpecification({
   methods: ["decision-table", "example"],
   derivedFrom: [
     "apps/cli/src/app.ts",
-    "packages/core/workspace-inspection/src/view/view-extension.ts",
+    "packages/core/workspace/src/inspection/view/view-extension.ts",
   ],
   supersedes: [],
   assumptions: [],

@@ -6,7 +6,7 @@ import {
   contextForResolution,
   type UpdateCandidate,
   type UpdateSubjectType,
-} from "@agentxm/extension-lifecycle";
+} from "@agentxm/workspace/lifecycle";
 import { AXM_SKILL_BUNDLED_APPLY_COMMAND } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 import { ReleaseAgePosture, type TargetedUpdatePublicContext } from "@agentxm/workspace/resolution";
 import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions";

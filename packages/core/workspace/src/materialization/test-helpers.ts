@@ -15,7 +15,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import type { CodingAgent } from "@agentxm/agent-integration";
+import type { CodingAgent } from "../projection/agent-adapters/index.js";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import {
   decodeExtensionNameSync,
@@ -40,7 +40,7 @@ import {
   WorkspaceCatalog,
   WorkspaceCatalogUnavailable,
   type SkillCandidates,
-} from "@agentxm/extension-sources";
+} from "../resolution/sources/index.js";
 import { StepFailure } from "../transitions/planning/index.js";
 import { skillsInDir, type DiscoveredSkill } from "../desired-state/index.js";
 import {

@@ -5,7 +5,7 @@
  * uninstall removing rendered files, and settings/lockfile CRUD.
  */
 
-import { NativeWriteAuthorityPermissive } from "@agentxm/agent-integration/testing";
+import { NativeWriteAuthorityPermissive } from "../projection/agent-adapters/testing.js";
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
@@ -17,7 +17,7 @@ import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import type { LocalSubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
-import type { AddSubagentArgs, CodingAgent } from "@agentxm/agent-integration";
+import type { AddSubagentArgs, CodingAgent } from "../projection/agent-adapters/index.js";
 import { SubagentManager } from "../materialization/managers.js";
 import { CodingAgentRepository } from "../projection/index.js";
 import {

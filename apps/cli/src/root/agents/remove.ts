@@ -1,5 +1,5 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
-import { NativeWriteAuthority } from "@agentxm/agent-integration";
+import { NativeWriteAuthority } from "@agentxm/workspace/projection/agent-adapters";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -11,7 +11,7 @@ import {
 import {
   ConfigureAgents,
   type DepartingAgentReconciliation,
-} from "@agentxm/workspace-configuration";
+} from "@agentxm/workspace/configuration";
 import { configurationFailureToAppError, syncFailureToAppError } from "../../feature-errors.js";
 import { syncStepFailureAdapter } from "../../feature-errors.js";
 import { acceptWarningsFlag } from "../../cli-flags/index.js";

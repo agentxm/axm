@@ -22,8 +22,8 @@ import {
   McpTransportSchema,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { UpgradeAssessmentResultSchema } from "@agentxm/cli-maintenance/self-update/adapters/cli";
-import { PublishResultSchema } from "@agentxm/extension-publish";
-import { KnowledgeConceptStatusOutputSchema } from "@agentxm/knowledge-query";
+import { PublishResultSchema } from "@agentxm/workspace/publishing";
+import { KnowledgeConceptStatusOutputSchema } from "@agentxm/workspace/knowledge/query";
 import { ExtensionInventorySchema } from "@agentxm/workspace/desired-state";
 
 import { PlanResolutionDocumentSchema } from "../operation-output.js";

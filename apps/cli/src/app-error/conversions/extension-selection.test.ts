@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   SkillSelectionNotFound,
   SkillSelectionUnavailable,
-} from "@agentxm/extension-lifecycle/skills/application";
+} from "@agentxm/workspace/skills/lifecycle/application";
 import {
   SubagentSelectionNotFound,
   SubagentSelectionUnavailable,
-} from "@agentxm/extension-lifecycle/subagents/application";
+} from "@agentxm/workspace/subagents/lifecycle/application";
 import { makeAppError } from "../app-error.js";
 import { isKnownFailure, toAppError } from "../conversions.js";
 

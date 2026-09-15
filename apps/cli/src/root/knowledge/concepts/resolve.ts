@@ -1,7 +1,10 @@
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { KnowledgeConceptResolveOutputSchema, KnowledgeDiscovery } from "@agentxm/knowledge-query";
+import {
+  KnowledgeConceptResolveOutputSchema,
+  KnowledgeDiscovery,
+} from "@agentxm/workspace/knowledge/query";
 
 import { ExitCode, makeAppError } from "../../../app-error/index.js";
 import { Screen, rawDoc, tableViewDoc, type TableView } from "../../../screen/index.js";

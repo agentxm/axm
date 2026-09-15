@@ -127,7 +127,7 @@ titles, descriptions, or comments from private trackers such as Linear. They
 must also not expose private repository links, customer details, unreleased
 internal plans, credentials, or other confidential context.
 
-Use a public-safe branch name such as `feat/registry-auth` rather than one that
+Use a public-safe branch name such as `feat/registry-access` rather than one that
 contains a private issue identifier. Every pull request must explain the public
 problem and solution without requiring access to a private tracker or
 repository. When public discussion is useful, create or reference a sanitized

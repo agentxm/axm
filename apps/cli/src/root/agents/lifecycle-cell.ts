@@ -4,7 +4,7 @@
  * vendor has stopped maintaining them.
  */
 
-import { agentLifecycle } from "@agentxm/workspace-configuration";
+import { agentLifecycle } from "@agentxm/workspace/configuration";
 
 export const lifecycleCell = (id: string): string => {
   const lifecycle = agentLifecycle(id);

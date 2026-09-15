@@ -7,7 +7,7 @@
  */
 
 import * as Data from "effect/Data";
-import type { HookConfigInvalid, HookIoFailed } from "@agentxm/agent-integration";
+import type { HookConfigInvalid, HookIoFailed } from "../projection/agent-adapters/index.js";
 
 /**
  * A hook package, binding, or projection input did not validate. `detail`

@@ -9,9 +9,10 @@
  * drift classification, hook agent outcomes, and the invariant facts lint and
  * sync consume.
  *
- * Native format mechanics live in `@agentxm/agent-integration`; the layers that
- * bind this capability to a running workspace live behind `./live`, and
- * deterministic ports for feature tests behind `./testing`.
+ * Native format mechanics live behind the `./projection/agent-adapters` child
+ * entry point. The layers that bind this capability to a running workspace
+ * live behind `./live`, and deterministic ports for feature tests behind
+ * `./testing`.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

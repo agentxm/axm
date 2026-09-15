@@ -2,7 +2,7 @@ import {
   SetupOutcomeSchema,
   SetupWorkspace,
   type SetupOutcome,
-} from "@agentxm/workspace-configuration";
+} from "@agentxm/workspace/configuration";
 import { agentFlag, isNonInteractive, jsonFlag, Verbosity } from "../cli-flags/index.js";
 import { Screen, errorDoc, headlineDoc, successDoc, suggestionsDoc } from "../screen/index.js";
 import { effectCliExit, withArgvTracking } from "../cli-runtime/index.js";
@@ -35,7 +35,7 @@ import {
 } from "./shared/command-capabilities.js";
 import { setupBrandingDoc, setupScopeSupportDoc, subagentSummaryDoc } from "./setup/view.js";
 import { AXM_SKILL_VERSION } from "../__generated__/bundled-axm-skill.js";
-import { installBundledAxmSkill } from "@agentxm/extension-lifecycle";
+import { installBundledAxmSkill } from "@agentxm/workspace/lifecycle";
 
 /**
  * Setup applies a documented unattended candidate when explicitly asked to,

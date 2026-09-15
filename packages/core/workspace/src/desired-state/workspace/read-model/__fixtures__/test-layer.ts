@@ -22,7 +22,10 @@ import * as Path from "effect/Path";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { AgentRootResolver, AgentRootResolverLive } from "../agent-root-resolver.js";
-import { AgentPresenceProbe, type AgentPresenceProbeService } from "@agentxm/agent-integration";
+import {
+  AgentPresenceProbe,
+  type AgentPresenceProbeService,
+} from "../../../../projection/agent-adapters/index.js";
 import { WorkspaceReadModelConfig } from "../service.js";
 import { buildFixture, type FixtureSpec, type PathEscapeError } from "./builder.js";
 

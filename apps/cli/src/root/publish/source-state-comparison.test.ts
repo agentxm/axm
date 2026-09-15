@@ -17,12 +17,12 @@ import {
   AuthClientTest,
   DeviceLoginInteractionTest,
   PendingPublishAuthorizationStoreTest,
-} from "@agentxm/registry-auth/testing";
+} from "@agentxm/registry-access/testing";
 import {
   GitDirectoryComparison,
   type GitDirectoryComparisonService,
   type GitDirectoryDifference,
-} from "@agentxm/extension-sources";
+} from "@agentxm/workspace/resolution/sources";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";

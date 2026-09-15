@@ -2,7 +2,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { KnowledgeConceptQueryPageSchema, KnowledgeDiscovery } from "@agentxm/knowledge-query";
+import {
+  KnowledgeConceptQueryPageSchema,
+  KnowledgeDiscovery,
+} from "@agentxm/workspace/knowledge/query";
 import { observeUnit } from "@agentxm/workspace/transitions/planning";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 

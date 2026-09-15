@@ -10,8 +10,8 @@ import {
 } from "./declared-type-dependencies.js";
 
 const subject = (overrides: Partial<DeclarationSubject> = {}): DeclarationSubject => ({
-  packageName: "@agentxm/workspace-sync",
-  manifestPath: "packages/core/workspace-sync/package.json",
+  packageName: "@fixture/workspace-sync",
+  manifestPath: "packages/fixture/workspace-sync/package.json",
   declared: new Set(["@agentxm/workspace"]),
   declarations: [],
   ...overrides,
@@ -23,15 +23,13 @@ describe("emitted declaration references", () => {
       'import type { A } from "@agentxm/workspace/desired-state";',
       'export declare const a: import("@agentxm/registry-client").RegistryProblem;',
       'export * from "@agentxm/extension-model/unstable/extensions";',
-      'import "@agentxm/agent-integration";',
-      'declare module "@agentxm/extension-sources" {}',
+      'import "@agentxm/workspace/projection/agent-adapters";',
+      'declare module "@agentxm/workspace/resolution/sources" {}',
       '/// <reference types="@agentxm/extension-content" />',
     ].join("\n");
     expect([...referencedGuardedPackages(declaration)].sort()).toEqual([
-      "@agentxm/agent-integration",
       "@agentxm/extension-content",
       "@agentxm/extension-model",
-      "@agentxm/extension-sources",
       "@agentxm/registry-client",
       "@agentxm/workspace",
     ]);
@@ -46,7 +44,7 @@ describe("emitted declaration references", () => {
       " * not that bundle's loader.",
       " */",
       '// Superseded by "@agentxm/registry-client".',
-      'const url = "https://example.test/from \\"@agentxm/extension-sources\\"";',
+      'const url = "https://example.test/from \\"@agentxm/workspace/resolution/sources\\"";',
       'import type { A } from "@agentxm/workspace/desired-state";',
     ].join("\n");
     expect([...referencedGuardedPackages(declaration)]).toEqual(["@agentxm/workspace"]);
@@ -78,11 +76,11 @@ describe("undeclared type dependencies", () => {
       subject({
         declarations: [
           {
-            path: "packages/core/workspace-sync/dist/src/plan.d.ts",
+            path: "packages/fixture/workspace-sync/dist/src/plan.d.ts",
             text: 'export declare const a: import("@agentxm/registry-client").RegistryProblem;',
           },
           {
-            path: "packages/core/workspace-sync/dist/src/materialize.d.ts",
+            path: "packages/fixture/workspace-sync/dist/src/materialize.d.ts",
             text: 'export declare const b: import("@agentxm/registry-client").RegistryProblem;',
           },
         ],
@@ -90,17 +88,17 @@ describe("undeclared type dependencies", () => {
     ]);
     expect(findings).toEqual([
       {
-        packageName: "@agentxm/workspace-sync",
-        manifestPath: "packages/core/workspace-sync/package.json",
+        packageName: "@fixture/workspace-sync",
+        manifestPath: "packages/fixture/workspace-sync/package.json",
         referenced: "@agentxm/registry-client",
         declarations: [
-          "packages/core/workspace-sync/dist/src/materialize.d.ts",
-          "packages/core/workspace-sync/dist/src/plan.d.ts",
+          "packages/fixture/workspace-sync/dist/src/materialize.d.ts",
+          "packages/fixture/workspace-sync/dist/src/plan.d.ts",
         ],
       },
     ]);
     expect(findings.map(describeUndeclaredTypeDependency).join("\n")).toContain(
-      "@agentxm/workspace-sync emits a reference to @agentxm/registry-client",
+      "@fixture/workspace-sync emits a reference to @agentxm/registry-client",
     );
   });
 
@@ -110,10 +108,10 @@ describe("undeclared type dependencies", () => {
         subject({
           declarations: [
             {
-              path: "packages/core/workspace-sync/dist/src/index.d.ts",
+              path: "packages/fixture/workspace-sync/dist/src/index.d.ts",
               text: [
                 'import type { A } from "@agentxm/workspace/desired-state";',
-                'import type { B } from "@agentxm/workspace-sync";',
+                'import type { B } from "@fixture/workspace-sync";',
                 'import type { C } from "effect/Effect";',
               ].join("\n"),
             },

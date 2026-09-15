@@ -13,11 +13,11 @@ import {
 import {
   SkillSelectionNotFound,
   SkillSelectionUnavailable,
-} from "@agentxm/extension-lifecycle/skills/application";
+} from "@agentxm/workspace/skills/lifecycle/application";
 import {
   SubagentSelectionNotFound,
   SubagentSelectionUnavailable,
-} from "@agentxm/extension-lifecycle/subagents/application";
+} from "@agentxm/workspace/subagents/lifecycle/application";
 import {
   skillSelectionNotFoundToAppError,
   subagentSelectionNotFoundToAppError,
@@ -152,7 +152,7 @@ import {
   PackSelectorNotAPack,
   PackSourceMissing,
   ScaffoldNameInvalid,
-} from "@agentxm/extension-authoring";
+} from "@agentxm/workspace/authoring";
 import { CreateDestinationExists } from "@agentxm/workspace/materialization";
 import {
   InstructionMaintenanceFailed,
@@ -177,9 +177,12 @@ import {
   McpSharedTargetConflict,
   SubagentIoFailed,
   WriteBackupRetained,
-} from "@agentxm/agent-integration";
+} from "@agentxm/workspace/projection/agent-adapters";
 import { MaterializedTreeInvalid, PathTraversalDetected } from "@agentxm/workspace/desired-state";
-import { AgentDetectionFailed, NativeWriteRefused } from "@agentxm/agent-integration";
+import {
+  AgentDetectionFailed,
+  NativeWriteRefused,
+} from "@agentxm/workspace/projection/agent-adapters";
 import {
   RegistryOperationFailed,
   RegistryProblem,
@@ -193,7 +196,7 @@ import {
   SourceNotResolvable,
   SourceSyntaxInvalid,
   WorkspaceCatalogUnavailable,
-} from "@agentxm/extension-sources";
+} from "@agentxm/workspace/resolution/sources";
 import {
   registryOperationFailedToAppError,
   registryProblemToAppError,

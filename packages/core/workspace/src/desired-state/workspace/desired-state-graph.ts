@@ -157,7 +157,7 @@ interface DesiredStateGraphArgs {
   /** Resolved Pack roots whose manifests supersede the currently materialized copy. */
   readonly prospectivePacks?: ReadonlyArray<ProspectivePackRef>;
   /** Registry source aliases mapped to their stable authority endpoints. */
-  readonly registryAuthorities?: Readonly<Record<string, URL | string>>;
+  readonly registryAccessorities?: Readonly<Record<string, URL | string>>;
 }
 
 interface CandidateCommon {
@@ -215,7 +215,7 @@ const sourceIdentity = (
   name: string,
   source: string,
   settings: Settings,
-  registryAuthorities: Readonly<Record<string, URL | string>>,
+  registryAccessorities: Readonly<Record<string, URL | string>>,
 ): { readonly identity: string; readonly constraint?: string } => {
   if (isWorkspaceSourceLocator(source)) {
     return settings.owner === undefined
@@ -226,13 +226,13 @@ const sourceIdentity = (
   const locator = registryLocator(source);
   const parsed = locator === undefined ? undefined : parseRegistrySourceRef(locator.ref);
   if (parsed !== undefined && parsed.type === toExtensionTypePlural(type)) {
-    const registryAuthority =
-      locator === undefined ? undefined : registryAuthorities[locator.sourceName];
+    const registryAccessority =
+      locator === undefined ? undefined : registryAccessorities[locator.sourceName];
     return {
       identity:
-        type === "mcp-server" && registryAuthority !== undefined
+        type === "mcp-server" && registryAccessority !== undefined
           ? mcpRegistryResolutionKey({
-              authority: registryAuthority,
+              authority: registryAccessority,
               owner: parsed.owner,
               name: parsed.name,
             })
@@ -330,7 +330,7 @@ export const buildDesiredStateGraph = ({
   settings,
   layout,
   prospectivePacks = [],
-  registryAuthorities = {},
+  registryAccessorities = {},
 }: DesiredStateGraphArgs): Effect.Effect<DesiredStateGraph, never> =>
   Effect.gen(function* () {
     const candidates: Candidate[] = [];
@@ -358,7 +358,7 @@ export const buildDesiredStateGraph = ({
         const bundled = type === "skill" && entry.origin === "bundled";
         const identity = bundled
           ? { identity: `bundled:@agentxm/skills/${name}` }
-          : sourceIdentity(type, name, entry.source, settings, registryAuthorities);
+          : sourceIdentity(type, name, entry.source, settings, registryAccessorities);
         if (!bundled && isWorkspaceSourceLocator(entry.source) && settings.owner === undefined) {
           problems.push({ type: "workspace-owner-missing", extensionType: type, name });
         }
@@ -405,7 +405,7 @@ export const buildDesiredStateGraph = ({
         name,
         entry.source,
         settings,
-        registryAuthorities,
+        registryAccessorities,
       );
       if (isWorkspaceSourceLocator(entry.source) && settings.owner === undefined) {
         problems.push({ type: "workspace-owner-missing", extensionType: "mcp-server", name });
@@ -528,9 +528,9 @@ export const buildDesiredStateGraph = ({
         if (parsed === undefined || parsed.type === "pack") continue;
         const dependencyIdentity =
           parsed.type === "mcp-server" &&
-          registryAuthorities[configuredRegistrySource] !== undefined
+          registryAccessorities[configuredRegistrySource] !== undefined
             ? mcpRegistryResolutionKey({
-                authority: registryAuthorities[configuredRegistrySource],
+                authority: registryAccessorities[configuredRegistrySource],
                 owner: parsed.owner,
                 name: parsed.name,
               })

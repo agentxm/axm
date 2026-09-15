@@ -4,7 +4,7 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import { acceptWarningsFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
-import { normalizeTypePublishSelection, type PublishableType } from "@agentxm/extension-publish";
+import { normalizeTypePublishSelection, type PublishableType } from "@agentxm/workspace/publishing";
 import { publishFailureToAppError } from "../../feature-errors.js";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";

@@ -9,7 +9,7 @@ import {
   type ConfigurableAgentId,
   type NativeCapability,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { userScopeRefusal } from "@agentxm/agent-integration";
+import { userScopeRefusal } from "../../projection/agent-adapters/index.js";
 import {
   EXTENSION_TYPE_TABLE,
   extensionTypeLabels,

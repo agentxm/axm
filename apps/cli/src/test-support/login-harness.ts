@@ -19,9 +19,10 @@ import {
   AuthLoginInteractionTest,
   CredentialStoreTest,
   PendingDeviceLoginStoreTest,
-} from "@agentxm/registry-auth/testing";
+} from "@agentxm/registry-access/testing";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
-import { AuthLoginPresenter, CredentialStore, type MeResponse } from "@agentxm/registry-auth";
+import { AuthLoginPresenter, type MeResponse } from "@agentxm/registry-access/authentication";
+import { CredentialStore } from "@agentxm/registry-access/credentials";
 import { AuthLoginPresenterLive } from "../auth-login-presenter.js";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { TestFlagsLayer } from "../cli-flags/index.js";

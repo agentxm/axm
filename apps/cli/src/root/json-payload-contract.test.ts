@@ -14,12 +14,12 @@ import { ExtensionInventorySchema } from "@agentxm/workspace/desired-state";
 import { MACHINE_OUTPUT_CONTRACT_ROWS } from "../machine-output-contracts.js";
 import { AgentsListOutputSchema } from "./agents/list.js";
 import { TokenListDocumentSchema } from "./auth/token.js";
-import { DiscoverOutputSchema } from "@agentxm/extension-discovery";
-import { KnowledgeConceptQueryPageSchema } from "@agentxm/knowledge-query";
+import { DiscoverOutputSchema } from "@agentxm/workspace/discovery";
+import { KnowledgeConceptQueryPageSchema } from "@agentxm/workspace/knowledge/query";
 import {
   ExtensionListDocumentSchema,
   KnowledgeListQueryResultSchema,
-} from "@agentxm/workspace-inspection";
+} from "@agentxm/workspace/inspection";
 import { InstructionsStatusOutputSchema } from "./instructions.js";
 
 const COLLECTION_PAYLOADS = [

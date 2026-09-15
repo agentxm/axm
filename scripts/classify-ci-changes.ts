@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
-import { appendFileSync } from "node:fs";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { appendFileSync, realpathSync } from "node:fs";
+import { resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
 export type CiCheck =
@@ -262,15 +262,9 @@ export const validateRunnerCommandFile = (
 ) => {
   if (!candidate) return undefined;
   if (!runnerTemp) throw new Error("RUNNER_TEMP is required for GitHub command files");
-  const root = resolve(runnerTemp);
-  const target = resolve(candidate);
-  const pathFromRoot = relative(root, target);
-  if (
-    pathFromRoot === "" ||
-    pathFromRoot === ".." ||
-    pathFromRoot.startsWith(`..${sep}`) ||
-    isAbsolute(pathFromRoot)
-  ) {
+  const root = realpathSync(resolve(runnerTemp));
+  const target = realpathSync(resolve(candidate));
+  if (!target.startsWith(`${root}${sep}`)) {
     throw new Error("GitHub command files must be contained by RUNNER_TEMP");
   }
   return target;

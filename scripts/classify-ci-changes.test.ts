@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -257,17 +258,30 @@ describe("classifyCiChanges", () => {
   });
 
   it("accepts command files contained by the runner temporary directory", () => {
-    expect(
-      validateRunnerCommandFile("/runner/temp/_runner_file_commands/output_123", "/runner/temp"),
-    ).toBe("/runner/temp/_runner_file_commands/output_123");
+    const runnerTemp = fs.mkdtempSync(path.join(os.tmpdir(), "axm-ci-runner-"));
+    const commandDirectory = path.join(runnerTemp, "_runner_file_commands");
+    const outputPath = path.join(commandDirectory, "output_123");
+    fs.mkdirSync(commandDirectory);
+    fs.writeFileSync(outputPath, "");
+    try {
+      expect(validateRunnerCommandFile(outputPath, runnerTemp)).toBe(fs.realpathSync(outputPath));
+    } finally {
+      fs.rmSync(runnerTemp, { recursive: true });
+    }
   });
 
   it("rejects command files outside the runner temporary directory", () => {
-    expect(() => validateRunnerCommandFile("/workspace/untrusted-output", "/runner/temp")).toThrow(
-      "GitHub command files must be contained by RUNNER_TEMP",
-    );
-    expect(() =>
-      validateRunnerCommandFile("/runner/temp/../escaped-output", "/runner/temp"),
-    ).toThrow("GitHub command files must be contained by RUNNER_TEMP");
+    const parent = fs.mkdtempSync(path.join(os.tmpdir(), "axm-ci-parent-"));
+    const runnerTemp = path.join(parent, "runner-temp");
+    const outsidePath = path.join(parent, "outside-output");
+    fs.mkdirSync(runnerTemp);
+    fs.writeFileSync(outsidePath, "");
+    try {
+      expect(() => validateRunnerCommandFile(outsidePath, runnerTemp)).toThrow(
+        "GitHub command files must be contained by RUNNER_TEMP",
+      );
+    } finally {
+      fs.rmSync(parent, { recursive: true });
+    }
   });
 });

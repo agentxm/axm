@@ -1,7 +1,7 @@
 /**
  * Per-type currency collectors and aggregator.
  *
- * Reads configured and locked entries from the WorkspaceMutations service, filters to
+ * Reads desired state and accepted resolutions, filters to
  * enabled registry-sourced entries, fetches each extension's index from
  * RegistryClient, and produces an array of ExtensionCurrencyEntry.
  *
@@ -35,13 +35,13 @@ import type {
   RuleLockEntry,
   SkillLockEntry,
   SubagentLockEntry,
-} from "@agentxm/workspace-state";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
+import { DesiredStateReader, LockfileReader } from "@agentxm/workspace/desired-state";
 import type {
-  WorkspaceMutationsService,
+  LockfileReaderService,
   WorkspaceStateReadFailure,
-} from "@agentxm/workspace-state";
-import { isSourcedDesiredExtension } from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
+import { isSourcedDesiredExtension } from "@agentxm/workspace/desired-state";
 import { checkCurrency, type CurrencyResult } from "./check-currency.js";
 import { WorkspaceInspectionFailed } from "../errors.js";
 import { describeInspectionFailure } from "../describe-failure.js";
@@ -116,25 +116,25 @@ type AcceptedResolution =
   | PackLockEntry;
 
 const getAcceptedResolution = (
-  ws: WorkspaceMutationsService,
+  lockfile: LockfileReaderService,
   type: ExtensionType,
   name: string,
 ): Effect.Effect<Option.Option<AcceptedResolution>, WorkspaceStateReadFailure> => {
   switch (type) {
     case "skill":
-      return ws.getLockedSkill(name);
+      return lockfile.entry("skill", name);
     case "mcp-server":
-      return ws.getLockedMcpServerForConnection(name);
+      return lockfile.mcpServerForConnection(name);
     case "subagent":
-      return ws.getLockedSubagent(name);
+      return lockfile.entry("subagent", name);
     case "rule":
-      return ws.getLockedRuleEntry(name);
+      return lockfile.entry("rule", name);
     case "hook":
-      return ws.getLockedHookEntry(name);
+      return lockfile.entry("hook", name);
     case "knowledge":
-      return ws.getLockedKnowledgeEntry(name);
+      return lockfile.entry("knowledge", name);
     case "pack":
-      return ws.getLockedPack(name);
+      return lockfile.entry("pack", name);
   }
 };
 
@@ -156,8 +156,9 @@ const isGitAcceptedResolution = (entry: AcceptedResolution): entry is GitAccepte
  */
 const collectCurrency = (extensionType: ExtensionType, client: RegistryClient) =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const graph = yield* ws.getDesiredStateGraph();
+    const desiredState = yield* DesiredStateReader;
+    const lockfile = yield* LockfileReader;
+    const graph = yield* desiredState.graph();
     if (!graph.complete) {
       return yield* new WorkspaceInspectionFailed({
         category: "validation",
@@ -169,7 +170,7 @@ const collectCurrency = (extensionType: ExtensionType, client: RegistryClient) =
         .filter(isSourcedDesiredExtension)
         .filter((node) => node.type === extensionType && node.enabled),
       (node) =>
-        getAcceptedResolution(ws, node.type, node.name).pipe(
+        getAcceptedResolution(lockfile, node.type, node.name).pipe(
           Effect.map((resolution) => ({ node, resolution })),
         ),
     );
@@ -299,9 +300,10 @@ const matchingRefTreeSha = (
 const collectSourceFreshness = (args: { readonly extensionType: ExtensionType }) =>
   Effect.gen(function* () {
     const providers = yield* SourceHostProviders;
-    const ws = yield* WorkspaceMutations;
+    const desiredState = yield* DesiredStateReader;
+    const lockfile = yield* LockfileReader;
     const { extensionType } = args;
-    const graph = yield* ws.getDesiredStateGraph();
+    const graph = yield* desiredState.graph();
     if (!graph.complete) {
       return yield* new WorkspaceInspectionFailed({
         category: "validation",
@@ -313,7 +315,7 @@ const collectSourceFreshness = (args: { readonly extensionType: ExtensionType })
         .filter(isSourcedDesiredExtension)
         .filter((node) => node.type === extensionType && node.enabled),
       (node) =>
-        getAcceptedResolution(ws, node.type, node.name).pipe(
+        getAcceptedResolution(lockfile, node.type, node.name).pipe(
           Effect.map((resolution) => ({ node, resolution })),
         ),
     );

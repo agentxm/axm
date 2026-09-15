@@ -51,8 +51,10 @@
     "packages/core/extension-model": {
       "entry": ["src/**/*.type-test.ts"],
     },
-    "packages/core/workspace-state": {
+    "packages/core/workspace": {
       "entry": ["src/**/*.type-test.ts"],
+      // Deliberate dynamic loading keeps unavailable native keychains recoverable.
+      "ignoreDependencies": ["@napi-rs/keyring"],
     },
     "apps/cli": {
       // Explicit roots for source-conditioned Bun launchers.
@@ -64,10 +66,6 @@
       ],
       // Pin the published Effect runtime cohort despite its transitive import.
       "ignoreDependencies": ["@effect/platform-node-shared"],
-    },
-    "packages/core/extension-materialization": {
-      // Deliberate dynamic loading keeps unavailable native keychains recoverable.
-      "ignoreDependencies": ["@napi-rs/keyring"],
     },
     "packages/supporting/registry-auth": {
       "ignoreDependencies": ["@napi-rs/keyring"],

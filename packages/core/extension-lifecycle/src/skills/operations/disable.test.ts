@@ -12,16 +12,16 @@ import {
   WorkspaceRecords,
   type DesiredStateGraph,
   type ReadModelRecordRow,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import {
   implicitRow,
   MockWorkspaceTransactionScope,
   WorkspaceReadTest,
-} from "@agentxm/workspace-state/testing";
+} from "@agentxm/workspace/desired-state/testing";
 import type { DisableSkillOperation } from "./disable.js";
 import { disableSkill } from "./disable.js";
 import { TestStepFailureConversion } from "../../test-helpers.js";
-import { CodingAgentRepository, DefaultCodingAgentRepository } from "@agentxm/workspace-projection";
+import { CodingAgentRepository, DefaultCodingAgentRepository } from "@agentxm/workspace/projection";
 
 // -----------------------------------------------------------------------------
 // Helpers

@@ -6,15 +6,15 @@ import { describe, expect, layer } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach, vi } from "vitest";
-import type { SkillLockEntry } from "@agentxm/workspace-state";
-import { SettingsWriter } from "@agentxm/workspace-state";
+import type { SkillLockEntry } from "@agentxm/workspace/desired-state";
+import { SettingsWriter } from "@agentxm/workspace/desired-state";
 import {
   makeRegistrySkillLockEntry,
   MockWorkspaceTransactionScope,
   TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
   WorkspaceReadTest,
-} from "@agentxm/workspace-state/testing";
+} from "@agentxm/workspace/desired-state/testing";
 import type { EnableSkillOperation } from "./enable.js";
 import { enableSkill } from "./enable.js";
 import {
@@ -25,9 +25,9 @@ import {
 } from "../../test-helpers.js";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/extensions";
-import { computePackageContentHash } from "@agentxm/workspace-state";
+import { computePackageContentHash } from "@agentxm/workspace/desired-state";
 import { type SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
-import { CodingAgentRepository, DefaultCodingAgentRepository } from "@agentxm/workspace-projection";
+import { CodingAgentRepository, DefaultCodingAgentRepository } from "@agentxm/workspace/projection";
 
 type SettingsSkillValue =
   | string

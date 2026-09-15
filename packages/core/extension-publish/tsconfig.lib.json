@@ -21,16 +21,7 @@
       "path": "../../../tools/specification-metadata/tsconfig.lib.json"
     },
     {
-      "path": "../workspace-transactions/tsconfig.lib.json"
-    },
-    {
-      "path": "../workspace-state/tsconfig.lib.json"
-    },
-    {
-      "path": "../workspace-projection/tsconfig.lib.json"
-    },
-    {
-      "path": "../workspace-operations/tsconfig.lib.json"
+      "path": "../workspace/tsconfig.lib.json"
     },
     {
       "path": "../registry-protocol/tsconfig.lib.json"

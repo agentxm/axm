@@ -9,7 +9,7 @@ import {
   ListKnowledge,
   type KnowledgeListRow,
 } from "@agentxm/workspace-inspection";
-import type { KnowledgeInstructionEntryResolution } from "@agentxm/workspace-projection";
+import type { KnowledgeInstructionEntryResolution } from "@agentxm/workspace/projection";
 
 import { inspectionFailureToAppError } from "../../feature-errors.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

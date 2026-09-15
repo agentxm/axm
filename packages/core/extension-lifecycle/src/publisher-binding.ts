@@ -1,7 +1,7 @@
 /**
  * Publisher-change plan shaping.
  *
- * `@agentxm/extension-resolution` classifies whether a proposed Registry
+ * `@agentxm/workspace/resolution` classifies whether a proposed Registry
  * acceptance replaces an accepted publisher binding. This module turns that
  * classification into plan vocabulary: the per-step warning, the
  * interactive-only risk condition, and the blocking condition raised when an
@@ -20,15 +20,19 @@ import {
   describePublisherBindingTransition,
   publisherTransitionWarning,
   type PublisherBindingTransition,
-} from "@agentxm/extension-resolution";
-import type { Plan, PlanRiskCondition, PlannedJobStep } from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/resolution";
+import type {
+  Plan,
+  PlanRiskCondition,
+  PlannedJobStep,
+} from "@agentxm/workspace/transitions/planning";
 import {
   acceptedResolutionRef,
   type DesiredStateReader,
   type LockfileReader,
   type SettingsReader,
   type WorkspaceLocation,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 export const PUBLISHER_CHANGE_CONDITION_ID = "publisher-ownership-change";
 

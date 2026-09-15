@@ -54,7 +54,7 @@ import {
   type PackDependencyDeclaration,
   type PackDependencyMemberObservation,
   type PackDependencyReachability,
-} from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/projection";
 import {
   InterruptionSignalSource,
   OperationJournal,
@@ -73,9 +73,12 @@ import {
   type PlanExecution,
   type PlanRiskCondition,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { FootprintRecorder, makeFootprintRecorder } from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/planning";
+import { SettingsReader } from "@agentxm/workspace/desired-state";
+import {
+  FootprintRecorder,
+  makeFootprintRecorder,
+} from "@agentxm/workspace/transitions/settlement";
 
 import { PublishFailed } from "../errors.js";
 import { aggregatePublishFailure, publishCause, type PublishFailure } from "../failure.js";
@@ -282,7 +285,7 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
   const incoherent = rejectIncoherentRequest(request, registry);
   if (Option.isSome(incoherent)) return yield* Effect.fail(incoherent.value);
 
-  const workspace = yield* WorkspaceMutations;
+  const settings = yield* SettingsReader;
   const registryUrl = yield* RegistryUrl;
   const remoteRegistry = isRemote(registry.url);
 
@@ -402,7 +405,7 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
   }
 
   const storedToken = yield* resolveRequestToken(registry.url, registryUrl);
-  const workspaceDefaultVisibility = yield* workspace.getPublishDefaultVisibility();
+  const workspaceDefaultVisibility = yield* settings.publishDefaultVisibility;
   const shouldPreviewAuthoritatively =
     preflightFailures.length === 0 &&
     sourceAssessedCandidates.length > 0 &&

@@ -10,9 +10,9 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { ReleaseAgePosture } from "@agentxm/extension-resolution";
+import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import { recoverySwitch } from "@agentxm/workspace-operations";
+import { recoverySwitch } from "@agentxm/workspace/transitions/planning";
 
 import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 import { runInstallCommand } from "../shared/install-command.js";

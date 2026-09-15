@@ -1,4 +1,4 @@
-import type { AuthorMaterialization } from "@agentxm/workspace-operations";
+import type { AuthorMaterialization } from "@agentxm/workspace/transitions/planning";
 /**
  * Creating a new authored extension.
  *
@@ -22,6 +22,7 @@ import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
 
 import {
   SkillManager,
@@ -39,16 +40,16 @@ import {
   type ExtensionManagerFailure,
   type InstallableSkillTarget,
   type ManagerRequirements,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import {
   buildAuthoredExtensionStep,
   buildNewExtensionStep,
   type AuthoredExtensionOperationArgs,
   type NewExtensionOperationArgs,
   type RecipeRequirements,
-} from "@agentxm/workspace-reconciliation";
-import { McpSecretStore } from "@agentxm/extension-materialization";
-import { materializeAuthoredMcpServer } from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
+import { McpSecretStore } from "@agentxm/workspace/materialization";
+import { materializeAuthoredMcpServer } from "@agentxm/workspace/reconciliation";
 import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
@@ -71,24 +72,26 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/transitions/planning";
+import { CodingAgentRepository } from "@agentxm/workspace/projection";
 import type { CredentialStore } from "@agentxm/registry-auth";
 import type { RegistryUrl } from "@agentxm/registry-client";
 import type { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions";
-import type { CandidateFingerprintFailed } from "@agentxm/workspace-operations";
+import type { CandidateFingerprintFailed } from "@agentxm/workspace/transitions/planning";
 import {
-  WorkspaceMutations,
+  AcceptedResolutionWriter,
+  DesiredStateWriter,
   computeExtensionPathsForLayout,
   computePackPathsForLayout,
   computeSourceHash,
   type ConfiguredAgentOutcomesProvider,
   type DesiredStateReader,
   type LockfileReader,
-  type SettingsReader,
-  type WorkspaceLocation,
-  type WorkspaceMutationsService,
-} from "@agentxm/workspace-state";
+  SettingsReader,
+  SettingsWriter,
+  WorkspaceLocation,
+  type WorkspaceLayout,
+} from "@agentxm/workspace/desired-state";
 
 import { authoredDeclaration } from "../authored-declaration.js";
 import { preflightCreateOnly } from "../create-preflight.js";
@@ -181,7 +184,11 @@ export type CreatableExtensionType = CreateExtensionRequest["type"];
 export type CreateExtensionRequirements =
   | ManagerRequirements
   | RecipeRequirements
-  | WorkspaceMutations
+  | AcceptedResolutionWriter
+  | DesiredStateWriter
+  | SettingsReader
+  | SettingsWriter
+  | WorkspaceLocation
   | CodingAgentRepository
   | McpSecretStore;
 
@@ -221,7 +228,9 @@ export type PrepareCreateExtensionRequirements =
   | Path.Path
   | CredentialStore
   | RegistryUrl
-  | WorkspaceMutations
+  | AcceptedResolutionWriter
+  | DesiredStateWriter
+  | SettingsWriter
   | WorkspaceLocation
   | SettingsReader
   | LockfileReader
@@ -242,14 +251,14 @@ export type PrepareCreateExtensionRequirements =
 
 /** How each type reads its declarations and writes the one it creates. */
 const declaration = (
-  ws: WorkspaceMutationsService,
+  ports: Parameters<typeof authoredDeclaration>[0],
   type: CreatableExtensionType,
   name: string,
 ): {
   readonly isConfigured: Effect.Effect<boolean, AuthoringStepFailure>;
   readonly declare: Effect.Effect<void, AuthoringStepFailure>;
 } => {
-  const target = authoredDeclaration(ws, type, name);
+  const target = authoredDeclaration(ports, type, name);
   return {
     isConfigured: target.read.pipe(Effect.map((current) => current.configured)),
     declare: target.declare({ enabled: true }),
@@ -318,16 +327,16 @@ export const createExtensionPlanName = (type: CreatableExtensionType): string =>
 /** The canonical directory an authored package of this type occupies. */
 const canonicalLocation = (
   path: Path.Path,
-  ws: WorkspaceMutationsService,
+  layout: WorkspaceLayout,
   type: CreatableExtensionType,
   owner: Handle,
   name: string,
 ): string =>
   type === "pack"
-    ? computePackPathsForLayout(path.join, ws.layout, "workspace", owner, name).canonicalPath
+    ? computePackPathsForLayout(path.join, layout, "workspace", owner, name).canonicalPath
     : computeExtensionPathsForLayout(
         path.join,
-        ws.layout,
+        layout,
         { refType: "workspace", owner },
         toExtensionTypePlural(type),
         name,
@@ -339,14 +348,14 @@ const canonicalLocation = (
  * function, so a preview lists exactly the locations an apply writes.
  */
 const skillTargetLocations = Effect.fn("CreateExtension.skillTargetLocations")(function* () {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
   const path = yield* Path.Path;
   const agents = yield* (yield* CodingAgentRepository).getMaterializationAgents();
   const resolved = yield* Effect.forEach(
     agents,
     (agent) =>
       agent
-        .resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir })
+        .resolveEffectiveSkillsDir({ workspaceRoot: location.baseDir })
         .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
     { concurrency: "unbounded" },
   );
@@ -356,7 +365,10 @@ const skillTargetLocations = Effect.fn("CreateExtension.skillTargetLocations")(f
       installable.push({ agentId, targetDir: path.normalize(outcome.dir) });
     }
   }
-  return { installable, locations: yield* groupInstallTargetsByDirectory(installable, ws.baseDir) };
+  return {
+    installable,
+    locations: yield* groupInstallTargetsByDirectory(installable, location.baseDir),
+  };
 });
 
 /**
@@ -365,9 +377,10 @@ const skillTargetLocations = Effect.fn("CreateExtension.skillTargetLocations")(f
  * the same forecast, so a preview lists exactly the files an apply writes.
  */
 const mcpAgentConfigTargets = Effect.fn("CreateExtension.mcpAgentConfigTargets")(function* () {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const settings = yield* SettingsReader;
   const path = yield* Path.Path;
-  const configuredAgentIds = yield* ws.getConfiguredAgents();
+  const configuredAgentIds = yield* settings.configuredAgents;
   const catalogAgents = Object.values(CONFIGURABLE_AGENTS_BY_ID);
   const agentsByConfigPath = new Map<string, Set<string>>();
   for (const agentId of configuredAgentIds) {
@@ -375,8 +388,11 @@ const mcpAgentConfigTargets = Effect.fn("CreateExtension.mcpAgentConfigTargets")
     const capability = agent?.capabilities["mcp-server"];
     if (capability === undefined || capability.axm.writer === null) continue;
     for (const target of capability.axm.writer.config.targets) {
-      if (target.scope !== ws.scope) continue;
-      const configPath = path.relative(ws.baseDir, path.resolve(ws.baseDir, target.path));
+      if (target.scope !== location.scope) continue;
+      const configPath = path.relative(
+        location.baseDir,
+        path.resolve(location.baseDir, target.path),
+      );
       const agentIds = agentsByConfigPath.get(configPath) ?? new Set<string>();
       agentIds.add(agentId);
       agentsByConfigPath.set(configPath, agentIds);
@@ -415,7 +431,7 @@ const authoredPackageStep = <TRef extends ExtensionRef, TFacts>(
 /**
  * Build the authored-creation step with the requirements this use case keeps
  * in `R`. The recipe pins one requirement set across the manager and the
- * closures, so naming it here is what lets the workspace facade and the agent
+ * closures, so naming it here is what lets the workspace state ports and agent
  * repository stay requirements instead of captured values.
  */
 const authoredStep = <TRef extends ExtensionRef, TFacts>(
@@ -445,7 +461,12 @@ export const prepareCreateExtension: (
   CreateExtensionFailure,
   PrepareCreateExtensionRequirements
 > = Effect.fn("CreateExtension.prepare")(function* (request) {
-  const ws = yield* WorkspaceMutations;
+  const locationService = yield* WorkspaceLocation;
+  const settings = yield* SettingsReader;
+  const settingsWriter = yield* SettingsWriter;
+  const accepted = yield* AcceptedResolutionWriter;
+  const desiredStateWriter = yield* DesiredStateWriter;
+  const layout = yield* Ref.get(locationService.layout);
   const path = yield* Path.Path;
 
   const { subject, command } = route(request.type);
@@ -466,18 +487,22 @@ export const prepareCreateExtension: (
 
   // Authored packages live in a project workspace; the user scope holds
   // acquired content only.
-  if (ws.layout.scope !== "project") {
-    return yield* new AuthoringScopeUnsupported({ subject, scope: ws.layout.scope });
+  if (layout.scope !== "project") {
+    return yield* new AuthoringScopeUnsupported({ subject, scope: layout.scope });
   }
 
   const name = request.name;
   const scaffold = scaffoldFor(request, owner);
-  const location = canonicalLocation(path, ws, request.type, owner, name);
-  const authoredPath = path.relative(ws.baseDir, location);
-  const settingsPath = settingsRelativePath(path, ws);
+  const location = canonicalLocation(path, layout, request.type, owner, name);
+  const authoredPath = path.relative(locationService.baseDir, location);
+  const settingsPath = settingsRelativePath(path, locationService, layout);
   const extensionName = decodeExtensionNameSync(name);
   const fqn = formatFqn({ owner, type: request.type, name: extensionName });
-  const { isConfigured, declare } = declaration(ws, request.type, name);
+  const { isConfigured, declare } = declaration(
+    { settings, settingsWriter, accepted, desiredStateWriter },
+    request.type,
+    name,
+  );
 
   const createOnly = Effect.gen(function* () {
     yield* preflightCreateOnly({
@@ -503,7 +528,7 @@ export const prepareCreateExtension: (
     (target) => {
       const agentIds = artifactTargetAgentIds(target.agentIds);
       return {
-        path: path.relative(ws.baseDir, path.join(target.targetDir, name)),
+        path: path.relative(locationService.baseDir, path.join(target.targetDir, name)),
         change: "created" as const,
         ...(agentIds.length > 0 ? { agentIds } : {}),
       };
@@ -513,7 +538,7 @@ export const prepareCreateExtension: (
     request.type === "mcp-server" ? yield* mcpAgentConfigTargets() : [];
   const plannedArtifact: JobStepArtifact = {
     path: authoredPath,
-    scope: ws.scope,
+    scope: locationService.scope,
     version: scaffold.version,
     change: "created",
     fileCount: scaffold.contentFiles.length,
@@ -527,11 +552,14 @@ export const prepareCreateExtension: (
     message: `Created ${subject} ${fqn}`,
     plannedArtifact,
     preflight: Effect.gen(function* () {
-      yield* recoverCanonicalDirectory({ baseDir: ws.baseDir, canonicalPath: location });
+      yield* recoverCanonicalDirectory({
+        baseDir: locationService.baseDir,
+        canonicalPath: location,
+      });
       yield* createOnly;
     }),
     scaffold: createCanonicalDirectory({
-      baseDir: ws.baseDir,
+      baseDir: locationService.baseDir,
       canonicalPath: location,
       subject: scaffold.subject,
       requiredFiles: scaffold.contentFiles,
@@ -543,7 +571,7 @@ export const prepareCreateExtension: (
   const sourceRef = {
     refType: "workspace",
     source: { type: "workspace", owner, extensionType: request.type, name: extensionName },
-    scope: ws.scope,
+    scope: locationService.scope,
     owner,
     name: extensionName,
     version: scaffold.version,
@@ -570,7 +598,7 @@ export const prepareCreateExtension: (
               const agents = artifactAgentIdsFromTargets(installable);
               return {
                 path: authoredPath,
-                scope: ws.scope,
+                scope: locationService.scope,
                 ...(agents.length > 0 ? { agents } : {}),
                 version: scaffold.version,
                 change,
@@ -580,7 +608,10 @@ export const prepareCreateExtension: (
                   ...locations.map((target) => {
                     const agentIds = artifactTargetAgentIds(target.agentIds);
                     return {
-                      path: path.relative(ws.baseDir, path.join(target.targetDir, name)),
+                      path: path.relative(
+                        locationService.baseDir,
+                        path.join(target.targetDir, name),
+                      ),
                       change,
                       ...(agentIds.length > 0 ? { agentIds } : {}),
                     };
@@ -636,7 +667,7 @@ export const prepareCreateExtension: (
               }));
               return {
                 path: authoredPath,
-                scope: ws.scope,
+                scope: locationService.scope,
                 version: scaffold.version,
                 change: "created",
                 ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),

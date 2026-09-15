@@ -8,7 +8,7 @@ import {
   publicRecoveryValue,
   recoveryPositional,
   recoverySwitch,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { authoringFailureToAppError } from "../../feature-errors.js";

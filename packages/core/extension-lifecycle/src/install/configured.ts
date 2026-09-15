@@ -24,7 +24,7 @@ import {
   RuleManager,
   SkillManager,
   SubagentManager,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import {
   decodeExtensionNameSync,
   extensionTypePluralSentenceLabels,
@@ -52,18 +52,18 @@ import {
   resolveConfiguredSubagent,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeHoldbackRecord,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/workspace/resolution";
 import {
   operationPresentation,
   type ConfiguredAgentOperation,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
-  WorkspaceMutations,
+  SettingsReader,
   acceptedResolutionRef,
   enabledConfiguredEntries,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import type { ExtensionLifecycleFailed } from "../errors.js";
 import { planHookInstall } from "../hooks/install/plan.js";
@@ -337,8 +337,8 @@ const collectPackPlans: (
   ConfiguredInstallFailure,
   ConfiguredInstallRequirements
 > = Effect.fn("InstallExtensions.collectConfiguredPacks")(function* (args: CollectPackPlansArgs) {
-  const ws = yield* WorkspaceMutations;
-  const configured = yield* ws.getConfiguredPackEntries().pipe(
+  const settings = yield* SettingsReader;
+  const configured = yield* settings.entries("pack").pipe(
     Effect.mapError((cause) =>
       installRefused({
         category: "internal",
@@ -367,7 +367,6 @@ const collectPackPlans: (
 
   const prospectivePacks = resolvedPacks.map(({ intent }) => intent.packToInstall);
   const constraintProblems = yield* prospectivePackConstraintProblems({
-    workspace: ws,
     prospectivePacks,
     ...(args.selectedNames === undefined ? {} : { selectedNames: args.selectedNames }),
   }).pipe(
@@ -421,7 +420,7 @@ const collectSimpleTypePlans = (
   ConfiguredInstallRequirements
 > =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const settings = yield* SettingsReader;
     const readFailed = (cause: unknown) =>
       installRefused({
         category: "internal",
@@ -552,7 +551,7 @@ const collectSimpleTypePlans = (
 
     switch (type) {
       case "skill": {
-        const configured = yield* ws.getConfiguredSkillEntries().pipe(Effect.mapError(readFailed));
+        const configured = yield* settings.entries("skill").pipe(Effect.mapError(readFailed));
         // A bundled skill is shipped with the CLI, not acquired from a source.
         const entries = enabledConfiguredEntries(configured).filter(
           ([, entry]) => entry.origin !== "bundled",
@@ -564,9 +563,7 @@ const collectSimpleTypePlans = (
         });
       }
       case "subagent": {
-        const configured = yield* ws
-          .getConfiguredSubagentEntries()
-          .pipe(Effect.mapError(readFailed));
+        const configured = yield* settings.entries("subagent").pipe(Effect.mapError(readFailed));
         return toCollectedPlans({
           plans: yield* Effect.forEach(
             enabledConfiguredEntries(configured),
@@ -576,7 +573,7 @@ const collectSimpleTypePlans = (
         });
       }
       case "rule": {
-        const configured = yield* ws.getConfiguredRuleEntries().pipe(Effect.mapError(readFailed));
+        const configured = yield* settings.entries("rule").pipe(Effect.mapError(readFailed));
         return toCollectedPlans({
           plans: yield* Effect.forEach(
             enabledConfiguredEntries(configured),
@@ -586,7 +583,7 @@ const collectSimpleTypePlans = (
         });
       }
       case "hook": {
-        const configured = yield* ws.getConfiguredHookEntries().pipe(Effect.mapError(readFailed));
+        const configured = yield* settings.entries("hook").pipe(Effect.mapError(readFailed));
         return toCollectedPlans({
           plans: yield* Effect.forEach(
             enabledConfiguredEntries(configured),
@@ -596,9 +593,7 @@ const collectSimpleTypePlans = (
         });
       }
       case "knowledge": {
-        const configured = yield* ws
-          .getConfiguredKnowledgeEntries()
-          .pipe(Effect.mapError(readFailed));
+        const configured = yield* settings.entries("knowledge").pipe(Effect.mapError(readFailed));
         return toCollectedPlans({
           plans: yield* Effect.forEach(
             enabledConfiguredEntries(configured),
@@ -608,9 +603,7 @@ const collectSimpleTypePlans = (
         });
       }
       case "mcp-server": {
-        const configured = yield* ws
-          .getConfiguredMcpServerEntries()
-          .pipe(Effect.mapError(readFailed));
+        const configured = yield* settings.entries("mcp-server").pipe(Effect.mapError(readFailed));
         return toCollectedPlans({
           plans: yield* Effect.forEach(
             enabledConfiguredEntries(configured),

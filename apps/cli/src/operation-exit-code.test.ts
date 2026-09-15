@@ -1,12 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
 
-import { StepFailure } from "@agentxm/workspace-operations";
+import { StepFailure } from "@agentxm/workspace/transitions/planning";
 import {
   makeOperationResolution,
   type OperationResolution,
   type ResolvedUnit,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import { operationExitCode, operationOk } from "./operation-exit-code.js";
 
 const unit = (

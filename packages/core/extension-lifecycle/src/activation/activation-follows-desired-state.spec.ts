@@ -16,7 +16,7 @@ import {
   localLifecycleRows,
   makeInstallWorld,
 } from "../install/test-helpers.js";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { DesiredStateReader } from "@agentxm/workspace/desired-state";
 import {
   makeLifecycleFixture,
   writeAgentSkillDirectory,
@@ -127,7 +127,7 @@ describe("Activation follows desired state", () => {
             );
             const accepted = workspace.readFile("axm-lock.yaml");
             yield* applyActivation({ type, name, enabled: false });
-            const graph = yield* (yield* WorkspaceMutations).getDesiredStateGraph();
+            const graph = yield* (yield* DesiredStateReader).graph();
             expect(
               graph.nodes.find((node) => node.type === type && node.name === name)?.enabled,
             ).toBe(false);
@@ -188,7 +188,7 @@ describe("Activation follows desired state", () => {
               expect(disabled._tag === "Resolved" ? disabled.outcome : disabled._tag).toBe(
                 "applied",
               );
-              const graph = yield* (yield* WorkspaceMutations).getDesiredStateGraph();
+              const graph = yield* (yield* DesiredStateReader).graph();
               expect(
                 graph.nodes.find((node) => node.type === type && node.name === name),
               ).toBeUndefined();

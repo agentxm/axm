@@ -20,25 +20,25 @@
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
-import type { ConfiguredAgentOutcomesProvider } from "@agentxm/workspace-state";
-import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace-state/testing";
-import type { FootprintRecorder } from "@agentxm/workspace-transactions";
+import type { ConfiguredAgentOutcomesProvider } from "@agentxm/workspace/desired-state";
+import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace/desired-state/testing";
+import type { FootprintRecorder } from "@agentxm/workspace/transitions/settlement";
 import {
   OPERATION_ERROR_CATEGORIES,
   OperationJournal,
   StepFailure,
   type OperationErrorCategory,
   type ResolvePlanInteraction,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
   PlanInvocationTest,
   ResolvePlanInteractionTest,
-} from "@agentxm/workspace-operations/testing";
+} from "@agentxm/workspace/transitions/planning/testing";
 
 import {
   SyncStepFailureConversion,
   type SyncPolicyFailure,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import type { SyncWorkspaceRequest } from "./sync-workspace.js";
 
 const isCategory = (value: unknown): value is OperationErrorCategory =>

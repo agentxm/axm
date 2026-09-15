@@ -45,8 +45,8 @@ import {
   SubagentManager,
   type ExtensionManagerFailure,
   type ManagerRequirements,
-} from "@agentxm/extension-materialization";
-import { type McpServerInstallRequirements } from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/materialization";
+import { type McpServerInstallRequirements } from "@agentxm/workspace/reconciliation";
 import {
   collectMaterializeSteps,
   collectUnreachableRetirement,
@@ -57,13 +57,13 @@ import {
   publishDesiredState,
   type DesiredStateProposal,
   type RecipeRequirements,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import {
   ReleaseAgePosture,
   type ExtensionResolutionFailed,
   type PackDependencyResolutionFailure,
   type SourceAuthorityBlocked,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/workspace/resolution";
 import {
   activeInstructionsConfig,
   applyProjectionPlans,
@@ -76,7 +76,7 @@ import {
   type ProjectionParticipantRequirements,
   type ProjectionPlan,
   type ResolvedInstructionsConfig,
-} from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/projection";
 import {
   OperationJournal,
   operationPresentation,
@@ -93,7 +93,7 @@ import {
   type PlanExecution,
   type PlannedJobStep,
   type StepFailure,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
   acceptedCanonicalObservation,
   usableAcceptedCanonical,
@@ -112,12 +112,12 @@ import {
   WorkspaceRecords,
   type DesiredExtensionNode,
   type AcceptedCanonicalRefError,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import {
   FootprintRecorder,
   runWorkspaceTransaction,
   WorkspaceTransactionScope,
-} from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/settlement";
 
 import { ExtensionLifecycleFailed } from "../errors.js";
 import {

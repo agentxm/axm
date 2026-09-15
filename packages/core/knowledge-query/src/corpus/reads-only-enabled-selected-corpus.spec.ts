@@ -17,7 +17,7 @@ export const specification = defineSpecification({
   methods: ["example", "decision-table"],
   derivedFrom: [
     "apps/cli/help/topics/knowledge.md",
-    "packages/core/workspace-projection/src/knowledge/installed-bundles.ts",
+    "packages/core/workspace/src/projection/knowledge/installed-bundles.ts",
     "apps/cli-e2e/src/knowledge.e2e.test.ts",
   ],
   supersedes: [],

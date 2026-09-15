@@ -24,9 +24,9 @@ import {
   LockfileReader,
   SettingsReader,
   WorkspaceLocation,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import { StepFailureConversion } from "../step-failure-conversion.js";
-import { HookManager, McpServerManager } from "@agentxm/extension-materialization";
+import { HookManager, McpServerManager } from "@agentxm/workspace/materialization";
 export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
   ConfiguredAgentOutcomesProvider,
   Effect.gen(function* () {

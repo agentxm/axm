@@ -4,7 +4,10 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import { deriveOperationOutcome, type OperationResolution } from "@agentxm/workspace-operations";
+import {
+  deriveOperationOutcome,
+  type OperationResolution,
+} from "@agentxm/workspace/transitions/planning";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { ExtensionLifecycleFailed } from "../errors.js";

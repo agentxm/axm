@@ -18,6 +18,9 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
+import { WorkspaceLocation } from "@agentxm/workspace/desired-state";
+
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -30,8 +33,8 @@ import {
   KnowledgeManager,
   McpServerManager,
   PackManager,
-} from "@agentxm/extension-materialization";
-import { buildInstallOperation } from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/materialization";
+import { buildInstallOperation } from "@agentxm/workspace/reconciliation";
 import {
   formatFqn,
   parseFqn,
@@ -47,7 +50,7 @@ import {
   resolveConfiguredRule,
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/workspace/resolution";
 import {
   operationPresentation,
   prepareExecutionCandidate,
@@ -56,12 +59,14 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
-  WorkspaceMutations,
-  type WorkspaceMutationsService,
+  SettingsReader,
+  type SettingsReaderService,
+  SettingsWriter,
+  type SettingsWriterService,
   type WorkspaceSettingsReadFailure,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import { ExtensionLifecycleFailed } from "../errors.js";
 import { lifecycleStepFailure } from "../step-failure.js";
@@ -116,25 +121,25 @@ export type PrepareDemoteRequirements = Effect.Services<ReturnType<typeof settle
 
 /** The configured declaration a demotion replaces, as settings recorded it. */
 const configuredEntry = (
-  ws: WorkspaceMutationsService,
+  settings: SettingsReaderService,
   type: ExtensionType,
   name: string,
 ): Effect.Effect<unknown, WorkspaceSettingsReadFailure> => {
   switch (type) {
     case "skill":
-      return ws.getConfiguredSkillEntries().pipe(Effect.map((entries) => entries[name]));
+      return settings.entries("skill").pipe(Effect.map((entries) => entries[name]));
     case "mcp-server":
-      return ws.getConfiguredMcpServerEntries().pipe(Effect.map((entries) => entries[name]));
+      return settings.entries("mcp-server").pipe(Effect.map((entries) => entries[name]));
     case "subagent":
-      return ws.getConfiguredSubagentEntries().pipe(Effect.map((entries) => entries[name]));
+      return settings.entries("subagent").pipe(Effect.map((entries) => entries[name]));
     case "rule":
-      return ws.getConfiguredRuleEntries().pipe(Effect.map((entries) => entries[name]));
+      return settings.entries("rule").pipe(Effect.map((entries) => entries[name]));
     case "hook":
-      return ws.getConfiguredHookEntries().pipe(Effect.map((entries) => entries[name]));
+      return settings.entries("hook").pipe(Effect.map((entries) => entries[name]));
     case "knowledge":
-      return ws.getConfiguredKnowledgeEntries().pipe(Effect.map((entries) => entries[name]));
+      return settings.entries("knowledge").pipe(Effect.map((entries) => entries[name]));
     case "pack":
-      return ws.getConfiguredPackEntries().pipe(Effect.map((entries) => entries[name]));
+      return settings.entries("pack").pipe(Effect.map((entries) => entries[name]));
   }
 };
 
@@ -152,12 +157,10 @@ const entryDisabled = (entry: unknown): boolean =>
  * because that is what installing means; a package the workspace had turned
  * off must not come back on because its source changed.
  */
-type RestoreDisabledStateFailure = Effect.Error<
-  ReturnType<WorkspaceMutationsService["updateSkillEntry"]>
->;
+type RestoreDisabledStateFailure = Effect.Error<ReturnType<SettingsWriterService["updateEntry"]>>;
 
 const restoreDisabledState = (
-  ws: WorkspaceMutationsService,
+  settings: SettingsWriterService,
   type: ExtensionType,
   name: string,
 ): Effect.Effect<void, RestoreDisabledStateFailure> => {
@@ -167,17 +170,17 @@ const restoreDisabledState = (
   });
   switch (type) {
     case "skill":
-      return ws.updateSkillEntry(name, disable);
+      return settings.updateEntry("skill", name, disable);
     case "mcp-server":
-      return ws.updateMcpServerEntry(name, disable);
+      return settings.updateEntry("mcp-server", name, disable);
     case "subagent":
-      return ws.updateSubagentEntry(name, disable);
+      return settings.updateEntry("subagent", name, disable);
     case "rule":
-      return ws.updateRuleEntry(name, disable);
+      return settings.updateEntry("rule", name, disable);
     case "hook":
-      return ws.updateHookEntry(name, disable);
+      return settings.updateEntry("hook", name, disable);
     case "knowledge":
-      return ws.updateKnowledgeEntry(name, disable);
+      return settings.updateEntry("knowledge", name, disable);
     // A Pack declaration carries no activation of its own; its members do.
     case "pack":
       return Effect.void;
@@ -283,7 +286,10 @@ const replacementStep = Effect.fn("Demote.replacementStep")(function* (
  * replacement package, and freeze the execution candidate.
  */
 const settleDemotion = Effect.fn("Demote.prepare")(function* (request: DemoteRequest) {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const layout = yield* Ref.get(location.layout);
+  const settings = yield* SettingsReader;
+  const settingsWriter = yield* SettingsWriter;
   const path = yield* Path.Path;
   const fs = yield* FileSystem.FileSystem;
   const parsed = yield* Effect.fromResult(parseFqn(request.fqn));
@@ -295,7 +301,7 @@ const settleDemotion = Effect.fn("Demote.prepare")(function* (request: DemoteReq
     });
   }
 
-  const current = yield* configuredEntry(ws, parsed.type, parsed.name);
+  const current = yield* configuredEntry(settings, parsed.type, parsed.name);
   const currentSource = entrySource(current);
   if (currentSource === undefined || !isWorkspaceSourceLocator(currentSource)) {
     return yield* new ExtensionLifecycleFailed({
@@ -304,14 +310,14 @@ const settleDemotion = Effect.fn("Demote.prepare")(function* (request: DemoteReq
     });
   }
 
-  if (ws.layout.scope !== "project") {
+  if (layout.scope !== "project") {
     return yield* new ExtensionLifecycleFailed({
       category: "usage",
       detail: "Demote requires project scope",
     });
   }
 
-  const authoredDir = path.join(ws.layout.authoredRoot(parsed.type), parsed.name);
+  const authoredDir = path.join(layout.authoredRoot(parsed.type), parsed.name);
   const operation = yield* replacementStep(parsed.type, parsed.name, request.source);
   const wasDisabled = entryDisabled(current);
 
@@ -325,7 +331,7 @@ const settleDemotion = Effect.fn("Demote.prepare")(function* (request: DemoteReq
           run: Effect.gen(function* () {
             const result = yield* operation.run;
             if (wasDisabled) {
-              yield* restoreDisabledState(ws, parsed.type, parsed.name).pipe(
+              yield* restoreDisabledState(settingsWriter, parsed.type, parsed.name).pipe(
                 Effect.mapError(lifecycleStepFailure),
               );
             }

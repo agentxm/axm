@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/extension-authoring",
   "version": "0.30.2",
-  "description": "AXM extension-authoring feature: new-extension scaffolding, fork, native import, adopt/demote identity policy, and authored pack membership for the axm CLI. Unstable and unsupported \u2014 use the axm.sh CLI.",
+  "description": "AXM extension-authoring feature: new-extension scaffolding, fork, native import, adopt/demote identity policy, and authored pack membership for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
@@ -39,23 +39,17 @@
   },
   "dependencies": {
     "@agentxm/extension-content": "workspace:^",
-    "@agentxm/extension-materialization": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/extension-sources": "workspace:^",
     "@agentxm/registry-auth": "workspace:^",
     "@agentxm/registry-client": "workspace:^",
-    "@agentxm/workspace-operations": "workspace:^",
-    "@agentxm/workspace-projection": "workspace:^",
-    "@agentxm/workspace-state": "workspace:^",
-    "@agentxm/workspace-transactions": "workspace:^",
+    "@agentxm/workspace": "workspace:^",
     "effect": "catalog:",
     "semver": "catalog:",
-    "yaml": "catalog:",
-    "@agentxm/workspace-reconciliation": "workspace:^"
+    "yaml": "catalog:"
   },
   "devDependencies": {
     "@agentxm/agent-integration": "workspace:^",
-    "@agentxm/extension-resolution": "workspace:^",
     "@agentxm/specification-metadata": "workspace:^",
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",

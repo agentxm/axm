@@ -6,7 +6,7 @@ import {
   makeOperationResolution,
   type JobStepArtifact,
   type Plan,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 
 import { operationDoc, planDoc } from "./operation-view.js";
 import { asciiGlyphs, paintText } from "./screen/paint-text.js";

@@ -2,7 +2,7 @@ import { lifecycleStepFailure } from "../step-failure.js";
 import {
   buildReconciliationClosure,
   type ReconciliationChild,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 /**
  * Wrapping a targeted update in one atomic ownership transition.
  *
@@ -28,14 +28,14 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { WorkspaceLocation } from "@agentxm/workspace-state";
-import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/planning";
+import { WorkspaceLocation } from "@agentxm/workspace/desired-state";
+import type { WorkspaceTransactionScope } from "@agentxm/workspace/transitions/settlement";
 import {
   resolveTargetedUpdateContext,
   type TargetedUpdateContext,
   type TargetedUpdateContextFailure,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/workspace/resolution";
 
 import { ExtensionLifecycleFailed } from "../errors.js";
 import type { InstallStepRequirements } from "../install/vocabulary.js";

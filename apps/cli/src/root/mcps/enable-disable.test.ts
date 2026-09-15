@@ -7,7 +7,7 @@ import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
 import {
   AllExtensionManagersLive,
   expectAppliedPlanResult,

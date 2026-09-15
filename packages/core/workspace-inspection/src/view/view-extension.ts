@@ -30,7 +30,7 @@ import {
 } from "@agentxm/extension-sources";
 import { RegistryClientFactory, RegistryUrl } from "@agentxm/registry-client";
 import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
-import { SettingsReader } from "@agentxm/workspace-state";
+import { SettingsReader } from "@agentxm/workspace/desired-state";
 
 import { PublishedMetadataUnavailable } from "../errors.js";
 

@@ -7,7 +7,10 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { MaterializedTreeInvalid, PathTraversalDetected } from "@agentxm/workspace-state";
+import type {
+  MaterializedTreeInvalid,
+  PathTraversalDetected,
+} from "@agentxm/workspace/desired-state";
 import { makeAppError, type AppError } from "../app-error.js";
 
 export const pathTraversalDetectedToAppError = (error: PathTraversalDetected): AppError =>

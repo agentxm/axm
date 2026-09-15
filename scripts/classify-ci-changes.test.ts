@@ -99,7 +99,7 @@ describe("classifyCiChanges", () => {
   });
 
   it.each([
-    ["packages/core/workspace-state/src/index.ts"],
+    ["packages/core/workspace/src/desired-state/index.ts"],
     ["packages/core/extension-lifecycle/src/update/selector.spec.ts"],
     ["packages/supporting/cli-maintenance/src/self-update/adapters/native/index.ts"],
     ["packages/supporting/registry-auth/src/selected-registry.ts"],
@@ -119,7 +119,7 @@ describe("classifyCiChanges", () => {
       code: true,
       documentation: false,
     });
-    expect(classifyCiChanges(["packages/core/workspace-state/README.md"])).toMatchObject({
+    expect(classifyCiChanges(["packages/core/workspace/README.md"])).toMatchObject({
       code: true,
       documentation: false,
     });

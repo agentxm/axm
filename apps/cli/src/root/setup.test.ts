@@ -1,11 +1,11 @@
-import { WorkspaceTransactionScopesLive } from "@agentxm/workspace-transactions/live";
+import { WorkspaceTransactionScopesLive } from "@agentxm/workspace/transitions/settlement/live";
 // Raw node:fs/node:os/node:path is the repo-wide convention for test fixtures.
 import * as fs from "node:fs";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
 import * as os from "node:os";
 import * as path from "node:path";
-import type { Settings } from "@agentxm/workspace-state";
-import { LockfileSchema } from "@agentxm/workspace-state";
+import type { Settings } from "@agentxm/workspace/desired-state";
+import { LockfileSchema } from "@agentxm/workspace/desired-state";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";

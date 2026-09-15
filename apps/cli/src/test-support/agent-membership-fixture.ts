@@ -21,7 +21,7 @@ import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { ReleaseAgePosture } from "@agentxm/extension-resolution";
+import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 
 import {

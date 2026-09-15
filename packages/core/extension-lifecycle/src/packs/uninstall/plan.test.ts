@@ -16,13 +16,13 @@ import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach } from "vitest";
 
-import { deriveOperationOutcome } from "@agentxm/workspace-operations";
-import { preapprovedPlanExecution } from "@agentxm/workspace-operations/testing";
+import { deriveOperationOutcome } from "@agentxm/workspace/transitions/planning";
+import { preapprovedPlanExecution } from "@agentxm/workspace/transitions/planning/testing";
 import {
   decodeDesiredExtensionIdentity,
   type DesiredExtensionNode,
   type DesiredStateGraph,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import { SetActivation } from "../../activation/set-activation.js";
 import {

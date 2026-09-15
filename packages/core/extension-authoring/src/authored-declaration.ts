@@ -17,12 +17,15 @@ import * as Option from "effect/Option";
 
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import {
+  type AcceptedResolutionWriterService,
+  type DesiredStateWriterService,
+  type SettingsReaderService,
+  type SettingsWriterService,
   type WorkspaceLockfileMutationFailure,
-  type WorkspaceMutationsService,
   type WorkspaceSettingsMutationFailure,
   type WorkspaceSettingsReadFailure,
   type WorkspaceStateMutationFailure,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 /** What the workspace currently declares about one name of one type. */
 export interface AuthoredDeclarationState {
@@ -81,59 +84,76 @@ const state = (
 
 /** The declaration surface for one extension type and name. */
 export const authoredDeclaration = (
-  ws: WorkspaceMutationsService,
+  ports: {
+    readonly settings: SettingsReaderService;
+    readonly settingsWriter: SettingsWriterService;
+    readonly accepted: AcceptedResolutionWriterService;
+    readonly desiredStateWriter: DesiredStateWriterService;
+  },
   type: ExtensionType,
   name: string,
 ): AuthoredDeclaration => {
   switch (type) {
     case "skill":
       return {
-        read: ws.getConfiguredSkillEntries().pipe(Effect.map((entries) => state(entries[name]))),
-        declare: ({ enabled }) => ws.setSkillEntry(name, { source: WORKSPACE_SOURCE, enabled }),
-        retireExternalResolution: ws.removeSkillLock(name),
+        read: ports.settings.entries("skill").pipe(Effect.map((entries) => state(entries[name]))),
+        declare: ({ enabled }) =>
+          ports.settingsWriter.setEntry("skill", name, { source: WORKSPACE_SOURCE, enabled }),
+        retireExternalResolution: ports.accepted.removeAccepted("skill", name),
       };
     case "subagent":
       return {
-        read: ws.getConfiguredSubagentEntries().pipe(Effect.map((entries) => state(entries[name]))),
-        declare: ({ enabled }) => ws.setSubagentEntry(name, { source: WORKSPACE_SOURCE, enabled }),
-        retireExternalResolution: ws.removeSubagentLock(name),
+        read: ports.settings
+          .entries("subagent")
+          .pipe(Effect.map((entries) => state(entries[name]))),
+        declare: ({ enabled }) =>
+          ports.settingsWriter.setEntry("subagent", name, { source: WORKSPACE_SOURCE, enabled }),
+        retireExternalResolution: ports.accepted.removeAccepted("subagent", name),
       };
     case "rule":
       return {
-        read: ws.getConfiguredRuleEntries().pipe(Effect.map((entries) => state(entries[name]))),
-        declare: ({ enabled }) => ws.setRuleEntry(name, { source: WORKSPACE_SOURCE, enabled }),
-        retireExternalResolution: ws.removeRuleLock(name),
+        read: ports.settings.entries("rule").pipe(Effect.map((entries) => state(entries[name]))),
+        declare: ({ enabled }) =>
+          ports.settingsWriter.setEntry("rule", name, { source: WORKSPACE_SOURCE, enabled }),
+        retireExternalResolution: ports.accepted.removeAccepted("rule", name),
       };
     case "hook":
       return {
-        read: ws.getConfiguredHookEntries().pipe(Effect.map((entries) => state(entries[name]))),
-        declare: ({ enabled }) => ws.setHookEntry(name, { source: WORKSPACE_SOURCE, enabled }),
-        retireExternalResolution: ws.removeHookLock(name),
+        read: ports.settings.entries("hook").pipe(Effect.map((entries) => state(entries[name]))),
+        declare: ({ enabled }) =>
+          ports.settingsWriter.setEntry("hook", name, { source: WORKSPACE_SOURCE, enabled }),
+        retireExternalResolution: ports.accepted.removeAccepted("hook", name),
       };
     case "knowledge":
       return {
-        read: ws
-          .getConfiguredKnowledgeEntries()
+        read: ports.settings
+          .entries("knowledge")
           .pipe(Effect.map((entries) => state(entries[name]))),
-        declare: ({ enabled }) => ws.setKnowledgeEntry(name, { source: WORKSPACE_SOURCE, enabled }),
-        retireExternalResolution: ws.removeKnowledgeLock(name),
+        declare: ({ enabled }) =>
+          ports.settingsWriter.setEntry("knowledge", name, { source: WORKSPACE_SOURCE, enabled }),
+        retireExternalResolution: ports.accepted.removeAccepted("knowledge", name),
       };
     case "pack":
       return {
-        read: ws.getConfiguredPackEntries().pipe(Effect.map((entries) => state(entries[name]))),
-        declare: ({ enabled }) => ws.setPackEntry(name, { source: WORKSPACE_SOURCE, enabled }),
-        retireExternalResolution: ws.removePackLock(name),
+        read: ports.settings.entries("pack").pipe(Effect.map((entries) => state(entries[name]))),
+        declare: ({ enabled }) =>
+          ports.settingsWriter.setEntry("pack", name, { source: WORKSPACE_SOURCE, enabled }),
+        retireExternalResolution: ports.accepted.removeAccepted("pack", name),
       };
     case "mcp-server":
       return {
-        read: ws
-          .getConfiguredMcpServerEntries()
+        read: ports.settings
+          .entries("mcp-server")
           .pipe(Effect.map((entries) => state(entries[name], entries[name]?.env ?? {}))),
         declare: ({ enabled, env }) =>
-          ws.setMcpServerEntry(name, { source: WORKSPACE_SOURCE, enabled, env: env ?? {} }),
+          ports.settingsWriter.setEntry("mcp-server", name, {
+            source: WORKSPACE_SOURCE,
+            enabled,
+            env: env ?? {},
+          }),
         // Resolve the old connection before its workspace declaration replaces
         // it, preserving any resolution still shared by another connection.
-        retireExternalResolution: ws.removeMcpServer(name),
+        retireExternalResolution: ports.desiredStateWriter.undeclare("mcp-server", name),
       };
   }
 };

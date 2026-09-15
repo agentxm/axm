@@ -18,10 +18,7 @@
   ],
   "references": [
     {
-      "path": "../workspace-state/tsconfig.lib.json"
-    },
-    {
-      "path": "../workspace-projection/tsconfig.lib.json"
+      "path": "../workspace/tsconfig.lib.json"
     },
     {
       "path": "../extension-model/tsconfig.lib.json"

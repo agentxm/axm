@@ -1,4 +1,4 @@
-import { buildReconciliationClosure } from "@agentxm/workspace-reconciliation";
+import { buildReconciliationClosure } from "@agentxm/workspace/reconciliation";
 /**
  * Uninstalling packs.
  *
@@ -12,6 +12,9 @@ import { buildReconciliationClosure } from "@agentxm/workspace-reconciliation";
  */
 
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
+import { DesiredStateReader, WorkspaceLocation } from "@agentxm/workspace/desired-state";
+
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -24,14 +27,14 @@ import {
   RuleManager,
   SkillManager,
   SubagentManager,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import {
   buildUninstallOperation,
   prepareUninstallArtifact,
   collectCleanupStep,
   type SyncPolicyFailure,
   proposeDesiredState,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import {
   parseExtensionFqnParts,
   type ExtensionFqnParts,
@@ -42,15 +45,14 @@ import {
   operationPresentation,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
-  WorkspaceMutations,
   decodeDesiredExtensionIdentity,
   type DesiredPackageAuthority,
   type DesiredStateGraph,
   type ExtensionTarget,
   type PackExtensionTarget,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
@@ -60,7 +62,7 @@ import { installRefused, type InstallStepRequirements } from "../../install/voca
 import {
   exclusiveMemberRetentionPolicy,
   makeWorkspaceRetentionPolicy,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import { validatePackGraphPostcondition } from "../graph-transition.js";
 import {
   PACK_UNINSTALL_GRAPH_BLOCKER_ID,
@@ -96,9 +98,9 @@ const identityValidationError = (identity: string) =>
   });
 
 const readDesiredGraph = Effect.gen(function* () {
-  const ws = yield* WorkspaceMutations;
-  return yield* ws
-    .getDesiredStateGraph()
+  const desiredState = yield* DesiredStateReader;
+  return yield* desiredState
+    .graph()
     .pipe(
       Effect.mapError((cause) =>
         installRefused({ category: "internal", detail: "Desired state could not be read", cause }),
@@ -276,7 +278,9 @@ export const planPackUninstall: (
   ExtensionLifecycleFailed,
   PackUninstallRequirements
 > = Effect.fn("UninstallExtensions.planPacks")(function* (intent: PackUninstallIntent) {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const layout = yield* Ref.get(location.layout);
+  const desiredState = yield* DesiredStateReader;
   const path = yield* Path.Path;
   const packManager = yield* PackManager;
   const skillManager = yield* SkillManager;
@@ -290,7 +294,7 @@ export const planPackUninstall: (
   const graphReadiness = planPackUninstallGraphReadiness(
     observedGraph,
     intent.packsToUninstall.map((pack) => pack.desiredIdentity),
-    ws.scope,
+    location.scope,
   );
   if (graphReadiness.readiness === "blocked") {
     return {
@@ -311,7 +315,7 @@ export const planPackUninstall: (
               blockingConditionIds: [PACK_UNINSTALL_GRAPH_BLOCKER_ID],
               artifact: {
                 path: "pack graph",
-                scope: ws.scope,
+                scope: location.scope,
                 change: "unchanged",
                 fileCount: 0,
                 targets: graphReadiness.facts.flatMap((fact) =>
@@ -360,7 +364,7 @@ export const planPackUninstall: (
     }),
   );
 
-  const retentionPolicy = makeWorkspaceRetentionPolicy(ws, lifecycleStepFailure);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, lifecycleStepFailure);
 
   const allTargets = new Map<string, ExtensionTarget>();
   for (const pack of intent.packsToUninstall) {
@@ -433,7 +437,7 @@ export const planPackUninstall: (
                 retirement: {
                   // Results name workspace-relative paths, so the same
                   // retirement reads identically from any workspace.
-                  manifestPath: path.relative(ws.baseDir, retirement.manifestPath),
+                  manifestPath: path.relative(location.baseDir, retirement.manifestPath),
                   reason: retirement.reason,
                 },
               }),
@@ -521,8 +525,8 @@ export const planPackUninstall: (
     label: `${intent.packsToUninstall.length} pack${intent.packsToUninstall.length === 1 ? "" : "s"}`,
     message: `Uninstalled ${intent.packsToUninstall.length} pack${intent.packsToUninstall.length === 1 ? "" : "s"} and ${depTargets.length} exclusive member${depTargets.length === 1 ? "" : "s"}${registrationOnly}`,
     artifact: {
-      path: artifacts[0]?.path ?? path.relative(ws.baseDir, ws.layout.settingsPath),
-      scope: ws.scope,
+      path: artifacts[0]?.path ?? path.relative(location.baseDir, layout.settingsPath),
+      scope: location.scope,
       change: "removed",
       fileCount: orderedTargets.length,
       targets: artifactTargets,
@@ -543,7 +547,7 @@ export const planPackUninstall: (
       const currentReadiness = planPackUninstallGraphReadiness(
         currentGraph,
         intent.packsToUninstall.map((pack) => pack.desiredIdentity),
-        ws.scope,
+        location.scope,
       );
       yield* validatePackRetirementFacts({
         planned: plannedRetirements,

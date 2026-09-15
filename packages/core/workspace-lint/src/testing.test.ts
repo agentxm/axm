@@ -8,7 +8,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientError from "effect/unstable/http/HttpClientError";
 
-import { NoProjectionParticipants } from "@agentxm/workspace-projection/testing";
+import { NoProjectionParticipants } from "@agentxm/workspace/projection/testing";
 
 import { allCatalogRuleIds } from "./catalog/index.js";
 import { queryLintWorkspace } from "./run/lint-workspace.js";

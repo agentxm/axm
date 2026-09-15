@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   methods: ["contract", "decision-table"],
   derivedFrom: [
     "packages/core/workspace-lint/src/catalog/catalog-metadata.test.ts",
-    "packages/core/workspace-state/src/settings/generated-schema.test.ts",
+    "packages/core/workspace/src/desired-state/settings/generated-schema.test.ts",
   ],
   supersedes: [],
   assumptions: [],

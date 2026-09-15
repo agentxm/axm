@@ -19,7 +19,7 @@
     "effect": "catalog:"
   },
   "devDependencies": {
-    "@agentxm/workspace-state": "workspace:^",
+    "@agentxm/workspace": "workspace:^",
     "@types/bun": "catalog:",
     "@typescript/native": "catalog:",
     "prettier": "catalog:",

@@ -12,7 +12,7 @@ import {
 } from "../test-support/test-helpers.js";
 import { handleListHook } from "./hooks/list.js";
 import { handleListMcpServers } from "./mcps/list.js";
-import { mcpRegistryResolutionKey } from "@agentxm/workspace-state";
+import { mcpRegistryResolutionKey } from "@agentxm/workspace/desired-state";
 
 describe("list command empty output", () => {
   let tempDir: string;

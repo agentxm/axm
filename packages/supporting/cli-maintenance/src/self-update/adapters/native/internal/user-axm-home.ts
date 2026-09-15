@@ -2,7 +2,7 @@
  * The user-level AXM application home (`~/.axm`), where the self-update
  * capability keeps its install metadata.
  *
- * `@agentxm/workspace-state` resolves the same directory for workspace
+ * `@agentxm/workspace/desired-state` resolves the same directory for workspace
  * placement, but that package is `domain:core` and this capability is
  * `domain:supporting`, so the dependency cannot point that way. The rule is
  * one line of path arithmetic over the same two inputs (`AXM_USER_HOME`, else

@@ -47,22 +47,25 @@ import {
   type OperationOutcome,
   type OperationResolution,
   type ResolvedUnit,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import { operationExitCode, operationOk } from "./operation-exit-code.js";
-import { ArtifactChangeSchema, ConfiguredAgentOutcomeSchema } from "@agentxm/workspace-state";
+import {
+  ArtifactChangeSchema,
+  ConfiguredAgentOutcomeSchema,
+} from "@agentxm/workspace/desired-state";
 import {
   AppErrorCodeSchema,
   redactSensitiveText,
   serializeErrorCauseChain,
 } from "./app-error/index.js";
-import { formatMinimumReleaseAgeSeconds } from "@agentxm/extension-resolution";
+import { formatMinimumReleaseAgeSeconds } from "@agentxm/workspace/resolution";
 import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { CatalogExtensionTypeSchema } from "@agentxm/extension-model/unstable/extension-types";
 
 import { operationDoc, resolutionAgentCoverage } from "./operation-view.js";
 import { Screen, count, type Doc } from "./screen/index.js";
 import { suggestionsForCurrentWorkspace } from "./root/shared/scoped-command.js";
-import type { TargetedUpdatePublicContext } from "@agentxm/extension-resolution";
+import type { TargetedUpdatePublicContext } from "@agentxm/workspace/resolution";
 
 export const PLAN_RESULT_CONTRACT = "plan-result-v3";
 

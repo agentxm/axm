@@ -14,8 +14,8 @@ import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
-import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
+import type { WorkspaceStateOptions } from "@agentxm/workspace/desired-state";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace/desired-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { expectNoPlanEnvelope } from "../../test-support/test-helpers.js";
 import { handleList } from "./list.js";
@@ -84,13 +84,13 @@ describe("list.handler", () => {
 
   const makeLayers = (opts?: {
     readonly machine?: boolean;
-    readonly wsOverrides?: Partial<WorkspaceMutationsOptions>;
+    readonly wsOverrides?: Partial<WorkspaceStateOptions>;
   }) => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
     const rendererLayer = renderer.layer;
     const rendererState = renderer.state;
     const BaseLayer = Layer.mergeAll(NodeServices.layer, rendererLayer, TestFlagsLayer());
-    const wsOptions: WorkspaceMutationsOptions = {
+    const wsOptions: WorkspaceStateOptions = {
       scope: "project",
       ...opts?.wsOverrides,
       projectRoot: opts?.wsOverrides?.projectRoot ?? decodeAbsolutePathSync(tempDir),

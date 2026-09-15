@@ -8,8 +8,8 @@ import {
   deriveOperationOutcome,
   previewPlanExecution,
   type PlanExecution,
-} from "@agentxm/workspace-operations";
-import { preapprovedPlanExecution } from "@agentxm/workspace-operations/testing";
+} from "@agentxm/workspace/transitions/planning";
+import { preapprovedPlanExecution } from "@agentxm/workspace/transitions/planning/testing";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { BundledAxmSkillAsset } from "../skills/install/bundled.js";

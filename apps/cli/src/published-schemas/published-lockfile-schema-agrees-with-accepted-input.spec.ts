@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 
-import { LOCKFILE_VERSION, LockfileSchema } from "@agentxm/workspace-state";
+import { LOCKFILE_VERSION, LockfileSchema } from "@agentxm/workspace/desired-state";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 

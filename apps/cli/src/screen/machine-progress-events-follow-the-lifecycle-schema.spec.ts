@@ -4,7 +4,7 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { OperationEventSchema } from "@agentxm/workspace-operations";
+import { OperationEventSchema } from "@agentxm/workspace/transitions/planning";
 import { PlanResolutionDocumentSchema } from "../operation-output.js";
 import { ProgressEventSchema } from "./index.js";
 import { handleInstall } from "../root/install/handler.js";

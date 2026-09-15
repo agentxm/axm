@@ -1,4 +1,4 @@
-import { buildReconciliationClosure } from "@agentxm/workspace-reconciliation";
+import { buildReconciliationClosure } from "@agentxm/workspace/reconciliation";
 /**
  * Unpacking a Pack: promoting its members to direct declarations.
  *
@@ -22,14 +22,24 @@ import { buildReconciliationClosure } from "@agentxm/workspace-reconciliation";
  */
 
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
+import {
+  DesiredStateReader,
+  SettingsWriter,
+  WorkspaceLocation,
+  type SettingsWriterService,
+  type WorkspaceLayout,
+  type WorkspaceLocationService,
+} from "@agentxm/workspace/desired-state";
+
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import { PackManager } from "@agentxm/extension-materialization";
+import { PackManager } from "@agentxm/workspace/materialization";
 import {
   buildUninstallOperation,
   type UninstallRetentionPolicy,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import {
   operationPresentation,
   prepareExecutionCandidate,
@@ -40,13 +50,11 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
-  WorkspaceMutations,
   usableAcceptedCanonical,
   type DesiredExtensionNode,
-  type WorkspaceMutationsService,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import { ExtensionLifecycleFailed } from "../errors.js";
 import { lifecycleStepFailure } from "../step-failure.js";
@@ -121,24 +129,24 @@ const reconcileSuggestion = (packIdentity: string) => ({
  * has under the Pack become the direct declaration it keeps without it.
  */
 const promoteToDirectSettings = (
-  ws: WorkspaceMutationsService,
+  settingsWriter: SettingsWriterService,
   node: DesiredExtensionNode & { readonly source: string },
 ): PlannedJobStep<PromoteAuthoredPackRequirements> => {
   const entry = { source: node.source, enabled: node.enabled };
   const run = (() => {
     switch (node.type) {
       case "skill":
-        return ws.setSkillEntry(node.name, entry);
+        return settingsWriter.setEntry("skill", node.name, entry);
       case "mcp-server":
-        return ws.setMcpServerEntry(node.name, { ...entry, env: {} });
+        return settingsWriter.setEntry("mcp-server", node.name, { ...entry, env: {} });
       case "subagent":
-        return ws.setSubagentEntry(node.name, entry);
+        return settingsWriter.setEntry("subagent", node.name, entry);
       case "rule":
-        return ws.setRuleEntry(node.name, entry);
+        return settingsWriter.setEntry("rule", node.name, entry);
       case "hook":
-        return ws.setHookEntry(node.name, entry);
+        return settingsWriter.setEntry("hook", node.name, entry);
       case "knowledge":
-        return ws.setKnowledgeEntry(node.name, entry);
+        return settingsWriter.setEntry("knowledge", node.name, entry);
       case "pack":
         return Effect.fail(
           new ExtensionLifecycleFailed({
@@ -162,19 +170,20 @@ const promoteToDirectSettings = (
 };
 
 /** The workspace-relative settings file the promoted declarations land in. */
-const settingsDisplayPath = (path: Path.Path, ws: WorkspaceMutationsService): string =>
-  path.relative(ws.baseDir, ws.layout.settingsPath);
+const settingsDisplayPath = (path: Path.Path, location: WorkspaceLocationService): string =>
+  path.relative(location.baseDir, location.settingsPath);
 
 /** The workspace-relative canonical location the removed Pack occupied. */
 const packDisplayPath = (
   path: Path.Path,
-  ws: WorkspaceMutationsService,
+  location: WorkspaceLocationService,
+  layout: WorkspaceLayout,
   node: { readonly name: string; readonly identity: string },
 ): string =>
-  node.identity.startsWith("workspace:") && ws.layout.scope === "project"
-    ? path.join(path.relative(ws.baseDir, ws.layout.authoredRoot("pack")), node.name)
+  node.identity.startsWith("workspace:") && layout.scope === "project"
+    ? path.join(path.relative(location.baseDir, layout.authoredRoot("pack")), node.name)
     : path.join(
-        path.relative(ws.baseDir, ws.layout.acquiredRoot),
+        path.relative(location.baseDir, layout.acquiredRoot),
         node.identity.startsWith("workspace:")
           ? node.identity.slice("workspace:".length)
           : node.identity,
@@ -192,11 +201,14 @@ const packDisplayPath = (
 const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
   request: PromoteAuthoredPackRequest,
 ) {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const layout = yield* Ref.get(location.layout);
+  const desiredState = yield* DesiredStateReader;
+  const settingsWriter = yield* SettingsWriter;
   const packManager = yield* PackManager;
   const path = yield* Path.Path;
 
-  const graph = yield* ws.getDesiredStateGraph();
+  const graph = yield* desiredState.graph();
   if (!graph.complete) {
     return yield* new ExtensionLifecycleFailed({
       category: "validation",
@@ -283,7 +295,7 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
         label: node.name,
       };
     }
-    return promoteToDirectSettings(ws, node);
+    return promoteToDirectSettings(settingsWriter, node);
   });
 
   const uninstallPackStep = buildUninstallOperation(packManager, neverRetain, {
@@ -293,10 +305,10 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
 
   const artifactTargets: ReadonlyArray<JobStepArtifactTarget> = [
     ...promotions.map((node): JobStepArtifactTarget => ({
-      path: `${settingsDisplayPath(path, ws)}#${node.type}.${node.name}`,
+      path: `${settingsDisplayPath(path, location)}#${node.type}.${node.name}`,
       change: "updated",
     })),
-    { path: packDisplayPath(path, ws, packNode), change: "removed" },
+    { path: packDisplayPath(path, location, layout, packNode), change: "removed" },
   ];
 
   const graphStep = yield* buildReconciliationClosure({
@@ -307,7 +319,7 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
     }`,
     artifact: {
       path: "pack provenance",
-      scope: ws.scope,
+      scope: location.scope,
       change: "updated",
       fileCount: promotions.length + 1,
       targets: artifactTargets,

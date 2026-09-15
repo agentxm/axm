@@ -11,6 +11,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
+import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
 
@@ -48,10 +49,12 @@ import {
 import { inspectKnowledgeBundle } from "@agentxm/extension-content/knowledge";
 import { createRegistryClient } from "@agentxm/registry-client";
 import {
-  WorkspaceMutations,
+  SettingsReader,
+  WorkspaceLocation,
+  WorkspaceRecords,
   acceptedCanonicalObservation,
   configuredRowsByName,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import { PublishFailed } from "../errors.js";
 import { planZipArchive, type ArchivePlan } from "../archive.js";
@@ -216,16 +219,17 @@ const entrySource = (entry: unknown): string | undefined => {
 
 /** Every configured extension of a publishable type, with its source string. */
 export const catalogEntries = Effect.fn("Publish.catalogEntries")(function* () {
-  const ws = yield* WorkspaceMutations;
+  const records = yield* WorkspaceRecords;
+  const settings = yield* SettingsReader;
   const [skills, mcps, subagents, rules, hooks, knowledge, packs] = yield* Effect.all(
     [
-      ws.records.rows("skill").pipe(Effect.map(configuredRowsByName)),
-      ws.records.rows("mcp-server").pipe(Effect.map(configuredRowsByName)),
-      ws.records.rows("subagent").pipe(Effect.map(configuredRowsByName)),
-      ws.getConfiguredRuleEntries(),
-      ws.getConfiguredHookEntries(),
-      ws.getConfiguredKnowledgeEntries(),
-      ws.records.rows("pack").pipe(Effect.map(configuredRowsByName)),
+      records.rows("skill").pipe(Effect.map(configuredRowsByName)),
+      records.rows("mcp-server").pipe(Effect.map(configuredRowsByName)),
+      records.rows("subagent").pipe(Effect.map(configuredRowsByName)),
+      settings.entries("rule"),
+      settings.entries("hook"),
+      settings.entries("knowledge"),
+      records.rows("pack").pipe(Effect.map(configuredRowsByName)),
     ],
     { concurrency: "unbounded" },
   );
@@ -288,7 +292,8 @@ export const identityFromManagedPackage = Effect.fn("Publish.identityFromManaged
     const parsedIdentity = identityFromSource(entry);
     if (parsedIdentity !== undefined) return parsedIdentity;
 
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const layout = yield* Ref.get(location.layout);
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const authored = isWorkspaceSourceLocator(entry.source);
@@ -296,8 +301,8 @@ export const identityFromManagedPackage = Effect.fn("Publish.identityFromManaged
       ? Option.none()
       : yield* acceptedCanonicalObservation({ type: entry.type, name: entry.name });
     const extensionRoots = authored
-      ? ws.layout.scope === "project"
-        ? [path.join(ws.layout.authoredRoot(entry.type), entry.name)]
+      ? layout.scope === "project"
+        ? [path.join(layout.authoredRoot(entry.type), entry.name)]
         : []
       : Option.match(accepted, {
           onNone: () => [],
@@ -399,7 +404,8 @@ export const selectEntries = Effect.fn("Publish.selectEntries")(function* (
   catalog: ReadonlyArray<CatalogEntry>,
   args: PublishRequest,
 ) {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const layout = yield* Ref.get(location.layout);
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const hasFilters = args.owners.length > 0 || args.types.length > 0 || args.excludes.length > 0;
@@ -452,9 +458,9 @@ export const selectEntries = Effect.fn("Publish.selectEntries")(function* (
     for (const pack of selectedPacks) {
       const packDir =
         pack.extensionDir ??
-        (ws.layout.scope === "project"
-          ? path.join(ws.layout.authoredRoot("pack"), pack.name)
-          : path.join(ws.layout.acquiredRoot, pack.owner, "packs", pack.name));
+        (layout.scope === "project"
+          ? path.join(layout.authoredRoot("pack"), pack.name)
+          : path.join(layout.acquiredRoot, pack.owner, "packs", pack.name));
       const manifestPath = path.join(packDir, manifestFilename.pack);
       const raw = yield* fs
         .readFileString(manifestPath)
@@ -633,7 +639,7 @@ export const resolveTargetRegistry = Effect.fn("Publish.resolveTargetRegistry")(
   requested: Option.Option<string>,
   urlOverride: Option.Option<string>,
 ) {
-  const ws = yield* WorkspaceMutations;
+  const settings = yield* SettingsReader;
   if (Option.isSome(urlOverride)) {
     const url = yield* Effect.try({
       try: () => new URL(urlOverride.value).href,
@@ -641,7 +647,7 @@ export const resolveTargetRegistry = Effect.fn("Publish.resolveTargetRegistry")(
     });
     return { name: Option.getOrElse(requested, () => "override"), url } satisfies TargetRegistry;
   }
-  const registries = yield* ws.getRegistrySourceHosts();
+  const registries = yield* settings.registrySourceHosts;
   const [defaultRegistry] = registries;
   if (Option.isNone(requested)) {
     if (defaultRegistry === undefined) {
@@ -654,7 +660,7 @@ export const resolveTargetRegistry = Effect.fn("Publish.resolveTargetRegistry")(
       url: defaultRegistry.location.href,
     } satisfies TargetRegistry;
   }
-  const source = yield* ws.getConfiguredSourceByName(requested.value);
+  const source = yield* settings.sourceByName(requested.value);
   if (Option.isNone(source) || source.value.type !== "registry") {
     return yield* Effect.fail(
       new PublishFailed({
@@ -717,15 +723,16 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
   }
   if (selected.skipReason !== undefined) return undefined;
   if (!isPublishableType(selected.type)) return undefined;
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const layout = yield* Ref.get(location.layout);
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const extensionDir =
     selected.extensionDir ??
-    (ws.layout.scope === "project" && selected.authored
-      ? path.join(ws.layout.authoredRoot(selected.type), selected.name)
+    (layout.scope === "project" && selected.authored
+      ? path.join(layout.authoredRoot(selected.type), selected.name)
       : path.join(
-          ws.layout.acquiredRoot,
+          layout.acquiredRoot,
           selected.owner,
           extensionTypeToPlural[selected.type],
           selected.name,

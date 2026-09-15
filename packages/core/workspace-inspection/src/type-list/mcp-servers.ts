@@ -12,14 +12,14 @@
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import type { AgentMcpServerInspection } from "@agentxm/workspace-projection";
+import type { AgentMcpServerInspection } from "@agentxm/workspace/projection";
 import {
   ExtensionInventoryRowSchema,
   type ConfiguredAgentOutcome,
   type ExtensionInventory,
   type McpServerEntry,
   type McpServerLockEntry,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import type { TypeListRow } from "./type-lists.js";
 

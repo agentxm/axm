@@ -20,7 +20,7 @@ import {
   type PackDependencyMissing,
   type PackDependencyUnsatisfied,
   type SourceAuthorityBlocked,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/workspace/resolution";
 import { makeAppError, type AppError } from "../app-error.js";
 
 /** Translate a resolution policy failure. */

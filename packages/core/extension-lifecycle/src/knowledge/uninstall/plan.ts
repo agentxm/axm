@@ -10,29 +10,37 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
+import {
+  DesiredStateReader,
+  LockfileReader,
+  SettingsReader,
+  WorkspaceLocation,
+  WorkspaceRecords,
+} from "@agentxm/workspace/desired-state";
+
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import { KnowledgeManager, KnowledgeUnavailable } from "@agentxm/extension-materialization";
-import { buildUninstallOperation } from "@agentxm/workspace-reconciliation";
+import { KnowledgeManager, KnowledgeUnavailable } from "@agentxm/workspace/materialization";
+import { buildUninstallOperation } from "@agentxm/workspace/reconciliation";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
-import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
-import { resolveInstructionsConfig } from "@agentxm/workspace-projection";
+import type { Plan, PlannedJobStep } from "@agentxm/workspace/transitions/planning";
+import { resolveInstructionsConfig } from "@agentxm/workspace/projection";
 import {
-  WorkspaceMutations,
   acceptedCanonicalObservation,
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
   type KnowledgeExtensionTarget,
   type KnowledgeLockEntry,
   type WorkspaceLayout,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import { ExtensionLifecycleFailed } from "../../errors.js";
 import { lifecycleStepFailure } from "../../step-failure.js";
 import { installRefused, type InstallStepRequirements } from "../../install/vocabulary.js";
-import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace-reconciliation";
+import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace/reconciliation";
 import type { KnowledgeUninstallIntent } from "../../uninstall/vocabulary.js";
 
 /** A target and, when AXM may not remove it, the reason it is protected. */
@@ -62,7 +70,9 @@ export const parseKnowledgeUninstallRequest: (
   ExtensionLifecycleFailed,
   InstallStepRequirements | KnowledgeManager | FileSystem.FileSystem | Path.Path
 > = Effect.fn("UninstallExtensions.parseKnowledgeRequest")(function* (selector: string) {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const layout = yield* Ref.get(location.layout);
+  const lockfile = yield* LockfileReader;
   const manager = yield* KnowledgeManager;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -74,10 +84,10 @@ export const parseKnowledgeUninstallRequest: (
         ? Option.none<string>()
         : yield* manager.getConfiguredSource({ target });
     const installed = yield* manager.isInstalled({ target });
-    const locked = yield* ws.getLockedKnowledgeEntry(target.name);
+    const locked = yield* lockfile.entry("knowledge", target.name);
     const authoredPackagePresent =
-      ws.layout.scope === "project" &&
-      (yield* fs.exists(path.join(ws.layout.authoredRoot("knowledge"), target.name)));
+      layout.scope === "project" &&
+      (yield* fs.exists(path.join(layout.authoredRoot("knowledge"), target.name)));
     if (Option.isNone(configured) && Option.isNone(locked) && authoredPackagePresent) {
       return { targets: [] } satisfies KnowledgeUninstallIntent;
     }
@@ -110,12 +120,17 @@ const inspectOwnership: (
 > = Effect.fn("UninstallExtensions.inspectKnowledgeOwnership")(function* (
   target: KnowledgeExtensionTarget,
 ) {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const layout = yield* Ref.get(location.layout);
+  const settings = yield* SettingsReader;
+  const lockfile = yield* LockfileReader;
+  const desiredState = yield* DesiredStateReader;
+  const records = yield* WorkspaceRecords;
   const path = yield* Path.Path;
   return yield* Effect.gen(function* () {
-    const configured = yield* ws.getConfiguredKnowledgeEntries();
-    const locked = yield* ws.getLockedKnowledgeEntry(target.name);
-    const graph = yield* ws.getDesiredStateGraph();
+    const configured = yield* settings.entries("knowledge");
+    const locked = yield* lockfile.entry("knowledge", target.name);
+    const graph = yield* desiredState.graph();
     const desired = graph.nodes.find(
       (node) => node.type === "knowledge" && node.name === target.name,
     );
@@ -128,19 +143,19 @@ const inspectOwnership: (
           });
     const expectedCanonicalPath = Option.match(acceptedObservation, {
       onNone: () =>
-        Option.isSome(locked) ? lockCanonicalRoot(path, ws.layout, locked.value) : undefined,
+        Option.isSome(locked) ? lockCanonicalRoot(path, layout, locked.value) : undefined,
       onSome: (accepted) => accepted.observation.path,
     });
-    const inventory = yield* ws.records.getExtensionInventory("knowledge", {});
+    const inventory = yield* records.getExtensionInventory("knowledge", {});
     const actualPaths = inventory.items
       .filter((item) => item.name === target.name)
-      .flatMap((item) => item.paths.map((itemPath) => path.resolve(ws.baseDir, itemPath)));
+      .flatMap((item) => item.paths.map((itemPath) => path.resolve(location.baseDir, itemPath)));
     const normalizedExpected =
       expectedCanonicalPath === undefined ? undefined : path.resolve(expectedCanonicalPath);
     const workspaceOwned = desired?.identity.startsWith("workspace:") === true;
     const hasAcceptedOwnership = workspaceOwned || Option.isSome(locked);
     const settingsPresent = configured[target.name] !== undefined;
-    const instructionsConfig = yield* ws.getInstructionsConfig();
+    const instructionsConfig = yield* settings.instructionsConfig;
     const resolvedInstructions = resolveInstructionsConfig(
       Option.match(instructionsConfig, {
         onNone: () => undefined,
@@ -149,7 +164,7 @@ const inspectOwnership: (
     );
     const instructionRelative = makeWorkspaceRelativePath(
       path,
-      ws.baseDir,
+      location.baseDir,
       resolvedInstructions.fileName,
     );
     const ownershipBlocker =
@@ -183,18 +198,19 @@ export const planKnowledgeUninstall: (
   ExtensionLifecycleFailed,
   InstallStepRequirements | KnowledgeManager | FileSystem.FileSystem | Path.Path
 > = Effect.fn("UninstallExtensions.planKnowledge")(function* (intent: KnowledgeUninstallIntent) {
-  const ws = yield* WorkspaceMutations;
+  const lockfile = yield* LockfileReader;
+  const desiredState = yield* DesiredStateReader;
   const manager = yield* KnowledgeManager;
-  const retentionPolicy = makeWorkspaceRetentionPolicy(ws, lifecycleStepFailure);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, lifecycleStepFailure);
 
   /** The accepted ownership fact, not on-disk presence, decides removability. */
   const isAcceptedTargetPresent = (target: KnowledgeExtensionTarget) =>
     Effect.gen(function* () {
-      const graph = yield* ws.getDesiredStateGraph();
+      const graph = yield* desiredState.graph();
       const desired = graph.nodes.find(
         (node) => node.type === "knowledge" && node.name === target.name,
       );
-      const locked = yield* ws.getLockedKnowledgeEntry(target.name);
+      const locked = yield* lockfile.entry("knowledge", target.name);
       return desired?.identity.startsWith("workspace:") === true || Option.isSome(locked);
     }).pipe(
       Effect.mapError(

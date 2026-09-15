@@ -16,8 +16,8 @@ const collectProductionFiles = (directory: string): ReadonlyArray<string> =>
 
 describe("accepted-resolution authority boundary", () => {
   const productionFiles = [
-    "packages/core/workspace-operations/src",
-    "packages/core/workspace-state/src",
+    "packages/core/workspace/src/transitions/planning",
+    "packages/core/workspace/src/desired-state",
     "apps/cli/src",
   ].flatMap((directory) => collectProductionFiles(path.join(repoRoot, directory)));
 
@@ -34,15 +34,13 @@ describe("accepted-resolution authority boundary", () => {
 
   it("keeps workspace locking compatible with the Bun-distributed CLI", () => {
     const lockingSources = [
-      "packages/core/workspace-transactions/src/transaction.ts",
-      "packages/core/workspace-transactions/src/transition-lock.ts",
-      "packages/core/workspace-transactions/src/atomic-write.ts",
+      "packages/core/workspace/src/transitions/settlement/transaction.ts",
+      "packages/core/workspace/src/transitions/settlement/transition-lock.ts",
+      "packages/core/workspace/src/transitions/settlement/atomic-write.ts",
     ].map((source) => fs.readFileSync(path.join(repoRoot, source), "utf8"));
-    const kernelPackages = [
-      "packages/core/workspace-transactions/package.json",
-      "packages/core/workspace-state/package.json",
-      "packages/core/workspace-operations/package.json",
-    ].map((manifest) => fs.readFileSync(path.join(repoRoot, manifest), "utf8"));
+    const kernelPackages = ["packages/core/workspace/package.json"].map((manifest) =>
+      fs.readFileSync(path.join(repoRoot, manifest), "utf8"),
+    );
 
     for (const source of lockingSources) {
       expect(source).not.toContain("fs-native-extensions");
@@ -54,7 +52,7 @@ describe("accepted-resolution authority boundary", () => {
 
   it("keeps history, projection, authored, and pack-membership fields out of lock schema", () => {
     const source = fs.readFileSync(
-      path.join(repoRoot, "packages/core/workspace-state/src/lockfile/schema.ts"),
+      path.join(repoRoot, "packages/core/workspace/src/desired-state/lockfile/schema.ts"),
       "utf8",
     );
     for (const forbidden of [

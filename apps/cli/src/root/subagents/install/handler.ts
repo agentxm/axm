@@ -5,7 +5,11 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { publicRecoveryValue, recoveryOption, recoverySwitch } from "@agentxm/workspace-operations";
+import {
+  publicRecoveryValue,
+  recoveryOption,
+  recoverySwitch,
+} from "@agentxm/workspace/transitions/planning";
 
 import { makeAppError } from "../../../app-error/index.js";
 import { isNonInteractiveOptional } from "../../../cli-flags/index.js";

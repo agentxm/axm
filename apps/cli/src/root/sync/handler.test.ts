@@ -13,26 +13,26 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
-import { HookManagerLive, McpSecretStoreLive } from "@agentxm/extension-materialization/live";
-import { ProjectionParticipantsLive } from "@agentxm/extension-materialization/live";
-import { KnowledgeManagerLive } from "@agentxm/extension-materialization/live";
-import { McpServerManagerLive } from "@agentxm/extension-materialization/live";
-import { PackManagerLive } from "@agentxm/extension-materialization/live";
-import { computePackManifestContentIdentity } from "@agentxm/workspace-state";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
+import { HookManagerLive, McpSecretStoreLive } from "@agentxm/workspace/materialization/live";
+import { ProjectionParticipantsLive } from "@agentxm/workspace/materialization/live";
+import { KnowledgeManagerLive } from "@agentxm/workspace/materialization/live";
+import { McpServerManagerLive } from "@agentxm/workspace/materialization/live";
+import { PackManagerLive } from "@agentxm/workspace/materialization/live";
+import { computePackManifestContentIdentity } from "@agentxm/workspace/desired-state";
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { RuleManagerLive } from "@agentxm/extension-materialization/live";
-import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-projection/live";
+import { RuleManagerLive } from "@agentxm/workspace/materialization/live";
+import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
 import { toAppError } from "../../app-error/conversions.js";
-import { SkillManagerLive } from "@agentxm/extension-materialization/live";
+import { SkillManagerLive } from "@agentxm/workspace/materialization/live";
 import {
   SourceHostProviders,
   type SourceHostProvidersService,
   SourceNotResolvable,
 } from "@agentxm/extension-sources";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { SubagentManagerLive } from "@agentxm/extension-materialization/live";
+import { SubagentManagerLive } from "@agentxm/workspace/materialization/live";
 import YAML from "yaml";
 import {
   expectAppliedPlanResult,
@@ -55,7 +55,7 @@ import {
   writeWorkspaceFiles,
 } from "../../test-support/test-stubs.js";
 import { handleListMcpServers } from "../mcps/list.js";
-import { injectWriteFaults } from "@agentxm/workspace-transactions/testing";
+import { injectWriteFaults } from "@agentxm/workspace/transitions/settlement/testing";
 import { handleSync } from "./handler.js";
 import {
   LifecycleStepFailureConversionLive,

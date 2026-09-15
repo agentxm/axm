@@ -1,5 +1,8 @@
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
-import type { JobStepArtifact, JobStepArtifactTarget } from "@agentxm/workspace-operations";
+import type {
+  JobStepArtifact,
+  JobStepArtifactTarget,
+} from "@agentxm/workspace/transitions/planning";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 
 export const packManifestPath = (

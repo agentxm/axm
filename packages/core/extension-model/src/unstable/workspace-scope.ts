@@ -1,5 +1,5 @@
 /**
- * WorkspaceMutations scope helpers for CLI flags and workspace options.
+ * Workspace scope helpers for CLI flags and workspace options.
  *
  * `project` uses the project root; `user` uses `~/.axm/workspace/`.
  *

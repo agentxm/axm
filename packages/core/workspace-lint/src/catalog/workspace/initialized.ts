@@ -3,7 +3,7 @@
  *
  * Per the lint design "Foundation" row:
  *
- *   WorkspaceMutations bootstrap invariant. Absorbs doctor `workspace-ready.*` checks.
+ *   workspace bootstrap invariant. Absorbs doctor `workspace-ready.*` checks.
  *
  * Applies to every workspace read model (both scopes). Owns the presence arm;
  * `workspace/settings-schema-valid` owns the contents arm and early-returns

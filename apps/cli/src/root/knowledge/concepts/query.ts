@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { KnowledgeConceptQueryPageSchema, KnowledgeDiscovery } from "@agentxm/knowledge-query";
-import { observeUnit } from "@agentxm/workspace-operations";
+import { observeUnit } from "@agentxm/workspace/transitions/planning";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { Screen, headlineDoc, tableViewDoc, type TableView } from "../../../screen/index.js";

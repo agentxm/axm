@@ -11,7 +11,7 @@
  */
 
 /**
- * WorkspaceMutations-relative path of the universal skills directory.
+ * Workspace-relative path of the universal skills directory.
  */
 export const UNIVERSAL_SKILLS_DIR = ".agents/skills";
 
@@ -26,8 +26,13 @@ export const UNIVERSAL_SKILLS_DIR_SEGMENT: string = UNIVERSAL_SKILLS_DIR.split("
 /**
  * Strips trailing path separators from a path string.
  */
-export const stripTrailingSeparators = (p: string): string =>
-  p.length > 1 ? p.replace(/[/\\]+$/, "") : p;
+export const stripTrailingSeparators = (path: string): string => {
+  let end = path.length;
+  while (end > 1 && (path[end - 1] === "/" || path[end - 1] === "\\")) {
+    end -= 1;
+  }
+  return path.slice(0, end);
+};
 
 /**
  * Returns `true` when `dir` is the workspace-relative universal skills

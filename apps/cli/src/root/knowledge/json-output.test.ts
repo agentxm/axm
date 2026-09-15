@@ -27,8 +27,8 @@ import { handleKnowledgeLint } from "./lint.js";
 import { handleKnowledgeConceptGet } from "./concepts/get.js";
 import { handleKnowledgeConceptSearch } from "./concepts/search.js";
 import { handleKnowledgeConceptStatus } from "./concepts/status.js";
-import { KnowledgeManager } from "@agentxm/extension-materialization";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
+import { KnowledgeManager } from "@agentxm/workspace/materialization";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import {
   HookManagerLive,
@@ -37,7 +37,7 @@ import {
   RuleManagerLive,
   SkillManagerLive,
   SubagentManagerLive,
-} from "@agentxm/extension-materialization/live";
+} from "@agentxm/workspace/materialization/live";
 const stubKnowledgeManager = {
   ...managerLifecycleStubs,
   refreshCatalog: () => Effect.void,

@@ -8,16 +8,16 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { protectWorkspacePath } from "@agentxm/workspace-transactions";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
+} from "@agentxm/workspace/transitions/planning";
+import { SettingsWriter } from "@agentxm/workspace/desired-state";
+import { protectWorkspacePath } from "@agentxm/workspace/transitions/settlement";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace/desired-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { StepFailure } from "@agentxm/workspace-operations";
+import { StepFailure } from "@agentxm/workspace/transitions/planning";
 import { makeAtomicMembershipSteps } from "./atomic-membership.js";
 import { testToStepFailure, writeMinimalWorkspace } from "../test-helpers.js";
 
@@ -56,14 +56,14 @@ describe("makeAtomicMembershipSteps", () => {
     );
 
     return Effect.gen(function* () {
-      const ws = yield* WorkspaceMutations;
+      const settingsWriter = yield* SettingsWriter;
       const effectFs = yield* FileSystem.FileSystem;
       const target = path.join(root, ".cursor", "skills", "review");
       const steps: ReadonlyArray<PlannedJobStep> = [
         {
           label: "Add cursor",
           readiness: "ready",
-          run: ws.addConfiguredAgent("cursor").pipe(
+          run: settingsWriter.addConfiguredAgent("cursor").pipe(
             Effect.mapError(testToStepFailure),
             Effect.as({
               result: "success",
@@ -193,7 +193,7 @@ describe("makeAtomicMembershipSteps", () => {
     );
 
     return Effect.gen(function* () {
-      const ws = yield* WorkspaceMutations;
+      const settingsWriter = yield* SettingsWriter;
       const effectFs = yield* FileSystem.FileSystem;
       const steps: ReadonlyArray<PlannedJobStep> = [
         {
@@ -216,7 +216,7 @@ describe("makeAtomicMembershipSteps", () => {
         {
           label: "Remove cursor",
           readiness: "ready",
-          run: ws.removeConfiguredAgent("cursor").pipe(
+          run: settingsWriter.removeConfiguredAgent("cursor").pipe(
             Effect.mapError(testToStepFailure),
             Effect.andThen(
               new StepFailure({

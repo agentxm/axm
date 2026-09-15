@@ -3,8 +3,11 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { deriveOperationOutcome, previewPlanExecution } from "@agentxm/workspace-operations";
-import { preapprovedPlanExecution } from "@agentxm/workspace-operations/testing";
+import {
+  deriveOperationOutcome,
+  previewPlanExecution,
+} from "@agentxm/workspace/transitions/planning";
+import { preapprovedPlanExecution } from "@agentxm/workspace/transitions/planning/testing";
 import { SetActivation } from "./set-activation.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";

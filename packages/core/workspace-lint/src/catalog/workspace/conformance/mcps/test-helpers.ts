@@ -8,7 +8,7 @@ import type {
   InstalledMcpServer,
   McpServerEntry,
   UnmanagedMcpServer,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import type { WorkspaceRuleContext } from "../../../../workspace-context.js";
 import { mcpServerAgentDriftRule } from "../../mcps-agent-drift.js";
 import { mcpServerAgentOrphanedRule } from "../../mcps-agent-orphaned.js";

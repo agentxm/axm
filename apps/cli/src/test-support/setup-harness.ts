@@ -1,4 +1,4 @@
-import { WorkspaceTransactionScopesLive } from "@agentxm/workspace-transactions/live";
+import { WorkspaceTransactionScopesLive } from "@agentxm/workspace/transitions/settlement/live";
 /**
  * Uninitialized-directory harness for setup-driven specifications.
  *

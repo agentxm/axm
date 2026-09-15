@@ -23,7 +23,7 @@ import type { InstallableExtensionType } from "@agentxm/extension-model/unstable
 import {
   inspectMcpServerAcrossAgents,
   type McpInspectionError,
-} from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/projection";
 import {
   ConfiguredAgentOutcomesProvider,
   DesiredStateReader,
@@ -35,7 +35,7 @@ import {
   type ExtensionInventory,
   type ExtensionInventoryRow,
   type WorkspaceStateReadFailure,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import {
   mcpServerListRows,

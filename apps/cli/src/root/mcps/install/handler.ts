@@ -12,7 +12,7 @@ import {
   protectedRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 
 import { makeAppError } from "../../../app-error/index.js";
 import { isNonInteractiveOptional } from "../../../cli-flags/index.js";

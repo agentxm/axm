@@ -12,9 +12,9 @@ import { handle, WorkspaceCatalogTestLive } from "../test-helpers.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
+import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
   configuredRow,
-  makeBaseWorkspaceMock,
   rowsFor,
   makeRegistrySkillLockEntry,
   makeRegistryMcpServerLockEntry,
@@ -22,28 +22,184 @@ import {
   TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
   WorkspaceReadTest,
-} from "@agentxm/workspace-state/testing";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
+} from "@agentxm/workspace/desired-state/testing";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
+import type {
+  Lockfile,
+  ReadModelRecordRow,
+  Settings,
+  WorkspaceStateReadFailure,
+} from "@agentxm/workspace/desired-state";
 
-const workspaceWithCatalogLayer = (ws: WorkspaceMutationsService) => {
-  const wsLayer = Layer.succeed(WorkspaceMutations, ws);
+interface WorkspaceCurrencyFacts {
+  readonly rows?: (
+    type: InstallableExtensionType,
+  ) => Effect.Effect<ReadonlyArray<ReadModelRecordRow>, WorkspaceStateReadFailure>;
+  readonly configuredSources?: () => Effect.Effect<NonNullable<Settings["sources"]>>;
+  readonly configuredRules?: () => Effect.Effect<NonNullable<Settings["rules"]>>;
+  readonly configuredHooks?: () => Effect.Effect<NonNullable<Settings["hooks"]>>;
+  readonly configuredKnowledge?: () => Effect.Effect<NonNullable<Settings["knowledge"]>>;
+  readonly acceptedSkills?: () => Effect.Effect<Lockfile["skills"]>;
+  readonly acceptedMcpServers?: () => Effect.Effect<NonNullable<Lockfile["mcpServers"]>>;
+  readonly acceptedSubagents?: () => Effect.Effect<NonNullable<Lockfile["subagents"]>>;
+  readonly acceptedPacks?: () => Effect.Effect<NonNullable<Lockfile["packs"]>>;
+  readonly acceptedRules?: () => Effect.Effect<NonNullable<Lockfile["rules"]>>;
+  readonly acceptedHooks?: () => Effect.Effect<NonNullable<Lockfile["hooks"]>>;
+  readonly acceptedKnowledge?: () => Effect.Effect<NonNullable<Lockfile["knowledge"]>>;
+}
+
+const workspaceFacts = (facts: WorkspaceCurrencyFacts): WorkspaceCurrencyFacts => facts;
+
+const configuredSourceNode = (
+  type: "rule" | "hook" | "knowledge",
+  name: string,
+  entry: unknown,
+) => {
+  const source =
+    typeof entry === "string"
+      ? entry
+      : typeof entry === "object" && entry !== null && "source" in entry
+        ? entry.source
+        : undefined;
+  const enabled =
+    typeof entry === "object" &&
+    entry !== null &&
+    "enabled" in entry &&
+    typeof entry.enabled === "boolean"
+      ? entry.enabled
+      : true;
+  if (typeof source !== "string") return [];
+  return [
+    {
+      type,
+      name,
+      identity: name,
+      source,
+      enabled,
+      constraints: [],
+      origins: [
+        {
+          type: "settings" as const,
+          localName: name,
+          authority: "sourced" as const,
+          source,
+          enabled,
+        },
+      ],
+    },
+  ];
+};
+
+const workspaceWithCatalogLayer = (facts: WorkspaceCurrencyFacts) => {
+  const configured = Effect.all({
+    sources: facts.configuredSources?.() ?? Effect.succeed([]),
+    rules: facts.configuredRules?.() ?? Effect.succeed({}),
+    hooks: facts.configuredHooks?.() ?? Effect.succeed({}),
+    knowledge: facts.configuredKnowledge?.() ?? Effect.succeed({}),
+  });
+  const configuredTypes: ReadonlyArray<InstallableExtensionType> = [
+    "skill",
+    "mcp-server",
+    "subagent",
+    "pack",
+    "rule",
+    "hook",
+    "knowledge",
+  ];
+  const rowNodes = Effect.forEach(configuredTypes, (type) =>
+    (facts.rows?.(type) ?? Effect.succeed([])).pipe(
+      Effect.map((rows) =>
+        rows.flatMap((row) =>
+          row.lifecycle !== "configured"
+            ? []
+            : [
+                row.authority === "inline"
+                  ? {
+                      type: "mcp-server" as const,
+                      name: row.name,
+                      identity: `inline:${row.name}`,
+                      authority: "inline" as const,
+                      enabled: row.enabled,
+                      constraints: [],
+                      origins: [
+                        {
+                          type: "settings" as const,
+                          localName: row.name,
+                          authority: "inline" as const,
+                          enabled: row.enabled,
+                        },
+                      ],
+                    }
+                  : {
+                      type,
+                      name: row.name,
+                      identity: row.name,
+                      source: row.source,
+                      enabled: row.enabled,
+                      constraints: [],
+                      origins: [
+                        {
+                          type: "settings" as const,
+                          localName: row.name,
+                          authority: "sourced" as const,
+                          source: row.source,
+                          enabled: row.enabled,
+                        },
+                      ],
+                    },
+              ],
+        ),
+      ),
+    ),
+  ).pipe(Effect.map((byType) => byType.flat()));
+  const graphDocument = Effect.all({ configured, rowNodes }).pipe(
+    Effect.map(({ configured, rowNodes }) => ({
+      complete: true,
+      nodes: [
+        ...rowNodes,
+        ...(
+          [
+            ["rule", configured.rules],
+            ["hook", configured.hooks],
+            ["knowledge", configured.knowledge],
+          ] as const
+        ).flatMap(([type, entries]) =>
+          Object.entries(entries).flatMap(([name, entry]) =>
+            configuredSourceNode(type, name, entry),
+          ),
+        ),
+      ],
+      mcpSourceClosures: [],
+      problems: [],
+    })),
+  );
   const readLayer = WorkspaceReadTest({
-    baseDir: ws.baseDir,
-    runtimeDir: ws.path,
-    settings: { agents: ["claude-code"] },
+    baseDir: "/tmp",
+    runtimeDir: "/tmp/.axm",
+    settingsDocument: configured.pipe(
+      Effect.map((configured) => ({ agents: ["claude-code"], ...configured })),
+    ),
+    acceptedResolutions: Effect.all({
+      skills: facts.acceptedSkills?.() ?? Effect.succeed({}),
+      mcpServers: facts.acceptedMcpServers?.() ?? Effect.succeed({}),
+      subagents: facts.acceptedSubagents?.() ?? Effect.succeed({}),
+      packs: facts.acceptedPacks?.() ?? Effect.succeed({}),
+      rules: facts.acceptedRules?.() ?? Effect.succeed({}),
+      hooks: facts.acceptedHooks?.() ?? Effect.succeed({}),
+      knowledge: facts.acceptedKnowledge?.() ?? Effect.succeed({}),
+    }).pipe(Effect.map((accepted) => ({ lockfileVersion: 7, ...accepted }))),
+    ...(facts.rows === undefined ? {} : { records: { rows: facts.rows } }),
+    graphDocument,
   });
   return Layer.mergeAll(
-    wsLayer,
     readLayer,
     WorkspaceCatalogTestLive.pipe(
-      Layer.provide(wsLayer),
       Layer.provide(readLayer),
       Layer.provide(CodingAgentRepositoryLive),
       Layer.provide(NodeServices.layer),
     ),
   );
 };
-import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { SourceHostProviders, type SourceHostProvidersService } from "@agentxm/extension-sources";
 import {
   collectSkillCurrency,
@@ -91,7 +247,7 @@ const makeRegistryLockFields = <const TType extends "rule" | "hook" | "knowledge
 describe("collectSkillCurrency", () => {
   it.effect("returns currency entries for registry-sourced enabled skills", () =>
     Effect.gen(function* () {
-      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
+      const ws = workspaceFacts({
         rows: rowsFor({
           skill: [
             configuredRow({
@@ -102,7 +258,7 @@ describe("collectSkillCurrency", () => {
             }),
           ],
         }),
-        getLockedSkills: () =>
+        acceptedSkills: () =>
           Effect.succeed({
             "code-review": makeRegistrySkillLockEntry({
               owner,
@@ -129,7 +285,7 @@ describe("collectSkillCurrency", () => {
 
   it.effect("skips disabled skills", () =>
     Effect.gen(function* () {
-      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
+      const ws = workspaceFacts({
         rows: rowsFor({
           skill: [
             configuredRow({
@@ -141,7 +297,7 @@ describe("collectSkillCurrency", () => {
             }),
           ],
         }),
-        getLockedSkills: () =>
+        acceptedSkills: () =>
           Effect.succeed({
             "code-review": makeRegistrySkillLockEntry({
               owner,
@@ -161,7 +317,7 @@ describe("collectSkillCurrency", () => {
 
   it.effect("skips non-registry-sourced skills", () =>
     Effect.gen(function* () {
-      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
+      const ws = workspaceFacts({
         rows: rowsFor({
           skill: [
             configuredRow({
@@ -172,7 +328,7 @@ describe("collectSkillCurrency", () => {
             }),
           ],
         }),
-        getLockedSkills: () =>
+        acceptedSkills: () =>
           Effect.succeed({
             "local-skill": {
               type: "github" as const,
@@ -206,8 +362,8 @@ describe("collectSkillCurrency", () => {
 describe("collectSkillSourceFreshness", () => {
   it.effect("returns changed freshness entries for Git-hosted skills with new tree hash", () =>
     Effect.gen(function* () {
-      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
-        getConfiguredSources: () =>
+      const ws = workspaceFacts({
+        configuredSources: () =>
           Effect.succeed([
             { name: "github", type: "github" as const, url: new URL("https://github.com") },
           ]),
@@ -221,7 +377,7 @@ describe("collectSkillSourceFreshness", () => {
             }),
           ],
         }),
-        getLockedSkills: () =>
+        acceptedSkills: () =>
           Effect.succeed({
             "find-skills": {
               type: "github" as const,
@@ -348,11 +504,11 @@ describe("git-source freshness beyond skills", () => {
 
   it.effect("reports a current hook whose upstream tree hash matches", () =>
     Effect.gen(function* () {
-      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
-        getConfiguredSources: configuredSources,
-        getConfiguredHookEntries: () =>
+      const ws = workspaceFacts({
+        configuredSources: configuredSources,
+        configuredHooks: () =>
           Effect.succeed({ guard: { source: "github:acme/guard", enabled: true } }),
-        getLockedHooks: () => Effect.succeed({ guard: gitLockEntry("hook", "guard", "same-tree") }),
+        acceptedHooks: () => Effect.succeed({ guard: gitLockEntry("hook", "guard", "same-tree") }),
       });
       const layer = Layer.merge(
         Layer.mergeAll(workspaceWithCatalogLayer(ws), NodeServices.layer, FetchHttpClient.layer),
@@ -385,13 +541,13 @@ describe("git-source freshness beyond skills", () => {
 
   it.effect("reports unknown for a knowledge bundle whose source cannot resolve", () =>
     Effect.gen(function* () {
-      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
-        getConfiguredSources: () => Effect.succeed([]),
-        getConfiguredKnowledgeEntries: () =>
+      const ws = workspaceFacts({
+        configuredSources: () => Effect.succeed([]),
+        configuredKnowledge: () =>
           Effect.succeed({
             "domain-model": { source: "unknown-host:acme/domain-model", enabled: true },
           }),
-        getLockedKnowledge: () =>
+        acceptedKnowledge: () =>
           Effect.succeed({
             "domain-model": gitLockEntry("knowledge", "domain-model", "old-tree"),
           }),
@@ -412,8 +568,8 @@ describe("git-source freshness beyond skills", () => {
 
   it.effect("skips inline MCP server lock entries", () =>
     Effect.gen(function* () {
-      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
-        getConfiguredSources: configuredSources,
+      const ws = workspaceFacts({
+        configuredSources: configuredSources,
         rows: rowsFor({
           "mcp-server": [
             configuredRow({
@@ -424,7 +580,7 @@ describe("git-source freshness beyond skills", () => {
             }),
           ],
         }),
-        getLockedMcpServers: () => Effect.succeed({}),
+        acceptedMcpServers: () => Effect.succeed({}),
       });
       const layer = Layer.merge(
         Layer.mergeAll(workspaceWithCatalogLayer(ws), NodeServices.layer, FetchHttpClient.layer),
@@ -441,7 +597,7 @@ describe("git-source freshness beyond skills", () => {
 describe("collectMcpServerCurrency", () => {
   it.effect("returns currency entries for registry-sourced mcps", () =>
     Effect.gen(function* () {
-      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
+      const ws = workspaceFacts({
         rows: rowsFor({
           "mcp-server": [
             configuredRow({
@@ -452,7 +608,7 @@ describe("collectMcpServerCurrency", () => {
             }),
           ],
         }),
-        getLockedMcpServers: () =>
+        acceptedMcpServers: () =>
           Effect.succeed({
             "my-server": makeRegistryMcpServerLockEntry({
               owner,
@@ -479,7 +635,7 @@ describe("collectMcpServerCurrency", () => {
 describe("collectSubagentCurrency", () => {
   it.effect("returns currency entries for registry-sourced enabled subagents", () =>
     Effect.gen(function* () {
-      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
+      const ws = workspaceFacts({
         rows: rowsFor({
           subagent: [
             configuredRow({
@@ -490,7 +646,7 @@ describe("collectSubagentCurrency", () => {
             }),
           ],
         }),
-        getLockedSubagents: () =>
+        acceptedSubagents: () =>
           Effect.succeed({
             "my-agent": {
               type: "registry" as const,
@@ -528,7 +684,7 @@ describe("collectSubagentCurrency", () => {
 describe("collectPackCurrency", () => {
   it.effect("returns currency entries for registry-sourced packs", () =>
     Effect.gen(function* () {
-      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
+      const ws = workspaceFacts({
         rows: rowsFor({
           pack: [
             configuredRow({
@@ -539,7 +695,7 @@ describe("collectPackCurrency", () => {
             }),
           ],
         }),
-        getLockedPacks: () =>
+        acceptedPacks: () =>
           Effect.succeed({
             starter: makeRegistryPackLockEntry({
               owner,
@@ -566,15 +722,15 @@ describe("collectPackCurrency", () => {
 describe("collectRuleCurrency", () => {
   it.effect("returns currency entries for registry-sourced enabled rules", () =>
     Effect.gen(function* () {
-      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
-        getConfiguredRuleEntries: () =>
+      const ws = workspaceFacts({
+        configuredRules: () =>
           Effect.succeed({
             "api-conventions": {
               source: "@acme/rules/api-conventions@^1.0.0",
               enabled: true,
             },
           }),
-        getLockedRules: () =>
+        acceptedRules: () =>
           Effect.succeed({
             "api-conventions": makeRegistryLockFields({
               extensionType: "rule",
@@ -600,12 +756,12 @@ describe("collectRuleCurrency", () => {
 
   it.effect("skips disabled rules", () =>
     Effect.gen(function* () {
-      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
-        getConfiguredRuleEntries: () =>
+      const ws = workspaceFacts({
+        configuredRules: () =>
           Effect.succeed({
             "api-conventions": { source: "@acme/rules/api-conventions", enabled: false },
           }),
-        getLockedRules: () =>
+        acceptedRules: () =>
           Effect.succeed({
             "api-conventions": makeRegistryLockFields({
               extensionType: "rule",
@@ -625,12 +781,12 @@ describe("collectRuleCurrency", () => {
 
   it.effect("skips non-registry-sourced rules", () =>
     Effect.gen(function* () {
-      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
-        getConfiguredRuleEntries: () =>
+      const ws = workspaceFacts({
+        configuredRules: () =>
           Effect.succeed({
             "local-rule": { source: "github:user/repo", enabled: true },
           }),
-        getLockedRules: () =>
+        acceptedRules: () =>
           Effect.succeed({
             "local-rule": {
               type: "github" as const,
@@ -664,12 +820,12 @@ describe("collectRuleCurrency", () => {
 describe("collectHookCurrency", () => {
   it.effect("returns currency entries for registry-sourced enabled hooks", () =>
     Effect.gen(function* () {
-      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
-        getConfiguredHookEntries: () =>
+      const ws = workspaceFacts({
+        configuredHooks: () =>
           Effect.succeed({
             "block-secrets": { source: "@acme/hooks/block-secrets@^1.0.0", enabled: true },
           }),
-        getLockedHooks: () =>
+        acceptedHooks: () =>
           Effect.succeed({
             "block-secrets": makeRegistryLockFields({
               extensionType: "hook",
@@ -696,12 +852,12 @@ describe("collectHookCurrency", () => {
 describe("collectKnowledgeCurrency", () => {
   it.effect("returns currency entries for registry-sourced enabled knowledge bundles", () =>
     Effect.gen(function* () {
-      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
-        getConfiguredKnowledgeEntries: () =>
+      const ws = workspaceFacts({
+        configuredKnowledge: () =>
           Effect.succeed({
             payments: { source: "@acme/knowledge/payments@^1.0.0", enabled: true },
           }),
-        getLockedKnowledge: () =>
+        acceptedKnowledge: () =>
           Effect.succeed({
             payments: makeRegistryLockFields({
               extensionType: "knowledge",
@@ -728,7 +884,7 @@ describe("collectKnowledgeCurrency", () => {
 describe("collectAllCurrencyEntries", () => {
   it.effect("aggregates entries from all extension types", () =>
     Effect.gen(function* () {
-      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
+      const ws = workspaceFacts({
         rows: rowsFor({
           skill: [
             configuredRow({
@@ -739,7 +895,7 @@ describe("collectAllCurrencyEntries", () => {
             }),
           ],
         }),
-        getLockedSkills: () =>
+        acceptedSkills: () =>
           Effect.succeed({
             "code-review": makeRegistrySkillLockEntry({
               owner,
@@ -747,11 +903,11 @@ describe("collectAllCurrencyEntries", () => {
               resolvedVersion: v("1.0.0"),
             }),
           }),
-        getConfiguredRuleEntries: () =>
+        configuredRules: () =>
           Effect.succeed({
             "api-conventions": { source: "@acme/rules/api-conventions", enabled: true },
           }),
-        getLockedRules: () =>
+        acceptedRules: () =>
           Effect.succeed({
             "api-conventions": makeRegistryLockFields({
               extensionType: "rule",

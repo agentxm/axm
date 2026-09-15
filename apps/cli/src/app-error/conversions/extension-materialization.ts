@@ -1,7 +1,7 @@
 import {
   LifecyclePostconditionViolated,
   ScaffoldedExtensionUnresolved,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 /**
  * Conversions from the extension-materialization typed failure families into
  * CLI-facing `AppError` values. Each converter reproduces the detail template
@@ -46,7 +46,7 @@ import type {
   SubagentContentUnreadable,
   SubagentDefinitionInvalid,
   SubagentInstallStateMissing,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import { makeAppError, type AppError } from "../app-error.js";
 
 export const packageMaterializationFailedToAppError = (

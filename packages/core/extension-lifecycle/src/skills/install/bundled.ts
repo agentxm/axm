@@ -14,6 +14,16 @@ import { renderAxmSkillRecovery } from "@agentxm/cli-maintenance/official-skill/
 
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
+import {
+  AcceptedResolutionWriter,
+  LockfileReader,
+  SettingsReader,
+  SettingsWriter,
+  WorkspaceLocation,
+  type WorkspaceLayout,
+} from "@agentxm/workspace/desired-state";
+
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -21,7 +31,7 @@ import * as Path from "effect/Path";
 import {
   ensureSkillAgentArtifact,
   replaceCanonicalDirectory,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
@@ -34,10 +44,10 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
-import { WorkspaceMutations, sanitizeName } from "@agentxm/workspace-state";
-import { runWorkspaceTransaction } from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/planning";
+import { CodingAgentRepository } from "@agentxm/workspace/projection";
+import { sanitizeName } from "@agentxm/workspace/desired-state";
+import { runWorkspaceTransaction } from "@agentxm/workspace/transitions/settlement";
 
 import { ExtensionLifecycleFailed } from "../../errors.js";
 import { lifecycleStepFailure } from "../../step-failure.js";
@@ -84,18 +94,18 @@ export type BundledAxmSkillReadiness =
     };
 
 /** Where the bundled skill's canonical package sits. */
-export const bundledAxmSkillCanonicalPath = (
-  ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>,
-  path: Path.Path,
-): string => path.join(ws.layout.acquiredRoot, "agentxm", "@agentxm", "skills", "axm");
+export const bundledAxmSkillCanonicalPath = (layout: WorkspaceLayout, path: Path.Path): string =>
+  path.join(layout.acquiredRoot, "agentxm", "@agentxm", "skills", "axm");
 
 /** Whether bundled recovery may write, or must preserve an authored copy. */
 export const inspectBundledAxmSkillReadiness = Effect.gen(function* () {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const layout = yield* Ref.get(location.layout);
+  const settings = yield* SettingsReader;
   const path = yield* Path.Path;
-  const configured = yield* ws.getConfiguredSkillEntries();
+  const configured = yield* settings.entries("skill");
   const existing = configured[BUNDLED_AXM_SKILL_NAME];
-  const canonicalPath = bundledAxmSkillCanonicalPath(ws, path);
+  const canonicalPath = bundledAxmSkillCanonicalPath(layout, path);
   return existing?.source === "workspace" && existing.origin !== "bundled"
     ? ({
         readiness: "error",
@@ -113,16 +123,19 @@ const writeFailed = (filePath: string) => (cause: unknown) =>
   });
 
 const materializeBundledAxmSkill = Effect.gen(function* () {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const layout = yield* Ref.get(location.layout);
+  const settingsWriter = yield* SettingsWriter;
+  const accepted = yield* AcceptedResolutionWriter;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const agentRepo = yield* CodingAgentRepository;
   const asset = yield* BundledAxmSkillAsset;
-  const canonicalPath = bundledAxmSkillCanonicalPath(ws, path);
+  const canonicalPath = bundledAxmSkillCanonicalPath(layout, path);
   const skillSrcPath = path.join(canonicalPath, "src");
 
   yield* replaceCanonicalDirectory({
-    baseDir: ws.baseDir,
+    baseDir: location.baseDir,
     canonicalPath,
     populate: (stagingPath) => {
       const stagingSrcPath = path.join(stagingPath, "src");
@@ -156,7 +169,7 @@ const materializeBundledAxmSkill = Effect.gen(function* () {
     configuredAgents,
     (agent) =>
       agent
-        .resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir })
+        .resolveEffectiveSkillsDir({ workspaceRoot: location.baseDir })
         .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
     { concurrency: "unbounded" },
   );
@@ -183,17 +196,17 @@ const materializeBundledAxmSkill = Effect.gen(function* () {
         canonicalSkillSrcPath: skillSrcPath,
         targetDir,
         sanitizedName: BUNDLED_AXM_SKILL_NAME,
-        baseDir: ws.baseDir,
+        baseDir: location.baseDir,
       }),
     { concurrency: "unbounded" },
   );
 
-  yield* ws.setSkillEntry(BUNDLED_AXM_SKILL_NAME, {
+  yield* settingsWriter.setEntry("skill", BUNDLED_AXM_SKILL_NAME, {
     source: "workspace",
     enabled: true,
     origin: "bundled",
   });
-  yield* ws.removeSkillLock(BUNDLED_AXM_SKILL_NAME);
+  yield* accepted.removeAccepted("skill", BUNDLED_AXM_SKILL_NAME);
 });
 
 /** Install the embedded official AXM skill as one rollback-safe transition. */
@@ -202,7 +215,9 @@ export const installBundledAxmSkill: Effect.Effect<
   ExtensionLifecycleFailed,
   InstallStepRequirements | BundledAxmSkillAsset
 > = Effect.gen(function* () {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const settings = yield* SettingsReader;
+  const lockfile = yield* LockfileReader;
   const path = yield* Path.Path;
   const agentRepo = yield* CodingAgentRepository;
   const asset = yield* BundledAxmSkillAsset;
@@ -236,7 +251,7 @@ export const installBundledAxmSkill: Effect.Effect<
     configuredAgents,
     (agent) =>
       agent
-        .resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir })
+        .resolveEffectiveSkillsDir({ workspaceRoot: location.baseDir })
         .pipe(
           Effect.map((outcome) =>
             outcome._tag === "supported"
@@ -261,7 +276,7 @@ export const installBundledAxmSkill: Effect.Effect<
     transition: materializeBundledAxmSkill,
     validate: () =>
       Effect.gen(function* () {
-        const configured = yield* ws.getConfiguredSkillEntries();
+        const configured = yield* settings.entries("skill");
         const installedEntry = configured[BUNDLED_AXM_SKILL_NAME];
         if (installedEntry?.source !== "workspace" || installedEntry.origin !== "bundled") {
           return yield* installRefused({
@@ -269,7 +284,7 @@ export const installBundledAxmSkill: Effect.Effect<
             detail: "Bundled AXM skill did not retain its bundled source authority",
           });
         }
-        const locked = yield* ws.getLockedSkill(BUNDLED_AXM_SKILL_NAME);
+        const locked = yield* lockfile.entry("skill", BUNDLED_AXM_SKILL_NAME);
         if (Option.isSome(locked)) {
           return yield* installRefused({
             category: "internal",
@@ -324,7 +339,7 @@ export const planBundledAxmSkillInstall: Effect.Effect<
   ExtensionLifecycleFailed,
   InstallStepRequirements
 > = Effect.gen(function* () {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
   const readiness = yield* inspectBundledAxmSkillReadiness.pipe(
     Effect.mapError((cause) =>
       installRefused({
@@ -336,7 +351,7 @@ export const planBundledAxmSkillInstall: Effect.Effect<
   );
   const artifact: JobStepArtifact = {
     path: readiness.canonicalPath,
-    scope: ws.scope,
+    scope: location.scope,
     change: "updated",
   };
   const step: PlannedJobStep<InstallStepRequirements | BundledAxmSkillAsset> =

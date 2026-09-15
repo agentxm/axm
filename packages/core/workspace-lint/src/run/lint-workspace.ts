@@ -8,7 +8,7 @@
  * catalogs; assembling them here rather than in an adapter is what makes the
  * answer the same however lint is invoked. In particular the reconciliation
  * facts (ownership proofs and realized agent outputs) come from
- * `@agentxm/workspace-projection`, the capability the reconciliation feature
+ * `@agentxm/workspace/projection`, the capability the reconciliation feature
  * also reads them from, so lint and sync cannot disagree about what AXM owns.
  *
  * Two decisions about lint's inputs live here because they are decisions
@@ -25,6 +25,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
 
 import { buildPackRuleContexts, buildSkillRuleContexts } from "@agentxm/extension-content/lint";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -36,18 +37,17 @@ import {
   expectedProjectionNames,
   observeAgentOutputs,
   observeWorkspaceOwnershipIssues,
-} from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/projection";
 import {
   LockfileReader,
-  WorkspaceMutations,
   DesiredStateReader,
+  SettingsReader,
   WorkspaceLocation,
   acceptedCanonicalObservation,
   observeInstallRoot,
   type CanonicalObservation,
   type DesiredExtensionNode,
-  type SettingsReader,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import { buildLintWorkspace } from "../catalog/index.js";
 import type { WorkspaceHealthFailure } from "../workspace-context.js";
@@ -186,8 +186,7 @@ export type LintWorkspaceRequirements =
   | WorkspaceLocation
   | SettingsReader
   | DesiredStateReader
-  | WorkspaceInvariantFacts
-  | WorkspaceMutations;
+  | WorkspaceInvariantFacts;
 
 /** Every failure a lint run can settle into. */
 export type LintWorkspaceFailure =
@@ -200,8 +199,9 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const workspace = yield* WorkspaceMutations;
     const location = yield* WorkspaceLocation;
+    const layout = yield* Ref.get(location.layout);
+    const settingsReader = yield* SettingsReader;
     const desiredState = yield* DesiredStateReader;
     const lockfile = yield* LockfileReader;
     const agentRepository = yield* CodingAgentRepository;
@@ -227,36 +227,36 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
       scope: selection.scope,
       gitIndexView: selection.input.view === "git-index",
       axmSkillCompatibilityPolicy,
-      owner: workspace.getConfiguredOwner().pipe(Effect.catch(() => Effect.succeed(Option.none()))),
+      owner: settingsReader.owner.pipe(Effect.catch(() => Effect.succeed(Option.none()))),
       projections: { facts: invariantFacts.projectionFacts },
     });
 
     // Reconciliation facts: what AXM owns, and what it realized for the agents
     // this workspace configures. Both come from the shared projection
     // capability, never from the reconciliation feature.
-    const configuredAgents = yield* workspace.getConfiguredAgents();
+    const configuredAgents = yield* settingsReader.configuredAgents;
     const skillOwnershipRoots =
-      workspace.layout.scope === "project"
-        ? [workspace.layout.acquiredRoot, workspace.layout.authoredRoot("skill")]
-        : [workspace.layout.acquiredRoot];
+      layout.scope === "project"
+        ? [layout.acquiredRoot, layout.authoredRoot("skill")]
+        : [layout.acquiredRoot];
     const authoredSkills = {
-      layout: workspace.layout,
+      layout,
       entries: Option.isSome(settings) ? (settings.value.skills ?? {}) : {},
     };
     const ownership = yield* observeWorkspaceOwnershipIssues({
-      workspaceRoot: workspace.baseDir,
-      scope: workspace.scope,
+      workspaceRoot: location.baseDir,
+      scope: location.scope,
       configuredAgentIds: new Set(configuredAgents),
       skillOwnershipRoots,
       authoredSkills,
     });
-    const desiredGraph = yield* workspace.getDesiredStateGraph();
+    const desiredGraph = yield* desiredState.graph();
     const materializationAgentIds = new Set(
       (yield* agentRepository.getMaterializationAgents()).map(({ id }) => id),
     );
     const agentOutputs = yield* observeAgentOutputs({
-      workspaceRoot: workspace.baseDir,
-      scope: workspace.scope,
+      workspaceRoot: location.baseDir,
+      scope: location.scope,
       desiredAgentIds: materializationAgentIds,
       expectedNames: expectedProjectionNames(desiredGraph),
       skillOwnershipRoots,
@@ -279,7 +279,7 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
       liveView && selection.scope === "project" && !projectIsUserHome && Option.isNone(settings)
         ? Option.some(
             yield* observeProjectAgentContent({
-              projectRoot: workspace.baseDir,
+              projectRoot: location.baseDir,
               outputs: agentOutputs.outputs,
             }),
           )
@@ -287,12 +287,12 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
     // Install-root and authoring-folder facts. An unreadable lockfile leaves
     // the install root unobserved; its own rule reports the lockfile.
     const installRoot = yield* observeInstallRoot({
-      layout: workspace.layout,
+      layout,
       graph: desiredGraph,
       locks: lockfile,
     }).pipe(Effect.option);
     const authoredPackages = Option.isSome(settings)
-      ? yield* observeAuthoredPackages({ layout: workspace.layout, settings: settings.value })
+      ? yield* observeAuthoredPackages({ layout, settings: settings.value })
       : [];
     const canonicalObservations: Effect.Effect<
       ReadonlyArray<{
@@ -301,7 +301,7 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
       }>,
       WorkspaceHealthFailure
     > = Effect.gen(function* () {
-      const graph = yield* workspace.getDesiredStateGraph();
+      const graph = yield* desiredState.graph();
       return yield* Effect.forEach(
         graph.nodes,
         (node) =>
@@ -352,7 +352,7 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
               ? { agentContent: Effect.succeed(agentContent.value) }
               : {}),
             health: {
-              desiredState: workspace.getDesiredStateGraph(),
+              desiredState: desiredState.graph(),
               canonicalObservations,
             },
           },

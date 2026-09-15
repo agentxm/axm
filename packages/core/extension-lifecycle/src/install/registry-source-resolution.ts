@@ -10,7 +10,10 @@
  */
 
 import * as Effect from "effect/Effect";
+import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
+import type * as Path from "effect/Path";
+import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import type {
   ExtensionName,
@@ -23,13 +26,20 @@ import {
   resolveIdentifier,
   sourceResolutionFailureCategory,
   type SourceResolutionFailure,
+  WorkspaceCatalog,
 } from "@agentxm/extension-sources";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { SettingsReader } from "@agentxm/workspace/desired-state";
 
 import type { ExtensionLifecycleFailed } from "../errors.js";
 import { registryLoginSuggestions } from "./registry-login-suggestion.js";
-import { installRefused, type ResolveInstallRequirements } from "./vocabulary.js";
+import { installRefused } from "./vocabulary.js";
+
+type RegistrySourceProbeRequirements =
+  SettingsReader | FileSystem.FileSystem | HttpClient.HttpClient | Path.Path;
+
+type DefaultRegistrySourceResolutionRequirements =
+  RegistrySourceProbeRequirements | WorkspaceCatalog;
 
 /** How to declare a registry when none is configured for the requested owner. */
 export const ADD_REGISTRY_SOURCE: SuggestedAction = {
@@ -109,12 +119,12 @@ export interface ConfiguredRegistryLookup {
 /** Probe every host configured under `sourceName` for the named extension. */
 export const resolveConfiguredRegistrySource: (
   args: ConfiguredRegistryLookup,
-) => Effect.Effect<RegistrySource, ExtensionLifecycleFailed, ResolveInstallRequirements> =
+) => Effect.Effect<RegistrySource, ExtensionLifecycleFailed, RegistrySourceProbeRequirements> =
   Effect.fn("InstallExtensions.resolveConfiguredRegistrySource")(function* (
     args: ConfiguredRegistryLookup,
   ) {
-    const workspace = yield* WorkspaceMutations;
-    const registrySources = (yield* workspace.getRegistrySourceHosts().pipe(
+    const settings = yield* SettingsReader;
+    const registrySources = (yield* settings.registrySourceHosts.pipe(
       Effect.mapError((cause) =>
         installRefused({
           category: "internal",
@@ -213,16 +223,22 @@ export interface DefaultRegistryLookup {
   readonly options: Option.Option<RegistryResolutionOptions>;
 }
 
-/** Resolve a bare name against the default `agentxm` registry and configured owner. */
-export const resolveDefaultRegistrySourceByName: (
+type ConfiguredDefaultRegistrySourceByNameResolver = (
   args: DefaultRegistryLookup,
-) => Effect.Effect<RegistrySource, ExtensionLifecycleFailed, ResolveInstallRequirements> =
+) => Effect.Effect<
+  RegistrySource,
+  ExtensionLifecycleFailed,
+  DefaultRegistrySourceResolutionRequirements
+>;
+
+/** Resolve a bare name against the default `agentxm` registry and configured owner. */
+export const resolveDefaultRegistrySourceByName: ConfiguredDefaultRegistrySourceByNameResolver =
   Effect.fn("InstallExtensions.resolveDefaultRegistrySourceByName")(function* (
     args: DefaultRegistryLookup,
   ) {
-    const workspace = yield* WorkspaceMutations;
+    const settings = yield* SettingsReader;
     const label = extensionLabel(args.extensionType);
-    const registryHosts = (yield* workspace.getRegistrySourceHosts().pipe(
+    const registryHosts = (yield* settings.registrySourceHosts.pipe(
       Effect.mapError((cause) =>
         installRefused({
           category: "internal",
@@ -240,7 +256,7 @@ export const resolveDefaultRegistrySourceByName: (
       });
     }
 
-    const maybeOwner = yield* workspace.getConfiguredOwner().pipe(
+    const maybeOwner = yield* settings.owner.pipe(
       Effect.mapError((cause) =>
         installRefused({
           category: "internal",

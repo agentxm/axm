@@ -1,4 +1,4 @@
-import type { AuthorMaterialization } from "@agentxm/workspace-operations";
+import type { AuthorMaterialization } from "@agentxm/workspace/transitions/planning";
 /**
  * Adopting an acquired package into workspace authorship.
  *
@@ -23,6 +23,7 @@ import type { AuthorMaterialization } from "@agentxm/workspace-operations";
  */
 
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
 import * as FileSystem from "effect/FileSystem";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Option from "effect/Option";
@@ -39,13 +40,13 @@ import {
   McpSecretStore,
   type ExtensionManagerFailure,
   type ManagerRequirements,
-} from "@agentxm/extension-materialization";
-import { materializeAuthoredMcpServer } from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/materialization";
+import { materializeAuthoredMcpServer } from "@agentxm/workspace/reconciliation";
 import {
   buildAuthoredExtensionStep,
   type AuthoredExtensionOperationArgs,
   type RecipeRequirements,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import {
   extensionTypeToPlural,
   formatFqn,
@@ -65,25 +66,28 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import type { CodingAgentRepository } from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/transitions/planning";
+import type { CodingAgentRepository } from "@agentxm/workspace/projection";
 import {
+  DesiredStateReader,
   LockfileReader,
-  WorkspaceMutations,
+  AcceptedResolutionWriter,
+  DesiredStateWriter,
+  SettingsWriter,
   observeInstallRoot,
   type ConfiguredAgentOutcomesProvider,
   resolveWorkspaceExtensionRef,
   type LockfileValidationError,
-  type SettingsReader,
-  type WorkspaceLocation,
+  SettingsReader,
+  WorkspaceLocation,
   type WorkspaceLockfileReadFailure,
-  type WorkspaceRecords,
+  WorkspaceRecords,
   type WorkspaceSettingsReadFailure,
   type WorkspaceStateReadFailure,
-} from "@agentxm/workspace-state";
-import { protectCreatedAncestors } from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/desired-state";
+import { protectCreatedAncestors } from "@agentxm/workspace/transitions/settlement";
 
-import { CreateDestinationExists } from "@agentxm/extension-materialization";
+import { CreateDestinationExists } from "@agentxm/workspace/materialization";
 
 import { authoredDeclaration } from "../authored-declaration.js";
 import {
@@ -122,7 +126,11 @@ export interface AdoptExtensionRequest {
 export type AdoptExtensionRequirements =
   | ManagerRequirements
   | RecipeRequirements
-  | WorkspaceMutations
+  | AcceptedResolutionWriter
+  | DesiredStateWriter
+  | SettingsReader
+  | SettingsWriter
+  | WorkspaceLocation
   | CodingAgentRepository
   | McpSecretStore;
 
@@ -167,7 +175,10 @@ export type PrepareAdoptExtensionRequirements =
   | FileSystem.FileSystem
   | Path.Path
   | HttpClient.HttpClient
-  | WorkspaceMutations
+  | AcceptedResolutionWriter
+  | DesiredStateReader
+  | DesiredStateWriter
+  | SettingsWriter
   | LockfileReader
   | SettingsReader
   | WorkspaceLocation
@@ -213,33 +224,42 @@ export const prepareAdoptExtension: (
   AdoptExtensionFailure,
   PrepareAdoptExtensionRequirements
 > = Effect.fn("AdoptExtension.prepare")(function* (request) {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const layout = yield* Ref.get(location.layout);
+  const settings = yield* SettingsReader;
+  const settingsWriter = yield* SettingsWriter;
+  const accepted = yield* AcceptedResolutionWriter;
+  const desiredStateWriter = yield* DesiredStateWriter;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 
   const locks = yield* LockfileReader;
 
   const parsed = yield* Effect.fromResult(parseFqn(request.fqn));
-  if (ws.layout.scope !== "project") {
-    return yield* new AuthoringScopeUnsupported({ subject: "adoption", scope: ws.layout.scope });
+  if (layout.scope !== "project") {
+    return yield* new AuthoringScopeUnsupported({ subject: "adoption", scope: layout.scope });
   }
   yield* requireAuthoredOwner(parsed.owner, { subject: "package", command: "adopt" });
 
   const name = parsed.name;
   const fqn = formatFqn(parsed);
   const sourceDir = path.join(
-    ws.layout.acquiredRoot,
+    layout.acquiredRoot,
     "agentxm",
     parsed.owner,
     extensionTypeToPlural[parsed.type],
     name,
   );
-  const targetDir = path.join(ws.layout.authoredRoot(parsed.type), name);
-  const acquiredPath = path.relative(ws.baseDir, sourceDir);
-  const authoredPath = path.relative(ws.baseDir, targetDir);
-  const settingsPath = settingsRelativePath(path, ws);
+  const targetDir = path.join(layout.authoredRoot(parsed.type), name);
+  const acquiredPath = path.relative(location.baseDir, sourceDir);
+  const authoredPath = path.relative(location.baseDir, targetDir);
+  const settingsPath = settingsRelativePath(path, location, layout);
 
-  const declaration = authoredDeclaration(ws, parsed.type, name);
+  const declaration = authoredDeclaration(
+    { settings, settingsWriter, accepted, desiredStateWriter },
+    parsed.type,
+    name,
+  );
   const current = yield* declaration.read;
 
   // Refuse an occupied authoring destination here, so a preview refuses it
@@ -255,8 +275,8 @@ export const prepareAdoptExtension: (
   // the transaction lock, so preview and apply refuse the same states.
   const inPlaceRefusals = Effect.gen(function* () {
     const inventory = yield* observeInstallRoot({
-      layout: ws.layout,
-      graph: yield* ws.getDesiredStateGraph(),
+      layout: layout,
+      graph: yield* (yield* DesiredStateReader).graph(),
       locks,
     });
     const installedCopy = inventory.packages.find(
@@ -280,8 +300,8 @@ export const prepareAdoptExtension: (
       settingsName: name,
       source: "workspace",
       expectedType: parsed.type,
-      layout: ws.layout,
-      scope: ws.scope,
+      layout: layout,
+      scope: location.scope,
       staticPackage: { owner: parsed.owner, name, root: targetDir },
     }).pipe(
       Effect.mapError(
@@ -309,7 +329,7 @@ export const prepareAdoptExtension: (
 
   const moveArtifact: JobStepArtifact = {
     path: authoredPath,
-    scope: ws.scope,
+    scope: location.scope,
     change: "created",
     targets: [
       { path: acquiredPath, change: "removed" },
@@ -321,7 +341,7 @@ export const prepareAdoptExtension: (
   // every byte, so it is not reported as a changed path.
   const inPlaceArtifact: JobStepArtifact = {
     path: settingsPath,
-    scope: ws.scope,
+    scope: location.scope,
     change: "updated",
     targets: [{ path: settingsPath, change: "updated" }],
   };
@@ -365,8 +385,8 @@ export const prepareAdoptExtension: (
               settingsName: name,
               source: "workspace",
               expectedType: parsed.type,
-              layout: ws.layout,
-              scope: ws.scope,
+              layout: layout,
+              scope: location.scope,
               staticPackage: { owner: parsed.owner, name, root: sourceDir },
             });
           }).pipe(Effect.asVoid),

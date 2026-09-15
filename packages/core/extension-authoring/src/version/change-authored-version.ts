@@ -17,6 +17,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -45,22 +46,24 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
-  WorkspaceMutations,
+  AcceptedResolutionWriter,
+  DesiredStateWriter,
+  SettingsWriter,
   type ConfiguredAgentOutcomesProvider,
   type LockfileReader,
   type LockfileValidationError,
-  type SettingsReader,
-  type WorkspaceLocation,
+  SettingsReader,
+  WorkspaceLocation,
   type WorkspaceLockfileReadFailure,
-  type WorkspaceRecords,
+  WorkspaceRecords,
   type WorkspaceSettingsReadFailure,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import {
   runWorkspaceTransaction,
   type WorkspaceTransactionScope,
-} from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/settlement";
 
 import { authoredDeclaration } from "../authored-declaration.js";
 import { AuthoringFailed } from "../errors.js";
@@ -130,7 +133,11 @@ export type ChangeAuthoredVersionFailure =
 export type PrepareChangeAuthoredVersionRequirements =
   | FileSystem.FileSystem
   | Path.Path
-  | WorkspaceMutations
+  | AcceptedResolutionWriter
+  | DesiredStateWriter
+  | SettingsReader
+  | SettingsWriter
+  | WorkspaceLocation
   | ConfiguredAgentOutcomesProvider
   | LockfileReader
   | SettingsReader
@@ -256,19 +263,28 @@ export const prepareChangeAuthoredVersion: (
   ChangeAuthoredVersionFailure,
   PrepareChangeAuthoredVersionRequirements
 > = Effect.fn("ChangeAuthoredVersion.prepare")(function* (request) {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const layout = yield* Ref.get(location.layout);
+  const settings = yield* SettingsReader;
+  const settingsWriter = yield* SettingsWriter;
+  const accepted = yield* AcceptedResolutionWriter;
+  const desiredStateWriter = yield* DesiredStateWriter;
   const path = yield* Path.Path;
 
   const parsed = yield* Effect.fromResult(parseFqn(request.fqn));
-  if (ws.layout.scope !== "project") {
-    return yield* new AuthoringScopeUnsupported({ subject: "version", scope: ws.layout.scope });
+  if (layout.scope !== "project") {
+    return yield* new AuthoringScopeUnsupported({ subject: "version", scope: layout.scope });
   }
   const fqn = formatFqn(parsed);
   const subject = extensionTypeSentenceLabels[parsed.type];
 
   // Only a package this workspace declares as its own may have its manifest
   // version changed; an acquired package's version is the publisher's.
-  const declaration = authoredDeclaration(ws, parsed.type, parsed.name);
+  const declaration = authoredDeclaration(
+    { settings, settingsWriter, accepted, desiredStateWriter },
+    parsed.type,
+    parsed.name,
+  );
   const configuredSource = yield* declaration.read.pipe(Effect.map((current) => current.source));
   if (Option.isNone(configuredSource) || !isWorkspaceSourceLocator(configuredSource.value)) {
     return yield* new VersionTargetNotAuthored({
@@ -279,11 +295,11 @@ export const prepareChangeAuthoredVersion: (
   }
 
   const absolutePath = path.join(
-    ws.layout.authoredRoot(parsed.type),
+    layout.authoredRoot(parsed.type),
     parsed.name,
     manifestFilenameForType(parsed.type),
   );
-  const manifestPath = path.relative(ws.baseDir, absolutePath);
+  const manifestPath = path.relative(location.baseDir, absolutePath);
   const createCommand = `axm ${extensionTypeToPlural[parsed.type]} new`;
   const { manifest } = yield* readManifest({ absolutePath, manifestPath, createCommand });
 
@@ -301,7 +317,7 @@ export const prepareChangeAuthoredVersion: (
 
   const artifact: JobStepArtifact = {
     path: manifestPath,
-    scope: ws.scope,
+    scope: location.scope,
     version: to,
     previousVersion: from,
     change: unchanged ? "unchanged" : "updated",

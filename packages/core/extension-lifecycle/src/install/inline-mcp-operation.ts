@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import type { InstallStepRequirements } from "./vocabulary.js";
 import * as Option from "effect/Option";
 
-import type { JobStepResult, Plan } from "@agentxm/workspace-operations";
+import type { JobStepResult, Plan } from "@agentxm/workspace/transitions/planning";
 
 export const inlineMcpNotApplicablePlan = (
   name: string,

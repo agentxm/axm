@@ -42,23 +42,27 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
   UNIVERSAL_AGENT_ID,
   expectedProjectionNames,
   observeInstructionProjection,
   resolveInstructionsConfig,
-} from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/projection";
 import {
   ConfiguredAgentOutcomesProvider,
+  DesiredStateReader,
   LockfileReader,
   SettingsReader,
+  SettingsWriter,
   WorkspaceLocation,
-  WorkspaceMutations,
   WorkspaceRecords,
   type WorkspaceStateReadFailure,
-} from "@agentxm/workspace-state";
-import { FootprintRecorder, WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/desired-state";
+import {
+  FootprintRecorder,
+  WorkspaceTransactionScope,
+} from "@agentxm/workspace/transitions/settlement";
 
 import {
   WorkspaceConfigurationFailed,
@@ -167,10 +171,11 @@ export const prepareAddConfiguredAgents = (
 ): Effect.Effect<
   AddConfiguredAgentsCandidate | ConfiguredAgentsUnchanged,
   ConfigureAgentsFailure,
-  WorkspaceMutations | FileSystem.FileSystem | Path.Path
+  SettingsReader | WorkspaceLocation | FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    const workspace = yield* WorkspaceMutations;
+    const settings = yield* SettingsReader;
+    const location = yield* WorkspaceLocation;
 
     if (request.ids.length === 0 && !request.detected) {
       return yield* new WorkspaceConfigurationFailed({
@@ -184,12 +189,12 @@ export const prepareAddConfiguredAgents = (
     }
 
     const requested = yield* validateAgentIds(request.ids);
-    const configured = yield* workspace.getConfiguredAgents();
+    const configured = yield* settings.configuredAgents;
     const configuredSet = new Set(configured);
     const detected = request.detected
       ? yield* observeUnit(
           { id: "detect-agents", label: "coding agent detection" },
-          detectAgentsForScope(workspace.baseDir, workspace.scope).pipe(
+          detectAgentsForScope(location.baseDir, location.scope).pipe(
             Effect.map((agents) => agents.map((agent) => agent.id)),
           ),
         )
@@ -237,7 +242,7 @@ export const prepareAddConfiguredAgents = (
       retiredDetected,
       lifecycleWarnings,
       acceptWarnings: request.acceptWarnings ?? false,
-      scope: workspace.scope,
+      scope: location.scope,
     } satisfies AddConfiguredAgentsCandidate;
   });
 
@@ -266,20 +271,20 @@ export type MembershipExecutionRequirements<Requirements> =
   | LockfileReader
   | SettingsReader
   | WorkspaceLocation
-  | WorkspaceMutations
+  | SettingsWriter
   | WorkspaceRecords
   | WorkspaceTransactionScope;
 
 const addAgentStep = <Output>(
   scope: WorkspaceScope,
   agentId: string,
-): PlannedJobStep<WorkspaceMutations, Output> => ({
+): PlannedJobStep<SettingsWriter, Output> => ({
   label: `Add ${agentId}`,
   readiness: "ready",
   artifact: membershipArtifact(scope, agentId, "updated"),
   run: Effect.gen(function* () {
-    const workspace = yield* WorkspaceMutations;
-    yield* workspace
+    const settings = yield* SettingsWriter;
+    yield* settings
       .addConfiguredAgent(agentId)
       .pipe(Effect.mapError(workspaceChangeFailedToStepFailure));
     return {
@@ -415,9 +420,7 @@ export const previewOrApplyAddConfiguredAgents = <MaterializeRequirements = neve
     const materialization = (reconciliation?.steps ?? []).map((step) =>
       attributeToArrivingAgents(candidate.scope, candidate.agentIds, step),
     );
-    const steps: ReadonlyArray<
-      PlannedJobStep<MaterializeRequirements | WorkspaceMutations, Output>
-    > = [
+    const steps: ReadonlyArray<PlannedJobStep<MaterializeRequirements | SettingsWriter, Output>> = [
       ...candidate.agentIds.map((agentId) => addAgentStep<Output>(candidate.scope, agentId)),
       ...materialization,
     ];
@@ -469,12 +472,14 @@ export const prepareRemoveConfiguredAgents = (
 ): Effect.Effect<
   RemoveConfiguredAgentsCandidate | ConfiguredAgentsUnchanged,
   ConfigureAgentsFailure,
-  WorkspaceMutations
+  SettingsReader | DesiredStateReader | WorkspaceLocation
 > =>
   Effect.gen(function* () {
-    const workspace = yield* WorkspaceMutations;
+    const settings = yield* SettingsReader;
+    const desiredState = yield* DesiredStateReader;
+    const location = yield* WorkspaceLocation;
     const agentIds = yield* validateAgentIds(request.ids);
-    const configured = yield* workspace.getConfiguredAgents();
+    const configured = yield* settings.configuredAgents;
     const configuredSet = new Set(configured);
     const missing = agentIds.filter((id) => !configuredSet.has(id));
 
@@ -489,7 +494,7 @@ export const prepareRemoveConfiguredAgents = (
       });
     }
 
-    const graph = yield* workspace.getDesiredStateGraph();
+    const graph = yield* desiredState.graph();
     if (!graph.complete) {
       return yield* new WorkspaceConfigurationFailed({
         category: "validation",
@@ -508,21 +513,21 @@ export const prepareRemoveConfiguredAgents = (
         desiredAgentIds: new Set([UNIVERSAL_AGENT_ID, ...remaining]),
         expectedNames: expectedProjectionNames(graph),
       },
-      baseDir: workspace.baseDir,
-      scope: workspace.scope,
+      baseDir: location.baseDir,
+      scope: location.scope,
     } satisfies RemoveConfiguredAgentsCandidate;
   });
 
 const removeAgentStep = <Output>(
   scope: WorkspaceScope,
   agentId: string,
-): PlannedJobStep<WorkspaceMutations, Output> => ({
+): PlannedJobStep<SettingsWriter, Output> => ({
   label: `Remove ${agentId}`,
   readiness: "ready",
   artifact: membershipArtifact(scope, agentId, "updated"),
   run: Effect.gen(function* () {
-    const workspace = yield* WorkspaceMutations;
-    yield* workspace
+    const settings = yield* SettingsWriter;
+    yield* settings
       .removeConfiguredAgent(agentId)
       .pipe(Effect.mapError(workspaceChangeFailedToStepFailure));
     return {
@@ -564,7 +569,7 @@ export const previewOrApplyRemoveConfiguredAgents = <CleanupRequirements = never
   MembershipExecutionRequirements<CleanupRequirements>
 > =>
   Effect.gen(function* () {
-    const steps: ReadonlyArray<PlannedJobStep<CleanupRequirements | WorkspaceMutations, Output>> = [
+    const steps: ReadonlyArray<PlannedJobStep<CleanupRequirements | SettingsWriter, Output>> = [
       ...(reconciliation?.steps ?? []),
       ...candidate.agentIds.map((agentId) => removeAgentStep<Output>(candidate.scope, agentId)),
     ];
@@ -620,22 +625,23 @@ export const listConfiguredAgents = (
 ): Effect.Effect<
   ConfiguredAgentInventory,
   ConfigureAgentsFailure,
-  WorkspaceMutations | FileSystem.FileSystem | Path.Path
+  SettingsReader | WorkspaceLocation | FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    const workspace = yield* WorkspaceMutations;
-    const configured = yield* workspace.getConfiguredAgents();
-    const detected = yield* detectAgentsForScope(workspace.baseDir, workspace.scope).pipe(
+    const settings = yield* SettingsReader;
+    const location = yield* WorkspaceLocation;
+    const configured = yield* settings.configuredAgents;
+    const detected = yield* detectAgentsForScope(location.baseDir, location.scope).pipe(
       Effect.map((agents) => agents.map((agent) => agent.id)),
     );
     const configuredSet = new Set(configured);
     const detectedSet = new Set(detected);
-    const instructionsConfig = yield* workspace.getInstructionsConfig();
+    const instructionsConfig = yield* settings.instructionsConfig;
     const instructionHealth =
       Option.isSome(instructionsConfig) && instructionsConfig.value !== false
         ? yield* observeInstructionProjection({
-            workspaceRoot: workspace.baseDir,
-            scope: workspace.scope,
+            workspaceRoot: location.baseDir,
+            scope: location.scope,
             configuredAgents: configured,
             config: resolveInstructionsConfig(instructionsConfig.value),
           }).pipe(

@@ -16,7 +16,7 @@ import * as path from "node:path";
 import { readWorkspacePackageDirectories } from "./workspace-packages.js";
 
 export interface ProductionPackage {
-  /** Published package name, for example `@agentxm/workspace-state`. */
+  /** Published package name, for example `@agentxm/workspace/desired-state`. */
   readonly name: string;
   /** Repository-relative package directory. */
   readonly directory: string;

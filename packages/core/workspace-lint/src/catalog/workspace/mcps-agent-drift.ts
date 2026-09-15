@@ -9,15 +9,15 @@ import {
   type McpEnvExpansion,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { isAxmManagedMcpEntry } from "@agentxm/agent-integration";
-import { diffAgentEntry } from "@agentxm/workspace-projection";
+import { diffAgentEntry } from "@agentxm/workspace/projection";
 import {
   inferInlineRemoteTransport,
   projectExpectedEntry,
   resolveSharedMcpTarget,
   groupConfiguredMcpTargets,
 } from "@agentxm/agent-integration";
-import type { McpServerEntry } from "@agentxm/workspace-state";
-import type { ActualMcpServer, InstalledMcpServer } from "@agentxm/workspace-state";
+import type { McpServerEntry } from "@agentxm/workspace/desired-state";
+import type { ActualMcpServer, InstalledMcpServer } from "@agentxm/workspace/desired-state";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule, LintFinding } from "@agentxm/extension-content/lint";
 

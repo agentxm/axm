@@ -1,5 +1,5 @@
 /**
- * WorkspaceMutations initialization logic.
+ * Workspace initialization logic.
  *
  * Handles initial setup of project and user-scope workspaces: agent detection,
  * interactive agent selection, and settings/lockfile creation.
@@ -26,28 +26,32 @@ import {
 import { WorkspaceConfigurationFailed } from "../errors.js";
 import { isGitManaged } from "@agentxm/extension-sources";
 import { LOCKFILE_NAME } from "@agentxm/extension-model/unstable/workspace-files";
-import { LOCKFILE_VERSION, writeLockfileAtPath } from "@agentxm/workspace-state";
+import { LOCKFILE_VERSION, writeLockfileAtPath } from "@agentxm/workspace/desired-state";
 import {
   createDefaultSettings,
   type Settings,
   writeSettingsAtPath,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
-import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
+import type { WorkspaceStateOptions } from "@agentxm/workspace/desired-state";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { AgentRootResolverLive } from "@agentxm/workspace-state";
-import { makeWorkspaceReadModel, WorkspaceReadModelConfig } from "@agentxm/workspace-state";
+import { AgentRootResolverLive } from "@agentxm/workspace/desired-state";
+import { makeWorkspaceReadModel, WorkspaceReadModelConfig } from "@agentxm/workspace/desired-state";
 import {
   WorkspaceInitializationInteraction,
   type SetupPlanRow,
 } from "./initialization-interaction.js";
-import { type LocatedWorkspace, locateWorkspace, resolveUserHome } from "@agentxm/workspace-state";
-import { setupScopeSupport } from "@agentxm/workspace-state";
-import { protectWorkspacePath } from "@agentxm/workspace-transactions";
-import { LOCK_FILENAME } from "@agentxm/workspace-state";
+import {
+  type LocatedWorkspace,
+  locateWorkspace,
+  resolveUserHome,
+} from "@agentxm/workspace/desired-state";
+import { setupScopeSupport } from "@agentxm/workspace/desired-state";
+import { protectWorkspacePath } from "@agentxm/workspace/transitions/settlement";
+import { LOCK_FILENAME } from "@agentxm/workspace/desired-state";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
-import { resolveInstructionTarget, syncInstructions } from "@agentxm/workspace-projection";
-import type { InstructionMechanism } from "@agentxm/workspace-projection";
+import { resolveInstructionTarget, syncInstructions } from "@agentxm/workspace/projection";
+import type { InstructionMechanism } from "@agentxm/workspace/projection";
 
 const SELECT_AGENTS_PROMPT_MISSING = new WorkspaceConfigurationFailed({
   category: "usage",
@@ -410,7 +414,7 @@ const instructionPlanRows = (args: {
 };
 
 const selectSetupAgents = (args: {
-  readonly options: WorkspaceMutationsOptions;
+  readonly options: WorkspaceStateOptions;
   readonly existingSettings: Settings;
   readonly workspaceRoot: string;
 }) =>
@@ -524,7 +528,7 @@ const selectSetupAgents = (args: {
   });
 
 const resolveInstructionSetup = (args: {
-  readonly options: WorkspaceMutationsOptions;
+  readonly options: WorkspaceStateOptions;
   readonly existingSettings: Settings;
   readonly workspaceRoot: string;
 }) =>
@@ -643,12 +647,12 @@ const readSettingsFromReadModel = (
  * Initialize project workspace by detecting and selecting agents.
  *
  * @param localDir - Path to local .axm directory
- * @param options - WorkspaceMutations options
+ * @param options - workspace-state options
  * @returns Effect yielding selected agent IDs
  */
 const configureProjectWorkspace = (args: {
   readonly localDir: string;
-  readonly options: WorkspaceMutationsOptions;
+  readonly options: WorkspaceStateOptions;
   readonly existingSettings: Settings;
 }) =>
   Effect.gen(function* () {
@@ -753,14 +757,14 @@ const configureProjectWorkspace = (args: {
     return { settings, agentCandidates: selection.candidates, confirmed: true };
   });
 
-export const initializeProjectWorkspace = (localDir: string, options: WorkspaceMutationsOptions) =>
+export const initializeProjectWorkspace = (localDir: string, options: WorkspaceStateOptions) =>
   configureProjectWorkspace({
     localDir,
     options,
     existingSettings: createDefaultSettings(),
   });
 
-const initializeUserWorkspace = (workspaceRoot: string, options: WorkspaceMutationsOptions) =>
+const initializeUserWorkspace = (workspaceRoot: string, options: WorkspaceStateOptions) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const selection = yield* selectSetupAgents({
@@ -851,7 +855,7 @@ const workspaceInitializationState = (
  */
 export const ensureUserWorkspaceInitialized = (
   workspaceRoot: string,
-  options: WorkspaceMutationsOptions,
+  options: WorkspaceStateOptions,
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -900,12 +904,12 @@ export const ensureUserWorkspaceInitialized = (
  * Reads existing local settings or runs the initialization flow when missing.
  *
  * @param localDir - Path to local .axm directory
- * @param options - WorkspaceMutations options
+ * @param options - workspace-state options
  * @returns Effect yielding local Settings
  */
 export const ensureProjectWorkspaceInitialized = (
   localDir: string,
-  options: WorkspaceMutationsOptions,
+  options: WorkspaceStateOptions,
 ) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
@@ -946,7 +950,7 @@ export const ensureProjectWorkspaceInitialized = (
     return workspaceInitializationState(localSettingsResult.settings, false, false);
   });
 
-export const bootstrapWorkspace = (options: WorkspaceMutationsOptions) =>
+export const bootstrapWorkspace = (options: WorkspaceStateOptions) =>
   Effect.gen(function* () {
     const location: LocatedWorkspace = yield* locateWorkspace(options.scope, options.projectRoot);
     const workspaceDir = location.path;

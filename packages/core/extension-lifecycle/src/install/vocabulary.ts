@@ -17,8 +17,8 @@ import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import type { NativeWriteAuthority } from "@agentxm/agent-integration";
-import type { ManagerRequirements, McpSecretStore } from "@agentxm/extension-materialization";
-import type { RecipeRequirements } from "@agentxm/workspace-reconciliation";
+import type { ManagerRequirements, McpSecretStore } from "@agentxm/workspace/materialization";
+import type { RecipeRequirements } from "@agentxm/workspace/reconciliation";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
 import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
@@ -32,7 +32,7 @@ import type { VersionRange } from "@agentxm/extension-model/unstable/version-con
 import type {
   ExtensionResolutionFailed,
   PackDependencyRefResolver,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/workspace/resolution";
 import type { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import type {
   ApprovalRecoveryMissing,
@@ -40,26 +40,29 @@ import type {
   OperationJournal,
   PlanInteractionFailed,
   ResolvePlanInteraction,
-} from "@agentxm/workspace-operations";
-import type { CodingAgentRepository, WorkspaceInvariantFacts } from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/transitions/planning";
+import type { CodingAgentRepository, WorkspaceInvariantFacts } from "@agentxm/workspace/projection";
 import type {
   AcceptedCanonicalRefError,
+  AcceptedResolutionWriter,
   ConfiguredAgentOutcomesProvider,
   DesiredStateReader,
+  DesiredStateWriter,
+  ExtensionPaths,
   LockfileValidationError,
   LockfileReader,
   SettingsReader,
+  SettingsWriter,
   WorkspaceLocation,
-  WorkspaceMutations,
   WorkspaceRecords,
   WorkspaceSettingsReadFailure,
   WorkspaceStateReadFailure,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import type {
   FootprintRecorder,
   WorkspaceTransactionScope,
   WorkspaceTransitionAcquireFailure,
-} from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/settlement";
 
 import { ExtensionLifecycleFailed } from "../errors.js";
 
@@ -70,7 +73,7 @@ import { ExtensionLifecycleFailed } from "../errors.js";
 /**
  * What an install or uninstall plan step declares at execution time: the
  * manager's own requirements, the transaction scope its closure opens, the
- * keychain an MCP connection reads, and the workspace facade and agent
+ * keychain an MCP connection reads, and the owned workspace-state ports and agent
  * repository its artifact observes. These travel with the step and are
  * composed once at the application's runtime boundary; nothing is captured
  * into a step's closure on the way, and no failure adapter is among them.
@@ -83,7 +86,14 @@ export type InstallStepRequirements =
   | LockfileReader
   | WorkspaceRecords
   | WorkspaceInvariantFacts
-  | WorkspaceMutations
+  | WorkspaceLocation
+  | SettingsReader
+  | SettingsWriter
+  | LockfileReader
+  | DesiredStateReader
+  | DesiredStateWriter
+  | AcceptedResolutionWriter
+  | ExtensionPaths
   | NativeWriteAuthority;
 
 /**
@@ -97,7 +107,6 @@ export type ResolveInstallRequirements =
   | Scope.Scope
   | SourceHostProviders
   | WorkspaceCatalog
-  | WorkspaceMutations
   | WorkspaceLocation
   | SettingsReader
   | LockfileReader
@@ -122,7 +131,7 @@ export type InstallExecutionFailure =
 /**
  * Everything settling an install reads, and everything resolving the settled
  * candidate writes through: the sources it resolves against, the workspace
- * facade and agent outcomes it reads, the journal and footprint the operation
+ * state ports and agent outcomes it reads, the journal and footprint the operation
  * records into, and the interaction that presents and confirms it.
  */
 export type PrepareInstallRequirements =

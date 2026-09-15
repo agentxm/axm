@@ -4,7 +4,7 @@ import {
   makeOperationLifecycle,
   subscribeLossless,
   type OperationEvent,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import { UpgradeExecutionObserver } from "@agentxm/cli-maintenance/self-update/application";
 import {
   makeUpgradeTrial,

@@ -16,8 +16,8 @@ import {
   NO_MATERIALIZATION_OBSERVATION,
   SubagentManager,
   type SubagentMaterializationFacts,
-} from "@agentxm/extension-materialization";
-import { buildInstallOperation } from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/materialization";
+import { buildInstallOperation } from "@agentxm/workspace/reconciliation";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import {
@@ -31,7 +31,7 @@ import {
   sourceResolutionFailureCategory,
   type SourceResolutionFailure,
 } from "@agentxm/extension-sources";
-import { operationPresentation, type Plan } from "@agentxm/workspace-operations";
+import { operationPresentation, type Plan } from "@agentxm/workspace/transitions/planning";
 
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { lifecycleStepFailure } from "../../step-failure.js";

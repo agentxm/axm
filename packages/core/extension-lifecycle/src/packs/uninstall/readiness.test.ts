@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from "@effect/vitest";
 
-import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace-state";
+import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace/desired-state";
 
 import { PACK_UNINSTALL_GRAPH_BLOCKER_ID, planPackUninstallGraphReadiness } from "./readiness.js";
 

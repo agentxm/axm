@@ -34,30 +34,30 @@ import {
   RuleManagerLive,
   SkillManagerLive,
   SubagentManagerLive,
-} from "@agentxm/extension-materialization/live";
+} from "@agentxm/workspace/materialization/live";
 import {
   ReleaseAgePosture,
   decideNamedRegistryVersion,
   namedRegistryCandidates,
   resolveVersionEntryWithReleaseAge,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/workspace/resolution";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
-import { AxmSkillCandidateGateLive } from "@agentxm/extension-resolution/live";
+import { AxmSkillCandidateGateLive } from "@agentxm/workspace/resolution/live";
 import { RegistryResolutionPolicy, SourceHostProviders } from "@agentxm/extension-sources";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { StepFailure } from "@agentxm/workspace-operations";
+import { StepFailure } from "@agentxm/workspace/transitions/planning";
 import {
   PlanInvocationTest,
   ResolvePlanInteractionTest,
   type ResolvePlanInteractionTestState,
-} from "@agentxm/workspace-operations/testing";
+} from "@agentxm/workspace/transitions/planning/testing";
 import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
   WorkspaceCatalogLive,
   WorkspaceInvariantFactsLive,
-} from "@agentxm/workspace-projection/live";
-import { layer as WorkspaceLayerLive } from "@agentxm/workspace-state/live";
+} from "@agentxm/workspace/projection/live";
+import { layer as WorkspaceLayerLive } from "@agentxm/workspace/desired-state/live";
 
 import { ExtensionLifecycleFailed } from "./errors.js";
 import { SkillSelectionInteraction } from "./skills/application/index.js";

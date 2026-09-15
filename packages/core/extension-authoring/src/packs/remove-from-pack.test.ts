@@ -6,15 +6,11 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import {
-  configuredRow,
-  makeBaseWorkspaceMock,
   MockWorkspaceTransactionScope,
-  rowsFor,
-} from "@agentxm/workspace-state/testing";
+  WorkspaceReadTest,
+} from "@agentxm/workspace/desired-state/testing";
 import { handle } from "../test-helpers.js";
 import type { RemoveFromPackOperation } from "./remove-from-pack.js";
 import { removeFromPack } from "./remove-from-pack.js";
@@ -32,36 +28,28 @@ const makeWorkspaceMock = (
   opts: {
     configuredProfile?: string;
   } = {},
-): WorkspaceMutationsService => {
+) => {
   const configuredProfile = opts.configuredProfile ?? "@myorg";
 
-  return makeBaseWorkspaceMock(axmDir, {
-    getConfiguredOwner: () => Effect.succeed(Option.some(handle(configuredProfile))),
-    getConfiguredPackEntries: () =>
-      Effect.succeed({
+  return WorkspaceReadTest({
+    baseDir: path.dirname(axmDir),
+    runtimeDir: axmDir,
+    settings: {
+      owner: handle(configuredProfile),
+      packs: {
         "my-pack": {
           source: "workspace",
           enabled: true,
         },
-      }),
-    rows: rowsFor({
-      pack: [
-        configuredRow({
-          type: "pack",
-          name: "my-pack",
-          source: "workspace",
-          packagingKind: "non-native",
-        }),
-      ],
-    }),
+      },
+    },
   });
 };
 
-/** Creates a layer providing FileSystem + a minimal WorkspaceMutations service. */
+/** Creates the owned workspace read ports and transaction scope. */
 const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMock>[1]) => {
-  const mockWs = makeWorkspaceMock(axmDir, wsOpts);
   return Layer.mergeAll(
-    WorkspaceMutations.layer(mockWs),
+    makeWorkspaceMock(axmDir, wsOpts),
     MockWorkspaceTransactionScope(axmDir),
   ).pipe(Layer.provideMerge(NodeServices.layer));
 };

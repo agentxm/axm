@@ -1,4 +1,4 @@
-import { buildReconciliationClosure } from "@agentxm/workspace-reconciliation";
+import { buildReconciliationClosure } from "@agentxm/workspace/reconciliation";
 /**
  * Installing a pack.
  *
@@ -16,6 +16,12 @@ import { buildReconciliationClosure } from "@agentxm/workspace-reconciliation";
 import * as DateTime from "effect/DateTime";
 import type * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import {
+  DesiredStateReader,
+  SettingsReader,
+  WorkspaceLocation,
+} from "@agentxm/workspace/desired-state";
+
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
@@ -28,13 +34,13 @@ import {
   RuleManager,
   SkillManager,
   SubagentManager,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import {
   buildInstallOperation,
   buildUninstallOperation,
   targetFromRef,
   toLabel,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import {
@@ -57,7 +63,7 @@ import {
   type SourceAuthorityBlockedFact,
   type SourceAuthorityInput,
   type WorkspacePackDependencyResolver,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/workspace/resolution";
 import {
   SourceHostProviders,
   resolveSource,
@@ -69,9 +75,8 @@ import {
   type JobStepArtifactTarget,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
-  WorkspaceMutations,
   acceptedLockedCanonicalPath,
   isDesiredExtensionActive,
   usableAcceptedCanonical,
@@ -82,7 +87,7 @@ import {
   type SkillExtensionTarget,
   type DesiredStateGraph,
   type SubagentExtensionTarget,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { lifecycleStepFailure } from "../../step-failure.js";
@@ -104,7 +109,7 @@ import { expandPackInstallRefs, expandPackInstallRefsWithReleaseAge } from "../e
 import { validatePackGraphPostcondition } from "../graph-transition.js";
 import { buildPackMemberInstallStep } from "../member-install-step.js";
 import { registrySourceArtifact, registrySourcePath } from "../artifact.js";
-import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace-reconciliation";
+import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace/reconciliation";
 
 /** A pack install request after grammar parsing, before anything is discovered. */
 export interface ParsedPackInstallRequest {
@@ -261,11 +266,11 @@ const packInstallCoverage = (ref: ExtensionRef | undefined): "eligible" | "ineli
 
 const resolveMinimumReleaseAge = (
   unattended: boolean,
-): Effect.Effect<Option.Option<Duration.Duration>, ExtensionLifecycleFailed, WorkspaceMutations> =>
+): Effect.Effect<Option.Option<Duration.Duration>, ExtensionLifecycleFailed, SettingsReader> =>
   Effect.gen(function* () {
     if (!unattended) return Option.none<Duration.Duration>();
-    const ws = yield* WorkspaceMutations;
-    const minimumReleaseAge = yield* ws.getMinimumReleaseAge().pipe(
+    const settings = yield* SettingsReader;
+    const minimumReleaseAge = yield* settings.minimumReleaseAge.pipe(
       Effect.mapError((cause) =>
         installRefused({
           category: "internal",
@@ -286,9 +291,9 @@ const resolveMinimumReleaseAge = (
   });
 
 const readDesiredGraph = Effect.gen(function* () {
-  const ws = yield* WorkspaceMutations;
-  return yield* ws
-    .getDesiredStateGraph()
+  const desiredState = yield* DesiredStateReader;
+  return yield* desiredState
+    .graph()
     .pipe(
       Effect.mapError((cause) =>
         installRefused({ category: "internal", detail: "Desired state could not be read", cause }),
@@ -457,7 +462,7 @@ export const parsePackInstallRequest: (
   args: PackInstallArgs,
 ) => Effect.Effect<ParsedPackInstallRequest, ExtensionLifecycleFailed, ResolveInstallRequirements> =
   Effect.fn("InstallExtensions.parsePackRequest")(function* (args: PackInstallArgs) {
-    const ws = yield* WorkspaceMutations;
+    const settings = yield* SettingsReader;
     const trimmed = args.source.trim();
     const parsed = parseRegistryInstallTarget(trimmed, {
       expectedType: "pack",
@@ -520,7 +525,7 @@ export const parsePackInstallRequest: (
       };
     }
 
-    const owner = yield* ws.getConfiguredOwner().pipe(
+    const owner = yield* settings.owner.pipe(
       Effect.mapError((cause) =>
         installRefused({
           category: "internal",
@@ -611,7 +616,7 @@ export const discoverPackRef: (
 ) => Effect.Effect<PackDiscovery, ExtensionLifecycleFailed, ResolveInstallRequirements> = Effect.fn(
   "InstallExtensions.discoverPack",
 )(function* (request: PackSourceRequest) {
-  const ws = yield* WorkspaceMutations;
+  const settings = yield* SettingsReader;
   const sources = yield* SourceHostProviders;
   const findWith = (candidate: RegistrySource) =>
     sources.find(candidate, {
@@ -646,7 +651,7 @@ export const discoverPackRef: (
     initialResult._tag === "Failure" &&
     isRemoteReadNotImplemented(initialResult.failure)
   ) {
-    const registryHosts = yield* ws.getRegistrySourceHosts().pipe(
+    const registryHosts = yield* settings.registrySourceHosts.pipe(
       Effect.mapError((cause) =>
         installRefused({
           category: "internal",
@@ -711,7 +716,7 @@ export const discoverPackRef: (
     });
   }
 
-  const registryHosts = yield* ws.getRegistrySourceHosts().pipe(
+  const registryHosts = yield* settings.registrySourceHosts.pipe(
     Effect.mapError((cause) =>
       installRefused({
         category: "internal",
@@ -796,7 +801,8 @@ export const planPackInstall: (
   ExtensionLifecycleFailed,
   PackInstallRequirements
 > = Effect.fn("InstallExtensions.planPack")(function* (intent: PackInstallIntent) {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const desiredState = yield* DesiredStateReader;
   const path = yield* Path.Path;
   const sources = yield* SourceHostProviders;
   const packManager = yield* PackManager;
@@ -829,7 +835,12 @@ export const planPackInstall: (
               label: packIdentity,
               errorMessage: authority.blockers.map((fact) => fact.detail).join("; "),
               blockingConditionIds: authority.blockers.map((fact) => fact.id),
-              artifact: { path: "pack graph", scope: ws.scope, change: "unchanged", fileCount: 0 },
+              artifact: {
+                path: "pack graph",
+                scope: location.scope,
+                change: "unchanged",
+                fileCount: 0,
+              },
             },
           ],
         },
@@ -994,7 +1005,7 @@ export const planPackInstall: (
   // cleanup by suppressing dropped-member removal until the pre-install graph
   // is complete.
   const existingPack = graph.complete ? currentPackNode : undefined;
-  const retentionPolicy = makeWorkspaceRetentionPolicy(ws, lifecycleStepFailure);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, lifecycleStepFailure);
 
   const installSteps = yield* Effect.forEach(
     refs,
@@ -1008,7 +1019,7 @@ export const planPackInstall: (
       | RuleManager
       | SkillManager
       | SubagentManager
-      | WorkspaceMutations
+      | WorkspaceLocation
     > =>
       ref.type === "pack"
         ? Effect.succeed(
@@ -1023,7 +1034,9 @@ export const planPackInstall: (
                   })
                 : Effect.succeed(false),
               buildArtifact: ({ installedBefore }) =>
-                Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
+                Effect.succeed(
+                  registrySourceArtifact({ ref, scope: location.scope, installedBefore }),
+                ),
             }),
           )
         : buildPackMemberInstallStep({
@@ -1054,7 +1067,7 @@ export const planPackInstall: (
           ...dropped,
           sourcePath: Option.match(canonicalPath, {
             onNone: () => toLabel(dropped.target),
-            onSome: (value) => path.relative(ws.baseDir, value),
+            onSome: (value) => path.relative(location.baseDir, value),
           }),
         })),
         Effect.mapError((cause) =>
@@ -1130,7 +1143,7 @@ export const planPackInstall: (
       const target = targetFromRef(ref);
       if (ref.refType === "workspace") return { path: ref.location, change: "unchanged" };
       return {
-        path: registrySourcePath(ref, ws.scope),
+        path: registrySourcePath(ref, location.scope),
         change: graph.nodes.some((node) => node.type === target.type && node.name === target.name)
           ? "updated"
           : "created",
@@ -1156,7 +1169,7 @@ export const planPackInstall: (
     message: `Installed ${packIdentity} and ${refs.length - 1} pack member${refs.length === 2 ? "" : "s"}`,
     artifact: {
       path: "pack graph",
-      scope: ws.scope,
+      scope: location.scope,
       change: "updated",
       fileCount: refs.length + droppedTargets.length,
       targets: artifactTargets,

@@ -22,7 +22,7 @@ import { afterEach, beforeEach } from "vitest";
 import {
   ACQUIRED_EXTENSIONS_DIR,
   computePackManifestContentIdentity,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 
 import { handleUpdate, type UpdateHandlerArgs } from "./handler.js";

@@ -14,7 +14,7 @@ import {
   parseFqn,
 } from "@agentxm/extension-model/unstable/extensions";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
-import { operationPresentation } from "@agentxm/workspace-operations";
+import { operationPresentation } from "@agentxm/workspace/transitions/planning";
 
 import { makeAppError } from "../../app-error/index.js";
 import { fqnInvalidErrorToAppError } from "../../app-error/conversions.js";

@@ -19,14 +19,14 @@ import type {
   AgentOutputInventory,
   WorkspaceOwnershipIssue,
   InstructionProjectionSnapshot,
-} from "@agentxm/workspace-projection";
-import type { ProjectionInvariantFact } from "@agentxm/workspace-projection";
-import type { CanonicalObservation, InstallRootInventory } from "@agentxm/workspace-state";
+} from "@agentxm/workspace/projection";
+import type { ProjectionInvariantFact } from "@agentxm/workspace/projection";
+import type { CanonicalObservation, InstallRootInventory } from "@agentxm/workspace/desired-state";
 import type { AuthoredPackageObservation } from "./run/authored-packages.js";
 import type { AgentContentEntry, UserScopeObservation } from "./run/agent-scopes.js";
-import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace-state";
-import type { LockfileReadError, SettingsReadError } from "@agentxm/workspace-state";
-import type { WorkspaceReadModel } from "@agentxm/workspace-state";
+import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace/desired-state";
+import type { LockfileReadError, SettingsReadError } from "@agentxm/workspace/desired-state";
+import type { WorkspaceReadModel } from "@agentxm/workspace/desired-state";
 import { type AxmSkillCompatibility } from "@agentxm/cli-maintenance/official-skill/domain";
 
 /**
@@ -149,7 +149,7 @@ export interface InstalledExtensionManifest {
 }
 
 /**
- * WorkspaceMutations subject: the rule-addressable identity of the workspace under lint.
+ * Workspace subject: the rule-addressable identity of the workspace under lint.
  *
  * @experimental This API is unstable and may change without notice.
  */

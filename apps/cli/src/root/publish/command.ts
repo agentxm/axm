@@ -22,7 +22,7 @@ import {
   recoveryPositional,
   recoverySwitch,
   renderConfirmationRecoveryCommand,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
   PublishExtensions,
   normalizePublishResult,

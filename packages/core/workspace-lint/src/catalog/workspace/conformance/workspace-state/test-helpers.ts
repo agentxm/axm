@@ -1,12 +1,12 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import type { InstallRootInventory, InstalledPackageEntry } from "@agentxm/workspace-state";
+import type { InstallRootInventory, InstalledPackageEntry } from "@agentxm/workspace/desired-state";
 import {
   type AgentOutputInventory,
   type AgentOutputObservation,
   type ProjectionInvariantFact,
-} from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/projection";
 import type { AgentContentEntry } from "../../../../run/agent-scopes.js";
 import type { WorkspaceRuleContext } from "../../../../workspace-context.js";
 import { agentContentHasSettingsRule } from "../../agent-content-has-settings.js";

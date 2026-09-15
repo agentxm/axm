@@ -13,8 +13,8 @@
  * extension types contribute projections is a fact this package may not
  * invent — `@agentxm/workspace-lint` does not depend on the materialization
  * managers — so the caller states it, either with the real registry from
- * `@agentxm/extension-materialization/live` or with a deliberate stand-in from
- * `@agentxm/workspace-projection/testing`.
+ * `@agentxm/workspace/materialization/live` or with a deliberate stand-in from
+ * `@agentxm/workspace/projection/testing`.
  *
  * Production source never imports this module.
  *
@@ -37,15 +37,15 @@ import {
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
 } from "@agentxm/cli-maintenance/official-skill/domain";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
-import type { ProjectionParticipants } from "@agentxm/workspace-projection";
+import type { ProjectionParticipants } from "@agentxm/workspace/projection";
 import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
   WorkspaceInvariantFactsLive,
-} from "@agentxm/workspace-projection/live";
-import type { WorkspaceMutationsError } from "@agentxm/workspace-state";
-import { WorkspaceStateLive } from "@agentxm/workspace-state/live";
-import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace-state/testing";
+} from "@agentxm/workspace/projection/live";
+import type { WorkspaceStateError } from "@agentxm/workspace/desired-state";
+import { WorkspaceStateLive } from "@agentxm/workspace/desired-state/live";
+import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace/desired-state/testing";
 
 import { allCatalogRuleIds } from "./catalog/index.js";
 import type { LintWorkspaceRequirements } from "./run/lint-workspace.js";
@@ -96,7 +96,7 @@ export interface LintWorkspaceFixtureOptions {
  */
 export type LintWorkspaceServices = Layer.Layer<
   Exclude<LintWorkspaceRequirements, FileSystem.FileSystem | Path.Path>,
-  WorkspaceMutationsError,
+  WorkspaceStateError,
   FileSystem.FileSystem | Path.Path | HttpClient.HttpClient | ProjectionParticipants
 >;
 

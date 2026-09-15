@@ -1,4 +1,4 @@
-import { WorkspaceTransactionScopeLive } from "@agentxm/workspace-transactions/live";
+import { WorkspaceTransactionScopeLive } from "@agentxm/workspace/transitions/settlement/live";
 import * as nodeFs from "node:fs";
 import * as os from "node:os";
 import * as nodePath from "node:path";
@@ -9,14 +9,14 @@ import * as Layer from "effect/Layer";
 
 import { TestFlagsLayer } from "./cli-flags/index.js";
 import { TestRenderer } from "./test-support/presenter-test.js";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
+import { WorkspaceLocation } from "@agentxm/workspace/desired-state";
+import { WorkspaceTransactionScope } from "@agentxm/workspace/transitions/settlement";
 
-import { makeBaseWorkspaceMock } from "./test-support/test-stubs.js";
+import { makeWorkspaceLocationMock } from "./test-support/test-stubs.js";
 import { withLiveOperation, withOperationLifecycle } from "./operation-lifecycle.js";
 import * as Deferred from "effect/Deferred";
 import * as Fiber from "effect/Fiber";
-import { OperationLifecycle, observeUnit } from "@agentxm/workspace-operations";
+import { OperationLifecycle, observeUnit } from "@agentxm/workspace/transitions/planning";
 
 let tempDir: string;
 
@@ -95,7 +95,7 @@ describe("withOperationLifecycle", () => {
           Layer.mergeAll(
             renderer.layer,
             TestFlagsLayer({ nonInteractive: true }),
-            WorkspaceMutations.layer(makeBaseWorkspaceMock(workspaceDir)),
+            Layer.effect(WorkspaceLocation, makeWorkspaceLocationMock(workspaceDir)),
             WorkspaceTransactionScopeLive({
               workspaceDir,
               settingsPath: nodePath.join(nodePath.dirname(workspaceDir), "axm.json"),

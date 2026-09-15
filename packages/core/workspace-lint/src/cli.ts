@@ -329,7 +329,7 @@ export const resolveLintExitCategory = (args: {
  * publish-gate divergence the user should know about (they'll see `error`
  * findings from the registry that don't appear locally).
  *
- * WorkspaceMutations-only rule weakenings (`workspace/*`) do NOT trigger the banner —
+ * Workspace-only rule weakenings (`workspace/*`) do NOT trigger the banner —
  * those never reach publish.
  *
  * Returns the rule ids that trigger the banner, in catalog order, so the
@@ -438,24 +438,47 @@ const compareRenderedFindings = (left: RenderedFinding, right: RenderedFinding):
 const pluralize = (n: number, singular: string, plural: string): string =>
   n === 1 ? singular : plural;
 
+const isWhitespace = (character: string): boolean => character.trim() === "";
+
+const isSentenceStarter = (character: string): boolean => {
+  const code = character.charCodeAt(0);
+  return character === "`" || (code >= 65 && code <= 90);
+};
+
+const sentenceBoundary = (
+  message: string,
+): { readonly head: string; readonly tail: string } | undefined => {
+  for (let index = 1; index < message.length - 1; index += 1) {
+    if (message[index] !== "." || !isWhitespace(message[index + 1] ?? "x")) {
+      continue;
+    }
+    let tailStart = index + 1;
+    while (tailStart < message.length && isWhitespace(message[tailStart] ?? "x")) {
+      tailStart += 1;
+    }
+    const starter = message[tailStart];
+    if (starter !== undefined && isSentenceStarter(starter)) {
+      return {
+        head: message.slice(0, index + 1),
+        tail: message.slice(tailStart),
+      };
+    }
+  }
+  return undefined;
+};
+
 const splitSentences = (message: string): ReadonlyArray<string> => {
   const out: Array<string> = [];
   let remaining = message.trim();
 
   while (remaining.length > 0) {
-    const match = /^(.+?\.(?=\s+[A-Z`]))\s+(.+)$/.exec(remaining);
-    if (match === null) {
+    const boundary = sentenceBoundary(remaining);
+    if (boundary === undefined) {
       out.push(remaining);
       break;
     }
-    const head = match[1];
-    const tail = match[2];
-    if (head === undefined || tail === undefined) {
-      out.push(remaining);
-      break;
-    }
-    out.push(head);
-    remaining = tail;
+    out.push(boundary.head);
+    remaining = boundary.tail;
   }
 
   return out;

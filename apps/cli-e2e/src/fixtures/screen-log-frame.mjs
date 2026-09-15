@@ -12,7 +12,7 @@ import {
   makeOperationLifecycle,
   observeUnit,
   OperationLifecycle,
-} from "../../../../packages/core/workspace-operations/dist/src/index.js";
+} from "../../../../packages/core/workspace/dist/src/transitions/planning/index.js";
 
 const frameLayer = Layer.provideMerge(
   FrameLive({ animate: true, quiet: false, colors: false }),

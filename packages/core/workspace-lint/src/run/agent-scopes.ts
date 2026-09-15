@@ -21,8 +21,8 @@ import {
   CodingAgentRepository,
   observeAgentOutputs,
   type AgentOutputObservation,
-} from "@agentxm/workspace-projection";
-import { resolveUserWorkspaceLayout } from "@agentxm/workspace-state";
+} from "@agentxm/workspace/projection";
+import { resolveUserWorkspaceLayout } from "@agentxm/workspace/desired-state";
 
 import { loadSettingsDocument } from "./settings.js";
 

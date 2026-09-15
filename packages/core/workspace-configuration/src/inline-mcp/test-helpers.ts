@@ -5,8 +5,11 @@
 
 import * as Effect from "effect/Effect";
 
-import { deriveOperationOutcome, previewPlanExecution } from "@agentxm/workspace-operations";
-import { preapprovedPlanExecution } from "@agentxm/workspace-operations/testing";
+import {
+  deriveOperationOutcome,
+  previewPlanExecution,
+} from "@agentxm/workspace/transitions/planning";
+import { preapprovedPlanExecution } from "@agentxm/workspace/transitions/planning/testing";
 
 import { AddInlineMcpServer, type AddInlineMcpServerRequest } from "./add-inline-mcp-server.js";
 import { ImportMcpServers } from "../mcp-import/import-mcp-servers.js";

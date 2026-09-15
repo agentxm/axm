@@ -82,15 +82,15 @@ describe("findSourceHygieneViolations", () => {
       "project.json": rootProject,
       "scripts/dirty.ts": Buffer.from([0x00]),
       "benchmarks/ignored.ts": Buffer.from([0x00]),
-      "packages/core/workspace-state/project.json": project("workspace-state", "role:capability"),
-      "packages/core/workspace-state/src/clean.ts": "export const ok = 1;\n",
-      "packages/core/workspace-state/src/nested/dirty.ts": Buffer.concat([
+      "packages/core/workspace/project.json": project("workspace", "role:capability"),
+      "packages/core/workspace/src/desired-state/clean.ts": "export const ok = 1;\n",
+      "packages/core/workspace/src/desired-state/nested/dirty.ts": Buffer.concat([
         Buffer.from("const key = `a", "utf8"),
         Buffer.from([0x00]),
         Buffer.from("b`;\n", "utf8"),
       ]),
-      "packages/core/workspace-state/test/ignored.ts": Buffer.from([0x00]),
-      "packages/core/workspace-state/src/ignored.md": Buffer.from([0x00]),
+      "packages/core/workspace/test/ignored.ts": Buffer.from([0x00]),
+      "packages/core/workspace/src/desired-state/ignored.md": Buffer.from([0x00]),
       "tools/test-support/project.json": project("test-support", "role:tooling"),
       "tools/test-support/src/dirty.ts": Buffer.from([0x00]),
       "apps/cli/project.json": project("cli", "role:application"),
@@ -100,7 +100,7 @@ describe("findSourceHygieneViolations", () => {
     const violations = findSourceHygieneViolations(workspaceFromProjectFiles(repoRoot));
     expect(violations).toEqual([
       { filePath: "apps/cli/src/dirty.ts", line: 1, byte: 0 },
-      { filePath: "packages/core/workspace-state/src/nested/dirty.ts", line: 1, byte: 0 },
+      { filePath: "packages/core/workspace/src/desired-state/nested/dirty.ts", line: 1, byte: 0 },
       { filePath: "scripts/dirty.ts", line: 1, byte: 0 },
       { filePath: "tools/test-support/src/dirty.ts", line: 1, byte: 0 },
     ]);
@@ -136,8 +136,8 @@ describe("findAxmEnvironmentContractViolations", () => {
     const repoRoot = createRepoFixture({
       "apps/cli/project.json": project("cli", "type:app", "role:application"),
       "apps/cli/src/runtime.ts": 'const stable = "AXM_STABLE";\n',
-      "packages/core/workspace-state/project.json": project("workspace-state", "role:capability"),
-      "packages/core/workspace-state/src/internal.ts": 'const internal = "AXM_INTERNAL";\n',
+      "packages/core/workspace/project.json": project("workspace", "role:capability"),
+      "packages/core/workspace/src/desired-state/internal.ts": 'const internal = "AXM_INTERNAL";\n',
       "tools/test-support/project.json": project("test-support", "role:tooling"),
       "tools/test-support/src/fixture.ts": 'const tooling = "AXM_TOOLING_ONLY";\n',
       "apps/cli/help/topics/environment.md": [
@@ -187,13 +187,14 @@ describe("findAxmEnvironmentContractViolations", () => {
 describe("countUnboundedConcurrencySites", () => {
   it("counts production literals while excluding tests and generated clients", () => {
     const repoRoot = createRepoFixture({
-      "packages/core/workspace-state/project.json": project("workspace-state", "role:capability"),
-      "packages/core/workspace-state/src/one.ts": 'const options = { concurrency: "unbounded" };\n',
+      "packages/core/workspace/project.json": project("workspace", "role:capability"),
+      "packages/core/workspace/src/desired-state/one.ts":
+        'const options = { concurrency: "unbounded" };\n',
       "apps/cli/project.json": project("cli", "role:application"),
       "apps/cli/src/two.ts": 'const options = { concurrency: "unbounded" };\n',
-      "packages/core/workspace-state/src/one.test.ts":
+      "packages/core/workspace/src/desired-state/one.test.ts":
         'const options = { concurrency: "unbounded" };\n',
-      "packages/core/workspace-state/src/__generated__/client.ts":
+      "packages/core/workspace/src/desired-state/__generated__/client.ts":
         'const options = { concurrency: "unbounded" };\n',
     });
 

@@ -14,9 +14,9 @@
 
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
-import type { StepFailure } from "@agentxm/workspace-operations";
-import type { ExtensionManagerFailure } from "@agentxm/extension-materialization";
-import type { ExtensionResolutionFailed } from "@agentxm/extension-resolution";
+import type { StepFailure } from "@agentxm/workspace/transitions/planning";
+import type { ExtensionManagerFailure } from "@agentxm/workspace/materialization";
+import type { ExtensionResolutionFailed } from "@agentxm/workspace/resolution";
 import type { ExtensionLifecycleFailed } from "./errors.js";
 
 /**

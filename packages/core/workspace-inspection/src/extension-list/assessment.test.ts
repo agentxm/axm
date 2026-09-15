@@ -7,32 +7,41 @@ import * as Schema from "effect/Schema";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
-import { TreeIntegritySchema } from "@agentxm/workspace-state";
+import { TreeIntegritySchema } from "@agentxm/workspace/desired-state";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { SourceHostProviders, type SourceHostProvidersService } from "@agentxm/extension-sources";
 import { assessExtensionListItems, type ExtensionListItem } from "./assessment.js";
-import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
-import { makeBaseWorkspaceMock, WorkspaceReadTest } from "@agentxm/workspace-state/testing";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
+import { LOCKFILE_VERSION, type Lockfile, type Settings } from "@agentxm/workspace/desired-state";
+import {
+  WorkspaceReadTest,
+  type WorkspaceReadTestFacts,
+} from "@agentxm/workspace/desired-state/testing";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
 import {
   handle,
   RegistryClientFactoryTestLive,
   WorkspaceCatalogTestLive,
 } from "../test-helpers.js";
 
-const workspaceWithCatalogLayer = (ws: WorkspaceMutationsService) => {
-  const wsLayer = Layer.succeed(WorkspaceMutations, ws);
+const workspaceWithCatalogLayer = (
+  facts: Omit<WorkspaceReadTestFacts, "baseDir" | "runtimeDir"> = {},
+) => {
   const readLayer = WorkspaceReadTest({
-    baseDir: ws.baseDir,
-    runtimeDir: ws.path,
-    settings: { agents: ["claude-code"] },
+    baseDir: "/tmp",
+    runtimeDir: "/tmp/.axm",
+    settings: { agents: ["claude-code"], ...facts.settings } satisfies Settings,
+    lockfile: {
+      lockfileVersion: LOCKFILE_VERSION,
+      skills: {},
+      ...facts.lockfile,
+    } satisfies Lockfile,
+    ...(facts.records === undefined ? {} : { records: facts.records }),
+    ...(facts.graph === undefined ? {} : { graph: facts.graph }),
   });
   return Layer.mergeAll(
-    wsLayer,
     readLayer,
     RegistryClientFactoryTestLive(),
     WorkspaceCatalogTestLive.pipe(
-      Layer.provide(wsLayer),
       Layer.provide(readLayer),
       Layer.provide(CodingAgentRepositoryLive),
       Layer.provide(NodeServices.layer),
@@ -66,10 +75,12 @@ describe("extension list assessment", () => {
         contentIdentity,
         treeIntegrity,
       };
-      const ws = makeBaseWorkspaceMock("/tmp/.axm", {
-        getLockedSkill: () => Effect.succeed(Option.some(accepted)),
-        getConfiguredSources: () =>
-          Effect.succeed([{ name: "github", type: "github", url: new URL("https://github.com") }]),
+      const layer = workspaceWithCatalogLayer({
+        lockfile: { lockfileVersion: LOCKFILE_VERSION, skills: { review: accepted } },
+        settings: {
+          agents: ["claude-code"],
+          sources: [{ name: "github", type: "github", url: new URL("https://github.com") }],
+        },
       });
       const ref: ExtensionRef = {
         type: "skill",
@@ -115,7 +126,7 @@ describe("extension list assessment", () => {
       const assessed = yield* Effect.scoped(assessExtensionListItems([item], "outdated")).pipe(
         Effect.provide(
           Layer.mergeAll(
-            workspaceWithCatalogLayer(ws),
+            layer,
             Layer.succeed(SourceHostProviders, providers),
             Layer.merge(NodeServices.layer, FetchHttpClient.layer),
           ),
@@ -127,7 +138,6 @@ describe("extension list assessment", () => {
 
   it.effect("reports missing accepted resolution as unknown", () =>
     Effect.gen(function* () {
-      const ws = makeBaseWorkspaceMock("/tmp/.axm");
       const providers: SourceHostProvidersService = {
         resolveNamedRegistry: () => Effect.die("not used"),
         find: () => Effect.succeed([]),
@@ -147,7 +157,7 @@ describe("extension list assessment", () => {
       const assessed = yield* assessExtensionListItems([item], "outdated").pipe(
         Effect.provide(
           Layer.mergeAll(
-            workspaceWithCatalogLayer(ws),
+            workspaceWithCatalogLayer(),
             Layer.succeed(SourceHostProviders, providers),
             Layer.merge(NodeServices.layer, FetchHttpClient.layer),
           ),

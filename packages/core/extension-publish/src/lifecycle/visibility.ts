@@ -13,6 +13,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 
 import {
@@ -29,7 +30,7 @@ import type {
   VisibilityMutationResult,
 } from "@agentxm/registry-protocol/unstable/publish";
 import { runWithStepUp, type StepUpOptions } from "@agentxm/registry-auth";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { SettingsReader, WorkspaceLocation } from "@agentxm/workspace/desired-state";
 
 import { PublishFailed } from "../errors.js";
 import { declaredVisibilityIntent } from "../publish/publication.js";
@@ -84,14 +85,16 @@ export const parseVisibilityTarget = (input: string) =>
 export const repositoryVisibilityIntent = Effect.fn("Visibility.repositoryIntent")(function* (
   parts: FqnParts,
 ) {
-  const workspace = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const layout = yield* Ref.get(location.layout);
+  const settings = yield* SettingsReader;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  if (workspace.layout.scope !== "project") {
+  if (layout.scope !== "project") {
     return yield* Effect.fail(validation("Repository visibility intent requires project scope."));
   }
   const manifestPath = path.join(
-    workspace.layout.authoredRoot(parts.type),
+    layout.authoredRoot(parts.type),
     parts.name,
     manifestFilenameForType(parts.type),
   );
@@ -117,7 +120,7 @@ export const repositoryVisibilityIntent = Effect.fn("Visibility.repositoryIntent
         }),
     ),
   );
-  const workspaceDefault = yield* workspace.getPublishDefaultVisibility().pipe(
+  const workspaceDefault = yield* settings.publishDefaultVisibility.pipe(
     Effect.mapError(
       (cause) =>
         new PublishFailed({

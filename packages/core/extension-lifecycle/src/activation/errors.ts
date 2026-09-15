@@ -8,12 +8,12 @@ import type {
   ApprovalRecoveryMissing,
   CandidateFingerprintFailed,
   PlanInteractionFailed,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import type {
   LockfileValidationError,
   WorkspaceSettingsReadFailure,
-} from "@agentxm/workspace-state";
-import type { WorkspaceTransitionAcquireFailure } from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/desired-state";
+import type { WorkspaceTransitionAcquireFailure } from "@agentxm/workspace/transitions/settlement";
 
 /**
  * Every failure resolving a settled activation can surface: the approval and

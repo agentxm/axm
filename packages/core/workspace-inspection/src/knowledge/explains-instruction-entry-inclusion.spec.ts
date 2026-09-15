@@ -18,7 +18,7 @@ export const specification = defineSpecification({
   derivedFrom: [
     "packages/core/workspace-inspection/src/knowledge/list-knowledge.ts",
     "apps/cli/help/topics/knowledge.md",
-    "packages/core/workspace-projection/src/knowledge/instruction-entry.test.ts",
+    "packages/core/workspace/src/projection/knowledge/instruction-entry.test.ts",
   ],
   supersedes: [],
   assumptions: [],

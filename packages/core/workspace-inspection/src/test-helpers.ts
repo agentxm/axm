@@ -14,20 +14,25 @@ import { makeStubRegistryClient } from "./version-currency/test-stubs.js";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
+import { CodingAgentRepository } from "@agentxm/workspace/projection";
 import {
   fileUrlToPath,
   WorkspaceCatalog,
   WorkspaceCatalogUnavailable,
   type SkillCandidates,
 } from "@agentxm/extension-sources";
-import { skillsInDir, type DiscoveredSkill } from "@agentxm/workspace-state";
+import { skillsInDir, type DiscoveredSkill } from "@agentxm/workspace/desired-state";
 import {
   configuredRowsByName,
   installedRowsByName,
   unmanagedRowsByName,
-} from "@agentxm/workspace-state";
-import { SettingsReader, WorkspaceMutations } from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
+import {
+  DesiredStateReader,
+  SettingsReader,
+  WorkspaceLocation,
+  WorkspaceRecords,
+} from "@agentxm/workspace/desired-state";
 import { WorkspaceInspectionFailed } from "./errors.js";
 
 export const handle = (value: string): Handle => decodeHandleSync(value);
@@ -74,7 +79,9 @@ const catalogUnavailable = (failure: unknown): WorkspaceCatalogUnavailable =>
 export const WorkspaceCatalogTestLive = Layer.effect(
   WorkspaceCatalog,
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const records = yield* WorkspaceRecords;
+    const desiredState = yield* DesiredStateReader;
     const settings = yield* SettingsReader;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -82,16 +89,16 @@ export const WorkspaceCatalogTestLive = Layer.effect(
 
     const skillCandidates: Effect.Effect<SkillCandidates, WorkspaceCatalogUnavailable> = Effect.gen(
       function* () {
-        const base = ws.baseDir;
-        const installedSkills = yield* ws.records
+        const base = location.baseDir;
+        const installedSkills = yield* records
           .rows("skill")
           .pipe(Effect.mapError(catalogUnavailable))
           .pipe(Effect.map(installedRowsByName));
-        const unmanagedSkills = yield* ws.records
+        const unmanagedSkills = yield* records
           .rows("skill")
           .pipe(Effect.mapError(catalogUnavailable))
           .pipe(Effect.map(unmanagedRowsByName));
-        const configuredSkills = yield* ws.records
+        const configuredSkills = yield* records
           .rows("skill")
           .pipe(Effect.mapError(catalogUnavailable))
           .pipe(Effect.map(configuredRowsByName));
@@ -159,10 +166,10 @@ export const WorkspaceCatalogTestLive = Layer.effect(
     );
 
     return {
-      workspaceRoot: ws.baseDir,
-      configuredSources: ws.getConfiguredSources().pipe(Effect.mapError(catalogUnavailable)),
-      registrySourceHosts: ws.getRegistrySourceHosts().pipe(Effect.mapError(catalogUnavailable)),
-      desiredExtensionGraph: ws.getDesiredStateGraph().pipe(Effect.mapError(catalogUnavailable)),
+      workspaceRoot: location.baseDir,
+      configuredSources: settings.configuredSources.pipe(Effect.mapError(catalogUnavailable)),
+      registrySourceHosts: settings.registrySourceHosts.pipe(Effect.mapError(catalogUnavailable)),
+      desiredExtensionGraph: desiredState.graph().pipe(Effect.mapError(catalogUnavailable)),
       skillCandidates,
     };
   }),

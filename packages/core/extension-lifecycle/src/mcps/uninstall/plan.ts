@@ -11,6 +11,12 @@
  */
 
 import * as Effect from "effect/Effect";
+import {
+  DesiredStateReader,
+  LockfileReader,
+  WorkspaceLocation,
+} from "@agentxm/workspace/desired-state";
+
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -19,29 +25,28 @@ import {
   McpServerManager,
   mcpServerArtifact,
   mcpSourceTarget,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import {
   collectSecretInputNames,
   deleteMcpSecrets,
   readMcpServerManifest,
-} from "@agentxm/workspace-reconciliation";
-import { buildUninstallOperation } from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
+import { buildUninstallOperation } from "@agentxm/workspace/reconciliation";
 import {
   appendWarningsToMessage,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
-  WorkspaceMutations,
   acceptedLockedCanonicalPath,
   type McpServerExtensionTarget,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { lifecycleStepFailure } from "../../step-failure.js";
 import type { InstallStepRequirements } from "../../install/vocabulary.js";
-import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace-reconciliation";
+import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace/reconciliation";
 import type { McpServerUninstallIntent } from "../../uninstall/vocabulary.js";
 import { workspaceLockfilePath, workspaceSettingsPath } from "../../workspace-paths.js";
 
@@ -58,10 +63,12 @@ export const planMcpServerUninstall: (
   ExtensionLifecycleFailed,
   InstallStepRequirements | McpServerManager | FileSystem.FileSystem | Path.Path
 > = Effect.fn("UninstallExtensions.planMcpServers")(function* (intent: McpServerUninstallIntent) {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const desiredState = yield* DesiredStateReader;
+  const lockfile = yield* LockfileReader;
   const mcpServerManager = yield* McpServerManager;
   const path = yield* Path.Path;
-  const retentionPolicy = makeWorkspaceRetentionPolicy(ws, lifecycleStepFailure);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, lifecycleStepFailure);
 
   const steps = intent.targets.map((target): PlannedJobStep<InstallStepRequirements> => {
     const step = buildUninstallOperation(mcpServerManager, retentionPolicy, {
@@ -72,15 +79,15 @@ export const planMcpServerUninstall: (
     return {
       ...step,
       run: Effect.gen(function* () {
-        const graph = yield* ws
-          .getDesiredStateGraph()
+        const graph = yield* desiredState
+          .graph()
           .pipe(Effect.catch(() => Effect.succeed(undefined)));
         const desiredNode = graph?.nodes.find(
           (node) => node.type === "mcp-server" && node.name === target.name,
         );
         const lockEntry = Option.getOrUndefined(
-          yield* ws
-            .getLockedMcpServerForConnection(target.name)
+          yield* lockfile
+            .mcpServerForConnection(target.name)
             .pipe(Effect.catch(() => Effect.succeed(Option.none()))),
         );
         const canonicalPath = yield* acceptedLockedCanonicalPath({
@@ -98,9 +105,7 @@ export const planMcpServerUninstall: (
           onNone: () => new Set<string>(),
           onSome: collectSecretInputNames,
         });
-        const remaining = yield* ws
-          .getDesiredStateGraph()
-          .pipe(Effect.mapError(lifecycleStepFailure));
+        const remaining = yield* desiredState.graph().pipe(Effect.mapError(lifecycleStepFailure));
         const remainsDesired = remaining.nodes.some(
           (node) => node.type === "mcp-server" && node.name === target.name,
         );
@@ -112,7 +117,7 @@ export const planMcpServerUninstall: (
             ? []
             : (yield* deleteMcpSecrets(
                 {
-                  scopeRoot: path.resolve(ws.baseDir),
+                  scopeRoot: path.resolve(location.baseDir),
                   localName: target.name,
                   sourceIdentity: desiredNode.identity,
                 },
@@ -126,7 +131,7 @@ export const planMcpServerUninstall: (
               );
         const sourceTarget =
           lockEntry?.type === "registry"
-            ? mcpSourceTarget(ws.scope, lockEntry, "removed")
+            ? mcpSourceTarget(location.scope, lockEntry, "removed")
             : undefined;
         return {
           ...result,
@@ -136,13 +141,13 @@ export const planMcpServerUninstall: (
             : { warnings: [...(result.warnings ?? []), ...secretDeletionWarnings] }),
           artifact: mcpServerArtifact({
             lockEntry,
-            scope: ws.scope,
+            scope: location.scope,
             change: unchanged ? "unchanged" : "removed",
             targets: unchanged
               ? []
               : [
-                  { path: workspaceLockfilePath(ws.scope), change: "updated" },
-                  { path: workspaceSettingsPath(ws.scope), change: "updated" },
+                  { path: workspaceLockfilePath(location.scope), change: "updated" },
+                  { path: workspaceSettingsPath(location.scope), change: "updated" },
                   ...(sourceTarget === undefined ? [] : [sourceTarget]),
                 ],
           }),

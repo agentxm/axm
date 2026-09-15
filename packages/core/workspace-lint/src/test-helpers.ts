@@ -18,7 +18,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientError from "effect/unstable/http/HttpClientError";
 
-import { NoProjectionParticipants } from "@agentxm/workspace-projection/testing";
+import { NoProjectionParticipants } from "@agentxm/workspace/projection/testing";
 
 import type { LintWorkspaceFixture } from "./testing.js";
 import { fixLintWorkspace, queryLintWorkspace } from "./run/lint-workspace.js";

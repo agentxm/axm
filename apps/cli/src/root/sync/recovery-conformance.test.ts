@@ -14,8 +14,8 @@ import {
   aggregateOwnershipUnits,
   INCOMPLETE_DESIRED_STATE_BLOCKER_ID,
   type AggregateOwnershipUnitId,
-} from "@agentxm/workspace-projection";
-import { syncRecoveryIdentifiers } from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/projection";
+import { syncRecoveryIdentifiers } from "@agentxm/workspace/reconciliation";
 import { packUninstallRecoveryIdentifiers } from "@agentxm/extension-lifecycle";
 
 type RecoveryOwner = "sync" | "intent-command" | "direct-correction" | "manual-preservation";
@@ -172,16 +172,12 @@ const workspaceEvidence = [
 
 const aggregateCoverage = {
   "rule:instructions-region": [
-    "packages/core/extension-materialization/src/rules/manager.graph-projection.test.ts",
+    "packages/core/workspace/src/instructions/manager.graph-projection.test.ts",
   ],
-  "hook:agent-hook-entries": [
-    "packages/core/extension-materialization/src/hooks/manager.graph-projection.test.ts",
-  ],
-  "hook:fallback-region": [
-    "packages/core/extension-materialization/src/hooks/manager.graph-projection.test.ts",
-  ],
+  "hook:agent-hook-entries": ["packages/core/workspace/src/hooks/manager.graph-projection.test.ts"],
+  "hook:fallback-region": ["packages/core/workspace/src/hooks/manager.graph-projection.test.ts"],
   "knowledge:discovery-region": [
-    "packages/core/extension-materialization/src/knowledge/manager.graph-projection.test.ts",
+    "packages/core/workspace/src/knowledge/manager.graph-projection.test.ts",
   ],
 } as const satisfies Readonly<Partial<Record<AggregateOwnershipUnitId, ReadonlyArray<string>>>>;
 
@@ -233,7 +229,7 @@ const workspaceLintEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     field: "ownedProjection",
     evidence: [
       "apps/cli/src/root/sync/handler.test.ts",
-      "packages/core/workspace-projection/src/invariant-facts.test.ts",
+      "packages/core/workspace/src/projection/invariant-facts.test.ts",
     ],
   }),
   makeEntry("workspace/skills-declarations-valid", {
@@ -296,7 +292,7 @@ const syncEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     owner: "sync",
     field: "lockAuthority",
     evidence: [
-      "packages/core/workspace-projection/src/constraint-invariant-fact.test.ts",
+      "packages/core/workspace/src/projection/constraint-invariant-fact.test.ts",
       "apps/cli/src/root/sync/handler.test.ts",
     ],
   }),
@@ -304,7 +300,7 @@ const syncEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     owner: "direct-correction",
     field: "authoredIntent",
     evidence: [
-      "packages/core/workspace-projection/src/planning.test.ts",
+      "packages/core/workspace/src/projection/planning.test.ts",
       "apps/cli/src/root/sync/handler.test.ts",
     ],
   }),
@@ -352,26 +348,23 @@ const adversarialContracts = [
   ["unrelated-invalid-closure-allows-progress", "apps/cli/src/root/sync/handler.test.ts"],
   [
     "authored-and-unowned-content-preserved",
-    "packages/core/workspace-transactions/src/transaction.test.ts",
+    "packages/core/workspace/src/transitions/settlement/transaction.test.ts",
   ],
   [
     "aggregate-contributors-survive-lifecycle",
-    "packages/core/extension-materialization/src/rules/manager.graph-projection.test.ts",
+    "packages/core/workspace/src/instructions/manager.graph-projection.test.ts",
   ],
   ["sync-preserves-intent-and-satisfying-lock", "apps/cli/src/root/sync/handler.test.ts"],
   ["lint-fix-does-no-lifecycle-work", "apps/cli/src/root/lint/handler.test.ts"],
   [
     "stale-and-concurrent-plans-do-not-interleave",
-    "packages/core/workspace-projection/src/planning.test.ts",
+    "packages/core/workspace/src/projection/planning.test.ts",
   ],
   [
     "publication-interruption-converges",
-    "packages/core/extension-materialization/src/extensions/canonical-directory.test.ts",
+    "packages/core/workspace/src/acquisition/canonical-directory.test.ts",
   ],
-  [
-    "formatter-drift-remains-projectable",
-    "packages/core/extension-materialization/src/knowledge/manager.test.ts",
-  ],
+  ["formatter-drift-remains-projectable", "packages/core/workspace/src/knowledge/manager.test.ts"],
   // A Registry that rebinds an accepted extension to a different publisher is
   // the divergent external replacement; the acceptance path both install and
   // update take reports it as an interactive-only risk before writing.
@@ -382,11 +375,11 @@ const adversarialContracts = [
   ["global-sync-reports-local-outcomes", "apps/cli/src/root/sync/handler.test.ts"],
   [
     "lock-only-pack-members-do-not-create-reachability",
-    "packages/core/workspace-state/src/workspace/desired-state-graph.test.ts",
+    "packages/core/workspace/src/desired-state/workspace/desired-state-graph.test.ts",
   ],
   [
     "invalid-lock-authority-is-not-reconstructed",
-    "packages/core/workspace-state/src/lockfile/authority-schema.test.ts",
+    "packages/core/workspace/src/desired-state/lockfile/authority-schema.test.ts",
   ],
   [
     "older-lockfile-gate-names-reacceptance",
@@ -394,7 +387,7 @@ const adversarialContracts = [
   ],
   [
     "newer-lockfile-gate-names-upgrade",
-    "packages/core/workspace-state/src/workspace/invalid-workspace-state-gates-operations.spec.ts",
+    "packages/core/workspace/src/desired-state/workspace/invalid-workspace-state-gates-operations.spec.ts",
   ],
   // A local source is mutable: that specification installs one, changes its
   // content, restores it, and shows the recorded identity return to its
@@ -403,7 +396,10 @@ const adversarialContracts = [
     "mutable-source-identity-is-stable",
     "packages/core/extension-lifecycle/src/install/records-accepted-resolution.spec.ts",
   ],
-  ["unsupported-state-is-rejected", "packages/core/workspace-state/src/settings/schema.test.ts"],
+  [
+    "unsupported-state-is-rejected",
+    "packages/core/workspace/src/desired-state/settings/schema.test.ts",
+  ],
   [
     "pack-uninstall-readiness-agrees-with-apply",
     "packages/core/extension-lifecycle/src/uninstall/retires-a-desired-pack-whose-package-is-unreadable.spec.ts",

@@ -9,18 +9,19 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import { AuthoringFailed } from "../errors.js";
 import { authoringStepFailure } from "../step-failure.js";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
-import type { OperationHandler } from "@agentxm/workspace-operations";
-import type { Operation } from "@agentxm/workspace-operations";
-import type { JobStepResult } from "@agentxm/workspace-operations";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import type { OperationHandler } from "@agentxm/workspace/transitions/planning";
+import type { Operation } from "@agentxm/workspace/transitions/planning";
+import type { JobStepResult } from "@agentxm/workspace/transitions/planning";
+import { SettingsReader, WorkspaceLocation } from "@agentxm/workspace/desired-state";
 import {
   WorkspaceTransactionScope,
   runWorkspaceTransaction,
-} from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/settlement";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import {
   PACK_MANIFEST_FILENAME,
@@ -69,20 +70,21 @@ export type AddToPackOperation = Operation<"add-to-pack", AddToPackOperationArgs
  */
 export const addToPack: OperationHandler<
   AddToPackOperation,
-  FileSystem.FileSystem | Path.Path | WorkspaceMutations | WorkspaceTransactionScope
+  FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation | WorkspaceTransactionScope
 > = (op) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* WorkspaceMutations;
-    if (ws.layout.scope !== "project") {
+    const location = yield* WorkspaceLocation;
+    const layout = yield* Ref.get(location.layout);
+    if (layout.scope !== "project") {
       return yield* new AuthoringFailed({
         category: "validation",
         detail: "Authored packs can only be edited in a project workspace",
       });
     }
     const { packName, packOwner, additions, manifestHash } = op.args;
-    const configured = (yield* ws.getConfiguredPackEntries())[packName];
+    const configured = (yield* (yield* SettingsReader).entries("pack"))[packName];
     if (configured === undefined || !isWorkspaceSourceLocator(configured.source)) {
       return yield* new AuthoringFailed({
         category: "conflict",
@@ -95,11 +97,7 @@ export const addToPack: OperationHandler<
       return { result: "success", message: "No pack entries added" } satisfies JobStepResult;
     }
 
-    const manifestPath = path.join(
-      ws.layout.authoredRoot("pack"),
-      packName,
-      PACK_MANIFEST_FILENAME,
-    );
+    const manifestPath = path.join(layout.authoredRoot("pack"), packName, PACK_MANIFEST_FILENAME);
     yield* runWorkspaceTransaction({
       targets: [manifestPath],
       transition: Effect.gen(function* () {
@@ -232,7 +230,7 @@ export const addToPack: OperationHandler<
       artifact: packManifestArtifact({
         owner: packOwner,
         name: packName,
-        scope: ws.scope,
+        scope: location.scope,
         change: "updated",
         fileCount: 1,
       }),

@@ -66,8 +66,8 @@ const planFamily = {
   liveness: "progress",
   livenessCoverage: [
     "apps/cli/src/screen/machine-progress-events-follow-the-lifecycle-schema.spec.ts",
-    "packages/core/workspace-operations/src/plan/long-running-operations-emit-lifecycle-events.spec.ts",
-    "packages/core/workspace-operations/src/plan/resolve-plan.test.ts",
+    "packages/core/workspace/src/transitions/planning/plan/long-running-operations-emit-lifecycle-events.spec.ts",
+    "packages/core/workspace/src/transitions/planning/plan/resolve-plan.test.ts",
     "apps/cli-e2e/src/cli-commands/structured-output.e2e.ts",
   ],
   schemaNames: ["PlanResolutionDocumentSchema"],

@@ -26,34 +26,30 @@ import { presentPlan } from "../operation-view.js";
 import {
   PlanInvocationTest,
   ResolvePlanInteractionTest,
-} from "@agentxm/workspace-operations/testing";
-import type {
-  WorkspaceMutations,
-  WorkspaceMutationsError,
-  WorkspaceMutationsOptions,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/transitions/planning/testing";
+import type { WorkspaceStateError, WorkspaceStateOptions } from "@agentxm/workspace/desired-state";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
   layer as coreWorkspaceLayer,
   type WorkspaceStateServices,
-} from "@agentxm/workspace-state/live";
-import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace-state/testing";
-import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/desired-state/live";
+import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace/desired-state/testing";
+import type { WorkspaceTransactionScope } from "@agentxm/workspace/transitions/settlement";
 import {
   BundledAxmSkillAssetLive,
   ExtensionSelectionLive,
   RegistryResolutionPolicyLive,
 } from "../cli-runtime/index.js";
-import { AxmSkillCandidateGateLive } from "@agentxm/extension-resolution/live";
-import { WorkspaceCatalogLive } from "@agentxm/workspace-projection/live";
+import { AxmSkillCandidateGateLive } from "@agentxm/workspace/resolution/live";
+import { WorkspaceCatalogLive } from "@agentxm/workspace/projection/live";
 import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
-} from "@agentxm/workspace-projection/live";
+} from "@agentxm/workspace/projection/live";
 export {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
-} from "@agentxm/workspace-projection/live";
+} from "@agentxm/workspace/projection/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 export { SourceHostProvidersLive };
 import { workspaceInvariantFactsLive } from "./workspace-invariant-facts-live.js";
@@ -68,7 +64,7 @@ import {
   RuleManagerLive,
   SkillManagerLive,
   SubagentManagerLive,
-} from "@agentxm/extension-materialization/live";
+} from "@agentxm/workspace/materialization/live";
 export {
   HookManagerLive,
   KnowledgeManagerLive,
@@ -85,7 +81,7 @@ import {
 export { LifecycleStepFailureConversionLive };
 import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-configuration/testing";
 import { ExecutionDirectory } from "../execution-directory.js";
-import { ReleaseAgePosture } from "@agentxm/extension-resolution";
+import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
 
 const testHttpClient = HttpClient.make((request) =>
   Effect.succeed(
@@ -663,12 +659,12 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
    * transaction scope — composed over the selected test platform.
    */
   readonly workspaceLayer?: Layer.Layer<
-    WorkspaceStateServices | WorkspaceMutations | WorkspaceTransactionScope,
-    WorkspaceMutationsError,
+    WorkspaceStateServices | WorkspaceTransactionScope,
+    WorkspaceStateError,
     FileSystem.FileSystem | Path.Path
   >;
   readonly wsOptions?:
-    | (Omit<Partial<WorkspaceMutationsOptions>, "projectRoot"> & {
+    | (Omit<Partial<WorkspaceStateOptions>, "projectRoot"> & {
         readonly projectRoot?: string;
       })
     | undefined;
@@ -679,7 +675,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     scope: "project",
     ...opts?.wsOptions,
     projectRoot,
-  } satisfies WorkspaceMutationsOptions;
+  } satisfies WorkspaceStateOptions;
 
   // Ensure workspace settings exist — loadWorkspace requires an initialized workspace
   if (wsOptions.scope === "project" && opts?.workspaceLayer === undefined) {

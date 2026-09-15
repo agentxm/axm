@@ -1,7 +1,7 @@
 import {
   LifecyclePostconditionViolated,
   ScaffoldedExtensionUnresolved,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 /**
  * How an authoring closure serializes a failure into the plan-step vocabulary.
  *
@@ -26,7 +26,7 @@ import {
   workspaceStateReadFailureToStepFailure,
   workspaceTransactionFailureToStepFailure,
   type OperationErrorCategory,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
   ArchiveIntegrityMismatch,
   CanonicalPackageProbeFailed,
@@ -36,11 +36,11 @@ import {
   PackageMaterializationFailed,
   StagedPackageInvalid,
   type ExtensionManagerFailure,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import {
   WorkspaceRestorationIncomplete,
   type WorkspaceTransactionFailure,
-} from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/settlement";
 
 import { AuthoringFailed } from "./errors.js";
 import {

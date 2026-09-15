@@ -9,7 +9,7 @@ import {
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 
 import { isNonInteractiveOptional } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";

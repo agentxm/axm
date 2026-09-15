@@ -117,5 +117,6 @@
     "vitest": "catalog:",
     "yaml": "catalog:",
     "@effect/platform-node": "catalog:"
-  }
+  },
+  "dependencies": {}
 }

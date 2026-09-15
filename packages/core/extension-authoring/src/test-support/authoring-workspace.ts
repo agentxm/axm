@@ -23,15 +23,15 @@ import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { AgentPresenceProbeLive } from "@agentxm/agent-integration/live";
 import { CredentialStoreTest } from "@agentxm/registry-auth/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { AxmSkillCandidateGateLive } from "@agentxm/extension-resolution/live";
+import { AxmSkillCandidateGateLive } from "@agentxm/workspace/resolution/live";
 import {
   decideNamedRegistryVersion,
   namedRegistryCandidates,
   resolveVersionEntryWithReleaseAge,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/workspace/resolution";
 import { RegistryResolutionPolicy } from "@agentxm/extension-sources";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { makeMemoryMcpSecretStore } from "@agentxm/extension-materialization/testing";
+import { makeMemoryMcpSecretStore } from "@agentxm/workspace/materialization/testing";
 import {
   HookManagerLive,
   KnowledgeManagerLive,
@@ -40,20 +40,20 @@ import {
   RuleManagerLive,
   SkillManagerLive,
   SubagentManagerLive,
-} from "@agentxm/extension-materialization/live";
+} from "@agentxm/workspace/materialization/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { previewPlanExecution, type PlanExecution } from "@agentxm/workspace-operations";
+import { previewPlanExecution, type PlanExecution } from "@agentxm/workspace/transitions/planning";
 import {
   PlanInvocationTest,
   ResolvePlanInteractionTest,
   preapprovedPlanExecution,
-} from "@agentxm/workspace-operations/testing";
+} from "@agentxm/workspace/transitions/planning/testing";
 import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
   WorkspaceCatalogLive,
-} from "@agentxm/workspace-projection/live";
-import { layer as workspaceStateLayer } from "@agentxm/workspace-state/live";
+} from "@agentxm/workspace/projection/live";
+import { layer as workspaceStateLayer } from "@agentxm/workspace/desired-state/live";
 
 /** Settings an authoring specification seeds its workspace with. */
 export interface AuthoringWorkspaceSettings {

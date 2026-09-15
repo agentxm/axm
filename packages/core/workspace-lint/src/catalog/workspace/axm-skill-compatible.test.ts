@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { SettingsIoError } from "@agentxm/workspace-state";
+import { SettingsIoError } from "@agentxm/workspace/desired-state";
 import { contextFor, validLockfile, validSettings } from "./conformance/test-helpers.js";
 import { axmSkillCompatibleRule } from "./axm-skill-compatible.js";
 

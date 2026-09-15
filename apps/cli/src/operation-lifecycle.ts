@@ -38,14 +38,14 @@ import {
   type OperationMode,
   type OperationPresentation,
   type SettledOutcome,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import { Screen } from "./screen/index.js";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { WorkspaceLocation } from "@agentxm/workspace/desired-state";
 import {
   FootprintRecorder,
   makeFootprintRecorder,
   readFootprint,
-} from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/settlement";
 
 import { emitOperationResolution } from "./operation-output.js";
 
@@ -171,7 +171,7 @@ export const withOperationLifecycle = <A, E, R>(
                   const signal = requestedInterruptionSignal() ?? "SIGINT";
                   // The observed footprint travels with the interruption: what
                   // was durably touched before the signal landed.
-                  const workspace = yield* WorkspaceMutations;
+                  const workspace = yield* WorkspaceLocation;
                   const observed = (yield* readFootprint.pipe(
                     Effect.provideService(FootprintRecorder, footprint),
                   ))

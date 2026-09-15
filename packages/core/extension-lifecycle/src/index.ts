@@ -153,7 +153,7 @@ export { enableSkill, type EnableSkillOperation } from "./skills/operations/enab
 export { disableSkill, type DisableSkillOperation } from "./skills/operations/disable.js";
 
 // MCP server lifecycle operations. Installation itself is a materialization
-// capability (`@agentxm/extension-materialization`) because the authoring
+// capability (`@agentxm/workspace/materialization`) because the authoring
 // routes need it too and a feature may not import a peer feature.
 export {
   uninstallMcpServer,

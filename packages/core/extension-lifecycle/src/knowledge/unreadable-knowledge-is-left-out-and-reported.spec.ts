@@ -6,7 +6,10 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { deriveOperationOutcome, type OperationResolution } from "@agentxm/workspace-operations";
+import {
+  deriveOperationOutcome,
+  type OperationResolution,
+} from "@agentxm/workspace/transitions/planning";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {
@@ -31,7 +34,7 @@ export const specification = defineSpecification({
   methods: ["example"],
   derivedFrom: [
     "packages/core/extension-lifecycle/src/knowledge/manager.ts",
-    "packages/core/workspace-projection/src/planning.ts",
+    "packages/core/workspace/src/projection/planning.ts",
     "packages/core/workspace-sync/src/knowledge-exclusions-are-reported.test.ts",
     "packages/core/workspace-lint/src/catalog/workspace/conformance/workspace-state/test-helpers.ts",
   ],

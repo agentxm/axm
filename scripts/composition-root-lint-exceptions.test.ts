@@ -32,13 +32,13 @@ describe("composition-root import restriction", () => {
   it("reports a production module composing an environment-backed or in-memory implementation", async () => {
     expect(
       await restrictedImports(
-        'import { WorkspaceCatalogLive } from "@agentxm/workspace-projection/live";\nvoid WorkspaceCatalogLive;\n',
+        'import { WorkspaceCatalogLive } from "@agentxm/workspace/projection/live";\nvoid WorkspaceCatalogLive;\n',
         "packages/core/workspace-sync/src/index.ts",
       ),
     ).not.toEqual([]);
     expect(
       await restrictedImports(
-        'import { PlanInvocationTest } from "@agentxm/workspace-operations/testing";\nvoid PlanInvocationTest;\n',
+        'import { PlanInvocationTest } from "@agentxm/workspace/transitions/planning/testing";\nvoid PlanInvocationTest;\n',
         "packages/core/workspace-sync/src/index.ts",
       ),
     ).not.toEqual([]);
@@ -47,7 +47,7 @@ describe("composition-root import restriction", () => {
   it("permits the application composition root to compose them", async () => {
     expect(
       await restrictedImports(
-        'import { PlanInvocationTest } from "@agentxm/workspace-operations/testing";\nvoid PlanInvocationTest;\n',
+        'import { PlanInvocationTest } from "@agentxm/workspace/transitions/planning/testing";\nvoid PlanInvocationTest;\n',
         "apps/cli/src/runtime.ts",
       ),
     ).toEqual([]);

@@ -1,5 +1,12 @@
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import {
+  ExtensionPaths,
+  LockfileReader,
+  SettingsReader,
+  WorkspaceLocation,
+} from "@agentxm/workspace/desired-state";
+
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -10,13 +17,13 @@ import {
   computeSkillSourceHash,
   groupInstallTargetsByDirectory,
   type InstallableSkillTarget,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import { matchesReleaseAgeExcludePattern } from "@agentxm/extension-model/unstable/extensions";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { isVersionEntryMature, parseMinimumReleaseAge } from "@agentxm/extension-resolution";
+import { isVersionEntryMature, parseMinimumReleaseAge } from "@agentxm/workspace/resolution";
 import { createRegistryClient } from "@agentxm/registry-client";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
-import { WorkspaceMutations, sanitizeName, type SkillPathSource } from "@agentxm/workspace-state";
+import { CodingAgentRepository } from "@agentxm/workspace/projection";
+import { sanitizeName, type SkillPathSource } from "@agentxm/workspace/desired-state";
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { installRefused, type InstallStepRequirements } from "../../install/vocabulary.js";
 import type {
@@ -83,9 +90,9 @@ const previousSourceHash = (entry: unknown): string | undefined => {
 
 const releaseAge = (ref: Extract<SkillExtensionRef, { readonly refType: "registry" }>) =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const settings = yield* SettingsReader;
 
-    const excluded = (yield* ws.getMinimumReleaseAgeExclude()).some(({ pattern }) =>
+    const excluded = (yield* settings.minimumReleaseAgeExclude).some(({ pattern }) =>
       matchesReleaseAgeExcludePattern(pattern, {
         owner: ref.owner,
         type: "skill",
@@ -94,7 +101,7 @@ const releaseAge = (ref: Extract<SkillExtensionRef, { readonly refType: "registr
     );
     if (excluded) return Option.none<{ readonly minimumAge: string; readonly mature: boolean }>();
 
-    const minimumReleaseAge = yield* ws.getMinimumReleaseAge();
+    const minimumReleaseAge = yield* settings.minimumReleaseAge;
     const minimumAge = parseMinimumReleaseAge(minimumReleaseAge);
     if (
       Option.isNone(minimumAge) ||
@@ -150,20 +157,22 @@ const targetState = (args: { readonly linkPath: string; readonly canonicalSkillS
 
 const inspect = (ref: SkillExtensionRef) =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const workspaceLocation = yield* WorkspaceLocation;
+    const paths = yield* ExtensionPaths;
+    const lockfile = yield* LockfileReader;
     const skillManager = yield* SkillManager;
     const agentRepo = yield* CodingAgentRepository;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 
-    const previousLockEntry = yield* ws
-      .getLockedSkill(ref.skill.name)
+    const previousLockEntry = yield* lockfile
+      .entry("skill", ref.skill.name)
       .pipe(Effect.catch(() => Effect.succeed(Option.none())));
     const previousVersion = Option.match(previousLockEntry, {
       onNone: () => undefined,
       onSome: previousResolvedVersion,
     });
-    const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, skillPathSourceFor(ref));
+    const { skillSrcPath } = yield* paths.skillDir(ref.skill.name, skillPathSourceFor(ref));
     const sourceHashBeforeInstall =
       Option.match(previousLockEntry, {
         onNone: () => undefined,
@@ -181,7 +190,7 @@ const inspect = (ref: SkillExtensionRef) =>
       configuredAgents,
       (agent) =>
         agent
-          .resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir })
+          .resolveEffectiveSkillsDir({ workspaceRoot: workspaceLocation.baseDir })
           .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
       { concurrency: "unbounded" },
     );
@@ -196,7 +205,10 @@ const inspect = (ref: SkillExtensionRef) =>
       ({ agentId, outcome }): ReadonlyArray<InstallableSkillTarget> =>
         outcome._tag === "supported" ? [{ agentId, targetDir: path.normalize(outcome.dir) }] : [],
     );
-    const targetLocations = yield* groupInstallTargetsByDirectory(installableTargets, ws.baseDir);
+    const targetLocations = yield* groupInstallTargetsByDirectory(
+      installableTargets,
+      workspaceLocation.baseDir,
+    );
     const artifactAgents = artifactAgentIdsFromTargets(installableTargets);
     const targets = yield* Effect.forEach(
       targetLocations,
@@ -209,7 +221,7 @@ const inspect = (ref: SkillExtensionRef) =>
           Effect.map((state) => {
             const agentIds = artifactTargetAgentIds(location.agentIds);
             return {
-              path: path.relative(ws.baseDir, linkPath),
+              path: path.relative(workspaceLocation.baseDir, linkPath),
               state,
               ...(agentIds.length > 0 ? { agentIds } : {}),
             };
@@ -220,7 +232,9 @@ const inspect = (ref: SkillExtensionRef) =>
     );
     const firstTarget = targets[0];
     const rawDisplayPath =
-      firstTarget === undefined ? path.relative(ws.baseDir, skillSrcPath) : firstTarget.path;
+      firstTarget === undefined
+        ? path.relative(workspaceLocation.baseDir, skillSrcPath)
+        : firstTarget.path;
 
     const installedBefore = yield* skillManager
       .isInstalled({ target: { type: "skill", name: ref.skill.name } })
@@ -229,7 +243,7 @@ const inspect = (ref: SkillExtensionRef) =>
       installed: installedBefore,
       previousVersion,
       sourceHash: sourceHashBeforeInstall,
-      scope: ws.scope,
+      scope: workspaceLocation.scope,
       displayPath: rawDisplayPath,
       agents: artifactAgents,
       unknownAgents,
@@ -240,10 +254,10 @@ const inspect = (ref: SkillExtensionRef) =>
 
 const readContent = (ref: SkillExtensionRef) =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const paths = yield* ExtensionPaths;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const { skillSrcPath } = yield* ws.getSkillDir(ref.skill.name, skillPathSourceFor(ref));
+    const { skillSrcPath } = yield* paths.skillDir(ref.skill.name, skillPathSourceFor(ref));
     return {
       fileCount: yield* countFiles(fs, path, skillSrcPath),
       sourceHash: yield* computeSkillSourceHash(skillSrcPath),

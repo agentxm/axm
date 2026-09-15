@@ -9,7 +9,7 @@ import {
 } from "@agentxm/extension-authoring";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { ImportMcpServers, type McpImportPreflight } from "@agentxm/workspace-configuration";
-import type { OperationResolution } from "@agentxm/workspace-operations";
+import type { OperationResolution } from "@agentxm/workspace/transitions/planning";
 
 import { makeAppError } from "../../app-error/index.js";
 import { isNonInteractiveOptional } from "../../cli-flags/index.js";

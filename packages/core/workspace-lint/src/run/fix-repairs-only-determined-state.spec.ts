@@ -5,7 +5,7 @@ import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { InstructionMaintenanceFailed } from "@agentxm/workspace-projection";
+import { InstructionMaintenanceFailed } from "@agentxm/workspace/projection";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { fixProject, lintServices } from "../test-helpers.js";

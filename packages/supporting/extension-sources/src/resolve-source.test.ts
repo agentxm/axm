@@ -2,7 +2,7 @@
  * Unit tests for resolve-source module.
  *
  * Tests resolving source strings into fully resolved Source values
- * by combining parsed input with matching source configs from WorkspaceMutations.
+ * by combining parsed input with matching source configs from SettingsReader.
  */
 
 import { describe, expect, it } from "@effect/vitest";

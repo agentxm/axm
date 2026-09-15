@@ -4,7 +4,7 @@ import { afterEach } from "vitest";
 
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { makeRegistrySkillLockEntry } from "@agentxm/workspace-state/testing";
+import { makeRegistrySkillLockEntry } from "@agentxm/workspace/desired-state/testing";
 
 import { lintProject, lintServices } from "../../test-helpers.js";
 import { isolatedLintRules, makeLintWorkspace } from "../../testing.js";

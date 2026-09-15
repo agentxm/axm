@@ -17,7 +17,7 @@ import {
   OperationErrorCategorySchema,
   OperationPreconditionSchema,
   PlanRiskConditionSchema,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import { PublishVisibilitySchema } from "@agentxm/registry-protocol/unstable/publish";
 import {
   ExtensionNameSchema,

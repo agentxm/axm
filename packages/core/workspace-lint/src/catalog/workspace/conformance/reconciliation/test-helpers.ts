@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 
-import type { CanonicalObservation, DesiredExtensionNode } from "@agentxm/workspace-state";
+import type { CanonicalObservation, DesiredExtensionNode } from "@agentxm/workspace/desired-state";
 import type { WorkspaceRuleContext } from "../../../../workspace-context.js";
 import { desiredStateReconcilableRule } from "../../desired-state-reconcilable.js";
 import { sourceEndpointsAlignedRule } from "../../source-endpoints-aligned.js";

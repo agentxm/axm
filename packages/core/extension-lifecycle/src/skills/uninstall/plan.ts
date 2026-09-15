@@ -10,6 +10,16 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
+import {
+  DesiredStateReader,
+  LockfileReader,
+  WorkspaceLocation,
+  WorkspaceRecords,
+  type WorkspaceLayout,
+  type WorkspaceLocationService,
+} from "@agentxm/workspace/desired-state";
+
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -18,21 +28,23 @@ import {
   SkillManager,
   skillArtifactFromTargets,
   type InstallableSkillTarget,
-} from "@agentxm/extension-materialization";
-import { buildUninstallOperation } from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/materialization";
+import { buildUninstallOperation } from "@agentxm/workspace/reconciliation";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-sources";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
-import type { JobStepArtifactTarget, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
+import type {
+  JobStepArtifactTarget,
+  Plan,
+  PlannedJobStep,
+} from "@agentxm/workspace/transitions/planning";
+import { CodingAgentRepository } from "@agentxm/workspace/projection";
 import {
-  WorkspaceMutations,
   acquiredExtensionDisplayPathFromLockEntry,
   installedRowsByName,
   sanitizeName,
   type SkillExtensionTarget,
   type SkillLockEntry,
-  type WorkspaceMutationsService,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
@@ -42,7 +54,7 @@ import {
   type InstallStepRequirements,
   type ResolveInstallRequirements,
 } from "../../install/vocabulary.js";
-import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace-reconciliation";
+import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace/reconciliation";
 import type { SkillUninstallIntent } from "../../uninstall/vocabulary.js";
 import {
   workspaceAuthoredPath,
@@ -53,20 +65,24 @@ import {
 } from "../../workspace-paths.js";
 
 const skillSourceTarget = (
-  ws: WorkspaceMutationsService,
+  location: WorkspaceLocationService,
+  layout: WorkspaceLayout,
   path: Path.Path,
   configuredSource: Option.Option<string>,
   lockEntry: Option.Option<SkillLockEntry>,
   sanitizedName: string,
 ): JobStepArtifactTarget => {
   if (Option.isSome(configuredSource) && configuredSource.value === "workspace") {
-    return { path: workspaceAuthoredPath(path, ws, "skill", sanitizedName), change: "unchanged" };
+    return {
+      path: workspaceAuthoredPath(path, location, layout, "skill", sanitizedName),
+      change: "unchanged",
+    };
   }
   if (Option.isSome(lockEntry)) {
     const entry = lockEntry.value;
     return {
       path: acquiredExtensionDisplayPathFromLockEntry(
-        workspaceCanonicalRoot(ws.scope),
+        workspaceCanonicalRoot(location.scope),
         entry,
         "skills",
         entry.workspaceName,
@@ -74,7 +90,7 @@ const skillSourceTarget = (
       change: "removed",
     };
   }
-  return { path: workspaceCanonicalPath(ws.scope, sanitizedName), change: "removed" };
+  return { path: workspaceCanonicalPath(location.scope, sanitizedName), change: "removed" };
 };
 
 /** Expand the selector against installed skills; a glob may match nothing. */
@@ -85,8 +101,8 @@ export const parseSkillUninstallRequest: (
   ExtensionLifecycleFailed,
   InstallStepRequirements | ResolveInstallRequirements
 > = Effect.fn("UninstallExtensions.parseSkillRequest")(function* (selector: string) {
-  const ws = yield* WorkspaceMutations;
-  const installedSkills = yield* ws.records.rows("skill").pipe(
+  const records = yield* WorkspaceRecords;
+  const installedSkills = yield* records.rows("skill").pipe(
     Effect.mapError((cause) =>
       installRefused({
         category: "internal",
@@ -141,11 +157,14 @@ export const planSkillUninstall: (
   ExtensionLifecycleFailed,
   InstallStepRequirements | SkillManager | FileSystem.FileSystem | Path.Path
 > = Effect.fn("UninstallExtensions.planSkills")(function* (intent: SkillUninstallIntent) {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const layout = yield* Ref.get(location.layout);
+  const desiredState = yield* DesiredStateReader;
+  const lockfile = yield* LockfileReader;
   const skillManager = yield* SkillManager;
   const agentRepo = yield* CodingAgentRepository;
   const path = yield* Path.Path;
-  const retentionPolicy = makeWorkspaceRetentionPolicy(ws, lifecycleStepFailure);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, lifecycleStepFailure);
 
   const configuredAgents = yield* agentRepo.getMaterializationAgents().pipe(
     Effect.mapError((cause) =>
@@ -160,7 +179,7 @@ export const planSkillUninstall: (
     configuredAgents,
     (agent) =>
       agent
-        .resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir })
+        .resolveEffectiveSkillsDir({ workspaceRoot: location.baseDir })
         .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
     { concurrency: "unbounded" },
   ).pipe(
@@ -188,11 +207,12 @@ export const planSkillUninstall: (
           skillManager.getConfiguredSource === undefined
             ? Option.none<string>()
             : yield* skillManager.getConfiguredSource({ target });
-        const lockEntry = yield* ws
-          .getLockedSkill(target.name)
+        const lockEntry = yield* lockfile
+          .entry("skill", target.name)
           .pipe(Effect.catch(() => Effect.succeed(Option.none())));
         const sourceTarget = skillSourceTarget(
-          ws,
+          location,
+          layout,
           path,
           configuredSource,
           lockEntry,
@@ -200,13 +220,13 @@ export const planSkillUninstall: (
         );
         const removedArtifact = yield* skillArtifactFromTargets({
           targets: installableTargets,
-          workspaceRoot: ws.baseDir,
+          workspaceRoot: location.baseDir,
           sanitizedName,
-          scope: ws.scope,
+          scope: location.scope,
           change: "removed",
           workspaceTargets: [
-            { path: workspaceLockfilePath(ws.scope), change: "updated" },
-            { path: workspaceSettingsPath(ws.scope), change: "updated" },
+            { path: workspaceLockfilePath(location.scope), change: "updated" },
+            { path: workspaceSettingsPath(location.scope), change: "updated" },
             sourceTarget,
           ],
         });
@@ -214,13 +234,13 @@ export const planSkillUninstall: (
         // its package, and its projections: only the direct declaration goes.
         const retainedArtifact = yield* skillArtifactFromTargets({
           targets: installableTargets,
-          workspaceRoot: ws.baseDir,
+          workspaceRoot: location.baseDir,
           sanitizedName,
-          scope: ws.scope,
+          scope: location.scope,
           change: "unchanged",
           workspaceTargets: [
-            { path: workspaceLockfilePath(ws.scope), change: "unchanged" },
-            { path: workspaceSettingsPath(ws.scope), change: "updated" },
+            { path: workspaceLockfilePath(location.scope), change: "unchanged" },
+            { path: workspaceSettingsPath(location.scope), change: "updated" },
             { path: sourceTarget.path, change: "unchanged" },
           ],
         });

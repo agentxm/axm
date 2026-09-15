@@ -35,17 +35,20 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
   ConfiguredAgentOutcomesProvider,
   LockfileReader,
   SettingsReader,
+  SettingsWriter,
   WorkspaceLocation,
-  WorkspaceMutations,
   WorkspaceRecords,
   type WorkspaceStateReadFailure,
-} from "@agentxm/workspace-state";
-import { FootprintRecorder, WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/desired-state";
+import {
+  FootprintRecorder,
+  WorkspaceTransactionScope,
+} from "@agentxm/workspace/transitions/settlement";
 
 import {
   WorkspaceConfigurationFailed,
@@ -150,7 +153,7 @@ export const prepareAddInlineMcpServer = (
 ): Effect.Effect<
   AddInlineMcpServerCandidate | InlineMcpServerUnchanged,
   WorkspaceConfigurationFailed | WorkspaceStateReadFailure,
-  WorkspaceMutations
+  SettingsReader | WorkspaceLocation
 > =>
   Effect.gen(function* () {
     if (request.command === undefined && request.url === undefined) {
@@ -172,7 +175,8 @@ export const prepareAddInlineMcpServer = (
       });
     }
 
-    const workspace = yield* WorkspaceMutations;
+    const settings = yield* SettingsReader;
+    const location = yield* WorkspaceLocation;
     const env = yield* parseInlineMcpEnv(request.env);
     const headers = yield* parseInlineMcpHeaders(request.headers);
     if (request.url !== undefined) yield* validateInlineMcpRemoteUrl(request.url);
@@ -183,7 +187,7 @@ export const prepareAddInlineMcpServer = (
       },
       headers,
     );
-    const configured = yield* workspace.getConfiguredMcpServerEntries();
+    const configured = yield* settings.entries("mcp-server");
     const existing = configured[request.name];
     if (matchesInlineMcpEntry({ existing, definition, env })) {
       return {
@@ -199,7 +203,7 @@ export const prepareAddInlineMcpServer = (
       definition,
       env,
       replacesExistingEntry: existing !== undefined,
-      scope: workspace.scope,
+      scope: location.scope,
     } satisfies AddInlineMcpServerCandidate;
   });
 
@@ -213,15 +217,13 @@ const configArtifact = (
   targets: [{ path: settingsDisplayPath(scope), change }],
 });
 
-const recordStep = (
-  candidate: AddInlineMcpServerCandidate,
-): PlannedJobStep<WorkspaceMutations> => ({
+const recordStep = (candidate: AddInlineMcpServerCandidate): PlannedJobStep<SettingsWriter> => ({
   label: `Configure ${candidate.name}`,
   readiness: "ready",
   run: Effect.gen(function* () {
-    const workspace = yield* WorkspaceMutations;
-    yield* workspace
-      .setMcpServerEntry(candidate.name, {
+    const settings = yield* SettingsWriter;
+    yield* settings
+      .setEntry("mcp-server", candidate.name, {
         kind: "inline",
         ...(candidate.definition.type === "stdio"
           ? { command: candidate.definition.command, args: candidate.definition.args }
@@ -250,14 +252,15 @@ const recordStep = (
 const projectStep = (
   candidate: AddInlineMcpServerCandidate,
 ): PlannedJobStep<
-  NativeWriteAuthority | WorkspaceMutations | FileSystem.FileSystem | Path.Path
+  NativeWriteAuthority | SettingsReader | WorkspaceLocation | FileSystem.FileSystem | Path.Path
 > => ({
   label: `Sync ${candidate.name} to configured agents`,
   readiness: "ready",
   run: Effect.gen(function* () {
-    const workspace = yield* WorkspaceMutations;
-    const entries = yield* workspace
-      .getConfiguredMcpServerEntries()
+    const settings = yield* SettingsReader;
+    const location = yield* WorkspaceLocation;
+    const entries = yield* settings
+      .entries("mcp-server")
       .pipe(Effect.mapError(workspaceChangeFailedToStepFailure));
     const entry = entries[candidate.name];
     if (entry === undefined) {
@@ -266,14 +269,14 @@ const projectStep = (
         message: `${candidate.name} is not configured`,
       } satisfies JobStepResult;
     }
-    const agentIds = yield* workspace
-      .getConfiguredAgents()
-      .pipe(Effect.mapError(workspaceChangeFailedToStepFailure));
+    const agentIds = yield* settings.configuredAgents.pipe(
+      Effect.mapError(workspaceChangeFailedToStepFailure),
+    );
     const outcomes = yield* syncInlineMcpServerToAgents(agentIds, {
-      workspaceRoot: workspace.baseDir,
+      workspaceRoot: location.baseDir,
       serverName: candidate.name,
       entry,
-      scope: workspace.scope,
+      scope: location.scope,
     }).pipe(Effect.mapError(nativeFailureToStepFailure));
     const warningDetails = outcomes.flatMap((outcome, index) => {
       const agentId = agentIds[index] ?? "unknown";
@@ -357,7 +360,7 @@ export type AddInlineMcpServerRequirements =
   | LockfileReader
   | SettingsReader
   | WorkspaceLocation
-  | WorkspaceMutations
+  | SettingsWriter
   | WorkspaceRecords
   | WorkspaceTransactionScope;
 

@@ -28,7 +28,7 @@
         "{projectRoot}/scripts/generate-e2e-extension-matrix.ts",
         "{projectRoot}/src/**/*.ts",
         "{workspaceRoot}/packages/core/extension-model/src/unstable/extensions/common.ts",
-        "{workspaceRoot}/packages/core/workspace-state/src/workspace/configured-agent-outcomes.ts",
+        "{workspaceRoot}/packages/core/workspace/src/desired-state/workspace/configured-agent-outcomes.ts",
         "{workspaceRoot}/.prettierrc.json"
       ],
       "outputs": ["{workspaceRoot}/apps/cli-e2e/src/__generated__/extension-type-matrix.ts"],

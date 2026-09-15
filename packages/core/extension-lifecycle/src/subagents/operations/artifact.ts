@@ -1,4 +1,7 @@
-import type { JobStepArtifact, JobStepArtifactTarget } from "@agentxm/workspace-operations";
+import type {
+  JobStepArtifact,
+  JobStepArtifactTarget,
+} from "@agentxm/workspace/transitions/planning";
 
 export const SUBAGENT_CONFIG_SURFACE = ".axm (config/lockfile)";
 

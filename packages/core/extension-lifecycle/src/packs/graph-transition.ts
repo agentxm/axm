@@ -11,12 +11,11 @@
  */
 
 import * as Effect from "effect/Effect";
-
 import {
-  WorkspaceMutations,
+  DesiredStateReader,
   desiredStateProblemsText,
   type DesiredExtensionNode,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import type { ExtensionLifecycleFailed } from "../errors.js";
 import { installRefused } from "../install/vocabulary.js";
@@ -49,10 +48,10 @@ export const validatePackGraphPostcondition = (args: {
   readonly requiredMembers?: ReadonlyArray<RequiredMember>;
   readonly absent?: ReadonlyArray<AbsentNode>;
   readonly inactive?: ReadonlyArray<AbsentNode>;
-}): Effect.Effect<void, ExtensionLifecycleFailed, WorkspaceMutations> =>
+}): Effect.Effect<void, ExtensionLifecycleFailed, DesiredStateReader> =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const graph = yield* ws.getDesiredStateGraph().pipe(
+    const desiredState = yield* DesiredStateReader;
+    const graph = yield* desiredState.graph().pipe(
       Effect.mapError((cause) =>
         installRefused({
           category: "internal",

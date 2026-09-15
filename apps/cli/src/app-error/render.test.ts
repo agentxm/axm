@@ -7,7 +7,7 @@ describe("renderAppError", () => {
     const error = new AppError({
       code: "internal",
       title: "Internal Error",
-      detail: "WorkspaceMutations not initialized",
+      detail: "Workspace state not initialized",
       suggestions: [{ description: "Create a workspace to continue." }],
       cause: undefined,
     });
@@ -16,7 +16,7 @@ describe("renderAppError", () => {
 
     expect(result).toBe(
       [
-        "\u2716 WorkspaceMutations not initialized (internal)",
+        "\u2716 Workspace state not initialized (internal)",
         "  Next",
         "    Create a workspace to continue.",
       ].join("\n"),

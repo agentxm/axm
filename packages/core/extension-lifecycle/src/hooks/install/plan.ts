@@ -9,10 +9,12 @@
  */
 
 import * as Effect from "effect/Effect";
+import { LockfileReader, WorkspaceLocation } from "@agentxm/workspace/desired-state";
+
 import * as Option from "effect/Option";
 
-import { HookManager } from "@agentxm/extension-materialization";
-import { buildInstallOperation } from "@agentxm/workspace-reconciliation";
+import { HookManager } from "@agentxm/workspace/materialization";
+import { buildInstallOperation } from "@agentxm/workspace/reconciliation";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
@@ -29,16 +31,15 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { applyPlannedProjections } from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/transitions/planning";
+import { applyPlannedProjections } from "@agentxm/workspace/projection";
 import {
   ACQUIRED_EXTENSIONS_DIR,
-  WorkspaceMutations,
   acquiredExtensionDisplayPath,
   acquiredExtensionDisplayPathFromLockEntry,
   type ConfiguredAgentOutcome,
   type HookLockEntry,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { lifecycleStepFailure } from "../../step-failure.js";
@@ -193,7 +194,8 @@ export const planHookInstall: (
   ExtensionLifecycleFailed,
   InstallStepRequirements | HookManager
 > = Effect.fn("InstallExtensions.planHooks")(function* (intent: HookInstallIntent) {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const lockfile = yield* LockfileReader;
   const hookManager = yield* HookManager;
   const deferProjections = intent.deferProjections === true || intent.refs.length > 1;
   const memberSteps = yield* Effect.forEach(
@@ -207,10 +209,10 @@ export const planHookInstall: (
           hookManager.configuredAgentOutcomesForRef === undefined
             ? []
             : yield* hookManager.configuredAgentOutcomesForRef(ref, "projected");
-        const previewPath = hookRefArtifactPath(ref, ws.scope);
+        const previewPath = hookRefArtifactPath(ref, location.scope);
         const previewArtifact = {
           path: previewPath,
-          scope: ws.scope,
+          scope: location.scope,
           agents: agentOutcomes
             .filter(({ outcome }) => outcome !== "blocked")
             .map(({ agentId }) => agentId),
@@ -256,15 +258,15 @@ export const planHookInstall: (
                 hookManager.configuredAgentOutcomesForRef === undefined
                   ? []
                   : yield* hookManager.configuredAgentOutcomesForRef(ref, "current");
-              const currentLockEntry = yield* ws
-                .getLockedHookEntry(ref.hook.name)
+              const currentLockEntry = yield* lockfile
+                .entry("hook", ref.hook.name)
                 .pipe(Effect.catch(() => Effect.succeed(Option.none())));
               if (Option.isNone(currentLockEntry)) {
-                const path = hookRefArtifactPath(ref, ws.scope);
+                const path = hookRefArtifactPath(ref, location.scope);
                 const change = installedBefore ? "updated" : "created";
                 return {
                   path,
-                  scope: ws.scope,
+                  scope: location.scope,
                   ...(ref.refType === "registry" || ref.refType === "workspace"
                     ? { version: ref.version }
                     : {}),
@@ -280,7 +282,7 @@ export const planHookInstall: (
               return hookInstallArtifact({
                 lockEntry: currentLockEntry.value,
                 installedBefore,
-                scope: ws.scope,
+                scope: location.scope,
                 agents: materialization.agents,
                 agentOutcomes: appliedOutcomes,
                 targets: materialization.targets.map((target) => ({

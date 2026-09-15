@@ -25,7 +25,7 @@ import {
   type ReleaseAgeAwarePackDependencyResolution,
   type SourceAuthorityBlocked,
   type WorkspacePackDependencyResolver,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/workspace/resolution";
 
 /** Failures pack expansion can surface. */
 type PackExpansionError =

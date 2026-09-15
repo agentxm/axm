@@ -22,7 +22,7 @@ import {
   EXTENSION_TYPE_TABLE,
   extensionTypes,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import { EXTENSION_CONFIGURED_AGENT_POLICY } from "@agentxm/workspace-state";
+import { EXTENSION_CONFIGURED_AGENT_POLICY } from "@agentxm/workspace/desired-state";
 
 const PROJECT_ROOT = path.join(import.meta.dirname, "..");
 const OUTPUT_PATH = path.join(

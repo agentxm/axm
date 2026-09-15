@@ -1,26 +1,13 @@
-/**
- * Default no-op stubs for workspace getter methods on WorkspaceMutationsService.
- * Spread into test mocks to satisfy the interface without implementing every method.
- *
- * @internal Test-only. Not exported from the barrel.
- */
+/** @internal Test-only CLI workspace fixtures. */
 
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
-import {
-  type WorkspaceMutationsService,
-  type ExtensionInventory,
-  type PackagingKind,
-  type ReadModelRecordRow,
-  TreeIntegritySchema,
-  computeSourceHash,
-} from "@agentxm/workspace-state";
-import { NO_MATERIALIZATION_OBSERVATION } from "@agentxm/extension-materialization";
+import { TreeIntegritySchema, computeSourceHash } from "@agentxm/workspace/desired-state";
+import { NO_MATERIALIZATION_OBSERVATION } from "@agentxm/workspace/materialization";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
-import { type InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
 import {
   ExtensionDependencyConstraintMapSchema,
@@ -32,13 +19,11 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import {
   makeRegistryPackLockEntry as buildRegistryPackLockEntry,
-  type HookLockEntry,
   type RegistryPackLockEntry,
-  type RuleLockEntry,
   type SkillLockEntry,
   type WorkspaceLayout,
   type WorkspaceLocationService,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import {
   decodeVersionSync,
   decodeVersionRangeSync,
@@ -49,9 +34,6 @@ import {
   decodeAbsolutePathSync,
   decodeRelativePathSync,
 } from "@agentxm/extension-model/unstable/path-types";
-
-type WorkspaceMockOverrides = Partial<WorkspaceMutationsService> &
-  Partial<WorkspaceMutationsService["records"]>;
 
 /**
  * What a stub manager reports from a materialization: nothing acquired and
@@ -75,18 +57,6 @@ export const managerLifecycleStubs = {
   aggregateProjectionObservation: Effect.succeed(NO_MATERIALIZATION_OBSERVATION),
 };
 
-const emptyRows = (): Effect.Effect<ReadonlyArray<ReadModelRecordRow>> => Effect.succeed([]);
-const emptyInventory = (): Effect.Effect<ExtensionInventory> =>
-  Effect.succeed({
-    items: [],
-    count: 0,
-    configuredCount: 0,
-    implicitCount: 0,
-    installedCount: 0,
-    leftoverCount: 0,
-    undeclaredCount: 0,
-    unmanagedCount: 0,
-  });
 const fs = (() => {
   const module = process.getBuiltinModule("node:fs");
   if (!module) {
@@ -109,100 +79,6 @@ const crypto = (() => {
   return module;
 })();
 
-/** Build a `configured` read-model row for `records.rows` stubs. */
-export const configuredRow = (args: {
-  readonly type: InstallableExtensionType;
-  readonly name: string;
-  readonly source: string;
-  readonly enabled?: boolean;
-  readonly packagingKind?: PackagingKind;
-}): ReadModelRecordRow => ({
-  type: args.type,
-  name: args.name,
-  source: args.source,
-  enabled: args.enabled ?? true,
-  packagingKind: args.packagingKind ?? "native",
-  lifecycle: "configured",
-});
-
-/** Build an `implicit` read-model row (pack member or lockfile-only entry). */
-export const implicitRow = (args: {
-  readonly type: InstallableExtensionType;
-  readonly name: string;
-  readonly source?: string;
-  readonly packagingKind?: PackagingKind;
-}): ReadModelRecordRow => ({
-  type: args.type,
-  name: args.name,
-  source: Option.fromUndefinedOr(args.source),
-  enabled: true,
-  packagingKind: args.packagingKind ?? "native",
-  lifecycle: "implicit",
-});
-
-/** Build an `unmanaged` read-model row (observed on disk, unclaimed). */
-export const unmanagedRow = (args: {
-  readonly type: InstallableExtensionType;
-  readonly name: string;
-  readonly locations?: ReadonlyArray<string>;
-  readonly packagingKind?: PackagingKind;
-}): ReadModelRecordRow => ({
-  type: args.type,
-  name: args.name,
-  source: Option.none(),
-  enabled: true,
-  packagingKind: args.packagingKind ?? "non-native",
-  locations: args.locations ?? [],
-  agents: [],
-  ownershipEvidence: [],
-  lifecycle: "unmanaged",
-});
-
-/**
- * Build a `records.rows` stub from per-type row lists. Types absent from the
- * map yield an empty array, matching the real reader's totality.
- */
-export const rowsFor =
-  (byType: Partial<Record<InstallableExtensionType, ReadonlyArray<ReadModelRecordRow>>>) =>
-  (type: InstallableExtensionType): Effect.Effect<ReadonlyArray<ReadModelRecordRow>> =>
-    Effect.succeed(byType[type] ?? []);
-
-/**
- * No-op stubs for all read-model record getters. Spread into mock objects:
- * ```ts
- * const ws: WorkspaceMutationsService = {
- *   records: readModelRecordStubs,
- *   // your overrides
- * };
- * ```
- */
-export const readModelRecordStubs = {
-  getInventory: () =>
-    Effect.succeed({
-      items: [],
-      count: 0,
-      configuredCount: 0,
-      implicitCount: 0,
-      installedCount: 0,
-      leftoverCount: 0,
-      undeclaredCount: 0,
-      unmanagedCount: 0,
-    }),
-  getExtensionInventory: emptyInventory,
-  rows: emptyRows,
-} as const;
-
-/**
- * Base workspace mock with no-op defaults for all methods.
- * Tests should only override the methods they exercise.
- *
- * @example
- * ```ts
- * const ws = makeBaseWorkspaceMock("/tmp/axm", {
- *   setSkill: vi.fn(() => Effect.void),
- * });
- * ```
- */
 /**
  * The resolved workspace location a test runs against.
  *
@@ -245,141 +121,6 @@ export const makeWorkspaceLocationMock = (
     };
     return location;
   });
-
-export const makeBaseWorkspaceMock = (
-  axmDir = "/tmp/axm",
-  overrides?: WorkspaceMockOverrides,
-): WorkspaceMutationsService => {
-  const baseDir = axmDir.replace(/\/\.axm$/, "") || "/tmp";
-  const { rows, records: recordOverrides, ...serviceOverrides } = overrides ?? {};
-  const records = {
-    ...readModelRecordStubs,
-    ...(rows === undefined ? {} : { rows }),
-    ...(recordOverrides ?? {}),
-  };
-  const base = {
-    scope: "project",
-    path: axmDir,
-    baseDir,
-    layout: {
-      scope: "project",
-      workspaceRoot: decodeAbsolutePathSync(baseDir),
-      projectRoot: decodeAbsolutePathSync(baseDir),
-      settingsPath: decodeAbsolutePathSync(path.join(baseDir, "axm.json")),
-      lockPath: decodeAbsolutePathSync(path.join(baseDir, "axm-lock.yaml")),
-      runtimeDir: decodeAbsolutePathSync(path.join(baseDir, ".axm")),
-      acquiredRoot: decodeAbsolutePathSync(path.join(baseDir, "agent_extensions")),
-      authoredRoot: (type: InstallableExtensionType) =>
-        decodeAbsolutePathSync(path.join(baseDir, type === "mcp-server" ? "mcps" : `${type}s`)),
-    },
-    records,
-    getLockfileState: () => Effect.succeed("ok" as const),
-    getDesiredStateGraph: () =>
-      Effect.succeed({
-        complete: true,
-        nodes: [],
-        mcpSourceClosures: [],
-        problems: [],
-      }),
-    getConfiguredSources: () => Effect.succeed([]),
-    getConfiguredSourceByName: () => Effect.succeed(Option.none()),
-    getRegistrySourceHosts: () => Effect.succeed([]),
-    getConfiguredOwner: () => Effect.succeed(Option.none()),
-    setOwner: () => Effect.void,
-    getPublishDefaultVisibility: () => Effect.succeed(Option.none()),
-    getMinimumReleaseAge: () => Effect.succeed("24h"),
-    getMinimumReleaseAgeExclude: () => Effect.succeed([]),
-    addConfiguredSource: () => Effect.void,
-    getConfiguredSkillEntries: () => Effect.succeed({}),
-    getConfiguredRuleEntries: () => Effect.succeed({}),
-    getConfiguredHookEntries: () => Effect.succeed({}),
-    getLockedRules: () => Effect.succeed({}),
-    getLockedRuleEntry: () => Effect.succeed(Option.none<RuleLockEntry>()),
-    setRule: () => Effect.void,
-    setRuleLock: () => Effect.void,
-    removeRule: () => Effect.void,
-    removeRuleSettings: () => Effect.void,
-    removeRuleLock: () => Effect.void,
-    updateRuleEntry: () => Effect.void,
-    setRuleEntry: () => Effect.void,
-    getLockedHooks: () => Effect.succeed({}),
-    getLockedHookEntry: () => Effect.succeed(Option.none<HookLockEntry>()),
-    setHook: () => Effect.void,
-    setHookLock: () => Effect.void,
-    removeHook: () => Effect.void,
-    removeHookSettings: () => Effect.void,
-    removeHookLock: () => Effect.void,
-    updateHookEntry: () => Effect.void,
-    setHookEntry: () => Effect.void,
-    getConfiguredKnowledgeEntries: () => Effect.succeed({}),
-    getKnowledgeDiscoveryConfig: () => Effect.succeed({ instructions: true }),
-    getLockedKnowledge: () => Effect.succeed({}),
-    getLockedKnowledgeEntry: () => Effect.succeed(Option.none()),
-    setKnowledge: () => Effect.void,
-    setKnowledgeLock: () => Effect.void,
-    removeKnowledge: () => Effect.void,
-    removeKnowledgeSettings: () => Effect.void,
-    removeKnowledgeLock: () => Effect.void,
-    updateKnowledgeEntry: () => Effect.void,
-    setKnowledgeEntry: () => Effect.void,
-    getConfiguredPackEntries: () => Effect.succeed({}),
-    getConfiguredAgents: () => Effect.succeed(["claude-code"]),
-    getInstructionsConfig: () => Effect.succeed(Option.none()),
-    setInstructionsConfig: () => Effect.void,
-    getLockedSkills: () => Effect.succeed({}),
-    getLockedSkill: () => Effect.succeed(Option.none()),
-    getSkillDir: () =>
-      Effect.succeed({
-        canonicalPath: `${axmDir}/extensions/agentxm/@test/skills/test`,
-        skillSrcPath: `${axmDir}/extensions/agentxm/@test/skills/test/src`,
-      }),
-    setSkill: () => Effect.void,
-    setSkillLock: () => Effect.void,
-    removeSkill: () => Effect.void,
-    removeSkillFromSettings: () => Effect.void,
-    updateSkillEntry: () => Effect.void,
-    setSkillEntry: () => Effect.void,
-    addConfiguredAgent: () => Effect.void,
-    removeConfiguredAgent: () => Effect.void,
-    getLockedPacks: () => Effect.succeed({}),
-    getLockedPack: () => Effect.succeed(Option.none()),
-    setPack: () => Effect.void,
-    setPackLock: () => Effect.void,
-    setPackEntry: () => Effect.void,
-    removePack: () => Effect.void,
-    getPackDir: () => Effect.succeed({ canonicalPath: `${axmDir}/extensions/@test/packs/test` }),
-    getLockedSubagents: () => Effect.succeed({}),
-    getLockedSubagent: () => Effect.succeed(Option.none()),
-    getConfiguredSubagentEntries: () => Effect.succeed({}),
-    setSubagent: () => Effect.void,
-    setSubagentLock: () => Effect.void,
-    removeSubagent: () => Effect.void,
-    updateSubagentEntry: () => Effect.void,
-    setSubagentEntry: () => Effect.void,
-    removeSubagentSettings: () => Effect.void,
-    removeSubagentLock: () => Effect.void,
-    getLockedMcpServers: () => Effect.succeed({}),
-    getLockedMcpServer: () => Effect.succeed(Option.none()),
-    getLockedMcpServerForConnection: () => Effect.succeed(Option.none()),
-    getConfiguredMcpServerEntries: () => Effect.succeed({}),
-    setMcpServer: () => Effect.void,
-    setMcpServerLock: () => Effect.void,
-    removeMcpServer: () => Effect.void,
-    updateMcpServerEntry: () => Effect.void,
-    setMcpServerEntry: () => Effect.void,
-    removeSkillLock: () => Effect.void,
-    removeMcpServerSettings: () => Effect.void,
-    removeMcpServerLock: () => Effect.void,
-    removePackSettings: () => Effect.void,
-    removePackLock: () => Effect.void,
-    isExtensionRequiredByInstalledPack: () => Effect.succeed(false),
-  } satisfies WorkspaceMutationsService;
-  return {
-    ...base,
-    ...serviceOverrides,
-    layout: serviceOverrides.layout ?? base.layout,
-  };
-};
 
 const TEST_CONTENT_IDENTITY = Schema.decodeUnknownSync(SourceHashSchema)("test-content");
 const TEST_TREE_INTEGRITY = Schema.decodeUnknownSync(TreeIntegritySchema)(

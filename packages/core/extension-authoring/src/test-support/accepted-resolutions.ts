@@ -12,8 +12,8 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 
 import {
@@ -26,10 +26,11 @@ import {
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import {
-  WorkspaceMutations,
+  AcceptedResolutionWriter,
+  WorkspaceLocation,
   computeMaterializedTreeIntegrity,
   mcpRegistryResolutionKey,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 /** The Registry an accepted resolution in these specifications came from. */
 export const SPEC_REGISTRY_ENDPOINT = "https://registry.example.com/";
@@ -61,11 +62,13 @@ export interface AcceptedRegistryResolution {
  */
 export const seedAcceptedRegistryResolution = Effect.fn("seedAcceptedRegistryResolution")(
   function* (resolution: AcceptedRegistryResolution) {
-    const ws = yield* WorkspaceMutations;
+    const accepted = yield* AcceptedResolutionWriter;
+    const location = yield* WorkspaceLocation;
+    const layout = yield* Ref.get(location.layout);
     const path = yield* Path.Path;
     const owner = decodeHandleSync(resolution.owner);
     const canonicalPath = path.join(
-      ws.layout.acquiredRoot,
+      layout.acquiredRoot,
       "agentxm",
       owner,
       extensionTypeToPlural[resolution.type],
@@ -88,58 +91,50 @@ export const seedAcceptedRegistryResolution = Effect.fn("seedAcceptedRegistryRes
       treeIntegrity,
     } as const;
 
-    const versionRange = Option.none<string>();
     switch (resolution.type) {
       case "skill":
-        return yield* ws.setSkillLock({
-          name: resolution.name,
-          lockEntry: { ...shared, extensionType: "skill" },
-          versionRange,
+        return yield* accepted.setAccepted("skill", resolution.name, {
+          ...shared,
+          extensionType: "skill",
         });
       case "subagent":
-        return yield* ws.setSubagentLock({
-          name: resolution.name,
-          lockEntry: { ...shared, extensionType: "subagent" },
-          versionRange,
+        return yield* accepted.setAccepted("subagent", resolution.name, {
+          ...shared,
+          extensionType: "subagent",
         });
       case "rule":
-        return yield* ws.setRuleLock({
-          name: resolution.name,
-          lockEntry: { ...shared, extensionType: "rule" },
-          versionRange,
+        return yield* accepted.setAccepted("rule", resolution.name, {
+          ...shared,
+          extensionType: "rule",
         });
       case "hook":
-        return yield* ws.setHookLock({
-          name: resolution.name,
-          lockEntry: { ...shared, extensionType: "hook" },
-          versionRange,
+        return yield* accepted.setAccepted("hook", resolution.name, {
+          ...shared,
+          extensionType: "hook",
         });
       case "knowledge":
-        return yield* ws.setKnowledgeLock({
-          name: resolution.name,
-          lockEntry: { ...shared, extensionType: "knowledge" },
-          versionRange,
+        return yield* accepted.setAccepted("knowledge", resolution.name, {
+          ...shared,
+          extensionType: "knowledge",
         });
       case "pack":
         // A Pack row is flat rather than nested, and carries the manifest
         // identity the Registry accepted alongside the tree integrity.
-        return yield* ws.setPackLock({
+        return yield* accepted.setAccepted("pack", resolution.name, {
           ...shared,
           extensionType: "pack",
           manifestContentIdentity: decodeSourceHash(`sha256-${resolution.name}-manifest`),
-          versionRange,
         });
       case "mcp-server":
-        return yield* ws.setMcpServerLock({
-          name: resolution.name,
-          resolutionKey: mcpRegistryResolutionKey({
+        return yield* accepted.setAccepted(
+          "mcp-server",
+          mcpRegistryResolutionKey({
             authority: SPEC_REGISTRY_ENDPOINT,
             owner,
             name: resolution.name,
           }),
-          lockEntry: { ...shared, extensionType: "mcp-server" },
-          versionRange,
-        });
+          { ...shared, extensionType: "mcp-server" },
+        );
     }
   },
 );

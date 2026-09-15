@@ -3,7 +3,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type * as Schema from "effect/Schema";
 
-import { subscribeLossless, type OperationEvent } from "@agentxm/workspace-operations";
+import { subscribeLossless, type OperationEvent } from "@agentxm/workspace/transitions/planning";
 
 import type { Doc } from "../screen/doc.js";
 import { paintText, type PaintStyle } from "../screen/paint-text.js";

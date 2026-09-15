@@ -7,16 +7,16 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
-import { SettingsWriter, WorkspaceRecords } from "@agentxm/workspace-state";
+import { SettingsWriter, WorkspaceRecords } from "@agentxm/workspace/desired-state";
 import {
   configuredRow,
   MockWorkspaceTransactionScope,
   WorkspaceReadTest,
-} from "@agentxm/workspace-state/testing";
+} from "@agentxm/workspace/desired-state/testing";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
-} from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/projection";
 import { type CodingAgent } from "@agentxm/agent-integration";
 import { disableSubagent, type DisableSubagentOperation } from "./disable.js";
 import { TestStepFailureConversion } from "../../test-helpers.js";

@@ -13,6 +13,12 @@
 import * as Array from "effect/Array";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
+import {
+  LockfileReader,
+  WorkspaceLocation,
+  WorkspaceRecords,
+} from "@agentxm/workspace/desired-state";
+
 import * as Option from "effect/Option";
 
 import {
@@ -24,8 +30,8 @@ import type { ReleaseAgeEvidence } from "@agentxm/extension-model/unstable/exten
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { SubagentManager } from "@agentxm/extension-materialization";
-import { buildInstallOperation } from "@agentxm/workspace-reconciliation";
+import { SubagentManager } from "@agentxm/workspace/materialization";
+import { buildInstallOperation } from "@agentxm/workspace/reconciliation";
 import {
   classifyPublisherBindingTransition,
   makeConfiguredReleaseAgeEvaluation,
@@ -35,7 +41,7 @@ import {
   type PublisherBindingTransition,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeRecord,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/workspace/resolution";
 import { resolveSource, SourceHostProviders } from "@agentxm/extension-sources";
 import {
   operationPresentation,
@@ -44,12 +50,8 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import {
-  acceptedResolutionRef,
-  configuredRowsByName,
-  WorkspaceMutations,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/transitions/planning";
+import { acceptedResolutionRef, configuredRowsByName } from "@agentxm/workspace/desired-state";
 
 import { ExtensionLifecycleFailed } from "../../errors.js";
 import { withPublisherTrustConditions } from "../../publisher-binding.js";
@@ -159,12 +161,14 @@ const releaseAgeRecord = (args: {
 /** Settle a `subagents update` request: decide everything, write nothing. */
 export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate.prepare")(
   function* (request: SelectiveSubagentUpdateRequest) {
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const lockfile = yield* LockfileReader;
+    const records = yield* WorkspaceRecords;
     const sources = yield* SourceHostProviders;
     const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation();
 
-    const allSubagents = yield* ws.records.rows("subagent").pipe(Effect.map(configuredRowsByName));
-    const lockedSubagents = yield* ws.getLockedSubagents();
+    const allSubagents = yield* records.rows("subagent").pipe(Effect.map(configuredRowsByName));
+    const lockedSubagents = yield* lockfile.entries("subagent");
 
     const subagentEntries: ReadonlyArray<SelectiveUpdateEntry> = Object.entries(
       allSubagents,
@@ -448,7 +452,7 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
     };
     const skippedSteps = skipped
       .filter((item) => item.holdback === undefined)
-      .map((item) => skippedSubagentStep(ws.scope, item));
+      .map((item) => skippedSubagentStep(location.scope, item));
     const [firstJob, ...restJobs] = basePlanWithReleaseAge.jobs;
     const plan: Plan<SelectiveUpdateStepRequirements> =
       skippedSteps.length === 0

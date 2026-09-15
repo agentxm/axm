@@ -64,46 +64,46 @@
       "symbol": "McpTransportSchema"
     },
     "inventory-lifecycle": {
-      "path": "packages/core/workspace-state/src/workspace/read-model/extensions/inventory.ts",
+      "path": "packages/core/workspace/src/desired-state/workspace/read-model/extensions/inventory.ts",
       "symbol": "ExtensionInventoryLifecycleSchema"
     },
     "inventory-activation": {
-      "path": "packages/core/workspace-state/src/workspace/read-model/extensions/inventory.ts",
+      "path": "packages/core/workspace/src/desired-state/workspace/read-model/extensions/inventory.ts",
       "symbol": "ExtensionInventoryRowSchema",
       "projection": "enabled: boolean | null"
     },
     "inventory-materialization": {
-      "path": "packages/core/workspace-state/src/workspace/read-model/extensions/inventory.ts",
+      "path": "packages/core/workspace/src/desired-state/workspace/read-model/extensions/inventory.ts",
       "symbol": "ExtensionInventoryRowSchema",
       "projection": "installed: boolean"
     },
     "configured-agent-outcome": {
-      "path": "packages/core/workspace-state/src/workspace/configured-agent-outcome.ts",
+      "path": "packages/core/workspace/src/desired-state/workspace/configured-agent-outcome.ts",
       "symbol": "ConfiguredAgentOutcomeSchema",
       "projection": "outcome"
     },
     "unit-state": {
-      "path": "packages/core/workspace-operations/src/plan/operation-resolution.ts",
+      "path": "packages/core/workspace/src/transitions/planning/plan/operation-resolution.ts",
       "symbol": "UnitStateSchema"
     },
     "operation-outcome": {
-      "path": "packages/core/workspace-operations/src/plan/operation-resolution.ts",
+      "path": "packages/core/workspace/src/transitions/planning/plan/operation-resolution.ts",
       "symbol": "OperationOutcomeSchema"
     },
     "unit-disposition": {
-      "path": "packages/core/workspace-operations/src/plan/operation-resolution.ts",
+      "path": "packages/core/workspace/src/transitions/planning/plan/operation-resolution.ts",
       "symbol": "UnitDispositionSchema"
     },
     "operation-phase": {
-      "path": "packages/core/workspace-operations/src/plan/operation-resolution.ts",
+      "path": "packages/core/workspace/src/transitions/planning/plan/operation-resolution.ts",
       "symbol": "OperationPhaseSchema"
     },
     "atomicity-class": {
-      "path": "packages/core/workspace-operations/src/plan/operation-resolution.ts",
+      "path": "packages/core/workspace/src/transitions/planning/plan/operation-resolution.ts",
       "symbol": "AtomicityClassSchema"
     },
     "blocking-class": {
-      "path": "packages/core/workspace-operations/src/plan/plan.ts",
+      "path": "packages/core/workspace/src/transitions/planning/plan/plan.ts",
       "symbol": "BlockingClassSchema"
     },
     "operation-error": {

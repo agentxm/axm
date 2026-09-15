@@ -1,6 +1,6 @@
 /**
  * Spec test for lint-engine Phase 1: the plan pipeline primitives MUST be
- * reachable from the stable kernel export path `@agentxm/workspace-operations`
+ * reachable from the stable kernel export path `@agentxm/workspace/transitions/planning`
  * so that both this CLI and registry-side consumers can compose workspace
  * Operations without reaching into workspace-state internals. The interactive
  * preview/apply backbone lives on the same kernel path now that its
@@ -10,7 +10,7 @@
  */
 
 import { describe, expect, it } from "@effect/vitest";
-import * as Plan from "@agentxm/workspace-operations";
+import * as Plan from "@agentxm/workspace/transitions/planning";
 
 describe("Plan pipeline primitives available in shared kernel", () => {
   it("exports applyPlan from the stable kernel path", () => {

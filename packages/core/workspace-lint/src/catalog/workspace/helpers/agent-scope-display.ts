@@ -1,5 +1,5 @@
 import { extensionTypeSentenceLabels } from "@agentxm/extension-model/unstable/extensions/common";
-import type { AgentOutputObservation } from "@agentxm/workspace-projection";
+import type { AgentOutputObservation } from "@agentxm/workspace/projection";
 
 /** A path under the user home as `~/<relative>`; any other path unchanged. */
 export const userDisplayPath = (home: string, file: string): string => {

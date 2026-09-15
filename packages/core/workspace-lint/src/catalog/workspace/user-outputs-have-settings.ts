@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import type { AdvisoryRule, LintFinding } from "@agentxm/extension-content/lint";
-import type { AgentOutputOwnershipProof } from "@agentxm/workspace-projection";
+import type { AgentOutputOwnershipProof } from "@agentxm/workspace/projection";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import { EMPTY_LINT_FINDINGS } from "./helpers/empty.js";
 import { outputTypeLabel, userDisplayPath } from "./helpers/agent-scope-display.js";

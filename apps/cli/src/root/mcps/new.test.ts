@@ -5,7 +5,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { extensionName, writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {

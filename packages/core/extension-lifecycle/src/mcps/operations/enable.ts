@@ -8,7 +8,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
+import { CodingAgentRepository } from "@agentxm/workspace/projection";
 import {
   NativeWriteAuthority,
   syncInlineMcpServerToAgents,
@@ -18,31 +18,31 @@ import {
   normalizeHandle,
   parseExtensionFqnParts,
 } from "@agentxm/extension-model/unstable/extensions";
-import type { StepFailure } from "@agentxm/workspace-operations";
-import { appendWarningsToMessage } from "@agentxm/workspace-operations";
+import type { StepFailure } from "@agentxm/workspace/transitions/planning";
+import { appendWarningsToMessage } from "@agentxm/workspace/transitions/planning";
 import type {
   JobStepArtifactTarget,
   JobStepResult,
   Operation,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
   type DesiredStateReader,
   type LockfileReader,
   SettingsReader,
   SettingsWriter,
   WorkspaceLocation,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import {
   WorkspaceTransactionScope,
   runWorkspaceTransaction,
-} from "@agentxm/workspace-transactions";
-import type { McpServerLockEntry } from "@agentxm/workspace-state";
+} from "@agentxm/workspace/transitions/settlement";
+import type { McpServerLockEntry } from "@agentxm/workspace/desired-state";
 import {
   agentConfigTargets,
   mcpServerArtifact,
   mcpSettingsTarget,
-} from "@agentxm/extension-materialization";
-import { usableAcceptedCanonicalObservation } from "@agentxm/workspace-state";
+} from "@agentxm/workspace/materialization";
+import { usableAcceptedCanonicalObservation } from "@agentxm/workspace/desired-state";
 import { mcpSyncWarnings, requireSuccessfulMcpSync } from "./sync-outcome.js";
 import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";
 import { ExtensionLifecycleFailed } from "../../errors.js";

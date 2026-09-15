@@ -15,7 +15,10 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { AtomicityClass, PlanExecutionCapabilities } from "@agentxm/workspace-operations";
+import type {
+  AtomicityClass,
+  PlanExecutionCapabilities,
+} from "@agentxm/workspace/transitions/planning";
 
 /** A workspace-wide update settles each entry independently and undoes none. */
 export const WORKSPACE_UPDATE_ATOMICITY: AtomicityClass = "non-rollbackable";

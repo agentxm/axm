@@ -8,25 +8,29 @@ import { NativeWriteAuthority } from "@agentxm/agent-integration";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
+import { CodingAgentRepository } from "@agentxm/workspace/projection";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
-import type { StepFailure } from "@agentxm/workspace-operations";
-import { appendWarningsToMessage } from "@agentxm/workspace-operations";
+import type { StepFailure } from "@agentxm/workspace/transitions/planning";
+import { appendWarningsToMessage } from "@agentxm/workspace/transitions/planning";
 import type {
   JobStepArtifactTarget,
   JobStepResult,
   Operation,
-} from "@agentxm/workspace-operations";
-import { SettingsReader, SettingsWriter, WorkspaceLocation } from "@agentxm/workspace-state";
+} from "@agentxm/workspace/transitions/planning";
+import {
+  SettingsReader,
+  SettingsWriter,
+  WorkspaceLocation,
+} from "@agentxm/workspace/desired-state";
 import {
   WorkspaceTransactionScope,
   runWorkspaceTransaction,
-} from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/settlement";
 import {
   agentConfigTargets,
   mcpServerArtifact,
   mcpSettingsTarget,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import { mcpSyncWarnings, requireSuccessfulMcpSync } from "./sync-outcome.js";
 import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";
 import { ExtensionLifecycleFailed } from "../../errors.js";

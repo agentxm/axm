@@ -6,7 +6,7 @@ import { Screen, rawDoc, successDoc } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { makeUserArchiveCache } from "@agentxm/registry-client";
 import { withRuntime } from "../../runtime.js";
-import { observeUnit } from "@agentxm/workspace-operations";
+import { observeUnit } from "@agentxm/workspace/transitions/planning";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import {
   directWriteCapabilities,

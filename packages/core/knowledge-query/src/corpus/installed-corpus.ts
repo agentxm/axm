@@ -22,7 +22,7 @@ import {
 import {
   InstalledKnowledgeUnavailable,
   selectInstalledKnowledgeBundles,
-} from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/projection";
 
 import { KnowledgeCorpusUnavailable } from "../errors.js";
 import { captureKnowledgeIndexBundles } from "../knowledge-capture.js";

@@ -3,14 +3,14 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { preapprovedPlanExecution } from "@agentxm/workspace-operations/testing";
+import { preapprovedPlanExecution } from "@agentxm/workspace/transitions/planning/testing";
 import { SyncWorkspace } from "./sync-workspace.js";
 import { syncRequest } from "./testing.js";
 import {
   countUnitStates,
   deriveOperationOutcome,
   previewPlanExecution,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {

@@ -13,8 +13,8 @@ import * as nodePath from "node:path";
 import * as Effect from "effect/Effect";
 import { unzipSync } from "fflate";
 
-import { previewPlanExecution } from "@agentxm/workspace-operations";
-import { preapprovedPlanExecution } from "@agentxm/workspace-operations/testing";
+import { previewPlanExecution } from "@agentxm/workspace/transitions/planning";
+import { preapprovedPlanExecution } from "@agentxm/workspace/transitions/planning/testing";
 
 import {
   writeLocalHookPackage,

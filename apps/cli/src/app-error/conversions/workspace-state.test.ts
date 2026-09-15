@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { AppError, type AppErrorCode } from "../app-error.js";
 import { isKnownFailure, toAppError, type KnownFailure } from "../conversions.js";
-import { MaterializedTreeInvalid, PathTraversalDetected } from "@agentxm/workspace-state";
+import { MaterializedTreeInvalid, PathTraversalDetected } from "@agentxm/workspace/desired-state";
 
 interface ConversionCase {
   readonly name: string;

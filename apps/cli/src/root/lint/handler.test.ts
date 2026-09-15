@@ -20,25 +20,25 @@ import { afterEach, beforeEach } from "vitest";
 import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
-} from "@agentxm/workspace-projection/live";
+} from "@agentxm/workspace/projection/live";
 import { TestMachineRenderer, TestRenderer, logsByTag } from "../../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
-import { HookManagerLive } from "@agentxm/extension-materialization/live";
-import { ProjectionParticipantsLive } from "@agentxm/extension-materialization/live";
-import { KnowledgeManagerLive } from "@agentxm/extension-materialization/live";
-import { McpServerManagerLive } from "@agentxm/extension-materialization/live";
-import { PackManagerLive } from "@agentxm/extension-materialization/live";
-import { RuleManagerLive } from "@agentxm/extension-materialization/live";
-import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-projection/live";
-import { SkillManagerLive } from "@agentxm/extension-materialization/live";
+import { HookManagerLive } from "@agentxm/workspace/materialization/live";
+import { ProjectionParticipantsLive } from "@agentxm/workspace/materialization/live";
+import { KnowledgeManagerLive } from "@agentxm/workspace/materialization/live";
+import { McpServerManagerLive } from "@agentxm/workspace/materialization/live";
+import { PackManagerLive } from "@agentxm/workspace/materialization/live";
+import { RuleManagerLive } from "@agentxm/workspace/materialization/live";
+import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
+import { SkillManagerLive } from "@agentxm/workspace/materialization/live";
 
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { RegistryResolutionPolicyLive } from "../../cli-runtime/index.js";
-import { AxmSkillCandidateGateLive } from "@agentxm/extension-resolution/live";
-import { WorkspaceCatalogLive } from "@agentxm/workspace-projection/live";
-import { SubagentManagerLive } from "@agentxm/extension-materialization/live";
-import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
+import { AxmSkillCandidateGateLive } from "@agentxm/workspace/resolution/live";
+import { WorkspaceCatalogLive } from "@agentxm/workspace/projection/live";
+import { SubagentManagerLive } from "@agentxm/workspace/materialization/live";
+import type { WorkspaceStateOptions } from "@agentxm/workspace/desired-state";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace/desired-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
 import { ExecutionDirectory } from "../../execution-directory.js";
@@ -119,7 +119,7 @@ describe("axm lint handler", () => {
       }),
       Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(tempDir) }),
     );
-    const wsOptions: WorkspaceMutationsOptions = {
+    const wsOptions: WorkspaceStateOptions = {
       scope: "project",
       projectRoot: decodeAbsolutePathSync(tempDir),
     };

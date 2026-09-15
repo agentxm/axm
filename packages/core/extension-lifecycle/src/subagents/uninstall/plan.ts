@@ -9,27 +9,37 @@
  */
 
 import * as Effect from "effect/Effect";
+import {
+  DesiredStateReader,
+  LockfileReader,
+  WorkspaceLocation,
+  WorkspaceRecords,
+} from "@agentxm/workspace/desired-state";
+
 import * as Option from "effect/Option";
 
 import {
   NO_MATERIALIZATION_OBSERVATION,
   SubagentManager,
-} from "@agentxm/extension-materialization";
-import { buildUninstallOperation } from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/materialization";
+import { buildUninstallOperation } from "@agentxm/workspace/reconciliation";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
-import type { JobStepArtifact, JobStepArtifactTarget, Plan } from "@agentxm/workspace-operations";
+import type {
+  JobStepArtifact,
+  JobStepArtifactTarget,
+  Plan,
+} from "@agentxm/workspace/transitions/planning";
 import {
-  WorkspaceMutations,
   acquiredExtensionDisplayPathFromLockEntry,
   type SubagentExtensionTarget,
   type SubagentLockEntry,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import { lifecycleStepFailure } from "../../step-failure.js";
 import { installRefused, type InstallStepRequirements } from "../../install/vocabulary.js";
-import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace-reconciliation";
+import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace/reconciliation";
 import type { SubagentUninstallIntent } from "../../uninstall/vocabulary.js";
 import {
   workspaceCanonicalPath,
@@ -103,8 +113,8 @@ export const parseSubagentUninstallRequest: (
   selector: string,
 ) => Effect.Effect<SubagentUninstallIntent, ExtensionLifecycleFailed, InstallStepRequirements> =
   Effect.fn("UninstallExtensions.parseSubagentRequest")(function* (selector: string) {
-    const ws = yield* WorkspaceMutations;
-    const rows = yield* ws.records.rows("subagent").pipe(
+    const records = yield* WorkspaceRecords;
+    const rows = yield* records.rows("subagent").pipe(
       Effect.mapError((cause) =>
         installRefused({
           category: "internal",
@@ -142,17 +152,19 @@ export const planSubagentUninstall: (
   ExtensionLifecycleFailed,
   InstallStepRequirements | SubagentManager
 > = Effect.fn("UninstallExtensions.planSubagents")(function* (intent: SubagentUninstallIntent) {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const desiredState = yield* DesiredStateReader;
+  const lockfile = yield* LockfileReader;
   const subagentManager = yield* SubagentManager;
-  const retentionPolicy = makeWorkspaceRetentionPolicy(ws, lifecycleStepFailure);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, lifecycleStepFailure);
 
   // The accepted resolution names the package the removal retires, and the
   // removal deletes it, so it is read before the step runs.
   const steps = yield* Effect.forEach(intent.targets, (target) =>
     Effect.gen(function* () {
       const lockEntry = Option.getOrUndefined(
-        yield* ws
-          .getLockedSubagent(target.name)
+        yield* lockfile
+          .entry("subagent", target.name)
           .pipe(Effect.catch(() => Effect.succeed(Option.none()))),
       );
       return buildUninstallOperation(subagentManager, retentionPolicy, {
@@ -168,7 +180,7 @@ export const planSubagentUninstall: (
                 agents: [],
                 change: "unchanged",
                 lockfileChange: "unchanged",
-                scope: ws.scope,
+                scope: location.scope,
               }),
             );
           }
@@ -183,7 +195,7 @@ export const planSubagentUninstall: (
                 agents: [],
                 change: "updated",
                 lockfileChange: "unchanged",
-                scope: ws.scope,
+                scope: location.scope,
               }),
             );
           }
@@ -199,7 +211,7 @@ export const planSubagentUninstall: (
               agents: observation.agents,
               change: "removed",
               lockfileChange: "updated",
-              scope: ws.scope,
+              scope: location.scope,
             }),
           );
         },

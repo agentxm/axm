@@ -16,13 +16,13 @@ import {
   decodeVersionSync,
   type Version,
 } from "@agentxm/extension-model/unstable/version-constraints";
-import type { JobStepResult, PlannedJobStep } from "@agentxm/workspace-operations";
+import type { JobStepResult, PlannedJobStep } from "@agentxm/workspace/transitions/planning";
 import {
   TreeIntegritySchema,
   type SkillLockEntry,
   type SkillsLockMap,
   type SubagentsLockMap,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import { buildSelectiveUpdatePlan, type SelectiveUpdateUnit } from "./plan.js";
 

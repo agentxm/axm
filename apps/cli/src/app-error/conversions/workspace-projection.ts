@@ -16,7 +16,7 @@ import type {
   ManagedRegionViolation,
   ProjectionIoFailed,
   ProjectionTargetUnsupported,
-} from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/projection";
 import { makeAppError, type AppError } from "../app-error.js";
 
 export const desiredStateIncompleteToAppError = (error: DesiredStateIncomplete): AppError =>

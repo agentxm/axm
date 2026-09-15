@@ -10,15 +10,18 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
+import { DesiredStateWriter, WorkspaceLocation } from "@agentxm/workspace/desired-state";
+
 import * as Schema from "effect/Schema";
 import type { Option } from "effect/Option";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import {
   recoverCanonicalDirectory,
   replaceCanonicalDirectory,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { validateExactResolvedVersion } from "@agentxm/workspace-state";
+import { validateExactResolvedVersion } from "@agentxm/workspace/desired-state";
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { SourceHostProviders } from "@agentxm/extension-sources";
@@ -27,21 +30,20 @@ import {
   StepFailureConversion,
   type StepFailureConversionService,
 } from "../../step-failure-conversion.js";
-import type { OperationHandler } from "@agentxm/workspace-operations";
-import type { Operation } from "@agentxm/workspace-operations";
-import type { JobStepResult } from "@agentxm/workspace-operations";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { copyExtensionDirectory } from "@agentxm/extension-materialization";
-import { computePackPathsForLayout } from "@agentxm/workspace-state";
+import type { OperationHandler } from "@agentxm/workspace/transitions/planning";
+import type { Operation } from "@agentxm/workspace/transitions/planning";
+import type { JobStepResult } from "@agentxm/workspace/transitions/planning";
+import { copyExtensionDirectory } from "@agentxm/workspace/materialization";
+import { computePackPathsForLayout } from "@agentxm/workspace/desired-state";
 import {
   PACK_MANIFEST_FILENAME,
   type PackManifest,
   PackManifestSchema,
 } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { validateExactPackDependencyVersions } from "../resolved-dependency.js";
-import type { ResolvedPackDependencyMap } from "@agentxm/extension-resolution";
-import { computePackManifestContentIdentity } from "@agentxm/workspace-state";
-import { computeMaterializedTreeIntegrity } from "@agentxm/workspace-state";
+import type { ResolvedPackDependencyMap } from "@agentxm/workspace/resolution";
+import { computePackManifestContentIdentity } from "@agentxm/workspace/desired-state";
+import { computeMaterializedTreeIntegrity } from "@agentxm/workspace/desired-state";
 
 // -----------------------------------------------------------------------------
 // Types
@@ -116,7 +118,8 @@ const collectMissingResolvedDependencies = (
  */
 export const installPack: OperationHandler<
   InstallPackOperation,
-  | WorkspaceMutations
+  | DesiredStateWriter
+  | WorkspaceLocation
   | SourceHostProviders
   | FileSystem.FileSystem
   | Path.Path
@@ -129,7 +132,9 @@ export const installPack: OperationHandler<
 
 const runInstallPack = (op: InstallPackOperation, adapter: StepFailureConversionService) =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const layout = yield* Ref.get(location.layout);
+    const desiredStateWriter = yield* DesiredStateWriter;
     const sources = yield* SourceHostProviders;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -166,12 +171,12 @@ const runInstallPack = (op: InstallPackOperation, adapter: StepFailureConversion
     // Extract to managed location
     const packDir = computePackPathsForLayout(
       path.join,
-      ws.layout,
+      layout,
       op.args.sourceName,
       op.args.owner,
       op.args.packName,
     ).canonicalPath;
-    yield* recoverCanonicalDirectory({ baseDir: ws.baseDir, canonicalPath: packDir });
+    yield* recoverCanonicalDirectory({ baseDir: location.baseDir, canonicalPath: packDir });
 
     // Keep fetch scope alive through copy; fetched directories are released on scope close.
     const manifestContentIdentity = yield* Effect.scoped(
@@ -236,7 +241,7 @@ const runInstallPack = (op: InstallPackOperation, adapter: StepFailureConversion
         }
 
         yield* replaceCanonicalDirectory({
-          baseDir: ws.baseDir,
+          baseDir: location.baseDir,
           canonicalPath: packDir,
           populate: (stagingPath) =>
             copyExtensionDirectory(fetched.directory, stagingPath).pipe(
@@ -262,8 +267,8 @@ const runInstallPack = (op: InstallPackOperation, adapter: StepFailureConversion
     }
 
     // Write lockfile + settings
-    const metadataWarning = yield* ws
-      .setPack({
+    const metadataWarning = yield* desiredStateWriter
+      .declare("pack", {
         type: "registry",
         sourceType: "registry",
         packageFormat: "agentxm",

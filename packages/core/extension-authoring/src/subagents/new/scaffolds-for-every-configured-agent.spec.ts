@@ -6,7 +6,10 @@ import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { SubagentManifestSchema } from "@agentxm/extension-model/unstable/subagents/manifest-schema";
-import { deriveOperationOutcome, type JobStepArtifactTarget } from "@agentxm/workspace-operations";
+import {
+  deriveOperationOutcome,
+  type JobStepArtifactTarget,
+} from "@agentxm/workspace/transitions/planning";
 
 import { CreateExtension } from "../../create/create-extension.js";
 import {

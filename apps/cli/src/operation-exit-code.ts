@@ -10,7 +10,7 @@ import {
   type BlockingClass,
   type OperationOutcome,
   type OperationResolution,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 
 const BLOCKED_CONFLICT_CLASSES: ReadonlySet<BlockingClass> = new Set([
   "stale-candidate",

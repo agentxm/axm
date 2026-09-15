@@ -18,7 +18,7 @@ import * as Schema from "effect/Schema";
 import {
   reconcileInstructionTargets,
   resolveInstructionsConfig,
-} from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/projection";
 import type { LintConfig } from "@agentxm/extension-content/lint";
 import { composePath } from "@agentxm/extension-content/lint";
 import {
@@ -26,7 +26,7 @@ import {
   SettingsSchema,
   USER_WORKSPACE_DIRECTORY,
   type Settings,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { LintSummary } from "../cli.js";
 

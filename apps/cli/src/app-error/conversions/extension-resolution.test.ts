@@ -22,7 +22,7 @@ import {
   PackDependencyMissing,
   PackDependencyUnsatisfied,
   SourceAuthorityBlocked,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/workspace/resolution";
 
 const incompatibleAxmSkill: AxmSkillCompatibility = {
   status: "incompatible",

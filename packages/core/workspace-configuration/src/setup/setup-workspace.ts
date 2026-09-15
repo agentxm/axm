@@ -34,7 +34,7 @@ import {
   CodingAgentRepository,
   resolveInstructionTarget,
   type CodingAgentRepositoryService,
-} from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/projection";
 import {
   AXM_DIR_NAME,
   ArtifactChangeSchema,
@@ -45,15 +45,15 @@ import {
   type AgentSubagentSummary,
   type LocatedWorkspace,
   type Settings,
-  type WorkspaceMutationsOptions,
-} from "@agentxm/workspace-state";
+  type WorkspaceStateOptions,
+} from "@agentxm/workspace/desired-state";
 import {
   runWorkspaceTransaction,
   WorkspaceTransactionScope,
   WorkspaceTransactionScopes,
   type WorkspaceRestorationIncomplete,
   type WorkspaceTransactionFailure,
-} from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/settlement";
 
 import { WorkspaceConfigurationFailed } from "../errors.js";
 import { WorkspaceInitializationInteraction } from "./initialization-interaction.js";
@@ -383,7 +383,7 @@ export const previewOrApplySetupWorkspace = <
 > =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const workspaceOptions: WorkspaceMutationsOptions = {
+    const workspaceOptions: WorkspaceStateOptions = {
       scope: candidate.request.scope,
       projectRoot: candidate.request.projectRoot,
       nonInteractive: candidate.request.nonInteractive,

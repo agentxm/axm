@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import { LifecycleStepFailureConversionLive } from "../../feature-errors.js";
-import { MockWorkspaceTransactionScope } from "@agentxm/workspace-state/testing";
+import { MockWorkspaceTransactionScope } from "@agentxm/workspace/desired-state/testing";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { NativeWriteAuthorityPermissive } from "@agentxm/agent-integration/testing";
 import * as os from "node:os";
@@ -10,15 +10,15 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
+import { CodingAgentRepository } from "@agentxm/workspace/projection";
 import { codingAgentForId } from "@agentxm/agent-integration";
-import type { CodingAgentRepositoryService } from "@agentxm/workspace-projection";
+import type { CodingAgentRepositoryService } from "@agentxm/workspace/projection";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
-import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
-import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace-state/testing";
-import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
+import type { WorkspaceStateOptions } from "@agentxm/workspace/desired-state";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace/desired-state/live";
+import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace/desired-state/testing";
+import { ResolvePlanInteractionTest } from "@agentxm/workspace/transitions/planning/testing";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
   expectAppliedPlanResult,
@@ -68,7 +68,7 @@ describe("agents remove.handler", () => {
   });
 
   const makeLayers = (opts?: {
-    readonly wsOverrides?: Partial<WorkspaceMutationsOptions>;
+    readonly wsOverrides?: Partial<WorkspaceStateOptions>;
     readonly machine?: boolean;
   }) => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();

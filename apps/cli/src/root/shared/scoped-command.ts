@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type { AppErrorSuggestedAction } from "../../app-error/index.js";
-import { WorkspaceLocation } from "@agentxm/workspace-state";
+import { WorkspaceLocation } from "@agentxm/workspace/desired-state";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 export const commandForScope = (command: string, scope: WorkspaceScope): string =>

@@ -19,7 +19,7 @@ import {
   ManagedRegionViolation,
   ProjectionIoFailed,
   ProjectionTargetUnsupported,
-} from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/projection";
 
 const ioCause = new Error("EACCES");
 

@@ -8,7 +8,7 @@
 
 import * as Schema from "effect/Schema";
 
-import { OperationErrorCategorySchema } from "@agentxm/workspace-operations";
+import { OperationErrorCategorySchema } from "@agentxm/workspace/transitions/planning";
 
 const CarriedSuggestedActionSchema = Schema.Struct({
   description: Schema.String,

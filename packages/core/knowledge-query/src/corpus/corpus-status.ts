@@ -20,7 +20,7 @@ import {
   LockfileReader,
   readOtherScopeState,
   WorkspaceLocation,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import type { KnowledgeConceptStatusOutput } from "../documents.js";
 import { KNOWLEDGE_DISCOVERY_CAPABILITIES } from "../knowledge-capabilities.js";

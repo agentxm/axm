@@ -2,7 +2,7 @@ import type {
   ConfiguredAgentOutcome,
   ExtensionInventory,
   ExtensionInventoryLifecycle,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 /** Facts every inventory row carries, whatever its extension type. */
 interface InventoryRowFacts {

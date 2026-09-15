@@ -20,8 +20,8 @@ import {
 import {
   InstalledKnowledgeUnavailable,
   selectInstalledKnowledgeBundles,
-} from "@agentxm/workspace-projection";
-import { WorkspaceLocation } from "@agentxm/workspace-state";
+} from "@agentxm/workspace/projection";
+import { WorkspaceLocation } from "@agentxm/workspace/desired-state";
 
 import type { KnowledgeLintQueryResult } from "../documents.js";
 import { KnowledgeCorpusUnavailable, KnowledgeRequestInvalid } from "../errors.js";

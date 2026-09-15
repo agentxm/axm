@@ -30,9 +30,9 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 
-import type { ExtensionResolutionFailed } from "@agentxm/extension-resolution";
+import type { ExtensionResolutionFailed } from "@agentxm/workspace/resolution";
 
 import type { ExtensionLifecycleFailed } from "../errors.js";
 import { withPublisherTrust } from "../publisher-binding.js";

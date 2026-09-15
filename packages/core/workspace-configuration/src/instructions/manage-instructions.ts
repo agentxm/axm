@@ -25,7 +25,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import { RuleManager, type ManagerRequirements } from "@agentxm/extension-materialization";
+import { RuleManager, type ManagerRequirements } from "@agentxm/workspace/materialization";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   OperationJournal,
@@ -40,7 +40,7 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
   applyPlannedProjections,
   disableInstructionManagement,
@@ -57,7 +57,7 @@ import {
   type InstructionProjectionEffect,
   type InstructionProjectionSnapshot,
   type ResolvedInstructionsConfig,
-} from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/projection";
 import {
   ConfiguredAgentOutcomesProvider,
   SettingsReader,
@@ -66,12 +66,12 @@ import {
   WorkspaceRecords,
   type InstructionsConfig,
   type WorkspaceStateReadFailure,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import {
   FootprintRecorder,
   WorkspaceTransactionScope,
   runWorkspaceTransaction,
-} from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/settlement";
 
 import {
   WorkspaceConfigurationFailed,

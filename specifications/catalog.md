@@ -1229,7 +1229,7 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `apps/cli/help/topics/knowledge.md`, `packages/core/workspace-projection/src/knowledge/installed-bundles.ts`, `apps/cli-e2e/src/knowledge.e2e.test.ts`
+- Derived from: `apps/cli/help/topics/knowledge.md`, `packages/core/workspace/src/projection/knowledge/installed-bundles.ts`, `apps/cli-e2e/src/knowledge.e2e.test.ts`
 - Limitation: This evidence observes the selection rule in a project workspace only. Which workspace a scope argument routes to, and that the unselected scope is neither read into the corpus nor written, are not observed here. Retires when: A user-scope Knowledge discovery example exists in apps/cli-e2e/src/knowledge.e2e.test.ts, or cli/installed-state-stays-in-selected-scope is revised to name Knowledge discovery reads.
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
 - Source: [`packages/core/knowledge-query/src/corpus/reads-only-enabled-selected-corpus.spec.ts`](../packages/core/knowledge-query/src/corpus/reads-only-enabled-selected-corpus.spec.ts)
@@ -1382,7 +1382,7 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/core/workspace-inspection/src/knowledge/list-knowledge.ts`, `apps/cli/help/topics/knowledge.md`, `packages/core/workspace-projection/src/knowledge/instruction-entry.test.ts`
+- Derived from: `packages/core/workspace-inspection/src/knowledge/list-knowledge.ts`, `apps/cli/help/topics/knowledge.md`, `packages/core/workspace/src/projection/knowledge/instruction-entry.test.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
 - Source: [`packages/core/workspace-inspection/src/knowledge/explains-instruction-entry-inclusion.spec.ts`](../packages/core/workspace-inspection/src/knowledge/explains-instruction-entry-inclusion.spec.ts)
 
@@ -1851,15 +1851,15 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### Concurrent changes to one workspace never interleave
 
 - Requirement: `cli/changes-do-not-interleave`
-- Owner: `workspace-transactions`
+- Owner: `workspace`
 - Statement: When changes contend for the same workspace, AXM shall prevent one change from applying workspace writes while another is in progress and shall allow a change refused for contention to proceed when retried after the workspace becomes available.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
 - Boundary: process; selection: per-change
-- Boundary rationale: Separate Node processes overlap while using the published transition and transaction boundaries of @agentxm/workspace-transactions, which is where a change's write window is opened and closed.
+- Boundary rationale: Separate Node processes overlap while using the published transition and transaction boundaries of @agentxm/workspace/transitions/settlement, which is where a change's write window is opened and closed.
 - Methods: example
-- Source: [`packages/core/workspace-transactions/src/changes-do-not-interleave.spec.ts`](../packages/core/workspace-transactions/src/changes-do-not-interleave.spec.ts)
+- Source: [`packages/core/workspace/src/transitions/settlement/changes-do-not-interleave.spec.ts`](../packages/core/workspace/src/transitions/settlement/changes-do-not-interleave.spec.ts)
 
 ##### Demote preview describes the replacement without performing it
 
@@ -2125,7 +2125,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### A workspace change that cannot complete leaves each semantic closure either fully committed or fully restored
 
 - Requirement: `cli/mutations-are-closure-atomic`
-- Owner: `workspace-operations`
+- Owner: `workspace`
 - Statement: When a workspace change cannot complete, AXM shall write nothing for a request refused before application or whose prepared candidate is found stale under the workspace lock, shall restore the settings, lockfile, canonical content, and owned projections that a failed semantic closure had changed while leaving independently settled closures committed, and shall report every closure's outcome and any retained state as a failed operation outcome that automation can distinguish.
 - Class: functional
 - Role: experience
@@ -2136,7 +2136,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `docs/architecture/workspace/execution.md`, `docs/architecture/decisions/closure-atomicity-and-recovery.md`
 - Assumptions: The nonzero exit an operator observes is the CLI's mapping of these outcomes; cli/exit-codes-match-published-reference owns that mapping and carries the partial and interrupted rows.; The three refusal rows carry the refusal facts of the routes that produce them; the route-level admission grammar is owned by cli/install/non-installable-sources-do-not-mutate.
 - Limitation: Remote Registry effects are not restored; cli/publish/outcomes-distinguish-unresolved-uploads owns their reporting. Retires when: The Registry gains a transactional publish contract.
-- Source: [`packages/core/workspace-operations/src/plan/mutations-are-closure-atomic.spec.ts`](../packages/core/workspace-operations/src/plan/mutations-are-closure-atomic.spec.ts)
+- Source: [`packages/core/workspace/src/transitions/planning/plan/mutations-are-closure-atomic.spec.ts`](../packages/core/workspace/src/transitions/planning/plan/mutations-are-closure-atomic.spec.ts)
 
 ##### Structured native configuration changes follow values rather than formatting
 
@@ -2209,7 +2209,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### A preview reads the same with or without advance approval and spends none of it
 
 - Requirement: `cli/preview-does-not-consume-approval`
-- Owner: `workspace-operations`
+- Owner: `workspace`
 - Statement: When a command that offers both assessment and advance approval runs in preview mode, it shall render the same candidate whether or not approval accompanies the request, shall ask for no confirmation, and a later unattended apply without approval shall still stop as approval required with nothing changed.
 - Class: functional
 - Role: experience
@@ -2219,7 +2219,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Methods: example
 - Derived from: `cli/demote/preview-is-pure`
 - Assumptions: That a real workspace plan carries the confirmable `replace-workspace-authority` risk is witnessed by cli/demote/preview-is-pure at the owning feature; this rule owns only what a preview does with such a risk and with the approval a request carries.
-- Source: [`packages/core/workspace-operations/src/plan/preview-does-not-consume-approval.spec.ts`](../packages/core/workspace-operations/src/plan/preview-does-not-consume-approval.spec.ts)
+- Source: [`packages/core/workspace/src/transitions/planning/plan/preview-does-not-consume-approval.spec.ts`](../packages/core/workspace/src/transitions/planning/plan/preview-does-not-consume-approval.spec.ts)
 
 ##### Generated document currency follows authoritative inputs, not rendered bytes
 
@@ -2948,7 +2948,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### A person is asked to confirm only when the plan carries a risk worth confirming
 
 - Requirement: `cli/confirmation-is-required-only-for-actionable-risk`
-- Owner: `workspace-operations`
+- Owner: `workspace`
 - Statement: An apply whose plan carries no confirmable risk shall proceed without asking, an apply with nothing to do shall finish without asking, and an apply whose plan carries a confirmable risk shall ask when a prompt can open, honor a declined answer by changing nothing, and stop as approval required when no prompt can open.
 - Class: functional
 - Role: experience
@@ -2958,7 +2958,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Derived from: `cli/machine-mode-never-prompts`, `cli/preview-does-not-consume-approval`
 - Assumptions: That a real plan carries the confirmable `replace-workspace-authority` risk is witnessed by cli/demote/preview-is-pure at the owning feature; this specification owns only what the resolution does with such a risk.
-- Source: [`packages/core/workspace-operations/src/plan/confirmation-is-required-only-for-actionable-risk.spec.ts`](../packages/core/workspace-operations/src/plan/confirmation-is-required-only-for-actionable-risk.spec.ts)
+- Source: [`packages/core/workspace/src/transitions/planning/plan/confirmation-is-required-only-for-actionable-risk.spec.ts`](../packages/core/workspace/src/transitions/planning/plan/confirmation-is-required-only-for-actionable-risk.spec.ts)
 
 ##### Credentials stay within their Registry origin
 
@@ -3129,7 +3129,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### Invalid workspace settings or lockfiles block workspace operations
 
 - Requirement: `cli/invalid-workspace-state-gates-operations`
-- Owner: `workspace-state`
+- Owner: `workspace`
 - Statement: When a present project or user settings file, or a present workspace lockfile in the selected scope, is malformed, schema-invalid, unreadable, or of an unsupported version, operations that read or change workspace state, including diagnosis and preview, shall stop before workspace work begins with a validation error naming the file, the observed fault, and a non-destructive recovery route, and shall change no workspace state.
 - Class: functional
 - Role: experience
@@ -3142,7 +3142,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Additional evidence: process via [`apps/cli-e2e/src/skills.e2e.test.ts`](../apps/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects; its imported cli-commands/skills/list/command.e2e.ts scenarios additionally observe inventory before setup, user-scope discovery, malformed settings and lockfiles, and install/uninstall/read journeys. Execution is attributed to this Vitest entrypoint, with imported source bytes included in the repository execution inputs.
 - Additional evidence: process via [`apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts`](../apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts) — Proves the shipped command wiring emits exit 9 and one structured error document, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, and uses the shared schema diagnosis for a Knowledge command.
 - Additional evidence: process via [`apps/cli-e2e/src/workspace-settings-validity.e2e.test.ts`](../apps/cli-e2e/src/workspace-settings-validity.e2e.test.ts) — Proves at the real process boundary what the in-memory harness cannot: the shipped command wiring routes every sampled command family through the settings gate, machine stdout stays a valid document separated from stderr diagnostics, exit codes are nonzero, and version and help remain outside the gate.
-- Source: [`packages/core/workspace-state/src/workspace/invalid-workspace-state-gates-operations.spec.ts`](../packages/core/workspace-state/src/workspace/invalid-workspace-state-gates-operations.spec.ts)
+- Source: [`packages/core/workspace/src/desired-state/workspace/invalid-workspace-state-gates-operations.spec.ts`](../packages/core/workspace/src/desired-state/workspace/invalid-workspace-state-gates-operations.spec.ts)
 
 ##### Local inventories can run before setup
 
@@ -3214,7 +3214,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `cli/list/reports-the-cross-type-inventory`, `packages/core/workspace-inspection/src/extension-list/list-extensions.ts`, `packages/core/workspace-state/src/workspace/read-model/extensions/inventory.ts`
+- Derived from: `cli/list/reports-the-cross-type-inventory`, `packages/core/workspace-inspection/src/extension-list/list-extensions.ts`, `packages/core/workspace/src/desired-state/workspace/read-model/extensions/inventory.ts`
 - Source: [`packages/core/workspace-inspection/src/extension-list/classifies-unexplained-content.spec.ts`](../packages/core/workspace-inspection/src/extension-list/classifies-unexplained-content.spec.ts)
 
 ##### List exposes failed Registry assessment
@@ -3311,7 +3311,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### A lockfile row alone never makes an extension desired or retained
 
 - Requirement: `cli/lock-state-never-creates-reachability`
-- Owner: `workspace-state`
+- Owner: `workspace`
 - Statement: An accepted-resolution row in the lockfile that no settings entry desires shall not cause the workspace to acquire, realize, or report that extension or pack as present.
 - Class: functional
 - Role: experience
@@ -3320,12 +3320,12 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary rationale: Reachability is decided where desired state is read: the settings entries and the accepted resolutions are both on disk, and the records built from them are what every command downstream consults.
 - Methods: decision-table, contract
 - Derived from: `packages/core/workspace-sync/src/lock-only-rows-are-never-acquired.test.ts`
-- Source: [`packages/core/workspace-state/src/workspace/lock-state-never-creates-reachability.spec.ts`](../packages/core/workspace-state/src/workspace/lock-state-never-creates-reachability.spec.ts)
+- Source: [`packages/core/workspace/src/desired-state/workspace/lock-state-never-creates-reachability.spec.ts`](../packages/core/workspace/src/desired-state/workspace/lock-state-never-creates-reachability.spec.ts)
 
 ##### Managed output points to an editable source or to the fork command
 
 - Requirement: `cli/managed-projection-guidance-respects-authority`
-- Owner: `workspace-projection`
+- Owner: `workspace`
 - Statement: A managed projection shall direct edits to its source only when the workspace authors that extension, and for an acquired extension shall mark the canonical content immutable and point to axm fork instead.
 - Class: functional
 - Role: experience
@@ -3333,7 +3333,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Boundary rationale: The banner is composed from the provenance record a projection carries; giving the projection that record directly is what decides the guidance, and rendering it shows exactly the operator text a person reads.
 - Methods: decision-table, example
-- Source: [`packages/core/workspace-projection/src/managed-projection-guidance-respects-authority.spec.ts`](../packages/core/workspace-projection/src/managed-projection-guidance-respects-authority.spec.ts)
+- Source: [`packages/core/workspace/src/projection/managed-projection-guidance-respects-authority.spec.ts`](../packages/core/workspace/src/projection/managed-projection-guidance-respects-authority.spec.ts)
 
 ##### Adding an inline MCP server records it as authored configuration and realizes it
 
@@ -3366,7 +3366,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### Inline MCP entries stay authoritative exactly as authored
 
 - Requirement: `cli/mcps/inline-entries-are-authoritative-as-authored`
-- Owner: `workspace-state`
+- Owner: `workspace`
 - Statement: An inline MCP entry authored in axm.json shall remain the authoritative configuration exactly as written when other entries are changed, shall be carried as inline authority in desired state, and shall never gain an accepted resolution.
 - Class: functional
 - Role: experience
@@ -3375,7 +3375,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Derived from: `cli/mcps/inline-authority-is-operation-coherent`, `cli/mcps/projects-to-every-configured-agent`
 - Supersedes: `cli/mcps/inline-authority-is-operation-coherent`
-- Source: [`packages/core/workspace-state/src/settings/inline-mcp-entries-are-authoritative-as-authored.spec.ts`](../packages/core/workspace-state/src/settings/inline-mcp-entries-are-authoritative-as-authored.spec.ts)
+- Source: [`packages/core/workspace/src/desired-state/settings/inline-mcp-entries-are-authoritative-as-authored.spec.ts`](../packages/core/workspace/src/desired-state/settings/inline-mcp-entries-are-authoritative-as-authored.spec.ts)
 
 ##### The human MCP inventory shows local name and source as separate columns
 
@@ -3740,7 +3740,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Boundary rationale: The omission is decided while the instructions file is projected and is reported on the unit that projected it; running a real removal over a real workspace shows both the file that was written and the report that accompanied it.
 - Methods: example
-- Derived from: `packages/core/extension-lifecycle/src/knowledge/manager.ts`, `packages/core/workspace-projection/src/planning.ts`, `packages/core/workspace-sync/src/knowledge-exclusions-are-reported.test.ts`, `packages/core/workspace-lint/src/catalog/workspace/conformance/workspace-state/test-helpers.ts`
+- Derived from: `packages/core/extension-lifecycle/src/knowledge/manager.ts`, `packages/core/workspace/src/projection/planning.ts`, `packages/core/workspace-sync/src/knowledge-exclusions-are-reported.test.ts`, `packages/core/workspace-lint/src/catalog/workspace/conformance/workspace-state/test-helpers.ts`
 - Source: [`packages/core/extension-lifecycle/src/knowledge/unreadable-knowledge-is-left-out-and-reported.spec.ts`](../packages/core/extension-lifecycle/src/knowledge/unreadable-knowledge-is-left-out-and-reported.spec.ts)
 
 ##### Unusable directories fail before the command runs
@@ -3800,7 +3800,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### Resolution withholds a release that has not aged, unless it is exempt
 
 - Requirement: `source-resolution/minimum-release-age-withholds-unaged-releases`
-- Owner: `extension-resolution`
+- Owner: `workspace`
 - Statement: When a resolution selects a release without an explicit version request, the resolution shall withhold a candidate that has not reached the configured minimum release age unless that candidate's identity matches a declared exemption, and every withheld and every exempted candidate shall be reported with its eligibility time and, when exempted, its exemption cause and scope.
 - Class: functional
 - Role: experience
@@ -3808,7 +3808,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
 - Assumptions: A held release is refused before anything is written: cli/mutations-are-closure-atomic owns that a refused closure leaves the workspace unchanged, and cli/withheld-releases-name-recovery-from-the-emitting-command owns the wording and recovery routes the refusal names.
-- Source: [`packages/core/extension-resolution/src/release-age/minimum-release-age-withholds-unaged-releases.spec.ts`](../packages/core/extension-resolution/src/release-age/minimum-release-age-withholds-unaged-releases.spec.ts)
+- Source: [`packages/core/workspace/src/resolution/release-age/minimum-release-age-withholds-unaged-releases.spec.ts`](../packages/core/workspace/src/resolution/release-age/minimum-release-age-withholds-unaged-releases.spec.ts)
 
 #### Constraints
 
@@ -4225,7 +4225,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Boundary: memory; selection: per-change
 - Boundary rationale: Rule identity, default severity, and input scope are properties of the composed catalog itself; reading them needs nothing but the catalog.
 - Methods: contract, decision-table
-- Derived from: `packages/core/workspace-lint/src/catalog/catalog-metadata.test.ts`, `packages/core/workspace-state/src/settings/generated-schema.test.ts`
+- Derived from: `packages/core/workspace-lint/src/catalog/catalog-metadata.test.ts`, `packages/core/workspace/src/desired-state/settings/generated-schema.test.ts`
 - Source: [`packages/core/workspace-lint/src/catalog/catalog-is-complete.spec.ts`](../packages/core/workspace-lint/src/catalog/catalog-is-complete.spec.ts)
 
 ##### The machine lint result names the official skill's compatibility reason and recovery
@@ -4261,7 +4261,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 ##### A plan-family operation publishes its lifecycle as typed events
 
 - Requirement: `cli/long-running-operations-emit-lifecycle-events`
-- Owner: `workspace-operations`
+- Owner: `workspace`
 - Statement: A plan-family operation shall publish an operation-started event, a phase-started event for each phase it enters, a unit-started and a unit-resolved event for every unit it attempts, and exactly one settled event whose outcome equals the outcome of its result document.
 - Class: functional
 - Role: interface
@@ -4270,7 +4270,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Boundary rationale: The lifecycle is published by the operation itself; the transport that encodes it for automation is owned separately by cli/machine-progress-events-follow-the-lifecycle-schema.
 - Methods: contract, example
 - Derived from: `cli/machine-progress-events-follow-the-lifecycle-schema`
-- Source: [`packages/core/workspace-operations/src/plan/long-running-operations-emit-lifecycle-events.spec.ts`](../packages/core/workspace-operations/src/plan/long-running-operations-emit-lifecycle-events.spec.ts)
+- Source: [`packages/core/workspace/src/transitions/planning/plan/long-running-operations-emit-lifecycle-events.spec.ts`](../packages/core/workspace/src/transitions/planning/plan/long-running-operations-emit-lifecycle-events.spec.ts)
 
 ##### A failed machine invocation still emits the stable error envelope
 
@@ -4559,7 +4559,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: process; selection: per-change
 - Boundary rationale: Fresh CLI setup invocations establish relocated workspace placement; real credential, pending-login, and install-metadata services read and write disposable homes; the installer control establishes executable placement.
 - Methods: example, decision-table
-- Derived from: `apps/cli/help/topics/environment.md`, `packages/core/workspace-state/src/workspace/paths.test.ts`, `packages/supporting/registry-auth/src/credential-store.test.ts`, `packages/supporting/registry-auth/src/pending-device-login-store.test.ts`, `apps/cli/src/install-meta/install-meta.test.ts`, `apps/cli/src/environment-relocates-user-resources.test.ts`
+- Derived from: `apps/cli/help/topics/environment.md`, `packages/core/workspace/src/desired-state/workspace/paths.test.ts`, `packages/supporting/registry-auth/src/credential-store.test.ts`, `packages/supporting/registry-auth/src/pending-device-login-store.test.ts`, `apps/cli/src/install-meta/install-meta.test.ts`, `apps/cli/src/environment-relocates-user-resources.test.ts`
 - Open questions: What is the canonical restricted-file credential subdirectory? Earlier environment help named the .axm application home, while current storage uses .config/axm.; Should an empty AXM_USER_HOME use the platform home consistently for credentials and pending login as earlier environment help promised? Their current environment reader preserves an empty string.; Does AXM_USER_HOME also relocate platform-style caches? The cache resolver and its internal witness do so, while earlier environment help said platform caches keep platform locations.
 - Limitation: The default executable example runs the actual shell installer only on macOS/Linux and uses a version-answering executable fixture. These examples supply no Windows process evidence for user-workspace, PowerShell/cmd default executable, or install-metadata relocation; direct live-adapter cases do not establish that process population. Retires when: Add equivalent populated platform-versus-application-home process controls for the supported Windows installer shells and built CLI, while retaining actual installed-binary evidence for product startup.
 - Limitation: This owner concerns application resources, not the OS keychain. It does not claim that AXM_USER_HOME changes the logged-in operating-system account or keychain namespace. Retires when: Retain that ownership distinction while changes to the application-home implementation are reviewed.
@@ -4568,7 +4568,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### MCP entries declare exactly one of source, command, or url
 
 - Requirement: `cli/mcps/entries-declare-exactly-one-transport`
-- Owner: `workspace-state`
+- Owner: `workspace`
 - Statement: An MCP server entry in axm.json shall declare exactly one of source, command, or url, and a document declaring none or more than one shall be refused with an error naming that rule.
 - Class: functional
 - Role: interface
@@ -4578,7 +4578,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: decision-table
 - Derived from: `cli/mcps/inline-authority-is-operation-coherent`, `cli/invalid-workspace-state-gates-operations`
 - Supersedes: `cli/mcps/inline-authority-is-operation-coherent`
-- Source: [`packages/core/workspace-state/src/settings/mcp-entries-declare-exactly-one-transport.spec.ts`](../packages/core/workspace-state/src/settings/mcp-entries-declare-exactly-one-transport.spec.ts)
+- Source: [`packages/core/workspace/src/desired-state/settings/mcp-entries-declare-exactly-one-transport.spec.ts`](../packages/core/workspace/src/desired-state/settings/mcp-entries-declare-exactly-one-transport.spec.ts)
 
 ##### Locally named MCP install requests are validated before any workspace change
 
@@ -4675,7 +4675,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### An accepted settings document re-encodes exactly as it was authored
 
 - Requirement: `settings-contract/accepted-settings-round-trip-losslessly`
-- Owner: `workspace-state`
+- Owner: `workspace`
 - Statement: A settings document the product accepts shall re-encode to exactly the authored document, including entries in object form and content the product does not recognize.
 - Class: functional
 - Role: interface
@@ -4683,12 +4683,12 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `settings-contract/saving-settings-preserves-authored-formatting`
-- Source: [`packages/core/workspace-state/src/settings/accepted-settings-round-trip-losslessly.spec.ts`](../packages/core/workspace-state/src/settings/accepted-settings-round-trip-losslessly.spec.ts)
+- Source: [`packages/core/workspace/src/desired-state/settings/accepted-settings-round-trip-losslessly.spec.ts`](../packages/core/workspace/src/desired-state/settings/accepted-settings-round-trip-losslessly.spec.ts)
 
 ##### Workspace settings select agents only through the workspace agent list
 
 - Requirement: `settings-contract/agent-membership-is-the-only-agent-selection`
-- Owner: `workspace-state`
+- Owner: `workspace`
 - Statement: Workspace settings shall express agent selection only through the workspace agent list, and shall reject an extension entry that declares its own agent subset with an error naming that key.
 - Class: functional
 - Role: interface
@@ -4697,19 +4697,19 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example, contract
 - Derived from: `settings-contract/published-settings-schema-agrees-with-accepted-input`, `cli/settings-validity-gates-operations`
 - Assumptions: The product reads settings with excess keys treated as errors, so decoding here with the same option observes the product's acceptance boundary.
-- Source: [`packages/core/workspace-state/src/settings/agent-membership-is-the-only-agent-selection.spec.ts`](../packages/core/workspace-state/src/settings/agent-membership-is-the-only-agent-selection.spec.ts)
+- Source: [`packages/core/workspace/src/desired-state/settings/agent-membership-is-the-only-agent-selection.spec.ts`](../packages/core/workspace/src/desired-state/settings/agent-membership-is-the-only-agent-selection.spec.ts)
 
 ##### Saving settings preserves authored formatting, ordering, and unrecognized content
 
 - Requirement: `settings-contract/saving-settings-preserves-authored-formatting`
-- Owner: `workspace-state`
+- Owner: `workspace`
 - Statement: When the product saves settings back to axm.json, it shall preserve the authored indentation, key order, and unrecognized content, and rewriting unchanged settings shall leave the file byte-identical.
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: golden-output, example
-- Source: [`packages/core/workspace-state/src/settings/saving-settings-preserves-authored-formatting.spec.ts`](../packages/core/workspace-state/src/settings/saving-settings-preserves-authored-formatting.spec.ts)
+- Source: [`packages/core/workspace/src/desired-state/settings/saving-settings-preserves-authored-formatting.spec.ts`](../packages/core/workspace/src/desired-state/settings/saving-settings-preserves-authored-formatting.spec.ts)
 
 ## Supporting system behavior
 
@@ -4982,7 +4982,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/core/extension-materialization/src/mcps/secret-store.ts`, `apps/cli-e2e/src/mcp-secrets.keychain.e2e.test.ts`
+- Derived from: `packages/core/workspace/src/mcp-connections/secret-store.ts`, `apps/cli-e2e/src/mcp-secrets.keychain.e2e.test.ts`
 - Open questions: When the credential store cannot persist a required secret, must installation fail, or may it complete with a warning and require the secret to be supplied later? The current statement promises storage; the controlled unavailable-store case establishes disclosure safety, not satisfaction of storage.
 - Limitation: Default scenarios control the credential-store port. The separately selected platform execution exercises the actual system keychain only on its recorded host and access context; other operating systems and access policies remain unverified. Retires when: Run the same credential lifecycle against disposable keychain entries on each supported operating system.
 - Additional evidence: platform via [`apps/cli-e2e/src/mcp-secrets.keychain.e2e.test.ts`](../apps/cli-e2e/src/mcp-secrets.keychain.e2e.test.ts) — Runs the built CLI's real MCP install, stored-input reload and secret replacement in its declared Node runtime against the host OS keychain, preserving host HOME for native access while isolating AXM_USER_HOME and project state. A subprocess loads the shipped identity build artifacts only to derive disposable cleanup identities, without a product source dependency in the test project. Producer and observer use the same runtime application identity across separate processes. Workspace/local/source/input namespaces are isolated and read back natively; a finally block deletes exactly the known disposable entries, requires affirmative deletion for every attempted write, and retains an independent cleanup journal on failure. This establishes only the recorded host and access context, not cross-application access, unavailable-keychain policy or every supported operating system.

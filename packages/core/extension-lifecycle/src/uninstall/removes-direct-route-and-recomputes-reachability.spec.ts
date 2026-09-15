@@ -3,9 +3,9 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { deriveOperationOutcome } from "@agentxm/workspace-operations";
+import { deriveOperationOutcome } from "@agentxm/workspace/transitions/planning";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { DesiredStateReader } from "@agentxm/workspace/desired-state";
 import { applyActivation } from "../activation/test-helpers.js";
 
 import {
@@ -70,7 +70,7 @@ describe("Uninstall a directly desired extension", () => {
             uninstallRequest({ selector: "@acme/skills/review" }),
           );
           expect(deriveOperationOutcome(result)).toBe("applied");
-          const graph = yield* (yield* WorkspaceMutations).getDesiredStateGraph();
+          const graph = yield* (yield* DesiredStateReader).graph();
           expect(
             graph.nodes.find((node) => node.type === "skill" && node.name === "review")?.enabled,
           ).toBe(true);

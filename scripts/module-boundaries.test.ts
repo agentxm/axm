@@ -164,7 +164,7 @@ describe("module-boundary constraint reachability", () => {
 
   it("reports a supporting package importing a core capability outside the sanctioned seams", async () => {
     const reported = await boundaryViolations(
-      'import { WorkspaceMutations } from "@agentxm/workspace-state";\nvoid WorkspaceMutations;\n',
+      'import { SettingsReader } from "@agentxm/workspace/desired-state";\nvoid SettingsReader;\n',
       "packages/supporting/registry-auth/src/index.ts",
     );
     expect(reported.length).toBeGreaterThan(0);
@@ -173,7 +173,7 @@ describe("module-boundary constraint reachability", () => {
   it("permits a feature importing a capability", async () => {
     expect(
       await boundaryViolations(
-        'import { observeUnit } from "@agentxm/workspace-operations";\nvoid observeUnit;\n',
+        'import { observeUnit } from "@agentxm/workspace/transitions/planning";\nvoid observeUnit;\n',
         "packages/core/workspace-sync/src/index.ts",
       ),
     ).toEqual([]);

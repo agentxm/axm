@@ -32,8 +32,8 @@ import type {
   RuleManager,
   SkillManager,
   SubagentManager,
-} from "@agentxm/extension-materialization";
-import type { McpServerInstallRequirements } from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/materialization";
+import type { McpServerInstallRequirements } from "@agentxm/workspace/reconciliation";
 import {
   observeUnit,
   OperationJournal,
@@ -48,37 +48,38 @@ import {
   type PlanExecution,
   type PlanInteractionFailed,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { WorkspaceInvariantFacts } from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/transitions/planning";
+import { WorkspaceInvariantFacts } from "@agentxm/workspace/projection";
 import {
   ConfiguredAgentOutcomesProvider,
+  DesiredStateReader,
   LockfileReader,
+  WorkspaceLocation,
   WorkspaceRecords,
-  WorkspaceMutations,
   type LockfileValidationError,
   type WorkspaceSettingsReadFailure,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import type {
   FootprintRecorder,
   WorkspaceTransitionAcquireFailure,
-} from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/settlement";
 
 import {
   collectLeftoverRetirement,
   collectUnreachableRetirement,
   collectConfiguredPackRecovery,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import {
   SyncStepFailureConversion,
   type SyncPolicyFailure,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import {
   collectMaterializeSteps,
   type CollectedMaterializeSteps,
   type ConfiguredEntryResolutionRequirements,
   type SyncSelection,
   selectedDesiredNodes,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import {
   collectCleanupStep,
   collectHooksStep,
@@ -88,7 +89,7 @@ import {
   SYNC_PLAN_DESCRIPTION,
   SYNC_PLAN_NAME,
   type SyncStepRequirements,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 
 /** Everything a sync plan's steps need when they run. */
 export type SyncWorkspaceRequirements =
@@ -109,6 +110,8 @@ export type SyncWorkspaceRequirements =
   | ResolvePlanInteraction
   | SyncStepRequirements
   | WorkspaceRecords
+  | DesiredStateReader
+  | WorkspaceLocation
   | WorkspaceInvariantFacts;
 
 type SyncPlanStep = PlannedJobStep<SyncWorkspaceRequirements>;
@@ -213,7 +216,9 @@ export const prepareSyncWorkspace = (
   SyncWorkspaceRequirements
 > =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const desiredState = yield* DesiredStateReader;
+    const lockfile = yield* LockfileReader;
+    const location = yield* WorkspaceLocation;
     const invariantFacts = yield* WorkspaceInvariantFacts;
     const conversion = yield* SyncStepFailureConversion;
     const selection: SyncSelection = { target: request.target, type: request.type };
@@ -239,13 +244,13 @@ export const prepareSyncWorkspace = (
           ...(packRecovery === undefined ? {} : { packRecovery }),
           adapter: conversion,
         });
-        const graph = yield* ws.getDesiredStateGraph();
+        const graph = yield* desiredState.graph();
         const selected = scoped ? selectedDesiredNodes(graph, selection) : [];
         const selectedType = Option.getOrUndefined(selection.type);
         const selectedAccepted =
           selectedType === undefined
             ? []
-            : Object.values(yield* (yield* LockfileReader).entries(selectedType)).map((entry) => ({
+            : Object.values(yield* lockfile.entries(selectedType)).map((entry) => ({
                 type: selectedType,
                 name: entry.workspaceName,
               }));
@@ -362,7 +367,7 @@ export const prepareSyncWorkspace = (
       Option.toArray(instructionStep).length +
       Option.toArray(retirementStep).length +
       leftoverSteps.length;
-    const lockfileNeedsRecovery = (yield* ws.getLockfileState()) !== "ok";
+    const lockfileNeedsRecovery = (yield* lockfile.state) !== "ok";
     if (stepCount === 0 && !lockfileNeedsRecovery) {
       return {
         _tag: "AlreadyReconciled",
@@ -373,8 +378,8 @@ export const prepareSyncWorkspace = (
     }
 
     const plan = yield* makeSyncPlan({
-      graph: yield* ws.getDesiredStateGraph(),
-      scope: ws.scope,
+      graph: yield* desiredState.graph(),
+      scope: location.scope,
       adapter: conversion,
       materializeSteps,
       knowledgeStep,

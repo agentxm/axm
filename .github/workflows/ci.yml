@@ -544,7 +544,7 @@ jobs:
         with:
           name: test-results-windows-workspace-${{ github.sha }}
           path: |
-            test-results/workspace-projection-windows/
+            test-results/workspace-windows/
             test-results/cli-e2e-windows/
           if-no-files-found: ignore
           retention-days: 14

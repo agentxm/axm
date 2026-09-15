@@ -56,7 +56,7 @@ type ResolveResult =
  * `absoluteRoot` SHOULD be the absolute path to the skill root directory
  * (either `.../src/` for native, or the selected package directory for a
  * portable Agent Skill). The caller typically sources it from
- * `computeSkillPathsForLayout` in `@agentxm/workspace-state`.
+ * `computeSkillPathsForLayout` in `@agentxm/workspace/desired-state`.
  *
  * @experimental This API is unstable and may change without notice.
  */

@@ -7,7 +7,7 @@ import type {
   DesiredExtensionNode,
   InstalledSkill,
   InstalledSubagent,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import type { WorkspaceRuleContext } from "../../../../workspace-context.js";
 import { configuredButNotInstalledRule } from "../../configured-but-not-installed.js";
 import { packsDependenciesResolvedRule } from "../../packs-dependencies-resolved.js";

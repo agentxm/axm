@@ -8,7 +8,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import type { McpServerEntry } from "@agentxm/workspace-state";
+import type { McpServerEntry } from "@agentxm/workspace/desired-state";
 import { WorkspaceConfigurationFailed } from "../errors.js";
 import type { InlineMcpDefinition } from "../mcp-import/preflight.js";
 

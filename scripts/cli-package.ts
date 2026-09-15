@@ -19,6 +19,25 @@ export class CliPackageError extends Data.TaggedError("CliPackageError")<{
   readonly message: string;
 }> {}
 
+/**
+ * A bundled implementation resolves every runtime dependency from the CLI
+ * package root. Keeping dependency declarations on the nested manifest makes
+ * npm treat those dependencies as bundled too, even though pnpm packed only
+ * the implementation package, and npm consequently installs empty nested
+ * dependency directories.
+ */
+export const composeBundledPackageManifest = (
+  manifest: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> => {
+  const {
+    dependencies: _dependencies,
+    optionalDependencies: _optionalDependencies,
+    peerDependencies: _peerDependencies,
+    ...bundled
+  } = manifest;
+  return bundled;
+};
+
 /** Preserve declarations and Node resolution by shipping private compiled packages intact. */
 export const composeCliManifest = (
   cli: Readonly<Record<string, unknown>>,
@@ -124,7 +143,13 @@ export const packCliPackage = (options: {
           const directory = path.join(packageRoot, "node_modules", pkg.name);
           yield* fs.makeDirectory(directory, { recursive: true });
           yield* unpack(tarball, directory);
-          return yield* readManifest(path.join(directory, "package.json"));
+          const manifestPath = path.join(directory, "package.json");
+          const manifest = yield* readManifest(manifestPath);
+          yield* fs.writeFileString(
+            manifestPath,
+            `${JSON.stringify(composeBundledPackageManifest(manifest), null, 2)}\n`,
+          );
+          return manifest;
         }),
       );
       const composed = yield* composeCliManifest(cli, internal);

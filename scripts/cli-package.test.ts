@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { composeCliManifest } from "./cli-package.js";
+import { composeBundledPackageManifest, composeCliManifest } from "./cli-package.js";
 
 const cli = {
   name: "axm.sh",
@@ -10,6 +10,23 @@ const cli = {
 };
 
 describe("compiled CLI package composition", () => {
+  it("makes the CLI root the sole owner of bundled implementations' dependencies", () => {
+    expect(
+      composeBundledPackageManifest({
+        name: "@fixture/update",
+        version: "0.0.1",
+        dependencies: { effect: "4.0.0-rc.115" },
+        optionalDependencies: { native: "1.0.0" },
+        peerDependencies: { peer: "2.0.0" },
+        exports: { ".": "./dist/index.js" },
+      }),
+    ).toEqual({
+      name: "@fixture/update",
+      version: "0.0.1",
+      exports: { ".": "./dist/index.js" },
+    });
+  });
+
   it.effect("keeps private implementations bundled and shared contracts external", () =>
     Effect.gen(function* () {
       const result = yield* composeCliManifest(cli, [

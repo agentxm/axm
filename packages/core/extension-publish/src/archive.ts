@@ -155,7 +155,10 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
     }
 
     const archive = yield* Effect.try({
-      try: () => zipSync(zippable, { mtime: DETERMINISTIC_MTIME }),
+      // Registry ingest validates each entry independently. Stored entries
+      // avoid decompressor-specific limits while retaining deterministic ZIP
+      // bytes and bounded source-size accounting.
+      try: () => zipSync(zippable, { mtime: DETERMINISTIC_MTIME, level: 0 }),
       catch: (cause) =>
         new PublishFailed({
           category: "internal",

@@ -24,7 +24,7 @@ import {
   type StepFailureConversionService,
 } from "@agentxm/workspace/lifecycle";
 import { AuthoringFailed } from "@agentxm/workspace/authoring";
-import { PublishFailed } from "@agentxm/extension-publish";
+import { PublishFailed } from "@agentxm/workspace/publishing";
 import type { ExpectedCliError } from "./cli-runtime/index.js";
 import {
   isRegistryAuthFailure,

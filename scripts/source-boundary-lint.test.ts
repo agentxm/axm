@@ -177,12 +177,12 @@ describe("module boundary constraints", () => {
 
   it("keeps features peers and keeps capabilities and integrations below features", async () => {
     const featureToFeature = await boundaryViolations(
-      'import "@agentxm/extension-publish";',
+      'import "@agentxm/workspace/publishing";',
       FEATURE,
     );
     expect(featureToFeature[0]?.message).toContain("role:feature");
     const capabilityToFeature = await boundaryViolations(
-      'import "@agentxm/extension-discovery";',
+      'import "@agentxm/workspace/discovery";',
       CAPABILITY,
     );
     expect(capabilityToFeature[0]?.message).toContain("role:capability");

@@ -41,7 +41,7 @@ export const specification = defineSpecification({
       limitation:
         "Token creation and revocation are exercised through their own use cases; the version-lifecycle and visibility writes are exercised as parameterized mutation ports, so that yank, unyank, visibility set and visibility reconcile each compose this capability is not established here.",
       retirementCondition:
-        "extension-publish carries a test proving each lifecycle and visibility command composes runWithStepUp with its observed revision.",
+        "Workspace publishing carries a test proving each lifecycle and visibility command composes runWithStepUp with its observed revision.",
     },
   ],
 });

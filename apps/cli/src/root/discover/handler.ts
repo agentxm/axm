@@ -7,7 +7,7 @@ import {
   DiscoverExtensions,
   DiscoverOutputSchema,
   type DiscoverExtensionsResult,
-} from "@agentxm/extension-discovery";
+} from "@agentxm/workspace/discovery";
 import { observeUnit } from "@agentxm/workspace/transitions/planning";
 
 import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";

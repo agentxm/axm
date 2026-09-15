@@ -3,15 +3,16 @@
 The private AXM workspace compiler. Its child entry points own desired and
 observed state, resolution, projection, kind-specific acquisition and
 materialization, configuration, inspection, linting, Knowledge queries,
-kind-owned authoring and lifecycle workflows, reconciliation, transition
-planning, and transaction settlement.
+kind-owned authoring and lifecycle workflows, discovery, publishing and
+release management, reconciliation, transition planning, and transaction
+settlement.
 
 Consumers import the narrow child capability they use, such as
 `./desired-state`, `./projection`, `./configuration`, `./inspection`,
 `./linting`, `./knowledge/query`, `./reconciliation/sync`, or one of the
-authoring, lifecycle, and transition entry points. Environment-backed layers
-and deterministic test ports remain behind each capability's `./live` and
-`./testing` entry points.
+authoring, lifecycle, discovery, publishing, and transition entry points.
+Environment-backed layers and deterministic test ports remain behind each
+capability's `./live` and `./testing` entry points.
 This package is unsupported and may change in any release. Ordinary users
 should use the [`axm` CLI](https://axm.sh) instead.
 

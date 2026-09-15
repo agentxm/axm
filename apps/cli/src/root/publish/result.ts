@@ -2,13 +2,13 @@
  * Emission of the publish result document.
  *
  * The `publish-result-v3` contract, its counts, and its execution status are
- * owned by `@agentxm/extension-publish`; this module renders that outcome —
+ * owned by `@agentxm/workspace/publishing`; this module renders that outcome —
  * machine document or human view — and summarizes it for telemetry.
  */
 
 import * as Effect from "effect/Effect";
 
-import { PublishResultSchema, type PublishResult } from "@agentxm/extension-publish";
+import { PublishResultSchema, type PublishResult } from "@agentxm/workspace/publishing";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import { Screen } from "../../screen/index.js";

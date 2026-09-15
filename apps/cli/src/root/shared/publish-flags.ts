@@ -1,6 +1,6 @@
 import { Flag } from "effect/unstable/cli";
 
-import { onExistingPolicies } from "@agentxm/extension-publish";
+import { onExistingPolicies } from "@agentxm/workspace/publishing";
 
 export const backfillFlag = Flag.Boolean("backfill").pipe(
   Flag.withDescription("Publish an unpublished version lower than the highest published version"),

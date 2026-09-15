@@ -34,13 +34,7 @@
       "path": "../../packages/supporting/extension-sources/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/core/extension-publish/tsconfig.lib.json"
-    },
-    {
       "path": "../../packages/core/extension-model/tsconfig.lib.json"
-    },
-    {
-      "path": "../../packages/core/extension-discovery/tsconfig.lib.json"
     },
     {
       "path": "../../packages/core/extension-content/tsconfig.lib.json"

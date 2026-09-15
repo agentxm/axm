@@ -512,7 +512,7 @@ export default [
       "apps/cli-e2e/**",
       "apps/cli/src/test-support/**",
       // deterministic archive mtime constant, not a clock read
-      "packages/core/extension-publish/src/archive.ts",
+      "packages/core/workspace/src/publishing/archive.ts",
     ],
     rules: {
       "no-restricted-syntax": [
@@ -662,7 +662,7 @@ export default [
       "packages/core/workspace/src/configuration/**/test-helpers.ts",
       "packages/core/workspace/src/linting/**/test-helpers.ts",
       "packages/core/workspace/src/lifecycle/**/test-helpers.ts",
-      "packages/core/extension-publish/src/**/test-helpers.ts",
+      "packages/core/workspace/src/publishing/**/test-helpers.ts",
       "packages/core/workspace/src/reconciliation/sync/**/test-helpers.ts",
       "packages/core/workspace/src/reconciliation/**/test-helpers.ts",
       // Plan-family fixtures, excluded from the library build: the plan

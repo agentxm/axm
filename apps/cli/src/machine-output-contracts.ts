@@ -291,7 +291,7 @@ const discoverFamily = defineResultFamily({
   rationale: "Discovery is a read query with registry availability metadata.",
   commandCoverage: [
     "apps/cli/src/root/discover/handler.test.ts",
-    "packages/core/extension-discovery/src/discover/reports-companions-for-detected-dependencies.spec.ts",
+    "packages/core/workspace/src/discovery/discover/reports-companions-for-detected-dependencies.spec.ts",
   ],
 });
 
@@ -534,7 +534,7 @@ const visibilityEvaluationFamily = defineResultFamily({
   rationale:
     "Visibility status reports repository intent and authoritative Registry state without mutation.",
   commandCoverage: [
-    "packages/core/extension-publish/src/visibility/status-reports-repository-intent-and-registry-evaluation.spec.ts",
+    "packages/core/workspace/src/publishing/visibility/status-reports-repository-intent-and-registry-evaluation.spec.ts",
   ],
 });
 
@@ -547,8 +547,8 @@ const visibilityMutationFamily = defineResultFamily({
     "Visibility administration reports the conditional whole-Extension mutation and resulting revision.",
   humanOutputKind: "mutation",
   commandCoverage: [
-    "packages/core/extension-publish/src/visibility/set-uses-explicit-intent-and-observed-revision.spec.ts",
-    "packages/core/extension-publish/src/visibility/reconcile-applies-declared-repository-intent.spec.ts",
+    "packages/core/workspace/src/publishing/visibility/set-uses-explicit-intent-and-observed-revision.spec.ts",
+    "packages/core/workspace/src/publishing/visibility/reconcile-applies-declared-repository-intent.spec.ts",
   ],
 });
 
@@ -561,8 +561,8 @@ const lifecycleTransitionFamily = defineResultFamily({
     "Deprecation administration reports the authoritative conditional Registry transition without a local workspace artifact.",
   humanOutputKind: "mutation",
   commandCoverage: [
-    "packages/core/extension-publish/src/deprecation/updates-guidance-at-the-observed-revision.spec.ts",
-    "packages/core/extension-publish/src/deprecation/removes-guidance-at-the-observed-revision.spec.ts",
+    "packages/core/workspace/src/publishing/deprecation/updates-guidance-at-the-observed-revision.spec.ts",
+    "packages/core/workspace/src/publishing/deprecation/removes-guidance-at-the-observed-revision.spec.ts",
   ],
 });
 

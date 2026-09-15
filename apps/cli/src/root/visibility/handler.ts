@@ -1,7 +1,7 @@
 /**
  * Rendering for whole-extension Registry visibility. Intent resolution, the
  * revision precondition, the authority kind, and human verification belong to
- * `@agentxm/extension-publish`; this module parses inputs and renders.
+ * `@agentxm/workspace/publishing`; this module parses inputs and renders.
  */
 
 import * as Effect from "effect/Effect";
@@ -17,7 +17,7 @@ import {
   VisibilityEvaluationSchema,
   VisibilityMutationResultSchema,
 } from "@agentxm/registry-protocol/unstable/publish";
-import { ManagePublishedVisibility } from "@agentxm/extension-publish";
+import { ManagePublishedVisibility } from "@agentxm/workspace/publishing";
 import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions";
 import { publishFailureToAppError } from "../../feature-errors.js";
 import { HumanVerificationOptions, isNonInteractive, jsonFlag } from "../../cli-flags/index.js";

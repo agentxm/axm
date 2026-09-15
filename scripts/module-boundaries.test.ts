@@ -156,7 +156,7 @@ describe("module-boundary constraint reachability", () => {
 
   it("reports a feature importing a peer feature", async () => {
     const reported = await boundaryViolations(
-      'import { PublishExtensions } from "@agentxm/extension-publish";\nvoid PublishExtensions;\n',
+      'import { PublishExtensions } from "@agentxm/workspace/publishing";\nvoid PublishExtensions;\n',
       "packages/core/workspace/src/reconciliation/sync/index.ts",
     );
     expect(reported.length).toBeGreaterThan(0);

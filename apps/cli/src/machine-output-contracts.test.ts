@@ -6,7 +6,7 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { JsonHelpDocSchema, JsonVersionDocSchema } from "./cli-runtime/index.js";
 import { LoginDocumentSchema } from "@agentxm/registry-auth";
-import { PublishResultSchema } from "@agentxm/extension-publish";
+import { PublishResultSchema } from "@agentxm/workspace/publishing";
 import {
   VisibilityEvaluationSchema,
   VisibilityMutationResultSchema,
@@ -40,7 +40,7 @@ import {
   CacheStatusOutputSchema,
   CacheVerifyOutputSchema,
 } from "./root/cache/command.js";
-import { DiscoverOutputSchema } from "@agentxm/extension-discovery";
+import { DiscoverOutputSchema } from "@agentxm/workspace/discovery";
 import { HelpIndexResultSchema, HelpTopicResultSchema } from "./root/help/command.js";
 import {
   KnowledgeConceptGetOutputSchema,

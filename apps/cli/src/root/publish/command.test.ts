@@ -61,7 +61,7 @@ import {
   normalizePublishResult,
   publishCause,
   type PublishResultItem,
-} from "@agentxm/extension-publish";
+} from "@agentxm/workspace/publishing";
 import {
   buildPublishJobs,
   exactPublishUploadBinding,
@@ -72,7 +72,7 @@ import {
   publishRecoverySelection,
   validatePublishOwners,
   PUBLISHABLE_TYPES,
-} from "@agentxm/extension-publish";
+} from "@agentxm/workspace/publishing";
 import {
   handleRootPublish,
   makeExactPublishRecovery,

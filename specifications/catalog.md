@@ -907,29 +907,29 @@ People and agents can find, install, update, and remove reusable extensions acro
 ##### Discover identifies local recommendations when Registry lookup fails
 
 - Requirement: `cli/discover/identifies-local-only-recommendations`
-- Owner: `extension-discovery`
+- Owner: `workspace`
 - Statement: When the Registry cannot supply companion recommendations, AXM shall retain valid package-declared recommendations and explicitly report that Registry results are unavailable.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/src/root/discover/handler.test.ts`, `packages/core/extension-discovery/src/discover.ts`
+- Derived from: `apps/cli/src/root/discover/handler.test.ts`, `packages/core/workspace/src/discovery/discover.ts`
 - Open questions: How should local-only recommendations represent unresolved Registry identity and install version? The current fallback supplies resolved true and a synthetic 0.0.0 version; this requirement does not accept those values as verified Registry facts.
-- Source: [`packages/core/extension-discovery/src/discover/identifies-local-only-recommendations.spec.ts`](../packages/core/extension-discovery/src/discover/identifies-local-only-recommendations.spec.ts)
+- Source: [`packages/core/workspace/src/discovery/discover/identifies-local-only-recommendations.spec.ts`](../packages/core/workspace/src/discovery/discover/identifies-local-only-recommendations.spec.ts)
 
 ##### Discover reports companions for actual project dependencies
 
 - Requirement: `cli/discover/reports-companions-for-detected-dependencies`
-- Owner: `extension-discovery`
+- Owner: `workspace`
 - Statement: When discovering companion extensions, AXM shall report Registry recommendations only for dependencies detected in the selected project, including their observed package versions and the Registry-provided attestation information.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/src/root/discover/handler.test.ts`, `packages/core/extension-discovery/src/discover.test.ts`
-- Source: [`packages/core/extension-discovery/src/discover/reports-companions-for-detected-dependencies.spec.ts`](../packages/core/extension-discovery/src/discover/reports-companions-for-detected-dependencies.spec.ts)
+- Derived from: `apps/cli/src/root/discover/handler.test.ts`, `packages/core/workspace/src/discovery/discover.test.ts`
+- Source: [`packages/core/workspace/src/discovery/discover/reports-companions-for-detected-dependencies.spec.ts`](../packages/core/workspace/src/discovery/discover/reports-companions-for-detected-dependencies.spec.ts)
 
 ##### Root install and the type command express the same durable intent
 
@@ -1707,7 +1707,7 @@ Observation of product use stays within the documented data boundary and under t
 ##### Registry management preserves authentication failures without reporting success
 
 - Requirement: `cli/registry-management-preserves-authentication-failures`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: When a Registry lifecycle or visibility command receives an authentication rejection, AXM shall preserve the authentication failure, stop the operation without replaying the rejected request, and emit no successful result.
 - Class: functional
 - Role: experience
@@ -1715,7 +1715,7 @@ Observation of product use stays within the documented data boundary and under t
 - Boundary: memory; selection: per-change
 - Methods: decision-table
 - Derived from: `AgentXM Registry API 0.1.0`
-- Source: [`packages/core/extension-publish/src/lifecycle/registry-management-preserves-authentication-failures.spec.ts`](../packages/core/extension-publish/src/lifecycle/registry-management-preserves-authentication-failures.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/lifecycle/registry-management-preserves-authentication-failures.spec.ts`](../packages/core/workspace/src/publishing/lifecycle/registry-management-preserves-authentication-failures.spec.ts)
 
 ##### Challenged Registry writes complete the required verification before retrying
 
@@ -1729,7 +1729,7 @@ Observation of product use stays within the documented data boundary and under t
 - Methods: decision-table, example
 - Derived from: `AgentXM Registry API 0.1.0`, `packages/supporting/registry-auth/src/step-up.ts`, `cli/token/completes-required-human-verification`
 - Supersedes: `cli/token/completes-required-human-verification`
-- Limitation: Token creation and revocation are exercised through their own use cases; the version-lifecycle and visibility writes are exercised as parameterized mutation ports, so that yank, unyank, visibility set and visibility reconcile each compose this capability is not established here. Retires when: extension-publish carries a test proving each lifecycle and visibility command composes runWithStepUp with its observed revision.
+- Limitation: Token creation and revocation are exercised through their own use cases; the version-lifecycle and visibility writes are exercised as parameterized mutation ports, so that yank, unyank, visibility set and visibility reconcile each compose this capability is not established here. Retires when: Workspace publishing carries a test proving each lifecycle and visibility command composes runWithStepUp with its observed revision.
 - Additional evidence: process via [`apps/cli-e2e/src/auth.e2e.test.ts`](../apps/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout and HTTP verification followed by token creation. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
 - Source: [`packages/supporting/registry-auth/src/step-up/registry-writes-complete-required-verification.spec.ts`](../packages/supporting/registry-auth/src/step-up/registry-writes-complete-required-verification.spec.ts)
 
@@ -1876,7 +1876,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### Deprecation rejects contradictory or empty guidance
 
 - Requirement: `cli/deprecate/rejects-conflicting-or-empty-guidance`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: The deprecate command shall reject a field supplied together with its clearing flag before contacting the Registry and reject an edit that leaves neither a message nor a replacement before attempting a write.
 - Class: functional
 - Role: experience
@@ -1884,12 +1884,12 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `apps/cli/src/root/lifecycle/command.ts`, `apps/cli/src/root/lifecycle/command.test.ts`
-- Source: [`packages/core/extension-publish/src/deprecation/rejects-conflicting-or-empty-guidance.spec.ts`](../packages/core/extension-publish/src/deprecation/rejects-conflicting-or-empty-guidance.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/deprecation/rejects-conflicting-or-empty-guidance.spec.ts`](../packages/core/workspace/src/publishing/deprecation/rejects-conflicting-or-empty-guidance.spec.ts)
 
 ##### Deprecation edits preserve omitted guidance at the observed revision
 
 - Requirement: `cli/deprecate/updates-guidance-at-the-observed-revision`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: The deprecate command shall compose the requested message and replacement edits with the observed guidance, preserve omitted and concealed replacement information, condition the write on the observed revision, and report the Registry's acknowledged transition, carrying the publisher guidance the Registry acknowledged.
 - Class: functional
 - Role: experience
@@ -1898,7 +1898,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Methods: example, contract
 - Derived from: `apps/cli/src/root/lifecycle/command.ts`, `apps/cli/src/root/lifecycle/command.test.ts`
 - Limitation: Whether a person sees the acknowledged guidance presented as result information rather than as a warning is the application's rendering of this transition, not the transition itself, so it is not observed here. Retires when: The CLI owns evidence, beside its lifecycle renderer, that acknowledged publisher guidance is presented as information and raises no warning.
-- Source: [`packages/core/extension-publish/src/deprecation/updates-guidance-at-the-observed-revision.spec.ts`](../packages/core/extension-publish/src/deprecation/updates-guidance-at-the-observed-revision.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/deprecation/updates-guidance-at-the-observed-revision.spec.ts`](../packages/core/workspace/src/publishing/deprecation/updates-guidance-at-the-observed-revision.spec.ts)
 
 ##### Disable preview describes the deactivation without changing any state
 
@@ -2241,7 +2241,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### Publish preview reports the admitted publication set without distributing anything
 
 - Requirement: `cli/publish/preview-is-pure`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: When publish runs in preview mode, AXM shall report the admitted publication set or identify missing exact-publication authorization with a next action for the same selection, without creating authorization, uploading anything to the target registry, or changing settings, the lockfile, or authored content.
 - Class: functional
 - Role: experience
@@ -2252,7 +2252,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Supersedes: `cli/publish/preview-is-pure-and-gate-is-fixed`, `cli/hooks/publish/preview-is-pure`, `cli/knowledge/publish/preview-is-pure`, `cli/mcps/publish/preview-is-pure`, `cli/packs/publish/preview-is-pure`, `cli/rules/publish/preview-is-pure`, `cli/skills/publish/preview-is-pure`, `cli/subagents/publish/preview-is-pure`
 - Assumptions: Which routes accept --preview and refuse --yes is command grammar, asserted over every route by cli/preview-uses-the-canonical-flag rather than per type here.
 - Additional evidence: process via [`apps/cli-e2e/src/http-registry.e2e.test.ts`](../apps/cli-e2e/src/http-registry.e2e.test.ts) — Publishes, installs, and updates over a real HTTP registry transport — bearer-token auth headers, PUT uploads, immutable version and holdback semantics, no upload when the authoritative preview is blocked, and registry-form locator resolution with file:// parity — plus release-age-gated advancement, explicit bypass, unchanged settings, and second-run no-op exit codes that the in-memory file-registry harness cannot observe.
-- Source: [`packages/core/extension-publish/src/preview-is-pure.spec.ts`](../packages/core/extension-publish/src/preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/preview-is-pure.spec.ts`](../packages/core/workspace/src/publishing/preview-is-pure.spec.ts)
 
 ##### Rule creation preview describes the scaffold without creating any state
 
@@ -2366,7 +2366,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### Deprecation removal uses the observed revision
 
 - Requirement: `cli/undeprecate/removes-guidance-at-the-observed-revision`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: The undeprecate command shall read the selected extension's deprecation revision, use that exact revision as the removal precondition, and report the Registry's acknowledged transition without silently replacing a rejected precondition.
 - Class: functional
 - Role: experience
@@ -2374,7 +2374,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary: memory; selection: per-change
 - Methods: example, contract
 - Derived from: `apps/cli/src/root/lifecycle/command.ts`, `apps/cli/src/root/lifecycle/command.test.ts`
-- Source: [`packages/core/extension-publish/src/deprecation/removes-guidance-at-the-observed-revision.spec.ts`](../packages/core/extension-publish/src/deprecation/removes-guidance-at-the-observed-revision.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/deprecation/removes-guidance-at-the-observed-revision.spec.ts`](../packages/core/workspace/src/publishing/deprecation/removes-guidance-at-the-observed-revision.spec.ts)
 
 ##### Uninstalling an extension the workspace does not desire is a safe no-op
 
@@ -2425,7 +2425,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### Unyank restores only the explicitly identified version
 
 - Requirement: `cli/unyank/requires-an-exact-version`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: The unyank command shall require an exact semantic version, request restoration only for that version, and report restoration only after the Registry acknowledges the request.
 - Class: functional
 - Role: experience
@@ -2433,7 +2433,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary: memory; selection: per-change
 - Methods: example, contract
 - Derived from: `apps/cli/src/root/lifecycle/command.ts`, `apps/cli/src/root/lifecycle/command.test.ts`
-- Source: [`packages/core/extension-publish/src/yank/unyank-requires-an-exact-version.spec.ts`](../packages/core/extension-publish/src/yank/unyank-requires-an-exact-version.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/yank/unyank-requires-an-exact-version.spec.ts`](../packages/core/workspace/src/publishing/yank/unyank-requires-an-exact-version.spec.ts)
 
 ##### Update preview describes the advance without changing any state
 
@@ -2490,7 +2490,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### Explicit visibility changes carry operator intent and the observed revision
 
 - Requirement: `cli/visibility/set/uses-explicit-intent-and-observed-revision`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: The visibility set command shall require established Registry visibility, submit the requested value as operator intent conditional on the observed revision, and report the acknowledged change without silently replacing a rejected precondition.
 - Class: functional
 - Role: experience
@@ -2498,12 +2498,12 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary: memory; selection: per-change
 - Methods: example, contract
 - Derived from: `apps/cli/src/root/visibility/handler.ts`, `AgentXM Registry API 0.1.0`
-- Source: [`packages/core/extension-publish/src/visibility/set-uses-explicit-intent-and-observed-revision.spec.ts`](../packages/core/extension-publish/src/visibility/set-uses-explicit-intent-and-observed-revision.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/visibility/set-uses-explicit-intent-and-observed-revision.spec.ts`](../packages/core/workspace/src/publishing/visibility/set-uses-explicit-intent-and-observed-revision.spec.ts)
 
 ##### Yank submits the explicit version selection and publisher guidance
 
 - Requirement: `cli/yank/submits-the-requested-version-selection`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: The yank command shall require an exact version unless all available versions are explicitly selected, submit only that selection with the supplied category and notice, and report the acknowledged selection without claiming that future versions were yanked.
 - Class: functional
 - Role: experience
@@ -2511,7 +2511,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary: memory; selection: per-change
 - Methods: example, contract
 - Derived from: `apps/cli/src/root/lifecycle/command.ts`, `apps/cli/src/root/lifecycle/command.test.ts`
-- Source: [`packages/core/extension-publish/src/yank/submits-the-requested-version-selection.spec.ts`](../packages/core/extension-publish/src/yank/submits-the-requested-version-selection.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/yank/submits-the-requested-version-selection.spec.ts`](../packages/core/workspace/src/publishing/yank/submits-the-requested-version-selection.spec.ts)
 
 ### Goal: trustworthy-distribution
 
@@ -2537,7 +2537,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 ##### Publication uses the explicitly selected Registry
 
 - Requirement: `cli/publication-uses-explicit-registry-target`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: When exactly one Registry target is supplied for publication — a configured Registry by name, or an explicit Registry URL — AXM shall direct the admitted publication to that Registry and refuse a target it cannot resolve without publishing anywhere.
 - Class: functional
 - Role: experience
@@ -2548,12 +2548,12 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Derived from: `apps/cli/src/root/publish/command.ts`, `apps/cli/src/root/publish/per-type-command.ts`
 - Open questions: What target or rejection is required when both a configured name and an explicit URL are supplied? The current implementation prefers the URL and retains the supplied name as a label; no public precedence promise was identified.; Which Registry should a publication without either target select? The current implementation takes the first resolved Registry source; this requirement does not establish that default or source-order policy.; Which URL schemes are supported publication targets beyond the existing local Registry and HTTP implementations? No new scheme support or normalization guarantee is established here.
 - Limitation: The examples use local file Registry destinations. HTTP publication capability binding and credential-origin isolation remain separately owned; no live Registry, remote authentication, or server-side storage behavior is established here. Retires when: Retain explicit target selection evidence through each supported target transport without duplicating the credential and publication-capability owners.
-- Source: [`packages/core/extension-publish/src/target/publication-uses-explicit-registry-target.spec.ts`](../packages/core/extension-publish/src/target/publication-uses-explicit-registry-target.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/target/publication-uses-explicit-registry-target.spec.ts`](../packages/core/workspace/src/publishing/target/publication-uses-explicit-registry-target.spec.ts)
 
 ##### Publication refuses incomplete or unsafe archives
 
 - Requirement: `cli/publish/archives-satisfy-distribution-contract`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: Before uploading an extension, publish shall reject an archive that omits a required package file or includes a node_modules entry or .env file, identify the invalid path, and give removal guidance for unsafe entries.
 - Class: functional
 - Role: experience
@@ -2561,12 +2561,12 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/publish/command.test.ts`, `apps/cli/src/root/publish/command.ts`
-- Source: [`packages/core/extension-publish/src/archive/archives-satisfy-distribution-contract.spec.ts`](../packages/core/extension-publish/src/archive/archives-satisfy-distribution-contract.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/archive/archives-satisfy-distribution-contract.spec.ts`](../packages/core/workspace/src/publishing/archive/archives-satisfy-distribution-contract.spec.ts)
 
 ##### Existing publications are verified or rejected without being overwritten
 
 - Requirement: `cli/publish/existing-versions-require-explicit-policy`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: For an already published version, publish shall reject the error policy, treat the verify policy as a successful no-op only when the newly built archive's SHA-512 integrity matches the published integrity, and reject differing content as integrity drift, with an explicit single selector defaulting to error and bulk selection defaulting to verify.
 - Class: functional
 - Role: experience
@@ -2574,12 +2574,12 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
 - Derived from: `apps/cli/help/topics/publish.md`, `apps/cli/src/root/publish/command.test.ts`
-- Source: [`packages/core/extension-publish/src/preflight/existing-versions-require-explicit-policy.spec.ts`](../packages/core/extension-publish/src/preflight/existing-versions-require-explicit-policy.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/preflight/existing-versions-require-explicit-policy.spec.ts`](../packages/core/workspace/src/publishing/preflight/existing-versions-require-explicit-policy.spec.ts)
 
 ##### Publication exclusions use explicit case-sensitive package paths
 
 - Requirement: `cli/publish/ignore-patterns-have-declared-path-semantics`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: Publish shall match ignore patterns against case-sensitive archive-relative POSIX paths with only the asterisk acting as a wildcard across directory separators and with question marks, brackets, and negation characters treated literally.
 - Class: functional
 - Role: experience
@@ -2587,12 +2587,12 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
 - Derived from: `apps/cli/help/topics/publish.md`
-- Source: [`packages/core/extension-publish/src/archive/ignore-patterns-have-declared-path-semantics.spec.ts`](../packages/core/extension-publish/src/archive/ignore-patterns-have-declared-path-semantics.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/archive/ignore-patterns-have-declared-path-semantics.spec.ts`](../packages/core/workspace/src/publishing/archive/ignore-patterns-have-declared-path-semantics.spec.ts)
 
 ##### Older unpublished versions require explicit backfill
 
 - Requirement: `cli/publish/older-unpublished-versions-require-backfill`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: Publish shall reject an unpublished version below the highest published semantic version unless backfill is explicitly requested, and the refusal shall offer a version bump or intentional backfill, and backfill shall permit only an unpublished version without authorizing replacement of an existing release.
 - Class: functional
 - Role: experience
@@ -2600,26 +2600,26 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `apps/cli/src/root/publish/command.ts`, `apps/cli/src/root/publish/command.test.ts`
-- Source: [`packages/core/extension-publish/src/preflight/older-unpublished-versions-require-backfill.spec.ts`](../packages/core/extension-publish/src/preflight/older-unpublished-versions-require-backfill.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/preflight/older-unpublished-versions-require-backfill.spec.ts`](../packages/core/workspace/src/publishing/preflight/older-unpublished-versions-require-backfill.spec.ts)
 
 ##### Publication results distinguish confirmed, failed, blocked, pending and unresolved work
 
 - Requirement: `cli/publish/outcomes-distinguish-unresolved-uploads`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: When publication does not confirm every selected candidate — failing in part or entirely, or being interrupted — AXM shall report each candidate according to the available evidence, retain acknowledged independent successes, block dependents of failed uploads, distinguish unattempted work from dispatched uploads with unknown outcomes, never resolve a run that confirms no publication as a success, and provide credential-free recovery for the unfinished selection.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `machine-automation`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example, contract
-- Derived from: `apps/cli/src/root/publish/command.test.ts`, `packages/core/extension-publish/src/settlement.test.ts`
+- Derived from: `apps/cli/src/root/publish/command.test.ts`, `packages/core/workspace/src/publishing/settlement.test.ts`
 - Limitation: How the unresolved run reads to a person — the rendered lines that name each candidate's unknown settlement and never say a publication happened — and the exit status that run leaves are the application's mapping of this outcome, not the outcome itself, so they are not observed here. Retires when: The CLI owns evidence, beside its publish view and exit mapping, that an unsettled run renders every unresolved candidate without reporting a publication and exits with the reported-problems code.
-- Source: [`packages/core/extension-publish/src/settlement/outcomes-distinguish-unresolved-uploads.spec.ts`](../packages/core/extension-publish/src/settlement/outcomes-distinguish-unresolved-uploads.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/settlement/outcomes-distinguish-unresolved-uploads.spec.ts`](../packages/core/workspace/src/publishing/settlement/outcomes-distinguish-unresolved-uploads.spec.ts)
 
 ##### One failed publish preflight blocks the whole selection
 
 - Requirement: `cli/publish/preflight-blocks-the-whole-selection`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: When any selected extension fails publish preflight, publish shall upload nothing for the selection and shall report every other publishable extension as blocked by preflight, naming the extension that failed.
 - Class: functional
 - Role: experience
@@ -2628,12 +2628,12 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Methods: example
 - Derived from: `cli/publish/requires-explicit-acceptance-for-non-head-source`
 - Assumptions: The Git comparison AXM performs reports added, deleted, and modified paths accurately relative to HEAD; the source-state scenario substitutes the comparison outcome rather than running Git.
-- Source: [`packages/core/extension-publish/src/preflight/preflight-blocks-the-whole-selection.spec.ts`](../packages/core/extension-publish/src/preflight/preflight-blocks-the-whole-selection.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/preflight/preflight-blocks-the-whole-selection.spec.ts`](../packages/core/workspace/src/publishing/preflight/preflight-blocks-the-whole-selection.spec.ts)
 
 ##### Publishing preserves established extension visibility
 
 - Requirement: `cli/publish/preserves-established-visibility`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: Publish shall apply an explicit visibility request only when establishing a new extension, preserve existing extension visibility when adding or verifying a version, and report which visibility was established or preserved.
 - Class: functional
 - Role: experience
@@ -2641,12 +2641,12 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/publish/command.test.ts`, `apps/cli/src/root/publish/command.ts`
-- Source: [`packages/core/extension-publish/src/visibility/preserves-established-visibility.spec.ts`](../packages/core/extension-publish/src/visibility/preserves-established-visibility.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/visibility/preserves-established-visibility.spec.ts`](../packages/core/workspace/src/publishing/visibility/preserves-established-visibility.spec.ts)
 
 ##### The publication gate is fixed and ignores locally relaxed lint rules
 
 - Requirement: `cli/publish/publication-gate-is-fixed`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: When a selected extension violates the fixed publication gate, publish shall block it in preview and apply alike, shall name the violated rule, and shall upload nothing, regardless of any lint rule relaxed in axm.json.
 - Class: functional
 - Role: experience
@@ -2655,12 +2655,12 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Methods: decision-table
 - Derived from: `cli/publish/preview-is-pure-and-gate-is-fixed`
 - Supersedes: `cli/publish/preview-is-pure-and-gate-is-fixed`
-- Source: [`packages/core/extension-publish/src/lint-gate/publication-gate-is-fixed.spec.ts`](../packages/core/extension-publish/src/lint-gate/publication-gate-is-fixed.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/lint-gate/publication-gate-is-fixed.spec.ts`](../packages/core/workspace/src/publishing/lint-gate/publication-gate-is-fixed.spec.ts)
 
 ##### Publication reports differing workspace and consumer versions
 
 - Requirement: `cli/publish/reports-pack-resolution-differences`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: When an admitted authored pack has a dependency whose effective Registry version differs from the satisfying version in this workspace, publish shall report both versions and the dependency constraint as a warning with guidance for reconciling the difference, without treating that warning as a publication failure.
 - Class: functional
 - Role: experience
@@ -2668,24 +2668,24 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/publish/command.test.ts`, `apps/cli/src/root/publish/command.ts`
-- Source: [`packages/core/extension-publish/src/preflight/reports-pack-resolution-differences.spec.ts`](../packages/core/extension-publish/src/preflight/reports-pack-resolution-differences.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/preflight/reports-pack-resolution-differences.spec.ts`](../packages/core/workspace/src/publishing/preflight/reports-pack-resolution-differences.spec.ts)
 
 ##### Publish refuses extensions the workspace does not author
 
 - Requirement: `cli/publish/requires-established-authorship`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: Publish shall distribute only extensions the workspace authors: an explicitly selected acquired extension shall fail with a conflict that suggests adopting it and upload nothing, while bulk publication shall report acquired entries as not authored and may publish eligible authored entries without uploading acquired entries.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
-- Source: [`packages/core/extension-publish/src/selection/requires-established-authorship.spec.ts`](../packages/core/extension-publish/src/selection/requires-established-authorship.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/selection/requires-established-authorship.spec.ts`](../packages/core/workspace/src/publishing/selection/requires-established-authorship.spec.ts)
 
 ##### Publication requires an existing owner
 
 - Requirement: `cli/publish/requires-existing-publish-owners`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: Before remotely publishing a selected extension, AXM shall require its owner to exist and, when an owner is absent, reject publication without uploading and provide the organization creation route.
 - Class: functional
 - Role: experience
@@ -2693,12 +2693,12 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/publish/command.test.ts`, `apps/cli/src/root/publish/command.ts`
-- Source: [`packages/core/extension-publish/src/preflight/requires-existing-publish-owners.spec.ts`](../packages/core/extension-publish/src/preflight/requires-existing-publish-owners.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/preflight/requires-existing-publish-owners.spec.ts`](../packages/core/workspace/src/publishing/preflight/requires-existing-publish-owners.spec.ts)
 
 ##### Publish requires explicit acceptance when archive content differs from Git HEAD
 
 - Requirement: `cli/publish/requires-explicit-acceptance-for-non-head-source`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: When an extension's archive differs from Git HEAD or the repository has no HEAD, publish shall block that extension and name --accept-warnings as the required override until it is given, while an archive matching HEAD, outside Git, or differing only in excluded paths shall publish without acceptance; and each outcome shall report the comparison basis, its status, the HEAD revision when one exists, and the material differences and their count, while an outcome for an extension outside Git shall carry no source-state report.
 - Class: functional
 - Role: experience
@@ -2709,12 +2709,12 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Supersedes: `cli/publish/outcomes-report-source-state`
 - Assumptions: The Git comparison AXM performs reports added, deleted, and modified paths accurately relative to HEAD; every scenario substitutes the comparison outcome rather than running Git.
 - Additional evidence: process via [`apps/cli-e2e/src/skills.e2e.test.ts`](../apps/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects; its imported cli-commands/skills/list/command.e2e.ts scenarios additionally observe inventory before setup, user-scope discovery, malformed settings and lockfiles, and install/uninstall/read journeys. Execution is attributed to this Vitest entrypoint, with imported source bytes included in the repository execution inputs.
-- Source: [`packages/core/extension-publish/src/source-state/requires-explicit-acceptance-for-non-head-source.spec.ts`](../packages/core/extension-publish/src/source-state/requires-explicit-acceptance-for-non-head-source.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/source-state/requires-explicit-acceptance-for-non-head-source.spec.ts`](../packages/core/workspace/src/publishing/source-state/requires-explicit-acceptance-for-non-head-source.spec.ts)
 
 ##### Publication respects workspace pack constraints
 
 - Requirement: `cli/publish/respects-local-pack-constraints`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: When an authored member selected for publication is excluded by a workspace-authored pack constraint, publish shall reject it in preview and apply, including existing-version verification, name the member and the conflicting pack constraint, and offer the repair that edits that pack's constraint.
 - Class: functional
 - Role: experience
@@ -2723,7 +2723,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/publish/command.test.ts`, `apps/cli/src/root/publish/command.ts`
 - Limitation: A member constrained by an acquired pack, whose authority is the Registry rather than this workspace, is not exercised; the statement was narrowed to the authored-pack repair the examples establish. Retires when: A row selects a member constrained by an acquired pack, states the repair that refusal offers, and the statement is widened back to every pack authority.
-- Source: [`packages/core/extension-publish/src/preflight/respects-local-pack-constraints.spec.ts`](../packages/core/extension-publish/src/preflight/respects-local-pack-constraints.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/preflight/respects-local-pack-constraints.spec.ts`](../packages/core/workspace/src/publishing/preflight/respects-local-pack-constraints.spec.ts)
 
 ##### Accepting a Registry extension from a different publisher needs a person's approval
 
@@ -3459,7 +3459,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### Publication selectors and filters narrow the workspace-authored set
 
 - Requirement: `cli/publication-selects-matching-authored-extensions`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: Root publish shall select matching workspace-authored extensions using fully qualified or type-qualified selectors and globs or argument-free owner, type and exclusion filters, while type-specific publication shall interpret its names, globs, fully qualified selectors and filters only within that type, each defaulting to all authored candidates in its scope.
 - Class: functional
 - Role: experience
@@ -3471,12 +3471,12 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Supersedes: `cli/publish/selectors-and-filters-narrow-authored-candidates`
 - Open questions: For an explicit selector with no match, including a fully qualified name of another type at a type-specific command, which diagnostic and result status are required? The selection must not broaden, but this owner does not fix the no-match reporting policy.
 - Limitation: The examples use file Registry destinations and a bounded selector/filter decision table. They do not establish every glob shape, repeated-filter combination, or remote Registry interaction. Retires when: Retain the type-bound selection evidence while adding any newly accepted selector grammar and interaction cases under their exact applicability.
-- Source: [`packages/core/extension-publish/src/selection/publication-selects-matching-authored-extensions.spec.ts`](../packages/core/extension-publish/src/selection/publication-selects-matching-authored-extensions.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/selection/publication-selects-matching-authored-extensions.spec.ts`](../packages/core/workspace/src/publishing/selection/publication-selects-matching-authored-extensions.spec.ts)
 
 ##### Pack dependency inclusion adds only workspace-authored members
 
 - Requirement: `cli/publish/dependency-inclusion-adds-only-authored-pack-members`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: For a selected pack, publish shall add its workspace-authored dependencies only when dependency inclusion is explicitly requested, retain external dependencies as Registry references, and leave unrelated authored extensions outside the selection.
 - Class: functional
 - Role: experience
@@ -3484,7 +3484,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
 - Derived from: `apps/cli/help/topics/publish.md`, `apps/cli/src/root/publish/command.ts`
-- Source: [`packages/core/extension-publish/src/selection/dependency-inclusion-adds-only-authored-pack-members.spec.ts`](../packages/core/extension-publish/src/selection/dependency-inclusion-adds-only-authored-pack-members.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/selection/dependency-inclusion-adds-only-authored-pack-members.spec.ts`](../packages/core/workspace/src/publishing/selection/dependency-inclusion-adds-only-authored-pack-members.spec.ts)
 
 ##### Relative paths start in the selected directory
 
@@ -3787,7 +3787,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### Visibility reconciliation applies repository intent at the observed Registry revision
 
 - Requirement: `cli/visibility/reconcile/applies-declared-repository-intent`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: The visibility reconcile command shall require project-scoped manifest or workspace visibility intent and established Registry visibility, submit the effective intent with its source fingerprint as repository authority conditional on the observed revision, and report only the acknowledged transition.
 - Class: functional
 - Role: experience
@@ -3795,7 +3795,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Methods: example, contract
 - Derived from: `apps/cli/src/root/visibility/handler.ts`, `AgentXM Registry API 0.1.0`
-- Source: [`packages/core/extension-publish/src/visibility/reconcile-applies-declared-repository-intent.spec.ts`](../packages/core/extension-publish/src/visibility/reconcile-applies-declared-repository-intent.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/visibility/reconcile-applies-declared-repository-intent.spec.ts`](../packages/core/workspace/src/publishing/visibility/reconcile-applies-declared-repository-intent.spec.ts)
 
 ##### Resolution withholds a release that has not aged, unless it is exempt
 
@@ -4516,7 +4516,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 ##### The publication archive matches its complete reported inventory
 
 - Requirement: `cli/publish/archive-inventory-matches-published-bytes`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: Publish shall include every regular package-root file unless explicitly ignored and report the effective included and excluded paths, byte sizes, matching patterns, pattern counts and warnings, total source and ZIP bytes, and SRI SHA-512 integrity that describe the archive it publishes.
 - Class: functional
 - Role: interface
@@ -4524,14 +4524,14 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary: memory; selection: per-change
 - Methods: example, contract
 - Derived from: `apps/cli/help/topics/publish.md`, `apps/cli/src/root/publish/command.test.ts`
-- Source: [`packages/core/extension-publish/src/archive/archive-inventory-matches-published-bytes.spec.ts`](../packages/core/extension-publish/src/archive/archive-inventory-matches-published-bytes.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/archive/archive-inventory-matches-published-bytes.spec.ts`](../packages/core/workspace/src/publishing/archive/archive-inventory-matches-published-bytes.spec.ts)
 
 #### External conformance
 
 ##### Publication uploads are bound to the reviewed source and visibility
 
 - Requirement: `cli/publish/uploads-the-reviewed-publication-set`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: For a remotely authorized publication, AXM shall bind each actual archive upload to its reviewed publication-set-v2 candidate using the granted capability, condition, publication-set digest, descriptor digest, and resolved visibility, and report the Registry's acknowledged outcome.
 - Class: external-conformance
 - Role: interface
@@ -4540,7 +4540,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Methods: example, contract
 - Derived from: `AgentXM Registry API 0.1.0`, `apps/cli/src/root/publish/command.test.ts`
 - Open questions: If local source changes after publication review, must AXM abort and revoke unused grants, or may it upload the frozen reviewed archive? The current implementation aborts; the accepted requirement binds actual upload bytes to the reviewed set without choosing an enforcement strategy.
-- Source: [`packages/core/extension-publish/src/authorization/uploads-the-reviewed-publication-set.spec.ts`](../packages/core/extension-publish/src/authorization/uploads-the-reviewed-publication-set.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/authorization/uploads-the-reviewed-publication-set.spec.ts`](../packages/core/workspace/src/publishing/authorization/uploads-the-reviewed-publication-set.spec.ts)
 
 ### Goal: workspace-intent-fidelity
 
@@ -4650,7 +4650,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### Visibility status supplies repository intent and reports the Registry evaluation
 
 - Requirement: `cli/visibility/status/reports-repository-intent-and-registry-evaluation`
-- Owner: `extension-publish`
+- Owner: `workspace`
 - Statement: For a project-scoped visibility status request, AXM shall submit the manifest visibility intent when present, otherwise the workspace default when present, otherwise no intent, and report the selected extension's Registry evaluation through the AgentXM Registry API 0.1.0 contract.
 - Class: functional
 - Role: interface
@@ -4658,7 +4658,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Methods: decision-table, contract
 - Derived from: `apps/cli/src/root/visibility/handler.ts`, `packages/core/registry-protocol/src/unstable/publish/visibility.ts`
-- Source: [`packages/core/extension-publish/src/visibility/status-reports-repository-intent-and-registry-evaluation.spec.ts`](../packages/core/extension-publish/src/visibility/status-reports-repository-intent-and-registry-evaluation.spec.ts)
+- Source: [`packages/core/workspace/src/publishing/visibility/status-reports-repository-intent-and-registry-evaluation.spec.ts`](../packages/core/workspace/src/publishing/visibility/status-reports-repository-intent-and-registry-evaluation.spec.ts)
 
 ##### A malformed extension name is rejected with a typed failure naming the input
 

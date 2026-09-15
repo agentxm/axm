@@ -51,6 +51,7 @@ import type {
   SettingsReader,
   WorkspaceLocation,
   WorkspaceMutations,
+  WorkspaceRecords,
   WorkspaceSettingsReadFailure,
   WorkspaceStateReadFailure,
 } from "@agentxm/workspace-state";
@@ -130,6 +131,7 @@ export type PrepareInstallRequirements =
   | FootprintRecorder
   | OperationJournal
   | ResolvePlanInteraction
+  | WorkspaceRecords
   | WorkspaceTransactionScope;
 
 // -----------------------------------------------------------------------------

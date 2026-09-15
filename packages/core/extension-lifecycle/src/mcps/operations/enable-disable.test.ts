@@ -6,7 +6,6 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
 import {
   CodingAgentRepository,
@@ -21,10 +20,8 @@ import {
   handle,
   makeCodingAgentStub,
 } from "../../test-helpers.js";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
-import type { WorkspaceMutationsService } from "@agentxm/workspace-state";
+import { SettingsWriter } from "@agentxm/workspace-state";
 import {
-  makeBaseWorkspaceMock,
   makeRegistryMcpServerLockEntry,
   MockWorkspaceTransactionScope,
   WorkspaceReadTest,
@@ -62,17 +59,29 @@ const makeAgentRepo = (agent: CodingAgent): CodingAgentRepositoryService => ({
 
 const makeServices = (
   axmDir: string,
-  wsOverrides: Partial<WorkspaceMutationsService>,
+  facts: {
+    readonly entry: McpServerEntry;
+    readonly onUpdateEntry?: (type: string, name: string) => void;
+  },
   agentRepo: CodingAgentRepositoryService,
   read: Omit<WorkspaceReadTestFacts, "baseDir" | "runtimeDir"> = {},
 ) => {
-  const workspace = makeBaseWorkspaceMock(axmDir, wsOverrides);
-
   return {
     layer: Layer.mergeAll(
       NativeWriteAuthorityPermissive,
-      WorkspaceMutations.layer(workspace),
-      WorkspaceReadTest({ baseDir: path.dirname(axmDir), runtimeDir: axmDir, ...read }),
+      WorkspaceReadTest({
+        baseDir: path.dirname(axmDir),
+        runtimeDir: axmDir,
+        ...read,
+        settings: {
+          ...read.settings,
+          agents: read.settings?.agents ?? ["claude-code"],
+          mcpServers: { [serverName]: facts.entry },
+        },
+      }),
+      Layer.mock(SettingsWriter, {
+        updateEntry: (type, name, _update) => Effect.sync(() => facts.onUpdateEntry?.(type, name)),
+      }),
       MockWorkspaceTransactionScope(axmDir),
       TestStepFailureConversion,
       Layer.succeed(CodingAgentRepository, agentRepo),
@@ -172,23 +181,10 @@ describe("enableMcpServer and disableMcpServer", () => {
         ],
         problems: [],
       };
-      const services = makeServices(
-        axmDir,
-        {
-          getConfiguredMcpServerEntries: () => Effect.succeed({ [serverName]: entry }),
-          getLockedMcpServers: () => Effect.succeed({ [serverName]: lockEntry }),
-          getLockedMcpServer: () => Effect.succeed(Option.some(lockEntry)),
-          getLockedMcpServerForConnection: () => Effect.succeed(Option.some(lockEntry)),
-          getDesiredStateGraph: () => Effect.succeed(graph),
-          updateMcpServerEntry: () => Effect.void,
-        },
-        makeAgentRepo(agent),
-        {
-          settings: { mcpServers: { [serverName]: entry } },
-          lockfile: { lockfileVersion: 7, skills: {}, mcpServers: { [identity]: lockEntry } },
-          graph,
-        },
-      );
+      const services = makeServices(axmDir, { entry }, makeAgentRepo(agent), {
+        lockfile: { lockfileVersion: 7, skills: {}, mcpServers: { [identity]: lockEntry } },
+        graph,
+      });
 
       const result = yield* enableMcpServer({
         name: "enable-mcp-server",
@@ -228,15 +224,10 @@ describe("enableMcpServer and disableMcpServer", () => {
         addMcpServer: () => Effect.succeed({ _tag: "success" }),
         removeMcpServer: removeSpy,
       });
-      const updateSpy = vi.fn(() => Effect.void);
+      const updateSpy = vi.fn();
       const services = makeServices(
         axmDir,
-        {
-          getConfiguredMcpServerEntries: () => Effect.succeed({ [serverName]: entry }),
-          getLockedMcpServers: () => Effect.succeed({ [serverName]: makeLockEntry(projectDir) }),
-          getLockedMcpServer: () => Effect.succeed(Option.some(makeLockEntry(projectDir))),
-          updateMcpServerEntry: updateSpy,
-        },
+        { entry, onUpdateEntry: updateSpy },
         makeAgentRepo(agent),
       );
 

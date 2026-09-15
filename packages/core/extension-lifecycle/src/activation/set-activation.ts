@@ -109,11 +109,9 @@ import {
   RenderedFilePathSchema,
   sanitizeName,
   WorkspaceLocation,
-  WorkspaceMutations,
   WorkspaceRecords,
   type DesiredExtensionNode,
   type AcceptedCanonicalRefError,
-  type WorkspaceMutationsService,
 } from "@agentxm/workspace-state";
 import {
   FootprintRecorder,
@@ -239,7 +237,6 @@ export type SetActivationRequirements =
   | SubagentManager
   | WorkspaceCatalog
   | WorkspaceLocation
-  | WorkspaceMutations
   | WorkspaceRecords
   | WorkspaceTransactionScope;
 
@@ -322,23 +319,21 @@ const remainsActiveWithoutPack = (node: DesiredExtensionNode, packIdentity: stri
 // -----------------------------------------------------------------------------
 
 /** The gate a rule transition passes before it may reconcile instruction files. */
-const instructionGate = (
-  ws: WorkspaceMutationsService,
-): Effect.Effect<
+const instructionGate = (): Effect.Effect<
   {
     readonly config: Option.Option<ResolvedInstructionsConfig>;
     readonly blocked: Option.Option<ExtensionLifecycleFailed>;
   },
   ExtensionManagerFailure,
-  FileSystem.FileSystem | Path.Path
+  FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation
 > =>
   Effect.gen(function* () {
-    const config = yield* activeInstructionsConfig(ws);
+    const config = yield* activeInstructionsConfig();
     if (Option.isNone(config)) {
       return { config, blocked: Option.none<ExtensionLifecycleFailed>() };
     }
-    const snapshot = yield* observeInstructions({ ws, config: config.value });
-    const readiness = yield* instructionReconciliationReadiness({ ws, snapshot });
+    const snapshot = yield* observeInstructions({ config: config.value });
+    const readiness = yield* instructionReconciliationReadiness({ snapshot });
     return {
       config,
       blocked: Option.map(
@@ -390,12 +385,17 @@ const settleActivation = (
   | ProjectionParticipantRequirements
   | LockfileReader
   | SettingsReader
-  | WorkspaceMutations
+  | WorkspaceLocation
+  | WorkspaceRecords
+  | DesiredStateReader
 > =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const records = yield* WorkspaceRecords;
+    const desiredState = yield* DesiredStateReader;
+    const settings = yield* SettingsReader;
     const path = yield* Path.Path;
-    const scope = ws.scope;
+    const scope = location.scope;
     const verb = request.enabled ? "enabled" : "disabled";
 
     switch (request.type) {
@@ -405,7 +405,7 @@ const settleActivation = (
           input: request.name,
           resourceType: request.type,
         });
-        const rows = yield* ws.records.rows(request.type).pipe(Effect.map(installedRowsByName));
+        const rows = yield* records.rows(request.type).pipe(Effect.map(installedRowsByName));
         const entry = rows[name];
         if (entry === undefined) {
           return yield* notInstalled(request.type, request.name, `axm ${request.type}s list`);
@@ -449,7 +449,7 @@ const settleActivation = (
           input: request.name,
           resourceType: request.type,
         });
-        const currentGraph = yield* ws.getDesiredStateGraph();
+        const currentGraph = yield* desiredState.graph();
         if (!currentGraph.nodes.some((node) => node.type === request.type && node.name === name)) {
           if (request.type === "knowledge")
             return yield* new ExtensionLifecycleFailed({
@@ -508,7 +508,7 @@ const settleActivation = (
         }
         const gate =
           request.type === "rule"
-            ? yield* instructionGate(ws)
+            ? yield* instructionGate()
             : {
                 config: Option.none<ResolvedInstructionsConfig>(),
                 blocked: Option.none<ExtensionLifecycleFailed>(),
@@ -553,7 +553,7 @@ const settleActivation = (
       }
 
       case "pack": {
-        const configured = yield* ws.getConfiguredPackEntries();
+        const configured = yield* settings.entries("pack");
         const entry = configured[request.name];
         if (entry === undefined) {
           return yield* new ExtensionLifecycleFailed({
@@ -655,7 +655,7 @@ const settleActivation = (
             Effect.map((canonical): ReadonlyArray<JobStepArtifactReference> => {
               if (Option.isNone(canonical) || canonical.value.observation.path === undefined)
                 return [];
-              const relative = path.relative(ws.baseDir, canonical.value.observation.path);
+              const relative = path.relative(location.baseDir, canonical.value.observation.path);
               if (
                 Option.isSome(retirement) &&
                 retirement.value.artifact?.targets?.some((target) => target.path === relative)
@@ -731,10 +731,11 @@ const dematerializeMember = (
   | FileSystem.FileSystem
   | ManagerRequirements
   | Path.Path
-  | WorkspaceMutations
+  | WorkspaceLocation
+  | SettingsReader
 > =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
     const path = yield* Path.Path;
     const agentRepo = yield* CodingAgentRepository;
 
@@ -750,8 +751,8 @@ const dematerializeMember = (
           (agent) =>
             agent
               .removeMcpServer({
-                workspaceRoot: ws.baseDir,
-                scope: ws.scope,
+                workspaceRoot: location.baseDir,
+                scope: location.scope,
                 serverName: node.name,
                 disableOnly: false,
               })
@@ -779,35 +780,40 @@ const dematerializeMember = (
         return yield* Effect.forEach(
           agents,
           (agent) =>
-            agent.resolveEffectiveSubagentsDir({ workspaceRoot: ws.baseDir, scope: ws.scope }).pipe(
-              Effect.flatMap((resolved) =>
-                resolved._tag !== "supported"
-                  ? Effect.void
-                  : findManagedSubagentFiles(resolved.dir, sanitizeName(node.name)).pipe(
-                      Effect.flatMap((managedPaths) =>
-                        agent
-                          .removeSubagent({
-                            workspaceRoot: ws.baseDir,
-                            scope: ws.scope,
-                            subagentName: node.name,
-                            renderedFilePaths: managedPaths.map((filePath) =>
-                              decodeRenderedFilePath(path.relative(ws.baseDir, filePath)),
+            agent
+              .resolveEffectiveSubagentsDir({
+                workspaceRoot: location.baseDir,
+                scope: location.scope,
+              })
+              .pipe(
+                Effect.flatMap((resolved) =>
+                  resolved._tag !== "supported"
+                    ? Effect.void
+                    : findManagedSubagentFiles(resolved.dir, sanitizeName(node.name)).pipe(
+                        Effect.flatMap((managedPaths) =>
+                          agent
+                            .removeSubagent({
+                              workspaceRoot: location.baseDir,
+                              scope: location.scope,
+                              subagentName: node.name,
+                              renderedFilePaths: managedPaths.map((filePath) =>
+                                decodeRenderedFilePath(path.relative(location.baseDir, filePath)),
+                              ),
+                            })
+                            .pipe(
+                              Effect.flatMap((outcome) =>
+                                outcome._tag === "conflict"
+                                  ? new ExtensionLifecycleFailed({
+                                      category: "conflict",
+                                      detail: `Subagent removal failed for ${agent.id}: ${outcome.reason}`,
+                                    })
+                                  : Effect.void,
+                              ),
                             ),
-                          })
-                          .pipe(
-                            Effect.flatMap((outcome) =>
-                              outcome._tag === "conflict"
-                                ? new ExtensionLifecycleFailed({
-                                    category: "conflict",
-                                    detail: `Subagent removal failed for ${agent.id}: ${outcome.reason}`,
-                                  })
-                                : Effect.void,
-                            ),
-                          ),
+                        ),
                       ),
-                    ),
+                ),
               ),
-            ),
           { concurrency: "unbounded", discard: true },
         );
       }
@@ -830,7 +836,7 @@ const reconcileAggregateProjections = (
 ): Effect.Effect<
   ReadonlyArray<string>,
   ExtensionManagerFailure,
-  RuleManager | HookManager | KnowledgeManager | ManagerRequirements | WorkspaceMutations
+  RuleManager | HookManager | KnowledgeManager | ManagerRequirements
 > =>
   Effect.gen(function* () {
     const plans: Array<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>> = [];
@@ -851,10 +857,10 @@ const validatePackActivation = (candidate: {
   readonly name: string;
   readonly enabled: boolean;
   readonly members: ReadonlyArray<DesiredExtensionNode>;
-}): Effect.Effect<void, LifecycleFailure, WorkspaceMutations> =>
+}): Effect.Effect<void, LifecycleFailure, DesiredStateReader> =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const graph = yield* ws.getDesiredStateGraph();
+    const desiredState = yield* DesiredStateReader;
+    const graph = yield* desiredState.graph();
     const packNode = graph.nodes.find(
       (node) => node.type === "pack" && node.name === candidate.name,
     );
@@ -897,11 +903,12 @@ type TransitionRequirements =
   | Path.Path
   | RecipeRequirements
   | LockfileReader
+  | DesiredStateReader
   | SettingsReader
   | SettingsWriter
   | StepFailureConversion
   | SubagentManager
-  | WorkspaceMutations
+  | WorkspaceLocation
   | WorkspaceTransactionScope;
 
 type TransitionEffect = Effect.Effect<
@@ -999,7 +1006,7 @@ const executorStep = (
 const transactionStep = (
   candidate: ActivationRealization,
   transition: TransitionEffect,
-  validate: () => Effect.Effect<void, LifecycleFailure, WorkspaceMutations>,
+  validate: () => Effect.Effect<void, LifecycleFailure, DesiredStateReader>,
 ): PlannedJobStep<SetActivationRequirements> => {
   const { artifact } = candidate;
   return {
@@ -1008,11 +1015,10 @@ const transactionStep = (
     artifact,
     ...(candidate.agentOutcomes.length === 0 ? {} : { agentOutcomes: candidate.agentOutcomes }),
     run: Effect.gen(function* () {
-      const ws = yield* WorkspaceMutations;
       const warnings = yield* runWorkspaceTransaction({
         transition: Option.match(candidate.instructions, {
           onNone: () => transition,
-          onSome: (config) => reconcileInstructionTransition({ ws, config, transition }),
+          onSome: (config) => reconcileInstructionTransition({ config, transition }),
         }),
         validate,
       });

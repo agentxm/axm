@@ -18,10 +18,12 @@ import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 
-import type {
-  WorkspaceMutationsService,
-  WorkspaceSettingsMutationFailure,
-  WorkspaceSettingsReadFailure,
+import {
+  SettingsReader,
+  SettingsWriter,
+  WorkspaceLocation,
+  type WorkspaceSettingsMutationFailure,
+  type WorkspaceSettingsReadFailure,
 } from "@agentxm/workspace-state";
 
 import { InstructionMaintenanceFailed, type InstructionMaintenanceFailure } from "./errors.js";
@@ -41,18 +43,19 @@ import {
 
 /** The one observation a caller's planning derives its views from. */
 export const observeInstructions = (args: {
-  readonly ws: WorkspaceMutationsService;
   readonly config: ResolvedInstructionsConfig;
 }): Effect.Effect<
   InstructionProjectionSnapshot,
   WorkspaceSettingsReadFailure,
-  FileSystem.FileSystem | Path.Path
+  FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation
 > =>
   Effect.gen(function* () {
-    const agents = yield* args.ws.getConfiguredAgents();
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
+    const agents = yield* settings.configuredAgents;
     return yield* observeInstructionProjection({
-      workspaceRoot: args.ws.baseDir,
-      scope: args.ws.scope,
+      workspaceRoot: location.baseDir,
+      scope: location.scope,
       configuredAgents: agents,
       config: args.config,
     });
@@ -62,11 +65,14 @@ export const observeInstructions = (args: {
  * The instruction configuration this workspace propagates today, or none
  * when it does not manage instruction files.
  */
-export const activeInstructionsConfig = (
-  ws: WorkspaceMutationsService,
-): Effect.Effect<Option.Option<ResolvedInstructionsConfig>, WorkspaceSettingsReadFailure> =>
+export const activeInstructionsConfig = (): Effect.Effect<
+  Option.Option<ResolvedInstructionsConfig>,
+  WorkspaceSettingsReadFailure,
+  SettingsReader
+> =>
   Effect.gen(function* () {
-    const value = yield* ws.getInstructionsConfig();
+    const settings = yield* SettingsReader;
+    const value = yield* settings.instructionsConfig;
     if (Option.isNone(value) || value.value === false) {
       return Option.none<ResolvedInstructionsConfig>();
     }
@@ -87,29 +93,27 @@ export type InstructionReadinessFailure = InstructionMaintenanceFailure;
  * and reconciliation stops before it can overwrite it.
  */
 export const instructionReconciliationReadiness = (args: {
-  readonly ws: WorkspaceMutationsService;
   readonly snapshot: InstructionProjectionSnapshot;
 }): Effect.Effect<
   Option.Option<InstructionReadinessFailure>,
   never,
-  FileSystem.FileSystem | Path.Path
+  FileSystem.FileSystem | Path.Path | WorkspaceLocation
 > =>
-  Effect.result(
-    Effect.all(
-      [
-        assertInstructionTargetsSafe(args.snapshot.status),
-        assertInstructionsGitignoreSafe(args.ws.baseDir),
-      ],
-      { concurrency: 1, discard: true },
-    ),
-  ).pipe(
-    Effect.map((result) =>
-      result._tag === "Success"
-        ? Option.none<InstructionReadinessFailure>()
-        : Option.some(result.failure),
-    ),
-    Effect.withSpan("Instructions.reconciliationReadiness"),
-  );
+  Effect.gen(function* () {
+    const location = yield* WorkspaceLocation;
+    const result = yield* Effect.result(
+      Effect.all(
+        [
+          assertInstructionTargetsSafe(args.snapshot.status),
+          assertInstructionsGitignoreSafe(location.baseDir),
+        ],
+        { concurrency: 1, discard: true },
+      ),
+    );
+    return result._tag === "Success"
+      ? Option.none<InstructionReadinessFailure>()
+      : Option.some(result.failure);
+  }).pipe(Effect.withSpan("Instructions.reconciliationReadiness"));
 
 /**
  * Remove every alias the given configuration owns, observing fresh so the
@@ -119,12 +123,11 @@ export const instructionReconciliationReadiness = (args: {
  * every other path.
  */
 export const removeInstructionTargetsFor = (args: {
-  readonly ws: WorkspaceMutationsService;
   readonly config: ResolvedInstructionsConfig;
 }): Effect.Effect<
   ReadonlyArray<string>,
   WorkspaceSettingsReadFailure | InstructionMaintenanceFailure,
-  FileSystem.FileSystem | Path.Path
+  FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation
 > =>
   Effect.gen(function* () {
     const snapshot = yield* observeInstructions(args);
@@ -137,27 +140,27 @@ export const removeInstructionTargetsFor = (args: {
  * apply the transition, reconcile, and verify from the sync's own readback.
  */
 export const reconcileInstructionTransition = <A, E, R = never>(args: {
-  readonly ws: WorkspaceMutationsService;
   readonly config: ResolvedInstructionsConfig;
   readonly preflightConfig?: ResolvedInstructionsConfig;
   readonly transition: Effect.Effect<A, E, R>;
 }): Effect.Effect<
   A,
   E | WorkspaceSettingsReadFailure | InstructionMaintenanceFailure,
-  R | FileSystem.FileSystem | Path.Path
+  R | FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation
 > =>
   Effect.gen(function* () {
-    const agents = yield* args.ws.getConfiguredAgents();
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
+    const agents = yield* settings.configuredAgents;
     const preflight = yield* observeInstructions({
-      ws: args.ws,
       config: args.preflightConfig ?? args.config,
     });
     yield* assertInstructionTargetsSafe(preflight.status);
-    yield* assertInstructionsGitignoreSafe(args.ws.baseDir);
+    yield* assertInstructionsGitignoreSafe(location.baseDir);
     const transitionResult = yield* args.transition;
     const syncResult: InstructionsSyncResult = yield* syncInstructions({
-      workspaceRoot: args.ws.baseDir,
-      scope: args.ws.scope,
+      workspaceRoot: location.baseDir,
+      scope: location.scope,
       configuredAgents: agents,
       config: args.config,
       dryRun: false,
@@ -184,21 +187,22 @@ export interface DisabledInstructionManagement {
  * instructions.
  */
 export const disableInstructionManagement = (args: {
-  readonly ws: WorkspaceMutationsService;
   readonly config: ResolvedInstructionsConfig;
 }): Effect.Effect<
   DisabledInstructionManagement,
   WorkspaceSettingsReadFailure | WorkspaceSettingsMutationFailure | InstructionMaintenanceFailure,
-  FileSystem.FileSystem | Path.Path
+  FileSystem.FileSystem | Path.Path | SettingsReader | SettingsWriter | WorkspaceLocation
 > =>
   Effect.gen(function* () {
-    yield* assertInstructionsGitignoreSafe(args.ws.baseDir);
+    const location = yield* WorkspaceLocation;
+    const settingsWriter = yield* SettingsWriter;
+    yield* assertInstructionsGitignoreSafe(location.baseDir);
     const removed = yield* removeInstructionTargetsFor(args);
     const gitignore = yield* removeInstructionsGitignore({
-      workspaceRoot: args.ws.baseDir,
+      workspaceRoot: location.baseDir,
       dryRun: false,
     });
-    yield* args.ws.setInstructionsConfig(false);
+    yield* settingsWriter.setInstructionsConfig(false);
     return {
       removed,
       gitignore: Option.getOrUndefined(gitignore),

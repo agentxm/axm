@@ -1,4 +1,5 @@
 import { WorkspaceTransactionScopeLive } from "@agentxm/workspace-transactions/live";
+import * as nodePath from "node:path";
 /**
  * Shared fixtures for the plan-family specifications and tests in this area.
  *
@@ -13,16 +14,31 @@ import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 
 import { FootprintRecorder, makeFootprintRecorder } from "@agentxm/workspace-transactions";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { WorkspaceRecords } from "@agentxm/workspace-state";
 import {
   ConfiguredAgentOutcomesProviderTest,
-  makeBaseWorkspaceMock,
+  WorkspaceReadTest,
 } from "@agentxm/workspace-state/testing";
 
 import type { PlanInteractionFailed } from "../errors.js";
 import { OperationJournal, makeOperationJournal } from "../operation-journal.js";
 import type { ConfirmationRecovery } from "../plan-execution.js";
 import { ResolvePlanInteractionTest, type ApplyConfirmation } from "../resolve-plan-interaction.js";
+
+/** Empty physical inventory for plan cases that do not exercise readback projection. */
+export const WorkspaceRecordsEmpty = Layer.mock(WorkspaceRecords, {
+  getExtensionInventory: () =>
+    Effect.succeed({
+      items: [],
+      count: 0,
+      configuredCount: 0,
+      implicitCount: 0,
+      installedCount: 0,
+      leftoverCount: 0,
+      undeclaredCount: 0,
+      unmanagedCount: 0,
+    }),
+});
 
 /** A workspace directory whose authoritative files exist on disk. */
 export const makeSpecWorkspace = (prefix: string) =>
@@ -60,7 +76,8 @@ export const makeSpecContext = (
   return {
     interaction,
     layer: Layer.mergeAll(
-      Layer.succeed(WorkspaceMutations, makeBaseWorkspaceMock(workspaceDir)),
+      WorkspaceReadTest({ baseDir: nodePath.dirname(workspaceDir), runtimeDir: workspaceDir }),
+      WorkspaceRecordsEmpty,
       interaction.layer,
       ConfiguredAgentOutcomesProviderTest,
       Layer.effect(OperationJournal, makeOperationJournal),

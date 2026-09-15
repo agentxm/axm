@@ -85,9 +85,13 @@ import {
   WorkspaceMutations,
   type ConfiguredAgentOutcomesProvider,
   computePackageContentHash,
+  type LockfileReader,
   type LockfileValidationError,
   type PackageContentHashFailed,
+  type SettingsReader,
+  type WorkspaceLocation,
   type WorkspaceLockfileReadFailure,
+  type WorkspaceRecords,
   type WorkspaceSettingsReadFailure,
 } from "@agentxm/workspace-state";
 
@@ -137,6 +141,10 @@ export type ForkExtensionRequirements =
   | ManagerRequirements
   | RecipeRequirements
   | WorkspaceMutations
+  | LockfileReader
+  | SettingsReader
+  | WorkspaceLocation
+  | WorkspaceRecords
   | CodingAgentRepository
   | McpSecretStore;
 
@@ -183,6 +191,10 @@ export type PrepareForkExtensionRequirements =
   | Scope.Scope
   | HttpClient.HttpClient
   | WorkspaceMutations
+  | LockfileReader
+  | SettingsReader
+  | WorkspaceLocation
+  | WorkspaceRecords
   | SkillManager
   | SubagentManager
   | RuleManager

@@ -1,4 +1,5 @@
 import { WorkspaceTransactionScopeLive } from "@agentxm/workspace-transactions/live";
+import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -15,10 +16,9 @@ import {
   protectWorkspacePath,
 } from "@agentxm/workspace-transactions";
 import { injectWriteFaults } from "@agentxm/workspace-transactions/testing";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
   ConfiguredAgentOutcomesProviderTest,
-  makeBaseWorkspaceMock,
+  WorkspaceReadTest,
 } from "@agentxm/workspace-state/testing";
 
 import { StepFailure } from "./errors.js";
@@ -30,6 +30,7 @@ import { ResolvePlanInteractionTest, type ApplyConfirmation } from "./resolve-pl
 import { prepareExecutionCandidate, resolveExecutionCandidate } from "./resolve-plan.js";
 import { workspaceTransactionFailureToStepFailure } from "./step-failure-conversions.js";
 import type { PlanInteractionFailed } from "./errors.js";
+import { WorkspaceRecordsEmpty } from "./__tests__/plan-spec-support.js";
 
 export const specification = defineSpecification({
   requirement: "cli/mutations-are-closure-atomic",
@@ -112,7 +113,8 @@ const context = (
   return {
     interaction,
     layer: Layer.mergeAll(
-      Layer.succeed(WorkspaceMutations, makeBaseWorkspaceMock(workspaceDir)),
+      WorkspaceReadTest({ baseDir: nodePath.dirname(workspaceDir), runtimeDir: workspaceDir }),
+      WorkspaceRecordsEmpty,
       interaction.layer,
       ConfiguredAgentOutcomesProviderTest,
       Layer.effect(OperationJournal, makeOperationJournal),

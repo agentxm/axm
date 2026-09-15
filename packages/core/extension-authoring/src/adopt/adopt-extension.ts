@@ -74,7 +74,10 @@ import {
   type ConfiguredAgentOutcomesProvider,
   resolveWorkspaceExtensionRef,
   type LockfileValidationError,
+  type SettingsReader,
+  type WorkspaceLocation,
   type WorkspaceLockfileReadFailure,
+  type WorkspaceRecords,
   type WorkspaceSettingsReadFailure,
   type WorkspaceStateReadFailure,
 } from "@agentxm/workspace-state";
@@ -166,6 +169,9 @@ export type PrepareAdoptExtensionRequirements =
   | HttpClient.HttpClient
   | WorkspaceMutations
   | LockfileReader
+  | SettingsReader
+  | WorkspaceLocation
+  | WorkspaceRecords
   | SkillManager
   | SubagentManager
   | RuleManager

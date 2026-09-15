@@ -66,12 +66,15 @@ import {
 } from "./operation-events.js";
 import {
   ConfiguredAgentOutcomesProvider,
-  WorkspaceMutations,
+  LockfileReader,
+  SettingsReader,
+  WorkspaceLocation,
+  WorkspaceRecords,
   configuredAgentLifecycleOutcomes,
   type ConfiguredAgentOutcome,
   type ConfiguredAgentOutcomesProviderService,
-  type WorkspaceMutationsService,
 } from "@agentxm/workspace-state";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   FootprintRecorder,
   WorkspaceRestorationIncomplete,
@@ -173,7 +176,7 @@ const withExecutedAgentOutcomes = <Output>(
  * per-type override when the operation enables the extension.
  */
 const outcomesFor = (
-  ws: WorkspaceMutationsService,
+  scope: WorkspaceScope,
   provider: ConfiguredAgentOutcomesProviderService,
   configuredAgents: ReadonlyArray<string>,
   operation: ConfiguredAgentOperation,
@@ -183,7 +186,7 @@ const outcomesFor = (
     type: operation.extensionType,
     name: operation.name,
     agentIds: configuredAgents,
-    scope: ws.scope,
+    scope,
     state,
     targetState: operation.plannedState,
     installed: state === "projected",
@@ -242,7 +245,9 @@ export const prepareExecutionCandidate = Effect.fn("prepareExecutionCandidate")(
   Requirements,
   Output,
 >(plan: Plan<Requirements, Output>, options?: PrepareExecutionCandidateOptions) {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const lockfile = yield* LockfileReader;
+  const settings = yield* SettingsReader;
   const provider = yield* ConfiguredAgentOutcomesProvider;
 
   yield* publishPhaseStarted("planning");
@@ -250,13 +255,13 @@ export const prepareExecutionCandidate = Effect.fn("prepareExecutionCandidate")(
   // Lockfile reconciliation, observed as one planning unit.
   const augmented = yield* observeUnit(
     { id: "lockfile-reconciliation", label: "lockfile reconciliation" },
-    augmentPlanWithReconciliation(plan, () => ws.getLockfileState()),
+    augmentPlanWithReconciliation(plan, () => lockfile.state),
   );
 
   const operations = options?.configuredAgentOperations ?? [];
-  const configuredAgents = operations.length === 0 ? [] : yield* ws.getConfiguredAgents();
+  const configuredAgents = operations.length === 0 ? [] : yield* settings.configuredAgents;
   const projectedOutcomes = (yield* Effect.forEach(operations, (operation) =>
-    outcomesFor(ws, provider, configuredAgents, operation, "projected"),
+    outcomesFor(location.scope, provider, configuredAgents, operation, "projected"),
   )).flat();
   const augmentedPlan =
     operations.length === 0
@@ -292,9 +297,9 @@ export const prepareExecutionCandidate = Effect.fn("prepareExecutionCandidate")(
   return yield* makeExecutionCandidate(
     candidatePlan,
     {
-      settingsPath: ws.layout.settingsPath,
-      lockPath: ws.layout.lockPath,
-      baseDir: ws.baseDir,
+      settingsPath: location.settingsPath,
+      lockPath: location.lockPath,
+      baseDir: location.baseDir,
     },
     operations,
   );
@@ -326,7 +331,9 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
   execution: PlanExecution,
   options?: ResolveExecutionCandidateOptions<Requirements, Output>,
 ) {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const records = yield* WorkspaceRecords;
+  const settings = yield* SettingsReader;
   const provider = yield* ConfiguredAgentOutcomesProvider;
   const interaction = yield* ResolvePlanInteraction;
   const path = yield* Path.Path;
@@ -338,7 +345,7 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
   const mode = execution.request.mode;
   const candidatePlan = candidate.plan;
   const operations = candidate.configuredAgentOperations;
-  const configuredAgents = operations.length === 0 ? [] : yield* ws.getConfiguredAgents();
+  const configuredAgents = operations.length === 0 ? [] : yield* settings.configuredAgents;
   const readiness = scanPlanReadiness({
     ...candidatePlan,
     jobs: candidatePlan.jobs.filter((job) => job.executionPolicy !== "best-effort"),
@@ -674,7 +681,7 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
             Effect.mapError(configuredAgentOutcomesUnavailableToStepFailure),
           )
         : operation.plannedState === "enabled"
-          ? ws.records.getExtensionInventory(operation.extensionType, {}).pipe(
+          ? records.getExtensionInventory(operation.extensionType, {}).pipe(
               Effect.mapError(workspaceStateReadFailureToStepFailure),
               Effect.map(
                 (inventory) =>
@@ -683,7 +690,7 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
                     type: operation.extensionType,
                     name: operation.name,
                     agentIds: configuredAgents,
-                    scope: ws.scope,
+                    scope: location.scope,
                     state: "current",
                     targetState: "enabled",
                     installed: false,
@@ -695,7 +702,7 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
                 type: operation.extensionType,
                 name: operation.name,
                 agentIds: configuredAgents,
-                scope: ws.scope,
+                scope: location.scope,
                 state: "current",
                 targetState: operation.plannedState,
                 installed: false,
@@ -826,7 +833,7 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
   }
   const observedFootprint: ReadonlyArray<OperationFootprintEntry> = (yield* readFootprint)
     .map((entry) => ({
-      path: path.isAbsolute(entry.path) ? path.relative(ws.baseDir, entry.path) : entry.path,
+      path: path.isAbsolute(entry.path) ? path.relative(location.baseDir, entry.path) : entry.path,
       change: entry.change,
     }))
     // The footprint reports durable workspace changes; scratch outside the

@@ -51,7 +51,11 @@ import {
 } from "@agentxm/workspace-projection";
 import {
   ConfiguredAgentOutcomesProvider,
+  LockfileReader,
+  SettingsReader,
+  WorkspaceLocation,
   WorkspaceMutations,
+  WorkspaceRecords,
   type WorkspaceStateReadFailure,
 } from "@agentxm/workspace-state";
 import { FootprintRecorder, WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
@@ -259,7 +263,11 @@ export type MembershipExecutionRequirements<Requirements> =
   | OperationJournal
   | Path.Path
   | ResolvePlanInteraction
+  | LockfileReader
+  | SettingsReader
+  | WorkspaceLocation
   | WorkspaceMutations
+  | WorkspaceRecords
   | WorkspaceTransactionScope;
 
 const addAgentStep = <Output>(

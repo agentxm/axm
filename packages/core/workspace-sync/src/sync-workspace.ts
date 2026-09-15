@@ -53,6 +53,7 @@ import { WorkspaceInvariantFacts } from "@agentxm/workspace-projection";
 import {
   ConfiguredAgentOutcomesProvider,
   LockfileReader,
+  WorkspaceRecords,
   WorkspaceMutations,
   type LockfileValidationError,
   type WorkspaceSettingsReadFailure,
@@ -107,6 +108,7 @@ export type SyncWorkspaceRequirements =
   | OperationJournal
   | ResolvePlanInteraction
   | SyncStepRequirements
+  | WorkspaceRecords
   | WorkspaceInvariantFacts;
 
 type SyncPlanStep = PlannedJobStep<SyncWorkspaceRequirements>;

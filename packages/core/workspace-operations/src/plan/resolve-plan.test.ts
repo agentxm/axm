@@ -10,6 +10,8 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type * as PlatformError from "effect/PlatformError";
 
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/extensions";
+
 import {
   applyPlanExecution,
   previewPlanExecution,
@@ -28,11 +30,10 @@ import {
   type WorkspaceTransitionLock,
 } from "@agentxm/workspace-transactions";
 import { WorkspaceTransactionScopeTest } from "@agentxm/workspace-transactions/testing";
-import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
 import { ResolvePlanInteractionTest, type ApplyConfirmation } from "./resolve-plan-interaction.js";
 import {
   ConfiguredAgentOutcomesProviderTest,
-  makeBaseWorkspaceMock,
+  WorkspaceReadTest,
 } from "@agentxm/workspace-state/testing";
 import { OperationJournal, makeOperationJournal } from "./operation-journal.js";
 import type { Plan } from "./plan.js";
@@ -49,6 +50,7 @@ import {
   subscribeLossless,
   type OperationEvent,
 } from "./operation-events.js";
+import { WorkspaceRecordsEmpty } from "./__tests__/plan-spec-support.js";
 
 const testRecovery: ConfirmationRecovery = { command: ["install"], arguments: [] };
 
@@ -135,7 +137,10 @@ const isolatedScope = (lock?: WorkspaceTransitionLock) =>
 const makeTestContext = (
   confirmApplyChanges?: () => Effect.Effect<ApplyConfirmation, PlanInteractionFailed>,
   overrides?: { readonly confirmationAvailable?: boolean },
-  workspace: WorkspaceMutationsService = makeBaseWorkspaceMock("/tmp/axm-preview/.axm"),
+  workspace: {
+    readonly baseDir: string;
+    readonly configuredAgents?: ReadonlyArray<ConfigurableAgentId>;
+  } = { baseDir: "/tmp/axm-preview" },
   scope: Layer.Layer<
     WorkspaceTransactionScope,
     PlatformError.PlatformError,
@@ -151,7 +156,12 @@ const makeTestContext = (
 
   return {
     layer: Layer.mergeAll(
-      Layer.succeed(WorkspaceMutations, workspace),
+      WorkspaceReadTest({
+        baseDir: workspace.baseDir,
+        runtimeDir: `${workspace.baseDir}/.axm`,
+        settings: { agents: workspace.configuredAgents ?? ["claude-code"] },
+      }),
+      WorkspaceRecordsEmpty,
       interaction.layer,
       ConfiguredAgentOutcomesProviderTest,
       Layer.effect(OperationJournal, makeOperationJournal),
@@ -516,9 +526,13 @@ describe("previewOrApply", () => {
   );
 
   it.effect("fails an applied mutation when required agent projection readback is missing", () => {
-    const workspace = makeBaseWorkspaceMock("/tmp/axm-preview/.axm", {
-      getConfiguredAgents: () => Effect.succeed(["claude-code"]),
-    });
+    const workspace = {
+      baseDir: "/tmp/axm-preview",
+      configuredAgents: ["claude-code"],
+    } satisfies {
+      readonly baseDir: string;
+      readonly configuredAgents: ReadonlyArray<ConfigurableAgentId>;
+    };
     const context = makeTestContext(undefined, undefined, workspace);
     const plan: Plan = {
       _tag: "Plan",
@@ -854,7 +868,7 @@ describe("previewOrApply", () => {
         () =>
           fs.writeFileString(material, "after").pipe(Effect.as("approved" as const), Effect.orDie),
         { confirmationAvailable: true },
-        makeBaseWorkspaceMock(`${directory}/.axm`),
+        { baseDir: directory },
       );
       const plan: Plan = {
         _tag: "Plan",
@@ -898,11 +912,7 @@ describe("previewOrApply", () => {
       const material = `${directory}/manifest.json`;
       yield* fs.writeFileString(material, "authorized");
       let appliedCount = 0;
-      const context = makeTestContext(
-        undefined,
-        undefined,
-        makeBaseWorkspaceMock(`${directory}/.axm`),
-      );
+      const context = makeTestContext(undefined, undefined, { baseDir: directory });
       const plan: Plan = {
         _tag: "Plan",
         name: "Publish package",
@@ -957,11 +967,10 @@ describe("previewOrApply", () => {
         const workspaceDir = path.join(directory, ".axm");
         const target = path.join(directory, "managed.txt");
         yield* fs.writeFileString(target, "original");
-        const baseWorkspace = makeBaseWorkspaceMock(workspaceDir);
         const context = makeTestContext(
           undefined,
           undefined,
-          baseWorkspace,
+          { baseDir: directory },
           productionScope(workspaceDir),
         );
         const plan: Plan = {
@@ -1056,11 +1065,10 @@ describe("previewOrApply", () => {
       yield* fs.writeFileString(fileA, "a-original");
       yield* fs.writeFileString(fileB, "b-original");
       yield* fs.writeFileString(fileC, "c-original");
-      const baseWorkspace = makeBaseWorkspaceMock(workspaceDir);
       const context = makeTestContext(
         undefined,
         undefined,
-        baseWorkspace,
+        { baseDir: directory },
         productionScope(workspaceDir),
       );
       const write = (target: string, content: string) =>
@@ -1150,11 +1158,10 @@ describe("previewOrApply", () => {
       const fileB = path.join(directory, "b.txt");
       yield* fs.writeFileString(fileA, "a-original");
       yield* fs.writeFileString(fileB, "b-original");
-      const baseWorkspace = makeBaseWorkspaceMock(workspaceDir);
       const context = makeTestContext(
         undefined,
         undefined,
-        baseWorkspace,
+        { baseDir: directory },
         productionScope(workspaceDir),
       );
       const inFlight = yield* Deferred.make<void>();
@@ -1244,11 +1251,10 @@ describe("previewOrApply", () => {
       const target = path.join(managedDir, "managed.txt");
       yield* fs.makeDirectory(managedDir, { recursive: true });
       yield* fs.writeFileString(target, "original");
-      const baseWorkspace = makeBaseWorkspaceMock(workspaceDir);
       const context = makeTestContext(
         undefined,
         undefined,
-        baseWorkspace,
+        { baseDir: directory },
         productionScope(workspaceDir),
       );
       const plan: Plan = {
@@ -1332,11 +1338,10 @@ describe("previewOrApply", () => {
       const target = path.join(managedDir, "managed.txt");
       yield* fs.makeDirectory(managedDir, { recursive: true });
       yield* fs.writeFileString(target, "original");
-      const baseWorkspace = makeBaseWorkspaceMock(workspaceDir);
       const context = makeTestContext(
         undefined,
         undefined,
-        baseWorkspace,
+        { baseDir: directory },
         productionScope(workspaceDir),
       );
       const failingPlan: Plan = {
@@ -1435,11 +1440,10 @@ describe("previewOrApply", () => {
       const lockPath = path.join(workspaceDir, "tmp", "workspace-transition.lock");
       const heldDuringApply: Array<boolean> = [];
       const lockOnDisk: Array<boolean> = [];
-      const baseWorkspace = makeBaseWorkspaceMock(workspaceDir);
       const context = makeTestContext(
         undefined,
         undefined,
-        baseWorkspace,
+        { baseDir: directory },
         productionScope(workspaceDir),
       );
       // The step observes the hold through the same scope the apply acquired

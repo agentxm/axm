@@ -60,7 +60,10 @@ import {
 } from "@agentxm/workspace-projection";
 import {
   ConfiguredAgentOutcomesProvider,
-  WorkspaceMutations,
+  SettingsReader,
+  SettingsWriter,
+  WorkspaceLocation,
+  WorkspaceRecords,
   type InstructionsConfig,
   type WorkspaceStateReadFailure,
 } from "@agentxm/workspace-state";
@@ -130,14 +133,13 @@ const DISABLED_STATUS: InstructionsStatus = {
 export const instructionsStatus = (): Effect.Effect<
   InstructionsStatus,
   Effect.Error<ReturnType<typeof observeInstructions>>,
-  WorkspaceMutations | FileSystem.FileSystem | Path.Path
+  SettingsReader | WorkspaceLocation | FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    const workspace = yield* WorkspaceMutations;
-    const configured = yield* workspace.getInstructionsConfig();
+    const settings = yield* SettingsReader;
+    const configured = yield* settings.instructionsConfig;
     if (Option.isNone(configured) || configured.value === false) return DISABLED_STATUS;
     const snapshot = yield* observeInstructions({
-      ws: workspace,
       config: resolveInstructionsConfig(configured.value),
     });
     return snapshot.status;
@@ -231,11 +233,10 @@ const reconciliationGate = (
 ): Effect.Effect<
   Option.Option<WorkspaceConfigurationFailed>,
   never,
-  WorkspaceMutations | FileSystem.FileSystem | Path.Path
+  WorkspaceLocation | FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    const workspace = yield* WorkspaceMutations;
-    const failure = yield* instructionReconciliationReadiness({ ws: workspace, snapshot });
+    const failure = yield* instructionReconciliationReadiness({ snapshot });
     return Option.map(
       failure,
       (readiness) =>
@@ -262,12 +263,18 @@ export const prepareManageInstructions = (
 ): Effect.Effect<
   ManageInstructionsCandidate | InstructionsUnchanged,
   ManageInstructionsFailure,
-  WorkspaceMutations | FileSystem.FileSystem | Path.Path | RuleManager | ManagerRequirements
+  | SettingsReader
+  | WorkspaceLocation
+  | FileSystem.FileSystem
+  | Path.Path
+  | RuleManager
+  | ManagerRequirements
 > =>
   Effect.gen(function* () {
-    const workspace = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
     const path = yield* Path.Path;
-    const recorded = yield* workspace.getInstructionsConfig();
+    const recorded = yield* settings.instructionsConfig;
 
     if (request.action === "disable") {
       if (Option.isNone(recorded) || recorded.value === false) {
@@ -279,7 +286,7 @@ export const prepareManageInstructions = (
         return settled;
       }
       const config = resolveInstructionsConfig(recorded.value);
-      const snapshot = yield* observeInstructions({ ws: workspace, config });
+      const snapshot = yield* observeInstructions({ config });
       const disableCandidate: ManageInstructionsCandidate = {
         _tag: "ManageInstructions",
         action: "disable",
@@ -287,7 +294,7 @@ export const prepareManageInstructions = (
         supersededConfig: Option.some(config),
         effects: instructionProjectionRemovalEffects(snapshot),
         blocked: yield* reconciliationGate(snapshot),
-        scope: workspace.scope,
+        scope: location.scope,
       };
       return disableCandidate;
     }
@@ -304,7 +311,7 @@ export const prepareManageInstructions = (
       Option.isSome(previous) &&
       (previous.value.fileName !== desired.fileName ||
         previous.value.gitignoreAliases !== desired.gitignoreAliases);
-    const observed = yield* observeInstructions({ ws: workspace, config: desired });
+    const observed = yield* observeInstructions({ config: desired });
 
     if (
       Option.isSome(recorded) &&
@@ -323,7 +330,7 @@ export const prepareManageInstructions = (
     // configuration owns, because those are the files the transition removes.
     const superseded = configChanged ? previous : Option.none<ResolvedInstructionsConfig>();
     const preflight = Option.isSome(superseded)
-      ? yield* observeInstructions({ ws: workspace, config: superseded.value })
+      ? yield* observeInstructions({ config: superseded.value })
       : observed;
     const ruleManager = yield* RuleManager;
     const ruleEffects = (yield* ruleManager.projectionPlans().pipe(
@@ -339,10 +346,7 @@ export const prepareManageInstructions = (
     ))
       .filter((observation) => !observation.current)
       .map((observation) => ({
-        path: path.resolve(
-          workspace.baseDir,
-          observation.path.split("#", 1)[0] ?? observation.path,
-        ),
+        path: path.resolve(location.baseDir, observation.path.split("#", 1)[0] ?? observation.path),
         change: "updated" as const,
       }));
 
@@ -357,7 +361,7 @@ export const prepareManageInstructions = (
         ...instructionProjectionEffects(observed),
       ],
       blocked: yield* reconciliationGate(preflight),
-      scope: workspace.scope,
+      scope: location.scope,
     };
     return enableCandidate;
   });
@@ -392,7 +396,10 @@ export type ManageInstructionsRequirements =
   | ResolvePlanInteraction
   | ManagerRequirements
   | RuleManager
-  | WorkspaceMutations
+  | SettingsReader
+  | SettingsWriter
+  | WorkspaceLocation
+  | WorkspaceRecords
   | WorkspaceTransactionScope;
 
 const transitionEffect = (
@@ -400,15 +407,14 @@ const transitionEffect = (
   config: ResolvedInstructionsConfig,
 ) =>
   Effect.gen(function* () {
-    const workspace = yield* WorkspaceMutations;
+    const settingsWriter = yield* SettingsWriter;
     const ruleManager = yield* RuleManager;
     if (Option.isSome(candidate.supersededConfig)) {
       yield* removeInstructionTargetsFor({
-        ws: workspace,
         config: candidate.supersededConfig.value,
       });
     }
-    yield* workspace.setInstructionsConfig({
+    yield* settingsWriter.setInstructionsConfig({
       fileName: config.fileName,
       gitignoreAliases: config.gitignoreAliases,
     });
@@ -461,7 +467,6 @@ const transitionStep = (
   const transition: Effect.Effect<void, StepFailure, ManageInstructionsRequirements> =
     candidate.action === "disable"
       ? Effect.gen(function* () {
-          const workspace = yield* WorkspaceMutations;
           const config = Option.getOrUndefined(candidate.supersededConfig);
           if (config === undefined) {
             return yield* new WorkspaceConfigurationFailed({
@@ -469,10 +474,9 @@ const transitionStep = (
               detail: "Instruction management has no recorded configuration to disable",
             });
           }
-          yield* disableInstructionManagement({ ws: workspace, config });
+          yield* disableInstructionManagement({ config });
         }).pipe(Effect.asVoid, Effect.mapError(transitionFailureToStepFailure))
       : Effect.gen(function* () {
-          const workspace = yield* WorkspaceMutations;
           const config = candidate.config;
           if (config === false) {
             return yield* new WorkspaceConfigurationFailed({
@@ -481,7 +485,6 @@ const transitionStep = (
             });
           }
           yield* reconcileInstructionTransition({
-            ws: workspace,
             config,
             ...(Option.isSome(candidate.supersededConfig)
               ? { preflightConfig: candidate.supersededConfig.value }
@@ -522,11 +525,11 @@ export const previewOrApplyManageInstructions = (
   ManageInstructionsRequirements
 > =>
   Effect.gen(function* () {
-    const workspace = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
     const path = yield* Path.Path;
     const artifact = instructionArtifact({
       scope: candidate.scope,
-      baseDir: workspace.baseDir,
+      baseDir: location.baseDir,
       path,
       effects: candidate.effects,
     });

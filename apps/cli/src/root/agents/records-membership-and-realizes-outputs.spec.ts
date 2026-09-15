@@ -4,7 +4,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { SettingsSchema } from "@agentxm/workspace-state";
+import { SettingsSchema } from "@agentxm/workspace/desired-state";
 
 import {
   makeAgentMembershipFixture,

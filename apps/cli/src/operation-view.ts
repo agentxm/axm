@@ -12,7 +12,7 @@ import {
   type Plan,
   type PlannedJobStep,
   type ResolvedUnit,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 
 import { Verbosity, type VerbosityLevel } from "./cli-flags/index.js";
 import type { Doc, RowNode, Tone } from "./screen/doc.js";

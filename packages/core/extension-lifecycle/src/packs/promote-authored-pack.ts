@@ -1,4 +1,4 @@
-import { buildReconciliationClosure } from "@agentxm/workspace-reconciliation";
+import { buildReconciliationClosure } from "@agentxm/workspace/reconciliation";
 /**
  * Unpacking a Pack: promoting its members to direct declarations.
  *
@@ -30,16 +30,16 @@ import {
   type SettingsWriterService,
   type WorkspaceLayout,
   type WorkspaceLocationService,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import { PackManager } from "@agentxm/extension-materialization";
+import { PackManager } from "@agentxm/workspace/materialization";
 import {
   buildUninstallOperation,
   type UninstallRetentionPolicy,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import {
   operationPresentation,
   prepareExecutionCandidate,
@@ -50,8 +50,11 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { usableAcceptedCanonical, type DesiredExtensionNode } from "@agentxm/workspace-state";
+} from "@agentxm/workspace/transitions/planning";
+import {
+  usableAcceptedCanonical,
+  type DesiredExtensionNode,
+} from "@agentxm/workspace/desired-state";
 
 import { ExtensionLifecycleFailed } from "../errors.js";
 import { lifecycleStepFailure } from "../step-failure.js";

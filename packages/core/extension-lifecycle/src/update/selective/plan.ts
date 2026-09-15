@@ -14,10 +14,10 @@
 import * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 
-import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
+import type { JobStepResult, Plan, PlannedJobStep } from "@agentxm/workspace/transitions/planning";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
-import type { SkillLockEntry, SubagentLockEntry } from "@agentxm/workspace-state";
+import type { SkillLockEntry, SubagentLockEntry } from "@agentxm/workspace/desired-state";
 
 /** The accepted resolution shape both lock maps share for this comparison. */
 type AcceptedEntry = SkillLockEntry | SubagentLockEntry;

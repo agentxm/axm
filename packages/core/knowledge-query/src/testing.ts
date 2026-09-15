@@ -21,7 +21,7 @@ import * as Ref from "effect/Ref";
 
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { WorkspaceStateLive } from "@agentxm/workspace-state/live";
+import { WorkspaceStateLive } from "@agentxm/workspace/desired-state/live";
 
 import { captureInstalledKnowledgeCorpus } from "./corpus/installed-corpus.js";
 import { KnowledgeIndexLive } from "./live.js";

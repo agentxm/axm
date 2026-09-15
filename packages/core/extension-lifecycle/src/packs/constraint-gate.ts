@@ -8,8 +8,8 @@ import {
   type DesiredExtensionOrigin,
   type DesiredStateGraph,
   type DesiredStateProblem,
-} from "@agentxm/workspace-state";
-import { operationPresentation, type Plan } from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/desired-state";
+import { operationPresentation, type Plan } from "@agentxm/workspace/transitions/planning";
 
 import type { InstallStepRequirements } from "../install/vocabulary.js";
 

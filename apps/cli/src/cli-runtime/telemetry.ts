@@ -12,7 +12,7 @@ import {
   lifecycleEvents,
   type OperationEvent,
   type OperationLifecycleService,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import { errorClassForAppErrorCode } from "../app-error/index.js";
 import type { ExpectedCliError } from "./runtime-envelope.js";
 import { isKnownFailure, toAppError } from "../app-error/conversions.js";

@@ -11,7 +11,11 @@
  */
 
 import * as Effect from "effect/Effect";
-import { DesiredStateReader, LockfileReader, WorkspaceLocation } from "@agentxm/workspace-state";
+import {
+  DesiredStateReader,
+  LockfileReader,
+  WorkspaceLocation,
+} from "@agentxm/workspace/desired-state";
 
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -21,28 +25,28 @@ import {
   McpServerManager,
   mcpServerArtifact,
   mcpSourceTarget,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import {
   collectSecretInputNames,
   deleteMcpSecrets,
   readMcpServerManifest,
-} from "@agentxm/workspace-reconciliation";
-import { buildUninstallOperation } from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
+import { buildUninstallOperation } from "@agentxm/workspace/reconciliation";
 import {
   appendWarningsToMessage,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
   acceptedLockedCanonicalPath,
   type McpServerExtensionTarget,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { lifecycleStepFailure } from "../../step-failure.js";
 import type { InstallStepRequirements } from "../../install/vocabulary.js";
-import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace-reconciliation";
+import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace/reconciliation";
 import type { McpServerUninstallIntent } from "../../uninstall/vocabulary.js";
 import { workspaceLockfilePath, workspaceSettingsPath } from "../../workspace-paths.js";
 

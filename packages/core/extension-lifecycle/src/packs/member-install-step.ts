@@ -10,7 +10,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import { WorkspaceLocation } from "@agentxm/workspace-state";
+import { WorkspaceLocation } from "@agentxm/workspace/desired-state";
 
 import * as Option from "effect/Option";
 
@@ -24,14 +24,14 @@ import {
   type ExtensionManagerFailure,
   type ManagerRequirements,
   type MaterializationObservation,
-} from "@agentxm/extension-materialization";
-import { installMcpServer } from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/materialization";
+import { installMcpServer } from "@agentxm/workspace/reconciliation";
 import {
   buildInstallOperation,
   extensionRefLifecycleWarnings,
   extensionRefRegistryLifecycle,
   toLabelWithCompanions,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
@@ -39,7 +39,7 @@ import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/ex
 import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
-import type { JobStepArtifact, PlannedJobStep } from "@agentxm/workspace-operations";
+import type { JobStepArtifact, PlannedJobStep } from "@agentxm/workspace/transitions/planning";
 
 import { lifecycleStepFailure } from "../step-failure.js";
 import type { InstallStepRequirements } from "../install/vocabulary.js";

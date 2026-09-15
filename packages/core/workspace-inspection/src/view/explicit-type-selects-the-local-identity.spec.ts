@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
-import { makeRegistrySkillLockEntry } from "@agentxm/workspace-state/testing";
+import { makeRegistrySkillLockEntry } from "@agentxm/workspace/desired-state/testing";
 
 import { defaultViewRegistry, resolveViewHandle, ViewExtension } from "./view-extension.js";
 import { inspectionRegistryUrl, makeInspectionFixture } from "../testing.js";

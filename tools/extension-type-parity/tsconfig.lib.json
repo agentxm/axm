@@ -14,7 +14,7 @@
       "path": "../../packages/core/extension-model/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/core/workspace-state/tsconfig.lib.json"
+      "path": "../../packages/core/workspace/tsconfig.lib.json"
     }
   ]
 }

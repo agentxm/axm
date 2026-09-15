@@ -20,8 +20,8 @@
 import type {
   TargetedUpdateBlocker,
   TargetedUpdatePublicContext,
-} from "@agentxm/extension-resolution";
-import type { BlockingClass } from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/resolution";
+import type { BlockingClass } from "@agentxm/workspace/transitions/planning";
 
 import { TARGETED_UPDATE_STALE_DETAIL } from "./targeted-plan.js";
 

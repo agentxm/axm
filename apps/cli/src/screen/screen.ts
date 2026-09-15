@@ -6,7 +6,10 @@ import type * as Scope from "effect/Scope";
 import * as ServiceMap from "effect/Context";
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import { subscribeLossless, type OperationLifecycleService } from "@agentxm/workspace-operations";
+import {
+  subscribeLossless,
+  type OperationLifecycleService,
+} from "@agentxm/workspace/transitions/planning";
 
 import { makeJsonSuccessEnvelope } from "../cli-runtime/json-envelope.js";
 import type { Doc, DocNode } from "./doc.js";

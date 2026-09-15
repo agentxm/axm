@@ -11,31 +11,31 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
+import { CodingAgentRepository } from "@agentxm/workspace/projection";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { ExtensionLifecycleFailed } from "../../errors.js";
 import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";
-import type { OperationHandler } from "@agentxm/workspace-operations";
-import type { Operation } from "@agentxm/workspace-operations";
-import type { JobStepResult } from "@agentxm/workspace-operations";
+import type { OperationHandler } from "@agentxm/workspace/transitions/planning";
+import type { Operation } from "@agentxm/workspace/transitions/planning";
+import type { JobStepResult } from "@agentxm/workspace/transitions/planning";
 import {
   type DesiredStateReader,
   type LockfileReader,
   type SettingsReader,
   WorkspaceLocation,
   SettingsWriter,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import {
   WorkspaceTransactionScope,
   runWorkspaceTransaction,
-} from "@agentxm/workspace-transactions";
-import { sanitizeName } from "@agentxm/workspace-state";
-import { ensureSkillAgentArtifact } from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/transitions/settlement";
+import { sanitizeName } from "@agentxm/workspace/desired-state";
+import { ensureSkillAgentArtifact } from "@agentxm/workspace/materialization";
 import {
   skillArtifactFromTargets,
   type InstallableSkillTarget,
-} from "@agentxm/extension-materialization";
-import { usableAcceptedCanonicalObservation } from "@agentxm/workspace-state";
+} from "@agentxm/workspace/materialization";
+import { usableAcceptedCanonicalObservation } from "@agentxm/workspace/desired-state";
 
 // Operation types
 // -----------------------------------------------------------------------------

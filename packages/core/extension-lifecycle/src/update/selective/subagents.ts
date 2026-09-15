@@ -13,7 +13,11 @@
 import * as Array from "effect/Array";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
-import { LockfileReader, WorkspaceLocation, WorkspaceRecords } from "@agentxm/workspace-state";
+import {
+  LockfileReader,
+  WorkspaceLocation,
+  WorkspaceRecords,
+} from "@agentxm/workspace/desired-state";
 
 import * as Option from "effect/Option";
 
@@ -26,8 +30,8 @@ import type { ReleaseAgeEvidence } from "@agentxm/extension-model/unstable/exten
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { SubagentManager } from "@agentxm/extension-materialization";
-import { buildInstallOperation } from "@agentxm/workspace-reconciliation";
+import { SubagentManager } from "@agentxm/workspace/materialization";
+import { buildInstallOperation } from "@agentxm/workspace/reconciliation";
 import {
   classifyPublisherBindingTransition,
   makeConfiguredReleaseAgeEvaluation,
@@ -37,7 +41,7 @@ import {
   type PublisherBindingTransition,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeRecord,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/workspace/resolution";
 import { resolveSource, SourceHostProviders } from "@agentxm/extension-sources";
 import {
   operationPresentation,
@@ -46,8 +50,8 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { acceptedResolutionRef, configuredRowsByName } from "@agentxm/workspace-state";
+} from "@agentxm/workspace/transitions/planning";
+import { acceptedResolutionRef, configuredRowsByName } from "@agentxm/workspace/desired-state";
 
 import { ExtensionLifecycleFailed } from "../../errors.js";
 import { withPublisherTrustConditions } from "../../publisher-binding.js";

@@ -42,7 +42,7 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
   DesiredStateReader,
   SettingsReader,
@@ -52,8 +52,8 @@ import {
   configuredRowsByName,
   resolveWorkspaceExtensionRef,
   usableAcceptedCanonical,
-} from "@agentxm/workspace-state";
-import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/desired-state";
+import type { WorkspaceTransactionScope } from "@agentxm/workspace/transitions/settlement";
 
 import { settingsRelativePath } from "../create/authoring-owner.js";
 import { addToPack } from "./add-to-pack.js";

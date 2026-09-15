@@ -15,7 +15,7 @@ import * as Schema from "effect/Schema";
 
 import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
-import { ExtensionInventoryLifecycleSchema } from "@agentxm/workspace-state";
+import { ExtensionInventoryLifecycleSchema } from "@agentxm/workspace/desired-state";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
 import {

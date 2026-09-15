@@ -3,9 +3,9 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { deriveOperationOutcome } from "@agentxm/workspace-operations";
+import { deriveOperationOutcome } from "@agentxm/workspace/transitions/planning";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { DesiredStateReader } from "@agentxm/workspace-state";
+import { DesiredStateReader } from "@agentxm/workspace/desired-state";
 import { applyActivation } from "../activation/test-helpers.js";
 
 import {

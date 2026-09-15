@@ -24,7 +24,7 @@ import {
   RuleManager,
   SkillManager,
   SubagentManager,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import {
   decodeExtensionNameSync,
   extensionTypePluralSentenceLabels,
@@ -52,18 +52,18 @@ import {
   resolveConfiguredSubagent,
   type ReleaseAgeBypassRecord,
   type ReleaseAgeHoldbackRecord,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/workspace/resolution";
 import {
   operationPresentation,
   type ConfiguredAgentOperation,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
   SettingsReader,
   acceptedResolutionRef,
   enabledConfiguredEntries,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import type { ExtensionLifecycleFailed } from "../errors.js";
 import { planHookInstall } from "../hooks/install/plan.js";

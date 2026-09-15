@@ -1,4 +1,4 @@
-import { buildReconciliationClosure } from "@agentxm/workspace-reconciliation";
+import { buildReconciliationClosure } from "@agentxm/workspace/reconciliation";
 /**
  * Uninstalling packs.
  *
@@ -13,7 +13,7 @@ import { buildReconciliationClosure } from "@agentxm/workspace-reconciliation";
 
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
-import { DesiredStateReader, WorkspaceLocation } from "@agentxm/workspace-state";
+import { DesiredStateReader, WorkspaceLocation } from "@agentxm/workspace/desired-state";
 
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -27,14 +27,14 @@ import {
   RuleManager,
   SkillManager,
   SubagentManager,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import {
   buildUninstallOperation,
   prepareUninstallArtifact,
   collectCleanupStep,
   type SyncPolicyFailure,
   proposeDesiredState,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import {
   parseExtensionFqnParts,
   type ExtensionFqnParts,
@@ -45,14 +45,14 @@ import {
   operationPresentation,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
   decodeDesiredExtensionIdentity,
   type DesiredPackageAuthority,
   type DesiredStateGraph,
   type ExtensionTarget,
   type PackExtensionTarget,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
@@ -62,7 +62,7 @@ import { installRefused, type InstallStepRequirements } from "../../install/voca
 import {
   exclusiveMemberRetentionPolicy,
   makeWorkspaceRetentionPolicy,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import { validatePackGraphPostcondition } from "../graph-transition.js";
 import {
   PACK_UNINSTALL_GRAPH_BLOCKER_ID,

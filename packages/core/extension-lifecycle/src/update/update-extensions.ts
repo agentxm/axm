@@ -40,7 +40,7 @@ import {
   RuleManager,
   SkillManager,
   SubagentManager,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
   decodeExtensionNameSync,
@@ -63,7 +63,7 @@ import {
   type ReleaseAgeOperationEvidence,
   type TargetedUpdateContext,
   type TargetedUpdatePublicContext,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/workspace/resolution";
 import {
   SourceHostProviders,
   WorkspaceCatalog,
@@ -81,7 +81,7 @@ import {
   type OperationResolution,
   type Plan,
   type PlanExecution,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
   DesiredStateReader,
   WorkspaceRecords,
@@ -91,8 +91,8 @@ import {
   type ConfiguredAgentOutcomesProvider,
   type DesiredStateGraph,
   type LockfileValidationError,
-} from "@agentxm/workspace-state";
-import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/desired-state";
+import type { WorkspaceTransactionScope } from "@agentxm/workspace/transitions/settlement";
 
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";

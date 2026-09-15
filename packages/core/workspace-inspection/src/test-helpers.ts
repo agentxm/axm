@@ -14,25 +14,25 @@ import { makeStubRegistryClient } from "./version-currency/test-stubs.js";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
+import { CodingAgentRepository } from "@agentxm/workspace/projection";
 import {
   fileUrlToPath,
   WorkspaceCatalog,
   WorkspaceCatalogUnavailable,
   type SkillCandidates,
 } from "@agentxm/extension-sources";
-import { skillsInDir, type DiscoveredSkill } from "@agentxm/workspace-state";
+import { skillsInDir, type DiscoveredSkill } from "@agentxm/workspace/desired-state";
 import {
   configuredRowsByName,
   installedRowsByName,
   unmanagedRowsByName,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import {
   DesiredStateReader,
   SettingsReader,
   WorkspaceLocation,
   WorkspaceRecords,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import { WorkspaceInspectionFailed } from "./errors.js";
 
 export const handle = (value: string): Handle => decodeHandleSync(value);

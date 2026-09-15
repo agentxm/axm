@@ -3,9 +3,9 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import type { JobStepResult, Plan, StepFailure } from "@agentxm/workspace-operations";
-import { SettingsWriter } from "@agentxm/workspace-state";
-import { resolveTargetedUpdateContext } from "@agentxm/extension-resolution";
+import type { JobStepResult, Plan, StepFailure } from "@agentxm/workspace/transitions/planning";
+import { SettingsWriter } from "@agentxm/workspace/desired-state";
+import { resolveTargetedUpdateContext } from "@agentxm/workspace/resolution";
 
 import { ExtensionLifecycleFailed } from "../errors.js";
 import { lifecycleStepFailure } from "../step-failure.js";

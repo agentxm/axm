@@ -7,8 +7,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 
-import { SettingsSchema } from "@agentxm/workspace-state";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
+import { SettingsSchema } from "@agentxm/workspace/desired-state";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 
 import {

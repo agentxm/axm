@@ -6,7 +6,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { LOCKFILE_VERSION } from "@agentxm/workspace-state";
+import { LOCKFILE_VERSION } from "@agentxm/workspace/desired-state";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {

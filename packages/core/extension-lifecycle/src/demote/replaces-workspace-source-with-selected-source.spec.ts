@@ -6,8 +6,8 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { deriveOperationOutcome } from "@agentxm/workspace-operations";
-import { LockfileReader } from "@agentxm/workspace-state";
+import { deriveOperationOutcome } from "@agentxm/workspace/transitions/planning";
+import { LockfileReader } from "@agentxm/workspace/desired-state";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { ExtensionLifecycleFailed } from "../errors.js";

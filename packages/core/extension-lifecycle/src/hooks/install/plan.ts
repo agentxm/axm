@@ -9,12 +9,12 @@
  */
 
 import * as Effect from "effect/Effect";
-import { LockfileReader, WorkspaceLocation } from "@agentxm/workspace-state";
+import { LockfileReader, WorkspaceLocation } from "@agentxm/workspace/desired-state";
 
 import * as Option from "effect/Option";
 
-import { HookManager } from "@agentxm/extension-materialization";
-import { buildInstallOperation } from "@agentxm/workspace-reconciliation";
+import { HookManager } from "@agentxm/workspace/materialization";
+import { buildInstallOperation } from "@agentxm/workspace/reconciliation";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
@@ -31,15 +31,15 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { applyPlannedProjections } from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/transitions/planning";
+import { applyPlannedProjections } from "@agentxm/workspace/projection";
 import {
   ACQUIRED_EXTENSIONS_DIR,
   acquiredExtensionDisplayPath,
   acquiredExtensionDisplayPathFromLockEntry,
   type ConfiguredAgentOutcome,
   type HookLockEntry,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { lifecycleStepFailure } from "../../step-failure.js";

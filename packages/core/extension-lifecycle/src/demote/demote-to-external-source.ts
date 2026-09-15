@@ -19,7 +19,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
-import { WorkspaceLocation } from "@agentxm/workspace-state";
+import { WorkspaceLocation } from "@agentxm/workspace/desired-state";
 
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -33,8 +33,8 @@ import {
   KnowledgeManager,
   McpServerManager,
   PackManager,
-} from "@agentxm/extension-materialization";
-import { buildInstallOperation } from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/materialization";
+import { buildInstallOperation } from "@agentxm/workspace/reconciliation";
 import {
   formatFqn,
   parseFqn,
@@ -50,7 +50,7 @@ import {
   resolveConfiguredRule,
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/workspace/resolution";
 import {
   operationPresentation,
   prepareExecutionCandidate,
@@ -59,14 +59,14 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
   SettingsReader,
   type SettingsReaderService,
   SettingsWriter,
   type SettingsWriterService,
   type WorkspaceSettingsReadFailure,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import { ExtensionLifecycleFailed } from "../errors.js";
 import { lifecycleStepFailure } from "../step-failure.js";

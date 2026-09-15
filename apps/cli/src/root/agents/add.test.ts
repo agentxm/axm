@@ -8,7 +8,7 @@ import * as Layer from "effect/Layer";
 import type * as ServiceMap from "effect/Context";
 import { afterEach, beforeEach } from "vitest";
 import { AgentExecutableResolver } from "@agentxm/agent-integration";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
 import { workspaceInvariantFactsLive } from "../../test-support/workspace-invariant-facts-live.js";
 import {
   expectAppliedPlanResult,
@@ -33,7 +33,7 @@ import {
   SkillManager,
   SubagentManager,
   SkillDefinitionInvalid,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 const cursorSuggestion = {
   description: "Allow AXM in Cursor by adding `axm` to `.cursor/sandbox.json`",
   url: "https://cursor.com/docs/cli/reference/permissions.md",

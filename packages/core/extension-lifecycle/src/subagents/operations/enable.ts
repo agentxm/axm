@@ -11,33 +11,33 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { subagentContentFilename, subagentContentPath } from "@agentxm/workspace-state";
+import { subagentContentFilename, subagentContentPath } from "@agentxm/workspace/desired-state";
 import {
   CodingAgentRepository,
   managedSubagentRenderInput,
   managedSubagentFile,
-} from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/projection";
 import { NativeWriteAuthority, warnOnOrphanOverrides } from "@agentxm/agent-integration";
 import { ExtensionLifecycleFailed } from "../../errors.js";
 import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";
-import type { OperationHandler } from "@agentxm/workspace-operations";
-import type { Operation } from "@agentxm/workspace-operations";
-import type { JobStepResult } from "@agentxm/workspace-operations";
+import type { OperationHandler } from "@agentxm/workspace/transitions/planning";
+import type { Operation } from "@agentxm/workspace/transitions/planning";
+import type { JobStepResult } from "@agentxm/workspace/transitions/planning";
 import {
   type DesiredStateReader,
   type LockfileReader,
   type SettingsReader,
   WorkspaceLocation,
   SettingsWriter,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import {
   WorkspaceTransactionScope,
   runWorkspaceTransaction,
-} from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/settlement";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
 import { parseSubagentMd } from "@agentxm/extension-content";
 import { subagentLifecycleArtifact } from "./artifact.js";
-import { usableAcceptedCanonical } from "@agentxm/workspace-state";
+import { usableAcceptedCanonical } from "@agentxm/workspace/desired-state";
 
 /**
  * Strip the meta-only `agentOverrides` key from a frontmatter map so it does

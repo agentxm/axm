@@ -6,7 +6,7 @@ import { Command } from "effect/unstable/cli";
 
 import { currentIdentity, selectedRegistry } from "@agentxm/registry-auth";
 import { Screen, rawDoc } from "../../screen/index.js";
-import { observeUnit } from "@agentxm/workspace-operations";
+import { observeUnit } from "@agentxm/workspace/transitions/planning";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { coerceAuthFailure } from "../../feature-errors.js";

@@ -22,14 +22,14 @@ import {
   TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
   WorkspaceReadTest,
-} from "@agentxm/workspace-state/testing";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
+} from "@agentxm/workspace/desired-state/testing";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
 import type {
   Lockfile,
   ReadModelRecordRow,
   Settings,
   WorkspaceStateReadFailure,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 interface WorkspaceCurrencyFacts {
   readonly rows?: (

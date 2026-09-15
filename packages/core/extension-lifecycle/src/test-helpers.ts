@@ -10,7 +10,11 @@ import * as nodeFs from "node:fs";
 import * as nodePath from "node:path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
-import { DesiredStateReader, WorkspaceLocation, WorkspaceRecords } from "@agentxm/workspace-state";
+import {
+  DesiredStateReader,
+  WorkspaceLocation,
+  WorkspaceRecords,
+} from "@agentxm/workspace/desired-state";
 
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -30,22 +34,22 @@ import {
   type Version,
   type VersionRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
+import { CodingAgentRepository } from "@agentxm/workspace/projection";
 import {
   fileUrlToPath,
   WorkspaceCatalog,
   WorkspaceCatalogUnavailable,
   type SkillCandidates,
 } from "@agentxm/extension-sources";
-import { StepFailure } from "@agentxm/workspace-operations";
-import { skillsInDir, type DiscoveredSkill } from "@agentxm/workspace-state";
+import { StepFailure } from "@agentxm/workspace/transitions/planning";
+import { skillsInDir, type DiscoveredSkill } from "@agentxm/workspace/desired-state";
 import {
   configuredRowsByName,
   installedRowsByName,
   unmanagedRowsByName,
-} from "@agentxm/workspace-state";
-import { TreeIntegritySchema, type TreeIntegrity } from "@agentxm/workspace-state";
-import { SettingsReader } from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
+import { TreeIntegritySchema, type TreeIntegrity } from "@agentxm/workspace/desired-state";
+import { SettingsReader } from "@agentxm/workspace/desired-state";
 import { ExtensionLifecycleFailed } from "./errors.js";
 import { StepFailureConversion } from "./step-failure-conversion.js";
 

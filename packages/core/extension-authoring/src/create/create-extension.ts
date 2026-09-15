@@ -1,4 +1,4 @@
-import type { AuthorMaterialization } from "@agentxm/workspace-operations";
+import type { AuthorMaterialization } from "@agentxm/workspace/transitions/planning";
 /**
  * Creating a new authored extension.
  *
@@ -40,16 +40,16 @@ import {
   type ExtensionManagerFailure,
   type InstallableSkillTarget,
   type ManagerRequirements,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import {
   buildAuthoredExtensionStep,
   buildNewExtensionStep,
   type AuthoredExtensionOperationArgs,
   type NewExtensionOperationArgs,
   type RecipeRequirements,
-} from "@agentxm/workspace-reconciliation";
-import { McpSecretStore } from "@agentxm/extension-materialization";
-import { materializeAuthoredMcpServer } from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
+import { McpSecretStore } from "@agentxm/workspace/materialization";
+import { materializeAuthoredMcpServer } from "@agentxm/workspace/reconciliation";
 import { CONFIGURABLE_AGENTS_BY_ID } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
@@ -72,12 +72,12 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/transitions/planning";
+import { CodingAgentRepository } from "@agentxm/workspace/projection";
 import type { CredentialStore } from "@agentxm/registry-auth";
 import type { RegistryUrl } from "@agentxm/registry-client";
 import type { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions";
-import type { CandidateFingerprintFailed } from "@agentxm/workspace-operations";
+import type { CandidateFingerprintFailed } from "@agentxm/workspace/transitions/planning";
 import {
   AcceptedResolutionWriter,
   DesiredStateWriter,
@@ -91,7 +91,7 @@ import {
   SettingsWriter,
   WorkspaceLocation,
   type WorkspaceLayout,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import { authoredDeclaration } from "../authored-declaration.js";
 import { preflightCreateOnly } from "../create-preflight.js";

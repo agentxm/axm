@@ -5,7 +5,7 @@ import {
   CreateDestinationInspectionFailed,
   CreateNameConfigured,
 } from "./authored-package-errors.js";
-import { CreateDestinationExists } from "@agentxm/extension-materialization";
+import { CreateDestinationExists } from "@agentxm/workspace/materialization";
 export interface CreateOnlyPreflightArgs {
   readonly subject: string;
   readonly name: string;

@@ -13,7 +13,7 @@ import {
   MCP_SECRET_SERVICE,
   McpSecretStore,
   type McpSecretStoreService,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 
 import {
   applyInstall,
@@ -33,7 +33,7 @@ export const specification = defineSpecification({
   goals: ["workspace-intent-fidelity", "safe-repetition"],
   methods: ["example"],
   derivedFrom: [
-    "packages/core/extension-materialization/src/mcps/secret-store.ts",
+    "packages/core/workspace/src/mcp-connections/secret-store.ts",
     // The real system keychain is exercised as separately selected platform
     // evidence in apps/cli-e2e/src/mcp-secrets.keychain.e2e.test.ts.
     "apps/cli-e2e/src/mcp-secrets.keychain.e2e.test.ts",

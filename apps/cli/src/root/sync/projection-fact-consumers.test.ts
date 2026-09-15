@@ -1,11 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
 import { findingsForProjectionOwnership } from "@agentxm/workspace-lint";
-import { makeProjectionInvariantFact } from "@agentxm/workspace-projection";
-import { type ProjectionUnitObservation } from "@agentxm/workspace-projection";
+import { makeProjectionInvariantFact } from "@agentxm/workspace/projection";
+import { type ProjectionUnitObservation } from "@agentxm/workspace/projection";
 import {
   projectionDivergenceLabel,
   projectionFactsNeedReconciliation,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 
 const base: ProjectionUnitObservation = {
   unitId: "rule:instructions-region",

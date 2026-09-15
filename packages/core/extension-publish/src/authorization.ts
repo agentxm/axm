@@ -8,7 +8,7 @@
  * grant into the upload binding as data.
  */
 
-import type { OperationPrecondition } from "@agentxm/workspace-operations";
+import type { OperationPrecondition } from "@agentxm/workspace/transitions/planning";
 import type { PublishVisibility } from "@agentxm/registry-protocol/unstable/publish";
 import type {
   PublicationVisibilityInput,

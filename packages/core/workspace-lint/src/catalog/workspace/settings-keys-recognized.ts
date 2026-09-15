@@ -15,7 +15,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import { SETTINGS_KNOWN_KEYS } from "@agentxm/workspace-state";
+import { SETTINGS_KNOWN_KEYS } from "@agentxm/workspace/desired-state";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/extension-content/lint";
 import { settingsDisplayPath } from "./display-paths.js";

@@ -1,8 +1,8 @@
 import * as Effect from "effect/Effect";
 
 import type { AdvisoryFinding, LintRule } from "@agentxm/extension-content/lint";
-import { makeWorkspaceReadModel } from "@agentxm/workspace-state";
-import { WorkspaceReadModelTest, type ScopeFiles } from "@agentxm/workspace-state/testing";
+import { makeWorkspaceReadModel } from "@agentxm/workspace/desired-state";
+import { WorkspaceReadModelTest, type ScopeFiles } from "@agentxm/workspace/desired-state/testing";
 import type { WorkspaceRuleContext } from "../../../workspace-context.js";
 
 export type WorkspaceContextFixture = () => Effect.Effect<WorkspaceRuleContext>;

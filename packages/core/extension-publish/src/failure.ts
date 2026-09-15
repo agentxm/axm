@@ -8,7 +8,7 @@
 
 import { isRegistryClientFailure, redactRegistryText } from "@agentxm/registry-client";
 import type { RegistryClientFailure } from "@agentxm/registry-client";
-import type { OperationErrorCategory } from "@agentxm/workspace-operations";
+import type { OperationErrorCategory } from "@agentxm/workspace/transitions/planning";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import { PublishFailed } from "./errors.js";

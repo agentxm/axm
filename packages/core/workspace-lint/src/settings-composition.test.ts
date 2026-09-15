@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from "vitest";
 import * as Schema from "effect/Schema";
-import { SettingsSchema } from "@agentxm/workspace-state";
+import { SettingsSchema } from "@agentxm/workspace/desired-state";
 
 const SAMPLE_RULE_ID = "skill/manifest-keys-recognized";
 

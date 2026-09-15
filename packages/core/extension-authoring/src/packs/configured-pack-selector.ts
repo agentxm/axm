@@ -15,7 +15,7 @@ import {
   parseSourceQualifiedRegistrySourcePatternParts,
 } from "@agentxm/extension-model/unstable/extensions";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import type { ConfiguredRecordRow } from "@agentxm/workspace-state";
+import type { ConfiguredRecordRow } from "@agentxm/workspace/desired-state";
 
 import {
   PackNotConfigured,

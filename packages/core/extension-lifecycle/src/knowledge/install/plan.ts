@@ -11,14 +11,14 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { KnowledgeManager } from "@agentxm/extension-materialization";
+import { KnowledgeManager } from "@agentxm/workspace/materialization";
 import {
   extensionRefLifecycleWarnings,
   extensionRefRegistryLifecycle,
   targetFromRef,
   toLabelWithCompanions,
   toStepKey,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
@@ -32,8 +32,8 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { applyPlannedProjections } from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/transitions/planning";
+import { applyPlannedProjections } from "@agentxm/workspace/projection";
 
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { lifecycleStepFailure } from "../../step-failure.js";

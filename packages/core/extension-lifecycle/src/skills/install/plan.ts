@@ -19,10 +19,10 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 
-import { SkillManager } from "@agentxm/extension-materialization";
+import { SkillManager } from "@agentxm/workspace/materialization";
 import { prepareSkillInstallation } from "../application/installation.js";
 import { skillInstallationFacts } from "../adapters/installation.js";
-import { buildInstallOperation } from "@agentxm/workspace-reconciliation";
+import { buildInstallOperation } from "@agentxm/workspace/reconciliation";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import {
@@ -42,7 +42,7 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { lifecycleStepFailure } from "../../step-failure.js";

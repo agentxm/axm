@@ -25,7 +25,7 @@ import {
   type WorkspaceSettingsMutationFailure,
   type WorkspaceSettingsReadFailure,
   type WorkspaceStateMutationFailure,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 /** What the workspace currently declares about one name of one type. */
 export interface AuthoredDeclarationState {

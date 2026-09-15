@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-import { PlanPolicyIds } from "@agentxm/workspace-operations";
+import { PlanPolicyIds } from "@agentxm/workspace/transitions/planning";
 import { NAMED_OVERRIDE_POLICIES } from "../../cli-flags/index.js";
 import { rootCommand } from "../../app.js";
 import { registeredCommandCapabilities } from "./command-capabilities.js";

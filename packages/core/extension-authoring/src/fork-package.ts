@@ -16,7 +16,7 @@ import {
   manifestSchemaForType,
   type ManifestIdentity,
 } from "@agentxm/extension-content";
-import { copyExtensionDirectory } from "@agentxm/extension-materialization";
+import { copyExtensionDirectory } from "@agentxm/workspace/materialization";
 import { parseFrontmatterEffect, type FrontmatterParseFailure } from "@agentxm/extension-content";
 import type {
   ExtensionFqnParts,

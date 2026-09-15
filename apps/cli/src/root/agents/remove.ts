@@ -3,11 +3,11 @@ import { NativeWriteAuthority } from "@agentxm/agent-integration";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
+import { CodingAgentRepository } from "@agentxm/workspace/projection";
 import {
   reconcileAgentOutputs,
   type ReconcileAgentOutputsResult,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import {
   ConfigureAgents,
   type DepartingAgentReconciliation,
@@ -21,8 +21,8 @@ import {
   type JobStepArtifactTarget,
   type JobStepResult,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import type { SettingsReader, WorkspaceLocation } from "@agentxm/workspace-state";
+} from "@agentxm/workspace/transitions/planning";
+import type { SettingsReader, WorkspaceLocation } from "@agentxm/workspace/desired-state";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";

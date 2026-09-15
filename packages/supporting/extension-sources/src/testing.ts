@@ -89,7 +89,7 @@ export const AxmSkillCandidateGateTest = (
  * The Registry's own selection rule with no release-age policy applied: every
  * matching version is a selectable candidate, newest first; nothing is
  * withheld and nothing is exempted. A test that needs the age gate composes
- * the real policy from `@agentxm/extension-resolution` instead.
+ * the real policy from `@agentxm/workspace/resolution` instead.
  */
 export const RegistryResolutionPolicyTest: Layer.Layer<RegistryResolutionPolicy> = Layer.succeed(
   RegistryResolutionPolicy,

@@ -3,7 +3,7 @@ import * as JsonSchema from "effect/JsonSchema";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 
-import { SETTINGS_KEY_ORDER, SettingsSchema } from "@agentxm/workspace-state";
+import { SETTINGS_KEY_ORDER, SettingsSchema } from "@agentxm/workspace/desired-state";
 
 import { resolveTelemetryMode } from "./index.js";
 

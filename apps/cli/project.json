@@ -127,7 +127,7 @@
       "inputs": [
         "{projectRoot}/scripts/bundled-axm-skill-contract.ts",
         "{projectRoot}/scripts/generate-bundled-axm-skill.ts",
-        "{workspaceRoot}/packages/core/extension-resolution/src/axm-skill-compatibility.ts",
+        "{workspaceRoot}/packages/core/workspace/src/resolution/axm-skill-compatibility.ts",
         "{workspaceRoot}/packages/core/extension-content/src/content/skill-content.ts",
         "{workspaceRoot}/skills/axm/skill.json",
         "{workspaceRoot}/skills/axm/src/**/*"

@@ -30,7 +30,7 @@ import {
   WorkspaceLocation,
   computeMaterializedTreeIntegrity,
   mcpRegistryResolutionKey,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 /** The Registry an accepted resolution in these specifications came from. */
 export const SPEC_REGISTRY_ENDPOINT = "https://registry.example.com/";

@@ -7,7 +7,7 @@
  * fixture agrees with itself, not that a shown extension reports the source
  * and version it was installed from. So the Registry here is the real
  * file-backed layout the production local client reads, the resolution is
- * `@agentxm/extension-resolution`'s, and the installation is the
+ * `@agentxm/workspace/resolution`'s, and the installation is the
  * materialization capability's own install recipe over the production skill
  * manager. Only the process boundary stands in — a temporary directory and a
  * Registry on disk instead of one over the network.
@@ -38,9 +38,9 @@ import {
   PackManager,
   SkillManager,
   type ExtensionManagerFailure,
-} from "@agentxm/extension-materialization";
-import { buildInstallOperation } from "@agentxm/workspace-reconciliation";
-import { PackManagerLive, SkillManagerLive } from "@agentxm/extension-materialization/live";
+} from "@agentxm/workspace/materialization";
+import { buildInstallOperation } from "@agentxm/workspace/reconciliation";
+import { PackManagerLive, SkillManagerLive } from "@agentxm/workspace/materialization/live";
 import {
   decideNamedRegistryVersion,
   makeConfiguredReleaseAgeEvaluation,
@@ -49,22 +49,22 @@ import {
   resolveConfiguredPack,
   resolveConfiguredSkill,
   resolveVersionEntryWithReleaseAge,
-} from "@agentxm/extension-resolution";
-import { AxmSkillCandidateGateLive } from "@agentxm/extension-resolution/live";
+} from "@agentxm/workspace/resolution";
+import { AxmSkillCandidateGateLive } from "@agentxm/workspace/resolution/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { RegistryResolutionPolicy } from "@agentxm/extension-sources";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 import { CredentialStore } from "@agentxm/registry-auth";
 import { CredentialStoreTest } from "@agentxm/registry-auth/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { StepFailure } from "@agentxm/workspace-operations";
+import { StepFailure } from "@agentxm/workspace/transitions/planning";
 import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
   WorkspaceCatalogLive,
-} from "@agentxm/workspace-projection/live";
-import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace-state/testing";
-import { layer as workspaceStateLayer } from "@agentxm/workspace-state/live";
+} from "@agentxm/workspace/projection/live";
+import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace/desired-state/testing";
+import { layer as workspaceStateLayer } from "@agentxm/workspace/desired-state/live";
 
 /** The owner every fixture Registry publishes under. */
 const OWNER = "@acme";

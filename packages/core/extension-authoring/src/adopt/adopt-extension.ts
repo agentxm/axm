@@ -1,4 +1,4 @@
-import type { AuthorMaterialization } from "@agentxm/workspace-operations";
+import type { AuthorMaterialization } from "@agentxm/workspace/transitions/planning";
 /**
  * Adopting an acquired package into workspace authorship.
  *
@@ -40,13 +40,13 @@ import {
   McpSecretStore,
   type ExtensionManagerFailure,
   type ManagerRequirements,
-} from "@agentxm/extension-materialization";
-import { materializeAuthoredMcpServer } from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/materialization";
+import { materializeAuthoredMcpServer } from "@agentxm/workspace/reconciliation";
 import {
   buildAuthoredExtensionStep,
   type AuthoredExtensionOperationArgs,
   type RecipeRequirements,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import {
   extensionTypeToPlural,
   formatFqn,
@@ -66,8 +66,8 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import type { CodingAgentRepository } from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/transitions/planning";
+import type { CodingAgentRepository } from "@agentxm/workspace/projection";
 import {
   DesiredStateReader,
   LockfileReader,
@@ -84,10 +84,10 @@ import {
   WorkspaceRecords,
   type WorkspaceSettingsReadFailure,
   type WorkspaceStateReadFailure,
-} from "@agentxm/workspace-state";
-import { protectCreatedAncestors } from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/desired-state";
+import { protectCreatedAncestors } from "@agentxm/workspace/transitions/settlement";
 
-import { CreateDestinationExists } from "@agentxm/extension-materialization";
+import { CreateDestinationExists } from "@agentxm/workspace/materialization";
 
 import { authoredDeclaration } from "../authored-declaration.js";
 import {

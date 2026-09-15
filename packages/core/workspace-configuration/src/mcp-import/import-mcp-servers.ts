@@ -30,7 +30,7 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
   ConfiguredAgentOutcomesProvider,
   LockfileReader,
@@ -38,8 +38,11 @@ import {
   SettingsWriter,
   WorkspaceLocation,
   WorkspaceRecords,
-} from "@agentxm/workspace-state";
-import { FootprintRecorder, WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/desired-state";
+import {
+  FootprintRecorder,
+  WorkspaceTransactionScope,
+} from "@agentxm/workspace/transitions/settlement";
 
 import {
   WorkspaceConfigurationFailed,

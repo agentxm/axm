@@ -8,14 +8,14 @@
 
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
-import { DesiredStateReader, WorkspaceLocation } from "@agentxm/workspace-state";
+import { DesiredStateReader, WorkspaceLocation } from "@agentxm/workspace/desired-state";
 
 import {
   parseExtensionFqnParts,
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import { LockfileReader, observeInstallRoot } from "@agentxm/workspace-state";
+import { LockfileReader, observeInstallRoot } from "@agentxm/workspace/desired-state";
 
 import { ExtensionLifecycleFailed } from "../errors.js";
 

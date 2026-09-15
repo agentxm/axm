@@ -12,9 +12,12 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { previewPlanExecution, type OperationResolution } from "@agentxm/workspace-operations";
-import { preapprovedPlanExecution } from "@agentxm/workspace-operations/testing";
-import type { PlanExecution } from "@agentxm/workspace-operations";
+import {
+  previewPlanExecution,
+  type OperationResolution,
+} from "@agentxm/workspace/transitions/planning";
+import { preapprovedPlanExecution } from "@agentxm/workspace/transitions/planning/testing";
+import type { PlanExecution } from "@agentxm/workspace/transitions/planning";
 
 import type { WorkspaceUpdatableType } from "./configured.js";
 import {

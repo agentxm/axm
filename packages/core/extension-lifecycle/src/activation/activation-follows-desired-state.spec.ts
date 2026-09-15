@@ -16,7 +16,7 @@ import {
   localLifecycleRows,
   makeInstallWorld,
 } from "../install/test-helpers.js";
-import { DesiredStateReader } from "@agentxm/workspace-state";
+import { DesiredStateReader } from "@agentxm/workspace/desired-state";
 import {
   makeLifecycleFixture,
   writeAgentSkillDirectory,

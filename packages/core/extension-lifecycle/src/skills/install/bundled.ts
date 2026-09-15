@@ -22,7 +22,7 @@ import {
   SettingsWriter,
   WorkspaceLocation,
   type WorkspaceLayout,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -31,7 +31,7 @@ import * as Path from "effect/Path";
 import {
   ensureSkillAgentArtifact,
   replaceCanonicalDirectory,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
@@ -44,10 +44,10 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
-import { sanitizeName } from "@agentxm/workspace-state";
-import { runWorkspaceTransaction } from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/planning";
+import { CodingAgentRepository } from "@agentxm/workspace/projection";
+import { sanitizeName } from "@agentxm/workspace/desired-state";
+import { runWorkspaceTransaction } from "@agentxm/workspace/transitions/settlement";
 
 import { ExtensionLifecycleFailed } from "../../errors.js";
 import { lifecycleStepFailure } from "../../step-failure.js";

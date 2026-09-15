@@ -1,5 +1,5 @@
 import type { AppError, AppErrorCode } from "./app-error.js";
-import { StepFailure } from "@agentxm/workspace-operations";
+import { StepFailure } from "@agentxm/workspace/transitions/planning";
 import { redactSensitiveText, redactSensitiveValue } from "./secret-redaction.js";
 
 export interface SerializedErrorCause {

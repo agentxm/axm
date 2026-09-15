@@ -1,7 +1,7 @@
 import {
   LifecyclePostconditionViolated,
   ScaffoldedExtensionUnresolved,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 /**
  * Conversions from model- and protocol-level typed failures into CLI-facing
  * `AppError` values. These live with the application error vocabulary so the
@@ -40,7 +40,7 @@ import {
   WorkspaceRestorationIncomplete,
   WorkspaceSnapshotError,
   WorkspaceTransitionCompromised,
-} from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/settlement";
 import {
   ApprovalRecoveryMissing,
   CandidateFingerprintFailed,
@@ -49,14 +49,14 @@ import {
   STALE_CANDIDATE_DETAIL,
   StaleExecutionCandidate,
   StepFailure,
-} from "@agentxm/workspace-operations";
-import { ConfiguredAgentOutcomesUnavailable } from "@agentxm/workspace-state";
-import { SettingsWriteError } from "@agentxm/workspace-state";
+} from "@agentxm/workspace/transitions/planning";
+import { ConfiguredAgentOutcomesUnavailable } from "@agentxm/workspace/desired-state";
+import { SettingsWriteError } from "@agentxm/workspace/desired-state";
 import {
   LockfileResolvedVersionInvalid,
   LockfileValidationError,
   LockfileWriteError,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import {
   AcceptedResolutionMissing,
   CanonicalPathRemovalError,
@@ -76,7 +76,7 @@ import {
   WorkspaceLayoutError,
   WorkspaceNotInitialized,
   WorkspaceSourceInvalid,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import {
   LockfileDecodeError,
   LockfileIoError,
@@ -90,7 +90,7 @@ import {
   WorkspaceRootEscape,
   type LockfileReadError,
   type SettingsReadError,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import {
   ArchiveIntegrityMismatch,
   CanonicalPackageProbeFailed,
@@ -125,7 +125,7 @@ import {
   SubagentContentUnreadable,
   SubagentDefinitionInvalid,
   SubagentInstallStateMissing,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import {
   AuthoringOwnerMismatch,
   AuthoringOwnerRequired,
@@ -153,7 +153,7 @@ import {
   PackSourceMissing,
   ScaffoldNameInvalid,
 } from "@agentxm/extension-authoring";
-import { CreateDestinationExists } from "@agentxm/extension-materialization";
+import { CreateDestinationExists } from "@agentxm/workspace/materialization";
 import {
   InstructionMaintenanceFailed,
   AuthoredContributorUnsupported,
@@ -164,7 +164,7 @@ import {
   ManagedRegionViolation,
   ProjectionIoFailed,
   ProjectionTargetUnsupported,
-} from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/projection";
 import {
   HookConfigInvalid,
   HookIoFailed,
@@ -178,7 +178,7 @@ import {
   SubagentIoFailed,
   WriteBackupRetained,
 } from "@agentxm/agent-integration";
-import { MaterializedTreeInvalid, PathTraversalDetected } from "@agentxm/workspace-state";
+import { MaterializedTreeInvalid, PathTraversalDetected } from "@agentxm/workspace/desired-state";
 import { AgentDetectionFailed, NativeWriteRefused } from "@agentxm/agent-integration";
 import {
   RegistryOperationFailed,
@@ -218,7 +218,7 @@ import {
   PackDependencyMissing,
   PackDependencyUnsatisfied,
   SourceAuthorityBlocked,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/workspace/resolution";
 import {
   agentDetectionFailedToAppError,
   hookConfigInvalidToAppError,

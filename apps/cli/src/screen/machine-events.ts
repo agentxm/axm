@@ -1,6 +1,6 @@
 import * as Schema from "effect/Schema";
 
-import { OperationEventSchema, type OperationEvent } from "@agentxm/workspace-operations";
+import { OperationEventSchema, type OperationEvent } from "@agentxm/workspace/transitions/planning";
 
 import { redactSensitiveValue } from "../app-error/secret-redaction.js";
 

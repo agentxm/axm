@@ -1,7 +1,7 @@
 // @effect-diagnostics anyUnknownInErrorContext:off — telemetry is a best-effort boundary over generated opaque transport failures
 import { randomUUID } from "node:crypto";
 import * as os from "node:os";
-import { resolveUserAxmHome } from "@agentxm/workspace-state";
+import { resolveUserAxmHome } from "@agentxm/workspace/desired-state";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";

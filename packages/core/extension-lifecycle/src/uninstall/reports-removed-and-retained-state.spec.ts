@@ -6,8 +6,11 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { deriveOperationOutcome, previewPlanExecution } from "@agentxm/workspace-operations";
-import { preapprovedPlanExecution } from "@agentxm/workspace-operations/testing";
+import {
+  deriveOperationOutcome,
+  previewPlanExecution,
+} from "@agentxm/workspace/transitions/planning";
+import { preapprovedPlanExecution } from "@agentxm/workspace/transitions/planning/testing";
 import { workspaceWithAuthoredExtension } from "../activation/test-helpers.js";
 import {
   applyInstall,

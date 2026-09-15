@@ -2,7 +2,7 @@
  * The reconciliation witness for `cli/lock-state-never-creates-reachability`.
  *
  * The specification lives in
- * `packages/core/workspace-state/src/workspace/lock-state-never-creates-reachability.spec.ts`,
+ * `packages/core/workspace/src/desired-state/workspace/lock-state-never-creates-reachability.spec.ts`,
  * where reachability is decided. Its statement also obliges a reconciliation
  * not to acquire or realize such a row; a state package cannot run one, so
  * that row runs here.

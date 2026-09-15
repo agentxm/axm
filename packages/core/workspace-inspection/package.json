@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/workspace-inspection",
   "version": "0.30.2",
-  "description": "AXM workspace-inspection feature: list, view, inventory, and version-currency queries for the axm CLI. Unstable and unsupported \u2014 use the axm.sh CLI.",
+  "description": "AXM workspace-inspection feature: list, view, inventory, and version-currency queries for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
@@ -43,18 +43,14 @@
     "@agentxm/extension-sources": "workspace:^",
     "@agentxm/registry-client": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
-    "@agentxm/workspace-projection": "workspace:^",
-    "@agentxm/workspace-state": "workspace:^",
+    "@agentxm/workspace": "workspace:^",
     "effect": "catalog:",
     "semver": "catalog:"
   },
   "devDependencies": {
     "@agentxm/agent-integration": "workspace:^",
-    "@agentxm/extension-materialization": "workspace:^",
-    "@agentxm/extension-resolution": "workspace:^",
     "@agentxm/registry-auth": "workspace:^",
     "@agentxm/specification-metadata": "workspace:*",
-    "@agentxm/workspace-operations": "workspace:^",
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@types/bun": "catalog:",
@@ -62,8 +58,7 @@
     "@typescript/native": "catalog:",
     "fflate": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:",
-    "@agentxm/workspace-reconciliation": "workspace:^"
+    "vitest": "catalog:"
   },
   "private": true
 }

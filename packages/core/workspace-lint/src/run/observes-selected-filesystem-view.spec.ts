@@ -10,7 +10,7 @@ import * as Layer from "effect/Layer";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { NoProjectionParticipants } from "@agentxm/workspace-projection/testing";
+import { NoProjectionParticipants } from "@agentxm/workspace/projection/testing";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { OfflineHttpClient } from "../test-helpers.js";

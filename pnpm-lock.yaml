@@ -337,18 +337,12 @@ importers:
       '@agentxm/extension-lifecycle':
         specifier: workspace:^
         version: link:../../packages/core/extension-lifecycle
-      '@agentxm/extension-materialization':
-        specifier: workspace:^
-        version: link:../../packages/core/extension-materialization
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../../packages/core/extension-model
       '@agentxm/extension-publish':
         specifier: workspace:^
         version: link:../../packages/core/extension-publish
-      '@agentxm/extension-resolution':
-        specifier: workspace:^
-        version: link:../../packages/core/extension-resolution
       '@agentxm/extension-sources':
         specifier: workspace:^
         version: link:../../packages/supporting/extension-sources
@@ -364,6 +358,9 @@ importers:
       '@agentxm/registry-protocol':
         specifier: workspace:^
         version: link:../../packages/core/registry-protocol
+      '@agentxm/workspace':
+        specifier: workspace:^
+        version: link:../../packages/core/workspace
       '@agentxm/workspace-configuration':
         specifier: workspace:^
         version: link:../../packages/core/workspace-configuration
@@ -373,24 +370,9 @@ importers:
       '@agentxm/workspace-lint':
         specifier: workspace:^
         version: link:../../packages/core/workspace-lint
-      '@agentxm/workspace-operations':
-        specifier: workspace:^
-        version: link:../../packages/core/workspace-operations
-      '@agentxm/workspace-projection':
-        specifier: workspace:^
-        version: link:../../packages/core/workspace-projection
-      '@agentxm/workspace-reconciliation':
-        specifier: workspace:^
-        version: link:../../packages/core/workspace-reconciliation
-      '@agentxm/workspace-state':
-        specifier: workspace:^
-        version: link:../../packages/core/workspace-state
       '@agentxm/workspace-sync':
         specifier: workspace:^
         version: link:../../packages/core/workspace-sync
-      '@agentxm/workspace-transactions':
-        specifier: workspace:^
-        version: link:../../packages/core/workspace-transactions
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
@@ -482,9 +464,6 @@ importers:
       '@agentxm/extension-content':
         specifier: workspace:^
         version: link:../extension-content
-      '@agentxm/extension-materialization':
-        specifier: workspace:^
-        version: link:../extension-materialization
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../extension-model
@@ -497,21 +476,9 @@ importers:
       '@agentxm/registry-client':
         specifier: workspace:^
         version: link:../../supporting/registry-client
-      '@agentxm/workspace-operations':
+      '@agentxm/workspace':
         specifier: workspace:^
-        version: link:../workspace-operations
-      '@agentxm/workspace-projection':
-        specifier: workspace:^
-        version: link:../workspace-projection
-      '@agentxm/workspace-reconciliation':
-        specifier: workspace:^
-        version: link:../workspace-reconciliation
-      '@agentxm/workspace-state':
-        specifier: workspace:^
-        version: link:../workspace-state
-      '@agentxm/workspace-transactions':
-        specifier: workspace:^
-        version: link:../workspace-transactions
+        version: link:../workspace
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.115
@@ -525,9 +492,6 @@ importers:
       '@agentxm/agent-integration':
         specifier: workspace:^
         version: link:../../supporting/agent-integration
-      '@agentxm/extension-resolution':
-        specifier: workspace:^
-        version: link:../extension-resolution
       '@agentxm/specification-metadata':
         specifier: workspace:^
         version: link:../../../tools/specification-metadata
@@ -644,15 +608,9 @@ importers:
       '@agentxm/extension-content':
         specifier: workspace:^
         version: link:../extension-content
-      '@agentxm/extension-materialization':
-        specifier: workspace:^
-        version: link:../extension-materialization
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../extension-model
-      '@agentxm/extension-resolution':
-        specifier: workspace:^
-        version: link:../extension-resolution
       '@agentxm/extension-sources':
         specifier: workspace:^
         version: link:../../supporting/extension-sources
@@ -665,21 +623,9 @@ importers:
       '@agentxm/registry-protocol':
         specifier: workspace:^
         version: link:../registry-protocol
-      '@agentxm/workspace-operations':
+      '@agentxm/workspace':
         specifier: workspace:^
-        version: link:../workspace-operations
-      '@agentxm/workspace-projection':
-        specifier: workspace:^
-        version: link:../workspace-projection
-      '@agentxm/workspace-reconciliation':
-        specifier: workspace:^
-        version: link:../workspace-reconciliation
-      '@agentxm/workspace-state':
-        specifier: workspace:^
-        version: link:../workspace-state
-      '@agentxm/workspace-transactions':
-        specifier: workspace:^
-        version: link:../workspace-transactions
+        version: link:../workspace
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.115
@@ -711,67 +657,6 @@ importers:
       yaml:
         specifier: 'catalog:'
         version: 2.9.0
-
-  packages/core/extension-materialization:
-    dependencies:
-      '@agentxm/agent-integration':
-        specifier: workspace:^
-        version: link:../../supporting/agent-integration
-      '@agentxm/cli-maintenance':
-        specifier: workspace:^
-        version: link:../../supporting/cli-maintenance
-      '@agentxm/extension-content':
-        specifier: workspace:^
-        version: link:../extension-content
-      '@agentxm/extension-model':
-        specifier: workspace:^
-        version: link:../extension-model
-      '@agentxm/extension-resolution':
-        specifier: workspace:^
-        version: link:../extension-resolution
-      '@agentxm/extension-sources':
-        specifier: workspace:^
-        version: link:../../supporting/extension-sources
-      '@agentxm/registry-client':
-        specifier: workspace:^
-        version: link:../../supporting/registry-client
-      '@agentxm/workspace-operations':
-        specifier: workspace:^
-        version: link:../workspace-operations
-      '@agentxm/workspace-projection':
-        specifier: workspace:^
-        version: link:../workspace-projection
-      '@agentxm/workspace-state':
-        specifier: workspace:^
-        version: link:../workspace-state
-      '@agentxm/workspace-transactions':
-        specifier: workspace:^
-        version: link:../workspace-transactions
-      '@napi-rs/keyring':
-        specifier: ^1.3.0
-        version: 1.3.0
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115
-    devDependencies:
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)
-      '@fast-check/vitest':
-        specifier: 'catalog:'
-        version: 0.5.0(vitest@5.0.0)
-      '@typescript/native':
-        specifier: 'catalog:'
-        version: typescript@7.0.2
-      typescript:
-        specifier: 'catalog:'
-        version: '@typescript/typescript6@6.0.2'
-      vitest:
-        specifier: 'catalog:'
-        version: 5.0.0(@types/node@26.1.1)(@vitest/coverage-v8@5.0.0)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
 
   packages/core/extension-model:
     dependencies:
@@ -833,18 +718,9 @@ importers:
       '@agentxm/registry-protocol':
         specifier: workspace:^
         version: link:../registry-protocol
-      '@agentxm/workspace-operations':
+      '@agentxm/workspace':
         specifier: workspace:^
-        version: link:../workspace-operations
-      '@agentxm/workspace-projection':
-        specifier: workspace:^
-        version: link:../workspace-projection
-      '@agentxm/workspace-state':
-        specifier: workspace:^
-        version: link:../workspace-state
-      '@agentxm/workspace-transactions':
-        specifier: workspace:^
-        version: link:../workspace-transactions
+        version: link:../workspace
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.115
@@ -877,55 +753,6 @@ importers:
         specifier: 'catalog:'
         version: 5.0.0(@types/node@26.1.1)(@vitest/coverage-v8@5.0.0)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
 
-  packages/core/extension-resolution:
-    dependencies:
-      '@agentxm/cli-maintenance':
-        specifier: workspace:^
-        version: link:../../supporting/cli-maintenance
-      '@agentxm/extension-content':
-        specifier: workspace:^
-        version: link:../extension-content
-      '@agentxm/extension-model':
-        specifier: workspace:^
-        version: link:../extension-model
-      '@agentxm/extension-sources':
-        specifier: workspace:^
-        version: link:../../supporting/extension-sources
-      '@agentxm/registry-protocol':
-        specifier: workspace:^
-        version: link:../registry-protocol
-      '@agentxm/workspace-state':
-        specifier: workspace:^
-        version: link:../workspace-state
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115
-      semver:
-        specifier: 'catalog:'
-        version: 7.8.5
-    devDependencies:
-      '@agentxm/specification-metadata':
-        specifier: workspace:^
-        version: link:../../../tools/specification-metadata
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)
-      '@types/semver':
-        specifier: 'catalog:'
-        version: 7.7.1
-      '@typescript/native':
-        specifier: 'catalog:'
-        version: typescript@7.0.2
-      typescript:
-        specifier: 'catalog:'
-        version: '@typescript/typescript6@6.0.2'
-      vitest:
-        specifier: 'catalog:'
-        version: 5.0.0(@types/node@26.1.1)(@vitest/coverage-v8@5.0.0)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
-
   packages/core/knowledge-query:
     dependencies:
       '@agentxm/extension-content':
@@ -934,12 +761,9 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../extension-model
-      '@agentxm/workspace-projection':
+      '@agentxm/workspace':
         specifier: workspace:^
-        version: link:../workspace-projection
-      '@agentxm/workspace-state':
-        specifier: workspace:^
-        version: link:../workspace-state
+        version: link:../workspace
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.115
@@ -994,32 +818,96 @@ importers:
         specifier: 'catalog:'
         version: 5.0.0(@types/node@26.1.1)(@vitest/coverage-v8@5.0.0)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
 
-  packages/core/workspace-configuration:
+  packages/core/workspace:
     dependencies:
       '@agentxm/agent-integration':
         specifier: workspace:^
         version: link:../../supporting/agent-integration
-      '@agentxm/extension-materialization':
+      '@agentxm/cli-maintenance':
         specifier: workspace:^
-        version: link:../extension-materialization
+        version: link:../../supporting/cli-maintenance
+      '@agentxm/extension-content':
+        specifier: workspace:^
+        version: link:../extension-content
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../extension-model
       '@agentxm/extension-sources':
         specifier: workspace:^
         version: link:../../supporting/extension-sources
-      '@agentxm/workspace-operations':
+      '@agentxm/registry-client':
         specifier: workspace:^
-        version: link:../workspace-operations
-      '@agentxm/workspace-projection':
+        version: link:../../supporting/registry-client
+      '@agentxm/registry-protocol':
         specifier: workspace:^
-        version: link:../workspace-projection
-      '@agentxm/workspace-state':
+        version: link:../registry-protocol
+      '@napi-rs/keyring':
+        specifier: ^1.3.0
+        version: 1.3.0
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.0-rc.115
+      jsonc-parser:
+        specifier: 'catalog:'
+        version: 3.3.1
+      proper-lockfile:
+        specifier: ^4.1.2
+        version: 4.1.2
+      semver:
+        specifier: 'catalog:'
+        version: 7.8.5
+      smol-toml:
+        specifier: 'catalog:'
+        version: 1.8.0
+      yaml:
+        specifier: 'catalog:'
+        version: 2.9.0
+    devDependencies:
+      '@agentxm/specification-metadata':
         specifier: workspace:^
-        version: link:../workspace-state
-      '@agentxm/workspace-transactions':
+        version: link:../../../tools/specification-metadata
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
+      '@effect/vitest':
+        specifier: 'catalog:'
+        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)
+      '@fast-check/vitest':
+        specifier: 'catalog:'
+        version: 0.5.0(vitest@5.0.0)
+      '@types/bun':
+        specifier: 'catalog:'
+        version: 1.3.14
+      '@types/proper-lockfile':
+        specifier: ^4.1.4
+        version: 4.1.4
+      '@types/semver':
+        specifier: 'catalog:'
+        version: 7.7.1
+      '@typescript/native':
+        specifier: 'catalog:'
+        version: typescript@7.0.2
+      typescript:
+        specifier: 'catalog:'
+        version: '@typescript/typescript6@6.0.2'
+      vitest:
+        specifier: 'catalog:'
+        version: 5.0.0(@types/node@26.1.1)(@vitest/coverage-v8@5.0.0)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
+
+  packages/core/workspace-configuration:
+    dependencies:
+      '@agentxm/agent-integration':
         specifier: workspace:^
-        version: link:../workspace-transactions
+        version: link:../../supporting/agent-integration
+      '@agentxm/extension-model':
+        specifier: workspace:^
+        version: link:../extension-model
+      '@agentxm/extension-sources':
+        specifier: workspace:^
+        version: link:../../supporting/extension-sources
+      '@agentxm/workspace':
+        specifier: workspace:^
+        version: link:../workspace
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.115
@@ -1060,12 +948,9 @@ importers:
       '@agentxm/registry-protocol':
         specifier: workspace:^
         version: link:../registry-protocol
-      '@agentxm/workspace-projection':
+      '@agentxm/workspace':
         specifier: workspace:^
-        version: link:../workspace-projection
-      '@agentxm/workspace-state':
-        specifier: workspace:^
-        version: link:../workspace-state
+        version: link:../workspace
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.115
@@ -1076,24 +961,12 @@ importers:
       '@agentxm/agent-integration':
         specifier: workspace:^
         version: link:../../supporting/agent-integration
-      '@agentxm/extension-materialization':
-        specifier: workspace:^
-        version: link:../extension-materialization
-      '@agentxm/extension-resolution':
-        specifier: workspace:^
-        version: link:../extension-resolution
       '@agentxm/registry-auth':
         specifier: workspace:^
         version: link:../../supporting/registry-auth
       '@agentxm/specification-metadata':
         specifier: workspace:*
         version: link:../../../tools/specification-metadata
-      '@agentxm/workspace-operations':
-        specifier: workspace:^
-        version: link:../workspace-operations
-      '@agentxm/workspace-reconciliation':
-        specifier: workspace:^
-        version: link:../workspace-reconciliation
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
@@ -1133,21 +1006,12 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../extension-model
-      '@agentxm/extension-resolution':
-        specifier: workspace:^
-        version: link:../extension-resolution
       '@agentxm/extension-sources':
         specifier: workspace:^
         version: link:../../supporting/extension-sources
-      '@agentxm/workspace-operations':
+      '@agentxm/workspace':
         specifier: workspace:^
-        version: link:../workspace-operations
-      '@agentxm/workspace-projection':
-        specifier: workspace:^
-        version: link:../workspace-projection
-      '@agentxm/workspace-state':
-        specifier: workspace:^
-        version: link:../workspace-state
+        version: link:../workspace
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.115
@@ -1161,220 +1025,6 @@ importers:
       '@types/bun':
         specifier: 'catalog:'
         version: 1.3.14
-      '@typescript/native':
-        specifier: 'catalog:'
-        version: typescript@7.0.2
-      typescript:
-        specifier: 'catalog:'
-        version: '@typescript/typescript6@6.0.2'
-      vitest:
-        specifier: 'catalog:'
-        version: 5.0.0(@types/node@26.1.1)(@vitest/coverage-v8@5.0.0)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
-
-  packages/core/workspace-operations:
-    dependencies:
-      '@agentxm/extension-model':
-        specifier: workspace:^
-        version: link:../extension-model
-      '@agentxm/extension-resolution':
-        specifier: workspace:^
-        version: link:../extension-resolution
-      '@agentxm/registry-protocol':
-        specifier: workspace:^
-        version: link:../registry-protocol
-      '@agentxm/workspace-projection':
-        specifier: workspace:^
-        version: link:../workspace-projection
-      '@agentxm/workspace-state':
-        specifier: workspace:^
-        version: link:../workspace-state
-      '@agentxm/workspace-transactions':
-        specifier: workspace:^
-        version: link:../workspace-transactions
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115
-    devDependencies:
-      '@agentxm/specification-metadata':
-        specifier: workspace:^
-        version: link:../../../tools/specification-metadata
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)
-      '@typescript/native':
-        specifier: 'catalog:'
-        version: typescript@7.0.2
-      typescript:
-        specifier: 'catalog:'
-        version: '@typescript/typescript6@6.0.2'
-      vitest:
-        specifier: 'catalog:'
-        version: 5.0.0(@types/node@26.1.1)(@vitest/coverage-v8@5.0.0)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
-
-  packages/core/workspace-projection:
-    dependencies:
-      '@agentxm/agent-integration':
-        specifier: workspace:^
-        version: link:../../supporting/agent-integration
-      '@agentxm/extension-content':
-        specifier: workspace:^
-        version: link:../extension-content
-      '@agentxm/extension-model':
-        specifier: workspace:^
-        version: link:../extension-model
-      '@agentxm/extension-sources':
-        specifier: workspace:^
-        version: link:../../supporting/extension-sources
-      '@agentxm/workspace-state':
-        specifier: workspace:^
-        version: link:../workspace-state
-      '@agentxm/workspace-transactions':
-        specifier: workspace:^
-        version: link:../workspace-transactions
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115
-      jsonc-parser:
-        specifier: 'catalog:'
-        version: 3.3.1
-      semver:
-        specifier: 'catalog:'
-        version: 7.8.5
-    devDependencies:
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)
-      '@fast-check/vitest':
-        specifier: 'catalog:'
-        version: 0.5.0(vitest@5.0.0)
-      '@types/semver':
-        specifier: 'catalog:'
-        version: 7.7.1
-      '@typescript/native':
-        specifier: 'catalog:'
-        version: typescript@7.0.2
-      typescript:
-        specifier: 'catalog:'
-        version: '@typescript/typescript6@6.0.2'
-      vitest:
-        specifier: 'catalog:'
-        version: 5.0.0(@types/node@26.1.1)(@vitest/coverage-v8@5.0.0)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
-
-  packages/core/workspace-reconciliation:
-    dependencies:
-      '@agentxm/agent-integration':
-        specifier: workspace:^
-        version: link:../../supporting/agent-integration
-      '@agentxm/extension-materialization':
-        specifier: workspace:^
-        version: link:../extension-materialization
-      '@agentxm/extension-model':
-        specifier: workspace:^
-        version: link:../extension-model
-      '@agentxm/extension-resolution':
-        specifier: workspace:^
-        version: link:../extension-resolution
-      '@agentxm/extension-sources':
-        specifier: workspace:^
-        version: link:../../supporting/extension-sources
-      '@agentxm/registry-client':
-        specifier: workspace:^
-        version: link:../../supporting/registry-client
-      '@agentxm/workspace-operations':
-        specifier: workspace:^
-        version: link:../workspace-operations
-      '@agentxm/workspace-projection':
-        specifier: workspace:^
-        version: link:../workspace-projection
-      '@agentxm/workspace-state':
-        specifier: workspace:^
-        version: link:../workspace-state
-      '@agentxm/workspace-transactions':
-        specifier: workspace:^
-        version: link:../workspace-transactions
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115
-      semver:
-        specifier: 'catalog:'
-        version: 7.8.5
-    devDependencies:
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)
-      '@types/bun':
-        specifier: 'catalog:'
-        version: 1.3.14
-      '@types/semver':
-        specifier: 'catalog:'
-        version: 7.7.1
-      '@typescript/native':
-        specifier: 'catalog:'
-        version: typescript@7.0.2
-      typescript:
-        specifier: 'catalog:'
-        version: '@typescript/typescript6@6.0.2'
-      vitest:
-        specifier: 'catalog:'
-        version: 5.0.0(@types/node@26.1.1)(@vitest/coverage-v8@5.0.0)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
-
-  packages/core/workspace-state:
-    dependencies:
-      '@agentxm/agent-integration':
-        specifier: workspace:^
-        version: link:../../supporting/agent-integration
-      '@agentxm/extension-content':
-        specifier: workspace:^
-        version: link:../extension-content
-      '@agentxm/extension-model':
-        specifier: workspace:^
-        version: link:../extension-model
-      '@agentxm/registry-protocol':
-        specifier: workspace:^
-        version: link:../registry-protocol
-      '@agentxm/workspace-transactions':
-        specifier: workspace:^
-        version: link:../workspace-transactions
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115
-      jsonc-parser:
-        specifier: 'catalog:'
-        version: 3.3.1
-      semver:
-        specifier: 'catalog:'
-        version: 7.8.5
-      smol-toml:
-        specifier: 'catalog:'
-        version: 1.8.0
-      yaml:
-        specifier: 'catalog:'
-        version: 2.9.0
-    devDependencies:
-      '@agentxm/specification-metadata':
-        specifier: workspace:^
-        version: link:../../../tools/specification-metadata
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)
-      '@fast-check/vitest':
-        specifier: 'catalog:'
-        version: 0.5.0(vitest@5.0.0)
-      '@types/semver':
-        specifier: 'catalog:'
-        version: 7.7.1
       '@typescript/native':
         specifier: 'catalog:'
         version: typescript@7.0.2
@@ -1387,27 +1037,12 @@ importers:
 
   packages/core/workspace-sync:
     dependencies:
-      '@agentxm/extension-materialization':
-        specifier: workspace:^
-        version: link:../extension-materialization
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../extension-model
-      '@agentxm/workspace-operations':
+      '@agentxm/workspace':
         specifier: workspace:^
-        version: link:../workspace-operations
-      '@agentxm/workspace-projection':
-        specifier: workspace:^
-        version: link:../workspace-projection
-      '@agentxm/workspace-reconciliation':
-        specifier: workspace:^
-        version: link:../workspace-reconciliation
-      '@agentxm/workspace-state':
-        specifier: workspace:^
-        version: link:../workspace-state
-      '@agentxm/workspace-transactions':
-        specifier: workspace:^
-        version: link:../workspace-transactions
+        version: link:../workspace
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.115
@@ -1418,9 +1053,6 @@ importers:
       '@agentxm/cli-maintenance':
         specifier: workspace:^
         version: link:../../supporting/cli-maintenance
-      '@agentxm/extension-resolution':
-        specifier: workspace:^
-        version: link:../extension-resolution
       '@agentxm/extension-sources':
         specifier: workspace:^
         version: link:../../supporting/extension-sources
@@ -1436,34 +1068,6 @@ importers:
       '@types/bun':
         specifier: 'catalog:'
         version: 1.3.14
-      '@typescript/native':
-        specifier: 'catalog:'
-        version: typescript@7.0.2
-      typescript:
-        specifier: 'catalog:'
-        version: '@typescript/typescript6@6.0.2'
-      vitest:
-        specifier: 'catalog:'
-        version: 5.0.0(@types/node@26.1.1)(@vitest/coverage-v8@5.0.0)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
-
-  packages/core/workspace-transactions:
-    dependencies:
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115
-      proper-lockfile:
-        specifier: ^4.1.2
-        version: 4.1.2
-    devDependencies:
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)
-      '@types/proper-lockfile':
-        specifier: ^4.1.4
-        version: 4.1.4
       '@typescript/native':
         specifier: 'catalog:'
         version: typescript@7.0.2
@@ -1702,9 +1306,9 @@ importers:
         specifier: 'catalog:'
         version: 4.0.0-rc.115
     devDependencies:
-      '@agentxm/workspace-state':
+      '@agentxm/workspace':
         specifier: workspace:^
-        version: link:../../packages/core/workspace-state
+        version: link:../../packages/core/workspace
       '@types/bun':
         specifier: 'catalog:'
         version: 1.3.14

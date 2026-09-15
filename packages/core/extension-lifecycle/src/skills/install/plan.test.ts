@@ -12,14 +12,14 @@ import {
   deriveOperationOutcome,
   previewPlanExecution,
   type OperationResolution,
-} from "@agentxm/workspace-operations";
-import { preapprovedPlanExecution } from "@agentxm/workspace-operations/testing";
+} from "@agentxm/workspace/transitions/planning";
+import { preapprovedPlanExecution } from "@agentxm/workspace/transitions/planning/testing";
 import {
   AcceptedResolutionWriter,
   LockfileWriteError,
   computeMaterializedTreeIntegrity,
-} from "@agentxm/workspace-state";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/desired-state";
+import { CodingAgentRepository } from "@agentxm/workspace/projection";
 
 import {
   applyInstall,

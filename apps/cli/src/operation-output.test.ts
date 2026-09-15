@@ -8,7 +8,7 @@ import {
   type JobStepArtifact,
   type OperationResolution,
   type ResolvedUnit,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 
 import {
   PlanResolutionResultSchema,

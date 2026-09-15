@@ -12,8 +12,11 @@ import {
   type ExtensionType,
   type ExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
-import type { JobStepArtifact } from "@agentxm/workspace-operations";
-import { ACQUIRED_EXTENSIONS_DIR, acquiredExtensionDisplayPath } from "@agentxm/workspace-state";
+import type { JobStepArtifact } from "@agentxm/workspace/transitions/planning";
+import {
+  ACQUIRED_EXTENSIONS_DIR,
+  acquiredExtensionDisplayPath,
+} from "@agentxm/workspace/desired-state";
 
 const USER_SCOPE_ACQUIRED_ROOT = ".axm/workspace/agent_extensions";
 

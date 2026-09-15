@@ -10,7 +10,11 @@
  */
 
 import * as Effect from "effect/Effect";
-import { DesiredStateReader, SettingsReader, WorkspaceLocation } from "@agentxm/workspace-state";
+import {
+  DesiredStateReader,
+  SettingsReader,
+  WorkspaceLocation,
+} from "@agentxm/workspace/desired-state";
 
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -18,8 +22,8 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
-import { installMcpServer, readMcpServerManifest } from "@agentxm/workspace-reconciliation";
-import { materializeRegistryPackage } from "@agentxm/extension-materialization";
+import { installMcpServer, readMcpServerManifest } from "@agentxm/workspace/reconciliation";
+import { materializeRegistryPackage } from "@agentxm/workspace/materialization";
 import { validateManifestMcpServerTargets } from "@agentxm/agent-integration";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
@@ -33,8 +37,8 @@ import {
 import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import { SourceHostProviders, resolveSource } from "@agentxm/extension-sources";
-import { operationPresentation, type Plan } from "@agentxm/workspace-operations";
-import { mcpRegistryResolutionKey } from "@agentxm/workspace-state";
+import { operationPresentation, type Plan } from "@agentxm/workspace/transitions/planning";
+import { mcpRegistryResolutionKey } from "@agentxm/workspace/desired-state";
 
 import { ExtensionLifecycleFailed } from "../../errors.js";
 import { selectMcpSourceConstraint } from "../domain/source-admission.js";

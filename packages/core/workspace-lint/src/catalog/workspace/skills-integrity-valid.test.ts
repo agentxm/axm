@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
-import { makeWorkspaceReadModel } from "@agentxm/workspace-state";
-import { WorkspaceReadModelTest } from "@agentxm/workspace-state/testing";
-import type { DesiredExtensionNode } from "@agentxm/workspace-state";
+import { makeWorkspaceReadModel } from "@agentxm/workspace/desired-state";
+import { WorkspaceReadModelTest } from "@agentxm/workspace/desired-state/testing";
+import type { DesiredExtensionNode } from "@agentxm/workspace/desired-state";
 import { emptyWorkspaceState, type WorkspaceState } from "../test-support/interpret-ops.js";
 import { scopeFilesFromWorkspaceState } from "../test-support/fixture-state.js";
 import { skillsIntegrityValidRule } from "./skills-integrity-valid.js";

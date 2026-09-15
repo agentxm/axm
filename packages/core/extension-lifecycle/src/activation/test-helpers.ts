@@ -15,8 +15,11 @@ import * as nodePath from "node:path";
 import * as Effect from "effect/Effect";
 
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import { deriveOperationOutcome, previewPlanExecution } from "@agentxm/workspace-operations";
-import { preapprovedPlanExecution } from "@agentxm/workspace-operations/testing";
+import {
+  deriveOperationOutcome,
+  previewPlanExecution,
+} from "@agentxm/workspace/transitions/planning";
+import { preapprovedPlanExecution } from "@agentxm/workspace/transitions/planning/testing";
 
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
 import {

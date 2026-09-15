@@ -42,13 +42,13 @@ import {
   resolveConfiguredRule,
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/workspace/resolution";
 import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
   operationPresentation,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
   DesiredStateReader,
   SettingsReader,
@@ -57,7 +57,7 @@ import {
   isSourcedDesiredExtension,
   type WorkspaceSettingsReadFailure,
   type WorkspaceStateReadFailure,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import {
   installableExtensionTypes,
   type InstallableExtensionType,
@@ -73,11 +73,11 @@ import {
   RuleManager,
   SkillManager,
   SubagentManager,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import { extensionTypePluralSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import type { JobStepResult } from "@agentxm/workspace-operations";
+import type { JobStepResult } from "@agentxm/workspace/transitions/planning";
 import { inlineMcpNotApplicablePlan } from "../install/inline-mcp-operation.js";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";

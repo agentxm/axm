@@ -10,7 +10,7 @@ import {
   deriveOperationOutcome,
   type JobStepArtifactTarget,
   type ResolvedUnit,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 
 import { CreateExtension } from "../../create/create-extension.js";
 import {

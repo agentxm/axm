@@ -1,4 +1,4 @@
-import type { Job, PlannedJobStep } from "@agentxm/workspace-operations";
+import type { Job, PlannedJobStep } from "@agentxm/workspace/transitions/planning";
 import type { PublishableType } from "./publishable-types.js";
 
 /** The selection facts one publish candidate contributes to job planning. */

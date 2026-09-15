@@ -22,22 +22,10 @@
       "path": "../../packages/supporting/cli-maintenance/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/core/workspace-reconciliation/tsconfig.lib.json"
-    },
-    {
-      "path": "../../packages/core/workspace-transactions/tsconfig.lib.json"
+      "path": "../../packages/core/workspace/tsconfig.lib.json"
     },
     {
       "path": "../../packages/core/workspace-sync/tsconfig.lib.json"
-    },
-    {
-      "path": "../../packages/core/workspace-state/tsconfig.lib.json"
-    },
-    {
-      "path": "../../packages/core/workspace-projection/tsconfig.lib.json"
-    },
-    {
-      "path": "../../packages/core/workspace-operations/tsconfig.lib.json"
     },
     {
       "path": "../../packages/core/workspace-lint/tsconfig.lib.json"
@@ -64,16 +52,10 @@
       "path": "../../packages/supporting/extension-sources/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/core/extension-resolution/tsconfig.lib.json"
-    },
-    {
       "path": "../../packages/core/extension-publish/tsconfig.lib.json"
     },
     {
       "path": "../../packages/core/extension-model/tsconfig.lib.json"
-    },
-    {
-      "path": "../../packages/core/extension-materialization/tsconfig.lib.json"
     },
     {
       "path": "../../packages/core/extension-lifecycle/tsconfig.lib.json"

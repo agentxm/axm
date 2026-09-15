@@ -12,7 +12,7 @@ depends-on:
 
 ## Decision
 
-Place shared realization policy in `@agentxm/workspace-reconciliation`, a core
+Place shared realization policy in `@agentxm/workspace/reconciliation`, a core
 capability in the fixed CLI release cohort. Lifecycle, sync, and authoring are
 peer feature consumers. The capability produces existing operation steps and
 candidates, using the existing transaction engine and native projection

@@ -1,5 +1,5 @@
 import { lifecycleStepFailure } from "../step-failure.js";
-import { buildReconciliationClosure } from "@agentxm/workspace-reconciliation";
+import { buildReconciliationClosure } from "@agentxm/workspace/reconciliation";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -14,9 +14,9 @@ import {
   resolveExecutionCandidate,
   type JobStepResult,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { preapprovedPlanExecution } from "@agentxm/workspace-operations/testing";
-import { protectWorkspacePath } from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/planning";
+import { preapprovedPlanExecution } from "@agentxm/workspace/transitions/planning/testing";
+import { protectWorkspacePath } from "@agentxm/workspace/transitions/settlement";
 
 import { ExtensionLifecycleFailed } from "../errors.js";
 import { installRefused, type InstallStepRequirements } from "../install/vocabulary.js";

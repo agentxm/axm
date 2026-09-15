@@ -4,7 +4,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach } from "vitest";
 
-import { deriveOperationOutcome } from "@agentxm/workspace-operations";
+import { deriveOperationOutcome } from "@agentxm/workspace/transitions/planning";
 
 import {
   applyExecution,

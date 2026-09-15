@@ -26,7 +26,7 @@ import {
   settingsEntries,
   type Settings,
   type WorkspaceLayout,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 /** One valid authored package at its authoring location. */
 export interface AuthoredPackageObservation {

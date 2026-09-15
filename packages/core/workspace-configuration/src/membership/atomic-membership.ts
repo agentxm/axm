@@ -21,12 +21,12 @@ import {
   StepFailure,
   type JobStepResult,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { SettingsReader, type SettingsReaderService } from "@agentxm/workspace-state";
+} from "@agentxm/workspace/transitions/planning";
+import { SettingsReader, type SettingsReaderService } from "@agentxm/workspace/desired-state";
 import {
   WorkspaceTransactionScope,
   runWorkspaceTransaction,
-} from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/settlement";
 
 import {
   WorkspaceConfigurationFailed,

@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
-import { makeRegistryMcpServerLockEntry } from "@agentxm/workspace-state/testing";
+import { makeRegistryMcpServerLockEntry } from "@agentxm/workspace/desired-state/testing";
 
 import { mcpServerListDocument } from "../type-list/mcp-servers.js";
 import { listMcpServers } from "../type-list/type-lists.js";

@@ -34,31 +34,31 @@ import {
   RuleManagerLive,
   SkillManagerLive,
   SubagentManagerLive,
-} from "@agentxm/extension-materialization/live";
+} from "@agentxm/workspace/materialization/live";
 import {
   ReleaseAgePosture,
   decideNamedRegistryVersion,
   namedRegistryCandidates,
   resolveVersionEntryWithReleaseAge,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/workspace/resolution";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
-import { AxmSkillCandidateGateLive } from "@agentxm/extension-resolution/live";
+import { AxmSkillCandidateGateLive } from "@agentxm/workspace/resolution/live";
 import { RegistryResolutionPolicy } from "@agentxm/extension-sources";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { previewPlanExecution, type PlanExecution } from "@agentxm/workspace-operations";
+import { previewPlanExecution, type PlanExecution } from "@agentxm/workspace/transitions/planning";
 import {
   ResolvePlanInteractionTest,
   preapprovedPlanExecution,
   type ResolvePlanInteractionTestState,
-} from "@agentxm/workspace-operations/testing";
-import { PlanInvocationTest } from "@agentxm/workspace-operations/testing";
+} from "@agentxm/workspace/transitions/planning/testing";
+import { PlanInvocationTest } from "@agentxm/workspace/transitions/planning/testing";
 import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
   WorkspaceCatalogLive,
   WorkspaceInvariantFactsLive,
-} from "@agentxm/workspace-projection/live";
-import { layer as WorkspaceLayerLive } from "@agentxm/workspace-state/live";
+} from "@agentxm/workspace/projection/live";
+import { layer as WorkspaceLayerLive } from "@agentxm/workspace/desired-state/live";
 import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
 
 import { SyncStepFailureConversionTest } from "./testing.js";

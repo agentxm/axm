@@ -14,14 +14,14 @@ import * as Schema from "effect/Schema";
 import { AuthoringFailed } from "../errors.js";
 import { authoringStepFailure } from "../step-failure.js";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
-import type { OperationHandler } from "@agentxm/workspace-operations";
-import type { Operation } from "@agentxm/workspace-operations";
-import type { JobStepResult } from "@agentxm/workspace-operations";
-import { SettingsReader, WorkspaceLocation } from "@agentxm/workspace-state";
+import type { OperationHandler } from "@agentxm/workspace/transitions/planning";
+import type { Operation } from "@agentxm/workspace/transitions/planning";
+import type { JobStepResult } from "@agentxm/workspace/transitions/planning";
+import { SettingsReader, WorkspaceLocation } from "@agentxm/workspace/desired-state";
 import {
   WorkspaceTransactionScope,
   runWorkspaceTransaction,
-} from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/settlement";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import {
   PACK_MANIFEST_FILENAME,

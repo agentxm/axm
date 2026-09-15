@@ -15,8 +15,8 @@ import { TestFlagsLayer } from "../../cli-flags/index.js";
 import {
   computePackManifestContentIdentity,
   type WorkspaceStateOptions,
-} from "@agentxm/workspace-state";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
+} from "@agentxm/workspace/desired-state";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace/desired-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { expectNoPlanEnvelope } from "../../test-support/test-helpers.js";
 import {

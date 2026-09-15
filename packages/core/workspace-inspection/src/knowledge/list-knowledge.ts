@@ -20,7 +20,7 @@ import {
   resolveKnowledgeInstructionEntry,
   selectInstalledKnowledgeBundles,
   type KnowledgeInstructionEntryResolution,
-} from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/projection";
 import {
   configuredAgentLifecycleOutcomes,
   ConfiguredAgentOutcomeSchema,
@@ -28,7 +28,7 @@ import {
   WorkspaceLocation,
   WorkspaceRecords,
   type ConfiguredAgentOutcome,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import { WorkspaceInspectionFailed } from "../errors.js";
 

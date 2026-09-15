@@ -14,28 +14,32 @@ import {
   LockfileReader,
   WorkspaceLocation,
   WorkspaceRecords,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import * as Option from "effect/Option";
 
 import {
   NO_MATERIALIZATION_OBSERVATION,
   SubagentManager,
-} from "@agentxm/extension-materialization";
-import { buildUninstallOperation } from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/materialization";
+import { buildUninstallOperation } from "@agentxm/workspace/reconciliation";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
-import type { JobStepArtifact, JobStepArtifactTarget, Plan } from "@agentxm/workspace-operations";
+import type {
+  JobStepArtifact,
+  JobStepArtifactTarget,
+  Plan,
+} from "@agentxm/workspace/transitions/planning";
 import {
   acquiredExtensionDisplayPathFromLockEntry,
   type SubagentExtensionTarget,
   type SubagentLockEntry,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import { lifecycleStepFailure } from "../../step-failure.js";
 import { installRefused, type InstallStepRequirements } from "../../install/vocabulary.js";
-import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace-reconciliation";
+import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace/reconciliation";
 import type { SubagentUninstallIntent } from "../../uninstall/vocabulary.js";
 import {
   workspaceCanonicalPath,

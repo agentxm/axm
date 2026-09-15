@@ -17,7 +17,7 @@ import {
   recoveryOption,
   recoveryPositional,
   recoverySwitch,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 
 import { extensionLifecycleFailedToAppError } from "../../../feature-errors.js";
 import { emitOperationResolution } from "../../../operation-output.js";

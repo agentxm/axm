@@ -12,19 +12,22 @@ import { afterEach, beforeEach, vi } from "vitest";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
-} from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/projection";
 import type { CodingAgent } from "@agentxm/agent-integration";
-import type { McpServerLockEntry } from "@agentxm/workspace-state";
-import { SettingsWriteError, type WorkspaceSettingsReadFailure } from "@agentxm/workspace-state";
-import type { WorkspaceStateMutationFailure } from "@agentxm/workspace-state";
-import { DesiredStateWriter } from "@agentxm/workspace-state";
-import { mcpResolutionKey } from "@agentxm/workspace-state";
+import type { McpServerLockEntry } from "@agentxm/workspace/desired-state";
+import {
+  SettingsWriteError,
+  type WorkspaceSettingsReadFailure,
+} from "@agentxm/workspace/desired-state";
+import type { WorkspaceStateMutationFailure } from "@agentxm/workspace/desired-state";
+import { DesiredStateWriter } from "@agentxm/workspace/desired-state";
+import { mcpResolutionKey } from "@agentxm/workspace/desired-state";
 import {
   makeRegistryMcpServerLockEntry,
   WorkspaceReadTest,
-} from "@agentxm/workspace-state/testing";
+} from "@agentxm/workspace/desired-state/testing";
 import { TestStepFailureConversion, handle, makeCodingAgentStub } from "../../test-helpers.js";
-import { makeMemoryMcpSecretStore } from "@agentxm/extension-materialization/testing";
+import { makeMemoryMcpSecretStore } from "@agentxm/workspace/materialization/testing";
 import type { UninstallMcpServerOperation } from "./uninstall.js";
 import { uninstallMcpServer } from "./uninstall.js";
 

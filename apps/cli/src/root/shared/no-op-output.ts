@@ -1,5 +1,5 @@
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import { OperationLifecycle } from "@agentxm/workspace-operations";
+import { OperationLifecycle } from "@agentxm/workspace/transitions/planning";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { emitNoOpOperation } from "../../operation-output.js";

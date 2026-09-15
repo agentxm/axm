@@ -84,12 +84,12 @@ surface, never through private internals and never through a shared application
 harness:
 
 - **Root export.** Import the package under test by its package name
-  (`@agentxm/workspace-operations`), not by a relative path into another
+  (`@agentxm/workspace/transitions/planning`), not by a relative path into another
   package's `src`.
 - **`./testing` port.** Test doubles, fixtures, and deterministic execution
   stubs that a specification needs from a _different_ package come from that
-  package's `./testing` subpath (`@agentxm/workspace-state/testing`,
-  `@agentxm/workspace-operations/testing`). A package that owes a seam to its
+  package's `./testing` subpath (`@agentxm/workspace/desired-state/testing`,
+  `@agentxm/workspace/transitions/planning/testing`). A package that owes a seam to its
   consumers' specifications exports it there deliberately.
 - **Owner-local fixtures.** Fixtures for the owning package's own
   specifications live beside them (`./testing.js`, `./test-helpers.js`) and stay

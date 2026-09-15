@@ -17,17 +17,17 @@ import {
   SettingsReader,
   WorkspaceLocation,
   WorkspaceRecords,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
-import { KnowledgeManager, KnowledgeUnavailable } from "@agentxm/extension-materialization";
-import { buildUninstallOperation } from "@agentxm/workspace-reconciliation";
+import { KnowledgeManager, KnowledgeUnavailable } from "@agentxm/workspace/materialization";
+import { buildUninstallOperation } from "@agentxm/workspace/reconciliation";
 import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/path-types";
-import type { Plan, PlannedJobStep } from "@agentxm/workspace-operations";
-import { resolveInstructionsConfig } from "@agentxm/workspace-projection";
+import type { Plan, PlannedJobStep } from "@agentxm/workspace/transitions/planning";
+import { resolveInstructionsConfig } from "@agentxm/workspace/projection";
 import {
   acceptedCanonicalObservation,
   computeExtensionPathsForLayout,
@@ -35,12 +35,12 @@ import {
   type KnowledgeExtensionTarget,
   type KnowledgeLockEntry,
   type WorkspaceLayout,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import { ExtensionLifecycleFailed } from "../../errors.js";
 import { lifecycleStepFailure } from "../../step-failure.js";
 import { installRefused, type InstallStepRequirements } from "../../install/vocabulary.js";
-import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace-reconciliation";
+import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace/reconciliation";
 import type { KnowledgeUninstallIntent } from "../../uninstall/vocabulary.js";
 
 /** A target and, when AXM may not remove it, the reason it is protected. */

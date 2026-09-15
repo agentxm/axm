@@ -4,7 +4,7 @@ import {
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { AdvisoryRule, LintFinding } from "@agentxm/extension-content/lint";
-import type { InstalledPackageEntry } from "@agentxm/workspace-state";
+import type { InstalledPackageEntry } from "@agentxm/workspace/desired-state";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import { workspaceDisplayPath } from "./display-paths.js";
 import { EMPTY_LINT_FINDINGS } from "./helpers/empty.js";

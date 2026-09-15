@@ -5,7 +5,7 @@ import {
   LockfileReader,
   SettingsReader,
   WorkspaceLocation,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -17,13 +17,13 @@ import {
   computeSkillSourceHash,
   groupInstallTargetsByDirectory,
   type InstallableSkillTarget,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import { matchesReleaseAgeExcludePattern } from "@agentxm/extension-model/unstable/extensions";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { isVersionEntryMature, parseMinimumReleaseAge } from "@agentxm/extension-resolution";
+import { isVersionEntryMature, parseMinimumReleaseAge } from "@agentxm/workspace/resolution";
 import { createRegistryClient } from "@agentxm/registry-client";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
-import { sanitizeName, type SkillPathSource } from "@agentxm/workspace-state";
+import { CodingAgentRepository } from "@agentxm/workspace/projection";
+import { sanitizeName, type SkillPathSource } from "@agentxm/workspace/desired-state";
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { installRefused, type InstallStepRequirements } from "../../install/vocabulary.js";
 import type {

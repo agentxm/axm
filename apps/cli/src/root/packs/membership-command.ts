@@ -14,7 +14,7 @@ import {
   packMembershipPlanName,
   type PackMembershipRequest,
 } from "@agentxm/extension-authoring";
-import { publicRecoveryValue, recoveryPositional } from "@agentxm/workspace-operations";
+import { publicRecoveryValue, recoveryPositional } from "@agentxm/workspace/transitions/planning";
 
 import { makeAppError } from "../../app-error/index.js";
 import { toAppError } from "../../app-error/conversions.js";

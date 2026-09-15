@@ -7,13 +7,16 @@ import * as Schema from "effect/Schema";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
-import { TreeIntegritySchema } from "@agentxm/workspace-state";
+import { TreeIntegritySchema } from "@agentxm/workspace/desired-state";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { SourceHostProviders, type SourceHostProvidersService } from "@agentxm/extension-sources";
 import { assessExtensionListItems, type ExtensionListItem } from "./assessment.js";
-import { LOCKFILE_VERSION, type Lockfile, type Settings } from "@agentxm/workspace-state";
-import { WorkspaceReadTest, type WorkspaceReadTestFacts } from "@agentxm/workspace-state/testing";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
+import { LOCKFILE_VERSION, type Lockfile, type Settings } from "@agentxm/workspace/desired-state";
+import {
+  WorkspaceReadTest,
+  type WorkspaceReadTestFacts,
+} from "@agentxm/workspace/desired-state/testing";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
 import {
   handle,
   RegistryClientFactoryTestLive,

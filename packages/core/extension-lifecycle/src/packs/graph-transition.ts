@@ -15,7 +15,7 @@ import {
   DesiredStateReader,
   desiredStateProblemsText,
   type DesiredExtensionNode,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import type { ExtensionLifecycleFailed } from "../errors.js";
 import { installRefused } from "../install/vocabulary.js";

@@ -156,7 +156,7 @@ const moduleBoundaryOptions = {
     // CLI package's built shipped surface by path, and drive it through the
     // built contracts it observes.
     "^\\.\\./\\.\\./\\.\\./cli/dist/",
-    "^\\.\\./\\.\\./\\.\\./\\.\\./packages/core/(extension-materialization|workspace-operations|workspace-state)/dist/",
+    "^\\.\\./\\.\\./\\.\\./\\.\\./packages/core/workspace/dist/",
   ],
 };
 
@@ -167,18 +167,12 @@ const productScopeBans = [
   "scope:extension-content",
   "scope:extension-model",
   "scope:extension-lifecycle",
-  "scope:extension-materialization",
-  "scope:extension-resolution",
   "scope:extension-sources",
   "scope:registry-client",
   "scope:registry-protocol",
   "scope:workspace-lint",
-  "scope:workspace-operations",
-  "scope:workspace-projection",
-  "scope:workspace-state",
-  "scope:workspace-transactions",
+  "scope:workspace",
   "scope:workspace-sync",
-  "scope:workspace-reconciliation",
 ];
 
 // Technical roles: dependencies point inward and never back toward the
@@ -650,6 +644,7 @@ export default [
       "apps/cli/src/runtime.ts",
       // Owned package composition roots select the Layers they compose.
       "packages/**/src/live.ts",
+      "packages/core/workspace/src/**/live.ts",
       // Test support excluded from the library build and the published files.
       "apps/cli/src/test-support/**",
       "packages/core/workspace-lint/src/catalog/workspace/conformance/test-helpers.ts",
@@ -672,11 +667,11 @@ export default [
       "packages/core/extension-lifecycle/src/**/test-helpers.ts",
       "packages/core/extension-publish/src/**/test-helpers.ts",
       "packages/core/workspace-sync/src/**/test-helpers.ts",
-      "packages/core/workspace-reconciliation/src/**/test-helpers.ts",
+      "packages/core/workspace/src/reconciliation/**/test-helpers.ts",
       // Plan-family fixtures, excluded from the library build: the plan
       // specifications observe the real transaction scope over a temporary
       // workspace with the deterministic state ports its dependency publishes.
-      "packages/core/workspace-operations/src/plan/__tests__/plan-spec-support.ts",
+      "packages/core/workspace/src/transitions/planning/plan/__tests__/plan-spec-support.ts",
       "**/*.test.ts",
       "**/*.spec.ts",
     ],
@@ -693,17 +688,24 @@ export default [
           ],
           patterns: [
             {
-              group: ["@agentxm/*/live"],
+              group: ["@agentxm/*/live", "@agentxm/workspace/**/live"],
               message:
                 "Concrete environment-backed Layers compose in application or package composition roots; feature logic keeps service requirements in its Effect environment.",
             },
             {
-              group: ["@agentxm/*/testing"],
+              group: ["@agentxm/*/testing", "@agentxm/workspace/**/testing"],
               message:
                 "Deterministic in-memory ports serve tests and specifications; production source composes real services.",
             },
             {
-              group: ["@agentxm/*/src/*", "@agentxm/*/dist/*", "axm.sh/src/*", "axm.sh/dist/*"],
+              group: [
+                "@agentxm/*/src/*",
+                "@agentxm/*/dist/*",
+                "@agentxm/workspace/**/src/*",
+                "@agentxm/workspace/**/dist/*",
+                "axm.sh/src/*",
+                "axm.sh/dist/*",
+              ],
               message:
                 "Deep imports bypass the provider's declared public API; export the symbol intentionally or move the responsibility to the right package.",
             },
@@ -721,6 +723,7 @@ export default [
     files: [
       "{apps,packages,tools}/**/src/testing.ts",
       "{apps,packages,tools}/**/src/testing/**/*.ts",
+      "packages/core/workspace/src/**/testing.ts",
     ],
     // These two fixtures exist to bind their package's specifications to the
     // real workspace services over a throwaway workspace, so they compose the
@@ -747,12 +750,19 @@ export default [
           ],
           patterns: [
             {
-              group: ["@agentxm/*/live"],
+              group: ["@agentxm/*/live", "@agentxm/workspace/**/live"],
               message:
                 "Concrete environment-backed Layers compose in application or package composition roots; feature logic keeps service requirements in its Effect environment.",
             },
             {
-              group: ["@agentxm/*/src/*", "@agentxm/*/dist/*", "axm.sh/src/*", "axm.sh/dist/*"],
+              group: [
+                "@agentxm/*/src/*",
+                "@agentxm/*/dist/*",
+                "@agentxm/workspace/**/src/*",
+                "@agentxm/workspace/**/dist/*",
+                "axm.sh/src/*",
+                "axm.sh/dist/*",
+              ],
               message:
                 "Deep imports bypass the provider's declared public API; export the symbol intentionally or move the responsibility to the right package.",
             },
@@ -762,19 +772,22 @@ export default [
     },
   },
   {
-    // Closure settlement is workspace-operations' alone: every plan unit is
+    // Closure settlement is transition planning's alone: every plan unit is
     // one semantic closure that operations settles or rolls back at its
     // boundary. Other packages register writes through protectWorkspacePath
     // and run transactions; they never settle closures themselves.
     files: ["{apps,packages,tools}/**/*.ts"],
-    ignores: ["packages/core/workspace-operations/**", "packages/core/workspace-transactions/**"],
+    ignores: [
+      "packages/core/workspace/src/transitions/planning/**",
+      "packages/core/workspace/src/transitions/settlement/**",
+    ],
     rules: {
       "@typescript-eslint/no-restricted-imports": [
         "error",
         {
           paths: [
             {
-              name: "@agentxm/workspace-transactions",
+              name: "@agentxm/workspace/transitions/settlement",
               importNames: [
                 "withWorkspaceClosure",
                 "settleWorkspaceClosure",
@@ -782,7 +795,7 @@ export default [
                 "pendingClosureRestorations",
               ],
               message:
-                "The closure API is consumed by @agentxm/workspace-operations only; register writes with protectWorkspacePath and run transactions with runWorkspaceTransaction.",
+                "The closure API is consumed by @agentxm/workspace/transitions/planning only; register writes with protectWorkspacePath and run transactions with runWorkspaceTransaction.",
             },
           ],
         },
@@ -806,14 +819,14 @@ export default [
         {
           paths: [
             {
-              name: "@agentxm/workspace-state",
+              name: "@agentxm/workspace/desired-state",
               importNames: ["SettingsWriter", "AcceptedResolutionWriter", "DesiredStateWriter"],
               allowTypeImports: true,
               message:
                 "Handlers do not write workspace state; call the owning feature or capability application API.",
             },
             {
-              name: "@agentxm/workspace-operations",
+              name: "@agentxm/workspace/transitions/planning",
               importNames: ["Plan", "PlannedJobStep", "prepareExecutionCandidate"],
               allowTypeImports: true,
               message:
@@ -823,8 +836,8 @@ export default [
           patterns: [
             {
               group: [
-                "@agentxm/workspace-transactions",
-                "@agentxm/workspace-transactions/*",
+                "@agentxm/workspace/transitions/settlement",
+                "@agentxm/workspace/transitions/settlement/*",
                 "@agentxm/extension-sources",
                 "@agentxm/extension-sources/*",
                 "@agentxm/registry-client",

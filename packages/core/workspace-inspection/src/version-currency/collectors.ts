@@ -35,10 +35,13 @@ import type {
   RuleLockEntry,
   SkillLockEntry,
   SubagentLockEntry,
-} from "@agentxm/workspace-state";
-import { DesiredStateReader, LockfileReader } from "@agentxm/workspace-state";
-import type { LockfileReaderService, WorkspaceStateReadFailure } from "@agentxm/workspace-state";
-import { isSourcedDesiredExtension } from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
+import { DesiredStateReader, LockfileReader } from "@agentxm/workspace/desired-state";
+import type {
+  LockfileReaderService,
+  WorkspaceStateReadFailure,
+} from "@agentxm/workspace/desired-state";
+import { isSourcedDesiredExtension } from "@agentxm/workspace/desired-state";
 import { checkCurrency, type CurrencyResult } from "./check-currency.js";
 import { WorkspaceInspectionFailed } from "../errors.js";
 import { describeInspectionFailure } from "../describe-failure.js";

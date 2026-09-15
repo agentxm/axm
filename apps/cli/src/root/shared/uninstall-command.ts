@@ -13,7 +13,10 @@ import * as Option from "effect/Option";
 import { UninstallExtensions, type UninstallExtensionsRequest } from "@agentxm/extension-lifecycle";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import { deriveOperationOutcome, operationPresentation } from "@agentxm/workspace-operations";
+import {
+  deriveOperationOutcome,
+  operationPresentation,
+} from "@agentxm/workspace/transitions/planning";
 
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import { lifecycleFailureToAppError } from "../../feature-errors.js";

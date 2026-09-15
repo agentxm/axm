@@ -23,7 +23,7 @@ import {
   CatalogExtensionTypeSchema,
   type CatalogExtensionType,
 } from "@agentxm/extension-model/unstable/extension-types";
-import { inspectMcpServerAcrossAgents } from "@agentxm/workspace-projection";
+import { inspectMcpServerAcrossAgents } from "@agentxm/workspace/projection";
 import {
   configuredRowsByName,
   ConfiguredAgentOutcomesProvider,
@@ -32,7 +32,7 @@ import {
   SettingsReader,
   WorkspaceLocation,
   WorkspaceRecords,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import { ExtensionNotInstalled } from "../errors.js";
 

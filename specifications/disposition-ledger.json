@@ -183,7 +183,7 @@
     "requirement": "cli/update/machine-result-names-bundled-source-blocker",
     "disposition": "superseded-by",
     "successor": "cli/update/bundled-source-routes-to-recovery",
-    "basis": "Both stated one rule at one boundary: a bundled source blocks a targeted update with the bundled-source blocker, no Registry contact, and no effect, in preview and apply alike. The successor now asserts the policy-excluded blocking class and the bundled-source reference this file added. The targeted-update context field values it also carried characterize classifyTargetedUpdate and are held by packages/core/extension-resolution/src/update/targeted-update-context.test.ts; the plan-result-schema clause is owned by cli/install/machine-result-is-schema-backed."
+    "basis": "Both stated one rule at one boundary: a bundled source blocks a targeted update with the bundled-source blocker, no Registry contact, and no effect, in preview and apply alike. The successor now asserts the policy-excluded blocking class and the bundled-source reference this file added. The targeted-update context field values it also carried characterize classifyTargetedUpdate and are held by packages/core/workspace/src/resolution/update/targeted-update-context.test.ts; the plan-result-schema clause is owned by cli/install/machine-result-is-schema-backed."
   },
   {
     "requirement": "system/architecture/every-command-declares-interaction-capabilities",

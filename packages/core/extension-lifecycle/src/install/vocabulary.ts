@@ -17,8 +17,8 @@ import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import type { NativeWriteAuthority } from "@agentxm/agent-integration";
-import type { ManagerRequirements, McpSecretStore } from "@agentxm/extension-materialization";
-import type { RecipeRequirements } from "@agentxm/workspace-reconciliation";
+import type { ManagerRequirements, McpSecretStore } from "@agentxm/workspace/materialization";
+import type { RecipeRequirements } from "@agentxm/workspace/reconciliation";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
 import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
@@ -32,7 +32,7 @@ import type { VersionRange } from "@agentxm/extension-model/unstable/version-con
 import type {
   ExtensionResolutionFailed,
   PackDependencyRefResolver,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/workspace/resolution";
 import type { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
 import type {
   ApprovalRecoveryMissing,
@@ -40,8 +40,8 @@ import type {
   OperationJournal,
   PlanInteractionFailed,
   ResolvePlanInteraction,
-} from "@agentxm/workspace-operations";
-import type { CodingAgentRepository, WorkspaceInvariantFacts } from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/transitions/planning";
+import type { CodingAgentRepository, WorkspaceInvariantFacts } from "@agentxm/workspace/projection";
 import type {
   AcceptedCanonicalRefError,
   AcceptedResolutionWriter,
@@ -57,12 +57,12 @@ import type {
   WorkspaceRecords,
   WorkspaceSettingsReadFailure,
   WorkspaceStateReadFailure,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import type {
   FootprintRecorder,
   WorkspaceTransactionScope,
   WorkspaceTransitionAcquireFailure,
-} from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/settlement";
 
 import { ExtensionLifecycleFailed } from "../errors.js";
 

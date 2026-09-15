@@ -6,7 +6,10 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { deriveOperationOutcome, type OperationResolution } from "@agentxm/workspace-operations";
+import {
+  deriveOperationOutcome,
+  type OperationResolution,
+} from "@agentxm/workspace/transitions/planning";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {

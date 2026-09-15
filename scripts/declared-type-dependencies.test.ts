@@ -12,7 +12,7 @@ import {
 const subject = (overrides: Partial<DeclarationSubject> = {}): DeclarationSubject => ({
   packageName: "@agentxm/workspace-sync",
   manifestPath: "packages/core/workspace-sync/package.json",
-  declared: new Set(["@agentxm/workspace-state"]),
+  declared: new Set(["@agentxm/workspace"]),
   declarations: [],
   ...overrides,
 });
@@ -20,7 +20,7 @@ const subject = (overrides: Partial<DeclarationSubject> = {}): DeclarationSubjec
 describe("emitted declaration references", () => {
   it("reads every module-specifier position a declaration file uses", () => {
     const declaration = [
-      'import type { A } from "@agentxm/workspace-state";',
+      'import type { A } from "@agentxm/workspace/desired-state";',
       'export declare const a: import("@agentxm/registry-client").RegistryProblem;',
       'export * from "@agentxm/extension-model/unstable/extensions";',
       'import "@agentxm/agent-integration";',
@@ -33,7 +33,7 @@ describe("emitted declaration references", () => {
       "@agentxm/extension-model",
       "@agentxm/extension-sources",
       "@agentxm/registry-client",
-      "@agentxm/workspace-state",
+      "@agentxm/workspace",
     ]);
   });
 
@@ -47,9 +47,9 @@ describe("emitted declaration references", () => {
       " */",
       '// Superseded by "@agentxm/registry-client".',
       'const url = "https://example.test/from \\"@agentxm/extension-sources\\"";',
-      'import type { A } from "@agentxm/workspace-state";',
+      'import type { A } from "@agentxm/workspace/desired-state";',
     ].join("\n");
-    expect([...referencedGuardedPackages(declaration)]).toEqual(["@agentxm/workspace-state"]);
+    expect([...referencedGuardedPackages(declaration)]).toEqual(["@agentxm/workspace"]);
   });
 
   it("keeps offsets stable while blanking comments", () => {
@@ -112,7 +112,7 @@ describe("undeclared type dependencies", () => {
             {
               path: "packages/core/workspace-sync/dist/src/index.d.ts",
               text: [
-                'import type { A } from "@agentxm/workspace-state";',
+                'import type { A } from "@agentxm/workspace/desired-state";',
                 'import type { B } from "@agentxm/workspace-sync";',
                 'import type { C } from "effect/Effect";',
               ].join("\n"),

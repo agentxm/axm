@@ -12,7 +12,7 @@ import { afterEach, beforeEach, vi } from "vitest";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
-} from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/projection";
 import {
   TestStepFailureConversion,
   exactVersion,
@@ -23,10 +23,10 @@ import {
   AcceptedResolutionWriter,
   DesiredStateWriter,
   SettingsWriter,
-} from "@agentxm/workspace-state";
-import { WorkspaceReadTest } from "@agentxm/workspace-state/testing";
-import { installMcpServer } from "@agentxm/workspace-reconciliation";
-import { makeMemoryMcpSecretStore } from "@agentxm/extension-materialization/testing";
+} from "@agentxm/workspace/desired-state";
+import { WorkspaceReadTest } from "@agentxm/workspace/desired-state/testing";
+import { installMcpServer } from "@agentxm/workspace/reconciliation";
+import { makeMemoryMcpSecretStore } from "@agentxm/workspace/materialization/testing";
 import { uninstallMcpServer } from "./uninstall.js";
 
 const LIVE_SMOKE_ENV = "AXM_RUN_CHROME_DEVTOOLS_MCP_LIVE_SMOKE";

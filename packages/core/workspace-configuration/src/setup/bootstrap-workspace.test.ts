@@ -13,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import type { WorkspaceStateOptions } from "@agentxm/workspace-state";
+import type { WorkspaceStateOptions } from "@agentxm/workspace/desired-state";
 import { bootstrapWorkspace } from "../index.js";
 import { WorkspaceInitializationInteractionTest } from "../testing.js";
 

@@ -26,28 +26,32 @@ import {
 import { WorkspaceConfigurationFailed } from "../errors.js";
 import { isGitManaged } from "@agentxm/extension-sources";
 import { LOCKFILE_NAME } from "@agentxm/extension-model/unstable/workspace-files";
-import { LOCKFILE_VERSION, writeLockfileAtPath } from "@agentxm/workspace-state";
+import { LOCKFILE_VERSION, writeLockfileAtPath } from "@agentxm/workspace/desired-state";
 import {
   createDefaultSettings,
   type Settings,
   writeSettingsAtPath,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
-import type { WorkspaceStateOptions } from "@agentxm/workspace-state";
+import type { WorkspaceStateOptions } from "@agentxm/workspace/desired-state";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { AgentRootResolverLive } from "@agentxm/workspace-state";
-import { makeWorkspaceReadModel, WorkspaceReadModelConfig } from "@agentxm/workspace-state";
+import { AgentRootResolverLive } from "@agentxm/workspace/desired-state";
+import { makeWorkspaceReadModel, WorkspaceReadModelConfig } from "@agentxm/workspace/desired-state";
 import {
   WorkspaceInitializationInteraction,
   type SetupPlanRow,
 } from "./initialization-interaction.js";
-import { type LocatedWorkspace, locateWorkspace, resolveUserHome } from "@agentxm/workspace-state";
-import { setupScopeSupport } from "@agentxm/workspace-state";
-import { protectWorkspacePath } from "@agentxm/workspace-transactions";
-import { LOCK_FILENAME } from "@agentxm/workspace-state";
+import {
+  type LocatedWorkspace,
+  locateWorkspace,
+  resolveUserHome,
+} from "@agentxm/workspace/desired-state";
+import { setupScopeSupport } from "@agentxm/workspace/desired-state";
+import { protectWorkspacePath } from "@agentxm/workspace/transitions/settlement";
+import { LOCK_FILENAME } from "@agentxm/workspace/desired-state";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
-import { resolveInstructionTarget, syncInstructions } from "@agentxm/workspace-projection";
-import type { InstructionMechanism } from "@agentxm/workspace-projection";
+import { resolveInstructionTarget, syncInstructions } from "@agentxm/workspace/projection";
+import type { InstructionMechanism } from "@agentxm/workspace/projection";
 
 const SELECT_AGENTS_PROMPT_MISSING = new WorkspaceConfigurationFailed({
   category: "usage",

@@ -16,13 +16,13 @@ import { requireInteractive } from "../prompt/index.js";
 import { promptAvailability, Verbosity } from "../cli-flags/index.js";
 import { planDoc } from "../operation-view.js";
 import { Screen } from "../screen/index.js";
-import { PlanInteractionFailed } from "@agentxm/workspace-operations";
-import { confirmationRecoverySuggestions } from "@agentxm/workspace-operations";
+import { PlanInteractionFailed } from "@agentxm/workspace/transitions/planning";
+import { confirmationRecoverySuggestions } from "@agentxm/workspace/transitions/planning";
 import {
   ResolvePlanInteraction,
   type ApplyConfirmation,
   type ResolvePlanInteractionService,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 
 const confirmApplyChangesMessage = "Apply changes?";
 

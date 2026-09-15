@@ -1,4 +1,4 @@
-import { WorkspaceTransactionScopesLive } from "@agentxm/workspace-transactions/live";
+import { WorkspaceTransactionScopesLive } from "@agentxm/workspace/transitions/settlement/live";
 /**
  * @agentxm/workspace-configuration deterministic fixtures and ports.
  *
@@ -26,20 +26,20 @@ import { AgentExecutableResolver } from "@agentxm/agent-integration";
 import { SourceHostProviders } from "@agentxm/extension-sources";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { RuleManagerLive } from "@agentxm/extension-materialization/live";
+import { RuleManagerLive } from "@agentxm/workspace/materialization/live";
 import {
   PlanInvocationTest,
   ResolvePlanInteractionTest,
   type ResolvePlanInteractionTestState,
-} from "@agentxm/workspace-operations/testing";
-import { ProjectionParticipants, emptyProjectionParticipants } from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/transitions/planning/testing";
+import { ProjectionParticipants, emptyProjectionParticipants } from "@agentxm/workspace/projection";
 import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
   WorkspaceCatalogLive,
   WorkspaceInvariantFactsLive,
-} from "@agentxm/workspace-projection/live";
-import { layer as WorkspaceLayerLive } from "@agentxm/workspace-state/live";
+} from "@agentxm/workspace/projection/live";
+import { layer as WorkspaceLayerLive } from "@agentxm/workspace/desired-state/live";
 
 import {
   WorkspaceInitializationInteractionTest,

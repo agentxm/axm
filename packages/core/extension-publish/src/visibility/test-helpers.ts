@@ -30,7 +30,7 @@ import {
   CredentialStoreTest,
 } from "@agentxm/registry-auth/testing";
 import { RegistryUrlTest, testRegistryUrl } from "@agentxm/registry-client/testing";
-import { layer as WorkspaceStateLayer } from "@agentxm/workspace-state/live";
+import { layer as WorkspaceStateLayer } from "@agentxm/workspace/desired-state/live";
 
 import { observedRevision, registryTarget } from "../test-helpers.js";
 import { writeAuthoredExtension } from "../testing.js";

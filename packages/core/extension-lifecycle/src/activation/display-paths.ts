@@ -13,7 +13,7 @@ import type * as Path from "effect/Path";
 
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import type { WorkspaceLayout, WorkspaceLocationService } from "@agentxm/workspace-state";
+import type { WorkspaceLayout, WorkspaceLocationService } from "@agentxm/workspace/desired-state";
 
 export const settingsDisplayPath = (scope: WorkspaceScope): string =>
   scope === "project" ? "axm.json" : ".axm/workspace/axm.json";

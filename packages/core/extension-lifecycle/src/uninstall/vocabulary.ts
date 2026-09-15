@@ -19,7 +19,7 @@ import type {
   RuleExtensionTarget,
   SkillExtensionTarget,
   SubagentExtensionTarget,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 /** One skill removal. */
 export interface SkillUninstallIntent {

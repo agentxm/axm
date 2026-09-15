@@ -8,7 +8,7 @@ import {
   type UpdateSubjectType,
 } from "@agentxm/extension-lifecycle";
 import { AXM_SKILL_BUNDLED_APPLY_COMMAND } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
-import { ReleaseAgePosture, type TargetedUpdatePublicContext } from "@agentxm/extension-resolution";
+import { ReleaseAgePosture, type TargetedUpdatePublicContext } from "@agentxm/workspace/resolution";
 import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions";
 import {
   credentialFreeLocatorRecoveryValue,
@@ -17,7 +17,7 @@ import {
   recoverySwitch,
   type OperationResolution,
   type PlanExecution,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";

@@ -32,7 +32,7 @@ import {
   LockfileReader,
   SettingsReader,
   WorkspaceLocation,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import { PackInspectionRefused } from "../errors.js";
 

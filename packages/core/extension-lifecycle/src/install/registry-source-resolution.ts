@@ -29,7 +29,7 @@ import {
   WorkspaceCatalog,
 } from "@agentxm/extension-sources";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import { SettingsReader } from "@agentxm/workspace-state";
+import { SettingsReader } from "@agentxm/workspace/desired-state";
 
 import type { ExtensionLifecycleFailed } from "../errors.js";
 import { registryLoginSuggestions } from "./registry-login-suggestion.js";

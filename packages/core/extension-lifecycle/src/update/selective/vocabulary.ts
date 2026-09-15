@@ -14,7 +14,7 @@ import {
   type ExecutionCandidate,
   type PlanExecution,
   type PlanRiskCondition,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 
 import type { SelectiveUpdateStepRequirements } from "./requirements.js";
 import type { SelectiveUpdateNothingReason } from "./selection.js";

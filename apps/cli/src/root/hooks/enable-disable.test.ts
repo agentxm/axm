@@ -9,7 +9,7 @@ import { afterEach, beforeEach } from "vitest";
 
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   AllExtensionManagersLive,

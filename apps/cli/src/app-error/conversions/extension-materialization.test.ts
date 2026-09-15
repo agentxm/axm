@@ -1,7 +1,7 @@
 import {
   LifecyclePostconditionViolated,
   ScaffoldedExtensionUnresolved,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 /**
  * Byte-for-byte conversion table for the extension-materialization typed failure family.
  * Each row travels the real `toAppError` path and pins the envelope its
@@ -44,7 +44,7 @@ import {
   SubagentContentUnreadable,
   SubagentDefinitionInvalid,
   SubagentInstallStateMissing,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 
 const ioCause = new Error("EACCES");
 

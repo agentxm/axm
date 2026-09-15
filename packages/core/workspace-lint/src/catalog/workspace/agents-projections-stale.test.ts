@@ -1,12 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import type { AgentOutputInventory } from "@agentxm/workspace-projection";
+import type { AgentOutputInventory } from "@agentxm/workspace/projection";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import {
   runScenario,
   SCENARIO_USER_HOME,
   SCENARIO_WORKSPACE_ROOT,
-} from "@agentxm/workspace-state/testing";
+} from "@agentxm/workspace/desired-state/testing";
 import { agentsProjectionsStaleRule } from "./agents-projections-stale.js";
 
 const output = {

@@ -1,4 +1,4 @@
-import { buildReconciliationClosure } from "@agentxm/workspace-reconciliation";
+import { buildReconciliationClosure } from "@agentxm/workspace/reconciliation";
 /**
  * Installing a pack.
  *
@@ -16,7 +16,11 @@ import { buildReconciliationClosure } from "@agentxm/workspace-reconciliation";
 import * as DateTime from "effect/DateTime";
 import type * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
-import { DesiredStateReader, SettingsReader, WorkspaceLocation } from "@agentxm/workspace-state";
+import {
+  DesiredStateReader,
+  SettingsReader,
+  WorkspaceLocation,
+} from "@agentxm/workspace/desired-state";
 
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -30,13 +34,13 @@ import {
   RuleManager,
   SkillManager,
   SubagentManager,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import {
   buildInstallOperation,
   buildUninstallOperation,
   targetFromRef,
   toLabel,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import {
@@ -59,7 +63,7 @@ import {
   type SourceAuthorityBlockedFact,
   type SourceAuthorityInput,
   type WorkspacePackDependencyResolver,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/workspace/resolution";
 import {
   SourceHostProviders,
   resolveSource,
@@ -71,7 +75,7 @@ import {
   type JobStepArtifactTarget,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
   acceptedLockedCanonicalPath,
   isDesiredExtensionActive,
@@ -83,7 +87,7 @@ import {
   type SkillExtensionTarget,
   type DesiredStateGraph,
   type SubagentExtensionTarget,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { lifecycleStepFailure } from "../../step-failure.js";
@@ -105,7 +109,7 @@ import { expandPackInstallRefs, expandPackInstallRefsWithReleaseAge } from "../e
 import { validatePackGraphPostcondition } from "../graph-transition.js";
 import { buildPackMemberInstallStep } from "../member-install-step.js";
 import { registrySourceArtifact, registrySourcePath } from "../artifact.js";
-import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace-reconciliation";
+import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace/reconciliation";
 
 /** A pack install request after grammar parsing, before anything is discovered. */
 export interface ParsedPackInstallRequest {

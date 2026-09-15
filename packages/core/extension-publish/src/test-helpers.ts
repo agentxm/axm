@@ -53,12 +53,12 @@ import {
   previewPlanExecution,
   type PlanExecution,
   type PlanPolicyId,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
   PlanInvocationTest,
   ResolvePlanInteractionTest,
-} from "@agentxm/workspace-operations/testing";
-import { layer as WorkspaceStateLayer } from "@agentxm/workspace-state/live";
+} from "@agentxm/workspace/transitions/planning/testing";
+import { layer as WorkspaceStateLayer } from "@agentxm/workspace/desired-state/live";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 
 import { normalizePublishResult, type PublishResult } from "./publish/result.js";

@@ -24,7 +24,7 @@ import {
 import { UpgradeAssessmentResultSchema } from "@agentxm/cli-maintenance/self-update/adapters/cli";
 import { PublishResultSchema } from "@agentxm/extension-publish";
 import { KnowledgeConceptStatusOutputSchema } from "@agentxm/knowledge-query";
-import { ExtensionInventorySchema } from "@agentxm/workspace-state";
+import { ExtensionInventorySchema } from "@agentxm/workspace/desired-state";
 
 import { PlanResolutionDocumentSchema } from "../operation-output.js";
 

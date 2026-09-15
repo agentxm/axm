@@ -1,0 +1,34 @@
+{
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "name": "workspace",
+  "projectType": "library",
+  "root": "packages/core/workspace",
+  "sourceRoot": "packages/core/workspace/src",
+  "tags": ["type:lib", "role:capability", "scope:workspace"],
+  "targets": {
+    "build": {
+      "executor": "@nx/js:tsc",
+      "options": {
+        "main": "packages/core/workspace/src/desired-state/index.ts",
+        "outputPath": "packages/core/workspace/dist",
+        "tsConfig": "packages/core/workspace/tsconfig.lib.json",
+        "clean": true,
+        "generatePackageJson": false
+      }
+    },
+    "test": {
+      "dependsOn": ["build", "specification-metadata:build"]
+    },
+    "test-windows": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["default", "^production"],
+      "outputs": ["{workspaceRoot}/test-results/workspace-windows"],
+      "options": {
+        "command": "pnpm exec vitest run --config vitest.windows.config.ts",
+        "cwd": "packages/core/workspace"
+      }
+    }
+  }
+}

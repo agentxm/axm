@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import { afterEach } from "vitest";
-import { isExecutionCandidateFresh } from "@agentxm/workspace-operations";
+import { isExecutionCandidateFresh } from "@agentxm/workspace/transitions/planning";
 import { makePackWorkspace } from "../test-support/pack-membership.js";
 import {
   applyExecution,

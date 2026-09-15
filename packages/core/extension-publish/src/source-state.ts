@@ -7,7 +7,7 @@ import {
   type GitDirectoryDifference,
   type GitOperationFailed,
 } from "@agentxm/extension-sources";
-import type { PlanRiskCondition } from "@agentxm/workspace-operations";
+import type { PlanRiskCondition } from "@agentxm/workspace/transitions/planning";
 import type { ArchivePlan } from "./archive.js";
 import { isArchivePathIncluded } from "./archive.js";
 

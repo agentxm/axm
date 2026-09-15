@@ -7,15 +7,18 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { SettingsWriteError } from "@agentxm/workspace-state";
+import { SettingsWriteError } from "@agentxm/workspace/desired-state";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
-import { computePackManifestContentIdentity } from "@agentxm/workspace-state";
+import { computePackManifestContentIdentity } from "@agentxm/workspace/desired-state";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import * as Schema from "effect/Schema";
 import { SourceHostProviders } from "@agentxm/extension-sources";
 import type { SourceHostProvidersService } from "@agentxm/extension-sources";
-import { DesiredStateWriter, type DesiredStateWriterService } from "@agentxm/workspace-state";
-import { WorkspaceReadTest } from "@agentxm/workspace-state/testing";
+import {
+  DesiredStateWriter,
+  type DesiredStateWriterService,
+} from "@agentxm/workspace/desired-state";
+import { WorkspaceReadTest } from "@agentxm/workspace/desired-state/testing";
 import {
   TestStepFailureConversion,
   exactVersion,

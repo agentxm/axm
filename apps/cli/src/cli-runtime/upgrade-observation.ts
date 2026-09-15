@@ -6,7 +6,7 @@ import {
   makeThrottledUnitProgress,
   observeChildUnit,
   observeUnit,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import { methodName } from "@agentxm/cli-maintenance/self-update/domain";
 import {
   formatRecommendedCommand,

@@ -2,9 +2,9 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
-import { injectWriteFaults } from "@agentxm/workspace-transactions/testing";
+import { injectWriteFaults } from "@agentxm/workspace/transitions/settlement/testing";
 import { afterEach } from "vitest";
-import { deriveOperationOutcome } from "@agentxm/workspace-operations";
+import { deriveOperationOutcome } from "@agentxm/workspace/transitions/planning";
 import {
   applyInstall,
   installRequest,

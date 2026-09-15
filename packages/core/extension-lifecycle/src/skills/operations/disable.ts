@@ -12,30 +12,30 @@ import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
+import { CodingAgentRepository } from "@agentxm/workspace/projection";
 import { ExtensionLifecycleFailed } from "../../errors.js";
 import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";
-import type { OperationHandler } from "@agentxm/workspace-operations";
-import type { Operation } from "@agentxm/workspace-operations";
-import type { JobStepResult } from "@agentxm/workspace-operations";
+import type { OperationHandler } from "@agentxm/workspace/transitions/planning";
+import type { Operation } from "@agentxm/workspace/transitions/planning";
+import type { JobStepResult } from "@agentxm/workspace/transitions/planning";
 import {
   DesiredStateReader,
   type SettingsReader,
   SettingsWriter,
   WorkspaceLocation,
   WorkspaceRecords,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import {
   WorkspaceTransactionScope,
   runWorkspaceTransaction,
-} from "@agentxm/workspace-transactions";
-import { sanitizeName } from "@agentxm/workspace-state";
+} from "@agentxm/workspace/transitions/settlement";
+import { sanitizeName } from "@agentxm/workspace/desired-state";
 import {
   skillArtifactFromTargets,
   type InstallableSkillTarget,
-} from "@agentxm/extension-materialization";
-import { installedRowsByName } from "@agentxm/workspace-state";
-import { removeSkillAgentArtifact } from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
+import { installedRowsByName } from "@agentxm/workspace/desired-state";
+import { removeSkillAgentArtifact } from "@agentxm/workspace/materialization";
 
 // -----------------------------------------------------------------------------
 // Operation types

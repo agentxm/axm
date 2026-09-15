@@ -47,12 +47,12 @@ import {
 } from "./test-helpers.js";
 import { makeWorkspaceFileContents, writeWorkspaceFiles } from "./test-stubs.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
-import { ReleaseAgePosture, type ReleaseAgePostureValue } from "@agentxm/extension-resolution";
-import { makeMemoryTransitionLockWorld } from "@agentxm/workspace-transactions/testing";
-import { MemoryWorkspaceTransactionScope } from "@agentxm/workspace-state/testing";
-import { WorkspaceStateLive } from "@agentxm/workspace-state/live";
-import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-projection/live";
-import { ProjectionParticipantsLive } from "@agentxm/extension-materialization/live";
+import { ReleaseAgePosture, type ReleaseAgePostureValue } from "@agentxm/workspace/resolution";
+import { makeMemoryTransitionLockWorld } from "@agentxm/workspace/transitions/settlement/testing";
+import { MemoryWorkspaceTransactionScope } from "@agentxm/workspace/desired-state/testing";
+import { WorkspaceStateLive } from "@agentxm/workspace/desired-state/live";
+import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
+import { ProjectionParticipantsLive } from "@agentxm/workspace/materialization/live";
 
 /**
  * The workspace-facts layer over the registered projection participants, for

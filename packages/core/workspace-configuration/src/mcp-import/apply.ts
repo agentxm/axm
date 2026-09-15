@@ -21,10 +21,10 @@ import type {
   SettingsReaderService,
   SettingsWriterService,
   WorkspaceLocationService,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import { AXM_MCP_METADATA_KEY, isAxmManagedMcpEntry } from "@agentxm/agent-integration";
-import type { McpServerEntry } from "@agentxm/workspace-state";
-import { runWorkspaceTransaction } from "@agentxm/workspace-transactions";
+import type { McpServerEntry } from "@agentxm/workspace/desired-state";
+import { runWorkspaceTransaction } from "@agentxm/workspace/transitions/settlement";
 import { WorkspaceConfigurationFailed } from "../errors.js";
 import type { McpImportAdoption, McpImportCandidate, McpImportSource } from "./preflight.js";
 

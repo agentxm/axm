@@ -7,13 +7,13 @@ import {
   type ConfiguredUpdateSelector,
   type WorkspaceUpdatableType,
 } from "@agentxm/extension-lifecycle";
-import { ReleaseAgePosture } from "@agentxm/extension-resolution";
+import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
 import {
   operationPresentation,
   publicRecoveryValue,
   recoveryOption,
   recoverySwitch,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";

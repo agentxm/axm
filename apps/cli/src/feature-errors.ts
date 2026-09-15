@@ -51,7 +51,7 @@ import {
   WorkspaceSyncFailed,
   type SyncFailureAdapter,
   type SyncPolicyFailure,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 
 /**
  * Translate a lint input-staging failure: the implementation chose the

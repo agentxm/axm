@@ -18,33 +18,33 @@ import {
   WorkspaceLocation,
   type LockfileReader,
   type SettingsReader,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import * as Option from "effect/Option";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { NativeWriteAuthority } from "@agentxm/agent-integration";
 import type { CodingAgent, McpServerSyncOutcome } from "@agentxm/agent-integration";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
-import type { StepFailure } from "@agentxm/workspace-operations";
-import { appendWarningsToMessage } from "@agentxm/workspace-operations";
-import type { JobStepResult, Operation } from "@agentxm/workspace-operations";
-import { removeIfExists } from "@agentxm/workspace-state";
+import { CodingAgentRepository } from "@agentxm/workspace/projection";
+import type { StepFailure } from "@agentxm/workspace/transitions/planning";
+import { appendWarningsToMessage } from "@agentxm/workspace/transitions/planning";
+import type { JobStepResult, Operation } from "@agentxm/workspace/transitions/planning";
+import { removeIfExists } from "@agentxm/workspace/desired-state";
 import {
   acceptedCanonicalObservation,
   acceptedLockedCanonicalPath,
   removableAcceptedCanonicalPath,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import {
   agentConfigTarget,
   mcpServerArtifact,
   mcpSettingsTarget,
   McpSecretStore,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import {
   collectSecretInputNames,
   deleteMcpSecrets,
   readMcpServerManifest,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";
 import { ExtensionLifecycleFailed } from "../../errors.js";
 

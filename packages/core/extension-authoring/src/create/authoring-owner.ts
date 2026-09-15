@@ -28,7 +28,7 @@ import {
   type WorkspaceLayout,
   type WorkspaceSettingsMutationFailure,
   type WorkspaceSettingsReadFailure,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import { AuthoringOwnerMismatch, AuthoringOwnerRequired } from "./errors.js";
 import { normalizeScaffoldOwner } from "./scaffold-name.js";

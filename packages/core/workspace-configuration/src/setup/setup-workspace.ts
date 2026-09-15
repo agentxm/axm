@@ -34,7 +34,7 @@ import {
   CodingAgentRepository,
   resolveInstructionTarget,
   type CodingAgentRepositoryService,
-} from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/projection";
 import {
   AXM_DIR_NAME,
   ArtifactChangeSchema,
@@ -46,14 +46,14 @@ import {
   type LocatedWorkspace,
   type Settings,
   type WorkspaceStateOptions,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import {
   runWorkspaceTransaction,
   WorkspaceTransactionScope,
   WorkspaceTransactionScopes,
   type WorkspaceRestorationIncomplete,
   type WorkspaceTransactionFailure,
-} from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/settlement";
 
 import { WorkspaceConfigurationFailed } from "../errors.js";
 import { WorkspaceInitializationInteraction } from "./initialization-interaction.js";

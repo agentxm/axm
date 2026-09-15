@@ -1,5 +1,5 @@
 import type { SetupAgentScan, SetupOutcome, SetupPlanRow } from "@agentxm/workspace-configuration";
-import type { AgentSubagentSummary } from "@agentxm/workspace-state";
+import type { AgentSubagentSummary } from "@agentxm/workspace/desired-state";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import type { Doc } from "../../screen/index.js";

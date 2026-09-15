@@ -32,8 +32,8 @@ import type {
   RuleManager,
   SkillManager,
   SubagentManager,
-} from "@agentxm/extension-materialization";
-import type { McpServerInstallRequirements } from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/materialization";
+import type { McpServerInstallRequirements } from "@agentxm/workspace/reconciliation";
 import {
   observeUnit,
   OperationJournal,
@@ -48,8 +48,8 @@ import {
   type PlanExecution,
   type PlanInteractionFailed,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { WorkspaceInvariantFacts } from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/transitions/planning";
+import { WorkspaceInvariantFacts } from "@agentxm/workspace/projection";
 import {
   ConfiguredAgentOutcomesProvider,
   DesiredStateReader,
@@ -58,28 +58,28 @@ import {
   WorkspaceRecords,
   type LockfileValidationError,
   type WorkspaceSettingsReadFailure,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import type {
   FootprintRecorder,
   WorkspaceTransitionAcquireFailure,
-} from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/settlement";
 
 import {
   collectLeftoverRetirement,
   collectUnreachableRetirement,
   collectConfiguredPackRecovery,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import {
   SyncStepFailureConversion,
   type SyncPolicyFailure,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import {
   collectMaterializeSteps,
   type CollectedMaterializeSteps,
   type ConfiguredEntryResolutionRequirements,
   type SyncSelection,
   selectedDesiredNodes,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import {
   collectCleanupStep,
   collectHooksStep,
@@ -89,7 +89,7 @@ import {
   SYNC_PLAN_DESCRIPTION,
   SYNC_PLAN_NAME,
   type SyncStepRequirements,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 
 /** Everything a sync plan's steps need when they run. */
 export type SyncWorkspaceRequirements =

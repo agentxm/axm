@@ -13,7 +13,7 @@ import type * as Path from "effect/Path";
 
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import type { WorkspaceLayout, WorkspaceLocationService } from "@agentxm/workspace-state";
+import type { WorkspaceLayout, WorkspaceLocationService } from "@agentxm/workspace/desired-state";
 
 /** Where the workspace's settings file sits, relative to the workspace root. */
 export const workspaceSettingsPath = (scope: WorkspaceScope): string =>

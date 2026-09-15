@@ -8,7 +8,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { JsonErrorEnvelopeSchema, classifyError } from "./index.js";
-import { LOCKFILE_VERSION } from "@agentxm/workspace-state";
+import { LOCKFILE_VERSION } from "@agentxm/workspace/desired-state";
 import { PlanResolutionDocumentSchema } from "../operation-output.js";
 import { handleDemote } from "../root/demote/command.js";
 import { handleInstall } from "../root/install/handler.js";

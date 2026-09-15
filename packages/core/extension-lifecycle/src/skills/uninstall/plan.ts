@@ -18,7 +18,7 @@ import {
   WorkspaceRecords,
   type WorkspaceLayout,
   type WorkspaceLocationService,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -28,19 +28,23 @@ import {
   SkillManager,
   skillArtifactFromTargets,
   type InstallableSkillTarget,
-} from "@agentxm/extension-materialization";
-import { buildUninstallOperation } from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/materialization";
+import { buildUninstallOperation } from "@agentxm/workspace/reconciliation";
 import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-sources";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
-import type { JobStepArtifactTarget, Plan, PlannedJobStep } from "@agentxm/workspace-operations";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
+import type {
+  JobStepArtifactTarget,
+  Plan,
+  PlannedJobStep,
+} from "@agentxm/workspace/transitions/planning";
+import { CodingAgentRepository } from "@agentxm/workspace/projection";
 import {
   acquiredExtensionDisplayPathFromLockEntry,
   installedRowsByName,
   sanitizeName,
   type SkillExtensionTarget,
   type SkillLockEntry,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
@@ -50,7 +54,7 @@ import {
   type InstallStepRequirements,
   type ResolveInstallRequirements,
 } from "../../install/vocabulary.js";
-import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace-reconciliation";
+import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace/reconciliation";
 import type { SkillUninstallIntent } from "../../uninstall/vocabulary.js";
 import {
   workspaceAuthoredPath,

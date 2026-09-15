@@ -12,7 +12,7 @@ import * as Option from "effect/Option";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as Terminal from "effect/Terminal";
-import { observeUnit } from "@agentxm/workspace-operations";
+import { observeUnit } from "@agentxm/workspace/transitions/planning";
 
 import { Prompt } from "effect/unstable/cli";
 

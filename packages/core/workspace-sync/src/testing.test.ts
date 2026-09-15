@@ -4,10 +4,10 @@ import { it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { OperationJournal } from "@agentxm/workspace-operations";
+import { OperationJournal } from "@agentxm/workspace/transitions/planning";
 
-import { WorkspaceSyncFailed } from "@agentxm/workspace-reconciliation";
-import { SyncStepFailureConversion } from "@agentxm/workspace-reconciliation";
+import { WorkspaceSyncFailed } from "@agentxm/workspace/reconciliation";
+import { SyncStepFailureConversion } from "@agentxm/workspace/reconciliation";
 import { makeSyncPortsTest, structuralSyncStepFailure, syncRequest } from "./testing.js";
 
 describe("@agentxm/workspace-sync/testing", () => {

@@ -8,16 +8,16 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import { SettingsWriter } from "@agentxm/workspace-state";
-import { protectWorkspacePath } from "@agentxm/workspace-transactions";
-import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
+} from "@agentxm/workspace/transitions/planning";
+import { SettingsWriter } from "@agentxm/workspace/desired-state";
+import { protectWorkspacePath } from "@agentxm/workspace/transitions/settlement";
+import { layer as coreWorkspaceLayer } from "@agentxm/workspace/desired-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { StepFailure } from "@agentxm/workspace-operations";
+import { StepFailure } from "@agentxm/workspace/transitions/planning";
 import { makeAtomicMembershipSteps } from "./atomic-membership.js";
 import { testToStepFailure, writeMinimalWorkspace } from "../test-helpers.js";
 

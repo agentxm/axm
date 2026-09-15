@@ -38,14 +38,14 @@ import {
   type OperationMode,
   type OperationPresentation,
   type SettledOutcome,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import { Screen } from "./screen/index.js";
-import { WorkspaceLocation } from "@agentxm/workspace-state";
+import { WorkspaceLocation } from "@agentxm/workspace/desired-state";
 import {
   FootprintRecorder,
   makeFootprintRecorder,
   readFootprint,
-} from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/settlement";
 
 import { emitOperationResolution } from "./operation-output.js";
 

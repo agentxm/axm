@@ -13,28 +13,28 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { CodingAgentRepository, findManagedSubagentFiles } from "@agentxm/workspace-projection";
+import { CodingAgentRepository, findManagedSubagentFiles } from "@agentxm/workspace/projection";
 import { ExtensionLifecycleFailed } from "../../errors.js";
 import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";
-import type { OperationHandler } from "@agentxm/workspace-operations";
-import type { Operation } from "@agentxm/workspace-operations";
-import type { JobStepResult } from "@agentxm/workspace-operations";
+import type { OperationHandler } from "@agentxm/workspace/transitions/planning";
+import type { Operation } from "@agentxm/workspace/transitions/planning";
+import type { JobStepResult } from "@agentxm/workspace/transitions/planning";
 import {
   DesiredStateReader,
   type SettingsReader,
   SettingsWriter,
   WorkspaceLocation,
   WorkspaceRecords,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import {
   WorkspaceTransactionScope,
   runWorkspaceTransaction,
-} from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/settlement";
 import { subagentLifecycleArtifact } from "./artifact.js";
 import * as Schema from "effect/Schema";
-import { RenderedFilePathSchema } from "@agentxm/workspace-state";
-import { sanitizeName } from "@agentxm/workspace-state";
-import { installedRowsByName } from "@agentxm/workspace-state";
+import { RenderedFilePathSchema } from "@agentxm/workspace/desired-state";
+import { sanitizeName } from "@agentxm/workspace/desired-state";
+import { installedRowsByName } from "@agentxm/workspace/desired-state";
 
 const decodeRenderedFilePath = Schema.decodeUnknownSync(RenderedFilePathSchema);
 

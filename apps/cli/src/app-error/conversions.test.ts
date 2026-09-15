@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import * as Cause from "effect/Cause";
-import { StepFailure } from "@agentxm/workspace-operations";
-import { WorkspaceRestorationIncomplete } from "@agentxm/workspace-transactions";
+import { StepFailure } from "@agentxm/workspace/transitions/planning";
+import { WorkspaceRestorationIncomplete } from "@agentxm/workspace/transitions/settlement";
 import {
   AppError,
   makeAppError,
@@ -16,8 +16,8 @@ import {
   toAppError,
   type KnownFailure,
 } from "./conversions.js";
-import { SettingsWriteError } from "@agentxm/workspace-state";
-import { LockfileValidationError, LockfileWriteError } from "@agentxm/workspace-state";
+import { SettingsWriteError } from "@agentxm/workspace/desired-state";
+import { LockfileValidationError, LockfileWriteError } from "@agentxm/workspace/desired-state";
 import {
   CanonicalPathRemovalError,
   DesiredPackGraphIncomplete,
@@ -27,7 +27,7 @@ import {
   SymlinkCreationError,
   WorkspaceLayoutError,
   WorkspaceNotInitialized,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import {
   LockfileDecodeError,
   LockfileIoError,
@@ -37,7 +37,7 @@ import {
   SettingsIoError,
   SettingsParseError,
   WorkspaceRootEscape,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import {
   TransitionLockError,
   TransitionLockUnavailable,
@@ -45,7 +45,7 @@ import {
   WorkspaceRestorationError,
   WorkspaceSnapshotError,
   WorkspaceTransitionCompromised,
-} from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/settlement";
 
 const ioCause = new Error("EACCES");
 

@@ -9,17 +9,17 @@ import * as Option from "effect/Option";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 
-import { CodingAgentRepositoryLive } from "@agentxm/workspace-projection/live";
-import { ProjectionParticipantsLive } from "@agentxm/extension-materialization/live";
-import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-projection/live";
-import { HookManagerLive } from "@agentxm/extension-materialization/live";
-import { PackManagerLive } from "@agentxm/extension-materialization/live";
-import { KnowledgeManagerLive } from "@agentxm/extension-materialization/live";
-import { McpServerManagerLive } from "@agentxm/extension-materialization/live";
-import { RuleManagerLive } from "@agentxm/extension-materialization/live";
-import { SkillManagerLive } from "@agentxm/extension-materialization/live";
+import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
+import { ProjectionParticipantsLive } from "@agentxm/workspace/materialization/live";
+import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
+import { HookManagerLive } from "@agentxm/workspace/materialization/live";
+import { PackManagerLive } from "@agentxm/workspace/materialization/live";
+import { KnowledgeManagerLive } from "@agentxm/workspace/materialization/live";
+import { McpServerManagerLive } from "@agentxm/workspace/materialization/live";
+import { RuleManagerLive } from "@agentxm/workspace/materialization/live";
+import { SkillManagerLive } from "@agentxm/workspace/materialization/live";
 import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
-import { SubagentManagerLive } from "@agentxm/extension-materialization/live";
+import { SubagentManagerLive } from "@agentxm/workspace/materialization/live";
 
 import {
   computeMaterializedTreeIntegritySync,

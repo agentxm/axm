@@ -10,24 +10,24 @@ import { afterEach, beforeEach, vi } from "vitest";
 import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
-} from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/projection";
 import type { CodingAgent } from "@agentxm/agent-integration";
-import type { McpServerLockEntry } from "@agentxm/workspace-state";
-import type { McpServerEntry } from "@agentxm/workspace-state";
+import type { McpServerLockEntry } from "@agentxm/workspace/desired-state";
+import type { McpServerEntry } from "@agentxm/workspace/desired-state";
 import {
   TestStepFailureConversion,
   computeMaterializedTreeIntegritySync,
   handle,
   makeCodingAgentStub,
 } from "../../test-helpers.js";
-import { SettingsWriter } from "@agentxm/workspace-state";
+import { SettingsWriter } from "@agentxm/workspace/desired-state";
 import {
   makeRegistryMcpServerLockEntry,
   MockWorkspaceTransactionScope,
   WorkspaceReadTest,
   type WorkspaceReadTestFacts,
-} from "@agentxm/workspace-state/testing";
-import { mcpResolutionKey } from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state/testing";
+import { mcpResolutionKey } from "@agentxm/workspace/desired-state";
 import { disableMcpServer } from "./disable.js";
 import { enableMcpServer } from "./enable.js";
 

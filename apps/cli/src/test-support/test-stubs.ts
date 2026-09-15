@@ -5,8 +5,8 @@ import * as Ref from "effect/Ref";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
-import { TreeIntegritySchema, computeSourceHash } from "@agentxm/workspace-state";
-import { NO_MATERIALIZATION_OBSERVATION } from "@agentxm/extension-materialization";
+import { TreeIntegritySchema, computeSourceHash } from "@agentxm/workspace/desired-state";
+import { NO_MATERIALIZATION_OBSERVATION } from "@agentxm/workspace/materialization";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 
 import {
@@ -23,7 +23,7 @@ import {
   type SkillLockEntry,
   type WorkspaceLayout,
   type WorkspaceLocationService,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import {
   decodeVersionSync,
   decodeVersionRangeSync,

@@ -6,11 +6,11 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { CodingAgentRepository, hasAxmManagedMarker } from "@agentxm/workspace-projection";
+import { CodingAgentRepository, hasAxmManagedMarker } from "@agentxm/workspace/projection";
 import { codingAgentForId } from "@agentxm/agent-integration";
-import type { CodingAgentRepositoryService } from "@agentxm/workspace-projection";
-import { WorkspaceReadTest } from "@agentxm/workspace-state/testing";
-import { reconcileAgentOutputs } from "@agentxm/workspace-reconciliation";
+import type { CodingAgentRepositoryService } from "@agentxm/workspace/projection";
+import { WorkspaceReadTest } from "@agentxm/workspace/desired-state/testing";
+import { reconcileAgentOutputs } from "@agentxm/workspace/reconciliation";
 import { applySync, previewSync, makeSyncFixture } from "./test-helpers.js";
 
 const AXM_MANAGED_MARKER =

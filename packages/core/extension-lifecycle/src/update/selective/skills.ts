@@ -6,7 +6,7 @@
  * from what was accepted. Two constraints govern the version it lands on: the
  * range the workspace itself recorded, and the ranges every Pack that owns
  * the skill declares. Precedence, not intersection, decides between them —
- * `@agentxm/extension-resolution`'s constraint precedence owns that rule, and
+ * `@agentxm/workspace/resolution`'s constraint precedence owns that rule, and
  * this module supplies it the visible version list and carries its warnings
  * onto the plan. A skill that cannot be re-resolved is reported as a skipped
  * unit rather than failing the sweep, so one unreachable source does not stop
@@ -24,7 +24,7 @@ import {
   LockfileReader,
   SettingsReader,
   WorkspaceRecords,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import * as Option from "effect/Option";
 
@@ -54,7 +54,7 @@ import {
   type ReleaseAgeBypassRecord,
   type ReleaseAgeRecord,
   type UpdateConstraints,
-} from "@agentxm/extension-resolution";
+} from "@agentxm/workspace/resolution";
 import { resolveSource, SourceHostProviders } from "@agentxm/extension-sources";
 import { createRegistryClient } from "@agentxm/registry-client";
 import {
@@ -64,12 +64,12 @@ import {
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
   acceptedResolutionRef,
   configuredRowsByName,
   type SkillsLockMap,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import { ExtensionLifecycleFailed } from "../../errors.js";
 import { withPublisherTrustConditions } from "../../publisher-binding.js";

@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import { Screen, inventoryDoc, type ViewColumn } from "../../../screen/index.js";
-import { ExtensionInventorySchema } from "@agentxm/workspace-state";
+import { ExtensionInventorySchema } from "@agentxm/workspace/desired-state";
 import { listSubagents, type TypeListRow } from "@agentxm/workspace-inspection";
 import {
   inventoryActivation,

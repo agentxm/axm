@@ -2,7 +2,7 @@
  * The per-family operation sweep for `cli/invalid-workspace-state-gates-operations`.
  *
  * The specification lives in
- * `packages/core/workspace-state/src/workspace/invalid-workspace-state-gates-operations.spec.ts`,
+ * `packages/core/workspace/src/desired-state/workspace/invalid-workspace-state-gates-operations.spec.ts`,
  * beside the readers that refuse to construct the workspace records. The rule
  * it states is about every operation that reads or changes workspace state,
  * and only the CLI composition root can reach all five families at once, so
@@ -18,7 +18,7 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import { afterAll, afterEach } from "vitest";
 
-import { LOCKFILE_VERSION } from "@agentxm/workspace-state";
+import { LOCKFILE_VERSION } from "@agentxm/workspace/desired-state";
 import { getAppError } from "../test-support/test-helpers.js";
 import { handleInstall } from "./install/handler.js";
 import { handleLint } from "./lint/handler.js";

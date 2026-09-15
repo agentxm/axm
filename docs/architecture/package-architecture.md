@@ -82,8 +82,8 @@ authored in each `project.json`:
 | `role:e2e`         | Observes shipped artifacts and entry points                                        |
 
 The two are independent on purpose. `registry-client` is an integration and
-strategically undifferentiated; `workspace-transactions` is a low-level
-capability and among the most distinctive code in the repository.
+strategically undifferentiated; `workspace/transitions/settlement` is a
+low-level capability and among the most distinctive code in the repository.
 
 ## Core packages
 
@@ -148,58 +148,51 @@ packages pending their application/adapter separation.
 
 ### Capabilities
 
-| Package                              | Role              | Owns                                                                                                                                                                                                                                                                                 |
-| ------------------------------------ | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `@agentxm/extension-content`         | `role:capability` | Skill and subagent content parsing, Knowledge bundle inspection and search, the lint rule catalog, and archive and manifest validation                                                                                                                                               |
-| `@agentxm/workspace-transactions`    | `role:capability` | The workspace transition lock and scope, the transaction runner, the per-closure snapshot ledger with restoration and verification, write registration, atomic single-file publication, and footprint observation                                                                    |
-| `@agentxm/workspace-state`           | `role:capability` | Settings and lockfile authority, desired and observed state, the read model, and the narrow location, reader, and writer services every workspace mutation goes through                                                                                                              |
-| `@agentxm/workspace-operations`      | `role:capability` | Plans, execution candidates, semantic-closure execution and settlement, operation resolutions, progress and lifecycle observation, journals, and readiness gating                                                                                                                    |
-| `@agentxm/workspace-projection`      | `role:capability` | Ownership units and their participant registry, projection planning, contributor calculation over the desired-state graph, managed-file ownership and provenance, instruction targets, and the invariant and drift facts lint and sync read                                          |
-| `@agentxm/extension-resolution`      | `role:capability` | What a configured or requested extension resolves to and whether that resolution may be accepted: release-age policy and evidence, version selection, configured-entry and Pack dependency resolution, workspace source authority, publisher-binding trust, and candidate inspection |
-| `@agentxm/extension-materialization` | `role:capability` | Type-specific canonical acquisition, inspection, staging, replacement, removal, and projection participation; managers return facts without writing desired declarations                                                                                                             |
-| `@agentxm/workspace-reconciliation`  | `role:capability` | Proposed desired state, shared lifecycle recipes, accepted-state realization, reachability-based retirement, native cleanup, semantic closure planning, and retained-state reporting                                                                                                 |
+| Package                      | Role              | Owns                                                                                                                                                                                                                                                                                                                                                                                |
+| ---------------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@agentxm/extension-content` | `role:capability` | Skill and subagent content parsing, Knowledge bundle inspection and search, the lint rule catalog, and archive and manifest validation                                                                                                                                                                                                                                              |
+| `@agentxm/workspace`         | `role:capability` | Desired and observed state; accepted resolution; owned projection; kind-specific acquisition and materialization for skills, subagents, MCP connections, instructions, hooks, Knowledge, and Packs; reconciliation planning; transition execution; and transaction settlement. Its public subpaths expose these cohesive capabilities without creating separate package identities. |
 
 `extension-content` is a leaf. It reads the model and nothing else, which is
 why integrations and supporting packages may consume it by name without pulling
 workspace or transport packages behind it.
 
-`workspace-transactions` depends on nothing else of AXM. It is the lowest
-workspace capability, so state can register every write with it and operations
-can settle each semantic closure through it without either package depending on
-the other. The closure API — `withWorkspaceClosure`, `settleWorkspaceClosure`,
-`rollbackWorkspaceClosure`, `pendingClosureRestorations` — is consumed by
-`workspace-operations` alone, enforced by a focused lint rule. Every other
-package registers writes with `protectWorkspacePath` and runs transactions with
-`runWorkspaceTransaction`.
+`workspace/transitions/settlement` owns the transition lock, transaction runner,
+preimages, restoration, verification, and write registration. The closure API —
+`withWorkspaceClosure`, `settleWorkspaceClosure`, `rollbackWorkspaceClosure`, and
+`pendingClosureRestorations` — is consumed by transition planning alone. Every
+other capability registers writes with `protectWorkspacePath` and runs
+transactions with `runWorkspaceTransaction`.
 
-`workspace-operations` is generic only within the AXM workspace model. It owns
-the mechanics for safely applying a plan, never the feature policy that decides
-which plan should exist. Every feature that changes workspace state builds its
-own plan and applies it here; no feature executes another feature's plans.
+`workspace/transitions/planning` owns the mechanics for safely applying a plan,
+never the feature policy that decides which plan should exist. Every feature
+that changes workspace state builds its own plan and applies it here; no feature
+executes another feature's plans.
 
-`workspace-reconciliation` sits above materialization, resolution, state,
-projection, and operation planning. Lifecycle, sync, and authoring invoke this
-capability as peer features. It owns the policy that joins declarations,
-accepted content, and native outputs into a coherent transition. The
+`workspace/reconciliation` sits above materialization, resolution, desired
+state, projection, and transition planning. Lifecycle, sync, and authoring
+invoke this capability as peer features. It owns the policy that joins
+declarations, accepted content, and native outputs into a coherent transition. The
 [shared reconciliation decision](decisions/shared-desired-state-reconciliation.md)
-explains why that policy has its own boundary.
+explains why that policy has its own module boundary.
 
-`extension-materialization` provides the type-specific mechanics. Its managers
-keep platform, registry transport, and native-write requirements explicit in
-`R`, so the application composes them once. Settings and accepted-resolution
-writes are coordinated above the manager boundary.
+`workspace/materialization` supplies the shared manager contract and dynamic
+dispatch needed by reconciliation. The implementations live with their kind
+owners under `skills`, `subagents`, `mcp-connections`, `instructions`, `hooks`,
+`knowledge`, and `packs`. They keep platform, Registry transport, and native
+write requirements explicit in `R`; desired-state and accepted-resolution
+writes remain coordinated above the manager boundary.
 
-`workspace-projection` owns what AXM claims in agent-facing output and what its
+`workspace/projection` owns what AXM claims in agent-facing output and what its
 observed state means: the ownership units, who may contribute to each, the
 provenance that proves a claim, and the facts lint and sync reconcile against.
 It reaches the capabilities that materialize those units only through the
 `ProjectionParticipants` registry they register with, so a fact never depends
-on the package that writes the unit.
+on the module that writes the unit.
 
-`extension-resolution` decides acceptance, so it needs workspace facts and
-source acquisition and reads `workspace-state`, `extension-sources`, and
-`extension-content`. It sits above state, never below it: `workspace-state`
-must not depend on it. `extension-sources` reaches resolution only through the
+`workspace/resolution` decides acceptance, so it needs workspace facts, source
+acquisition, and `extension-content`. It sits above desired state, never below
+it. `extension-sources` reaches resolution only through the
 `RegistryResolutionPolicy`, `AxmSkillCandidateGate`, and `WorkspaceCatalog`
 ports, bound at the composition root.
 
@@ -265,13 +258,13 @@ The lower-level graph is deliberately small:
 
 ```mermaid
 flowchart LR
-  OPERATIONS["workspace-operations"] --> STATE["workspace-state"]
-  OPERATIONS --> TRANSACTIONS["workspace-transactions"]
+  OPERATIONS["workspace/transitions/planning"] --> STATE["workspace/desired-state"]
+  OPERATIONS --> TRANSACTIONS["workspace/transitions/settlement"]
   STATE --> TRANSACTIONS
-  PROJECTION["workspace-projection"] --> STATE
+  PROJECTION["workspace/projection"] --> STATE
   PROJECTION --> TRANSACTIONS
   PROJECTION --> AGENT_INTEGRATION["agent-integration"]
-  RECONCILIATION["workspace-reconciliation"] --> MATERIALIZATION["extension-materialization"]
+  RECONCILIATION["workspace/reconciliation"] --> MATERIALIZATION["workspace/materialization + kind owners"]
   RECONCILIATION --> OPERATIONS
   RECONCILIATION --> STATE
   RECONCILIATION --> PROJECTION
@@ -481,7 +474,7 @@ the same project, or a package root from its `./live` entry. Focused ESLint
 - forbid handlers under `apps/cli/src/root/**` from constructing plans, calling
   workspace writers, or reaching transactions, sources, and the Registry client
   directly, while leaving contract types importable for rendering;
-- restrict the transaction closure API to `workspace-operations`; and
+- restrict the transaction closure API to `workspace/transitions/planning`; and
 - forbid imports through another package's `src`, `dist`, or other undeclared
   subpaths.
 

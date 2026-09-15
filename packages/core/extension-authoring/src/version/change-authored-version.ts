@@ -46,7 +46,7 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
   AcceptedResolutionWriter,
   DesiredStateWriter,
@@ -59,11 +59,11 @@ import {
   type WorkspaceLockfileReadFailure,
   WorkspaceRecords,
   type WorkspaceSettingsReadFailure,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import {
   runWorkspaceTransaction,
   type WorkspaceTransactionScope,
-} from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/settlement";
 
 import { authoredDeclaration } from "../authored-declaration.js";
 import { AuthoringFailed } from "../errors.js";

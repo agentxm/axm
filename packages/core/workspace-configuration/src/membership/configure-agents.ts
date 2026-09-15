@@ -42,13 +42,13 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import {
   UNIVERSAL_AGENT_ID,
   expectedProjectionNames,
   observeInstructionProjection,
   resolveInstructionsConfig,
-} from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/projection";
 import {
   ConfiguredAgentOutcomesProvider,
   DesiredStateReader,
@@ -58,8 +58,11 @@ import {
   WorkspaceLocation,
   WorkspaceRecords,
   type WorkspaceStateReadFailure,
-} from "@agentxm/workspace-state";
-import { FootprintRecorder, WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/desired-state";
+import {
+  FootprintRecorder,
+  WorkspaceTransactionScope,
+} from "@agentxm/workspace/transitions/settlement";
 
 import {
   WorkspaceConfigurationFailed,

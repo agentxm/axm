@@ -11,7 +11,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
-import { DesiredStateWriter, WorkspaceLocation } from "@agentxm/workspace-state";
+import { DesiredStateWriter, WorkspaceLocation } from "@agentxm/workspace/desired-state";
 
 import * as Schema from "effect/Schema";
 import type { Option } from "effect/Option";
@@ -19,9 +19,9 @@ import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/exten
 import {
   recoverCanonicalDirectory,
   replaceCanonicalDirectory,
-} from "@agentxm/extension-materialization";
+} from "@agentxm/workspace/materialization";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { validateExactResolvedVersion } from "@agentxm/workspace-state";
+import { validateExactResolvedVersion } from "@agentxm/workspace/desired-state";
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { SourceHostProviders } from "@agentxm/extension-sources";
@@ -30,20 +30,20 @@ import {
   StepFailureConversion,
   type StepFailureConversionService,
 } from "../../step-failure-conversion.js";
-import type { OperationHandler } from "@agentxm/workspace-operations";
-import type { Operation } from "@agentxm/workspace-operations";
-import type { JobStepResult } from "@agentxm/workspace-operations";
-import { copyExtensionDirectory } from "@agentxm/extension-materialization";
-import { computePackPathsForLayout } from "@agentxm/workspace-state";
+import type { OperationHandler } from "@agentxm/workspace/transitions/planning";
+import type { Operation } from "@agentxm/workspace/transitions/planning";
+import type { JobStepResult } from "@agentxm/workspace/transitions/planning";
+import { copyExtensionDirectory } from "@agentxm/workspace/materialization";
+import { computePackPathsForLayout } from "@agentxm/workspace/desired-state";
 import {
   PACK_MANIFEST_FILENAME,
   type PackManifest,
   PackManifestSchema,
 } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { validateExactPackDependencyVersions } from "../resolved-dependency.js";
-import type { ResolvedPackDependencyMap } from "@agentxm/extension-resolution";
-import { computePackManifestContentIdentity } from "@agentxm/workspace-state";
-import { computeMaterializedTreeIntegrity } from "@agentxm/workspace-state";
+import type { ResolvedPackDependencyMap } from "@agentxm/workspace/resolution";
+import { computePackManifestContentIdentity } from "@agentxm/workspace/desired-state";
+import { computeMaterializedTreeIntegrity } from "@agentxm/workspace/desired-state";
 
 // -----------------------------------------------------------------------------
 // Types

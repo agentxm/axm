@@ -11,7 +11,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
-import { computeSourceHash } from "@agentxm/workspace-state";
+import { computeSourceHash } from "@agentxm/workspace/desired-state";
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   expectNoOpPlanResult,

@@ -7,7 +7,10 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
-import { MockWorkspaceTransactionScope, WorkspaceReadTest } from "@agentxm/workspace-state/testing";
+import {
+  MockWorkspaceTransactionScope,
+  WorkspaceReadTest,
+} from "@agentxm/workspace/desired-state/testing";
 import { handle } from "../test-helpers.js";
 import type { RemoveFromPackOperation } from "./remove-from-pack.js";
 import { removeFromPack } from "./remove-from-pack.js";

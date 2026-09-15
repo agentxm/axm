@@ -12,8 +12,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import { previewPlanExecution } from "@agentxm/workspace-operations";
-import { preapprovedPlanExecution } from "@agentxm/workspace-operations/testing";
+import { previewPlanExecution } from "@agentxm/workspace/transitions/planning";
+import { preapprovedPlanExecution } from "@agentxm/workspace/transitions/planning/testing";
 
 import {
   makeLifecycleFixture,

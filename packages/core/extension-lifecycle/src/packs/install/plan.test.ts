@@ -16,7 +16,7 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { deriveOperationOutcome } from "@agentxm/workspace-operations";
+import { deriveOperationOutcome } from "@agentxm/workspace/transitions/planning";
 
 import {
   applyInstall,

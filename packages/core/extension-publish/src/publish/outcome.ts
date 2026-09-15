@@ -15,7 +15,11 @@ import {
   StepUpVerificationPending,
   type AuthError,
 } from "@agentxm/registry-auth";
-import { StepFailure, unitIdOf, type OperationJournalState } from "@agentxm/workspace-operations";
+import {
+  StepFailure,
+  unitIdOf,
+  type OperationJournalState,
+} from "@agentxm/workspace/transitions/planning";
 import type { PreviewPublicationSetResponse } from "@agentxm/registry-protocol/unstable/registry";
 
 import { PublishFailed } from "../errors.js";

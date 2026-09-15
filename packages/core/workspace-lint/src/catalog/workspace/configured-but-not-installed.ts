@@ -5,7 +5,7 @@ import {
   extensionTypeSentenceLabels,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import type { WorkspaceReadModel } from "@agentxm/workspace-state";
+import type { WorkspaceReadModel } from "@agentxm/workspace/desired-state";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/extension-content/lint";
 import { canonicalDisplayRoot, settingsDisplayPath } from "./display-paths.js";

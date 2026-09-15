@@ -9,23 +9,31 @@
  */
 
 import * as Effect from "effect/Effect";
-import { DesiredStateReader, LockfileReader, WorkspaceLocation } from "@agentxm/workspace-state";
+import {
+  DesiredStateReader,
+  LockfileReader,
+  WorkspaceLocation,
+} from "@agentxm/workspace/desired-state";
 
 import * as Option from "effect/Option";
 
-import { HookManager } from "@agentxm/extension-materialization";
-import { buildUninstallOperation } from "@agentxm/workspace-reconciliation";
-import type { JobStepArtifact, JobStepArtifactTarget, Plan } from "@agentxm/workspace-operations";
+import { HookManager } from "@agentxm/workspace/materialization";
+import { buildUninstallOperation } from "@agentxm/workspace/reconciliation";
+import type {
+  JobStepArtifact,
+  JobStepArtifactTarget,
+  Plan,
+} from "@agentxm/workspace/transitions/planning";
 import {
   acquiredExtensionDisplayPathFromLockEntry,
   type HookExtensionTarget,
   type HookLockEntry,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { lifecycleStepFailure } from "../../step-failure.js";
 import { installRefused, type InstallStepRequirements } from "../../install/vocabulary.js";
-import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace-reconciliation";
+import { makeWorkspaceRetentionPolicy } from "@agentxm/workspace/reconciliation";
 import type { HookUninstallIntent } from "../../uninstall/vocabulary.js";
 import {
   workspaceCanonicalRoot,

@@ -1,4 +1,4 @@
-import type { AuthorMaterialization } from "@agentxm/workspace-operations";
+import type { AuthorMaterialization } from "@agentxm/workspace/transitions/planning";
 /**
  * Forking a managed AXM package into workspace authorship.
  *
@@ -41,13 +41,13 @@ import {
   recoverCanonicalDirectory,
   type ExtensionManagerFailure,
   type ManagerRequirements,
-} from "@agentxm/extension-materialization";
-import { materializeAuthoredMcpServer } from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/materialization";
+import { materializeAuthoredMcpServer } from "@agentxm/workspace/reconciliation";
 import {
   buildAuthoredExtensionStep,
   type AuthoredExtensionOperationArgs,
   type RecipeRequirements,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import {
   extensionTypeFromPlural,
   extensionTypeToPlural,
@@ -80,8 +80,8 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
-} from "@agentxm/workspace-operations";
-import type { CodingAgentRepository } from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/transitions/planning";
+import type { CodingAgentRepository } from "@agentxm/workspace/projection";
 import {
   AcceptedResolutionWriter,
   DesiredStateWriter,
@@ -96,7 +96,7 @@ import {
   type WorkspaceLockfileReadFailure,
   WorkspaceRecords,
   type WorkspaceSettingsReadFailure,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import { authoredDeclaration } from "../authored-declaration.js";
 import { preflightCreateOnly } from "../create-preflight.js";

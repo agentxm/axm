@@ -38,13 +38,13 @@ import {
 import {
   CodingAgentRepositoryLive,
   WorkspaceCatalogLive,
-} from "@agentxm/workspace-projection/live";
+} from "@agentxm/workspace/projection/live";
 import {
   ConfiguredAgentOutcomesProviderTest,
   makeRegistryPackLockEntry,
   makeRegistrySkillLockEntry,
-} from "@agentxm/workspace-state/testing";
-import { WorkspaceStateLive } from "@agentxm/workspace-state/live";
+} from "@agentxm/workspace/desired-state/testing";
+import { WorkspaceStateLive } from "@agentxm/workspace/desired-state/live";
 
 export const inspectionRegistryUrl = "https://inspection-registry.example.test";
 

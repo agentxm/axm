@@ -1,0 +1,154 @@
+{
+  "name": "@agentxm/workspace",
+  "version": "0.30.2",
+  "description": "AXM workspace compiler: desired state, ownership, projection, transition planning, transaction settlement, and reconciliation for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
+  "type": "module",
+  "license": "FSL-1.1-MIT",
+  "homepage": "https://axm.sh",
+  "bugs": {
+    "url": "https://github.com/agentxm/axm/issues"
+  },
+  "author": "AgentXM <hello@agentxm.ai> (https://agentxm.ai)",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/agentxm/axm.git",
+    "directory": "packages/core/workspace"
+  },
+  "sideEffects": false,
+  "exports": {
+    "./desired-state": {
+      "types": "./dist/src/desired-state/index.d.ts",
+      "axm-source": "./src/desired-state/index.ts",
+      "default": "./dist/src/desired-state/index.js"
+    },
+    "./desired-state/live": {
+      "types": "./dist/src/desired-state/live.d.ts",
+      "axm-source": "./src/desired-state/live.ts",
+      "default": "./dist/src/desired-state/live.js"
+    },
+    "./desired-state/testing": {
+      "types": "./dist/src/desired-state/testing.d.ts",
+      "axm-source": "./src/desired-state/testing.ts",
+      "default": "./dist/src/desired-state/testing.js"
+    },
+    "./projection": {
+      "types": "./dist/src/projection/index.d.ts",
+      "axm-source": "./src/projection/index.ts",
+      "default": "./dist/src/projection/index.js"
+    },
+    "./projection/live": {
+      "types": "./dist/src/projection/live.d.ts",
+      "axm-source": "./src/projection/live.ts",
+      "default": "./dist/src/projection/live.js"
+    },
+    "./projection/testing": {
+      "types": "./dist/src/projection/testing.d.ts",
+      "axm-source": "./src/projection/testing.ts",
+      "default": "./dist/src/projection/testing.js"
+    },
+    "./transitions/planning": {
+      "types": "./dist/src/transitions/planning/index.d.ts",
+      "axm-source": "./src/transitions/planning/index.ts",
+      "default": "./dist/src/transitions/planning/index.js"
+    },
+    "./transitions/planning/testing": {
+      "types": "./dist/src/transitions/planning/testing.d.ts",
+      "axm-source": "./src/transitions/planning/testing.ts",
+      "default": "./dist/src/transitions/planning/testing.js"
+    },
+    "./transitions/settlement": {
+      "types": "./dist/src/transitions/settlement/index.d.ts",
+      "axm-source": "./src/transitions/settlement/index.ts",
+      "default": "./dist/src/transitions/settlement/index.js"
+    },
+    "./transitions/settlement/live": {
+      "types": "./dist/src/transitions/settlement/live.d.ts",
+      "axm-source": "./src/transitions/settlement/live.ts",
+      "default": "./dist/src/transitions/settlement/live.js"
+    },
+    "./transitions/settlement/testing": {
+      "types": "./dist/src/transitions/settlement/testing.d.ts",
+      "axm-source": "./src/transitions/settlement/testing.ts",
+      "default": "./dist/src/transitions/settlement/testing.js"
+    },
+    "./resolution": {
+      "types": "./dist/src/resolution/index.d.ts",
+      "axm-source": "./src/resolution/index.ts",
+      "default": "./dist/src/resolution/index.js"
+    },
+    "./resolution/live": {
+      "types": "./dist/src/resolution/live.d.ts",
+      "axm-source": "./src/resolution/live.ts",
+      "default": "./dist/src/resolution/live.js"
+    },
+    "./resolution/testing": {
+      "types": "./dist/src/resolution/testing.d.ts",
+      "axm-source": "./src/resolution/testing.ts",
+      "default": "./dist/src/resolution/testing.js"
+    },
+    "./materialization": {
+      "types": "./dist/src/materialization/index.d.ts",
+      "axm-source": "./src/materialization/index.ts",
+      "default": "./dist/src/materialization/index.js"
+    },
+    "./materialization/live": {
+      "types": "./dist/src/materialization/live.d.ts",
+      "axm-source": "./src/materialization/live.ts",
+      "default": "./dist/src/materialization/live.js"
+    },
+    "./materialization/testing": {
+      "types": "./dist/src/materialization/testing.d.ts",
+      "axm-source": "./src/materialization/testing.ts",
+      "default": "./dist/src/materialization/testing.js"
+    },
+    "./reconciliation": {
+      "types": "./dist/src/reconciliation/index.d.ts",
+      "axm-source": "./src/reconciliation/index.ts",
+      "default": "./dist/src/reconciliation/index.js"
+    },
+    "./reconciliation/testing": {
+      "types": "./dist/src/reconciliation/testing.d.ts",
+      "axm-source": "./src/reconciliation/testing.ts",
+      "default": "./dist/src/reconciliation/testing.js"
+    }
+  },
+  "files": [
+    "dist/src/",
+    "!**/*.map"
+  ],
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "nx": {
+    "includedScripts": []
+  },
+  "dependencies": {
+    "@agentxm/agent-integration": "workspace:^",
+    "@agentxm/cli-maintenance": "workspace:^",
+    "@agentxm/extension-content": "workspace:^",
+    "@agentxm/extension-model": "workspace:^",
+    "@agentxm/extension-sources": "workspace:^",
+    "@agentxm/registry-protocol": "workspace:^",
+    "effect": "catalog:",
+    "jsonc-parser": "catalog:",
+    "proper-lockfile": "^4.1.2",
+    "semver": "catalog:",
+    "smol-toml": "catalog:",
+    "yaml": "catalog:",
+    "@agentxm/registry-client": "workspace:^",
+    "@napi-rs/keyring": "^1.3.0"
+  },
+  "devDependencies": {
+    "@agentxm/specification-metadata": "workspace:^",
+    "@effect/platform-node": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@fast-check/vitest": "catalog:",
+    "@types/bun": "catalog:",
+    "@types/proper-lockfile": "^4.1.4",
+    "@types/semver": "catalog:",
+    "@typescript/native": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "private": true
+}

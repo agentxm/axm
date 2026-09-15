@@ -1,9 +1,9 @@
 import * as Effect from "effect/Effect";
-import { LockfileReader, WorkspaceLocation } from "@agentxm/workspace-state";
+import { LockfileReader, WorkspaceLocation } from "@agentxm/workspace/desired-state";
 
 import * as Option from "effect/Option";
-import { SubagentManager } from "@agentxm/extension-materialization";
-import { CodingAgentRepository } from "@agentxm/workspace-projection";
+import { SubagentManager } from "@agentxm/workspace/materialization";
+import { CodingAgentRepository } from "@agentxm/workspace/projection";
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { installRefused, type InstallStepRequirements } from "../../install/vocabulary.js";
 import type { SubagentInstallationFacts } from "../application/installation.js";

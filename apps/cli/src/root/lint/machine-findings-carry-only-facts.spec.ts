@@ -12,7 +12,7 @@ import {
   CLAUDE_CODE_SKILLS_DIR,
   makeOfficialAxmSkillWorkspace,
 } from "@agentxm/workspace-lint/testing";
-import { NoProjectionParticipants } from "@agentxm/workspace-projection/testing";
+import { NoProjectionParticipants } from "@agentxm/workspace/projection/testing";
 
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { TestMachineRenderer } from "../../test-support/presenter-test.js";

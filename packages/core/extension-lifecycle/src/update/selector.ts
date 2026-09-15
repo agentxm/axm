@@ -34,7 +34,7 @@ import {
   WorkspaceRecords,
   configuredRowsByName,
   enabledConfiguredEntries,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import { expandGlobs } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import type { WorkspaceUpdatableType } from "./configured.js";

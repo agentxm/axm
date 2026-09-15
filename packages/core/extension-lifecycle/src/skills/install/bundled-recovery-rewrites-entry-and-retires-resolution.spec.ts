@@ -5,7 +5,7 @@ import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
-import { makeRegistrySkillLockEntry } from "@agentxm/workspace-state/testing";
+import { makeRegistrySkillLockEntry } from "@agentxm/workspace/desired-state/testing";
 
 import {
   applyInstall,

@@ -18,7 +18,7 @@ import {
   collectCleanupStep,
   buildReconciliationClosure,
   type SyncPolicyFailure,
-} from "@agentxm/workspace-reconciliation";
+} from "@agentxm/workspace/reconciliation";
 import { lifecycleStepFailure } from "../step-failure.js";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
@@ -31,7 +31,7 @@ import {
   type OperationResolution,
   type Plan,
   type PlanExecution,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 
 import { ExtensionLifecycleFailed } from "../errors.js";
 import { parseHookUninstallRequest, planHookUninstall } from "../hooks/uninstall/plan.js";

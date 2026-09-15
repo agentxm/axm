@@ -54,7 +54,7 @@ import {
   WorkspaceRecords,
   acceptedCanonicalObservation,
   configuredRowsByName,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 
 import { PublishFailed } from "../errors.js";
 import { planZipArchive, type ArchivePlan } from "../archive.js";

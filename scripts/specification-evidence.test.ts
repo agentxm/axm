@@ -185,7 +185,7 @@ describe("repository execution inputs", () => {
       "test-results/cli/evidence.json",
       JSON.stringify({ ...fixtureRun(), format: 1, files: [{ source: "x.spec.ts" }] }),
     );
-    write(root, "test-results/workspace-state/evidence.json", JSON.stringify(fixtureRun()));
+    write(root, "test-results/workspace/evidence.json", JSON.stringify(fixtureRun()));
     expect(readEvidenceRuns(root)).toEqual({
       runs: [fixtureRun()],
       issues: [

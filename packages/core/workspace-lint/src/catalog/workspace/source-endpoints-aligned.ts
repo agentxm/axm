@@ -3,8 +3,8 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import type { Lockfile } from "@agentxm/workspace-state";
-import type { SourceHostConfig } from "@agentxm/workspace-state";
+import type { Lockfile } from "@agentxm/workspace/desired-state";
+import type { SourceHostConfig } from "@agentxm/workspace/desired-state";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/extension-content/lint";
 import { settingsDisplayPath } from "./display-paths.js";

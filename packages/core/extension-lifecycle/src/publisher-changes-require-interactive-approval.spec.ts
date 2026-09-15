@@ -11,15 +11,15 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 import YAML from "yaml";
 
-import { LockfileSchema } from "@agentxm/workspace-state";
+import { LockfileSchema } from "@agentxm/workspace/desired-state";
 import {
   deriveOperationOutcome,
   countUnitStates,
   previewPlanExecution,
   type OperationResolution,
   type PlanExecution,
-} from "@agentxm/workspace-operations";
-import { interactiveOnlyPlanExecution } from "@agentxm/workspace-operations/testing";
+} from "@agentxm/workspace/transitions/planning";
+import { interactiveOnlyPlanExecution } from "@agentxm/workspace/transitions/planning/testing";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {

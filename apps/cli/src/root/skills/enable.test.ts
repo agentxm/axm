@@ -16,7 +16,7 @@ import {
   extensionName,
   writeWorkspaceFiles,
 } from "../../test-support/test-stubs.js";
-import { computeSourceHash } from "@agentxm/workspace-state";
+import { computeSourceHash } from "@agentxm/workspace/desired-state";
 import {
   expectNoOpPlanResult,
   getAppError,

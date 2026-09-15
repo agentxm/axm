@@ -12,7 +12,7 @@ import {
   runScenario,
   SCENARIO_USER_HOME,
   SCENARIO_WORKSPACE_ROOT,
-} from "@agentxm/workspace-state/testing";
+} from "@agentxm/workspace/desired-state/testing";
 import { detectAgentsForScope } from "@agentxm/agent-integration";
 import { agentsDetectedDeclaredRule } from "./agents-detected-declared.js";
 

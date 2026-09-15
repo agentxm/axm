@@ -1,4 +1,4 @@
-import { LifecyclePostconditionViolated } from "@agentxm/workspace-operations";
+import { LifecyclePostconditionViolated } from "@agentxm/workspace/transitions/planning";
 /**
  * How a lifecycle closure serializes a failure into the plan-step vocabulary.
  *
@@ -23,14 +23,14 @@ import {
   workspaceStateReadFailureToStepFailure,
   workspaceTransactionFailureToStepFailure,
   type OperationErrorCategory,
-} from "@agentxm/workspace-operations";
-import { projectionErrorToStepFailure } from "@agentxm/extension-materialization";
-import { isProjectionError } from "@agentxm/workspace-projection";
+} from "@agentxm/workspace/transitions/planning";
+import { projectionErrorToStepFailure } from "@agentxm/workspace/materialization";
+import { isProjectionError } from "@agentxm/workspace/projection";
 import {
   WorkspaceRestorationIncomplete,
   type WorkspaceTransactionFailure,
-} from "@agentxm/workspace-transactions";
-import type { WorkspaceStateReadFailure } from "@agentxm/workspace-state";
+} from "@agentxm/workspace/transitions/settlement";
+import type { WorkspaceStateReadFailure } from "@agentxm/workspace/desired-state";
 
 import { ExtensionLifecycleFailed } from "./errors.js";
 import type { LifecycleFailure } from "./step-failure-conversion.js";

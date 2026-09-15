@@ -4,7 +4,7 @@ import { Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "../../app-error/index.js";
 import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
-import { observeUnit } from "@agentxm/workspace-operations";
+import { observeUnit } from "@agentxm/workspace/transitions/planning";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";

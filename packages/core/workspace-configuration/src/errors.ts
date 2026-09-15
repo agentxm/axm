@@ -17,18 +17,18 @@ import {
   restorationIncompleteToStepFailure,
   workspaceStateReadFailureToStepFailure,
   workspaceTransactionFailureToStepFailure,
-} from "@agentxm/workspace-operations";
+} from "@agentxm/workspace/transitions/planning";
 import type {
   InvalidAgentId,
   LockfileValidationError,
   WorkspaceSettingsReadFailure,
   WorkspaceStateMutationFailure,
-} from "@agentxm/workspace-state";
+} from "@agentxm/workspace/desired-state";
 import type {
   WorkspaceRestorationIncomplete,
   WorkspaceTransactionFailure,
   WorkspaceTransitionAcquireFailure,
-} from "@agentxm/workspace-transactions";
+} from "@agentxm/workspace/transitions/settlement";
 
 /**
  * Every failure resolving a prepared change through the plan pipeline can

@@ -7,7 +7,7 @@
  */
 
 import * as Data from "effect/Data";
-import type { CreateDestinationExists } from "@agentxm/extension-materialization";
+import type { CreateDestinationExists } from "@agentxm/workspace/materialization";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 
 /** A create operation's name is already declared in workspace settings. */

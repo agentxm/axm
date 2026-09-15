@@ -6,8 +6,11 @@
 
 import * as Effect from "effect/Effect";
 
-import { deriveOperationOutcome, previewPlanExecution } from "@agentxm/workspace-operations";
-import { preapprovedPlanExecution } from "@agentxm/workspace-operations/testing";
+import {
+  deriveOperationOutcome,
+  previewPlanExecution,
+} from "@agentxm/workspace/transitions/planning";
+import { preapprovedPlanExecution } from "@agentxm/workspace/transitions/planning/testing";
 
 import {
   ConfigureAgents,

@@ -7,7 +7,7 @@ import YAML from "yaml";
 import { manifestFilenameForType, manifestSchemaForType } from "@agentxm/extension-content";
 import type { ExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions/common";
 import { parseFrontmatterEffect, type FrontmatterParseFailure } from "@agentxm/extension-content";
-import { copyExtensionDirectory } from "@agentxm/extension-materialization";
+import { copyExtensionDirectory } from "@agentxm/workspace/materialization";
 import {
   NativeImportConflict,
   NativeImportFailed,

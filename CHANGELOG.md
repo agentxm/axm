@@ -1,3 +1,13 @@
+## 0.31.1 (2026-09-15)
+
+### 🩹 Fixes
+
+- Fix npm CLI dependency installation and Registry skill archive ingestion. ([#367](https://github.com/agentxm/axm/pull/367))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.31.0 (2026-09-15)
 
 ### 🩹 Fixes

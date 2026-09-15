@@ -1,3 +1,18 @@
+## 0.31.0 (2026-09-15)
+
+### 🩹 Fixes
+
+- Preserve local Registry existence and directory-read failures with their original causes instead of treating inaccessible storage as absent. Prevent publishing from replacing an existing index when its existence cannot be determined. ([#338](https://github.com/agentxm/axm/pull/338))
+- Read valid deflate archive entries across Node and workerd while preserving exact decompression limits and typed size failures. ([#341](https://github.com/agentxm/axm/pull/341))
+
+### ⚠️ Breaking Changes
+
+- Own pack dependency admission and prospective version resolution in the extension model, keep Registry guidance in the protocol adapter, and evaluate each pack constraint independently. Consumers of the unstable programmatic policy API must adopt the new domain contract. ([#333](https://github.com/agentxm/axm/pull/333))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.30.2 (2026-09-13)
 
 ### 🚀 Features

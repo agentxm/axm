@@ -344,7 +344,13 @@ requirements.
 - Cross-repo work uses a separate AXM PR with self-contained public context;
   keep private coordination and private PR links out of this repo
 
-<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery gen=4fc5de2531617ab0211364b22f4a4ce85147fd7142adb025cbe9665654ff36fb -->
+## Field note subjects
+
+| Subject    | Mode   | Scope                                                                            | Target condition | Retire when                      |
+| ---------- | ------ | -------------------------------------------------------------------------------- | ---------------- | -------------------------------- |
+| axm-agents | survey | any session running `axm agents` or projecting extensions into configured agents | —                | a target condition can be stated |
+
+<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery gen=abee481ebc05dd2e5f7ce32ac4090f2fb1716e0ca9f0affcda8f8daad2cda581 -->
 
 ## Knowledge Bundles
 
@@ -375,7 +381,7 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 | [product-engineering](agent_extensions/agentxm/@craigsmitham/knowledge/product-engineering/src/index.md) | Opinionated product-development lifecycle from strategy through operations and maintenance, with shared conceptual foundations                                     |
 
 <!-- axm:end v=1 region=knowledge -->
-<!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions gen=f5de3767a11636a462e7541bfdcbb0f8db679c40835ef5b7a0cf1e8048253b88 -->
+<!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions gen=028022caf089edcb31ccbf74e3695e11332a84c7dccba06bcb04ffc9b04c5099 -->
 <!-- axm:point v=1 ext=@craigsmitham/rules/use-effect-v4@0.2.0 kind=rule -->
 
 ## Use Effect v4
@@ -384,4 +390,32 @@ Use Effect v4 as the foundation for all TypeScript code, including applications
 and scripts. Each change should advance adoption by migrating relevant existing
 code toward a coherent Effect implementation. Keep migrations incremental and
 reviewable, preserve intended behavior, and avoid unrelated rewrites.
+
+<!-- axm:point v=1 ext=@craigsmitham/rules/field-notes@0.2.4 kind=rule -->
+
+## Field notes
+
+Capture useful feedback from ordinary work within declared subjects, so
+experience informs improvements to tools, guidance, and workflows. Preserve
+meaningful observations—including differences between expected and actual
+behavior, even when a later attempt succeeds—with enough evidence to understand
+what happened and its outcome. Keep observations factual, protect sensitive
+information, and continue the task.
+
+Subjects under observation are declared in the `## Field note subjects` table in
+this file. If that section is missing or has no rows, this rule is inactive.
+Respect each subject's scope and target condition.
+
+Use `capture.md` alongside the installed field-notes rule source for the record
+format and evidence requirements. Capture each occurrence once; exclude routine
+successes, your own typos, and speculation without an observed occurrence.
+Preserve useful diagnostic evidence before reducing output; never rerun a
+mutation merely to recover evidence.
+
+Recording observations does not authorize investigation, remediation, or issue
+creation beyond the current task. Report capture in at most one short line at
+the end of your response. Raise live correctness, data-loss, or security problems
+immediately.
+
+Use the `field-notes` skill to declare subjects, triage notes, or promote findings.
 <!-- axm:end v=1 region=rules -->

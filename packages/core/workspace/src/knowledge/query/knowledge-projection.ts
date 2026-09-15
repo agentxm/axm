@@ -151,12 +151,18 @@ const bodyPassages = (body: string): ReadonlyArray<KnowledgeBodyPassage> => {
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index] ?? "";
-    const heading = /^(#{1,6})\s+(.+?)\s*$/u.exec(line);
-    if (heading?.[1] !== undefined && heading[2] !== undefined) {
+    let headingLevel = 0;
+    while (line[headingLevel] === "#") headingLevel += 1;
+    const headingTitle = line.slice(headingLevel + 1).trim();
+    const isHeading =
+      headingLevel >= 1 &&
+      headingLevel <= 6 &&
+      line[headingLevel]?.trim().length === 0 &&
+      headingTitle.length > 0;
+    if (isHeading) {
       flush(index);
-      const level = heading[1].length;
-      while ((headings.at(-1)?.level ?? 0) >= level) headings.pop();
-      headings.push({ level, title: heading[2] });
+      while ((headings.at(-1)?.level ?? 0) >= headingLevel) headings.pop();
+      headings.push({ level: headingLevel, title: headingTitle });
       passageStart = index + 2;
       continue;
     }

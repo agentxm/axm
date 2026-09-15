@@ -224,7 +224,7 @@ const readInTempDenoCache = (
     // Set up a fake Deno cache structure
     if (denoJsonContent !== undefined) {
       const namespace = pkgPurl.namespace ?? "";
-      const scope = namespace.replace("%40", "@");
+      const scope = namespace.replaceAll("%40", "@");
 
       const pkgCacheDir = path.join(
         tmpDir,

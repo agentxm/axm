@@ -50,8 +50,10 @@ import {
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
 import {
-  WorkspaceMutations,
-  configuredRowsByName,
+  DesiredStateReader,
+  SettingsReader,
+  WorkspaceLocation,
+  enabledConfiguredEntries,
   isSourcedDesiredExtension,
   type WorkspaceSettingsReadFailure,
   type WorkspaceStateReadFailure,
@@ -73,7 +75,6 @@ import {
   SubagentManager,
 } from "@agentxm/extension-materialization";
 import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
-import { enabledConfiguredEntries } from "@agentxm/workspace-state";
 import { extensionTypePluralSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { JobStepResult } from "@agentxm/workspace-operations";
@@ -152,7 +153,9 @@ type WorkspaceUpdateCollectorContext =
   | HttpClient.HttpClient
   | FileSystem.FileSystem
   | Path.Path
-  | WorkspaceMutations
+  | DesiredStateReader
+  | SettingsReader
+  | WorkspaceLocation
   | WorkspaceCatalog
   | SourceHostProviders
   | HookManager
@@ -675,8 +678,9 @@ const collectedWorkspaceSourcePlan = (
 
 const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest) =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const configured = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
+    const settings = yield* SettingsReader;
+    const location = yield* WorkspaceLocation;
+    const configured = yield* settings.entries("skill");
     const entries = selectedEntries(enabledConfiguredEntries(configured), selection).filter(
       hasConfiguredSource,
     );
@@ -687,7 +691,7 @@ const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest) =>
         isWorkspaceSourceLocator(entry.source)
           ? Effect.succeed(
               collectedWorkspaceSourcePlan(
-                workspaceSourceUnchangedPlan("skill", name, entry.source, ws.scope),
+                workspaceSourceUnchangedPlan("skill", name, entry.source, location.scope),
               ),
             )
           : collectResolvedPlan(
@@ -707,8 +711,9 @@ const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest) =>
 
 const collectRulePlans = (selection: WorkspaceUpdateCollectionRequest) =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const configured = yield* ws.getConfiguredRuleEntries();
+    const settings = yield* SettingsReader;
+    const location = yield* WorkspaceLocation;
+    const configured = yield* settings.entries("rule");
     const entries = selectedEntries(enabledConfiguredEntries(configured), selection);
 
     const resolved = yield* Effect.forEach(
@@ -717,7 +722,7 @@ const collectRulePlans = (selection: WorkspaceUpdateCollectionRequest) =>
         isWorkspaceSourceLocator(entry.source)
           ? Effect.succeed(
               collectedWorkspaceSourcePlan(
-                workspaceSourceUnchangedPlan("rule", name, entry.source, ws.scope),
+                workspaceSourceUnchangedPlan("rule", name, entry.source, location.scope),
               ),
             )
           : collectResolvedPlan(
@@ -737,8 +742,9 @@ const collectRulePlans = (selection: WorkspaceUpdateCollectionRequest) =>
 
 const collectHookPlans = (selection: WorkspaceUpdateCollectionRequest) =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const configured = yield* ws.getConfiguredHookEntries();
+    const settings = yield* SettingsReader;
+    const location = yield* WorkspaceLocation;
+    const configured = yield* settings.entries("hook");
     const entries = selectedEntries(enabledConfiguredEntries(configured), selection);
 
     const resolved = yield* Effect.forEach(
@@ -747,7 +753,7 @@ const collectHookPlans = (selection: WorkspaceUpdateCollectionRequest) =>
         isWorkspaceSourceLocator(entry.source)
           ? Effect.succeed(
               collectedWorkspaceSourcePlan(
-                workspaceSourceUnchangedPlan("hook", name, entry.source, ws.scope),
+                workspaceSourceUnchangedPlan("hook", name, entry.source, location.scope),
               ),
             )
           : collectResolvedPlan(
@@ -767,8 +773,9 @@ const collectHookPlans = (selection: WorkspaceUpdateCollectionRequest) =>
 
 const collectKnowledgePlans = (selection: WorkspaceUpdateCollectionRequest) =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const configured = yield* ws.getConfiguredKnowledgeEntries();
+    const settings = yield* SettingsReader;
+    const location = yield* WorkspaceLocation;
+    const configured = yield* settings.entries("knowledge");
     const entries = selectedEntries(enabledConfiguredEntries(configured), selection);
 
     const resolved = yield* Effect.forEach(
@@ -777,7 +784,7 @@ const collectKnowledgePlans = (selection: WorkspaceUpdateCollectionRequest) =>
         isWorkspaceSourceLocator(entry.source)
           ? Effect.succeed(
               collectedWorkspaceSourcePlan(
-                workspaceSourceUnchangedPlan("knowledge", name, entry.source, ws.scope),
+                workspaceSourceUnchangedPlan("knowledge", name, entry.source, location.scope),
               ),
             )
           : collectResolvedPlan(
@@ -797,8 +804,9 @@ const collectKnowledgePlans = (selection: WorkspaceUpdateCollectionRequest) =>
 
 const collectSubagentPlans = (selection: WorkspaceUpdateCollectionRequest) =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const configured = yield* ws.records.rows("subagent").pipe(Effect.map(configuredRowsByName));
+    const settings = yield* SettingsReader;
+    const location = yield* WorkspaceLocation;
+    const configured = yield* settings.entries("subagent");
     const entries = selectedEntries(enabledConfiguredEntries(configured), selection).filter(
       hasConfiguredSource,
     );
@@ -809,7 +817,7 @@ const collectSubagentPlans = (selection: WorkspaceUpdateCollectionRequest) =>
         isWorkspaceSourceLocator(entry.source)
           ? Effect.succeed(
               collectedWorkspaceSourcePlan(
-                workspaceSourceUnchangedPlan("subagent", name, entry.source, ws.scope),
+                workspaceSourceUnchangedPlan("subagent", name, entry.source, location.scope),
               ),
             )
           : collectResolvedPlan(
@@ -829,9 +837,11 @@ const collectSubagentPlans = (selection: WorkspaceUpdateCollectionRequest) =>
 
 const collectMcpServerPlans = (selection: WorkspaceUpdateCollectionRequest) =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const configured = yield* ws.records.rows("mcp-server").pipe(Effect.map(configuredRowsByName));
-    const graph = yield* ws.getDesiredStateGraph();
+    const desiredState = yield* DesiredStateReader;
+    const settings = yield* SettingsReader;
+    const location = yield* WorkspaceLocation;
+    const configured = yield* settings.entries("mcp-server");
+    const graph = yield* desiredState.graph();
     const seenSourceClosures = new Set<string>();
     const entries = selectedEntries(enabledConfiguredEntries(configured), selection).flatMap(
       (entry): ReadonlyArray<typeof entry> => {
@@ -862,7 +872,7 @@ const collectMcpServerPlans = (selection: WorkspaceUpdateCollectionRequest) =>
           : isWorkspaceSourceLocator(entry.source)
             ? Effect.succeed(
                 collectedWorkspaceSourcePlan(
-                  workspaceSourceUnchangedPlan("mcp-server", name, entry.source, ws.scope),
+                  workspaceSourceUnchangedPlan("mcp-server", name, entry.source, location.scope),
                 ),
               )
             : collectResolvedPlan(
@@ -887,8 +897,9 @@ const collectMcpServerPlans = (selection: WorkspaceUpdateCollectionRequest) =>
 
 const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const configured = yield* ws.records.rows("pack").pipe(Effect.map(configuredRowsByName));
+    const settings = yield* SettingsReader;
+    const location = yield* WorkspaceLocation;
+    const configured = yield* settings.entries("pack");
     const entries = selectedEntries(Object.entries(configured), selection).filter(
       hasConfiguredSource,
     );
@@ -904,7 +915,7 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
           ? Effect.succeed({
               kind: "planned",
               collection: collectedWorkspaceSourcePlan(
-                workspaceSourceUnchangedPlan("pack", name, entry.source, ws.scope),
+                workspaceSourceUnchangedPlan("pack", name, entry.source, location.scope),
               ),
             } satisfies CollectedPackResolution)
           : resolvePackRef(
@@ -937,7 +948,6 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     );
     const prospectivePacks = selected.map(({ intent }) => intent.packToInstall);
     const constraintProblems = yield* prospectivePackConstraintProblems({
-      workspace: ws,
       prospectivePacks,
       ...(selection.names === undefined ? {} : { selectedNames: selection.names }),
     });

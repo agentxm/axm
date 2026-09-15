@@ -3,11 +3,11 @@ import * as Option from "effect/Option";
 
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import {
+  DesiredStateReader,
   desiredStateProblemsText,
   type DesiredExtensionOrigin,
   type DesiredStateGraph,
   type DesiredStateProblem,
-  type WorkspaceMutationsService,
 } from "@agentxm/workspace-state";
 import { operationPresentation, type Plan } from "@agentxm/workspace-operations";
 
@@ -76,17 +76,18 @@ export const relevantPackConstraintProblems = (args: {
 };
 
 export const prospectivePackConstraintProblems = (args: {
-  readonly workspace: WorkspaceMutationsService;
   readonly prospectivePacks: ReadonlyArray<PackRef>;
   readonly selectedNames?: ReadonlySet<string>;
 }) =>
-  args.workspace.getDesiredStateGraph({ prospectivePacks: args.prospectivePacks }).pipe(
-    Effect.map((graph) =>
-      relevantPackConstraintProblems({
-        graph,
-        prospectivePacks: args.prospectivePacks,
-        ...(args.selectedNames === undefined ? {} : { selectedNames: args.selectedNames }),
-      }),
+  Effect.flatMap(DesiredStateReader, (desiredState) =>
+    desiredState.graph({ prospectivePacks: args.prospectivePacks }).pipe(
+      Effect.map((graph) =>
+        relevantPackConstraintProblems({
+          graph,
+          prospectivePacks: args.prospectivePacks,
+          ...(args.selectedNames === undefined ? {} : { selectedNames: args.selectedNames }),
+        }),
+      ),
     ),
   );
 

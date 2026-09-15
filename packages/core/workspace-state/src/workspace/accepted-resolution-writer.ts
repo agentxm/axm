@@ -16,7 +16,7 @@ import type * as Semaphore from "effect/Semaphore";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { WorkspaceDocuments, type WorkspaceDocumentsService } from "./documents.js";
 import { lockEntries, type LockEntryByType } from "./entry-accessors.js";
-import type { WorkspaceLockfileMutationFailure } from "./service-interface.js";
+import type { WorkspaceLockfileMutationFailure } from "./contracts.js";
 import { WorkspaceStateShared } from "./shared.js";
 
 type Write = Effect.Effect<void, WorkspaceLockfileMutationFailure>;

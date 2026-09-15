@@ -261,7 +261,7 @@ describe("module boundary constraints", () => {
     expect(
       rules(
         await boundaryViolations(
-          'import { WorkspaceMutations } from "@agentxm/workspace-state";',
+          'import { SettingsWriter } from "@agentxm/workspace-state";',
           HANDLER,
         ),
       ),

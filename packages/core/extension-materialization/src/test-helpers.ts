@@ -48,9 +48,13 @@ import {
   installedRowsByName,
   unmanagedRowsByName,
 } from "@agentxm/workspace-state";
-import { SettingsReader } from "@agentxm/workspace-state";
 import { TreeIntegritySchema, type TreeIntegrity } from "@agentxm/workspace-state";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import {
+  DesiredStateReader,
+  SettingsReader,
+  WorkspaceLocation,
+  WorkspaceRecords,
+} from "@agentxm/workspace-state";
 
 export const handle = (value: string): Handle => decodeHandleSync(value);
 
@@ -200,24 +204,26 @@ const catalogUnavailable = (failure: unknown): WorkspaceCatalogUnavailable =>
 export const WorkspaceCatalogTestLive = Layer.effect(
   WorkspaceCatalog,
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
     const settings = yield* SettingsReader;
+    const desiredState = yield* DesiredStateReader;
+    const records = yield* WorkspaceRecords;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const agentRepo = yield* CodingAgentRepository;
 
     const skillCandidates: Effect.Effect<SkillCandidates, WorkspaceCatalogUnavailable> = Effect.gen(
       function* () {
-        const base = ws.baseDir;
-        const installedSkills = yield* ws.records
+        const base = location.baseDir;
+        const installedSkills = yield* records
           .rows("skill")
           .pipe(Effect.mapError(catalogUnavailable))
           .pipe(Effect.map(installedRowsByName));
-        const unmanagedSkills = yield* ws.records
+        const unmanagedSkills = yield* records
           .rows("skill")
           .pipe(Effect.mapError(catalogUnavailable))
           .pipe(Effect.map(unmanagedRowsByName));
-        const configuredSkills = yield* ws.records
+        const configuredSkills = yield* records
           .rows("skill")
           .pipe(Effect.mapError(catalogUnavailable))
           .pipe(Effect.map(configuredRowsByName));
@@ -285,10 +291,10 @@ export const WorkspaceCatalogTestLive = Layer.effect(
     );
 
     return {
-      workspaceRoot: ws.baseDir,
-      configuredSources: ws.getConfiguredSources().pipe(Effect.mapError(catalogUnavailable)),
-      registrySourceHosts: ws.getRegistrySourceHosts().pipe(Effect.mapError(catalogUnavailable)),
-      desiredExtensionGraph: ws.getDesiredStateGraph().pipe(Effect.mapError(catalogUnavailable)),
+      workspaceRoot: location.baseDir,
+      configuredSources: settings.configuredSources.pipe(Effect.mapError(catalogUnavailable)),
+      registrySourceHosts: settings.registrySourceHosts.pipe(Effect.mapError(catalogUnavailable)),
+      desiredExtensionGraph: desiredState.graph().pipe(Effect.mapError(catalogUnavailable)),
       skillCandidates,
     };
   }),

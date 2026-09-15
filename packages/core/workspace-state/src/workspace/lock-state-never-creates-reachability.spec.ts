@@ -12,7 +12,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { WorkspaceStateLive } from "../live.js";
 import { DesiredStateReader } from "./desired-state-reader.js";
-import { WorkspaceMutations } from "./service-interface.js";
+import { WorkspaceRecords } from "./workspace-records.js";
 
 export const specification = defineSpecification({
   requirement: "cli/lock-state-never-creates-reachability",
@@ -122,8 +122,8 @@ describe("Lock state and desired-state reachability", () => {
         cleanups.push(workspace.cleanup);
 
         const rows = yield* Effect.provide(
-          Effect.flatMap(WorkspaceMutations, (state) =>
-            state.records.rows(row.family === "pack" ? "pack" : "skill"),
+          Effect.flatMap(WorkspaceRecords, (records) =>
+            records.rows(row.family === "pack" ? "pack" : "skill"),
           ),
           workspace.layer,
         );

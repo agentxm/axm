@@ -2,14 +2,16 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
 import {
   extensionTypes,
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
 import {
   AcceptedResolutionWriter,
+  DesiredStateReader,
   LockfileReader,
-  WorkspaceMutations,
+  WorkspaceLocation,
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
   computeMaterializedTreeIntegrity,
@@ -35,11 +37,13 @@ export const collectUnreachableRetirement = (
   },
 ) =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const desiredState = yield* DesiredStateReader;
+    const layout = yield* Ref.get(location.layout);
     const locks = yield* LockfileReader;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const graph = scope?.resultingGraph ?? (yield* ws.getDesiredStateGraph());
+    const graph = scope?.resultingGraph ?? (yield* desiredState.graph());
     if (!graph.complete)
       return Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>();
     const reachable = (type: (typeof extensionTypes)[number], key: string) =>
@@ -59,7 +63,7 @@ export const collectUnreachableRetirement = (
     const canonicalPath = ({ type, entry }: (typeof accepted)[number]) =>
       computeExtensionPathsForLayout(
         path.join,
-        ws.layout,
+        layout,
         extensionPathSourceFromLockEntry(entry),
         toExtensionTypePlural(type),
         entry.workspaceName,
@@ -79,7 +83,7 @@ export const collectUnreachableRetirement = (
       (row) =>
         Effect.gen(function* () {
           const canonical = canonicalPath(row);
-          yield* validatePathSafety(path, ws.layout.acquiredRoot, canonical);
+          yield* validatePathSafety(path, layout.acquiredRoot, canonical);
           const exists = yield* fs.exists(canonical).pipe(
             Effect.mapError(
               (cause) =>
@@ -113,13 +117,13 @@ export const collectUnreachableRetirement = (
     if (retired.length === 0)
       return Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>();
     const artifact = {
-      path: ws.scope === "project" ? "axm-lock.yaml" : ".axm/workspace/axm-lock.yaml",
-      scope: ws.scope,
+      path: location.scope === "project" ? "axm-lock.yaml" : ".axm/workspace/axm-lock.yaml",
+      scope: location.scope,
       change: "updated" as const,
       references: retired
         .filter((row) => !row.removeCanonical)
         .map((row) => ({
-          path: path.relative(ws.baseDir, row.canonical),
+          path: path.relative(location.baseDir, row.canonical),
           state: row.exists ? ("retained" as const) : ("absent" as const),
           reason: row.exists
             ? "shared acquired content remains desired"
@@ -128,7 +132,7 @@ export const collectUnreachableRetirement = (
       targets: retired
         .filter((row) => row.removeCanonical)
         .map((row) => ({
-          path: path.relative(ws.baseDir, row.canonical),
+          path: path.relative(location.baseDir, row.canonical),
           change: "removed" as const,
         })),
     };
@@ -139,7 +143,7 @@ export const collectUnreachableRetirement = (
       artifact,
       run: runWorkspaceTransaction({
         transition: Effect.gen(function* () {
-          const current = yield* ws.getDesiredStateGraph();
+          const current = yield* desiredState.graph();
           if (
             !current.complete ||
             retired.some(({ type, key }) =>
@@ -256,13 +260,15 @@ export const collectLeftoverRetirement = (
   scope?: { readonly subjects: ReadonlyArray<Pick<ExtensionTarget, "type" | "name">> },
 ) =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const desiredState = yield* DesiredStateReader;
+    const layout = yield* Ref.get(location.layout);
     const locks = yield* LockfileReader;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const graph = yield* ws.getDesiredStateGraph();
+    const graph = yield* desiredState.graph();
     if (!graph.complete) return [];
-    const inventory = yield* observeInstallRoot({ layout: ws.layout, graph, locks });
+    const inventory = yield* observeInstallRoot({ layout, graph, locks });
     const acceptedPaths = (yield* Effect.forEach(extensionTypes, (type) =>
       locks
         .entries(type)
@@ -272,7 +278,7 @@ export const collectLeftoverRetirement = (
               (entry) =>
                 computeExtensionPathsForLayout(
                   path.join,
-                  ws.layout,
+                  layout,
                   extensionPathSourceFromLockEntry(entry),
                   toExtensionTypePlural(type),
                   entry.workspaceName,
@@ -294,11 +300,11 @@ export const collectLeftoverRetirement = (
     return yield* Effect.forEach(leftovers, (leftover) =>
       Effect.gen(function* () {
         yield* validatePathSafety(path, inventory.root, leftover.path);
-        const relative = path.relative(ws.baseDir, leftover.path);
+        const relative = path.relative(location.baseDir, leftover.path);
         const identity = leftoverIdentity(leftover);
         const artifact = {
           path: relative,
-          scope: ws.scope,
+          scope: location.scope,
           change: "removed" as const,
           targets: [{ path: relative, change: "removed" as const, entryName: leftover.name }],
         };
@@ -315,9 +321,9 @@ export const collectLeftoverRetirement = (
           artifact,
           run: runWorkspaceTransaction({
             transition: Effect.gen(function* () {
-              const current = yield* ws.getDesiredStateGraph();
+              const current = yield* desiredState.graph();
               const observed = yield* observeInstallRoot({
-                layout: ws.layout,
+                layout,
                 graph: current,
                 locks,
               });

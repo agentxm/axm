@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
 import {
   WorkspaceInvariantFacts,
   aggregateOwnershipUnits,
@@ -10,7 +11,8 @@ import {
 import {
   acceptedCanonicalObservation,
   LockfileReader,
-  WorkspaceMutations,
+  SettingsReader,
+  WorkspaceLocation,
   type ExtensionTarget,
 } from "@agentxm/workspace-state";
 import type {
@@ -27,7 +29,9 @@ export const prepareUninstallArtifact = (
   proposal?: DesiredStateProposal,
 ) =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
+    const layout = yield* Ref.get(location.layout);
     const path = yield* Path.Path;
     const fs = yield* FileSystem.FileSystem;
     const locks = yield* LockfileReader;
@@ -49,7 +53,7 @@ export const prepareUninstallArtifact = (
       type: target.type,
       name: target.name,
     });
-    const prefix = ws.scope === "project" ? "" : ".axm/workspace/";
+    const prefix = location.scope === "project" ? "" : ".axm/workspace/";
     const settingsPath = `${prefix}axm.json`;
     const lockPath = `${prefix}axm-lock.yaml`;
     const targets: JobStepArtifactTarget[] = [];
@@ -64,7 +68,7 @@ export const prepareUninstallArtifact = (
       targets.push({ path: lockPath, change: "updated" });
     if (Option.isSome(canonical) && canonical.value.observation.path !== undefined) {
       const absolute = canonical.value.observation.path;
-      const relative = path.relative(ws.baseDir, absolute);
+      const relative = path.relative(location.baseDir, absolute);
       const present = yield* fs.exists(absolute).pipe(
         Effect.mapError(
           (cause) =>
@@ -105,9 +109,9 @@ export const prepareUninstallArtifact = (
           .map((node) => node.name),
       );
     const inventory = yield* observeAgentOutputs({
-      workspaceRoot: ws.baseDir,
-      scope: ws.scope,
-      desiredAgentIds: new Set(yield* ws.getConfiguredAgents()),
+      workspaceRoot: location.baseDir,
+      scope: location.scope,
+      desiredAgentIds: new Set(yield* settings.configuredAgents),
       expectedNames: {
         skill: enabledNames("skill"),
         subagent: enabledNames("subagent"),
@@ -115,17 +119,17 @@ export const prepareUninstallArtifact = (
         hook: enabledNames("hook"),
       },
       skillOwnershipRoots:
-        ws.layout.scope === "project"
-          ? [ws.layout.acquiredRoot, ws.layout.authoredRoot("skill")]
-          : [ws.layout.acquiredRoot],
-      authoredSkills: { layout: ws.layout, entries: yield* ws.getConfiguredSkillEntries() },
+        layout.scope === "project"
+          ? [layout.acquiredRoot, layout.authoredRoot("skill")]
+          : [layout.acquiredRoot],
+      authoredSkills: { layout, entries: yield* settings.entries("skill") },
     });
     for (const output of inventory.outputs.filter(
       (output) => output.extensionType === target.type && output.entryName === target.name,
     )) {
       if (target.type === "hook") continue;
       const relative = path.relative(
-        ws.baseDir,
+        location.baseDir,
         target.type === "mcp-server" ? output.containerPath : output.path,
       );
       if (output.ownership === "unowned")
@@ -175,7 +179,7 @@ export const prepareUninstallArtifact = (
     }
     return {
       path: targets[0]?.path ?? references[0]?.path ?? settingsPath,
-      scope: ws.scope,
+      scope: location.scope,
       change: targets.length === 0 ? "unchanged" : "updated",
       targets,
       references,

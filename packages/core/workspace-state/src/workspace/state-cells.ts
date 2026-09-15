@@ -32,7 +32,7 @@ import type {
   WorkspaceLockfileReadFailure,
   WorkspaceSettingsReadFailure,
   WorkspaceStateReadFailure,
-} from "./service-interface.js";
+} from "./contracts.js";
 
 /** The runtime directories a workspace's settings sources can live in. */
 export interface StateCellPaths {

@@ -11,7 +11,7 @@
  */
 
 /**
- * WorkspaceMutations-relative path of the universal skills directory.
+ * Workspace-relative path of the universal skills directory.
  */
 export const UNIVERSAL_SKILLS_DIR = ".agents/skills";
 

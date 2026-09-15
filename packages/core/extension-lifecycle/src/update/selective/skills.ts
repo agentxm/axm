@@ -19,6 +19,13 @@ import * as Array from "effect/Array";
 import * as DateTime from "effect/DateTime";
 import type * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import {
+  DesiredStateReader,
+  LockfileReader,
+  SettingsReader,
+  WorkspaceRecords,
+} from "@agentxm/workspace-state";
+
 import * as Option from "effect/Option";
 
 import {
@@ -61,7 +68,6 @@ import {
 import {
   acceptedResolutionRef,
   configuredRowsByName,
-  WorkspaceMutations,
   type SkillsLockMap,
 } from "@agentxm/workspace-state";
 
@@ -174,8 +180,8 @@ const toRegistrySkillPattern = (source: string) => {
  * would silently drop the constraint it declares.
  */
 const collectPackConstraints = Effect.fn("SelectiveSkillUpdate.packConstraints")(function* () {
-  const ws = yield* WorkspaceMutations;
-  const graph = yield* ws.getDesiredStateGraph();
+  const desiredState = yield* DesiredStateReader;
+  const graph = yield* desiredState.graph();
   if (!graph.complete) {
     return yield* new ExtensionLifecycleFailed({
       category: "validation",
@@ -199,14 +205,16 @@ const collectPackConstraints = Effect.fn("SelectiveSkillUpdate.packConstraints")
 export const prepareSelectiveSkillUpdate = Effect.fn("SelectiveSkillUpdate.prepare")(function* (
   request: SelectiveSkillUpdateRequest,
 ) {
-  const ws = yield* WorkspaceMutations;
+  const settings = yield* SettingsReader;
+  const records = yield* WorkspaceRecords;
   const sources = yield* SourceHostProviders;
-  const minimumReleaseAgeText = yield* ws.getMinimumReleaseAge();
+  const minimumReleaseAgeText = yield* settings.minimumReleaseAge;
   const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation();
 
-  const allSkills = yield* ws.records.rows("skill").pipe(Effect.map(configuredRowsByName));
-  const lockedSkills = yield* ws
-    .getLockedSkills()
+  const allSkills = yield* records.rows("skill").pipe(Effect.map(configuredRowsByName));
+  const lockfile = yield* LockfileReader;
+  const lockedSkills = yield* lockfile
+    .entries("skill")
     .pipe(Effect.catch(() => Effect.succeed<SkillsLockMap>({})));
 
   const disabledSkillEntries: ReadonlyArray<Extract<ResolveResult, { readonly type: "skip" }>> =

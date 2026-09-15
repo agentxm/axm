@@ -10,6 +10,8 @@
  */
 
 import * as Effect from "effect/Effect";
+import { WorkspaceLocation } from "@agentxm/workspace-state";
+
 import * as Option from "effect/Option";
 
 import {
@@ -38,7 +40,6 @@ import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensi
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 import type { JobStepArtifact, PlannedJobStep } from "@agentxm/workspace-operations";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
 
 import { lifecycleStepFailure } from "../step-failure.js";
 import type { InstallStepRequirements } from "../install/vocabulary.js";
@@ -76,13 +77,13 @@ export const buildPackMemberInstallStep: (args: {
 }) => Effect.Effect<
   PlannedJobStep<InstallStepRequirements>,
   never,
-  HookManager | KnowledgeManager | RuleManager | SkillManager | SubagentManager | WorkspaceMutations
+  HookManager | KnowledgeManager | RuleManager | SkillManager | SubagentManager | WorkspaceLocation
 > = Effect.fn("InstallExtensions.buildPackMemberInstallStep")(function* (args: {
   readonly ref: PackMemberRef;
   readonly graphComplete: boolean;
   readonly nonInteractive: boolean;
 }) {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
   const ref = args.ref;
 
   if (ref.type === "skill") {
@@ -98,7 +99,7 @@ export const buildPackMemberInstallStep: (args: {
       buildArtifact: ({ installedBefore, materialization }) =>
         registrySourceArtifactWithCoverage({
           ref,
-          scope: ws.scope,
+          scope: location.scope,
           installedBefore,
           materialization: Effect.succeed(
             Option.match(materialization, {
@@ -158,7 +159,7 @@ export const buildPackMemberInstallStep: (args: {
       buildArtifact: ({ installedBefore, materialization }) =>
         registrySourceArtifactWithCoverage({
           ref,
-          scope: ws.scope,
+          scope: location.scope,
           installedBefore,
           materialization: Effect.succeed(
             Option.match(materialization, {
@@ -183,7 +184,7 @@ export const buildPackMemberInstallStep: (args: {
       buildArtifact: ({ installedBefore }) =>
         registrySourceArtifactWithCoverage({
           ref,
-          scope: ws.scope,
+          scope: location.scope,
           installedBefore,
           materialization: ruleManager.aggregateProjectionObservation,
         }),
@@ -203,7 +204,7 @@ export const buildPackMemberInstallStep: (args: {
       buildArtifact: ({ installedBefore }) =>
         registrySourceArtifactWithCoverage({
           ref,
-          scope: ws.scope,
+          scope: location.scope,
           installedBefore,
           materialization: hookManager.aggregateProjectionObservation,
         }),
@@ -220,6 +221,6 @@ export const buildPackMemberInstallStep: (args: {
       ? knowledgeManager.isInstalled({ target: { type: "knowledge", name: ref.knowledge.name } })
       : Effect.succeed(false),
     buildArtifact: ({ installedBefore }) =>
-      Effect.succeed(registrySourceArtifact({ ref, scope: ws.scope, installedBefore })),
+      Effect.succeed(registrySourceArtifact({ ref, scope: location.scope, installedBefore })),
   });
 });

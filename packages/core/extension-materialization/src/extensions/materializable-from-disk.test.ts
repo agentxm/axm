@@ -9,7 +9,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { TEST_CONTENT_IDENTITY } from "@agentxm/workspace-state/testing";
-import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { computeMaterializedTreeIntegritySync, extensionName, handle } from "../test-helpers.js";
 import {
   configuredMcpServersToDiskRefs,
@@ -27,7 +27,18 @@ const makeEnv = (fs: FileSystem.FileSystem, path: Path.Path, baseDir: string) =>
   path,
   baseDir,
   scope: "project" as const,
-  layout: makeBaseWorkspaceMock(nodePath.join(baseDir, ".axm")).layout,
+  layout: {
+    scope: "project" as const,
+    workspaceRoot: decodeAbsolutePathSync(path.resolve(baseDir)),
+    projectRoot: decodeAbsolutePathSync(path.resolve(baseDir)),
+    settingsPath: decodeAbsolutePathSync(path.resolve(baseDir, "axm.json")),
+    lockPath: decodeAbsolutePathSync(path.resolve(baseDir, "axm-lock.yaml")),
+    runtimeDir: decodeAbsolutePathSync(path.resolve(baseDir, ".axm")),
+    acquiredRoot: decodeAbsolutePathSync(path.resolve(baseDir, "agent_extensions")),
+    authoredRoot: (
+      type: "skill" | "mcp-server" | "subagent" | "rule" | "hook" | "knowledge" | "pack",
+    ) => decodeAbsolutePathSync(path.resolve(baseDir, type === "mcp-server" ? "mcps" : `${type}s`)),
+  },
 });
 
 const githubHost = {

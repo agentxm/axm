@@ -37,7 +37,7 @@ import { RegistryResolutionPolicyLive } from "../../cli-runtime/index.js";
 import { AxmSkillCandidateGateLive } from "@agentxm/extension-resolution/live";
 import { WorkspaceCatalogLive } from "@agentxm/workspace-projection/live";
 import { SubagentManagerLive } from "@agentxm/extension-materialization/live";
-import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
+import type { WorkspaceStateOptions } from "@agentxm/workspace-state";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
@@ -119,7 +119,7 @@ describe("axm lint handler", () => {
       }),
       Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(tempDir) }),
     );
-    const wsOptions: WorkspaceMutationsOptions = {
+    const wsOptions: WorkspaceStateOptions = {
       scope: "project",
       projectRoot: decodeAbsolutePathSync(tempDir),
     };

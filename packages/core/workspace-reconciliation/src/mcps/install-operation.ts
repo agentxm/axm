@@ -16,6 +16,7 @@
 import * as FileSystem from "effect/FileSystem";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -33,7 +34,15 @@ import {
 } from "@agentxm/workspace-state";
 import { appendWarningsToMessage } from "@agentxm/workspace-operations";
 import type { JobStepResult, Operation } from "@agentxm/workspace-operations";
-import { type SettingsReader, WorkspaceMutations } from "@agentxm/workspace-state";
+import {
+  AcceptedResolutionWriter,
+  DesiredStateReader,
+  DesiredStateWriter,
+  LockfileReader,
+  SettingsReader,
+  SettingsWriter,
+  WorkspaceLocation,
+} from "@agentxm/workspace-state";
 import { canReuseInstalledPackage } from "@agentxm/extension-materialization";
 import { materializeRegistryPackage } from "@agentxm/extension-materialization";
 import { computeExtensionPathsForLayout } from "@agentxm/workspace-state";
@@ -209,17 +218,18 @@ const installFromRegistry = (
 ) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const layout = yield* Ref.get(location.layout);
 
     const canonicalPath = computeExtensionPathsForLayout(
       path.join,
-      ws.layout,
+      layout,
       ref,
       "mcps",
       ref.name,
     ).canonicalPath;
 
-    if (!isPathSafe(path, ws.baseDir, canonicalPath)) {
+    if (!isPathSafe(path, location.baseDir, canonicalPath)) {
       return yield* new McpCanonicalPathUnsafe({ serverName: ref.name, canonicalPath });
     }
 
@@ -234,7 +244,7 @@ const installFromRegistry = (
 
     if (!useExisting) {
       yield* materializeRegistryPackage({
-        baseDir: ws.baseDir,
+        baseDir: location.baseDir,
         destinationPath: canonicalPath,
         sourceLocation: ref.source.location,
         owner: ref.owner,
@@ -566,8 +576,13 @@ export type McpServerInstallRequirements =
   | FileSystem.FileSystem
   | HttpClient.HttpClient
   | Path.Path
-  | WorkspaceMutations
+  | WorkspaceLocation
   | SettingsReader
+  | SettingsWriter
+  | LockfileReader
+  | DesiredStateReader
+  | DesiredStateWriter
+  | AcceptedResolutionWriter
   | CodingAgentRepository
   | NativeWriteAuthority
   | McpSecretStore;
@@ -586,7 +601,14 @@ export const installMcpServer: (
   op: InstallMcpServerOperation,
 ) => Effect.Effect<JobStepResult, ExtensionManagerFailure, McpServerInstallRequirements> = (op) =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
+    const settingsWriter = yield* SettingsWriter;
+    const lockfile = yield* LockfileReader;
+    const desiredStateReader = yield* DesiredStateReader;
+    const desiredStateWriter = yield* DesiredStateWriter;
+    const accepted = yield* AcceptedResolutionWriter;
+    const layout = yield* Ref.get(location.layout);
     const path = yield* Path.Path;
     const { ref } = op.args;
     const localName = op.args.declaration?.name ?? op.args.localName ?? ref.server.name;
@@ -609,7 +631,7 @@ export const installMcpServer: (
           })
         : undefined;
     const sourceIdentity = resolutionKey ?? `workspace:${ref.owner}/mcps/${ref.server.name}`;
-    const desiredGraph = yield* ws.getDesiredStateGraph();
+    const desiredGraph = yield* desiredStateReader.graph();
     const existingLocalNode = desiredGraph.nodes.find(
       (node) => node.type === "mcp-server" && node.name === localName,
     );
@@ -629,7 +651,10 @@ export const installMcpServer: (
     );
     const lockedVersion =
       ref.refType === "registry"
-        ? acceptedRegistryVersionForRef(yield* ws.getLockedMcpServer(resolutionKey ?? ""), ref)
+        ? acceptedRegistryVersionForRef(
+            yield* lockfile.entry("mcp-server", resolutionKey ?? ""),
+            ref,
+          )
         : undefined;
     const canonicalPath =
       ref.refType === "registry"
@@ -638,13 +663,13 @@ export const installMcpServer: (
             const fs = yield* FileSystem.FileSystem;
             const path = yield* Path.Path;
             const expectedPath = path.join(
-              ws.layout.scope === "project"
-                ? ws.layout.authoredRoot("mcp-server")
-                : path.join(ws.layout.acquiredRoot, ref.owner, "mcps"),
+              layout.scope === "project"
+                ? layout.authoredRoot("mcp-server")
+                : path.join(layout.acquiredRoot, ref.owner, "mcps"),
               ref.name,
             );
             if (
-              ref.scope !== ws.scope ||
+              ref.scope !== location.scope ||
               path.resolve(ref.location) !== path.resolve(expectedPath)
             ) {
               return yield* new McpWorkspacePackageInvalid({
@@ -691,10 +716,10 @@ export const installMcpServer: (
       ref.refType === "registry"
         ? buildLockEntry(ref, yield* computeMaterializedTreeIntegrity(canonicalPath))
         : undefined;
-    const currentMcpServers = yield* ws.getConfiguredMcpServerEntries();
+    const currentMcpServers = yield* settings.entries("mcp-server");
     const currentEntry = currentMcpServers[localName];
     const secretIdentity = {
-      scopeRoot: path.resolve(ws.baseDir),
+      scopeRoot: path.resolve(location.baseDir),
       localName,
       sourceIdentity,
     };
@@ -726,17 +751,12 @@ export const installMcpServer: (
       op.args.declaration === undefined
         ? lockEntry === undefined
           ? Effect.void
-          : ws.setMcpServerLock({
-              name: resolutionKey ?? ref.server.name,
-              resolutionKey: resolutionKey ?? ref.server.name,
-              lockEntry,
-              versionRange: Option.none(),
-            })
+          : accepted.setAccepted("mcp-server", resolutionKey ?? ref.server.name, lockEntry)
         : lockEntry === undefined
-          ? ws.setMcpServerEntry(localName, {
+          ? settingsWriter.setEntry("mcp-server", localName, {
               ...settingsEntry,
             })
-          : ws.setMcpServer({
+          : desiredStateWriter.declare("mcp-server", {
               name: localName,
               resolutionKey: resolutionKey ?? localName,
               lockEntry,
@@ -760,7 +780,7 @@ export const installMcpServer: (
             return undefined;
           }
           const projectionSecretIdentity = {
-            scopeRoot: path.resolve(ws.baseDir),
+            scopeRoot: path.resolve(location.baseDir),
             localName: projectionName,
             sourceIdentity,
           };
@@ -773,8 +793,8 @@ export const installMcpServer: (
               ? mergedEnv
               : { ...projectionStoredSecrets, ...projectionEntry.env };
           return yield* syncConfiguredAgentsOnInstall({
-            wsBaseDir: ws.baseDir,
-            scope: ws.scope,
+            wsBaseDir: location.baseDir,
+            scope: location.scope,
             strict: strictAgentSync,
             serverName: projectionName,
             canonicalPath,
@@ -830,12 +850,12 @@ export const installMcpServer: (
       ),
       artifact: mcpServerArtifact({
         lockEntry,
-        scope: ws.scope,
+        scope: location.scope,
         change,
         agents: agentOutcomes.map(({ agentId }) => agentId),
         targets: [
-          ...(lockEntry === undefined ? [] : [mcpSourceTarget(ws.scope, lockEntry, change)]),
-          mcpSettingsTarget(ws.scope, change),
+          ...(lockEntry === undefined ? [] : [mcpSourceTarget(location.scope, lockEntry, change)]),
+          mcpSettingsTarget(location.scope, change),
           ...agentConfigTargets(agentOutcomes),
         ],
       }),

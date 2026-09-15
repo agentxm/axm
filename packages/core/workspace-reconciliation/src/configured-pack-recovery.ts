@@ -19,6 +19,7 @@
 
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
@@ -48,8 +49,10 @@ import {
   acceptedCanonicalObservation,
   computeExtensionPathsForLayout,
   desiredStateProblemsText,
+  DesiredStateReader,
   enabledConfiguredEntries,
-  WorkspaceMutations,
+  SettingsReader,
+  WorkspaceLocation,
   type DesiredStateGraph,
 } from "@agentxm/workspace-state";
 import {
@@ -154,8 +157,11 @@ export const collectConfiguredPackRecovery = (args: {
   | McpServerInstallRequirements
 > =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
-    const graph: DesiredStateGraph = yield* ws.getDesiredStateGraph();
+    const desiredState = yield* DesiredStateReader;
+    const settings = yield* SettingsReader;
+    const location = yield* WorkspaceLocation;
+    const layout = yield* Ref.get(location.layout);
+    const graph: DesiredStateGraph = yield* desiredState.graph();
     const recoveryProblems = scopedProblems(graph, args.selection).filter(
       (problem) => recoverableExternalPackName(graph, problem) !== undefined,
     );
@@ -169,7 +175,7 @@ export const collectConfiguredPackRecovery = (args: {
 
     const sources = yield* SourceHostProviders;
     const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation();
-    const configured = yield* ws.getConfiguredPackEntries();
+    const configured = yield* settings.entries("pack");
     const entries = enabledConfiguredEntries(configured).filter(([name]) => packNames.has(name));
 
     const recovered = yield* Effect.forEach(
@@ -246,12 +252,12 @@ export const collectConfiguredPackRecovery = (args: {
                   artifact: packStep.artifact ?? {
                     path: computeExtensionPathsForLayout(
                       (yield* Path.Path).join,
-                      ws.layout,
+                      layout,
                       packRef,
                       "packs",
                       name,
                     ).canonicalPath,
-                    scope: ws.scope,
+                    scope: location.scope,
                     change: "updated",
                   },
                   children: [packStep, ...memberSteps].map((step) => ({

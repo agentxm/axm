@@ -13,6 +13,15 @@ import { usableAcceptedCanonical } from "@agentxm/workspace-state";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
+import {
+  DesiredStateReader,
+  LockfileReader,
+  SettingsReader,
+  WorkspaceLocation,
+  WorkspaceRecords,
+} from "@agentxm/workspace-state";
+
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { McpInstallStateMissing, McpRegistryOnlyInstall } from "./errors.js";
@@ -35,7 +44,7 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { ConfiguredAgentOutcome, McpServerLockEntry } from "@agentxm/workspace-state";
 import type { ExtensionTarget, McpServerExtensionTarget } from "@agentxm/workspace-state";
-import { mcpRegistryResolutionKey, WorkspaceMutations } from "@agentxm/workspace-state";
+import { mcpRegistryResolutionKey } from "@agentxm/workspace-state";
 import { canReuseInstalledPackage } from "../extensions/canonical-directory.js";
 import { materializeRegistryPackageWithTreeIntegrity } from "../registry-materialization.js";
 import { computeExtensionPathsForLayout } from "@agentxm/workspace-state";
@@ -81,10 +90,15 @@ const buildMcpServerLockEntry = (
 export const McpServerManagerLive = Layer.effect(
   McpServerManager,
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
+    const lockfile = yield* LockfileReader;
+    const desiredState = yield* DesiredStateReader;
+    const records = yield* WorkspaceRecords;
+    const currentLayout = () => Ref.getUnsafe(location.layout);
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const baseDir = ws.baseDir;
+    const baseDir = location.baseDir;
 
     const acquired = (
       treeIntegrity: Option.Option<TreeIntegrity>,
@@ -107,13 +121,14 @@ export const McpServerManagerLive = Layer.effect(
       const registryRef = ref;
       const canonicalPath = computeExtensionPathsForLayout(
         path.join,
-        ws.layout,
+        currentLayout(),
         registryRef,
         "mcps",
         registryRef.name,
       ).canonicalPath;
 
-      const lockedEntry = yield* ws.getLockedMcpServer(
+      const lockedEntry = yield* lockfile.entry(
+        "mcp-server",
         mcpRegistryResolutionKey({
           authority: registryRef.source.location,
           owner: registryRef.owner,
@@ -156,7 +171,7 @@ export const McpServerManagerLive = Layer.effect(
       retainCanonical: boolean,
     ): McpServerManagerService["materializeUninstall"] =>
       Effect.fn("McpServerManager.materializeRemoval")(function* ({ target }) {
-        const graph = yield* ws.getDesiredStateGraph();
+        const graph = yield* desiredState.graph();
         const desiredNode = graph.nodes.find(
           (node) => node.type === "mcp-server" && node.name === target.name,
         );
@@ -179,7 +194,7 @@ export const McpServerManagerLive = Layer.effect(
             retainShared,
           }),
         };
-        const configuredAgents = yield* ws.getConfiguredAgents();
+        const configuredAgents = yield* settings.configuredAgents;
 
         yield* applyProjectionPlans(
           configuredAgents.map((agentId) =>
@@ -201,7 +216,7 @@ export const McpServerManagerLive = Layer.effect(
                 apply: () =>
                   removeMcpServerFromManifest(agentId, {
                     workspaceRoot: baseDir,
-                    scope: ws.scope,
+                    scope: location.scope,
                     serverName: target.name,
                   }).pipe(Effect.asVoid),
               },
@@ -238,7 +253,7 @@ export const McpServerManagerLive = Layer.effect(
         entry,
         state,
       }) {
-        const configuredAgentIds = yield* ws.getConfiguredAgents();
+        const configuredAgentIds = yield* settings.configuredAgents;
         const canonical =
           entry.kind === "inline"
             ? Option.none<string>()
@@ -250,7 +265,7 @@ export const McpServerManagerLive = Layer.effect(
               );
         const inspections = yield* inspectMcpServerAcrossAgents({
           workspaceRoot: baseDir,
-          scope: ws.scope,
+          scope: location.scope,
           agentIds: configuredAgentIds,
           serverName: name,
           entry: { ...entry, enabled: true },
@@ -292,7 +307,7 @@ export const McpServerManagerLive = Layer.effect(
 
     const configuredAgentOutcomes: McpServerManagerService["configuredAgentOutcomes"] = (state) =>
       Effect.gen(function* () {
-        const entries = yield* ws.getConfiguredMcpServerEntries();
+        const entries = yield* settings.entries("mcp-server");
         return (yield* Effect.forEach(
           Object.entries(entries).filter(([, entry]) => state === "projected" || entry.enabled),
           ([name, entry]) => configuredAgentOutcomesForEntry({ name, entry, state }),
@@ -306,7 +321,7 @@ export const McpServerManagerLive = Layer.effect(
       }: {
         readonly target: ExtensionTarget;
       }) {
-        return yield* isObservedInstalled(ws, "mcp-server", target.name);
+        return yield* isObservedInstalled(records, "mcp-server", target.name);
       }),
 
       materializeInstall,
@@ -335,20 +350,20 @@ export const McpServerManagerLive = Layer.effect(
       getConfiguredSource: Effect.fn("McpServerManager.getConfiguredSource")(function* ({
         target,
       }) {
-        const configured = yield* ws.getConfiguredMcpServerEntries();
+        const configured = yield* settings.entries("mcp-server");
         return Option.fromUndefinedOr(configured[target.name]?.source);
       }),
       isConfigured: Effect.fn("McpServerManager.isConfigured")(function* ({ target }) {
-        const configured = yield* ws.getConfiguredMcpServerEntries();
+        const configured = yield* settings.entries("mcp-server");
         return configured[target.name] !== undefined;
       }),
       listMaterializable: Effect.fn("McpServerManager.listMaterializable")(function* () {
-        const configured = yield* ws.records
+        const configured = yield* records
           .rows("mcp-server")
 
           .pipe(Effect.map(configuredRowsByName));
         return yield* configuredMcpServersToDiskRefs(
-          { fs, path, baseDir, scope: ws.scope, layout: ws.layout },
+          { fs, path, baseDir, scope: location.scope, layout: currentLayout() },
           configured,
         );
       }),

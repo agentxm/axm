@@ -17,7 +17,6 @@ import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
-import type * as ServiceMap from "effect/Context";
 import {
   HookManager,
   KnowledgeManager,
@@ -58,8 +57,9 @@ import {
 import type { ReleaseAgeOperationEvidence } from "@agentxm/extension-resolution";
 import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 import {
-  type SettingsReader,
-  WorkspaceMutations,
+  SettingsReader,
+  WorkspaceLocation,
+  type WorkspaceLocationService,
   type DesiredStateGraph,
   type McpServerEntry,
   type WorkspaceSettingsReadFailure,
@@ -96,11 +96,16 @@ export const SYNC_PRESENTATION: OperationPresentation = {
 
 /**
  * Services the feature's own plan steps require at execution time: the
- * workspace facade and agent repository the selection reads, plus everything a
- * materialization manager and the transaction its closure opens declare.
+ * workspace state ports and agent repository the selection reads, plus
+ * everything a materialization manager and the transaction its closure opens
+ * declare.
  */
 export type SyncStepRequirements =
-  ManagerRequirements | RecipeRequirements | WorkspaceMutations | CodingAgentRepository;
+  | ManagerRequirements
+  | RecipeRequirements
+  | SettingsReader
+  | WorkspaceLocation
+  | CodingAgentRepository;
 
 // Deliberately duplicated from the CLI-destined renderer helper: a feature
 // package may not depend on application presentation utilities, and this
@@ -171,14 +176,14 @@ export const buildInlineMcpServerSyncOperation = ({
   entry,
   agentIds,
   force,
-  ws,
+  location,
   adapter,
 }: {
   readonly name: string;
   readonly entry: McpServerEntry;
   readonly agentIds: ReadonlyArray<string>;
   readonly force: boolean;
-  readonly ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>;
+  readonly location: WorkspaceLocationService;
   readonly adapter: SyncFailureAdapter;
 }): PlannedJobStep<SyncStepRequirements> => ({
   key: `mcp-server:inline:${name}`,
@@ -186,8 +191,8 @@ export const buildInlineMcpServerSyncOperation = ({
   readiness: "ready",
   run: Effect.gen(function* () {
     const inspections = yield* inspectMcpServerAcrossAgents({
-      workspaceRoot: ws.baseDir,
-      scope: ws.scope,
+      workspaceRoot: location.baseDir,
+      scope: location.scope,
       agentIds,
       serverName: name,
       entry,
@@ -213,10 +218,10 @@ export const buildInlineMcpServerSyncOperation = ({
       } satisfies JobStepResult;
     }
     const batchOutcomes = yield* syncInlineMcpServerToAgents(agentIds, {
-      workspaceRoot: ws.baseDir,
+      workspaceRoot: location.baseDir,
       serverName: name,
       entry,
-      scope: ws.scope,
+      scope: location.scope,
     });
     const outcomes = agentIds.flatMap((agentId, index) => {
       const outcome = batchOutcomes[index];
@@ -243,12 +248,12 @@ export const buildInlineMcpServerSyncOperation = ({
 export const buildMcpServerPruneOperation = ({
   declaredServerNames,
   agentIds,
-  ws,
+  location,
   adapter,
 }: {
   readonly declaredServerNames: ReadonlySet<string>;
   readonly agentIds: ReadonlyArray<string>;
-  readonly ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>;
+  readonly location: WorkspaceLocationService;
   readonly adapter: SyncFailureAdapter;
 }): PlannedJobStep<SyncStepRequirements> => ({
   key: "mcp-server:prune",
@@ -258,9 +263,9 @@ export const buildMcpServerPruneOperation = ({
     agentIds,
     (agentId) =>
       pruneManagedMcpServersForAgent(agentId, {
-        workspaceRoot: ws.baseDir,
+        workspaceRoot: location.baseDir,
         declaredServerNames,
-        scope: ws.scope,
+        scope: location.scope,
       }).pipe(Effect.map((outcome) => ({ agentId, outcome }))),
     { concurrency: "unbounded" },
   ).pipe(
@@ -298,11 +303,16 @@ export const collectKnowledgeStep: (args: {
 }) => Effect.Effect<
   Option.Option<PlannedJobStep<SyncStepRequirements>>,
   WorkspaceSettingsReadFailure,
-  WorkspaceMutations | ManagerRequirements | WorkspaceTransactionScope | KnowledgeManager
+  | SettingsReader
+  | WorkspaceLocation
+  | ManagerRequirements
+  | WorkspaceTransactionScope
+  | KnowledgeManager
 > = Effect.fn("Sync.collectKnowledgeStep")(function* (args) {
   const manager = yield* KnowledgeManager;
-  const ws = yield* WorkspaceMutations;
-  const instructions = yield* ws.getInstructionsConfig();
+  const settings = yield* SettingsReader;
+  const location = yield* WorkspaceLocation;
+  const instructions = yield* settings.instructionsConfig;
   const instructionFile = resolveInstructionsConfig(
     Option.isSome(instructions) && instructions.value !== false ? instructions.value : undefined,
   ).fileName;
@@ -316,7 +326,7 @@ export const collectKnowledgeStep: (args: {
       errorMessage: args.adapter.toStepFailure(previewResult.failure).detail,
       artifact: {
         path: instructionFile,
-        scope: ws.scope,
+        scope: location.scope,
         change: "unchanged",
         managedRegions: managedRegionsForFacts(args.facts ?? []),
       },
@@ -336,7 +346,7 @@ export const collectKnowledgeStep: (args: {
   const message = [...details, ...(preview?.warnings ?? [])].join("; ");
   const artifact = {
     path: instructionFile,
-    scope: ws.scope,
+    scope: location.scope,
     change: preview?.changed === false ? "unchanged" : "updated",
     managedRegions: managedRegionsForFacts(args.facts ?? []),
   } satisfies JobStepArtifact;
@@ -391,11 +401,11 @@ export const collectCleanupStep: (args: {
   | CodingAgentRepository
   | FileSystem.FileSystem
   | Path.Path
-  | WorkspaceMutations
+  | WorkspaceLocation
   | SettingsReader
   | NativeWriteAuthority
 > = Effect.fn("Sync.collectCleanupStep")(function* (args) {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
   const agentRepo = yield* CodingAgentRepository;
   const desiredAgentIds = new Set(
     (yield* agentRepo.getMaterializationAgents()).map(({ id }) => id),
@@ -420,7 +430,7 @@ export const collectCleanupStep: (args: {
     readiness: "ready",
     artifact: {
       path: previewPaths[0] ?? "stale managed agent projections",
-      scope: ws.scope,
+      scope: location.scope,
       change: "removed",
       fileCount: previewPaths.length,
       targets: previewPaths.map((filePath) => ({ path: filePath, change: "removed" })),
@@ -438,7 +448,7 @@ export const collectCleanupStep: (args: {
           message: `Removed ${count(removedPaths.length, "stale managed agent projection")}`,
           artifact: {
             path: removedPaths[0] ?? previewPaths[0] ?? "stale managed agent projections",
-            scope: ws.scope,
+            scope: location.scope,
             change: "removed",
             fileCount: removedPaths.length,
             targets: removedPaths.map((filePath) => ({ path: filePath, change: "removed" })),
@@ -456,7 +466,7 @@ export const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (ar
 }) {
   const facts = args.facts;
   const manager = yield* HookManager;
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
   if (args.prepared === undefined && !projectionFactsNeedReconciliation(facts))
     return Option.none<PlannedJobStep<SyncStepRequirements>>();
   const unsupported = facts.find(
@@ -472,7 +482,7 @@ export const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (ar
         "Managed hook projection uses an unsupported marker version; upgrade AXM.",
       artifact: {
         path: "managed hook projections",
-        scope: ws.scope,
+        scope: location.scope,
         change: "unchanged",
         managedRegions: managedRegionsForFacts(facts),
       },
@@ -485,7 +495,7 @@ export const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (ar
       : yield* manager.configuredAgentOutcomes("projected"));
   const artifact = {
     path: "managed hook projections",
-    scope: ws.scope,
+    scope: location.scope,
     change: "updated",
     agentOutcomes,
     managedRegions: managedRegionsForFacts(facts),
@@ -528,8 +538,9 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
   readonly adapter: SyncFailureAdapter;
 }) {
   const projectionFacts = args.projectionFacts;
-  const ws = yield* WorkspaceMutations;
-  const config = yield* ws.getInstructionsConfig();
+  const settings = yield* SettingsReader;
+  const location = yield* WorkspaceLocation;
+  const config = yield* settings.instructionsConfig;
   const manager = yield* RuleManager;
   const unsupported = projectionFacts.find(
     ({ observation }) => observation.reasonCode === "unsupported-version",
@@ -544,7 +555,7 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
         "Instruction projection uses an unsupported marker version; upgrade AXM.",
       artifact: {
         path: unsupported.subject.path.split("#", 1)[0] ?? unsupported.subject.path,
-        scope: ws.scope,
+        scope: location.scope,
         change: "unchanged",
         managedRegions: managedRegionsForFacts(projectionFacts),
       },
@@ -556,7 +567,7 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     const targets = projectionFileTargets(projectionFacts);
     const artifact = {
       path: targets[0]?.path ?? "managed Rules region",
-      scope: ws.scope,
+      scope: location.scope,
       change: targets[0]?.change ?? "updated",
       targets,
       managedRegions: managedRegionsForFacts(projectionFacts),
@@ -577,11 +588,11 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     });
   }
 
-  const configuredAgents = yield* ws.getConfiguredAgents();
+  const configuredAgents = yield* settings.configuredAgents;
   const resolvedConfig = resolveInstructionsConfig(config.value);
   const snapshot = yield* observeInstructionProjection({
-    workspaceRoot: ws.baseDir,
-    scope: ws.scope,
+    workspaceRoot: location.baseDir,
+    scope: location.scope,
     configuredAgents,
     config: resolvedConfig,
   });
@@ -595,7 +606,10 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
 
   const readiness = yield* Effect.result(
     Effect.all(
-      [assertInstructionTargetsSafe(snapshot.status), assertInstructionsGitignoreSafe(ws.baseDir)],
+      [
+        assertInstructionTargetsSafe(snapshot.status),
+        assertInstructionsGitignoreSafe(location.baseDir),
+      ],
       { concurrency: 1, discard: true },
     ),
   );
@@ -611,12 +625,12 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
   const ruleTargets = projectionFileTargets(projectionFacts);
   const instructionTargets = instructionProjectionEffects(snapshot).map((effect) => ({
     ...effect,
-    path: path.relative(ws.baseDir, effect.path),
+    path: path.relative(location.baseDir, effect.path),
   }));
   const targets = mergeArtifactTargets([...ruleTargets, ...instructionTargets]);
   const artifact = {
     path: targets[0]?.path ?? resolvedConfig.fileName,
-    scope: ws.scope,
+    scope: location.scope,
     change: targets[0]?.change ?? "updated",
     managedRegions: managedRegionsForFacts(projectionFacts),
     targets,

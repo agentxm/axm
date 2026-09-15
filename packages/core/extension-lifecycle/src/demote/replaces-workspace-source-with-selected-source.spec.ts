@@ -7,7 +7,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { deriveOperationOutcome } from "@agentxm/workspace-operations";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { LockfileReader } from "@agentxm/workspace-state";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { ExtensionLifecycleFailed } from "../errors.js";
@@ -160,7 +160,7 @@ describe("Demoting workspace authorship", () => {
           return workspace
             .provide(
               Effect.gen(function* () {
-                const ws = yield* WorkspaceMutations;
+                const lockfile = yield* LockfileReader;
                 yield* applyInstall(
                   installRequest({ subject: { kind: "source", source: neighborSource } }),
                 );
@@ -169,7 +169,7 @@ describe("Demoting workspace authorship", () => {
                   `agent_extensions/local/vendor/${NEIGHBOR}`,
                 );
                 const neighborContentBefore = snapshotContent(neighborCanonical);
-                const neighborLockBefore = yield* ws.getLockedSkill(NEIGHBOR);
+                const neighborLockBefore = yield* lockfile.entry("skill", NEIGHBOR);
                 expect(neighborLockBefore).toBeDefined();
                 const neighborSettingsBefore = neighborDeclaration(workspace);
 
@@ -213,7 +213,7 @@ describe("Demoting workspace authorship", () => {
                 expect(snapshotContent(registry?.root ?? replacement)).toEqual(sourceBefore);
                 expect(snapshotContent(neighborSource)).toEqual(neighborSourceBefore);
                 expect(snapshotContent(neighborCanonical)).toEqual(neighborContentBefore);
-                expect(yield* ws.getLockedSkill(NEIGHBOR)).toEqual(neighborLockBefore);
+                expect(yield* lockfile.entry("skill", NEIGHBOR)).toEqual(neighborLockBefore);
                 expect(neighborDeclaration(workspace)).toEqual(neighborSettingsBefore);
 
                 expect(workspace.readFile("axm-lock.yaml")).toContain(

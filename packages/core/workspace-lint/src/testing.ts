@@ -43,7 +43,7 @@ import {
   NativeWriteAuthorityLive,
   WorkspaceInvariantFactsLive,
 } from "@agentxm/workspace-projection/live";
-import type { WorkspaceMutationsError } from "@agentxm/workspace-state";
+import type { WorkspaceStateError } from "@agentxm/workspace-state";
 import { WorkspaceStateLive } from "@agentxm/workspace-state/live";
 import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace-state/testing";
 
@@ -96,7 +96,7 @@ export interface LintWorkspaceFixtureOptions {
  */
 export type LintWorkspaceServices = Layer.Layer<
   Exclude<LintWorkspaceRequirements, FileSystem.FileSystem | Path.Path>,
-  WorkspaceMutationsError,
+  WorkspaceStateError,
   FileSystem.FileSystem | Path.Path | HttpClient.HttpClient | ProjectionParticipants
 >;
 

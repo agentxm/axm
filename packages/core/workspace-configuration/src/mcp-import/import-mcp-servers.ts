@@ -35,8 +35,8 @@ import {
   ConfiguredAgentOutcomesProvider,
   LockfileReader,
   SettingsReader,
+  SettingsWriter,
   WorkspaceLocation,
-  WorkspaceMutations,
   WorkspaceRecords,
 } from "@agentxm/workspace-state";
 import { FootprintRecorder, WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
@@ -71,15 +71,16 @@ export interface ImportMcpServersCandidate {
 export const prepareImportMcpServers = (): Effect.Effect<
   ImportMcpServersCandidate,
   WorkspaceConfigurationFailed | Effect.Error<ReturnType<typeof collectMcpImportSources>>,
-  WorkspaceMutations | FileSystem.FileSystem | Path.Path
+  SettingsReader | WorkspaceLocation | FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    const workspace = yield* WorkspaceMutations;
+    const settings = yield* SettingsReader;
+    const location = yield* WorkspaceLocation;
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const now = yield* DateTime.now;
-    const configured = yield* workspace.getConfiguredMcpServerEntries();
-    const discovery = yield* collectMcpImportSources(workspace, fileSystem, path);
+    const configured = yield* settings.entries("mcp-server");
+    const discovery = yield* collectMcpImportSources(location, settings, fileSystem, path);
     const normalized = preflightMcpImports({
       configuredNames: new Set(Object.keys(configured)),
       now,
@@ -94,7 +95,7 @@ export const prepareImportMcpServers = (): Effect.Effect<
             left.name.localeCompare(right.name) || left.reason.localeCompare(right.reason),
         ),
       },
-      scope: workspace.scope,
+      scope: location.scope,
     } satisfies ImportMcpServersCandidate;
   });
 
@@ -131,7 +132,7 @@ export type ImportMcpServersRequirements =
   | LockfileReader
   | SettingsReader
   | WorkspaceLocation
-  | WorkspaceMutations
+  | SettingsWriter
   | WorkspaceRecords
   | WorkspaceTransactionScope;
 
@@ -150,10 +151,12 @@ export const previewOrApplyImportMcpServers = (
   ImportMcpServersRequirements
 > =>
   Effect.gen(function* () {
-    const workspace = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
+    const settingsWriter = yield* SettingsWriter;
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const artifact = importArtifact(candidate, workspace.baseDir, path);
+    const artifact = importArtifact(candidate, location.baseDir, path);
     const conflictSteps = candidate.preflight.conflicts.map(
       (conflict): PlannedJobStep<ImportMcpServersRequirements> => ({
         label: conflict.name,
@@ -170,7 +173,12 @@ export const previewOrApplyImportMcpServers = (
               readiness: "ready",
               message: `Candidates: ${candidate.preflight.candidates.map((entry) => entry.name).join(", ")}`,
               artifact,
-              run: applyMcpImport(candidate.preflight.candidates, workspace, fileSystem).pipe(
+              run: applyMcpImport(
+                candidate.preflight.candidates,
+                settings,
+                settingsWriter,
+                fileSystem,
+              ).pipe(
                 Effect.mapError((failure) =>
                   failure instanceof WorkspaceConfigurationFailed
                     ? configurationFailedToStepFailure(failure)

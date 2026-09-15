@@ -6,15 +6,9 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
-import {
-  configuredRow,
-  makeBaseWorkspaceMock,
-  MockWorkspaceTransactionScope,
-  rowsFor,
-} from "@agentxm/workspace-state/testing";
+import type { Settings } from "@agentxm/workspace-state";
+import { MockWorkspaceTransactionScope, WorkspaceReadTest } from "@agentxm/workspace-state/testing";
 import { handle } from "../test-helpers.js";
 import type { AddToPackOperation } from "./add-to-pack.js";
 import { addToPack } from "./add-to-pack.js";
@@ -31,11 +25,9 @@ const makeWorkspaceMock = (
   axmDir: string,
   opts: {
     configuredProfile?: string;
-    configuredPacks?: Effect.Success<
-      ReturnType<WorkspaceMutationsService["getConfiguredPackEntries"]>
-    >;
+    configuredPacks?: NonNullable<Settings["packs"]>;
   } = {},
-): WorkspaceMutationsService => {
+) => {
   const configuredProfile = opts.configuredProfile ?? "@myorg";
   const configuredPacks = opts.configuredPacks ?? {
     "my-pack": {
@@ -44,27 +36,17 @@ const makeWorkspaceMock = (
     },
   };
 
-  return makeBaseWorkspaceMock(axmDir, {
-    getConfiguredOwner: () => Effect.succeed(Option.some(handle(configuredProfile))),
-    getConfiguredPackEntries: () => Effect.succeed(configuredPacks),
-    rows: rowsFor({
-      pack: [
-        configuredRow({
-          type: "pack",
-          name: "my-pack",
-          source: "workspace",
-          packagingKind: "non-native",
-        }),
-      ],
-    }),
+  return WorkspaceReadTest({
+    baseDir: path.dirname(axmDir),
+    runtimeDir: axmDir,
+    settings: { owner: handle(configuredProfile), packs: configuredPacks },
   });
 };
 
-/** Creates a layer providing FileSystem + a minimal WorkspaceMutations service. */
+/** Creates the owned workspace read ports and transaction scope. */
 const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMock>[1]) => {
-  const mockWs = makeWorkspaceMock(axmDir, wsOpts);
   return Layer.mergeAll(
-    WorkspaceMutations.layer(mockWs),
+    makeWorkspaceMock(axmDir, wsOpts),
     MockWorkspaceTransactionScope(axmDir),
   ).pipe(Layer.provideMerge(NodeServices.layer));
 };

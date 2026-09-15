@@ -33,10 +33,10 @@ import { getProjectRuntimeDir, resolveUserHome } from "./paths.js";
 import { LockfileVersionUnsupported } from "./read-model/errors.js";
 import type {
   WorkspaceLockfileReadFailure,
-  WorkspaceMutationsError,
-  WorkspaceMutationsOptions,
+  WorkspaceStateError,
+  WorkspaceStateOptions,
   WorkspaceSettingsReadFailure,
-} from "./service-interface.js";
+} from "./contracts.js";
 import { readLockfileCell, readSettingsCell, type StateCellPaths } from "./state-cells.js";
 
 export interface WorkspaceLocationService extends StateCellPaths {
@@ -99,13 +99,13 @@ const defaultBuiltInSources: ReadonlyArray<SourceHostConfig> = [
  *
  * The workspace must already be initialized unless `allowUninitialized` is
  * set. Missing or invalid settings and invalid or unsupported lockfiles fail
- * fast with a typed `WorkspaceMutationsError`.
+ * fast with a typed `WorkspaceStateError`.
  */
 export const makeWorkspaceLocation = (
-  options: WorkspaceMutationsOptions,
+  options: WorkspaceStateOptions,
 ): Effect.Effect<
   WorkspaceLocationService,
-  WorkspaceMutationsError,
+  WorkspaceStateError,
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {

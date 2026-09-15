@@ -26,12 +26,7 @@ import { RuleManager } from "../managers.js";
 import { applyPlannedProjections, observeProjectionPlans } from "@agentxm/workspace-projection";
 import type { SourceHostProvidersService } from "@agentxm/extension-sources";
 import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace-state";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
-import {
-  makeBaseWorkspaceMock,
-  WorkspaceReadTest,
-  MockWorkspaceTransactionScope,
-} from "@agentxm/workspace-state/testing";
+import { WorkspaceReadTest, MockWorkspaceTransactionScope } from "@agentxm/workspace-state/testing";
 import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
@@ -180,28 +175,17 @@ describe("RuleManager graph-derived region projection", () => {
     readonly locked: RulesLockMap;
   }) => {
     const axmDir = nodePath.join(baseDir, ".axm");
-    const wsMock = makeBaseWorkspaceMock(axmDir, {
-      getDesiredStateGraph: () => Effect.succeed(args.graph),
-      getLockedRules: () => Effect.succeed(args.locked),
-      getInstructionsConfig: () => Effect.succeed(Option.some({})),
-      getConfiguredAgents: () => Effect.succeed([]),
-      // The writer must never derive membership from settings entries.
-      getConfiguredRuleEntries: () => Effect.succeed({}),
-    });
     return RuleManagerLive.pipe(
       Layer.provideMerge(WorkspaceCatalogTestLive),
       Layer.provideMerge(CodingAgentRepositoryLive),
       Layer.provideMerge(
-        Layer.merge(
-          Layer.succeed(WorkspaceMutations, wsMock),
-          WorkspaceReadTest({
-            baseDir,
-            runtimeDir: axmDir,
-            settings: { agents: [], instructionFiles: {} },
-            lockfile: { lockfileVersion: 7, skills: {}, rules: args.locked },
-            graph: args.graph,
-          }),
-        ),
+        WorkspaceReadTest({
+          baseDir,
+          runtimeDir: axmDir,
+          settings: { agents: [], instructionFiles: {} },
+          lockfile: { lockfileVersion: 7, skills: {}, rules: args.locked },
+          graph: args.graph,
+        }),
       ),
       Layer.provideMerge(MockWorkspaceTransactionScope(axmDir)),
       Layer.provide(Layer.succeed(SourceHostProviders, providersStub)),

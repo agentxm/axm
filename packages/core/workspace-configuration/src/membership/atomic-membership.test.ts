@@ -9,7 +9,7 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { SettingsWriter } from "@agentxm/workspace-state";
 import { protectWorkspacePath } from "@agentxm/workspace-transactions";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -56,14 +56,14 @@ describe("makeAtomicMembershipSteps", () => {
     );
 
     return Effect.gen(function* () {
-      const ws = yield* WorkspaceMutations;
+      const settingsWriter = yield* SettingsWriter;
       const effectFs = yield* FileSystem.FileSystem;
       const target = path.join(root, ".cursor", "skills", "review");
       const steps: ReadonlyArray<PlannedJobStep> = [
         {
           label: "Add cursor",
           readiness: "ready",
-          run: ws.addConfiguredAgent("cursor").pipe(
+          run: settingsWriter.addConfiguredAgent("cursor").pipe(
             Effect.mapError(testToStepFailure),
             Effect.as({
               result: "success",
@@ -193,7 +193,7 @@ describe("makeAtomicMembershipSteps", () => {
     );
 
     return Effect.gen(function* () {
-      const ws = yield* WorkspaceMutations;
+      const settingsWriter = yield* SettingsWriter;
       const effectFs = yield* FileSystem.FileSystem;
       const steps: ReadonlyArray<PlannedJobStep> = [
         {
@@ -216,7 +216,7 @@ describe("makeAtomicMembershipSteps", () => {
         {
           label: "Remove cursor",
           readiness: "ready",
-          run: ws.removeConfiguredAgent("cursor").pipe(
+          run: settingsWriter.removeConfiguredAgent("cursor").pipe(
             Effect.mapError(testToStepFailure),
             Effect.andThen(
               new StepFailure({

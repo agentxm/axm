@@ -23,7 +23,7 @@ import { DesiredPackGraphIncomplete } from "./errors.js";
 import { PackManifests, type PackManifestsPort } from "./pack-manifests.js";
 import { WorkspaceDocuments, type WorkspaceDocumentsService } from "./documents.js";
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
-import type { ExtensionTarget, WorkspaceStateReadFailure } from "./service-interface.js";
+import type { ExtensionTarget, WorkspaceStateReadFailure } from "./contracts.js";
 import { SettingsReader, type SettingsReaderService } from "./settings-reader.js";
 
 /** Authoritative inputs for evaluating a candidate without publishing it. */

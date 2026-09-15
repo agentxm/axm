@@ -22,7 +22,7 @@ import type {
   LockfileState,
   WorkspaceLockfileReadFailure,
   WorkspaceStateReadFailure,
-} from "./service-interface.js";
+} from "./contracts.js";
 
 type Read<A> = Effect.Effect<A, WorkspaceLockfileReadFailure>;
 

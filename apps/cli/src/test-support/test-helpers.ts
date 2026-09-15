@@ -27,11 +27,7 @@ import {
   PlanInvocationTest,
   ResolvePlanInteractionTest,
 } from "@agentxm/workspace-operations/testing";
-import type {
-  WorkspaceMutations,
-  WorkspaceMutationsError,
-  WorkspaceMutationsOptions,
-} from "@agentxm/workspace-state";
+import type { WorkspaceStateError, WorkspaceStateOptions } from "@agentxm/workspace-state";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
   layer as coreWorkspaceLayer,
@@ -663,12 +659,12 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
    * transaction scope — composed over the selected test platform.
    */
   readonly workspaceLayer?: Layer.Layer<
-    WorkspaceStateServices | WorkspaceMutations | WorkspaceTransactionScope,
-    WorkspaceMutationsError,
+    WorkspaceStateServices | WorkspaceTransactionScope,
+    WorkspaceStateError,
     FileSystem.FileSystem | Path.Path
   >;
   readonly wsOptions?:
-    | (Omit<Partial<WorkspaceMutationsOptions>, "projectRoot"> & {
+    | (Omit<Partial<WorkspaceStateOptions>, "projectRoot"> & {
         readonly projectRoot?: string;
       })
     | undefined;
@@ -679,7 +675,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     scope: "project",
     ...opts?.wsOptions,
     projectRoot,
-  } satisfies WorkspaceMutationsOptions;
+  } satisfies WorkspaceStateOptions;
 
   // Ensure workspace settings exist — loadWorkspace requires an initialized workspace
   if (wsOptions.scope === "project" && opts?.workspaceLayer === undefined) {

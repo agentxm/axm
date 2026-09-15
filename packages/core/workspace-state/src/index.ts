@@ -4,8 +4,7 @@
  * The workspace-state kernel: settings and lockfile authority, the workspace
  * read model, desired-state and canonical-observation vocabulary, extension
  * paths and layout, and the narrow workspace-state services (`WorkspaceLocation`,
- * readers, writers) with the transitional `WorkspaceMutations` facade over
- * them. Extension ref and source vocabulary lives in
+ * readers, and writers). Extension ref and source vocabulary lives in
  * `@agentxm/extension-model`; workspace transactions live in
  * `@agentxm/workspace-transactions`; plan execution in
  * `@agentxm/workspace-operations`.
@@ -337,14 +336,9 @@ export type {
   SettingsEntryByType,
 } from "./workspace/entry-accessors.js";
 
-// TRANSITIONAL workspace mutation facade. No CLI handler composes it any
-// more; the domain packages under packages/core still do, and it is removed
-// when the last of them reads and writes through the narrow services above.
 export {
-  WorkspaceMutations,
-  type WorkspaceMutationsService,
-  type WorkspaceMutationsError,
-  type WorkspaceMutationsOptions,
+  type WorkspaceStateError,
+  type WorkspaceStateOptions,
   type WorkspaceSettingsReadFailure,
   type WorkspaceLockfileReadFailure,
   type WorkspaceStateReadFailure,
@@ -369,7 +363,7 @@ export {
   type RuleExtensionTarget,
   type HookExtensionTarget,
   type KnowledgeExtensionTarget,
-} from "./workspace/service-interface.js";
+} from "./workspace/contracts.js";
 
 // Read-model per-source typed failure families
 export {

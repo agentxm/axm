@@ -26,12 +26,7 @@ import { SourceHostProviders } from "@agentxm/extension-sources";
 import type { SourceHostProvidersService } from "@agentxm/extension-sources";
 import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace-state";
 import type { Settings } from "@agentxm/workspace-state";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
-import {
-  makeBaseWorkspaceMock,
-  WorkspaceReadTest,
-  MockWorkspaceTransactionScope,
-} from "@agentxm/workspace-state/testing";
+import { WorkspaceReadTest, MockWorkspaceTransactionScope } from "@agentxm/workspace-state/testing";
 import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
@@ -129,28 +124,17 @@ describe("HookManager graph-derived unit projection", () => {
     readonly configuredAgents: NonNullable<Settings["agents"]>;
   }) => {
     const axmDir = nodePath.join(baseDir, ".axm");
-    const wsMock = makeBaseWorkspaceMock(axmDir, {
-      getDesiredStateGraph: () => Effect.succeed(args.graph),
-      getLockedHooks: () => Effect.succeed(args.locked),
-      getConfiguredAgents: () => Effect.succeed(args.configuredAgents),
-      // The writer must never derive membership from settings entries.
-      getConfiguredHookEntries: () => Effect.succeed({}),
-      getInstructionsConfig: () => Effect.succeed(Option.some({})),
-    });
     return HookManagerLive.pipe(
       Layer.provideMerge(WorkspaceCatalogTestLive),
       Layer.provideMerge(CodingAgentRepositoryLive),
       Layer.provideMerge(
-        Layer.merge(
-          Layer.succeed(WorkspaceMutations, wsMock),
-          WorkspaceReadTest({
-            baseDir,
-            runtimeDir: axmDir,
-            settings: { agents: [...args.configuredAgents], instructionFiles: {} },
-            lockfile: { lockfileVersion: 7, skills: {}, hooks: args.locked },
-            graph: args.graph,
-          }),
-        ),
+        WorkspaceReadTest({
+          baseDir,
+          runtimeDir: axmDir,
+          settings: { agents: [...args.configuredAgents], instructionFiles: {} },
+          lockfile: { lockfileVersion: 7, skills: {}, hooks: args.locked },
+          graph: args.graph,
+        }),
       ),
       Layer.provideMerge(MockWorkspaceTransactionScope(axmDir)),
       Layer.provide(Layer.succeed(SourceHostProviders, providersStub)),

@@ -14,7 +14,7 @@ import type {
   WorkspaceLockfileReadFailure,
   WorkspaceSettingsMutationFailure,
   WorkspaceSettingsReadFailure,
-} from "./service-interface.js";
+} from "./contracts.js";
 
 export interface WorkspaceDocumentsService {
   /** Read the selected scope unless another scope is explicit; default when absent. */

@@ -15,7 +15,7 @@ import { codingAgentForId } from "@agentxm/agent-integration";
 import type { CodingAgentRepositoryService } from "@agentxm/workspace-projection";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
-import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
+import type { WorkspaceStateOptions } from "@agentxm/workspace-state";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
 import { ConfiguredAgentOutcomesProviderTest } from "@agentxm/workspace-state/testing";
 import { ResolvePlanInteractionTest } from "@agentxm/workspace-operations/testing";
@@ -68,7 +68,7 @@ describe("agents remove.handler", () => {
   });
 
   const makeLayers = (opts?: {
-    readonly wsOverrides?: Partial<WorkspaceMutationsOptions>;
+    readonly wsOverrides?: Partial<WorkspaceStateOptions>;
     readonly machine?: boolean;
   }) => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();

@@ -10,7 +10,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
-import YAML from "yaml";
 import { afterEach, beforeEach, vi } from "vitest";
 import {
   CodingAgentRepository,
@@ -18,8 +17,16 @@ import {
 } from "@agentxm/workspace-projection";
 import type { CodingAgent } from "@agentxm/agent-integration";
 import { SettingsWriteError, type WorkspaceSettingsReadFailure } from "@agentxm/workspace-state";
-import type { WorkspaceStateMutationFailure } from "@agentxm/workspace-state";
-import { LockfileWriteError } from "@agentxm/workspace-state";
+import type {
+  WorkspaceLockfileMutationFailure,
+  WorkspaceStateMutationFailure,
+} from "@agentxm/workspace-state";
+import {
+  AcceptedResolutionWriter,
+  DesiredStateWriter,
+  SettingsWriter,
+  type SetMcpServerArgs,
+} from "@agentxm/workspace-state";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type {
   McpServerExtensionRef,
@@ -27,9 +34,8 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import { SourceHostProviders } from "@agentxm/extension-sources";
 import type { SourceHostProvidersService } from "@agentxm/extension-sources";
-import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
-import { makeBaseWorkspaceMock, WorkspaceReadTest } from "@agentxm/workspace-state/testing";
-import { expectRecord, makeCodingAgentStub } from "./test-helpers.js";
+import { WorkspaceReadTest } from "@agentxm/workspace-state/testing";
+import { makeCodingAgentStub } from "./test-helpers.js";
 import type { McpSecretStoreService } from "@agentxm/extension-materialization";
 import { McpSecretStore, mcpSecretAccount } from "@agentxm/extension-materialization";
 import type { InstallMcpServerOperation } from "./install-operation.js";
@@ -69,83 +75,6 @@ let secretStore = makeTestSecretStore();
 // Helpers
 // -----------------------------------------------------------------------------
 
-type SetMcpServerArgs = Parameters<WorkspaceMutationsService["setMcpServer"]>[0];
-
-const makeWorkspaceMock = (
-  axmDir: string,
-  overrides?: {
-    setMcpServerFn?: (args: SetMcpServerArgs) => Effect.Effect<void, WorkspaceStateMutationFailure>;
-  },
-): WorkspaceMutationsService => {
-  const readLf = () => {
-    const lfPath = path.join(axmDir, "axm-lock.yaml");
-    if (!fs.existsSync(lfPath)) return { lockfileVersion: 3, mcpServers: {} };
-    return YAML.parse(fs.readFileSync(lfPath, "utf-8"));
-  };
-  const writeLf = (data: unknown) => {
-    fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(data));
-  };
-
-  const setMcpServerFn = overrides?.setMcpServerFn;
-
-  return makeBaseWorkspaceMock(axmDir, {
-    getConfiguredAgents: () => Effect.succeed([]),
-    getLockedMcpServers: () => Effect.succeed(readLf().mcpServers ?? {}),
-    getLockedMcpServer: (name: string) =>
-      Effect.succeed(Option.fromUndefinedOr(readLf().mcpServers?.[name])),
-    setMcpServer: setMcpServerFn
-      ? (args: SetMcpServerArgs) => setMcpServerFn(args)
-      : (args: SetMcpServerArgs) =>
-          Effect.try({
-            try: () => {
-              const lf = readLf();
-              if (!lf.mcpServers) lf.mcpServers = {};
-              lf.mcpServers[args.resolutionKey] = {
-                ...expectRecord(args.lockEntry),
-                updatedAt: new Date().toISOString(),
-              };
-              writeLf(lf);
-            },
-            catch: (error) =>
-              new SettingsWriteError({
-                path: "axm.json",
-                step: "encode",
-                cause: error,
-              }),
-          }),
-    setMcpServerLock: setMcpServerFn
-      ? (args: SetMcpServerArgs) =>
-          setMcpServerFn(args).pipe(
-            Effect.mapError(
-              (cause) =>
-                new LockfileWriteError({
-                  path: path.join(axmDir, "axm-lock.yaml"),
-                  step: "write-temp",
-                  cause,
-                }),
-            ),
-          )
-      : (args: SetMcpServerArgs) =>
-          Effect.try({
-            try: () => {
-              const lf = readLf();
-              if (!lf.mcpServers) lf.mcpServers = {};
-              lf.mcpServers[args.resolutionKey] = {
-                ...expectRecord(args.lockEntry),
-                updatedAt: new Date().toISOString(),
-              };
-              writeLf(lf);
-            },
-            catch: (error) =>
-              new LockfileWriteError({
-                path: path.join(axmDir, "axm-lock.yaml"),
-                step: "write-temp",
-                cause: error,
-              }),
-          }),
-  });
-};
-
 const defaultAgentRepo: CodingAgentRepositoryService = {
   get: () => Effect.die(new Error("not implemented in test")),
   all: Effect.succeed([]),
@@ -158,6 +87,9 @@ const withServices = (
   axmDir: string,
   wsOverrides?: {
     setMcpServerFn?: (args: SetMcpServerArgs) => Effect.Effect<void, WorkspaceStateMutationFailure>;
+    setAcceptedMcpServerFn?: (
+      args: SetMcpServerArgs,
+    ) => Effect.Effect<void, WorkspaceLockfileMutationFailure>;
   },
   agentRepo?: CodingAgentRepositoryService,
 ) => makeServices(axmDir, wsOverrides, agentRepo).layer;
@@ -166,10 +98,14 @@ const makeServices = (
   axmDir: string,
   wsOverrides?: {
     setMcpServerFn?: (args: SetMcpServerArgs) => Effect.Effect<void, WorkspaceStateMutationFailure>;
+    setAcceptedMcpServerFn?: (
+      args: SetMcpServerArgs,
+    ) => Effect.Effect<void, WorkspaceLockfileMutationFailure>;
   },
   agentRepo?: CodingAgentRepositoryService,
 ) => {
-  const mockWs = makeWorkspaceMock(axmDir, wsOverrides);
+  const setMcpServer = wsOverrides?.setMcpServerFn;
+  const setAcceptedMcpServer = wsOverrides?.setAcceptedMcpServerFn;
   const sourceProviders: SourceHostProvidersService = {
     resolveNamedRegistry: () => Effect.die("not used"),
     find: () => Effect.succeed<ReadonlyArray<ExtensionRef>>([]),
@@ -191,8 +127,29 @@ const makeServices = (
   return {
     layer: Layer.mergeAll(
       Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer, NativeWriteAuthorityPermissive),
-      WorkspaceMutations.layer(mockWs),
-      WorkspaceReadTest({ baseDir: path.dirname(axmDir), runtimeDir: axmDir }),
+      WorkspaceReadTest({
+        baseDir: path.dirname(axmDir),
+        runtimeDir: axmDir,
+        settings: { agents: [] },
+      }),
+      Layer.mock(SettingsWriter, {}),
+      Layer.mock(DesiredStateWriter, {
+        declare: (type, args) =>
+          type === "mcp-server" && "resolutionKey" in args
+            ? (setMcpServer?.(args) ?? Effect.void)
+            : Effect.void,
+      }),
+      Layer.mock(AcceptedResolutionWriter, {
+        setAccepted: (type, key, entry) =>
+          type === "mcp-server" && entry.extensionType === "mcp-server"
+            ? (setAcceptedMcpServer?.({
+                name: entry.workspaceName,
+                resolutionKey: key,
+                lockEntry: entry,
+                versionRange: Option.none(),
+              }) ?? Effect.void)
+            : Effect.void,
+      }),
       Layer.succeed(McpSecretStore, secretStore.service),
       Layer.succeed(SourceHostProviders, sourceProviders),
       Layer.succeed(CodingAgentRepository, agentRepo ?? defaultAgentRepo),
@@ -609,7 +566,7 @@ describe("installMcpServer", () => {
             ref: makeRegistryRef({ integrity: "" }),
             inherited: true,
           }),
-        ).pipe(Effect.provide(withServices(axmDir, { setMcpServerFn })));
+        ).pipe(Effect.provide(withServices(axmDir, { setAcceptedMcpServerFn: setMcpServerFn })));
 
         expect(result.result).toBe("success");
         expect(setMcpServerFn).toHaveBeenCalledOnce();
@@ -618,7 +575,7 @@ describe("installMcpServer", () => {
   });
 
   describe("lockfile update", () => {
-    it.effect("calls WorkspaceMutations.setMcpServer after successful installation", () =>
+    it.effect("declares the MCP server after successful installation", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");
@@ -639,7 +596,7 @@ describe("installMcpServer", () => {
       }),
     );
 
-    it.effect("fails when WorkspaceMutations.setMcpServer cannot commit state", () =>
+    it.effect("fails when the desired-state declaration cannot commit", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community");

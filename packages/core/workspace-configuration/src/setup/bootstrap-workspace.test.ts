@@ -1,9 +1,7 @@
 /**
  * Unit tests for the `bootstrapWorkspace` initialization flow: agent
  * selection prompting, non-interactive auto-selection, and detection-driven
- * defaults. Extracted from the workspace facade test when the facade moved
- * into the workspace kernels; initialization is a workspace-configuration
- * feature.
+ * defaults. The setup boundary owns this workspace-configuration behavior.
  */
 
 import * as fs from "node:fs";
@@ -15,7 +13,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
+import type { WorkspaceStateOptions } from "@agentxm/workspace-state";
 import { bootstrapWorkspace } from "../index.js";
 import { WorkspaceInitializationInteractionTest } from "../testing.js";
 
@@ -25,7 +23,7 @@ describe("bootstrapWorkspace", () => {
   let homeDir: string;
   let originalCwd: string;
   let originalHome: string | undefined;
-  let defaultOptions: WorkspaceMutationsOptions;
+  let defaultOptions: WorkspaceStateOptions;
 
   beforeEach(() => {
     originalCwd = process.cwd();

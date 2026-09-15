@@ -6,7 +6,7 @@ import { afterEach } from "vitest";
 import { countUnitStates, deriveOperationOutcome } from "@agentxm/workspace-operations";
 import * as Option from "effect/Option";
 
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { LockfileReader } from "@agentxm/workspace-state";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {
@@ -197,13 +197,13 @@ describe("Sync realizes desired workspace state", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            const ws = yield* WorkspaceMutations;
+            const lockfile = yield* LockfileReader;
             const settingsBefore = JSON.stringify(workspace.readSettings());
-            expect(Option.isNone(yield* ws.getLockedSkill(SKILL))).toBe(true);
+            expect(Option.isNone(yield* lockfile.entry("skill", SKILL))).toBe(true);
 
             yield* applySync();
 
-            const accepted = yield* ws.getLockedSkill(SKILL);
+            const accepted = yield* lockfile.entry("skill", SKILL);
             expect(Option.getOrUndefined(accepted)).toMatchObject({ type: "local" });
             expect(JSON.stringify(workspace.readSettings())).toBe(settingsBefore);
             expect(workspace.exists(CANONICAL)).toBe(true);
@@ -243,9 +243,9 @@ describe("Sync realizes desired workspace state", () => {
       .provide(
         Effect.gen(function* () {
           yield* realizedWorkspace();
-          const ws = yield* WorkspaceMutations;
+          const lockfile = yield* LockfileReader;
           const sourceContent = workspace.readFile(`vendor/${SKILL}/src/SKILL.md`);
-          const acceptedBefore = yield* ws.getLockedSkill(SKILL);
+          const acceptedBefore = yield* lockfile.entry("skill", SKILL);
           expect(Option.isSome(acceptedBefore)).toBe(true);
           workspace.remove("agent_extensions");
 
@@ -253,7 +253,7 @@ describe("Sync realizes desired workspace state", () => {
 
           expect(workspace.readFile(CANONICAL)).toBe(sourceContent);
           expect(workspace.exists(CLAUDE_PROJECTION)).toBe(true);
-          expect(yield* ws.getLockedSkill(SKILL)).toEqual(acceptedBefore);
+          expect(yield* lockfile.entry("skill", SKILL)).toEqual(acceptedBefore);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

@@ -9,6 +9,8 @@
  */
 
 import * as Effect from "effect/Effect";
+import { WorkspaceLocation } from "@agentxm/workspace-state";
+
 import * as Option from "effect/Option";
 
 import { RuleManager } from "@agentxm/extension-materialization";
@@ -29,7 +31,6 @@ import {
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
 import { applyPlannedProjections } from "@agentxm/workspace-projection";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
 
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { lifecycleStepFailure } from "../../step-failure.js";
@@ -144,7 +145,7 @@ export const planRuleInstall: (
   ExtensionLifecycleFailed,
   InstallStepRequirements | RuleManager
 > = Effect.fn("InstallExtensions.planRules")(function* (intent: RuleInstallIntent) {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
   const ruleManager = yield* RuleManager;
   // One rule renders the shared instructions region itself; several rules in
   // one operation defer it so the region is rendered once, from the complete
@@ -172,7 +173,7 @@ export const planRuleInstall: (
           }));
           return {
             path: targets[0]?.path ?? ref.rule.name,
-            scope: ws.scope,
+            scope: location.scope,
             agents: materialization.agents,
             ...(ref.refType === "registry" ? { version: ref.version } : {}),
             change,

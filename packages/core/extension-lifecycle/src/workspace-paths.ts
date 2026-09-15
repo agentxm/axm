@@ -13,7 +13,7 @@ import type * as Path from "effect/Path";
 
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import type { WorkspaceMutationsService } from "@agentxm/workspace-state";
+import type { WorkspaceLayout, WorkspaceLocationService } from "@agentxm/workspace-state";
 
 /** Where the workspace's settings file sits, relative to the workspace root. */
 export const workspaceSettingsPath = (scope: WorkspaceScope): string =>
@@ -44,13 +44,14 @@ const extensionDirectory = {
 /** Where a workspace-authored package of this type and name sits. */
 export const workspaceAuthoredPath = (
   path: Path.Path,
-  ws: WorkspaceMutationsService,
+  location: WorkspaceLocationService,
+  layout: WorkspaceLayout,
   type: ExtensionType,
   name: string,
 ): string => {
-  if (ws.layout.scope === "project") {
-    return path.join(path.relative(ws.baseDir, ws.layout.authoredRoot(type)), name);
+  if (layout.scope === "project") {
+    return path.join(path.relative(location.baseDir, layout.authoredRoot(type)), name);
   }
-  const owner = ws.layout.owner ?? "@workspace";
-  return workspaceCanonicalPath(ws.scope, `${owner}/${extensionDirectory[type]}/${name}`);
+  const owner = layout.owner ?? "@workspace";
+  return workspaceCanonicalPath(location.scope, `${owner}/${extensionDirectory[type]}/${name}`);
 };

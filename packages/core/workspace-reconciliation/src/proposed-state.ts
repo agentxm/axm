@@ -5,7 +5,7 @@ import {
   SettingsReader,
   SettingsWriter,
   settingsEntries,
-  WorkspaceMutations,
+  DesiredStateReader,
   type DesiredExtensionNode,
   type Settings,
 } from "@agentxm/workspace-state";
@@ -50,9 +50,9 @@ const activatedSettings = (
 /** Evaluate proposed intent without writing settings, locks, or package content. */
 export const proposeDesiredState = (changes: ReadonlyArray<DesiredStateChange>) =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const desiredState = yield* DesiredStateReader;
     const reader = yield* SettingsReader;
-    const before = yield* ws.getDesiredStateGraph();
+    const before = yield* desiredState.graph();
     const original = yield* reader.settings;
     let settings = original;
     for (const change of changes) {
@@ -71,7 +71,7 @@ export const proposeDesiredState = (changes: ReadonlyArray<DesiredStateChange>) 
       }
       settings = activatedSettings(settings, change, node);
     }
-    const after = yield* ws.getDesiredStateGraph({ settings });
+    const after = yield* desiredState.graph({ settings });
     return { before, after, settings, changes };
   });
 

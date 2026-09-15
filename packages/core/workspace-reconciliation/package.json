@@ -58,8 +58,7 @@
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:",
-    "yaml": "catalog:"
+    "vitest": "catalog:"
   },
   "private": true
 }

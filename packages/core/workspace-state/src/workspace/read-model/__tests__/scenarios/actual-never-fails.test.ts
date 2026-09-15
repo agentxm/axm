@@ -8,7 +8,7 @@
  *   adapts the fixture's in-memory `FileSystem` so a single dir fails with a
  *   `PermissionDenied` error. Production code is unchanged; only test
  *   plumbing differs.
- * - WorkspaceMutations-root escape fails provider construction (Layer error), not a
+ * - Workspace-root escape fails provider construction (Layer error), not a
  *   per-cell call.
  */
 

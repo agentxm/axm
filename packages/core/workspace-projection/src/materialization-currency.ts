@@ -16,11 +16,11 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import * as ServiceMap from "effect/Context";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
   sanitizeName,
-  WorkspaceMutations,
+  type WorkspaceLocationService,
+  type WorkspaceRecordsService,
   type DesiredExtensionNode,
   type WorkspaceStateReadFailure,
 } from "@agentxm/workspace-state";
@@ -38,7 +38,8 @@ export type MaterializationCurrencyFailure<E> =
   E | WorkspaceStateReadFailure | McpInspectionError | CodingAgentFailure;
 
 export interface ObservedMaterializationCurrencyArgs<E> {
-  readonly workspace: ServiceMap.Service.Shape<typeof WorkspaceMutations>;
+  readonly location: WorkspaceLocationService;
+  readonly records: WorkspaceRecordsService;
   readonly node: DesiredExtensionNode;
   readonly configuredAgentIds: ReadonlyArray<string>;
   readonly agents: CodingAgentRepositoryService;
@@ -50,7 +51,8 @@ export interface ObservedMaterializationCurrencyArgs<E> {
 }
 
 export const isObservedMaterializationCurrent = <E>({
-  workspace: ws,
+  location,
+  records,
   node,
   configuredAgentIds: configuredAgents,
   agents: agentRepo,
@@ -63,7 +65,7 @@ export const isObservedMaterializationCurrent = <E>({
   MaterializationCurrencyFailure<E>,
   ProjectionParticipantRequirements
 > =>
-  ws.records
+  records
     .getExtensionInventory(node.type, {
       ...(configuredAgents.length > 0 &&
       (node.type === "skill" || node.type === "mcp-server" || node.type === "subagent")
@@ -115,8 +117,8 @@ export const isObservedMaterializationCurrent = <E>({
           if (node.type !== "skill") {
             if (node.type === "mcp-server") {
               return collectManagedAgentMcpServers({
-                workspaceRoot: ws.baseDir,
-                scope: ws.scope,
+                workspaceRoot: location.baseDir,
+                scope: location.scope,
                 agentIds: configuredAgents,
               }).pipe(
                 Effect.provideService(FileSystem.FileSystem, fs),
@@ -144,7 +146,7 @@ export const isObservedMaterializationCurrent = <E>({
               return Effect.forEach(
                 configured,
                 (agent) =>
-                  agent.resolveEffectiveSkillsDir({ workspaceRoot: ws.baseDir }).pipe(
+                  agent.resolveEffectiveSkillsDir({ workspaceRoot: location.baseDir }).pipe(
                     Effect.provideService(FileSystem.FileSystem, fs),
                     Effect.provideService(Path.Path, path),
                     Effect.map((outcome) => {
@@ -152,7 +154,7 @@ export const isObservedMaterializationCurrent = <E>({
                         return true;
                       if (outcome._tag === "misconfigured") return false;
                       const expectedPath = path.relative(
-                        ws.baseDir,
+                        location.baseDir,
                         path.join(outcome.dir, sanitizeName(node.name)),
                       );
                       return observed.paths.includes(expectedPath);

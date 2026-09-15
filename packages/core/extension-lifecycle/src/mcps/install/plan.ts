@@ -10,6 +10,8 @@
  */
 
 import * as Effect from "effect/Effect";
+import { DesiredStateReader, SettingsReader, WorkspaceLocation } from "@agentxm/workspace-state";
+
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
@@ -32,7 +34,7 @@ import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/ex
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import { SourceHostProviders, resolveSource } from "@agentxm/extension-sources";
 import { operationPresentation, type Plan } from "@agentxm/workspace-operations";
-import { WorkspaceMutations, mcpRegistryResolutionKey } from "@agentxm/workspace-state";
+import { mcpRegistryResolutionKey } from "@agentxm/workspace-state";
 
 import { ExtensionLifecycleFailed } from "../../errors.js";
 import { selectMcpSourceConstraint } from "../domain/source-admission.js";
@@ -122,7 +124,7 @@ export const parseMcpServerInstallRequest: (
   ExtensionLifecycleFailed,
   ResolveInstallRequirements
 > = Effect.fn("InstallExtensions.parseMcpRequest")(function* (args: McpServerInstallArgs) {
-  const ws = yield* WorkspaceMutations;
+  const settings = yield* SettingsReader;
   const trimmed = args.source.trim();
   const env = yield* parseMcpEnvInputs(args.env);
   const parsed = parseRegistryInstallTarget(trimmed, {
@@ -168,7 +170,7 @@ export const parseMcpServerInstallRequest: (
     };
   }
 
-  const owner = yield* ws.getConfiguredOwner().pipe(
+  const owner = yield* settings.owner.pipe(
     Effect.mapError((cause) =>
       installRefused({
         category: "internal",
@@ -222,7 +224,7 @@ export const resolveMcpServerSourceRequest: (
 > = Effect.fn("InstallExtensions.resolveMcpSource")(function* (
   request: ParsedMcpServerInstallRequest,
 ) {
-  const ws = yield* WorkspaceMutations;
+  const desiredState = yield* DesiredStateReader;
   const source = yield* resolveSource(request.resolvedInput).pipe(
     Effect.mapError((cause) =>
       installRefused({
@@ -247,7 +249,7 @@ export const resolveMcpServerSourceRequest: (
     owner: request.owner,
     name: request.serverName,
   });
-  const graph = yield* ws.getDesiredStateGraph().pipe(
+  const graph = yield* desiredState.graph().pipe(
     Effect.mapError((cause) =>
       installRefused({
         category: "internal",
@@ -336,10 +338,10 @@ export const finalizeMcpServerInstallIntent: (
     request: ParsedMcpServerInstallRequest,
     refs: ReadonlyArray<McpServerExtensionRef>,
   ) {
-    const ws = yield* WorkspaceMutations;
+    const settings = yield* SettingsReader;
     const [ref] = refs;
     if (ref === undefined) {
-      const hosts = yield* ws.getRegistrySourceHosts().pipe(
+      const hosts = yield* settings.registrySourceHosts.pipe(
         Effect.mapError((cause) =>
           installRefused({
             category: "internal",
@@ -378,11 +380,12 @@ export const planMcpServerInstall: (
   ExtensionLifecycleFailed,
   InstallStepRequirements
 > = Effect.fn("InstallExtensions.planMcpServer")(function* (intent: McpServerInstallIntent) {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const settings = yield* SettingsReader;
   // A user-scope workspace can only hold an MCP configuration when every
   // configured agent has a user-scope MCP config target to write into.
-  if (ws.scope === "user") {
-    const configuredAgents = yield* ws.getConfiguredAgents().pipe(
+  if (location.scope === "user") {
+    const configuredAgents = yield* settings.configuredAgents.pipe(
       Effect.mapError((cause) =>
         installRefused({
           category: "internal",
@@ -399,9 +402,9 @@ export const planMcpServerInstall: (
       if (capability.axm.writer === null || !("transports" in capability.native)) {
         return [`${agentId}: no MCP config support`];
       }
-      return capability.axm.writer.config.targets.some((target) => target.scope === ws.scope)
+      return capability.axm.writer.config.targets.some((target) => target.scope === location.scope)
         ? []
-        : [`${agentId}: no ${ws.scope} MCP config target`];
+        : [`${agentId}: no ${location.scope} MCP config target`];
     });
     if (refused.length > 0) {
       return yield* installRefused({
@@ -444,11 +447,11 @@ export const planMcpServerInstall: (
           detail: `Cannot read MCP manifest for ${intent.localName}`,
         });
       }
-      const entries = yield* ws.getConfiguredMcpServerEntries();
+      const entries = yield* settings.entries("mcp-server");
       yield* validateManifestMcpServerTargets({
         manifest: manifest.value,
-        agentIds: yield* ws.getConfiguredAgents(),
-        scope: ws.scope,
+        agentIds: yield* settings.configuredAgents,
+        scope: location.scope,
         serverName: intent.localName,
         values: { ...entries[intent.localName]?.env, ...intent.env },
         enabled: entries[intent.localName]?.enabled ?? true,

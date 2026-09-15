@@ -12,6 +12,14 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
+import {
+  DesiredStateReader,
+  DesiredStateWriter,
+  WorkspaceLocation,
+  type LockfileReader,
+  type SettingsReader,
+} from "@agentxm/workspace-state";
+
 import * as Option from "effect/Option";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { NativeWriteAuthority } from "@agentxm/agent-integration";
@@ -20,13 +28,6 @@ import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import type { StepFailure } from "@agentxm/workspace-operations";
 import { appendWarningsToMessage } from "@agentxm/workspace-operations";
 import type { JobStepResult, Operation } from "@agentxm/workspace-operations";
-import {
-  type DesiredStateReader,
-  type LockfileReader,
-  type SettingsReader,
-  type WorkspaceLocation,
-  WorkspaceMutations,
-} from "@agentxm/workspace-state";
 import { removeIfExists } from "@agentxm/workspace-state";
 import {
   acceptedCanonicalObservation,
@@ -234,11 +235,11 @@ export const uninstallMcpServer: (
   StepFailure,
   | FileSystem.FileSystem
   | Path.Path
-  | WorkspaceMutations
   | WorkspaceLocation
   | SettingsReader
   | LockfileReader
   | DesiredStateReader
+  | DesiredStateWriter
   | CodingAgentRepository
   | NativeWriteAuthority
   | McpSecretStore
@@ -247,10 +248,12 @@ export const uninstallMcpServer: (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const desiredState = yield* DesiredStateReader;
+    const desiredStateWriter = yield* DesiredStateWriter;
     const strictAgentSync = Option.getOrElse(op.args.strictAgentSync ?? Option.none(), () => false);
 
-    const desired = yield* ws.getDesiredStateGraph();
+    const desired = yield* desiredState.graph();
     if (!desired.complete) {
       return yield* new ExtensionLifecycleFailed({
         category: "conflict",
@@ -301,11 +304,11 @@ export const uninstallMcpServer: (
 
     // Workspace files and projections are transaction-owned. Keychain cleanup
     // intentionally runs afterward and reports recoverable credential residue.
-    yield* ws.removeMcpServer(op.args.serverName);
+    yield* desiredStateWriter.undeclare("mcp-server", op.args.serverName);
 
     const agentSync = yield* syncConfiguredAgentsOnUninstall({
-      wsBaseDir: ws.baseDir,
-      scope: ws.scope,
+      wsBaseDir: location.baseDir,
+      scope: location.scope,
       strict: strictAgentSync,
       serverName: op.args.serverName,
     });
@@ -319,7 +322,7 @@ export const uninstallMcpServer: (
         ? []
         : yield* deleteMcpSecrets(
             {
-              scopeRoot: path.resolve(ws.baseDir),
+              scopeRoot: path.resolve(location.baseDir),
               localName: op.args.serverName,
               sourceIdentity: desiredNode.identity,
             },
@@ -342,10 +345,10 @@ export const uninstallMcpServer: (
       ),
       artifact: mcpServerArtifact({
         lockEntry: undefined,
-        scope: ws.scope,
+        scope: location.scope,
         change: "removed",
         targets: [
-          mcpSettingsTarget(ws.scope, "removed"),
+          mcpSettingsTarget(location.scope, "removed"),
           ...(agentTarget === undefined ? [] : [agentTarget]),
         ],
       }),

@@ -24,7 +24,7 @@ import {
   SettingsReader,
   SettingsWriter,
   AcceptedResolutionWriter,
-  WorkspaceMutations,
+  DesiredStateReader,
   type WorkspaceStateReadFailure,
   type WorkspaceStateMutationFailure,
 } from "@agentxm/workspace-state";
@@ -204,7 +204,7 @@ export type RecipeRequirements =
   | SettingsReader
   | SettingsWriter
   | AcceptedResolutionWriter
-  | WorkspaceMutations;
+  | DesiredStateReader;
 
 const NO_PROJECTION_WARNINGS: ReadonlyArray<string> = [];
 
@@ -391,7 +391,7 @@ const runInstallOperation = <TRef extends ExtensionRef, TMaterialization, F, R>(
           });
         }
         yield* recordMaterialization({ ref: args.ref, name: target.name, resolution });
-        const graph = yield* (yield* WorkspaceMutations).getDesiredStateGraph();
+        const graph = yield* (yield* DesiredStateReader).graph();
         const resulting = graph.nodes.find(
           (node) => node.type === target.type && node.name === target.name,
         );
@@ -909,7 +909,7 @@ const runUninstallOperation = <TTarget extends ExtensionTarget, TMaterialization
       });
       if (stillRequiredByPack) {
         yield* (yield* SettingsWriter).removeEntry(args.target.type, args.target.name);
-        const graph = yield* (yield* WorkspaceMutations).getDesiredStateGraph();
+        const graph = yield* (yield* DesiredStateReader).graph();
         const retained = graph.nodes.find(
           (node) => node.type === args.target.type && node.name === args.target.name,
         );

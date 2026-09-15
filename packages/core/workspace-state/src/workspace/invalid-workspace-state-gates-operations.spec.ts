@@ -14,7 +14,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { LOCKFILE_VERSION } from "../lockfile/schema.js";
 import { WorkspaceStateLive } from "../live.js";
-import { WorkspaceMutations } from "./service-interface.js";
+import { WorkspaceRecords } from "./workspace-records.js";
 
 export const specification = defineSpecification({
   requirement: "cli/invalid-workspace-state-gates-operations",
@@ -241,7 +241,7 @@ describe("Invalid workspace state gates operations", () => {
         const scope = row.file.startsWith("user") ? "user" : "project";
         const failure = yield* Effect.flip(
           Effect.provide(
-            Effect.flatMap(WorkspaceMutations, (state) => state.records.rows("skill")),
+            Effect.flatMap(WorkspaceRecords, (records) => records.rows("skill")),
             workspace.layerFor(scope),
           ),
         );
@@ -267,7 +267,7 @@ describe("Invalid workspace state gates operations", () => {
 
       const read = () =>
         Effect.provide(
-          Effect.flatMap(WorkspaceMutations, (state) => state.records.rows("skill")),
+          Effect.flatMap(WorkspaceRecords, (records) => records.rows("skill")),
           workspace.layerFor("project"),
         );
 

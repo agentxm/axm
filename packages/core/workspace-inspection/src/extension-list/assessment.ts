@@ -31,8 +31,10 @@ import type {
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 import type { ExtensionInventoryLifecycle, ReadModelRecordRow } from "@agentxm/workspace-state";
 import {
-  WorkspaceMutations,
-  type WorkspaceMutationsService,
+  LockfileReader,
+  type LockfileReaderService,
+  SettingsReader,
+  WorkspaceRecords,
   type WorkspaceStateReadFailure,
 } from "@agentxm/workspace-state";
 import { checkCurrency } from "../version-currency/index.js";
@@ -86,25 +88,25 @@ type AcceptedEntry =
   | PackLockEntry;
 
 const getAcceptedEntry = (
-  ws: WorkspaceMutationsService,
+  lockfile: LockfileReaderService,
   type: InstallableExtensionType,
   name: string,
 ): Effect.Effect<Option.Option<AcceptedEntry>, WorkspaceStateReadFailure> => {
   switch (type) {
     case "skill":
-      return ws.getLockedSkill(name);
+      return lockfile.entry("skill", name);
     case "mcp-server":
-      return ws.getLockedMcpServerForConnection(name);
+      return lockfile.mcpServerForConnection(name);
     case "subagent":
-      return ws.getLockedSubagent(name);
+      return lockfile.entry("subagent", name);
     case "rule":
-      return ws.getLockedRuleEntry(name);
+      return lockfile.entry("rule", name);
     case "hook":
-      return ws.getLockedHookEntry(name);
+      return lockfile.entry("hook", name);
     case "knowledge":
-      return ws.getLockedKnowledgeEntry(name);
+      return lockfile.entry("knowledge", name);
     case "pack":
-      return ws.getLockedPack(name);
+      return lockfile.entry("pack", name);
   }
 };
 
@@ -138,24 +140,25 @@ const inventoryKey = (type: string, name: string): string => `${type}:${name}`;
 
 export const collectExtensionListItems = Effect.fn("Workspace.collectExtensionListItems")(
   function* (type?: InstallableExtensionType) {
-    const ws = yield* WorkspaceMutations;
-    const inventory = yield* ws.records.getInventory(type === undefined ? {} : { type });
+    const lockfile = yield* LockfileReader;
+    const records = yield* WorkspaceRecords;
+    const inventory = yield* records.getInventory(type === undefined ? {} : { type });
     const types = type === undefined ? installableExtensionTypes : [type];
     const rowsByKey = new Map<string, ReadModelRecordRow>();
-    const rowsByType = yield* Effect.forEach(types, (itemType) => ws.records.rows(itemType), {
+    const rowsByType = yield* Effect.forEach(types, (itemType) => records.rows(itemType), {
       concurrency: "unbounded",
     });
     for (const row of rowsByType.flat()) {
       rowsByKey.set(inventoryKey(row.type, row.name), row);
     }
     const [skills, mcps, subagents, rules, hooks, knowledge, packs] = yield* Effect.all([
-      ws.getLockedSkills(),
-      ws.getLockedMcpServers(),
-      ws.getLockedSubagents(),
-      ws.getLockedRules(),
-      ws.getLockedHooks(),
-      ws.getLockedKnowledge(),
-      ws.getLockedPacks(),
+      lockfile.entries("skill"),
+      lockfile.entries("mcp-server"),
+      lockfile.entries("subagent"),
+      lockfile.entries("rule"),
+      lockfile.entries("hook"),
+      lockfile.entries("knowledge"),
+      lockfile.entries("pack"),
     ]);
     const accepted = (
       itemType: InstallableExtensionType,
@@ -236,7 +239,7 @@ const registryAssessment = Effect.fn("Workspace.registryExtensionAssessment")(fu
   filter: Exclude<ExtensionListFilter, "all">,
   record: AcceptedEntry,
 ) {
-  const ws = yield* WorkspaceMutations;
+  const settings = yield* SettingsReader;
   if (record.type !== "registry") {
     return {
       state: "unknown",
@@ -245,7 +248,7 @@ const registryAssessment = Effect.fn("Workspace.registryExtensionAssessment")(fu
   }
   const identity = { owner: record.owner, type: item.type, name: record.name };
   const sourceName = record.sourceName;
-  const source = yield* ws.getConfiguredSourceByName(sourceName);
+  const source = yield* settings.sourceByName(sourceName);
   if (Option.isNone(source) || source.value.type !== "registry") {
     return {
       state: "unknown",
@@ -384,11 +387,11 @@ export const assessExtensionListItems = Effect.fn("Workspace.assessExtensionList
   items: ReadonlyArray<ExtensionListItem>,
   filter: Exclude<ExtensionListFilter, "all">,
 ) {
-  const ws = yield* WorkspaceMutations;
+  const lockfile = yield* LockfileReader;
   return yield* Effect.forEach(
     items,
     (item) => {
-      return getAcceptedEntry(ws, item.type, item.name).pipe(
+      return getAcceptedEntry(lockfile, item.type, item.name).pipe(
         Effect.flatMap((accepted) => assessItem(item, filter, Option.getOrUndefined(accepted))),
         Effect.map((assessment): ExtensionListItem => ({ ...item, assessment })),
       );

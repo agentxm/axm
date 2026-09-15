@@ -20,6 +20,7 @@ import type { AuthorMaterialization } from "@agentxm/workspace-operations";
  */
 
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
 import * as FileSystem from "effect/FileSystem";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Option from "effect/Option";
@@ -82,16 +83,18 @@ import {
 } from "@agentxm/workspace-operations";
 import type { CodingAgentRepository } from "@agentxm/workspace-projection";
 import {
-  WorkspaceMutations,
+  AcceptedResolutionWriter,
+  DesiredStateWriter,
+  SettingsWriter,
   type ConfiguredAgentOutcomesProvider,
   computePackageContentHash,
   type LockfileReader,
   type LockfileValidationError,
   type PackageContentHashFailed,
-  type SettingsReader,
-  type WorkspaceLocation,
+  SettingsReader,
+  WorkspaceLocation,
   type WorkspaceLockfileReadFailure,
-  type WorkspaceRecords,
+  WorkspaceRecords,
   type WorkspaceSettingsReadFailure,
 } from "@agentxm/workspace-state";
 
@@ -140,7 +143,11 @@ export interface ForkExtensionRequest {
 export type ForkExtensionRequirements =
   | ManagerRequirements
   | RecipeRequirements
-  | WorkspaceMutations
+  | AcceptedResolutionWriter
+  | DesiredStateWriter
+  | SettingsReader
+  | SettingsWriter
+  | WorkspaceLocation
   | LockfileReader
   | SettingsReader
   | WorkspaceLocation
@@ -190,7 +197,11 @@ export type PrepareForkExtensionRequirements =
   | Path.Path
   | Scope.Scope
   | HttpClient.HttpClient
-  | WorkspaceMutations
+  | AcceptedResolutionWriter
+  | DesiredStateWriter
+  | SettingsReader
+  | SettingsWriter
+  | WorkspaceLocation
   | LockfileReader
   | SettingsReader
   | WorkspaceLocation
@@ -269,7 +280,7 @@ const selectPackage = (
 
 /**
  * Build the fork's publication step with the requirements this use case keeps
- * in `R`, so the workspace facade and the credential store stay requirements
+ * in `R`, so the workspace state ports and the credential store stay requirements
  * rather than captured values.
  */
 const forkStep = <TRef extends ExtensionRef, TFacts>(
@@ -298,7 +309,12 @@ export const prepareForkExtension: (
   request: ForkExtensionRequest,
 ) => Effect.Effect<ForkExtensionCandidate, ForkExtensionFailure, PrepareForkExtensionRequirements> =
   Effect.fn("ForkExtension.prepare")(function* (request) {
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const layout = yield* Ref.get(location.layout);
+    const settings = yield* SettingsReader;
+    const settingsWriter = yield* SettingsWriter;
+    const accepted = yield* AcceptedResolutionWriter;
+    const desiredStateWriter = yield* DesiredStateWriter;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 
@@ -306,8 +322,8 @@ export const prepareForkExtension: (
 
     const target = yield* Effect.fromResult(parseFqn(request.target));
     yield* requireAuthoredOwner(target.owner, { subject: "package", command: "fork" });
-    if (ws.layout.scope !== "project") {
-      return yield* new AuthoringScopeUnsupported({ subject: "fork", scope: ws.layout.scope });
+    if (layout.scope !== "project") {
+      return yield* new AuthoringScopeUnsupported({ subject: "fork", scope: layout.scope });
     }
 
     const source = yield* resolveSource(request.source);
@@ -317,7 +333,7 @@ export const prepareForkExtension: (
         ? [
             {
               ...(yield* inspectExtensionPackage(
-                path.join(ws.layout.authoredRoot(source.extensionType), source.name),
+                path.join(layout.authoredRoot(source.extensionType), source.name),
               )),
               origin: providers.origin(source),
             },
@@ -332,9 +348,9 @@ export const prepareForkExtension: (
     const selected = yield* selectPackage(packages);
 
     const name = target.name;
-    const targetDir = path.join(ws.layout.authoredRoot(target.type), name);
-    const authoredPath = path.relative(ws.baseDir, targetDir);
-    const settingsPath = settingsRelativePath(path, ws);
+    const targetDir = path.join(layout.authoredRoot(target.type), name);
+    const authoredPath = path.relative(location.baseDir, targetDir);
+    const settingsPath = settingsRelativePath(path, location, layout);
     const fqn = formatFqn(target);
 
     // Refuse an occupied destination here, so a preview refuses it too; the
@@ -367,13 +383,17 @@ export const prepareForkExtension: (
     });
     const stagedHash = yield* computePackageContentHash(stagedPackage);
 
-    const declaration = authoredDeclaration(ws, target.type, name);
+    const declaration = authoredDeclaration(
+      { settings, settingsWriter, accepted, desiredStateWriter },
+      target.type,
+      name,
+    );
     const current = yield* declaration.read;
     const enabled = request.enable || Option.getOrElse(current.enabled, () => false);
 
     const artifact: JobStepArtifact = {
       path: authoredPath,
-      scope: ws.scope,
+      scope: location.scope,
       version: INITIAL_FORK_VERSION,
       change: "created",
       targets: [
@@ -395,11 +415,11 @@ export const prepareForkExtension: (
       plannedArtifact: artifact,
       buildArtifact: () => Effect.succeed(artifact),
       preflight: Effect.gen(function* () {
-        yield* recoverCanonicalDirectory({ baseDir: ws.baseDir, canonicalPath: targetDir });
+        yield* recoverCanonicalDirectory({ baseDir: location.baseDir, canonicalPath: targetDir });
         yield* createOnly;
       }),
       scaffold: createCanonicalDirectory<AuthoringStepFailure, FileSystem.FileSystem | Path.Path>({
-        baseDir: ws.baseDir,
+        baseDir: location.baseDir,
         canonicalPath: targetDir,
         subject: "Fork target",
         populate: (publicationPath) =>

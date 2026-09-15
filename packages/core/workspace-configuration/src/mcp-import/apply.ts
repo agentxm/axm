@@ -17,7 +17,11 @@ import {
   type ConfigurableAgentId,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { buildAxmMcpMetadataFromSettingsSource } from "@agentxm/agent-integration";
-import { type WorkspaceMutationsService } from "@agentxm/workspace-state";
+import type {
+  SettingsReaderService,
+  SettingsWriterService,
+  WorkspaceLocationService,
+} from "@agentxm/workspace-state";
 import { AXM_MCP_METADATA_KEY, isAxmManagedMcpEntry } from "@agentxm/agent-integration";
 import type { McpServerEntry } from "@agentxm/workspace-state";
 import { runWorkspaceTransaction } from "@agentxm/workspace-transactions";
@@ -103,7 +107,8 @@ const readJsonObject = (
  * this workspace scope, with unsupported-format findings.
  */
 export const collectMcpImportSources = (
-  ws: WorkspaceMutationsService,
+  location: WorkspaceLocationService,
+  settings: SettingsReaderService,
   fs: FileSystem.FileSystem,
   path: Path.Path,
 ) =>
@@ -125,7 +130,7 @@ export const collectMcpImportSources = (
       );
     };
 
-    const agentIds = [...(yield* ws.getConfiguredAgents())].sort((left, right) =>
+    const agentIds = [...(yield* settings.configuredAgents)].sort((left, right) =>
       left.localeCompare(right),
     );
     for (const agentId of agentIds) {
@@ -133,18 +138,18 @@ export const collectMcpImportSources = (
       const mcpConfig = readAgentMcpConfig(CONFIGURABLE_AGENTS_BY_ID[agentId]);
       if (Option.isNone(mcpConfig)) continue;
       const targets = mcpConfig.value.targets
-        .filter((target) => target.scope === ws.scope)
+        .filter((target) => target.scope === location.scope)
         .sort((left, right) => left.path.localeCompare(right.path));
       for (const target of targets) {
         const relativeTarget = target.path.startsWith("~/") ? target.path.slice(2) : target.path;
-        const configPath = path.resolve(ws.baseDir, relativeTarget);
+        const configPath = path.resolve(location.baseDir, relativeTarget);
         if (target.format !== "json") {
           const exists = yield* fs
             .exists(configPath)
             .pipe(Effect.catch(() => Effect.succeed(false)));
           if (exists) {
             const finding = {
-              name: path.relative(ws.baseDir, configPath),
+              name: path.relative(location.baseDir, configPath),
               reason: `Unsupported MCP config format: ${target.format}`,
             };
             skipped.set(`${finding.name}\0${finding.reason}`, finding);
@@ -261,7 +266,8 @@ const validateAdoption = (
  */
 export const applyMcpImport = (
   candidates: ReadonlyArray<McpImportCandidate>,
-  ws: WorkspaceMutationsService,
+  settings: SettingsReaderService,
+  settingsWriter: SettingsWriterService,
   fs: FileSystem.FileSystem,
 ) => {
   const adoptions = candidates.flatMap((candidate) => candidate.adoptions);
@@ -277,7 +283,7 @@ export const applyMcpImport = (
     targets: Array.from(new Set(adoptions.map((adoption) => adoption.filePath))).sort(),
     transition: Effect.gen(function* () {
       for (const candidate of candidates) {
-        yield* ws.setMcpServerEntry(candidate.name, settingsEntry(candidate));
+        yield* settingsWriter.setEntry("mcp-server", candidate.name, settingsEntry(candidate));
       }
       for (const adoption of adoptions) {
         yield* writeAdoptedMcpConfig(fs, adoption);
@@ -285,7 +291,7 @@ export const applyMcpImport = (
     }),
     validate: () =>
       Effect.gen(function* () {
-        const configured = yield* ws.getConfiguredMcpServerEntries();
+        const configured = yield* settings.entries("mcp-server");
         for (const candidate of candidates) {
           if (!candidateMatchesSettings(candidate, configured[candidate.name])) {
             return yield* new WorkspaceConfigurationFailed({

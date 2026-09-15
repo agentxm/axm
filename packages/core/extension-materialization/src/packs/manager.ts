@@ -14,6 +14,14 @@ import { usableAcceptedCanonical } from "@agentxm/workspace-state";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
+import {
+  LockfileReader,
+  SettingsReader,
+  WorkspaceLocation,
+  WorkspaceRecords,
+} from "@agentxm/workspace-state";
+
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import {
@@ -34,7 +42,7 @@ import type {
 import { SourceHostProviders } from "@agentxm/extension-sources";
 import { PackManager, type PackMaterializationFacts } from "../managers.js";
 import type { ExtensionTarget } from "@agentxm/workspace-state";
-import { WorkspaceMutations, type SetPackArgs } from "@agentxm/workspace-state";
+import { type SetPackArgs } from "@agentxm/workspace-state";
 import { copyExtensionDirectory } from "../extensions/copy-directory.js";
 import { computePackPathsForLayout } from "@agentxm/workspace-state";
 import { removeIfExists } from "@agentxm/workspace-state";
@@ -93,11 +101,15 @@ const buildSetPackArgs = (
 export const PackManagerLive = Layer.effect(
   PackManager,
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
+    const lockfile = yield* LockfileReader;
+    const records = yield* WorkspaceRecords;
+    const currentLayout = () => Ref.getUnsafe(location.layout);
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const sources = yield* SourceHostProviders;
-    const baseDir = ws.baseDir;
+    const baseDir = location.baseDir;
 
     const noContent: PackMaterializationFacts = {
       treeIntegrity: Option.none(),
@@ -115,14 +127,14 @@ export const PackManagerLive = Layer.effect(
 
       const packDir = computePackPathsForLayout(
         path.join,
-        ws.layout,
+        currentLayout(),
         ref.refType === "workspace" ? "workspace" : ref.source.name,
         ref.owner,
         ref.pack.name,
       ).canonicalPath;
       const canonicalExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
       if (ref.refType === "workspace") {
-        if (ref.scope !== ws.scope || path.resolve(ref.location) !== path.resolve(packDir)) {
+        if (ref.scope !== location.scope || path.resolve(ref.location) !== path.resolve(packDir)) {
           return yield* new PackDefinitionInvalid({
             detail: `Invalid workspace pack source location: ${ref.location}`,
           });
@@ -134,7 +146,7 @@ export const PackManagerLive = Layer.effect(
         }
         return noContent;
       }
-      const lockedEntry = yield* ws.getLockedPack(ref.pack.name);
+      const lockedEntry = yield* lockfile.entry("pack", ref.pack.name);
       const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, ref);
       if (
         yield* canReuseInstalledPackage({
@@ -213,7 +225,7 @@ export const PackManagerLive = Layer.effect(
       }: {
         readonly target: ExtensionTarget;
       }) {
-        return yield* isObservedInstalled(ws, "pack", target.name);
+        return yield* isObservedInstalled(records, "pack", target.name);
       }),
       materializeInstall,
       acquireCanonical: materializeInstall,
@@ -224,13 +236,13 @@ export const PackManagerLive = Layer.effect(
           ref,
         }),
       getConfiguredSource: Effect.fn("PackManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* ws.getConfiguredPackEntries();
+        const configured = yield* settings.entries("pack");
         return Option.fromUndefinedOr(configured[target.name]?.source);
       }),
       listMaterializable: Effect.fn("PackManager.listMaterializable")(function* () {
-        const configured = yield* ws.records.rows("pack").pipe(Effect.map(configuredRowsByName));
+        const configured = yield* records.rows("pack").pipe(Effect.map(configuredRowsByName));
         return yield* configuredPacksToDiskRefs(
-          { fs, path, baseDir, scope: ws.scope, layout: ws.layout },
+          { fs, path, baseDir, scope: location.scope, layout: currentLayout() },
           configured,
         );
       }),

@@ -19,10 +19,8 @@ import { HookManager } from "../managers.js";
 import { applyPlannedProjections } from "@agentxm/workspace-projection";
 import { SourceHostProviders, SourceNotResolvable } from "@agentxm/extension-sources";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
 import type { Settings } from "@agentxm/workspace-state";
 import {
-  makeBaseWorkspaceMock,
   MockWorkspaceTransactionScope,
   TEST_CONTENT_IDENTITY,
   WorkspaceReadTest,
@@ -129,43 +127,35 @@ const makeHookManagerLayer = (
         ]),
       ),
     );
-  const workspace = makeBaseWorkspaceMock(axmDir, {
-    getConfiguredAgents: () => Effect.succeed(options?.configuredAgents ?? ["claude-code"]),
-    getConfiguredHookEntries: () => Effect.succeed(entries),
-    getLockedHooks: readLockedHooks,
-  });
   return HookManagerLive.pipe(
     Layer.provideMerge(WorkspaceCatalogTestLive),
     Layer.provideMerge(CodingAgentRepositoryLive),
     Layer.provideMerge(
-      Layer.merge(
-        Layer.succeed(WorkspaceMutations, workspace),
-        WorkspaceReadTest({
-          baseDir: workspaceRoot,
-          runtimeDir: axmDir,
-          settings: {
-            agents: [...(options?.configuredAgents ?? ["claude-code"])],
-            hooks: entries,
-          },
-          acceptedResolutions: readLockedHooks().pipe(
-            Effect.map((hooks) => ({ lockfileVersion: 7, skills: {}, hooks })),
-          ),
-          graph: {
-            complete: true,
-            nodes: hookNames.map((name) => ({
-              type: "hook" as const,
-              name,
-              identity: "./source-hook",
-              source: "./source-hook",
-              enabled: true,
-              constraints: [],
-              origins: [{ type: "settings" as const, source: "./source-hook", enabled: true }],
-            })),
-            mcpSourceClosures: [],
-            problems: [],
-          },
-        }),
-      ),
+      WorkspaceReadTest({
+        baseDir: workspaceRoot,
+        runtimeDir: axmDir,
+        settings: {
+          agents: [...(options?.configuredAgents ?? ["claude-code"])],
+          hooks: entries,
+        },
+        acceptedResolutions: readLockedHooks().pipe(
+          Effect.map((hooks) => ({ lockfileVersion: 7, skills: {}, hooks })),
+        ),
+        graph: {
+          complete: true,
+          nodes: hookNames.map((name) => ({
+            type: "hook" as const,
+            name,
+            identity: "./source-hook",
+            source: "./source-hook",
+            enabled: true,
+            constraints: [],
+            origins: [{ type: "settings" as const, source: "./source-hook", enabled: true }],
+          })),
+          mcpSourceClosures: [],
+          problems: [],
+        },
+      }),
     ),
     Layer.provideMerge(MockWorkspaceTransactionScope(axmDir)),
     Layer.provide(makeSourceHostProviders()),

@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import type { JobStepResult, Plan, StepFailure } from "@agentxm/workspace-operations";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { SettingsWriter } from "@agentxm/workspace-state";
 import { resolveTargetedUpdateContext } from "@agentxm/extension-resolution";
 
 import { ExtensionLifecycleFailed } from "../errors.js";
@@ -36,9 +36,8 @@ describe("targeted update transaction", () => {
   });
 
   /** The workspace, its transaction scope, and the platform, over the temp root. */
-  const provide = <A, E>(
-    effect: Effect.Effect<A, E, InstallStepRequirements | WorkspaceMutations>,
-  ) => workspace.provide(effect).pipe(Effect.provide(NodeServices.layer));
+  const provide = <A, E>(effect: Effect.Effect<A, E, InstallStepRequirements | SettingsWriter>) =>
+    workspace.provide(effect).pipe(Effect.provide(NodeServices.layer));
 
   const planWithStep = (run: Effect.Effect<JobStepResult, StepFailure>) =>
     ({
@@ -102,12 +101,12 @@ describe("targeted update transaction", () => {
   it.effect("rolls back a member step that violates the ownership postcondition", () =>
     provide(
       Effect.gen(function* () {
-        const mutations = yield* WorkspaceMutations;
+        const settingsWriter = yield* SettingsWriter;
         const settingsBefore = workspace.readFile("axm.json");
         const context = yield* resolveTargetedUpdateContext({ target });
         const wrapped = yield* wrapTargetedUpdatePlan({
           plan: planWithStep(
-            mutations.removeSkillFromSettings(target.name).pipe(
+            settingsWriter.removeEntry("skill", target.name).pipe(
               Effect.mapError(lifecycleStepFailure),
               Effect.map(() => ({
                 result: "success" as const,

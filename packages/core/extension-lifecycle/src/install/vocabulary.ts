@@ -44,13 +44,16 @@ import type {
 import type { CodingAgentRepository, WorkspaceInvariantFacts } from "@agentxm/workspace-projection";
 import type {
   AcceptedCanonicalRefError,
+  AcceptedResolutionWriter,
   ConfiguredAgentOutcomesProvider,
   DesiredStateReader,
+  DesiredStateWriter,
+  ExtensionPaths,
   LockfileValidationError,
   LockfileReader,
   SettingsReader,
+  SettingsWriter,
   WorkspaceLocation,
-  WorkspaceMutations,
   WorkspaceRecords,
   WorkspaceSettingsReadFailure,
   WorkspaceStateReadFailure,
@@ -70,7 +73,7 @@ import { ExtensionLifecycleFailed } from "../errors.js";
 /**
  * What an install or uninstall plan step declares at execution time: the
  * manager's own requirements, the transaction scope its closure opens, the
- * keychain an MCP connection reads, and the workspace facade and agent
+ * keychain an MCP connection reads, and the owned workspace-state ports and agent
  * repository its artifact observes. These travel with the step and are
  * composed once at the application's runtime boundary; nothing is captured
  * into a step's closure on the way, and no failure adapter is among them.
@@ -83,7 +86,14 @@ export type InstallStepRequirements =
   | LockfileReader
   | WorkspaceRecords
   | WorkspaceInvariantFacts
-  | WorkspaceMutations
+  | WorkspaceLocation
+  | SettingsReader
+  | SettingsWriter
+  | LockfileReader
+  | DesiredStateReader
+  | DesiredStateWriter
+  | AcceptedResolutionWriter
+  | ExtensionPaths
   | NativeWriteAuthority;
 
 /**
@@ -97,7 +107,6 @@ export type ResolveInstallRequirements =
   | Scope.Scope
   | SourceHostProviders
   | WorkspaceCatalog
-  | WorkspaceMutations
   | WorkspaceLocation
   | SettingsReader
   | LockfileReader
@@ -122,7 +131,7 @@ export type InstallExecutionFailure =
 /**
  * Everything settling an install reads, and everything resolving the settled
  * candidate writes through: the sources it resolves against, the workspace
- * facade and agent outcomes it reads, the journal and footprint the operation
+ * state ports and agent outcomes it reads, the journal and footprint the operation
  * records into, and the interaction that presents and confirms it.
  */
 export type PrepareInstallRequirements =

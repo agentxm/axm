@@ -9,11 +9,19 @@ import { usableAcceptedCanonical } from "@agentxm/workspace-state";
  */
 
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
+import {
+  DesiredStateReader,
+  LockfileReader,
+  SettingsReader,
+  WorkspaceLocation,
+  WorkspaceRecords,
+} from "@agentxm/workspace-state";
+
 import { stripFileProtocol } from "@agentxm/registry-client";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Ref from "effect/Ref";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
@@ -81,7 +89,6 @@ import type { HookMaterializationFacts } from "../managers.js";
 import { HookManager } from "../managers.js";
 import { HOOK_FALLBACKS_REGION_OWNER } from "@agentxm/workspace-projection";
 import type { ExtensionTarget } from "@agentxm/workspace-state";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { isObservedInstalled } from "@agentxm/workspace-state";
 import {
   acceptedCanonicalObservation,
@@ -412,18 +419,27 @@ const appendCommandHookBinding = (
 export const HookManagerLive = Layer.effect(
   HookManager,
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
+    const lockfile = yield* LockfileReader;
+    const desiredState = yield* DesiredStateReader;
+    const records = yield* WorkspaceRecords;
+    const currentLayout = () => Ref.getUnsafe(location.layout);
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const sources = yield* SourceHostProviders;
     const catalog = yield* WorkspaceCatalog;
-    const baseDir = ws.baseDir;
+    const baseDir = location.baseDir;
 
-    // The workspace facade and the source integration are this layer's own
+    // The workspace state ports and source integration are this layer's own
     // dependencies; the platform stays in `R` for every member.
     const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       effect.pipe(
-        Effect.provideService(WorkspaceMutations, ws),
+        Effect.provideService(WorkspaceLocation, location),
+        Effect.provideService(SettingsReader, settings),
+        Effect.provideService(LockfileReader, lockfile),
+        Effect.provideService(DesiredStateReader, desiredState),
+        Effect.provideService(WorkspaceRecords, records),
         Effect.provideService(SourceHostProviders, sources),
         Effect.provideService(WorkspaceCatalog, catalog),
       );
@@ -449,12 +465,12 @@ export const HookManagerLive = Layer.effect(
       Effect.gen(function* () {
         const canonicalPath = computeExtensionPathsForLayout(
           path.join,
-          ws.layout,
+          currentLayout(),
           ref,
           HOOK_EXTENSION_DIR,
           ref.name,
         ).canonicalPath;
-        const lockedEntry = yield* ws.getLockedHookEntry(ref.hook.name);
+        const lockedEntry = yield* lockfile.entry("hook", ref.hook.name);
         const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, ref);
         const reuse = yield* provide(
           canReuseInstalledPackage({
@@ -500,7 +516,7 @@ export const HookManagerLive = Layer.effect(
           baseDir,
           canonicalPath: computeExtensionPathsForLayout(
             path.join,
-            ws.layout,
+            currentLayout(),
             ref,
             HOOK_EXTENSION_DIR,
             ref.hook.name,
@@ -537,13 +553,13 @@ export const HookManagerLive = Layer.effect(
           case "workspace": {
             const expectedPath = computeExtensionPathsForLayout(
               path.join,
-              ws.layout,
+              currentLayout(),
               ref,
               HOOK_EXTENSION_DIR,
               ref.name,
             ).canonicalPath;
             if (
-              ref.scope !== ws.scope ||
+              ref.scope !== location.scope ||
               path.resolve(ref.location) !== path.resolve(expectedPath)
             ) {
               return yield* new HookDefinitionInvalid({
@@ -605,7 +621,7 @@ export const HookManagerLive = Layer.effect(
     }) =>
       provide(
         activeContributors({
-          layout: ws.layout,
+          layout: currentLayout(),
           path,
           type: "hook",
           extensionDir: HOOK_EXTENSION_DIR,
@@ -723,7 +739,7 @@ export const HookManagerLive = Layer.effect(
 
     const hookFallbackTarget = () =>
       Effect.gen(function* () {
-        const config = yield* ws.getInstructionsConfig();
+        const config = yield* settings.instructionsConfig;
         const resolved = resolveInstructionsConfig(
           Option.isSome(config) && config.value !== false ? config.value : undefined,
         );
@@ -845,13 +861,13 @@ export const HookManagerLive = Layer.effect(
 
     const makeHookProjectionPlans = (prospective: ReadonlyArray<RenderedHookContributor> = []) =>
       Effect.gen(function* () {
-        const configuredAgents = yield* ws.getConfiguredAgents();
+        const configuredAgents = yield* settings.configuredAgents;
         const targets = yield* configuredHookWriterTargets(configuredAgents, (configPath) =>
           path.resolve(baseDir, configPath),
         );
         const fallbackTarget = yield* hookFallbackTarget();
-        const graph = yield* ws.getDesiredStateGraph();
-        const locked = yield* ws.getLockedHooks();
+        const graph = yield* desiredState.graph();
+        const locked = yield* lockfile.entries("hook");
         const retained = yield* selectHookContributors({
           graph: {
             ...graph,
@@ -969,13 +985,13 @@ export const HookManagerLive = Layer.effect(
       proposedGraph?: DesiredStateGraph,
     ) =>
       Effect.gen(function* () {
-        const configuredAgents = yield* ws.getConfiguredAgents();
+        const configuredAgents = yield* settings.configuredAgents;
         const targets = yield* configuredHookWriterTargets(configuredAgents, (configPath) =>
           path.resolve(baseDir, configPath),
         );
         const fallbackTarget = yield* hookFallbackTarget();
-        const graph = proposedGraph ?? (yield* ws.getDesiredStateGraph());
-        const locked = yield* ws.getLockedHooks();
+        const graph = proposedGraph ?? (yield* desiredState.graph());
+        const locked = yield* lockfile.entries("hook");
         const contributors = yield* selectHookContributors({ graph, locked });
         return evaluateConfiguredOutcomes({
           configuredAgents,
@@ -988,7 +1004,7 @@ export const HookManagerLive = Layer.effect(
 
     const configuredAgentOutcomesForRef = (ref: HookExtensionRef, state: "projected" | "current") =>
       Effect.gen(function* () {
-        const configuredAgents = yield* ws.getConfiguredAgents();
+        const configuredAgents = yield* settings.configuredAgents;
         const targets = yield* configuredHookWriterTargets(configuredAgents, (configPath) =>
           path.resolve(baseDir, configPath),
         );
@@ -1030,7 +1046,7 @@ export const HookManagerLive = Layer.effect(
                   });
                 const canonicalPath = computeExtensionPathsForLayout(
                   path.join,
-                  ws.layout,
+                  currentLayout(),
                   ref,
                   HOOK_EXTENSION_DIR,
                   ref.hook.name,
@@ -1050,7 +1066,7 @@ export const HookManagerLive = Layer.effect(
             ),
           { concurrency: 1 },
         );
-        const configuredAgents = yield* ws.getConfiguredAgents();
+        const configuredAgents = yield* settings.configuredAgents;
         const targets = yield* configuredHookWriterTargets(configuredAgents, (configPath) =>
           path.resolve(baseDir, configPath),
         );
@@ -1194,7 +1210,7 @@ export const HookManagerLive = Layer.effect(
       configuredAgentOutcomes,
       configuredAgentOutcomesForRef,
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
-        isObservedInstalled(ws, "hook", target.name).pipe(
+        isObservedInstalled(records, "hook", target.name).pipe(
           Effect.withSpan("HookManager.isInstalled"),
         ),
 
@@ -1224,7 +1240,7 @@ export const HookManagerLive = Layer.effect(
           }),
         ),
       getConfiguredSource: Effect.fn("HookManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* ws.getConfiguredHookEntries();
+        const configured = yield* settings.entries("hook");
         return Option.fromUndefinedOr(configured[target.name]?.source);
       }),
 
@@ -1236,7 +1252,7 @@ export const HookManagerLive = Layer.effect(
        * an operator and the extension they are authoring.
        */
       listMaterializable: Effect.fn("HookManager.listMaterializable")(function* () {
-        const configured = yield* ws.getConfiguredHookEntries();
+        const configured = yield* settings.entries("hook");
         const refs = yield* Effect.forEach(
           enabledConfiguredEntries(configured),
           ([name]) =>

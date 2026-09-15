@@ -22,7 +22,7 @@ import {
   type JobStepResult,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
+import { SettingsReader, type SettingsReaderService } from "@agentxm/workspace-state";
 import {
   WorkspaceTransactionScope,
   runWorkspaceTransaction,
@@ -103,14 +103,12 @@ const rollbackResults = <Requirements, Output>(
  * happen, and the transaction restores what it found.
  */
 const verifyTransition = (
-  workspace: WorkspaceMutationsService,
+  settings: SettingsReaderService,
   transition: MembershipTransition,
 ): Effect.Effect<void, StepFailure> =>
   Effect.gen(function* () {
     const configured = new Set(
-      yield* workspace
-        .getConfiguredAgents()
-        .pipe(Effect.mapError(workspaceChangeFailedToStepFailure)),
+      yield* settings.configuredAgents.pipe(Effect.mapError(workspaceChangeFailedToStepFailure)),
     );
     const unmet =
       transition.kind === "add"
@@ -137,10 +135,10 @@ export const makeAtomicMembershipSteps = <Requirements, Output>(
 ): Effect.Effect<
   ReadonlyArray<PlannedJobStep<AtomicMembershipRequirements<Requirements>, Output>>,
   never,
-  WorkspaceMutations
+  SettingsReader
 > =>
   Effect.gen(function* () {
-    const workspace = yield* WorkspaceMutations;
+    const settings = yield* SettingsReader;
     if (args.steps.some((step) => step.readiness === "error")) {
       return args.steps.map(
         (step): PlannedJobStep<AtomicMembershipRequirements<Requirements>, Output> => step,
@@ -172,7 +170,7 @@ export const makeAtomicMembershipSteps = <Requirements, Output>(
         }
         return results;
       }),
-      validate: () => verifyTransition(workspace, args.transition),
+      validate: () => verifyTransition(settings, args.transition),
     }).pipe(
       Effect.catch((transactionError) =>
         Ref.get(attemptRef).pipe(

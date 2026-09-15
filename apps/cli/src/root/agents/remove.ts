@@ -22,7 +22,7 @@ import {
   type JobStepResult,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import type { WorkspaceMutations } from "@agentxm/workspace-state";
+import type { SettingsReader, WorkspaceLocation } from "@agentxm/workspace-state";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { emitOperationResolution } from "../../operation-output.js";
@@ -82,7 +82,8 @@ const cleanupStep = (args: {
   readonly preview: ReconcileAgentOutputsResult;
 }): PlannedJobStep<
   | NativeWriteAuthority
-  | WorkspaceMutations
+  | SettingsReader
+  | WorkspaceLocation
   | CodingAgentRepository
   | FileSystem.FileSystem
   | Path.Path

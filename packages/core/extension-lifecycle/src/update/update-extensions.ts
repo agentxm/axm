@@ -83,7 +83,7 @@ import {
   type PlanExecution,
 } from "@agentxm/workspace-operations";
 import {
-  WorkspaceMutations,
+  DesiredStateReader,
   WorkspaceRecords,
   acceptedResolutionRef,
   usableAcceptedCanonical,
@@ -317,8 +317,8 @@ const desiredNodeForIntent = (graph: DesiredStateGraph, intent: RootUpdateIntent
 const preservableRegistryVersion = Effect.fn("UpdateExtensions.preservableVersion")(function* (
   intent: RootUpdateIntent,
 ) {
-  const workspace = yield* WorkspaceMutations;
-  const graph = yield* workspace.getDesiredStateGraph();
+  const desiredState = yield* DesiredStateReader;
+  const graph = yield* desiredState.graph();
   if (!graph.complete) return Option.none<string>();
 
   const desired = desiredNodeForIntent(graph, intent);
@@ -362,8 +362,8 @@ const preservableRegistryVersion = Effect.fn("UpdateExtensions.preservableVersio
 const acceptedRegistryFloor = Effect.fn("UpdateExtensions.acceptedFloor")(function* (
   intent: RootUpdateIntent,
 ) {
-  const workspace = yield* WorkspaceMutations;
-  const graph = yield* workspace.getDesiredStateGraph();
+  const desiredState = yield* DesiredStateReader;
+  const graph = yield* desiredState.graph();
   const desired = desiredNodeForIntent(graph, intent);
   if (desired === undefined) {
     return Option.none<{ readonly version: string; readonly publisherBindingId: string }>();
@@ -427,8 +427,8 @@ const planResolvedTarget = Effect.fn("UpdateExtensions.planResolvedTarget")(func
         : yield* planKnowledgeInstall({ refs: [{ ref, versionRange }] });
     case "mcp-server": {
       if (ref.type !== "mcp-server") return yield* mismatch();
-      const workspace = yield* WorkspaceMutations;
-      const graph = yield* workspace.getDesiredStateGraph();
+      const desiredState = yield* DesiredStateReader;
+      const graph = yield* desiredState.graph();
       const desired = desiredNodeForIntent(graph, intent);
       return yield* planMcpServerInstall({
         ref,
@@ -534,8 +534,8 @@ const prepareTargeted = Effect.fn("UpdateExtensions.prepareTargeted")(function* 
 
   let targetedContext: TargetedUpdateContext | undefined;
   if (intent.type === "pack") {
-    const workspace = yield* WorkspaceMutations;
-    const graph = yield* workspace.getDesiredStateGraph();
+    const desiredState = yield* DesiredStateReader;
+    const graph = yield* desiredState.graph();
     if (desiredNodeForIntent(graph, intent) === undefined) {
       return blockedUndesiredPack(intent);
     }

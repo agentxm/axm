@@ -1,17 +1,16 @@
 /**
  * Per-type lockfile reads, keyed by catalog extension type.
  *
- * `WorkspaceMutationsService` exposes one `getLockedX()` accessor per type. The
- * table here is the single place that maps a type id onto its accessor, so
+ * `LockfileReader` exposes one total accessor over the installable types. The
+ * helpers here retain catalog-type narrowing for callers that work over the
  * callers that work over the whole catalog — installed-identifier resolution,
  * `<type> show` — stay total without a switch of their own.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
-import type * as Effect from "effect/Effect";
-
 import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";
+import type * as Effect from "effect/Effect";
 import type {
   HookLockEntry,
   KnowledgeLockEntry,
@@ -21,10 +20,8 @@ import type {
   SkillLockEntry,
   SubagentLockEntry,
 } from "../lockfile/index.js";
-import type {
-  WorkspaceLockfileReadFailure,
-  WorkspaceMutationsService,
-} from "./service-interface.js";
+import type { LockfileReaderService } from "./lockfile-reader.js";
+import type { WorkspaceLockfileReadFailure } from "./contracts.js";
 
 /**
  * Any per-type lock entry. Every arm of every lock union comes from the same
@@ -46,28 +43,14 @@ export type AnyLockMap = { readonly [name: string]: AnyLockEntry };
  * catalog type fails compile here until it is wired, instead of silently
  * resolving to an empty lock map.
  */
-const lockedEntryReaders = {
-  skill: (ws) => ws.getLockedSkills(),
-  "mcp-server": (ws) => ws.getLockedMcpServers(),
-  subagent: (ws) => ws.getLockedSubagents(),
-  rule: (ws) => ws.getLockedRules(),
-  hook: (ws) => ws.getLockedHooks(),
-  knowledge: (ws) => ws.getLockedKnowledge(),
-} as const satisfies Record<
-  CatalogExtensionType,
-  (ws: WorkspaceMutationsService) => Effect.Effect<AnyLockMap, WorkspaceLockfileReadFailure>
->;
-
 /** Read the whole lock map for one catalog extension type. */
-export const getLockedEntries = (
-  ws: WorkspaceMutationsService,
-  type: CatalogExtensionType,
-): Effect.Effect<AnyLockMap, WorkspaceLockfileReadFailure> => lockedEntryReaders[type](ws);
+export const getLockedEntries = (lockfile: LockfileReaderService, type: CatalogExtensionType) =>
+  lockfile.entries(type);
 
 /** Read accepted external Knowledge resolutions from the workspace lockfile. */
 export const getKnowledgeLockEntries = (
-  ws: WorkspaceMutationsService,
-): Effect.Effect<KnowledgeLockMap, WorkspaceLockfileReadFailure> => ws.getLockedKnowledge();
+  lockfile: LockfileReaderService,
+): Effect.Effect<KnowledgeLockMap, WorkspaceLockfileReadFailure> => lockfile.entries("knowledge");
 
 /** Resolved version for a lock entry, when its source arm carries one. */
 export const lockEntryVersion = (entry: AnyLockEntry): string | null => {

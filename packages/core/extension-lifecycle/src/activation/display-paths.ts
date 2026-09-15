@@ -13,7 +13,7 @@ import type * as Path from "effect/Path";
 
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import type { WorkspaceMutationsService } from "@agentxm/workspace-state";
+import type { WorkspaceLayout, WorkspaceLocationService } from "@agentxm/workspace-state";
 
 export const settingsDisplayPath = (scope: WorkspaceScope): string =>
   scope === "project" ? "axm.json" : ".axm/workspace/axm.json";
@@ -30,18 +30,19 @@ export const canonicalDisplayPath = (scope: WorkspaceScope, relativePath: string
 /** Where a desired node's canonical content lives, workspace-relative. */
 export const canonicalNodeDisplayPath = (
   path: Path.Path,
-  ws: WorkspaceMutationsService,
+  location: WorkspaceLocationService,
+  layout: WorkspaceLayout,
   node: {
     readonly type: ExtensionType;
     readonly name: string;
     readonly identity: string;
   },
 ): string => {
-  if (node.identity.startsWith("workspace:") && ws.layout.scope === "project") {
-    return path.join(path.relative(ws.baseDir, ws.layout.authoredRoot(node.type)), node.name);
+  if (node.identity.startsWith("workspace:") && layout.scope === "project") {
+    return path.join(path.relative(location.baseDir, layout.authoredRoot(node.type)), node.name);
   }
   const identity = node.identity.startsWith("workspace:")
     ? node.identity.slice("workspace:".length)
     : node.identity;
-  return canonicalDisplayPath(ws.scope, identity);
+  return canonicalDisplayPath(location.scope, identity);
 };

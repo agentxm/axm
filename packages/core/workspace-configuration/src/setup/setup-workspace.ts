@@ -45,7 +45,7 @@ import {
   type AgentSubagentSummary,
   type LocatedWorkspace,
   type Settings,
-  type WorkspaceMutationsOptions,
+  type WorkspaceStateOptions,
 } from "@agentxm/workspace-state";
 import {
   runWorkspaceTransaction,
@@ -383,7 +383,7 @@ export const previewOrApplySetupWorkspace = <
 > =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const workspaceOptions: WorkspaceMutationsOptions = {
+    const workspaceOptions: WorkspaceStateOptions = {
       scope: candidate.request.scope,
       projectRoot: candidate.request.projectRoot,
       nonInteractive: candidate.request.nonInteractive,

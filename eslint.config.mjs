@@ -807,12 +807,7 @@ export default [
           paths: [
             {
               name: "@agentxm/workspace-state",
-              importNames: [
-                "WorkspaceMutations",
-                "SettingsWriter",
-                "AcceptedResolutionWriter",
-                "DesiredStateWriter",
-              ],
+              importNames: ["SettingsWriter", "AcceptedResolutionWriter", "DesiredStateWriter"],
               allowTypeImports: true,
               message:
                 "Handlers do not write workspace state; call the owning feature or capability application API.",

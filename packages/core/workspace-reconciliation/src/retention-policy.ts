@@ -1,18 +1,16 @@
 import * as Effect from "effect/Effect";
-import type { WorkspaceMutationsService } from "@agentxm/workspace-state";
+import type { DesiredStateReaderService } from "@agentxm/workspace-state";
 import type { UninstallRetentionPolicy } from "./extensions/operations.js";
 
 /** Remaining desired Pack routes retain a leaf after withdrawing its direct declaration. */
 export const makeWorkspaceRetentionPolicy = <E>(
-  ws: WorkspaceMutationsService,
+  desiredState: DesiredStateReaderService,
   toFailure: (
-    cause: Effect.Error<
-      ReturnType<WorkspaceMutationsService["isExtensionRequiredByInstalledPack"]>
-    >,
+    cause: Effect.Error<ReturnType<DesiredStateReaderService["isRequiredByInstalledPack"]>>,
   ) => E,
 ): UninstallRetentionPolicy<E> => ({
   isRequiredByInstalledPack: ({ target }) =>
-    ws.isExtensionRequiredByInstalledPack(target).pipe(Effect.mapError(toFailure)),
+    desiredState.isRequiredByInstalledPack(target).pipe(Effect.mapError(toFailure)),
 });
 
 /** Only a planner that proved an exclusive member closure uses this policy. */

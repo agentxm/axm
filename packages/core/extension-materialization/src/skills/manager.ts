@@ -17,6 +17,14 @@ import { stripFileProtocol } from "@agentxm/registry-client";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
+import {
+  LockfileReader,
+  SettingsReader,
+  WorkspaceLocation,
+  WorkspaceRecords,
+} from "@agentxm/workspace-state";
+
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
@@ -26,7 +34,6 @@ import { enabledConfiguredEntries } from "@agentxm/workspace-state";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SkillMaterializationFacts } from "../managers.js";
 import type { ExtensionTarget } from "@agentxm/workspace-state";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { sanitizeName } from "@agentxm/workspace-state";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { computePackageContentHash } from "@agentxm/workspace-state";
@@ -86,18 +93,22 @@ const buildSkillLockEntry = (
 export const SkillManagerLive = Layer.effect(
   SkillManager,
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
+    const lockfile = yield* LockfileReader;
+    const records = yield* WorkspaceRecords;
+    const currentLayout = () => Ref.getUnsafe(location.layout);
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const agentRepo = yield* CodingAgentRepository;
-    const baseDir = ws.baseDir;
+    const baseDir = location.baseDir;
 
     const materializeInstall: SkillManagerService["materializeInstall"] = Effect.fn(
       "SkillManager.materializeInstall",
     )(function* ({ ref, force }) {
       const sanitized = sanitizeName(ref.skill.name);
 
-      const lockedEntry = yield* ws.getLockedSkill(ref.skill.name);
+      const lockedEntry = yield* lockfile.entry("skill", ref.skill.name);
       const lockedVersion =
         ref.refType === "registry" ? acceptedRegistryVersionForRef(lockedEntry, ref) : undefined;
 
@@ -105,7 +116,7 @@ export const SkillManagerLive = Layer.effect(
         ref,
         sanitizedName: sanitized,
         baseDir,
-        layout: ws.layout,
+        layout: currentLayout(),
         reuse: {
           force: force === true,
           lockedVersion,
@@ -118,7 +129,7 @@ export const SkillManagerLive = Layer.effect(
 
       const configuredAgents = yield* agentRepo
         .getMaterializationAgents()
-        .pipe(Effect.provideService(WorkspaceMutations, ws));
+        .pipe(Effect.provideService(SettingsReader, settings));
       const resolved = yield* Effect.forEach(
         configuredAgents,
         (agent) =>
@@ -227,7 +238,7 @@ export const SkillManagerLive = Layer.effect(
 
         const configuredAgents = yield* agentRepo
           .getMaterializationAgents()
-          .pipe(Effect.provideService(WorkspaceMutations, ws));
+          .pipe(Effect.provideService(SettingsReader, settings));
         const resolved = yield* Effect.forEach(
           configuredAgents,
           (agent) =>
@@ -300,18 +311,18 @@ export const SkillManagerLive = Layer.effect(
       }: {
         readonly target: ExtensionTarget;
       }) {
-        return yield* isObservedInstalled(ws, "skill", target.name);
+        return yield* isObservedInstalled(records, "skill", target.name);
       }),
 
       materializeInstall,
       acquireCanonical: ({ ref, force }) =>
         Effect.gen(function* () {
-          const locked = yield* ws.getLockedSkill(ref.skill.name);
+          const locked = yield* lockfile.entry("skill", ref.skill.name);
           const materialized = yield* materializeSkillCanonical({
             ref,
             sanitizedName: sanitizeName(ref.skill.name),
             baseDir,
-            layout: ws.layout,
+            layout: currentLayout(),
             reuse: {
               force: force === true,
               lockedVersion:
@@ -353,7 +364,7 @@ export const SkillManagerLive = Layer.effect(
           ref,
         }),
       getConfiguredSource: Effect.fn("SkillManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* ws.getConfiguredSkillEntries();
+        const configured = yield* settings.entries("skill");
         const entry = configured[target.name];
         if (entry?.origin === "bundled") {
           return Option.some(`bundled:@agentxm/skills/${target.name}`);
@@ -361,18 +372,18 @@ export const SkillManagerLive = Layer.effect(
         return Option.fromUndefinedOr(entry?.source);
       }),
       listMaterializable: Effect.fn("SkillManager.listMaterializable")(function* () {
-        const configured = yield* ws.records
+        const configured = yield* records
           .rows("skill")
 
           .pipe(Effect.map(configuredRowsByName));
-        const configuredEntries = yield* ws.getConfiguredSkillEntries();
+        const configuredEntries = yield* settings.entries("skill");
         const configuredWithoutBundled = Object.fromEntries(
           Object.entries(configured).filter(
             ([name]) => configuredEntries[name]?.origin !== "bundled",
           ),
         );
         const workspaceRefs = yield* configuredSkillsToDiskRefs(
-          { fs, path, baseDir, scope: ws.scope, layout: ws.layout },
+          { fs, path, baseDir, scope: location.scope, layout: currentLayout() },
           configuredWithoutBundled,
         );
         const trustedRefs = yield* Effect.forEach(

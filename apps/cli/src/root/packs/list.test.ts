@@ -14,7 +14,7 @@ import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import {
   computePackManifestContentIdentity,
-  type WorkspaceMutationsOptions,
+  type WorkspaceStateOptions,
 } from "@agentxm/workspace-state";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -84,13 +84,13 @@ describe("packs list.handler", () => {
 
   const makeLayers = (opts?: {
     readonly machine?: boolean;
-    readonly wsOverrides?: Partial<WorkspaceMutationsOptions>;
+    readonly wsOverrides?: Partial<WorkspaceStateOptions>;
   }) => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
     const rendererLayer = renderer.layer;
     const rendererState = renderer.state;
     const BaseLayer = Layer.mergeAll(NodeServices.layer, rendererLayer, TestFlagsLayer());
-    const wsOptions: WorkspaceMutationsOptions = {
+    const wsOptions: WorkspaceStateOptions = {
       scope: "project",
       ...opts?.wsOverrides,
       projectRoot: opts?.wsOverrides?.projectRoot ?? decodeAbsolutePathSync(tempDir),

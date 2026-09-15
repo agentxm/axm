@@ -15,7 +15,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
-import * as ServiceMap from "effect/Context";
 import type * as Scope from "effect/Scope";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
@@ -65,11 +64,13 @@ import {
   lockEntryToSourceParams,
   isSourcedDesiredExtension,
   desiredStateProblemsText,
-  type DesiredStateReader,
+  DesiredStateReader,
   type LockfileReader,
-  type SettingsReader,
-  WorkspaceMutations,
-  type WorkspaceLocation,
+  SettingsReader,
+  type SettingsReaderService,
+  WorkspaceLocation,
+  WorkspaceRecords,
+  type WorkspaceLocationService,
   usableAcceptedCanonical,
   type CanonicalObservationStatus,
   type DesiredExtensionNode,
@@ -213,14 +214,15 @@ const skillSyncArtifact = (args: {
   readonly fs: FileSystem.FileSystem;
   readonly materializationAgentIds?: ReadonlyArray<string>;
   readonly path: Path.Path;
-  readonly ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>;
+  readonly location: WorkspaceLocationService;
+  readonly settings: SettingsReaderService;
 }) =>
   Effect.gen(function* () {
     const materializationAgents =
       args.materializationAgentIds === undefined
         ? yield* args.agentRepo
             .getMaterializationAgents()
-            .pipe(Effect.provideService(WorkspaceMutations, args.ws))
+            .pipe(Effect.provideService(SettingsReader, args.settings))
         : yield* args.agentRepo.all.pipe(
             Effect.map((agents) =>
               agents.filter((agent) => args.materializationAgentIds?.includes(agent.id) === true),
@@ -229,7 +231,7 @@ const skillSyncArtifact = (args: {
     const resolved = yield* Effect.forEach(
       materializationAgents,
       (agent) =>
-        agent.resolveEffectiveSkillsDir({ workspaceRoot: args.ws.baseDir }).pipe(
+        agent.resolveEffectiveSkillsDir({ workspaceRoot: args.location.baseDir }).pipe(
           Effect.provideService(FileSystem.FileSystem, args.fs),
           Effect.provideService(Path.Path, args.path),
           Effect.map((outcome) => ({ agent, outcome })),
@@ -241,9 +243,9 @@ const skillSyncArtifact = (args: {
     );
     const artifact = yield* skillArtifactFromTargets({
       targets,
-      workspaceRoot: args.ws.baseDir,
+      workspaceRoot: args.location.baseDir,
       sanitizedName: sanitizeName(args.ref.skill.name),
-      scope: args.ws.scope,
+      scope: args.location.scope,
       change: "updated",
     }).pipe(
       Effect.provideService(FileSystem.FileSystem, args.fs),
@@ -258,13 +260,13 @@ const skillSyncArtifact = (args: {
 
 const subagentSyncArtifact = (args: {
   readonly ref: SubagentExtensionRef;
-  readonly ws: ServiceMap.Service.Shape<typeof WorkspaceMutations>;
+  readonly location: WorkspaceLocationService;
 }): Effect.Effect<JobStepArtifact, never, never> =>
   Effect.sync(() => {
     const version = registryVersion(args.ref);
     return {
       path: args.ref.subagent.name,
-      scope: args.ws.scope,
+      scope: args.location.scope,
       ...(version === undefined ? {} : { version }),
       change: "updated",
     };
@@ -324,8 +326,8 @@ export type ConfiguredEntryResolutionRequirements =
   | Scope.Scope
   | SourceHostProviders
   | WorkspaceCatalog
-  | WorkspaceMutations
   | WorkspaceLocation
+  | WorkspaceRecords
   | SettingsReader
   | LockfileReader
   | DesiredStateReader;
@@ -480,7 +482,9 @@ export const collectMaterializeSteps = (args: {
   | RuleManager
   | SkillManager
   | SubagentManager
-  | WorkspaceMutations
+  | WorkspaceLocation
+  | SettingsReader
+  | DesiredStateReader
 > =>
   Effect.gen(function* () {
     const packManager = yield* PackManager;
@@ -492,13 +496,15 @@ export const collectMaterializeSteps = (args: {
     const knowledgeManager = yield* KnowledgeManager;
     const mcpServerManager = yield* McpServerManager;
     const agentRepo = yield* CodingAgentRepository;
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
+    const desiredStateReader = yield* DesiredStateReader;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation();
-    const configuredMcpServerEntries = yield* ws.getConfiguredMcpServerEntries();
-    const configuredAgents = args.configuredAgents ?? (yield* ws.getConfiguredAgents());
-    const desiredState = args.desiredState ?? (yield* ws.getDesiredStateGraph());
+    const configuredMcpServerEntries = yield* settings.entries("mcp-server");
+    const configuredAgents = args.configuredAgents ?? (yield* settings.configuredAgents);
+    const desiredState = args.desiredState ?? (yield* desiredStateReader.graph());
     const desiredActivation = (ref: ExtensionRef): boolean =>
       desiredState.nodes.some(
         (node) => node.type === ref.type && node.name === targetFromRef(ref).name && node.enabled,
@@ -602,7 +608,8 @@ export const collectMaterializeSteps = (args: {
           const materializationCurrent =
             configuredMcpEntry === undefined
               ? yield* isObservedMaterializationCurrent({
-                  workspace: ws,
+                  location,
+                  records: yield* WorkspaceRecords,
                   node,
                   configuredAgentIds: configuredAgents,
                   agents: agentRepo,
@@ -771,8 +778,8 @@ export const collectMaterializeSteps = (args: {
       ([name, entry]) =>
         Effect.gen(function* () {
           const inspections = yield* inspectMcpServerAcrossAgents({
-            workspaceRoot: ws.baseDir,
-            scope: ws.scope,
+            workspaceRoot: location.baseDir,
+            scope: location.scope,
             agentIds: configuredAgents,
             serverName: name,
             entry,
@@ -801,7 +808,7 @@ export const collectMaterializeSteps = (args: {
               entry,
               agentIds: configuredAgents,
               force: inspections.some((inspection) => inspection.status === "drift"),
-              ws,
+              location,
               adapter: args.adapter,
             }),
           );
@@ -864,7 +871,8 @@ export const collectMaterializeSteps = (args: {
               ? {}
               : { materializationAgentIds: configuredAgents }),
             path,
-            ws,
+            location,
+            settings,
           });
         const artifact = yield* buildArtifact();
         return {
@@ -894,7 +902,7 @@ export const collectMaterializeSteps = (args: {
         force,
         label: transitionLabel,
         message: `Synced subagent ${ref.subagent.name}`,
-        buildArtifact: () => subagentSyncArtifact({ ref, ws }),
+        buildArtifact: () => subagentSyncArtifact({ ref, location }),
       });
     const knowledgeMaterializeStep = ({
       ref,

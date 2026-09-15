@@ -20,9 +20,7 @@ import type { LocalSubagentRef } from "@agentxm/extension-model/unstable/extensi
 import type { AddSubagentArgs, CodingAgent } from "@agentxm/agent-integration";
 import { SubagentManager } from "../managers.js";
 import { CodingAgentRepository } from "@agentxm/workspace-projection";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
-  makeBaseWorkspaceMock,
   WorkspaceReadTest,
   MockWorkspaceTransactionScope,
   TEST_CONTENT_IDENTITY,
@@ -104,18 +102,12 @@ const makeMockCodingAgent = (id: string, overrides?: Partial<CodingAgent>): Codi
 });
 
 const makeTestLayer = (overrides?: {
-  readonly wsOverrides?: Partial<import("@agentxm/workspace-state").WorkspaceMutationsService>;
   readonly agents?: ReadonlyArray<CodingAgent>;
   readonly axmDir?: string;
   readonly configuredSubagents?: NonNullable<Settings["subagents"]>;
   readonly lockedSubagents?: Readonly<Record<string, SubagentLockEntry>>;
 }) => {
   const axmDir = overrides?.axmDir ?? "/tmp/test-project/.axm";
-  const wsMock = makeBaseWorkspaceMock(axmDir, {
-    getConfiguredAgents: () => Effect.succeed(["claude-code"]),
-    ...overrides?.wsOverrides,
-  });
-
   const testAgents = overrides?.agents ?? [makeMockCodingAgent("claude-code")];
   const configuredSubagents = overrides?.configuredSubagents ?? {};
   const graph = {
@@ -157,23 +149,20 @@ const makeTestLayer = (overrides?: {
 
   return SubagentManagerLive.pipe(
     Layer.provideMerge(
-      Layer.merge(
-        Layer.succeed(WorkspaceMutations, wsMock),
-        WorkspaceReadTest({
-          baseDir: nodePath.dirname(axmDir),
-          runtimeDir: axmDir,
-          settings: {
-            agents: testAgents.map(({ id }) => id).filter((id) => id !== "universal"),
-            subagents: configuredSubagents,
-          },
-          lockfile: {
-            lockfileVersion: 7,
-            skills: {},
-            subagents: overrides?.lockedSubagents ?? {},
-          },
-          graph,
-        }),
-      ),
+      WorkspaceReadTest({
+        baseDir: nodePath.dirname(axmDir),
+        runtimeDir: axmDir,
+        settings: {
+          agents: testAgents.map(({ id }) => id).filter((id) => id !== "universal"),
+          subagents: configuredSubagents,
+        },
+        lockfile: {
+          lockfileVersion: 7,
+          skills: {},
+          subagents: overrides?.lockedSubagents ?? {},
+        },
+        graph,
+      }),
     ),
     Layer.provideMerge(MockWorkspaceTransactionScope(axmDir)),
     Layer.provide(agentRepoLayer),
@@ -230,8 +219,6 @@ describe("SubagentManager", () => {
 
   describe("acceptedResolution", () => {
     it.effect("fails closed when lock persistence has no materialized identity", () => {
-      const setLockSpy = vi.fn(() => Effect.void);
-
       return Effect.gen(function* () {
         const manager = yield* SubagentManager;
         const error = yield* manager
@@ -244,16 +231,7 @@ describe("SubagentManager", () => {
           _tag: "SubagentInstallStateMissing",
           kind: "content-identity",
         });
-        expect(setLockSpy).not.toHaveBeenCalled();
-      }).pipe(
-        Effect.provide(
-          makeTestLayer({
-            wsOverrides: {
-              setSubagentLock: setLockSpy,
-            },
-          }),
-        ),
-      );
+      }).pipe(Effect.provide(makeTestLayer({})));
     });
   });
 
@@ -269,7 +247,6 @@ describe("SubagentManager", () => {
     });
 
     it.effect("renders to configured agents without writing lockfile render metadata", () => {
-      const setSubagentLockSpy = vi.fn(() => Effect.void);
       const addSubagentCalls: Array<AddSubagentArgs> = [];
       const addSubagentSpy = vi.fn((args: AddSubagentArgs) =>
         Effect.sync(() => {
@@ -315,22 +292,17 @@ describe("SubagentManager", () => {
         );
         expect(banner?.toml).toContain("ext=@acme/subagents/planner");
         expect(banner?.toml).toContain("src=agent_extensions/local/sources/planner/src/planner.md");
-        expect(setSubagentLockSpy).not.toHaveBeenCalled();
       }).pipe(
         Effect.provide(
           makeTestLayer({
             axmDir,
             agents: [agentWithSpy],
-            wsOverrides: {
-              setSubagentLock: setSubagentLockSpy,
-            },
           }),
         ),
       );
     });
 
     it.effect("re-renders even when source hash matches", () => {
-      const setSubagentLockSpy = vi.fn(() => Effect.void);
       const addSubagentSpy = vi.fn(() =>
         Effect.succeed({
           _tag: "success" as const,
@@ -355,7 +327,6 @@ describe("SubagentManager", () => {
           ref: makeLocalSubagentRef("planner", sourceDir),
         });
         expect(addSubagentSpy).toHaveBeenCalledOnce();
-        expect(setSubagentLockSpy).not.toHaveBeenCalled();
       }).pipe(
         Effect.provide(
           makeTestLayer({
@@ -375,9 +346,6 @@ describe("SubagentManager", () => {
                 contentIdentity: TEST_CONTENT_IDENTITY,
                 treeIntegrity: TEST_TREE_INTEGRITY,
               },
-            },
-            wsOverrides: {
-              setSubagentLock: setSubagentLockSpy,
             },
           }),
         ),

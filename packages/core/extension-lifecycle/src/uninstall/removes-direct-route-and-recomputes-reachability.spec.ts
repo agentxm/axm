@@ -5,7 +5,7 @@ import { afterEach } from "vitest";
 
 import { deriveOperationOutcome } from "@agentxm/workspace-operations";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { DesiredStateReader } from "@agentxm/workspace-state";
 import { applyActivation } from "../activation/test-helpers.js";
 
 import {
@@ -70,7 +70,7 @@ describe("Uninstall a directly desired extension", () => {
             uninstallRequest({ selector: "@acme/skills/review" }),
           );
           expect(deriveOperationOutcome(result)).toBe("applied");
-          const graph = yield* (yield* WorkspaceMutations).getDesiredStateGraph();
+          const graph = yield* (yield* DesiredStateReader).graph();
           expect(
             graph.nodes.find((node) => node.type === "skill" && node.name === "review")?.enabled,
           ).toBe(true);

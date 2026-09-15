@@ -9,13 +9,14 @@
  */
 
 import * as Effect from "effect/Effect";
+import { DesiredStateReader, LockfileReader, WorkspaceLocation } from "@agentxm/workspace-state";
+
 import * as Option from "effect/Option";
 
 import { HookManager } from "@agentxm/extension-materialization";
 import { buildUninstallOperation } from "@agentxm/workspace-reconciliation";
 import type { JobStepArtifact, JobStepArtifactTarget, Plan } from "@agentxm/workspace-operations";
 import {
-  WorkspaceMutations,
   acquiredExtensionDisplayPathFromLockEntry,
   type HookExtensionTarget,
   type HookLockEntry,
@@ -90,24 +91,33 @@ export const planHookUninstall: (
   ExtensionLifecycleFailed,
   InstallStepRequirements | HookManager
 > = Effect.fn("UninstallExtensions.planHooks")(function* (intent: HookUninstallIntent) {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const desiredState = yield* DesiredStateReader;
+  const lockfile = yield* LockfileReader;
   const hookManager = yield* HookManager;
-  const retentionPolicy = makeWorkspaceRetentionPolicy(ws, lifecycleStepFailure);
+  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, lifecycleStepFailure);
 
   const steps = yield* Effect.forEach(intent.targets, (target) =>
     Effect.gen(function* () {
-      const lockEntry = yield* ws
-        .getLockedHookEntry(target.name)
+      const lockEntry = yield* lockfile
+        .entry("hook", target.name)
         .pipe(Effect.catch(() => Effect.succeed(Option.none())));
       return buildUninstallOperation(hookManager, retentionPolicy, {
         target,
         toStepFailure: lifecycleStepFailure,
         buildArtifact: ({ settlement }) => {
           const retained = settlement.canonical !== "removed";
-          const targets = hookUninstallArtifactTargets(lockEntry, retained, target.name, ws.scope);
+          const targets = hookUninstallArtifactTargets(
+            lockEntry,
+            retained,
+            target.name,
+            location.scope,
+          );
           return Effect.succeed({
-            path: retained ? workspaceSettingsPath(ws.scope) : workspaceLockfilePath(ws.scope),
-            scope: ws.scope,
+            path: retained
+              ? workspaceSettingsPath(location.scope)
+              : workspaceLockfilePath(location.scope),
+            scope: location.scope,
             change: retained ? "updated" : "removed",
             ...(targets.length === 0 ? {} : { fileCount: targets.length, targets }),
           } satisfies JobStepArtifact);

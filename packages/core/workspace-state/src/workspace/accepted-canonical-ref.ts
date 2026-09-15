@@ -41,7 +41,7 @@ import type { DesiredExtensionNode } from "./desired-state-graph.js";
 import { DesiredStateReader } from "./desired-state-reader.js";
 import { LockfileReader } from "./lockfile-reader.js";
 import { SettingsReader, type SettingsReaderService } from "./settings-reader.js";
-import type { WorkspaceStateReadFailure } from "./service-interface.js";
+import type { WorkspaceStateReadFailure } from "./contracts.js";
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
 
 interface AcceptedCanonicalRefArgs {

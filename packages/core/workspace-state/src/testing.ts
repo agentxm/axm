@@ -56,11 +56,10 @@ export const MemoryWorkspaceTransactionScope = (
   );
 
 /**
- * A transaction scope over a mocked workspace's runtime directory. It places
+ * A transaction scope over an explicit workspace runtime directory. It places
  * the two authoritative files where the project layout places them and takes
  * its admission from an in-memory transition-lock world, so a test that runs
  * a workspace transaction creates no lock file and waits on Effect time.
- * Pass the same `axmDir` `makeBaseWorkspaceMock` was built with.
  */
 export const MockWorkspaceTransactionScope = (
   axmDir = "/tmp/axm",

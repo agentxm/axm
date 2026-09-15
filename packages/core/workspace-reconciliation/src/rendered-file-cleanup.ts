@@ -8,6 +8,7 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
 import {
   CodingAgentRepository,
   observeAgentOutputs,
@@ -22,7 +23,7 @@ import {
 } from "@agentxm/agent-integration";
 import { AGENTS as CAPABILITY_AGENTS } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { PerAgentType } from "@agentxm/extension-model/unstable/extensions/common";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { SettingsReader, WorkspaceLocation } from "@agentxm/workspace-state";
 import { protectWorkspacePath, recordFootprint } from "@agentxm/workspace-transactions";
 import { WorkspaceSyncFailed, type WorkspaceSyncCleanupFailure } from "./errors.js";
 
@@ -46,20 +47,23 @@ const inventory = (
   | CodingAgentRepository
   | FileSystem.FileSystem
   | Path.Path
-  | WorkspaceMutations
+  | SettingsReader
+  | WorkspaceLocation
   | NativeWriteAuthority
 > =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const settings = yield* SettingsReader;
+    const location = yield* WorkspaceLocation;
+    const layout = yield* Ref.get(location.layout);
     return yield* observeAgentOutputs({
-      workspaceRoot: ws.baseDir,
-      scope: ws.scope,
+      workspaceRoot: location.baseDir,
+      scope: location.scope,
       desiredAgentIds: args.desiredAgentIds,
       expectedNames: args.expectedNames,
       authoredSkills: {
-        layout: ws.layout,
-        entries: yield* ws
-          .getConfiguredSkillEntries()
+        layout,
+        entries: yield* settings
+          .entries("skill")
           .pipe(
             Effect.mapError((cause) =>
               cleanupFailure("Failed to read authored skill declarations", cause),
@@ -67,9 +71,9 @@ const inventory = (
           ),
       },
       skillOwnershipRoots:
-        ws.layout.scope === "project"
-          ? [ws.layout.acquiredRoot, ws.layout.authoredRoot("skill")]
-          : [ws.layout.acquiredRoot],
+        layout.scope === "project"
+          ? [layout.acquiredRoot, layout.authoredRoot("skill")]
+          : [layout.acquiredRoot],
     });
   });
 
@@ -192,7 +196,8 @@ export const reconcileAgentOutputs = (
   | CodingAgentRepository
   | FileSystem.FileSystem
   | Path.Path
-  | WorkspaceMutations
+  | SettingsReader
+  | WorkspaceLocation
   | NativeWriteAuthority
 > =>
   Effect.gen(function* () {
@@ -246,7 +251,7 @@ export const reconcileAgentOutputs = (
 
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
     for (const output of candidates) {
       if (output.extensionType === "skill" || output.extensionType === "subagent") {
         yield* removeOwnedFile(fs, output);
@@ -255,12 +260,12 @@ export const reconcileAgentOutputs = (
     for (const output of uniqueContainers(
       candidates.filter(({ extensionType }) => extensionType === "mcp-server"),
     )) {
-      yield* pruneMcpContainer(output, scopedArgs, ws.baseDir, ws.scope);
+      yield* pruneMcpContainer(output, scopedArgs, location.baseDir, location.scope);
     }
     for (const output of uniqueContainers(
       candidates.filter(({ extensionType }) => extensionType === "hook"),
     )) {
-      yield* pruneHookContainer(fs, path, output, scopedArgs, ws.baseDir, ws.scope);
+      yield* pruneHookContainer(fs, path, output, scopedArgs, location.baseDir, location.scope);
     }
 
     const after = yield* inventory(args);

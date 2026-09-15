@@ -149,7 +149,7 @@ export interface InstalledExtensionManifest {
 }
 
 /**
- * WorkspaceMutations subject: the rule-addressable identity of the workspace under lint.
+ * Workspace subject: the rule-addressable identity of the workspace under lint.
  *
  * @experimental This API is unstable and may change without notice.
  */

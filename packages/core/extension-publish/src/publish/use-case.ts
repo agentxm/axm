@@ -74,7 +74,7 @@ import {
   type PlanRiskCondition,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { SettingsReader } from "@agentxm/workspace-state";
 import { FootprintRecorder, makeFootprintRecorder } from "@agentxm/workspace-transactions";
 
 import { PublishFailed } from "../errors.js";
@@ -282,7 +282,7 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
   const incoherent = rejectIncoherentRequest(request, registry);
   if (Option.isSome(incoherent)) return yield* Effect.fail(incoherent.value);
 
-  const workspace = yield* WorkspaceMutations;
+  const settings = yield* SettingsReader;
   const registryUrl = yield* RegistryUrl;
   const remoteRegistry = isRemote(registry.url);
 
@@ -402,7 +402,7 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
   }
 
   const storedToken = yield* resolveRequestToken(registry.url, registryUrl);
-  const workspaceDefaultVisibility = yield* workspace.getPublishDefaultVisibility();
+  const workspaceDefaultVisibility = yield* settings.publishDefaultVisibility;
   const shouldPreviewAuthoritatively =
     preflightFailures.length === 0 &&
     sourceAssessedCandidates.length > 0 &&

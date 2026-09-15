@@ -13,7 +13,7 @@
  */
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import type { WorkspaceReadModelRecords } from "./service-interface.js";
+import type { WorkspaceReadModelRecords } from "./contracts.js";
 
 // The facade SHALL expose exactly aggregate inventory, per-type inventory, and rows.
 type _RecordsKeys = keyof WorkspaceReadModelRecords;

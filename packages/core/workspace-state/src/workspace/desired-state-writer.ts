@@ -45,7 +45,7 @@ import type {
   SetSkillArgs,
   SetSubagentArgs,
   WorkspaceStateMutationFailure,
-} from "./service-interface.js";
+} from "./contracts.js";
 import { WorkspaceStateShared } from "./shared.js";
 
 /** The declaration each installable extension type accepts. */

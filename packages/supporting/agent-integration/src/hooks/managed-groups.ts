@@ -3,7 +3,7 @@
  *
  * Kept free of service dependencies so workspace cleanup can strip AXM-managed
  * hook groups without importing the hook manager, which requires
- * `WorkspaceMutations` and would form a layer cycle.
+ * workspace-state writers and would form a layer cycle.
  *
  * @experimental This API is unstable and may change without notice.
  */

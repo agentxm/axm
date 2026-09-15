@@ -23,7 +23,7 @@ import type * as Effect from "effect/Effect";
 /**
  * Platform-canonical finding severity.
  *
- * WorkspaceMutations `lint.rules` overrides can raise or lower the severity at
+ * Workspace `lint.rules` overrides can raise or lower the severity at
  * evaluation time; the catalog pins the platform default.
  *
  * @experimental This API is unstable and may change without notice.

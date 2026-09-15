@@ -28,7 +28,7 @@ import type {
   SkillDirPaths,
   SkillPathSource,
   WorkspaceStateReadFailure,
-} from "./service-interface.js";
+} from "./contracts.js";
 import { SettingsReader, type SettingsReaderService } from "./settings-reader.js";
 import { computeSkillPathsForLayout } from "./skill-paths.js";
 

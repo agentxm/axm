@@ -87,7 +87,7 @@ import {
 } from "@agentxm/registry-auth/live";
 import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
 import { resolveTelemetryMode } from "./telemetry/index.js";
-import type { WorkspaceMutationsOptions } from "@agentxm/workspace-state";
+import type { WorkspaceStateOptions } from "@agentxm/workspace-state";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace-state/live";
 import type { SourceHostConfig } from "@agentxm/workspace-state";
@@ -367,9 +367,9 @@ const makeCliTelemetryConfig = (envConfig: RuntimeEnvConfig): CliTelemetryConfig
 
 const makeWorkspaceProgramLayer = (
   registryLocation: string,
-  workspace: Omit<WorkspaceMutationsOptions, "builtInSources">,
+  workspace: Omit<WorkspaceStateOptions, "builtInSources">,
 ) => {
-  // -- WorkspaceMutations foundation --
+  // -- Workspace-state foundation --
   const wsLayer = Layer.provide(
     coreWorkspaceLayer({
       ...workspace,
@@ -437,7 +437,7 @@ const resolveRuntimeConfig = (executionDirectory: string) =>
     } as const;
   });
 
-type CliWorkspaceOptions = Omit<WorkspaceMutationsOptions, "builtInSources" | "projectRoot"> & {
+type CliWorkspaceOptions = Omit<WorkspaceStateOptions, "builtInSources" | "projectRoot"> & {
   readonly projectRoot?: AbsolutePath;
 };
 
@@ -451,7 +451,7 @@ export const withWorkspace =
       const resolved = {
         ...configured,
         projectRoot: configured.projectRoot ?? executionDirectory.path,
-      } satisfies Omit<WorkspaceMutationsOptions, "builtInSources">;
+      } satisfies Omit<WorkspaceStateOptions, "builtInSources">;
       const wsLayer = makeWorkspaceProgramLayer(envConfig.registryLocation, resolved);
       return yield* Effect.scoped(
         Layer.build(wsLayer).pipe(

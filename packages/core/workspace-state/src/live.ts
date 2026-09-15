@@ -3,8 +3,7 @@
  *
  * The workspace-state layers every entry point composes: the resolved
  * location, the narrow reader and writer services over it, the workspace
- * transaction scope anchored to its paths, and — transitionally — the
- * `WorkspaceMutations` facade. Only application composition roots and named
+ * transaction scope anchored to its paths. Only application composition roots and named
  * test-support modules import this module; feature logic keeps the services
  * in its Effect environment.
  *
@@ -30,23 +29,18 @@ import { DesiredStateWriter, DesiredStateWriterLive } from "./workspace/desired-
 import { ExtensionPaths, ExtensionPathsLive } from "./workspace/extension-paths-service.js";
 import { LockfileReader, LockfileReaderLive } from "./workspace/lockfile-reader.js";
 import { WorkspaceLocation, makeWorkspaceLocation } from "./workspace/location.js";
-import { makeWorkspaceMutationsFacade } from "./workspace/service.js";
-import {
-  WorkspaceMutations,
-  type WorkspaceMutationsError,
-  type WorkspaceMutationsOptions,
-} from "./workspace/service-interface.js";
+import { type WorkspaceStateError, type WorkspaceStateOptions } from "./workspace/contracts.js";
 import { SettingsReader, SettingsReaderLive } from "./workspace/settings-reader.js";
 import { SettingsWriter, SettingsWriterLive } from "./workspace/settings-writer.js";
 import { WorkspaceStateShared, makeWorkspaceStateShared } from "./workspace/shared.js";
 import { WorkspaceRecords, WorkspaceRecordsLive } from "./workspace/workspace-records.js";
 
-export type { WorkspaceMutationsOptions } from "./workspace/service-interface.js";
+export type { WorkspaceStateOptions } from "./workspace/contracts.js";
 
 /** The resolved location of the selected workspace scope. */
 export const WorkspaceLocationLive = (
-  options: WorkspaceMutationsOptions,
-): Layer.Layer<WorkspaceLocation, WorkspaceMutationsError, FileSystem.FileSystem | Path.Path> =>
+  options: WorkspaceStateOptions,
+): Layer.Layer<WorkspaceLocation, WorkspaceStateError, FileSystem.FileSystem | Path.Path> =>
   Layer.effect(WorkspaceLocation, makeWorkspaceLocation(options));
 
 /** The narrow reader and writer services over one workspace location. */
@@ -62,16 +56,8 @@ export type WorkspaceStateServices =
   | DesiredStateWriter;
 
 const stateServicesOver = (
-  location: Layer.Layer<
-    WorkspaceLocation,
-    WorkspaceMutationsError,
-    FileSystem.FileSystem | Path.Path
-  >,
-): Layer.Layer<
-  WorkspaceStateServices,
-  WorkspaceMutationsError,
-  FileSystem.FileSystem | Path.Path
-> => {
+  location: Layer.Layer<WorkspaceLocation, WorkspaceStateError, FileSystem.FileSystem | Path.Path>,
+): Layer.Layer<WorkspaceStateServices, WorkspaceStateError, FileSystem.FileSystem | Path.Path> => {
   // The shared mutex and cache are composition-internal: one instance (the
   // layer is memoized by reference within a build) provided to every service
   // that needs it and never published to consumers.
@@ -95,23 +81,13 @@ const stateServicesOver = (
 };
 
 /**
- * Every workspace-state service plus the transitional `WorkspaceMutations`
- * facade, without a transaction scope. Compose a scope beside it: the
+ * Every workspace-state service without a transaction scope. Compose a scope beside it: the
  * production one from `layer`, or a memory one from `./testing`.
  */
 export const WorkspaceStateLive = (
-  options: WorkspaceMutationsOptions,
-): Layer.Layer<
-  WorkspaceStateServices | WorkspaceMutations,
-  WorkspaceMutationsError,
-  FileSystem.FileSystem | Path.Path
-> =>
-  // TRANSITIONAL: the facade layer is removed when the last domain package
-  // reads and writes through the services.
-  Layer.provideMerge(
-    Layer.effect(WorkspaceMutations, makeWorkspaceMutationsFacade),
-    stateServicesOver(WorkspaceLocationLive(options)),
-  );
+  options: WorkspaceStateOptions,
+): Layer.Layer<WorkspaceStateServices, WorkspaceStateError, FileSystem.FileSystem | Path.Path> =>
+  stateServicesOver(WorkspaceLocationLive(options));
 
 /** The production transaction scope over the located workspace's paths. */
 export const WorkspaceTransactionScopeLive: Layer.Layer<
@@ -130,12 +106,12 @@ export const WorkspaceTransactionScopeLive: Layer.Layer<
 
 /**
  * The composed workspace layer every entry point provides: the state
- * services, the transitional facade, and the production transaction scope.
+ * services and the production transaction scope.
  */
 export const layer = (
-  options: WorkspaceMutationsOptions,
+  options: WorkspaceStateOptions,
 ): Layer.Layer<
-  WorkspaceStateServices | WorkspaceMutations | WorkspaceTransactionScope,
-  WorkspaceMutationsError,
+  WorkspaceStateServices | WorkspaceTransactionScope,
+  WorkspaceStateError,
   FileSystem.FileSystem | Path.Path
 > => Layer.provideMerge(WorkspaceTransactionScopeLive, WorkspaceStateLive(options));

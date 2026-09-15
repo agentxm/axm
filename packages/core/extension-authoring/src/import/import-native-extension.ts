@@ -18,6 +18,7 @@ import type { AuthorMaterialization } from "@agentxm/workspace-operations";
  */
 
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
 import * as FileSystem from "effect/FileSystem";
 import type * as HttpClient from "effect/unstable/http/HttpClient";
 import * as Option from "effect/Option";
@@ -81,16 +82,18 @@ import {
 } from "@agentxm/workspace-operations";
 import type { CodingAgentRepository } from "@agentxm/workspace-projection";
 import {
-  WorkspaceMutations,
+  AcceptedResolutionWriter,
+  DesiredStateWriter,
+  SettingsWriter,
   type ConfiguredAgentOutcomesProvider,
   computePackageContentHash,
   type LockfileReader,
   type LockfileValidationError,
   type PackageContentHashFailed,
-  type SettingsReader,
-  type WorkspaceLocation,
+  SettingsReader,
+  WorkspaceLocation,
   type WorkspaceLockfileReadFailure,
-  type WorkspaceRecords,
+  WorkspaceRecords,
   type WorkspaceSettingsReadFailure,
 } from "@agentxm/workspace-state";
 
@@ -183,7 +186,11 @@ export type ImportNativeExtensionRequest =
 export type ImportNativeExtensionRequirements =
   | ManagerRequirements
   | RecipeRequirements
-  | WorkspaceMutations
+  | AcceptedResolutionWriter
+  | DesiredStateWriter
+  | SettingsReader
+  | SettingsWriter
+  | WorkspaceLocation
   | LockfileReader
   | SettingsReader
   | WorkspaceLocation
@@ -230,7 +237,11 @@ export type PrepareImportNativeExtensionRequirements =
   | Path.Path
   | Scope.Scope
   | HttpClient.HttpClient
-  | WorkspaceMutations
+  | AcceptedResolutionWriter
+  | DesiredStateWriter
+  | SettingsReader
+  | SettingsWriter
+  | WorkspaceLocation
   | LockfileReader
   | SettingsReader
   | WorkspaceLocation
@@ -502,7 +513,12 @@ export const prepareImportNativeExtension: (
   ImportNativeExtensionFailure,
   PrepareImportNativeExtensionRequirements
 > = Effect.fn("ImportNativeExtension.prepare")(function* (request) {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const layout = yield* Ref.get(location.layout);
+  const settings = yield* SettingsReader;
+  const settingsWriter = yield* SettingsWriter;
+  const accepted = yield* AcceptedResolutionWriter;
+  const desiredStateWriter = yield* DesiredStateWriter;
   const path = yield* Path.Path;
 
   const target = yield* Effect.fromResult(parseFqn(request.target));
@@ -513,15 +529,15 @@ export const prepareImportNativeExtension: (
     });
   }
   yield* requireAuthoredOwner(target.owner, { subject: "package", command: "import" });
-  if (ws.layout.scope !== "project") {
-    return yield* new AuthoringScopeUnsupported({ subject: "import", scope: ws.layout.scope });
+  if (layout.scope !== "project") {
+    return yield* new AuthoringScopeUnsupported({ subject: "import", scope: layout.scope });
   }
 
   const name = target.name;
   const fqn = formatFqn(target);
-  const targetDir = path.join(ws.layout.authoredRoot(target.type), name);
-  const authoredPath = path.relative(ws.baseDir, targetDir);
-  const settingsPath = settingsRelativePath(path, ws);
+  const targetDir = path.join(layout.authoredRoot(target.type), name);
+  const authoredPath = path.relative(location.baseDir, targetDir);
+  const settingsPath = settingsRelativePath(path, location, layout);
   const subject = request.type === "mcp-server" ? "MCP package" : "Import target";
 
   const createOnly = preflightCreateOnly({
@@ -532,7 +548,11 @@ export const prepareImportNativeExtension: (
   });
   yield* createOnly;
 
-  const declaration = authoredDeclaration(ws, target.type, name);
+  const declaration = authoredDeclaration(
+    { settings, settingsWriter, accepted, desiredStateWriter },
+    target.type,
+    name,
+  );
   const current = yield* declaration.read;
 
   const settled: SettledConversion =
@@ -548,7 +568,7 @@ export const prepareImportNativeExtension: (
 
   const artifact: JobStepArtifact = {
     path: authoredPath,
-    scope: ws.scope,
+    scope: location.scope,
     version: INITIAL_IMPORT_VERSION,
     change: "created",
     targets: [
@@ -557,7 +577,7 @@ export const prepareImportNativeExtension: (
       ...settled.nativeTargets.map(
         (filePath) =>
           ({
-            path: path.relative(ws.baseDir, filePath),
+            path: path.relative(location.baseDir, filePath),
             change: "updated",
           }) satisfies JobStepArtifactTarget,
       ),
@@ -580,11 +600,11 @@ export const prepareImportNativeExtension: (
     plannedArtifact: artifact,
     buildArtifact: () => Effect.succeed(artifact),
     preflight: Effect.gen(function* () {
-      yield* recoverCanonicalDirectory({ baseDir: ws.baseDir, canonicalPath: targetDir });
+      yield* recoverCanonicalDirectory({ baseDir: location.baseDir, canonicalPath: targetDir });
       yield* createOnly;
     }),
     scaffold: createCanonicalDirectory<AuthoringStepFailure, FileSystem.FileSystem | Path.Path>({
-      baseDir: ws.baseDir,
+      baseDir: location.baseDir,
       canonicalPath: targetDir,
       subject,
       ...(settled.requiredFiles === undefined ? {} : { requiredFiles: settled.requiredFiles }),

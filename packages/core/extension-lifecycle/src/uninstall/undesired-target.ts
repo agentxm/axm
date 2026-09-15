@@ -7,13 +7,15 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
+import { DesiredStateReader, WorkspaceLocation } from "@agentxm/workspace-state";
 
 import {
   parseExtensionFqnParts,
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import { LockfileReader, WorkspaceMutations, observeInstallRoot } from "@agentxm/workspace-state";
+import { LockfileReader, observeInstallRoot } from "@agentxm/workspace-state";
 
 import { ExtensionLifecycleFailed } from "../errors.js";
 
@@ -52,11 +54,13 @@ const readFailed = (cause: unknown) =>
 export const refuseUndesiredInstalledTarget = Effect.fn(
   "UninstallExtensions.refuseUndesiredInstalledTarget",
 )(function* (subject: UninstallSubject) {
-  const ws = yield* WorkspaceMutations;
-  const graph = yield* ws.getDesiredStateGraph().pipe(Effect.mapError(readFailed));
+  const location = yield* WorkspaceLocation;
+  const layout = yield* Ref.get(location.layout);
+  const desiredState = yield* DesiredStateReader;
+  const graph = yield* desiredState.graph().pipe(Effect.mapError(readFailed));
   if (graph.nodes.some((node) => node.type === subject.type && node.name === subject.name)) return;
   const inventory = yield* observeInstallRoot({
-    layout: ws.layout,
+    layout: layout,
     graph,
     locks: yield* LockfileReader,
   }).pipe(Effect.mapError(readFailed));

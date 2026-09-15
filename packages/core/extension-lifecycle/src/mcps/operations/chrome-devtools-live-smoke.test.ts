@@ -19,8 +19,12 @@ import {
   extensionName,
   handle,
 } from "../../test-helpers.js";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
-import { makeBaseWorkspaceMock, WorkspaceReadTest } from "@agentxm/workspace-state/testing";
+import {
+  AcceptedResolutionWriter,
+  DesiredStateWriter,
+  SettingsWriter,
+} from "@agentxm/workspace-state";
+import { WorkspaceReadTest } from "@agentxm/workspace-state/testing";
 import { installMcpServer } from "@agentxm/workspace-reconciliation";
 import { makeMemoryMcpSecretStore } from "@agentxm/extension-materialization/testing";
 import { uninstallMcpServer } from "./uninstall.js";
@@ -80,14 +84,6 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
       const axmDir = path.join(base, ".axm");
       fs.mkdirSync(axmDir, { recursive: true });
 
-      const wsMock = makeBaseWorkspaceMock(axmDir, {
-        getConfiguredAgents: () => Effect.succeed([]),
-        getLockedMcpServer: () => Effect.succeed(Option.none()),
-        setMcpServer: () => Effect.void,
-        setMcpServerLock: () => Effect.void,
-        removeMcpServer: () => Effect.void,
-      });
-
       const mockAgentRepo: CodingAgentRepositoryService = {
         get: () => Effect.die(new Error("not implemented")),
         all: Effect.succeed([]),
@@ -135,8 +131,10 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
               FetchHttpClient.layer,
               NativeWriteAuthorityPermissive,
             ),
-            WorkspaceMutations.layer(wsMock),
             WorkspaceReadTest({ baseDir: base, runtimeDir: axmDir }),
+            Layer.mock(SettingsWriter, {}),
+            Layer.mock(AcceptedResolutionWriter, {}),
+            Layer.mock(DesiredStateWriter, {}),
             TestStepFailureConversion,
             secretStore.layer,
             Layer.succeed(CodingAgentRepository, mockAgentRepo),
@@ -160,8 +158,10 @@ describeLiveSmoke("chrome-devtools-mcp live smoke", () => {
               FetchHttpClient.layer,
               NativeWriteAuthorityPermissive,
             ),
-            WorkspaceMutations.layer(wsMock),
             WorkspaceReadTest({ baseDir: base, runtimeDir: axmDir }),
+            Layer.mock(SettingsWriter, {}),
+            Layer.mock(AcceptedResolutionWriter, {}),
+            Layer.mock(DesiredStateWriter, {}),
             TestStepFailureConversion,
             secretStore.layer,
             Layer.succeed(CodingAgentRepository, mockAgentRepo),

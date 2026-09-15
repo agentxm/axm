@@ -17,10 +17,9 @@ import type { CodingAgent } from "@agentxm/agent-integration";
 import type { McpServerLockEntry } from "@agentxm/workspace-state";
 import { SettingsWriteError, type WorkspaceSettingsReadFailure } from "@agentxm/workspace-state";
 import type { WorkspaceStateMutationFailure } from "@agentxm/workspace-state";
-import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
+import { DesiredStateWriter } from "@agentxm/workspace-state";
 import { mcpResolutionKey } from "@agentxm/workspace-state";
 import {
-  makeBaseWorkspaceMock,
   makeRegistryMcpServerLockEntry,
   WorkspaceReadTest,
 } from "@agentxm/workspace-state/testing";
@@ -32,44 +31,6 @@ import { uninstallMcpServer } from "./uninstall.js";
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
-
-const makeWorkspaceMock = (
-  axmDir: string,
-  lockfileMcpServers: Record<string, McpServerLockEntry> = {},
-  overrides?: {
-    removeMcpServerFn?: (name: string) => Effect.Effect<void, WorkspaceStateMutationFailure>;
-  },
-): WorkspaceMutationsService => {
-  let mcpServers: Record<string, McpServerLockEntry> = { ...lockfileMcpServers };
-  const removeMcpServerFn = overrides?.removeMcpServerFn;
-
-  const writeToDisk = () => {
-    const lockfile: { lockfileVersion: number; mcpServers: Record<string, unknown> } = {
-      lockfileVersion: 4,
-      mcpServers: {},
-    };
-    for (const [k, v] of Object.entries(mcpServers)) {
-      lockfile.mcpServers[k] = v;
-    }
-    fs.writeFileSync(path.join(axmDir, "axm-lock.yaml"), YAML.stringify(lockfile));
-  };
-
-  return makeBaseWorkspaceMock(axmDir, {
-    getConfiguredAgents: () => Effect.succeed([]),
-    getLockedMcpServers: () => Effect.succeed(mcpServers),
-    getLockedMcpServer: (name: string) => Effect.succeed(Option.fromUndefinedOr(mcpServers[name])),
-    removeMcpServer:
-      removeMcpServerFn !== undefined
-        ? (name: string) => removeMcpServerFn(name)
-        : (name: string) =>
-            Effect.sync(() => {
-              const { [name]: _, ...rest } = mcpServers;
-              void _;
-              mcpServers = rest;
-              writeToDisk();
-            }),
-  });
-};
 
 const defaultAgentRepo: CodingAgentRepositoryService = {
   get: () => Effect.die(new Error("not implemented in test")),
@@ -116,7 +77,9 @@ const makeServices = (
     layer: Layer.mergeAll(
       NativeWriteAuthorityPermissive,
       NodeServices.layer,
-      WorkspaceMutations.layer(makeWorkspaceMock(axmDir, lockfileMcpServers, wsOverrides)),
+      Layer.mock(DesiredStateWriter, {
+        undeclare: (_type, name) => wsOverrides?.removeMcpServerFn?.(name) ?? Effect.void,
+      }),
       WorkspaceReadTest({
         baseDir: path.dirname(axmDir),
         runtimeDir: axmDir,
@@ -233,7 +196,7 @@ describe("uninstallMcpServer", () => {
       }),
     );
 
-    it.effect("calls WorkspaceMutations.removeMcpServer", () =>
+    it.effect("undeclares the MCP server from desired state", () =>
       Effect.gen(function* () {
         const { axmDir, lockfileMcpServers } = setupWorkspace();
         const removeMcpServerFn = vi.fn((_name: string) => Effect.void);
@@ -270,7 +233,7 @@ describe("uninstallMcpServer", () => {
   });
 
   describe("canonical directory already missing", () => {
-    it.effect("ignores a stale receipt when canonical content is missing", () =>
+    it.effect("undeclares stale desired state when canonical content is missing", () =>
       Effect.gen(function* () {
         const { axmDir, lockfileMcpServers } = setupWorkspace({ createCanonical: false });
         const removeMcpServerFn = vi.fn((_name: string) => Effect.void);
@@ -280,8 +243,8 @@ describe("uninstallMcpServer", () => {
         );
 
         expect(result.result).toBe("success");
-        expect(result.message).toBe("not installed");
-        expect(removeMcpServerFn).not.toHaveBeenCalled();
+        expect(result.message).toContain("Uninstalled my-server");
+        expect(removeMcpServerFn).toHaveBeenCalledOnce();
       }),
     );
   });

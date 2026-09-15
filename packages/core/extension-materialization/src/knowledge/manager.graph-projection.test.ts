@@ -20,10 +20,13 @@ import { KnowledgeManager } from "../managers.js";
 import { applyPlannedProjections, observeProjectionPlans } from "@agentxm/workspace-projection";
 import { SourceHostProviders, SourceNotResolvable } from "@agentxm/extension-sources";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
-import type { DesiredExtensionNode, DesiredStateGraph } from "@agentxm/workspace-state";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
 import {
-  makeBaseWorkspaceMock,
+  DesiredStateWriter,
+  SettingsWriter,
+  type DesiredExtensionNode,
+  type DesiredStateGraph,
+} from "@agentxm/workspace-state";
+import {
   WorkspaceReadTest,
   MockWorkspaceTransactionScope,
   TEST_CONTENT_IDENTITY,
@@ -125,22 +128,11 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
     readonly instructionFiles?: boolean;
   }) => {
     const axmDir = nodePath.join(baseDir, ".axm");
-    const wsMock = makeBaseWorkspaceMock(axmDir, {
-      getDesiredStateGraph: () => Effect.succeed(args.graph),
-      getLockedKnowledge: () => Effect.succeed(args.locked),
-      // The writer must never derive membership from settings entries.
-      getConfiguredKnowledgeEntries: () => Effect.succeed(args.configured ?? {}),
-      getKnowledgeDiscoveryConfig: () =>
-        Effect.succeed({ instructions: args.knowledgeInstructions !== false }),
-      getInstructionsConfig: () =>
-        Effect.succeed(args.instructionFiles === false ? Option.none() : Option.some({})),
-    });
     return KnowledgeManagerLive.pipe(
       Layer.provideMerge(WorkspaceCatalogTestLive),
       Layer.provideMerge(CodingAgentRepositoryLive),
       Layer.provideMerge(
-        Layer.merge(
-          Layer.succeed(WorkspaceMutations, wsMock),
+        Layer.mergeAll(
           WorkspaceReadTest({
             baseDir,
             runtimeDir: axmDir,
@@ -154,6 +146,8 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
             lockfile: { lockfileVersion: 7, skills: {}, knowledge: args.locked },
             graph: args.graph,
           }),
+          Layer.mock(SettingsWriter, {}),
+          Layer.mock(DesiredStateWriter, {}),
         ),
       ),
       Layer.provideMerge(MockWorkspaceTransactionScope(axmDir)),

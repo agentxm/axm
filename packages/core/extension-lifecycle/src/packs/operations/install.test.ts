@@ -14,12 +14,8 @@ import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/mani
 import * as Schema from "effect/Schema";
 import { SourceHostProviders } from "@agentxm/extension-sources";
 import type { SourceHostProvidersService } from "@agentxm/extension-sources";
-import {
-  WorkspaceMutations,
-  type SetPackArgs,
-  type WorkspaceMutationsService,
-} from "@agentxm/workspace-state";
-import { makeBaseWorkspaceMock } from "@agentxm/workspace-state/testing";
+import { DesiredStateWriter, type DesiredStateWriterService } from "@agentxm/workspace-state";
+import { WorkspaceReadTest } from "@agentxm/workspace-state/testing";
 import {
   TestStepFailureConversion,
   exactVersion,
@@ -74,13 +70,13 @@ const makeOp = (): InstallPackOperation => ({
 const withServices = (
   axmDir: string,
   packDirectory: string,
-  wsOverrides?: Partial<WorkspaceMutationsService> & Partial<WorkspaceMutationsService["records"]>,
-) => makeServices(axmDir, packDirectory, wsOverrides).layer;
+  declare?: DesiredStateWriterService["declare"],
+) => makeServices(axmDir, packDirectory, declare).layer;
 
 const makeServices = (
   axmDir: string,
   packDirectory: string,
-  wsOverrides?: Partial<WorkspaceMutationsService> & Partial<WorkspaceMutationsService["records"]>,
+  declare?: DesiredStateWriterService["declare"],
 ) => {
   const sourceProviders: SourceHostProvidersService = {
     resolveNamedRegistry: () => Effect.die("not used"),
@@ -95,12 +91,13 @@ const makeServices = (
           : source.type,
   };
 
-  const workspace = makeBaseWorkspaceMock(path.join(axmDir, ".axm"), wsOverrides);
-
   return {
     layer: Layer.mergeAll(
       NodeServices.layer,
-      WorkspaceMutations.layer(workspace),
+      WorkspaceReadTest({ baseDir: axmDir, runtimeDir: path.join(axmDir, ".axm") }),
+      Layer.mock(DesiredStateWriter, {
+        declare: declare ?? (() => Effect.void),
+      }),
       TestStepFailureConversion,
       Layer.succeed(SourceHostProviders, sourceProviders),
     ),
@@ -239,7 +236,7 @@ describe("installPack", () => {
       ),
     );
 
-    let writtenPack: SetPackArgs | undefined;
+    let writtenPack: unknown;
     return Effect.gen(function* () {
       const result = yield* installPack(makeOp());
       const manifest = Schema.decodeUnknownSync(PackManifestSchema)(
@@ -252,12 +249,11 @@ describe("installPack", () => {
       expect(writtenPack).toMatchObject({ manifestContentIdentity: expectedIdentity });
     }).pipe(
       Effect.provide(
-        withServices(projectDir, packSourceDir, {
-          setPack: (args) =>
-            Effect.sync(() => {
-              writtenPack = args;
-            }),
-        }),
+        withServices(projectDir, packSourceDir, (_type, args) =>
+          Effect.sync(() => {
+            writtenPack = args;
+          }),
+        ),
       ),
     );
   });
@@ -291,16 +287,15 @@ describe("installPack", () => {
       ),
     );
 
-    const services = makeServices(projectDir, packSourceDir, {
-      setPack: () =>
-        Effect.fail(
-          new SettingsWriteError({
-            path: "axm.json",
-            step: "encode",
-            cause: new Error("write failed"),
-          }),
-        ),
-    });
+    const services = makeServices(projectDir, packSourceDir, () =>
+      Effect.fail(
+        new SettingsWriteError({
+          path: "axm.json",
+          step: "encode",
+          cause: new Error("write failed"),
+        }),
+      ),
+    );
 
     return Effect.gen(function* () {
       const result = yield* installPack(makeOp());

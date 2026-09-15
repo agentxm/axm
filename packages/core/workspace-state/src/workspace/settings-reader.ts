@@ -34,7 +34,7 @@ import type {
 import { settingsEntries, type SettingsEntriesOf } from "./entry-accessors.js";
 import { WorkspaceDocuments, type WorkspaceDocumentsService } from "./documents.js";
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
-import type { WorkspaceSettingsReadFailure } from "./service-interface.js";
+import type { WorkspaceSettingsReadFailure } from "./contracts.js";
 import { WorkspaceStateShared } from "./shared.js";
 
 type Read<A> = Effect.Effect<A, WorkspaceSettingsReadFailure>;

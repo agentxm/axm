@@ -14,13 +14,18 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
 
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
 import { CredentialStore, getCurrentUserHandle } from "@agentxm/registry-auth";
 import { RegistryUrl } from "@agentxm/registry-client";
 import {
-  WorkspaceMutations,
-  type WorkspaceMutationsService,
+  SettingsReader,
+  type SettingsReaderService,
+  SettingsWriter,
+  WorkspaceLocation,
+  type WorkspaceLocationService,
+  type WorkspaceLayout,
   type WorkspaceSettingsMutationFailure,
   type WorkspaceSettingsReadFailure,
 } from "@agentxm/workspace-state";
@@ -51,8 +56,11 @@ export interface AuthoringOwner {
 }
 
 /** The settings file that records ownership, relative to the workspace root. */
-export const settingsRelativePath = (path: Path.Path, ws: WorkspaceMutationsService): string =>
-  path.relative(ws.baseDir, ws.layout.settingsPath);
+export const settingsRelativePath = (
+  path: Path.Path,
+  location: WorkspaceLocationService,
+  layout: WorkspaceLayout,
+): string => path.relative(location.baseDir, layout.settingsPath);
 
 /**
  * Owners the person could plausibly have meant, most local first.
@@ -61,14 +69,14 @@ export const settingsRelativePath = (path: Path.Path, ws: WorkspaceMutationsServ
  * signed-in handle silently supplies authorship for the selected scope.
  */
 const ownerCandidates = (
-  ws: WorkspaceMutationsService,
+  settings: SettingsReaderService,
 ): Effect.Effect<
   ReadonlyArray<Handle>,
   WorkspaceSettingsReadFailure,
   CredentialStore | RegistryUrl
 > =>
   Effect.gen(function* () {
-    const configured = yield* ws.getConfiguredOwner();
+    const configured = yield* settings.owner;
     const registryUrl = yield* RegistryUrl;
     // A keychain that cannot be read must not mask the ownership refusal that
     // this lookup only decorates.
@@ -91,12 +99,15 @@ export const resolveAuthoringOwner = (
 ): Effect.Effect<
   AuthoringOwner,
   AuthoringOwnerRequired | AuthoringOwnerMismatch | WorkspaceSettingsReadFailure,
-  WorkspaceMutations | Path.Path | CredentialStore | RegistryUrl
+  WorkspaceLocation | SettingsReader | SettingsWriter | Path.Path | CredentialStore | RegistryUrl
 > =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
+    const settingsWriter = yield* SettingsWriter;
+    const layout = yield* Ref.get(location.layout);
     const path = yield* Path.Path;
-    const configured = ws.layout.owner;
+    const configured = layout.owner;
 
     if (Option.isNone(explicit)) {
       if (configured === undefined) {
@@ -104,8 +115,8 @@ export const resolveAuthoringOwner = (
           subject: target.subject,
           command: target.command,
           name: target.name,
-          candidates: yield* ownerCandidates(ws),
-          settingsPath: settingsRelativePath(path, ws),
+          candidates: yield* ownerCandidates(settings),
+          settingsPath: settingsRelativePath(path, location, layout),
         });
       }
       return { owner: configured, establish: Effect.void };
@@ -113,7 +124,10 @@ export const resolveAuthoringOwner = (
 
     const requested = normalizeScaffoldOwner(explicit.value);
     if (configured === undefined) {
-      return { owner: requested, establish: ws.setOwner(requested) };
+      return {
+        owner: requested,
+        establish: settingsWriter.setOwner(requested).pipe(Effect.asVoid),
+      };
     }
     if (configured !== requested) {
       return yield* new AuthoringOwnerMismatch({ requested, configured });
@@ -132,19 +146,20 @@ export const requireAuthoredOwner = (
 ): Effect.Effect<
   void,
   AuthoringOwnerRequired | AuthoringOwnerMismatch,
-  WorkspaceMutations | Path.Path
+  WorkspaceLocation | Path.Path
 > =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const layout = yield* Ref.get(location.layout);
     const path = yield* Path.Path;
-    const configured = ws.layout.owner;
+    const configured = layout.owner;
     if (configured === undefined) {
       return yield* new AuthoringOwnerRequired({
         subject: target.subject,
         command: target.command,
         name: owner,
         candidates: [owner],
-        settingsPath: settingsRelativePath(path, ws),
+        settingsPath: settingsRelativePath(path, location, layout),
       });
     }
     if (configured !== owner) {

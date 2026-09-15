@@ -1,8 +1,9 @@
 import * as Effect from "effect/Effect";
+import { LockfileReader, WorkspaceLocation } from "@agentxm/workspace-state";
+
 import * as Option from "effect/Option";
 import { SubagentManager } from "@agentxm/extension-materialization";
 import { CodingAgentRepository } from "@agentxm/workspace-projection";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
 import type { ExtensionLifecycleFailed } from "../../errors.js";
 import { installRefused, type InstallStepRequirements } from "../../install/vocabulary.js";
 import type { SubagentInstallationFacts } from "../application/installation.js";
@@ -32,8 +33,8 @@ export const makeSubagentInstallationFacts: Effect.Effect<
   const manager = yield* SubagentManager;
   return {
     workspace: Effect.gen(function* () {
-      const ws = yield* WorkspaceMutations;
-      if (ws.scope !== "user") return { scope: ws.scope, placements: [] };
+      const location = yield* WorkspaceLocation;
+      if (location.scope !== "user") return { scope: location.scope, placements: [] };
       const agents = yield* (yield* CodingAgentRepository).getConfiguredAgents().pipe(
         Effect.mapError((cause) =>
           installRefused({
@@ -47,7 +48,10 @@ export const makeSubagentInstallationFacts: Effect.Effect<
         agents,
         (agent) =>
           agent
-            .resolveEffectiveSubagentsDir({ workspaceRoot: ws.baseDir, scope: ws.scope })
+            .resolveEffectiveSubagentsDir({
+              workspaceRoot: location.baseDir,
+              scope: location.scope,
+            })
             .pipe(
               Effect.map((outcome) =>
                 outcome._tag === "supported"
@@ -65,13 +69,13 @@ export const makeSubagentInstallationFacts: Effect.Effect<
           }),
         ),
       );
-      return { scope: ws.scope, placements };
+      return { scope: location.scope, placements };
     }),
     inspect: (ref) =>
       Effect.gen(function* () {
-        const ws = yield* WorkspaceMutations;
-        const entry = yield* ws
-          .getLockedSubagent(ref.subagent.name)
+        const lockfile = yield* LockfileReader;
+        const entry = yield* lockfile
+          .entry("subagent", ref.subagent.name)
           .pipe(Effect.catch(() => Effect.succeed(Option.none())));
         return {
           previousVersion: previousResolvedVersion(Option.getOrUndefined(entry)),
@@ -84,8 +88,9 @@ export const makeSubagentInstallationFacts: Effect.Effect<
         .pipe(Effect.catch(() => Effect.succeed(false))),
     readContentIdentity: (ref) =>
       Effect.gen(function* () {
-        const entry = yield* (yield* WorkspaceMutations)
-          .getLockedSubagent(ref.subagent.name)
+        const lockfile = yield* LockfileReader;
+        const entry = yield* lockfile
+          .entry("subagent", ref.subagent.name)
           .pipe(Effect.catch(() => Effect.succeed(Option.none())));
         return previousContentIdentity(Option.getOrUndefined(entry));
       }),

@@ -16,10 +16,15 @@ import type { KnowledgeLockEntry } from "@agentxm/workspace-state";
 import { KnowledgeManager } from "../managers.js";
 import { applyPlannedProjections } from "@agentxm/workspace-projection";
 import { SourceHostProviders, SourceNotResolvable } from "@agentxm/extension-sources";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import {
+  DesiredStateWriter,
+  SettingsWriter,
+  type DesiredStateWriterService,
+  type SettingsWriterService,
+  type WorkspaceRecordsService,
+} from "@agentxm/workspace-state";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
-  makeBaseWorkspaceMock,
   MockWorkspaceTransactionScope,
   readModelRecordStubs,
   TEST_CONTENT_IDENTITY,
@@ -152,43 +157,33 @@ const desiredHandbookReadFacts = (
 const managerLayer = (
   workspaceRoot: string,
   options: {
-    readonly workspace?: NonNullable<Parameters<typeof makeBaseWorkspaceMock>[1]>;
     readonly read?: Omit<WorkspaceReadTestFacts, "baseDir" | "runtimeDir">;
+    readonly records?: Partial<WorkspaceRecordsService>;
+    readonly settingsWriter?: Partial<SettingsWriterService>;
+    readonly desiredStateWriter?: Partial<DesiredStateWriterService>;
   } = {},
 ) => {
   const axmDir = nodePath.join(workspaceRoot, ".axm");
-  const readSettings = options.read?.settings ?? {};
-  const readGraph = options.read?.graph ?? {
-    complete: true,
-    nodes: [],
-    mcpSourceClosures: [],
-    problems: [],
-  };
-  const acceptedResolutions =
-    options.read?.acceptedResolutions ??
-    Effect.succeed(options.read?.lockfile ?? { lockfileVersion: 7, skills: {} });
-  const workspace = makeBaseWorkspaceMock(axmDir, {
-    getConfiguredKnowledgeEntries: () => Effect.succeed(readSettings.knowledge ?? {}),
-    getInstructionsConfig: () =>
-      Effect.succeed(Option.fromUndefinedOr(readSettings.instructionFiles ?? {})),
-    getKnowledgeDiscoveryConfig: () =>
-      Effect.succeed({ instructions: readSettings.knowledgeConfig?.instructions !== false }),
-    getDesiredStateGraph: () => Effect.succeed(readGraph),
-    getLockedKnowledge: () =>
-      acceptedResolutions.pipe(Effect.map((lockfile) => lockfile.knowledge ?? {})),
-    ...options.workspace,
-  });
   return KnowledgeManagerLive.pipe(
     Layer.provideMerge(WorkspaceCatalogTestLive),
     Layer.provideMerge(CodingAgentRepositoryLive),
     Layer.provideMerge(
-      Layer.merge(
-        Layer.succeed(WorkspaceMutations, workspace),
+      Layer.mergeAll(
         WorkspaceReadTest({
           baseDir: workspaceRoot,
           runtimeDir: axmDir,
           ...options.read,
           settings: { instructionFiles: {}, ...options.read?.settings },
+          ...(options.records === undefined ? {} : { records: options.records }),
+        }),
+        Layer.mock(SettingsWriter, {
+          setEntry: () => Effect.void,
+          ...options.settingsWriter,
+        }),
+        Layer.mock(DesiredStateWriter, {
+          declare: () => Effect.void,
+          undeclare: () => Effect.void,
+          ...options.desiredStateWriter,
         }),
       ),
     ),
@@ -215,7 +210,7 @@ describe("KnowledgeManager", () => {
       try {
         const sourceRoot = nodePath.join(workspaceRoot, "knowledges", "handbook");
         writeKnowledgePackage(sourceRoot, "handbook", true);
-        const written: Array<{ readonly source: string }> = [];
+        const written: Array<{ readonly source: string; readonly enabled: boolean }> = [];
 
         yield* Effect.gen(function* () {
           const manager = yield* KnowledgeManager;
@@ -245,38 +240,46 @@ describe("KnowledgeManager", () => {
                   problems: [],
                 },
               },
-              workspace: {
-                records: {
-                  ...readModelRecordStubs,
-                  getExtensionInventory: () =>
-                    Effect.succeed({
-                      items: [
-                        {
-                          scope: "project",
-                          type: "knowledge",
-                          name: "handbook",
-                          classification: { kind: "lifecycle", lifecycle: "configured" },
-                          enabled: true,
-                          installed: true,
-                          agents: [],
-                          agentOutcomes: [],
-                          origins: ["settings"],
-                          paths: [sourceRoot],
-                          source: "workspace",
-                        },
-                      ],
-                      count: 1,
-                      configuredCount: 1,
-                      implicitCount: 0,
-                      installedCount: 1,
-                      leftoverCount: 0,
-                      undeclaredCount: 0,
-                      unmanagedCount: 0,
-                    }),
-                },
-                setKnowledgeEntry: (_name, entry) =>
+              records: {
+                ...readModelRecordStubs,
+                getExtensionInventory: () =>
+                  Effect.succeed({
+                    items: [
+                      {
+                        scope: "project",
+                        type: "knowledge",
+                        name: "handbook",
+                        classification: { kind: "lifecycle", lifecycle: "configured" },
+                        enabled: true,
+                        installed: true,
+                        agents: [],
+                        agentOutcomes: [],
+                        origins: ["settings"],
+                        paths: [sourceRoot],
+                        source: "workspace",
+                      },
+                    ],
+                    count: 1,
+                    configuredCount: 1,
+                    implicitCount: 0,
+                    installedCount: 1,
+                    leftoverCount: 0,
+                    undeclaredCount: 0,
+                    unmanagedCount: 0,
+                  }),
+              },
+              settingsWriter: {
+                setEntry: (type, _name, entry) =>
                   Effect.sync(() => {
-                    written.push(entry);
+                    if (
+                      type === "knowledge" &&
+                      "source" in entry &&
+                      typeof entry.source === "string" &&
+                      "enabled" in entry &&
+                      typeof entry.enabled === "boolean"
+                    ) {
+                      written.push({ source: entry.source, enabled: entry.enabled });
+                    }
                   }),
               },
             }),
@@ -308,9 +311,8 @@ describe("KnowledgeManager", () => {
 
         const staged = yield* Deferred.make<void>();
         const layer = managerLayer(workspaceRoot, {
-          workspace: {
-            setKnowledge: () =>
-              Deferred.succeed(staged, undefined).pipe(Effect.andThen(Effect.never)),
+          desiredStateWriter: {
+            declare: () => Deferred.succeed(staged, undefined).pipe(Effect.andThen(Effect.never)),
           },
         });
         const fiber = yield* Effect.gen(function* () {

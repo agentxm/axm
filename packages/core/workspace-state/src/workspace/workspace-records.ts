@@ -17,7 +17,7 @@ import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js"
 import type { ExtensionInventory } from "./read-model/extensions/inventory.js";
 import { makeReadModelRecordReaders } from "./read-model-record-readers.js";
 import type { ReadModelRecordRow } from "./read-model-record-types.js";
-import type { WorkspaceStateReadFailure } from "./service-interface.js";
+import type { WorkspaceStateReadFailure } from "./contracts.js";
 import { readScopedModel } from "./state-cells.js";
 
 type Read<A> = Effect.Effect<A, WorkspaceStateReadFailure, FileSystem.FileSystem | Path.Path>;

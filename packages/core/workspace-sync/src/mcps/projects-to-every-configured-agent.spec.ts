@@ -3,7 +3,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { WorkspaceRecords } from "@agentxm/workspace-state";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { applySync, makeSyncFixture, type SyncFixture } from "../test-helpers.js";
@@ -244,10 +244,10 @@ describe("MCP servers project to every configured agent", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            const ws = yield* WorkspaceMutations;
+            const records = yield* WorkspaceRecords;
             yield* applySync();
 
-            const inventory = yield* ws.records.getExtensionInventory("mcp-server", {});
+            const inventory = yield* records.getExtensionInventory("mcp-server", {});
             const item = inventory.items.find((entry) => entry.name === "demo");
             expect(item).toBeDefined();
             const outcomes = item?.agentOutcomes ?? [];

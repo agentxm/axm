@@ -11,6 +11,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -43,7 +44,10 @@ import {
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
 import {
-  WorkspaceMutations,
+  DesiredStateReader,
+  SettingsReader,
+  WorkspaceLocation,
+  WorkspaceRecords,
   computePackPathsForLayout,
   configuredRowsByName,
   resolveWorkspaceExtensionRef,
@@ -84,7 +88,11 @@ export interface PackMembershipRequest {
 
 /** What a membership step requires when it runs. */
 export type PackMembershipRequirements =
-  FileSystem.FileSystem | Path.Path | WorkspaceMutations | WorkspaceTransactionScope;
+  | FileSystem.FileSystem
+  | Path.Path
+  | SettingsReader
+  | WorkspaceLocation
+  | WorkspaceTransactionScope;
 
 export interface PackMembershipChange {
   readonly _tag: "Change";
@@ -132,8 +140,9 @@ interface PackMemberCandidate {
 
 /** Every managed, versioned extension in the workspace a pack may depend on. */
 const memberCandidates = Effect.fn("ChangePackMembership.memberCandidates")(function* () {
-  const ws = yield* WorkspaceMutations;
-  const graph = yield* ws.getDesiredStateGraph();
+  const location = yield* WorkspaceLocation;
+  const layout = yield* Ref.get(location.layout);
+  const graph = yield* (yield* DesiredStateReader).graph();
   const candidates: Array<PackMemberCandidate> = [];
   for (const node of graph.nodes) {
     if (!isCatalogExtensionType(node.type)) continue;
@@ -143,8 +152,8 @@ const memberCandidates = Effect.fn("ChangePackMembership.memberCandidates")(func
           settingsName: node.name,
           source: node.source,
           expectedType: node.type,
-          layout: ws.layout,
-          scope: ws.scope,
+          layout: layout,
+          scope: location.scope,
         }).pipe(Effect.map(Option.some))
       : yield* usableAcceptedCanonical({ type: node.type, name: node.name }).pipe(
           Effect.map(Option.map((canonical) => canonical.ref)),
@@ -181,14 +190,15 @@ const memberCandidates = Effect.fn("ChangePackMembership.memberCandidates")(func
 export const preparePackMembership = Effect.fn("ChangePackMembership.prepare")(function* (
   request: PackMembershipRequest,
 ) {
-  const ws = yield* WorkspaceMutations;
+  const location = yield* WorkspaceLocation;
+  const layout = yield* Ref.get(location.layout);
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 
-  const configuredPacks = yield* ws.records
+  const configuredPacks = yield* (yield* WorkspaceRecords)
     .rows("pack")
     .pipe(Effect.map((rows) => Object.values(configuredRowsByName(rows))));
-  const configuredOwner = yield* ws.getConfiguredOwner();
+  const configuredOwner = yield* (yield* SettingsReader).owner;
   const selection = yield* resolveConfiguredPackSelector({
     configured: configuredPacks,
     ...(Option.isNone(configuredOwner) ? {} : { configuredOwner: configuredOwner.value }),
@@ -200,12 +210,15 @@ export const preparePackMembership = Effect.fn("ChangePackMembership.prepare")(f
   if (source === undefined) return yield* new PackSourceMissing({ pack });
   if (!isWorkspaceSourceLocator(source)) return yield* new PackNotAuthored({ pack });
   if (Option.isNone(configuredOwner)) {
-    return yield* new PackOwnerUnconfigured({ pack, settingsPath: settingsRelativePath(path, ws) });
+    return yield* new PackOwnerUnconfigured({
+      pack,
+      settingsPath: settingsRelativePath(path, location, layout),
+    });
   }
   const packOwner = configuredOwner.value;
 
   const manifestPath = path.join(
-    computePackPathsForLayout(path.join, ws.layout, "workspace", packOwner, pack).canonicalPath,
+    computePackPathsForLayout(path.join, layout, "workspace", packOwner, pack).canonicalPath,
     PACK_MANIFEST_FILENAME,
   );
   const manifestContent = yield* fs
@@ -280,7 +293,7 @@ export const preparePackMembership = Effect.fn("ChangePackMembership.prepare")(f
     label: pack,
     artifact: {
       path: manifestPath,
-      scope: ws.scope,
+      scope: location.scope,
       change: "updated",
       fileCount: 1,
       packMembership,

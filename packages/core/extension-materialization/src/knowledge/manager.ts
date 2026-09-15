@@ -5,12 +5,22 @@ import { usableAcceptedCanonical } from "@agentxm/workspace-state";
 /** Lifecycle manager for isolated Open Knowledge Format bundles. */
 
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
+import {
+  DesiredStateReader,
+  DesiredStateWriter,
+  LockfileReader,
+  SettingsReader,
+  SettingsWriter,
+  WorkspaceLocation,
+  WorkspaceRecords,
+} from "@agentxm/workspace-state";
+
 import { stripFileProtocol } from "@agentxm/registry-client";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import * as Result from "effect/Result";
@@ -64,7 +74,6 @@ import { makeWorkspaceRelativePath } from "@agentxm/extension-model/unstable/pat
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import { usableAcceptedCanonicalRef } from "@agentxm/workspace-state";
-import { getKnowledgeLockEntries } from "@agentxm/workspace-state";
 import type { ManagerRequirements } from "../manager-contract.js";
 import { NO_MATERIALIZATION_OBSERVATION } from "../manager-contract.js";
 import type { KnowledgeMaterializationFacts } from "../managers.js";
@@ -75,7 +84,6 @@ import {
   type KnowledgeSyncResult,
 } from "../managers.js";
 import type { ExtensionTarget } from "@agentxm/workspace-state";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { runWorkspaceTransaction } from "@agentxm/workspace-transactions";
 import { isObservedInstalled } from "@agentxm/workspace-state";
 import {
@@ -182,18 +190,29 @@ const describeKnowledgeFailure = (failure: { readonly _tag: string }): string =>
 export const KnowledgeManagerLive = Layer.effect(
   KnowledgeManager,
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
+    const lockfile = yield* LockfileReader;
+    const desiredState = yield* DesiredStateReader;
+    const records = yield* WorkspaceRecords;
+    const settingsWriter = yield* SettingsWriter;
+    const desiredStateWriter = yield* DesiredStateWriter;
+    const currentLayout = () => Ref.getUnsafe(location.layout);
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const sources = yield* SourceHostProviders;
     const catalog = yield* WorkspaceCatalog;
-    const baseDir = ws.baseDir;
+    const baseDir = location.baseDir;
 
-    // The workspace facade and the source integration are this layer's own
+    // The workspace state ports and source integration are this layer's own
     // dependencies; the platform stays in `R` for every member.
     const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       effect.pipe(
-        Effect.provideService(WorkspaceMutations, ws),
+        Effect.provideService(WorkspaceLocation, location),
+        Effect.provideService(SettingsReader, settings),
+        Effect.provideService(LockfileReader, lockfile),
+        Effect.provideService(DesiredStateReader, desiredState),
+        Effect.provideService(WorkspaceRecords, records),
         Effect.provideService(SourceHostProviders, sources),
         Effect.provideService(WorkspaceCatalog, catalog),
       );
@@ -218,8 +237,13 @@ export const KnowledgeManagerLive = Layer.effect(
     };
 
     const canonicalPathForRef = (ref: KnowledgeExtensionRef): string =>
-      computeExtensionPathsForLayout(path.join, ws.layout, ref, KNOWLEDGE_EXTENSION_DIR, ref.name)
-        .canonicalPath;
+      computeExtensionPathsForLayout(
+        path.join,
+        currentLayout(),
+        ref,
+        KNOWLEDGE_EXTENSION_DIR,
+        ref.name,
+      ).canonicalPath;
 
     const materializePackage = (
       ref: KnowledgeExtensionRef,
@@ -262,7 +286,7 @@ export const KnowledgeManagerLive = Layer.effect(
           );
         case "workspace":
           if (
-            ref.scope !== ws.scope ||
+            ref.scope !== location.scope ||
             path.resolve(ref.location) !== path.resolve(canonicalPath)
           ) {
             return Effect.fail(
@@ -355,7 +379,7 @@ export const KnowledgeManagerLive = Layer.effect(
         // never exists, so a decision made there would re-extract every time
         // and revert workspace-owned content on a no-op install.
         if (ref.refType === "registry") {
-          const lockedEntry = yield* ws.getLockedKnowledgeEntry(ref.knowledge.name);
+          const lockedEntry = yield* lockfile.entry("knowledge", ref.knowledge.name);
           const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, ref);
           const reuse = yield* provide(
             canReuseInstalledPackage({
@@ -485,7 +509,7 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const getInstructionsTarget = () =>
       Effect.gen(function* () {
-        const config = yield* ws.getInstructionsConfig();
+        const config = yield* settings.instructionsConfig;
         const enabled = Option.isSome(config) && config.value !== false;
         const resolved = resolveInstructionsConfig(enabled ? config.value : undefined);
         const relative = makeWorkspaceRelativePath(path, baseDir, resolved.fileName);
@@ -504,7 +528,7 @@ export const KnowledgeManagerLive = Layer.effect(
     const canonicalRoot = (_name: string, locked: KnowledgeLockEntry): string =>
       computeExtensionPathsForLayout(
         path.join,
-        ws.layout,
+        currentLayout(),
         extensionPathSourceFromLockEntry(locked),
         KNOWLEDGE_EXTENSION_DIR,
         locked.workspaceName,
@@ -515,8 +539,9 @@ export const KnowledgeManagerLive = Layer.effect(
       locked: KnowledgeLockEntry | undefined,
     ) => {
       if (node.identity.startsWith("workspace:")) {
-        return ws.layout.scope === "project"
-          ? Effect.succeed(path.join(ws.layout.authoredRoot("knowledge"), node.name))
+        const layout = currentLayout();
+        return layout.scope === "project"
+          ? Effect.succeed(path.join(layout.authoredRoot("knowledge"), node.name))
           : Effect.fail(
               new KnowledgeDefinitionInvalid({
                 detail: "User workspaces do not support workspace-authored Knowledge bundles",
@@ -544,9 +569,8 @@ export const KnowledgeManagerLive = Layer.effect(
     });
 
     const activeKnowledgeNodes = () =>
-      ws
-        .getDesiredStateGraph()
-
+      desiredState
+        .graph()
         .pipe(
           Effect.flatMap((graph) =>
             graph.complete
@@ -644,10 +668,10 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const resolveKnowledgeProjection = () =>
       Effect.gen(function* () {
-        const graph = yield* ws.getDesiredStateGraph();
-        const locked = yield* getKnowledgeLockEntries(ws);
-        const configured = yield* ws.getConfiguredKnowledgeEntries();
-        const config = yield* ws.getKnowledgeDiscoveryConfig();
+        const graph = yield* desiredState.graph();
+        const locked = yield* lockfile.entries("knowledge");
+        const configured = yield* settings.entries("knowledge");
+        const config = yield* settings.knowledgeDiscoveryConfig;
         const instructionsTarget = yield* getInstructionsTarget();
         return { graph, locked, configured, config, instructionsTarget };
       });
@@ -804,9 +828,9 @@ export const KnowledgeManagerLive = Layer.effect(
 
     const setKnowledgeSourceEntry = (name: string, source: string) =>
       Effect.gen(function* () {
-        const configured = yield* ws.getConfiguredKnowledgeEntries();
+        const configured = yield* settings.entries("knowledge");
         const current = configured[name];
-        yield* ws.setKnowledgeEntry(name, {
+        yield* settingsWriter.setEntry("knowledge", name, {
           source,
           enabled: true,
           ...(current?.instructionEntry === undefined
@@ -820,9 +844,8 @@ export const KnowledgeManagerLive = Layer.effect(
         const ref = yield* knowledgeLockEntryToRef(name, entry, {
           baseDir,
           path,
-          scope: ws.scope,
-          getConfiguredSourceByName: (sourceName: string) =>
-            ws.getConfiguredSourceByName(sourceName),
+          scope: location.scope,
+          getConfiguredSourceByName: (sourceName: string) => settings.sourceByName(sourceName),
         });
         if (ref.refType === "registry" && Option.isNone(ref.integrity)) {
           return yield* new KnowledgeUnavailable({
@@ -863,7 +886,7 @@ export const KnowledgeManagerLive = Layer.effect(
     > =>
       Effect.gen(function* () {
         const desired = yield* activeKnowledgeNodes();
-        const locked = yield* getKnowledgeLockEntries(ws);
+        const locked = yield* lockfile.entries("knowledge");
         const prepared: Array<PreparedKnowledgePackage> = [];
         for (const node of desired) {
           const { name } = node;
@@ -952,7 +975,7 @@ export const KnowledgeManagerLive = Layer.effect(
             }
             const lockEntry = yield* buildLockEntry(args.ref, Option.some(facts));
             if (Option.isSome(lockEntry)) {
-              yield* ws.setKnowledge({
+              yield* desiredStateWriter.declare("knowledge", {
                 name,
                 lockEntry: lockEntry.value,
                 versionRange: args.versionRange,
@@ -971,7 +994,7 @@ export const KnowledgeManagerLive = Layer.effect(
           return committed;
         }),
         validate: ({ name }) =>
-          isObservedInstalled(ws, "knowledge", name).pipe(
+          isObservedInstalled(records, "knowledge", name).pipe(
             Effect.flatMap((installed) =>
               installed ? Effect.void : new KnowledgeObservableContractViolated({ name }),
             ),
@@ -991,7 +1014,7 @@ export const KnowledgeManagerLive = Layer.effect(
         }),
       );
       const root = removableAcceptedCanonicalPath(canonical);
-      const locked = yield* ws.getLockedKnowledgeEntry(target.name);
+      const locked = yield* lockfile.entry("knowledge", target.name);
       const ownedRoot = Option.orElse(root, () =>
         Option.map(locked, (entry) => canonicalRoot(target.name, entry)),
       );
@@ -1054,7 +1077,7 @@ export const KnowledgeManagerLive = Layer.effect(
             ),
       install: installAtomically,
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
-        isObservedInstalled(ws, "knowledge", target.name),
+        provide(isObservedInstalled(records, "knowledge", target.name)),
       materializeInstall: acquireCanonical,
       acquireCanonical,
       prepareSourceTransition: ({ ref }) =>
@@ -1066,9 +1089,8 @@ export const KnowledgeManagerLive = Layer.effect(
           }),
         ),
       getConfiguredSource: ({ target }) =>
-        ws
-          .getConfiguredKnowledgeEntries()
-
+        settings
+          .entries("knowledge")
           .pipe(Effect.map((entries) => Option.fromUndefinedOr(entries[target.name]?.source))),
       /**
        * Every enabled entry's accepted canonical package, read from accepted

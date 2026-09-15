@@ -9,11 +9,19 @@ import { usableAcceptedCanonical } from "@agentxm/workspace-state";
  */
 
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
+import {
+  DesiredStateReader,
+  LockfileReader,
+  SettingsReader,
+  WorkspaceLocation,
+  WorkspaceRecords,
+} from "@agentxm/workspace-state";
+
 import { stripFileProtocol } from "@agentxm/registry-client";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Ref from "effect/Ref";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { RuleDefinitionInvalid, RuleInstallStateMissing } from "./errors.js";
@@ -65,7 +73,6 @@ import type { MaterializationObservation } from "../manager-contract.js";
 import { NO_MATERIALIZATION_OBSERVATION } from "../manager-contract.js";
 import type { RuleMaterializationFacts } from "../managers.js";
 import type { ExtensionTarget } from "@agentxm/workspace-state";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
 import { usableAcceptedCanonicalRef } from "@agentxm/workspace-state";
 import { isObservedInstalled } from "@agentxm/workspace-state";
 import {
@@ -185,19 +192,28 @@ export const ruleMaterializationObservation = (
 export const RuleManagerLive = Layer.effect(
   RuleManager,
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
+    const lockfile = yield* LockfileReader;
+    const desiredState = yield* DesiredStateReader;
+    const records = yield* WorkspaceRecords;
+    const currentLayout = () => Ref.getUnsafe(location.layout);
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const sources = yield* SourceHostProviders;
     const catalog = yield* WorkspaceCatalog;
-    const baseDir = ws.baseDir;
-    const workspaceScope = ws.scope;
+    const baseDir = location.baseDir;
+    const workspaceScope = location.scope;
 
-    // The workspace facade and the source integration are this layer's own
+    // The workspace state ports and source integration are this layer's own
     // dependencies; the platform stays in `R` for every member.
     const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       effect.pipe(
-        Effect.provideService(WorkspaceMutations, ws),
+        Effect.provideService(WorkspaceLocation, location),
+        Effect.provideService(SettingsReader, settings),
+        Effect.provideService(LockfileReader, lockfile),
+        Effect.provideService(DesiredStateReader, desiredState),
+        Effect.provideService(WorkspaceRecords, records),
         Effect.provideService(SourceHostProviders, sources),
         Effect.provideService(WorkspaceCatalog, catalog),
       );
@@ -210,12 +226,12 @@ export const RuleManagerLive = Layer.effect(
       Effect.gen(function* () {
         const canonicalPath = computeExtensionPathsForLayout(
           path.join,
-          ws.layout,
+          currentLayout(),
           ref,
           RULE_EXTENSION_DIR,
           ref.name,
         ).canonicalPath;
-        const lockedEntry = yield* ws.getLockedRuleEntry(ref.rule.name);
+        const lockedEntry = yield* lockfile.entry("rule", ref.rule.name);
         const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, ref);
         const reuse = yield* provide(
           canReuseInstalledPackage({
@@ -261,7 +277,7 @@ export const RuleManagerLive = Layer.effect(
           baseDir,
           canonicalPath: computeExtensionPathsForLayout(
             path.join,
-            ws.layout,
+            currentLayout(),
             ref,
             RULE_EXTENSION_DIR,
             ref.rule.name,
@@ -289,13 +305,13 @@ export const RuleManagerLive = Layer.effect(
           case "workspace": {
             const expectedPath = computeExtensionPathsForLayout(
               path.join,
-              ws.layout,
+              currentLayout(),
               ref,
               RULE_EXTENSION_DIR,
               ref.name,
             ).canonicalPath;
             if (
-              ref.scope !== ws.scope ||
+              ref.scope !== location.scope ||
               path.resolve(ref.location) !== path.resolve(expectedPath)
             ) {
               return yield* new RuleDefinitionInvalid({
@@ -334,7 +350,7 @@ export const RuleManagerLive = Layer.effect(
 
     const sourceFileTarget = () =>
       Effect.gen(function* () {
-        const config = yield* ws.getInstructionsConfig();
+        const config = yield* settings.instructionsConfig;
         const resolved = resolveInstructionsConfig(
           Option.isSome(config) && config.value !== false ? config.value : undefined,
         );
@@ -352,7 +368,7 @@ export const RuleManagerLive = Layer.effect(
 
     const activeInstructions = () =>
       Effect.gen(function* () {
-        const config = yield* ws.getInstructionsConfig();
+        const config = yield* settings.instructionsConfig;
         if (Option.isNone(config) || config.value === false) {
           return Option.none<{
             readonly config: ResolvedInstructionsConfig;
@@ -361,7 +377,7 @@ export const RuleManagerLive = Layer.effect(
         }
         return Option.some({
           config: resolveInstructionsConfig(config.value),
-          agents: yield* ws.getConfiguredAgents(),
+          agents: yield* settings.configuredAgents,
         });
       });
 
@@ -412,7 +428,7 @@ export const RuleManagerLive = Layer.effect(
     }) =>
       provide(
         activeContributors({
-          layout: ws.layout,
+          layout: currentLayout(),
           path,
           type: "rule",
           extensionDir: RULE_EXTENSION_DIR,
@@ -547,8 +563,8 @@ export const RuleManagerLive = Layer.effect(
       Effect.gen(function* () {
         const target = yield* sourceFileTarget();
         const instructions = yield* activeInstructions();
-        const graph = yield* ws.getDesiredStateGraph();
-        const locked = yield* ws.getLockedRules();
+        const graph = yield* desiredState.graph();
+        const locked = yield* lockfile.entries("rule");
         return yield* planAggregateProjection({
           unitId: "rule:instructions-region",
           targetFile: target.absolute,
@@ -679,7 +695,7 @@ export const RuleManagerLive = Layer.effect(
       projectionPlans,
       aggregateProjectionObservation: Ref.get(lastProjection),
       isInstalled: ({ target }: { readonly target: ExtensionTarget }) =>
-        isObservedInstalled(ws, "rule", target.name).pipe(
+        isObservedInstalled(records, "rule", target.name).pipe(
           Effect.withSpan("RuleManager.isInstalled"),
         ),
 
@@ -709,7 +725,7 @@ export const RuleManagerLive = Layer.effect(
           }),
         ),
       getConfiguredSource: Effect.fn("RuleManager.getConfiguredSource")(function* ({ target }) {
-        const configured = yield* ws.getConfiguredRuleEntries();
+        const configured = yield* settings.entries("rule");
         return Option.fromUndefinedOr(configured[target.name]?.source);
       }),
 
@@ -721,7 +737,7 @@ export const RuleManagerLive = Layer.effect(
        * an operator and the extension they are authoring.
        */
       listMaterializable: Effect.fn("RuleManager.listMaterializable")(function* () {
-        const configured = yield* ws.getConfiguredRuleEntries();
+        const configured = yield* settings.entries("rule");
         const refs = yield* Effect.forEach(
           enabledConfiguredEntries(configured),
           ([name]) =>

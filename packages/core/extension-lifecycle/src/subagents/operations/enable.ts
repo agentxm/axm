@@ -27,8 +27,8 @@ import {
   type DesiredStateReader,
   type LockfileReader,
   type SettingsReader,
-  type WorkspaceLocation,
-  WorkspaceMutations,
+  WorkspaceLocation,
+  SettingsWriter,
 } from "@agentxm/workspace-state";
 import {
   WorkspaceTransactionScope,
@@ -79,9 +79,9 @@ export const enableSubagent: OperationHandler<
   EnableSubagentOperation,
   | FileSystem.FileSystem
   | Path.Path
-  | WorkspaceMutations
   | WorkspaceLocation
   | SettingsReader
+  | SettingsWriter
   | LockfileReader
   | DesiredStateReader
   | WorkspaceTransactionScope
@@ -92,7 +92,8 @@ export const enableSubagent: OperationHandler<
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const settingsWriter = yield* SettingsWriter;
     const agentRepo = yield* CodingAgentRepository;
 
     const canonical = yield* usableAcceptedCanonical({
@@ -112,7 +113,7 @@ export const enableSubagent: OperationHandler<
       });
     }
 
-    const baseDir = ws.baseDir;
+    const baseDir = location.baseDir;
     const subagentSrcPath = path.join(canonical.value.observation.path, "src");
 
     // Read and parse the subagent content file
@@ -166,7 +167,7 @@ export const enableSubagent: OperationHandler<
             agent
               .addSubagent({
                 workspaceRoot: baseDir,
-                scope: ws.scope,
+                scope: location.scope,
                 input: managedSubagentRenderInput({
                   managedFile,
                   input: {
@@ -204,7 +205,7 @@ export const enableSubagent: OperationHandler<
               ),
           { concurrency: "unbounded" },
         );
-        yield* ws.updateSubagentEntry(op.args.subagentName, (entry) => ({
+        yield* settingsWriter.updateEntry("subagent", op.args.subagentName, (entry) => ({
           ...entry,
           enabled: true,
         }));
@@ -223,7 +224,7 @@ export const enableSubagent: OperationHandler<
       message: `Enabled ${op.args.subagentName}`,
       artifact: subagentLifecycleArtifact({
         name: op.args.subagentName,
-        scope: ws.scope,
+        scope: location.scope,
         agents: configuredAgents.map((agent) => agent.id),
         ...(version === undefined ? {} : { version }),
         change: "updated",

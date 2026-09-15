@@ -12,13 +12,19 @@ import * as Path from "effect/Path";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { DefaultCodingAgentRepository } from "@agentxm/workspace-projection";
+import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import { ExtensionLifecycleFailed } from "../../errors.js";
 import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";
 import type { OperationHandler } from "@agentxm/workspace-operations";
 import type { Operation } from "@agentxm/workspace-operations";
 import type { JobStepResult } from "@agentxm/workspace-operations";
-import { type SettingsReader, WorkspaceMutations } from "@agentxm/workspace-state";
+import {
+  DesiredStateReader,
+  type SettingsReader,
+  SettingsWriter,
+  WorkspaceLocation,
+  WorkspaceRecords,
+} from "@agentxm/workspace-state";
 import {
   WorkspaceTransactionScope,
   runWorkspaceTransaction,
@@ -57,21 +63,29 @@ export const disableSkill: OperationHandler<
   DisableSkillOperation,
   | FileSystem.FileSystem
   | Path.Path
-  | WorkspaceMutations
+  | WorkspaceLocation
+  | WorkspaceRecords
+  | DesiredStateReader
   | SettingsReader
+  | SettingsWriter
+  | CodingAgentRepository
   | WorkspaceTransactionScope
   | StepFailureConversion
 > = (op) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const ws = yield* WorkspaceMutations;
-    const base = ws.baseDir;
+    const location = yield* WorkspaceLocation;
+    const records = yield* WorkspaceRecords;
+    const desiredState = yield* DesiredStateReader;
+    const settingsWriter = yield* SettingsWriter;
+    const agentRepository = yield* CodingAgentRepository;
+    const base = location.baseDir;
 
     // Read lifecycle to determine promotion needs
-    const installedSkills = yield* ws.records.rows("skill").pipe(Effect.map(installedRowsByName));
+    const installedSkills = yield* records.rows("skill").pipe(Effect.map(installedRowsByName));
     const installed = installedSkills[op.args.skillName];
     const isImplicit = installed !== undefined && installed.lifecycle === "implicit";
-    const graph = yield* ws.getDesiredStateGraph();
+    const graph = yield* desiredState.graph();
     if (!graph.complete) {
       return yield* new ExtensionLifecycleFailed({
         category: "conflict",
@@ -83,7 +97,7 @@ export const disableSkill: OperationHandler<
     );
 
     const sanitizedName = sanitizeName(op.args.skillName);
-    const materializationAgents = yield* DefaultCodingAgentRepository.getMaterializationAgents();
+    const materializationAgents = yield* agentRepository.getMaterializationAgents();
     const installableTargetOptions = yield* runWorkspaceTransaction({
       transition: Effect.gen(function* () {
         if (isImplicit) {
@@ -96,9 +110,9 @@ export const disableSkill: OperationHandler<
               suggestions: [{ description: "Provide a source when disabling this skill" }],
             });
           }
-          yield* ws.setSkillEntry(op.args.skillName, { source, enabled: false });
+          yield* settingsWriter.setEntry("skill", op.args.skillName, { source, enabled: false });
         } else {
-          yield* ws.updateSkillEntry(op.args.skillName, (entry) => ({
+          yield* settingsWriter.updateEntry("skill", op.args.skillName, (entry) => ({
             ...entry,
             enabled: false,
           }));
@@ -132,11 +146,11 @@ export const disableSkill: OperationHandler<
       targets: installableTargets,
       workspaceRoot: base,
       sanitizedName,
-      scope: ws.scope,
+      scope: location.scope,
       change: "removed",
       workspaceTargets: [
         {
-          path: ws.scope === "project" ? "axm.json" : ".axm/workspace/axm.json",
+          path: location.scope === "project" ? "axm.json" : ".axm/workspace/axm.json",
           change: "updated",
         },
       ],

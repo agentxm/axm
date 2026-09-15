@@ -11,7 +11,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { DefaultCodingAgentRepository } from "@agentxm/workspace-projection";
+import { CodingAgentRepository } from "@agentxm/workspace-projection";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import { ExtensionLifecycleFailed } from "../../errors.js";
 import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failure-conversion.js";
@@ -22,8 +22,8 @@ import {
   type DesiredStateReader,
   type LockfileReader,
   type SettingsReader,
-  type WorkspaceLocation,
-  WorkspaceMutations,
+  WorkspaceLocation,
+  SettingsWriter,
 } from "@agentxm/workspace-state";
 import {
   WorkspaceTransactionScope,
@@ -62,18 +62,21 @@ export const enableSkill: OperationHandler<
   EnableSkillOperation,
   | FileSystem.FileSystem
   | Path.Path
-  | WorkspaceMutations
   | WorkspaceLocation
   | SettingsReader
+  | SettingsWriter
   | LockfileReader
   | DesiredStateReader
+  | CodingAgentRepository
   | WorkspaceTransactionScope
   | StepFailureConversion
 > = (op) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const ws = yield* WorkspaceMutations;
-    const base = ws.baseDir;
+    const location = yield* WorkspaceLocation;
+    const settingsWriter = yield* SettingsWriter;
+    const agentRepository = yield* CodingAgentRepository;
+    const base = location.baseDir;
     const canonical = yield* usableAcceptedCanonicalObservation({
       type: "skill",
       name: op.args.skillName,
@@ -92,7 +95,7 @@ export const enableSkill: OperationHandler<
     }
 
     const sanitizedName = sanitizeName(op.args.skillName);
-    const materializationAgents = yield* DefaultCodingAgentRepository.getMaterializationAgents();
+    const materializationAgents = yield* agentRepository.getMaterializationAgents();
 
     const accepted = canonical.value.accepted;
     const portable =
@@ -145,7 +148,7 @@ export const enableSkill: OperationHandler<
             }),
           { concurrency: "unbounded" },
         );
-        yield* ws.updateSkillEntry(op.args.skillName, (entry) => ({
+        yield* settingsWriter.updateEntry("skill", op.args.skillName, (entry) => ({
           ...entry,
           enabled: true,
         }));
@@ -157,11 +160,11 @@ export const enableSkill: OperationHandler<
       targets: installableTargets,
       workspaceRoot: base,
       sanitizedName,
-      scope: ws.scope,
+      scope: location.scope,
       change: "created",
       workspaceTargets: [
         {
-          path: ws.scope === "project" ? "axm.json" : ".axm/workspace/axm.json",
+          path: location.scope === "project" ? "axm.json" : ".axm/workspace/axm.json",
           change: "updated",
         },
       ],

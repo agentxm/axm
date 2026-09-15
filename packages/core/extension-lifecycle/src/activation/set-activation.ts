@@ -92,10 +92,12 @@ import {
   type Plan,
   type PlanExecution,
   type PlannedJobStep,
+  type StepFailure,
 } from "@agentxm/workspace-operations";
 import {
   acceptedCanonicalObservation,
   usableAcceptedCanonical,
+  DesiredStateReader,
   LockfileReader,
   SettingsReader,
   settingsEntries,
@@ -106,7 +108,9 @@ import {
   isDesiredExtensionActive,
   RenderedFilePathSchema,
   sanitizeName,
+  WorkspaceLocation,
   WorkspaceMutations,
+  WorkspaceRecords,
   type DesiredExtensionNode,
   type AcceptedCanonicalRefError,
   type WorkspaceMutationsService,
@@ -223,6 +227,7 @@ export type SetActivationRequirements =
   | McpServerInstallRequirements
   | ProjectionParticipantRequirements
   | RecipeRequirements
+  | DesiredStateReader
   | LockfileReader
   | SettingsReader
   | SettingsWriter
@@ -233,7 +238,9 @@ export type SetActivationRequirements =
   | StepFailureConversion
   | SubagentManager
   | WorkspaceCatalog
+  | WorkspaceLocation
   | WorkspaceMutations
+  | WorkspaceRecords
   | WorkspaceTransactionScope;
 
 // -----------------------------------------------------------------------------
@@ -957,7 +964,7 @@ const executorStep = (
   candidate: ActivationRealization,
   kind: "skill" | "subagent" | "mcp-server",
 ): PlannedJobStep<SetActivationRequirements> => {
-  const run =
+  const run: Effect.Effect<JobStepResult, StepFailure, SetActivationRequirements> =
     kind === "skill"
       ? candidate.enabled
         ? enableSkill({ name: "enable-skill", args: { skillName: candidate.name } })

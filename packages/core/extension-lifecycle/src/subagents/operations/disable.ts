@@ -19,7 +19,13 @@ import { StepFailureConversion, withAdaptedStepFailures } from "../../step-failu
 import type { OperationHandler } from "@agentxm/workspace-operations";
 import type { Operation } from "@agentxm/workspace-operations";
 import type { JobStepResult } from "@agentxm/workspace-operations";
-import { type SettingsReader, WorkspaceMutations } from "@agentxm/workspace-state";
+import {
+  DesiredStateReader,
+  type SettingsReader,
+  SettingsWriter,
+  WorkspaceLocation,
+  WorkspaceRecords,
+} from "@agentxm/workspace-state";
 import {
   WorkspaceTransactionScope,
   runWorkspaceTransaction,
@@ -61,25 +67,31 @@ export const disableSubagent: OperationHandler<
   DisableSubagentOperation,
   | FileSystem.FileSystem
   | Path.Path
-  | WorkspaceMutations
+  | WorkspaceLocation
+  | WorkspaceRecords
+  | DesiredStateReader
   | SettingsReader
+  | SettingsWriter
   | WorkspaceTransactionScope
   | CodingAgentRepository
   | NativeWriteAuthority
   | StepFailureConversion
 > = (op) =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const records = yield* WorkspaceRecords;
+    const desiredState = yield* DesiredStateReader;
+    const settingsWriter = yield* SettingsWriter;
     const agentRepo = yield* CodingAgentRepository;
     const path = yield* Path.Path;
 
     // Read lifecycle to determine promotion needs
-    const installedSubagents = yield* ws.records
+    const installedSubagents = yield* records
       .rows("subagent")
       .pipe(Effect.map(installedRowsByName));
     const installed = installedSubagents[op.args.subagentName];
     const isImplicit = installed !== undefined && installed.lifecycle === "implicit";
-    const graph = yield* ws.getDesiredStateGraph();
+    const graph = yield* desiredState.graph();
     if (!graph.complete) {
       return yield* new ExtensionLifecycleFailed({
         category: "conflict",
@@ -104,12 +116,12 @@ export const disableSubagent: OperationHandler<
               suggestions: [{ description: "Provide a source when disabling this subagent" }],
             });
           }
-          yield* ws.setSubagentEntry(op.args.subagentName, {
+          yield* settingsWriter.setEntry("subagent", op.args.subagentName, {
             source,
             enabled: false,
           });
         } else {
-          yield* ws.updateSubagentEntry(op.args.subagentName, (entry) => ({
+          yield* settingsWriter.updateEntry("subagent", op.args.subagentName, (entry) => ({
             ...entry,
             enabled: false,
           }));
@@ -120,8 +132,8 @@ export const disableSubagent: OperationHandler<
           (agent) =>
             Effect.gen(function* () {
               const resolved = yield* agent.resolveEffectiveSubagentsDir({
-                workspaceRoot: ws.baseDir,
-                scope: ws.scope,
+                workspaceRoot: location.baseDir,
+                scope: location.scope,
               });
               if (resolved._tag !== "supported") return Option.none();
               const managedPaths = yield* findManagedSubagentFiles(
@@ -129,11 +141,11 @@ export const disableSubagent: OperationHandler<
                 sanitizeName(op.args.subagentName),
               );
               const entries = managedPaths.map((filePath) => ({
-                path: path.relative(ws.baseDir, filePath),
+                path: path.relative(location.baseDir, filePath),
               }));
               const outcome = yield* agent.removeSubagent({
-                workspaceRoot: ws.baseDir,
-                scope: ws.scope,
+                workspaceRoot: location.baseDir,
+                scope: location.scope,
                 subagentName: op.args.subagentName,
                 renderedFilePaths: entries.map((entry) => decodeRenderedFilePath(entry.path)),
               });
@@ -157,7 +169,7 @@ export const disableSubagent: OperationHandler<
       message: `Disabled ${op.args.subagentName}`,
       artifact: subagentLifecycleArtifact({
         name: op.args.subagentName,
-        scope: ws.scope,
+        scope: location.scope,
         ...(configuredAgents.length === 0
           ? {}
           : { agents: configuredAgents.map((agent) => agent.id) }),

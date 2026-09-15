@@ -5,62 +5,51 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import { afterEach, beforeEach, vi } from "vitest";
-import type { SkillLockEntry } from "@agentxm/workspace-state";
 import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/extensions";
-import { WorkspaceMutations, type WorkspaceMutationsService } from "@agentxm/workspace-state";
+import {
+  SettingsWriter,
+  WorkspaceRecords,
+  type DesiredStateGraph,
+  type ReadModelRecordRow,
+} from "@agentxm/workspace-state";
 import {
   implicitRow,
-  makeBaseWorkspaceMock,
-  makeRegistrySkillLockEntry,
   MockWorkspaceTransactionScope,
-  rowsFor,
-  TEST_CONTENT_IDENTITY,
-  TEST_TREE_INTEGRITY,
   WorkspaceReadTest,
 } from "@agentxm/workspace-state/testing";
 import type { DisableSkillOperation } from "./disable.js";
 import { disableSkill } from "./disable.js";
-import { extensionName, handle, TestStepFailureConversion } from "../../test-helpers.js";
-import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
+import { TestStepFailureConversion } from "../../test-helpers.js";
+import { CodingAgentRepository, DefaultCodingAgentRepository } from "@agentxm/workspace-projection";
 
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
 
-/** Creates a workspace mock for disable tests. */
-const makeWorkspaceMock = (
-  axmDir: string,
-  opts: {
-    configuredAgents?: ReadonlyArray<ConfigurableAgentId>;
-    lockfileSkills?: Record<string, SkillLockEntry>;
-    updateSkillEntryFn?: WorkspaceMutationsService["updateSkillEntry"];
-    setSkillLockFn?: WorkspaceMutationsService["setSkillLock"];
-  } = {},
-): WorkspaceMutationsService => {
-  const configuredAgents = opts.configuredAgents ?? ["claude-code"];
-  const lockfileSkills: Record<string, SkillLockEntry> = opts.lockfileSkills ?? {};
+interface DisableSkillTestFacts {
+  readonly configuredAgents?: ReadonlyArray<ConfigurableAgentId>;
+  readonly rows?: ReadonlyArray<ReadModelRecordRow>;
+  readonly graph?: DesiredStateGraph;
+  readonly onUpdateEntry?: (type: string, name: string) => void;
+  readonly onSetEntry?: (type: string, name: string, entry: unknown) => void;
+}
 
-  return makeBaseWorkspaceMock(axmDir, {
-    getConfiguredAgents: () => Effect.succeed(configuredAgents),
-    getLockedSkills: () => Effect.succeed(lockfileSkills),
-    getLockedSkill: (name: string) => Effect.succeed(Option.fromUndefinedOr(lockfileSkills[name])),
-    updateSkillEntry: opts.updateSkillEntryFn ?? ((_name, _updater) => Effect.void),
-    setSkillLock: opts.setSkillLockFn ?? ((_args) => Effect.void),
-  });
-};
-
-/** Creates a layer providing FileSystem + a minimal WorkspaceMutations service. */
-const withServices = (axmDir: string, wsOpts?: Parameters<typeof makeWorkspaceMock>[1]) => {
-  const mockWs = makeWorkspaceMock(axmDir, wsOpts);
+/** Provides the owned read, write, agent, and transaction capabilities used by disable. */
+const withServices = (axmDir: string, facts: DisableSkillTestFacts = {}) => {
   return Layer.mergeAll(
-    WorkspaceMutations.layer(mockWs),
     WorkspaceReadTest({
       baseDir: path.dirname(axmDir),
       runtimeDir: axmDir,
-      settings: { agents: wsOpts?.configuredAgents ?? ["claude-code"] },
+      settings: { agents: facts.configuredAgents ?? ["claude-code"] },
+      ...(facts.graph === undefined ? {} : { graph: facts.graph }),
     }),
+    Layer.mock(WorkspaceRecords, { rows: () => Effect.succeed(facts.rows ?? []) }),
+    Layer.mock(SettingsWriter, {
+      updateEntry: (type, name, _update) => Effect.sync(() => facts.onUpdateEntry?.(type, name)),
+      setEntry: (type, name, entry) => Effect.sync(() => facts.onSetEntry?.(type, name, entry)),
+    }),
+    Layer.succeed(CodingAgentRepository, DefaultCodingAgentRepository),
     MockWorkspaceTransactionScope(axmDir),
     TestStepFailureConversion,
   ).pipe(Layer.provideMerge(NodeServices.layer));
@@ -71,31 +60,6 @@ const makeOp = (skillName = "my-skill"): DisableSkillOperation => ({
   name: "disable-skill",
   args: { skillName },
 });
-
-/** Creates a local source lock entry. */
-const makeLocalLockEntry = (_agents: string[]): SkillLockEntry => ({
-  type: "local" as const,
-  sourceType: "local",
-  sourceName: "local",
-  extensionType: "skill",
-  workspaceName: extensionName("my-skill"),
-  packageFormat: "agentxm",
-  packageOwner: handle("@local"),
-  packageName: extensionName("my-skill"),
-  path: decodeRelativePathSync("tmp/source"),
-  contentIdentity: TEST_CONTENT_IDENTITY,
-  treeIntegrity: TEST_TREE_INTEGRITY,
-});
-
-/** Creates a registry source lock entry. */
-const makeRegistryLockEntry = (_agents: string[]): SkillLockEntry =>
-  makeRegistrySkillLockEntry({
-    owner: handle("@community"),
-    name: "my-skill",
-    sourceName: "local",
-
-    publisherBindingId: "hbnd_test",
-  });
 
 // -----------------------------------------------------------------------------
 // Tests
@@ -168,7 +132,6 @@ describe("disableSkill", () => {
           Effect.provide(
             withServices(axmDir, {
               configuredAgents: ["claude-code"],
-              lockfileSkills: { "my-skill": makeLocalLockEntry(["claude-code"]) },
             }),
           ),
         );
@@ -194,7 +157,6 @@ describe("disableSkill", () => {
           Effect.provide(
             withServices(axmDir, {
               configuredAgents: ["claude-code", "cursor"],
-              lockfileSkills: { "my-skill": makeLocalLockEntry(["claude-code", "cursor"]) },
             }),
           ),
         );
@@ -208,69 +170,22 @@ describe("disableSkill", () => {
       }),
     );
 
-    it.effect("leaves the shared lock entry unchanged", () =>
+    it.effect("updates the skill preference to disabled", () =>
       Effect.gen(function* () {
         const { axmDir } = setupWorkspace();
-        const setSkillLockFn = vi.fn<WorkspaceMutationsService["setSkillLock"]>(() => Effect.void);
+        const onUpdateEntry = vi.fn<(type: string, name: string) => void>();
 
         yield* disableSkill(makeOp()).pipe(
           Effect.provide(
             withServices(axmDir, {
               configuredAgents: ["claude-code"],
-              lockfileSkills: {
-                "my-skill": makeLocalLockEntry(["universal", "claude-code"]),
-              },
-              setSkillLockFn,
+              onUpdateEntry,
             }),
           ),
         );
 
-        expect(setSkillLockFn).not.toHaveBeenCalled();
-      }),
-    );
-
-    it.effect("calls updateSkillEntry to set enabled: false", () =>
-      Effect.gen(function* () {
-        const { axmDir } = setupWorkspace();
-        const updateSkillEntryFn = vi.fn((_name: string, _updater: unknown) => Effect.void);
-
-        yield* disableSkill(makeOp()).pipe(
-          Effect.provide(
-            withServices(axmDir, {
-              configuredAgents: ["claude-code"],
-              lockfileSkills: { "my-skill": makeLocalLockEntry(["claude-code"]) },
-              updateSkillEntryFn,
-            }),
-          ),
-        );
-
-        expect(updateSkillEntryFn).toHaveBeenCalledOnce();
-        expect(updateSkillEntryFn).toHaveBeenCalledWith("my-skill", expect.any(Function));
-      }),
-    );
-  });
-
-  describe("files-before-state ordering", () => {
-    it.effect("updates state only after file removal succeeds", () =>
-      Effect.gen(function* () {
-        const { axmDir } = setupWorkspace();
-        const updateSkillEntryFn = vi.fn((_name: string, _updater: unknown) => Effect.void);
-        const setSkillLockFn = vi.fn<WorkspaceMutationsService["setSkillLock"]>(() => Effect.void);
-
-        // Normal case: file removal should succeed, then state gets updated
-        yield* disableSkill(makeOp()).pipe(
-          Effect.provide(
-            withServices(axmDir, {
-              configuredAgents: ["claude-code"],
-              lockfileSkills: { "my-skill": makeLocalLockEntry(["claude-code"]) },
-              updateSkillEntryFn,
-              setSkillLockFn,
-            }),
-          ),
-        );
-
-        expect(setSkillLockFn).not.toHaveBeenCalled();
-        expect(updateSkillEntryFn).toHaveBeenCalledOnce();
+        expect(onUpdateEntry).toHaveBeenCalledOnce();
+        expect(onUpdateEntry).toHaveBeenCalledWith("skill", "my-skill");
       }),
     );
   });
@@ -303,7 +218,6 @@ describe("disableSkill", () => {
           Effect.provide(
             withServices(axmDir, {
               configuredAgents: ["claude-code"],
-              lockfileSkills: { "my-skill": makeRegistryLockEntry(["claude-code"]) },
             }),
           ),
         );
@@ -326,7 +240,6 @@ describe("disableSkill", () => {
           Effect.provide(
             withServices(axmDir, {
               configuredAgents: ["claude-code"],
-              lockfileSkills: { "my-skill": makeLocalLockEntry(["claude-code"]) },
             }),
           ),
         );
@@ -343,7 +256,6 @@ describe("disableSkill", () => {
           Effect.provide(
             withServices(axmDir, {
               configuredAgents: ["claude-code"],
-              lockfileSkills: { "my-skill": makeLocalLockEntry(["claude-code"]) },
             }),
           ),
         );
@@ -362,21 +274,20 @@ describe("disableSkill", () => {
         const axmDir = path.join(base, ".axm");
         fs.mkdirSync(axmDir, { recursive: true });
 
-        const updateSkillEntryFn = vi.fn((_name: string, _updater: unknown) => Effect.void);
+        const onUpdateEntry = vi.fn<(type: string, name: string) => void>();
         const result = yield* disableSkill(makeOp()).pipe(
           Effect.provide(
             withServices(axmDir, {
               configuredAgents: ["claude-code"],
-              lockfileSkills: {},
-              updateSkillEntryFn,
+              onUpdateEntry,
             }),
           ),
         );
 
         expect(result.result).toBe("success");
         // Settings should be updated
-        expect(updateSkillEntryFn).toHaveBeenCalledOnce();
-        expect(updateSkillEntryFn).toHaveBeenCalledWith("my-skill", expect.any(Function));
+        expect(onUpdateEntry).toHaveBeenCalledOnce();
+        expect(onUpdateEntry).toHaveBeenCalledWith("skill", "my-skill");
       }),
     );
   });
@@ -388,42 +299,24 @@ describe("disableSkill", () => {
         const axmDir = path.join(base, ".axm");
         fs.mkdirSync(axmDir, { recursive: true });
 
-        const setSkillEntryFn = vi.fn((_name: string, _entry: unknown) => Effect.void);
-
-        // Mock workspace where skill is implicit (lock exists but no settings entry)
-        const mockWs: WorkspaceMutationsService = makeBaseWorkspaceMock(axmDir, {
-          rows: rowsFor({
-            skill: [
-              implicitRow({
-                type: "skill",
-                name: "my-skill",
-                source: "local:/tmp/source",
-                packagingKind: "non-native",
-              }),
-            ],
+        const onSetEntry = vi.fn<(type: string, name: string, entry: unknown) => void>();
+        const rows = [
+          implicitRow({
+            type: "skill",
+            name: "my-skill",
+            source: "local:/tmp/source",
+            packagingKind: "non-native",
           }),
-          getConfiguredAgents: () => Effect.succeed(["claude-code"]),
-          getLockedSkills: () =>
-            Effect.succeed({ "my-skill": makeLocalLockEntry(["claude-code"]) }),
-          getLockedSkill: () => Effect.succeed(Option.some(makeLocalLockEntry(["claude-code"]))),
-          setSkillEntry: setSkillEntryFn,
-        });
+        ];
 
         const result = yield* disableSkill(makeOp()).pipe(
-          Effect.provide(
-            Layer.mergeAll(
-              WorkspaceMutations.layer(mockWs),
-              WorkspaceReadTest({ baseDir: base, runtimeDir: axmDir }),
-              MockWorkspaceTransactionScope(axmDir),
-              TestStepFailureConversion,
-            ).pipe(Layer.provideMerge(NodeServices.layer)),
-          ),
+          Effect.provide(withServices(axmDir, { rows, onSetEntry })),
         );
 
         expect(result.result).toBe("success");
-        // setSkillEntry should be called with source and enabled: false
-        expect(setSkillEntryFn).toHaveBeenCalledOnce();
-        expect(setSkillEntryFn).toHaveBeenCalledWith(
+        expect(onSetEntry).toHaveBeenCalledOnce();
+        expect(onSetEntry).toHaveBeenCalledWith(
+          "skill",
           "my-skill",
           expect.objectContaining({ enabled: false }),
         );
@@ -436,59 +329,41 @@ describe("disableSkill", () => {
         const axmDir = path.join(base, ".axm");
         fs.mkdirSync(axmDir, { recursive: true });
 
-        const setSkillEntryFn = vi.fn((_name: string, _entry: unknown) => Effect.void);
-
-        const mockWs: WorkspaceMutationsService = makeBaseWorkspaceMock(axmDir, {
-          rows: rowsFor({
-            skill: [implicitRow({ type: "skill", name: "my-skill", packagingKind: "native" })],
-          }),
-          getConfiguredAgents: () => Effect.succeed(["claude-code"]),
-          getLockedSkills: () =>
-            Effect.succeed({ "my-skill": makeRegistryLockEntry(["claude-code"]) }),
-          getLockedSkill: () => Effect.succeed(Option.some(makeRegistryLockEntry(["claude-code"]))),
-          getDesiredStateGraph: () =>
-            Effect.succeed({
-              complete: true,
-              mcpSourceClosures: [],
-              nodes: [
+        const onSetEntry = vi.fn<(type: string, name: string, entry: unknown) => void>();
+        const rows = [implicitRow({ type: "skill", name: "my-skill", packagingKind: "native" })];
+        const graph: DesiredStateGraph = {
+          complete: true,
+          mcpSourceClosures: [],
+          nodes: [
+            {
+              type: "skill",
+              name: "my-skill",
+              identity: "@community/skills/my-skill",
+              source: "@community/skills/my-skill",
+              enabled: true,
+              constraints: [],
+              origins: [
                 {
-                  type: "skill",
-                  name: "my-skill",
-                  identity: "@community/skills/my-skill",
+                  type: "pack",
+                  pack: "@community/packs/toolkit",
+                  manifestPath:
+                    "/project/agent_extensions/agentxm/@community/packs/toolkit/pack.json",
                   source: "@community/skills/my-skill",
+                  constraint: "*",
                   enabled: true,
-                  constraints: [],
-                  origins: [
-                    {
-                      type: "pack",
-                      pack: "@community/packs/toolkit",
-                      manifestPath:
-                        "/project/agent_extensions/agentxm/@community/packs/toolkit/pack.json",
-                      source: "@community/skills/my-skill",
-                      constraint: "*",
-                      enabled: true,
-                    },
-                  ],
                 },
               ],
-              problems: [],
-            }),
-          setSkillEntry: setSkillEntryFn,
-        });
+            },
+          ],
+          problems: [],
+        };
 
         const result = yield* disableSkill(makeOp()).pipe(
-          Effect.provide(
-            Layer.mergeAll(
-              WorkspaceMutations.layer(mockWs),
-              WorkspaceReadTest({ baseDir: base, runtimeDir: axmDir }),
-              MockWorkspaceTransactionScope(axmDir),
-              TestStepFailureConversion,
-            ).pipe(Layer.provideMerge(NodeServices.layer)),
-          ),
+          Effect.provide(withServices(axmDir, { rows, graph, onSetEntry })),
         );
 
         expect(result.result).toBe("success");
-        expect(setSkillEntryFn).toHaveBeenCalledWith("my-skill", {
+        expect(onSetEntry).toHaveBeenCalledWith("skill", "my-skill", {
           source: "@community/skills/my-skill",
           enabled: false,
         });
@@ -501,58 +376,12 @@ describe("disableSkill", () => {
         const axmDir = path.join(base, ".axm");
         fs.mkdirSync(axmDir, { recursive: true });
 
-        // Mock workspace where skill is implicit with no source
-        const mockWs: WorkspaceMutationsService = makeBaseWorkspaceMock(axmDir, {
-          rows: rowsFor({
-            skill: [implicitRow({ type: "skill", name: "my-skill", packagingKind: "non-native" })],
-          }),
-          getConfiguredAgents: () => Effect.succeed(["claude-code"]),
-          getLockedSkills: () => Effect.succeed({}),
-          getLockedSkill: () => Effect.succeed(Option.none()),
-        });
+        const rows = [
+          implicitRow({ type: "skill", name: "my-skill", packagingKind: "non-native" }),
+        ];
 
         const result = yield* disableSkill(makeOp()).pipe(
-          Effect.provide(
-            Layer.mergeAll(
-              WorkspaceMutations.layer(mockWs),
-              WorkspaceReadTest({ baseDir: base, runtimeDir: axmDir }),
-              MockWorkspaceTransactionScope(axmDir),
-              TestStepFailureConversion,
-            ).pipe(Layer.provideMerge(NodeServices.layer)),
-          ),
-          Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
-        );
-
-        expect(result.result).toBe("error");
-      }),
-    );
-  });
-
-  describe("error cases", () => {
-    it.effect("fails when implicit skill has no derivable source", () =>
-      Effect.gen(function* () {
-        const base = path.join(tmpDir, "project");
-        const axmDir = path.join(base, ".axm");
-        fs.mkdirSync(axmDir, { recursive: true });
-
-        const mockWs: WorkspaceMutationsService = makeBaseWorkspaceMock(axmDir, {
-          rows: rowsFor({
-            skill: [implicitRow({ type: "skill", name: "my-skill", packagingKind: "non-native" })],
-          }),
-          getConfiguredAgents: () => Effect.succeed(["claude-code"]),
-          getLockedSkills: () => Effect.succeed({}),
-          getLockedSkill: () => Effect.succeed(Option.none()),
-        });
-
-        const result = yield* disableSkill(makeOp()).pipe(
-          Effect.provide(
-            Layer.mergeAll(
-              WorkspaceMutations.layer(mockWs),
-              WorkspaceReadTest({ baseDir: base, runtimeDir: axmDir }),
-              MockWorkspaceTransactionScope(axmDir),
-              TestStepFailureConversion,
-            ).pipe(Layer.provideMerge(NodeServices.layer)),
-          ),
+          Effect.provide(withServices(axmDir, { rows })),
           Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
         );
 
@@ -579,11 +408,7 @@ describe("disableSkill", () => {
         fs.mkdirSync(renderedPath, { recursive: true });
         fs.writeFileSync(path.join(renderedPath, "SKILL.md"), "# my-skill");
 
-        const lockEntry = makeLocalLockEntry(["claude-code"]);
-
-        const result = yield* disableSkill(makeOp()).pipe(
-          Effect.provide(withServices(axmDir, { lockfileSkills: { "my-skill": lockEntry } })),
-        );
+        const result = yield* disableSkill(makeOp()).pipe(Effect.provide(withServices(axmDir)));
 
         expect(result.result).toBe("success");
         // The rendered agent path should be removed
@@ -601,11 +426,7 @@ describe("disableSkill", () => {
         fs.mkdirSync(axmDir, { recursive: true });
 
         // Don't create the rendered path — it doesn't exist on disk
-        const lockEntry = makeLocalLockEntry(["claude-code"]);
-
-        const result = yield* disableSkill(makeOp()).pipe(
-          Effect.provide(withServices(axmDir, { lockfileSkills: { "my-skill": lockEntry } })),
-        );
+        const result = yield* disableSkill(makeOp()).pipe(Effect.provide(withServices(axmDir)));
 
         // Should succeed even if rendered path doesn't exist
         expect(result.result).toBe("success");

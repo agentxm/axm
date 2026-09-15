@@ -6,14 +6,11 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { SettingsWriter, WorkspaceRecords } from "@agentxm/workspace-state";
 import {
   configuredRow,
-  makeBaseWorkspaceMock,
   MockWorkspaceTransactionScope,
-  rowsFor,
   WorkspaceReadTest,
 } from "@agentxm/workspace-state/testing";
 import {
@@ -21,7 +18,6 @@ import {
   type CodingAgentRepositoryService,
 } from "@agentxm/workspace-projection";
 import { type CodingAgent } from "@agentxm/agent-integration";
-import type { SubagentLockEntry } from "@agentxm/workspace-state";
 import { disableSubagent, type DisableSubagentOperation } from "./disable.js";
 import { TestStepFailureConversion } from "../../test-helpers.js";
 
@@ -74,29 +70,21 @@ describe("disableSubagent", () => {
         getConfiguredAgents: () => Effect.succeed([fakeAgent]),
       } as unknown as CodingAgentRepositoryService;
 
-      // Assertion needed: minimal lock entry — only presence and `type` matter.
-      const lockEntry = {
-        type: "local",
-        path: "src/my-subagent.md",
-      } as unknown as SubagentLockEntry;
-
-      const wsMock = makeBaseWorkspaceMock(axmDir, {
-        rows: rowsFor({
-          subagent: [
-            configuredRow({
-              type: "subagent",
-              name: "my-subagent",
-              source: "@acme/subagents/my-subagent",
-            }),
-          ],
+      const rows = [
+        configuredRow({
+          type: "subagent",
+          name: "my-subagent",
+          source: "@acme/subagents/my-subagent",
         }),
-        getLockedSubagent: () => Effect.succeed(Option.some(lockEntry)),
-      });
+      ];
 
       const layers = Layer.mergeAll(
         NativeWriteAuthorityPermissive,
-        WorkspaceMutations.layer(wsMock),
         WorkspaceReadTest({ baseDir: base, runtimeDir: axmDir }),
+        Layer.mock(WorkspaceRecords, { rows: () => Effect.succeed(rows) }),
+        Layer.mock(SettingsWriter, {
+          updateEntry: (_type, _name, _update) => Effect.void,
+        }),
         MockWorkspaceTransactionScope(axmDir),
         Layer.succeed(CodingAgentRepository, fakeRepo),
         TestStepFailureConversion,

@@ -2252,6 +2252,8 @@ export type TokensList403 = ForbiddenErrorEncoded;
 export const TokensList403 = ForbiddenErrorEncoded;
 export type TokensList500 = ProblemDetails;
 export const TokensList500 = ProblemDetails;
+export type TokensList503 = ProblemDetails;
+export const TokensList503 = ProblemDetails;
 export type TokensCreateParams = { readonly "x-axm-step-up-request"?: StepUpRequestId | null };
 export const TokensCreateParams = Schema.Struct({
   "x-axm-step-up-request": Schema.optionalKey(Schema.Union([StepUpRequestId, Schema.Null])),
@@ -2286,6 +2288,8 @@ export type TokensDelete403 = ForbiddenErrorEncoded;
 export const TokensDelete403 = ForbiddenErrorEncoded;
 export type TokensDelete500 = ProblemDetails;
 export const TokensDelete500 = ProblemDetails;
+export type TokensDelete503 = ProblemDetails;
+export const TokensDelete503 = ProblemDetails;
 export type OwnersGetOwner200 = OwnerResponse;
 export const OwnersGetOwner200 = OwnerResponse;
 export type OwnersGetOwner400 = DecodeErrorResponseEncoded;
@@ -2328,6 +2332,8 @@ export type ExtensionsListByOwner400 = DecodeErrorResponseEncoded;
 export const ExtensionsListByOwner400 = DecodeErrorResponseEncoded;
 export type ExtensionsListByOwner500 = ProblemDetails;
 export const ExtensionsListByOwner500 = ProblemDetails;
+export type ExtensionsListByOwner503 = ProblemDetails;
+export const ExtensionsListByOwner503 = ProblemDetails;
 export type ExtensionsListByTypeParams = {
   readonly limit?: string | null;
   readonly offset?: string | null;
@@ -2377,6 +2383,8 @@ export type ExtensionsListByType400 = DecodeErrorResponseEncoded;
 export const ExtensionsListByType400 = DecodeErrorResponseEncoded;
 export type ExtensionsListByType500 = ProblemDetails;
 export const ExtensionsListByType500 = ProblemDetails;
+export type ExtensionsListByType503 = ProblemDetails;
+export const ExtensionsListByType503 = ProblemDetails;
 export type ExtensionsGet200 = {
   readonly name: ExtensionName;
   readonly owner: Handle;
@@ -2797,6 +2805,8 @@ export type ExtensionsPutDeprecation412 = PreconditionFailedErrorEncoded;
 export const ExtensionsPutDeprecation412 = PreconditionFailedErrorEncoded;
 export type ExtensionsPutDeprecation500 = ProblemDetails;
 export const ExtensionsPutDeprecation500 = ProblemDetails;
+export type ExtensionsPutDeprecation503 = ProblemDetails;
+export const ExtensionsPutDeprecation503 = ProblemDetails;
 export type ExtensionsDeleteDeprecationParams = { readonly "if-match": string };
 export const ExtensionsDeleteDeprecationParams = Schema.Struct({ "if-match": Schema.String });
 export type ExtensionsDeleteDeprecation200 = DeprecationTransition;
@@ -2818,6 +2828,8 @@ export type ExtensionsDeleteDeprecation412 = PreconditionFailedErrorEncoded;
 export const ExtensionsDeleteDeprecation412 = PreconditionFailedErrorEncoded;
 export type ExtensionsDeleteDeprecation500 = ProblemDetails;
 export const ExtensionsDeleteDeprecation500 = ProblemDetails;
+export type ExtensionsDeleteDeprecation503 = ProblemDetails;
+export const ExtensionsDeleteDeprecation503 = ProblemDetails;
 export type ExtensionsYankVersionParams = {
   readonly "x-axm-step-up-request"?: StepUpRequestId | null;
 };
@@ -3279,6 +3291,8 @@ export type SearchSearchExtensions400 = ProblemDetails | DecodeErrorResponseEnco
 export const SearchSearchExtensions400 = Schema.Union([ProblemDetails, DecodeErrorResponseEncoded]);
 export type SearchSearchExtensions500 = ProblemDetails;
 export const SearchSearchExtensions500 = ProblemDetails;
+export type SearchSearchExtensions503 = ProblemDetails;
+export const SearchSearchExtensions503 = ProblemDetails;
 export type DebugDebugStreamParams = {
   readonly count?: string | null;
   readonly failAfter?: string | null;
@@ -3633,6 +3647,7 @@ export const make = (
             "401": decodeError("TokensList401", TokensList401),
             "403": decodeError("TokensList403", TokensList403),
             "500": decodeError("TokensList500", TokensList500),
+            "503": decodeError("TokensList503", TokensList503),
             orElse: unexpectedStatus,
           }),
         ),
@@ -3673,6 +3688,7 @@ export const make = (
                 "401": decodeError("TokensDelete401", TokensDelete401),
                 "403": decodeError("TokensDelete403", TokensDelete403),
                 "500": decodeError("TokensDelete500", TokensDelete500),
+                "503": decodeError("TokensDelete503", TokensDelete503),
                 "204": () => Effect.void,
                 orElse: unexpectedStatus,
               }),
@@ -3712,6 +3728,7 @@ export const make = (
                 "2xx": decodeSuccess(ExtensionsListByOwner200),
                 "400": decodeError("ExtensionsListByOwner400", ExtensionsListByOwner400),
                 "500": decodeError("ExtensionsListByOwner500", ExtensionsListByOwner500),
+                "503": decodeError("ExtensionsListByOwner503", ExtensionsListByOwner503),
                 orElse: unexpectedStatus,
               }),
             ),
@@ -3735,6 +3752,7 @@ export const make = (
                 "2xx": decodeSuccess(ExtensionsListByType200),
                 "400": decodeError("ExtensionsListByType400", ExtensionsListByType400),
                 "500": decodeError("ExtensionsListByType500", ExtensionsListByType500),
+                "503": decodeError("ExtensionsListByType503", ExtensionsListByType503),
                 orElse: unexpectedStatus,
               }),
             ),
@@ -4149,6 +4167,7 @@ export const make = (
                 "409": decodeError("ExtensionsPutDeprecation409", ExtensionsPutDeprecation409),
                 "412": decodeError("ExtensionsPutDeprecation412", ExtensionsPutDeprecation412),
                 "500": decodeError("ExtensionsPutDeprecation500", ExtensionsPutDeprecation500),
+                "503": decodeError("ExtensionsPutDeprecation503", ExtensionsPutDeprecation503),
                 orElse: unexpectedStatus,
               }),
             ),
@@ -4201,6 +4220,10 @@ export const make = (
                 "500": decodeError(
                   "ExtensionsDeleteDeprecation500",
                   ExtensionsDeleteDeprecation500,
+                ),
+                "503": decodeError(
+                  "ExtensionsDeleteDeprecation503",
+                  ExtensionsDeleteDeprecation503,
                 ),
                 orElse: unexpectedStatus,
               }),
@@ -4562,6 +4585,7 @@ export const make = (
             "2xx": decodeSuccess(SearchSearchExtensions200),
             "400": decodeError("SearchSearchExtensions400", SearchSearchExtensions400),
             "500": decodeError("SearchSearchExtensions500", SearchSearchExtensions500),
+            "503": decodeError("SearchSearchExtensions503", SearchSearchExtensions503),
             orElse: unexpectedStatus,
           }),
         ),
@@ -4754,6 +4778,7 @@ export interface RegistryClient {
     | RegistryClientError<"TokensList401", typeof TokensList401.Type>
     | RegistryClientError<"TokensList403", typeof TokensList403.Type>
     | RegistryClientError<"TokensList500", typeof TokensList500.Type>
+    | RegistryClientError<"TokensList503", typeof TokensList503.Type>
   >;
   /**
    * Create scoped access token
@@ -4790,6 +4815,7 @@ export interface RegistryClient {
     | RegistryClientError<"TokensDelete401", typeof TokensDelete401.Type>
     | RegistryClientError<"TokensDelete403", typeof TokensDelete403.Type>
     | RegistryClientError<"TokensDelete500", typeof TokensDelete500.Type>
+    | RegistryClientError<"TokensDelete503", typeof TokensDelete503.Type>
   >;
   /**
    * Returns the minimal public owner summary for the provided handle.
@@ -4816,6 +4842,7 @@ export interface RegistryClient {
     | SchemaError
     | RegistryClientError<"ExtensionsListByOwner400", typeof ExtensionsListByOwner400.Type>
     | RegistryClientError<"ExtensionsListByOwner500", typeof ExtensionsListByOwner500.Type>
+    | RegistryClientError<"ExtensionsListByOwner503", typeof ExtensionsListByOwner503.Type>
   >;
   /**
    * List owner extensions by type
@@ -4835,6 +4862,7 @@ export interface RegistryClient {
     | SchemaError
     | RegistryClientError<"ExtensionsListByType400", typeof ExtensionsListByType400.Type>
     | RegistryClientError<"ExtensionsListByType500", typeof ExtensionsListByType500.Type>
+    | RegistryClientError<"ExtensionsListByType503", typeof ExtensionsListByType503.Type>
   >;
   /**
    * Get extension metadata
@@ -5133,6 +5161,7 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsPutDeprecation409", typeof ExtensionsPutDeprecation409.Type>
     | RegistryClientError<"ExtensionsPutDeprecation412", typeof ExtensionsPutDeprecation412.Type>
     | RegistryClientError<"ExtensionsPutDeprecation500", typeof ExtensionsPutDeprecation500.Type>
+    | RegistryClientError<"ExtensionsPutDeprecation503", typeof ExtensionsPutDeprecation503.Type>
   >;
   /**
    * Restore a deprecated extension
@@ -5176,6 +5205,10 @@ export interface RegistryClient {
     | RegistryClientError<
         "ExtensionsDeleteDeprecation500",
         typeof ExtensionsDeleteDeprecation500.Type
+      >
+    | RegistryClientError<
+        "ExtensionsDeleteDeprecation503",
+        typeof ExtensionsDeleteDeprecation503.Type
       >
   >;
   /**
@@ -5468,6 +5501,7 @@ export interface RegistryClient {
     | SchemaError
     | RegistryClientError<"SearchSearchExtensions400", typeof SearchSearchExtensions400.Type>
     | RegistryClientError<"SearchSearchExtensions500", typeof SearchSearchExtensions500.Type>
+    | RegistryClientError<"SearchSearchExtensions503", typeof SearchSearchExtensions503.Type>
   >;
   /**
    * Experimental diagnostic endpoint. Emits a finite server-sent event stream of sequenced JSON events, optionally terminating with a typed mid-stream failure. Intended for client streaming conformance checks; not a stable product surface.

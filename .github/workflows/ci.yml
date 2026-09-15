@@ -16,6 +16,8 @@ on:
     types: [checks_requested]
   push:
     branches: [main]
+  schedule:
+    - cron: "43 9 * * *"
   workflow_dispatch:
 
 concurrency:
@@ -45,7 +47,12 @@ jobs:
       base: ${{ steps.set-shas.outputs.base }}
       code: ${{ steps.classify.outputs.code }}
       documentation: ${{ steps.classify.outputs.documentation }}
+      cli-e2e: ${{ steps.classify.outputs.cli_e2e }}
+      release-artifacts: ${{ steps.classify.outputs.release_artifacts }}
+      selection: ${{ steps.classify.outputs.selection }}
+      windows: ${{ steps.classify.outputs.windows }}
       workflow: ${{ steps.classify.outputs.workflow }}
+      workflow-security: ${{ steps.classify.outputs.workflow_security }}
       head: ${{ steps.set-shas.outputs.head }}
     steps:
       - name: Checkout repository
@@ -69,19 +76,57 @@ jobs:
           fallback-sha: ${{ steps.affected-fallback.outputs.sha }}
           main-branch-name: main
 
-      - name: Classify changed paths
+      - name: Classify changed paths and publish the selection contract
         id: classify
         env:
           BASE_SHA: ${{ steps.set-shas.outputs.base }}
+          EVENT_NAME: ${{ github.event_name }}
           HEAD_SHA: ${{ steps.set-shas.outputs.head }}
-        run: >-
-          pnpm --config.verify-deps-before-run=warn run classify:ci --
-          --base "$BASE_SHA" --head "$HEAD_SHA"
+          REF_NAME: ${{ github.ref }}
+        run: |
+          release_artifacts=false
+          subject="$(git show -s --format=%s "$HEAD_SHA")"
+          if [[ "$subject" =~ ^release:\ (cli-v[^[:space:]]+)(\ \(\#[0-9]+\))?$ ]]; then
+            release_tag="${BASH_REMATCH[1]}"
+            if [[ "$EVENT_NAME:$REF_NAME" == "push:refs/heads/main" ||
+              "$EVENT_NAME:$REF_NAME" == "workflow_dispatch:refs/tags/${release_tag}" ]]; then
+              release_artifacts=true
+            fi
+          fi
+          pnpm --config.verify-deps-before-run=warn run classify:ci -- \
+            --base "$BASE_SHA" --head "$HEAD_SHA" \
+            --release-artifacts "$release_artifacts"
+
+  workflow-validation:
+    name: Workflow security
+    needs: classify
+    if: >-
+      (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
+      needs.classify.outputs.workflow-security == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Audit workflow security with zizmor
+        uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
+        with:
+          advanced-security: false
+          config: .github/zizmor.yml
+          min-severity: medium
+          version: "1.30.0"
 
   specification-verdict:
     name: Specification verdict
     needs: classify
-    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    if: >-
+      (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
+      needs.classify.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -101,7 +146,9 @@ jobs:
   extension-lint:
     name: AXM extension lint
     needs: classify
-    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    if: >-
+      (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
+      needs.classify.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -137,7 +184,9 @@ jobs:
   verify-pr:
     name: Verify proposed change
     needs: classify
-    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    if: >-
+      (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
+      needs.classify.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -284,7 +333,8 @@ jobs:
     name: Verify main workspace
     needs: classify
     if: >-
-      github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && needs.classify.outputs.release-artifacts == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -352,6 +402,12 @@ jobs:
   verify-e2e:
     name: Verify CLI E2E - ${{ matrix.name }}
     needs: classify
+    if: >-
+      !cancelled() &&
+      (((github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
+      needs.classify.outputs.cli-e2e == 'true') ||
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && needs.classify.outputs.release-artifacts == 'true'))
     strategy:
       fail-fast: false
       matrix:
@@ -442,6 +498,12 @@ jobs:
   windows-workspace:
     name: Windows workspace lifecycle
     needs: classify
+    if: >-
+      !cancelled() &&
+      (((github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
+      needs.classify.outputs.windows == 'true') ||
+      github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && needs.classify.outputs.release-artifacts == 'true'))
     runs-on: windows-latest
     timeout-minutes: 25
     permissions:
@@ -510,8 +572,7 @@ jobs:
     needs: classify
     if: >-
       !cancelled() &&
-      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      github.event_name == 'workflow_dispatch')
+      needs.classify.outputs.release-artifacts == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -572,9 +633,7 @@ jobs:
     name: Produce verified npm cohort
     needs: classify
     if: >-
-      always() &&
-      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
-      github.event_name == 'workflow_dispatch')
+      !cancelled() && needs.classify.outputs.release-artifacts == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -619,6 +678,7 @@ jobs:
     needs:
       - classify
       - secrets
+      - workflow-validation
       - specification-verdict
       - extension-lint
       - documentation
@@ -637,12 +697,27 @@ jobs:
             ${{ toJSON(needs) }}
           EVENT_NAME: ${{ github.event_name }}
           DOCS_CHANGED: ${{ needs.classify.outputs.documentation }}
+          SOURCE_SELECTED: ${{ needs.classify.outputs.code }}
+          CLI_E2E_SELECTED: ${{ needs.classify.outputs.cli-e2e }}
+          WINDOWS_SELECTED: ${{ needs.classify.outputs.windows }}
+          RELEASE_ARTIFACTS_SELECTED: ${{ needs.classify.outputs.release-artifacts }}
+          WORKFLOW_SECURITY_SELECTED: ${{ needs.classify.outputs.workflow-security }}
         run: |
           if [[ "$EVENT_NAME" == "pull_request" || "$EVENT_NAME" == "merge_group" ]]; then
-            expected=(classify secrets specification-verdict extension-lint verify-pr verify-e2e windows-workspace)
+            expected=(classify secrets)
             [[ "$DOCS_CHANGED" == "true" ]] && expected+=(documentation)
-          else
+            [[ "$WORKFLOW_SECURITY_SELECTED" == "true" ]] && expected+=(workflow-validation)
+            [[ "$SOURCE_SELECTED" == "true" ]] && expected+=(specification-verdict extension-lint verify-pr)
+            [[ "$CLI_E2E_SELECTED" == "true" ]] && expected+=(verify-e2e)
+            [[ "$WINDOWS_SELECTED" == "true" ]] && expected+=(windows-workspace)
+          elif [[ "$EVENT_NAME" == "schedule" ]]; then
+            expected=(classify secrets verify-main verify-e2e windows-workspace)
+          elif [[ "$RELEASE_ARTIFACTS_SELECTED" == "true" ]]; then
             expected=(classify secrets verify-main verify-e2e windows-workspace binary-smoke npm-cohort)
+          elif [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            expected=(classify secrets verify-main verify-e2e windows-workspace)
+          else
+            expected=(classify secrets)
           fi
           expected_failures=""
           for job in "${expected[@]}"; do

@@ -14,6 +14,7 @@ import type * as Scope from "effect/Scope";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Ref from "effect/Ref";
 
 import {
   parseRegistrySourceRef,
@@ -42,7 +43,6 @@ import {
   resolveWorkspaceExtensionRef,
   SettingsReader,
   WorkspaceLocation,
-  WorkspaceMutations,
 } from "@agentxm/workspace-state";
 import type { AcceptedCanonicalRefError } from "@agentxm/workspace-state";
 
@@ -55,8 +55,8 @@ import { ReleaseAgePosture } from "./release-age-posture.js";
 export const makeConfiguredReleaseAgeEvaluation = () =>
   Effect.gen(function* () {
     const mode = yield* ReleaseAgePosture;
-    const ws = yield* WorkspaceMutations;
-    const configured = yield* ws.getMinimumReleaseAge();
+    const settings = yield* SettingsReader;
+    const configured = yield* settings.minimumReleaseAge;
     const minimumReleaseAge = parseMinimumReleaseAge(configured);
     if (Option.isNone(minimumReleaseAge)) {
       return yield* new ExtensionResolutionFailed({
@@ -66,7 +66,7 @@ export const makeConfiguredReleaseAgeEvaluation = () =>
       });
     }
     const evaluatedAt = yield* DateTime.now;
-    const exclude = yield* ws.getMinimumReleaseAgeExclude();
+    const exclude = yield* settings.minimumReleaseAgeExclude;
     return {
       minimumReleaseAge: minimumReleaseAge.value,
       evaluatedAt,
@@ -96,6 +96,19 @@ type ConfiguredRegistryRef = Extract<
   ConfiguredRegistryResolution,
   { readonly kind: "selected" | "exempted" }
 >["ref"];
+
+const resolveConfiguredWorkspaceRef = (name: string, source: string, expectedType: ExtensionType) =>
+  Effect.gen(function* () {
+    const location = yield* WorkspaceLocation;
+    const layout = yield* Ref.get(location.layout);
+    return yield* resolveWorkspaceExtensionRef({
+      settingsName: name,
+      source,
+      expectedType,
+      layout,
+      scope: location.scope,
+    });
+  });
 
 const configuredRegistryResolution = (resolution: ConfiguredRegistryResolution) =>
   Effect.gen(function* () {
@@ -184,7 +197,6 @@ export const resolveConfiguredRegistryEntry = (
   ExtensionResolutionFailed | SourceResolutionFailure | AcceptedCanonicalRefError,
   | SourceHostProviders
   | WorkspaceCatalog
-  | WorkspaceMutations
   | WorkspaceLocation
   | SettingsReader
   | LockfileReader
@@ -284,14 +296,7 @@ export const resolveConfiguredSkill = (
 ) =>
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) {
-      const ws = yield* WorkspaceMutations;
-      const ref = yield* resolveWorkspaceExtensionRef({
-        settingsName: name,
-        source,
-        expectedType: "skill",
-        layout: ws.layout,
-        scope: ws.scope,
-      });
+      const ref = yield* resolveConfiguredWorkspaceRef(name, source, "skill");
       if (ref.type !== "skill") {
         return yield* new ExtensionResolutionFailed({
           category: "internal",
@@ -390,14 +395,7 @@ export const resolveConfiguredSubagent = (
 ) =>
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) {
-      const ws = yield* WorkspaceMutations;
-      const ref = yield* resolveWorkspaceExtensionRef({
-        settingsName: name,
-        source,
-        expectedType: "subagent",
-        layout: ws.layout,
-        scope: ws.scope,
-      });
+      const ref = yield* resolveConfiguredWorkspaceRef(name, source, "subagent");
       if (ref.type !== "subagent") {
         return yield* new ExtensionResolutionFailed({
           category: "internal",
@@ -496,14 +494,7 @@ export const resolveConfiguredRule = (
 ) =>
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) {
-      const ws = yield* WorkspaceMutations;
-      const ref = yield* resolveWorkspaceExtensionRef({
-        settingsName: name,
-        source,
-        expectedType: "rule",
-        layout: ws.layout,
-        scope: ws.scope,
-      });
+      const ref = yield* resolveConfiguredWorkspaceRef(name, source, "rule");
       if (ref.type !== "rule") {
         return yield* new ExtensionResolutionFailed({
           category: "internal",
@@ -603,14 +594,7 @@ export const resolveConfiguredHook = (
 ) =>
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) {
-      const ws = yield* WorkspaceMutations;
-      const ref = yield* resolveWorkspaceExtensionRef({
-        settingsName: name,
-        source,
-        expectedType: "hook",
-        layout: ws.layout,
-        scope: ws.scope,
-      });
+      const ref = yield* resolveConfiguredWorkspaceRef(name, source, "hook");
       if (ref.type !== "hook") {
         return yield* new ExtensionResolutionFailed({
           category: "internal",
@@ -710,14 +694,7 @@ export const resolveConfiguredKnowledge = (
 ) =>
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) {
-      const ws = yield* WorkspaceMutations;
-      const ref = yield* resolveWorkspaceExtensionRef({
-        settingsName: name,
-        source,
-        expectedType: "knowledge",
-        layout: ws.layout,
-        scope: ws.scope,
-      });
+      const ref = yield* resolveConfiguredWorkspaceRef(name, source, "knowledge");
       if (ref.type !== "knowledge") {
         return yield* new ExtensionResolutionFailed({
           category: "internal",
@@ -803,14 +780,7 @@ export const resolveConfiguredMcpServer = (
 ) =>
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) {
-      const ws = yield* WorkspaceMutations;
-      const ref = yield* resolveWorkspaceExtensionRef({
-        settingsName: name,
-        source,
-        expectedType: "mcp-server",
-        layout: ws.layout,
-        scope: ws.scope,
-      });
+      const ref = yield* resolveConfiguredWorkspaceRef(name, source, "mcp-server");
       if (ref.type !== "mcp-server") {
         return yield* new ExtensionResolutionFailed({
           category: "internal",
@@ -909,14 +879,7 @@ export const resolveConfiguredPack = (
 ) =>
   Effect.gen(function* () {
     if (isWorkspaceSourceLocator(source)) {
-      const ws = yield* WorkspaceMutations;
-      const ref = yield* resolveWorkspaceExtensionRef({
-        settingsName: name,
-        source,
-        expectedType: "pack",
-        layout: ws.layout,
-        scope: ws.scope,
-      });
+      const ref = yield* resolveConfiguredWorkspaceRef(name, source, "pack");
       if (ref.type !== "pack") {
         return yield* new ExtensionResolutionFailed({
           category: "internal",
@@ -976,8 +939,8 @@ export const resolveConfiguredPack = (
       Effect.catch((error) =>
         resolvedSource.type === "registry"
           ? Effect.gen(function* () {
-              const ws = yield* WorkspaceMutations;
-              const registryHosts = yield* ws.getRegistrySourceHosts();
+              const settings = yield* SettingsReader;
+              const registryHosts = yield* settings.registrySourceHosts;
               const fallbackSources = registryHosts
                 .filter((host) => host.location.protocol === "file:")
                 .map((host) => ({

@@ -28,7 +28,7 @@ import {
   PackManifestSchema,
 } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { SourceHostProviders } from "@agentxm/extension-sources";
-import { WorkspaceMutations, computePackManifestContentIdentity } from "@agentxm/workspace-state";
+import { LockfileReader, computePackManifestContentIdentity } from "@agentxm/workspace-state";
 
 import { ExtensionResolutionFailed } from "./errors.js";
 
@@ -56,13 +56,13 @@ export const hydrateAcceptedPackRef: (
 ) => Effect.Effect<
   PackRef,
   ExtensionResolutionFailed,
-  WorkspaceMutations | SourceHostProviders | FileSystem.FileSystem | Path.Path
+  LockfileReader | SourceHostProviders | FileSystem.FileSystem | Path.Path
 > = Effect.fn("ExtensionResolution.hydrateAcceptedPackRef")(function* (name: string, ref: PackRef) {
-  const ws = yield* WorkspaceMutations;
+  const lockfile = yield* LockfileReader;
   const sources = yield* SourceHostProviders;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const locked = yield* ws.getLockedPack(name).pipe(
+  const locked = yield* lockfile.entry("pack", name).pipe(
     Effect.mapError((cause) =>
       refused({
         category: "internal",

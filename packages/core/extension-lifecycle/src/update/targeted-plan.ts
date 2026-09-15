@@ -29,7 +29,7 @@ import {
   type Plan,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { WorkspaceMutations } from "@agentxm/workspace-state";
+import { WorkspaceLocation } from "@agentxm/workspace-state";
 import type { WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 import {
   resolveTargetedUpdateContext,
@@ -93,10 +93,10 @@ export const wrapTargetedUpdatePlan = (args: {
 }): Effect.Effect<
   Plan<InstallStepRequirements>,
   TargetedUpdateContextFailure,
-  WorkspaceMutations | WorkspaceTransactionScope | FileSystem.FileSystem | Path.Path
+  WorkspaceLocation | WorkspaceTransactionScope | FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
-    const workspace = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
     const children: ReadonlyArray<ReconciliationChild<InstallStepRequirements>> =
       args.plan.jobs.flatMap((job) =>
         job.steps.map((step) => ({
@@ -108,7 +108,7 @@ export const wrapTargetedUpdatePlan = (args: {
       .artifact;
     const artifact = firstArtifact ?? {
       path: args.context.public.target.fqn,
-      scope: workspace.scope,
+      scope: location.scope,
       change: "updated" as const,
     };
     const builtStep = yield* buildReconciliationClosure({

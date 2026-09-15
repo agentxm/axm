@@ -6,7 +6,7 @@ import {
   mcpServerListDocument,
   McpServerListQueryResultSchema,
   type McpServerListRow,
-} from "@agentxm/workspace-inspection";
+} from "@agentxm/workspace/inspection";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

@@ -14,8 +14,8 @@ import {
   type ViewExtensionResult,
   type ViewFieldValue,
   type ViewTargetRegistry,
-} from "@agentxm/workspace-inspection";
-import type { PublishedMetadataUnavailable } from "@agentxm/workspace-inspection";
+} from "@agentxm/workspace/inspection";
+import type { PublishedMetadataUnavailable } from "@agentxm/workspace/inspection";
 import type { ExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import type { IdentifierResourceType } from "@agentxm/extension-sources";

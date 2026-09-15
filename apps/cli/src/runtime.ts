@@ -60,7 +60,7 @@ import {
   SubagentManagerLive,
 } from "@agentxm/workspace/materialization/live";
 import { ProjectionParticipantsLive } from "@agentxm/workspace/materialization/live";
-import { KnowledgeIndexLive } from "@agentxm/knowledge-query/live";
+import { KnowledgeIndexLive } from "@agentxm/workspace/knowledge/query/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
 import {

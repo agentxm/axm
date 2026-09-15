@@ -12,7 +12,7 @@ import { withArgvTracking } from "../../cli-runtime/index.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "./command-capabilities.js";
 import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types";
 import { extensionTypeSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
-import { ExtensionShowResultSchema, ShowExtension } from "@agentxm/workspace-inspection";
+import { ExtensionShowResultSchema, ShowExtension } from "@agentxm/workspace/inspection";
 
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

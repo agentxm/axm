@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/workspace",
   "version": "0.30.2",
-  "description": "AXM workspace compiler: desired state, ownership, projection, transition planning, transaction settlement, and reconciliation for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
+  "description": "AXM workspace compiler: desired state, ownership, projection, transition planning, transaction settlement, and reconciliation for the axm CLI. Unstable and unsupported \u2014 use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
@@ -110,6 +110,61 @@
       "types": "./dist/src/reconciliation/testing.d.ts",
       "axm-source": "./src/reconciliation/testing.ts",
       "default": "./dist/src/reconciliation/testing.js"
+    },
+    "./configuration": {
+      "types": "./dist/src/configuration/index.d.ts",
+      "axm-source": "./src/configuration/index.ts",
+      "default": "./dist/src/configuration/index.js"
+    },
+    "./configuration/testing": {
+      "types": "./dist/src/configuration/testing.d.ts",
+      "axm-source": "./src/configuration/testing.ts",
+      "default": "./dist/src/configuration/testing.js"
+    },
+    "./inspection": {
+      "types": "./dist/src/inspection/index.d.ts",
+      "axm-source": "./src/inspection/index.ts",
+      "default": "./dist/src/inspection/index.js"
+    },
+    "./inspection/testing": {
+      "types": "./dist/src/inspection/testing.d.ts",
+      "axm-source": "./src/inspection/testing.ts",
+      "default": "./dist/src/inspection/testing.js"
+    },
+    "./linting": {
+      "types": "./dist/src/linting/index.d.ts",
+      "axm-source": "./src/linting/index.ts",
+      "default": "./dist/src/linting/index.js"
+    },
+    "./linting/testing": {
+      "types": "./dist/src/linting/testing.d.ts",
+      "axm-source": "./src/linting/testing.ts",
+      "default": "./dist/src/linting/testing.js"
+    },
+    "./knowledge/query": {
+      "types": "./dist/src/knowledge/query/index.d.ts",
+      "axm-source": "./src/knowledge/query/index.ts",
+      "default": "./dist/src/knowledge/query/index.js"
+    },
+    "./knowledge/query/live": {
+      "types": "./dist/src/knowledge/query/live.d.ts",
+      "axm-source": "./src/knowledge/query/live.ts",
+      "default": "./dist/src/knowledge/query/live.js"
+    },
+    "./knowledge/query/testing": {
+      "types": "./dist/src/knowledge/query/testing.d.ts",
+      "axm-source": "./src/knowledge/query/testing.ts",
+      "default": "./dist/src/knowledge/query/testing.js"
+    },
+    "./reconciliation/sync": {
+      "types": "./dist/src/reconciliation/sync/index.d.ts",
+      "axm-source": "./src/reconciliation/sync/index.ts",
+      "default": "./dist/src/reconciliation/sync/index.js"
+    },
+    "./reconciliation/sync/testing": {
+      "types": "./dist/src/reconciliation/sync/testing.d.ts",
+      "axm-source": "./src/reconciliation/sync/testing.ts",
+      "default": "./dist/src/reconciliation/sync/testing.js"
     }
   },
   "files": [
@@ -148,7 +203,9 @@
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "@agentxm/registry-auth": "workspace:^",
+    "fflate": "catalog:"
   },
   "private": true
 }

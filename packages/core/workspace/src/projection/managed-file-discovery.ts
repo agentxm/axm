@@ -2,7 +2,7 @@
  * Read-only discovery of AXM-managed files on agent surfaces: banner
  * detection, managed-file scanning primitives, and the ownership-issue
  * vocabulary. The destructive sweep that consumes these facts lives in
- * `workspace-sync/rendered-file-cleanup.ts`.
+ * `reconciliation/sync/rendered-file-cleanup.ts`.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

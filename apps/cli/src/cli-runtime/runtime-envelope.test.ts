@@ -27,7 +27,7 @@ import {
 } from "./runtime-envelope.js";
 
 /**
- * Structural stand-in for the workspace-configuration feature's typed
+ * Structural stand-in for the workspace configuration feature's typed
  * cancellation: the envelope dispatches on the tag alone, and the residue may
  * not depend on feature packages.
  */

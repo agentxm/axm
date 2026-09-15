@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { VIEW_FIELDS } from "@agentxm/workspace-inspection";
+import { VIEW_FIELDS } from "@agentxm/workspace/inspection";
 
 import { getAppError } from "../../test-support/test-helpers.js";
 import { makeReadSpecWorkspace, readExtensionIndex } from "../../test-support/read-harness.js";

@@ -2,7 +2,7 @@ import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import { ExtensionInventorySchema } from "@agentxm/workspace/desired-state";
-import { listRules, type SourcedListRow } from "@agentxm/workspace-inspection";
+import { listRules, type SourcedListRow } from "@agentxm/workspace/inspection";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";

@@ -170,9 +170,7 @@ const productScopeBans = [
   "scope:extension-sources",
   "scope:registry-client",
   "scope:registry-protocol",
-  "scope:workspace-lint",
   "scope:workspace",
-  "scope:workspace-sync",
 ];
 
 // Technical roles: dependencies point inward and never back toward the
@@ -579,7 +577,7 @@ export default [
       "**/*.test.ts",
       "**/*.spec.ts",
       "**/src/**/test-support/**",
-      "packages/core/workspace-lint/src/catalog/workspace/conformance/test-helpers.ts",
+      "packages/core/workspace/src/linting/catalog/workspace/conformance/test-helpers.ts",
     ],
     rules: {
       "no-restricted-syntax": [
@@ -647,26 +645,26 @@ export default [
       "packages/core/workspace/src/**/live.ts",
       // Test support excluded from the library build and the published files.
       "apps/cli/src/test-support/**",
-      "packages/core/workspace-lint/src/catalog/workspace/conformance/test-helpers.ts",
+      "packages/core/workspace/src/linting/catalog/workspace/conformance/test-helpers.ts",
       // Composes the real workspace an authoring specification observes.
       "packages/core/extension-authoring/src/test-support/authoring-workspace.ts",
       // Composes the real workspace and Registry an inspection specification
       // installs into before observing what `show` reports.
-      "packages/core/workspace-inspection/src/test-support/installed-workspace.ts",
+      "packages/core/workspace/src/inspection/test-support/installed-workspace.ts",
       // Published deterministic fixtures: each composes the real services its
       // package's specifications observe.
-      "packages/core/knowledge-query/src/testing.ts",
-      "packages/core/workspace-inspection/src/testing.ts",
-      "packages/core/workspace-configuration/src/testing.ts",
+      "packages/core/workspace/src/knowledge/query/testing.ts",
+      "packages/core/workspace/src/inspection/testing.ts",
+      "packages/core/workspace/src/configuration/testing.ts",
       "packages/core/extension-lifecycle/src/testing.ts",
-      "packages/core/workspace-lint/src/testing.ts",
+      "packages/core/workspace/src/linting/testing.ts",
       // Colocated test support: drives its package's use cases from tests and
       // specifications with the deterministic ports its dependencies publish.
-      "packages/core/workspace-configuration/src/**/test-helpers.ts",
-      "packages/core/workspace-lint/src/**/test-helpers.ts",
+      "packages/core/workspace/src/configuration/**/test-helpers.ts",
+      "packages/core/workspace/src/linting/**/test-helpers.ts",
       "packages/core/extension-lifecycle/src/**/test-helpers.ts",
       "packages/core/extension-publish/src/**/test-helpers.ts",
-      "packages/core/workspace-sync/src/**/test-helpers.ts",
+      "packages/core/workspace/src/reconciliation/sync/**/test-helpers.ts",
       "packages/core/workspace/src/reconciliation/**/test-helpers.ts",
       // Plan-family fixtures, excluded from the library build: the plan
       // specifications observe the real transaction scope over a temporary
@@ -729,13 +727,13 @@ export default [
     // real workspace services over a throwaway workspace, so they compose the
     // same `./live` layers the composition root does.
     ignores: [
-      "packages/core/knowledge-query/src/testing.ts",
-      "packages/core/workspace-inspection/src/testing.ts",
-      "packages/core/workspace-configuration/src/testing.ts",
+      "packages/core/workspace/src/knowledge/query/testing.ts",
+      "packages/core/workspace/src/inspection/testing.ts",
+      "packages/core/workspace/src/configuration/testing.ts",
       "packages/core/extension-lifecycle/src/testing.ts",
       // A lint run reads a real workspace through the state and projection
       // services; a fixture that stubbed them would be linting itself.
-      "packages/core/workspace-lint/src/testing.ts",
+      "packages/core/workspace/src/linting/testing.ts",
     ],
     rules: {
       "no-restricted-imports": [
@@ -858,7 +856,7 @@ export default [
     files: [
       "packages/supporting/registry-client/src/remote-client.ts",
       "packages/supporting/extension-sources/src/providers/convention-discovery.ts",
-      "packages/core/workspace-inspection/src/version-currency/collectors.ts",
+      "packages/core/workspace/src/inspection/version-currency/collectors.ts",
     ],
     plugins: {
       "axm-policy": axmPolicyPlugin,

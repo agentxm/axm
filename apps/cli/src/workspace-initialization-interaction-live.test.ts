@@ -14,7 +14,7 @@ import { TestRenderer } from "./test-support/presenter-test.js";
 import {
   WorkspaceInitializationCancelled,
   WorkspaceInitializationInteraction,
-} from "@agentxm/workspace-configuration";
+} from "@agentxm/workspace/configuration";
 import { WorkspaceInitializationInteractionLive } from "./workspace-initialization-interaction-live.js";
 
 const ansiPattern = new RegExp(String.raw`\u001B\[[0-9;]*[A-Za-z]`, "g");

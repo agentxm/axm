@@ -7,7 +7,7 @@ import { describe, expect, it } from "@effect/vitest";
 // Importing the harness's lint surface loads the rule catalogs, exactly as
 // the product does, so settings documents referencing registered lint rule
 // identities decode the way they do inside the CLI.
-import { allCatalogRuleIds } from "@agentxm/workspace-lint";
+import { allCatalogRuleIds } from "@agentxm/workspace/linting";
 import { SettingsSchema } from "@agentxm/workspace/desired-state";
 
 import { defineSpecification } from "@agentxm/specification-metadata";

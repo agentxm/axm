@@ -9,7 +9,7 @@ import * as nodeFs from "node:fs";
 import * as nodePath from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { allCatalogErrorRuleIds } from "@agentxm/workspace-lint";
+import { allCatalogErrorRuleIds } from "@agentxm/workspace/linting";
 import {
   aggregateOwnershipUnits,
   INCOMPLETE_DESIRED_STATE_BLOCKER_ID,
@@ -94,13 +94,13 @@ const makeEntry = (id: string, options: RecoveryEntryOptions): RecoveryConforman
 
 const packageLintEvidence = (id: string): ReadonlyArray<string> => {
   if (id.startsWith("skill/")) {
-    return ["packages/core/workspace-lint/src/catalog/skill.fixtures.test.ts"];
+    return ["packages/core/workspace/src/linting/catalog/skill.fixtures.test.ts"];
   }
   if (id.startsWith("pack/")) {
-    return ["packages/core/workspace-lint/src/catalog/pack.fixtures.test.ts"];
+    return ["packages/core/workspace/src/linting/catalog/pack.fixtures.test.ts"];
   }
   if (id.startsWith("knowledge/")) {
-    return ["packages/core/workspace-lint/src/catalog/knowledge.test.ts"];
+    return ["packages/core/workspace/src/linting/catalog/knowledge.test.ts"];
   }
   return ["tools/extension-type-parity/src/parity.test.ts"];
 };
@@ -166,7 +166,7 @@ const packageLintEntries = packageLintErrorIds.map((id) =>
 );
 
 const workspaceEvidence = [
-  "packages/core/workspace-lint/src/catalog/workspace/workspace-rule-conformance.test.ts",
+  "packages/core/workspace/src/linting/catalog/workspace/workspace-rule-conformance.test.ts",
   "apps/cli/src/root/lint/handler.test.ts",
 ] as const;
 
@@ -261,7 +261,7 @@ const workspaceLintEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     owner: "direct-correction",
     field: "authoredIntent",
     evidence: [
-      "packages/core/workspace-lint/src/catalog/workspace/conformance/reconciliation/test-helpers.ts",
+      "packages/core/workspace/src/linting/catalog/workspace/conformance/reconciliation/test-helpers.ts",
     ],
   }),
   makeEntry("workspace/skills-integrity-valid", {
@@ -383,7 +383,7 @@ const adversarialContracts = [
   ],
   [
     "older-lockfile-gate-names-reacceptance",
-    "packages/core/workspace-sync/src/lockfile-rejections-name-recovery-routes.spec.ts",
+    "packages/core/workspace/src/reconciliation/sync/lockfile-rejections-name-recovery-routes.spec.ts",
   ],
   [
     "newer-lockfile-gate-names-upgrade",

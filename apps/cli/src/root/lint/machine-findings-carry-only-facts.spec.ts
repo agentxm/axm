@@ -7,11 +7,11 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { LintJsonFindingSchema } from "@agentxm/workspace-lint";
+import { LintJsonFindingSchema } from "@agentxm/workspace/linting";
 import {
   CLAUDE_CODE_SKILLS_DIR,
   makeOfficialAxmSkillWorkspace,
-} from "@agentxm/workspace-lint/testing";
+} from "@agentxm/workspace/linting/testing";
 import { NoProjectionParticipants } from "@agentxm/workspace/projection/testing";
 
 import { TestFlagsLayer } from "../../cli-flags/index.js";

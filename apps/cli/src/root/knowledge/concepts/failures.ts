@@ -3,7 +3,7 @@ import * as Effect from "effect/Effect";
 import {
   KnowledgeConceptCorpusChangingFailureSchema,
   KnowledgeConceptCursorFailureSchema,
-} from "@agentxm/knowledge-query";
+} from "@agentxm/workspace/knowledge/query";
 
 import { ExitCode } from "../../../app-error/index.js";
 import { Screen, errorDoc } from "../../../screen/index.js";

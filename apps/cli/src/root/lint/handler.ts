@@ -2,7 +2,7 @@
  * `axm lint` rendering.
  *
  * The lint run itself — input admission, fact gathering, evaluation, and the
- * machine document — belongs to `@agentxm/workspace-lint`. What is left here
+ * machine document — belongs to `@agentxm/workspace/linting`. What is left here
  * is the adapter's own work: wrap the feature's document in the machine
  * envelope, render the human report at the requested verbosity, and translate
  * the severity verdict into a process exit code.
@@ -20,7 +20,7 @@ import {
   type LintSelection,
   type LintJsonDocument,
   type LintSummary,
-} from "@agentxm/workspace-lint";
+} from "@agentxm/workspace/linting";
 
 import { ExitCode } from "../../app-error/index.js";
 import { Screen } from "../../screen/index.js";

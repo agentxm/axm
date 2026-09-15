@@ -2,7 +2,7 @@ import type {
   ExtensionNotInstalled,
   PackInspectionRefused,
   PublishedMetadataUnavailable,
-} from "@agentxm/workspace-inspection";
+} from "@agentxm/workspace/inspection";
 import {
   extensionTypeSentenceLabels,
   toExtensionTypePlural,

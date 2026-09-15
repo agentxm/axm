@@ -35,8 +35,8 @@ export const specification = defineSpecification({
   derivedFrom: [
     "packages/core/extension-lifecycle/src/knowledge/manager.ts",
     "packages/core/workspace/src/projection/planning.ts",
-    "packages/core/workspace-sync/src/knowledge-exclusions-are-reported.test.ts",
-    "packages/core/workspace-lint/src/catalog/workspace/conformance/workspace-state/test-helpers.ts",
+    "packages/core/workspace/src/reconciliation/sync/knowledge-exclusions-are-reported.test.ts",
+    "packages/core/workspace/src/linting/catalog/workspace/conformance/workspace-state/test-helpers.ts",
   ],
   supersedes: [],
   assumptions: [],

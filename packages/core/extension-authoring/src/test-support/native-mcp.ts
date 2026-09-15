@@ -1,7 +1,7 @@
 /**
  * Native MCP declarations, and the discovery an import decides over.
  *
- * The workspace-configuration feature discovers unmanaged native connections
+ * The workspace configuration feature discovers unmanaged native connections
  * and hands the result to the authoring feature as plain data. These helpers
  * write the native files a person actually has and build the same shaped
  * discovery from them, so a specification exercises the conversion the

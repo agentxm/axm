@@ -4,7 +4,7 @@ import { Command } from "effect/unstable/cli";
 import {
   KnowledgeConceptStatusOutputSchema,
   reportKnowledgeCorpusStatus,
-} from "@agentxm/knowledge-query";
+} from "@agentxm/workspace/knowledge/query";
 
 import { Screen, rawDoc } from "../../../screen/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";

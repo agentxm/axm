@@ -1,5 +1,5 @@
 /**
- * Typed failures for workspace-sync reconciliation. The producer owns the
+ * Typed failures for workspace reconciliation. The producer owns the
  * category choice and user-facing wording; the application boundary converts
  * the carried fields into its error envelope verbatim.
  *
@@ -17,7 +17,7 @@ const CarriedSuggestedActionSchema = Schema.Struct({
 });
 
 /**
- * A workspace-sync policy step could not proceed. `category` and `detail`
+ * A workspace reconciliation policy step could not proceed. `category` and `detail`
  * carry the boundary rendering 1:1.
  */
 export class WorkspaceSyncFailed extends Schema.TaggedError<WorkspaceSyncFailed>()(

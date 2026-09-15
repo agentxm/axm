@@ -11,7 +11,7 @@ import {
 import {
   ConfigureAgents,
   type DepartingAgentReconciliation,
-} from "@agentxm/workspace-configuration";
+} from "@agentxm/workspace/configuration";
 import { configurationFailureToAppError, syncFailureToAppError } from "../../feature-errors.js";
 import { syncStepFailureAdapter } from "../../feature-errors.js";
 import { acceptWarningsFlag } from "../../cli-flags/index.js";

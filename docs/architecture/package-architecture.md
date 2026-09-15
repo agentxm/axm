@@ -282,24 +282,24 @@ flowchart LR
   PROTOCOL --> MODEL
 ```
 
-### Features
+### Feature modules
 
-A feature package owns a complete reusable use case: the policy,
+A feature module owns a complete reusable use case: the policy,
 orchestration, typed failures, typed result, and the specifications that state
 its promises. It depends on contracts, capabilities, and integrations through
-their public service APIs, and never on another feature.
+their public service APIs, and never on another feature module.
 
-| Package                            | Role           | Use cases it owns                                                                                                                                        |
-| ---------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@agentxm/workspace-sync`          | `role:feature` | Scope selection, shared reconciliation invocation, convergence and reconciliation outcomes                                                               |
-| `@agentxm/workspace-lint`          | `role:feature` | Workspace facts, lint rules, findings, normalization, and bounded fix planning                                                                           |
-| `@agentxm/extension-lifecycle`     | `role:feature` | Install, update, uninstall, enable, disable, demote, and Pack unpacking across root and type-specific forms                                              |
-| `@agentxm/extension-authoring`     | `role:feature` | New, fork, native import, adopt identity policy, version, and authored Pack membership                                                                   |
-| `@agentxm/extension-publish`       | `role:feature` | Publish selection, publication validation, archive planning, authentication requirements, upload settlement, recovery, visibility, yank, and deprecation |
-| `@agentxm/extension-discovery`     | `role:feature` | Project package detectors, local extension declarations, Registry recommendations, and discovery results                                                 |
-| `@agentxm/workspace-configuration` | `role:feature` | Setup, configured-agent membership, instruction management, and inline workspace capabilities such as MCP servers                                        |
-| `@agentxm/workspace-inspection`    | `role:feature` | List, view, show, Pack inventory, and version-currency queries                                                                                           |
-| `@agentxm/knowledge-query`         | `role:feature` | Knowledge concept resolution, retrieval, search, related concepts, and status                                                                            |
+| Module                                   | Role           | Use cases it owns                                                                                                                                        |
+| ---------------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@agentxm/workspace/reconciliation/sync` | `role:feature` | Scope selection, shared reconciliation invocation, convergence and reconciliation outcomes                                                               |
+| `@agentxm/workspace/linting`             | `role:feature` | Workspace facts, lint rules, findings, normalization, and bounded fix planning                                                                           |
+| `@agentxm/extension-lifecycle`           | `role:feature` | Install, update, uninstall, enable, disable, demote, and Pack unpacking across root and type-specific forms                                              |
+| `@agentxm/extension-authoring`           | `role:feature` | New, fork, native import, adopt identity policy, version, and authored Pack membership                                                                   |
+| `@agentxm/extension-publish`             | `role:feature` | Publish selection, publication validation, archive planning, authentication requirements, upload settlement, recovery, visibility, yank, and deprecation |
+| `@agentxm/extension-discovery`           | `role:feature` | Project package detectors, local extension declarations, Registry recommendations, and discovery results                                                 |
+| `@agentxm/workspace/configuration`       | `role:feature` | Setup, configured-agent membership, instruction management, and inline workspace capabilities such as MCP servers                                        |
+| `@agentxm/workspace/inspection`          | `role:feature` | List, view, show, Pack inventory, and version-currency queries                                                                                           |
+| `@agentxm/workspace/knowledge/query`     | `role:feature` | Knowledge concept resolution, retrieval, search, related concepts, and status                                                                            |
 
 Each exposes an application API of the shape `prepare(request) → Candidate` and
 `previewOrApply(candidate, execution) → OperationResolution`, with typed
@@ -310,8 +310,8 @@ declare — resolving a plan, observing an interruption signal, workspace
 initialization, and the authentication presenters — are typed services the
 application binds.
 
-`workspace-lint` does not absorb contract-level validation used by publication
-and Registry ingestion; that lives with `extension-content` and
+The workspace linting module does not absorb contract-level validation used by
+publication and Registry ingestion; that lives with `extension-content` and
 `registry-protocol`. It composes facts and findings about installed and
 authored workspace state.
 

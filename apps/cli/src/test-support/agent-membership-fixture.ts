@@ -2,9 +2,9 @@
  * A real project workspace and the whole application layer over it, for the
  * specifications that observe a coding-agent membership change.
  *
- * Recording membership belongs to `@agentxm/workspace-configuration`;
+ * Recording membership belongs to `@agentxm/workspace/configuration`;
  * realizing installed extensions for the resulting membership, and cleaning
- * up the outputs a departing agent owned, belong to `@agentxm/workspace-sync`.
+ * up the outputs a departing agent owned, belong to `@agentxm/workspace/reconciliation/sync`.
  * Neither feature may depend on the other, so the application is the only
  * layer at which one operation both records and realizes — which is what
  * these specifications are about. This fixture therefore composes the

@@ -23,7 +23,7 @@ import type { SubagentSelectionCancelled } from "@agentxm/extension-lifecycle/su
 import type { PromptCancelled } from "../prompt/prompt-cancelled.js";
 
 /**
- * Structural shape of the workspace-configuration feature's typed
+ * Structural shape of the workspace configuration feature's typed
  * initialization cancellation. The envelope dispatches on the tag alone, so
  * it does not import the feature package (the transitional residue may not
  * depend on features).

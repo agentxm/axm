@@ -33,13 +33,13 @@ describe("composition-root import restriction", () => {
     expect(
       await restrictedImports(
         'import { WorkspaceCatalogLive } from "@agentxm/workspace/projection/live";\nvoid WorkspaceCatalogLive;\n',
-        "packages/core/workspace-sync/src/index.ts",
+        "packages/core/workspace/src/reconciliation/sync/index.ts",
       ),
     ).not.toEqual([]);
     expect(
       await restrictedImports(
         'import { PlanInvocationTest } from "@agentxm/workspace/transitions/planning/testing";\nvoid PlanInvocationTest;\n',
-        "packages/core/workspace-sync/src/index.ts",
+        "packages/core/workspace/src/reconciliation/sync/index.ts",
       ),
     ).not.toEqual([]);
   });

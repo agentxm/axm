@@ -16,7 +16,7 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { ensureWorkspaceFiles } from "./test-stubs.js";
 import { AppError } from "../app-error/index.js";
 import { isKnownFailure, toAppError } from "../app-error/conversions.js";
-import { KnowledgeIndexLive } from "@agentxm/knowledge-query/live";
+import { KnowledgeIndexLive } from "@agentxm/workspace/knowledge/query/live";
 import { AuthLoginPresenterTest, CredentialStoreTest } from "@agentxm/registry-auth/testing";
 import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
 import { TestFlagsLayer } from "../cli-flags/index.js";
@@ -79,7 +79,7 @@ import {
   SyncStepFailureConversionLive,
 } from "../feature-errors.js";
 export { LifecycleStepFailureConversionLive };
-import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-configuration/testing";
+import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace/configuration/testing";
 import { ExecutionDirectory } from "../execution-directory.js";
 import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
 

@@ -4,7 +4,7 @@ import {
   ConfigureAgents,
   ConfiguredAgentInventorySchema,
   type ConfiguredAgentInventory,
-} from "@agentxm/workspace-configuration";
+} from "@agentxm/workspace/configuration";
 import { Screen, count, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";

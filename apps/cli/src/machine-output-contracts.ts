@@ -415,8 +415,8 @@ const knowledgeConceptResolveFamily = defineResultFamily({
   scenarios: ["resolved", "ambiguous", "not found", "corpus changing"],
   rationale: "Concept resolution returns one identity or bounded candidates.",
   commandCoverage: [
-    "packages/core/knowledge-query/src/graph/resolves-exact-reference.spec.ts",
-    "packages/core/knowledge-query/src/graph/requires-explicit-fuzzy-resolution.spec.ts",
+    "packages/core/workspace/src/knowledge/query/graph/resolves-exact-reference.spec.ts",
+    "packages/core/workspace/src/knowledge/query/graph/requires-explicit-fuzzy-resolution.spec.ts",
   ],
 });
 
@@ -439,7 +439,9 @@ const knowledgeConceptRelatedFamily = defineResultFamily({
   ],
   scenarios: ["related concepts", "empty", "missing root", "corpus changing"],
   rationale: "Related traversal returns bounded graph results and corpus identity.",
-  commandCoverage: ["packages/core/knowledge-query/src/graph/traverses-authored-links.spec.ts"],
+  commandCoverage: [
+    "packages/core/workspace/src/knowledge/query/graph/traverses-authored-links.spec.ts",
+  ],
 });
 
 const knowledgeConceptStatusFamily = defineResultFamily({

@@ -51,7 +51,7 @@ import {
   KnowledgeConceptResolveOutputSchema,
   KnowledgeConceptStatusOutputSchema,
   KnowledgeLintQueryResultSchema,
-} from "@agentxm/knowledge-query";
+} from "@agentxm/workspace/knowledge/query";
 import { LintResultDocumentSchema } from "./root/lint/handler.js";
 import { LifecycleTransitionOutputSchema } from "./root/lifecycle/command.js";
 
@@ -64,7 +64,7 @@ import {
   PackShowResultSchema,
   ViewDocumentSchema,
   ViewFieldValueSchema,
-} from "@agentxm/workspace-inspection";
+} from "@agentxm/workspace/inspection";
 import { UpgradeDocumentSchema } from "./root/upgrade/handler.js";
 
 const sorted = (values: Iterable<string>): ReadonlyArray<string> => [...values].sort();

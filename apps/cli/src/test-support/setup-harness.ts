@@ -31,7 +31,7 @@ import { TestFlagsLayer } from "../cli-flags/index.js";
 import { TestMachineRenderer, TestRenderer } from "./presenter-test.js";
 import { recordingFileSystemLayer, type FileSystemWriteEvent } from "./test-helpers.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace-configuration/testing";
+import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace/configuration/testing";
 import { BundledAxmSkillAssetLive } from "../cli-runtime/index.js";
 import { CodingAgentRepositoryLive, NativeWriteAuthorityLive } from "./test-helpers.js";
 import { ExecutionDirectory } from "../execution-directory.js";

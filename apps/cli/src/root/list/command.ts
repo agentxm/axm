@@ -16,8 +16,8 @@ import {
   ExtensionListDocumentSchema,
   ListExtensions,
   type ExtensionListDocument,
-} from "@agentxm/workspace-inspection";
-import type { ExtensionListItem } from "@agentxm/workspace-inspection";
+} from "@agentxm/workspace/inspection";
+import type { ExtensionListItem } from "@agentxm/workspace/inspection";
 
 import { inspectionFailureToAppError } from "../../feature-errors.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";

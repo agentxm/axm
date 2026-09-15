@@ -10,8 +10,8 @@ import {
 } from "./declared-type-dependencies.js";
 
 const subject = (overrides: Partial<DeclarationSubject> = {}): DeclarationSubject => ({
-  packageName: "@agentxm/workspace-sync",
-  manifestPath: "packages/core/workspace-sync/package.json",
+  packageName: "@fixture/workspace-sync",
+  manifestPath: "packages/fixture/workspace-sync/package.json",
   declared: new Set(["@agentxm/workspace"]),
   declarations: [],
   ...overrides,
@@ -78,11 +78,11 @@ describe("undeclared type dependencies", () => {
       subject({
         declarations: [
           {
-            path: "packages/core/workspace-sync/dist/src/plan.d.ts",
+            path: "packages/fixture/workspace-sync/dist/src/plan.d.ts",
             text: 'export declare const a: import("@agentxm/registry-client").RegistryProblem;',
           },
           {
-            path: "packages/core/workspace-sync/dist/src/materialize.d.ts",
+            path: "packages/fixture/workspace-sync/dist/src/materialize.d.ts",
             text: 'export declare const b: import("@agentxm/registry-client").RegistryProblem;',
           },
         ],
@@ -90,17 +90,17 @@ describe("undeclared type dependencies", () => {
     ]);
     expect(findings).toEqual([
       {
-        packageName: "@agentxm/workspace-sync",
-        manifestPath: "packages/core/workspace-sync/package.json",
+        packageName: "@fixture/workspace-sync",
+        manifestPath: "packages/fixture/workspace-sync/package.json",
         referenced: "@agentxm/registry-client",
         declarations: [
-          "packages/core/workspace-sync/dist/src/materialize.d.ts",
-          "packages/core/workspace-sync/dist/src/plan.d.ts",
+          "packages/fixture/workspace-sync/dist/src/materialize.d.ts",
+          "packages/fixture/workspace-sync/dist/src/plan.d.ts",
         ],
       },
     ]);
     expect(findings.map(describeUndeclaredTypeDependency).join("\n")).toContain(
-      "@agentxm/workspace-sync emits a reference to @agentxm/registry-client",
+      "@fixture/workspace-sync emits a reference to @agentxm/registry-client",
     );
   });
 
@@ -110,10 +110,10 @@ describe("undeclared type dependencies", () => {
         subject({
           declarations: [
             {
-              path: "packages/core/workspace-sync/dist/src/index.d.ts",
+              path: "packages/fixture/workspace-sync/dist/src/index.d.ts",
               text: [
                 'import type { A } from "@agentxm/workspace/desired-state";',
-                'import type { B } from "@agentxm/workspace-sync";',
+                'import type { B } from "@fixture/workspace-sync";',
                 'import type { C } from "effect/Effect";',
               ].join("\n"),
             },

@@ -157,7 +157,7 @@ describe("module-boundary constraint reachability", () => {
   it("reports a feature importing a peer feature", async () => {
     const reported = await boundaryViolations(
       'import { PublishExtensions } from "@agentxm/extension-publish";\nvoid PublishExtensions;\n',
-      "packages/core/workspace-sync/src/index.ts",
+      "packages/core/workspace/src/reconciliation/sync/index.ts",
     );
     expect(reported.length).toBeGreaterThan(0);
   });
@@ -174,7 +174,7 @@ describe("module-boundary constraint reachability", () => {
     expect(
       await boundaryViolations(
         'import { observeUnit } from "@agentxm/workspace/transitions/planning";\nvoid observeUnit;\n',
-        "packages/core/workspace-sync/src/index.ts",
+        "packages/core/workspace/src/reconciliation/sync/index.ts",
       ),
     ).toEqual([]);
   });

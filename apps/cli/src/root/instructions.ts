@@ -6,7 +6,7 @@ import {
   InstructionsStatusSchema,
   ManageInstructions,
   type InstructionsStatus,
-} from "@agentxm/workspace-configuration";
+} from "@agentxm/workspace/configuration";
 import { emitOperationResolution } from "../operation-output.js";
 import { scopeFlag } from "../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../runtime.js";

@@ -39,13 +39,13 @@ import {
   type RegistryAuthFailure,
   type StepUpRequired,
 } from "@agentxm/registry-auth";
-import type { SyncWorkspaceExecutionFailure } from "@agentxm/workspace-sync";
-import { LintStagingFailed } from "@agentxm/workspace-lint";
+import type { SyncWorkspaceExecutionFailure } from "@agentxm/workspace/reconciliation/sync";
+import { LintStagingFailed } from "@agentxm/workspace/linting";
 import {
   WorkspaceConfigurationFailed,
   WorkspaceInitializationCancelled,
-} from "@agentxm/workspace-configuration";
-import { WorkspaceInspectionFailed } from "@agentxm/workspace-inspection";
+} from "@agentxm/workspace/configuration";
+import { WorkspaceInspectionFailed } from "@agentxm/workspace/inspection";
 import {
   makeReconciliationLayer,
   WorkspaceSyncFailed,
@@ -67,7 +67,7 @@ export const lintStagingFailedToAppError = (error: LintStagingFailed): AppError 
   });
 
 /**
- * Convert any failure a workspace-lint run can surface — the feature's own
+ * Convert any failure a workspace lint run can surface — the feature's own
  * typed refusal, or a known kernel failure it read the workspace through —
  * into the CLI-facing `AppError`.
  */
@@ -79,7 +79,7 @@ export const lintFailureToAppError = (failure: unknown): AppError => {
 };
 
 /**
- * Translate a workspace-sync policy failure: the implementation chose the
+ * Translate a workspace reconciliation policy failure: the implementation chose the
  * category and wording at construction, so the envelope carries them over 1:1.
  */
 export const workspaceSyncFailedToAppError = (error: WorkspaceSyncFailed): AppError =>
@@ -432,7 +432,7 @@ export const authFailureToAppError = (failure: unknown): AppError => {
 };
 
 /**
- * Translate a workspace-configuration policy failure: the implementation
+ * Translate a workspace configuration policy failure: the implementation
  * chose the category and wording at construction, so the envelope carries
  * them over 1:1 through the same normalization the envelope constructor
  * applies.
@@ -450,7 +450,7 @@ export const workspaceConfigurationFailedToAppError = (
   });
 
 /**
- * Convert any failure a workspace-configuration flow can surface — the
+ * Convert any failure a workspace configuration flow can surface — the
  * feature's own typed failure, a known kernel or integration failure, or an
  * envelope that travelled through a still-coupled channel — into the
  * CLI-facing `AppError`.
@@ -479,7 +479,7 @@ export const configurationFailureToStepFailure = (failure: unknown) =>
   appErrorToStepFailure(configurationFailureToAppError(failure));
 
 /**
- * Translate a workspace-inspection query failure: the implementation chose
+ * Translate a workspace inspection query failure: the implementation chose
  * the category and wording at construction, so the envelope carries them over
  * 1:1 through the same normalization the envelope constructor applies.
  */
@@ -491,7 +491,7 @@ export const workspaceInspectionFailedToAppError = (error: WorkspaceInspectionFa
   });
 
 /**
- * Convert any failure a workspace-inspection query can surface — the
+ * Convert any failure a workspace inspection query can surface — the
  * feature's own typed failure, a known kernel or integration failure, or an
  * envelope that travelled through a still-coupled channel — into the
  * CLI-facing `AppError`.

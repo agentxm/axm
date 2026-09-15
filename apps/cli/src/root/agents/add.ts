@@ -1,7 +1,7 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { ConfigureAgents } from "@agentxm/workspace-configuration";
+import { ConfigureAgents } from "@agentxm/workspace/configuration";
 import { acceptWarningsFlag, ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { Screen, headlineDoc } from "../../screen/index.js";
@@ -17,7 +17,7 @@ import {
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
-import { SyncWorkspace } from "@agentxm/workspace-sync";
+import { SyncWorkspace } from "@agentxm/workspace/reconciliation/sync";
 import { buildPermissionSuggestions } from "./permission-suggestions.js";
 import { configurationFailureToAppError, syncFailureToAppError } from "../../feature-errors.js";
 

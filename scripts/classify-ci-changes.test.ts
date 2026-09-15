@@ -8,6 +8,7 @@ import {
   classifyCiChanges,
   parseChangedPaths,
   selectCodeVerificationPaths,
+  validateRunnerCommandFile,
 } from "./classify-ci-changes.js";
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
@@ -253,5 +254,20 @@ describe("classifyCiChanges", () => {
     expect(classifyCiChanges(parseChangedPaths("R100\0contributing/old.md\0"))).toMatchObject({
       full: true,
     });
+  });
+
+  it("accepts command files contained by the runner temporary directory", () => {
+    expect(
+      validateRunnerCommandFile("/runner/temp/_runner_file_commands/output_123", "/runner/temp"),
+    ).toBe("/runner/temp/_runner_file_commands/output_123");
+  });
+
+  it("rejects command files outside the runner temporary directory", () => {
+    expect(() => validateRunnerCommandFile("/workspace/untrusted-output", "/runner/temp")).toThrow(
+      "GitHub command files must be contained by RUNNER_TEMP",
+    );
+    expect(() =>
+      validateRunnerCommandFile("/runner/temp/../escaped-output", "/runner/temp"),
+    ).toThrow("GitHub command files must be contained by RUNNER_TEMP");
   });
 });

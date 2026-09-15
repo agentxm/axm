@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
 export type CiCheck =
@@ -255,10 +256,30 @@ const renderSummary = (selection: CiSelectionResult) =>
     ),
     "",
   ].join("\n");
+export const validateRunnerCommandFile = (
+  candidate: string | undefined,
+  runnerTemp: string | undefined,
+) => {
+  if (!candidate) return undefined;
+  if (!runnerTemp) throw new Error("RUNNER_TEMP is required for GitHub command files");
+  const root = resolve(runnerTemp);
+  const target = resolve(candidate);
+  const pathFromRoot = relative(root, target);
+  if (
+    pathFromRoot === "" ||
+    pathFromRoot === ".." ||
+    pathFromRoot.startsWith(`..${sep}`) ||
+    isAbsolute(pathFromRoot)
+  ) {
+    throw new Error("GitHub command files must be contained by RUNNER_TEMP");
+  }
+  return target;
+};
 const writeSelection = (selection: CiSelectionResult) => {
-  const outputPath = process.env["GITHUB_OUTPUT"];
+  const runnerTemp = process.env["RUNNER_TEMP"];
+  const outputPath = validateRunnerCommandFile(process.env["GITHUB_OUTPUT"], runnerTemp);
   if (outputPath) appendFileSync(outputPath, `${outputEntries(selection).join("\n")}\n`);
-  const summaryPath = process.env["GITHUB_STEP_SUMMARY"];
+  const summaryPath = validateRunnerCommandFile(process.env["GITHUB_STEP_SUMMARY"], runnerTemp);
   if (summaryPath) appendFileSync(summaryPath, renderSummary(selection));
   console.log(JSON.stringify(selection, null, 2));
 };

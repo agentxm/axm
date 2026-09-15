@@ -40,12 +40,12 @@ export const boundEvidence = defineBoundEvidence([
   {
     gate: "ci: binary-smoke",
     verifies:
-      "Runs the compiled-binary smoke execution on every supported operating system and architecture for every change that reaches the main branch, producing the binaries a release attaches.",
+      "Runs the compiled-binary smoke execution on every supported operating system and architecture for each canonical release commit, producing the exact binaries that release attaches.",
   },
   {
     gate: "ci: windows-workspace",
     verifies:
-      "Runs affected Windows workspace checks for pull requests and merge groups, and the full lifecycle checks for main and workflow changes, on a real Windows runner.",
+      "Runs affected Windows workspace checks for pull requests and merge groups, and full lifecycle checks for canonical release commits plus scheduled or manual assurance, on a real Windows runner.",
   },
   {
     gate: "publish: install-verify",
@@ -137,6 +137,7 @@ describe("Supported platform matrix", () => {
         [...SUPPORTED_BINARIES].sort(),
       );
       expect(jobSteps(binarySmoke)).toContain("cli-e2e:binary-smoke-artifact");
+      expect(binarySmoke["if"]).toContain("needs.classify.outputs.release-artifacts");
       expect(jobNeeds(readJob(jobs, "required"))).toContain("binary-smoke");
     }),
   );

@@ -495,7 +495,7 @@ Configured extensions realize correctly and completely for every configured codi
 ##### Install realizes the extension for every configured agent
 
 - Requirement: `cli/install/realizes-for-every-configured-agent`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When an acquirable extension is installed, AXM shall realize it on every native surface supported for that extension type by the configured agents and on its declared shared surfaces, as permitted by the workspace's activation and instruction settings.
 - Class: functional
 - Role: experience
@@ -506,7 +506,7 @@ Configured extensions realize correctly and completely for every configured codi
 - Supersedes: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
 - Assumptions: Claude Code and Cursor declare distinct native project skill directories, so two agent locations observe two configured agents beside the universal location.
 - Additional evidence: process via [`apps/cli-e2e/src/root-install.e2e.test.ts`](../apps/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
-- Source: [`packages/core/extension-lifecycle/src/install/realizes-for-every-configured-agent.spec.ts`](../packages/core/extension-lifecycle/src/install/realizes-for-every-configured-agent.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/install/realizes-for-every-configured-agent.spec.ts`](../packages/core/workspace/src/lifecycle/install/realizes-for-every-configured-agent.spec.ts)
 
 ##### MCP servers reach every configured agent that can represent them
 
@@ -532,7 +532,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 ##### Adopt declares an undeclared authored package where it already is
 
 - Requirement: `cli/adopt/declares-authored-package-in-place`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When a person adopts an identity whose valid, identity-matching package already sits at its authoring location and no workspace declaration or installed copy of it exists, AXM shall add an enabled workspace declaration and realize its projections without moving content or writing a lockfile row, shall report that declaration without writing anything in preview, and shall refuse without changes when the name is already declared, the manifest is invalid or names another identity, or an installed copy also exists.
 - Class: functional
 - Role: experience
@@ -541,12 +541,12 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary rationale: In-place adoption is a decision of the authoring use case over real directories: a temporary project workspace shows the authored bytes untouched, the declaration added, the lockfile without a row, and the agent projection realized — none of which a double could stand in for.
 - Methods: example, decision-table
 - Derived from: `cli/adopt/moves-package-into-workspace-authorship`, `apps/cli/src/root/adopt/command.ts`
-- Source: [`packages/core/extension-authoring/src/adopt/declares-authored-package-in-place.spec.ts`](../packages/core/extension-authoring/src/adopt/declares-authored-package-in-place.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/adopt/declares-authored-package-in-place.spec.ts`](../packages/core/workspace/src/authoring/adopt/declares-authored-package-in-place.spec.ts)
 
 ##### Adopt moves an existing package into workspace authorship
 
 - Requirement: `cli/adopt/moves-package-into-workspace-authorship`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When a person adopts an existing AXM package into an unoccupied authoring location, AXM shall preserve its content in the workspace authoring directory, retain its declared activation (enabling a previously undeclared package), and remove the acquired copy and its external resolution.
 - Class: functional
 - Role: experience
@@ -555,7 +555,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary rationale: Adoption is a decision of the authoring use case over real directories: a temporary project workspace shows the acquired copy gone, the authored copy byte-identical, the declaration rewritten, and the retired lockfile row — none of which a double could stand in for.
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/adopt/command.ts`
-- Source: [`packages/core/extension-authoring/src/adopt/moves-package-into-workspace-authorship.spec.ts`](../packages/core/extension-authoring/src/adopt/moves-package-into-workspace-authorship.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/adopt/moves-package-into-workspace-authorship.spec.ts`](../packages/core/workspace/src/authoring/adopt/moves-package-into-workspace-authorship.spec.ts)
 
 ##### Authoring commands use the project workspace
 
@@ -575,7 +575,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 ##### Creation refuses existing declarations and authored content
 
 - Requirement: `cli/creation-refuses-existing-content`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When a new-extension command targets a name that is already configured or an authoring directory that already contains content, AXM shall refuse creation without replacing existing files or workspace declarations.
 - Class: functional
 - Role: experience
@@ -583,13 +583,13 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary: memory; selection: per-change
 - Boundary rationale: The create-only refusal is settled by the creation use case before its transaction opens, so a real project directory shows the typed refusal for every type and a byte-identical tree.
 - Methods: example, decision-table
-- Derived from: `packages/core/extension-authoring/src/create-preflight.ts`, `packages/core/extension-authoring/src/create/create-extension.ts`
-- Source: [`packages/core/extension-authoring/src/creation-refuses-existing-content.spec.ts`](../packages/core/extension-authoring/src/creation-refuses-existing-content.spec.ts)
+- Derived from: `packages/core/workspace/src/authoring/create-preflight.ts`, `packages/core/workspace/src/authoring/create/create-extension.ts`
+- Source: [`packages/core/workspace/src/authoring/creation-refuses-existing-content.spec.ts`](../packages/core/workspace/src/authoring/creation-refuses-existing-content.spec.ts)
 
 ##### Creation uses the configured workspace owner
 
 - Requirement: `cli/creation-uses-configured-workspace-ownership`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When a person creates an extension, AXM shall use the owner configured in the selected workspace scope, accept an explicitly requested owner with or without its leading @, record an explicitly requested owner as that scope's owner when it configures none, and refuse creation before changing workspace content when no owner is configured and none is requested or when the requested owner differs from the configured one; every applied creation leaves the scope's configured owner equal to the created package's owner, and a previewed creation records none.
 - Class: functional
 - Role: experience
@@ -597,13 +597,13 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary: memory; selection: per-change
 - Boundary rationale: Ownership is one decision the authoring feature makes over the selected scope's settings, so each row is observable in a real project directory: the owner the manifest carries, the owner the settings record, and the byte-identical tree a refusal leaves behind.
 - Methods: example, decision-table
-- Derived from: `packages/core/extension-authoring/src/create/authoring-owner.ts`
-- Source: [`packages/core/extension-authoring/src/creation-uses-configured-workspace-ownership.spec.ts`](../packages/core/extension-authoring/src/creation-uses-configured-workspace-ownership.spec.ts)
+- Derived from: `packages/core/workspace/src/authoring/create/authoring-owner.ts`
+- Source: [`packages/core/workspace/src/authoring/creation-uses-configured-workspace-ownership.spec.ts`](../packages/core/workspace/src/authoring/creation-uses-configured-workspace-ownership.spec.ts)
 
 ##### Demote returns an authored package to the selected external source
 
 - Requirement: `cli/demote/replaces-workspace-source-with-selected-source`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When a person demotes a workspace-authored extension to a valid external source, AXM shall replace workspace source authority with that source and its content while preserving the configured activation state, and shall refuse a workspace replacement source or a target that is not workspace authored.
 - Class: functional
 - Role: experience
@@ -612,12 +612,12 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/demote/command.test.ts`
 - Assumptions: Pack and MCP transitions use registry sources and the other types use local sources; additional registry and Git acquisition behavior is verified by its owning source requirements.
-- Source: [`packages/core/extension-lifecycle/src/demote/replaces-workspace-source-with-selected-source.spec.ts`](../packages/core/extension-lifecycle/src/demote/replaces-workspace-source-with-selected-source.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/demote/replaces-workspace-source-with-selected-source.spec.ts`](../packages/core/workspace/src/lifecycle/demote/replaces-workspace-source-with-selected-source.spec.ts)
 
 ##### Fork creates a distinct workspace package while preserving its source
 
 - Requirement: `cli/fork/creates-distinct-workspace-package`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When a person forks one managed AXM package, AXM shall preserve the source and its reusable content while creating a workspace-authored package of the same type under the requested identity, initially disabled unless activation is requested or already configured.
 - Class: functional
 - Role: experience
@@ -625,13 +625,13 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary: memory; selection: per-change
 - Boundary rationale: Forking is a decision of the authoring use case: it reads a real package from a real directory and publishes a real canonical package, so a temporary project workspace observes every byte the operation copied, rewrote, and left alone.
 - Methods: example, decision-table
-- Derived from: `packages/core/extension-authoring/src/fork-package.test.ts`, `apps/cli/src/root/fork/command.ts`
-- Source: [`packages/core/extension-authoring/src/fork/creates-distinct-workspace-package.spec.ts`](../packages/core/extension-authoring/src/fork/creates-distinct-workspace-package.spec.ts)
+- Derived from: `packages/core/workspace/src/authoring/fork-package.test.ts`, `apps/cli/src/root/fork/command.ts`
+- Source: [`packages/core/workspace/src/authoring/fork/creates-distinct-workspace-package.spec.ts`](../packages/core/workspace/src/authoring/fork/creates-distinct-workspace-package.spec.ts)
 
 ##### Fork refuses ambiguous sources and incompatible or occupied destinations
 
 - Requirement: `cli/fork/refuses-ambiguous-or-conflicting-packages`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When a fork cannot identify one source package of the requested type or its destination already contains content, AXM shall refuse the operation without changing source packages, destination content, or workspace declarations.
 - Class: functional
 - Role: experience
@@ -639,13 +639,13 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary: memory; selection: per-change
 - Boundary rationale: Each refusal is a decision the fork use case settles before it stages anything, so a real project workspace shows both the typed refusal and that not one byte of the source or the destination moved.
 - Methods: example, decision-table
-- Derived from: `packages/core/extension-authoring/src/fork-package.test.ts`, `apps/cli/src/root/fork/command.ts`
-- Source: [`packages/core/extension-authoring/src/fork/refuses-ambiguous-or-conflicting-packages.spec.ts`](../packages/core/extension-authoring/src/fork/refuses-ambiguous-or-conflicting-packages.spec.ts)
+- Derived from: `packages/core/workspace/src/authoring/fork-package.test.ts`, `apps/cli/src/root/fork/command.ts`
+- Source: [`packages/core/workspace/src/authoring/fork/refuses-ambiguous-or-conflicting-packages.spec.ts`](../packages/core/workspace/src/authoring/fork/refuses-ambiguous-or-conflicting-packages.spec.ts)
 
 ##### Creating a hook records editable workspace content
 
 - Requirement: `cli/hooks/new/creates-enabled-workspace-content`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When a person creates a hook, AXM shall create its manifest and a runnable starter entrypoint for the requested runtime in the workspace authoring directory, bind it to the requested event with a matcher only where the event is tool-scoped, register it as enabled workspace-authored content, and project it into the agent hook configurations.
 - Class: functional
 - Role: experience
@@ -653,13 +653,13 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary: memory; selection: per-change
 - Boundary rationale: The manifest, the entrypoint, the declaration, and the agent hook configuration are all written by the creation use case over the workspace-state services; a real project directory observes each one.
 - Methods: example, decision-table
-- Derived from: `packages/core/extension-authoring/src/create/scaffolds/hook.ts`
-- Source: [`packages/core/extension-authoring/src/hooks/new/creates-enabled-workspace-content.spec.ts`](../packages/core/extension-authoring/src/hooks/new/creates-enabled-workspace-content.spec.ts)
+- Derived from: `packages/core/workspace/src/authoring/create/scaffolds/hook.ts`
+- Source: [`packages/core/workspace/src/hooks/authoring/new/creates-enabled-workspace-content.spec.ts`](../packages/core/workspace/src/hooks/authoring/new/creates-enabled-workspace-content.spec.ts)
 
 ##### Creating a knowledge bundle records editable workspace content
 
 - Requirement: `cli/knowledge/new/creates-enabled-workspace-content`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When a person creates a knowledge bundle, AXM shall create its manifest declaring the Open Knowledge Format and its bundle root, create a starter bundle index under that root, carry a supplied description into the manifest, and register the bundle as enabled workspace-authored content.
 - Class: functional
 - Role: experience
@@ -667,13 +667,13 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary: memory; selection: per-change
 - Boundary rationale: The manifest, the bundle index, and the declaration are all written by the creation use case over the workspace-state services; a real project directory observes each one.
 - Methods: example
-- Derived from: `packages/core/extension-authoring/src/create/scaffolds/knowledge.ts`
-- Source: [`packages/core/extension-authoring/src/knowledge/creates-enabled-workspace-content.spec.ts`](../packages/core/extension-authoring/src/knowledge/creates-enabled-workspace-content.spec.ts)
+- Derived from: `packages/core/workspace/src/authoring/create/scaffolds/knowledge.ts`
+- Source: [`packages/core/workspace/src/knowledge/authoring/creates-enabled-workspace-content.spec.ts`](../packages/core/workspace/src/knowledge/authoring/creates-enabled-workspace-content.spec.ts)
 
 ##### A native MCP server can become an authored package
 
 - Requirement: `cli/mcps/import/creates-authored-package-from-native-server`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: Given one unmanaged native server defined by an HTTP URL and optional non-secret literal headers, mcps import --as shall create a workspace-authored MCP package under the supplied fully qualified MCP name with the same URL and headers, and previewing that conversion, whether or not it would enable the package, shall describe the package, the settings declaration, and the native file it would rewrite while writing none of them.
 - Class: functional
 - Role: experience
@@ -684,12 +684,12 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Derived from: `apps/cli/src/root/mcps/import.ts`, `apps/cli-e2e/src/fork-import.e2e.test.ts`, `cli/creation-uses-configured-workspace-ownership`, `cli/authoring-uses-project-workspace`
 - Open questions: Which native transports and configuration fields beyond the represented HTTP URL and headers must package conversion support without loss?; What selection or refusal behavior is required when discovery finds no eligible server, several distinct servers, or conflicting definitions?; How must package conversion preserve existing input references and credentials? The MCP secret owner governs managed secret storage; these examples use only non-secret literal headers.; May a conversion replace an existing configured connection under the target name, and how should existing authored content be treated? The current configured-source transition is an observation, not a new fallback policy.
 - Limitation: These examples verify conversion of connection configuration without contacting the remote MCP service or exercising credentials. Retires when: Add evidence under accepted transport and credential obligations when those additional conversion conditions are decided.
-- Source: [`packages/core/extension-authoring/src/import/creates-authored-package-from-native-server.spec.ts`](../packages/core/extension-authoring/src/import/creates-authored-package-from-native-server.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/import/creates-authored-package-from-native-server.spec.ts`](../packages/core/workspace/src/authoring/import/creates-authored-package-from-native-server.spec.ts)
 
 ##### Imported packages are enabled only by an explicit request
 
 - Requirement: `cli/mcps/import/package-enablement-is-explicit`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: The --enable option of mcps import shall apply only to --as package conversion, enabling the converted package when supplied and leaving it disabled when omitted.
 - Class: functional
 - Role: experience
@@ -698,12 +698,12 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary rationale: Activation is carried on the conversion request and settled by the import use case: a real project directory shows the persisted declaration and the native configurations the conversion reconciled, without a built binary.
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/mcps/import.ts`, `apps/cli/src/root/mcps/import.test.ts`, `apps/cli-e2e/src/fork-import.e2e.test.ts`, `cli/mcps/projects-to-every-configured-agent`
-- Source: [`packages/core/extension-authoring/src/import/package-enablement-is-explicit.spec.ts`](../packages/core/extension-authoring/src/import/package-enablement-is-explicit.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/import/package-enablement-is-explicit.spec.ts`](../packages/core/workspace/src/authoring/import/package-enablement-is-explicit.spec.ts)
 
 ##### Creating an MCP server records editable workspace content
 
 - Requirement: `cli/mcps/new/creates-enabled-workspace-content`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When a person runs mcps new, AXM shall create its type-specific manifest and starter content in the workspace authoring directory and register it as enabled workspace-authored content with the supplied authoring options.
 - Class: functional
 - Role: experience
@@ -711,13 +711,13 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary: memory; selection: per-change
 - Boundary rationale: The manifest, the declaration, and the connection's projection are all written by the creation use case over the workspace-state services; a real project directory observes each one.
 - Methods: example
-- Derived from: `packages/core/extension-authoring/src/create/scaffolds/mcp-server.ts`
-- Source: [`packages/core/extension-authoring/src/mcps/new/creates-enabled-workspace-content.spec.ts`](../packages/core/extension-authoring/src/mcps/new/creates-enabled-workspace-content.spec.ts)
+- Derived from: `packages/core/workspace/src/authoring/create/scaffolds/mcp-server.ts`
+- Source: [`packages/core/workspace/src/mcp-connections/authoring/new/creates-enabled-workspace-content.spec.ts`](../packages/core/workspace/src/mcp-connections/authoring/new/creates-enabled-workspace-content.spec.ts)
 
 ##### Native imports create workspace packages without changing original content
 
 - Requirement: `cli/native-imports-preserve-content-and-source`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When a person imports native Skill or Subagent content, AXM shall preserve the original source and its instructions while creating the requested workspace package, disabled unless activation is requested or the target is already enabled, and shall reject a managed package or mismatched target type.
 - Class: functional
 - Role: experience
@@ -725,13 +725,13 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary: memory; selection: per-change
 - Boundary rationale: Preservation and activation are decisions of the import use case over real files: a temporary project workspace shows the native source byte-identical, the converted package's instructions intact, and the projection present exactly when the import ends up enabled.
 - Methods: example, decision-table
-- Derived from: `packages/core/extension-authoring/src/import-native-package.test.ts`, `apps/cli/src/root/import/command.ts`
-- Source: [`packages/core/extension-authoring/src/native-imports-preserve-content-and-source.spec.ts`](../packages/core/extension-authoring/src/native-imports-preserve-content-and-source.spec.ts)
+- Derived from: `packages/core/workspace/src/authoring/import-native-package.test.ts`, `apps/cli/src/root/import/command.ts`
+- Source: [`packages/core/workspace/src/authoring/native-imports-preserve-content-and-source.spec.ts`](../packages/core/workspace/src/authoring/native-imports-preserve-content-and-source.spec.ts)
 
 ##### Adding an installed extension to an authored pack records it as a pack dependency
 
 - Requirement: `cli/packs/add/records-member-as-pack-dependency`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When a person adds a versioned installed extension to a workspace-authored pack, AXM shall record a dependency whose lower bound is the member’s accepted installed version, or its manifest version when workspace authored.
 - Class: functional
 - Role: experience
@@ -742,12 +742,12 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Derived from: `cli/packs/authored-packs-expand-membership`
 - Supersedes: `cli/packs/authored-packs-expand-membership`
 - Additional evidence: process via [`apps/cli-e2e/src/packs.e2e.test.ts`](../apps/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe.
-- Source: [`packages/core/extension-authoring/src/packs/add-to-pack-records-member-as-pack-dependency.spec.ts`](../packages/core/extension-authoring/src/packs/add-to-pack-records-member-as-pack-dependency.spec.ts)
+- Source: [`packages/core/workspace/src/packs/authoring/add-to-pack-records-member-as-pack-dependency.spec.ts`](../packages/core/workspace/src/packs/authoring/add-to-pack-records-member-as-pack-dependency.spec.ts)
 
 ##### Pack add selects the requested members without confusing shared names
 
 - Requirement: `cli/packs/add/selects-members-without-ambiguity`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When adding dependencies to an authored pack, AXM shall resolve the configured pack by its local name or unique full identity, add only members selected by full identity or an unambiguous name or name pattern, and refuse ambiguous or unmatched selections without editing the pack.
 - Class: functional
 - Role: experience
@@ -755,13 +755,13 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary: memory; selection: per-change
 - Boundary rationale: Selection is decided by the membership use case over the workspace's own desired state; a real project directory shows both which dependencies the manifest gained and that a refused selection left every byte alone.
 - Methods: example, decision-table
-- Derived from: `packages/core/extension-authoring/src/packs/configured-pack-selector.ts`, `packages/core/extension-authoring/src/packs/change-pack-membership.ts`
-- Source: [`packages/core/extension-authoring/src/packs/add-to-pack-selects-members-without-ambiguity.spec.ts`](../packages/core/extension-authoring/src/packs/add-to-pack-selects-members-without-ambiguity.spec.ts)
+- Derived from: `packages/core/workspace/src/packs/authoring/configured-pack-selector.ts`, `packages/core/workspace/src/packs/authoring/change-pack-membership.ts`
+- Source: [`packages/core/workspace/src/packs/authoring/add-to-pack-selects-members-without-ambiguity.spec.ts`](../packages/core/workspace/src/packs/authoring/add-to-pack-selects-members-without-ambiguity.spec.ts)
 
 ##### Creating a pack records workspace authorship with an empty dependency graph
 
 - Requirement: `cli/packs/new/records-workspace-authorship`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When a person creates a workspace-authored pack, AXM shall record it in workspace settings as workspace authored, write its manifest with an empty dependency graph, and shall not record an accepted resolution for it.
 - Class: functional
 - Role: experience
@@ -772,12 +772,12 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Derived from: `cli/packs/authored-packs-expand-membership`
 - Supersedes: `cli/packs/authored-packs-expand-membership`
 - Additional evidence: process via [`apps/cli-e2e/src/packs.e2e.test.ts`](../apps/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe.
-- Source: [`packages/core/extension-authoring/src/packs/new-pack-records-workspace-authorship.spec.ts`](../packages/core/extension-authoring/src/packs/new-pack-records-workspace-authorship.spec.ts)
+- Source: [`packages/core/workspace/src/packs/authoring/new-pack-records-workspace-authorship.spec.ts`](../packages/core/workspace/src/packs/authoring/new-pack-records-workspace-authorship.spec.ts)
 
 ##### Pack remove changes only the selected dependency declarations
 
 - Requirement: `cli/packs/remove/removes-only-selected-dependencies`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When a person removes matching dependencies from a workspace-authored pack, AXM shall remove only those manifest entries while preserving installed member content and direct workspace declarations, and shall refuse an unmatched selector or an externally sourced pack without changing the manifest.
 - Class: functional
 - Role: experience
@@ -785,37 +785,37 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary: memory; selection: per-change
 - Boundary rationale: The manifest edit and everything it must leave alone — acquired member content, settings, the lockfile — are all observable in a real project directory the membership use case writes through.
 - Methods: example, decision-table
-- Derived from: `packages/core/extension-authoring/src/packs/remove-from-pack.test.ts`, `packages/core/extension-authoring/src/packs/change-pack-membership.ts`
-- Source: [`packages/core/extension-authoring/src/packs/remove-from-pack-removes-only-selected-dependencies.spec.ts`](../packages/core/extension-authoring/src/packs/remove-from-pack-removes-only-selected-dependencies.spec.ts)
+- Derived from: `packages/core/workspace/src/packs/authoring/remove-from-pack.test.ts`, `packages/core/workspace/src/packs/authoring/change-pack-membership.ts`
+- Source: [`packages/core/workspace/src/packs/authoring/remove-from-pack-removes-only-selected-dependencies.spec.ts`](../packages/core/workspace/src/packs/authoring/remove-from-pack-removes-only-selected-dependencies.spec.ts)
 
 ##### Unpack keeps members installed as direct declarations
 
 - Requirement: `cli/packs/unpack/promotes-members-without-overwriting-direct-intent`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When a person unpacks a configured pack with complete member resolutions, AXM shall preserve its installed leaf members as direct workspace declarations, retain existing direct declarations unchanged, and remove the pack declaration.
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Source: [`packages/core/extension-lifecycle/src/packs/unpack-promotes-members-without-overwriting-direct-intent.spec.ts`](../packages/core/extension-lifecycle/src/packs/unpack-promotes-members-without-overwriting-direct-intent.spec.ts)
+- Source: [`packages/core/workspace/src/packs/lifecycle/unpack-promotes-members-without-overwriting-direct-intent.spec.ts`](../packages/core/workspace/src/packs/lifecycle/unpack-promotes-members-without-overwriting-direct-intent.spec.ts)
 
 ##### Unpack refuses missing packs and members without usable resolutions
 
 - Requirement: `cli/packs/unpack/refuses-incomplete-membership`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When a requested pack is absent or its membership and accepted member identities cannot be established, AXM shall refuse unpacking without changing workspace declarations, installed content, or accepted resolutions.
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Source: [`packages/core/extension-lifecycle/src/packs/unpack-refuses-incomplete-membership.spec.ts`](../packages/core/extension-lifecycle/src/packs/unpack-refuses-incomplete-membership.spec.ts)
+- Source: [`packages/core/workspace/src/packs/lifecycle/unpack-refuses-incomplete-membership.spec.ts`](../packages/core/workspace/src/packs/lifecycle/unpack-refuses-incomplete-membership.spec.ts)
 
 ##### Creating a rule records editable workspace content
 
 - Requirement: `cli/rules/new/creates-enabled-workspace-content`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When a person creates a rule, AXM shall create its manifest and starter body in the workspace authoring directory, carry the requested title into both, register it as enabled workspace-authored content, and project it into the shared instruction surface agents read.
 - Class: functional
 - Role: experience
@@ -823,13 +823,13 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary: memory; selection: per-change
 - Boundary rationale: The manifest, the body, the declaration, and the instruction projection are all written by the creation use case over the workspace-state services; a real project directory observes each one.
 - Methods: example
-- Derived from: `packages/core/extension-authoring/src/create/scaffolds/rule.ts`
-- Source: [`packages/core/extension-authoring/src/rules/new/creates-enabled-workspace-content.spec.ts`](../packages/core/extension-authoring/src/rules/new/creates-enabled-workspace-content.spec.ts)
+- Derived from: `packages/core/workspace/src/authoring/create/scaffolds/rule.ts`
+- Source: [`packages/core/workspace/src/instructions/authoring/new/creates-enabled-workspace-content.spec.ts`](../packages/core/workspace/src/instructions/authoring/new/creates-enabled-workspace-content.spec.ts)
 
 ##### A new skill is scaffolded for the universal location and every configured agent
 
 - Requirement: `cli/skills/new/scaffolds-for-every-configured-agent`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When a skill is created, AXM shall create its manifest, content, and enabled settings entry together, shall materialize it for the universal location and every configured agent that can represent it, and shall list the same locations in preview and apply.
 - Class: functional
 - Role: experience
@@ -837,14 +837,14 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary: memory; selection: per-change
 - Boundary rationale: Creation is decided and executed inside extension-authoring over the workspace-state services; a real project directory observes the files an author would see without running the built CLI.
 - Methods: example
-- Derived from: `packages/core/extension-authoring/src/create/create-extension.ts`, `apps/cli-e2e/src/cli-commands/skills/new/command.e2e.ts`
+- Derived from: `packages/core/workspace/src/authoring/create/create-extension.ts`, `apps/cli-e2e/src/cli-commands/skills/new/command.e2e.ts`
 - Assumptions: Claude Code and Cursor declare distinct native project skill directories, so two agent locations observe two configured agents beside the universal location.
-- Source: [`packages/core/extension-authoring/src/skills/new/scaffolds-for-every-configured-agent.spec.ts`](../packages/core/extension-authoring/src/skills/new/scaffolds-for-every-configured-agent.spec.ts)
+- Source: [`packages/core/workspace/src/skills/authoring/new/scaffolds-for-every-configured-agent.spec.ts`](../packages/core/workspace/src/skills/authoring/new/scaffolds-for-every-configured-agent.spec.ts)
 
 ##### A new subagent is scaffolded and rendered for every configured agent
 
 - Requirement: `cli/subagents/new/scaffolds-for-every-configured-agent`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When a subagent is created, AXM shall create its manifest, content, and enabled settings entry together, shall render it for every configured agent that can represent it, and shall report the same package and declaration targets in preview and apply.
 - Class: functional
 - Role: experience
@@ -852,9 +852,9 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary: memory; selection: per-change
 - Boundary rationale: Creation is decided and executed inside extension-authoring over the workspace-state services; a real project directory observes the renderings an author would see without running the built CLI.
 - Methods: example
-- Derived from: `packages/core/extension-authoring/src/create/create-extension.ts`, `cli/skills/new/scaffolds-for-every-configured-agent`
+- Derived from: `packages/core/workspace/src/authoring/create/create-extension.ts`, `cli/skills/new/scaffolds-for-every-configured-agent`
 - Assumptions: Claude Code and Cursor both render project-scope subagents into distinct directories, so two rendered files observe two configured agents.; A subagent's rendered agent files are not listed as creation targets; the created package, its content, and its declaration are. Preview and apply therefore compare that set.
-- Source: [`packages/core/extension-authoring/src/subagents/new/scaffolds-for-every-configured-agent.spec.ts`](../packages/core/extension-authoring/src/subagents/new/scaffolds-for-every-configured-agent.spec.ts)
+- Source: [`packages/core/workspace/src/subagents/authoring/new/scaffolds-for-every-configured-agent.spec.ts`](../packages/core/workspace/src/subagents/authoring/new/scaffolds-for-every-configured-agent.spec.ts)
 
 ##### Version argument errors offer a command that corrects the request
 
@@ -873,7 +873,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 ##### Version changes the selected authored manifest while preserving other content
 
 - Requirement: `cli/version/changes-only-the-authored-manifest-version`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When a person requests a supported version change for a workspace-authored extension, AXM shall update only that package manifest version to the requested semantic version, preserve other manifest fields and files, and leave bytes unchanged when the requested version is already current.
 - Class: functional
 - Role: experience
@@ -882,12 +882,12 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary rationale: The version write runs inside the workspace transaction the use case opens, so a real project directory shows which bytes moved: the one manifest field, and nothing else in the package, the settings, or the lockfile.
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/version/command.ts`
-- Source: [`packages/core/extension-authoring/src/version/changes-only-the-authored-manifest-version.spec.ts`](../packages/core/extension-authoring/src/version/changes-only-the-authored-manifest-version.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/version/changes-only-the-authored-manifest-version.spec.ts`](../packages/core/workspace/src/authoring/version/changes-only-the-authored-manifest-version.spec.ts)
 
 ##### Version refuses invalid versions and packages outside workspace authorship
 
 - Requirement: `cli/version/refuses-invalid-or-unowned-targets`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When a version request has an invalid target identity or version, or does not identify a matching workspace-authored package, AXM shall refuse it without changing package content or workspace declarations.
 - Class: functional
 - Role: experience
@@ -896,7 +896,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary rationale: Every one of these refusals is settled by the version use case before its transaction opens, so a real project workspace shows the typed refusal and a byte-identical tree.
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/version/command.ts`
-- Source: [`packages/core/extension-authoring/src/version/refuses-invalid-or-unowned-targets.spec.ts`](../packages/core/extension-authoring/src/version/refuses-invalid-or-unowned-targets.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/version/refuses-invalid-or-unowned-targets.spec.ts`](../packages/core/workspace/src/authoring/version/refuses-invalid-or-unowned-targets.spec.ts)
 
 ### Goal: extension-adoption
 
@@ -934,7 +934,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 ##### Root install and the type command express the same durable intent
 
 - Requirement: `cli/install-forms-express-same-intent`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When the same extension is installed, and then reinstalled at the same constraint, through the root install form and through its type-specific install form, both forms shall produce identical workspace configuration, identical canonical content, identical agent projections, and the same reported outcome.
 - Class: functional
 - Role: experience
@@ -943,12 +943,12 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Methods: model
 - Derived from: `cli/install/reinstall-is-idempotent`
 - Supersedes: `cli/install/root-and-type-forms-express-same-intent`
-- Source: [`packages/core/extension-lifecycle/src/install/install-forms-express-same-intent.spec.ts`](../packages/core/extension-lifecycle/src/install/install-forms-express-same-intent.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/install/install-forms-express-same-intent.spec.ts`](../packages/core/workspace/src/lifecycle/install/install-forms-express-same-intent.spec.ts)
 
 ##### Installing an extension places its source content in the workspace
 
 - Requirement: `cli/install/materializes-canonical-content`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When a person installs an acquirable extension, the install shall materialize the extension's canonical content inside the workspace's managed extension tree.
 - Class: functional
 - Role: experience
@@ -958,7 +958,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Derived from: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
 - Supersedes: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
 - Additional evidence: process via [`apps/cli-e2e/src/root-install.e2e.test.ts`](../apps/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
-- Source: [`packages/core/extension-lifecycle/src/install/materializes-canonical-content.spec.ts`](../packages/core/extension-lifecycle/src/install/materializes-canonical-content.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/install/materializes-canonical-content.spec.ts`](../packages/core/workspace/src/lifecycle/install/materializes-canonical-content.spec.ts)
 
 ##### Browser sign-in uses the selected Registry's paired web origin
 
@@ -979,34 +979,34 @@ People and agents can find, install, update, and remove reusable extensions acro
 ##### One registry MCP source supports multiple independently named local connections
 
 - Requirement: `cli/mcps/install/local-connection-names-share-source-resolution`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: Installing a Registry MCP server under a local name with --as shall add one connection per name, sharing one accepted resolution per source, and shall use each local name verbatim as the agent-native key.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`, `agent-interoperability`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Source: [`packages/core/extension-lifecycle/src/mcps/install/local-connection-names-share-source-resolution.spec.ts`](../packages/core/extension-lifecycle/src/mcps/install/local-connection-names-share-source-resolution.spec.ts)
+- Source: [`packages/core/workspace/src/mcp-connections/lifecycle/install/local-connection-names-share-source-resolution.spec.ts`](../packages/core/workspace/src/mcp-connections/lifecycle/install/local-connection-names-share-source-resolution.spec.ts)
 
 ##### Skill installation selects the requested skills from a source
 
 - Requirement: `cli/skills/install/selects-requested-source-skills`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: For an installable source containing several skills, a request that names one or more skills shall install exactly the named skills when every name exists in the source, and a request that selects all of them shall install every discovered skill without opening a selection interaction.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
-- Derived from: `packages/core/extension-lifecycle/src/skills/domain/selection.ts`, `packages/core/extension-lifecycle/src/skills/application/index.ts`, `apps/cli-e2e/src/cli-commands/skills/install/command.e2e.ts`
+- Derived from: `packages/core/workspace/src/skills/lifecycle/domain/selection.ts`, `packages/core/workspace/src/skills/lifecycle/application/index.ts`, `apps/cli-e2e/src/cli-commands/skills/install/command.e2e.ts`
 - Open questions: Does a named skill promise glob matching, and what matching grammar applies?; Must a request containing both matched and unmatched names fail as a whole or install its matches, and how should a wholly unmatched request be reported?; Does unattended operation with neither a name selection nor an all selection select every discovered skill?; How should an all selection and a name selection be combined or refused when both are supplied?
 - Limitation: The source population is a local native .agents/skills tree with three valid uniquely named skills. These examples do not establish discovery or selection through remote Git/Registry providers, collision handling, invalid sibling packages, or an actual interactive terminal session. Retires when: Add distinct source-provider and interaction evidence when those selection conditions are allocated; keep unresolved selector policies explicit until decided.
-- Source: [`packages/core/extension-lifecycle/src/skills/install/selects-requested-source-skills.spec.ts`](../packages/core/extension-lifecycle/src/skills/install/selects-requested-source-skills.spec.ts)
+- Source: [`packages/core/workspace/src/skills/lifecycle/install/selects-requested-source-skills.spec.ts`](../packages/core/workspace/src/skills/lifecycle/install/selects-requested-source-skills.spec.ts)
 
 ##### Uninstall removes direct intent and keeps state another desired route still reaches
 
 - Requirement: `cli/uninstall/removes-direct-route-and-recomputes-reachability`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When a directly desired extension is uninstalled, AXM shall remove its direct configuration, remove its resolution and verified acquired content when no other desired route reaches it, realize activation and owned outputs from the remaining desired routes, report retained state, preserve authored inventory, and leave state outside the necessary dependency and shared-output closure untouched.
 - Class: functional
 - Role: experience
@@ -1018,12 +1018,12 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Additional evidence: process via [`apps/cli-e2e/src/activation-lifecycle.e2e.test.ts`](../apps/cli-e2e/src/activation-lifecycle.e2e.test.ts) — Drives every catalog extension type — including the mcp-server and pack types that cannot be sourced from a local package in memory — through authored creation, update, disable, enable, and uninstall in the real CLI process, proving preview purity, apply idempotency, native agent files, and lint-clean workspace state between every transition.
 - Additional evidence: process via [`apps/cli-e2e/src/root-install.e2e.test.ts`](../apps/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
 - Additional evidence: process via [`apps/cli-e2e/src/root-uninstall.e2e.test.ts`](../apps/cli-e2e/src/root-uninstall.e2e.test.ts) — Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe.
-- Source: [`packages/core/extension-lifecycle/src/uninstall/removes-direct-route-and-recomputes-reachability.spec.ts`](../packages/core/extension-lifecycle/src/uninstall/removes-direct-route-and-recomputes-reachability.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/uninstall/removes-direct-route-and-recomputes-reachability.spec.ts`](../packages/core/workspace/src/lifecycle/uninstall/removes-direct-route-and-recomputes-reachability.spec.ts)
 
 ##### Update advances the accepted resolution within durable intent
 
 - Requirement: `cli/update/advances-resolution-within-intent`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: Update of a desired Registry extension shall advance its accepted resolution and realized content to the newest version within the durable constraint without changing axm.json or any other extension, and shall be a no-op when already current.
 - Class: functional
 - Role: experience
@@ -1032,7 +1032,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Methods: example
 - Additional evidence: process via [`apps/cli-e2e/src/http-registry.e2e.test.ts`](../apps/cli-e2e/src/http-registry.e2e.test.ts) — Publishes, installs, and updates over a real HTTP registry transport — bearer-token auth headers, PUT uploads, immutable version and holdback semantics, no upload when the authoritative preview is blocked, and registry-form locator resolution with file:// parity — plus release-age-gated advancement, explicit bypass, unchanged settings, and second-run no-op exit codes that the in-memory file-registry harness cannot observe.
 - Additional evidence: process via [`apps/cli-e2e/src/skills.e2e.test.ts`](../apps/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects; its imported cli-commands/skills/list/command.e2e.ts scenarios additionally observe inventory before setup, user-scope discovery, malformed settings and lockfiles, and install/uninstall/read journeys. Execution is attributed to this Vitest entrypoint, with imported source bytes included in the repository execution inputs.
-- Source: [`packages/core/extension-lifecycle/src/update/advances-resolution-within-intent.spec.ts`](../packages/core/extension-lifecycle/src/update/advances-resolution-within-intent.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/update/advances-resolution-within-intent.spec.ts`](../packages/core/workspace/src/lifecycle/update/advances-resolution-within-intent.spec.ts)
 
 ##### An explicit type selects the local name's configured identity
 
@@ -1770,7 +1770,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### Adopt preview describes the authorship transition without changing any state
 
 - Requirement: `cli/adopt/preview-is-pure`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When adopt runs in preview mode against a canonical package the workspace could author, or an undeclared authored package it could declare in place, it shall report the adoption it would apply with a previewed outcome and shall not move the package, create authored content, realize projections, or change settings or the lockfile.
 - Class: functional
 - Role: experience
@@ -1778,7 +1778,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary: memory; selection: per-change
 - Boundary rationale: Purity is a property of the adoption use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write — and every move — that could have happened.
 - Methods: example
-- Source: [`packages/core/extension-authoring/src/adopt/preview-is-pure.spec.ts`](../packages/core/extension-authoring/src/adopt/preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/adopt/preview-is-pure.spec.ts`](../packages/core/workspace/src/authoring/adopt/preview-is-pure.spec.ts)
 
 ##### Adding an already configured coding agent is a successful no-op
 
@@ -1864,14 +1864,14 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### Demote preview describes the replacement without performing it
 
 - Requirement: `cli/demote/preview-is-pure`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When demote runs in preview mode, it shall report the replacement it would apply with a previewed outcome naming the demotion unit and the workspace-authority risk it carries, and shall not change settings, the lockfile, authored content, or agent projections; and when the named target is not workspace authored it shall report the conflict and change nothing.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Source: [`packages/core/extension-lifecycle/src/demote/preview-is-pure.spec.ts`](../packages/core/extension-lifecycle/src/demote/preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/demote/preview-is-pure.spec.ts`](../packages/core/workspace/src/lifecycle/demote/preview-is-pure.spec.ts)
 
 ##### Deprecation rejects contradictory or empty guidance
 
@@ -1903,7 +1903,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### Disable preview describes the deactivation without changing any state
 
 - Requirement: `cli/disable/preview-is-pure`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When disable runs in preview mode against an extension of any managed type — skill, subagent, MCP server, rule, hooks package, Knowledge bundle, or Pack — it shall not change settings, the lockfile, canonical content, agent projections, or any other workspace state; it shall report the deactivation it would apply with a previewed outcome when the extension is enabled, report the request as unchanged when the extension is already disabled, and, when the workspace holds no such extension, refuse the request for a skill, subagent, Knowledge bundle, or Pack and report it as unchanged for an MCP server, rule, or hooks package.
 - Class: functional
 - Role: experience
@@ -1913,12 +1913,12 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `cli/activation-follows-desired-state`
 - Supersedes: `cli/hooks/disable/preview-is-pure`, `cli/knowledge/disable/preview-is-pure`, `cli/mcps/disable/preview-is-pure`, `cli/packs/disable/preview-is-pure`, `cli/rules/disable/preview-is-pure`, `cli/skills/disable/preview-is-pure`, `cli/subagents/disable/preview-is-pure`
 - Open questions: Whether an unconfigured target should refuse for every type, or settle as unchanged for every type, is undecided; the policy is split today and the example table records the split as it stands.
-- Source: [`packages/core/extension-lifecycle/src/activation/disable-preview-is-pure.spec.ts`](../packages/core/extension-lifecycle/src/activation/disable-preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/activation/disable-preview-is-pure.spec.ts`](../packages/core/workspace/src/lifecycle/activation/disable-preview-is-pure.spec.ts)
 
 ##### Enable preview describes the activation without changing any state
 
 - Requirement: `cli/enable/preview-is-pure`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When enable runs in preview mode against an extension of any managed type — skill, subagent, MCP server, rule, hooks package, Knowledge bundle, or Pack — it shall not change settings, the lockfile, canonical content, agent projections, or any other workspace state; it shall report the activation it would apply with a previewed outcome when the extension is disabled, report the request as unchanged when the extension is already enabled, and, when the workspace holds no such extension, refuse the request for a skill, subagent, Knowledge bundle, or Pack and report it as unchanged for an MCP server, rule, or hooks package.
 - Class: functional
 - Role: experience
@@ -1928,12 +1928,12 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `cli/activation-follows-desired-state`
 - Supersedes: `cli/hooks/enable/preview-is-pure`, `cli/knowledge/enable/preview-is-pure`, `cli/mcps/enable/preview-is-pure`, `cli/packs/enable/preview-is-pure`, `cli/rules/enable/preview-is-pure`, `cli/skills/enable/preview-is-pure`, `cli/subagents/enable/preview-is-pure`
 - Open questions: Whether an unconfigured target should refuse for every type, or settle as unchanged for every type, is undecided; the policy is split today and the example table records the split as it stands.
-- Source: [`packages/core/extension-lifecycle/src/activation/enable-preview-is-pure.spec.ts`](../packages/core/extension-lifecycle/src/activation/enable-preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/activation/enable-preview-is-pure.spec.ts`](../packages/core/workspace/src/lifecycle/activation/enable-preview-is-pure.spec.ts)
 
 ##### Fork preview describes the new authored package without changing any state
 
 - Requirement: `cli/fork/preview-is-pure`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When fork runs in preview mode against a resolvable source package, it shall report the authored package it would create with a previewed outcome and shall not create authored content or change settings, the lockfile, or the source package.
 - Class: functional
 - Role: experience
@@ -1941,12 +1941,12 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary: memory; selection: per-change
 - Boundary rationale: Purity is a property of the fork use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
-- Source: [`packages/core/extension-authoring/src/fork/preview-is-pure.spec.ts`](../packages/core/extension-authoring/src/fork/preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/fork/preview-is-pure.spec.ts`](../packages/core/workspace/src/authoring/fork/preview-is-pure.spec.ts)
 
 ##### Hook creation preview describes the scaffold without creating any state
 
 - Requirement: `cli/hooks/new/preview-is-pure`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When hook creation is previewed for an owner the workspace authors, it shall report the manifest, entrypoint, and settings entry it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, or agent hook configurations; a previewed creation the workspace refuses shall likewise change nothing.
 - Class: functional
 - Role: experience
@@ -1955,12 +1955,12 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/hooks/new/creates-enabled-workspace-content`
-- Source: [`packages/core/extension-authoring/src/hooks/new/preview-is-pure.spec.ts`](../packages/core/extension-authoring/src/hooks/new/preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/hooks/authoring/new/preview-is-pure.spec.ts`](../packages/core/workspace/src/hooks/authoring/new/preview-is-pure.spec.ts)
 
 ##### Install preview describes the plan without changing any state
 
 - Requirement: `cli/install/preview-is-pure`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When an install of any extension type runs in preview mode, it shall not change settings, the lockfile, canonical content, or agent projections; when the request passes the applicable checks and requires workspace changes, it shall report the planned closure with a previewed outcome, including any publisher change the acceptance would make; and when the requested source cannot be resolved or configured readers require incompatible representations of a shared native target, it shall report the problem and still change nothing.
 - Class: functional
 - Role: experience
@@ -1969,12 +1969,12 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Methods: example
 - Derived from: `cli/hooks/install/preview-is-pure`, `cli/knowledge/install/preview-is-pure`, `cli/mcps/install/preview-is-pure`, `cli/packs/install/preview-is-pure`, `cli/rules/install/preview-is-pure`, `cli/skills/install/preview-is-pure`, `cli/subagents/install/preview-is-pure`
 - Supersedes: `cli/hooks/install/preview-is-pure`, `cli/knowledge/install/preview-is-pure`, `cli/mcps/install/preview-is-pure`, `cli/packs/install/preview-is-pure`, `cli/rules/install/preview-is-pure`, `cli/skills/install/preview-is-pure`, `cli/subagents/install/preview-is-pure`
-- Source: [`packages/core/extension-lifecycle/src/install/preview-is-pure.spec.ts`](../packages/core/extension-lifecycle/src/install/preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/install/preview-is-pure.spec.ts`](../packages/core/workspace/src/lifecycle/install/preview-is-pure.spec.ts)
 
 ##### Installing an already desired extension at the same constraint is a successful no-op
 
 - Requirement: `cli/install/reinstall-is-idempotent`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When a person reinstalls an extension the workspace already desires at the same constraint, the install shall succeed with a no-op outcome and shall not change settings, the lockfile, canonical content, or agent projections.
 - Class: functional
 - Role: experience
@@ -1983,7 +1983,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Methods: example
 - Open questions: When installed files differ from the accepted content, should a repeated install restore that content and report a repair, or refuse until the user explicitly chooses recovery? The unchanged-state example does not decide this case.; Applying a satisfied install reports `no-op` while previewing the same request reports `previewed`, because the outcome follows planned units and only execution observes that a unit changes nothing. Should a preview that would change nothing report `no-op`, and if so must every planner decide the satisfied case before planning?
 - Additional evidence: process via [`apps/cli-e2e/src/projection-currency.e2e.test.ts`](../apps/cli-e2e/src/projection-currency.e2e.test.ts) — Runs a real Markdown formatter between projection and the packaged CLI, then proves both lint views, preview, sync, and reinstall preserve the formatted bytes.
-- Source: [`packages/core/extension-lifecycle/src/install/reinstall-is-idempotent.spec.ts`](../packages/core/extension-lifecycle/src/install/reinstall-is-idempotent.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/install/reinstall-is-idempotent.spec.ts`](../packages/core/workspace/src/lifecycle/install/reinstall-is-idempotent.spec.ts)
 
 ##### Disabling already disabled instruction-file management is a successful no-op
 
@@ -2057,7 +2057,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### Knowledge bundle creation preview describes the scaffold without creating any state
 
 - Requirement: `cli/knowledge/new/preview-is-pure`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When knowledge bundle creation is previewed, it shall report the manifest, bundle index, and settings entry it would create with a previewed outcome and shall not change settings, the lockfile, authored source, or canonical content; a previewed creation refused because the name is already authored shall likewise change nothing.
 - Class: functional
 - Role: experience
@@ -2066,7 +2066,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/knowledge/new/creates-enabled-workspace-content`
-- Source: [`packages/core/extension-authoring/src/knowledge/preview-is-pure.spec.ts`](../packages/core/extension-authoring/src/knowledge/preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/knowledge/authoring/preview-is-pure.spec.ts`](../packages/core/workspace/src/knowledge/authoring/preview-is-pure.spec.ts)
 
 ##### Inline MCP server add preview describes the entry without changing any state
 
@@ -2111,7 +2111,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### New MCP server preview describes the scaffold without changing any state
 
 - Requirement: `cli/mcps/new/preview-is-pure`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When mcps new runs in preview mode for a name that is not yet authored, it shall report the package it would create with a previewed outcome and shall not change settings, the authored source root, or agent MCP configuration.
 - Class: functional
 - Role: experience
@@ -2119,8 +2119,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary: memory; selection: per-change
 - Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write — settings, authored root, and agent MCP config — that could have happened.
 - Methods: example
-- Derived from: `packages/core/extension-authoring/src/create/scaffolds/mcp-server.ts`
-- Source: [`packages/core/extension-authoring/src/mcps/new/preview-is-pure.spec.ts`](../packages/core/extension-authoring/src/mcps/new/preview-is-pure.spec.ts)
+- Derived from: `packages/core/workspace/src/authoring/create/scaffolds/mcp-server.ts`
+- Source: [`packages/core/workspace/src/mcp-connections/authoring/new/preview-is-pure.spec.ts`](../packages/core/workspace/src/mcp-connections/authoring/new/preview-is-pure.spec.ts)
 
 ##### A workspace change that cannot complete leaves each semantic closure either fully committed or fully restored
 
@@ -2154,7 +2154,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### Pack add preview describes the dependency without changing any state
 
 - Requirement: `cli/packs/add/preview-is-pure`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When packs add runs in preview mode against an installed extension, it shall report the dependency it would record with a previewed outcome and shall not change the pack manifest, settings, the lockfile, or any installed content.
 - Class: functional
 - Role: experience
@@ -2163,12 +2163,12 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Purity is a property of the membership use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/packs/add/records-member-as-pack-dependency`
-- Source: [`packages/core/extension-authoring/src/packs/add-to-pack-preview-is-pure.spec.ts`](../packages/core/extension-authoring/src/packs/add-to-pack-preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/packs/authoring/add-to-pack-preview-is-pure.spec.ts`](../packages/core/workspace/src/packs/authoring/add-to-pack-preview-is-pure.spec.ts)
 
 ##### Pack creation preview describes the scaffold without creating any state
 
 - Requirement: `cli/packs/new/preview-is-pure`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When pack creation is previewed, it shall report the manifest and settings entry it would create with a previewed outcome and shall not create the authored package or record the pack; a previewed creation refused because the pack is already authored shall likewise change nothing.
 - Class: functional
 - Role: experience
@@ -2177,12 +2177,12 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/packs/new/records-workspace-authorship`
-- Source: [`packages/core/extension-authoring/src/packs/new-pack-preview-is-pure.spec.ts`](../packages/core/extension-authoring/src/packs/new-pack-preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/packs/authoring/new-pack-preview-is-pure.spec.ts`](../packages/core/workspace/src/packs/authoring/new-pack-preview-is-pure.spec.ts)
 
 ##### Pack remove preview describes the removal without changing any state
 
 - Requirement: `cli/packs/remove/preview-is-pure`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When packs remove runs in preview mode against a recorded member, it shall report the dependency it would remove with a previewed outcome and shall not change the pack manifest, settings, the lockfile, or any installed content.
 - Class: functional
 - Role: experience
@@ -2191,12 +2191,12 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Purity is a property of the membership use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/packs/add/records-member-as-pack-dependency`
-- Source: [`packages/core/extension-authoring/src/packs/remove-from-pack-preview-is-pure.spec.ts`](../packages/core/extension-authoring/src/packs/remove-from-pack-preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/packs/authoring/remove-from-pack-preview-is-pure.spec.ts`](../packages/core/workspace/src/packs/authoring/remove-from-pack-preview-is-pure.spec.ts)
 
 ##### Pack unpack preview describes the promotions without changing any state
 
 - Requirement: `cli/packs/unpack/preview-is-pure`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When packs unpack runs in preview mode against an installed pack, it shall report the members it would promote to direct entries and the pack it would remove with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections; and when the named pack is not configured it shall report that and change nothing.
 - Class: functional
 - Role: experience
@@ -2204,7 +2204,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `cli/install/preview-is-pure`
-- Source: [`packages/core/extension-lifecycle/src/packs/unpack-preview-is-pure.spec.ts`](../packages/core/extension-lifecycle/src/packs/unpack-preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/packs/lifecycle/unpack-preview-is-pure.spec.ts`](../packages/core/workspace/src/packs/lifecycle/unpack-preview-is-pure.spec.ts)
 
 ##### A preview reads the same with or without advance approval and spends none of it
 
@@ -2257,7 +2257,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### Rule creation preview describes the scaffold without creating any state
 
 - Requirement: `cli/rules/new/preview-is-pure`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When rule creation is previewed for an owner the workspace authors, it shall report the manifest, body, and settings entry it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, or the shared instruction surface; a previewed creation the workspace refuses shall likewise change nothing.
 - Class: functional
 - Role: experience
@@ -2266,7 +2266,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/rules/new/creates-enabled-workspace-content`
-- Source: [`packages/core/extension-authoring/src/rules/new/preview-is-pure.spec.ts`](../packages/core/extension-authoring/src/rules/new/preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/instructions/authoring/new/preview-is-pure.spec.ts`](../packages/core/workspace/src/instructions/authoring/new/preview-is-pure.spec.ts)
 
 ##### Setup preview describes the workspace it would create without creating it
 
@@ -2284,7 +2284,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### Skill import preview describes the conversion without changing any state
 
 - Requirement: `cli/skills/import/preview-is-pure`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When skills import runs in preview mode against a native skill, it shall report the managed package it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, agent projections, or the native source.
 - Class: functional
 - Role: experience
@@ -2293,12 +2293,12 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Purity is a property of the import use case: a preview stages the converted package into a temporary directory and returns before the workspace transaction opens, so a real project directory observes both that nothing under the workspace moved and that the native document is byte-identical.
 - Methods: example
 - Derived from: `apps/cli-e2e/src/fork-import.e2e.test.ts`
-- Source: [`packages/core/extension-authoring/src/import/skills/preview-is-pure.spec.ts`](../packages/core/extension-authoring/src/import/skills/preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/import/skills/preview-is-pure.spec.ts`](../packages/core/workspace/src/authoring/import/skills/preview-is-pure.spec.ts)
 
 ##### Skill creation preview describes the scaffold without creating any state
 
 - Requirement: `cli/skills/new/preview-is-pure`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When skill creation is previewed for an owner the workspace authors, it shall report the manifest, content, settings entry, and agent locations it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, or agent projections; a previewed creation the workspace refuses shall likewise change nothing.
 - Class: functional
 - Role: experience
@@ -2307,12 +2307,12 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/skills/new/scaffolds-for-every-configured-agent`
-- Source: [`packages/core/extension-authoring/src/skills/new/preview-is-pure.spec.ts`](../packages/core/extension-authoring/src/skills/new/preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/skills/authoring/new/preview-is-pure.spec.ts`](../packages/core/workspace/src/skills/authoring/new/preview-is-pure.spec.ts)
 
 ##### Subagent import preview describes the conversion without changing any state
 
 - Requirement: `cli/subagents/import/preview-is-pure`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When subagents import runs in preview mode against a native subagent, it shall report the managed package it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, agent projections, or the native source.
 - Class: functional
 - Role: experience
@@ -2321,12 +2321,12 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Purity is a property of the import use case: a preview stages the converted package into a temporary directory and returns before the workspace transaction opens, so a real project directory observes both that nothing under the workspace moved and that the native document is byte-identical.
 - Methods: example
 - Derived from: `cli/skills/import/preview-is-pure`, `apps/cli-e2e/src/fork-import.e2e.test.ts`
-- Source: [`packages/core/extension-authoring/src/import/subagents/preview-is-pure.spec.ts`](../packages/core/extension-authoring/src/import/subagents/preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/import/subagents/preview-is-pure.spec.ts`](../packages/core/workspace/src/authoring/import/subagents/preview-is-pure.spec.ts)
 
 ##### Subagent creation preview describes the scaffold without creating any state
 
 - Requirement: `cli/subagents/new/preview-is-pure`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When subagent creation is previewed for an owner the workspace authors, it shall report the manifest, content, and settings entry it would create with a previewed outcome and shall not change settings, the lockfile, authored source, canonical content, or agent projections; a previewed creation the workspace refuses shall likewise change nothing.
 - Class: functional
 - Role: experience
@@ -2335,7 +2335,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/subagents/new/scaffolds-for-every-configured-agent`
-- Source: [`packages/core/extension-authoring/src/subagents/new/preview-is-pure.spec.ts`](../packages/core/extension-authoring/src/subagents/new/preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/subagents/authoring/new/preview-is-pure.spec.ts`](../packages/core/workspace/src/subagents/authoring/new/preview-is-pure.spec.ts)
 
 ##### Sync preview describes required changes without applying them
 
@@ -2379,7 +2379,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### Uninstalling an extension the workspace does not desire is a safe no-op
 
 - Requirement: `cli/uninstall/is-idempotent`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When uninstall targets an extension the workspace does not desire, whether never installed, already uninstalled, or an inline MCP server whose removal is repeated, it shall report a no-op and shall change no configuration, resolution, canonical content, or agent projection.
 - Class: functional
 - Role: experience
@@ -2388,12 +2388,12 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Methods: decision-table
 - Derived from: `cli/mcps/inline-lifecycle-is-idempotent`
 - Additional evidence: process via [`apps/cli-e2e/src/root-uninstall.e2e.test.ts`](../apps/cli-e2e/src/root-uninstall.e2e.test.ts) — Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe.
-- Source: [`packages/core/extension-lifecycle/src/uninstall/is-idempotent.spec.ts`](../packages/core/extension-lifecycle/src/uninstall/is-idempotent.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/uninstall/is-idempotent.spec.ts`](../packages/core/workspace/src/lifecycle/uninstall/is-idempotent.spec.ts)
 
 ##### Uninstall preserves unrelated and unowned files
 
 - Requirement: `cli/uninstall/preserves-unrelated-and-unowned-state`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When an extension is uninstalled, AXM shall preserve unrelated workspace files, unowned agent configuration, and the original local or workspace-authored source package.
 - Class: functional
 - Role: experience
@@ -2404,12 +2404,12 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Supersedes: `cli/every-type-completes-the-shared-lifecycle`, `cli/mcps/uninstall/preserves-unowned-native-entries`
 - Additional evidence: process via [`apps/cli-e2e/src/command.e2e.test.ts`](../apps/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI to observe inline MCP lifecycle argv, exit codes, JSON envelopes, and native files, and invokes the built error runtime with a synthetic secret to establish redaction in human verbose, debug, and quiet-precedence modes.
 - Additional evidence: process via [`apps/cli-e2e/src/root-install.e2e.test.ts`](../apps/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
-- Source: [`packages/core/extension-lifecycle/src/uninstall/preserves-unrelated-and-unowned-state.spec.ts`](../packages/core/extension-lifecycle/src/uninstall/preserves-unrelated-and-unowned-state.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/uninstall/preserves-unrelated-and-unowned-state.spec.ts`](../packages/core/workspace/src/lifecycle/uninstall/preserves-unrelated-and-unowned-state.spec.ts)
 
 ##### Uninstall preview describes the removal without changing any state
 
 - Requirement: `cli/uninstall/preview-is-pure`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When an uninstall of any extension type runs in preview mode, it shall not change settings, the lockfile, canonical content, or agent projections; when the request names a desired extension and passes the applicable checks, it shall report the removal it would apply with a previewed outcome; and when it names a target the workspace does not desire, it shall withdraw nothing and still change nothing, settling as a no-op with no unit for a skill, subagent, rule, hooks package, Knowledge bundle, or Pack and as a previewed unit that declares no removal for an MCP server.
 - Class: functional
 - Role: experience
@@ -2420,7 +2420,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Supersedes: `cli/hooks/uninstall/preview-is-pure`, `cli/knowledge/uninstall/preview-is-pure`, `cli/mcps/uninstall/preview-is-pure`, `cli/packs/uninstall/preview-is-pure`, `cli/rules/uninstall/preview-is-pure`, `cli/skills/uninstall/preview-is-pure`, `cli/subagents/uninstall/preview-is-pure`
 - Open questions: Whether previewing the removal of a target the workspace does not desire should settle as a no-op for every type, rather than as a previewed unit for an MCP server, is undecided; the example table records the split as it stands.
 - Limitation: The MCP-server row witnesses only that previewing the removal of a server the workspace does not desire writes nothing and declares no removal. It cannot witness that the preview reports the target as absent: the settled candidate carries no absent-versus-desired distinction into the resolution, and the per-agent outcomes that would carry it are attached by the surface that renders the plan, not by this package. Retires when: The settled uninstall candidate carries the absent-versus-desired distinction into the resolution for every type, so the row can assert the report as well as the purity.
-- Source: [`packages/core/extension-lifecycle/src/uninstall/preview-is-pure.spec.ts`](../packages/core/extension-lifecycle/src/uninstall/preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/uninstall/preview-is-pure.spec.ts`](../packages/core/workspace/src/lifecycle/uninstall/preview-is-pure.spec.ts)
 
 ##### Unyank restores only the explicitly identified version
 
@@ -2438,7 +2438,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### Update preview describes the advance without changing any state
 
 - Requirement: `cli/update/preview-is-pure`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When update runs in preview mode against a configured extension of any type whose source offers a newer version the recorded intent allows, it shall report the advance it would apply with a previewed outcome and shall not change settings, the lockfile, canonical content, or agent projections; when the selection names nothing the workspace has configured, it shall report that and change nothing; and when the source cannot supply the advance, it shall report the problem and still change nothing.
 - Class: functional
 - Role: experience
@@ -2447,7 +2447,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Methods: example, decision-table
 - Derived from: `cli/update/advances-resolution-within-intent`, `cli/hooks/update/preview-is-pure`, `cli/knowledge/update/preview-is-pure`, `cli/mcps/update/preview-is-pure`, `cli/packs/update/preview-is-pure`, `cli/rules/update/preview-is-pure`, `cli/skills/update/preview-is-pure`, `cli/subagents/update/preview-is-pure`
 - Supersedes: `cli/hooks/update/preview-is-pure`, `cli/knowledge/update/preview-is-pure`, `cli/mcps/update/preview-is-pure`, `cli/packs/update/preview-is-pure`, `cli/rules/update/preview-is-pure`, `cli/skills/update/preview-is-pure`, `cli/subagents/update/preview-is-pure`
-- Source: [`packages/core/extension-lifecycle/src/update/preview-is-pure.spec.ts`](../packages/core/extension-lifecycle/src/update/preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/update/preview-is-pure.spec.ts`](../packages/core/workspace/src/lifecycle/update/preview-is-pure.spec.ts)
 
 ##### Upgrade preserves current and newer installations unless equal-version reinstall is requested
 
@@ -2477,7 +2477,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ##### Version preview describes the manifest bump without changing any state
 
 - Requirement: `cli/version/preview-is-pure`
-- Owner: `extension-authoring`
+- Owner: `workspace`
 - Statement: When version runs in preview mode against a workspace-authored extension, it shall report the version it would record with a previewed outcome and shall not change the manifest, settings, the lockfile, or any other authored content.
 - Class: functional
 - Role: experience
@@ -2485,7 +2485,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary: memory; selection: per-change
 - Boundary rationale: Purity is a property of the version use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
-- Source: [`packages/core/extension-authoring/src/version/preview-is-pure.spec.ts`](../packages/core/extension-authoring/src/version/preview-is-pure.spec.ts)
+- Source: [`packages/core/workspace/src/authoring/version/preview-is-pure.spec.ts`](../packages/core/workspace/src/authoring/version/preview-is-pure.spec.ts)
 
 ##### Explicit visibility changes carry operator intent and the observed revision
 
@@ -2522,7 +2522,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 ##### Install records the accepted resolution in the lockfile
 
 - Requirement: `cli/install/records-accepted-resolution`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When a person installs an acquirable extension, the install shall record the extension's accepted resolution, including its source and content identity, in the workspace lockfile.
 - Class: functional
 - Role: experience
@@ -2532,7 +2532,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Derived from: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
 - Supersedes: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
 - Additional evidence: process via [`apps/cli-e2e/src/root-install.e2e.test.ts`](../apps/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
-- Source: [`packages/core/extension-lifecycle/src/install/records-accepted-resolution.spec.ts`](../packages/core/extension-lifecycle/src/install/records-accepted-resolution.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/install/records-accepted-resolution.spec.ts`](../packages/core/workspace/src/lifecycle/install/records-accepted-resolution.spec.ts)
 
 ##### Publication uses the explicitly selected Registry
 
@@ -2728,7 +2728,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 ##### Accepting a Registry extension from a different publisher needs a person's approval
 
 - Requirement: `cli/publisher-changes-require-interactive-approval`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When an apply would replace an accepted Registry binding with one published under a different publisher for the same extension, every route that can make that acceptance shall report the change in preview without changing anything, shall stop as approval required naming interactive approval when no prompt can open, and shall record the new binding only after a person approves it at a prompt; an acceptance under the same publisher, or a first acceptance, shall not be treated as such a change.
 - Class: functional
 - Role: experience
@@ -2736,7 +2736,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
 - Derived from: `cli/update/preview-is-pure`, `cli/install/preview-is-pure`, `cli/skills/update/preview-is-pure`
-- Source: [`packages/core/extension-lifecycle/src/publisher-changes-require-interactive-approval.spec.ts`](../packages/core/extension-lifecycle/src/publisher-changes-require-interactive-approval.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/publisher-changes-require-interactive-approval.spec.ts`](../packages/core/workspace/src/lifecycle/publisher-changes-require-interactive-approval.spec.ts)
 
 ##### Upgrade discloses the installer it resolved and the version it selected before mutating
 
@@ -2863,7 +2863,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### Activation preserves leaf content and realizes Pack dependency routes
 
 - Requirement: `cli/activation-follows-desired-state`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record a direct activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members, and retaining members reached elsewhere; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in.
 - Class: functional
 - Role: experience
@@ -2871,7 +2871,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Methods: example
 - Additional evidence: process via [`apps/cli-e2e/src/activation-lifecycle.e2e.test.ts`](../apps/cli-e2e/src/activation-lifecycle.e2e.test.ts) — Drives every catalog extension type — including the mcp-server and pack types that cannot be sourced from a local package in memory — through authored creation, update, disable, enable, and uninstall in the real CLI process, proving preview purity, apply idempotency, native agent files, and lint-clean workspace state between every transition.
-- Source: [`packages/core/extension-lifecycle/src/activation/activation-follows-desired-state.spec.ts`](../packages/core/extension-lifecycle/src/activation/activation-follows-desired-state.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/activation/activation-follows-desired-state.spec.ts`](../packages/core/workspace/src/lifecycle/activation/activation-follows-desired-state.spec.ts)
 
 ##### The agent option configures workspace membership or filters a listing
 
@@ -2988,7 +2988,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### An unchanged install request applies the plan shown in its preview
 
 - Requirement: `cli/install/apply-realizes-the-previewed-closure`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When an install preview is followed by an apply of the same request against an unchanged workspace, the install shall realize exactly the closure the preview described, committing the same plan candidate and the same units, and the described extension shall be present in the workspace afterwards.
 - Class: functional
 - Role: experience
@@ -2997,12 +2997,12 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Derived from: `cli/install/preview-is-pure`
 - Open questions: The install preview lists the closure's units and plan candidate but no artifact paths or target surfaces, while the apply lists both; whether a preview should describe target surfaces, as skill and subagent creation do, is unresolved, so this specification requires agreement on the plan candidate and unit set only.
-- Source: [`packages/core/extension-lifecycle/src/install/apply-realizes-the-previewed-closure.spec.ts`](../packages/core/extension-lifecycle/src/install/apply-realizes-the-previewed-closure.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/install/apply-realizes-the-previewed-closure.spec.ts`](../packages/core/workspace/src/lifecycle/install/apply-realizes-the-previewed-closure.spec.ts)
 
 ##### Workspace install skips inline MCP configuration without failing
 
 - Requirement: `cli/install/inline-mcp-configuration-is-skipped`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When the workspace's configured extensions are installed and workspace settings configure an MCP server inline, the install shall report that entry as a skipped unit carrying guidance, shall complete without failure, shall not record the entry in the lockfile, and shall leave the inline configuration unchanged.
 - Class: functional
 - Role: experience
@@ -3012,12 +3012,12 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Derived from: `cli/install/inline-mcp-configuration-not-acquirable`
 - Supersedes: `cli/install/inline-mcp-configuration-not-acquirable`
 - Open questions: The resolution names the entry's state (skipped) but carries the reason only as prose in the unit's message; no structured field says the entry is inline workspace configuration that sync reconciles. Until the resolution contract names that reason, this specification asserts the skipped state and the presence of guidance and leaves the message wording non-normative.
-- Source: [`packages/core/extension-lifecycle/src/install/inline-mcp-configuration-is-skipped.spec.ts`](../packages/core/extension-lifecycle/src/install/inline-mcp-configuration-is-skipped.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/install/inline-mcp-configuration-is-skipped.spec.ts`](../packages/core/workspace/src/lifecycle/install/inline-mcp-configuration-is-skipped.spec.ts)
 
 ##### Install rejects a source it cannot install without changing the workspace
 
 - Requirement: `cli/install/non-installable-sources-do-not-mutate`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When the install source is a bare name or names an unknown extension type, the install shall fail with usage guidance or a not-found outcome and shall not change settings, the lockfile, or workspace content.
 - Class: functional
 - Role: experience
@@ -3025,24 +3025,24 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Methods: property
 - Open questions: Whether an unknown extension type in a registry name fails as usage guidance or as not found is undecided; the scenario accepts either outcome.
-- Source: [`packages/core/extension-lifecycle/src/install/non-installable-sources-do-not-mutate.spec.ts`](../packages/core/extension-lifecycle/src/install/non-installable-sources-do-not-mutate.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/install/non-installable-sources-do-not-mutate.spec.ts`](../packages/core/workspace/src/lifecycle/install/non-installable-sources-do-not-mutate.spec.ts)
 
 ##### Install leaves unrelated configuration and unowned content untouched
 
 - Requirement: `cli/install/preserves-unrelated-and-unowned-state`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When an extension is installed, the install shall leave hand-authored content in agent directories and unrelated project files byte-for-byte intact and shall preserve every unrelated setting while adding the new declaration.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Source: [`packages/core/extension-lifecycle/src/install/preserves-unrelated-and-unowned-state.spec.ts`](../packages/core/extension-lifecycle/src/install/preserves-unrelated-and-unowned-state.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/install/preserves-unrelated-and-unowned-state.spec.ts`](../packages/core/workspace/src/lifecycle/install/preserves-unrelated-and-unowned-state.spec.ts)
 
 ##### Install records the extension as directly desired workspace configuration
 
 - Requirement: `cli/install/records-direct-intent`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When a person installs an acquirable extension, the install shall record it in workspace settings as directly desired configuration.
 - Class: functional
 - Role: experience
@@ -3052,7 +3052,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Derived from: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
 - Supersedes: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
 - Additional evidence: process via [`apps/cli-e2e/src/root-install.e2e.test.ts`](../apps/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
-- Source: [`packages/core/extension-lifecycle/src/install/records-direct-intent.spec.ts`](../packages/core/extension-lifecycle/src/install/records-direct-intent.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/install/records-direct-intent.spec.ts`](../packages/core/workspace/src/lifecycle/install/records-direct-intent.spec.ts)
 
 ##### Installed extensions, coding agents, and instruction files stay in the selected scope
 
@@ -3393,26 +3393,26 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### Uninstall removes one local MCP connection and retains shared source state
 
 - Requirement: `cli/mcps/uninstall/removes-one-local-connection-at-a-time`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When a locally named MCP connection is uninstalled, AXM shall remove only that connection from axm.json and agent configuration, and shall retain the shared source's package content and accepted resolution until no connection to that source remains.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`, `agent-interoperability`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Source: [`packages/core/extension-lifecycle/src/mcps/uninstall/removes-one-local-connection-at-a-time.spec.ts`](../packages/core/extension-lifecycle/src/mcps/uninstall/removes-one-local-connection-at-a-time.spec.ts)
+- Source: [`packages/core/workspace/src/mcp-connections/lifecycle/uninstall/removes-one-local-connection-at-a-time.spec.ts`](../packages/core/workspace/src/mcp-connections/lifecycle/uninstall/removes-one-local-connection-at-a-time.spec.ts)
 
 ##### Updating one locally named connection advances every connection sharing its source
 
 - Requirement: `cli/mcps/update/shared-source-update-is-closure-wide`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When an update targets one locally named MCP connection, AXM shall advance the single accepted resolution of its shared source and refresh the agent configuration of every connection to that source, rather than advancing the named connection alone.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`, `agent-interoperability`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Source: [`packages/core/extension-lifecycle/src/mcps/update/shared-source-update-is-closure-wide.spec.ts`](../packages/core/extension-lifecycle/src/mcps/update/shared-source-update-is-closure-wide.spec.ts)
+- Source: [`packages/core/workspace/src/mcp-connections/lifecycle/update/shared-source-update-is-closure-wide.spec.ts`](../packages/core/workspace/src/mcp-connections/lifecycle/update/shared-source-update-is-closure-wide.spec.ts)
 
 ##### Pack inspection refuses mismatched and unavailable targets
 
@@ -3572,7 +3572,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### Bundled official-skill recovery rewrites the settings entry to bundled ownership and retires the Registry resolution
 
 - Requirement: `cli/skills/install/bundled-recovery-rewrites-entry-and-retires-resolution`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When the workspace desires the official AXM skill from the Registry, installing the bundled official AXM skill shall rewrite that skill's axm.json entry to bundled workspace-owned content, retire its accepted Registry resolution, materialize the canonical content and the agent projection, leave every other accepted resolution intact, and change nothing when repeated.
 - Class: functional
 - Role: experience
@@ -3581,12 +3581,12 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Derived from: `cli/skills/install/bundled-recovery-converges`, `cli/lint/declared-official-skill-must-be-compatible`, `cli/lint/compatibility-result-names-reason-and-recovery`, `apps/cli-e2e/src/cli-commands/skills/install/command.e2e.ts`
 - Supersedes: `cli/skills/install/bundled-recovery-converges`
-- Source: [`packages/core/extension-lifecycle/src/skills/install/bundled-recovery-rewrites-entry-and-retires-resolution.spec.ts`](../packages/core/extension-lifecycle/src/skills/install/bundled-recovery-rewrites-entry-and-retires-resolution.spec.ts)
+- Source: [`packages/core/workspace/src/skills/lifecycle/install/bundled-recovery-rewrites-entry-and-retires-resolution.spec.ts`](../packages/core/workspace/src/skills/lifecycle/install/bundled-recovery-rewrites-entry-and-retires-resolution.spec.ts)
 
 ##### Bundled official-skill recovery never overwrites a workspace-authored official skill
 
 - Requirement: `cli/skills/install/preserves-authored-official-skill`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When the workspace authors a skill named axm, installing the bundled official AXM skill shall be blocked before any change in preview and in a forced apply, shall name the authored skill as the cause, and shall leave configuration, lock state, and the authored source byte-for-byte intact.
 - Class: functional
 - Role: experience
@@ -3595,7 +3595,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Derived from: `cli/skills/install/bundled-recovery-converges`
 - Supersedes: `cli/skills/install/bundled-recovery-converges`
-- Source: [`packages/core/extension-lifecycle/src/skills/install/preserves-authored-official-skill.spec.ts`](../packages/core/extension-lifecycle/src/skills/install/preserves-authored-official-skill.spec.ts)
+- Source: [`packages/core/workspace/src/skills/lifecycle/install/preserves-authored-official-skill.spec.ts`](../packages/core/workspace/src/skills/lifecycle/install/preserves-authored-official-skill.spec.ts)
 
 ##### Sync never changes configuration and never advances a satisfying resolution
 
@@ -3692,7 +3692,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### Uninstall refuses an installed package the workspace does not configure
 
 - Requirement: `cli/uninstall/refuses-undesired-target`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When a root or type uninstall names an identity that no desired route reaches while an installed package for it exists in the install root, it shall refuse as an unmet precondition before any change and tell the user that axm sync reconciles installed packages that are not configured; and every uninstall preview and result shall list as removed only paths that exist and are removed, and as updated only files whose content changes.
 - Class: functional
 - Role: experience
@@ -3701,24 +3701,24 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: decision-table
 - Derived from: `cli/uninstall/is-idempotent`, `cli/uninstall/reports-removed-and-retained-state`
 - Additional evidence: process via [`apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts`](../apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts) — Runs the built CLI against a persisted workspace holding leftover installed packages, an undeclared authored package, an unrecognized install-root entry, and obsolete skill links, proving lint facts, the sync convergence exit status, uninstall refusal, and the files a real sync removes and keeps.
-- Source: [`packages/core/extension-lifecycle/src/uninstall/refuses-undesired-target.spec.ts`](../packages/core/extension-lifecycle/src/uninstall/refuses-undesired-target.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/uninstall/refuses-undesired-target.spec.ts`](../packages/core/workspace/src/lifecycle/uninstall/refuses-undesired-target.spec.ts)
 
 ##### Uninstall reports exact removed and retained state
 
 - Requirement: `cli/uninstall/reports-removed-and-retained-state`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: Uninstall preview and application of the same candidate shall identify the actual settings, accepted-resolution and owned projection units changed, acquired content removed, and authored or still-required content retained, with explicit retention reasons; absent and unverified content shall be distinguished from retained content, and shared native files shall not be reported as deleted when only their owned entry or region changes.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Source: [`packages/core/extension-lifecycle/src/uninstall/reports-removed-and-retained-state.spec.ts`](../packages/core/extension-lifecycle/src/uninstall/reports-removed-and-retained-state.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/uninstall/reports-removed-and-retained-state.spec.ts`](../packages/core/workspace/src/lifecycle/uninstall/reports-removed-and-retained-state.spec.ts)
 
 ##### Uninstall retires a desired pack whose package cannot be read
 
 - Requirement: `cli/uninstall/retires-a-desired-pack-whose-package-is-unreadable`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When uninstall targets a desired pack whose package manifest is missing or cannot be decoded, and every other desired pack is intact, AXM shall remove the pack's configuration and accepted resolution, shall delete no content it could not verify, shall report the removal as registration-only naming the unreadable manifest, and shall reach the same decision in preview and apply; when any other desired pack is incomplete, AXM shall remain blocked and shall change nothing.
 - Class: functional
 - Role: experience
@@ -3727,12 +3727,12 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example, decision-table
 - Assumptions: A pack's member list is not persisted outside its package manifest; neither axm.json nor axm-lock.yaml carries one, so an unreadable manifest leaves members computable only from the remaining desired state.
 - Additional evidence: process via [`apps/cli-e2e/src/root-uninstall.e2e.test.ts`](../apps/cli-e2e/src/root-uninstall.e2e.test.ts) — Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe.
-- Source: [`packages/core/extension-lifecycle/src/uninstall/retires-a-desired-pack-whose-package-is-unreadable.spec.ts`](../packages/core/extension-lifecycle/src/uninstall/retires-a-desired-pack-whose-package-is-unreadable.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/uninstall/retires-a-desired-pack-whose-package-is-unreadable.spec.ts`](../packages/core/workspace/src/lifecycle/uninstall/retires-a-desired-pack-whose-package-is-unreadable.spec.ts)
 
 ##### A Knowledge bundle AXM cannot read is left out of the instructions file and reported
 
 - Requirement: `cli/unreadable-knowledge-is-left-out-and-reported`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When a desired Knowledge bundle's package cannot be read, AXM shall leave that bundle out of the generated instructions file, shall report the omission with its reason and remedy on every command that writes or inspects that file, and shall not fail another extension's operation because of it.
 - Class: functional
 - Role: experience
@@ -3740,8 +3740,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Boundary rationale: The omission is decided while the instructions file is projected and is reported on the unit that projected it; running a real removal over a real workspace shows both the file that was written and the report that accompanied it.
 - Methods: example
-- Derived from: `packages/core/extension-lifecycle/src/knowledge/manager.ts`, `packages/core/workspace/src/projection/planning.ts`, `packages/core/workspace/src/reconciliation/sync/knowledge-exclusions-are-reported.test.ts`, `packages/core/workspace/src/linting/catalog/workspace/conformance/workspace-state/test-helpers.ts`
-- Source: [`packages/core/extension-lifecycle/src/knowledge/unreadable-knowledge-is-left-out-and-reported.spec.ts`](../packages/core/extension-lifecycle/src/knowledge/unreadable-knowledge-is-left-out-and-reported.spec.ts)
+- Derived from: `packages/core/workspace/src/knowledge/lifecycle/manager.ts`, `packages/core/workspace/src/projection/planning.ts`, `packages/core/workspace/src/reconciliation/sync/knowledge-exclusions-are-reported.test.ts`, `packages/core/workspace/src/linting/catalog/workspace/conformance/workspace-state/test-helpers.ts`
+- Source: [`packages/core/workspace/src/knowledge/lifecycle/unreadable-knowledge-is-left-out-and-reported.spec.ts`](../packages/core/workspace/src/knowledge/lifecycle/unreadable-knowledge-is-left-out-and-reported.spec.ts)
 
 ##### Unusable directories fail before the command runs
 
@@ -3760,7 +3760,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### Targeted update routes bundled source to its converging recovery
 
 - Requirement: `cli/update/bundled-source-routes-to-recovery`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When a targeted update names an extension whose source is bundled with the AXM executable, the update shall be blocked in preview and apply as a policy exclusion naming the bundled source, without contacting any Registry or changing workspace state, and the blocked outcome shall carry the bundled source as the fact a recovery route is offered for.
 - Class: functional
 - Role: experience
@@ -3769,12 +3769,12 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Derived from: `cli/update/machine-result-names-bundled-source-blocker`, `apps/cli/src/root/update/blocker-suggestions.test.ts`
 - Supersedes: `cli/update/machine-result-names-bundled-source-blocker`
-- Source: [`packages/core/extension-lifecycle/src/update/bundled-source-routes-to-recovery.spec.ts`](../packages/core/extension-lifecycle/src/update/bundled-source-routes-to-recovery.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/update/bundled-source-routes-to-recovery.spec.ts`](../packages/core/workspace/src/lifecycle/update/bundled-source-routes-to-recovery.spec.ts)
 
 ##### Update is blocked for an extension the workspace does not desire
 
 - Requirement: `cli/update/refuses-undesired-extensions`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When an update names an extension the workspace does not desire, the update shall be blocked as an unmet precondition before any change and shall leave configuration, lock state, and acquired content untouched.
 - Class: functional
 - Role: experience
@@ -3782,7 +3782,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `cli/update/advances-resolution-within-intent`
-- Source: [`packages/core/extension-lifecycle/src/update/refuses-undesired-extensions.spec.ts`](../packages/core/extension-lifecycle/src/update/refuses-undesired-extensions.spec.ts)
+- Source: [`packages/core/workspace/src/lifecycle/update/refuses-undesired-extensions.spec.ts`](../packages/core/workspace/src/lifecycle/update/refuses-undesired-extensions.spec.ts)
 
 ##### Visibility reconciliation applies repository intent at the observed Registry revision
 
@@ -4405,7 +4405,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Product goals: `machine-automation`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Derived from: `apps/cli/src/root/version/command.ts`, `packages/core/extension-authoring/src/version/change-authored-version.ts`
+- Derived from: `apps/cli/src/root/version/command.ts`, `packages/core/workspace/src/authoring/version/change-authored-version.ts`
 - Open questions: Whether the version machine result stays a plan-result document once the authoring use case returns a version-specific typed outcome is undecided; if it is replaced, the units and counts assertions here must be re-accepted.
 - Source: [`apps/cli/src/root/version/machine-result-identifies-manifest-change.spec.ts`](../apps/cli/src/root/version/machine-result-identifies-manifest-change.spec.ts)
 
@@ -4583,7 +4583,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### Locally named MCP install requests are validated before any workspace change
 
 - Requirement: `cli/mcps/install/local-name-requests-are-validated-before-any-change`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When an MCP install names a local connection, AXM shall reject the request before any workspace change, with an error naming the violated rule, if the local name is invalid, the name is already owned by a different source, or the requested version constraint does not intersect the constraints the source's other origins already declare.
 - Class: functional
 - Role: interface
@@ -4591,7 +4591,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
 - Derived from: `cli/mcps/install/local-connection-names-share-source-resolution`
-- Source: [`packages/core/extension-lifecycle/src/mcps/install/local-name-requests-are-validated-before-any-change.spec.ts`](../packages/core/extension-lifecycle/src/mcps/install/local-name-requests-are-validated-before-any-change.spec.ts)
+- Source: [`packages/core/workspace/src/mcp-connections/lifecycle/install/local-name-requests-are-validated-before-any-change.spec.ts`](../packages/core/workspace/src/mcp-connections/lifecycle/install/local-name-requests-are-validated-before-any-change.spec.ts)
 
 ##### The machine MCP inventory distinguishes local connection identity from source resolution
 
@@ -4975,7 +4975,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### MCP secrets stay in a per-connection credential namespace and out of workspace files
 
 - Requirement: `cli/mcps/secret-namespaces-include-local-and-source-identity`
-- Owner: `extension-lifecycle`
+- Owner: `workspace`
 - Statement: When a locally named MCP connection is installed with a secret input, AXM shall keep the secret in the credential store under a namespace unique to the workspace, the local connection name, the source, and the input name, and shall write the secret value into neither axm.json, any agent's native configuration, nor the reported outcome.
 - Class: quality (security)
 - Role: supporting
@@ -4986,7 +4986,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Open questions: When the credential store cannot persist a required secret, must installation fail, or may it complete with a warning and require the secret to be supplied later? The current statement promises storage; the controlled unavailable-store case establishes disclosure safety, not satisfaction of storage.
 - Limitation: Default scenarios control the credential-store port. The separately selected platform execution exercises the actual system keychain only on its recorded host and access context; other operating systems and access policies remain unverified. Retires when: Run the same credential lifecycle against disposable keychain entries on each supported operating system.
 - Additional evidence: platform via [`apps/cli-e2e/src/mcp-secrets.keychain.e2e.test.ts`](../apps/cli-e2e/src/mcp-secrets.keychain.e2e.test.ts) — Runs the built CLI's real MCP install, stored-input reload and secret replacement in its declared Node runtime against the host OS keychain, preserving host HOME for native access while isolating AXM_USER_HOME and project state. A subprocess loads the shipped identity build artifacts only to derive disposable cleanup identities, without a product source dependency in the test project. Producer and observer use the same runtime application identity across separate processes. Workspace/local/source/input namespaces are isolated and read back natively; a finally block deletes exactly the known disposable entries, requires affirmative deletion for every attempted write, and retains an independent cleanup journal on failure. This establishes only the recorded host and access context, not cross-application access, unavailable-keychain policy or every supported operating system.
-- Source: [`packages/core/extension-lifecycle/src/mcps/install/secret-namespaces-include-local-and-source-identity.spec.ts`](../packages/core/extension-lifecycle/src/mcps/install/secret-namespaces-include-local-and-source-identity.spec.ts)
+- Source: [`packages/core/workspace/src/mcp-connections/lifecycle/install/secret-namespaces-include-local-and-source-identity.spec.ts`](../packages/core/workspace/src/mcp-connections/lifecycle/install/secret-namespaces-include-local-and-source-identity.spec.ts)
 
 ## Product goals
 

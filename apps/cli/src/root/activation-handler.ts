@@ -8,7 +8,7 @@
 
 import * as Effect from "effect/Effect";
 
-import { SetActivation, type SetActivationRequest } from "@agentxm/extension-lifecycle";
+import { SetActivation, type SetActivationRequest } from "@agentxm/workspace/lifecycle";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import { lifecycleFailureToAppError } from "../feature-errors.js";

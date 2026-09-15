@@ -1,0 +1,103 @@
+import * as fs from "node:fs";
+import { NativeWriteAuthorityPermissive } from "@agentxm/agent-integration/testing";
+import * as os from "node:os";
+import * as path from "node:path";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import { describe, expect, it } from "@effect/vitest";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import { afterEach, beforeEach } from "vitest";
+import { SettingsWriter, WorkspaceRecords } from "../../../desired-state/index.js";
+import {
+  configuredRow,
+  MockWorkspaceTransactionScope,
+  WorkspaceReadTest,
+} from "../../../desired-state/testing.js";
+import {
+  CodingAgentRepository,
+  type CodingAgentRepositoryService,
+} from "../../../projection/index.js";
+import { type CodingAgent } from "@agentxm/agent-integration";
+import { disableSubagent, type DisableSubagentOperation } from "./disable.js";
+import { TestStepFailureConversion } from "../../../lifecycle/test-helpers.js";
+
+const makeOp = (subagentName: string): DisableSubagentOperation => ({
+  name: "disable-subagent",
+  args: { subagentName },
+});
+
+describe("disableSubagent", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "disable-subagent-")));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it.effect("removes managed rendered files (relativized) without crashing on absolute paths", () =>
+    Effect.gen(function* () {
+      const base = path.join(tmpDir, "project");
+      const axmDir = path.join(base, ".axm");
+      const subagentsDir = path.join(base, ".claude", "agents");
+      fs.mkdirSync(subagentsDir, { recursive: true });
+      // A managed rendered subagent file. findManagedSubagentFiles returns its
+      // absolute path, which the handler must relativize before decoding into
+      // the relative-only RenderedFilePathSchema.
+      fs.writeFileSync(
+        path.join(subagentsDir, "my-subagent.md"),
+        "---\nname: my-subagent\n---\n<!-- axm:file v=1 ext=@acme/subagents/my-subagent src=agent_extensions/@acme/subagents/my-subagent -->\n# my-subagent\n",
+      );
+
+      const received: { paths: ReadonlyArray<string> } = { paths: [] };
+
+      // Assertion needed: partial CodingAgent mock at a test boundary — only
+      // the methods disableSubagent invokes are implemented.
+      const fakeAgent = {
+        id: "claude-code",
+        resolveEffectiveSubagentsDir: () =>
+          Effect.succeed({ _tag: "supported" as const, dir: subagentsDir, warnings: [] }),
+        removeSubagent: (args: { renderedFilePaths: ReadonlyArray<unknown> }) => {
+          received.paths = args.renderedFilePaths.map((p) => String(p));
+          return Effect.succeed({ _tag: "supported" as const, dir: subagentsDir, warnings: [] });
+        },
+      } as unknown as CodingAgent;
+
+      // Assertion needed: partial CodingAgentRepository mock at a test boundary.
+      const fakeRepo = {
+        getConfiguredAgents: () => Effect.succeed([fakeAgent]),
+      } as unknown as CodingAgentRepositoryService;
+
+      const rows = [
+        configuredRow({
+          type: "subagent",
+          name: "my-subagent",
+          source: "@acme/subagents/my-subagent",
+        }),
+      ];
+
+      const layers = Layer.mergeAll(
+        NativeWriteAuthorityPermissive,
+        WorkspaceReadTest({ baseDir: base, runtimeDir: axmDir }),
+        Layer.mock(WorkspaceRecords, { rows: () => Effect.succeed(rows) }),
+        Layer.mock(SettingsWriter, {
+          updateEntry: (_type, _name, _update) => Effect.void,
+        }),
+        MockWorkspaceTransactionScope(axmDir),
+        Layer.succeed(CodingAgentRepository, fakeRepo),
+        TestStepFailureConversion,
+      ).pipe(Layer.provideMerge(NodeServices.layer));
+
+      const result = yield* disableSubagent(makeOp("my-subagent")).pipe(Effect.provide(layers));
+
+      expect(result.result).toBe("success");
+      // The fix: rendered file paths handed to removeSubagent are relative.
+      expect(received.paths.length).toBe(1);
+      for (const p of received.paths) {
+        expect(path.isAbsolute(p)).toBe(false);
+      }
+    }),
+  );
+});

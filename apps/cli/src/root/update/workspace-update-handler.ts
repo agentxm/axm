@@ -6,7 +6,7 @@ import {
   WORKSPACE_UPDATE_ATOMICITY,
   type ConfiguredUpdateSelector,
   type WorkspaceUpdatableType,
-} from "@agentxm/extension-lifecycle";
+} from "@agentxm/workspace/lifecycle";
 import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
 import {
   operationPresentation,

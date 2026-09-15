@@ -14,7 +14,7 @@
  *
  * The `pack.json` sits directly under `canonicalPath`; there is no
  * `src/` subdirectory like skills have — the pack install operation in
- * `@agentxm/extension-lifecycle` owns the authoritative layout.
+ * `@agentxm/workspace/lifecycle` owns the authoritative layout.
  *
  * Bounds enforcement:
  *

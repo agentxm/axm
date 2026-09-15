@@ -9,7 +9,7 @@ import {
 import type { VerdictEvidence, VerdictSource } from "./specification-verdict-lib.js";
 
 export const FIXTURE_SOURCE_PATH =
-  "packages/core/extension-lifecycle/src/install/installs-selected-extension.spec.ts";
+  "packages/core/workspace/src/lifecycle/install/installs-selected-extension.spec.ts";
 
 export interface FixtureLocation {
   readonly owner?: string;

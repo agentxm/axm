@@ -20,12 +20,12 @@ import {
   SkillSelectionCancelled,
   SkillSelectionInteraction,
   SkillSelectionUnavailable,
-} from "@agentxm/extension-lifecycle/skills/application";
+} from "@agentxm/workspace/skills/lifecycle/application";
 import {
   SubagentSelectionCancelled,
   SubagentSelectionInteraction,
   SubagentSelectionUnavailable,
-} from "@agentxm/extension-lifecycle/subagents/application";
+} from "@agentxm/workspace/subagents/lifecycle/application";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 

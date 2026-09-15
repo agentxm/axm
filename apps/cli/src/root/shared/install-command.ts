@@ -14,7 +14,7 @@ import {
   InstallExtensions,
   type InstallExtensionsCandidate,
   type InstallExtensionsRequest,
-} from "@agentxm/extension-lifecycle";
+} from "@agentxm/workspace/lifecycle";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   deriveOperationOutcome,

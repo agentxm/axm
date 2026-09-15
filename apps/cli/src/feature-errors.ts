@@ -22,8 +22,8 @@ import {
   StepFailureConversion,
   type LifecycleFailure,
   type StepFailureConversionService,
-} from "@agentxm/extension-lifecycle";
-import { AuthoringFailed } from "@agentxm/extension-authoring";
+} from "@agentxm/workspace/lifecycle";
+import { AuthoringFailed } from "@agentxm/workspace/authoring";
 import { PublishFailed } from "@agentxm/extension-publish";
 import type { ExpectedCliError } from "./cli-runtime/index.js";
 import {

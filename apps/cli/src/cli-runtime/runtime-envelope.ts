@@ -18,8 +18,8 @@ import {
   redactSensitiveText,
 } from "../app-error/index.js";
 import { isKnownFailure, toAppError, type KnownFailure } from "../app-error/conversions.js";
-import type { SkillSelectionCancelled } from "@agentxm/extension-lifecycle/skills/application";
-import type { SubagentSelectionCancelled } from "@agentxm/extension-lifecycle/subagents/application";
+import type { SkillSelectionCancelled } from "@agentxm/workspace/skills/lifecycle/application";
+import type { SubagentSelectionCancelled } from "@agentxm/workspace/subagents/lifecycle/application";
 import type { PromptCancelled } from "../prompt/prompt-cancelled.js";
 
 /**

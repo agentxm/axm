@@ -20,7 +20,7 @@ import {
   NativeImportFailed,
   NativeImportInvalid,
   NativeImportUnsupported,
-} from "@agentxm/extension-authoring";
+} from "@agentxm/workspace/authoring";
 
 const ioCause = new Error("EACCES");
 

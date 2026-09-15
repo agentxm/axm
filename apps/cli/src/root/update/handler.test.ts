@@ -6,7 +6,7 @@
  * and how a withheld or exempted release reads. They are bound to the
  * handler because the feature package cannot yet compose a workspace
  * fixture of its own; they belong beside
- * `packages/core/extension-lifecycle/src/update/configured.ts`.
+ * `packages/core/workspace/src/lifecycle/update/configured.ts`.
  */
 
 import * as fs from "node:fs";

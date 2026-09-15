@@ -75,7 +75,7 @@ describe("repository execution inputs", () => {
   });
 
   it.each([
-    "packages/core/extension-lifecycle/src/install/install.spec.ts",
+    "packages/core/workspace/src/lifecycle/install/install.spec.ts",
     "tools/test-support/src/install-harness.ts",
     "apps/cli-e2e/src/cli-commands/auth/token/token.e2e.ts",
     "apps/cli/src/install.ts",

@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   methods: ["example", "decision-table"],
   derivedFrom: [
     "apps/cli/src/root/version/command.ts",
-    "packages/core/extension-authoring/src/version/change-authored-version.ts",
+    "packages/core/workspace/src/authoring/version/change-authored-version.ts",
   ],
   supersedes: [],
   assumptions: [],

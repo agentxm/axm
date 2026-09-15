@@ -262,7 +262,7 @@ white-box evidence rather than a duplicate source of truth.
 
 Skill and subagent selection have a bounded quality gate independent of
 specification completeness. The
-[policy test configuration](../../../packages/core/extension-lifecycle/vitest.policy.config.ts)
+[policy test configuration](../../../packages/core/workspace/vitest.policy.config.ts)
 includes every domain source file in those owners, including files no test
 imports. Its complete statement, branch, function, and line thresholds apply
 to that small policy boundary. They are not a repository-wide quality score.

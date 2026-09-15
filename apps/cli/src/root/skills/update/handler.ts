@@ -9,7 +9,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { SelectiveUpdate, UPDATE_NAME_FILTER_FLAG } from "@agentxm/extension-lifecycle";
+import { SelectiveUpdate, UPDATE_NAME_FILTER_FLAG } from "@agentxm/workspace/lifecycle";
 import {
   credentialFreeLocatorRecoveryValue,
   operationPresentation,

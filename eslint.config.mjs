@@ -166,7 +166,6 @@ const productScopeBans = [
   "scope:agent-integration",
   "scope:extension-content",
   "scope:extension-model",
-  "scope:extension-lifecycle",
   "scope:extension-sources",
   "scope:registry-client",
   "scope:registry-protocol",
@@ -647,7 +646,7 @@ export default [
       "apps/cli/src/test-support/**",
       "packages/core/workspace/src/linting/catalog/workspace/conformance/test-helpers.ts",
       // Composes the real workspace an authoring specification observes.
-      "packages/core/extension-authoring/src/test-support/authoring-workspace.ts",
+      "packages/core/workspace/src/authoring/test-support/authoring-workspace.ts",
       // Composes the real workspace and Registry an inspection specification
       // installs into before observing what `show` reports.
       "packages/core/workspace/src/inspection/test-support/installed-workspace.ts",
@@ -656,13 +655,13 @@ export default [
       "packages/core/workspace/src/knowledge/query/testing.ts",
       "packages/core/workspace/src/inspection/testing.ts",
       "packages/core/workspace/src/configuration/testing.ts",
-      "packages/core/extension-lifecycle/src/testing.ts",
+      "packages/core/workspace/src/lifecycle/testing.ts",
       "packages/core/workspace/src/linting/testing.ts",
       // Colocated test support: drives its package's use cases from tests and
       // specifications with the deterministic ports its dependencies publish.
       "packages/core/workspace/src/configuration/**/test-helpers.ts",
       "packages/core/workspace/src/linting/**/test-helpers.ts",
-      "packages/core/extension-lifecycle/src/**/test-helpers.ts",
+      "packages/core/workspace/src/lifecycle/**/test-helpers.ts",
       "packages/core/extension-publish/src/**/test-helpers.ts",
       "packages/core/workspace/src/reconciliation/sync/**/test-helpers.ts",
       "packages/core/workspace/src/reconciliation/**/test-helpers.ts",
@@ -730,7 +729,7 @@ export default [
       "packages/core/workspace/src/knowledge/query/testing.ts",
       "packages/core/workspace/src/inspection/testing.ts",
       "packages/core/workspace/src/configuration/testing.ts",
-      "packages/core/extension-lifecycle/src/testing.ts",
+      "packages/core/workspace/src/lifecycle/testing.ts",
       // A lint run reads a real workspace through the state and projection
       // services; a fixture that stubbed them would be linting itself.
       "packages/core/workspace/src/linting/testing.ts",

@@ -62,11 +62,9 @@ describe("aggregate ownership unit conformance", () => {
   });
 
   it("routes every ownership-unit cardinality through shared plans", () => {
-    // Kind managers and the shared MCP install operation live beside projection
-    // in the workspace package. The remaining MCP operations belong to the
-    // extension-lifecycle feature.
+    // Kind managers and lifecycle operations live beside projection in the
+    // workspace package.
     const workspaceSrc = nodePath.join(packagesRoot, "core", "workspace", "src");
-    const lifecycleSrc = nodePath.join(packagesRoot, "core", "extension-lifecycle", "src");
     const aggregateParticipants = [
       "instructions/manager.ts",
       "hooks/manager.ts",
@@ -90,7 +88,7 @@ describe("aggregate ownership unit conformance", () => {
     }
     const sharedMcpParticipants = [
       [nodePath.join(workspaceSrc, "reconciliation"), "mcps/install-operation.ts"],
-      [lifecycleSrc, "mcps/operations/enable.ts"],
+      [workspaceSrc, "mcp-connections/lifecycle/operations/enable.ts"],
     ] as const;
     for (const [root, relativePath] of sharedMcpParticipants) {
       expect(nodeFs.readFileSync(nodePath.join(root, relativePath), "utf8")).toContain(

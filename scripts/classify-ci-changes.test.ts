@@ -100,7 +100,7 @@ describe("classifyCiChanges", () => {
 
   it.each([
     ["packages/core/workspace/src/desired-state/index.ts"],
-    ["packages/core/extension-lifecycle/src/update/selector.spec.ts"],
+    ["packages/core/workspace/src/lifecycle/update/selector.spec.ts"],
     ["packages/supporting/cli-maintenance/src/self-update/adapters/native/index.ts"],
     ["packages/supporting/registry-auth/src/selected-registry.ts"],
     ["tools/specification-metadata/src/contract.ts"],

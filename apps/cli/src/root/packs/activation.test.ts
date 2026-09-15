@@ -33,7 +33,7 @@ import {
   makeWorkspaceHandlerTestContext,
 } from "../../test-support/test-helpers.js";
 import { handlePackActivation } from "./activation.js";
-import { buildAggregateProjectionStep } from "@agentxm/extension-lifecycle";
+import { buildAggregateProjectionStep } from "@agentxm/workspace/lifecycle";
 import { LifecycleStepFailureConversionLive } from "../../feature-errors.js";
 
 const initializePack = (root: string) => {

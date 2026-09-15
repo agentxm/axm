@@ -4,7 +4,7 @@
  *
  * These behaviours are the update surface's own; they belong beside the
  * feature's configured-update planner and should move there once
- * `@agentxm/extension-lifecycle/testing` can compose a workspace fixture.
+ * `@agentxm/workspace/lifecycle/testing` can compose a workspace fixture.
  */
 
 import * as fs from "node:fs";

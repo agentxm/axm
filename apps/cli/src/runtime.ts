@@ -48,7 +48,7 @@ import {
   directoryFlag,
 } from "./cli-flags/index.js";
 
-import { ConfiguredAgentOutcomesProviderLive } from "@agentxm/extension-lifecycle/live";
+import { ConfiguredAgentOutcomesProviderLive } from "@agentxm/workspace/lifecycle/live";
 import {
   HookManagerLive,
   KnowledgeManagerLive,

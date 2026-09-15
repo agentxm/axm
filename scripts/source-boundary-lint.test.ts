@@ -139,9 +139,9 @@ describe("module boundary constraints", () => {
     };
   });
 
-  const FEATURE = "packages/core/extension-lifecycle/src/index.ts";
+  const FEATURE = "packages/core/workspace/src/lifecycle/index.ts";
   const FEATURE_TEST =
-    "packages/core/extension-lifecycle/src/workflows/install-command/workflow.test.ts";
+    "packages/core/workspace/src/lifecycle/workflows/install-command/workflow.test.ts";
   const CAPABILITY = "packages/core/workspace/src/transitions/planning/index.ts";
   const SUPPORTING_INTEGRATION = "packages/supporting/registry-auth/src/index.ts";
   const SUPPORTING_INTEGRATION_B = "packages/supporting/agent-integration/src/index.ts";
@@ -159,7 +159,7 @@ describe("module boundary constraints", () => {
         SUPPORTING_INTEGRATION,
       ),
     ).toEqual([]);
-    expect(await boundaryViolations('import "@agentxm/extension-lifecycle";', APPLICATION)).toEqual(
+    expect(await boundaryViolations('import "@agentxm/workspace/lifecycle";', APPLICATION)).toEqual(
       [],
     );
   });
@@ -210,7 +210,7 @@ describe("module boundary constraints", () => {
   it("confines end-to-end suites to engineering libraries", async () => {
     expect(await boundaryViolations('import "@agentxm/client-e2e-utils";', E2E)).toEqual([]);
     expect(
-      (await boundaryViolations('import "@agentxm/extension-lifecycle";', E2E)).map(
+      (await boundaryViolations('import "@agentxm/workspace/lifecycle";', E2E)).map(
         (violation) => violation.ruleId,
       ),
     ).toEqual(["@nx/enforce-module-boundaries"]);
@@ -284,7 +284,7 @@ describe("module boundary constraints", () => {
     ).toEqual(["@typescript-eslint/no-restricted-imports"]);
     expect(
       await boundaryViolations(
-        'import type { Plan } from "@agentxm/workspace/transitions/planning";\nimport { operationPresentation } from "@agentxm/workspace/transitions/planning";\nimport { handleInstall } from "@agentxm/extension-lifecycle";',
+        'import type { Plan } from "@agentxm/workspace/transitions/planning";\nimport { operationPresentation } from "@agentxm/workspace/transitions/planning";\nimport { handleInstall } from "@agentxm/workspace/lifecycle";',
         HANDLER,
       ),
     ).toEqual([]);

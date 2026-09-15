@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { ForkExtension, forkExtensionPlanName } from "@agentxm/extension-authoring";
+import { ForkExtension, forkExtensionPlanName } from "@agentxm/workspace/authoring";
 import {
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,

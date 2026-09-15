@@ -54,7 +54,7 @@ import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
 export { SourceHostProvidersLive };
 import { workspaceInvariantFactsLive } from "./workspace-invariant-facts-live.js";
 export { KnowledgeIndexLive };
-export { ConfiguredAgentOutcomesProviderLive } from "@agentxm/extension-lifecycle/live";
+export { ConfiguredAgentOutcomesProviderLive } from "@agentxm/workspace/lifecycle/live";
 import {
   HookManagerLive,
   KnowledgeManagerLive,

@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import { Argument, Command } from "effect/unstable/cli";
 
-import { DemoteToExternalSource } from "@agentxm/extension-lifecycle";
+import { DemoteToExternalSource } from "@agentxm/workspace/lifecycle";
 import {
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,

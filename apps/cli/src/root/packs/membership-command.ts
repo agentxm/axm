@@ -13,7 +13,7 @@ import {
   PackSelectorAmbiguous,
   packMembershipPlanName,
   type PackMembershipRequest,
-} from "@agentxm/extension-authoring";
+} from "@agentxm/workspace/authoring";
 import { publicRecoveryValue, recoveryPositional } from "@agentxm/workspace/transitions/planning";
 
 import { makeAppError } from "../../app-error/index.js";

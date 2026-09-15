@@ -14,7 +14,7 @@ import {
   createExtensionPlanName,
   type CreateExtensionCandidate,
   type CreateExtensionRequest,
-} from "@agentxm/extension-authoring";
+} from "@agentxm/workspace/authoring";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import { authoringFailureToAppError } from "../../feature-errors.js";

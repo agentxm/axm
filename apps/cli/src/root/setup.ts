@@ -35,7 +35,7 @@ import {
 } from "./shared/command-capabilities.js";
 import { setupBrandingDoc, setupScopeSupportDoc, subagentSummaryDoc } from "./setup/view.js";
 import { AXM_SKILL_VERSION } from "../__generated__/bundled-axm-skill.js";
-import { installBundledAxmSkill } from "@agentxm/extension-lifecycle";
+import { installBundledAxmSkill } from "@agentxm/workspace/lifecycle";
 
 /**
  * Setup applies a documented unattended candidate when explicitly asked to,

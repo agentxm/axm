@@ -40,16 +40,10 @@
       "path": "../../packages/core/extension-model/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/core/extension-lifecycle/tsconfig.lib.json"
-    },
-    {
       "path": "../../packages/core/extension-discovery/tsconfig.lib.json"
     },
     {
       "path": "../../packages/core/extension-content/tsconfig.lib.json"
-    },
-    {
-      "path": "../../packages/core/extension-authoring/tsconfig.lib.json"
     },
     {
       "path": "../../packages/supporting/cli-maintenance/tsconfig.lib.json"

@@ -33,7 +33,7 @@ import type {
   PackSelectorNotAPack,
   PackSourceMissing,
   ScaffoldNameInvalid,
-} from "@agentxm/extension-authoring";
+} from "@agentxm/workspace/authoring";
 import { makeAppError, type AppError } from "../app-error.js";
 
 export const createNameConfiguredToAppError = (error: CreateNameConfigured): AppError =>

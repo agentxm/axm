@@ -324,7 +324,7 @@ describe("collectCatalog", () => {
   };
 
   const lifecycle = (name: string): string =>
-    `packages/core/extension-lifecycle/src/install/${name}.spec.ts`;
+    `packages/core/workspace/src/lifecycle/install/${name}.spec.ts`;
   const model = (name: string): string => `packages/core/extension-model/src/${name}.spec.ts`;
 
   const collect = () => {

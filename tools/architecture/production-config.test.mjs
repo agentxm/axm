@@ -46,7 +46,7 @@ for (const [kind, other] of [
   ]) {
     test(`${kind} ${name}`, async () => {
       const [result] = await eslint.lintText(code, {
-        filePath: `packages/core/extension-lifecycle/src/${kind}/${role}/${role === "domain" ? "selection" : "index"}.ts`,
+        filePath: `packages/core/workspace/src/lifecycle/${kind}/${role}/${role === "domain" ? "selection" : "index"}.ts`,
       });
       assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages));
       assert.ok(
@@ -59,7 +59,7 @@ for (const [kind, other] of [
 
 test("shared extension matching cannot acquire a skill consumer's policy", async () => {
   const [result] = await eslint.lintText(
-    'export { determineSkillsToInstall } from "@agentxm/extension-lifecycle/skills/application";',
+    'export { determineSkillsToInstall } from "@agentxm/workspace/lifecycle/skills/application";',
     { filePath: "packages/core/extension-model/src/unstable/extensions/name-patterns.ts" },
   );
   assert.equal(result.fatalErrorCount, 0, JSON.stringify(result.messages));

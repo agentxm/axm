@@ -78,10 +78,8 @@
   "dependencies": {
     "@agentxm/agent-integration": "workspace:^",
     "@agentxm/cli-maintenance": "workspace:^",
-    "@agentxm/extension-authoring": "workspace:^",
     "@agentxm/extension-content": "workspace:^",
     "@agentxm/extension-discovery": "workspace:^",
-    "@agentxm/extension-lifecycle": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
     "@agentxm/extension-publish": "workspace:^",
     "@agentxm/extension-sources": "workspace:^",

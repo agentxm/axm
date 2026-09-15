@@ -22,7 +22,7 @@ const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem
 
 /** sha256 of the archive built from the fixture tree created in `beforeEach`. */
 const PINNED_CLEAN_ARCHIVE_DIGEST =
-  "549b3040df405bf93ce2c6dc580ae354684cfecc1b5f678362d8a7f0bb2ff82d";
+  "108e92323d8ae9b97bcfde43b853e2c259915377c6b863d4d9253a831e2d26d6";
 
 describe("buildZipArchive", () => {
   let tmpDir: string;
@@ -62,6 +62,18 @@ describe("buildZipArchive", () => {
         expect(Object.keys(entries).sort()).toEqual(["hello.txt", "nested/inner.txt"]);
         expect(new TextDecoder().decode(entries["hello.txt"])).toBe("hello world");
         expect(new TextDecoder().decode(entries["nested/inner.txt"])).toBe("inner");
+      }),
+    ),
+  );
+
+  it.effect("stores entries without requiring Registry decompression", () =>
+    withNodeContext(
+      Effect.gen(function* () {
+        const archive = yield* buildZipArchive(sourceDir);
+        const view = new DataView(archive.buffer, archive.byteOffset, archive.byteLength);
+
+        expect(view.getUint32(0, true)).toBe(0x04034b50);
+        expect(view.getUint16(8, true)).toBe(0);
       }),
     ),
   );

@@ -275,7 +275,7 @@
     "yaml": "catalog:",
     "@agentxm/registry-client": "workspace:^",
     "@napi-rs/keyring": "^1.3.0",
-    "@agentxm/registry-auth": "workspace:^",
+    "@agentxm/registry-access": "workspace:^",
     "fflate": "catalog:",
     "packageurl-js": "catalog:",
     "simple-git": "catalog:"

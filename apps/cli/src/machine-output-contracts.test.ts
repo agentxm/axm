@@ -5,7 +5,7 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 
 import { JsonHelpDocSchema, JsonVersionDocSchema } from "./cli-runtime/index.js";
-import { LoginDocumentSchema } from "@agentxm/registry-auth";
+import { LoginDocumentSchema } from "@agentxm/registry-access/authentication";
 import { PublishResultSchema } from "@agentxm/workspace/publishing";
 import {
   VisibilityEvaluationSchema,

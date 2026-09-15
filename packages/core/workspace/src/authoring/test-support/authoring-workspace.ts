@@ -21,7 +21,7 @@ import * as Layer from "effect/Layer";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 
 import { AgentPresenceProbeLive } from "../../projection/agent-adapters/live.js";
-import { CredentialStoreTest } from "@agentxm/registry-auth/testing";
+import { CredentialStoreTest } from "@agentxm/registry-access/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { AxmSkillCandidateGateLive } from "../../resolution/live.js";
 import {

@@ -74,7 +74,7 @@ import {
   type PlannedJobStep,
 } from "../../transitions/planning/index.js";
 import { CodingAgentRepository } from "../../projection/index.js";
-import type { CredentialStore } from "@agentxm/registry-auth";
+import type { CredentialStore } from "@agentxm/registry-access/credentials";
 import type { RegistryUrl } from "@agentxm/registry-client";
 import type { FqnInvalidError } from "@agentxm/extension-model/unstable/extensions";
 import type { CandidateFingerprintFailed } from "../../transitions/planning/index.js";

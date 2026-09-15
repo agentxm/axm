@@ -17,7 +17,7 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
-import { CredentialStore, getCurrentUserHandle } from "@agentxm/registry-auth";
+import { CredentialStore, getCurrentUserHandle } from "@agentxm/registry-access/credentials";
 import { RegistryUrl } from "@agentxm/registry-client";
 import {
   SettingsReader,

@@ -84,7 +84,7 @@ import {
   CredentialStoreSessionLive,
   PendingDeviceLoginStoreLive,
   PendingPublishAuthorizationStoreLive,
-} from "@agentxm/registry-auth/live";
+} from "@agentxm/registry-access/adapters";
 import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
 import { resolveTelemetryMode } from "./telemetry/index.js";
 import type { WorkspaceStateOptions } from "@agentxm/workspace/desired-state";

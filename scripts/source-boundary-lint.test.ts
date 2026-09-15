@@ -143,7 +143,7 @@ describe("module boundary constraints", () => {
   const FEATURE_TEST =
     "packages/core/workspace/src/lifecycle/workflows/install-command/workflow.test.ts";
   const CAPABILITY = "packages/core/workspace/src/transitions/planning/index.ts";
-  const SUPPORTING_INTEGRATION = "packages/supporting/registry-auth/src/index.ts";
+  const SUPPORTING_INTEGRATION = "packages/supporting/registry-access/src/authentication/index.ts";
   const SUPPORTING_INTEGRATION_B = "packages/supporting/registry-client/src/index.ts";
   const APPLICATION = "apps/cli/src/main.ts";
   const HANDLER = "apps/cli/src/root/list/command.ts";
@@ -189,7 +189,7 @@ describe("module boundary constraints", () => {
     );
     expect(capabilityToFeature[0]?.message).toContain("role:capability");
     const integrationToCapability = await boundaryViolations(
-      'import "@agentxm/registry-auth";',
+      'import "@agentxm/registry-access/authentication";',
       SUPPORTING_INTEGRATION_B,
     );
     expect(integrationToCapability[0]?.message).toContain("role:integration");

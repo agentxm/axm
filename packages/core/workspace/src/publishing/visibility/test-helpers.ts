@@ -28,7 +28,7 @@ import {
   AuthLoginInteractionTest,
   AuthLoginPresenterTest,
   CredentialStoreTest,
-} from "@agentxm/registry-auth/testing";
+} from "@agentxm/registry-access/testing";
 import { RegistryUrlTest, testRegistryUrl } from "@agentxm/registry-client/testing";
 import { layer as WorkspaceStateLayer } from "../../desired-state/live.js";
 

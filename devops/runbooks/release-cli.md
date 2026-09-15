@@ -356,7 +356,7 @@ creation step.
    initialization input disabled, and retain the completed cohort evidence.
 
 The initialization input defaults to false and is effective only on an explicit
-dispatch. `setup-node` supplies npm's registry-auth configuration; Effect Config
+dispatch. `setup-node` supplies npm's registry-access configuration; Effect Config
 loads the credential once as a redacted value. Only a missing package's npm
 publish process receives it. Existing packages use trusted publishing, and tag
 repair never receives this credential. A missing or rejected credential stops

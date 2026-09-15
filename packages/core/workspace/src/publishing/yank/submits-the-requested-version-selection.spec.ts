@@ -8,7 +8,7 @@ import {
   AuthLoginInteractionTest,
   AuthLoginPresenterTest,
   CredentialStoreTest,
-} from "@agentxm/registry-auth/testing";
+} from "@agentxm/registry-access/testing";
 
 import { yank } from "../lifecycle/retirement.js";
 import {

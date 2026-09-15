@@ -3,7 +3,7 @@
  *
  * When a registry lookup finds nothing, the extension may simply be private
  * to an account this invocation is not signed in to. Whether every consulted
- * origin already has a credential is the `registry-auth` capability's
+ * origin already has a credential is the `registry-access` capability's
  * decision; the wording of the hint is this feature's.
  *
  * @experimental This API is unstable and may change without notice.
@@ -12,7 +12,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { CredentialStore, hasCredentialsForAll } from "@agentxm/registry-auth";
+import { CredentialStore, hasCredentialsForAll } from "@agentxm/registry-access/credentials";
 import { RegistryUrl } from "@agentxm/registry-client";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 

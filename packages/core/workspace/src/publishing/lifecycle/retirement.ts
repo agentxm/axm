@@ -3,7 +3,7 @@
  * resolution, and restoring one.
  *
  * A yank is a Registry write. Every form carries human verification through
- * the `registry-auth` step-up capability and reports the honest remote
+ * the `registry-access` step-up capability and reports the honest remote
  * outcome — never a workspace operation resolution.
  *
  * @experimental This API is unstable and may change without notice.
@@ -24,7 +24,7 @@ import {
   type RegistryExtensionVersionReference,
   type YankCategory,
 } from "@agentxm/registry-client";
-import { runWithStepUp, type StepUpOptions } from "@agentxm/registry-auth";
+import { runWithStepUp, type StepUpOptions } from "@agentxm/registry-access/authentication";
 
 import { PublishFailed } from "../errors.js";
 import { registryTransition } from "./remote-outcome.js";

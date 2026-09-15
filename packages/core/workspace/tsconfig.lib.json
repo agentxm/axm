@@ -19,7 +19,7 @@
   ],
   "references": [
     {
-      "path": "../../supporting/registry-auth/tsconfig.lib.json"
+      "path": "../../supporting/registry-access/tsconfig.lib.json"
     },
     {
       "path": "../../supporting/registry-client/tsconfig.lib.json"

@@ -27,18 +27,18 @@ import { AuthoringFailed } from "@agentxm/workspace/authoring";
 import { PublishFailed } from "@agentxm/workspace/publishing";
 import type { ExpectedCliError } from "./cli-runtime/index.js";
 import {
-  isRegistryAuthFailure,
-  REGISTRY_AUTH_ERROR_CATEGORIES,
+  isRegistryAccessFailure,
+  REGISTRY_ACCESS_ERROR_CATEGORIES,
   type AuthExchangeFailed,
   type AuthLoginRequired,
   type AuthTokenPolicyRequired,
   type DeviceAuthorizationPending,
   type DeviceLoginCodeExpired,
   type DeviceLoginDenied,
-  type RegistryAuthFailed,
-  type RegistryAuthFailure,
+  type RegistryAccessFailed,
+  type RegistryAccessFailure,
   type StepUpRequired,
-} from "@agentxm/registry-auth";
+} from "@agentxm/registry-access/authentication";
 import type { SyncWorkspaceExecutionFailure } from "@agentxm/workspace/reconciliation/sync";
 import { LintStagingFailed } from "@agentxm/workspace/linting";
 import {
@@ -126,7 +126,7 @@ export const publishFailedToAppError = (error: PublishFailed): AppError =>
 
 /**
  * Convert any failure a publish or registry-lifecycle use case can surface —
- * the feature's own typed failure, the registry-auth failures a challenged
+ * the feature's own typed failure, the registry-access failures a challenged
  * remote write settles with, a known kernel or integration failure, or an
  * envelope that travelled through a still-coupled channel — into the
  * CLI-facing `AppError`.
@@ -137,7 +137,7 @@ export const publishFailedToAppError = (error: PublishFailed): AppError =>
  */
 export const publishFailureToAppError = (failure: unknown): AppError => {
   if (failure instanceof PublishFailed) return publishFailedToAppError(failure);
-  if (isRegistryAuthFailure(failure)) return registryAuthFailureToAppError(failure);
+  if (isRegistryAccessFailure(failure)) return registryAccessFailureToAppError(failure);
   if (failure instanceof AppError) return failure;
   if (isKnownFailure(failure)) return toAppError(failure);
   return makeAppError({ code: "internal", detail: String(failure), cause: failure });
@@ -240,19 +240,19 @@ export const coerceLifecycleFailure = <E>(failure: E | ExtensionLifecycleFailed)
     ? extensionLifecycleFailedToAppError(failure)
     : failure;
 
-// The registry-auth category vocabulary and the CLI's AppErrorCode must stay
+// The registry-access category vocabulary and the CLI's AppErrorCode must stay
 // the same strings; divergence is a compile error here, at the boundary that
 // owns the mapping.
-REGISTRY_AUTH_ERROR_CATEGORIES satisfies ReadonlyArray<AppErrorCode>;
+REGISTRY_ACCESS_ERROR_CATEGORIES satisfies ReadonlyArray<AppErrorCode>;
 
 /**
- * Translate a registry-auth policy failure: the implementation chose the
+ * Translate a registry-access policy failure: the implementation chose the
  * category and wording at construction, so the envelope carries them over
  * 1:1. A typed auth failure in cause position converts recursively so the
  * serialized cause chain matches the former in-place construction, where the
  * nested value was already an envelope.
  */
-export const registryAuthFailedToAppError = (error: RegistryAuthFailed): AppError =>
+export const registryAccessFailedToAppError = (error: RegistryAccessFailed): AppError =>
   makeAppError({
     code: error.category,
     detail: error.detail,
@@ -262,8 +262,8 @@ export const registryAuthFailedToAppError = (error: RegistryAuthFailed): AppErro
     ...(error.cause === undefined
       ? {}
       : {
-          cause: isRegistryAuthFailure(error.cause)
-            ? registryAuthFailureToAppError(error.cause)
+          cause: isRegistryAccessFailure(error.cause)
+            ? registryAccessFailureToAppError(error.cause)
             : error.cause,
         }),
   });
@@ -364,11 +364,11 @@ export const authExchangeFailedToAppError = (error: AuthExchangeFailed): AppErro
     ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
   });
 
-/** Convert any registry-auth typed failure into the CLI-facing envelope. */
-export const registryAuthFailureToAppError = (failure: RegistryAuthFailure): AppError => {
+/** Convert any registry-access typed failure into the CLI-facing envelope. */
+export const registryAccessFailureToAppError = (failure: RegistryAccessFailure): AppError => {
   switch (failure._tag) {
-    case "RegistryAuthFailed":
-      return registryAuthFailedToAppError(failure);
+    case "RegistryAccessFailed":
+      return registryAccessFailedToAppError(failure);
     case "AuthLoginRequired":
       return authLoginRequiredToAppError(failure);
     case "AuthTokenPolicyRequired":
@@ -409,23 +409,23 @@ export const registryAuthFailureToAppError = (failure: RegistryAuthFailure): App
 };
 
 /**
- * Convert only the registry-auth feature's own typed failures into the
+ * Convert only the Registry access capability's own typed failures into the
  * envelope, leaving every other expected failure untouched. Concretely typed
  * so the auth members leave the channel instead of being reabsorbed by a
  * generic parameter.
  */
 export const coerceAuthFailure = (
-  failure: ExpectedCliError | RegistryAuthFailure,
+  failure: ExpectedCliError | RegistryAccessFailure,
 ): ExpectedCliError =>
-  isRegistryAuthFailure(failure) ? registryAuthFailureToAppError(failure) : failure;
+  isRegistryAccessFailure(failure) ? registryAccessFailureToAppError(failure) : failure;
 
 /**
- * Convert any failure an auth use case can surface — the feature's own typed
+ * Convert any failure an auth use case can surface — the capability's typed
  * failures, a known registry transport failure, or an envelope that travelled
  * through a still-coupled channel — into the CLI-facing `AppError`.
  */
 export const authFailureToAppError = (failure: unknown): AppError => {
-  if (isRegistryAuthFailure(failure)) return registryAuthFailureToAppError(failure);
+  if (isRegistryAccessFailure(failure)) return registryAccessFailureToAppError(failure);
   if (failure instanceof AppError) return failure;
   if (isKnownFailure(failure)) return toAppError(failure);
   return makeAppError({ code: "internal", detail: String(failure), cause: failure });

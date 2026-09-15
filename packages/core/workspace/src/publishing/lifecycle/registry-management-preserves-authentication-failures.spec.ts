@@ -5,7 +5,7 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { AuthLoginInteractionTest } from "@agentxm/registry-auth/testing";
+import { AuthLoginInteractionTest } from "@agentxm/registry-access/testing";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { deprecate, undeprecate } from "./deprecation.js";

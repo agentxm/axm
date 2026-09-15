@@ -4,13 +4,15 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { AuthEnvironment, CredentialStore, PendingDeviceLoginStore } from "@agentxm/registry-auth";
+import { PendingDeviceLoginStore } from "@agentxm/registry-access/authentication";
+import { CredentialStore } from "@agentxm/registry-access/credentials";
+import { AuthEnvironment } from "@agentxm/registry-access/adapters";
 import {
   AuthClientTest,
   AuthLoginInteractionTest,
   CredentialStoreTest,
   PendingDeviceLoginStoreTest,
-} from "@agentxm/registry-auth/testing";
+} from "@agentxm/registry-access/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { defineSpecification } from "@agentxm/specification-metadata";

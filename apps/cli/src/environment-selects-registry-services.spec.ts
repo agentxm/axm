@@ -5,8 +5,8 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { AuthClient } from "@agentxm/registry-auth";
-import { AuthClientLive } from "@agentxm/registry-auth/live";
+import { AuthClient } from "@agentxm/registry-access/authentication";
+import { AuthClientLive } from "@agentxm/registry-access/adapters";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { runtimeBaseLayer } from "./runtime.js";
 

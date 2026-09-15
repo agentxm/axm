@@ -1,10 +1,10 @@
 /**
  * Authentication requirements and grant bindings for exact publication.
  *
- * The feature never invokes authentication itself: it expresses the
+ * The publishing feature never invokes authentication itself: it expresses the
  * requirement as typed precondition data and consumes the authorization
  * RESULT as a structural grant value. The application sequences the
- * registry-auth feature to satisfy the requirement and passes each issued
+ * Registry access capability to satisfy the requirement and passes each issued
  * grant into the upload binding as data.
  */
 
@@ -18,8 +18,8 @@ import type { PublishExtensionArgs } from "@agentxm/registry-client";
 
 /**
  * One exact publish capability the application obtained from the Registry
- * authorization flow. Structurally satisfied by the auth feature's issued
- * capability; this package never depends on that feature.
+ * authorization flow. Structurally satisfied by the Registry access
+ * capability; this module never owns that policy.
  */
 export interface PublishGrant {
   readonly accessToken: string;

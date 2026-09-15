@@ -5,9 +5,9 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, expect } from "vitest";
 
-import { RegistryAuthFailed } from "@agentxm/registry-auth";
+import { RegistryAccessFailed } from "@agentxm/registry-access/authentication";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
-import { CredentialStore, type CredentialStoreService } from "@agentxm/registry-auth";
+import { CredentialStore, type CredentialStoreService } from "@agentxm/registry-access/credentials";
 import { RegistryUrl } from "@agentxm/registry-client";
 
 import { registryLoginSuggestions } from "./registry-login-suggestion.js";
@@ -94,7 +94,7 @@ describe("registryLoginSuggestions", () => {
       Effect.provide(
         makeLayer(() =>
           Effect.fail(
-            new RegistryAuthFailed({ category: "auth", detail: "Credential store unavailable" }),
+            new RegistryAccessFailed({ category: "auth", detail: "Credential store unavailable" }),
           ),
         ),
       ),

@@ -9,7 +9,10 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { GitDirectoryComparison } from "../resolution/sources/index.js";
-import { AuthClient, PendingPublishAuthorizationStore } from "@agentxm/registry-auth";
+import {
+  AuthClient,
+  PendingPublishAuthorizationStore,
+} from "@agentxm/registry-access/authentication";
 
 import { PUBLISHABLE_TYPES, type PublishableType } from "./publishable-types.js";
 import {

@@ -17,7 +17,7 @@ import { ensureWorkspaceFiles } from "./test-stubs.js";
 import { AppError } from "../app-error/index.js";
 import { isKnownFailure, toAppError } from "../app-error/conversions.js";
 import { KnowledgeIndexLive } from "@agentxm/workspace/knowledge/query/live";
-import { AuthLoginPresenterTest, CredentialStoreTest } from "@agentxm/registry-auth/testing";
+import { AuthLoginPresenterTest, CredentialStoreTest } from "@agentxm/registry-access/testing";
 import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { type Screen } from "../screen/index.js";

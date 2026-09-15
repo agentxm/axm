@@ -165,7 +165,7 @@ describe("module-boundary constraint reachability", () => {
   it("reports a supporting package importing a core capability outside the sanctioned seams", async () => {
     const reported = await boundaryViolations(
       'import { SettingsReader } from "@agentxm/workspace/desired-state";\nvoid SettingsReader;\n',
-      "packages/supporting/registry-auth/src/index.ts",
+      "packages/supporting/registry-access/src/authentication/index.ts",
     );
     expect(reported.length).toBeGreaterThan(0);
   });

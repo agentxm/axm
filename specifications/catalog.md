@@ -322,7 +322,7 @@ People and agents can understand invalid workspace state and recover it through 
 ##### Browser sign-in completion follows saved credentials
 
 - Requirement: `cli/login/browser-completion-follows-credential-persistence`
-- Owner: `registry-auth`
+- Owner: `registry-access`
 - Statement: For loopback sign-in, AXM shall report browser completion only after issuer validation, successful code exchange, and credential persistence, reporting callback receipt while finishing and terminal recovery on failure.
 - Class: functional
 - Role: experience
@@ -330,9 +330,9 @@ People and agents can understand invalid workspace state and recover it through 
 - Boundary: platform; selection: per-change
 - Boundary rationale: The examples observe the streamed response from the real loopback HTTP listener while exchange and credential storage are controlled through their services.
 - Methods: example
-- Derived from: `packages/supporting/registry-auth/src/loopback-login.ts`
+- Derived from: `packages/supporting/registry-access/src/adapters/loopback-login.ts`
 - Limitation: The HTTP evidence does not establish visual rendering or a real identity-provider round trip. Retires when: Record browser verification of the provider, callback, and terminal result.
-- Source: [`packages/supporting/registry-auth/src/browser-completion-follows-credential-persistence.spec.ts`](../packages/supporting/registry-auth/src/browser-completion-follows-credential-persistence.spec.ts)
+- Source: [`packages/supporting/registry-access/src/authentication/browser-completion-follows-credential-persistence.spec.ts`](../packages/supporting/registry-access/src/authentication/browser-completion-follows-credential-persistence.spec.ts)
 
 ##### Availability outcomes retain the observed reason
 
@@ -350,16 +350,16 @@ People and agents can understand invalid workspace state and recover it through 
 ##### Identity inspection recovers an expired stored session
 
 - Requirement: `cli/whoami/refreshes-rejected-stored-credentials`
-- Owner: `registry-auth`
+- Owner: `registry-access`
 - Statement: When the Registry rejects identity credentials with HTTP 401, AXM shall recover a stored session by refreshing and persisting its replacement credentials and retrying once, report authentication required when rejection remains, and leave ambient credentials and other failures without refresh retries.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/supporting/registry-auth/src/identity.ts`
-- Open questions: Is this the authority for registry-auth's generic Registry-request 401 recovery, which auth-middleware.ts implements for every authenticated request, or only for identity inspection? cli/registry-management-preserves-authentication-failures asserts no replay for lifecycle and visibility writes holding a stored session, so one of the two must name the credential class it governs.
-- Source: [`packages/supporting/registry-auth/src/refreshes-rejected-stored-credentials.spec.ts`](../packages/supporting/registry-auth/src/refreshes-rejected-stored-credentials.spec.ts)
+- Derived from: `packages/supporting/registry-access/src/authentication/identity.ts`
+- Open questions: Is this the authority for registry-access's generic Registry-request 401 recovery, which auth-middleware.ts implements for every authenticated request, or only for identity inspection? cli/registry-management-preserves-authentication-failures asserts no replay for lifecycle and visibility writes holding a stored session, so one of the two must name the credential class it governs.
+- Source: [`packages/supporting/registry-access/src/credentials/refreshes-rejected-stored-credentials.spec.ts`](../packages/supporting/registry-access/src/credentials/refreshes-rejected-stored-credentials.spec.ts)
 
 ##### Identity inspection shows the active identity and permissions
 
@@ -963,7 +963,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 ##### Browser sign-in uses the selected Registry's paired web origin
 
 - Requirement: `cli/login/uses-matching-hosted-authorization-origin`
-- Owner: `registry-auth`
+- Owner: `registry-access`
 - Statement: When browser sign-in targets a Registry, AXM shall derive the authorization request origin and the expected callback issuer from that Registry's own origin, for the hosted Registries and for the paired local development surface.
 - Class: functional
 - Role: experience
@@ -974,7 +974,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Supersedes: `cli/login/browser-sign-in-uses-the-local-web-surface`
 - Assumptions: The hosted Registry and web origins are configured as the environment pairs exercised here.
 - Limitation: In-memory evidence verifies request routing and issuer selection but does not establish availability of the deployed authorization endpoint, browser launch, callback exchange, or credential persistence. Retires when: Released CLI browser sign-in is verified against each deployed environment, and these examples are combined with live loopback journey evidence and cli/login/browser-completion-follows-credential-persistence.
-- Source: [`packages/supporting/registry-auth/src/uses-matching-hosted-authorization-origin.spec.ts`](../packages/supporting/registry-auth/src/uses-matching-hosted-authorization-origin.spec.ts)
+- Source: [`packages/supporting/registry-access/src/authentication/uses-matching-hosted-authorization-origin.spec.ts`](../packages/supporting/registry-access/src/authentication/uses-matching-hosted-authorization-origin.spec.ts)
 
 ##### One registry MCP source supports multiple independently named local connections
 
@@ -1426,44 +1426,44 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 ##### Explicit token sources take precedence over saved sessions
 
 - Requirement: `cli/credentials-follow-explicit-source-precedence`
-- Owner: `registry-auth`
+- Owner: `registry-access`
 - Statement: For commands using the selected Registry, AXM shall use a nonempty AXM_TOKEN before AXM_TOKEN_FILE and a valid token file before saved Registry credentials, refusing an unreadable or empty selected token file instead of silently using a saved session.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/supporting/registry-auth/src/token-resolution.ts`
+- Derived from: `packages/supporting/registry-access/src/credentials/token-resolution.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/auth.e2e.test.ts`](../apps/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout and HTTP verification followed by token creation. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
-- Source: [`packages/supporting/registry-auth/src/credentials-follow-explicit-source-precedence.spec.ts`](../packages/supporting/registry-auth/src/credentials-follow-explicit-source-precedence.spec.ts)
+- Source: [`packages/supporting/registry-access/src/credentials/credentials-follow-explicit-source-precedence.spec.ts`](../packages/supporting/registry-access/src/credentials/credentials-follow-explicit-source-precedence.spec.ts)
 
 ##### Environments without session storage require explicit tokens
 
 - Requirement: `cli/disabled-credential-persistence-requires-explicit-token`
-- Owner: `registry-auth`
+- Owner: `registry-access`
 - Statement: When persisted credentials are disabled, AXM shall refuse sign-in and saved-session authentication with the explicit-token policy failure while allowing commands to use an explicitly supplied environment token.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/supporting/registry-auth/src/credential-store.ts`
+- Derived from: `packages/supporting/registry-access/src/credentials/credential-store.ts`
 - Limitation: The refusal is the typed explicit-token policy failure; that the boundary renders it as `auth_required` naming AXM_TOKEN_FILE is a rendering decision this capability cannot observe, witnessed by apps/cli/src/feature-errors.test.ts. Retires when: An apps/cli specification owns the rendered explicit-token guidance, or the guidance becomes a carried field of the typed failure.
-- Source: [`packages/supporting/registry-auth/src/disabled-credential-persistence-requires-explicit-token.spec.ts`](../packages/supporting/registry-auth/src/disabled-credential-persistence-requires-explicit-token.spec.ts)
+- Source: [`packages/supporting/registry-access/src/credentials/disabled-credential-persistence-requires-explicit-token.spec.ts`](../packages/supporting/registry-access/src/credentials/disabled-credential-persistence-requires-explicit-token.spec.ts)
 
 ##### Login preapproval starts a new sign-in over a valid session in every mode
 
 - Requirement: `cli/login/preapproval-requests-new-sign-in`
-- Owner: `registry-auth`
+- Owner: `registry-access`
 - Statement: When a valid registry session already exists, login with preapproval shall start a new sign-in without asking in interactive, machine-output, and non-interactive modes, while login without preapproval shall keep the session and report the kept account in modes that cannot ask and shall ask before replacing it in a mode that can.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/supporting/registry-auth/src/login.ts`
+- Derived from: `packages/supporting/registry-access/src/authentication/login.ts`
 - Limitation: The kept-session outcome carries the Registry host and handle a caller renders; that the rendered guidance names the preapproval command (`axm login --yes`) is a boundary rendering decision this capability cannot observe. Retires when: An apps/cli specification owns the already-signed-in rendering for login, or the rendered suggestion set becomes observable from this capability.
-- Source: [`packages/supporting/registry-auth/src/preapproval-requests-new-sign-in.spec.ts`](../packages/supporting/registry-auth/src/preapproval-requests-new-sign-in.spec.ts)
+- Source: [`packages/supporting/registry-access/src/authentication/preapproval-requests-new-sign-in.spec.ts`](../packages/supporting/registry-access/src/authentication/preapproval-requests-new-sign-in.spec.ts)
 
 ##### Sign-in rejects inconsistent flow options
 
@@ -1481,116 +1481,116 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 ##### Sign-in resumes only its Registry authorization
 
 - Requirement: `cli/login/resume-requires-matching-pending-authorization`
-- Owner: `registry-auth`
+- Owner: `registry-access`
 - Statement: When login --wait has no pending authorization for the selected Registry, AXM shall report the missing or mismatched authorization without changing saved credentials or another Registry authorization.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/supporting/registry-auth/src/device-login.ts`
+- Derived from: `packages/supporting/registry-access/src/authentication/device-login.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../apps/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
-- Source: [`packages/supporting/registry-auth/src/resume-requires-matching-pending-authorization.spec.ts`](../packages/supporting/registry-auth/src/resume-requires-matching-pending-authorization.spec.ts)
+- Source: [`packages/supporting/registry-access/src/authentication/resume-requires-matching-pending-authorization.spec.ts`](../packages/supporting/registry-access/src/authentication/resume-requires-matching-pending-authorization.spec.ts)
 
 ##### Approved device sign-in establishes the selected Registry session
 
 - Requirement: `cli/login/resumes-approved-authorization`
-- Owner: `registry-auth`
+- Owner: `registry-access`
 - Statement: When a pending device authorization is approved, login --wait shall save the issued credentials for its Registry, clear the pending authorization, and make that session available to subsequent commands.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/supporting/registry-auth/src/device-login.ts`
+- Derived from: `packages/supporting/registry-access/src/authentication/device-login.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../apps/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
-- Source: [`packages/supporting/registry-auth/src/resumes-approved-authorization.spec.ts`](../packages/supporting/registry-auth/src/resumes-approved-authorization.spec.ts)
+- Source: [`packages/supporting/registry-access/src/authentication/resumes-approved-authorization.spec.ts`](../packages/supporting/registry-access/src/authentication/resumes-approved-authorization.spec.ts)
 
 ##### Sign-in retains an issued session when identity lookup is unavailable
 
 - Requirement: `cli/login/retains-issued-session-when-identity-unavailable`
-- Owner: `registry-auth`
+- Owner: `registry-access`
 - Statement: When device authorization issues a session but identity lookup is temporarily unavailable, AXM shall retain the usable session without presenting an unverified identity, allowing later identity inspection to report the canonical Registry account.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/supporting/registry-auth/src/device-login.ts`
-- Source: [`packages/supporting/registry-auth/src/retains-issued-session-when-identity-unavailable.spec.ts`](../packages/supporting/registry-auth/src/retains-issued-session-when-identity-unavailable.spec.ts)
+- Derived from: `packages/supporting/registry-access/src/authentication/device-login.ts`
+- Source: [`packages/supporting/registry-access/src/authentication/retains-issued-session-when-identity-unavailable.spec.ts`](../packages/supporting/registry-access/src/authentication/retains-issued-session-when-identity-unavailable.spec.ts)
 
 ##### Repeated sign-in preserves pending authorization
 
 - Requirement: `cli/login/reuses-pending-authorization`
-- Owner: `registry-auth`
+- Owner: `registry-access`
 - Statement: When a device authorization is unexpired, AXM shall reuse it for the same Registry and equivalent requested scopes, refuse a conflicting request without changing it, and replace it only when restart is explicitly requested.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/supporting/registry-auth/src/device-login.ts`
-- Source: [`packages/supporting/registry-auth/src/reuses-pending-authorization.spec.ts`](../packages/supporting/registry-auth/src/reuses-pending-authorization.spec.ts)
+- Derived from: `packages/supporting/registry-access/src/authentication/device-login.ts`
+- Source: [`packages/supporting/registry-access/src/authentication/reuses-pending-authorization.spec.ts`](../packages/supporting/registry-access/src/authentication/reuses-pending-authorization.spec.ts)
 
 ##### Unattended device sign-in returns the human action
 
 - Requirement: `cli/login/starts-resumable-device-sign-in`
-- Owner: `registry-auth`
+- Owner: `registry-access`
 - Statement: When device sign-in starts unattended, AXM shall retain the pending authorization and return its verification URL, user code, expiry, requested scopes, and resume command without waiting for approval or opening a browser.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/supporting/registry-auth/src/device-login.ts`
+- Derived from: `packages/supporting/registry-access/src/authentication/device-login.ts`
 - Assumptions: Machine output is the presenter consuming the pending device-login document; the application's renderer-backed presenter implements that port contract.
 - Additional evidence: process via [`apps/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../apps/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
-- Source: [`packages/supporting/registry-auth/src/starts-resumable-device-sign-in.spec.ts`](../packages/supporting/registry-auth/src/starts-resumable-device-sign-in.spec.ts)
+- Source: [`packages/supporting/registry-access/src/authentication/starts-resumable-device-sign-in.spec.ts`](../packages/supporting/registry-access/src/authentication/starts-resumable-device-sign-in.spec.ts)
 
 ##### Denied and expired sign-ins leave saved sessions unchanged
 
 - Requirement: `cli/login/terminal-authorization-failures-preserve-credentials`
-- Owner: `registry-auth`
+- Owner: `registry-access`
 - Statement: When a pending device authorization is denied or expires, login --wait shall report the corresponding failure, remove that pending authorization, and leave saved credentials unchanged.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/supporting/registry-auth/src/device-login.ts`
+- Derived from: `packages/supporting/registry-access/src/authentication/device-login.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../apps/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
-- Source: [`packages/supporting/registry-auth/src/terminal-authorization-failures-preserve-credentials.spec.ts`](../packages/supporting/registry-auth/src/terminal-authorization-failures-preserve-credentials.spec.ts)
+- Source: [`packages/supporting/registry-access/src/authentication/terminal-authorization-failures-preserve-credentials.spec.ts`](../packages/supporting/registry-access/src/authentication/terminal-authorization-failures-preserve-credentials.spec.ts)
 
 ##### A bounded wait leaves sign-in resumable
 
 - Requirement: `cli/login/wait-timeout-preserves-authorization`
-- Owner: `registry-auth`
+- Owner: `registry-access`
 - Statement: When login --wait reaches the requested timeout before authorization completes, AXM shall report pending human approval with resume instructions and preserve the pending authorization and existing credentials.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/supporting/registry-auth/src/device-login.ts`
-- Source: [`packages/supporting/registry-auth/src/wait-timeout-preserves-authorization.spec.ts`](../packages/supporting/registry-auth/src/wait-timeout-preserves-authorization.spec.ts)
+- Derived from: `packages/supporting/registry-access/src/authentication/device-login.ts`
+- Source: [`packages/supporting/registry-access/src/authentication/wait-timeout-preserves-authorization.spec.ts`](../packages/supporting/registry-access/src/authentication/wait-timeout-preserves-authorization.spec.ts)
 
 ##### Sign-out removes only the selected Registry session
 
 - Requirement: `cli/logout/erases-selected-registry-credentials`
-- Owner: `registry-auth`
+- Owner: `registry-access`
 - Statement: When logout finds saved credentials, AXM shall remove the selected Registry session even if remote revocation fails, leaving other Registry credentials available.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/supporting/registry-auth/src/logout.ts`
-- Source: [`packages/supporting/registry-auth/src/erases-selected-registry-credentials.spec.ts`](../packages/supporting/registry-auth/src/erases-selected-registry-credentials.spec.ts)
+- Derived from: `packages/supporting/registry-access/src/authentication/logout.ts`
+- Source: [`packages/supporting/registry-access/src/credentials/erases-selected-registry-credentials.spec.ts`](../packages/supporting/registry-access/src/credentials/erases-selected-registry-credentials.spec.ts)
 
 ##### Publish authorization resumes the exact reviewed publication
 
 - Requirement: `cli/publish/authorization-resumes-the-exact-publication`
-- Owner: `registry-auth`
+- Owner: `registry-access`
 - Statement: When unattended publish has no publication authority, AXM shall persist a private initiator proof, return a human handoff carrying the registry-protocol publish action and no proof, and neither wait nor upload; a resume reference shall resume only that same request with unchanged publication material, a bounded wait shall return the same handoff when it elapses, and resume shall refuse a foreign, different-purpose or query-bearing reference and changed archives or visibility before exchange, exchange only an approved request, and require explicit recovery for denial, expiry or a prior exchange without replacing the request or replaying uploads.
 - Class: functional
 - Role: experience
@@ -1600,21 +1600,21 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Open questions: Which specification owns the generic human-handoff protocol (an immediate pending handoff unless a bounded wait was requested, resume only the referenced request, never a silent replacement) that this identity, cli/unattended-verification-is-resumable and cli/login/starts-resumable-device-sign-in each restate for their own purpose?
 - Limitation: These cases control the Registry boundary and observe typed outcomes; the server owns approval and atomic exchange enforcement, and full publish command evidence separately covers upload settlement. Retires when: Coordinated end-to-end evidence binds persisted CLI resume, server approval and publication outcome recovery.
 - Limitation: The exit codes and rendered JSON envelope these outcomes produce (13 pending, 14 expired, 15 denied, 16 wait elapsed, 6 already exchanged) are a boundary mapping this capability cannot observe; they are pinned by apps/cli/src/auth-pending-envelopes.test.ts. Retires when: cli/exit-codes-match-published-reference adopts the publish-authorization exit codes as decisive rows.
-- Source: [`packages/supporting/registry-auth/src/publish-authorization-resumes-the-exact-publication.spec.ts`](../packages/supporting/registry-auth/src/publish-authorization-resumes-the-exact-publication.spec.ts)
+- Source: [`packages/supporting/registry-access/src/authentication/publish-authorization-resumes-the-exact-publication.spec.ts`](../packages/supporting/registry-access/src/authentication/publish-authorization-resumes-the-exact-publication.spec.ts)
 
 ##### Token creation requests the chosen lifetime and permissions
 
 - Requirement: `cli/token/create/submits-requested-authority`
-- Owner: `registry-auth`
+- Owner: `registry-access`
 - Statement: When creating a token, AXM shall submit the requested name, lifetime, and permission restrictions using the effective credential and report the issued token without replacing the current session.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/supporting/registry-auth/src/tokens.ts`
+- Derived from: `packages/supporting/registry-access/src/authentication/tokens.ts`
 - Open questions: Which token-lifetime input forms, omitted-input default, and valid range should the CLI guarantee? Command help and parser tests are witnesses for the current forms and default; this requirement allocates submission of the selected lifetime, not an undecided lifetime-input policy.
-- Source: [`packages/supporting/registry-auth/src/tokens/create-submits-requested-authority.spec.ts`](../packages/supporting/registry-auth/src/tokens/create-submits-requested-authority.spec.ts)
+- Source: [`packages/supporting/registry-access/src/authentication/tokens/create-submits-requested-authority.spec.ts`](../packages/supporting/registry-access/src/authentication/tokens/create-submits-requested-authority.spec.ts)
 
 ##### Token listing reports Registry inventory and completeness
 
@@ -1632,20 +1632,20 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 ##### Token revocation names the selected credential
 
 - Requirement: `cli/token/revoke/revokes-only-selected-token`
-- Owner: `registry-auth`
+- Owner: `registry-access`
 - Statement: When token revoke is requested, AXM shall request deletion of the selected token identifier using the effective credential and report success only after the Registry accepts deletion.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/supporting/registry-auth/src/tokens.ts`
-- Source: [`packages/supporting/registry-auth/src/tokens/revoke-revokes-only-selected-token.spec.ts`](../packages/supporting/registry-auth/src/tokens/revoke-revokes-only-selected-token.spec.ts)
+- Derived from: `packages/supporting/registry-access/src/authentication/tokens.ts`
+- Source: [`packages/supporting/registry-access/src/authentication/tokens/revoke-revokes-only-selected-token.spec.ts`](../packages/supporting/registry-access/src/authentication/tokens/revoke-revokes-only-selected-token.spec.ts)
 
 ##### Unattended verification returns the same resumable request
 
 - Requirement: `cli/unattended-verification-is-resumable`
-- Owner: `registry-auth`
+- Owner: `registry-access`
 - Statement: When a Registry write no person is guiding requires human verification, AXM shall return a pending-human handoff immediately unless a bounded wait was explicitly requested, identify its purpose, Registry, nonsecret request reference, verification URL, expiry, polling interval and resume instruction, resume only that referenced request with the original inputs without creating a replacement or performing the write before verification, refuse a reference naming another Registry, another purpose, or carrying a query without presenting any credential, and refuse a nonpositive bounded wait before attempting the write.
 - Class: functional
 - Role: experience
@@ -1655,7 +1655,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Derived from: `cli/registry-writes-complete-required-verification`
 - Limitation: The Registry boundary is controlled; server-side action, actor and intent binding enforcement is outside this CLI evidence. Retires when: Deployed Registry conformance evidence verifies rejection of altered action, actor and intent bindings.
 - Limitation: That machine output or a missing terminal each make an invocation unattended, and that the pending handoff renders as exit 13 (or 16 when the wait elapses) in the JSON error envelope, are boundary decisions this capability cannot observe; the envelope and exit codes are pinned by apps/cli/src/auth-pending-envelopes.test.ts, and that login does not offer the resume flag by apps/cli/src/cli-flags/human-verification.test.ts. Retires when: cli/exit-codes-match-published-reference adopts the pending-verification exit codes, and one owner states the unattended-invocation rule the write commands each derive today.
-- Source: [`packages/supporting/registry-auth/src/step-up/unattended-verification-is-resumable.spec.ts`](../packages/supporting/registry-auth/src/step-up/unattended-verification-is-resumable.spec.ts)
+- Source: [`packages/supporting/registry-access/src/authentication/step-up/unattended-verification-is-resumable.spec.ts`](../packages/supporting/registry-access/src/authentication/step-up/unattended-verification-is-resumable.spec.ts)
 
 ### Goal: platform-reach
 
@@ -1720,18 +1720,18 @@ Observation of product use stays within the documented data boundary and under t
 ##### Challenged Registry writes complete the required verification before retrying
 
 - Requirement: `cli/registry-writes-complete-required-verification`
-- Owner: `registry-auth`
+- Owner: `registry-access`
 - Statement: When a Registry write that a person is guiding, or one explicitly requesting a bounded wait, receives a human-verification challenge, AXM shall present the action, target and verification URL, wait once for that challenge's completion within its lifetime and the requested wait bound, retry the identical write at most once with its verification identifier while preserving every input it carried, and report no success if verification or the retry fails.
 - Class: functional
 - Role: experience
 - Product goals: `privacy-and-consent`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
-- Derived from: `AgentXM Registry API 0.1.0`, `packages/supporting/registry-auth/src/step-up.ts`, `cli/token/completes-required-human-verification`
+- Derived from: `AgentXM Registry API 0.1.0`, `packages/supporting/registry-access/src/authentication/step-up.ts`, `cli/token/completes-required-human-verification`
 - Supersedes: `cli/token/completes-required-human-verification`
 - Limitation: Token creation and revocation are exercised through their own use cases; the version-lifecycle and visibility writes are exercised as parameterized mutation ports, so that yank, unyank, visibility set and visibility reconcile each compose this capability is not established here. Retires when: Workspace publishing carries a test proving each lifecycle and visibility command composes runWithStepUp with its observed revision.
 - Additional evidence: process via [`apps/cli-e2e/src/auth.e2e.test.ts`](../apps/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout and HTTP verification followed by token creation. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
-- Source: [`packages/supporting/registry-auth/src/step-up/registry-writes-complete-required-verification.spec.ts`](../packages/supporting/registry-auth/src/step-up/registry-writes-complete-required-verification.spec.ts)
+- Source: [`packages/supporting/registry-access/src/authentication/step-up/registry-writes-complete-required-verification.spec.ts`](../packages/supporting/registry-access/src/authentication/step-up/registry-writes-complete-required-verification.spec.ts)
 
 ##### Telemetry collection requires the operator's environment consent
 
@@ -2963,15 +2963,15 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 ##### Credentials stay within their Registry origin
 
 - Requirement: `cli/credentials-stay-with-their-registry`
-- Owner: `registry-auth`
+- Owner: `registry-access`
 - Statement: When authenticating a Registry request, AXM shall use ambient tokens only for the configured Registry origin and otherwise use credentials saved for the request origin or send no credential.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/supporting/registry-auth/src/token-resolution.ts`
-- Source: [`packages/supporting/registry-auth/src/credentials-stay-with-their-registry.spec.ts`](../packages/supporting/registry-auth/src/credentials-stay-with-their-registry.spec.ts)
+- Derived from: `packages/supporting/registry-access/src/credentials/token-resolution.ts`
+- Source: [`packages/supporting/registry-access/src/credentials/credentials-stay-with-their-registry.spec.ts`](../packages/supporting/registry-access/src/credentials/credentials-stay-with-their-registry.spec.ts)
 
 ##### Override flags bypass only the one policy they name
 
@@ -4559,7 +4559,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: process; selection: per-change
 - Boundary rationale: Fresh CLI setup invocations establish relocated workspace placement; real credential, pending-login, and install-metadata services read and write disposable homes; the installer control establishes executable placement.
 - Methods: example, decision-table
-- Derived from: `apps/cli/help/topics/environment.md`, `packages/core/workspace/src/desired-state/workspace/paths.test.ts`, `packages/supporting/registry-auth/src/credential-store.test.ts`, `packages/supporting/registry-auth/src/pending-device-login-store.test.ts`, `apps/cli/src/install-meta/install-meta.test.ts`, `apps/cli/src/environment-relocates-user-resources.test.ts`
+- Derived from: `apps/cli/help/topics/environment.md`, `packages/core/workspace/src/desired-state/workspace/paths.test.ts`, `packages/supporting/registry-access/src/credentials/credential-store.test.ts`, `packages/supporting/registry-access/src/authentication/pending-device-login-store.test.ts`, `apps/cli/src/install-meta/install-meta.test.ts`, `apps/cli/src/environment-relocates-user-resources.test.ts`
 - Open questions: What is the canonical restricted-file credential subdirectory? Earlier environment help named the .axm application home, while current storage uses .config/axm.; Should an empty AXM_USER_HOME use the platform home consistently for credentials and pending login as earlier environment help promised? Their current environment reader preserves an empty string.; Does AXM_USER_HOME also relocate platform-style caches? The cache resolver and its internal witness do so, while earlier environment help said platform caches keep platform locations.
 - Limitation: The default executable example runs the actual shell installer only on macOS/Linux and uses a version-answering executable fixture. These examples supply no Windows process evidence for user-workspace, PowerShell/cmd default executable, or install-metadata relocation; direct live-adapter cases do not establish that process population. Retires when: Add equivalent populated platform-versus-application-home process controls for the supported Windows installer shells and built CLI, while retaining actual installed-binary evidence for product startup.
 - Limitation: This owner concerns application resources, not the OS keychain. It does not claim that AXM_USER_HOME changes the logged-in operating-system account or keychain namespace. Retires when: Retain that ownership distinction while changes to the application-home implementation are reviewed.

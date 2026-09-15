@@ -20,7 +20,7 @@ import { CliConfig, CliOutput, Command, GlobalFlag } from "effect/unstable/cli";
 import {
   AuthLoginInteractionTest,
   DeviceLoginInteractionTest,
-} from "@agentxm/registry-auth/testing";
+} from "@agentxm/registry-access/testing";
 import { TEST_VERSION } from "./command-tree-test-helpers.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 import { makeCliTestContext } from "./test-helpers.js";

@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
-import { login, selectedRegistry } from "@agentxm/registry-auth";
+import { login, selectedRegistry } from "@agentxm/registry-access/authentication";
 import { Screen, successDoc } from "../../screen/index.js";
 import { isNonInteractive, jsonFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";

@@ -43,11 +43,11 @@ import {
   AuthLoginPresenter,
   DeviceLoginInteraction,
   PendingPublishAuthorizationStore,
-  resolveRequestToken,
   runPublishAuthorization,
   type AuthError,
   type PublishCapabilityResponse,
-} from "@agentxm/registry-auth";
+} from "@agentxm/registry-access/authentication";
+import { resolveRequestToken } from "@agentxm/registry-access/credentials";
 import {
   buildPackDependencyReachability,
   makeProspectiveExtensionConstraintFacts,

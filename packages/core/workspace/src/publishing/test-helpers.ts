@@ -38,9 +38,9 @@ import {
   CredentialStoreTest,
   DeviceLoginInteractionTest,
   PendingPublishAuthorizationStoreTest,
-} from "@agentxm/registry-auth/testing";
+} from "@agentxm/registry-access/testing";
 import { RegistryUrlTest, testRegistryUrl } from "@agentxm/registry-client/testing";
-import type { CreatePublishAuthorizationRequestParams } from "@agentxm/registry-auth";
+import type { CreatePublishAuthorizationRequestParams } from "@agentxm/registry-access/authentication";
 import { validateArchive } from "@agentxm/extension-content";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions";

@@ -33,13 +33,13 @@ import {
   AuthLoginPresenter,
   DeviceLoginInteraction,
   PendingPublishAuthorizationStore,
-} from "@agentxm/registry-auth";
+} from "@agentxm/registry-access/authentication";
 import {
   AuthClientTest,
   AuthLoginPresenterTest,
   DeviceLoginInteractionTest,
   PendingPublishAuthorizationStoreTest,
-} from "@agentxm/registry-auth/testing";
+} from "@agentxm/registry-access/testing";
 import { OfflineHttpClient } from "@agentxm/registry-client/testing";
 
 import type { PublishableType } from "./publishable-types.js";

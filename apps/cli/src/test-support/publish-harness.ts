@@ -2,7 +2,7 @@ import {
   AuthClientTest,
   DeviceLoginInteractionTest,
   PendingPublishAuthorizationStoreTest,
-} from "@agentxm/registry-auth/testing";
+} from "@agentxm/registry-access/testing";
 /**
  * Publish fixtures for CLI specifications.
  *

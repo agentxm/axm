@@ -67,7 +67,7 @@
       // Pin the published Effect runtime cohort despite its transitive import.
       "ignoreDependencies": ["@effect/platform-node-shared"],
     },
-    "packages/supporting/registry-auth": {
+    "packages/supporting/registry-access": {
       "ignoreDependencies": ["@napi-rs/keyring"],
     },
     "tools/extension-type-parity": {

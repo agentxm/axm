@@ -1,5 +1,5 @@
 /**
- * Envelope pinning for the registry-auth boundary conversions. The auth
+ * Envelope pinning for the registry-access boundary conversions. The auth
  * feature's internal tests assert typed failures; the byte-for-byte envelope
  * contract that used to live at the construction sites is pinned here, in the
  * one place that owns the mapping.
@@ -15,9 +15,9 @@ import {
   DeviceAuthorizationPending,
   DeviceLoginCodeExpired,
   DeviceLoginDenied,
-  RegistryAuthFailed,
+  RegistryAccessFailed,
   StepUpRequired,
-} from "@agentxm/registry-auth";
+} from "@agentxm/registry-access/authentication";
 import { RegistryRequestFailed } from "@agentxm/registry-client";
 
 import {
@@ -28,14 +28,14 @@ import {
   deviceAuthorizationPendingToAppError,
   deviceLoginCodeExpiredToAppError,
   deviceLoginDeniedToAppError,
-  registryAuthFailedToAppError,
+  registryAccessFailedToAppError,
   stepUpRequiredToAppError,
 } from "./feature-errors.js";
 
-describe("registry-auth envelope conversions", () => {
+describe("registry-access envelope conversions", () => {
   it("carries a policy failure's category, wording, and recovery over 1:1", () => {
-    const error = registryAuthFailedToAppError(
-      new RegistryAuthFailed({
+    const error = registryAccessFailedToAppError(
+      new RegistryAccessFailed({
         category: "auth_expired",
         detail: "The step-up request expired before verification completed.",
         recover: "Rerun the command to start a new verification request.",
@@ -50,8 +50,8 @@ describe("registry-auth envelope conversions", () => {
   });
 
   it("converts a typed auth failure in cause position into the nested envelope", () => {
-    const error = registryAuthFailedToAppError(
-      new RegistryAuthFailed({
+    const error = registryAccessFailedToAppError(
+      new RegistryAccessFailed({
         category: "auth_expired",
         detail: "The pending device sign-in expired. No credentials were changed.",
         suggestions: [

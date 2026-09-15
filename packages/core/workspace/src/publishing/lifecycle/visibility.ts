@@ -29,7 +29,7 @@ import type {
   VisibilityIntent,
   VisibilityMutationResult,
 } from "@agentxm/registry-protocol/unstable/publish";
-import { runWithStepUp, type StepUpOptions } from "@agentxm/registry-auth";
+import { runWithStepUp, type StepUpOptions } from "@agentxm/registry-access/authentication";
 import { SettingsReader, WorkspaceLocation } from "../../desired-state/index.js";
 
 import { PublishFailed } from "../errors.js";

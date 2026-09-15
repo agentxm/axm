@@ -335,12 +335,16 @@ keeps the distinctive model from leaking outward through an adapter.
 | Package                    | Role               | Owns                                                                                                                                                                         |
 | -------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `@agentxm/registry-client` | `role:integration` | Local and remote Registry clients over the generated OpenAPI transport, request policy and retries, typed Registry failures, the archive cache, and lifecycle administration |
-| `@agentxm/registry-auth`   | `role:capability`  | Login, logout, token and identity inspection, device and loopback flows, step-up authorization, and credential lifecycle                                                     |
+| `@agentxm/registry-access` | `role:capability`  | Authentication and verified-write workflows, credential storage and token resolution, and environment-backed Registry access adapters                                        |
 | `@agentxm/cli-maintenance` | `role:capability`  | Self-update decisions and official-skill compatibility, with independent capability visibility and architectural-role constraints inside the package                         |
 
-`registry-auth` is a capability rather than a feature because publish,
-authoring, and visibility consume it; its own command surface is a thin use of
-the same services.
+`registry-access/authentication` owns login, logout, identity, token authority,
+and step-up policy. `registry-access/credentials` owns credential storage and
+token-source precedence. `registry-access/adapters` binds those policies to the
+selected Registry, filesystem, keychain, process environment, browser, and
+HTTP transport. Publish, authoring, and visibility consume the narrow owner
+subpaths; the authentication command surface is a thin use of the same
+services.
 
 ## Engineering libraries
 

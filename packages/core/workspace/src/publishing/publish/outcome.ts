@@ -14,7 +14,7 @@ import {
   PublishAuthorizationPending,
   StepUpVerificationPending,
   type AuthError,
-} from "@agentxm/registry-auth";
+} from "@agentxm/registry-access/authentication";
 import {
   StepFailure,
   unitIdOf,

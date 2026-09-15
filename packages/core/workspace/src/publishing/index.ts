@@ -3,7 +3,7 @@
  * validation, archive planning, authentication requirements, upload
  * settlement, and recovery. Authentication is expressed as typed
  * precondition data and consumed as structural grant values; the application
- * sequences the registry-auth feature to satisfy it.
+ * sequences the Registry access capability to satisfy it.
  *
  * @experimental All exports from this module are unstable and may change without notice.
  * @packageDocumentation

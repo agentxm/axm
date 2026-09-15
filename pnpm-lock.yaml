@@ -328,9 +328,9 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../../packages/core/extension-model
-      '@agentxm/registry-auth':
+      '@agentxm/registry-access':
         specifier: workspace:^
-        version: link:../../packages/supporting/registry-auth
+        version: link:../../packages/supporting/registry-access
       '@agentxm/registry-client':
         specifier: workspace:^
         version: link:../../packages/supporting/registry-client
@@ -536,9 +536,9 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../extension-model
-      '@agentxm/registry-auth':
+      '@agentxm/registry-access':
         specifier: workspace:^
-        version: link:../../supporting/registry-auth
+        version: link:../../supporting/registry-access
       '@agentxm/registry-client':
         specifier: workspace:^
         version: link:../../supporting/registry-client
@@ -644,7 +644,7 @@ importers:
         specifier: 'catalog:'
         version: 5.0.0(@types/node@26.1.1)(@vitest/coverage-v8@5.0.0)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
 
-  packages/supporting/registry-auth:
+  packages/supporting/registry-access:
     dependencies:
       '@agentxm/extension-model':
         specifier: workspace:^

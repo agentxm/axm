@@ -28,7 +28,7 @@
       "path": "../../packages/supporting/registry-client/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/supporting/registry-auth/tsconfig.lib.json"
+      "path": "../../packages/supporting/registry-access/tsconfig.lib.json"
     },
     {
       "path": "../../packages/core/extension-model/tsconfig.lib.json"

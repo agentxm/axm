@@ -21,8 +21,8 @@ export const specification = defineSpecification({
   derivedFrom: [
     "apps/cli/help/topics/environment.md",
     "packages/core/workspace/src/desired-state/workspace/paths.test.ts",
-    "packages/supporting/registry-auth/src/credential-store.test.ts",
-    "packages/supporting/registry-auth/src/pending-device-login-store.test.ts",
+    "packages/supporting/registry-access/src/credentials/credential-store.test.ts",
+    "packages/supporting/registry-access/src/authentication/pending-device-login-store.test.ts",
     "apps/cli/src/install-meta/install-meta.test.ts",
     "apps/cli/src/environment-relocates-user-resources.test.ts",
   ],
@@ -108,7 +108,7 @@ describe("Application-resource home", () => {
 
   // The live-adapter example — the credential, pending-device-login and
   // install-metadata services reading back the selected home while populated
-  // platform resources stay untouched — composes `@agentxm/registry-auth/live`
+  // platform resources stay untouched — composes `@agentxm/registry-access/adapters`
   // and `@agentxm/cli-maintenance/self-update/composition/native`. An end-to-end project observes only shipped
   // artifacts and may not declare a dependency on product source
   // (`system/architecture/e2e-observes-only-shipped-artifacts`), so it runs

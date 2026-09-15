@@ -153,7 +153,7 @@ export {
 } from "./axm-package-meta.js";
 export { purlIdentityMatch, purlMatch } from "./purl-match.js";
 
-// Generated OpenAPI transport (consumed by the registry-auth feature)
+// Generated OpenAPI transport (consumed by the Registry access capability)
 export * as GeneratedRegistryClient from "./__generated__/registry-client.js";
 
 // Credential-shape redaction for registry-supplied text

@@ -184,8 +184,8 @@ const loginFamily = defineResultFamily({
   humanOutputKind: "mutation",
   commandCoverage: [
     "apps/cli/src/root/auth/login.test.ts",
-    "packages/supporting/registry-auth/src/device-login.test.ts",
-    "packages/supporting/registry-auth/src/loopback-login.test.ts",
+    "packages/supporting/registry-access/src/authentication/device-login.test.ts",
+    "packages/supporting/registry-access/src/adapters/loopback-login.test.ts",
   ],
 });
 

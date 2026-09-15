@@ -17,7 +17,7 @@ import type {
   JobStepResult,
   Operation,
 } from "@agentxm/workspace-operations";
-import { type SettingsReader, WorkspaceMutations } from "@agentxm/workspace-state";
+import { SettingsReader, SettingsWriter, WorkspaceLocation } from "@agentxm/workspace-state";
 import {
   WorkspaceTransactionScope,
   runWorkspaceTransaction,
@@ -43,18 +43,21 @@ export const disableMcpServer = (
   StepFailure,
   | FileSystem.FileSystem
   | Path.Path
-  | WorkspaceMutations
+  | WorkspaceLocation
   | SettingsReader
+  | SettingsWriter
   | WorkspaceTransactionScope
   | CodingAgentRepository
   | NativeWriteAuthority
   | StepFailureConversion
 > =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
+    const settingsWriter = yield* SettingsWriter;
     const agentRepo = yield* CodingAgentRepository;
 
-    const configured = yield* ws.getConfiguredMcpServerEntries();
+    const configured = yield* settings.entries("mcp-server");
     const entry = configured[op.args.serverName];
     if (entry === undefined) {
       return yield* new ExtensionLifecycleFailed({
@@ -70,8 +73,8 @@ export const disableMcpServer = (
           agents,
           (agent) =>
             agent.removeMcpServer({
-              workspaceRoot: ws.baseDir,
-              scope: ws.scope,
+              workspaceRoot: location.baseDir,
+              scope: location.scope,
               serverName: op.args.serverName,
               disableOnly: false,
             }),
@@ -87,7 +90,7 @@ export const disableMcpServer = (
             },
           })),
         );
-        yield* ws.updateMcpServerEntry(op.args.serverName, (current) => ({
+        yield* settingsWriter.updateEntry("mcp-server", op.args.serverName, (current) => ({
           ...current,
           enabled: false,
         }));
@@ -120,9 +123,12 @@ export const disableMcpServer = (
       message: appendWarningsToMessage(`Disabled ${op.args.serverName}`, warnings),
       artifact: mcpServerArtifact({
         lockEntry: undefined,
-        scope: ws.scope,
+        scope: location.scope,
         change: "updated",
-        targets: [mcpSettingsTarget(ws.scope, "updated"), ...agentConfigTargets(syncedAgents)],
+        targets: [
+          mcpSettingsTarget(location.scope, "updated"),
+          ...agentConfigTargets(syncedAgents),
+        ],
       }),
     };
   }).pipe(withAdaptedStepFailures);

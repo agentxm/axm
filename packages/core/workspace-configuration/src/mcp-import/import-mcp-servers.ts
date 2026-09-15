@@ -31,7 +31,14 @@ import {
   type PlanExecution,
   type PlannedJobStep,
 } from "@agentxm/workspace-operations";
-import { ConfiguredAgentOutcomesProvider, WorkspaceMutations } from "@agentxm/workspace-state";
+import {
+  ConfiguredAgentOutcomesProvider,
+  LockfileReader,
+  SettingsReader,
+  WorkspaceLocation,
+  WorkspaceMutations,
+  WorkspaceRecords,
+} from "@agentxm/workspace-state";
 import { FootprintRecorder, WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
 
 import {
@@ -121,7 +128,11 @@ export type ImportMcpServersRequirements =
   | OperationJournal
   | Path.Path
   | ResolvePlanInteraction
+  | LockfileReader
+  | SettingsReader
+  | WorkspaceLocation
   | WorkspaceMutations
+  | WorkspaceRecords
   | WorkspaceTransactionScope;
 
 /**

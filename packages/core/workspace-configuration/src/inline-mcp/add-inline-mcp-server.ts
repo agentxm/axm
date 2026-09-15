@@ -38,7 +38,11 @@ import {
 } from "@agentxm/workspace-operations";
 import {
   ConfiguredAgentOutcomesProvider,
+  LockfileReader,
+  SettingsReader,
+  WorkspaceLocation,
   WorkspaceMutations,
+  WorkspaceRecords,
   type WorkspaceStateReadFailure,
 } from "@agentxm/workspace-state";
 import { FootprintRecorder, WorkspaceTransactionScope } from "@agentxm/workspace-transactions";
@@ -350,7 +354,11 @@ export type AddInlineMcpServerRequirements =
   | OperationJournal
   | Path.Path
   | ResolvePlanInteraction
+  | LockfileReader
+  | SettingsReader
+  | WorkspaceLocation
   | WorkspaceMutations
+  | WorkspaceRecords
   | WorkspaceTransactionScope;
 
 /** Preview or apply a settled inline add: record the entry, then project it. */

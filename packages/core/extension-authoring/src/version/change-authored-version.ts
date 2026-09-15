@@ -49,8 +49,12 @@ import {
 import {
   WorkspaceMutations,
   type ConfiguredAgentOutcomesProvider,
+  type LockfileReader,
   type LockfileValidationError,
+  type SettingsReader,
+  type WorkspaceLocation,
   type WorkspaceLockfileReadFailure,
+  type WorkspaceRecords,
   type WorkspaceSettingsReadFailure,
 } from "@agentxm/workspace-state";
 import {
@@ -124,7 +128,14 @@ export type ChangeAuthoredVersionFailure =
 
 /** Everything settling a version change reads before it freezes a candidate. */
 export type PrepareChangeAuthoredVersionRequirements =
-  FileSystem.FileSystem | Path.Path | WorkspaceMutations | ConfiguredAgentOutcomesProvider;
+  | FileSystem.FileSystem
+  | Path.Path
+  | WorkspaceMutations
+  | ConfiguredAgentOutcomesProvider
+  | LockfileReader
+  | SettingsReader
+  | WorkspaceLocation
+  | WorkspaceRecords;
 
 // -----------------------------------------------------------------------------
 // Manifest access

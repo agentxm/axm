@@ -28,9 +28,9 @@ import type {
 import {
   type DesiredStateReader,
   type LockfileReader,
-  type SettingsReader,
-  type WorkspaceLocation,
-  WorkspaceMutations,
+  SettingsReader,
+  SettingsWriter,
+  WorkspaceLocation,
 } from "@agentxm/workspace-state";
 import {
   WorkspaceTransactionScope,
@@ -72,9 +72,9 @@ export const enableMcpServer = (
   StepFailure,
   | FileSystem.FileSystem
   | Path.Path
-  | WorkspaceMutations
   | WorkspaceLocation
   | SettingsReader
+  | SettingsWriter
   | LockfileReader
   | DesiredStateReader
   | WorkspaceTransactionScope
@@ -83,10 +83,12 @@ export const enableMcpServer = (
   | StepFailureConversion
 > =>
   Effect.gen(function* () {
-    const ws = yield* WorkspaceMutations;
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
+    const settingsWriter = yield* SettingsWriter;
     const agentRepo = yield* CodingAgentRepository;
 
-    const configured = yield* ws.getConfiguredMcpServerEntries();
+    const configured = yield* settings.entries("mcp-server");
     const entry = configured[op.args.serverName];
     if (entry === undefined) {
       return yield* new ExtensionLifecycleFailed({
@@ -96,14 +98,15 @@ export const enableMcpServer = (
     }
 
     if (entry.kind === "inline") {
-      const agentIds = yield* ws.getConfiguredAgents();
+      const agents = yield* agentRepo.getConfiguredAgents();
+      const agentIds = agents.map(({ id }) => id);
       const outcomes = yield* runWorkspaceTransaction({
         transition: Effect.gen(function* () {
           const synced = yield* syncInlineMcpServerToAgents(agentIds, {
-            workspaceRoot: ws.baseDir,
+            workspaceRoot: location.baseDir,
             serverName: op.args.serverName,
             entry: { ...entry, enabled: true },
-            scope: ws.scope,
+            scope: location.scope,
           });
           const agentOutcomes = agentIds.map((agentId, index) => ({
             agentId,
@@ -113,7 +116,7 @@ export const enableMcpServer = (
             },
           }));
           yield* requireSuccessfulMcpSync(op.args.serverName, agentOutcomes);
-          yield* ws.updateMcpServerEntry(op.args.serverName, (current) => ({
+          yield* settingsWriter.updateEntry("mcp-server", op.args.serverName, (current) => ({
             ...current,
             enabled: true,
           }));
@@ -140,7 +143,7 @@ export const enableMcpServer = (
         message: appendWarningsToMessage(`Enabled ${op.args.serverName}`, warnings),
         artifact: enableArtifact({
           lockEntry: undefined,
-          scope: ws.scope,
+          scope: location.scope,
           targets: agentConfigTargets(agentOutcomes),
         }),
       };
@@ -181,8 +184,8 @@ export const enableMcpServer = (
       transition: Effect.gen(function* () {
         const synced = yield* syncManifestMcpServerToAgents({
           agentIds,
-          workspaceRoot: ws.baseDir,
-          scope: ws.scope,
+          workspaceRoot: location.baseDir,
+          scope: location.scope,
           serverName: op.args.serverName,
           canonicalPath,
           owner,
@@ -200,7 +203,7 @@ export const enableMcpServer = (
             },
           })),
         );
-        yield* ws.updateMcpServerEntry(op.args.serverName, (current) => ({
+        yield* settingsWriter.updateEntry("mcp-server", op.args.serverName, (current) => ({
           ...current,
           enabled: true,
         }));
@@ -229,7 +232,7 @@ export const enableMcpServer = (
       message: appendWarningsToMessage(`Enabled ${op.args.serverName}`, warnings),
       artifact: enableArtifact({
         lockEntry: accepted,
-        scope: ws.scope,
+        scope: location.scope,
         targets: agentConfigTargets(agentOutcomes),
       }),
     };

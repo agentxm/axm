@@ -50,7 +50,7 @@ export {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
 } from "@agentxm/workspace/projection/live";
-import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
+import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/live";
 export { SourceHostProvidersLive };
 import { workspaceInvariantFactsLive } from "./workspace-invariant-facts-live.js";
 export { KnowledgeIndexLive };

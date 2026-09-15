@@ -35,8 +35,8 @@ import type {
   McpServerExtensionRef,
   RegistryMcpServerRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
-import { SourceHostProviders } from "@agentxm/extension-sources";
-import type { SourceHostProvidersService } from "@agentxm/extension-sources";
+import { SourceHostProviders } from "../../resolution/sources/index.js";
+import type { SourceHostProvidersService } from "../../resolution/sources/index.js";
 import { WorkspaceReadTest } from "../../desired-state/testing.js";
 import { makeCodingAgentStub } from "./test-helpers.js";
 import type { McpSecretStoreService } from "../../materialization/index.js";

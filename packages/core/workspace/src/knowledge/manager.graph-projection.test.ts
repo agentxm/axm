@@ -18,7 +18,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { KnowledgeManager } from "../materialization/managers.js";
 import { applyPlannedProjections, observeProjectionPlans } from "../projection/index.js";
-import { SourceHostProviders, SourceNotResolvable } from "@agentxm/extension-sources";
+import { SourceHostProviders, SourceNotResolvable } from "../resolution/sources/index.js";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
   DesiredStateWriter,

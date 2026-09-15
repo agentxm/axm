@@ -36,7 +36,10 @@ import {
 } from "@agentxm/extension-model/unstable/sources/parser";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
-import { SourceHostProviders, type SourceResolutionFailure } from "@agentxm/extension-sources";
+import {
+  SourceHostProviders,
+  type SourceResolutionFailure,
+} from "../../../resolution/sources/index.js";
 import {
   operationPresentation,
   type JobStepResult,

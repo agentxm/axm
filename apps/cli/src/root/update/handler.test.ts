@@ -19,7 +19,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
-import { SourceHostProviders, type SourceHostProvidersService } from "@agentxm/extension-sources";
+import {
+  SourceHostProviders,
+  type SourceHostProvidersService,
+} from "@agentxm/workspace/resolution/sources";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import {
   decodeVersionRangeSync,

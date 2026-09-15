@@ -30,7 +30,7 @@ import {
   type InstallableSkillTarget,
 } from "../../../materialization/index.js";
 import { buildUninstallOperation } from "../../../reconciliation/index.js";
-import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-sources";
+import { resolveInstalledIdentifierNameOrInput } from "../../../resolution/sources/index.js";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 import type {
   JobStepArtifactTarget,

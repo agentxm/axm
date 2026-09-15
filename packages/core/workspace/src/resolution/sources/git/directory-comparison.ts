@@ -21,4 +21,4 @@ export interface GitDirectoryComparisonService {
 export class GitDirectoryComparison extends ServiceMap.Service<
   GitDirectoryComparison,
   GitDirectoryComparisonService
->()("@agentxm/extension-sources/git/GitDirectoryComparison") {}
+>()("@agentxm/workspace/resolution/sources/git/GitDirectoryComparison") {}

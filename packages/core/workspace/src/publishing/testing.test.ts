@@ -8,7 +8,7 @@ import { it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { GitDirectoryComparison } from "@agentxm/extension-sources";
+import { GitDirectoryComparison } from "../resolution/sources/index.js";
 import { AuthClient, PendingPublishAuthorizationStore } from "@agentxm/registry-auth";
 
 import { PUBLISHABLE_TYPES, type PublishableType } from "./publishable-types.js";

@@ -21,7 +21,7 @@ import type {
   PackDependencyResolutionFailure,
   SourceAuthorityBlocked,
 } from "../resolution/index.js";
-import type { SourceResolutionFailure } from "@agentxm/extension-sources";
+import type { SourceResolutionFailure } from "../resolution/sources/index.js";
 import type { AcceptedCanonicalRefError } from "../desired-state/index.js";
 import type { InstructionMaintenanceFailure } from "../projection/index.js";
 import type { McpConfigSyncFailure } from "../projection/agent-adapters/index.js";

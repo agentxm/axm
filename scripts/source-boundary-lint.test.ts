@@ -150,7 +150,9 @@ describe("module boundary constraints", () => {
   const E2E = "apps/cli-e2e/src/utils.ts";
 
   it("lets core depend on supporting and supporting depend on the contract seams", async () => {
-    expect(await boundaryViolations('import "@agentxm/extension-sources";', FEATURE)).toEqual([]);
+    expect(
+      await boundaryViolations('import "@agentxm/workspace/resolution/sources";', FEATURE),
+    ).toEqual([]);
     // The contract packages export only ./unstable/* subpaths; the bare root
     // is unresolvable everywhere, so the seam is proved through a real subpath.
     expect(
@@ -277,7 +279,7 @@ describe("module boundary constraints", () => {
     expect(
       rules(
         await boundaryViolations(
-          'import { resolveSource } from "@agentxm/extension-sources";',
+          'import { resolveSource } from "@agentxm/workspace/resolution/sources";',
           HANDLER,
         ),
       ),

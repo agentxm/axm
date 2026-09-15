@@ -42,7 +42,7 @@ import {
   type ReleaseAgeBypassRecord,
   type ReleaseAgeRecord,
 } from "../../../resolution/index.js";
-import { resolveSource, SourceHostProviders } from "@agentxm/extension-sources";
+import { resolveSource, SourceHostProviders } from "../../../resolution/sources/index.js";
 import {
   operationPresentation,
   prepareExecutionCandidate,

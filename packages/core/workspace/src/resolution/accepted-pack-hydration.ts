@@ -27,7 +27,7 @@ import {
   PACK_MANIFEST_FILENAME,
   PackManifestSchema,
 } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import { SourceHostProviders } from "@agentxm/extension-sources";
+import { SourceHostProviders } from "./sources/index.js";
 import { LockfileReader, computePackManifestContentIdentity } from "../desired-state/index.js";
 
 import { ExtensionResolutionFailed } from "./errors.js";

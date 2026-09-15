@@ -65,7 +65,7 @@ import {
   validateExactResolvedVersion,
 } from "../desired-state/index.js";
 import { gitSourceLockFields } from "../desired-state/index.js";
-import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
+import { SourceHostProviders, WorkspaceCatalog } from "../resolution/sources/index.js";
 import type { KnowledgeMap } from "../desired-state/index.js";
 import { knowledgeLockEntryToRef } from "../desired-state/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";

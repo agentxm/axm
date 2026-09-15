@@ -16,7 +16,7 @@ import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/ext
 import type {
   SourceHostProvidersService,
   SourceResolutionFailure,
-} from "@agentxm/extension-sources";
+} from "../../resolution/sources/index.js";
 import {
   resolvePackDependencies,
   resolvePackDependenciesWithReleaseAge,

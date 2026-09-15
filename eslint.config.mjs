@@ -165,7 +165,6 @@ const moduleBoundaryOptions = {
 const productScopeBans = [
   "scope:extension-content",
   "scope:extension-model",
-  "scope:extension-sources",
   "scope:registry-client",
   "scope:registry-protocol",
   "scope:workspace",
@@ -834,8 +833,8 @@ export default [
               group: [
                 "@agentxm/workspace/transitions/settlement",
                 "@agentxm/workspace/transitions/settlement/*",
-                "@agentxm/extension-sources",
-                "@agentxm/extension-sources/*",
+                "@agentxm/workspace/resolution/sources",
+                "@agentxm/workspace/resolution/sources/*",
                 "@agentxm/registry-client",
                 "@agentxm/registry-client/*",
               ],
@@ -853,7 +852,7 @@ export default [
     // concurrency census. Keep literal unbounded traversal from returning.
     files: [
       "packages/supporting/registry-client/src/remote-client.ts",
-      "packages/supporting/extension-sources/src/providers/convention-discovery.ts",
+      "packages/core/workspace/src/resolution/sources/providers/convention-discovery.ts",
       "packages/core/workspace/src/inspection/version-currency/collectors.ts",
     ],
     plugins: {

@@ -36,7 +36,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
-import { SourceHostProviders, resolveSource } from "@agentxm/extension-sources";
+import { SourceHostProviders, resolveSource } from "../../../resolution/sources/index.js";
 import { operationPresentation, type Plan } from "../../../transitions/planning/index.js";
 import { mcpRegistryResolutionKey } from "../../../desired-state/index.js";
 

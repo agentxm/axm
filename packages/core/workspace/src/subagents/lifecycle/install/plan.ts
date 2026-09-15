@@ -30,7 +30,7 @@ import {
   SourceHostProviders,
   sourceResolutionFailureCategory,
   type SourceResolutionFailure,
-} from "@agentxm/extension-sources";
+} from "../../../resolution/sources/index.js";
 import { operationPresentation, type Plan } from "../../../transitions/planning/index.js";
 
 import type { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";

@@ -10,7 +10,7 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
-import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
+import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/live";
 import { extensionName, writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   AllExtensionManagersLive,

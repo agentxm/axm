@@ -29,8 +29,8 @@ import {
   namedRegistryCandidates,
   resolveVersionEntryWithReleaseAge,
 } from "../../resolution/index.js";
-import { RegistryResolutionPolicy } from "@agentxm/extension-sources";
-import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
+import { RegistryResolutionPolicy } from "../../resolution/sources/index.js";
+import { SourceHostProvidersLive } from "../../resolution/sources/live.js";
 import { makeMemoryMcpSecretStore } from "../../materialization/testing.js";
 import {
   HookManagerLive,

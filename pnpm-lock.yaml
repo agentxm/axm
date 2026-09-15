@@ -328,9 +328,6 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../../packages/core/extension-model
-      '@agentxm/extension-sources':
-        specifier: workspace:^
-        version: link:../../packages/supporting/extension-sources
       '@agentxm/registry-auth':
         specifier: workspace:^
         version: link:../../packages/supporting/registry-auth
@@ -539,9 +536,6 @@ importers:
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../extension-model
-      '@agentxm/extension-sources':
-        specifier: workspace:^
-        version: link:../../supporting/extension-sources
       '@agentxm/registry-auth':
         specifier: workspace:^
         version: link:../../supporting/registry-auth
@@ -572,6 +566,9 @@ importers:
       semver:
         specifier: 'catalog:'
         version: 7.8.5
+      simple-git:
+        specifier: 'catalog:'
+        version: 3.36.0(supports-color@7.2.0)
       smol-toml:
         specifier: 'catalog:'
         version: 1.8.0
@@ -621,55 +618,6 @@ importers:
       semver:
         specifier: 'catalog:'
         version: 7.8.5
-    devDependencies:
-      '@agentxm/specification-metadata':
-        specifier: workspace:^
-        version: link:../../../tools/specification-metadata
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)
-      '@fast-check/vitest':
-        specifier: 'catalog:'
-        version: 0.5.0(vitest@5.0.0)
-      '@types/semver':
-        specifier: 'catalog:'
-        version: 7.7.1
-      '@typescript/native':
-        specifier: 'catalog:'
-        version: typescript@7.0.2
-      typescript:
-        specifier: 'catalog:'
-        version: '@typescript/typescript6@6.0.2'
-      vitest:
-        specifier: 'catalog:'
-        version: 5.0.0(@types/node@26.1.1)(@vitest/coverage-v8@5.0.0)(vite@8.2.0(@types/node@26.1.1)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
-
-  packages/supporting/extension-sources:
-    dependencies:
-      '@agentxm/extension-content':
-        specifier: workspace:^
-        version: link:../../core/extension-content
-      '@agentxm/extension-model':
-        specifier: workspace:^
-        version: link:../../core/extension-model
-      '@agentxm/registry-client':
-        specifier: workspace:^
-        version: link:../registry-client
-      '@agentxm/registry-protocol':
-        specifier: workspace:^
-        version: link:../../core/registry-protocol
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115
-      semver:
-        specifier: 'catalog:'
-        version: 7.8.5
-      simple-git:
-        specifier: 'catalog:'
-        version: 3.36.0(supports-color@7.2.0)
     devDependencies:
       '@agentxm/specification-metadata':
         specifier: workspace:^

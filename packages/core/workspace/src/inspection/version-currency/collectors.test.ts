@@ -200,7 +200,10 @@ const workspaceWithCatalogLayer = (facts: WorkspaceCurrencyFacts) => {
     ),
   );
 };
-import { SourceHostProviders, type SourceHostProvidersService } from "@agentxm/extension-sources";
+import {
+  SourceHostProviders,
+  type SourceHostProvidersService,
+} from "../../resolution/sources/index.js";
 import {
   collectSkillCurrency,
   collectSkillSourceFreshness,

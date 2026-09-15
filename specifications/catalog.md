@@ -1044,7 +1044,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/core/workspace/src/inspection/view/view-extension.ts`, `packages/supporting/extension-sources/src/resolve-identifier.ts`
+- Derived from: `packages/core/workspace/src/inspection/view/view-extension.ts`, `packages/core/workspace/src/resolution/sources/resolve-identifier.ts`
 - Open questions: Without an explicit type, the current local-name fallback searches only skills and subagents. Whether bare-name lookup should search every non-container type is undecided; this requirement covers the explicit type selector.
 - Source: [`packages/core/workspace/src/inspection/view/explicit-type-selects-the-local-identity.spec.ts`](../packages/core/workspace/src/inspection/view/explicit-type-selects-the-local-identity.spec.ts)
 
@@ -4016,7 +4016,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 ##### Source locators resolve through a stable grammar and configured hosts
 
 - Requirement: `source-resolution/locator-grammar-is-stable`
-- Owner: `extension-sources`
+- Owner: `workspace`
 - Statement: A source locator shall resolve through the published grammar to exactly the coordinates it names, a project-defined source shall override a built-in host of the same name, and a locator outside the grammar shall be refused with a typed failure that explains the rejection.
 - Class: functional
 - Role: interface
@@ -4026,7 +4026,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Assumptions: The workspace presents its configured sources ahead of the built-in hosts, which is what the workspace settings reader's three-layer merge (project, then user, then built-in) produces.
 - Limitation: The override example shows that resolution selects the configured entry when a project source and the built-in host of the same name are both presented. That the workspace puts the project entry first — the name-based merge of project, user, and built-in sources — is workspace-state's settings reader, which a domain:supporting package may not depend on; its own merge-ordering tests assert it. Retires when: Source resolution can observe a workspace-assembled catalog from this package — for example, workspace-state publishes catalog assembly through a port a supporting package may depend on.
 - Additional evidence: process via [`apps/cli-e2e/src/http-registry.e2e.test.ts`](../apps/cli-e2e/src/http-registry.e2e.test.ts) — Publishes, installs, and updates over a real HTTP registry transport — bearer-token auth headers, PUT uploads, immutable version and holdback semantics, no upload when the authoritative preview is blocked, and registry-form locator resolution with file:// parity — plus release-age-gated advancement, explicit bypass, unchanged settings, and second-run no-op exit codes that the in-memory file-registry harness cannot observe.
-- Source: [`packages/supporting/extension-sources/src/locator-grammar-is-stable.spec.ts`](../packages/supporting/extension-sources/src/locator-grammar-is-stable.spec.ts)
+- Source: [`packages/core/workspace/src/resolution/sources/locator-grammar-is-stable.spec.ts`](../packages/core/workspace/src/resolution/sources/locator-grammar-is-stable.spec.ts)
 
 ##### Combining version constraints keeps every contributor's limits or reports the combination unsatisfiable
 

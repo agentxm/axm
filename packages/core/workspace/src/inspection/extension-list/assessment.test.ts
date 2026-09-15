@@ -9,7 +9,10 @@ import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/exten
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { TreeIntegritySchema } from "../../desired-state/index.js";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
-import { SourceHostProviders, type SourceHostProvidersService } from "@agentxm/extension-sources";
+import {
+  SourceHostProviders,
+  type SourceHostProvidersService,
+} from "../../resolution/sources/index.js";
 import { assessExtensionListItems, type ExtensionListItem } from "./assessment.js";
 import { LOCKFILE_VERSION, type Lockfile, type Settings } from "../../desired-state/index.js";
 import { WorkspaceReadTest, type WorkspaceReadTestFacts } from "../../desired-state/testing.js";

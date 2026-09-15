@@ -69,7 +69,7 @@ import {
   resolveSource,
   sourceResolutionFailureCategory,
   type SourceResolutionFailure,
-} from "@agentxm/extension-sources";
+} from "../../../resolution/sources/index.js";
 import {
   operationPresentation,
   type JobStepArtifactTarget,

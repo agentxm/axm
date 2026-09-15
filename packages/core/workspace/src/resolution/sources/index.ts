@@ -1,5 +1,5 @@
 /**
- * AXM extension-source integration.
+ * AXM workspace source adapters.
  *
  * Provides source host providers, source resolution, identifier resolution,
  * package discovery, multi-source pattern resolution, and git acquisition.

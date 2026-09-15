@@ -1,5 +1,5 @@
 /**
- * Failure vocabulary for the extension-sources layer.
+ * Failure vocabulary for workspace source resolution.
  *
  * Source resolution interprets user-supplied locators against configured
  * hosts and external systems, so its failures carry the deciding facts as

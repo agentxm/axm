@@ -29,7 +29,7 @@ import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { isGitManaged } from "@agentxm/extension-sources";
+import { isGitManaged } from "../../resolution/sources/index.js";
 import {
   CodingAgentRepository,
   resolveInstructionTarget,

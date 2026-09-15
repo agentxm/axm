@@ -55,7 +55,7 @@ import {
   type ReleaseAgeRecord,
   type UpdateConstraints,
 } from "../../../resolution/index.js";
-import { resolveSource, SourceHostProviders } from "@agentxm/extension-sources";
+import { resolveSource, SourceHostProviders } from "../../../resolution/sources/index.js";
 import { createRegistryClient } from "@agentxm/registry-client";
 import {
   operationPresentation,

@@ -9,7 +9,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import type {
   GitDirectoryComparisonService,
   GitDirectoryDifference,
-} from "@agentxm/extension-sources";
+} from "../../resolution/sources/index.js";
 
 import {
   makePublishWorld,

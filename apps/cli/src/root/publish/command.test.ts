@@ -40,7 +40,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { RegistryAuthFailed } from "@agentxm/registry-auth";
 import { RegistryProblem } from "@agentxm/registry-client";
-import { GitDirectoryComparisonLive } from "@agentxm/extension-sources/live";
+import { GitDirectoryComparisonLive } from "@agentxm/workspace/resolution/sources/live";
 
 import {
   at,

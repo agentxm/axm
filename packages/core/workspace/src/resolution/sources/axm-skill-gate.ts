@@ -69,4 +69,4 @@ export interface AxmSkillCandidateGateService {
 export class AxmSkillCandidateGate extends ServiceMap.Service<
   AxmSkillCandidateGate,
   AxmSkillCandidateGateService
->()("@agentxm/extension-sources/axm-skill-gate/AxmSkillCandidateGate") {}
+>()("@agentxm/workspace/resolution/sources/axm-skill-gate/AxmSkillCandidateGate") {}

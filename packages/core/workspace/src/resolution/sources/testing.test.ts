@@ -36,7 +36,7 @@ const versionEntry = (version: string): VersionEntry => ({
   integrity: `sha512-${version}`,
 });
 
-describe("@agentxm/extension-sources/testing", () => {
+describe("./testing.js", () => {
   it.effect("composes every declared seam and round-trips the catalog's facts", () =>
     Effect.gen(function* () {
       const catalog = yield* WorkspaceCatalog;

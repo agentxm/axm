@@ -37,7 +37,7 @@ import {
   RegistryUrl,
   type RegistryPublishWarning,
 } from "@agentxm/registry-client";
-import type { GitDirectoryComparison } from "@agentxm/extension-sources";
+import type { GitDirectoryComparison } from "../../resolution/sources/index.js";
 import {
   AuthClient,
   AuthLoginPresenter,

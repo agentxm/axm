@@ -56,4 +56,4 @@ export interface RegistryResolutionPolicyService {
 export class RegistryResolutionPolicy extends ServiceMap.Service<
   RegistryResolutionPolicy,
   RegistryResolutionPolicyService
->()("@agentxm/extension-sources/registry-resolution-policy/RegistryResolutionPolicy") {}
+>()("@agentxm/workspace/resolution/sources/registry-resolution-policy/RegistryResolutionPolicy") {}

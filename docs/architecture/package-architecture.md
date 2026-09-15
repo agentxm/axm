@@ -148,10 +148,10 @@ packages pending their application/adapter separation.
 
 ### Capabilities
 
-| Package                      | Role              | Owns                                                                                                                                                                                                                                                                                                                                                                                                          |
-| ---------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@agentxm/extension-content` | `role:capability` | Skill and subagent content parsing, Knowledge bundle inspection and search, the lint rule catalog, and archive and manifest validation                                                                                                                                                                                                                                                                        |
-| `@agentxm/workspace`         | `role:capability` | Desired and observed state; accepted resolution; owned projection and native agent adapters; kind-specific acquisition and materialization for skills, subagents, MCP connections, instructions, hooks, Knowledge, and Packs; reconciliation planning; transition execution; and transaction settlement. Its public subpaths expose these cohesive capabilities without creating separate package identities. |
+| Package                      | Role              | Owns                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ---------------------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@agentxm/extension-content` | `role:capability` | Skill and subagent content parsing, Knowledge bundle inspection and search, the lint rule catalog, and archive and manifest validation                                                                                                                                                                                                                                                                                            |
+| `@agentxm/workspace`         | `role:capability` | Desired and observed state; accepted resolution and source adapters; owned projection and native agent adapters; kind-specific acquisition and materialization for skills, subagents, MCP connections, instructions, hooks, Knowledge, and Packs; reconciliation planning; transition execution; and transaction settlement. Its public subpaths expose these cohesive capabilities without creating separate package identities. |
 
 `extension-content` is a leaf. It reads the model and nothing else, which is
 why integrations and supporting packages may consume it by name without pulling
@@ -199,9 +199,11 @@ transaction protects and records every target.
 
 `workspace/resolution` decides acceptance, so it needs workspace facts, source
 acquisition, and `extension-content`. It sits above desired state, never below
-it. `extension-sources` reaches resolution only through the
+it. `workspace/resolution/sources` owns locator routing, host providers,
+convention and manifest discovery, identifier resolution, and shallow Git
+acquisition. Those adapters consume workspace policy only through the
 `RegistryResolutionPolicy`, `AxmSkillCandidateGate`, and `WorkspaceCatalog`
-ports, bound at the composition root.
+ports bound at composition.
 
 Self-update is strategically supporting. Its installation facts, platform
 support, version comparison, reinstall policy, downgrade refusal, and automatic
@@ -330,15 +332,11 @@ only each other, `packages/generic/`, and the three named seams
 under `packages/core/` is reachable from a supporting package, which is what
 keeps the distinctive model from leaking outward through an adapter.
 
-| Package                      | Role               | Owns                                                                                                                                                                                                                                              |
-| ---------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@agentxm/extension-sources` | `role:integration` | Source locator routing over the contract grammar, host providers for Registry, GitHub, GitLab, Bitbucket, Azure Repos, generic Git and local paths, convention and manifest package discovery, identifier resolution, and shallow Git acquisition |
-| `@agentxm/registry-client`   | `role:integration` | Local and remote Registry clients over the generated OpenAPI transport, request policy and retries, typed Registry failures, the archive cache, and lifecycle administration                                                                      |
-| `@agentxm/registry-auth`     | `role:capability`  | Login, logout, token and identity inspection, device and loopback flows, step-up authorization, and credential lifecycle                                                                                                                          |
-| `@agentxm/cli-maintenance`   | `role:capability`  | Self-update decisions and official-skill compatibility, with independent capability visibility and architectural-role constraints inside the package                                                                                              |
-
-`extension-sources` may depend on `registry-client`; that asymmetric edge is a
-named constraint rather than a tier rule.
+| Package                    | Role               | Owns                                                                                                                                                                         |
+| -------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@agentxm/registry-client` | `role:integration` | Local and remote Registry clients over the generated OpenAPI transport, request policy and retries, typed Registry failures, the archive cache, and lifecycle administration |
+| `@agentxm/registry-auth`   | `role:capability`  | Login, logout, token and identity inspection, device and loopback flows, step-up authorization, and credential lifecycle                                                     |
+| `@agentxm/cli-maintenance` | `role:capability`  | Self-update decisions and official-skill compatibility, with independent capability visibility and architectural-role constraints inside the package                         |
 
 `registry-auth` is a capability rather than a feature because publish,
 authoring, and visibility consume it; its own command surface is a thin use of
@@ -439,8 +437,8 @@ enabled and no ignored project pairs. Its configuration also enables:
 
 General matrices own direction. A package-specific constraint is added only for
 a stable asymmetric boundary the matrices cannot express — `registry-protocol`
-on `extension-model`, `extension-sources` on `registry-client`, the
-`extension-content` leaf. Every package carries a `scope:*` identity tag for
+on `extension-model` and the `extension-content` leaf. Every package carries a
+`scope:*` identity tag for
 selection; the prohibition is on using those tags in `depConstraints` to
 rebuild an adjacency list, not on the tags existing.
 

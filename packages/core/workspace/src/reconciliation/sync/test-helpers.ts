@@ -43,8 +43,8 @@ import {
 } from "../../resolution/index.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 import { AxmSkillCandidateGateLive } from "../../resolution/live.js";
-import { RegistryResolutionPolicy } from "@agentxm/extension-sources";
-import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
+import { RegistryResolutionPolicy } from "../../resolution/sources/index.js";
+import { SourceHostProvidersLive } from "../../resolution/sources/live.js";
 import { previewPlanExecution, type PlanExecution } from "../../transitions/planning/index.js";
 import {
   ResolvePlanInteractionTest,

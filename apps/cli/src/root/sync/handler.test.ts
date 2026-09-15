@@ -30,8 +30,8 @@ import {
   SourceHostProviders,
   type SourceHostProvidersService,
   SourceNotResolvable,
-} from "@agentxm/extension-sources";
-import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
+} from "@agentxm/workspace/resolution/sources";
+import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/live";
 import { SubagentManagerLive } from "@agentxm/workspace/materialization/live";
 import YAML from "yaml";
 import {

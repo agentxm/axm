@@ -30,8 +30,8 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
-import type { GitDirectoryComparisonService } from "@agentxm/extension-sources";
-import { GitDirectoryComparisonTest } from "@agentxm/extension-sources/testing";
+import type { GitDirectoryComparisonService } from "../resolution/sources/index.js";
+import { GitDirectoryComparisonTest } from "../resolution/sources/testing.js";
 import {
   AuthClientTest,
   AuthLoginPresenterTest,

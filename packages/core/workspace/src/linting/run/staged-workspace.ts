@@ -15,7 +15,7 @@ import * as Stream from "effect/Stream";
 import { ChildProcess } from "effect/unstable/process";
 import { createHash } from "node:crypto";
 import { LintStagingFailed } from "./errors.js";
-import { findGitRoot } from "@agentxm/extension-sources";
+import { findGitRoot } from "../../resolution/sources/index.js";
 
 export interface StagedWorkspace {
   readonly gitRoot: string;

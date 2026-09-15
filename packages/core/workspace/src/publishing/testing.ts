@@ -26,8 +26,8 @@ import type * as HttpClient from "effect/unstable/http/HttpClient";
 import {
   GitDirectoryComparison,
   type GitDirectoryComparisonService,
-} from "@agentxm/extension-sources";
-import { GitDirectoryComparisonTest } from "@agentxm/extension-sources/testing";
+} from "../resolution/sources/index.js";
+import { GitDirectoryComparisonTest } from "../resolution/sources/testing.js";
 import {
   AuthClient,
   AuthLoginPresenter,

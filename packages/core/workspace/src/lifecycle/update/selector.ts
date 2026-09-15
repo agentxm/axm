@@ -29,7 +29,7 @@ import {
   SourceHostProviders,
   resolveInstalledIdentifierNameOrInput,
   resolveSource,
-} from "@agentxm/extension-sources";
+} from "../../resolution/sources/index.js";
 import {
   WorkspaceRecords,
   configuredRowsByName,

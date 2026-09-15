@@ -23,7 +23,7 @@ import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensi
 import { HOOK_EXTENSION_DIR } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
-import { SourceHostProviders, resolveSource } from "@agentxm/extension-sources";
+import { SourceHostProviders, resolveSource } from "../../../resolution/sources/index.js";
 import {
   operationPresentation,
   type JobStepArtifact,

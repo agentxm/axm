@@ -1,5 +1,5 @@
 /**
- * @agentxm/extension-sources deterministic test ports.
+ * @agentxm/workspace/resolution/sources deterministic test ports.
  *
  * The four seams this integration declares but does not implement — the
  * workspace catalog it reads facts from, the official-skill gate, the

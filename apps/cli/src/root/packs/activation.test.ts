@@ -18,7 +18,7 @@ import { KnowledgeManagerLive } from "@agentxm/workspace/materialization/live";
 import { McpServerManagerLive } from "@agentxm/workspace/materialization/live";
 import { RuleManagerLive } from "@agentxm/workspace/materialization/live";
 import { SkillManagerLive } from "@agentxm/workspace/materialization/live";
-import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
+import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/live";
 import { SubagentManagerLive } from "@agentxm/workspace/materialization/live";
 
 import {

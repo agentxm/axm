@@ -3,7 +3,7 @@ import { renderAxmSkillRecovery } from "@agentxm/cli-maintenance/official-skill/
  * Implementation of the source-resolution composition port this package owns
  * the policy for.
  *
- * `@agentxm/extension-sources` declares the official AXM skill candidate gate
+ * `@agentxm/workspace/resolution/sources` declares the official AXM skill candidate gate
  * as a port because a supporting integration may not own AXM trust policy.
  * Resolution owns that policy, so the Live is composed here rather than at
  * the application boundary; the composition root only composes Layers.
@@ -22,7 +22,7 @@ import {
   AxmSkillCandidateGate,
   AxmSkillGateUnavailable,
   type AxmSkillCandidateVerdict,
-} from "@agentxm/extension-sources";
+} from "./sources/index.js";
 
 import { evaluateAxmSkillCandidate } from "./axm-skill-candidate.js";
 import {

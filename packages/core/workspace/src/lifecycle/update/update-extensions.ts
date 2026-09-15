@@ -69,7 +69,7 @@ import {
   WorkspaceCatalog,
   resolveSource,
   type SourceResolutionFailure,
-} from "@agentxm/extension-sources";
+} from "../../resolution/sources/index.js";
 import {
   makeOperationResolution,
   operationPresentation,

@@ -27,7 +27,7 @@ import {
   sourceResolutionFailureCategory,
   type SourceResolutionFailure,
   WorkspaceCatalog,
-} from "@agentxm/extension-sources";
+} from "../../resolution/sources/index.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { SettingsReader } from "../../desired-state/index.js";
 

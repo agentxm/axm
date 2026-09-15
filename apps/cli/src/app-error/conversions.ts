@@ -196,7 +196,7 @@ import {
   SourceNotResolvable,
   SourceSyntaxInvalid,
   WorkspaceCatalogUnavailable,
-} from "@agentxm/extension-sources";
+} from "@agentxm/workspace/resolution/sources";
 import {
   registryOperationFailedToAppError,
   registryProblemToAppError,

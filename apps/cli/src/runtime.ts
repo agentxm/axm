@@ -71,7 +71,7 @@ import { WorkspaceInitializationInteractionLive } from "./workspace-initializati
 import {
   GitDirectoryComparisonLive,
   SourceHostProvidersLive,
-} from "@agentxm/extension-sources/live";
+} from "@agentxm/workspace/resolution/sources/live";
 import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,

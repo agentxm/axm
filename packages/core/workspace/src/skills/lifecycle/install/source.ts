@@ -24,7 +24,7 @@ import {
   routeScpInput,
   routeUrlInput,
   type SourceResolutionFailure,
-} from "@agentxm/extension-sources";
+} from "../../../resolution/sources/index.js";
 
 import type { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 import {

@@ -24,13 +24,12 @@ describe("emitted declaration references", () => {
       'export declare const a: import("@agentxm/registry-client").RegistryProblem;',
       'export * from "@agentxm/extension-model/unstable/extensions";',
       'import "@agentxm/workspace/projection/agent-adapters";',
-      'declare module "@agentxm/extension-sources" {}',
+      'declare module "@agentxm/workspace/resolution/sources" {}',
       '/// <reference types="@agentxm/extension-content" />',
     ].join("\n");
     expect([...referencedGuardedPackages(declaration)].sort()).toEqual([
       "@agentxm/extension-content",
       "@agentxm/extension-model",
-      "@agentxm/extension-sources",
       "@agentxm/registry-client",
       "@agentxm/workspace",
     ]);
@@ -45,7 +44,7 @@ describe("emitted declaration references", () => {
       " * not that bundle's loader.",
       " */",
       '// Superseded by "@agentxm/registry-client".',
-      'const url = "https://example.test/from \\"@agentxm/extension-sources\\"";',
+      'const url = "https://example.test/from \\"@agentxm/workspace/resolution/sources\\"";',
       'import type { A } from "@agentxm/workspace/desired-state";',
     ].join("\n");
     expect([...referencedGuardedPackages(declaration)]).toEqual(["@agentxm/workspace"]);

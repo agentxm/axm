@@ -20,7 +20,7 @@ import {
   resolveSource,
   SourceHostProviders,
   type IdentifierResourceType,
-} from "@agentxm/extension-sources";
+} from "../../../resolution/sources/index.js";
 
 import { expandGlobs } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 

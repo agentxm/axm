@@ -29,12 +29,12 @@ import type * as HttpClient from "effect/unstable/http/HttpClient";
 
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import { resolveInstalledIdentifierNameOrInput } from "@agentxm/extension-sources";
+import { resolveInstalledIdentifierNameOrInput } from "../../resolution/sources/index.js";
 import {
   SourceHostProviders,
   WorkspaceCatalog,
   type SourceResolutionFailure,
-} from "@agentxm/extension-sources";
+} from "../../resolution/sources/index.js";
 import {
   HookManager,
   SkillManager,

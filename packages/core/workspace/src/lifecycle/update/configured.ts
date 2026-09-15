@@ -74,7 +74,7 @@ import {
   SkillManager,
   SubagentManager,
 } from "../../materialization/index.js";
-import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
+import { SourceHostProviders, WorkspaceCatalog } from "../../resolution/sources/index.js";
 import { extensionTypePluralSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { JobStepResult } from "../../transitions/planning/index.js";

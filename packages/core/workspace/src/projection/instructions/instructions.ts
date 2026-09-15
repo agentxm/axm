@@ -26,7 +26,7 @@ import type {
 
 /**
  * Whether the workspace sits inside a Git checkout. A private duplicate of the
- * trivial `.git`-entry walk in `@agentxm/extension-sources`: the kernel cannot
+ * trivial `.git`-entry walk in `@agentxm/workspace/resolution/sources`: the kernel cannot
  * depend on an integration package, and the check carries no source-resolution
  * semantics.
  */

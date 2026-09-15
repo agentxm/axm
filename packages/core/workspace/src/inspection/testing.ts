@@ -25,7 +25,7 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
 import { MANIFEST_FILENAME_BY_TYPE } from "@agentxm/extension-content";
-import { SourceHostProviders } from "@agentxm/extension-sources";
+import { SourceHostProviders } from "../resolution/sources/index.js";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";

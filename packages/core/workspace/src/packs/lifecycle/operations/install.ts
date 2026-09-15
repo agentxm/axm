@@ -24,7 +24,7 @@ import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle
 import { validateExactResolvedVersion } from "../../../desired-state/index.js";
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
-import { SourceHostProviders } from "@agentxm/extension-sources";
+import { SourceHostProviders } from "../../../resolution/sources/index.js";
 import { ExtensionLifecycleFailed } from "../../../lifecycle/errors.js";
 import {
   StepFailureConversion,

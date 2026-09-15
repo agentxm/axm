@@ -52,8 +52,8 @@ import {
 } from "../../resolution/index.js";
 import { AxmSkillCandidateGateLive } from "../../resolution/live.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { RegistryResolutionPolicy } from "@agentxm/extension-sources";
-import { SourceHostProvidersLive } from "@agentxm/extension-sources/live";
+import { RegistryResolutionPolicy } from "../../resolution/sources/index.js";
+import { SourceHostProvidersLive } from "../../resolution/sources/live.js";
 import { CredentialStore } from "@agentxm/registry-auth";
 import { CredentialStoreTest } from "@agentxm/registry-auth/testing";
 import { RegistryUrl } from "@agentxm/registry-client";

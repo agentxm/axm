@@ -20,7 +20,7 @@ import {
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { RegistryClient } from "@agentxm/registry-client";
-import { resolveSource, SourceHostProviders } from "@agentxm/extension-sources";
+import { resolveSource, SourceHostProviders } from "../../resolution/sources/index.js";
 import {
   VersionSchema,
   type Version,

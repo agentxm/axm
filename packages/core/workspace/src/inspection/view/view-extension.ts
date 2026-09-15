@@ -27,7 +27,7 @@ import {
   resolveIdentifier,
   type IdentifierResourceType,
   type ResolvedIdentifier,
-} from "@agentxm/extension-sources";
+} from "../../resolution/sources/index.js";
 import { RegistryClientFactory, RegistryUrl } from "@agentxm/registry-client";
 import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
 import { SettingsReader } from "../../desired-state/index.js";

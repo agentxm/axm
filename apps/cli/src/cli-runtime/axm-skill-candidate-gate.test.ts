@@ -1,6 +1,6 @@
 /**
  * Behavioral tests for the official AXM skill candidate gate, composed the
- * way the application composes it: the extension-sources registry provider
+ * way the application composes it: the workspace source-resolution registry provider
  * consumes `AxmSkillCandidateGateLive`, which renders verdicts from the
  * extension-resolution compatibility policy. These pin the end-to-end
  * selection, hold, and recovery behavior across the port seam.
@@ -37,7 +37,7 @@ import {
   AxmSkillCandidateGate,
   RegistryResolutionPolicy,
   createRemoteRegistrySourceHostProvider,
-} from "@agentxm/extension-sources";
+} from "@agentxm/workspace/resolution/sources";
 import { RegistryResolutionPolicyLive } from "./registry-resolution-policy-live.js";
 import { toAppError } from "../app-error/conversions.js";
 import {

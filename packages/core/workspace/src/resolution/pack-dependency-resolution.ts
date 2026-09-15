@@ -31,10 +31,7 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions/release-age";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
-import type {
-  SourceHostProvidersService,
-  SourceResolutionFailure,
-} from "@agentxm/extension-sources";
+import type { SourceHostProvidersService, SourceResolutionFailure } from "./sources/index.js";
 
 import {
   PackConstraintShadowed,

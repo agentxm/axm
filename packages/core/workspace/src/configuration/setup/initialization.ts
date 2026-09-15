@@ -27,7 +27,7 @@ import {
   type ConfigurableAgentId,
 } from "@agentxm/extension-model/unstable/agents/types";
 import { WorkspaceConfigurationFailed } from "../errors.js";
-import { isGitManaged } from "@agentxm/extension-sources";
+import { isGitManaged } from "../../resolution/sources/index.js";
 import { LOCKFILE_NAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { LOCKFILE_VERSION, writeLockfileAtPath } from "../../desired-state/index.js";
 import {

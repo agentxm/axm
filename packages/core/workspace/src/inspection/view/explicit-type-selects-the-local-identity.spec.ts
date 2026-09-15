@@ -20,7 +20,7 @@ export const specification = defineSpecification({
   methods: ["example"],
   derivedFrom: [
     "packages/core/workspace/src/inspection/view/view-extension.ts",
-    "packages/supporting/extension-sources/src/resolve-identifier.ts",
+    "packages/core/workspace/src/resolution/sources/resolve-identifier.ts",
   ],
   supersedes: [],
   assumptions: [],

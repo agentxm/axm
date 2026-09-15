@@ -31,9 +31,6 @@
       "path": "../../packages/supporting/registry-auth/tsconfig.lib.json"
     },
     {
-      "path": "../../packages/supporting/extension-sources/tsconfig.lib.json"
-    },
-    {
       "path": "../../packages/core/extension-model/tsconfig.lib.json"
     },
     {

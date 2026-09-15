@@ -79,7 +79,6 @@
     "@agentxm/cli-maintenance": "workspace:^",
     "@agentxm/extension-content": "workspace:^",
     "@agentxm/extension-model": "workspace:^",
-    "@agentxm/extension-sources": "workspace:^",
     "@agentxm/registry-auth": "workspace:^",
     "@agentxm/registry-client": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",

@@ -12,8 +12,8 @@ import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/
 import { computePackManifestContentIdentity } from "../../../desired-state/index.js";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import * as Schema from "effect/Schema";
-import { SourceHostProviders } from "@agentxm/extension-sources";
-import type { SourceHostProvidersService } from "@agentxm/extension-sources";
+import { SourceHostProviders } from "../../../resolution/sources/index.js";
+import type { SourceHostProvidersService } from "../../../resolution/sources/index.js";
 import {
   DesiredStateWriter,
   type DesiredStateWriterService,

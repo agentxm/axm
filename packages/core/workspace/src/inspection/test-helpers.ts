@@ -20,7 +20,7 @@ import {
   WorkspaceCatalog,
   WorkspaceCatalogUnavailable,
   type SkillCandidates,
-} from "@agentxm/extension-sources";
+} from "../resolution/sources/index.js";
 import { skillsInDir, type DiscoveredSkill } from "../desired-state/index.js";
 import {
   configuredRowsByName,

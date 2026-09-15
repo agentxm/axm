@@ -33,7 +33,7 @@ import type {
   ExtensionResolutionFailed,
   PackDependencyRefResolver,
 } from "../../resolution/index.js";
-import type { SourceHostProviders, WorkspaceCatalog } from "@agentxm/extension-sources";
+import type { SourceHostProviders, WorkspaceCatalog } from "../../resolution/sources/index.js";
 import type {
   ApprovalRecoveryMissing,
   CandidateFingerprintFailed,

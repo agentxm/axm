@@ -15,7 +15,7 @@ import {
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
-import { resolveSource, SourceHostProviders } from "@agentxm/extension-sources";
+import { resolveSource, SourceHostProviders } from "../../resolution/sources/index.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { lockEntryToSourceParams } from "../../desired-state/index.js";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";

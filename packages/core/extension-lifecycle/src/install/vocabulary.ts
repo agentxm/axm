@@ -81,6 +81,7 @@ export type InstallStepRequirements =
   | McpSecretStore
   | CodingAgentRepository
   | LockfileReader
+  | WorkspaceRecords
   | WorkspaceInvariantFacts
   | WorkspaceMutations
   | NativeWriteAuthority;

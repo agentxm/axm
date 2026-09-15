@@ -22,7 +22,9 @@
 
 import * as crypto from "node:crypto";
 import * as Effect from "effect/Effect";
+import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
+import type * as Path from "effect/Path";
 
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
@@ -37,7 +39,10 @@ import type {
   WorkspaceStateReadFailure,
 } from "@agentxm/workspace-state";
 import {
-  WorkspaceMutations,
+  DesiredStateReader,
+  LockfileReader,
+  SettingsReader,
+  WorkspaceRecords,
   configuredRowsByName,
   desiredStateProblemText,
 } from "@agentxm/workspace-state";
@@ -322,37 +327,48 @@ export type TargetedUpdateContextFailure =
 export const resolveTargetedUpdateContext: (args: {
   readonly target: TargetedUpdateTarget;
   readonly explicitRange?: string;
-}) => Effect.Effect<TargetedUpdateContext, TargetedUpdateContextFailure, WorkspaceMutations> =
-  Effect.fn("TargetedUpdate.resolveContext")(function* (args) {
-    const workspace = yield* WorkspaceMutations;
-    const graph = yield* workspace.getDesiredStateGraph();
-    const configuredPacks = yield* workspace.records
-      .rows("pack")
-      .pipe(Effect.map((rows) => Object.values(configuredRowsByName(rows))));
-    const configuredOwner = yield* workspace.getConfiguredOwner();
-    const baseArgs = {
-      target: args.target,
-      ...(args.explicitRange === undefined ? {} : { explicitRange: args.explicitRange }),
-      graph,
-      configuredPacks,
-      ...(Option.isNone(configuredOwner) ? {} : { configuredOwner: configuredOwner.value }),
-    };
-    const preliminary = classifyTargetedUpdate(baseArgs);
-    const packEvidence = yield* Effect.all(
-      preliminary.public.packs.map((pack) =>
-        Effect.gen(function* () {
-          const packNode = graph.nodes.find(
-            (candidate) =>
-              candidate.type === "pack" && normalizedIdentity(candidate.identity) === pack.fqn,
-          );
-          if (packNode === undefined) return { fqn: pack.fqn, accepted: "absent" };
-          const accepted = yield* workspace.getLockedPack(packNode.name);
-          return {
-            fqn: pack.fqn,
-            accepted: Option.getOrUndefined(accepted) ?? "absent",
-          };
-        }),
-      ),
-    );
-    return classifyTargetedUpdate({ ...baseArgs, packEvidence });
-  });
+}) => Effect.Effect<
+  TargetedUpdateContext,
+  TargetedUpdateContextFailure,
+  | DesiredStateReader
+  | FileSystem.FileSystem
+  | LockfileReader
+  | Path.Path
+  | SettingsReader
+  | WorkspaceRecords
+> = Effect.fn("TargetedUpdate.resolveContext")(function* (args) {
+  const desiredState = yield* DesiredStateReader;
+  const lockfile = yield* LockfileReader;
+  const settings = yield* SettingsReader;
+  const records = yield* WorkspaceRecords;
+  const graph = yield* desiredState.graph();
+  const configuredPacks = yield* records
+    .rows("pack")
+    .pipe(Effect.map((rows) => Object.values(configuredRowsByName(rows))));
+  const configuredOwner = yield* settings.owner;
+  const baseArgs = {
+    target: args.target,
+    ...(args.explicitRange === undefined ? {} : { explicitRange: args.explicitRange }),
+    graph,
+    configuredPacks,
+    ...(Option.isNone(configuredOwner) ? {} : { configuredOwner: configuredOwner.value }),
+  };
+  const preliminary = classifyTargetedUpdate(baseArgs);
+  const packEvidence = yield* Effect.all(
+    preliminary.public.packs.map((pack) =>
+      Effect.gen(function* () {
+        const packNode = graph.nodes.find(
+          (candidate) =>
+            candidate.type === "pack" && normalizedIdentity(candidate.identity) === pack.fqn,
+        );
+        if (packNode === undefined) return { fqn: pack.fqn, accepted: "absent" };
+        const accepted = yield* lockfile.entry("pack", packNode.name);
+        return {
+          fqn: pack.fqn,
+          accepted: Option.getOrUndefined(accepted) ?? "absent",
+        };
+      }),
+    ),
+  );
+  return classifyTargetedUpdate({ ...baseArgs, packEvidence });
+});

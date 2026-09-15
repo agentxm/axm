@@ -139,26 +139,28 @@ describe("module boundary constraints", () => {
     };
   });
 
-  const FEATURE = "packages/core/workspace/src/lifecycle/index.ts";
-  const FEATURE_TEST =
-    "packages/core/workspace/src/lifecycle/workflows/install-command/workflow.test.ts";
-  const CAPABILITY = "packages/core/workspace/src/transitions/planning/index.ts";
-  const SUPPORTING_INTEGRATION = "packages/supporting/registry-access/src/authentication/index.ts";
-  const SUPPORTING_INTEGRATION_B = "packages/supporting/registry-client/src/index.ts";
+  const CORE_CAPABILITY = "packages/core/workspace/src/lifecycle/index.ts";
+  const CORE_CAPABILITY_TEST =
+    "packages/core/workspace/src/lifecycle/install/registry-login-suggestion.test.ts";
+  const SUPPORTING_CAPABILITY = "packages/supporting/registry-access/src/authentication/index.ts";
+  const SUPPORTING_INTEGRATION = "packages/supporting/registry-client/src/index.ts";
   const APPLICATION = "apps/cli/src/main.ts";
   const HANDLER = "apps/cli/src/root/list/command.ts";
   const E2E = "apps/cli-e2e/src/utils.ts";
 
   it("lets core depend on supporting and supporting depend on the contract seams", async () => {
     expect(
-      await boundaryViolations('import "@agentxm/workspace/resolution/sources";', FEATURE),
+      await boundaryViolations(
+        'import "@agentxm/registry-access/authentication";',
+        CORE_CAPABILITY,
+      ),
     ).toEqual([]);
     // The contract packages export only ./unstable/* subpaths; the bare root
     // is unresolvable everywhere, so the seam is proved through a real subpath.
     expect(
       await boundaryViolations(
         'import "@agentxm/extension-model/unstable/extensions";',
-        SUPPORTING_INTEGRATION,
+        SUPPORTING_CAPABILITY,
       ),
     ).toEqual([]);
     expect(await boundaryViolations('import "@agentxm/workspace/lifecycle";', APPLICATION)).toEqual(
@@ -169,35 +171,25 @@ describe("module boundary constraints", () => {
   it("forbids supporting from depending on core beyond the contract seams", async () => {
     const violations = await boundaryViolations(
       'import "@agentxm/workspace/desired-state";',
-      SUPPORTING_INTEGRATION,
+      SUPPORTING_CAPABILITY,
     );
     expect(violations.map((violation) => violation.ruleId)).toEqual([
       "@nx/enforce-module-boundaries",
     ]);
-    expect(violations[0]?.message).toContain("domain:supporting");
+    expect(violations[0]?.message).toContain("workspace");
   });
 
-  it("keeps features peers and keeps capabilities and integrations below features", async () => {
-    const featureToFeature = await boundaryViolations(
-      'import "@agentxm/workspace/publishing";',
-      FEATURE,
-    );
-    expect(featureToFeature[0]?.message).toContain("role:feature");
-    const capabilityToFeature = await boundaryViolations(
-      'import "@agentxm/workspace/discovery";',
-      CAPABILITY,
-    );
-    expect(capabilityToFeature[0]?.message).toContain("role:capability");
+  it("keeps integrations below capabilities", async () => {
     const integrationToCapability = await boundaryViolations(
-      'import "@agentxm/registry-access/authentication";',
-      SUPPORTING_INTEGRATION_B,
+      'import "@agentxm/cli-maintenance/official-skill/domain";',
+      SUPPORTING_INTEGRATION,
     );
     expect(integrationToCapability[0]?.message).toContain("role:integration");
   });
 
   it("keeps engineering libraries out of runtime while tests may compose them", async () => {
     expect(
-      (await boundaryViolations('import "@agentxm/test-support";', FEATURE)).map(
+      (await boundaryViolations('import "@agentxm/test-support";', CORE_CAPABILITY)).map(
         (violation) => violation.ruleId,
       ),
     ).toEqual(["@nx/enforce-module-boundaries"]);
@@ -206,7 +198,9 @@ describe("module boundary constraints", () => {
         (violation) => violation.ruleId,
       ),
     ).toEqual(["@nx/enforce-module-boundaries"]);
-    expect(await boundaryViolations('import "@agentxm/test-support";', FEATURE_TEST)).toEqual([]);
+    expect(
+      await boundaryViolations('import "@agentxm/test-support";', CORE_CAPABILITY_TEST),
+    ).toEqual([]);
   });
 
   it("confines end-to-end suites to engineering libraries", async () => {
@@ -221,7 +215,7 @@ describe("module boundary constraints", () => {
   it("forbids deep imports past a package's declared public API", async () => {
     const violations = await boundaryViolations(
       'import "@agentxm/workspace/desired-state/src/index.js";',
-      FEATURE,
+      CORE_CAPABILITY,
     );
     expect(violations.map((violation) => violation.ruleId)).toContain("no-restricted-imports");
   });

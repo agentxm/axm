@@ -15,7 +15,7 @@ sources:
     title: Pre-migration repository guidance
 generated:
   by: codex/gpt-5
-  at: 2026-09-12T16:23:31Z
+  at: 2026-09-15T01:50:00Z
 ---
 
 # Release the AXM CLI
@@ -64,8 +64,10 @@ state in the [specification catalog](../../specifications/catalog.md).
   `prepare-release.yml` with an exact current `main` commit. Do not cut or push
   a release commit from a local checkout.
 - Run `pnpm run verify:affected` explicitly when local release verification is
-  wanted. Git push does not repeat that broad workflow; pull-request and
-  merged-commit CI remain authoritative.
+  wanted. Ordinary `main` pushes do not repeat broad source or platform
+  verification; proposed-change CI is authoritative for those revisions.
+  Canonical release commits are the exception: their exact push CI reruns the
+  full source/platform gates and produces publication artifacts.
 - Every project tagged `release:cli` is part of one fixed release group. Their
   versions must match, and publication follows package dependency order.
 - That tag is the only place cohort membership is declared. Release tooling
@@ -173,6 +175,11 @@ state in the [specification catalog](../../specifications/catalog.md).
    automatically into `publish.yml`; the canonical release subject supplies
    the tag, and the completed run supplies the exact commit and CI run ID. No
    second routine operator command or public trigger is required.
+
+   Non-release `main` commits cannot produce these artifact families. A manual
+   artifact regeneration is accepted only when `ci.yml` is dispatched at the
+   matching canonical `cli-v{VERSION}` tag; a manual branch run remains full
+   assurance without release-grade artifacts.
 
 5. Let GitHub Actions finish the publish.
 

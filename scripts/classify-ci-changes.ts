@@ -2,72 +2,199 @@ import { execFileSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 
+export type CiCheck =
+  | "cli-e2e"
+  | "documentation"
+  | "extension-lint"
+  | "release-artifacts"
+  | "secrets"
+  | "source"
+  | "specification-verdict"
+  | "windows"
+  | "workflow-security";
+
+export interface CiCheckSelection {
+  readonly reason: string;
+  readonly selected: boolean;
+}
+
 export interface CiChangeClassification {
+  readonly categories: readonly string[];
+  readonly checks: Readonly<Record<CiCheck, CiCheckSelection>>;
   readonly code: boolean;
   readonly documentation: boolean;
-  readonly formatRequired: boolean;
+  readonly full: boolean;
   readonly releaseInfrastructure: boolean;
   readonly workflow: boolean;
 }
 
+export interface CiSelectionResult extends CiChangeClassification {
+  readonly base: string;
+  readonly head: string;
+  readonly version: 1;
+}
+
 const isDocumentationPath = (path: string) =>
   path.startsWith("contributing/") || /(?:^|\/)\w[^/]*\.mdx?$/u.test(path);
+const isAgentInstructionPath = (path: string) => /(?:^|\/)(?:AGENTS|CLAUDE)\.md$/u.test(path);
 
-/**
- * Trees whose files a project owns. Every project root sits under `apps/`,
- * `packages/` or `tools/`, so `default` (`{projectRoot}/**\/*`) already claims
- * the markdown inside them. The remaining prefixes are declared from the
- * workspace root: `apps/cli/project.json` names `skills/axm/src/**\/*` and
- * `README.md` among its `generate:*` inputs and outputs, and the root
- * `project.json` names `specifications/catalog.md` as a `generate:*` output.
- */
+// Markdown owned by executable projects or generators is runtime/tooling
+// content, not human documentation.
 const workspaceSourcePrefixes: readonly string[] = [
+  ".agents/",
+  ".claude/",
+  ".husky/",
+  ".nx/",
+  ".vscode/",
+  "agent_extensions/",
   "apps/",
+  "benchmarks/",
   "packages/",
   "tools/",
   "skills/",
   "specifications/",
 ];
-
 const workspaceSourceFiles: readonly string[] = ["README.md"];
-
 const isWorkspaceSourcePath = (path: string) =>
   workspaceSourcePrefixes.some((prefix) => path.startsWith(prefix)) ||
   workspaceSourceFiles.includes(path);
-
-/**
- * Markdown a project claims as build input is code, not documentation:
- * `pnpm run generate:check` is the only gate that catches a hand edit to a
- * generated document, and it runs inside the affected-verification lane that
- * `code` selects. `classify-ci-changes.test.ts` derives the markdown entries
- * from every project manifest rather than restating them here.
- */
 const isDocumentationOnlyPath = (path: string) =>
-  isDocumentationPath(path) && !isWorkspaceSourcePath(path);
-
+  isDocumentationPath(path) && !isAgentInstructionPath(path) && !isWorkspaceSourcePath(path);
+const isWorkflowPath = (path: string) => path.startsWith(".github/");
 const isReleaseInfrastructurePath = (path: string) =>
   path.startsWith("infra/") ||
   path.startsWith("scripts/release-") ||
+  path === ".github/workflows/prepare-release.yml" ||
   path === ".github/workflows/publish.yml" ||
-  path === "mise.toml" ||
-  path === "nx.json" ||
-  path === "package.json" ||
-  path === "pnpm-lock.yaml" ||
-  path === "project.json";
+  ["mise.toml", "nx.json", "package.json", "pnpm-lock.yaml", "project.json"].includes(path);
+const isCiExecutionPath = (path: string) =>
+  path === ".github/workflows/ci.yml" ||
+  path.startsWith(".github/actions/setup-workspace/") ||
+  path === "scripts/classify-ci-changes.ts" ||
+  path === "scripts/classify-ci-changes.test.ts";
+const isCliRuntimePath = (path: string) =>
+  path.startsWith("apps/cli/") ||
+  path.startsWith("apps/cli-e2e/") ||
+  path.startsWith("packages/") ||
+  path.startsWith("skills/");
+const knownRootFiles = [
+  ".gitleaks.toml",
+  ".gitleaksignore",
+  ".npmrc",
+  ".nvmrc",
+  ".pnpmfile.cjs",
+  ".prettierignore",
+  ".prettierrc",
+  "AGENTS.md",
+  "CHANGELOG.md",
+  "CONTRIBUTING.md",
+  "LICENSE",
+  "allurerc.ts",
+  "eslint.config.mjs",
+  "mise.toml",
+  "nx.json",
+  "package.json",
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
+  "project.json",
+  "tsconfig.base.json",
+  "tsconfig.json",
+  "vitest.config.ts",
+  "vitest.execution.ts",
+  "vitest.reporting.ts",
+  "vitest.purpose.setup.ts",
+];
+const isKnownPath = (path: string) =>
+  isDocumentationOnlyPath(path) ||
+  isAgentInstructionPath(path) ||
+  isWorkflowPath(path) ||
+  isWorkspaceSourcePath(path) ||
+  path.startsWith("infra/") ||
+  path.startsWith("scripts/") ||
+  knownRootFiles.includes(path);
+const check = (selected: boolean, selectedReason: string, excludedReason: string) => ({
+  selected,
+  reason: selected ? selectedReason : excludedReason,
+});
 
 export const selectCodeVerificationPaths = (paths: readonly string[]) =>
-  paths.filter((path) => !isDocumentationOnlyPath(path) && !path.startsWith(".github/"));
+  paths.filter((path) => !isDocumentationOnlyPath(path) && !isWorkflowPath(path));
 
-export const classifyCiChanges = (paths: readonly string[]): CiChangeClassification => {
-  const documentation = paths.some(isDocumentationPath);
-  const workflow = paths.some((path) => path.startsWith(".github/"));
+export const classifyCiChanges = (
+  paths: readonly string[],
+  context: { readonly releaseArtifacts?: boolean } = {},
+): CiChangeClassification => {
+  const documentation = paths.some(isDocumentationOnlyPath);
+  const workflow = paths.some(isWorkflowPath);
   const releaseInfrastructure = paths.some(isReleaseInfrastructurePath);
+  const unknown = paths.some((path) => !isKnownPath(path));
+  const ciExecution = paths.some(isCiExecutionPath);
   const codeVerificationPaths = selectCodeVerificationPaths(paths);
+  const full = unknown || ciExecution || paths.length === 0;
+  const code = codeVerificationPaths.length > 0 || releaseInfrastructure || full;
+  const cliRuntime = full || paths.some(isCliRuntimePath);
+  const releaseArtifacts = context.releaseArtifacts === true;
+  const categories = [
+    documentation && "documentation",
+    workflow && "workflow",
+    code && "source",
+    releaseInfrastructure && "release-infrastructure",
+    cliRuntime && "cli-runtime",
+    unknown && "unknown-input",
+  ].filter((category): category is string => typeof category === "string");
 
   return {
-    code: codeVerificationPaths.length > 0 || releaseInfrastructure,
+    categories,
+    checks: {
+      secrets: check(true, "security runs for every change", "unreachable"),
+      documentation: check(
+        documentation,
+        "human documentation changed",
+        "no human documentation changed",
+      ),
+      "workflow-security": check(
+        workflow,
+        "GitHub Actions configuration changed",
+        "workflow configuration is unchanged",
+      ),
+      source: check(
+        code || full,
+        full
+          ? "uncertain or CI-defining input requires full verification"
+          : "executable source or toolchain input changed",
+        "human-documentation-only change",
+      ),
+      "specification-verdict": check(
+        code || full,
+        "source verification includes the per-change specification verdict",
+        "no executable contract changed",
+      ),
+      "extension-lint": check(
+        code || full,
+        "source verification includes extension integrity",
+        "no executable extension content changed",
+      ),
+      "cli-e2e": check(
+        cliRuntime,
+        full
+          ? "full fallback or CI execution path changed"
+          : "CLI runtime or transitive package input changed",
+        "change cannot affect the CLI runtime",
+      ),
+      windows: check(
+        cliRuntime,
+        full ? "full fallback or CI execution path changed" : "portable CLI runtime input changed",
+        "change cannot affect Windows CLI behavior",
+      ),
+      "release-artifacts": check(
+        releaseArtifacts,
+        "canonical main release commit selected the publication artifact stage",
+        "ordinary CI does not produce release-grade artifacts",
+      ),
+    },
+    code,
     documentation,
-    formatRequired: true,
+    full,
     releaseInfrastructure,
     workflow,
   };
@@ -79,40 +206,74 @@ const readArgument = (name: string) => {
   if (!value) throw new Error(`Missing required ${name} argument`);
   return value;
 };
-
-const readChangedPaths = (base: string, head: string) =>
-  execFileSync("git", ["diff", "--name-only", "-z", `${base}...${head}`], {
-    encoding: "utf8",
-  })
-    .split("\0")
-    .filter(Boolean);
-
-const writeGitHubOutputs = (classification: CiChangeClassification) => {
-  const outputPath = process.env["GITHUB_OUTPUT"];
-  if (!outputPath) return;
-
-  appendFileSync(
-    outputPath,
-    [
-      `code=${classification.code}`,
-      `documentation=${classification.documentation}`,
-      `format_required=${classification.formatRequired}`,
-      `release_infrastructure=${classification.releaseInfrastructure}`,
-      `workflow=${classification.workflow}`,
-      "",
-    ].join("\n"),
-  );
+export const parseChangedPaths = (raw: string): readonly string[] => {
+  const fields = raw.split("\0");
+  const paths: string[] = [];
+  for (let index = 0; index < fields.length;) {
+    const status = fields[index++];
+    if (!status) continue;
+    const firstPath = fields[index++];
+    if (!firstPath) return ["__uncertain-change-record__"];
+    paths.push(firstPath);
+    if (status.startsWith("R") || status.startsWith("C")) {
+      const secondPath = fields[index++];
+      if (!secondPath) return ["__uncertain-change-record__"];
+      paths.push(secondPath);
+    } else if (!/^[ADMUTX]$/u.test(status)) {
+      return ["__uncertain-change-record__"];
+    }
+  }
+  return paths;
 };
-
+const readChangedPaths = (base: string, head: string) =>
+  parseChangedPaths(
+    execFileSync("git", ["diff", "--name-status", "-z", `${base}...${head}`], {
+      encoding: "utf8",
+    }),
+  );
+const outputEntries = (selection: CiSelectionResult): readonly string[] => [
+  `code=${selection.checks.source.selected}`,
+  `documentation=${selection.checks.documentation.selected}`,
+  `workflow=${selection.workflow}`,
+  `workflow_security=${selection.checks["workflow-security"].selected}`,
+  `cli_e2e=${selection.checks["cli-e2e"].selected}`,
+  `windows=${selection.checks.windows.selected}`,
+  `release_artifacts=${selection.checks["release-artifacts"].selected}`,
+  `selection=${JSON.stringify(selection)}`,
+];
+const renderSummary = (selection: CiSelectionResult) =>
+  [
+    "## CI selection",
+    "",
+    `Comparison: \`${selection.base}\` … \`${selection.head}\``,
+    "",
+    "| Check | Decision | Reason |",
+    "| --- | --- | --- |",
+    ...Object.entries(selection.checks).map(
+      ([name, value]) =>
+        `| \`${name}\` | ${value.selected ? "selected" : "inapplicable"} | ${value.reason} |`,
+    ),
+    "",
+  ].join("\n");
+const writeSelection = (selection: CiSelectionResult) => {
+  const outputPath = process.env["GITHUB_OUTPUT"];
+  if (outputPath) appendFileSync(outputPath, `${outputEntries(selection).join("\n")}\n`);
+  const summaryPath = process.env["GITHUB_STEP_SUMMARY"];
+  if (summaryPath) appendFileSync(summaryPath, renderSummary(selection));
+  console.log(JSON.stringify(selection, null, 2));
+};
 const main = () => {
   const base = readArgument("--base");
   const head = readArgument("--head");
+  const releaseArtifacts = readArgument("--release-artifacts") === "true";
   const paths = readChangedPaths(base, head);
-  const classification = classifyCiChanges(paths);
-
-  writeGitHubOutputs(classification);
-  console.log(JSON.stringify(classification, null, 2));
+  const selection = {
+    ...classifyCiChanges(paths, { releaseArtifacts }),
+    base,
+    head,
+    version: 1,
+  } satisfies CiSelectionResult;
+  writeSelection(selection);
 };
-
 const entryPath = process.argv[1];
 if (entryPath && import.meta.url === pathToFileURL(entryPath).href) main();

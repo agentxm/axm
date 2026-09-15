@@ -1,0 +1,10 @@
+# https://docs.zizmor.sh/configuration/
+rules:
+  self-repository:
+    # actionlint does not yet accept zizmor's `$/...` self-repository syntax.
+    # Local actions and reusable workflows remain pinned by the checked-out
+    # candidate revision, so keep the portable `./...` form until it does.
+    ignore:
+      - ci.yml
+      - prepare-release.yml
+      - publish.yml

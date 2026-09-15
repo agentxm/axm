@@ -178,6 +178,17 @@ describe("aggregate required verification", () => {
     expect(trigger).toContain("checks_requested");
   });
 
+  it("runs daily full verification without producing release artifacts", () => {
+    const workflow = readWorkflow();
+    expect(JSON.stringify(workflow.on)).toContain("43 9 * * *");
+    for (const job of ["verify-main", "verify-e2e", "windows-workspace"]) {
+      expect(JSON.stringify(workflow.jobs[job])).toContain("github.event_name == 'schedule'");
+    }
+    for (const job of ["binary-smoke", "npm-cohort"]) {
+      expect(JSON.stringify(workflow.jobs[job])).not.toContain("github.event_name == 'schedule'");
+    }
+  });
+
   it("one always-run aggregate job gates on every applicable check", () => {
     const workflow = readWorkflow();
     const required = workflow.jobs["required"];
@@ -225,8 +236,8 @@ describe("aggregate required verification", () => {
     expect(serialized).toContain("steps.set-shas.outputs.head");
   });
 
-  it.each(["pull_request", "merge_group", "push", "workflow_dispatch"])(
-    "requires successful E2E partition completion for %s",
+  it.each(["pull_request", "merge_group", "push", "schedule", "workflow_dispatch"])(
+    "requires successful E2E partition completion whenever selected for %s",
     (event) => {
       const jobs = readWorkflow().jobs;
       const required = jobs["required"];
@@ -263,6 +274,11 @@ describe("aggregate required verification", () => {
               ...process.env,
               EVENT_NAME: event,
               DOCS_CHANGED: "false",
+              SOURCE_SELECTED: "true",
+              CLI_E2E_SELECTED: "true",
+              RELEASE_ARTIFACTS_SELECTED: event === "push" ? "true" : "false",
+              WINDOWS_SELECTED: "true",
+              WORKFLOW_SECURITY_SELECTED: "false",
               RESULTS: JSON.stringify(results),
               GITHUB_STEP_SUMMARY: path.join(directory, "summary.md"),
             },
@@ -279,12 +295,97 @@ describe("aggregate required verification", () => {
     },
   );
 
+  it.each(["pull_request", "merge_group"])(
+    "accepts inapplicable heavyweight jobs for a documentation-only %s",
+    (event) => {
+      const jobs = readWorkflow().jobs;
+      const required = jobs["required"];
+      if (
+        typeof required !== "object" ||
+        required === null ||
+        !("steps" in required) ||
+        !Array.isArray(required.steps)
+      ) {
+        throw new Error("Required CI must declare its aggregation step.");
+      }
+      const step: unknown = required.steps.find(
+        (value: unknown) => typeof value === "object" && value !== null && "run" in value,
+      );
+      if (
+        typeof step !== "object" ||
+        step === null ||
+        !("run" in step) ||
+        typeof step.run !== "string"
+      ) {
+        throw new Error("Required CI must execute its aggregation script.");
+      }
+      const results = Object.fromEntries(
+        Object.keys(jobs)
+          .filter((job) => job !== "required")
+          .map((job) => [
+            job,
+            {
+              result: ["classify", "secrets", "documentation"].includes(job)
+                ? "success"
+                : "skipped",
+            },
+          ]),
+      );
+      const directory = fs.mkdtempSync(path.join(tmpdir(), "axm-docs-gate-"));
+      try {
+        const execution = spawnSync("bash", ["-e", "-o", "pipefail", "-c", step.run], {
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            EVENT_NAME: event,
+            DOCS_CHANGED: "true",
+            SOURCE_SELECTED: "false",
+            CLI_E2E_SELECTED: "false",
+            RELEASE_ARTIFACTS_SELECTED: "false",
+            WINDOWS_SELECTED: "false",
+            WORKFLOW_SECURITY_SELECTED: "false",
+            RESULTS: JSON.stringify(results),
+            GITHUB_STEP_SUMMARY: path.join(directory, "summary.md"),
+          },
+        });
+        if (execution.error !== undefined) throw execution.error;
+        expect(execution.status, execution.stdout + execution.stderr).toBe(0);
+      } finally {
+        fs.rmSync(directory, { recursive: true, force: true });
+      }
+    },
+  );
+
   it("isolates queue cancellation and uses the tested revision in cache keys", () => {
     const workflow = readWorkflow();
     expect(JSON.stringify(workflow.concurrency)).toContain("github.event.merge_group.head_ref");
     const jobs = JSON.stringify(workflow.jobs);
     expect(jobs).toContain("needs.classify.outputs.head");
     expect(jobs).not.toContain("github.event.pull_request.head.sha");
+  });
+
+  it("routes proposed-change jobs from the classifier outputs", () => {
+    const jobs = readWorkflow().jobs;
+    expect(JSON.stringify(jobs["verify-pr"])).toContain("needs.classify.outputs.code");
+    expect(JSON.stringify(jobs["verify-e2e"])).toContain("needs.classify.outputs.cli-e2e");
+    expect(JSON.stringify(jobs["windows-workspace"])).toContain("needs.classify.outputs.windows");
+    expect(JSON.stringify(jobs["workflow-validation"])).toContain(
+      "needs.classify.outputs.workflow-security",
+    );
+  });
+
+  it("builds publication artifacts only for a canonical release commit", () => {
+    const jobs = readWorkflow().jobs;
+    expect(JSON.stringify(jobs["classify"])).toContain("git show -s --format=%s");
+    expect(JSON.stringify(jobs["classify"])).toContain("--release-artifacts");
+    for (const job of ["binary-smoke", "npm-cohort"]) {
+      expect(JSON.stringify(jobs[job])).toContain(
+        "needs.classify.outputs.release-artifacts == 'true'",
+      );
+    }
+    expect(JSON.stringify(jobs["verify-main"])).toContain(
+      "needs.classify.outputs.release-artifacts == 'true'",
+    );
   });
 
   it("preserves workspace and E2E report evidence on hosted runners", () => {

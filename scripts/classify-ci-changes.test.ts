@@ -4,7 +4,11 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { classifyCiChanges, selectCodeVerificationPaths } from "./classify-ci-changes.js";
+import {
+  classifyCiChanges,
+  parseChangedPaths,
+  selectCodeVerificationPaths,
+} from "./classify-ci-changes.js";
 
 const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 
@@ -55,8 +59,26 @@ const declaredGenerationPaths = (projectRoot: string): readonly string[] => {
 };
 
 describe("classifyCiChanges", () => {
-  it("always requires formatting", () => {
-    expect(classifyCiChanges([]).formatRequired).toBe(true);
+  it("falls back to full verification when no trustworthy history is available", () => {
+    expect(classifyCiChanges([])).toMatchObject({
+      full: true,
+      checks: {
+        source: { selected: true },
+        "cli-e2e": { selected: true },
+        windows: { selected: true },
+      },
+    });
+  });
+
+  it("selects release-grade artifacts only for the declared release stage", () => {
+    expect(
+      classifyCiChanges(["packages/core/workspace-state/src/index.ts"], {
+        releaseArtifacts: true,
+      }).checks["release-artifacts"],
+    ).toMatchObject({ selected: true });
+    expect(
+      classifyCiChanges(["packages/core/workspace-state/src/index.ts"]).checks["release-artifacts"],
+    ).toMatchObject({ selected: false });
   });
 
   it("classifies documentation without code work", () => {
@@ -64,6 +86,13 @@ describe("classifyCiChanges", () => {
       code: false,
       documentation: true,
       workflow: false,
+      checks: {
+        documentation: { selected: true },
+        secrets: { selected: true },
+        source: { selected: false },
+        "cli-e2e": { selected: false },
+        windows: { selected: false },
+      },
     });
   });
 
@@ -86,10 +115,23 @@ describe("classifyCiChanges", () => {
     // `__generated__` artifact merge unnoticed.
     expect(classifyCiChanges(["skills/axm/src/SKILL.md"])).toMatchObject({
       code: true,
-      documentation: true,
+      documentation: false,
     });
     expect(classifyCiChanges(["packages/core/workspace-state/README.md"])).toMatchObject({
       code: true,
+      documentation: false,
+    });
+    expect(classifyCiChanges(["contributing/AGENTS.md"])).toMatchObject({
+      code: true,
+      documentation: false,
+    });
+    expect(classifyCiChanges([".nx/version-plans/candidate.md"])).toMatchObject({
+      code: true,
+      documentation: false,
+    });
+    expect(classifyCiChanges(["agent_extensions/example/src/SKILL.md"])).toMatchObject({
+      code: true,
+      documentation: false,
     });
   });
 
@@ -110,9 +152,25 @@ describe("classifyCiChanges", () => {
   });
 
   it("classifies workflow-only changes without compiling code", () => {
-    expect(classifyCiChanges([".github/workflows/ci.yml"])).toMatchObject({
+    expect(classifyCiChanges([".github/workflows/claude-review.yml"])).toMatchObject({
       code: false,
       workflow: true,
+      checks: {
+        "workflow-security": { selected: true },
+        source: { selected: false },
+      },
+    });
+  });
+
+  it("executes all affected setup paths when the CI workflow changes", () => {
+    expect(classifyCiChanges([".github/workflows/ci.yml"])).toMatchObject({
+      full: true,
+      checks: {
+        source: { selected: true },
+        "cli-e2e": { selected: true },
+        windows: { selected: true },
+        "workflow-security": { selected: true },
+      },
     });
   });
 
@@ -139,5 +197,61 @@ describe("classifyCiChanges", () => {
         "apps/cli/src/main.ts",
       ]),
     ).toEqual(["apps/cli/src/main.ts"]);
+  });
+
+  it("takes the union for mixed documentation and runtime changes", () => {
+    expect(
+      classifyCiChanges(["contributing/guides/setup.md", "apps/cli/src/main.ts"]),
+    ).toMatchObject({
+      documentation: true,
+      code: true,
+      checks: {
+        documentation: { selected: true },
+        source: { selected: true },
+        "cli-e2e": { selected: true },
+        windows: { selected: true },
+      },
+    });
+  });
+
+  it("does not select CLI platform checks for unrelated tooling", () => {
+    expect(classifyCiChanges(["tools/specification-metadata/src/contract.ts"])).toMatchObject({
+      code: true,
+      checks: {
+        source: { selected: true },
+        "cli-e2e": { selected: false },
+        windows: { selected: false },
+      },
+    });
+  });
+
+  it("uses full verification for unknown paths", () => {
+    expect(classifyCiChanges(["unowned/new-input.data"])).toMatchObject({
+      full: true,
+      categories: expect.arrayContaining(["unknown-input"]),
+      checks: {
+        source: { selected: true },
+        "cli-e2e": { selected: true },
+        windows: { selected: true },
+      },
+    });
+  });
+
+  it("preserves deleted paths and both sides of renames", () => {
+    expect(
+      parseChangedPaths(
+        "D\0packages/core/workspace-state/src/removed.ts\0R100\0contributing/old.md\0apps/cli/src/new.ts\0",
+      ),
+    ).toEqual([
+      "packages/core/workspace-state/src/removed.ts",
+      "contributing/old.md",
+      "apps/cli/src/new.ts",
+    ]);
+  });
+
+  it("falls back to full verification for malformed change records", () => {
+    expect(classifyCiChanges(parseChangedPaths("R100\0contributing/old.md\0"))).toMatchObject({
+      full: true,
+    });
   });
 });

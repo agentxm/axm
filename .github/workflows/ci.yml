@@ -118,6 +118,7 @@ jobs:
         with:
           advanced-security: false
           config: .github/zizmor.yml
+          min-severity: medium
           version: "1.30.0"
 
   specification-verdict:

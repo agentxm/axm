@@ -14,6 +14,51 @@ import {
   type ExtensionName,
 } from "@agentxm/extension-model/unstable/extensions/common";
 
+const isAsciiAlphaNumeric = (character: string): boolean => {
+  const code = character.charCodeAt(0);
+  return (code >= 48 && code <= 57) || (code >= 97 && code <= 122);
+};
+
+const collapseDisallowedCharacters = (value: string, allowFilePunctuation: boolean): string => {
+  let result = "";
+  let pendingSeparator = false;
+  for (const character of value.toLowerCase()) {
+    const allowed =
+      isAsciiAlphaNumeric(character) ||
+      (allowFilePunctuation && (character === "." || character === "_"));
+    if (allowed) {
+      if (pendingSeparator && result.length > 0) {
+        result += "-";
+      }
+      result += character;
+      pendingSeparator = false;
+    } else {
+      pendingSeparator = true;
+    }
+  }
+  return result;
+};
+
+const trimFileBoundaries = (value: string): string => {
+  let start = 0;
+  let end = value.length;
+  while (start < end && (value[start] === "." || value[start] === "-")) {
+    start += 1;
+  }
+  while (end > start && (value[end - 1] === "." || value[end - 1] === "-")) {
+    end -= 1;
+  }
+  return value.slice(start, end);
+};
+
+const trimTrailingHyphens = (value: string): string => {
+  let end = value.length;
+  while (end > 0 && value[end - 1] === "-") {
+    end -= 1;
+  }
+  return value.slice(0, end);
+};
+
 /**
  * Sanitizes an extension name into a safe on-disk directory name.
  *
@@ -26,12 +71,7 @@ import {
  * 6. Preserve canonical names; otherwise append a deterministic discriminator
  */
 export const sanitizeName = (name: string): string => {
-  const sanitized = name
-    .toLowerCase()
-    .replace(/[^a-z0-9._]+/g, "-")
-    .replace(/^[.-]+/, "")
-    .slice(0, 255)
-    .replace(/[.-]+$/, "");
+  const sanitized = trimFileBoundaries(collapseDisallowedCharacters(name, true).slice(0, 255));
 
   const fallback = sanitized || "unnamed-skill";
   if (fallback === name) {
@@ -53,7 +93,7 @@ export const sanitizeName = (name: string): string => {
     .toString(16)
     .padStart(8, "0")}`;
   const maxSlugLength = 255 - discriminator.length - 2;
-  const slug = fallback.slice(0, maxSlugLength).replace(/[.-]+$/, "") || "unnamed-skill";
+  const slug = trimFileBoundaries(fallback.slice(0, maxSlugLength)) || "unnamed-skill";
   return `${slug}__${discriminator}`;
 };
 
@@ -61,14 +101,9 @@ export const sanitizeName = (name: string): string => {
  * Converts a human-authored label into a valid AXM extension name.
  */
 export const normalizeExtensionName = (name: string): ExtensionName => {
-  const normalized = name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+/, "")
-    .replace(/-+$/, "")
-    .slice(0, 64)
-    .replace(/-+$/, "");
+  const normalized = trimTrailingHyphens(
+    collapseDisallowedCharacters(name.trim(), false).slice(0, 64),
+  );
 
   return decodeExtensionNameSync(normalized || "unnamed-extension");
 };

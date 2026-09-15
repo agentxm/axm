@@ -242,12 +242,17 @@ export const acquiredExtensionDisplayPath = (
   source: Exclude<ExtensionPathSource, { readonly refType: "workspace" }>,
   type: ExtensionTypePlural,
   name: string,
-): string =>
-  [
-    root.replace(/[\\/]+$/u, ""),
+): string => {
+  let rootEnd = root.length;
+  while (rootEnd > 0 && (root[rootEnd - 1] === "/" || root[rootEnd - 1] === "\\")) {
+    rootEnd -= 1;
+  }
+  return [
+    root.slice(0, rootEnd),
     ...acquiredSourceSegments(source),
     ...(source.refType === "registry" ? [type, name] : []),
   ].join("/");
+};
 
 /** Render the acquired display path proven by a persisted lock entry. */
 export const acquiredExtensionDisplayPathFromLockEntry = (

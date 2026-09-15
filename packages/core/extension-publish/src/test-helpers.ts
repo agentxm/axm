@@ -669,7 +669,7 @@ export const remoteRequest = (overrides: Partial<PublishRequest> = {}): PublishR
 /** The published extension a lifecycle example addresses. */
 export const registryTarget = "@acme/skills/review";
 /** The Registry path that extension's guidance lives under. */
-export const registryTargetPath = `/v1/extensions/${registryTarget.replace("@", "%40")}`;
+export const registryTargetPath = `/v1/extensions/${registryTarget.replaceAll("@", "%40")}`;
 /** The revision a guidance read observes and the following write is conditioned on. */
 export const observedRevision = "opaque-observed-revision";
 

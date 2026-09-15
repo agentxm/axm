@@ -31,7 +31,14 @@ const fileLabel = (targetFile: string): string => {
   return segments[segments.length - 1] ?? targetFile;
 };
 
-const asSentenceBody = (detail: string): string => detail.trim().replace(/\.+$/, "");
+const asSentenceBody = (detail: string): string => {
+  const trimmed = detail.trim();
+  let end = trimmed.length;
+  while (end > 0 && trimmed[end - 1] === ".") {
+    end -= 1;
+  }
+  return trimmed.slice(0, end);
+};
 
 /**
  * The operator-facing report: consequence, bundle, reason, remedy. It never

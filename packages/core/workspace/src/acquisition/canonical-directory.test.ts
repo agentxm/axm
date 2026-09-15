@@ -526,7 +526,7 @@ describe("package materialization helpers", () => {
         const fixture = fileURLToPath(
           new URL("./__fixtures__/interrupted-package-create.mjs", import.meta.url),
         );
-        const child = spawnSync(process.execPath, [fixture, canonicalPath]);
+        const child = spawnSync(process.execPath, [fixture], { cwd: workspaceRoot });
         const paths = canonicalMaterializationPaths(canonicalPath);
 
         expect(child.signal).toBe("SIGKILL");

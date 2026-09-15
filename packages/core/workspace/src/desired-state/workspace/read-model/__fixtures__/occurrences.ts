@@ -46,12 +46,25 @@ const join = (parent: string, child: string): string =>
 const decodeFixtureAbsolutePath = Schema.decodeUnknownSync(AbsolutePathSchema);
 
 const normalizeFileBackedName = (name: string): string => {
-  const normalized = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 64)
-    .replace(/-+$/g, "");
+  let normalized = "";
+  let pendingSeparator = false;
+  for (const character of name.toLowerCase()) {
+    const code = character.charCodeAt(0);
+    const allowed = (code >= 48 && code <= 57) || (code >= 97 && code <= 122);
+    if (allowed) {
+      if (pendingSeparator && normalized.length > 0) {
+        normalized += "-";
+      }
+      normalized += character;
+      pendingSeparator = false;
+    } else {
+      pendingSeparator = true;
+    }
+  }
+  normalized = normalized.slice(0, 64);
+  while (normalized.endsWith("-")) {
+    normalized = normalized.slice(0, -1);
+  }
 
   return normalized === "" ? "unnamed" : normalized;
 };

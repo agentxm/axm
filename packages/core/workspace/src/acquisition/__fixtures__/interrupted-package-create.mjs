@@ -1,8 +1,14 @@
 import * as nodeFs from "node:fs";
 import * as nodePath from "node:path";
 
-const canonicalPath = process.argv[2];
-if (canonicalPath === undefined) process.exit(2);
+const canonicalPath = nodePath.join(
+  process.cwd(),
+  ".axm",
+  "extensions",
+  "@acme",
+  "knowledge",
+  "review",
+);
 
 const stagingPath = `${canonicalPath}.axm-staging`;
 nodeFs.mkdirSync(nodePath.join(stagingPath, "src"), { recursive: true });

@@ -1,11 +1,12 @@
 ---
 type: Architecture
 status: stable
-description: The terminal design system for AXM human output — document vocabulary usage, tone and glyph semantics, per-stream color policy, responsive layout, the live region, the gallery, the supported terminal matrix, and the time-to-first-output budget.
+description: The terminal design system for AXM human output — the gutter and value column, document vocabulary usage, tone and glyph semantics, per-stream color policy, responsive layout, the live scene, the gallery, the supported terminal matrix, and the time-to-first-output budget.
 depends-on:
   - ./output.md
   - ../decisions/cli-output-view-model-and-terminal-ownership.md
   - ../decisions/cli-live-event-contract.md
+  - ../decisions/cli-ledger-grammar-and-application-owned-prompts.md
 ---
 
 # Terminal design
@@ -17,9 +18,10 @@ and at two hundred columns in a wide terminal.
 
 ## Responsibilities
 
-This document owns how feature views select document vocabulary, what tones
-and glyphs mean, when color and animation are permitted, how layout responds
-to width, what the live region shows, how the design is reviewed, which
+This document owns how feature views select document vocabulary, the gutter
+and value column every node aligns to, what tones and glyphs mean and where a
+glyph goes, when color and animation are permitted, how layout responds to
+width and height, what the live scene shows, how the design is reviewed, which
 terminals are supported, and what latency the first output must meet.
 
 ## Non-responsibilities
@@ -27,34 +29,65 @@ terminals are supported, and what latency the first output must meet.
 It does not inventory node fields, painter options, or event fields; the
 `Doc` types, the painter, and the lifecycle event schema own those. It does
 not own channel boundaries or contract authority, which [CLI output](output.md)
-owns, and it establishes no obligation: the executable specification
-`cli/non-tty-output-is-plain-and-unpadded` owns the one enforceable property
-described here.
+owns, or when a prompt or wait may open, which [Interaction](interaction.md)
+owns. It establishes no obligation: executable specifications such as
+`cli/non-tty-output-is-plain-and-unpadded` own the enforceable properties
+described here. The choice of this grammar is recorded in
+[CLI ledger grammar and application-owned prompts](../decisions/cli-ledger-grammar-and-application-owned-prompts.md).
+
+## Gutter and value column
+
+Every node that carries a mark paints it in a five-column gutter: a space, the
+mark, and three spaces. Content always starts at column six, so a title, a
+callout, a ledger row, an answer, and a prompt share one left edge. Marks are
+status glyphs, change operations, the prompt mark `?`, and the caret ❯.
+
+Fields, answers, waits, and callout asides put their value at the value
+column, which is the start of a ledger's second column — column 36 at eighty
+columns, moving left as the name column shrinks. A settled setup or publish
+therefore reads as one aligned record.
 
 ## Vocabulary
 
 A view picks the node whose meaning matches the result, never the node whose
 shape happens to fit the terminal.
 
-| Need                                                | Node                                                                                |
-| --------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Compare many like items across the same attributes  | `table`; columns carry width hints and priority so the painter can respond to width |
-| Report what changed, unit by unit                   | `rows` of `row`, each with a change glyph; nested children carry per-agent outcomes |
-| Show containment or hierarchy                       | `tree`                                                                              |
-| Describe one item                                   | `fields`                                                                            |
-| State the outcome of the command                    | `headline` with the outcome tone; one per result                                    |
-| Summarize counts and elapsed time after the outcome | `summary`                                                                           |
-| Explain a condition that needs attention            | `callout` with a tone and optional children; never for the outcome itself           |
-| Say something in prose                              | `paragraph`; a tone only when the prose is itself a warning, error, or aside        |
-| Point to the next command or link                   | `next` with suggested actions; machine mode emits them as suggestion events         |
-| Fold repeated unchanged items                       | `collapsed` with a count, a noun, and the flag that reveals them                    |
-| Group related nodes under a dim title               | `section`                                                                           |
-| Pass text through untouched                         | `raw` or `markdown`; the painter never wraps, truncates, or restyles them           |
+| Need                                                         | Node                                                                                                  |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| Show units an operation plans, is running, or has settled    | `ledger`; columns declare a header, a role, and a priority, and each row carries a mark and a unit id |
+| Compare many like read-only items across the same attributes | `table`, optionally with a leading mark per row to flag the item that needs attention                 |
+| Show containment or hierarchy                                | `tree`                                                                                                |
+| Describe one item                                            | `fields`                                                                                              |
+| State the outcome of the command                             | `headline` with the outcome tone; one per result                                                      |
+| Summarize counts and elapsed time after the outcome          | `summary`                                                                                             |
+| Explain a condition that needs attention                     | `callout` with a tone and optional children; never for the outcome itself                             |
+| Say something in prose                                       | `paragraph`; a tone only when the prose is itself a warning, error, or aside                          |
+| Point to the next command or link                            | `next` with suggested actions; machine mode emits them as suggestion events                           |
+| Record an answered prompt                                    | `answer`, appended by the `Screen` when a prompt settles; views never build it                        |
+| Group related nodes under a dim title                        | `section`                                                                                             |
+| Pass text through untouched                                  | `raw` or `markdown`; the painter never wraps, truncates, or restyles them                             |
 
-A headline states what happened; a summary states how much. A callout is
-subordinate to a headline and never replaces it. Rows describe change, so an
-inventory that changed nothing is a table. A tree shows structure, so a flat
-list is never a tree.
+Every command opens with the same title line. No command prints a logo or a
+phase strip; setup opens like every other command.
+
+A ledger's columns carry a role. The `name` column is protected and shortened
+last; `fixed` columns keep their width; an `elastic` column takes spare width.
+Plan, progress, and result ledgers differ only in their final columns — a plan
+and detail against a status — and their marks. A ledger folds rows that repeat
+one outcome, such as unchanged units, into one fold line with a mark, a count, a
+noun, and the flag that reveals them. Row children carry per-agent outcomes and
+details, aligned to the content column and shown at verbose level. A ledger
+takes any columns: lint's are finding, location, and fix, with the rule
+identifier and help as a dim child line, and a rule that repeats folds into one
+row with a location count.
+
+When nothing changed there is no ledger: the verdict line stands alone. A
+headline states what happened; a summary states how much. A callout is
+subordinate to a headline and never replaces it. A table describes an
+inventory, so an inventory that changed nothing is a table. A tree shows
+structure, so a flat list is never a tree. A detail page is a headline with a
+dim aside, a paragraph, fields, and a `next` command, and a single requested
+field prints raw.
 
 ## Tone and glyphs
 
@@ -62,16 +95,38 @@ Tone is meaning, not decoration. `ok` marks a satisfied outcome, `warn` a
 condition that deserves attention but did not stop the command, `error` a
 failure, `info` orientation, `dim` an aside, and `neutral` no claim.
 
-Status glyphs accompany a headline or callout: ✔ for `ok`, ▲ for `warn`, ✖
-for `error`, and ● for `info`. Change glyphs prefix a row: `+` created, `~`
-updated, `–` removed, `=` unchanged, ▲ blocked, × failed, and ↶ rolled back.
-The same glyph always carries the same meaning, so ▲ means "attention" whether
-it opens a callout or a blocked row.
+Status glyphs are ✔ for `ok`, ▲ for `warn`, ✖ for `error`, ● for `info`, ◒ for
+a running unit, and · for a unit not yet started. Change operations are `+`
+created, `~` updated, `-` removed, and `=` unchanged; a row that did not change
+as planned carries ▲ blocked, ✖ failed, ↶ rolled back, or · not tried. A
+grouped selection shows ◉ selected and ◪ partially selected. The same glyph
+always carries the same meaning, so ▲ means "attention" whether it marks a
+callout or a blocked row.
 
-An ASCII glyph set replaces both families when the terminal cannot be trusted
-to render the symbols: when `TERM` is `dumb`, when the locale does not declare
-UTF-8, or when `AXM_ASCII=1` forces it. The ASCII set keeps the meanings and
-the widths, so layout is identical under both.
+Where a glyph goes is fixed. A row carries its own mark. A verdict that follows
+a ledger has no glyph, because the rows already carry status; it is bold and
+toned. A problem with no ledger above it leads with its glyph in the gutter. A
+callout always has one.
+
+A problem reads the same for every error kind: a title naming the category,
+with the stable code and the process exit code as a dim aside at the value
+column; validation failures list their inputs as fields; and every recovery is
+a copyable `next` command. Blocked, partial, and interrupted outcomes reuse the
+ledger rather than a bespoke layout.
+
+Glyph width is measured, not trusted. ✔ ✖ ◒ ◓ ↶ ❯ ◉ ◪ are Neutral in Unicode
+East Asian Width. ▲ ● · … are Ambiguous: they resolve to one cell outside East
+Asian contexts, so they are measured as one, but they appear only in the gutter
+so a terminal that draws them two cells wide shifts nothing but the gutter. The
+spinner uses only the Neutral frames ◒ and ◓ so its width never changes between
+frames. `AXM_ASCII=1` is the escape for a terminal that still misdraws them.
+
+An ASCII glyph set replaces the symbols when the terminal cannot be trusted to
+render them: when `TERM` is `dumb`, when the locale does not declare UTF-8, or
+when `AXM_ASCII=1` forces it. ASCII status is two letters — `ok`, `!!`, `xx`,
+and `..` — so `+` always means created and never collides with a status. The
+tri-state selection mark is `[-]`. Every ASCII mark fits the same five-column
+gutter, so layout is identical under both sets.
 
 ## Color and animation
 
@@ -83,57 +138,96 @@ requires a stderr terminal and the same environment conditions, and forced
 color never implies a live terminal.
 
 Only the eight standard colors and the dim attribute are used, never
-hard-coded RGB, so output reads on light and dark themes alike. Links use the
-terminal hyperlink sequence only when color is enabled.
+hard-coded RGB, so output reads on light and dark themes alike. Extension type
+tints map to the nearest standard color, and key chips are inverse cyan for
+the default and inverse dim for the others. Links use the terminal hyperlink
+sequence only when color is enabled.
 
 ## Responsive layout
 
 Every painted line fits the terminal width. The painter measures display
 width, so wide characters and combining marks count correctly.
 
-Tables and change rows share one layout engine. Columns declare a preferred
-width, a minimum width, and a priority of `required`, `preferred`, or
-`optional`. At a given width the painter first lays the table out at natural
-widths; if that overflows it shrinks the widest shrinkable columns toward their
-minimums and wraps their cells onto continuation lines aligned to the column;
-if that still overflows it drops `optional` columns and then `preferred`
-columns from the right, never a `required` column; and if the required set
-still overflows, or the width is below forty columns, it paints each row as a
-stacked block of label and value pairs. Headers use the computed widths and
-alignment, so a header never drifts from its cells.
+Ledgers and tables share one layout engine. Columns declare a preferred width,
+a minimum width, and a priority of `required`, `preferred`, or `optional`. At a
+given width the painter first lays the columns out at natural widths; if that
+overflows it shrinks the widest shrinkable columns toward their minimums and
+wraps their cells onto continuation lines aligned to the column; if that still
+overflows it drops `optional` columns and then `preferred` columns from the
+right, never a `required` column. Headers use the computed widths and
+alignment, so a header never drifts from its cells. Breakpoints are emergent,
+not configured: with a required name, a preferred version, and an optional
+elastic detail, spare width flows to detail, detail drops first, then version.
+
+A ledger stacks its rows into label and value blocks when its required
+columns — the gutter, the name, and the status — overflow, not at a fixed
+width. A read-only table also stacks below forty columns, which suits wide
+inventories.
+
+A long name shortens in the middle, keeping its scope and last path segment:
+`@acme-enterprise/…/soc2-review`. A copyable value — a URL, a `next` command, a
+one-time code, a request identifier — is never cut, truncated, or hyphenated;
+when it does not fit it moves to its own line.
 
 A stream that is not a terminal is unbounded. Nothing written to it is
 wrapped, truncated, or padded to a terminal width, so an agent or a pager
 receives the whole value on one line.
 
-## Live region
+## Live scene
 
-While an operation runs, the frame paints a task tree from the lifecycle
-event stream: one root line for the operation with its phase and counts, one
-line per active unit with a glyph for its state, numeric progress for units
-that report bytes, files, or items, and a waiting line when the operation is
-blocked on another process. Resolved units leave the tree as they settle, so
-the region stays bounded. Wording comes from the phrase layer beside the
-painter, never from the events.
+The live region shows one scene: the operation's ledger with at most one
+interaction — a prompt or a wait — beneath it. Every part of the scene is a
+pure function of its state and the terminal facts to a document painted by the
+one painter, and wording comes from the phrase layer beside the painter, never
+from the events.
 
-When animation is unavailable the same transitions become transcript lines:
-one when the operation starts, one when it waits, and one when it settles.
-Quiet mode suppresses all of them.
+The live ledger is the plan's rows joined to live progress by unit id. Plan
+rows, lifecycle events, and resolved units share one identifier, and views
+obtain it from the plan layer rather than rebuilding it. A running row shows ◒,
+its state word, and its measure; a settled row shows its final mark; a row not
+yet started shows `· waiting`; and a row is paused while a wait whose subject
+is that unit is open. An operation with no plan, such as sign-in or upgrade,
+synthesizes rows from its units. Nested units roll up into their parent row's
+state word and measure.
 
-At settlement the frame collapses the tree into one transcript line and clears
-the region; the settled document prints after every lossless subscriber has
-drained, so live output never overtakes settled output.
+The scene never exceeds the terminal height less two rows. The ledger window
+shows running rows first, then the next few waiting, then a fold line such as
+`… 33 more waiting · 12 done`; settled rows leave the window and return in the
+result. When a ledger and an interaction compete for height, the interaction
+keeps its minimum — its question, three rows, and a hint — and the ledger window
+shrinks to its header and fold line.
+
+Live lines never wrap. Every repainting line is truncated to one column less
+than the terminal width. Copyable values are kept out of repainting lines: a
+wait prints its URL to the transcript once and keeps only its countdown live.
+After a narrowing resize the frame erases the rows the terminal rewrapped, not
+the lines it painted, so no ghost lines remain.
+
+When a part of the scene finishes it leaves the region and appends its settled
+form to the transcript: a prompt becomes an `answer` line, a wait becomes a ✔
+line with its elapsed time, and at settlement the region clears and the full
+result ledger prints once, on stdout, complete for pipes. Rows that did not fit
+leave the window, never the result. The settled document prints after every
+lossless subscriber has drained, so live output never overtakes settled
+output.
+
+When animation is unavailable — CI, pipes, `TERM=dumb` — the same transitions
+become transcript lines: one when the operation starts, one per wait, and one
+when it settles, followed by the result ledger. Per-unit lines appear only with
+`--verbose`. How quiet mode treats these lines belongs to
+[CLI output](output.md).
 
 ## Gallery
 
-The gallery under `apps/cli/src/screen/gallery/` is the review route for
-design. Each fixture is one document for one scenario — an inventory list, an
-inspection, a mutating result with agent outcomes, a failure with recovery, a
-plan preview with risks, a waiting operation, and every node kind — and its
-file snapshots record the painted output at 40, 80, 120, and 200 columns.
-Alternatives for a key use case are separate fixtures, so the chosen
-alternative is visible beside the ones it beat. A design change is reviewed by
-its snapshot diff.
+The gallery under `apps/cli/src/test-support/gallery/` is the acceptance
+surface for design. Each fixture is one document or scene for one scenario —
+an inventory list, an inspection, a plan, progress, and result ledger, a
+failure with recovery, a waiting operation, each prompt kind in its initial,
+filtered, error, narrow, and answered states, and every node kind — and its
+file snapshots record the painted output at 40, 80, 120, and 200 columns, and
+at short terminal heights where a scene must fit. Alternatives for a key use
+case are separate fixtures, so the chosen alternative is visible beside the
+ones it beat. A design change is reviewed by its snapshot diff.
 
 ```bash
 pnpm exec nx run cli:gallery -- --name <fixture> --width <n>
@@ -141,16 +235,17 @@ pnpm exec nx run cli:gallery -- --name <fixture> --width <n>
 
 ## Supported terminals
 
-| Environment                 | Expectation                                                                                               |
-| --------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Light and dark themes       | Standard colors and dim only; every tone legible on both                                                  |
-| tmux                        | Animation, resize, and hyperlinks behave as in the host terminal                                          |
-| VS Code integrated terminal | Full support; narrow panes trigger the responsive layout                                                  |
-| Warp                        | Full support; the live region does not fight the block model                                              |
-| Windows Terminal            | Full support with the Unicode glyph set                                                                   |
-| CI logs                     | Plain mode; transcript lines, no cursor movement, no color unless forced                                  |
-| Narrow panes                | Forty columns and above paint a grid; below forty tables stack; below twenty the painter paints at twenty |
-| Piped or redirected streams | Unbounded plain text                                                                                      |
+| Environment                 | Expectation                                                                                                       |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Light and dark themes       | Standard colors and dim only; every tone legible on both                                                          |
+| tmux                        | Animation, resize, key input, and hyperlinks behave as in the host terminal                                       |
+| VS Code integrated terminal | Full support; narrow panes trigger the responsive layout                                                          |
+| Warp                        | Full support; the live scene does not fight the block model                                                       |
+| Windows Terminal            | Full support with the Unicode glyph set and key input                                                             |
+| CI logs                     | Plain mode; transcript lines, no cursor movement, no color unless forced                                          |
+| Narrow panes                | Ledgers stack when required columns overflow; tables stack below forty; below twenty the painter paints at twenty |
+| Short panes                 | The scene fits the height; the ledger window shrinks before an interaction does                                   |
+| Piped or redirected streams | Unbounded plain text                                                                                              |
 
 ## Time to first output
 

@@ -7,6 +7,7 @@ depends-on:
   - ./output.md
   - ./terminal-design.md
   - ../workspace/sources.md
+  - ../decisions/cli-ledger-grammar-and-application-owned-prompts.md
 ---
 
 # Interaction
@@ -24,17 +25,18 @@ command carries, the flags that declaration may expose, the conditions under
 which a prompt may open, the meaning of `--preview`, `--yes`, and
 `--non-interactive`, the distinction between conditions that can be approved
 in advance and conditions that require an interactive answer, the shape of a
-refused approval's recovery, and the relationship between a prompt and the
-live frame.
+refused approval's recovery, and how prompts and waits for a person take part
+in the live scene.
 
 ## Non-responsibilities
 
-It does not own the prompt widgets, the risk conditions a given planner
-attaches, or the effect of any one command; command definitions, the prompt
-module, and each planner own those. The obligations it explains belong to the
-executable specifications named below, indexed by the
-[specification catalog](../../../specifications/catalog.md), and are not
-restated here as rules.
+It does not own how a prompt or wait looks, the risk conditions a given planner
+attaches, or the effect of any one command; [Terminal
+design](terminal-design.md), the `Screen`'s prompt reducers and views, command
+definitions, and each planner own those. The obligations it explains belong to
+the executable specifications named below, indexed by the [specification
+catalog](../../../specifications/catalog.md), and are not restated here as
+rules.
 
 ## Capability declarations
 
@@ -197,8 +199,35 @@ cancelled with no changes applied.
 
 ## Prompts and the live frame
 
-A prompt takes the terminal from the live frame. The frame erases its live
-region, pauses repainting, runs the prompt, and resumes when the prompt
-returns, so a question is never painted over a spinner and a spinner never
-erases a question. In machine mode there is no frame to yield and no prompt
-reaches the terminal.
+Prompts and waits are part of the live scene, not widgets that take the
+terminal from it. A view describes a question as data and the `Screen` runs
+it beneath the operation's ledger, so a gate is answered while the plan is
+visible. The `Screen` applies the interactivity resolution above before a
+prompt opens; in machine mode asking always fails with the usage error and its
+recovery, so no prompt reaches the terminal by construction. When a prompt is
+answered it leaves the scene and exactly one answer line joins the transcript.
+Cancelling remains an answer with the meaning described above.
+
+An approval gate is a confirmation with three choices: yes, no, and `d` for
+details, which shows the plan at verbose level and asks again without the
+details choice. The default is the first choice; a gate whose condition is a
+risk, such as a publisher change, offers no first, which changes only
+presentation.
+
+Gates are rare, because only a plan that carries a confirmable condition
+opens one. `axm publish` never gates: its plan carries no confirmable
+condition, and the browser review of the exact publication set is the
+approval, so publish presents its plan and goes straight to the wait for that
+review. Where no gate opens, a hint under the live ledger names `--verbose`
+for details, and `--preview --verbose` shows everything before acting.
+
+A wait parks the terminal while a person acts elsewhere: signing in, entering a
+device code, authorizing a publication, or completing step-up verification. It
+joins the scene beneath the ledger, shows its code, link, and expiry, and races
+the awaited result against keys: `o` opens the browser, `c` copies the link, and
+`esc` abandons the wait. Abandoning is not a failure of the underlying request;
+the command ends with its pending outcome and names the route that resumes it,
+such as `axm login --wait` for a pending device sign-in or
+`axm publish --resume` for a pending publication. When the wait completes it
+settles into one line with its elapsed time. Without animation the same
+information prints once as a static block and the command simply waits.

@@ -6,6 +6,7 @@ depends-on:
   - ../principles.md
   - ../decisions/cli-output-view-model-and-terminal-ownership.md
   - ../decisions/cli-live-event-contract.md
+  - ../decisions/cli-ledger-grammar-and-application-owned-prompts.md
 ---
 
 # CLI output
@@ -42,10 +43,10 @@ that every long-running operation publishes to an invocation-scoped broadcast
 contract carries terminal escapes, padding, or wording; the painter and the
 phrase layer beside it own those.
 
-The two contracts do not overlap in time. The live frame renders the event
-stream while an operation runs and collapses into the transcript when the
-operation settles; the settled document prints only after every lossless
-subscriber of the stream has drained.
+The two contracts do not overlap in time. The live frame paints the event
+stream as a live ledger while an operation runs and clears when the operation
+settles; the settled document, including the result ledger, prints only after
+every lossless subscriber of the stream has drained.
 
 ## Channel boundaries
 
@@ -58,7 +59,10 @@ their process-boundary end-to-end evidence; the separation below projects
 them. This document explains how the output components realize those
 obligations.
 
-- Human stdout presents the command's primary result.
+- Human stdout presents the command's primary result. A result ledger prints
+  there whole, so it stands alone when stdout is piped. Lint findings are
+  lint's primary result, so human lint output writes its findings ledger to
+  stdout, not stderr, and `axm lint > findings.txt` captures them.
 - Machine stdout emits one complete schema-backed document for a successful
   non-streaming invocation.
 - Diagnostics, progress, warnings, and logs use stderr and never corrupt the
@@ -67,6 +71,9 @@ obligations.
   specification `cli/machine-progress-events-follow-the-lifecycle-schema` owns
   that contract and `cli/long-running-operations-emit-lifecycle-events` owns
   which operations must publish.
+- `--quiet` suppresses live progress and narration on stderr but never an
+  action a person must take. A wait for a person prints under quiet as a
+  static block with its code, link, and expiry and no live countdown.
 - Unexpected failure still produces a stable machine error envelope while
   retaining diagnostics on stderr. Recognized errors may add a schema-backed
   `problem` discriminant whose fields expose structured facts beyond the stable
@@ -75,11 +82,12 @@ obligations.
   and `older` or `newer` direction.
 
 Handlers produce structured results before rendering. Feature-owned views turn
-those results into typed human documents, and the application-owned `Screen`
-is the sole writer after runtime startup. It serializes stdout and stderr,
-maintains the append-only transcript and bottom live frame, coordinates
-prompts, and restores terminal state on shutdown. Views do not write directly
-to process streams or derive machine data by parsing terminal text.
+those results into typed human documents, and the application-owned `Screen` is
+the sole writer after runtime startup. It serializes stdout and stderr,
+maintains the append-only transcript and bottom live frame, runs prompts and
+waits for a person inside that frame, and restores terminal state on shutdown.
+Views do not write directly to process streams or derive machine data by parsing
+terminal text.
 
 Interactive and plain modes paint the same human document. Interactive mode
 may add color and animate the live frame only when the target stream is a TTY;

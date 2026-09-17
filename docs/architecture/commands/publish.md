@@ -5,6 +5,7 @@ description: How AXM validates and distributes workspace-authored extensions.
 depends-on:
   - ./overview.md
   - ../workspace/overview.md
+  - ./interaction.md
 ---
 
 # Publish
@@ -89,6 +90,25 @@ with existing-version integrity verification. It does not replay broad filters
 or store archive bytes. Repeating recovery against unchanged content converges
 to verified-existing no-ops. Publish writes no local receipt, lockfile,
 baseline, or manifest after a successful upload.
+
+## Authorization and resume
+
+Publish asks no confirmation question: the Registry's browser review of the
+exact publication set is the approval, as [Interaction](interaction.md)
+describes. When that review is needed, AXM records the pending request with
+its private initiator proof and publication-set digest in the local AXM user
+home before handing the person to the browser.
+
+A pending authorization outlives the process that started it. An interactive
+person who leaves the wait, or whose terminal is interrupted, resumes with
+`axm publish --resume` and the same inputs: AXM continues the latest pending
+authorization it recorded for the target Registry. An unattended caller
+resumes an exact request with `--authorization-request <url>` and may bound
+the wait with `--wait-for-human`. Either route rejects a request whose
+publication set no longer matches its digest, so changed archive bytes,
+membership, visibility, or Registry require a new review. The record of the
+latest pending request per Registry carries the same private-file protection
+as the request itself.
 
 ## Specifications
 

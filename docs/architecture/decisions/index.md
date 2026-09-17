@@ -39,6 +39,10 @@ specifications, never in these records.
 - [CLI live-event contract](cli-live-event-contract.md) — long-running
   operations publish one schema-backed lifecycle event stream that the live
   frame, the machine event writer, and telemetry consume independently
+- [CLI ledger grammar and application-owned prompts](cli-ledger-grammar-and-application-owned-prompts.md) —
+  human output speaks one ledger grammar through a shared gutter and one live
+  scene, prompts and waits are application-owned documents run by the
+  `Screen`, and Ink remains deferred
 - [MCP local names are connection identity, not source identity](mcp-local-connection-identity.md) —
   MCP local names identify connections and native projections, while source
   authority and published package identity define shared resolution.

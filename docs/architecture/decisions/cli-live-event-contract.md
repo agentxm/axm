@@ -78,7 +78,7 @@ not register as lossless, so a slow telemetry sink can never stall an
 operation.
 
 The live-to-settled handoff is defined. At `OperationSettled` the frame
-collapses its task tree into a transcript document and clears the live region.
+clears the live region, whose ledger settles into the result document.
 The settled `Doc` prints only after the drain latch opens. A machine consumer
 therefore receives every progress event before the result document and the
 exit code.
@@ -97,7 +97,7 @@ this record owns the choice and its rationale.
 ## Rationale
 
 One typed stream gives every consumer the same facts at the same resolution.
-The frame can show a task tree with numeric progress, the machine writer can
+The frame can show each unit with numeric progress, the machine writer can
 forward exactly what core produced, and telemetry can count without any of
 them reaching into feature code. A schema-backed union makes the machine
 channel a published contract instead of an accident of spinner wording.
@@ -126,7 +126,7 @@ authority.
 - **Bounded broadcast with backpressure.** Global suspension by one slow
   subscriber, as described above. Rejected.
 - **Bracket-style presentation ports per feature.** No detail crosses the
-  boundary and the frame cannot compose a tree. Rejected.
+  boundary and the frame cannot compose per-unit progress. Rejected.
 - **Progress callbacks passed into each operation.** Shape drift per call
   site and no single machine contract. Rejected.
 - **Operations return an Effect stream of events.** Presentation enters every
@@ -140,7 +140,7 @@ authority.
 
 Positive:
 
-- the frame shows a task tree, child units, numeric progress, waiting, and
+- the frame shows a live ledger of units, numeric progress, waiting, and
   restoration from the same facts core records;
 - a machine consumer observes every lifecycle event in order and before the
   result document;
@@ -195,7 +195,21 @@ mistakes, which the width, color, and glyph checks localized to painter code
 in minutes. A renderer swap is therefore bounded to the painter behind the
 `Doc` seam, and the suite is the acceptance gate for any future one.
 
-## Supersession and reconsideration
+## Amendment: live ledger
+
+The [ledger grammar decision](cli-ledger-grammar-and-application-owned-prompts.md)
+amends how the frame presents this stream and leaves the stream itself
+unchanged. The frame paints the plan's rows joined to projected progress by
+unit id instead of a task tree, and at settlement the result ledger prints
+once rather than a collapsed tree line.
+
+A paused row needs no schema change. `Waiting` already carries a `subject`,
+and the plan layer sets it to the unit id, so a wait whose subject is a unit
+marks that row paused.
+
+A visible retry count is deferred. It would need an additive attempt field on
+`UnitProgress`, which changes machine progress events and therefore ships with
+its own specification. Until then a retried unit reports its ordinary state.
 
 Reconsider the unbounded broadcast if a producer cannot keep its event count
 proportional to planned units or cannot throttle a continuous measurement at

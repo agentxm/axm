@@ -19,6 +19,8 @@ describe("interactive screen frame", () => {
     expect(result.stderr.indexOf("warning stayed whole\n")).toBeLessThan(
       result.stderr.lastIndexOf("Running frame task"),
     );
-    expect(result.stderr).toMatch(/✔ Frame task {2}\d+ms\n/u);
+    // The settled line is painted through the gutter: the mark, the name, and
+    // the elapsed time at the value column.
+    expect(result.stderr).toMatch(/✔ {3}Frame task {2,}\d+ms\n/u);
   });
 });

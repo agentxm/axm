@@ -46,6 +46,17 @@ export {
 } from "./table-layout.js";
 export { Frame, FrameLive, type FrameOptions } from "./frame.js";
 export {
+  liveColumns,
+  liveRows,
+  paintLivePart,
+  paintScene,
+  type Scene,
+  type SceneFacts,
+  type ScenePart,
+  type SceneStyle,
+  type TerminalSize,
+} from "./scene.js";
+export {
   initialProgress,
   operationElapsedMs,
   plannedProgress,
@@ -129,8 +140,10 @@ export {
 export {
   displayWidth,
   padDisplay,
+  renderedRows,
   stripTerminalFormatting,
   truncateDisplay,
+  truncateLine,
   wrapDisplay,
 } from "./width.js";
 export { fieldsDoc, inventoryDoc, tableDoc, type ViewColumn, type ViewField } from "./view.js";

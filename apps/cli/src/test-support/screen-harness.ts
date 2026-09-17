@@ -32,6 +32,7 @@ export interface RecordingStreamOptions {
   readonly stdoutIsTTY?: boolean;
   readonly stderrIsTTY?: boolean;
   readonly columns?: number;
+  readonly rows?: number;
 }
 
 export interface RecordingStreams {
@@ -49,6 +50,7 @@ export const makeRecordingStreams = (options?: RecordingStreamOptions): Recordin
     stdoutIsTTY: options?.stdoutIsTTY ?? false,
     stderrIsTTY: options?.stderrIsTTY ?? false,
     columns: options?.columns ?? 80,
+    rows: options?.rows ?? 24,
   };
   const record = (channel: "stdout" | "stderr") => (content: string) =>
     Effect.sync(() => void log.push({ channel, content }));

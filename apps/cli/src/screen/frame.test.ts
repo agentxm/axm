@@ -9,18 +9,59 @@ import * as Stream from "effect/Stream";
 import { Frame, FrameLive } from "./frame.js";
 import { initialProgress, reduceProgress, type ProgressState } from "./progress.js";
 import { recordedInstallLog } from "./progress.test.js";
-import { makeTestOutputStreams } from "./streams.js";
+import type { ScenePart } from "./scene.js";
+import { makeTestOutputStreams, type TestOutputStreamsState } from "./streams.js";
+import { displayWidth } from "./width.js";
+
+const CURSOR_HIDE = "\u001b[?25l";
 
 const stateAt = (count: number): ProgressState =>
   recordedInstallLog.slice(0, count).reduce(reduceProgress, initialProgress);
 
-const makeHarness = (animate: boolean) => {
-  const streams = makeTestOutputStreams({ stdoutIsTTY: animate, stderrIsTTY: animate });
+const makeHarness = (
+  animate: boolean,
+  terminal?: { readonly columns?: number; readonly rows?: number },
+) => {
+  const streams = makeTestOutputStreams({
+    stdoutIsTTY: animate,
+    stderrIsTTY: animate,
+    ...(terminal?.columns === undefined ? {} : { columns: terminal.columns }),
+    ...(terminal?.rows === undefined ? {} : { rows: terminal.rows }),
+  });
   return {
     state: streams.state,
     layer: Layer.provide(FrameLive({ animate, quiet: false, colors: false }), streams.layer),
   };
 };
+
+/** A scene part asking for `count` lines, each naming the part it belongs to. */
+const part =
+  (label: string, count: number): ScenePart =>
+  () => [
+    {
+      _tag: "raw",
+      content: Array.from({ length: count }, (_, index) => `${label} ${String(index + 1)}`).join(
+        "\n",
+      ),
+    },
+  ];
+
+/** The lines standing in the live region after the frame's last write. */
+const liveLines = (state: TestOutputStreamsState): ReadonlyArray<string> => {
+  const last = state.stderr.at(-1) ?? "";
+  const start = last.indexOf(CURSOR_HIDE);
+  return start === -1 ? [] : last.slice(start + CURSOR_HIDE.length).split("\n");
+};
+
+/** Let the frame's forked fibers run, and answer with the next write they made. */
+const awaitWrite = (state: TestOutputStreamsState) =>
+  Effect.gen(function* () {
+    const before = state.stderr.length;
+    for (let turn = 0; turn < 50 && state.stderr.length === before; turn += 1) {
+      yield* Effect.yieldNow;
+    }
+    return state.stderr[before] ?? "";
+  });
 
 describe("Frame", () => {
   it.effect("inserts transcript output above the live region and collapses at settlement", () => {
@@ -102,4 +143,62 @@ describe("Frame", () => {
       });
     },
   );
+  it.effect("paints the ledger and the interaction as one scene within the height", () => {
+    const harness = makeHarness(true, { columns: 80, rows: 16 });
+    return Effect.gen(function* () {
+      const frame = yield* Frame;
+      yield* frame.showLedger(part("row", 40));
+      yield* frame.showInteraction(part("ask", 4));
+      const lines = liveLines(harness.state);
+      expect(lines).toHaveLength(14);
+      expect(lines[0]).toBe("row 1");
+      expect(lines.slice(-4)).toEqual(["ask 1", "ask 2", "ask 3", "ask 4"]);
+    }).pipe(Effect.provide(harness.layer), Effect.scoped);
+  });
+
+  it.effect("clears a part of the scene without disturbing the other", () => {
+    const harness = makeHarness(true, { columns: 80, rows: 16 });
+    return Effect.gen(function* () {
+      const frame = yield* Frame;
+      yield* frame.showLedger(part("row", 3));
+      yield* frame.showInteraction(part("ask", 2));
+      expect(liveLines(harness.state)).toHaveLength(5);
+      yield* frame.showInteraction(undefined);
+      expect(liveLines(harness.state)).toEqual(["row 1", "row 2", "row 3"]);
+    }).pipe(Effect.provide(harness.layer), Effect.scoped);
+  });
+
+  it.effect("erases the rows a narrowed terminal rewrapped, not the lines it painted", () => {
+    return Effect.gen(function* () {
+      const resizes = yield* Queue.unbounded<number>();
+      const streams = makeTestOutputStreams({
+        stdoutIsTTY: true,
+        stderrIsTTY: true,
+        columns: 80,
+        rows: 24,
+        resize: Stream.fromQueue(resizes),
+      });
+      yield* Effect.gen(function* () {
+        const frame = yield* Frame;
+        yield* frame.showLedger(() => [{ _tag: "raw", content: "x".repeat(120) }]);
+        const painted = liveLines(streams.state);
+        expect(painted).toHaveLength(1);
+        expect(displayWidth(painted[0] ?? "")).toBe(79);
+
+        streams.state.size = { columns: 60, rows: 24 };
+        Queue.offerUnsafe(resizes, 60);
+        const repaint = yield* awaitWrite(streams.state);
+
+        // The one painted line stands on two rows at sixty columns, so the
+        // erase reaches up one row and clears to the end of the screen.
+        expect(repaint.startsWith("\r\u001b[1A\u001b[0J")).toBe(true);
+        expect(displayWidth(liveLines(streams.state)[0] ?? "")).toBe(59);
+      }).pipe(
+        Effect.provide(
+          Layer.provide(FrameLive({ animate: true, quiet: false, colors: false }), streams.layer),
+        ),
+        Effect.scoped,
+      );
+    });
+  });
 });

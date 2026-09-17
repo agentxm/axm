@@ -1,11 +1,6 @@
 import type { Doc } from "../../screen/doc.js";
 import { paintText, type PaintStyle } from "../../screen/paint-text.js";
-
-/** The terminal facts a live scene is laid out against. */
-export interface TerminalSize {
-  readonly columns: number;
-  readonly rows: number;
-}
+import { liveColumns, liveRows, paintLivePart, type TerminalSize } from "../../screen/scene.js";
 
 /** A settled document: printed once to the transcript and bounded by width only. */
 export interface DocumentFixture {
@@ -32,8 +27,8 @@ export type GalleryFixture = DocumentFixture | SceneFixture;
 
 /**
  * Paint a fixture as the terminal would show it. A settled document fills the
- * terminal width; a live scene stops one column short, because a repainting
- * line that reaches the last column wraps and miscounts the region.
+ * terminal width; a live scene goes through the live region's own rules, so a
+ * snapshot shows what the frame would paint.
  */
 export const paintFixture = (
   fixture: GalleryFixture,
@@ -42,4 +37,8 @@ export const paintFixture = (
 ): ReadonlyArray<string> =>
   fixture._tag === "document"
     ? paintText(fixture.doc, { ...style, width: terminal.columns })
-    : paintText(fixture.scene(terminal), { ...style, width: terminal.columns - 1 });
+    : paintLivePart(
+        fixture.scene(terminal),
+        { columns: liveColumns(terminal.columns), rows: liveRows(terminal.rows) },
+        style,
+      );

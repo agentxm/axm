@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { displayWidth, padDisplay, truncateDisplay, wrapDisplay } from "./width.js";
+import {
+  displayWidth,
+  padDisplay,
+  renderedRows,
+  truncateDisplay,
+  truncateLine,
+  wrapDisplay,
+} from "./width.js";
 
 describe("terminal display width", () => {
   it("counts wide characters as two columns and ignores ANSI", () => {
@@ -43,6 +50,42 @@ describe("terminal display width", () => {
 
     it("never splits a wide character in half", () => {
       expect(displayWidth(truncateDisplay("界界界界界界", 7, "middle"))).toBeLessThanOrEqual(7);
+    });
+  });
+
+  describe("a line the terminal rewrapped", () => {
+    it("fills one row while it fits, and a further row for every wrap", () => {
+      expect(renderedRows(59, 60)).toBe(1);
+      expect(renderedRows(0, 60)).toBe(1);
+      expect(renderedRows(79, 60)).toBe(2);
+      expect(renderedRows(120, 60)).toBe(2);
+      expect(renderedRows(121, 60)).toBe(3);
+    });
+  });
+
+  describe("cutting a painted line", () => {
+    it("leaves a line that fits untouched, with its styling", () => {
+      const line = "\u001b[31mred\u001b[0m";
+      expect(truncateLine(line, 3)).toBe(line);
+    });
+
+    it("marks the cut with an ellipsis and never exceeds the width", () => {
+      expect(truncateLine("alphabet", 5)).toBe("alph\u2026");
+      expect(displayWidth(truncateLine("\u754c\u754c\u754c\u754c", 5))).toBeLessThanOrEqual(5);
+    });
+
+    it("closes a hyperlink it cut in two", () => {
+      const link = "\u001b]8;;https://example.test\u001b\\a long link label\u001b]8;;\u001b\\";
+      const cut = truncateLine(link, 6);
+      expect(displayWidth(cut)).toBe(6);
+      expect(cut.endsWith("\u001b]8;;\u001b\\")).toBe(true);
+    });
+
+    it("keeps the styling it cut through and closes it", () => {
+      const cut = truncateLine("\u001b[31mred and more\u001b[0m", 5);
+      expect(cut).toContain("\u001b[31m");
+      expect(displayWidth(cut)).toBe(5);
+      expect(cut.endsWith("\u001b[0m")).toBe(true);
     });
   });
 });

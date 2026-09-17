@@ -2,6 +2,15 @@ const terminalFormattingPattern =
   // eslint-disable-next-line no-control-regex -- width must ignore terminal CSI and OSC sequences.
   /\u001b(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007\u001b]*(?:\u0007|\u001b\\))/gu;
 
+const ESCAPE = "\u001b";
+const RESET = `${ESCAPE}[0m`;
+const LINK_OPEN = `${ESCAPE}]8;;`;
+const LINK_CLOSE = `${LINK_OPEN}${ESCAPE}\\`;
+const ELLIPSIS = "…";
+
+/** One painted token: a terminal sequence, which takes no cell, or one code point. */
+const tokenPattern = new RegExp(`${terminalFormattingPattern.source}|[\\s\\S]`, "gu");
+
 export const stripTerminalFormatting = (value: string): string =>
   value.replace(terminalFormattingPattern, "");
 
@@ -20,15 +29,59 @@ const isWideCodePoint = (codePoint: number): boolean =>
     (codePoint >= 0x1f300 && codePoint <= 0x1faff) ||
     (codePoint >= 0x20000 && codePoint <= 0x3fffd));
 
+/** Cells one code point occupies: none for a joiner or combining mark, two when wide. */
+const codePointWidth = (codePoint: number): number => {
+  if (codePoint === 0 || codePoint === 0x200d) return 0;
+  if (codePoint >= 0x300 && codePoint <= 0x36f) return 0;
+  return isWideCodePoint(codePoint) ? 2 : 1;
+};
+
 export const displayWidth = (value: string): number => {
   let width = 0;
   for (const character of stripTerminalFormatting(value)) {
     const codePoint = character.codePointAt(0);
-    if (codePoint === undefined || codePoint === 0 || codePoint === 0x200d) continue;
-    if (codePoint >= 0x300 && codePoint <= 0x36f) continue;
-    width += isWideCodePoint(codePoint) ? 2 : 1;
+    if (codePoint === undefined) continue;
+    width += codePointWidth(codePoint);
   }
   return width;
+};
+
+/**
+ * Terminal rows a line of this display width fills at the given terminal
+ * width. A line the terminal rewrapped fills more rows than the single row it
+ * was painted as, which is what erasing it again has to cover.
+ */
+export const renderedRows = (width: number, columns: number): number =>
+  columns <= 0 ? 1 : Math.max(1, Math.ceil(width / columns));
+
+/**
+ * Shorten a painted line to `width` cells, keeping its terminal formatting and
+ * marking the cut with an ellipsis. Styling and hyperlinks the line opened are
+ * closed at the cut, because the sequences that would have closed them are
+ * gone. A line already within the width is returned untouched.
+ */
+export const truncateLine = (value: string, width: number): string => {
+  if (width <= 0) return "";
+  if (displayWidth(value) <= width) return value;
+  if (width === 1) return ELLIPSIS;
+  const limit = width - displayWidth(ELLIPSIS);
+  let kept = "";
+  let used = 0;
+  let styled = false;
+  let linked = false;
+  for (const [token] of value.matchAll(tokenPattern)) {
+    if (token.startsWith(ESCAPE)) {
+      kept += token;
+      if (token.startsWith(LINK_OPEN)) linked = token !== LINK_CLOSE;
+      else styled = true;
+      continue;
+    }
+    const size = codePointWidth(token.codePointAt(0) ?? 0);
+    if (used + size > limit) break;
+    kept += token;
+    used += size;
+  }
+  return `${kept}${ELLIPSIS}${linked ? LINK_CLOSE : ""}${styled ? RESET : ""}`;
 };
 
 export const padDisplay = (

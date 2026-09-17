@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import { stripTerminalFormatting } from "../../screen/output-policy.js";
 import { asciiGlyphs, paintText } from "../../screen/paint-text.js";
+import type { TerminalSize } from "../../screen/scene.js";
 import { displayWidth } from "../../screen/width.js";
 import { copyableValues } from "../conformance/conformance-suite.js";
-import { paintFixture, type GalleryFixture, type TerminalSize } from "./fixture.js";
+import { paintFixture, type GalleryFixture } from "./fixture.js";
 import { gallery, galleryHeights, galleryWidths } from "./index.js";
 
 /**

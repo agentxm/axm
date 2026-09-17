@@ -10,13 +10,16 @@ import * as Stream from "effect/Stream";
 import { paintText, type Glyphs } from "./paint-text.js";
 import type { ProgressState } from "./progress.js";
 import { liveProgressLines, progressTransitionDoc } from "./progress-view.js";
+import { paintScene, type Scene, type ScenePart } from "./scene.js";
 import { OutputStreams } from "./streams.js";
+import { displayWidth, renderedRows } from "./width.js";
 
 const ESC = "\u001b[";
 const CURSOR_HIDE = `${ESC}?25l`;
 const CURSOR_SHOW = `${ESC}?25h`;
-const ERASE_LINE = `\r${ESC}2K`;
-const CURSOR_UP = `${ESC}1A`;
+/** Erase from the cursor to the end of the screen. */
+const ERASE_BELOW = `${ESC}0J`;
+const cursorUp = (rows: number): string => (rows <= 0 ? "" : `${ESC}${String(rows)}A`);
 /**
  * The frames a running unit animates through. Both are Neutral in Unicode
  * East Asian Width, so the spinner occupies one cell in every terminal and its
@@ -26,8 +29,9 @@ export const spinnerFrames = ["◒", "◓"] as const;
 
 /**
  * The single terminal owner's live region and transcript. Transcript writes
- * insert above the live region; the region repaints from the latest
- * progress state and collapses into one transcript line at settlement.
+ * insert above the live region; the region shows one scene — the operation's
+ * ledger with at most one interaction beneath it — and collapses into one
+ * transcript line at settlement.
  */
 export class Frame extends ServiceMap.Service<
   Frame,
@@ -36,28 +40,43 @@ export class Frame extends ServiceMap.Service<
     readonly stderr: (content: string) => Effect.Effect<void>;
     /** Present the latest progress state; the frame diffs it against the previous one. */
     readonly present: (state: ProgressState) => Effect.Effect<void>;
+    /** Replace the scene's ledger part; `undefined` clears it. */
+    readonly showLedger: (part: ScenePart | undefined) => Effect.Effect<void>;
+    /** Replace the interaction beneath the ledger — a prompt or a wait; `undefined` clears it. */
+    readonly showInteraction: (part: ScenePart | undefined) => Effect.Effect<void>;
     readonly prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
     readonly settle: Effect.Effect<void>;
   }
 >()("axm.sh/screen/Frame") {}
 
 interface FrameState {
+  /** The last unsettled progress state, which the next one's transition is diffed against. */
   readonly progress: ProgressState | undefined;
-  readonly paintedLines: number;
+  readonly scene: Scene;
+  /** Display widths of the lines standing in the live region, in paint order. */
+  readonly painted: ReadonlyArray<number>;
   readonly spinner: number;
   readonly paused: boolean;
 }
 
 const initialState: FrameState = {
   progress: undefined,
-  paintedLines: 0,
+  scene: {},
+  painted: [],
   spinner: 0,
   paused: false,
 };
 
-const eraseBytes = (lines: number): string => {
-  if (lines <= 0) return "";
-  return `${ERASE_LINE}${Array.from({ length: lines - 1 }, () => `${CURSOR_UP}${ERASE_LINE}`).join("")}`;
+/**
+ * Erase the live region. A narrowed terminal has rewrapped what was painted,
+ * so the rows to clear come from the remembered line widths at the current
+ * width rather than from the number of lines painted; erasing from the first
+ * of them to the end of the screen then leaves no ghost row behind.
+ */
+const eraseBytes = (painted: ReadonlyArray<number>, columns: number): string => {
+  if (painted.length === 0) return "";
+  const rows = painted.reduce((total, width) => total + renderedRows(width, columns), 0);
+  return `\r${cursorUp(rows - 1)}${ERASE_BELOW}`;
 };
 
 const ensureNewline = (content: string): string =>
@@ -86,16 +105,41 @@ export const FrameLive = (options: FrameOptions): Layer.Layer<Frame, never, Outp
         ...(options.glyphs === undefined ? {} : { glyphs: options.glyphs }),
       });
 
+      /**
+       * The progress projection as the scene's ledger part. The phrase layer
+       * has already laid its lines out to the width, so they cross as one raw
+       * node; the live ledger replaces this projection, not the scene.
+       */
+      const progressLedger =
+        (progress: ProgressState): ScenePart =>
+        (facts) => {
+          const lines = liveProgressLines(progress, {
+            width: facts.columns,
+            colors: options.colors,
+            spinner: facts.spinner,
+            nowMs: facts.nowMs,
+            ...(options.glyphs === undefined ? {} : { glyphs: options.glyphs }),
+          });
+          return lines.length === 0 ? [] : [{ _tag: "raw", content: lines.join("\n") }];
+        };
+
+      const eraseLocked = Effect.gen(function* () {
+        const current = yield* Ref.get(state);
+        if (current.painted.length === 0) return;
+        const facts = yield* streams.facts;
+        yield* streams.stderr(eraseBytes(current.painted, facts.columns));
+        yield* Ref.update(state, (value) => ({ ...value, painted: [] }));
+      });
+
       const repaintLocked = Effect.gen(function* () {
         const current = yield* Ref.get(state);
-        const erase = eraseBytes(current.paintedLines);
         const facts = yield* streams.facts;
+        const erase = eraseBytes(current.painted, facts.columns);
         const nowMs = yield* Clock.currentTimeMillis;
         const lines =
-          current.paused || !options.animate || options.quiet || current.progress === undefined
+          current.paused || !options.animate || options.quiet
             ? []
-            : liveProgressLines(current.progress, {
-                width: facts.columns,
+            : paintScene(current.scene, facts, {
                 colors: options.colors,
                 spinner: spinnerFrames[current.spinner % spinnerFrames.length] ?? spinnerFrames[0],
                 nowMs,
@@ -105,7 +149,7 @@ export const FrameLive = (options: FrameOptions): Layer.Layer<Frame, never, Outp
         if (erase.length > 0 || paint.length > 0) yield* streams.stderr(`${erase}${paint}`);
         yield* Ref.set(state, {
           ...current,
-          paintedLines: lines.length,
+          painted: lines.map(displayWidth),
           spinner: current.spinner + 1,
         });
       });
@@ -115,9 +159,7 @@ export const FrameLive = (options: FrameOptions): Layer.Layer<Frame, never, Outp
       const write = (channel: "stdout" | "stderr", content: string) =>
         permit.withPermit(
           Effect.gen(function* () {
-            const current = yield* Ref.get(state);
-            if (current.paintedLines > 0) yield* streams.stderr(eraseBytes(current.paintedLines));
-            yield* Ref.update(state, (value) => ({ ...value, paintedLines: 0 }));
+            yield* eraseLocked;
             yield* streams[channel](content);
             yield* repaintLocked;
           }),
@@ -126,9 +168,10 @@ export const FrameLive = (options: FrameOptions): Layer.Layer<Frame, never, Outp
       const settle = permit.withPermit(
         Effect.gen(function* () {
           const current = yield* Ref.get(state);
-          const erase = eraseBytes(current.paintedLines);
+          const facts = yield* streams.facts;
+          const erase = eraseBytes(current.painted, facts.columns);
           if (erase.length > 0 || options.animate) yield* streams.stderr(`${erase}${CURSOR_SHOW}`);
-          yield* Ref.set(state, { ...current, paintedLines: 0, progress: undefined });
+          yield* Ref.set(state, { ...current, painted: [], progress: undefined, scene: {} });
         }),
       );
 
@@ -139,16 +182,28 @@ export const FrameLive = (options: FrameOptions): Layer.Layer<Frame, never, Outp
             const transition = progressTransitionDoc(current.progress, next, {
               live: options.animate,
             });
-            if (current.paintedLines > 0) yield* streams.stderr(eraseBytes(current.paintedLines));
+            yield* eraseLocked;
+            const unsettled = next.settled === undefined;
             yield* Ref.update(state, (value) => ({
               ...value,
-              paintedLines: 0,
-              progress: next.settled === undefined ? next : undefined,
+              progress: unsettled ? next : undefined,
+              scene: {
+                ...value.scene,
+                ledger: unsettled ? progressLedger(next) : undefined,
+              },
             }));
             if (!options.quiet && transition.length > 0) {
               const facts = yield* streams.facts;
               yield* streams.stderr(ensureNewline(paintText(transition, style(facts)).join("\n")));
             }
+            yield* repaintLocked;
+          }),
+        );
+
+      const show = (scene: (current: Scene) => Scene): Effect.Effect<void> =>
+        permit.withPermit(
+          Effect.gen(function* () {
+            yield* Ref.update(state, (value) => ({ ...value, scene: scene(value.scene) }));
             yield* repaintLocked;
           }),
         );
@@ -167,14 +222,16 @@ export const FrameLive = (options: FrameOptions): Layer.Layer<Frame, never, Outp
         stdout: (content: string) => write("stdout", content),
         stderr: (content: string) => write("stderr", content),
         present,
+        showLedger: (part: ScenePart | undefined) =>
+          show((current) => ({ ...current, ledger: part })),
+        showInteraction: (part: ScenePart | undefined) =>
+          show((current) => ({ ...current, interaction: part })),
         prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) =>
           permit
             .withPermit(
               Effect.gen(function* () {
-                const current = yield* Ref.get(state);
-                if (current.paintedLines > 0)
-                  yield* streams.stderr(eraseBytes(current.paintedLines));
-                yield* Ref.set(state, { ...current, paintedLines: 0, paused: true });
+                yield* eraseLocked;
+                yield* Ref.update(state, (value) => ({ ...value, paused: true }));
               }),
             )
             .pipe(

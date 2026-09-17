@@ -1,5 +1,5 @@
 import type { Doc, RowNode } from "../../screen/doc.js";
-import type { TerminalSize } from "./fixture.js";
+import type { TerminalSize } from "../../screen/scene.js";
 
 interface Unit {
   readonly name: string;

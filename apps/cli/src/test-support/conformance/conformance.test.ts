@@ -77,7 +77,7 @@ const makeOrderedStreams = () => {
   const layer = Layer.succeed(OutputStreams, {
     stdout: (content) => Effect.sync(() => void log.push({ channel: "stdout", content })),
     stderr: (content) => Effect.sync(() => void log.push({ channel: "stderr", content })),
-    facts: Effect.succeed({ stdoutIsTTY: true, stderrIsTTY: true, columns: 80 }),
+    facts: Effect.succeed({ stdoutIsTTY: true, stderrIsTTY: true, columns: 80, rows: 24 }),
     resize: Stream.empty,
   });
   return { log, layer };

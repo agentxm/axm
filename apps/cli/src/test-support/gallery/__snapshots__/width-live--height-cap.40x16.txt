@@ -1,0 +1,14 @@
+  Publishing as @acme
+
+~ @acme/skills/changelog
+~ @acme/skills/release-notes
+= @acme/skills/retro
+= @acme/subagents/reviewer
+= @acme/skills/triage
+= @acme/skills/incident-review
+… 31 more waiting, 3 done
+
+publishing 5 of 40 in 8.2s
+
+● Authorize the publish in your browser
+  expires in 9:41, esc cancels

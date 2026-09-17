@@ -225,12 +225,16 @@ an inventory list, an inspection, a plan, progress, and result ledger, a
 failure with recovery, a waiting operation, each prompt kind in its initial,
 filtered, error, narrow, and answered states, and every node kind — and its
 file snapshots record the painted output at 40, 80, 120, and 200 columns, and
-at short terminal heights where a scene must fit. Alternatives for a key use
-case are separate fixtures, so the chosen alternative is visible beside the
-ones it beat. A design change is reviewed by its snapshot diff.
+at 16 and 24 rows where a scene must fit. A scene fixture is a pure function
+of the terminal size, painted one column short of the width and held within the
+height less two rows. A fixture drawn from the design canvas is named
+`<board>--<frame>`, so its snapshots can be held against the mock they
+implement. Alternatives for a key use case are separate fixtures, so the chosen
+alternative is visible beside the ones it beat. A design change is reviewed by
+its snapshot diff.
 
 ```bash
-pnpm exec nx run cli:gallery -- --name <fixture> --width <n>
+pnpm exec nx run cli:gallery -- --name <fixture> --width <columns> --rows <rows>
 ```
 
 ## Supported terminals

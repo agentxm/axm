@@ -101,9 +101,8 @@ const replay = (
 
 describe("renderer conformance", () => {
   it("the every-node fixture covers every node kind", () => {
-    const covered = nodeKindsOf(
-      gallery.find((fixture) => fixture.name === "every-node")?.doc ?? [],
-    );
+    const everyNode = gallery.find((fixture) => fixture.name === "every-node");
+    const covered = nodeKindsOf(everyNode?._tag === "document" ? everyNode.doc : []);
     expect([...covered].sort()).toEqual([...nodeKinds].sort());
   });
 
@@ -116,7 +115,10 @@ describe("renderer conformance", () => {
   });
 
   describe.each(painters)("$name", (painter) => {
-    const fixtures = gallery.map((fixture) => ({ name: fixture.name, doc: fixture.doc }));
+    // Painters conform on settled documents; the gallery holds live scenes to their own bounds.
+    const fixtures = gallery.flatMap((fixture) =>
+      fixture._tag === "document" ? [{ name: fixture.name, doc: fixture.doc }] : [],
+    );
 
     it.each(fixtures)("keeps every painted line of $name within the width", ({ doc, name }) => {
       for (const width of conformanceWidths) {

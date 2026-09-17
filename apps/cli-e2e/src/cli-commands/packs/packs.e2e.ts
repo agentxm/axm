@@ -800,7 +800,7 @@ describe("axm packs install", () => {
       });
       expect(humanInstall.exitCode, humanInstall.stdout + humanInstall.stderr).toBe(0);
       const humanOutput = humanInstall.stdout + humanInstall.stderr;
-      expect(humanOutput).toContain("Agents: claude-code, cursor");
+      expect(humanOutput).toContain("agents: claude-code, cursor");
       expect(humanOutput).not.toContain("No coding-agent targets were materialized");
 
       const settings = readSettings();

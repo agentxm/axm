@@ -185,7 +185,7 @@ describe("packs-remove.handler", () => {
           expect(logs.success.length).toBeGreaterThan(0);
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
           expect(rendererState.summaries).toContain(
-            "@acme/packs/frontend-tools   updated   1 file   packs/frontend-tools/pack.json",
+            "@acme/packs/frontend-tools   —   updated   1 file, packs/frontend-tools/pack.json",
           );
           expect(rendererState.suggestions).toEqual([
             { description: "Inspect installed packs", cmd: "axm packs list" },

@@ -1,0 +1,15 @@
+Updating
+  in this project, agents: claude-code,
+  codex, cursor
+
+ ~   @acme/skills/triage
+     2.0.1 · updated
+     claude-code: projected at
+     .claude/skills/triage
+     codex: projected at
+     .agents/skills/triage
+     cursor: not supported by this
+     agent, skills are unavailable at
+     project scope
+
+Updated 1 skill  1 applied

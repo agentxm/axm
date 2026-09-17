@@ -7,51 +7,111 @@ import {
   defaultOperationPresentation,
   deriveOperationOutcome,
   presentationOf,
+  unitIdOf,
   type JobStepArtifact,
+  type JobStepArtifactReference,
+  type OperationPresentation,
   type OperationResolution,
   type Plan,
   type PlannedJobStep,
   type ResolvedUnit,
+  type UnitState,
+  type UnitStateCounts,
 } from "@agentxm/workspace/transitions/planning";
 
 import { Verbosity, type VerbosityLevel } from "./cli-flags/index.js";
-import type { Doc, RowNode, Tone } from "./screen/doc.js";
+import type {
+  Change,
+  Doc,
+  LedgerColumn,
+  LedgerFold,
+  LedgerRow,
+  Span,
+  Status,
+  Tone,
+} from "./screen/doc.js";
 import { Screen } from "./screen/screen.js";
 import {
   agentOutcome,
   artifactChange,
+  artifactChangeMark,
   blockingClass,
   count,
   disposition,
   interruptionPhrase,
+  operationTitle,
   outcomeHeadline,
+  planVerdict,
+  plannedArtifactChange,
+  scopePhrase,
+  subjectHeader,
+  subjectNoun,
   unitState,
   unitStateChange,
 } from "./screen/phrases.js";
 
-const artifactPaths = (artifact: JobStepArtifact): string =>
-  [
-    artifact.targets === undefined || artifact.targets.length === 0
-      ? artifact.path
-      : artifact.targets
-          .map((target) =>
-            target.entryName === undefined ? target.path : `${target.path} (${target.entryName})`,
-          )
-          .join(", "),
-    ...(artifact.references ?? []).map(
-      (reference) => `${reference.state}: ${reference.path} (${reference.reason})`,
-    ),
-  ].join("; ");
+/**
+ * Separates the parts of one cell or aside. The painter owns the separator
+ * glyph, which a view cannot reach and must not spell, so a cell that carries
+ * several facts joins them as prose instead.
+ */
+const SEPARATOR = ", ";
 
-const artifactCells = (artifact: JobStepArtifact | undefined): ReadonlyArray<string> => {
-  if (artifact === undefined) return [];
-  return [
-    artifact.version,
-    artifactChange(artifact.change),
-    artifact.fileCount === undefined ? undefined : count(artifact.fileCount, "file"),
-    artifactPaths(artifact),
-  ].filter((value): value is string => value !== undefined && value.length > 0);
-};
+/** Stands in the version column for a unit that carries no version of its own. */
+const NO_VERSION = "—";
+
+const joined = (parts: ReadonlyArray<string | undefined>): string =>
+  parts
+    .filter((part): part is string => part !== undefined && part.trim().length > 0)
+    .join(SEPARATOR);
+
+/**
+ * A title and a verdict are the two bold lines of a result. A verdict that
+ * follows a ledger also carries no glyph, because the rows already do.
+ */
+const emphatic = (value: string): ReadonlyArray<Span> => [{ text: value, bold: true }];
+
+const artifactPaths = (artifact: JobStepArtifact): string =>
+  artifact.targets === undefined || artifact.targets.length === 0
+    ? artifact.path
+    : artifact.targets
+        .map((target) =>
+          target.entryName === undefined ? target.path : `${target.path} (${target.entryName})`,
+        )
+        .join(", ");
+
+/**
+ * The detail column: what a reader needs beyond the name, the version, and
+ * the outcome. It is the ledger's elastic column, so it takes the spare width
+ * and is the first to give way when there is none.
+ */
+const detailCell = (
+  artifact: JobStepArtifact | undefined,
+  extra: ReadonlyArray<string | undefined>,
+): string =>
+  joined([
+    artifact?.previousVersion === undefined ? undefined : `from ${artifact.previousVersion}`,
+    artifact?.fileCount === undefined ? undefined : count(artifact.fileCount, "file"),
+    ...extra,
+    artifact === undefined ? undefined : artifactPaths(artifact),
+  ]);
+
+const versionCell = (artifact: JobStepArtifact | undefined): string =>
+  artifact?.version === undefined || artifact.version.length === 0 ? NO_VERSION : artifact.version;
+
+/**
+ * Plan, progress, and result ledgers differ only in their third column — what
+ * is planned against what happened — so both are built from one shape.
+ */
+const ledgerColumns = (
+  presentation: OperationPresentation,
+  outcomeHeader: "Plan" | "Status",
+): ReadonlyArray<LedgerColumn> => [
+  { header: subjectHeader(presentation), role: "name" },
+  { header: "Version", role: "fixed", priority: "preferred" },
+  { header: outcomeHeader, role: "fixed", priority: "required" },
+  { header: "Detail", role: "elastic", priority: "optional" },
+];
 
 const membershipChildren = (artifact: JobStepArtifact | undefined): Doc => {
   if (artifact?.packMembership === undefined) return [];
@@ -74,8 +134,22 @@ const membershipChildren = (artifact: JobStepArtifact | undefined): Doc => {
   ];
 };
 
-const outcomeChildren = (unit: ResolvedUnit<unknown>): Doc => {
-  const outcomes = unit.agentOutcomes ?? unit.artifact?.agentOutcomes ?? [];
+/**
+ * Per-agent outcomes and pack membership beneath the row they belong to. A
+ * pack's members are the substance of its change, so they always show;
+ * verbose level adds every agent to the agents that did not take the change,
+ * because those are the ones a reader has to act on either way.
+ */
+const rowChildren = (
+  unit: {
+    readonly artifact?: JobStepArtifact;
+    readonly agentOutcomes?: ResolvedUnit<unknown>["agentOutcomes"];
+  },
+  detailed: boolean,
+): Doc => {
+  const outcomes = (unit.agentOutcomes ?? unit.artifact?.agentOutcomes ?? []).filter(
+    (outcome) => detailed || outcome.outcome === "failed" || outcome.outcome === "blocked",
+  );
   return [
     ...membershipChildren(unit.artifact),
     ...outcomes.map(
@@ -83,28 +157,123 @@ const outcomeChildren = (unit: ResolvedUnit<unknown>): Doc => {
         ({
           _tag: "paragraph",
           tone: outcome.outcome === "failed" || outcome.outcome === "blocked" ? "warn" : "dim",
-          text: `${outcome.agentId}: ${agentOutcome(outcome.outcome)}${outcome.path === undefined ? "" : ` at ${outcome.path}`} — ${outcome.reason}`,
+          text: joined([
+            `${outcome.agentId}: ${agentOutcome(outcome.outcome)}${outcome.path === undefined ? "" : ` at ${outcome.path}`}`,
+            outcome.reason,
+          ]),
         }) as const,
     ),
   ];
 };
 
-const resolutionRow = (unit: ResolvedUnit<unknown>): RowNode => ({
-  _tag: "row",
-  change: unitStateChange(unit.state),
-  cells: [
-    unit.artifact?.packMembership?.pack ?? unit.label,
-    ...artifactCells(unit.artifact),
-    ...(unit.artifact === undefined ? [unitState(unit.state)] : []),
-    ...(unit.artifact !== undefined ||
-    unit.message === undefined ||
-    unit.message.trim().length === 0
-      ? []
-      : [unit.message]),
-    ...(unit.disposition === undefined ? [] : [disposition(unit.disposition)]),
-  ],
-  ...(outcomeChildren(unit).length === 0 ? {} : { children: outcomeChildren(unit) }),
-});
+const withChildren = (row: LedgerRow, children: Doc): LedgerRow =>
+  children.length === 0 ? row : { ...row, children };
+
+/** The mark a settled row carries: its change when it changed as planned. */
+const resultMark = (unit: ResolvedUnit<unknown>): Change | Status =>
+  unit.state === "committed" && unit.artifact !== undefined
+    ? artifactChangeMark(unit.artifact.change)
+    : unitStateChange(unit.state);
+
+const resultRow = (unit: ResolvedUnit<unknown>, detailed: boolean): LedgerRow =>
+  withChildren(
+    {
+      id: unitIdOf(unit),
+      mark: resultMark(unit),
+      cells: [
+        unit.artifact?.packMembership?.pack ?? unit.label,
+        versionCell(unit.artifact),
+        unit.state === "committed" && unit.artifact !== undefined
+          ? artifactChange(unit.artifact.change)
+          : unitState(unit.state),
+        detailCell(unit.artifact, [
+          // An artifact's change already says what happened, so its own
+          // message would only repeat the status column.
+          unit.artifact === undefined ? unit.message : undefined,
+          unit.disposition === undefined ? undefined : disposition(unit.disposition),
+        ]),
+      ],
+    },
+    rowChildren(unit, detailed),
+  );
+
+const planRow = (
+  step: PlannedJobStep<unknown, unknown>,
+  presentation: OperationPresentation,
+  detailed: boolean,
+): LedgerRow =>
+  withChildren(
+    {
+      id: unitIdOf(step),
+      mark:
+        step.readiness === "error"
+          ? "blocked"
+          : step.artifact === undefined
+            ? "create"
+            : artifactChangeMark(step.artifact.change),
+      cells: [
+        step.artifact?.packMembership?.pack ?? step.label,
+        versionCell(step.artifact),
+        step.artifact === undefined
+          ? presentation.verb.imperative
+          : plannedArtifactChange(step.artifact.change),
+        detailCell(step.artifact, [
+          step.readiness === "warn" ? step.warnMessage : undefined,
+          step.readiness === "error" ? step.errorMessage : undefined,
+        ]),
+      ],
+    },
+    rowChildren(step, detailed),
+  );
+
+/**
+ * The groups a ledger folds because they repeat one outcome: the units that
+ * were already current and the ones the selection left out. Verbose level
+ * lists them instead, which is what the fold's hint names.
+ */
+const FOLD_HINT = "--verbose to list";
+
+interface FoldGroup {
+  readonly count: number;
+  readonly noun: string;
+}
+
+const foldGroups = (
+  presentation: OperationPresentation,
+  groups: ReadonlyArray<{ readonly count: number; readonly state: UnitState }>,
+): ReadonlyArray<FoldGroup> =>
+  groups
+    .filter((group) => group.count > 0)
+    .map((group) => ({
+      count: group.count,
+      noun: `${subjectNoun(presentation, group.count)} ${unitState(group.state)}`,
+    }));
+
+/**
+ * One ledger carries one fold line, so a second group follows it as its own
+ * line; neither the already-current nor the not-selected count is lost.
+ */
+const foldedLedger = (
+  columns: ReadonlyArray<LedgerColumn>,
+  rows: ReadonlyArray<LedgerRow>,
+  folds: ReadonlyArray<FoldGroup>,
+): Doc => {
+  const [first, ...rest] = folds;
+  if (rows.length === 0 && first === undefined) return [];
+  return [
+    {
+      _tag: "ledger",
+      columns,
+      rows,
+      ...(first === undefined
+        ? {}
+        : { folded: { mark: "unchanged", ...first, hint: FOLD_HINT } satisfies LedgerFold }),
+    },
+    ...rest.map(
+      (fold) => ({ _tag: "collapsed", change: "unchanged", ...fold, hint: FOLD_HINT }) as const,
+    ),
+  ];
+};
 
 const headlineTone = (outcome: ReturnType<typeof deriveOperationOutcome>): Tone => {
   switch (outcome) {
@@ -132,17 +301,41 @@ const groupedWarnings = (units: ReadonlyArray<ResolvedUnit<unknown>>): Doc => {
       groups.set(warning, labels);
     }
   }
-  if (groups.size === 0) return [];
-  return [
-    {
-      _tag: "section",
-      title: count(groups.size, "warning"),
-      children: [...groups].map(([warning, labels]) => ({
+  return [...groups].map(
+    ([warning, labels]) =>
+      ({
         _tag: "callout",
         tone: "warn",
         title: warning,
         children: [{ _tag: "paragraph", tone: "dim", text: labels.join(", ") }],
-      })),
+      }) as const,
+  );
+};
+
+const referenceOf = (unit: ResolvedUnit<unknown>): ReadonlyArray<JobStepArtifactReference> =>
+  (unit.artifact?.references ?? []).filter((reference) => reference.state !== "absent");
+
+/**
+ * What the operation left alone: paths it observed but does not own, so a
+ * reader is not left wondering why they survived. They are the operation's
+ * context, not its units, so they follow the ledger as a callout.
+ */
+const untouchedPaths = (units: ReadonlyArray<ResolvedUnit<unknown>>): Doc => {
+  const references = units.flatMap(referenceOf);
+  if (references.length === 0) return [];
+  return [
+    {
+      _tag: "callout",
+      tone: "warn",
+      title: `AXM will not touch ${count(references.length, "path")}`,
+      children: references.map(
+        (reference) =>
+          ({
+            _tag: "paragraph",
+            tone: "dim",
+            text: joined([reference.path, reference.reason]),
+          }) as const,
+      ),
     },
   ];
 };
@@ -174,6 +367,58 @@ export const resolutionAgentCoverage = (
   return scope === undefined ? undefined : { agents, scope };
 };
 
+/**
+ * The title line: what the command is doing, where, and for which agents. It
+ * opens both the plan and the settled result, so the facts a reader orients
+ * by are stated once and never repeated in the rows. A document with no
+ * ledger has nothing to orient, and its verdict stands alone.
+ */
+const titleLine = (
+  presentation: OperationPresentation,
+  mode: "preview" | "apply",
+  where: {
+    readonly ledger: boolean;
+    readonly scope?: "project" | "user";
+    readonly agents?: ReadonlyArray<string>;
+  },
+): Doc => {
+  if (!where.ledger) return [];
+  const aside = joined([
+    where.scope === undefined ? undefined : scopePhrase(where.scope),
+    where.agents === undefined || where.agents.length === 0
+      ? undefined
+      : `agents: ${where.agents.join(", ")}`,
+  ]);
+  return [
+    {
+      _tag: "headline",
+      tone: "neutral",
+      text: emphatic(operationTitle(presentation, mode)),
+      ...(aside.length === 0 ? {} : { aside }),
+    },
+  ];
+};
+
+/** The counts a verdict carries as its aside: how much, never what happened. */
+const verdictAside = (
+  presentation: OperationPresentation,
+  counts: UnitStateCounts,
+  mode: "preview" | "apply",
+): string =>
+  joined([
+    ...(
+      [
+        { value: counts.committed, noun: unitState("committed") },
+        { value: counts.failed, noun: unitState("failed") },
+        { value: counts.blocked, noun: unitState("blocked") },
+        { value: counts.rolledBack, noun: unitState("rolled-back") },
+        { value: counts.unchanged, noun: unitState("unchanged") },
+        { value: counts.skipped, noun: unitState("skipped") },
+      ] as const
+    ).map((part) => (part.value === 0 ? undefined : `${String(part.value)} ${part.noun}`)),
+    mode === "preview" ? "nothing was written" : undefined,
+  ]);
+
 export interface OperationDocOptions {
   readonly verbosity: VerbosityLevel;
   readonly message?: string;
@@ -188,7 +433,7 @@ export const operationDoc = (
   if (outcome === "previewed" && resolution.divergence !== true) return [];
   const counts = countUnitStates(resolution.units);
   const presentation = resolution.presentation ?? defaultOperationPresentation;
-  const headline =
+  const verdict =
     options.message ??
     (outcome === "blocked" && resolution.blocking !== undefined
       ? `${outcomeHeadline(presentation, outcome, counts)} — ${blockingClass(resolution.blocking.class)}`
@@ -202,49 +447,35 @@ export const operationDoc = (
     (unit) => detailed || (unit.state !== "unchanged" && unit.state !== "skipped"),
   );
   const coverage = resolutionAgentCoverage(resolution);
+  const ledger = foldedLedger(
+    ledgerColumns(presentation, "Status"),
+    visible.map((unit) => resultRow(unit, detailed)),
+    detailed
+      ? []
+      : foldGroups(presentation, [
+          { count: counts.unchanged, state: "unchanged" },
+          { count: counts.skipped, state: "skipped" },
+        ]),
+  );
   const next = [...(options.suggestions ?? []), ...(resolution.recovery?.actions ?? [])];
+  const aside = verdictAside(presentation, counts, resolution.mode);
 
   return [
-    { _tag: "headline", tone: headlineTone(outcome), text: headline },
+    // Quiet keeps the outcome and drops the narration around it, so the
+    // title line the operation opened with does not survive the filter.
+    ...titleLine(presentation, resolution.mode, {
+      ledger: ledger.length > 0 && options.verbosity !== "quiet",
+      ...(coverage === undefined ? {} : { scope: coverage.scope, agents: coverage.agents }),
+    }),
     ...(resolution.failure?.detail === undefined
       ? []
       : [{ _tag: "paragraph", tone: "error", text: resolution.failure.detail } as const]),
     ...(resolution.blocking?.detail === undefined
       ? []
       : [{ _tag: "paragraph", text: resolution.blocking.detail } as const]),
-    ...(visible.length === 0 ? [] : [{ _tag: "rows", rows: visible.map(resolutionRow) } as const]),
-    ...(!detailed && counts.unchanged > 0
-      ? [
-          {
-            _tag: "collapsed",
-            change: "unchanged",
-            count: counts.unchanged,
-            noun: `${counts.unchanged === 1 ? presentation.subject.singular : presentation.subject.plural} already current`,
-            hint: "--verbose to list",
-          } as const,
-        ]
-      : []),
-    ...(!detailed && counts.skipped > 0
-      ? [
-          {
-            _tag: "collapsed",
-            change: "unchanged",
-            count: counts.skipped,
-            noun: `${counts.skipped === 1 ? presentation.subject.singular : presentation.subject.plural} not selected`,
-            hint: "--verbose to list",
-          } as const,
-        ]
-      : []),
+    ...ledger,
     ...groupedWarnings(resolution.units),
-    ...(coverage === undefined
-      ? []
-      : [
-          {
-            _tag: "paragraph",
-            tone: "dim",
-            text: `Agents: ${coverage.agents.length === 0 ? "none" : coverage.agents.join(", ")}`,
-          } as const,
-        ]),
+    ...untouchedPaths(resolution.units),
     ...(coverage === undefined || coverage.agents.length > 0
       ? []
       : [
@@ -260,34 +491,14 @@ export const operationDoc = (
             ],
           } as const,
         ]),
+    {
+      _tag: "headline",
+      tone: headlineTone(outcome),
+      text: emphatic(verdict),
+      ...(aside.length === 0 ? {} : { aside }),
+    },
     ...(next.length === 0 ? [] : [{ _tag: "next", actions: next } as const]),
   ];
-};
-
-const plannedRow = (step: PlannedJobStep<unknown, unknown>): RowNode => {
-  const outcomes = step.agentOutcomes ?? step.artifact?.agentOutcomes ?? [];
-  const children: Doc = [
-    ...membershipChildren(step.artifact),
-    ...outcomes.map(
-      (outcome) =>
-        ({
-          _tag: "paragraph",
-          tone: outcome.outcome === "failed" || outcome.outcome === "blocked" ? "warn" : "dim",
-          text: `${outcome.agentId}: ${agentOutcome(outcome.outcome)} — ${outcome.reason}`,
-        }) as const,
-    ),
-  ];
-  return {
-    _tag: "row",
-    change: step.readiness === "error" ? "blocked" : "create",
-    cells: [
-      step.artifact?.packMembership?.pack ?? step.label,
-      ...artifactCells(step.artifact),
-      ...(step.readiness === "warn" ? [step.warnMessage] : []),
-      ...(step.readiness === "error" ? [step.errorMessage] : []),
-    ],
-    ...(children.length === 0 ? {} : { children }),
-  };
 };
 
 export const planDoc = (
@@ -298,34 +509,62 @@ export const planDoc = (
   if (steps.length === 0) return [];
   const presentation = presentationOf(plan);
   const risks = plan.riskConditions ?? [];
-  if (options.mode === "apply" && !risks.some((risk) => risk.level === "confirmable")) return [];
-  const headline = `${options.mode === "preview" ? "Would" : "Ready to"} ${presentation.verb.imperative} ${count(steps.length, presentation.subject.singular, presentation.subject.plural)}`;
-  const ready = steps.filter((step) => step.readiness === "ready").length;
+  const gated = risks.some((risk) => risk.level === "confirmable");
+  if (options.mode === "apply" && !gated) return [];
+  const detailed = options.verbosity === "verbose" || options.verbosity === "debug";
+  const changing = steps.filter((step) => step.artifact?.change !== "unchanged");
+  const unchanged = steps.length - changing.length;
   const warnings = steps.filter((step) => step.readiness === "warn").length + risks.length;
   const errors = steps.filter((step) => step.readiness === "error").length;
-  const parts = [
-    ready > 0 ? `${ready} to ${presentation.verb.imperative}` : undefined,
-    warnings > 0 ? count(warnings, "warning") : undefined,
-    errors > 0 ? count(errors, "error") : undefined,
-  ].filter((value): value is string => value !== undefined);
+  const aside = joined([
+    changing.length === 0
+      ? undefined
+      : `${String(changing.length)} to ${presentation.verb.imperative}`,
+    unchanged === 0 ? undefined : `${String(unchanged)} ${unitState("unchanged")}`,
+    warnings === 0 ? undefined : count(warnings, "warning"),
+    errors === 0 ? undefined : count(errors, "error"),
+    options.mode === "preview" ? "nothing was written" : undefined,
+  ]);
+  const scope = steps.find((step) => step.artifact !== undefined)?.artifact?.scope;
+  const agents = [
+    ...new Set(
+      steps.flatMap((step) =>
+        (step.artifact?.agents ?? []).filter((agent) => agent !== "universal"),
+      ),
+    ),
+  ];
+  const ledger =
+    options.verbosity === "quiet"
+      ? []
+      : foldedLedger(
+          ledgerColumns(presentation, "Plan"),
+          (detailed ? steps : changing).map((step) => planRow(step, presentation, detailed)),
+          detailed ? [] : foldGroups(presentation, [{ count: unchanged, state: "unchanged" }]),
+        );
 
   return [
-    {
-      _tag: "headline",
-      tone: errors > 0 ? "error" : warnings > 0 ? "warn" : "info",
-      text: headline,
-    },
+    ...titleLine(presentation, options.mode, {
+      ledger: ledger.length > 0,
+      ...(scope === undefined ? {} : { scope }),
+      ...(agents.length === 0 ? {} : { agents }),
+    }),
     ...Option.match(plan.description, {
       onNone: (): Doc => [],
       onSome: (description): Doc => [{ _tag: "paragraph", text: description }],
     }),
-    ...(options.verbosity === "quiet"
-      ? []
-      : [{ _tag: "rows", rows: steps.map(plannedRow) } as const]),
+    ...ledger,
     ...risks.map((risk) => ({ _tag: "callout", tone: "warn", title: risk.detail }) as const),
-    ...(options.mode !== "preview" || parts.length === 0
+    {
+      _tag: "headline",
+      tone: "neutral",
+      text: emphatic(planVerdict(presentation, options.mode, changing.length)),
+      ...(aside.length === 0 ? {} : { aside }),
+    },
+    // Where no gate opens there is nothing to answer, so the hint is the only
+    // way a reader learns the details are one flag away.
+    ...(gated || detailed || unchanged > 0
       ? []
-      : [{ _tag: "summary", parts: parts.map((text) => ({ text })) } as const]),
+      : [{ _tag: "paragraph", tone: "dim", text: "--verbose for details" } as const]),
   ];
 };
 

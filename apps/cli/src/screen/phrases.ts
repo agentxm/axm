@@ -307,6 +307,43 @@ export const publishReason = (value: PublishReason): string => {
   }
 };
 
+/** The mark a ledger row carries for an artifact that changed as planned. */
+export const artifactChangeMark = (value: ArtifactChange): Change => {
+  switch (value) {
+    case "created":
+      return "create";
+    case "updated":
+      return "update";
+    case "unchanged":
+      return "unchanged";
+    case "removed":
+      return "remove";
+    default:
+      return unreachable(value);
+  }
+};
+
+/**
+ * What a plan ledger says will happen to one unit. The words are the
+ * workspace's own — an extension is installed, updated, or removed — not the
+ * invoking verb's: the title line already names the command, and one
+ * operation such as `sync` plans all three at once.
+ */
+export const plannedArtifactChange = (value: ArtifactChange): string => {
+  switch (value) {
+    case "created":
+      return "install";
+    case "updated":
+      return "update";
+    case "unchanged":
+      return "already current";
+    case "removed":
+      return "remove";
+    default:
+      return unreachable(value);
+  }
+};
+
 export const artifactChange = (value: ArtifactChange): string => {
   switch (value) {
     case "created":
@@ -357,6 +394,42 @@ export const severityTone = (severity: "info" | "warning" | "error"): Tone => {
 const subjectCount = (presentation: OperationPresentation, value: number): string =>
   count(value, presentation.subject.singular, presentation.subject.plural);
 
+/**
+ * The title line every plan-family command opens with: what it is doing, in
+ * the operation's own verb. The ledger beneath it carries the units and the
+ * verdict beneath that states the outcome.
+ */
+export const operationTitle = (
+  presentation: OperationPresentation,
+  mode: "preview" | "apply",
+): string =>
+  mode === "preview" ? `Previewing ${presentation.verb.imperative}` : presentation.verb.gerund;
+
+/** The subject noun alone, pluralized for a count that is stated separately. */
+export const subjectNoun = (presentation: OperationPresentation, value: number): string =>
+  value === 1 ? presentation.subject.singular : presentation.subject.plural;
+
+/** The header a ledger's name column carries for an operation's subject. */
+export const subjectHeader = (presentation: OperationPresentation): string =>
+  `${presentation.subject.singular.slice(0, 1).toUpperCase()}${presentation.subject.singular.slice(1)}`;
+
+/** Where an operation acts, for the aside on its title line. */
+export const scopePhrase = (scope: "project" | "user"): string =>
+  scope === "project" ? "in this project" : "for this user";
+
+/**
+ * What a plan ledger's verdict states: the change it would make. Units that
+ * are already current are not part of the claim; they are part of its aside.
+ */
+export const planVerdict = (
+  presentation: OperationPresentation,
+  mode: "preview" | "apply",
+  changing: number,
+): string =>
+  changing === 0
+    ? "Already up to date"
+    : `${mode === "preview" ? "Would" : "Ready to"} ${presentation.verb.imperative} ${subjectCount(presentation, changing)}`;
+
 export const outcomeHeadline = (
   presentation: OperationPresentation,
   outcome: OperationOutcome,
@@ -367,10 +440,11 @@ export const outcomeHeadline = (
       return `Would ${presentation.verb.imperative} ${subjectCount(presentation, counts.total)}`;
     case "applied":
       return `${presentation.verb.past} ${subjectCount(presentation, counts.committed)}`;
+    // The counts belong to the verdict's aside, not its claim.
     case "no-op":
       return counts.total === 0
         ? `Nothing to ${presentation.verb.imperative}`
-        : `Already up to date — ${subjectCount(presentation, counts.total)}`;
+        : "Already up to date";
     case "partial":
       return `Partially ${presentation.verb.past.toLowerCase()} — ${counts.committed} changed, ${counts.failed + counts.blocked} unfinished`;
     case "failed":

@@ -10,6 +10,10 @@ import { mutationResult } from "./mutation-result.js";
 import { mutationResultAltTable } from "./mutation-result-alt-table.js";
 import { mutationResultAltTree } from "./mutation-result-alt-tree.js";
 import { planPreview } from "./plan-preview.js";
+import { refSyncMixedOperations } from "./ref-sync--mixed-operations.js";
+import { refSyncNothingToDo } from "./ref-sync--nothing-to-do.js";
+import { refSyncUninstallKeptReference } from "./ref-sync--uninstall-kept-reference.js";
+import { refSyncVerboseChildren } from "./ref-sync--verbose-children.js";
 import { widthGateFourWidths } from "./width-gate--four-widths.js";
 import { widthKeepLongNames } from "./width-keep--long-names.js";
 import { widthKeepNeverCut } from "./width-keep--never-cut.js";
@@ -36,6 +40,14 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
   { _tag: "document", name: "mutation-result-alt-table", doc: mutationResultAltTable },
   { _tag: "document", name: "failure-recovery", doc: failureRecovery },
   { _tag: "document", name: "plan-preview", doc: planPreview },
+  { _tag: "document", name: "ref-sync--mixed-operations", doc: refSyncMixedOperations },
+  { _tag: "document", name: "ref-sync--verbose-children", doc: refSyncVerboseChildren },
+  { _tag: "document", name: "ref-sync--nothing-to-do", doc: refSyncNothingToDo },
+  {
+    _tag: "document",
+    name: "ref-sync--uninstall-kept-reference",
+    doc: refSyncUninstallKeptReference,
+  },
   { _tag: "document", name: "blocked-waiting", doc: blockedWaiting },
   { _tag: "document", name: "every-node", doc: everyNode },
   {

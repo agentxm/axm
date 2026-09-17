@@ -59,7 +59,7 @@ shape happens to fit the terminal.
 | Show containment or hierarchy                                | `tree`                                                                                                |
 | Describe one item                                            | `fields`                                                                                              |
 | State the outcome of the command                             | `headline` with the outcome tone; one per result                                                      |
-| Summarize counts and elapsed time after the outcome          | `summary`                                                                                             |
+| Summarize counts and elapsed time after the outcome          | the outcome `headline`'s own `aside`, so the claim and its counts are one line                        |
 | Explain a condition that needs attention                     | `callout` with a tone and optional children; never for the outcome itself                             |
 | Say something in prose                                       | `paragraph`; a tone only when the prose is itself a warning, error, or aside                          |
 | Point to the next command or link                            | `next` with suggested actions; machine mode emits them as suggestion events                           |
@@ -67,8 +67,10 @@ shape happens to fit the terminal.
 | Group related nodes under a dim title                        | `section`                                                                                             |
 | Pass text through untouched                                  | `raw` or `markdown`; the painter never wraps, truncates, or restyles them                             |
 
-Every command opens with the same title line. No command prints a logo or a
-phase strip; setup opens like every other command.
+Every command whose result carries a ledger opens with the same title line:
+what it is doing, where it acts, and which agents it covers, stated once so no
+row repeats it. No command prints a logo or a phase strip; setup opens like
+every other command.
 
 A ledger's columns carry a role. The `name` column is protected and shortened
 last; `fixed` columns keep their width; an `elastic` column takes spare width.
@@ -79,10 +81,13 @@ noun, and the flag that reveals them. Row children carry per-agent outcomes and
 details, aligned to the content column and shown at verbose level. A ledger
 takes any columns: lint's are finding, location, and fix, with the rule
 identifier and help as a dim child line, and a rule that repeats folds into one
-row with a location count.
+row with a location count. The separator between parts of a line belongs to the
+painter, so a cell or aside that carries several facts joins them as prose
+rather than spelling a glyph a view cannot see.
 
-When nothing changed there is no ledger: the verdict line stands alone. A
-headline states what happened; a summary states how much. A callout is
+When nothing changed there is no ledger and no title line: the verdict stands
+alone, and it keeps its own status glyph because no row above it carries one. A
+headline states what happened; its aside states how much. A callout is
 subordinate to a headline and never replaces it. A table describes an
 inventory, so an inventory that changed nothing is a table. A tree shows
 structure, so a flat list is never a tree. A detail page is a headline with a

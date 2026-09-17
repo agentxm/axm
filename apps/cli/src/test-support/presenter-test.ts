@@ -137,6 +137,21 @@ const captureDoc = (
       }
       return;
     }
+    if (node._tag === "ledger") {
+      for (const row of node.rows) {
+        const message = row.cells.map(plain).join("   ");
+        state.summaries.push(message);
+        if (row.mark === "failed") state.logs.push({ _tag: "error", message });
+        if (row.children !== undefined) captureDoc(state, row.children, channel, persistent);
+      }
+      if (node.folded !== undefined) {
+        state.logs.push({
+          _tag: "message",
+          message: `${String(node.folded.count)} ${node.folded.noun}`,
+        });
+      }
+      return;
+    }
     if (node._tag === "section") {
       if (node.children.length === 1 && node.children[0]?._tag === "raw") {
         state.summaries.push(node.children[0].content);

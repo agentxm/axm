@@ -1,7 +1,7 @@
 ---
 type: Architecture
 status: stable
-description: The terminal design system for AXM human output — the gutter and value column, document vocabulary usage, tone and glyph semantics, per-stream color policy, responsive layout, the live scene, the gallery, the supported terminal matrix, and the time-to-first-output budget.
+description: The terminal design system for AXM human output — the gutter and value column, document vocabulary usage, tone and glyph semantics, per-stream color policy, responsive layout, the live scene, the gallery, pseudo-terminal evidence, the supported terminal matrix, and the time-to-first-output budget.
 depends-on:
   - ./output.md
   - ../decisions/cli-output-view-model-and-terminal-ownership.md
@@ -254,6 +254,27 @@ its snapshot diff.
 
 ```bash
 pnpm exec nx run cli:gallery -- --name <fixture> --width <columns> --rows <rows>
+```
+
+## Terminal evidence
+
+The gallery paints pure functions, so it reaches every state a scene or prompt
+can hold but none of the terminal itself. Raw mode, key decoding, and the
+cleanup that follows an interrupt exist only when stdin is a terminal, and a
+prompt that leaves raw mode on or the cursor hidden breaks the shell it
+returns to. The pseudo-terminal harness in `apps/cli-e2e/src/pty.ts` is where
+that evidence comes from: it runs the built artifact under a real terminal of
+a declared size, replays a script of waits and key writes against it, and
+reports the transcript together with whether raw mode was handed back and the
+cursor left visible. Each interaction kind proves its keys there; the states
+it can be in are proved in the gallery.
+
+The harness needs a pseudo-terminal, which the toolchain supplies on POSIX
+only, so it runs on macOS and Linux and skips on Windows. Windows key decoding
+stays a reviewed expectation of the matrix below rather than an automated one.
+
+```bash
+pnpm exec nx run cli-e2e:e2e-main
 ```
 
 ## Supported terminals

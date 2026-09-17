@@ -27,8 +27,8 @@ response.
   contract authority
 - [Terminal design](terminal-design.md) — the gutter and value column,
   document vocabulary usage, tone and glyph semantics, per-stream color policy,
-  responsive layout, the live scene, the gallery, supported terminals, and the
-  time-to-first-output budget
+  responsive layout, the live scene, the gallery, pseudo-terminal evidence,
+  supported terminals, and the time-to-first-output budget
 - [Interaction](interaction.md) — how every command declares its interaction
   capabilities, when AXM may prompt, what preview and pre-approval mean, which
   conditions are approved in advance and which only interactively, and how a

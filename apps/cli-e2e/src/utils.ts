@@ -8,15 +8,12 @@ import {
   createTempDir,
   type RunCliOptions,
 } from "@agentxm/client-e2e-utils";
-import { resolveHostBinaryPath } from "./distribution-targets.js";
+import { cliArtifact } from "./cli-artifact.js";
 
-const cliSource = process.env["AXM_E2E_CLI_SOURCE"] ?? "compiled";
-if (cliSource !== "built" && cliSource !== "compiled")
-  throw new Error(`Unsupported AXM_E2E_CLI_SOURCE: ${cliSource}.`);
 const runCliArtifact =
-  cliSource === "compiled"
-    ? createBinaryRunner(resolveHostBinaryPath())
-    : createCliRunner(new URL("../../cli/dist/src/main.js", import.meta.url));
+  cliArtifact.runtime === "binary"
+    ? createBinaryRunner(cliArtifact.path)
+    : createCliRunner(cliArtifact.path);
 const isolatedUserHome = createTempDir();
 
 process.once("exit", () => {

@@ -51,6 +51,8 @@ export interface CalloutNode {
   readonly _tag: "callout";
   readonly tone: Tone;
   readonly title: Text;
+  /** A dim aside, such as a stable code, painted at the value column. */
+  readonly aside?: Text;
   readonly children?: Doc;
 }
 

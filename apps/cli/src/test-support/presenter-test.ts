@@ -79,7 +79,9 @@ const nodeText = (node: DocNode): string => {
     case "collapsed":
       return `${String(node.count)} ${node.noun}`;
     case "callout":
-      return plain(node.title);
+      return node.aside === undefined
+        ? plain(node.title)
+        : `${plain(node.title)} ${plain(node.aside)}`;
     case "summary":
       return node.parts.map((part) => plain(part.text)).join(", ");
     case "section":

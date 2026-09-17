@@ -59,9 +59,9 @@ describe("pack membership output", () => {
           : operationDoc(resolution, { verbosity: "normal" });
       const text = paintText(doc, { width: 160, colors: false, glyphs: asciiGlyphs }).join("\n");
       expect(text).toContain("@acme/packs/toolkit");
-      expect(text).toMatch(/\+ @acme\/skills\/added\s+>=1\.0\.0/);
-      expect(text).toMatch(/- @acme\/skills\/removed\s+>=2\.0\.0/);
-      expect(text).toMatch(/~ @acme\/skills\/updated\s+>=1\.0\.0 to >=2\.0\.0/);
+      expect(text).toMatch(/\+ {3}@acme\/skills\/added\s+>=1\.0\.0/);
+      expect(text).toMatch(/- {3}@acme\/skills\/removed\s+>=2\.0\.0/);
+      expect(text).toMatch(/~ {3}@acme\/skills\/updated\s+>=1\.0\.0 to >=2\.0\.0/);
     },
   );
 });

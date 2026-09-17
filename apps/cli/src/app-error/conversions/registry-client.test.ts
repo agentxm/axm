@@ -185,9 +185,9 @@ describe("registry-client failure conversion (golden pairs)", () => {
     expect(error.title).toBe("Timed Out");
     expect(renderAppError(error)).toBe(
       [
-        "✖ Registry request did not complete within the configured deadline. (timeout)",
-        "  Registry:  https://registry.agentxm.ai",
-        "  Run with `--debug` to see error details.",
+        " ✖   Registry request did not complete within the configured deadline. (timeout)",
+        "     Registry:                     https://registry.agentxm.ai",
+        "     Run with `--debug` to see error details.",
       ].join("\n"),
     );
     expect(makeJsonErrorEnvelopeFromAppError(error)).toMatchObject({

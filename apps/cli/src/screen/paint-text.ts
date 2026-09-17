@@ -18,6 +18,16 @@ import { longestWordWidth, visibleText, wrapText } from "./wrap-text.js";
 const ESC = "\u001b[";
 const RESET = `${ESC}0m`;
 const COLUMN_GAP = 3;
+/**
+ * Every marked node paints its mark in this gutter — a space, the mark, and
+ * spaces to fill — so content after any mark starts at the same column.
+ */
+const GUTTER_WIDTH = 5;
+/**
+ * Preferred width of the key lane between the gutter and the value column,
+ * matching the preferred width of a ledger's name column.
+ */
+const KEY_WIDTH = 27;
 const MIN_FIELD_VALUE_WIDTH = 12;
 /** Narrowest inline width a change row's last cell accepts before taking its own line. */
 const FLEX_MIN_WIDTH = 16;
@@ -79,6 +89,12 @@ interface ResolvedStyle {
   readonly width: PaintWidth;
   readonly colors: boolean;
   readonly glyphs: Glyphs;
+  /**
+   * Cells before the value column that field values and callout asides share
+   * across one document; below twice its preferred column it moves left to
+   * keep half the terminal width for values.
+   */
+  readonly valueColumn: number;
 }
 
 const toneCodes: Readonly<Record<Tone, string>> = {
@@ -154,8 +170,42 @@ const paintPrefixed = (
 const dim = (value: string, style: ResolvedStyle): string =>
   paintSpans([{ text: value, tone: "dim" }], style);
 
-const statusGlyph = (tone: Tone, glyphs: Glyphs): string =>
-  tone === "neutral" || tone === "dim" ? " " : glyphs.status[tone];
+const statusGlyph = (tone: Tone, glyphs: Glyphs): string | undefined =>
+  tone === "neutral" || tone === "dim" ? undefined : glyphs.status[tone];
+
+/** A mark (or none) in the gutter, padded so content starts after it. */
+const gutter = (mark: string | undefined): string => {
+  const cell = ` ${mark ?? ""}`;
+  return `${cell}${spaces(GUTTER_WIDTH - displayWidth(cell))}`;
+};
+
+const blankGutter = spaces(GUTTER_WIDTH);
+
+const bold = (value: Text): ReadonlyArray<Span> =>
+  (typeof value === "string" ? [{ text: value }] : value).map((span) => ({ ...span, bold: true }));
+
+/**
+ * Put an aside at the value column after the last line when the line ends
+ * before it, else after a gap when it still fits, else on a line of its own
+ * at the value column.
+ */
+const withAside = (
+  lines: ReadonlyArray<string>,
+  aside: Text,
+  style: ResolvedStyle,
+): ReadonlyArray<string> => {
+  const painted = paintValue(aside, style, "dim");
+  if (painted.length === 0) return lines;
+  const last = lines[lines.length - 1];
+  if (last !== undefined) {
+    const joined = `${last}${spaces(Math.max(COLUMN_GAP, style.valueColumn - displayWidth(last)))}${painted}`;
+    if (fits(style.width, joined)) return [...lines.slice(0, -1), joined];
+  }
+  return [
+    ...lines,
+    ...paintPrefixed(aside, style, { indent: style.valueColumn, first: "", tone: "dim" }),
+  ];
+};
 
 /**
  * Append a dim aside to the last line when it fits, else paint it wrapped on
@@ -295,7 +345,14 @@ const paintTable = (
       ...paintFields(
         columns.map((column, index) => ({ label: column.header, value: cellAt(row, index) })),
         style,
-        indent,
+        {
+          indent,
+          valueStart:
+            indent +
+            Math.max(0, ...columns.map((column) => displayWidth(visibleText(column.header)))) +
+            2,
+          gap: 2,
+        },
       ),
     ]);
   }
@@ -321,7 +378,7 @@ const paintRows = (
   if (rows.length === 0) return [];
   const glyphs = style.glyphs;
   const columnCount = Math.max(0, ...rows.map((row) => row.cells.length));
-  const available = remaining(style.width, indent + 2);
+  const available = remaining(style.width, indent + GUTTER_WIDTH);
   const columns = Array.from({ length: Math.max(0, columnCount - 1) }, (_, index) =>
     layoutColumn(
       { header: "", priority: "required" },
@@ -349,12 +406,12 @@ const paintRows = (
       );
     });
   return rows.flatMap((row) => {
-    const first = `${glyphs.change[row.change]} `;
+    const first = gutter(glyphs.change[row.change]);
     const tail = row.cells[row.cells.length - 1];
     const lines =
       layout._tag !== "grid"
         ? row.cells.flatMap((cell, index) =>
-            paintPrefixed(cell, style, { indent, first: index === 0 ? first : "  " }),
+            paintPrefixed(cell, style, { indent, first: index === 0 ? first : blankGutter }),
           )
         : [
             ...paintCells(
@@ -368,10 +425,13 @@ const paintRows = (
               { indent, first },
             ),
             ...(tail !== undefined && !inlineTail
-              ? paintPrefixed(tail, style, { indent, first: "  " })
+              ? paintPrefixed(tail, style, { indent, first: blankGutter })
               : []),
           ];
-    const children = row.children === undefined ? [] : paintNodes(row.children, style, indent + 4);
+    const children =
+      row.children === undefined
+        ? []
+        : paintNodes(row.children, style, indent + GUTTER_WIDTH, indent + GUTTER_WIDTH);
     return [...lines, ...children];
   });
 };
@@ -406,46 +466,85 @@ const paintTreeItems = (
   });
 
 /**
- * Label–value pairs with labels padded to one width. A value whose longest
- * word cannot fit beside its label, or that would get less than a short line,
- * moves below the label instead of being split.
+ * Label–value pairs with each value starting at `valueStart`. A label that
+ * leaves less than `gap` cells before it, or a value whose longest word cannot
+ * fit beside it or that would get less than a short line, moves the value
+ * below the label instead of splitting it. Unbounded output never moves a
+ * value: a long label pushes its own value right instead.
  */
 const paintFields = (
   fields: ReadonlyArray<{ readonly label: Text; readonly value: Text }>,
   style: ResolvedStyle,
-  indent: number,
+  options: { readonly indent: number; readonly valueStart: number; readonly gap: number },
 ): ReadonlyArray<string> => {
-  const labelWidth = Math.max(0, ...fields.map((field) => displayWidth(visibleText(field.label))));
-  const valueWidth = remaining(style.width, indent + labelWidth + 2);
-  return fields.flatMap((field) =>
-    valueWidth !== "unbounded" &&
-    (valueWidth < MIN_FIELD_VALUE_WIDTH || longestWordWidth(field.value) > valueWidth)
+  const { indent, gap } = options;
+  const valueWidth = remaining(style.width, options.valueStart);
+  return fields.flatMap((field) => {
+    const labelWidth = displayWidth(visibleText(field.label));
+    const valueStart = Math.max(options.valueStart, indent + labelWidth + gap);
+    return valueWidth !== "unbounded" &&
+      (valueStart > options.valueStart ||
+        valueWidth < MIN_FIELD_VALUE_WIDTH ||
+        longestWordWidth(field.value) > valueWidth)
       ? [
           ...paintPrefixed(field.label, style, { indent, first: "", tone: "dim" }),
           ...paintPrefixed(field.value, style, { indent: indent + 2, first: "" }),
         ]
       : paintPrefixed(field.value, style, {
           indent,
-          first: `${padDisplay(paintValue(field.label, style, "dim"), labelWidth)}  `,
-          rest: spaces(labelWidth + 2),
-        }),
-  );
+          first: padDisplay(paintValue(field.label, style, "dim"), valueStart - indent),
+          rest: spaces(valueStart - indent),
+        });
+  });
 };
 
-const paintNode = (node: DocNode, style: ResolvedStyle, indent: number): ReadonlyArray<string> => {
+/** Nodes that carry change rows; a headline after one is their verdict. */
+const isChangeRows = (node: DocNode): boolean =>
+  node._tag === "row" || node._tag === "rows" || node._tag === "collapsed";
+
+/**
+ * Where a node paints: `mark` is the column its gutter starts at, and
+ * `content` is where a node without a mark starts. They differ inside a titled
+ * section, whose unmarked children sit at the content column while marked
+ * children keep their marks in the gutter below the title.
+ */
+interface Placement {
+  readonly mark: number;
+  readonly content: number;
+  readonly afterChangeRows: boolean;
+}
+
+const paintNode = (
+  node: DocNode,
+  style: ResolvedStyle,
+  placement: Placement,
+): ReadonlyArray<string> => {
   const glyphs = style.glyphs;
+  const { mark: indent, content } = placement;
   switch (node._tag) {
     case "headline": {
+      const mark = statusGlyph(node.tone, glyphs);
+      if (mark === undefined || placement.afterChangeRows) {
+        // A title carries no mark, and a verdict leaves status to the rows above it.
+        const lines = paintPrefixed(
+          placement.afterChangeRows && mark !== undefined ? bold(node.text) : node.text,
+          style,
+          { indent: content, first: "", tone: node.tone },
+        );
+        return node.aside === undefined
+          ? lines
+          : withTrailing(lines, node.aside, style, content + 2);
+      }
       const lines = paintPrefixed(node.text, style, {
         indent,
-        first: `${statusGlyph(node.tone, glyphs)} `,
+        first: gutter(mark),
         tone: node.tone,
       });
-      return node.aside === undefined ? lines : withTrailing(lines, node.aside, style, indent + 2);
+      return node.aside === undefined ? lines : withAside(lines, node.aside, style);
     }
     case "paragraph":
       return paintPrefixed(node.text, style, {
-        indent,
+        indent: content,
         first: "",
         ...(node.tone === undefined ? {} : { tone: node.tone }),
       });
@@ -456,41 +555,58 @@ const paintNode = (node: DocNode, style: ResolvedStyle, indent: number): Readonl
     case "collapsed": {
       const lines = paintPrefixed(`${String(node.count)} ${node.noun}`, style, {
         indent,
-        first: `${glyphs.change[node.change]} `,
+        first: gutter(glyphs.change[node.change]),
       });
-      return node.hint === undefined ? lines : withTrailing(lines, node.hint, style, indent + 2);
+      return node.hint === undefined
+        ? lines
+        : withTrailing(lines, node.hint, style, indent + GUTTER_WIDTH);
     }
     case "callout": {
       const title = paintPrefixed(node.title, style, {
         indent,
-        first: `${statusGlyph(node.tone, glyphs)} `,
+        first: gutter(statusGlyph(node.tone, glyphs)),
         tone: node.tone,
       });
       const children =
-        node.children === undefined ? [] : paintNodes(node.children, style, indent + 2);
-      return [...title, ...children];
+        node.children === undefined
+          ? []
+          : paintNodes(node.children, style, indent + GUTTER_WIDTH, indent + GUTTER_WIDTH);
+      return [
+        ...(node.aside === undefined ? title : withAside(title, node.aside, style)),
+        ...children,
+      ];
     }
     case "table": {
       const caption =
-        node.caption === undefined ? [] : paintPrefixed(node.caption, style, { indent, first: "" });
+        node.caption === undefined
+          ? []
+          : paintPrefixed(node.caption, style, { indent: content, first: "" });
       return [
         ...caption,
-        ...paintTable(node.columns, node.rows, style, indent + (caption.length === 0 ? 0 : 2)),
+        ...paintTable(node.columns, node.rows, style, content + (caption.length === 0 ? 0 : 2)),
       ];
     }
     case "fields":
-      return paintFields(node.fields, style, indent);
+      // Fields sit at the content column, never left of it, with values at the value column.
+      return paintFields(node.fields, style, {
+        indent: Math.max(content, GUTTER_WIDTH),
+        valueStart: style.valueColumn,
+        gap: COLUMN_GAP,
+      });
     case "tree":
-      return paintTreeItems(node.roots, style, spaces(indent));
+      return paintTreeItems(node.roots, style, spaces(content));
     case "next":
       return [
-        `${spaces(indent)}${dim("Next", style)}`,
+        `${spaces(content)}${dim("Next", style)}`,
         ...node.actions.flatMap((action) => {
           const target = actionTarget(action);
-          const lines = paintPrefixed(action.description, style, { indent: indent + 2, first: "" });
+          const lines = paintPrefixed(action.description, style, {
+            indent: content + 2,
+            first: "",
+          });
           return target.length === 0
             ? lines
-            : withTrailing(lines, `${glyphs.separator.trimStart()}${target}`, style, indent + 4, {
+            : withTrailing(lines, `${glyphs.separator.trimStart()}${target}`, style, content + 4, {
                 gap: " ",
                 ownLine: target,
               });
@@ -504,37 +620,56 @@ const paintNode = (node: DocNode, style: ResolvedStyle, indent: number): Readonl
         ...(typeof part.text === "string" ? [{ text: part.text }] : part.text),
       ]);
       return paintPrefixed([...parts, { text: elapsed }], style, {
-        indent,
+        indent: content,
         first: "",
         ...(node.tone === undefined ? {} : { tone: node.tone }),
       });
     }
-    case "section": {
-      const title =
-        node.title === undefined
-          ? []
-          : paintPrefixed(node.title, style, { indent, first: "", tone: "dim" });
-      return [...title, ...paintNodes(node.children, style, indent + (title.length === 0 ? 0 : 2))];
-    }
+    case "section":
+      return node.title === undefined
+        ? paintNodes(node.children, style, indent, content)
+        : [
+            ...paintPrefixed(node.title, style, { indent: content, first: "", tone: "dim" }),
+            ...paintNodes(node.children, style, content, content + GUTTER_WIDTH),
+          ];
     case "markdown":
     case "raw":
-      return node.content.split("\n").map((line) => `${spaces(indent)}${line}`);
+      return node.content.split("\n").map((line) => `${spaces(content)}${line}`);
     case "blank":
       return [""];
   }
 };
 
-const paintNodes = (doc: Doc, style: ResolvedStyle, indent: number): ReadonlyArray<string> =>
-  doc.flatMap((node) => paintNode(node, style, indent));
+const paintNodes = (
+  doc: Doc,
+  style: ResolvedStyle,
+  mark: number,
+  content: number,
+): ReadonlyArray<string> =>
+  doc.flatMap((node, index) =>
+    paintNode(node, style, {
+      mark,
+      content,
+      afterChangeRows: doc.slice(0, index).some(isChangeRows),
+    }),
+  );
 
-const resolveStyle = (style: PaintStyle): ResolvedStyle => ({
-  width: style.width === "unbounded" ? "unbounded" : Math.max(20, style.width),
-  colors: style.colors,
-  glyphs: style.glyphs ?? unicodeGlyphs,
-});
+const resolveStyle = (style: PaintStyle): ResolvedStyle => {
+  const width = style.width === "unbounded" ? "unbounded" : Math.max(20, style.width);
+  const preferred = GUTTER_WIDTH + KEY_WIDTH + COLUMN_GAP;
+  return {
+    width,
+    colors: style.colors,
+    glyphs: style.glyphs ?? unicodeGlyphs,
+    valueColumn:
+      width === "unbounded"
+        ? preferred
+        : Math.max(GUTTER_WIDTH, Math.min(preferred, Math.floor(width / 2))),
+  };
+};
 
 export const paintText = (doc: Doc, style: PaintStyle): ReadonlyArray<string> =>
-  paintNodes(doc, resolveStyle(style), 0);
+  paintNodes(doc, resolveStyle(style), 0, 0);
 
 /** Paint one already laid-out line of spans without wrapping or padding. */
 export const paintInline = (value: Text, style: PaintStyle): string =>

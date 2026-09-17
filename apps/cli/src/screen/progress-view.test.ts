@@ -54,18 +54,22 @@ describe("progressTransitionDoc", () => {
     );
 
   it("narrates start, waits, restoration, and settlement in plain mode", () => {
-    expect(paintTransition(0, 1, false)).toEqual(["● Install skill"]);
+    expect(paintTransition(0, 1, false)).toEqual([" ●   Install skill"]);
     expect(paintTransition(8, 9, false)).toEqual([
-      "▲ Waiting — another operation holds the workspace: axm sync (pid 41)",
+      " ▲   Waiting — another operation holds the workspace: axm sync (pid 41)",
     ]);
-    expect(paintTransition(17, 18, false)).toEqual(["▲ Rolling back Install skill"]);
-    expect(paintTransition(18, 19, false)).toEqual(["✖ Install skill  1.5s · 1 failed"]);
+    expect(paintTransition(17, 18, false)).toEqual([" ▲   Rolling back Install skill"]);
+    expect(paintTransition(18, 19, false)).toEqual([
+      " ✖   Install skill                 1.5s · 1 failed",
+    ]);
     expect(paintTransition(12, 13, false)).toEqual([]);
   });
 
   it("collapses to the settlement line alone in live mode", () => {
     expect(paintTransition(0, 1, true)).toEqual([]);
     expect(paintTransition(8, 9, true)).toEqual([]);
-    expect(paintTransition(18, 19, true)).toEqual(["✖ Install skill  1.5s · 1 failed"]);
+    expect(paintTransition(18, 19, true)).toEqual([
+      " ✖   Install skill                 1.5s · 1 failed",
+    ]);
   });
 });

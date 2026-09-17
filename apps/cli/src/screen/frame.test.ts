@@ -34,12 +34,12 @@ describe("Frame", () => {
       expect(output).toContain("Install skill — applying");
       expect(output).toContain("code-review");
       expect(output).toContain("warning\n");
-      expect(output).toContain("✖ Install skill  1.5s · 1 failed\n");
+      expect(output).toContain(" ✖   Install skill                 1.5s · 1 failed\n");
       expect(output.indexOf("warning\n")).toBeLessThan(
         output.lastIndexOf("Install skill — applying"),
       );
       expect(output.lastIndexOf("Install skill — applying")).toBeLessThan(
-        output.indexOf("✖ Install skill"),
+        output.indexOf(" ✖   Install skill"),
       );
     }).pipe(Effect.provide(harness.layer), Effect.scoped);
   });
@@ -53,10 +53,10 @@ describe("Frame", () => {
       }
       expect(harness.state.stderr.join("")).toBe(
         [
-          "● Install skill",
-          "▲ Waiting — another operation holds the workspace: axm sync (pid 41)",
-          "▲ Rolling back Install skill",
-          "✖ Install skill  1.5s · 1 failed",
+          " ●   Install skill",
+          " ▲   Waiting — another operation holds the workspace: axm sync (pid 41)",
+          " ▲   Rolling back Install skill",
+          " ✖   Install skill                 1.5s · 1 failed",
           "",
         ].join("\n"),
       );

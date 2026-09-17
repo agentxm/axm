@@ -1,4 +1,4 @@
-✔ Installed 3 skills  2.4s
+ ✔   Installed 3 skills   2.4s
 ├─ + @craigsmitham/effect-v4 0.4.2
    created, 14 files
 │  ├─ claude-code
@@ -14,8 +14,8 @@
       .cursor/skills/field-notes
 └─ - @agentxm/knowledge/legacy 1.0.0
    removed
-= 5 skills already current
-  --verbose to list
+ =   5 skills already current
+     --verbose to list
 Next
   Inspect installed skills
     axm skills list

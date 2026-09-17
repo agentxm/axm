@@ -277,10 +277,13 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
         node.tone,
         `${bar}  `,
       );
+      const aside =
+        node.aside === undefined ? [] : block(node.aside, style, indent, `${bar}  `, "dim");
       const inner = { ...style, width: room(style.width, indent + displayWidth(bar) + 2) };
       const children = node.children === undefined ? [] : paintNodes(node.children, inner, 0);
       return [
         ...title,
+        ...aside,
         ...children.map((line) => `${spaces(indent)}${bar}  ${line}`.replace(/\s+$/u, "")),
       ];
     }

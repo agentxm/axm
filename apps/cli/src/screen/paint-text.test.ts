@@ -121,11 +121,11 @@ const widest = (lines: ReadonlyArray<string>) => Math.max(0, ...lines.map(displa
 describe("paintText", () => {
   it("paints the document grammar without color", () => {
     expect(plain(document, 80)).toEqual([
-      "✔ Installed 2 skills",
+      " ✔   Installed 2 skills",
       "",
-      "+ deploy     1.4.0   created",
-      "= rollback   0.9.2   already installed",
-      "= 4 skills unchanged  --verbose to list",
+      " +   deploy     1.4.0   created",
+      " =   rollback   0.9.2   already installed",
+      " =   4 skills unchanged  --verbose to list",
       "Next",
       "  Inspect installed skills · axm skills list",
     ]);
@@ -151,30 +151,35 @@ describe("paintText", () => {
       ],
       24,
     );
-    expect(lines).toEqual(["~ skill", "  a very long", "  destination that", "  cannot fit"]);
+    expect(lines).toEqual([
+      " ~   skill",
+      "     a very long",
+      "     destination that",
+      "     cannot fit",
+    ]);
     expect(widest(lines)).toBeLessThanOrEqual(24);
   });
 
   it("paints every node kind as one stable wide document", () => {
     expect(plain(everyNodeDocument, 80)).toEqual([
-      "✔ Ready",
+      " ✔   Ready",
       "部署 package is ready for review",
-      "+ alpha   created",
-      "~ beta   updated",
-      "= 2 unchanged",
-      "▲ Warning",
-      "  Check permissions",
+      " +   alpha   created",
+      " ~   beta   updated",
+      " =   2 unchanged",
+      " ▲   Warning",
+      "     Check permissions",
       "Inventory",
       "  Name    State",
       "  alpha   ready",
-      "Owner  @acme",
+      "     Owner                         @acme",
       "└─ root  managed",
       "   └─ child",
       "Next",
       "  Inspect · axm list",
       "1 changed in 1.2s",
       "Details",
-      "  Section body",
+      "     Section body",
       "# Heading",
       "pre-sanitized",
       "",
@@ -353,16 +358,173 @@ describe("paintText", () => {
     });
   });
 
+  describe("gutter and value column", () => {
+    const marked: Doc = [
+      { _tag: "headline", tone: "error", text: "Install failed" },
+      {
+        _tag: "rows",
+        rows: [
+          { _tag: "row", change: "create", cells: ["alpha", "created"] },
+          { _tag: "row", change: "rolled-back", cells: ["beta", "rolled back"] },
+        ],
+      },
+      { _tag: "collapsed", change: "unchanged", count: 2, noun: "unchanged" },
+      { _tag: "callout", tone: "info", title: "Note" },
+    ];
+
+    it.each([
+      { name: "Unicode", glyphs: undefined },
+      { name: "ASCII", glyphs: asciiGlyphs },
+    ])("starts content after every $name mark at column six", ({ glyphs }) => {
+      const lines = paintText(marked, {
+        width: 80,
+        colors: false,
+        ...(glyphs === undefined ? {} : { glyphs }),
+      });
+      expect(lines).toHaveLength(5);
+      for (const line of lines) {
+        expect(line.slice(0, 5), line).toMatch(/^ \S {3}$/u);
+        expect(line.charAt(5), line).not.toBe(" ");
+      }
+    });
+
+    it("gives a verdict after change rows no glyph and bolds it", () => {
+      const verdict: Doc = [
+        { _tag: "row", change: "remove", cells: ["alpha", "removed"] },
+        { _tag: "blank" },
+        { _tag: "headline", tone: "ok", text: "Uninstalled 1 skill", aside: "0.5s" },
+      ];
+      expect(plain(verdict, 80)).toEqual([" –   alpha   removed", "", "Uninstalled 1 skill  0.5s"]);
+      expect(paintText(verdict, { width: 80, colors: true }).join("\n")).toContain(
+        "\u001b[1m\u001b[32mUninstalled",
+      );
+    });
+
+    it("keeps the glyph on a problem with no change rows above it", () => {
+      expect(plain([{ _tag: "headline", tone: "error", text: "Sign-in expired" }], 80)).toEqual([
+        " ✖   Sign-in expired",
+      ]);
+    });
+
+    const problem: Doc = [
+      {
+        _tag: "callout",
+        tone: "error",
+        title: "Invalid skill name",
+        aside: "validation · exit 9",
+        children: [
+          {
+            _tag: "fields",
+            fields: [
+              { label: "name", value: '"Code Review!"' },
+              { label: "allowed", value: "lowercase letters, digits and hyphens" },
+            ],
+          },
+        ],
+      },
+      { _tag: "fields", fields: [{ label: "try", value: "code-review" }] },
+    ];
+
+    it("puts field values and callout asides on one value column", () => {
+      expect(plain(problem, 80)).toEqual([
+        " ✖   Invalid skill name            validation · exit 9",
+        '     name                          "Code Review!"',
+        "     allowed                       lowercase letters, digits and hyphens",
+        "     try                           code-review",
+      ]);
+    });
+
+    it("moves the value column left to keep half a narrow terminal for values", () => {
+      const lines = plain(problem, 60);
+      expect(lines).toEqual([
+        " ✖   Invalid skill name       validation · exit 9",
+        '     name                     "Code Review!"',
+        "     allowed                  lowercase letters, digits and",
+        "                              hyphens",
+        "     try                      code-review",
+      ]);
+      expect(widest(lines)).toBeLessThanOrEqual(60);
+    });
+
+    it("keeps an aside on the title line when the title passes the value column", () => {
+      expect(
+        plain(
+          [
+            {
+              _tag: "headline",
+              tone: "warn",
+              text: "Publish is blocked — an explicit override is required",
+              aside: "exit 2",
+            },
+          ],
+          80,
+        ),
+      ).toEqual([" ▲   Publish is blocked — an explicit override is required   exit 2"]);
+    });
+
+    it("moves a value below a label too long for the key lane", () => {
+      expect(
+        plain(
+          [
+            {
+              _tag: "fields",
+              fields: [{ label: "A label longer than the key lane allows", value: "value" }],
+            },
+          ],
+          80,
+        ),
+      ).toEqual(["     A label longer than the key lane allows", "       value"]);
+    });
+
+    it("pushes a long label's value right instead of moving it when unbounded", () => {
+      const lines = plain(
+        [
+          {
+            _tag: "fields",
+            fields: [
+              { label: "Owner", value: "@acme" },
+              { label: "A label longer than the key lane allows", value: "value" },
+            ],
+          },
+        ],
+        "unbounded",
+      );
+      expect(lines).toEqual([
+        "     Owner                         @acme",
+        "     A label longer than the key lane allows   value",
+      ]);
+      expect(lines.every((line) => !line.endsWith(" "))).toBe(true);
+    });
+
+    it("keeps marks in the gutter and content at the content column inside a titled section", () => {
+      expect(
+        plain(
+          [
+            {
+              _tag: "section",
+              title: "1 warning",
+              children: [
+                { _tag: "callout", tone: "warn", title: "Pre-release Effect version" },
+                { _tag: "paragraph", text: "@craigsmitham/effect-v4" },
+              ],
+            },
+          ],
+          80,
+        ),
+      ).toEqual(["1 warning", " ▲   Pre-release Effect version", "     @craigsmitham/effect-v4"]);
+    });
+  });
+
   it("paints the ASCII document layout", () => {
     const lines = paintText(everyNodeDocument, { width: 80, colors: false, glyphs: asciiGlyphs });
     expect(lines.slice(0, 7)).toEqual([
-      "+ Ready",
+      " +   Ready",
       "部署 package is ready for review",
-      "+ alpha   created",
-      "~ beta   updated",
-      "= 2 unchanged",
-      "! Warning",
-      "  Check permissions",
+      " +   alpha   created",
+      " ~   beta   updated",
+      " =   2 unchanged",
+      " !   Warning",
+      "     Check permissions",
     ]);
     expect(lines).toContain("`- root  managed");
     expect(lines).toContain("   `- child");

@@ -58,6 +58,7 @@ export const collectTexts = (doc: Doc): ReadonlyArray<string> => {
         return;
       case "callout":
         pushText(node.title);
+        pushText(node.aside);
         node.children?.forEach(walk);
         return;
       case "table":

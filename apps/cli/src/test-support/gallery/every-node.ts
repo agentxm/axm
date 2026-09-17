@@ -36,6 +36,7 @@ export const everyNode: Doc = [
     _tag: "callout",
     tone: "warn",
     title: "Warning",
+    aside: "not blocking",
     children: [{ _tag: "paragraph", text: "Check permissions" }],
   },
   {

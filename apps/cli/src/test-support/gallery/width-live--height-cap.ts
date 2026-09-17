@@ -52,7 +52,8 @@ const fixedRows = 8;
  * fixture's own layout without changing its snapshots' intent.
  */
 export const widthLiveHeightCap = (terminal: TerminalSize): Doc => {
-  // Below 60 columns a row keeps only its name; its mark still tells running from waiting.
+  // Below 60 columns a row keeps only its name, its mark still telling running from
+  // waiting, and the wait keeps a title short enough for one line behind the gutter.
   const wide = terminal.columns >= 60;
   const window = Math.max(0, terminal.rows - 2 - fixedRows);
   const shownRunning = running.slice(0, window);
@@ -88,7 +89,7 @@ export const widthLiveHeightCap = (terminal: TerminalSize): Doc => {
     {
       _tag: "callout",
       tone: "info",
-      title: "Authorize the publish in your browser",
+      title: wide ? "Authorize the publish in your browser" : "Authorize in your browser",
       children: [{ _tag: "paragraph", tone: "dim", text: "expires in 9:41, esc cancels" }],
     },
   ];

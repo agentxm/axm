@@ -14,7 +14,7 @@ import * as Terminal from "effect/Terminal";
 import { Prompt } from "effect/unstable/cli";
 import { requireInteractive } from "../prompt/index.js";
 import { promptAvailability, Verbosity } from "../cli-flags/index.js";
-import { planDoc } from "../operation-view.js";
+import { livePlan, planDoc } from "../operation-view.js";
 import { Screen } from "../screen/index.js";
 import { PlanInteractionFailed } from "@agentxm/workspace/transitions/planning";
 import { confirmationRecoverySuggestions } from "@agentxm/workspace/transitions/planning";
@@ -65,16 +65,27 @@ export const ResolvePlanInteractionLive = Layer.effect(
                 }),
             ),
           ),
+      // A preview is the command's result and prints as one. An apply in an
+      // animated terminal hands its rows to the live ledger instead, so the
+      // plan it showed is the ledger that then streams and settles; where
+      // nothing animates the plan stays a transcript note.
       presentPlan: (plan, options) =>
-        Effect.suspend(() => {
+        Effect.gen(function* () {
+          if (options.mode === "preview") {
+            return yield* screen.result(
+              planDoc(plan, { mode: "preview", verbosity: verbosity.level }),
+            );
+          }
+          const facts = yield* screen.facts;
+          if (facts.animate) {
+            const live = livePlan(plan, { verbosity: verbosity.level });
+            return yield* live === undefined ? Effect.void : screen.showPlan(live);
+          }
           const hasConfirmableRisk = (plan.riskConditions ?? []).some(
             (condition) => condition.level === "confirmable",
           );
-          if (options.mode !== "preview" && verbosity.level === "quiet" && !hasConfirmableRisk) {
-            return Effect.void;
-          }
-          const doc = planDoc(plan, { mode: options.mode, verbosity: verbosity.level });
-          return options.mode === "preview" ? screen.result(doc) : screen.note(doc);
+          if (verbosity.level === "quiet" && !hasConfirmableRisk) return;
+          yield* screen.note(planDoc(plan, { mode: "apply", verbosity: verbosity.level }));
         }),
     } satisfies ResolvePlanInteractionService;
   }),

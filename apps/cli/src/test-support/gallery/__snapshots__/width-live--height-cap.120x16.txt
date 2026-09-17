@@ -1,14 +1,14 @@
 Publishing as @acme
 
- ~   @acme/skills/changelog         0.3.0   uploading   40 KB / 96 KB
- ~   @acme/skills/release-notes     1.1.0   uploading   12 KB / 30 KB
- =   @acme/skills/retro             0.2.0   waiting
- =   @acme/subagents/reviewer       0.9.0   waiting
- =   @acme/skills/triage            0.5.1   waiting
- =   @acme/skills/incident-review   2.0.0   waiting
-… 31 more waiting, 3 done
+     Extension                      Version   Status     Detail
+ ◒   @acme/skills/changelog         0.3.0     applying   40 KB / 96 KB
+ ◒   @acme/skills/release-notes     1.1.0     applying   12 KB / 30 KB
+ ·   @acme/skills/retro             0.2.0     waiting
+ ·   @acme/subagents/reviewer       0.9.0     waiting
+ ·   @acme/skills/triage            0.5.1     waiting
+ ·   @acme/skills/incident-review   2.0.0     waiting
+ ·   @acme/subagents/planner        0.1.4     waiting
+ ·   30 more waiting  3 done
 
-publishing 5 of 40 in 8.2s
-
- ●   Authorize the publish in your browser
-     expires in 9:41, esc cancels
+applying 5 of 40 in 8.2s
+--verbose for details

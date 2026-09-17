@@ -6,6 +6,7 @@ import type * as Schema from "effect/Schema";
 import { subscribeLossless, type OperationEvent } from "@agentxm/workspace/transitions/planning";
 
 import type { Doc } from "../screen/doc.js";
+import type { LivePlan } from "../screen/live-ledger.js";
 import { paintText, type PaintStyle } from "../screen/paint-text.js";
 import { Screen, type ResultOptions, type ScreenLogRecord } from "../screen/screen.js";
 
@@ -23,6 +24,8 @@ export interface TestScreenState {
   }>;
   /** Every lifecycle event observed, in order, across observed operations. */
   readonly events: Array<OperationEvent>;
+  /** Every plan handed to the live ledger, in order. */
+  readonly plans: Array<LivePlan>;
   readonly logs: Array<ScreenLogRecord>;
 }
 
@@ -31,6 +34,7 @@ const emptyState = (): TestScreenState => ({
   suggestions: [],
   docs: [],
   events: [],
+  plans: [],
   logs: [],
 });
 
@@ -69,6 +73,7 @@ export const makeTestScreen = (
       }),
     observe: (lifecycle) =>
       subscribeLossless(lifecycle, (event) => Effect.sync(() => void state.events.push(event))),
+    showPlan: (plan) => Effect.sync(() => void state.plans.push(plan)),
     log: (record) => Effect.sync(() => void state.logs.push(record)),
     prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect,
     facts: Effect.succeed({ columns: 80, colors: false, animate: false }),

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { spinnerFrames } from "./frame.js";
 import { asciiGlyphs, unicodeGlyphs, type Glyphs } from "./paint-text.js";
 import { displayWidth } from "./width.js";
 
@@ -49,6 +48,7 @@ const gutterMarks = (glyphs: Glyphs): ReadonlyArray<string> => [
   ...Object.values(glyphs.status),
   ...Object.values(glyphs.change),
   ...Object.values(glyphs.marks),
+  ...glyphs.spinner,
 ];
 
 /** The glyphs a set paints inside a line's content, beside text. */
@@ -70,7 +70,7 @@ const MARK_BUDGET = 4;
 
 describe("glyph width", () => {
   it.each(sets)("records a width class for every $name glyph", ({ glyphs }) => {
-    for (const glyph of [...gutterMarks(glyphs), ...inlineGlyphs(glyphs), ...spinnerFrames]) {
+    for (const glyph of [...gutterMarks(glyphs), ...inlineGlyphs(glyphs)]) {
       for (const character of characters(glyph)) {
         expect(
           widthClass(character),
@@ -93,13 +93,13 @@ describe("glyph width", () => {
   });
 
   it("paints a spinner whose width never changes between frames", () => {
-    for (const frame of spinnerFrames) {
+    for (const frame of unicodeGlyphs.spinner) {
       // A Neutral frame is one cell under both width assumptions, so the
       // animation cannot shift the line it prefixes as it advances.
       expect(widthClass(frame), frame).toBe("neutral");
       expect(displayWidth(frame), frame).toBe(1);
     }
-    expect(new Set(spinnerFrames.map(displayWidth)).size).toBe(1);
+    expect(new Set(unicodeGlyphs.spinner.map(displayWidth)).size).toBe(1);
   });
 
   it("paints ambiguous-width glyphs inline only as the separator and the tree connectors", () => {

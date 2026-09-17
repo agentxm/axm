@@ -278,6 +278,8 @@ const makeTestScreenService = (
     }),
   observe: (lifecycle) =>
     subscribeLossless(lifecycle, (event) => Effect.sync(() => void state.events.push(event))),
+  // A presenter test screen never animates, so it has no live ledger.
+  showPlan: () => Effect.void,
   log: (record) =>
     Effect.sync(() => {
       state.logs.push({

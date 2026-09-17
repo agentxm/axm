@@ -29,7 +29,7 @@ import { FrameLive } from "../../screen/frame.js";
 import { gallery } from "../gallery/index.js";
 import { paintText } from "../../screen/paint-text.js";
 import { initialProgress, reduceProgress, type ProgressState } from "../../screen/progress.js";
-import { liveProgressLines } from "../../screen/progress-view.js";
+import { liveLedgerDoc } from "../../screen/live-ledger.js";
 import { Screen, ScreenLive } from "../../screen/screen.js";
 import { OutputStreams } from "../../screen/streams.js";
 import { displayWidth } from "../../screen/width.js";
@@ -167,17 +167,16 @@ describe("renderer conformance", () => {
   describe.each(recordedLogs)("recorded log $name", ({ events }) => {
     it("folds deterministically into the same progress state at every width", () => {
       const reference = fold(events);
+      // The live ledger is bound by height as well as width, so the suite
+      // holds it at the two terminal heights the gallery snapshots scenes at.
       for (const width of conformanceWidths) {
         expect(fold(events)).toEqual(reference);
         for (let count = 1; count <= events.length; count += 1) {
-          const lines = liveProgressLines(fold(events.slice(0, count)), {
-            width,
-            colors: false,
-            spinner: "◐",
-            nowMs: 5_000,
-          });
-          for (const line of lines) {
-            expect(displayWidth(line), `${String(width)}: ${line}`).toBeLessThanOrEqual(width);
+          const doc = liveLedgerDoc(fold(events.slice(0, count)), { rows: 22, nowMs: 5_000 });
+          for (const painter of painters) {
+            for (const line of painter.paint(doc, { width, colors: false })) {
+              expect(displayWidth(line), `${String(width)}: ${line}`).toBeLessThanOrEqual(width);
+            }
           }
         }
       }
@@ -203,7 +202,7 @@ describe("renderer conformance", () => {
     });
 
     it.effect(
-      "interleaves a transcript note above the live region and collapses before the settled document",
+      "interleaves a transcript note above the live region and clears it before the settled document",
       () => {
         const streams = makeOrderedStreams();
         const layer = Layer.provide(
@@ -235,16 +234,18 @@ describe("renderer conformance", () => {
             .map((entry) => entry.content)
             .join("");
           expect(stderr).toContain("note during operation\n");
-          const collapse = streams.log.findIndex(
-            (entry) =>
-              entry.channel === "stderr" &&
-              /(?:✔|✖|▲) /u.test(entry.content) &&
-              entry.content.endsWith("\n") &&
-              !entry.content.includes("note during"),
-          );
           const settledDocument = streams.log.findIndex((entry) => entry.channel === "stdout");
-          expect(collapse).toBeGreaterThanOrEqual(0);
-          expect(settledDocument).toBeGreaterThan(collapse);
+          expect(settledDocument).toBeGreaterThanOrEqual(0);
+          // The region is erased before the result reaches stdout and never
+          // repaints after it, so the settled ledger stands alone in scrollback.
+          const erased = streams.log
+            .slice(0, settledDocument)
+            .some((entry) => entry.channel === "stderr" && entry.content.includes("\u001b[0J"));
+          expect(erased).toBe(true);
+          const repaintAfterResult = streams.log
+            .slice(settledDocument)
+            .some((entry) => entry.channel === "stderr" && entry.content.includes("\u001b[?25l"));
+          expect(repaintAfterResult).toBe(false);
           const noteIndex = streams.log.findIndex((entry) => entry.content.includes("note during"));
           const repaintAfterNote = streams.log
             .slice(noteIndex + 1)

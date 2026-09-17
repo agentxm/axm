@@ -8,6 +8,7 @@ import type {
   LedgerFold,
   LedgerNode,
   LedgerRow,
+  Mark,
   RowNode,
   Span,
   Status,
@@ -43,17 +44,23 @@ export interface Glyphs {
   /**
    * Marks that stand for interaction and unit progress rather than an outcome:
    * the question a prompt asks, the caret before the answer being edited, a
-   * unit that is running or has not started, and the three states of a choice.
+   * unit that has not started, and the three states of a choice.
    */
   readonly marks: {
     readonly prompt: string;
     readonly caret: string;
-    readonly working: string;
     readonly waiting: string;
     readonly selected: string;
     readonly unselected: string;
     readonly partial: string;
   };
+  /**
+   * The frames a running unit's mark animates through, in paint order. The
+   * first frame is the mark a still document paints, so a set with one frame
+   * simply does not animate. Every frame is one cell, so the animation never
+   * shifts the line it prefixes.
+   */
+  readonly spinner: ReadonlyArray<string>;
   readonly tree: {
     readonly branch: string;
     readonly last: string;
@@ -78,12 +85,14 @@ export const unicodeGlyphs: Glyphs = {
   marks: {
     prompt: "?",
     caret: "❯",
-    working: "◒",
     waiting: "·",
     selected: "◉",
     unselected: "◯",
     partial: "◪",
   },
+  // Both frames are Neutral in Unicode East Asian Width, so the mark occupies
+  // one cell in every terminal; ◐ and ◑ are Ambiguous and were dropped.
+  spinner: ["◒", "◓"],
   tree: { branch: "├─ ", last: "└─ ", pipe: "│  ", space: "   " },
   separator: " · ",
 };
@@ -108,12 +117,14 @@ export const asciiGlyphs: Glyphs = {
   marks: {
     prompt: "?",
     caret: ">",
-    working: "..",
     waiting: ".",
     selected: "[x]",
     unselected: "[ ]",
     partial: "[-]",
   },
+  // A terminal that cannot be trusted with symbols is not animated either, so
+  // the running mark stands still.
+  spinner: [".."],
   tree: { branch: "|- ", last: "`- ", pipe: "|  ", space: "   " },
   separator: " - ",
 };
@@ -125,12 +136,19 @@ export interface PaintStyle {
   readonly width: PaintWidth;
   readonly colors: boolean;
   readonly glyphs?: Glyphs;
+  /**
+   * The spinner frame a running mark paints, which the live region advances on
+   * each repaint. A still document leaves it out and takes the set's first
+   * frame, so the same document paints the same way twice.
+   */
+  readonly spinner?: string;
 }
 
 interface ResolvedStyle {
   readonly width: PaintWidth;
   readonly colors: boolean;
   readonly glyphs: Glyphs;
+  readonly spinner: string;
   /**
    * Cells before the value column that field values and callout asides share
    * across one document; below twice its preferred column it moves left to
@@ -215,12 +233,18 @@ const dim = (value: string, style: ResolvedStyle): string =>
 const statusGlyph = (tone: Tone, glyphs: Glyphs): string | undefined =>
   tone === "neutral" || tone === "dim" ? undefined : glyphs.status[tone];
 
-const isStatus = (mark: Change | Status): mark is Status =>
+const isStatus = (mark: Mark): mark is Status =>
   mark === "ok" || mark === "warn" || mark === "error" || mark === "info";
 
-/** The glyph a ledger row's mark paints: a status glyph or a change operation. */
-const markGlyph = (mark: Change | Status, glyphs: Glyphs): string =>
-  isStatus(mark) ? glyphs.status[mark] : glyphs.change[mark];
+/**
+ * The glyph a ledger row's mark paints: a status glyph, a change operation,
+ * or — while a unit is still in flight — the spinner frame or the waiting mark.
+ */
+const markGlyph = (mark: Mark, style: ResolvedStyle): string => {
+  if (mark === "working") return style.spinner;
+  if (mark === "waiting") return style.glyphs.marks.waiting;
+  return isStatus(mark) ? style.glyphs.status[mark] : style.glyphs.change[mark];
+};
 
 /** A mark (or none) in the gutter, padded so content starts after it. */
 const gutter = (mark: string | undefined): string => {
@@ -535,7 +559,7 @@ const paintFold = (
 ): ReadonlyArray<string> => {
   const lines = paintPrefixed(`${String(fold.count)} ${fold.noun}`, style, {
     indent,
-    first: gutter(markGlyph(fold.mark, style.glyphs)),
+    first: gutter(markGlyph(fold.mark, style)),
   });
   return fold.hint === undefined
     ? lines
@@ -594,7 +618,7 @@ const paintLedger = (
           // The mark stays in the gutter; only the name moves under its parent.
           ...paintPrefixed(cellAt(row.cells, 0), style, {
             indent,
-            first: `${gutter(markGlyph(row.mark, glyphs))}${spaces(depthLead(row))}`,
+            first: `${gutter(markGlyph(row.mark, style))}${spaces(depthLead(row))}`,
           }),
           ...(rest.length === 0
             ? []
@@ -638,7 +662,7 @@ const paintLedger = (
     ...node.rows.flatMap((row) => [
       ...paintCells(rowCells(row), style, {
         indent,
-        first: gutter(markGlyph(row.mark, glyphs)),
+        first: gutter(markGlyph(row.mark, style)),
       }),
       ...children(row),
     ]),
@@ -905,10 +929,12 @@ const paintNodes = (
 const resolveStyle = (style: PaintStyle): ResolvedStyle => {
   const width = style.width === "unbounded" ? "unbounded" : Math.max(20, style.width);
   const preferred = GUTTER_WIDTH + KEY_WIDTH + COLUMN_GAP;
+  const glyphs = style.glyphs ?? unicodeGlyphs;
   return {
     width,
     colors: style.colors,
-    glyphs: style.glyphs ?? unicodeGlyphs,
+    glyphs,
+    spinner: style.spinner ?? glyphs.spinner[0] ?? "",
     valueColumn:
       width === "unbounded"
         ? preferred

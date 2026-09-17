@@ -7,9 +7,10 @@ import * as Semaphore from "effect/Semaphore";
 import * as ServiceMap from "effect/Context";
 import * as Stream from "effect/Stream";
 
-import { paintText, type Glyphs } from "./paint-text.js";
+import { liveLedgerDoc, type LivePlan } from "./live-ledger.js";
+import { paintText, unicodeGlyphs, type Glyphs } from "./paint-text.js";
 import type { ProgressState } from "./progress.js";
-import { liveProgressLines, progressTransitionDoc } from "./progress-view.js";
+import { progressTransitionDoc } from "./progress-view.js";
 import { paintScene, type Scene, type ScenePart } from "./scene.js";
 import { OutputStreams } from "./streams.js";
 import { displayWidth, renderedRows } from "./width.js";
@@ -20,18 +21,12 @@ const CURSOR_SHOW = `${ESC}?25h`;
 /** Erase from the cursor to the end of the screen. */
 const ERASE_BELOW = `${ESC}0J`;
 const cursorUp = (rows: number): string => (rows <= 0 ? "" : `${ESC}${String(rows)}A`);
-/**
- * The frames a running unit animates through. Both are Neutral in Unicode
- * East Asian Width, so the spinner occupies one cell in every terminal and its
- * width never changes between frames; ◐ and ◑ are Ambiguous and were dropped.
- */
-export const spinnerFrames = ["◒", "◓"] as const;
 
 /**
  * The single terminal owner's live region and transcript. Transcript writes
  * insert above the live region; the region shows one scene — the operation's
- * ledger with at most one interaction beneath it — and collapses into one
- * transcript line at settlement.
+ * ledger with at most one interaction beneath it — and clears at settlement,
+ * where the result ledger takes over.
  */
 export class Frame extends ServiceMap.Service<
   Frame,
@@ -40,8 +35,11 @@ export class Frame extends ServiceMap.Service<
     readonly stderr: (content: string) => Effect.Effect<void>;
     /** Present the latest progress state; the frame diffs it against the previous one. */
     readonly present: (state: ProgressState) => Effect.Effect<void>;
-    /** Replace the scene's ledger part; `undefined` clears it. */
-    readonly showLedger: (part: ScenePart | undefined) => Effect.Effect<void>;
+    /**
+     * Give the live ledger the plan its rows come from; `undefined` leaves it
+     * to synthesize rows from the units the operation reports.
+     */
+    readonly showPlan: (plan: LivePlan | undefined) => Effect.Effect<void>;
     /** Replace the interaction beneath the ledger — a prompt or a wait; `undefined` clears it. */
     readonly showInteraction: (part: ScenePart | undefined) => Effect.Effect<void>;
     readonly prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
@@ -52,6 +50,8 @@ export class Frame extends ServiceMap.Service<
 interface FrameState {
   /** The last unsettled progress state, which the next one's transition is diffed against. */
   readonly progress: ProgressState | undefined;
+  /** The plan the live ledger joins progress to, once a view has presented one. */
+  readonly plan: LivePlan | undefined;
   readonly scene: Scene;
   /** Display widths of the lines standing in the live region, in paint order. */
   readonly painted: ReadonlyArray<number>;
@@ -61,6 +61,7 @@ interface FrameState {
 
 const initialState: FrameState = {
   progress: undefined,
+  plan: undefined,
   scene: {},
   painted: [],
   spinner: 0,
@@ -106,22 +107,23 @@ export const FrameLive = (options: FrameOptions): Layer.Layer<Frame, never, Outp
       });
 
       /**
-       * The progress projection as the scene's ledger part. The phrase layer
-       * has already laid its lines out to the width, so they cross as one raw
-       * node; the live ledger replaces this projection, not the scene.
+       * The operation's live ledger as the scene's ledger part: the plan's
+       * rows joined to the latest progress, laid out in the height the scene
+       * gives it. The part is rebuilt whenever either side changes, so the
+       * scene never holds a stale join.
        */
-      const progressLedger =
-        (progress: ProgressState): ScenePart =>
-        (facts) => {
-          const lines = liveProgressLines(progress, {
-            width: facts.columns,
-            colors: options.colors,
-            spinner: facts.spinner,
-            nowMs: facts.nowMs,
-            ...(options.glyphs === undefined ? {} : { glyphs: options.glyphs }),
-          });
-          return lines.length === 0 ? [] : [{ _tag: "raw", content: lines.join("\n") }];
-        };
+      const ledgerPart = (
+        progress: ProgressState | undefined,
+        plan: LivePlan | undefined,
+      ): ScenePart | undefined =>
+        progress === undefined
+          ? undefined
+          : (facts) =>
+              liveLedgerDoc(progress, {
+                ...(plan === undefined ? {} : { plan }),
+                rows: facts.rows,
+                nowMs: facts.nowMs,
+              });
 
       const eraseLocked = Effect.gen(function* () {
         const current = yield* Ref.get(state);
@@ -136,12 +138,13 @@ export const FrameLive = (options: FrameOptions): Layer.Layer<Frame, never, Outp
         const facts = yield* streams.facts;
         const erase = eraseBytes(current.painted, facts.columns);
         const nowMs = yield* Clock.currentTimeMillis;
+        const frames = (options.glyphs ?? unicodeGlyphs).spinner;
         const lines =
           current.paused || !options.animate || options.quiet
             ? []
             : paintScene(current.scene, facts, {
                 colors: options.colors,
-                spinner: spinnerFrames[current.spinner % spinnerFrames.length] ?? spinnerFrames[0],
+                spinner: frames[current.spinner % frames.length] ?? "",
                 nowMs,
                 ...(options.glyphs === undefined ? {} : { glyphs: options.glyphs }),
               });
@@ -171,7 +174,13 @@ export const FrameLive = (options: FrameOptions): Layer.Layer<Frame, never, Outp
           const facts = yield* streams.facts;
           const erase = eraseBytes(current.painted, facts.columns);
           if (erase.length > 0 || options.animate) yield* streams.stderr(`${erase}${CURSOR_SHOW}`);
-          yield* Ref.set(state, { ...current, painted: [], progress: undefined, scene: {} });
+          yield* Ref.set(state, {
+            ...current,
+            painted: [],
+            progress: undefined,
+            plan: undefined,
+            scene: {},
+          });
         }),
       );
 
@@ -179,19 +188,22 @@ export const FrameLive = (options: FrameOptions): Layer.Layer<Frame, never, Outp
         permit.withPermit(
           Effect.gen(function* () {
             const current = yield* Ref.get(state);
-            const transition = progressTransitionDoc(current.progress, next, {
-              live: options.animate,
-            });
+            // An animated terminal shows every transition in the live ledger
+            // already, and its settlement is the result ledger the command
+            // prints, so nothing about progress reaches the transcript.
+            const transition = options.animate ? [] : progressTransitionDoc(current.progress, next);
             yield* eraseLocked;
             const unsettled = next.settled === undefined;
-            yield* Ref.update(state, (value) => ({
-              ...value,
-              progress: unsettled ? next : undefined,
-              scene: {
-                ...value.scene,
-                ledger: unsettled ? progressLedger(next) : undefined,
-              },
-            }));
+            yield* Ref.update(state, (value) => {
+              const progress = unsettled ? next : undefined;
+              const plan = unsettled ? value.plan : undefined;
+              return {
+                ...value,
+                progress,
+                plan,
+                scene: { ...value.scene, ledger: ledgerPart(progress, plan) },
+              };
+            });
             if (!options.quiet && transition.length > 0) {
               const facts = yield* streams.facts;
               yield* streams.stderr(ensureNewline(paintText(transition, style(facts)).join("\n")));
@@ -200,10 +212,11 @@ export const FrameLive = (options: FrameOptions): Layer.Layer<Frame, never, Outp
           }),
         );
 
-      const show = (scene: (current: Scene) => Scene): Effect.Effect<void> =>
+      /** Change what the region stands on, then repaint it under one permit. */
+      const show = (update: (value: FrameState) => FrameState): Effect.Effect<void> =>
         permit.withPermit(
           Effect.gen(function* () {
-            yield* Ref.update(state, (value) => ({ ...value, scene: scene(value.scene) }));
+            yield* Ref.update(state, update);
             yield* repaintLocked;
           }),
         );
@@ -222,10 +235,14 @@ export const FrameLive = (options: FrameOptions): Layer.Layer<Frame, never, Outp
         stdout: (content: string) => write("stdout", content),
         stderr: (content: string) => write("stderr", content),
         present,
-        showLedger: (part: ScenePart | undefined) =>
-          show((current) => ({ ...current, ledger: part })),
+        showPlan: (plan: LivePlan | undefined) =>
+          show((value) => ({
+            ...value,
+            plan,
+            scene: { ...value.scene, ledger: ledgerPart(value.progress, plan) },
+          })),
         showInteraction: (part: ScenePart | undefined) =>
-          show((current) => ({ ...current, interaction: part })),
+          show((value) => ({ ...value, scene: { ...value.scene, interaction: part } })),
         prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) =>
           permit
             .withPermit(

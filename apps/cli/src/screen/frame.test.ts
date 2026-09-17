@@ -7,6 +7,7 @@ import * as Queue from "effect/Queue";
 import * as Stream from "effect/Stream";
 
 import { Frame, FrameLive } from "./frame.js";
+import type { LivePlan } from "./live-ledger.js";
 import { initialProgress, reduceProgress, type ProgressState } from "./progress.js";
 import { recordedInstallLog } from "./progress.test.js";
 import type { ScenePart } from "./scene.js";
@@ -33,6 +34,17 @@ const makeHarness = (
     layer: Layer.provide(FrameLive({ animate, quiet: false, colors: false }), streams.layer),
   };
 };
+
+/** A plan of `count` units none of which has started, so every row waits. */
+const plan = (count: number): LivePlan => ({
+  title: "Installing",
+  columns: [{ header: "Extension", role: "name" }],
+  rows: Array.from({ length: count }, (_, index) => ({
+    id: `unit-${String(index + 1)}`,
+    mark: "create" as const,
+    cells: [`unit ${String(index + 1)}`],
+  })),
+});
 
 /** A scene part asking for `count` lines, each naming the part it belongs to. */
 const part =
@@ -64,24 +76,25 @@ const awaitWrite = (state: TestOutputStreamsState) =>
   });
 
 describe("Frame", () => {
-  it.effect("inserts transcript output above the live region and collapses at settlement", () => {
+  it.effect("inserts transcript output above the live region and clears it at settlement", () => {
     const harness = makeHarness(true);
     return Effect.gen(function* () {
       const frame = yield* Frame;
       yield* frame.present(stateAt(12));
       yield* frame.stderr("warning\n");
+      const running = harness.state.stderr.join("");
+      expect(running).toContain("Install skill");
+      expect(running).toContain("code-review");
+      expect(running).toContain("warning\n");
+      expect(running.indexOf("warning\n")).toBeLessThan(running.lastIndexOf("code-review"));
+
       yield* frame.present(stateAt(19));
-      const output = harness.state.stderr.join("");
-      expect(output).toContain("Install skill — applying");
-      expect(output).toContain("code-review");
-      expect(output).toContain("warning\n");
-      expect(output).toContain(" ✖   Install skill                 1.5s · 1 failed\n");
-      expect(output.indexOf("warning\n")).toBeLessThan(
-        output.lastIndexOf("Install skill — applying"),
-      );
-      expect(output.lastIndexOf("Install skill — applying")).toBeLessThan(
-        output.indexOf(" ✖   Install skill"),
-      );
+      // The result ledger the command prints is the settlement, so nothing
+      // about progress is left behind in the transcript.
+      const afterSettlement = harness.state.stderr.join("").slice(running.length);
+      expect(afterSettlement).not.toContain("code-review");
+      expect(afterSettlement).not.toContain("Install skill");
+      expect(liveLines(harness.state)).toEqual([]);
     }).pipe(Effect.provide(harness.layer), Effect.scoped);
   });
 
@@ -147,11 +160,15 @@ describe("Frame", () => {
     const harness = makeHarness(true, { columns: 80, rows: 16 });
     return Effect.gen(function* () {
       const frame = yield* Frame;
-      yield* frame.showLedger(part("row", 40));
+      yield* frame.showPlan(plan(40));
+      yield* frame.present(stateAt(1));
       yield* frame.showInteraction(part("ask", 4));
       const lines = liveLines(harness.state);
       expect(lines).toHaveLength(14);
-      expect(lines[0]).toBe("row 1");
+      expect(lines[0]).toContain("Installing");
+      // Forty units cannot fit beneath a four-line question, so the window
+      // folds what it cannot show rather than pushing the question off.
+      expect(lines.join("\n")).toContain("more waiting");
       expect(lines.slice(-4)).toEqual(["ask 1", "ask 2", "ask 3", "ask 4"]);
     }).pipe(Effect.provide(harness.layer), Effect.scoped);
   });
@@ -160,11 +177,13 @@ describe("Frame", () => {
     const harness = makeHarness(true, { columns: 80, rows: 16 });
     return Effect.gen(function* () {
       const frame = yield* Frame;
-      yield* frame.showLedger(part("row", 3));
+      yield* frame.showPlan(plan(2));
+      yield* frame.present(stateAt(1));
       yield* frame.showInteraction(part("ask", 2));
-      expect(liveLines(harness.state)).toHaveLength(5);
+      const withAsk = liveLines(harness.state);
+      expect(withAsk.slice(-2)).toEqual(["ask 1", "ask 2"]);
       yield* frame.showInteraction(undefined);
-      expect(liveLines(harness.state)).toEqual(["row 1", "row 2", "row 3"]);
+      expect(liveLines(harness.state)).toEqual(withAsk.slice(0, -2));
     }).pipe(Effect.provide(harness.layer), Effect.scoped);
   });
 
@@ -180,7 +199,7 @@ describe("Frame", () => {
       });
       yield* Effect.gen(function* () {
         const frame = yield* Frame;
-        yield* frame.showLedger(() => [{ _tag: "raw", content: "x".repeat(120) }]);
+        yield* frame.showInteraction(() => [{ _tag: "raw", content: "x".repeat(120) }]);
         const painted = liveLines(streams.state);
         expect(painted).toHaveLength(1);
         expect(displayWidth(painted[0] ?? "")).toBe(79);

@@ -135,8 +135,10 @@ render them: when `TERM` is `dumb`, when the locale does not declare UTF-8, or
 when `AXM_ASCII=1` forces it. ASCII status is two letters — `ok`, `!!`, `xx`,
 and `..` — so `+` always means created and never collides with a status. The
 caret is `>`, and a selection is `[x]` selected, `[ ]` unselected, and `[-]`
-partially selected. Every ASCII mark fits the same five-column gutter, so
-layout is identical under both sets.
+partially selected. A running unit is `..` and does not animate, because a
+terminal that cannot be trusted with symbols is not trusted with motion either.
+Every ASCII mark fits the same five-column gutter, so layout is identical under
+both sets.
 
 ## Color and animation
 
@@ -206,9 +208,11 @@ synthesizes rows from its units. Nested units roll up into their parent row's
 state word and measure.
 
 The scene never exceeds the terminal height less two rows. The ledger window
-shows running rows first, then the next few waiting, then a fold line such as
-`… 33 more waiting · 12 done`; settled rows leave the window and return in the
-result. When a ledger and an interaction compete for height, the interaction
+shows running rows first, then the next few waiting, then the ledger's own fold
+line, which carries the waiting mark, how many rows it stands for, and how many
+have finished; settled rows leave the window and return in the result. Beneath
+the ledger one dim line says what the operation is doing, how far it has come,
+and how long it has taken. When a ledger and an interaction compete for height, the interaction
 keeps its minimum — its question, three rows, and a hint — and the ledger window
 shrinks to its header and fold line.
 

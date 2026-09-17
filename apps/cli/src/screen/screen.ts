@@ -15,6 +15,7 @@ import { makeJsonSuccessEnvelope } from "../cli-runtime/json-envelope.js";
 import type { Doc, DocNode } from "./doc.js";
 import { plain } from "./doc.js";
 import { Frame } from "./frame.js";
+import type { LivePlan } from "./live-ledger.js";
 import {
   encodeMachineEvent,
   instructionEvent,
@@ -64,6 +65,11 @@ export class Screen extends ServiceMap.Service<
     readonly observe: (
       lifecycle: OperationLifecycleService,
     ) => Effect.Effect<void, never, Scope.Scope>;
+    /**
+     * Give the live ledger the plan whose rows it paints while the operation
+     * runs. A screen that cannot animate has no live ledger and ignores it.
+     */
+    readonly showPlan: (plan: LivePlan) => Effect.Effect<void>;
     readonly log: (record: ScreenLogRecord) => Effect.Effect<void>;
     readonly prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
     readonly facts: Effect.Effect<ScreenFacts>;
@@ -140,6 +146,7 @@ export const ScreenLive = (
               ),
             );
           }),
+        showPlan: frame.showPlan,
         log: (record) =>
           Effect.flatMap(
             render([{ _tag: "paragraph", tone: "dim", text: record.message }], "stderr"),
@@ -294,6 +301,9 @@ export const ScreenMachine = (options?: {
           subscribeLossless(lifecycle, (event) =>
             quiet ? Effect.void : emit(progressEvent(event)),
           ),
+        // Machine output carries the lifecycle events themselves, so there is
+        // no live ledger for a plan to paint into.
+        showPlan: () => Effect.void,
         log: (record) => emit(logEvent(logLevel(record.level), record.message)),
         prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect,
         facts: Effect.succeed({ columns: 80, colors: false, animate: false }),

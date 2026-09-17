@@ -8,6 +8,13 @@ export type {
   Field,
   FieldsNode,
   HeadlineNode,
+  LedgerColumn,
+  LedgerColumnRole,
+  LedgerFold,
+  LedgerNode,
+  LedgerRow,
+  LiveMark,
+  Mark,
   MarkdownNode,
   NextNode,
   ParagraphNode,
@@ -69,12 +76,16 @@ export {
   type ProgressTask,
   type ProgressWait,
 } from "./progress.js";
+export { progressTransitionDoc } from "./progress-view.js";
 export {
-  liveProgressLines,
-  progressTransitionDoc,
-  type LiveProgressOptions,
-  type ProgressTransitionOptions,
-} from "./progress-view.js";
+  joinLiveRows,
+  liveLedgerDoc,
+  liveWindow,
+  type LiveLedgerOptions,
+  type LivePlan,
+  type LivePlanRow,
+  type LiveRow,
+} from "./live-ledger.js";
 export {
   OutputStreams,
   OutputStreamsLive,
@@ -123,8 +134,10 @@ export {
   disposition,
   duration,
   interruptionPhrase,
+  liveUnitActivity,
   outcomeHeadline,
   phaseLabel,
+  progressMeasure,
   publishDisposition,
   publishParticipation,
   publishReason,

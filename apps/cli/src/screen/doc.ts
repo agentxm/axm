@@ -8,6 +8,16 @@ export type Status = Exclude<Tone, "neutral" | "dim">;
 export type Change =
   "create" | "update" | "remove" | "unchanged" | "blocked" | "failed" | "rolled-back";
 
+/**
+ * A unit that has not settled: `working` is the running mark the live region
+ * animates, and `waiting` a unit that has not started. Only a live ledger
+ * carries one, because a settled document knows what happened.
+ */
+export type LiveMark = "working" | "waiting";
+
+/** Every mark a gutter paints: an outcome, a change operation, or live progress. */
+export type Mark = Change | Status | LiveMark;
+
 export interface Span {
   readonly text: string;
   readonly tone?: Tone;
@@ -65,7 +75,7 @@ export interface LedgerColumn {
 export interface LedgerRow {
   /** The unit this row is about; live progress joins to plan rows by it. */
   readonly id?: string;
-  readonly mark: Change | Status;
+  readonly mark: Mark;
   readonly cells: ReadonlyArray<Text>;
   /** Nesting under the row above, such as a pack's members under their pack. */
   readonly depth?: number;
@@ -75,7 +85,7 @@ export interface LedgerRow {
 
 /** The rows a ledger folds into one line because they repeat one outcome. */
 export interface LedgerFold {
-  readonly mark: Change | Status;
+  readonly mark: Mark;
   readonly count: number;
   readonly noun: string;
   readonly hint?: Text;

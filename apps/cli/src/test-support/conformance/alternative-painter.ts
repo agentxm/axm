@@ -11,11 +11,10 @@
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import type {
-  Change,
   Doc,
   DocNode,
+  Mark,
   RowNode,
-  Status,
   Span,
   TableColumn,
   Text,
@@ -239,10 +238,13 @@ const target = (action: SuggestedAction): string => action.cmd ?? action.url ?? 
 const statusGlyph = (tone: Tone, glyphs: Glyphs): string =>
   tone === "neutral" || tone === "dim" ? " " : glyphs.status[tone];
 
-const markGlyph = (mark: Change | Status, glyphs: Glyphs): string =>
-  mark === "ok" || mark === "warn" || mark === "error" || mark === "info"
+const markGlyph = (mark: Mark, glyphs: Glyphs): string => {
+  if (mark === "working") return glyphs.spinner[0] ?? "";
+  if (mark === "waiting") return glyphs.marks.waiting;
+  return mark === "ok" || mark === "warn" || mark === "error" || mark === "info"
     ? statusGlyph(mark, glyphs)
     : glyphs.change[mark];
+};
 
 const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<string> => {
   switch (node._tag) {

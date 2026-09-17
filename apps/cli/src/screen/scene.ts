@@ -93,6 +93,7 @@ export const paintScene = (
   if (budget === 0) return [];
   const paintStyle: Omit<PaintStyle, "width"> = {
     colors: style.colors,
+    spinner: style.spinner,
     ...(style.glyphs === undefined ? {} : { glyphs: style.glyphs }),
   };
   const part = (produce: ScenePart | undefined, rows: number): ReadonlyArray<string> =>

@@ -1,23 +1,23 @@
-import type { Doc, RowNode } from "../../screen/doc.js";
+import type { Doc } from "../../screen/doc.js";
+import { liveLedgerDoc, type LivePlan } from "../../screen/live-ledger.js";
+import { initialProgress, reduceProgress, type ProgressState } from "../../screen/progress.js";
 import type { TerminalSize } from "../../screen/scene.js";
+import type { OperationEvent } from "@agentxm/workspace/transitions/planning";
+
+const STARTED_AT = 1_000;
+const NOW = STARTED_AT + 8_200;
 
 interface Unit {
   readonly name: string;
   readonly version: string;
 }
 
-interface RunningUnit extends Unit {
-  readonly measure: string;
-}
-
-const done = 3;
-
-const running: ReadonlyArray<RunningUnit> = [
-  { name: "@acme/skills/changelog", version: "0.3.0", measure: "40 KB / 96 KB" },
-  { name: "@acme/skills/release-notes", version: "1.1.0", measure: "12 KB / 30 KB" },
-];
-
-const waiting: ReadonlyArray<Unit> = [
+const units: ReadonlyArray<Unit> = [
+  { name: "@acme/skills/standup", version: "1.4.0" },
+  { name: "@acme/skills/handoff", version: "2.1.0" },
+  { name: "@acme/subagents/scout", version: "0.8.0" },
+  { name: "@acme/skills/changelog", version: "0.3.0" },
+  { name: "@acme/skills/release-notes", version: "1.1.0" },
   { name: "@acme/skills/retro", version: "0.2.0" },
   { name: "@acme/subagents/reviewer", version: "0.9.0" },
   { name: "@acme/skills/triage", version: "0.5.1" },
@@ -36,61 +36,91 @@ const waiting: ReadonlyArray<Unit> = [
   })),
 ];
 
-const total = done + running.length + waiting.length;
+/** The three units already published, and the two the registry is taking now. */
+const DONE = 3;
+const RUNNING = 2;
 
-/** Rows the scene keeps outside the ledger window: title, fold line, status, the wait, and the blanks between them. */
-const fixedRows = 8;
+const unitId = (unit: Unit): string => `extension:${unit.name}`;
 
 /**
- * A publish of 40 extensions at a short terminal height, with a browser
- * authorization wait beneath the ledger (canvas *Width and height*, board
- * `Width-live`, frame *Height cap*). The window keeps running rows first, then
- * the next waiting rows, and folds the rest; the wait keeps its minimum.
- *
- * The ledger is drawn with change rows until the ledger node exists, and the
- * window is fitted here until the Frame fits scenes; both then replace this
- * fixture's own layout without changing its snapshots' intent.
+ * The publication as it stands eight seconds in: three units settled, two
+ * uploading with a measure each, and the rest waiting their turn.
  */
-export const widthLiveHeightCap = (terminal: TerminalSize): Doc => {
-  // Below 60 columns a row keeps only its name, its mark still telling running from
-  // waiting, and the wait keeps a title short enough for one line behind the gutter.
-  const wide = terminal.columns >= 60;
-  const window = Math.max(0, terminal.rows - 2 - fixedRows);
-  const shownRunning = running.slice(0, window);
-  const shownWaiting = waiting.slice(0, window - shownRunning.length);
-  const rows: ReadonlyArray<RowNode> = [
-    ...shownRunning.map((unit): RowNode => ({
-      _tag: "row",
-      change: "update",
-      cells: wide ? [unit.name, unit.version, "uploading", unit.measure] : [unit.name],
-    })),
-    ...shownWaiting.map((unit): RowNode => ({
-      _tag: "row",
-      change: "unchanged",
-      cells: wide ? [unit.name, unit.version, "waiting"] : [unit.name],
-    })),
-  ];
-  return [
-    { _tag: "headline", tone: "neutral", text: [{ text: "Publishing as @acme", bold: true }] },
-    { _tag: "blank" },
-    { _tag: "rows", rows },
+const publishLog: ReadonlyArray<OperationEvent> = [
+  {
+    _tag: "OperationStarted",
+    seq: 1,
+    atMs: STARTED_AT,
+    operationId: "publish-1",
+    name: "Publishing",
+    mode: "apply",
+  },
+  { _tag: "PhaseStarted", seq: 2, atMs: STARTED_AT + 1, phase: "apply" },
+  ...units.slice(0, DONE).flatMap((unit, index): ReadonlyArray<OperationEvent> => [
     {
-      _tag: "paragraph",
-      tone: "dim",
-      text: `… ${String(waiting.length - shownWaiting.length)} more waiting, ${String(done)} done`,
+      _tag: "UnitStarted",
+      seq: 3 + index * 2,
+      atMs: STARTED_AT + 10 + index,
+      unitId: unitId(unit),
+      label: unit.name,
+      index,
     },
-    { _tag: "blank" },
     {
-      _tag: "paragraph",
-      tone: "dim",
-      text: `publishing ${String(done + running.length)} of ${String(total)} in 8.2s`,
+      _tag: "UnitResolved",
+      seq: 4 + index * 2,
+      atMs: STARTED_AT + 100 + index,
+      unitId: unitId(unit),
+      label: unit.name,
+      state: "committed",
+      index,
     },
-    { _tag: "blank" },
+  ]),
+  ...units.slice(DONE, DONE + RUNNING).flatMap((unit, index): ReadonlyArray<OperationEvent> => [
     {
-      _tag: "callout",
-      tone: "info",
-      title: wide ? "Authorize the publish in your browser" : "Authorize in your browser",
-      children: [{ _tag: "paragraph", tone: "dim", text: "expires in 9:41, esc cancels" }],
+      _tag: "UnitStarted",
+      seq: 20 + index * 2,
+      atMs: STARTED_AT + 5_000 + index,
+      unitId: unitId(unit),
+      label: unit.name,
+      index: DONE + index,
     },
-  ];
+    {
+      _tag: "UnitProgress",
+      seq: 21 + index * 2,
+      atMs: STARTED_AT + 6_000 + index,
+      unitId: unitId(unit),
+      done: index === 0 ? 40_000 : 12_000,
+      total: index === 0 ? 96_000 : 30_000,
+      unit: "bytes",
+    },
+  ]),
+];
+
+const state: ProgressState = publishLog.reduce(reduceProgress, initialProgress);
+
+const plan: LivePlan = {
+  title: "Publishing as @acme",
+  columns: [
+    { header: "Extension", role: "name" },
+    { header: "Version", role: "fixed", priority: "optional" },
+  ],
+  rows: units.map((unit) => ({
+    id: unitId(unit),
+    mark: "create",
+    cells: [unit.name, unit.version],
+  })),
+  hint: "--verbose for details",
 };
+
+/**
+ * A publish of forty extensions at a short terminal height (canvas *Width and
+ * height*, board `Width-live`, frame *Height cap*). The live ledger keeps the
+ * running rows first, then the next waiting rows, and folds the rest into one
+ * line; the status line beneath it survives every squeeze.
+ *
+ * The wait that sits beneath the ledger on the canvas belongs to the scene's
+ * interaction part, which the `Screen.wait` primitive owns, so this fixture is
+ * the ledger part alone and is given the whole height the scene would share.
+ */
+export const widthLiveHeightCap = (terminal: TerminalSize): Doc =>
+  liveLedgerDoc(state, { plan, rows: terminal.rows - 2, nowMs: NOW });

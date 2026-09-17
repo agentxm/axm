@@ -28,8 +28,10 @@ import type {
   LedgerRow,
   Span,
   Status,
+  Text,
   Tone,
 } from "./screen/doc.js";
+import type { LivePlan } from "./screen/live-ledger.js";
 import { Screen } from "./screen/screen.js";
 import {
   agentOutcome,
@@ -112,6 +114,19 @@ const ledgerColumns = (
   { header: outcomeHeader, role: "fixed", priority: "required" },
   { header: "Detail", role: "elastic", priority: "optional" },
 ];
+
+/**
+ * The columns a live ledger identifies a unit by. Every one of them is
+ * optional, because the live region's values are transient and the result
+ * ledger carries them: under width pressure a running row gives up its version
+ * before its name, so the marks and the names survive a narrow terminal.
+ */
+const liveColumns = (presentation: OperationPresentation): ReadonlyArray<LedgerColumn> => [
+  { header: subjectHeader(presentation), role: "name" },
+  { header: "Version", role: "fixed", priority: "optional" },
+];
+
+const cellOf = (row: LedgerRow, index: number): Text => row.cells[index] ?? "";
 
 const membershipChildren = (artifact: JobStepArtifact | undefined): Doc => {
   if (artifact?.packMembership === undefined) return [];
@@ -232,6 +247,9 @@ const planRow = (
  * lists them instead, which is what the fold's hint names.
  */
 const FOLD_HINT = "--verbose to list";
+
+/** Where no gate opens, the only place a reader learns the details are one flag away. */
+const DETAIL_HINT = "--verbose for details";
 
 interface FoldGroup {
   readonly count: number;
@@ -564,8 +582,55 @@ export const planDoc = (
     // way a reader learns the details are one flag away.
     ...(gated || detailed || unchanged > 0
       ? []
-      : [{ _tag: "paragraph", tone: "dim", text: "--verbose for details" } as const]),
+      : [{ _tag: "paragraph", tone: "dim", text: DETAIL_HINT } as const]),
   ];
+};
+
+/**
+ * The plan as the live ledger will carry it: the same title and the same rows
+ * the plan showed, identified by the unit ids lifecycle events use, so the
+ * region streams the rows it previewed instead of an unrelated tree. The
+ * ledger's own two columns — what a unit is doing and how far it has come —
+ * are added by the live ledger, which is the only thing that changes while an
+ * operation runs.
+ */
+export const livePlan = (
+  plan: Plan<unknown, unknown>,
+  options: { readonly verbosity: VerbosityLevel },
+): LivePlan | undefined => {
+  const steps = plan.jobs.flatMap((job) => [...job.steps]);
+  const presentation = presentationOf(plan);
+  const detailed = options.verbosity === "verbose" || options.verbosity === "debug";
+  // A unit that is already current has nothing to run, so it never reaches the
+  // live region; the verdict and the result ledger account for it.
+  const running = steps.filter((step) => step.artifact?.change !== "unchanged");
+  if (running.length === 0) return undefined;
+  const scope = steps.find((step) => step.artifact !== undefined)?.artifact?.scope;
+  const agents = [
+    ...new Set(
+      steps.flatMap((step) =>
+        (step.artifact?.agents ?? []).filter((agent) => agent !== "universal"),
+      ),
+    ),
+  ];
+  const aside = joined([
+    scope === undefined ? undefined : scopePhrase(scope),
+    agents.length === 0 ? undefined : `agents: ${agents.join(", ")}`,
+  ]);
+  return {
+    title: operationTitle(presentation, "apply"),
+    ...(aside.length === 0 ? {} : { aside }),
+    columns: liveColumns(presentation),
+    rows: running.map((step) => {
+      // Children are the settled document's business; a live row carries the
+      // unit's mark and the cells that identify it, and nothing else.
+      const row = planRow(step, presentation, false);
+      return { id: unitIdOf(step), mark: row.mark, cells: [cellOf(row, 0), cellOf(row, 1)] };
+    }),
+    // Where no gate opens this is the only place a reader learns the details
+    // are one flag away.
+    ...(detailed ? {} : { hint: DETAIL_HINT }),
+  };
 };
 
 /** Paint the planning-time orientation through the application-owned screen. */

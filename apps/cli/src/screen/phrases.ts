@@ -3,6 +3,7 @@ import type {
   OperationOutcome,
   OperationPhase,
   OperationPresentation,
+  ProgressUnit,
   SettledOutcome,
   UnitDisposition,
   UnitState,
@@ -96,6 +97,45 @@ export const unitStateChange = (state: UnitState): Change => {
       return "blocked";
     default:
       return unreachable(state);
+  }
+};
+
+/**
+ * What a live ledger row says about a unit that has not settled. A running
+ * unit usually names the work in flight instead; this is what a row says when
+ * nothing more specific is known.
+ */
+export const liveUnitActivity = (value: "waiting" | "running" | "paused"): string => {
+  switch (value) {
+    case "waiting":
+      return "waiting";
+    case "running":
+      return "working";
+    case "paused":
+      return "paused";
+    default:
+      return unreachable(value);
+  }
+};
+
+/** How far a running unit has come, in the unit its producer measured. */
+export const progressMeasure = (measure: {
+  readonly done: number;
+  readonly total?: number;
+  readonly unit: ProgressUnit;
+}): string => {
+  switch (measure.unit) {
+    case "bytes":
+      return measure.total === undefined
+        ? bytes(measure.done)
+        : `${bytes(measure.done)} / ${bytes(measure.total)}`;
+    case "files":
+    case "items":
+      return measure.total === undefined
+        ? `${String(measure.done)} ${measure.unit}`
+        : `${String(measure.done)}/${String(measure.total)} ${measure.unit}`;
+    default:
+      return unreachable(measure.unit);
   }
 };
 

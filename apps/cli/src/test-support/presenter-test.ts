@@ -76,6 +76,10 @@ const nodeText = (node: DocNode): string => {
       return plain(node.text);
     case "row":
       return node.cells.map(plain).join("   ");
+    case "ledger":
+      return node.rows.map((row) => row.cells.map(plain).join("   ")).join("\n");
+    case "answer":
+      return `${plain(node.label)}: ${plain(node.value)}`;
     case "collapsed":
       return `${String(node.count)} ${node.noun}`;
     case "callout":

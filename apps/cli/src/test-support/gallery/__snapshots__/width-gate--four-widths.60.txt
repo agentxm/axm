@@ -1,0 +1,10 @@
+Previewing install
+  into this project, for claude-code and codex
+
+     Extension                     Version   Plan
+ +   @acme/skills/code-review      1.4.0     install
+ +   @acme/subagents/reviewer      0.9.0     install
+ +   @acme/packs/review-kit        2.1.0     install
+ ~   @acme/skills/triage           2.0.1     update
+
+ ▲   Publisher identity changed for @acme/skills/triage

@@ -10,6 +10,7 @@ import { mutationResult } from "./mutation-result.js";
 import { mutationResultAltTable } from "./mutation-result-alt-table.js";
 import { mutationResultAltTree } from "./mutation-result-alt-tree.js";
 import { planPreview } from "./plan-preview.js";
+import { widthGateFourWidths } from "./width-gate--four-widths.js";
 import { widthLiveHeightCap } from "./width-live--height-cap.js";
 
 /**
@@ -35,6 +36,13 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
   { _tag: "document", name: "plan-preview", doc: planPreview },
   { _tag: "document", name: "blocked-waiting", doc: blockedWaiting },
   { _tag: "document", name: "every-node", doc: everyNode },
+  {
+    _tag: "document",
+    name: "width-gate--four-widths",
+    doc: widthGateFourWidths,
+    // The widths the canvas draws this gate at, so each frame has a snapshot.
+    widths: [100, 80, 60, 44],
+  },
   { _tag: "scene", name: "width-live--height-cap", scene: widthLiveHeightCap },
 ];
 

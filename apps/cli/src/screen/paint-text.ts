@@ -4,8 +4,13 @@ import type {
   Change,
   Doc,
   DocNode,
+  LedgerColumn,
+  LedgerFold,
+  LedgerNode,
+  LedgerRow,
   RowNode,
   Span,
+  Status,
   TableColumn,
   Text,
   Tone,
@@ -173,6 +178,13 @@ const dim = (value: string, style: ResolvedStyle): string =>
 const statusGlyph = (tone: Tone, glyphs: Glyphs): string | undefined =>
   tone === "neutral" || tone === "dim" ? undefined : glyphs.status[tone];
 
+const isStatus = (mark: Change | Status): mark is Status =>
+  mark === "ok" || mark === "warn" || mark === "error" || mark === "info";
+
+/** The glyph a ledger row's mark paints: a status glyph or a change operation. */
+const markGlyph = (mark: Change | Status, glyphs: Glyphs): string =>
+  isStatus(mark) ? glyphs.status[mark] : glyphs.change[mark];
+
 /** A mark (or none) in the gutter, padded so content starts after it. */
 const gutter = (mark: string | undefined): string => {
   const cell = ` ${mark ?? ""}`;
@@ -266,6 +278,8 @@ interface PaintedCell {
   readonly text: Text;
   readonly width: PaintWidth;
   readonly align: "left" | "right";
+  /** Cells the content is indented by inside the column, on every line. */
+  readonly lead?: number;
 }
 
 /** Paint one row of cells (possibly several lines) behind a first-line prefix. */
@@ -274,7 +288,11 @@ const paintCells = (
   style: ResolvedStyle,
   options: { readonly indent: number; readonly first: string; readonly tone?: Tone },
 ): ReadonlyArray<string> => {
-  const painted = cells.map((cell) => paintLines(cell.text, cell.width, style, options.tone));
+  const painted = cells.map((cell) => {
+    const lead = cell.lead ?? 0;
+    const lines = paintLines(cell.text, remaining(cell.width, lead), style, options.tone);
+    return lead === 0 ? lines : lines.map((line) => `${spaces(lead)}${line}`);
+  });
   const height = Math.max(1, ...painted.map((lines) => lines.length));
   const rest = spaces(displayWidth(options.first));
   return Array.from({ length: height }, (_, lineIndex) => {
@@ -437,6 +455,150 @@ const paintRows = (
 };
 
 // ---------------------------------------------------------------------------
+// Ledgers
+// ---------------------------------------------------------------------------
+
+/** How deep a nested row's name is indented inside the name column. */
+const DEPTH_INDENT = 2;
+
+/** Cells a nested row's name is indented by, inside the name column. */
+const depthLead = (row: LedgerRow): number => Math.max(0, row.depth ?? 0) * DEPTH_INDENT;
+
+/**
+ * A ledger column as the layout engine sees it. The `name` column is required
+ * and keeps the key lane, so the second column starts at the value column; a
+ * `fixed` column keeps its natural width; an `elastic` column shrinks first
+ * and takes the spare width.
+ */
+const ledgerColumn = (column: LedgerColumn, cells: ReadonlyArray<Text>): LayoutColumn => {
+  const laid = layoutColumn(
+    {
+      header: column.header,
+      priority: column.role === "name" ? "required" : (column.priority ?? "preferred"),
+      ...(column.align === undefined ? {} : { align: column.align }),
+    },
+    column.header,
+    cells,
+  );
+  if (column.role === "name") {
+    const naturalWidth = Math.max(laid.naturalWidth, KEY_WIDTH);
+    return { ...laid, naturalWidth, minWidth: Math.min(naturalWidth, KEY_WIDTH) };
+  }
+  return column.role === "fixed" ? { ...laid, minWidth: laid.naturalWidth } : laid;
+};
+
+/** The fold line: a mark, how many rows it stands for, and how to reveal them. */
+const paintFold = (
+  fold: LedgerFold,
+  style: ResolvedStyle,
+  indent: number,
+): ReadonlyArray<string> => {
+  const lines = paintPrefixed(`${String(fold.count)} ${fold.noun}`, style, {
+    indent,
+    first: gutter(markGlyph(fold.mark, style.glyphs)),
+  });
+  return fold.hint === undefined
+    ? lines
+    : withTrailing(lines, fold.hint, style, indent + GUTTER_WIDTH);
+};
+
+/**
+ * One ledger: a dim header line, one gutter-marked line per row, and a fold
+ * line for the rows that repeat an outcome. Columns after the name start at
+ * the value column, so a ledger, its fields, and its answers share one lane.
+ *
+ * Under width pressure a ledger drops its `optional` columns and then stacks,
+ * keeping each row's mark and name on one line with its remaining cells dim
+ * beneath; it never drops a column whose value has nowhere else to appear.
+ */
+const paintLedger = (
+  node: LedgerNode,
+  style: ResolvedStyle,
+  indent: number,
+): ReadonlyArray<string> => {
+  const glyphs = style.glyphs;
+  const columns = node.columns.map((column, index) =>
+    ledgerColumn(
+      column,
+      node.rows.map((row) => {
+        const cell = cellAt(row.cells, index);
+        // A nested name is measured with its indent, so the column holds both.
+        return index === 0 && depthLead(row) > 0
+          ? `${spaces(depthLead(row))}${visibleText(cell)}`
+          : cell;
+      }),
+    ),
+  );
+  const layout = layoutTable({
+    columns,
+    available: remaining(style.width, indent + GUTTER_WIDTH),
+    gap: COLUMN_GAP,
+    stackBelow: 0,
+    droppable: ["optional"],
+  });
+  const fold = node.folded === undefined ? [] : paintFold(node.folded, style, indent);
+  const children = (row: LedgerRow): ReadonlyArray<string> =>
+    row.children === undefined
+      ? []
+      : paintNodes(row.children, style, indent + GUTTER_WIDTH, indent + GUTTER_WIDTH);
+  if (layout._tag !== "grid") {
+    // Stacked: the mark and the name on one line, the rest dim beneath it.
+    return [
+      ...node.rows.flatMap((row) => {
+        const rest = node.columns
+          .flatMap((column, position) =>
+            position === 0 || column.priority === "optional" ? [] : [cellAt(row.cells, position)],
+          )
+          .filter((cell) => visibleText(cell).length > 0);
+        return [
+          // The mark stays in the gutter; only the name moves under its parent.
+          ...paintPrefixed(cellAt(row.cells, 0), style, {
+            indent,
+            first: `${gutter(markGlyph(row.mark, glyphs))}${spaces(depthLead(row))}`,
+          }),
+          ...(rest.length === 0
+            ? []
+            : paintPrefixed(
+                rest.flatMap((cell, position) => [
+                  ...(position === 0 ? [] : [{ text: glyphs.separator }]),
+                  ...(typeof cell === "string" ? [{ text: cell }] : cell),
+                ]),
+                style,
+                { indent: indent + GUTTER_WIDTH + depthLead(row), first: "", tone: "dim" },
+              )),
+          ...children(row),
+        ];
+      }),
+      ...fold,
+    ];
+  }
+  const headers = node.columns.map((column) => column.header);
+  const rowCells = (row: LedgerRow): ReadonlyArray<PaintedCell> => {
+    const cells = gridCells(layout, row.cells);
+    const lead = depthLead(row);
+    const [name, ...rest] = cells;
+    return lead === 0 || name === undefined ? cells : [{ ...name, lead }, ...rest];
+  };
+  return [
+    ...(headers.some((header) => visibleText(header).length > 0)
+      ? paintCells(gridCells(layout, headers), style, {
+          indent,
+          first: blankGutter,
+          tone: "dim",
+        })
+      : []),
+    ...node.rows.flatMap((row) => [
+      ...paintCells(rowCells(row), style, {
+        indent,
+        first: gutter(markGlyph(row.mark, glyphs)),
+      }),
+      ...children(row),
+    ]),
+    ...fold,
+  ];
+};
+
+// ---------------------------------------------------------------------------
 // Other nodes
 // ---------------------------------------------------------------------------
 
@@ -498,9 +660,12 @@ const paintFields = (
   });
 };
 
-/** Nodes that carry change rows; a headline after one is their verdict. */
-const isChangeRows = (node: DocNode): boolean =>
-  node._tag === "row" || node._tag === "rows" || node._tag === "collapsed";
+/** Nodes that carry marked rows; a headline after one is their verdict. */
+const isMarkedRows = (node: DocNode): boolean =>
+  node._tag === "row" ||
+  node._tag === "rows" ||
+  node._tag === "collapsed" ||
+  node._tag === "ledger";
 
 /**
  * Where a node paints: `mark` is the column its gutter starts at, and
@@ -560,6 +725,35 @@ const paintNode = (
       return node.hint === undefined
         ? lines
         : withTrailing(lines, node.hint, style, indent + GUTTER_WIDTH);
+    }
+    case "ledger":
+      return paintLedger(node, style, indent);
+    case "answer": {
+      // A settled prompt reads as one record line: the question behind a mark,
+      // its answer at the value column, and the answer below when it cannot fit.
+      const mark = node.mark === "ok" ? statusGlyph("ok", glyphs) : undefined;
+      const tone: Tone | undefined = node.mark === "dim" ? "dim" : undefined;
+      const toned = tone === undefined ? {} : { tone };
+      const labelStart = indent + GUTTER_WIDTH;
+      const valueStart = Math.max(
+        style.valueColumn,
+        labelStart + displayWidth(visibleText(node.label)) + COLUMN_GAP,
+      );
+      const valueWidth = remaining(style.width, valueStart);
+      return valueWidth !== "unbounded" &&
+        (valueStart > style.valueColumn ||
+          valueWidth < MIN_FIELD_VALUE_WIDTH ||
+          longestWordWidth(node.value) > valueWidth)
+        ? [
+            ...paintPrefixed(node.label, style, { indent, first: gutter(mark), ...toned }),
+            ...paintPrefixed(node.value, style, { indent: labelStart + 2, first: "", ...toned }),
+          ]
+        : paintPrefixed(node.value, style, {
+            indent,
+            first: `${gutter(mark)}${padDisplay(paintValue(node.label, style, tone), valueStart - labelStart)}`,
+            rest: spaces(valueStart - indent),
+            ...toned,
+          });
     }
     case "callout": {
       const title = paintPrefixed(node.title, style, {
@@ -650,7 +844,7 @@ const paintNodes = (
     paintNode(node, style, {
       mark,
       content,
-      afterChangeRows: doc.slice(0, index).some(isChangeRows),
+      afterChangeRows: doc.slice(0, index).some(isMarkedRows),
     }),
   );
 

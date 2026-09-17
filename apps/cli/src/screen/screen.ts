@@ -206,6 +206,22 @@ export const ScreenMachine = (options?: {
             ? emit(logEvent(level, message))
             : Effect.void;
         }
+        if (node._tag === "ledger") {
+          // A ledger row that failed or is blocked logs as a change row does.
+          return Effect.forEach(
+            node.rows,
+            (row) => {
+              const message = row.cells.map(plain).join("   ");
+              if (row.mark === "failed" || row.mark === "error") {
+                return emit(logEvent("error", message));
+              }
+              return row.mark === "blocked" || row.mark === "warn"
+                ? emit(logEvent("warn", message))
+                : Effect.void;
+            },
+            { discard: true },
+          );
+        }
         if (node._tag === "headline") {
           return node.tone === "error" || node.tone === "warn"
             ? emit(logEvent(node.tone, plain(node.text)))

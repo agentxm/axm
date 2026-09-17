@@ -52,6 +52,21 @@ export const collectTexts = (doc: Doc): ReadonlyArray<string> => {
       case "rows":
         node.rows.forEach(walk);
         return;
+      case "ledger":
+        node.columns.forEach((column) => pushText(column.header));
+        node.rows.forEach((row) => {
+          row.cells.forEach(pushText);
+          row.children?.forEach(walk);
+        });
+        if (node.folded !== undefined) {
+          texts.push(node.folded.noun);
+          pushText(node.folded.hint);
+        }
+        return;
+      case "answer":
+        pushText(node.label);
+        pushText(node.value);
+        return;
       case "collapsed":
         texts.push(node.noun);
         if (node.hint !== undefined) texts.push(node.hint);
@@ -111,6 +126,8 @@ const verbatimLines = (doc: Doc): ReadonlySet<string> => {
       node.children?.forEach(walk);
     } else if (node._tag === "rows") {
       node.rows.forEach(walk);
+    } else if (node._tag === "ledger") {
+      for (const row of node.rows) row.children?.forEach(walk);
     } else if (node._tag === "section") {
       node.children.forEach(walk);
     }
@@ -215,6 +232,8 @@ export const nodeKinds: ReadonlyArray<DocNode["_tag"]> = [
   "paragraph",
   "row",
   "rows",
+  "ledger",
+  "answer",
   "collapsed",
   "callout",
   "table",
@@ -235,6 +254,7 @@ export const nodeKindsOf = (doc: Doc): ReadonlySet<DocNode["_tag"]> => {
     kinds.add(node._tag);
     if (node._tag === "row" || node._tag === "callout") node.children?.forEach(walk);
     if (node._tag === "rows") node.rows.forEach(walk);
+    if (node._tag === "ledger") for (const row of node.rows) row.children?.forEach(walk);
     if (node._tag === "section") node.children.forEach(walk);
   };
   doc.forEach(walk);

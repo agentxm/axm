@@ -157,11 +157,16 @@ overflows it drops `optional` columns and then `preferred` columns from the
 right, never a `required` column. Headers use the computed widths and
 alignment, so a header never drifts from its cells. Breakpoints are emergent,
 not configured: with a required name, a preferred version, and an optional
-elastic detail, spare width flows to detail, detail drops first, then version.
+elastic detail, spare width flows to detail and detail drops first.
 
-A ledger stacks its rows into label and value blocks when its required
-columns — the gutter, the name, and the status — overflow, not at a fixed
-width. A read-only table also stacks below forty columns, which suits wide
+A ledger drops only its `optional` columns, whose values a flag or `--verbose`
+still reveals. When the columns it keeps — the gutter, the name, and every
+column that is not optional — overflow, it stacks each row into its mark and
+name on one line and its remaining values beneath, rather than drop a value
+that has nowhere else to appear. It stacks on that overflow, not at a fixed
+width, and its name column holds the key lane, so a ledger's second column,
+its fields, and its answers share the value column. A read-only table instead
+drops `preferred` columns and stacks below forty columns, which suits wide
 inventories.
 
 A long name shortens in the middle, keeping its scope and last path segment:
@@ -239,17 +244,17 @@ pnpm exec nx run cli:gallery -- --name <fixture> --width <columns> --rows <rows>
 
 ## Supported terminals
 
-| Environment                 | Expectation                                                                                                       |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Light and dark themes       | Standard colors and dim only; every tone legible on both                                                          |
-| tmux                        | Animation, resize, key input, and hyperlinks behave as in the host terminal                                       |
-| VS Code integrated terminal | Full support; narrow panes trigger the responsive layout                                                          |
-| Warp                        | Full support; the live scene does not fight the block model                                                       |
-| Windows Terminal            | Full support with the Unicode glyph set and key input                                                             |
-| CI logs                     | Plain mode; transcript lines, no cursor movement, no color unless forced                                          |
-| Narrow panes                | Ledgers stack when required columns overflow; tables stack below forty; below twenty the painter paints at twenty |
-| Short panes                 | The scene fits the height; the ledger window shrinks before an interaction does                                   |
-| Piped or redirected streams | Unbounded plain text                                                                                              |
+| Environment                 | Expectation                                                                                                            |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Light and dark themes       | Standard colors and dim only; every tone legible on both                                                               |
+| tmux                        | Animation, resize, key input, and hyperlinks behave as in the host terminal                                            |
+| VS Code integrated terminal | Full support; narrow panes trigger the responsive layout                                                               |
+| Warp                        | Full support; the live scene does not fight the block model                                                            |
+| Windows Terminal            | Full support with the Unicode glyph set and key input                                                                  |
+| CI logs                     | Plain mode; transcript lines, no cursor movement, no color unless forced                                               |
+| Narrow panes                | Ledgers stack when the columns they keep overflow; tables stack below forty; below twenty the painter paints at twenty |
+| Short panes                 | The scene fits the height; the ledger window shrinks before an interaction does                                        |
+| Piped or redirected streams | Unbounded plain text                                                                                                   |
 
 ## Time to first output
 

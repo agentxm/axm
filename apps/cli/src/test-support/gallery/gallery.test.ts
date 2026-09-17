@@ -10,10 +10,12 @@ import { gallery, galleryHeights, galleryWidths } from "./index.js";
  * The terminal sizes a fixture is snapshot at: widths for a document, which
  * ignores the height, and widths by heights for a scene.
  */
-const sizesFor = (fixture: GalleryFixture): ReadonlyArray<TerminalSize> =>
-  fixture._tag === "document"
-    ? galleryWidths.map((columns) => ({ columns, rows: Math.max(...galleryHeights) }))
-    : galleryWidths.flatMap((columns) => galleryHeights.map((rows) => ({ columns, rows })));
+const sizesFor = (fixture: GalleryFixture): ReadonlyArray<TerminalSize> => {
+  const widths = fixture.widths ?? galleryWidths;
+  return fixture._tag === "document"
+    ? widths.map((columns) => ({ columns, rows: Math.max(...galleryHeights) }))
+    : widths.flatMap((columns) => galleryHeights.map((rows) => ({ columns, rows })));
+};
 
 const cases = gallery.flatMap((fixture) =>
   sizesFor(fixture).map((terminal) => ({

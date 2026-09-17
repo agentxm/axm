@@ -12,6 +12,8 @@ export interface DocumentFixture {
   readonly _tag: "document";
   readonly name: string;
   readonly doc: Doc;
+  /** Widths this fixture is snapshot at, when its mock names its own. */
+  readonly widths?: ReadonlyArray<number>;
 }
 
 /**
@@ -22,6 +24,8 @@ export interface SceneFixture {
   readonly _tag: "scene";
   readonly name: string;
   readonly scene: (terminal: TerminalSize) => Doc;
+  /** Widths this fixture is snapshot at, when its mock names its own. */
+  readonly widths?: ReadonlyArray<number>;
 }
 
 export type GalleryFixture = DocumentFixture | SceneFixture;

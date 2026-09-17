@@ -11,9 +11,11 @@
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import type {
+  Change,
   Doc,
   DocNode,
   RowNode,
+  Status,
   Span,
   TableColumn,
   Text,
@@ -237,6 +239,11 @@ const target = (action: SuggestedAction): string => action.cmd ?? action.url ?? 
 const statusGlyph = (tone: Tone, glyphs: Glyphs): string =>
   tone === "neutral" || tone === "dim" ? " " : glyphs.status[tone];
 
+const markGlyph = (mark: Change | Status, glyphs: Glyphs): string =>
+  mark === "ok" || mark === "warn" || mark === "error" || mark === "info"
+    ? statusGlyph(mark, glyphs)
+    : glyphs.change[mark];
+
 const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<string> => {
   switch (node._tag) {
     case "headline": {
@@ -260,6 +267,53 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
       return paintRows([node], style, indent);
     case "rows":
       return paintRows(node.rows, style, indent);
+    case "ledger": {
+      const layout = layoutTable({
+        columns: node.columns.map((spec, index) =>
+          column(
+            spec.header,
+            node.rows.map((row) => row.cells[index] ?? ""),
+            {
+              header: spec.header,
+              ...(spec.priority === undefined ? {} : { priority: spec.priority }),
+            },
+          ),
+        ),
+        available: room(style.width, indent + 2),
+        gap: GAP,
+      });
+      const headers = node.columns.map((spec) => spec.header);
+      const fold = node.folded;
+      return [
+        ...(layout._tag === "grid" ? gridRow(layout, headers, style, indent, "  ", "dim") : []),
+        ...node.rows.flatMap((row) => {
+          const prefix = `${markGlyph(row.mark, style.glyphs)} `;
+          return [
+            ...(layout._tag === "grid"
+              ? gridRow(layout, row.cells, style, indent, prefix)
+              : row.cells.flatMap((cell, index) =>
+                  block(cell, style, indent, index === 0 ? prefix : "  "),
+                )),
+            ...(row.children === undefined ? [] : paintNodes(row.children, style, indent + 4)),
+          ];
+        }),
+        ...(fold === undefined
+          ? []
+          : block(
+              `${String(fold.count)} ${fold.noun}${fold.hint === undefined ? "" : ` (${visibleText(fold.hint)})`}`,
+              style,
+              indent,
+              `${markGlyph(fold.mark, style.glyphs)} `,
+            )),
+      ];
+    }
+    case "answer":
+      return block(
+        node.value,
+        style,
+        indent,
+        paintSpans([{ text: `${visibleText(node.label)}: ` }], style, "dim"),
+      );
     case "collapsed":
       return block(
         `${String(node.count)} ${node.noun}${node.hint === undefined ? "" : ` (${node.hint})`}`,

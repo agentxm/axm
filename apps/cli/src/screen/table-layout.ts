@@ -13,9 +13,10 @@ import type { TableColumnPriority } from "./doc.js";
  *    of the declared minimum (default: header width), the widest unbreakable
  *    word, and half the natural width (capped), so cells wrap between words
  *    onto a couple of lines at most.
- * 4. Drop `optional` columns from the right, then `preferred` columns from the
- *    right, refitting at soft floors after every drop. `required` columns are
- *    never dropped.
+ * 4. Drop the droppable priorities in turn, each from the right, refitting at
+ *    soft floors after every drop. A table drops `optional` columns and then
+ *    `preferred` ones; a ledger drops only `optional` ones and stacks rather
+ *    than lose a column a reader cannot recover.
  * 5. Shrink the surviving columns to their word floors (wrapping onto more
  *    lines but never splitting a word), then to their declared minimums,
  *    splitting words as a last resort.
@@ -59,6 +60,10 @@ export interface LayoutTableArgs {
   readonly columns: ReadonlyArray<LayoutColumn>;
   readonly available: number | "unbounded";
   readonly gap: number;
+  /** Width below which the grid stacks outright; defaults to `STACKED_THRESHOLD`. */
+  readonly stackBelow?: number;
+  /** Priorities dropped under pressure, in order; defaults to optional then preferred. */
+  readonly droppable?: ReadonlyArray<TableColumnPriority>;
 }
 
 const declaredFloor = (column: LayoutColumn): number =>
@@ -164,13 +169,13 @@ export const layoutTable = (args: LayoutTableArgs): TableLayout => {
       columns.map((column) => column.naturalWidth),
     );
   if (gridWidth(natural, gap) <= available) return grid(columns, all, natural);
-  if (available < STACKED_THRESHOLD) return { _tag: "stacked" };
+  if (available < (args.stackBelow ?? STACKED_THRESHOLD)) return { _tag: "stacked" };
 
   let active: ReadonlyArray<number> = all;
   const fitted = fit(columns, active, available, gap, softFloor);
   if (fitted !== undefined) return grid(columns, active, fitted);
 
-  for (const priority of ["optional", "preferred"] as const) {
+  for (const priority of args.droppable ?? (["optional", "preferred"] as const)) {
     let next = dropLast(columns, active, priority);
     while (next !== undefined) {
       active = next;

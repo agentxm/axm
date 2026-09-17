@@ -2,6 +2,9 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 
 export type Tone = "neutral" | "ok" | "warn" | "error" | "info" | "dim";
 
+/** A tone that carries a status glyph; `neutral` and `dim` carry none. */
+export type Status = Exclude<Tone, "neutral" | "dim">;
+
 export type Change =
   "create" | "update" | "remove" | "unchanged" | "blocked" | "failed" | "rolled-back";
 
@@ -37,6 +40,58 @@ export interface RowNode {
 export interface RowsNode {
   readonly _tag: "rows";
   readonly rows: ReadonlyArray<RowNode>;
+}
+
+/**
+ * How a ledger column takes and yields width: the `name` column is protected
+ * and shortened last, a `fixed` column keeps its natural width, and an
+ * `elastic` column takes the spare width and shrinks first.
+ */
+export type LedgerColumnRole = "name" | "fixed" | "elastic";
+
+export interface LedgerColumn {
+  readonly header: Text;
+  readonly role: LedgerColumnRole;
+  readonly priority?: TableColumnPriority;
+  readonly align?: "left" | "right";
+}
+
+export interface LedgerRow {
+  /** The unit this row is about; live progress joins to plan rows by it. */
+  readonly id?: string;
+  readonly mark: Change | Status;
+  readonly cells: ReadonlyArray<Text>;
+  /** Nesting under the row above, such as a pack's members under their pack. */
+  readonly depth?: number;
+  /** Per-agent outcomes and details, shown at verbose level. */
+  readonly children?: Doc;
+}
+
+/** The rows a ledger folds into one line because they repeat one outcome. */
+export interface LedgerFold {
+  readonly mark: Change | Status;
+  readonly count: number;
+  readonly noun: string;
+  readonly hint?: Text;
+}
+
+export interface LedgerNode {
+  readonly _tag: "ledger";
+  readonly columns: ReadonlyArray<LedgerColumn>;
+  readonly rows: ReadonlyArray<LedgerRow>;
+  readonly folded?: LedgerFold;
+}
+
+/**
+ * A settled prompt: one gutter line whose answer sits at the value column.
+ * The `Screen` appends it when a prompt settles; views never build it.
+ */
+export interface AnswerNode {
+  readonly _tag: "answer";
+  readonly label: Text;
+  readonly value: Text;
+  /** `ok` marks an answer the person gave; `dim` an answer taken as given. */
+  readonly mark: "ok" | "dim";
 }
 
 export interface CollapsedNode {
@@ -142,6 +197,8 @@ export type DocNode =
   | ParagraphNode
   | RowNode
   | RowsNode
+  | LedgerNode
+  | AnswerNode
   | CollapsedNode
   | CalloutNode
   | TableNode

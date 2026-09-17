@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Doc, TableColumn } from "./doc.js";
+import type { Doc, LedgerColumn, TableColumn } from "./doc.js";
 import { stripTerminalFormatting } from "./output-policy.js";
 import { asciiGlyphs, paintText, type PaintStyle } from "./paint-text.js";
 import { displayWidth } from "./width.js";
@@ -512,6 +512,133 @@ describe("paintText", () => {
           80,
         ),
       ).toEqual(["1 warning", " ▲   Pre-release Effect version", "     @craigsmitham/effect-v4"]);
+    });
+  });
+
+  describe("ledgers", () => {
+    const columns: ReadonlyArray<LedgerColumn> = [
+      { header: "Extension", role: "name" },
+      { header: "Version", role: "fixed", priority: "preferred" },
+      { header: "Plan", role: "fixed", priority: "required" },
+      { header: "Detail", role: "elastic", priority: "optional" },
+    ];
+    const ledger: Doc = [
+      {
+        _tag: "ledger",
+        columns,
+        rows: [
+          {
+            id: "@acme/skills/code-review",
+            mark: "create",
+            cells: ["@acme/skills/code-review", "1.4.0", "install", "42 files"],
+          },
+          {
+            id: "@acme/skills/triage",
+            mark: "update",
+            cells: ["@acme/skills/triage", "2.0.1", "update", "from 1.9.4"],
+          },
+        ],
+        folded: { mark: "unchanged", count: 3, noun: "unchanged", hint: "--verbose to list" },
+      },
+    ];
+
+    it("puts the headers behind a blank gutter and every column after the name at the value column", () => {
+      expect(plain(ledger, 100)).toEqual([
+        "     Extension                     Version   Plan      Detail",
+        " +   @acme/skills/code-review      1.4.0     install   42 files",
+        " ~   @acme/skills/triage           2.0.1     update    from 1.9.4",
+        " =   3 unchanged  --verbose to list",
+      ]);
+      // The name column keeps the key lane, so the second column starts at 36.
+      expect(plain(ledger, 100)[0]?.indexOf("Version")).toBe(35);
+      expect(plain(ledger, 100)[1]?.indexOf("1.4.0")).toBe(35);
+    });
+
+    it("drops an optional column before anything else", () => {
+      expect(plain(ledger, 60)).toEqual([
+        "     Extension                     Version   Plan",
+        " +   @acme/skills/code-review      1.4.0     install",
+        " ~   @acme/skills/triage           2.0.1     update",
+        " =   3 unchanged  --verbose to list",
+      ]);
+    });
+
+    it("stacks rather than drop a column that is not optional", () => {
+      expect(plain(ledger, 44)).toEqual([
+        " +   @acme/skills/code-review",
+        "     1.4.0 · install",
+        " ~   @acme/skills/triage",
+        "     2.0.1 · update",
+        " =   3 unchanged  --verbose to list",
+      ]);
+    });
+
+    it("indents a nested row's name inside the name column", () => {
+      const nested: Doc = [
+        {
+          _tag: "ledger",
+          columns: [
+            { header: "", role: "name" },
+            { header: "", role: "fixed", priority: "required" },
+          ],
+          rows: [
+            { mark: "ok", cells: ["@acme/packs/review-kit", "installed"] },
+            { mark: "ok", depth: 1, cells: ["@acme/skills/code-review", "installed"] },
+          ],
+        },
+      ];
+      expect(plain(nested, 80)).toEqual([
+        " ✔   @acme/packs/review-kit        installed",
+        " ✔     @acme/skills/code-review    installed",
+      ]);
+    });
+
+    it("paints a status mark and a change mark from the same gutter", () => {
+      const marks: Doc = [
+        {
+          _tag: "ledger",
+          columns: [{ header: "", role: "name" }],
+          rows: [
+            { mark: "ok", cells: ["published"] },
+            { mark: "error", cells: ["refused"] },
+            { mark: "failed", cells: ["timed out"] },
+          ],
+        },
+      ];
+      expect(plain(marks, 80)).toEqual([" ✔   published", " ✖   refused", " ×   timed out"]);
+    });
+
+    it("keeps the lane and natural widths, and never stacks, when unbounded", () => {
+      expect(plain(ledger, "unbounded")).toEqual([
+        "     Extension                     Version   Plan      Detail",
+        " +   @acme/skills/code-review      1.4.0     install   42 files",
+        " ~   @acme/skills/triage           2.0.1     update    from 1.9.4",
+        " =   3 unchanged  --verbose to list",
+      ]);
+    });
+
+    it("paints an answer's value at the value column, or below a label too long for it", () => {
+      const answers: Doc = [
+        { _tag: "answer", mark: "ok", label: "Instructions source", value: "AGENTS.md" },
+        { _tag: "answer", mark: "dim", label: "Agents", value: "claude-code, codex" },
+      ];
+      expect(plain(answers, 80)).toEqual([
+        " ✔   Instructions source           AGENTS.md",
+        "     Agents                        claude-code, codex",
+      ]);
+      expect(
+        plain(
+          [
+            {
+              _tag: "answer",
+              mark: "ok",
+              label: "A question longer than the key lane allows",
+              value: "yes",
+            },
+          ],
+          80,
+        ),
+      ).toEqual([" ✔   A question longer than the key lane allows", "       yes"]);
     });
   });
 

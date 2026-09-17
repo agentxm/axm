@@ -26,6 +26,37 @@ export const everyNode: Doc = [
     ],
   },
   {
+    _tag: "ledger",
+    columns: [
+      { header: "Extension", role: "name" },
+      { header: "Version", role: "fixed", priority: "preferred" },
+      { header: "Status", role: "fixed", priority: "required" },
+      { header: "Detail", role: "elastic", priority: "optional" },
+    ],
+    rows: [
+      {
+        id: "@acme/packs/review-kit",
+        mark: "ok",
+        cells: ["@acme/packs/review-kit", "2.1.0", "installed", "2 members"],
+        children: [{ _tag: "paragraph", tone: "dim", text: "claude-code: projected" }],
+      },
+      {
+        id: "@acme/skills/code-review",
+        mark: "create",
+        depth: 1,
+        cells: ["@acme/skills/code-review", "1.4.0", "installed", "42 files"],
+      },
+      {
+        id: "@acme/skills/triage",
+        mark: "failed",
+        cells: ["@acme/skills/triage", "2.0.1", "failed", "the registry refused the request"],
+      },
+    ],
+    folded: { mark: "unchanged", count: 3, noun: "unchanged", hint: "--verbose to list" },
+  },
+  { _tag: "answer", mark: "ok", label: "Instructions source", value: "AGENTS.md" },
+  { _tag: "answer", mark: "dim", label: "Agents", value: "claude-code, codex" },
+  {
     _tag: "collapsed",
     change: "unchanged",
     count: 2,

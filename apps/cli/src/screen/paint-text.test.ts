@@ -383,7 +383,9 @@ describe("paintText", () => {
       });
       expect(lines).toHaveLength(5);
       for (const line of lines) {
-        expect(line.slice(0, 5), line).toMatch(/^ \S {3}$/u);
+        // A mark is one to three cells — ✔ or `ok` or `[-]` — and the gutter
+        // fills the rest, so content starts at column six under either set.
+        expect(line.slice(0, 5), line).toMatch(/^ \S{1,3} *$/u);
         expect(line.charAt(5), line).not.toBe(" ");
       }
     });
@@ -394,7 +396,7 @@ describe("paintText", () => {
         { _tag: "blank" },
         { _tag: "headline", tone: "ok", text: "Uninstalled 1 skill", aside: "0.5s" },
       ];
-      expect(plain(verdict, 80)).toEqual([" –   alpha   removed", "", "Uninstalled 1 skill  0.5s"]);
+      expect(plain(verdict, 80)).toEqual([" -   alpha   removed", "", "Uninstalled 1 skill  0.5s"]);
       expect(paintText(verdict, { width: 80, colors: true }).join("\n")).toContain(
         "\u001b[1m\u001b[32mUninstalled",
       );
@@ -605,7 +607,7 @@ describe("paintText", () => {
           ],
         },
       ];
-      expect(plain(marks, 80)).toEqual([" ✔   published", " ✖   refused", " ×   timed out"]);
+      expect(plain(marks, 80)).toEqual([" ✔   published", " ✖   refused", " ✖   timed out"]);
     });
 
     it("keeps the lane and natural widths, and never stacks, when unbounded", () => {
@@ -725,12 +727,12 @@ describe("paintText", () => {
   it("paints the ASCII document layout", () => {
     const lines = paintText(everyNodeDocument, { width: 80, colors: false, glyphs: asciiGlyphs });
     expect(lines.slice(0, 7)).toEqual([
-      " +   Ready",
+      " ok  Ready",
       "部署 package is ready for review",
       " +   alpha   created",
       " ~   beta   updated",
       " =   2 unchanged",
-      " !   Warning",
+      " !!  Warning",
       "     Check permissions",
     ]);
     expect(lines).toContain("`- root  managed");

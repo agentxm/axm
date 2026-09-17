@@ -3,15 +3,15 @@
  +   alpha   created
  ~   beta      updated
      codex: projected at .codex/skills/beta
- –   gamma     removed
+ -   gamma     removed
  ▲   delta     blocked   a precondition is not met
- ×   epsilon   failed
+ ✖   epsilon   failed
  ↶   zeta      rolled back
      Extension                     Version   Status      Detail
  ✔   @acme/packs/review-kit        2.1.0     installed   2 members
      claude-code: projected
  +     @acme/skills/code-review    1.4.0     installed   42 files
- ×   @acme/skills/triage           2.0.1     failed      the registry refused
+ ✖   @acme/skills/triage           2.0.1     failed      the registry refused
                                                          the request
  =   3 unchanged  --verbose to list
  ✔   Instructions source           AGENTS.md

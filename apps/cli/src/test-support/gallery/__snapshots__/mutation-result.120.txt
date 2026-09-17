@@ -6,7 +6,7 @@
  ~   @craigsmitham/field-notes   0.2.3 → 0.2.4   updated   6 files
      agent_extensions/agentxm/@craigsmitham/skills/field-notes
      cursor: blocked at .cursor/skills/field-notes — hand-authored file at the target path
- –   @agentxm/knowledge/legacy   1.0.0           removed
+ -   @agentxm/knowledge/legacy   1.0.0           removed
      agent_extensions/agentxm/@agentxm/knowledge/legacy
  =   5 skills already current  --verbose to list
 1 warning

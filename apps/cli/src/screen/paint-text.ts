@@ -40,6 +40,20 @@ const FLEX_MIN_WIDTH = 16;
 export interface Glyphs {
   readonly status: Readonly<Record<Exclude<Tone, "neutral" | "dim">, string>>;
   readonly change: Readonly<Record<Change, string>>;
+  /**
+   * Marks that stand for interaction and unit progress rather than an outcome:
+   * the question a prompt asks, the caret before the answer being edited, a
+   * unit that is running or has not started, and the three states of a choice.
+   */
+  readonly marks: {
+    readonly prompt: string;
+    readonly caret: string;
+    readonly working: string;
+    readonly waiting: string;
+    readonly selected: string;
+    readonly unselected: string;
+    readonly partial: string;
+  };
   readonly tree: {
     readonly branch: string;
     readonly last: string;
@@ -55,27 +69,50 @@ export const unicodeGlyphs: Glyphs = {
   change: {
     create: "+",
     update: "~",
-    remove: "–",
+    remove: "-",
     unchanged: "=",
     blocked: "▲",
-    failed: "×",
+    failed: "✖",
     "rolled-back": "↶",
+  },
+  marks: {
+    prompt: "?",
+    caret: "❯",
+    working: "◒",
+    waiting: "·",
+    selected: "◉",
+    unselected: "◯",
+    partial: "◪",
   },
   tree: { branch: "├─ ", last: "└─ ", pipe: "│  ", space: "   " },
   separator: " · ",
 };
 
-/** Seven-bit glyphs for terminals and locales without Unicode symbol support. */
+/**
+ * Seven-bit glyphs for terminals and locales without Unicode symbol support.
+ * Status is two letters so `+` always means created and never doubles as an
+ * outcome, and every mark still fits the five-column gutter, so the two sets
+ * lay out identically.
+ */
 export const asciiGlyphs: Glyphs = {
-  status: { ok: "+", warn: "!", error: "x", info: "*" },
+  status: { ok: "ok", warn: "!!", error: "xx", info: ".." },
   change: {
     create: "+",
     update: "~",
     remove: "-",
     unchanged: "=",
-    blocked: "!",
-    failed: "x",
+    blocked: "!!",
+    failed: "xx",
     "rolled-back": "<",
+  },
+  marks: {
+    prompt: "?",
+    caret: ">",
+    working: "..",
+    waiting: ".",
+    selected: "[x]",
+    unselected: "[ ]",
+    partial: "[-]",
   },
   tree: { branch: "|- ", last: "`- ", pipe: "|  ", space: "   " },
   separator: " - ",

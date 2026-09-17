@@ -2,7 +2,7 @@
 Registry returned 502 Bad Gateway for @craigsmitham/effect-v4@0.4.2 after 3
 attempts (network)
  ↶   @craigsmitham/field-notes    0.2.4     rolled back   effects were restored
- ×   @craigsmitham/effect-v4      0.4.2     failed        Registry returned 502
+ ✖   @craigsmitham/effect-v4      0.4.2     failed        Registry returned 502
                                                           Bad Gateway (network)
  ▲   @agentxm/knowledge/agentxm   blocked   not attempted: an earlier step
                                             failed

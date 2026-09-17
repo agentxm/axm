@@ -115,18 +115,23 @@ a copyable `next` command. Blocked, partial, and interrupted outcomes reuse the
 ledger rather than a bespoke layout.
 
 Glyph width is measured, not trusted. ✔ ✖ ◒ ◓ ↶ ❯ ◉ ◪ are Neutral in Unicode
-East Asian Width. ▲ ● · … are Ambiguous: they resolve to one cell outside East
-Asian contexts, so they are measured as one, but they appear only in the gutter
-so a terminal that draws them two cells wide shifts nothing but the gutter. The
-spinner uses only the Neutral frames ◒ and ◓ so its width never changes between
-frames. `AXM_ASCII=1` is the escape for a terminal that still misdraws them.
+East Asian Width. ▲ ● ◯ · … and the tree connectors are Ambiguous: they resolve
+to one cell outside East Asian contexts, so they are measured as one. Every
+ambiguous mark paints in the gutter, which absorbs it: a terminal that draws ▲
+two cells wide shifts only that row's content. The separator, the middle
+ellipsis of a shortened name, and the tree connectors are the ones that paint
+inline instead, where a two-cell render pushes the rest of their own line
+right. The spinner uses only the Neutral frames ◒ and ◓ so its width never
+changes between frames. `AXM_ASCII=1` is the escape for a terminal that still
+misdraws them.
 
 An ASCII glyph set replaces the symbols when the terminal cannot be trusted to
 render them: when `TERM` is `dumb`, when the locale does not declare UTF-8, or
 when `AXM_ASCII=1` forces it. ASCII status is two letters — `ok`, `!!`, `xx`,
 and `..` — so `+` always means created and never collides with a status. The
-tri-state selection mark is `[-]`. Every ASCII mark fits the same five-column
-gutter, so layout is identical under both sets.
+caret is `>`, and a selection is `[x]` selected, `[ ]` unselected, and `[-]`
+partially selected. Every ASCII mark fits the same five-column gutter, so
+layout is identical under both sets.
 
 ## Color and animation
 

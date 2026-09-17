@@ -19,7 +19,7 @@
      .cursor/skills/field-notes —
      hand-authored file at the target
      path
- –   @agentxm/knowledge/legacy
+ -   @agentxm/knowledge/legacy
      1.0.0
      removed
      agent_extensions/agentxm/@agentxm/k

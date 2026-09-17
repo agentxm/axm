@@ -7,7 +7,7 @@ attempts (network)
      0.2.4
      rolled back
      effects were restored
- ×   @craigsmitham/effect-v4
+ ✖   @craigsmitham/effect-v4
      0.4.2
      failed
      Registry returned 502 Bad Gateway

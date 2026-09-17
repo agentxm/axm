@@ -17,7 +17,12 @@ const CURSOR_HIDE = `${ESC}?25l`;
 const CURSOR_SHOW = `${ESC}?25h`;
 const ERASE_LINE = `\r${ESC}2K`;
 const CURSOR_UP = `${ESC}1A`;
-const SPINNERS = ["◒", "◐", "◓", "◑"] as const;
+/**
+ * The frames a running unit animates through. Both are Neutral in Unicode
+ * East Asian Width, so the spinner occupies one cell in every terminal and its
+ * width never changes between frames; ◐ and ◑ are Ambiguous and were dropped.
+ */
+export const spinnerFrames = ["◒", "◓"] as const;
 
 /**
  * The single terminal owner's live region and transcript. Transcript writes
@@ -92,7 +97,7 @@ export const FrameLive = (options: FrameOptions): Layer.Layer<Frame, never, Outp
             : liveProgressLines(current.progress, {
                 width: facts.columns,
                 colors: options.colors,
-                spinner: SPINNERS[current.spinner % SPINNERS.length] ?? SPINNERS[0],
+                spinner: spinnerFrames[current.spinner % spinnerFrames.length] ?? spinnerFrames[0],
                 nowMs,
                 ...(options.glyphs === undefined ? {} : { glyphs: options.glyphs }),
               });

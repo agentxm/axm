@@ -72,7 +72,7 @@ describe("terminal design gallery", () => {
     for (const line of lines) {
       // Content may carry non-ASCII text (names, wide characters, em dashes);
       // the painter's own glyphs, connectors, and separators must not.
-      expect(line).not.toMatch(/[✔▲✖●–×↶├└│·]/u);
+      expect(line).not.toMatch(/[✔▲✖●↶◒◓◉◯◪❯├└│·]/u);
     }
   });
 

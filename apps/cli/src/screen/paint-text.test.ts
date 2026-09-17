@@ -640,6 +640,86 @@ describe("paintText", () => {
         ),
       ).toEqual([" ✔   A question longer than the key lane allows", "       yes"]);
     });
+
+    it("shortens a long name in the middle, keeping its scope and last segment", () => {
+      const long: Doc = [
+        {
+          _tag: "ledger",
+          columns: columns.slice(0, 3),
+          rows: [
+            {
+              id: "@acme-enterprise/skills/audits/soc2-review",
+              mark: "create",
+              cells: ["@acme-enterprise/skills/audits/soc2-review", "1.4.0", "install"],
+            },
+            {
+              id: "@acme/skills/code-review",
+              mark: "create",
+              cells: ["@acme/skills/code-review", "1.4.0", "install"],
+            },
+          ],
+        },
+      ];
+      expect(plain(long, 60)).toEqual([
+        "     Extension                             Version   Plan",
+        " +   @acme-enterprise/…/soc2-review        1.4.0     install",
+        " +   @acme/skills/code-review              1.4.0     install",
+      ]);
+      // The name that fits is untouched, and both versions stay in one column.
+      expect(plain(long, 60)[1]?.indexOf("1.4.0")).toBe(plain(long, 60)[2]?.indexOf("1.4.0"));
+    });
+  });
+
+  describe("copyable values", () => {
+    const url = "https://agentxm.ai/auth/publish-requests/pubreq_8f3k2q7d1m4x";
+
+    it("keeps a copyable value whole on its own line, overflowing the width", () => {
+      const doc: Doc = [{ _tag: "paragraph", text: [{ text: url, copyable: true }] }];
+      expect(plain(doc, 40)).toEqual([url]);
+    });
+
+    it("never splits a copyable value at its spaces", () => {
+      const command = "axm install @acme-enterprise/skills/soc2-evidence-review --yes";
+      const doc: Doc = [
+        {
+          _tag: "paragraph",
+          text: [
+            { text: "Run", tone: "dim" },
+            { text: command, copyable: true },
+          ],
+        },
+      ];
+      expect(plain(doc, 60)).toEqual(["Run", command]);
+    });
+
+    it("gives a next command a line of its own rather than cut it", () => {
+      const doc: Doc = [
+        {
+          _tag: "next",
+          actions: [
+            {
+              description: "Install the reviewed extension",
+              cmd: "axm install @acme-enterprise/skills/soc2-evidence-review --yes",
+            },
+          ],
+        },
+      ];
+      expect(plain(doc, 60)).toEqual([
+        "Next",
+        "  Install the reviewed extension",
+        "    axm install @acme-enterprise/skills/soc2-evidence-review --yes",
+      ]);
+    });
+
+    it("still joins a next command that fits", () => {
+      const doc: Doc = [
+        {
+          _tag: "next",
+          actions: [{ description: "Inspect installed skills", cmd: "axm skills list" }],
+        },
+      ];
+      expect(plain(doc, 80)).toEqual(["Next", "  Inspect installed skills · axm skills list"]);
+    });
   });
 
   it("paints the ASCII document layout", () => {

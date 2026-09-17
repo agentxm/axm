@@ -18,7 +18,7 @@ import type {
 } from "./doc.js";
 import { joinGridLine, layoutTable, type LayoutColumn, type TableLayout } from "./table-layout.js";
 import { displayWidth, padDisplay } from "./width.js";
-import { longestWordWidth, visibleText, wrapText } from "./wrap-text.js";
+import { longestWordWidth, truncateText, visibleText, wrapText } from "./wrap-text.js";
 
 const ESC = "\u001b[";
 const RESET = `${ESC}0m`;
@@ -482,7 +482,10 @@ const ledgerColumn = (column: LedgerColumn, cells: ReadonlyArray<Text>): LayoutC
   );
   if (column.role === "name") {
     const naturalWidth = Math.max(laid.naturalWidth, KEY_WIDTH);
-    return { ...laid, naturalWidth, minWidth: Math.min(naturalWidth, KEY_WIDTH) };
+    const minWidth = Math.min(naturalWidth, KEY_WIDTH);
+    // A name gives way in the middle instead of wrapping, so one long unbroken
+    // name never holds the column wider than the key lane.
+    return { ...laid, naturalWidth, minWidth, wordWidth: Math.min(laid.wordWidth, minWidth) };
   }
   return column.role === "fixed" ? { ...laid, minWidth: laid.naturalWidth } : laid;
 };
@@ -573,11 +576,19 @@ const paintLedger = (
     ];
   }
   const headers = node.columns.map((column) => column.header);
+  // The name column keeps its scope and last path segment; it is the one cell
+  // the painter shortens rather than wraps.
+  const shortensName = node.columns[0]?.role === "name" && layout.columns[0]?.index === 0;
   const rowCells = (row: LedgerRow): ReadonlyArray<PaintedCell> => {
     const cells = gridCells(layout, row.cells);
     const lead = depthLead(row);
     const [name, ...rest] = cells;
-    return lead === 0 || name === undefined ? cells : [{ ...name, lead }, ...rest];
+    if (name === undefined) return cells;
+    const shortened =
+      shortensName && name.width !== "unbounded"
+        ? { ...name, text: truncateText(name.text, name.width - lead, "middle") }
+        : name;
+    return lead === 0 ? [shortened, ...rest] : [{ ...shortened, lead }, ...rest];
   };
   return [
     ...(headers.some((header) => visibleText(header).length > 0)
@@ -793,17 +804,23 @@ const paintNode = (
       return [
         `${spaces(content)}${dim("Next", style)}`,
         ...node.actions.flatMap((action) => {
-          const target = actionTarget(action);
+          // A next command or URL is copied and run, so it is never cut: it
+          // takes a line of its own and overflows rather than wrap.
+          const targetText = actionTarget(action);
+          const target: ReadonlyArray<Span> = [{ text: targetText, copyable: true }];
           const lines = paintPrefixed(action.description, style, {
             indent: content + 2,
             first: "",
           });
-          return target.length === 0
+          return targetText.length === 0
             ? lines
-            : withTrailing(lines, `${glyphs.separator.trimStart()}${target}`, style, content + 4, {
-                gap: " ",
-                ownLine: target,
-              });
+            : withTrailing(
+                lines,
+                [{ text: glyphs.separator.trimStart() }, ...target],
+                style,
+                content + 4,
+                { gap: " ", ownLine: target },
+              );
         }),
       ];
     case "summary": {

@@ -13,6 +13,12 @@ export interface Span {
   readonly tone?: Tone;
   readonly bold?: boolean;
   readonly link?: string;
+  /**
+   * A value a person copies out of the terminal — a URL, a command, a one-time
+   * code, a request identifier. The painter never wraps, splits, or truncates
+   * one: it moves to a line of its own and overflows the width instead.
+   */
+  readonly copyable?: true;
 }
 
 export type Text = string | ReadonlyArray<Span>;

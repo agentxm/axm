@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { stripTerminalFormatting } from "../../screen/output-policy.js";
 import { asciiGlyphs, paintText } from "../../screen/paint-text.js";
 import { displayWidth } from "../../screen/width.js";
+import { copyableValues } from "../conformance/conformance-suite.js";
 import { paintFixture, type GalleryFixture, type TerminalSize } from "./fixture.js";
 import { gallery, galleryHeights, galleryWidths } from "./index.js";
 
@@ -33,8 +34,19 @@ describe("terminal design gallery", () => {
     const lines = paintFixture(fixture, terminal, { colors: false });
     // A live line that reaches the last column wraps, so a scene stops one short.
     const width = fixture._tag === "document" ? terminal.columns : terminal.columns - 1;
+    // A copyable value is never cut: it is shown whole and may overflow. A
+    // live scene carries none, so every line of a scene fits.
+    const copyable = fixture._tag === "document" ? copyableValues(fixture.doc) : [];
+    for (const value of copyable) {
+      expect(
+        lines.some((line) => line.includes(value)),
+        `${label} cut a copyable value: ${value}`,
+      ).toBe(true);
+    }
     for (const line of lines) {
-      expect(displayWidth(line), `${label}: ${line}`).toBeLessThanOrEqual(width);
+      if (!copyable.some((value) => line.includes(value))) {
+        expect(displayWidth(line), `${label}: ${line}`).toBeLessThanOrEqual(width);
+      }
       expect(line, `${label} trailing whitespace: ${JSON.stringify(line)}`).not.toMatch(/\s$/u);
     }
     if (fixture._tag === "scene") {

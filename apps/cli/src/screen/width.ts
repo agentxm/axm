@@ -40,21 +40,83 @@ export const padDisplay = (
   return align === "right" ? `${padding}${value}` : `${value}${padding}`;
 };
 
-export const truncateDisplay = (value: string, width: number): string => {
-  if (width <= 0) return "";
-  if (displayWidth(value) <= width) return value;
-  if (width === 1) return "…";
+/** Display width of one character, for walking a string column by column. */
+const characterWidth = (character: string): number => {
+  const codePoint = character.codePointAt(0);
+  return codePoint !== undefined && isWideCodePoint(codePoint) ? 2 : 1;
+};
 
+/** The longest prefix of `value` no wider than `width`, never splitting a character. */
+export const takeDisplayStart = (value: string, width: number): string => {
   let result = "";
   let used = 0;
   for (const character of stripTerminalFormatting(value)) {
-    const codePoint = character.codePointAt(0);
-    const characterWidth = codePoint !== undefined && isWideCodePoint(codePoint) ? 2 : 1;
-    if (used + characterWidth > width - 1) break;
+    const size = characterWidth(character);
+    if (used + size > width) break;
     result += character;
-    used += characterWidth;
+    used += size;
   }
-  return `${result}…`;
+  return result;
+};
+
+/** The longest suffix of `value` no wider than `width`, never splitting a character. */
+export const takeDisplayEnd = (value: string, width: number): string => {
+  let result = "";
+  let used = 0;
+  const characters = [...stripTerminalFormatting(value)];
+  for (let index = characters.length - 1; index >= 0; index -= 1) {
+    const character = characters[index] ?? "";
+    const size = characterWidth(character);
+    if (used + size > width) break;
+    result = `${character}${result}`;
+    used += size;
+  }
+  return result;
+};
+
+/**
+ * Where a value gives way when it is wider than its column: `"end"` keeps the
+ * start, `"middle"` keeps both ends. A name shortens in the middle so its
+ * scope and its last path segment — the parts that tell two names apart —
+ * both survive.
+ */
+export type TruncateMode = "end" | "middle";
+
+const SEPARATOR = "/";
+
+/**
+ * Shorten a path-like name from its middle: keep the scope whole and drop as
+ * few trailing segments as the width allows (`@acme-enterprise/…/soc2-review`),
+ * and once the scope itself no longer fits, keep the last segment — the part
+ * that tells two names apart — and give what is left to the scope. Undefined
+ * when the value is one segment, or too narrow for even the last one.
+ */
+const shortenPath = (value: string, width: number): string | undefined => {
+  const [first, ...rest] = value.split(SEPARATOR);
+  if (first === undefined || rest.length === 0) return undefined;
+  for (let kept = rest.length - 1; kept >= 1; kept -= 1) {
+    const candidate = `${first}${SEPARATOR}…${SEPARATOR}${rest.slice(rest.length - kept).join(SEPARATOR)}`;
+    if (displayWidth(candidate) <= width) return candidate;
+  }
+  const tail = `…${SEPARATOR}${rest[rest.length - 1] ?? ""}`;
+  const head = takeDisplayStart(value, width - displayWidth(tail));
+  return head.length === 0 ? undefined : `${head}${tail}`;
+};
+
+export const truncateDisplay = (
+  value: string,
+  width: number,
+  mode: TruncateMode = "end",
+): string => {
+  if (width <= 0) return "";
+  if (displayWidth(value) <= width) return value;
+  if (width === 1) return "…";
+  if (mode === "end") return `${takeDisplayStart(value, width - 1)}…`;
+
+  const segmented = shortenPath(value, width);
+  if (segmented !== undefined) return segmented;
+  const head = Math.ceil((width - 1) / 2);
+  return `${takeDisplayStart(value, head)}…${takeDisplayEnd(value, width - 1 - head)}`;
 };
 
 const splitLongWord = (word: string, width: number): ReadonlyArray<string> => {

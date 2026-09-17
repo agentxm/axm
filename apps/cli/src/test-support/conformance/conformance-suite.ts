@@ -23,11 +23,13 @@ const ESCAPE = "\u001b";
 
 const textOf = (value: Text): string => visibleText(value);
 
-/** Every text value a document carries, in document order. */
-export const collectTexts = (doc: Doc): ReadonlyArray<string> => {
-  const texts: Array<string> = [];
+/**
+ * Visit every text value a document carries, in document order, saying which
+ * of them a person copies out of the terminal.
+ */
+const forEachText = (doc: Doc, visit: (value: Text, copyable: boolean) => void): void => {
   const pushText = (value: Text | undefined): void => {
-    if (value !== undefined) texts.push(textOf(value));
+    if (value !== undefined) visit(value, false);
   };
   const walkTree = (items: ReadonlyArray<TreeItem>): void => {
     for (const item of items) {
@@ -59,7 +61,7 @@ export const collectTexts = (doc: Doc): ReadonlyArray<string> => {
           row.children?.forEach(walk);
         });
         if (node.folded !== undefined) {
-          texts.push(node.folded.noun);
+          visit(node.folded.noun, false);
           pushText(node.folded.hint);
         }
         return;
@@ -68,8 +70,8 @@ export const collectTexts = (doc: Doc): ReadonlyArray<string> => {
         pushText(node.value);
         return;
       case "collapsed":
-        texts.push(node.noun);
-        if (node.hint !== undefined) texts.push(node.hint);
+        visit(node.noun, false);
+        if (node.hint !== undefined) visit(node.hint, false);
         return;
       case "callout":
         pushText(node.title);
@@ -92,9 +94,10 @@ export const collectTexts = (doc: Doc): ReadonlyArray<string> => {
         return;
       case "next":
         node.actions.forEach((action) => {
-          texts.push(action.description);
-          if (action.cmd !== undefined) texts.push(action.cmd);
-          if (action.url !== undefined) texts.push(action.url);
+          visit(action.description, false);
+          // A next command or URL is copied and run: the painter marks it copyable.
+          if (action.cmd !== undefined) visit(action.cmd, true);
+          if (action.url !== undefined) visit(action.url, true);
         });
         return;
       case "summary":
@@ -106,14 +109,38 @@ export const collectTexts = (doc: Doc): ReadonlyArray<string> => {
         return;
       case "markdown":
       case "raw":
-        texts.push(node.content);
+        visit(node.content, false);
         return;
       case "blank":
         return;
     }
   };
   doc.forEach(walk);
+};
+
+/** Every text value a document carries, in document order. */
+export const collectTexts = (doc: Doc): ReadonlyArray<string> => {
+  const texts: Array<string> = [];
+  forEachText(doc, (value) => texts.push(textOf(value)));
   return texts;
+};
+
+/**
+ * The values a document promises to show whole: URLs, commands, one-time codes
+ * and request identifiers. A value cut to fit cannot be copied and used, so
+ * these are the only content a painter may overflow the width with.
+ */
+export const copyableValues = (doc: Doc): ReadonlyArray<string> => {
+  const values: Array<string> = [];
+  forEachText(doc, (value, copyable) => {
+    if (copyable) {
+      values.push(textOf(value));
+      return;
+    }
+    if (typeof value === "string") return;
+    for (const span of value) if (span.copyable === true) values.push(span.text);
+  });
+  return values;
 };
 
 /** Lines a painter passes through verbatim: the content of `raw` and `markdown` nodes. */
@@ -138,7 +165,8 @@ const verbatimLines = (doc: Doc): ReadonlySet<string> => {
 
 /**
  * Width property: no painted line exceeds the width, except a line carried
- * verbatim from `raw` or `markdown` content.
+ * verbatim from `raw` or `markdown` content, or one carrying a copyable value,
+ * which is shown whole and overflows rather than be cut.
  */
 export const widthViolations = (
   painter: Painter,
@@ -146,9 +174,15 @@ export const widthViolations = (
   width: number,
 ): ReadonlyArray<string> => {
   const verbatim = verbatimLines(doc);
+  const copyable = copyableValues(doc);
   return painter
     .paint(doc, { width, colors: false })
-    .filter((line) => displayWidth(line) > width && !verbatim.has(line.trim()));
+    .filter(
+      (line) =>
+        displayWidth(line) > width &&
+        !verbatim.has(line.trim()) &&
+        !copyable.some((value) => line.includes(value)),
+    );
 };
 
 /** Trailing whitespace is padding to a phantom width; no painted line carries it. */

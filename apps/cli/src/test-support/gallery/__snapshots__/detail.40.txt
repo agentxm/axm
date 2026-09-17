@@ -38,5 +38,4 @@ Next
   Update to the latest version
     axm update @craigsmitham/effect-v4
   Read the package page
-    https://axm.sh/@craigsmitham/effect-
-    v4
+    https://axm.sh/@craigsmitham/effect-v4

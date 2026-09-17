@@ -28,5 +28,4 @@ Next
   Check registry status
     https://status.axm.sh
   Report the failure with diagnostics
-    axm install @craigsmitham/effect-v4
-    --debug
+    axm install @craigsmitham/effect-v4 --debug

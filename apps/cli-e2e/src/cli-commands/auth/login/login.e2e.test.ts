@@ -67,15 +67,14 @@ const startDeviceAuthServer = async (initialOutcome: DeviceOutcome = "pending") 
           handle: "@alice",
           email: "alice@example.com",
         },
-        orgs: [],
         token: {
           id: "tok_01h455vb4pexka56gq5w2r7cpc",
           type: "session",
           name: null,
           permissions: null,
-          scopes: ["extensions:read", "account:read"],
-          resource_restrictions: { extensions: null },
+          authority: "account",
           expires_at: new Date(Date.now() + 3_600_000).toISOString(),
+          approved_at: new Date().toISOString(),
         },
       });
       return;

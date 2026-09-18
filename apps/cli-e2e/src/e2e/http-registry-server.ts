@@ -67,6 +67,8 @@ export interface HttpRegistry {
   readonly url: string;
   readonly publishes: ReadonlyArray<PublishRecord>;
   readonly requests: ReadonlyArray<RequestRecord>;
+  /** Every refresh token presented to the token endpoint, in order. */
+  readonly presentedRefreshTokens: ReadonlyArray<string>;
   /** Resolves when the next commit-then-hang upload has been stored. */
   readonly nextHungPublish: () => Promise<string>;
   /** Resolves when a download the server was told to hang has arrived. */
@@ -111,6 +113,17 @@ export interface HttpRegistryOptions {
   readonly publishPreviewMode?: "unavailable" | "incomplete" | "missing" | "service-unavailable";
   /** Map bearer tokens to the owner whose private extensions they may read. */
   readonly tokenOwners?: Readonly<Record<string, string>>;
+  /**
+   * Serve one signed-in session whose refresh tokens rotate with reuse
+   * detection: a refresh token is good once, and presenting a spent one ends
+   * the whole session. `GET /v1/auth/me` answers only the current access token.
+   */
+  readonly rotatingSession?: {
+    readonly accessToken: string;
+    readonly refreshToken: string;
+    /** Hold each grant open this long, so concurrent invocations overlap it. */
+    readonly grantDelayMs: number;
+  };
 }
 
 interface StoredVersion {
@@ -354,6 +367,15 @@ export const startHttpRegistry = async (
     for (const resolve of waiters) resolve(hungKey);
   };
   const requests: Array<RequestRecord> = [];
+  const presentedRefreshTokens: Array<string> = [];
+  let session =
+    options.rotatingSession === undefined
+      ? undefined
+      : {
+          accessToken: options.rotatingSession.accessToken,
+          refreshToken: options.rotatingSession.refreshToken,
+          rotations: 0,
+        };
   const tokenOwners: Readonly<Record<string, string>> = {
     "e2e-test-token": TEST_OWNER,
     ...options.tokenOwners,
@@ -377,6 +399,69 @@ export const startHttpRegistry = async (
     });
 
     void (async () => {
+      if (
+        options.rotatingSession !== undefined &&
+        request.method === "POST" &&
+        pathname === "/v1/auth/token"
+      ) {
+        const form = new URLSearchParams((await readBody(request)).toString("utf8"));
+        const presented = form.get("refresh_token") ?? "";
+        presentedRefreshTokens.push(presented);
+        await new Promise((resolve) => setTimeout(resolve, options.rotatingSession?.grantDelayMs));
+        if (session === undefined || presented !== session.refreshToken) {
+          // Reuse detection: a refresh token that is not the current one ends
+          // the session for every holder.
+          session = undefined;
+          sendJson(response, 400, {
+            kind: "TokenOAuthError",
+            error: "invalid_grant",
+            error_description: "Refresh token expired, revoked, or already used.",
+          });
+          return;
+        }
+        const rotations = session.rotations + 1;
+        session = {
+          accessToken: `${options.rotatingSession.accessToken}-r${String(rotations)}`,
+          refreshToken: `${options.rotatingSession.refreshToken}-r${String(rotations)}`,
+          rotations,
+        };
+        sendJson(response, 200, {
+          access_token: session.accessToken,
+          refresh_token: session.refreshToken,
+          token_type: "Bearer",
+          expires_in: 3600,
+          expires_at: "2099-01-01T00:00:00.000Z",
+        });
+        return;
+      }
+
+      if (
+        options.rotatingSession !== undefined &&
+        request.method === "GET" &&
+        pathname === "/v1/auth/me"
+      ) {
+        if (
+          session === undefined ||
+          request.headers.authorization !== `Bearer ${session.accessToken}`
+        ) {
+          sendProblem(response, 401, "The credential was rejected.");
+          return;
+        }
+        sendJson(response, 200, {
+          user: { id: "user_01h455vb4pexka56gq5w2r7cpc", handle: TEST_OWNER, email: null },
+          token: {
+            id: "ses_01h455vb4pexka56gq5w2r7cpc",
+            type: "session",
+            name: null,
+            permissions: null,
+            authority: "account",
+            expires_at: "2099-01-01T00:00:00.000Z",
+            approved_at: null,
+          },
+        });
+        return;
+      }
+
       if (options.stepUpTokenCreate === true && request.method === "POST") {
         if (pathname !== "/v1/tokens") {
           sendProblem(response, 404, `No POST route for ${pathname}`);
@@ -409,8 +494,7 @@ export const startHttpRegistry = async (
           id: "tok_01h455vb4pexka56gq5w2r7cpc",
           token: "axmt_step_up_e2e",
           name: "e2e-step-up",
-          scopes: ["extensions:read"],
-          permissions: { permission: "read" },
+          permissions: { model: "gat", owners: [], extensions: [], permission: "read" },
           created_at: "2026-08-10T15:00:00.000Z",
           expires_at: "2026-09-09T15:00:00.000Z",
         });
@@ -729,11 +813,21 @@ export const startHttpRegistry = async (
         return;
       }
 
-      const requesterOwner = (() => {
-        const authorization = request.headers.authorization;
-        if (authorization === undefined || !authorization.startsWith("Bearer ")) return undefined;
-        return tokenOwners[authorization.slice("Bearer ".length)];
-      })();
+      // A read is anonymous only when no credential was presented. A bearer
+      // this Registry cannot resolve is rejected, never served as anonymous.
+      const authorization = request.headers.authorization;
+      const requesterOwner =
+        authorization === undefined
+          ? undefined
+          : session !== undefined && authorization === `Bearer ${session.accessToken}`
+            ? TEST_OWNER
+            : authorization.startsWith("Bearer ")
+              ? tokenOwners[authorization.slice("Bearer ".length)]
+              : undefined;
+      if (authorization !== undefined && requesterOwner === undefined) {
+        sendProblem(response, 401, "The credential was rejected.");
+        return;
+      }
       const canRead = (owner: string, plural: string, name: string): boolean =>
         extensionVisibilities.get(key(owner, plural, name)) !== "private" ||
         requesterOwner === owner;
@@ -850,6 +944,7 @@ export const startHttpRegistry = async (
     url: `http://127.0.0.1:${address.port}`,
     publishes,
     requests,
+    presentedRefreshTokens,
     copyVersion: (owner, plural, name, sourceVersion, targetVersion) => {
       const extensionKey = key(owner, plural, name);
       const versions = extensions.get(extensionKey) ?? [];

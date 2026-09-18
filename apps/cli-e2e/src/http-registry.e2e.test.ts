@@ -42,10 +42,9 @@ const TOKEN = "e2e-test-token";
 
 /**
  * `AXM_TOKEN` is only honored for the origin AXM treats as its default
- * registry, so pointing `AXM_REGISTRY_URL` at the harness is what keeps publish
- * non-interactive. Without it the CLI falls through to the browser-based
- * publish authorization flow, which an e2e run cannot complete. This mirrors
- * how a self-hosted registry is configured.
+ * registry, so pointing `AXM_REGISTRY_URL` at the harness is what lets publish
+ * carry the token. Without it the invocation is signed out and publish refuses
+ * before uploading. This mirrors how a self-hosted registry is configured.
  */
 const registryTargetEnv = (location: string): Record<string, string> =>
   location.startsWith("file:")

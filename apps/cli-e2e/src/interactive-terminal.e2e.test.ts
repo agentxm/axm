@@ -268,7 +268,7 @@ describe.skipIf(!ptyIsSupported)("setup's instructions source under a pseudo-ter
         ...Array.from({ length: refused.length }, () => ({ send: Keys.backspace })),
         { send: "docs/AGENTS.md" },
         { send: Keys.enter },
-        { awaiting: "Proceed?" },
+        { awaiting: "Apply setup?" },
         { send: "n" },
       ],
     });
@@ -290,7 +290,14 @@ describe.skipIf(!ptyIsSupported)("setup's instructions source under a pseudo-ter
     expect(result.transcript).toMatch(/✔ {3}Instructions file name +docs\/AGENTS\.md/u);
     expect(result.transcript).not.toMatch(/✔ {3}Instructions file name +\/abs\.md/u);
 
-    // Declining the plan writes nothing, and the terminal comes back.
+    // Setup opens with its title line, not a logo, and gates on a plan ledger.
+    expect(result.transcript).toContain("Setting up AXM in");
+    expect(result.transcript).toMatch(/Target +Plan +Detail/u);
+    expect(result.transcript).toMatch(/ {3}docs\/AGENTS\.md +\S/u);
+
+    // Declining the plan writes nothing, says so, and the terminal comes back.
+    expect(result.transcript).toMatch(/Apply setup +no/u);
+    expect(result.transcript).toMatch(/Setup cancelled +nothing was changed/u);
     expect(result.timedOut, result.transcript).toBe(false);
     expect(fs.existsSync(path.join(cwd, "axm.json"))).toBe(false);
     expect(result.rawModeRestored, "raw mode was not handed back").toBe(true);

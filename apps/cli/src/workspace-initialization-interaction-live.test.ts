@@ -190,7 +190,7 @@ describe("WorkspaceInitializationInteractionLive", () => {
       }).pipe(Effect.provide(harness.layer));
 
       expect(proceed).toBe(true);
-      expect(harness.script.asks[0]?.question).toBe("Proceed?");
+      expect(harness.script.asks[0]?.question).toBe("Apply setup?");
     }),
   );
 

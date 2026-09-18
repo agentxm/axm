@@ -4,7 +4,7 @@ import {
   type SetupOutcome,
 } from "@agentxm/workspace/configuration";
 import { agentFlag, isNonInteractive, jsonFlag, Verbosity } from "../cli-flags/index.js";
-import { Screen, errorDoc, headlineDoc, successDoc, suggestionsDoc } from "../screen/index.js";
+import { Screen, errorDoc } from "../screen/index.js";
 import { effectCliExit, withArgvTracking } from "../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { resolveTelemetryMode } from "../telemetry/index.js";
@@ -22,7 +22,6 @@ import {
   extensionLifecycleFailedToAppError,
 } from "../feature-errors.js";
 import { LearnMore, formatLearnMore } from "../formatter.js";
-import { BRANDING } from "../branding/index.js";
 import { ExecutionDirectory } from "../execution-directory.js";
 import { withRuntime, withWorkspace } from "../runtime.js";
 import { formatDisplayPath } from "./shared/display-path.js";
@@ -33,7 +32,7 @@ import {
   withCommandCapabilities,
   type CommandCapabilities,
 } from "./shared/command-capabilities.js";
-import { setupBrandingDoc, setupScopeSupportDoc, subagentSummaryDoc } from "./setup/view.js";
+import { setupResultDoc, setupTitleDoc } from "./setup/view.js";
 import { AXM_SKILL_VERSION } from "../__generated__/bundled-axm-skill.js";
 import { installBundledAxmSkill } from "@agentxm/workspace/lifecycle";
 
@@ -57,18 +56,6 @@ const SetupDocumentFields = {
 } satisfies Schema.Struct.Fields;
 export const SetupDocumentSchema = Schema.Struct(SetupDocumentFields);
 export type SetupDocument = typeof SetupDocumentSchema.Type;
-
-const renderSetupBranding = (screen: typeof Screen.Service) =>
-  Effect.gen(function* () {
-    const json = yield* jsonFlag;
-    if (Option.getOrElse(json, () => false)) return;
-    const nonInteractive = yield* isNonInteractive;
-    if (nonInteractive) return;
-    const verbosity = yield* Verbosity;
-    if (verbosity.level === "quiet") return;
-
-    yield* screen.note(setupBrandingDoc(BRANDING));
-  });
 
 const setupSuggestions = (args: {
   readonly status: SetupOutcome["status"];
@@ -140,19 +127,6 @@ const setupSuggestions = (args: {
   return suggestions;
 };
 
-const bundledSkillDisplayPath = (scope: WorkspaceScope): string =>
-  scope === "project"
-    ? "agent_extensions/agentxm/@agentxm/skills/axm"
-    : ".axm/workspace/agent_extensions/agentxm/@agentxm/skills/axm";
-
-const setupSkillFootprint = (scope: WorkspaceScope, targetPaths: ReadonlyArray<string>): string => {
-  const sourcePath = bundledSkillDisplayPath(scope);
-  const paths = [sourcePath, ...targetPaths];
-  return paths.length <= 3
-    ? paths.join(", ")
-    : `${sourcePath}, ${targetPaths.length} agent targets`;
-};
-
 export interface HandleSetupArgs {
   readonly scope: WorkspaceScope;
   readonly agents?: ReadonlyArray<string>;
@@ -165,7 +139,7 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
   const screen = yield* Screen;
   const path = yield* Path.Path;
   const executionDirectory = yield* ExecutionDirectory;
-  yield* renderSetupBranding(screen);
+  const verbosity = yield* Verbosity;
   const json = yield* jsonFlag;
   const machineOutput = Option.getOrElse(json, () => false);
   const nonInteractive = (yield* isNonInteractive) || machineOutput;
@@ -205,6 +179,19 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
     return yield* Effect.die(effectCliExit(ExitCode.Usage));
   }
 
+  // A scope that is already set up changes nothing, so its verdict stands
+  // alone; a first setup opens its record with the title line, ahead of the
+  // questions it asks.
+  if (!prepared.settingsExist && !machineOutput && verbosity.level !== "quiet") {
+    yield* screen.note(
+      setupTitleDoc({
+        preview: args.preview === true,
+        where: formatDisplayPath(path, path.dirname(prepared.settingsPath)),
+        scope: args.scope,
+      }),
+    );
+  }
+
   // The bundled AXM skill is a lifecycle installation, not a configuration
   // decision, so the application supplies it; setup applies it inside the
   // initialization closure so a skill that cannot be installed leaves no
@@ -231,85 +218,13 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
 
   if (yield* screen.document({ result }, SetupDocumentSchema, { suggestions })) return;
 
-  const message = result.message ?? "";
-  if (result.status === "cancelled") {
-    yield* screen.note(headlineDoc("info", message));
-    return;
-  }
-
-  if (result.agents.length === 0 && result.status !== "preview") {
-    yield* screen.note(
-      headlineDoc(
-        "warn",
-        `No coding-agent targets are configured. Run \`axm agents add --detected${result.scope === "user" ? " --scope user" : ""}\` to materialize installed extensions.`,
-      ),
-    );
-  }
-  yield* screen.result(successDoc(message));
-
-  const verbosity = yield* Verbosity;
-  if (verbosity.level !== "quiet") {
-    yield* screen.note(headlineDoc("info", `AXM setup (${result.scope})`));
-    if (result.agents.length > 0) {
-      yield* screen.note(
-        headlineDoc("info", `Agents: ${result.agents.map((agent) => agent.name).join(", ")}`),
-      );
-    }
-    yield* screen.note(
-      headlineDoc(
-        "info",
-        `Settings: ${
-          transition.location.scope === "user"
-            ? formatDisplayPath(path, transition.location.settingsPath)
-            : result.settingsPath
-        }`,
-      ),
-    );
-    if (result.instructions !== undefined) {
-      yield* screen.note(
-        headlineDoc(
-          "info",
-          result.instructions.enabled
-            ? `Instructions: ${result.instructions.fileName ?? "AGENTS.md"}`
-            : "Instructions: disabled",
-        ),
-      );
-    }
-    if (result.defaultSkillInstalled) {
-      const skillStep = result.steps.find((step) => step.label === "@agentxm/skills/axm");
-      const skillTargets = (skillStep?.artifact?.targets ?? [])
-        .filter((target) => target.agentIds !== undefined)
-        .map((target) => target.path);
-      yield* screen.note(
-        headlineDoc(
-          "info",
-          `Skill: @agentxm/skills/axm -> ${setupSkillFootprint(transition.location.scope, skillTargets)}`,
-        ),
-      );
-    }
-    yield* screen.note(setupScopeSupportDoc(transition.location.scope, result.scopeSupport));
-    yield* screen.note(
-      subagentSummaryDoc(result.subagentFiles ?? [], (directory) =>
-        formatDisplayPath(path, directory),
-      ),
-    );
-  }
-
-  if (verbosity.level !== "quiet") {
-    yield* screen.note(headlineDoc("info", ""));
-    yield* screen.note(
-      headlineDoc(
-        "info",
-        telemetryEnabled
-          ? "Telemetry is enabled to help improve AXM."
-          : "Telemetry is off unless you explicitly opt in.",
-      ),
-    );
-  }
-
-  if (verbosity.level !== "quiet") {
-    yield* screen.note(suggestionsDoc(suggestions));
-  }
+  yield* screen.result(
+    setupResultDoc(result, {
+      verbosity: verbosity.level,
+      suggestions,
+      displayDirectory: (directory) => formatDisplayPath(path, directory),
+    }),
+  );
 }, Effect.asVoid);
 
 const setupConfig = {

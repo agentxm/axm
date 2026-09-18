@@ -155,6 +155,7 @@ export {
   Verbs,
   agentOutcome,
   artifactChange,
+  artifactChangeMark,
   blockingClass,
   blockingHeadline,
   bytes,

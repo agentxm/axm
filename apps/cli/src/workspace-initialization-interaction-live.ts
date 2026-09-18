@@ -2,9 +2,9 @@
  * CLI implementation of the workspace-initialization interaction port.
  *
  * Owns the setup prompts and every piece of setup presentation wording: the
- * agent scan summary, retired-agent warnings, the setup-phases banner, and
- * the setup plan and scope-support tables. Prompt cancellations map into the
- * kernel-owned `WorkspaceInitializationCancelled`.
+ * agent scan line, retired-agent warnings, the plan ledger, and the apply
+ * gate. Prompt cancellations map into the kernel-owned
+ * `WorkspaceInitializationCancelled`.
  */
 
 import * as Effect from "effect/Effect";
@@ -27,7 +27,7 @@ import {
   type InstructionSourceChoice,
   type WorkspaceInitializationInteractionService,
 } from "@agentxm/workspace/configuration";
-import { setupAgentScanDoc, setupPlanDoc, setupScopeSupportDoc } from "./root/setup/view.js";
+import { setupAgentScanDoc, setupPlanDoc } from "./root/setup/view.js";
 
 const selectAgentsMessage = "Select agents to configure";
 const confirmInstructionSyncMessage = "Sync instructions to the selected agents?";
@@ -38,7 +38,7 @@ const instructionSourceNote =
 const customInstructionSourceMessage = "Instructions file name";
 const customInstructionSourceNote =
   "Relative to the project root. It will be created if it does not exist.";
-const confirmSetupPlanMessage = "Proceed?";
+const confirmSetupPlanMessage = "Apply setup?";
 
 const yesNo = (
   defaultsToYes: boolean,
@@ -86,7 +86,7 @@ const selectAgentsAsk = (facts: AgentFacts): PickAsk<ReadonlyArray<string>> =>
 const setupPlanAsk: ConfirmAsk<boolean> = {
   _tag: "Confirm",
   question: confirmSetupPlanMessage,
-  label: "Proceed",
+  label: "Apply setup",
   choices: yesNo(true),
 };
 
@@ -210,8 +210,6 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
           ),
       presentAgentScan: (scan) => screen.note(setupAgentScanDoc(scan)),
       presentSetupPlan: (rows) => screen.note(setupPlanDoc(rows)),
-      presentScopeSupport: (scope, categories) =>
-        screen.note(setupScopeSupportDoc(scope, categories)),
     } satisfies WorkspaceInitializationInteractionService;
   }),
 );

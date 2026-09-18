@@ -1,0 +1,23 @@
+Setting up AXM in ~/code/storefront  project scope
+ ✔   Scanned repo and machine      found 4 agents
+ ✔   Agents                        Claude Code, Codex, Cursor
+ ✔   Sync instructions             yes
+ ✔   Instructions source           AGENTS.md
+ ✔   Apply setup                   yes
+     Target                        Status            Detail
+ +   axm.json                      created
+ +   axm-lock.yaml                 created
+ ~   .gitignore                    updated
+ =   AGENTS.md                     already current
+ +   CLAUDE.md                     created
+ +   .cursor/rules/agents.mdc      created
+ +   @agentxm/skills/axm           created           0.31.1
+ +   .claude/skills/axm            created           Claude Code
+ +   .agents/skills/axm            created           Codex
+ +   .cursor/skills/axm            created           Cursor
+Set up AXM for 3 agents  8 created, 1 updated
+ ●   Some extension types are limited in project scope
+     Hook: AXM cannot write Cursor hooks yet.
+Next
+  Discover recommended extensions · axm discover
+  Preview workspace reconciliation · axm sync --preview

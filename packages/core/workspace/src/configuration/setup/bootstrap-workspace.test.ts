@@ -188,4 +188,25 @@ describe("bootstrapWorkspace", () => {
       expect(withApproval.promptState.selectInstructionSourceCalls).toEqual([]);
     }),
   );
+
+  it.effect("a declined instruction sync leaves every instruction row out of the plan", () =>
+    Effect.gen(function* () {
+      fs.mkdirSync(path.join(projectDir, ".claude"), { recursive: true });
+      const interaction = WorkspaceInitializationInteractionTest({
+        selectAgents: () => Effect.succeed(["claude-code"]),
+        confirmInstructionSync: () => Effect.succeed(false),
+        confirmSetupPlan: () => Effect.succeed(false),
+      });
+
+      yield* bootstrapWorkspace({ ...defaultOptions, nonInteractive: false }).pipe(
+        Effect.provide(Layer.mergeAll(NodeServices.layer, interaction.layer)),
+        Effect.scoped,
+      );
+
+      expect(interaction.state.selectInstructionSourceCalls).toEqual([]);
+      expect(interaction.state.presentSetupPlanCalls).toEqual([
+        [{ target: "axm.json", action: "create", detail: "agents: claude-code" }],
+      ]);
+    }),
+  );
 });

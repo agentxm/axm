@@ -1,0 +1,21 @@
+Previewing setup in ~/code/storefront
+  project scope
+ ✔   Scanned repo and machine
+                    found 4 agents
+ +   axm.json
+     create
+ ~   .gitignore
+     update
+ =   AGENTS.md
+     keep
+ +   CLAUDE.md
+     link
+ =   AGENTS.md
+     keep
+ +   .cursor/rules/agents.mdc
+     copy
+Would set up AXM for 3 agents
+  detected agents, nothing was written
+Next
+  Apply setup
+    axm setup --yes --scope project --agent claude-code --agent codex --agent cursor

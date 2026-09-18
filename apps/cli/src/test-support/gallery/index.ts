@@ -11,6 +11,15 @@ import { asciiGlyphs } from "../../screen/paint-text.js";
 import { inventory } from "./inventory.js";
 import { inventoryAltRows } from "./inventory-alt-rows.js";
 import { inventoryAltStacked } from "./inventory-alt-stacked.js";
+import { ledgerSetupPlayAgents } from "./ledger-setup-play--agents.js";
+import { ledgerSetupPlayCancelled } from "./ledger-setup-play--cancelled.js";
+import { ledgerSetupPlayDone } from "./ledger-setup-play--done.js";
+import { ledgerSetupPlayOther } from "./ledger-setup-play--other.js";
+import { ledgerSetupPlayPlan } from "./ledger-setup-play--plan.js";
+import { ledgerSetupPlayPlanWithoutSync } from "./ledger-setup-play--plan-without-sync.js";
+import { ledgerSetupPlaySource } from "./ledger-setup-play--source.js";
+import { ledgerSetupPlaySync } from "./ledger-setup-play--sync.js";
+import { setupPreview } from "./setup-preview.js";
 import { mutationResult } from "./mutation-result.js";
 import { mutationResultAltTable } from "./mutation-result-alt-table.js";
 import { mutationResultAltTree } from "./mutation-result-alt-tree.js";
@@ -110,6 +119,19 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
     doc: refPublishAlreadyPublished,
   },
   { _tag: "document", name: "ref-publish--nothing-selected", doc: refPublishNothingSelected },
+  { _tag: "document", name: "ledger-setup-play--agents", doc: ledgerSetupPlayAgents },
+  { _tag: "document", name: "ledger-setup-play--sync", doc: ledgerSetupPlaySync },
+  { _tag: "document", name: "ledger-setup-play--source", doc: ledgerSetupPlaySource },
+  { _tag: "document", name: "ledger-setup-play--other", doc: ledgerSetupPlayOther },
+  { _tag: "document", name: "ledger-setup-play--plan", doc: ledgerSetupPlayPlan },
+  {
+    _tag: "document",
+    name: "ledger-setup-play--plan-without-sync",
+    doc: ledgerSetupPlayPlanWithoutSync,
+  },
+  { _tag: "document", name: "ledger-setup-play--done", doc: ledgerSetupPlayDone },
+  { _tag: "document", name: "ledger-setup-play--cancelled", doc: ledgerSetupPlayCancelled },
+  { _tag: "document", name: "setup-preview", doc: setupPreview },
   { _tag: "document", name: "prompts--confirm-answered", doc: promptsConfirmAnswered },
   { _tag: "document", name: "prompts--choose-answered", doc: promptsChooseAnswered },
   { _tag: "document", name: "prompts--input-answered", doc: promptsInputAnswered },

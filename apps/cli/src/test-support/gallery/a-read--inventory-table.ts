@@ -30,7 +30,6 @@ const item = (
  */
 export const aReadInventoryTable: Doc = listDoc({
   filter: "all",
-  empty: [],
   items: [
     item("@acme/skills/code-review", "skill", { version: "1.4.0" }),
     item("@acme/skills/triage", "skill", { version: "2.0.1" }),

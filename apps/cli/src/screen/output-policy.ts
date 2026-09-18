@@ -12,18 +12,10 @@ export interface CliOutputPolicy {
   /** ANSI styling on stderr: only when stderr is itself a terminal. */
   readonly stderrColors: boolean;
   readonly animate: boolean;
-  readonly interactiveActivity: boolean;
   readonly quiet: boolean;
   /** Symbol set the painter uses: Unicode glyphs, or seven-bit ASCII where the terminal or locale cannot show them. */
   readonly glyphs: "unicode" | "ascii";
 }
-
-const terminalFormattingPattern =
-  // eslint-disable-next-line no-control-regex -- plain output must remove ANSI CSI and OSC sequences.
-  /\u001b(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007\u001b]*(?:\u0007|\u001b\\))/gu;
-
-export const stripTerminalFormatting = (value: string): string =>
-  value.replace(terminalFormattingPattern, "");
 
 const hasNonEmptyEnv = (env: NodeJS.ProcessEnv, name: string): boolean => {
   const value = env[name];
@@ -88,7 +80,6 @@ export const resolveCliOutputPolicy = (
     stdoutColors,
     stderrColors,
     animate,
-    interactiveActivity: animate,
     quiet: environment?.quiet ?? false,
     glyphs: resolveGlyphs(env),
   };

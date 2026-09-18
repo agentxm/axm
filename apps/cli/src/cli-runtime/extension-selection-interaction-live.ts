@@ -62,7 +62,7 @@ export const SkillSelectionLive = Layer.effect(SkillSelectionInteraction)(
             },
           )
           .pipe(
-            Effect.catchTag("PromptCancelled", (error) =>
+            Effect.catchTag("QuestionCancelled", (error) =>
               Effect.fail(new SkillSelectionCancelled({ message: error.message })),
             ),
             Effect.catchTag("AppError", (cause) =>
@@ -97,7 +97,7 @@ export const SubagentSelectionLive = Layer.effect(SubagentSelectionInteraction)(
             },
           )
           .pipe(
-            Effect.catchTag("PromptCancelled", (error) =>
+            Effect.catchTag("QuestionCancelled", (error) =>
               Effect.fail(new SubagentSelectionCancelled({ message: error.message })),
             ),
             Effect.catchTag("AppError", (cause) =>

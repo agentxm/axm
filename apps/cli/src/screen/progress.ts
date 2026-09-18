@@ -24,7 +24,7 @@ export interface ProgressMeasure {
   readonly unit: ProgressUnit;
 }
 
-export interface ProgressTask {
+export interface ProgressUnitState {
   readonly id: string;
   readonly label: string;
   readonly parentId?: string;
@@ -61,7 +61,7 @@ export interface ProgressState {
   readonly operation?: ProgressOperation;
   readonly phase?: OperationPhase;
   /** Every observed unit in start order, running and settled alike. */
-  readonly tasks: ReadonlyArray<ProgressTask>;
+  readonly units: ReadonlyArray<ProgressUnitState>;
   /** Open waits, one per subject. */
   readonly waiting: ReadonlyArray<ProgressWait>;
   readonly settled?: ProgressSettlement;
@@ -69,13 +69,13 @@ export interface ProgressState {
   readonly lastSeq: number;
 }
 
-export const initialProgress: ProgressState = { tasks: [], waiting: [], lastSeq: 0 };
+export const initialProgress: ProgressState = { units: [], waiting: [], lastSeq: 0 };
 
-const replaceTask = (
-  tasks: ReadonlyArray<ProgressTask>,
+const replaceUnit = (
+  units: ReadonlyArray<ProgressUnitState>,
   id: string,
-  update: (task: ProgressTask) => ProgressTask,
-): ReadonlyArray<ProgressTask> => tasks.map((task) => (task.id === id ? update(task) : task));
+  update: (unit: ProgressUnitState) => ProgressUnitState,
+): ReadonlyArray<ProgressUnitState> => units.map((unit) => (unit.id === id ? update(unit) : unit));
 
 /** Fold one event into the state. UnitStarted and UnitResolved admit unknown units. */
 export const reduceProgress = (state: ProgressState, event: OperationEvent): ProgressState => {
@@ -95,7 +95,7 @@ export const reduceProgress = (state: ProgressState, event: OperationEvent): Pro
     case "PhaseStarted":
       return { ...state, lastSeq, phase: event.phase };
     case "UnitStarted": {
-      const task: ProgressTask = {
+      const unit: ProgressUnitState = {
         id: event.unitId,
         label: event.label,
         ...(event.parentUnitId === undefined ? {} : { parentId: event.parentUnitId }),
@@ -104,11 +104,11 @@ export const reduceProgress = (state: ProgressState, event: OperationEvent): Pro
         status: "running",
         startedAtMs: event.atMs,
       };
-      const known = state.tasks.some((candidate) => candidate.id === event.unitId);
+      const known = state.units.some((candidate) => candidate.id === event.unitId);
       return {
         ...state,
         lastSeq,
-        tasks: known ? replaceTask(state.tasks, event.unitId, () => task) : [...state.tasks, task],
+        units: known ? replaceUnit(state.units, event.unitId, () => unit) : [...state.units, unit],
       };
     }
     case "UnitProgress":
@@ -116,9 +116,9 @@ export const reduceProgress = (state: ProgressState, event: OperationEvent): Pro
         ...state,
         lastSeq,
         // The event states the attempt it measured, so an event without one
-        // leaves the task on no attempt rather than on a stale earlier one.
-        tasks: replaceTask(state.tasks, event.unitId, ({ attempt: _replaced, ...task }) => ({
-          ...task,
+        // leaves the unit on no attempt rather than on a stale earlier one.
+        units: replaceUnit(state.units, event.unitId, ({ attempt: _replaced, ...unit }) => ({
+          ...unit,
           measure: {
             done: event.done,
             ...(event.total === undefined ? {} : { total: event.total }),
@@ -128,9 +128,9 @@ export const reduceProgress = (state: ProgressState, event: OperationEvent): Pro
         })),
       };
     case "UnitResolved": {
-      const known = state.tasks.some((candidate) => candidate.id === event.unitId);
-      const resolved = (task: ProgressTask): ProgressTask => ({
-        ...task,
+      const known = state.units.some((candidate) => candidate.id === event.unitId);
+      const resolved = (unit: ProgressUnitState): ProgressUnitState => ({
+        ...unit,
         label: event.label,
         status: event.state,
         settledAtMs: event.atMs,
@@ -138,10 +138,10 @@ export const reduceProgress = (state: ProgressState, event: OperationEvent): Pro
       return {
         ...state,
         lastSeq,
-        tasks: known
-          ? replaceTask(state.tasks, event.unitId, resolved)
+        units: known
+          ? replaceUnit(state.units, event.unitId, resolved)
           : [
-              ...state.tasks,
+              ...state.units,
               resolved({
                 id: event.unitId,
                 label: event.label,
@@ -176,23 +176,6 @@ export const reduceProgress = (state: ProgressState, event: OperationEvent): Pro
     case "OperationSettled":
       return { ...state, lastSeq, settled: { outcome: event.outcome, atMs: event.atMs } };
   }
-};
-
-export const runningTasks = (state: ProgressState): ReadonlyArray<ProgressTask> =>
-  state.tasks.filter((task) => task.status === "running");
-
-/**
- * Settled-over-planned counts for the units that declared a planned total;
- * undefined when no unit declared one.
- */
-export const plannedProgress = (
-  state: ProgressState,
-): { readonly settled: number; readonly total: number } | undefined => {
-  const planned = state.tasks.filter((task) => task.total !== undefined);
-  if (planned.length === 0) return undefined;
-  const total = Math.max(...planned.map((task) => task.total ?? 0));
-  const settled = planned.filter((task) => task.status !== "running").length;
-  return { settled, total };
 };
 
 /** Elapsed milliseconds of the operation at `nowMs`, or at settlement. */

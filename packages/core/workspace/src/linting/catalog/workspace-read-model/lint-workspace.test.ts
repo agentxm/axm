@@ -6,7 +6,7 @@ import { buildFixture } from "../../../desired-state/testing.js";
 import { buildPackRuleContexts } from "@agentxm/extension-content/lint";
 import { buildSkillRuleContexts } from "@agentxm/extension-content/lint";
 import { emptyCatalogRuleContexts } from "../../catalog-contexts.js";
-import { collectRenderedFindings, evaluateAllCatalogs } from "../../cli.js";
+import { collectRenderedFindings, evaluateAllCatalogs } from "../../runner.js";
 import { platformCanonicalLintConfig } from "@agentxm/extension-content/lint";
 import { instructionsAgentSupportedRule } from "../workspace/instructions-agent-supported.js";
 import { instructionsGitignoreCurrentRule } from "../workspace/instructions-gitignore-current.js";

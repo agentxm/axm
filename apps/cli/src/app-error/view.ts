@@ -1,7 +1,12 @@
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import type { Doc, DocNode, Field, Text } from "../screen/doc.js";
-import { paintText } from "../screen/paint-text.js";
-import { exitPhrase } from "../screen/phrases.js";
+import {
+  exitPhrase,
+  paintText,
+  type Doc,
+  type DocNode,
+  type Field,
+  type Text,
+} from "../screen/index.js";
 import {
   type AppError,
   type AppErrorCode,
@@ -224,6 +229,3 @@ export const renderAppError = (
   error: AppError,
   options: { readonly verbose: boolean; readonly debug: boolean } = defaultRenderOptions,
 ): string => paintText(appErrorDoc(error, options), { width: 160, colors: false }).join("\n");
-
-export const renderDefect = (error: unknown): string =>
-  paintText(defectDoc(error), { width: 160, colors: false }).join("\n");

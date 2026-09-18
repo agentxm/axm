@@ -7,7 +7,7 @@ import { refViewOneField } from "./ref-view--one-field.js";
 import { detail } from "./detail.js";
 import { everyNode } from "./every-node.js";
 import type { GalleryFixture } from "./fixture.js";
-import { asciiGlyphs } from "../../screen/paint-text.js";
+import { asciiGlyphs } from "../../screen/glyphs.js";
 import { inventory } from "./inventory.js";
 import { inventoryAltStacked } from "./inventory-alt-stacked.js";
 import { ledgerSetupPlayAgents } from "./ledger-setup-play--agents.js";

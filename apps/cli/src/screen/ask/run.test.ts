@@ -135,7 +135,7 @@ describe("runAsk", () => {
 
       const failure = yield* runAsk(gate, harness.terminal, harness.surface).pipe(Effect.flip);
 
-      expect(failure._tag).toBe("PromptCancelled");
+      expect(failure._tag).toBe("QuestionCancelled");
       expect(harness.transcript).toEqual([]);
       expect(harness.shown.at(-1)).toBeUndefined();
     }),
@@ -148,7 +148,7 @@ describe("runAsk", () => {
 
       const failure = yield* runAsk(gate, harness.terminal, harness.surface).pipe(Effect.flip);
 
-      expect(failure._tag).toBe("PromptCancelled");
+      expect(failure._tag).toBe("QuestionCancelled");
       expect(harness.shown.at(-1)).toBeUndefined();
     }),
   );
@@ -263,7 +263,7 @@ describe("runAsk", () => {
 
       const failure = yield* runAsk(fileName, harness.terminal, harness.surface).pipe(Effect.flip);
 
-      expect(failure._tag).toBe("PromptCancelled");
+      expect(failure._tag).toBe("QuestionCancelled");
       expect(harness.transcript).toEqual([]);
       expect(harness.shown.at(-1)).toBeUndefined();
     }),

@@ -27,11 +27,20 @@ export interface InstructionSourceChoice {
  */
 export type SetupPlanAction = "create" | "update" | "in sync" | "link" | "copy" | "skip";
 
+/** Structured facts the presenting adapter turns into setup-plan wording. */
+export type SetupPlanDetail =
+  | { readonly _tag: "settings"; readonly agentIds: ReadonlyArray<string> }
+  | { readonly _tag: "gitignore" }
+  | { readonly _tag: "instructionSource"; readonly seededFrom?: string }
+  | { readonly _tag: "instructionTarget"; readonly agentName: string }
+  | { readonly _tag: "missingInstructionConvention" }
+  | { readonly _tag: "acceptedResolution" };
+
 /** One row of the setup plan presented before confirmation. */
 export interface SetupPlanRow {
   readonly target: string;
   readonly action: SetupPlanAction;
-  readonly detail: string;
+  readonly detail: SetupPlanDetail;
 }
 
 /** Agent-detection summary presented before agent selection. */

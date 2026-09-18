@@ -6,11 +6,11 @@
  * the painter conforms) so a failure names the evidence.
  */
 
-import type { Doc, DocNode, Text, TreeItem } from "../../screen/doc.js";
-import { stripTerminalFormatting } from "../../screen/output-policy.js";
-import { asciiGlyphs, type PaintStyle } from "../../screen/paint-text.js";
+import { plain, type Doc, type DocNode, type Text, type TreeItem } from "../../screen/doc.js";
+import { stripTerminalFormatting } from "../../screen/width.js";
+import type { PaintStyle } from "../../screen/paint-text.js";
+import { asciiGlyphs } from "../../screen/glyphs.js";
 import { displayWidth } from "../../screen/width.js";
-import { visibleText } from "../../screen/wrap-text.js";
 
 export interface Painter {
   readonly name: string;
@@ -21,7 +21,7 @@ export const conformanceWidths = [40, 80, 120, 200] as const;
 
 const ESCAPE = "\u001b";
 
-const textOf = (value: Text): string => visibleText(value);
+const textOf = (value: Text): string => plain(value);
 
 /**
  * Visit every text value a document carries, in document order, saying which

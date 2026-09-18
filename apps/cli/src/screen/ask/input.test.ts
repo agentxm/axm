@@ -1,7 +1,8 @@
 import * as Result from "effect/Result";
 import { describe, expect, it } from "vitest";
 
-import { asciiGlyphs, paintText } from "../paint-text.js";
+import { paintText } from "../paint-text.js";
+import { asciiGlyphs } from "../glyphs.js";
 import type { AskKey, InputAsk } from "./ask.js";
 import {
   initialInputState,
@@ -49,7 +50,10 @@ describe("reduceInput", () => {
     {
       name: "enter submits what validate made of the line",
       keys: [...typed(" AGENTS.md "), key("return")],
-      expected: { _tag: "Submit", value: "AGENTS.md", raw: " AGENTS.md " },
+      expected: {
+        _tag: "Submit",
+        submission: { value: "AGENTS.md", raw: " AGENTS.md " },
+      },
     },
     {
       name: "backspace removes the last character",

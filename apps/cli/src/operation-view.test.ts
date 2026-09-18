@@ -12,7 +12,8 @@ import {
 } from "@agentxm/workspace/transitions/planning";
 
 import { operationDoc, planDoc } from "./operation-view.js";
-import { asciiGlyphs, paintText } from "./screen/paint-text.js";
+import { paintText } from "./screen/paint-text.js";
+import { asciiGlyphs } from "./screen/glyphs.js";
 
 const paint = (doc: ReturnType<typeof planDoc>): string =>
   paintText(doc, { width: 160, colors: false, glyphs: asciiGlyphs }).join("\n");

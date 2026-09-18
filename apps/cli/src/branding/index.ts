@@ -1,4 +1,4 @@
-import { dimText } from "../screen/terminal-style.js";
+import { dimText } from "../screen/index.js";
 
 export const BRANDING = [
   "  ▄▀█ ▀▄▀ █▀▄▀█",

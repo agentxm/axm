@@ -389,8 +389,8 @@ const instructionPlanRows = (args: {
       target: args.sourceFileName,
       action: args.sourceWillBeCreated ? "create" : "in sync",
       detail: Option.match(args.sourceSeed, {
-        onNone: () => "source",
-        onSome: (choice) => `seeded from ${choice.fileName}`,
+        onNone: () => ({ _tag: "instructionSource" }) as const,
+        onSome: (choice) => ({ _tag: "instructionSource", seededFrom: choice.fileName }) as const,
       }),
     },
     ...args.selectedAgents.map((agent) => {
@@ -403,13 +403,13 @@ const instructionPlanRows = (args: {
         return {
           target: agent.name,
           action: "skip",
-          detail: "no instruction convention",
+          detail: { _tag: "missingInstructionConvention" },
         } satisfies SetupPlanRow;
       }
       return {
         target: resolution.relativeTarget,
         action: instructionPlanAction(resolution.mechanism),
-        detail: agent.name,
+        detail: { _tag: "instructionTarget", agentName: agent.name },
       } satisfies SetupPlanRow;
     }),
   ];
@@ -710,14 +710,14 @@ const configureProjectWorkspace = (args: {
         {
           target: SETTINGS_FILENAME,
           action: "create",
-          detail: `agents: ${agentIds.join(", ")}`,
+          detail: { _tag: "settings", agentIds },
         },
         ...(gitManaged
           ? [
               {
                 target: ".gitignore",
                 action: "update",
-                detail: "AXM runtime and package transaction artifacts",
+                detail: { _tag: "gitignore" },
               } satisfies SetupPlanRow,
             ]
           : []),
@@ -778,12 +778,12 @@ const initializeUserWorkspace = (workspaceRoot: string, options: WorkspaceStateO
         {
           target: SETTINGS_FILENAME,
           action: "create",
-          detail: `agents: ${agentIds.join(", ")}`,
+          detail: { _tag: "settings", agentIds },
         },
         {
           target: LOCKFILE_NAME,
           action: "create",
-          detail: "accepted resolution",
+          detail: { _tag: "acceptedResolution" },
         },
       ]);
     }

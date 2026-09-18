@@ -18,7 +18,7 @@ import { chooseKind } from "../screen/ask/choose.js";
 import { confirmKind } from "../screen/ask/confirm.js";
 import { inputKind } from "../screen/ask/input.js";
 import { pickKind, pickRows } from "../screen/ask/pick.js";
-import { PromptCancelled } from "../screen/ask/prompt-cancelled.js";
+import { QuestionCancelled } from "../screen/ask/question-cancelled.js";
 import type { Doc } from "../screen/doc.js";
 
 /** Questions a test screen was given, and what it answers the next ones with. */
@@ -101,12 +101,12 @@ const answered = <A>(
 
 export const scriptedAsk =
   (script: AskScript, record: (doc: Doc) => void) =>
-  <A>(ask: Ask<A>): Effect.Effect<A, PromptCancelled> => {
+  <A>(ask: Ask<A>): Effect.Effect<A, QuestionCancelled> => {
     script.asks.push(ask);
     const scripted = script.answers.shift();
     const result = scripted === "cancel" ? undefined : answered(ask, keysFor(ask, scripted));
     if (result === undefined) {
-      return Effect.fail(new PromptCancelled({ message: "Operation cancelled." }));
+      return Effect.fail(new QuestionCancelled({ message: "Operation cancelled." }));
     }
     record(result.answer);
     return Effect.succeed(result.value);

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { stripTerminalFormatting } from "../../screen/output-policy.js";
-import { asciiGlyphs, paintText } from "../../screen/paint-text.js";
+import { stripTerminalFormatting } from "../../screen/width.js";
+import { paintText } from "../../screen/paint-text.js";
+import { asciiGlyphs } from "../../screen/glyphs.js";
 import type { TerminalSize } from "../../screen/scene.js";
 import { displayWidth } from "../../screen/width.js";
 import { copyableValues } from "../conformance/conformance-suite.js";

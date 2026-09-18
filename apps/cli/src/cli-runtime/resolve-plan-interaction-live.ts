@@ -27,7 +27,7 @@ const confirmApplyChangesMessage = "Apply changes?";
  * The gate. Every plan that reaches it carries a confirmable condition, so the
  * safe choice comes first and `enter` declines.
  */
-const gateChoices: ReadonlyArray<ConfirmChoice<ApplyConfirmation>> = [
+const gateChoices: readonly [ConfirmChoice<ApplyConfirmation>, ConfirmChoice<ApplyConfirmation>] = [
   { key: "n", word: "no", value: "declined" },
   { key: "y", word: "yes", value: "approved" },
 ];
@@ -79,7 +79,7 @@ export const ResolvePlanInteractionLive = Layer.effect(
           yield* showDetails;
           return yield* screen.ask(applyChangesAsk, guard);
         }).pipe(
-          Effect.catchTag("PromptCancelled", () => Effect.succeed("cancelled" as const)),
+          Effect.catchTag("QuestionCancelled", () => Effect.succeed("cancelled" as const)),
           Effect.mapError(
             (error) =>
               new PlanInteractionFailed({

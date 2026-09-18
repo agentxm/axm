@@ -198,9 +198,9 @@ const outputUxFindings = (): ReadonlyArray<Finding> =>
       source.split("\n").forEach((line, index) => {
         for (const match of line.matchAll(sourceLiteralPattern)) {
           const literal = match[0] ?? "";
-          const visibleText = visibleLiteralText(literal);
+          const plain = visibleLiteralText(literal);
           for (const phrase of bannedOutputSubstrings) {
-            if (visibleText.includes(phrase)) {
+            if (plain.includes(phrase)) {
               findings.push({
                 file: path.relative(repoRoot, file),
                 line: index + 1,

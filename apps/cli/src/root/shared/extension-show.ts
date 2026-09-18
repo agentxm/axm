@@ -3,10 +3,11 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import {
   Screen,
-  detailViewDoc,
-  tableViewDoc,
-  type DetailView,
-  type TableView,
+  fieldsDoc,
+  headlineDoc,
+  tableDoc,
+  type ViewColumn,
+  type ViewField,
 } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "./command-capabilities.js";
@@ -28,17 +29,15 @@ interface ShowDetailRow {
   readonly locked: string;
 }
 
-const ShowDetail = {
-  fields: {
-    type: { label: "Type" },
-    name: { label: "Name" },
-    enabled: { label: "Enabled" },
-    source: { label: "Source" },
-    version: { label: "Version" },
-    scope: { label: "Scope" },
-    locked: { label: "Locked" },
-  },
-} as const satisfies DetailView<ShowDetailRow>;
+const showFields: ReadonlyArray<ViewField<ShowDetailRow>> = [
+  { label: "Type", value: (row) => row.type },
+  { label: "Name", value: (row) => row.name },
+  { label: "Enabled", value: (row) => row.enabled },
+  { label: "Source", value: (row) => row.source },
+  { label: "Version", value: (row) => row.version },
+  { label: "Scope", value: (row) => row.scope },
+  { label: "Locked", value: (row) => row.locked },
+];
 
 interface ShowAgentRow {
   readonly agent: string;
@@ -47,14 +46,12 @@ interface ShowAgentRow {
   readonly detail: string;
 }
 
-const AgentTable = {
-  columns: {
-    agent: { header: "Agent" },
-    status: { header: "Status" },
-    path: { header: "Path" },
-    detail: { header: "Detail" },
-  },
-} as const satisfies TableView<ShowAgentRow>;
+const agentColumns: ReadonlyArray<ViewColumn<ShowAgentRow>> = [
+  { header: "Agent", value: (row) => row.agent },
+  { header: "Status", value: (row) => row.status },
+  { header: "Path", value: (row) => row.path },
+  { header: "Detail", value: (row) => row.detail },
+];
 
 const yesNo = (value: boolean): string => (value ? "yes" : "no");
 
@@ -72,8 +69,9 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
 
   if (yield* screen.document(result, ExtensionShowResultSchema)) return;
 
-  yield* screen.result(
-    detailViewDoc(
+  yield* screen.result([
+    ...headlineDoc("neutral", `${label} ${args.name}`),
+    ...fieldsDoc(
       {
         type: args.type,
         name: args.name,
@@ -83,14 +81,13 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
         scope: result.item.scope,
         locked: yesNo(result.item.locked),
       },
-      ShowDetail,
-      `${label} ${args.name}`,
+      showFields,
     ),
-  );
+  ]);
 
   if (result.agents.length > 0) {
     yield* screen.result(
-      tableViewDoc(
+      tableDoc(
         result.agents.map((agent) => ({
           agent: agent.agent,
           status: agent.status,
@@ -104,8 +101,8 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
                 : "no additional detail")
           }`,
         })),
-        AgentTable,
-        "Agent placements",
+        agentColumns,
+        { caption: "Agent placements" },
       ),
     );
   }

@@ -14,50 +14,6 @@ export type LogMessage =
   | { readonly _tag: "warn"; readonly message: string }
   | { readonly _tag: "error"; readonly message: string };
 
-export type ViewKey<T extends object> = Extract<keyof T, string>;
-
-export type TableAlign = "left" | "right";
-
-export type TableWidth = "auto" | "fill" | number;
-
-export interface TableColumnConfig<T extends object, K extends ViewKey<T>> {
-  readonly header: string;
-  readonly render?: (value: T[K], row: T) => string;
-  readonly align?: TableAlign;
-  readonly width?: TableWidth;
-}
-
-export interface TableView<T extends object> {
-  readonly columns: {
-    readonly [K in ViewKey<T>]: TableColumnConfig<T, K>;
-  };
-}
-
-export interface DetailFieldConfig<T extends object, K extends ViewKey<T>> {
-  readonly label: string;
-  readonly render?: (value: T[K], row: T) => string;
-}
-
-export interface DetailView<T extends object> {
-  readonly fields: {
-    readonly [K in ViewKey<T>]: DetailFieldConfig<T, K>;
-  };
-}
-
-export interface ResolvedTableColumn<T extends object> {
-  readonly key: ViewKey<T>;
-  readonly header: string;
-  readonly render: (row: T) => string;
-  readonly align: TableAlign;
-  readonly width: TableWidth;
-}
-
-export interface ResolvedDetailField<T extends object> {
-  readonly key: ViewKey<T>;
-  readonly label: string;
-  readonly render: (row: T) => string;
-}
-
 export interface TreeNode<T> {
   readonly data: T;
   readonly children?: ReadonlyArray<TreeNode<T>>;

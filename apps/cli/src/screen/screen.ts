@@ -17,7 +17,7 @@ import type { AppError } from "../app-error/index.js";
 import { promptAvailability } from "../cli-flags/index.js";
 import { makeJsonSuccessEnvelope } from "../cli-runtime/json-envelope.js";
 import { promptRequired, type Ask, type InteractiveGuard } from "./ask/ask.js";
-import type { PromptCancelled } from "./ask/prompt-cancelled.js";
+import type { QuestionCancelled } from "./ask/question-cancelled.js";
 import { runAsk } from "./ask/run.js";
 import { WaitAbandoned } from "./wait/wait-abandoned.js";
 import { parkedOnWait, runStaticWait, runWait, type WaitSurface } from "./wait/run.js";
@@ -33,16 +33,14 @@ import {
   progressEvent,
   suggestionEvent,
 } from "./machine-events.js";
-import { paintText, type Glyphs } from "./paint-text.js";
+import { paintText } from "./paint-text.js";
+import type { Glyphs } from "./glyphs.js";
 import { initialProgress, reduceProgress } from "./progress.js";
 import { OutputStreams } from "./streams.js";
+import type { ResultOptions } from "./output.js";
+import { ensureNewline, streamPaintWidth } from "./presenter-helpers.js";
 
-export interface ResultOptions {
-  readonly ok?: boolean;
-  readonly summary?: string;
-  readonly suggestions?: ReadonlyArray<SuggestedAction>;
-  readonly withoutSuggestions?: boolean;
-}
+export type { ResultOptions } from "./output.js";
 
 export interface ScreenLogRecord {
   readonly level: "trace" | "debug" | "info" | "warn" | "error" | "fatal";
@@ -55,6 +53,12 @@ export interface ScreenFacts {
   readonly colors: boolean;
   readonly animate: boolean;
 }
+
+/** Operation whose plan the current feature invocation is presenting. */
+export const CurrentScreenOperationId = ServiceMap.Reference<string | undefined>(
+  "axm.sh/screen/CurrentScreenOperationId",
+  { defaultValue: () => undefined },
+);
 
 /**
  * The application-owned terminal. Settled output crosses as a typed `Doc`;
@@ -90,8 +94,8 @@ export class Screen extends ServiceMap.Service<
      */
     readonly ask: <A>(
       ask: Ask<A>,
-      guard: InteractiveGuard,
-    ) => Effect.Effect<A, PromptCancelled | AppError>;
+      guard?: InteractiveGuard,
+    ) => Effect.Effect<A, QuestionCancelled | AppError>;
     /**
      * Park the terminal while a person acts somewhere else, and answer with
      * what the awaited effect settled on. The wait's brief prints once, its
@@ -109,9 +113,6 @@ export class Screen extends ServiceMap.Service<
     readonly settle: Effect.Effect<void>;
   }
 >()("axm.sh/screen/Screen") {}
-
-const ensureNewline = (content: string): string =>
-  content.length === 0 || content.endsWith("\n") ? content : `${content}\n`;
 
 const visibleSuggestions = (options: ResultOptions | undefined): ReadonlyArray<SuggestedAction> =>
   options?.withoutSuggestions === true ? [] : (options?.suggestions ?? []);
@@ -152,7 +153,7 @@ export const ScreenLive = (
           const isTTY = stream === "stdout" ? facts.stdoutIsTTY : facts.stderrIsTTY;
           return ensureNewline(
             paintText(doc, {
-              width: isTTY ? facts.columns : "unbounded",
+              width: streamPaintWidth(isTTY, facts.columns),
               colors: options.colors[stream],
               ...(options.glyphs === undefined ? {} : { glyphs: options.glyphs }),
             }).join("\n"),
@@ -174,31 +175,34 @@ export const ScreenLive = (
         note,
         document: () => Effect.succeed(false),
         // One projector folds the stream into progress state; the frame reads
-        // the latest state and collapses it at settlement. The projector holds
-        // the drain latch so the settled document prints after the collapse.
+        // the latest state and clears it at settlement. The projector holds
+        // the drain latch so the settled document prints after that clear.
         observe: (lifecycle) =>
           Effect.gen(function* () {
             const state = yield* Ref.make(initialProgress);
             yield* subscribeLossless(lifecycle, (event) =>
               Effect.flatMap(
                 Ref.updateAndGet(state, (current) => reduceProgress(current, event)),
-                frame.present,
+                (next) => frame.present(lifecycle.operationId, next),
               ),
             );
           }),
-        showPlan: frame.showPlan,
+        showPlan: (plan) =>
+          Effect.flatMap(CurrentScreenOperationId, (operationId) =>
+            operationId === undefined ? Effect.succeed(false) : frame.showPlan(operationId, plan),
+          ),
         log: (record) =>
           Effect.flatMap(
             render([{ _tag: "paragraph", tone: "dim", text: record.message }], "stderr"),
             frame.stderr,
           ),
-        ask: <A>(ask: Ask<A>, guard: InteractiveGuard) =>
+        ask: <A>(ask: Ask<A>, guard?: InteractiveGuard) =>
           Effect.gen(function* () {
             if (!(yield* promptAvailability) || !(yield* frame.canInteract)) {
-              return yield* promptRequired(guard);
+              return yield* promptRequired(plain(ask.question), guard);
             }
             return yield* Option.match(terminal, {
-              onNone: () => Effect.fail(promptRequired(guard)),
+              onNone: () => Effect.fail(promptRequired(plain(ask.question), guard)),
               onSome: (service) =>
                 runAsk(ask, service, {
                   showInteraction: frame.showInteraction,
@@ -377,7 +381,7 @@ export const ScreenMachine = (options?: {
         log: (record) => emit(logEvent(logLevel(record.level), record.message)),
         // Machine output never prompts: asking is the usage error by
         // construction, whatever the terminal on the other end can do.
-        ask: (_ask, guard) => Effect.fail(promptRequired(guard)),
+        ask: (ask, guard) => Effect.fail(promptRequired(plain(ask.question), guard)),
         // Machine output has no terminal to park and no keys to offer, but the
         // brief is what a person or an agent needs to finish elsewhere, so it
         // crosses as instructions and suggestions exactly as it always has.

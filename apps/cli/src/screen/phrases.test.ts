@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  blockingHeadline,
   interruptionPhrase,
   publishDisposition,
   publishParticipation,
@@ -18,9 +17,8 @@ describe("human vocabulary", () => {
     );
   });
 
-  it("keeps interruption and blocking outcomes distinct", () => {
+  it("keeps interruption outcomes distinct", () => {
     expect(interruptionPhrase("SIGINT", "restored")).toBe("Interrupted - changes rolled back");
     expect(interruptionPhrase("SIGTERM", "retained")).toBe("Terminated - partial work retained");
-    expect(blockingHeadline("resource-conflict")).toBe("Workspace is busy");
   });
 });

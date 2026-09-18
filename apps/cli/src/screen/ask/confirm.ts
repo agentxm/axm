@@ -13,8 +13,11 @@ import type { Doc, PromptChip } from "../doc.js";
 import {
   isQuitKey,
   isSubmitKey,
+  answerDoc,
+  promptNode,
   type AskKey,
   type AskKind,
+  type AskReducerAction,
   type ConfirmAsk,
   type ConfirmChoice,
 } from "./ask.js";
@@ -24,10 +27,7 @@ export interface ConfirmState {
   readonly index: number;
 }
 
-export type ConfirmAction<A> =
-  | { readonly _tag: "Next"; readonly state: ConfirmState }
-  | { readonly _tag: "Submit"; readonly choice: ConfirmChoice<A> }
-  | { readonly _tag: "Cancel" };
+export type ConfirmAction<A> = AskReducerAction<ConfirmState, ConfirmChoice<A>>;
 
 /** The question opens on its default, which is its first choice. */
 export const initialConfirmState: ConfirmState = { index: 0 };
@@ -65,14 +65,14 @@ export const reduceConfirm = <A>(
   if (isQuitKey(key) || key.name === "escape") return { _tag: "Cancel" };
   if (isSubmitKey(key)) {
     const choice = at(ask, state.index);
-    return choice === undefined ? { _tag: "Cancel" } : { _tag: "Submit", choice };
+    return choice === undefined ? { _tag: "Cancel" } : { _tag: "Submit", submission: choice };
   }
   if (key.name === "left" || key.name === "up") return moved(ask, state.index, -1);
   if (key.name === "right" || key.name === "down" || key.name === "tab") {
     return moved(ask, state.index, 1);
   }
   const choice = matching(ask, key.char ?? key.name);
-  return choice === undefined ? { _tag: "Next", state } : { _tag: "Submit", choice };
+  return choice === undefined ? { _tag: "Next", state } : { _tag: "Submit", submission: choice };
 };
 
 const chipOf = <A>(choice: ConfirmChoice<A>, current: boolean): PromptChip => ({
@@ -83,23 +83,14 @@ const chipOf = <A>(choice: ConfirmChoice<A>, current: boolean): PromptChip => ({
 
 /** The question as the live scene shows it while it stands open. */
 export const confirmDoc = <A>(ask: ConfirmAsk<A>, state: ConfirmState): Doc => [
-  {
-    _tag: "prompt",
-    question: ask.question,
-    ...(ask.note === undefined ? {} : { note: ask.note }),
+  promptNode(ask, {
     chips: ask.choices.map((choice, index) => chipOf(choice, index === state.index)),
-  },
+  }),
 ];
 
 /** The one transcript line an answered question leaves behind. */
-export const confirmAnswer = <A>(ask: ConfirmAsk<A>, choice: ConfirmChoice<A>): Doc => [
-  {
-    _tag: "answer",
-    mark: "ok",
-    label: ask.label ?? ask.question,
-    value: choice.word,
-  },
-];
+export const confirmAnswer = <A>(ask: ConfirmAsk<A>, choice: ConfirmChoice<A>): Doc =>
+  answerDoc(ask, choice.word);
 
 /** A `Confirm` as the `Screen` runs it. */
 export const confirmKind = <A>(ask: ConfirmAsk<A>): AskKind<ConfirmState, A> => ({
@@ -109,8 +100,9 @@ export const confirmKind = <A>(ask: ConfirmAsk<A>): AskKind<ConfirmState, A> => 
     return action._tag === "Submit"
       ? {
           _tag: "Submit",
-          value: action.choice.value,
-          answer: action.choice.transcript === false ? [] : confirmAnswer(ask, action.choice),
+          value: action.submission.value,
+          answer:
+            action.submission.transcript === false ? [] : confirmAnswer(ask, action.submission),
         }
       : action;
   },

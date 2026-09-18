@@ -14,7 +14,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ServiceMap from "effect/Context";
 
-import type { DeviceLoginInteractionService, DeviceLoginPendingResult } from "./device-login.js";
+import type { DeviceLoginPendingResult } from "./device-login.js";
 import { AuthInteractionAbandoned } from "./errors.js";
 import type { LoginResult } from "./login-output.js";
 
@@ -117,7 +117,6 @@ export interface AuthLoginPresenterService {
   readonly awaitHuman: <A, E, R>(
     handoff: HumanHandoff,
     awaited: Effect.Effect<A, E, R>,
-    interaction: DeviceLoginInteractionService,
   ) => Effect.Effect<A, E | AuthInteractionAbandoned, R>;
   /** Human-path tail: sign-in is waiting for approval, with resume guidance. */
   readonly notePendingApproval: (result: DeviceLoginPendingResult) => Effect.Effect<void>;
@@ -138,9 +137,10 @@ export interface AuthLoginPresenterService {
    * Ask whether to replace a session that is still valid. Abandoning the
    * question fails with `AuthInteractionAbandoned`; declining returns "keep".
    */
-  readonly confirmSessionReplacement: (
-    message: string,
-  ) => Effect.Effect<SessionReplacementDecision, AuthInteractionAbandoned>;
+  readonly confirmSessionReplacement: () => Effect.Effect<
+    SessionReplacementDecision,
+    AuthInteractionAbandoned
+  >;
 }
 
 export class AuthLoginPresenter extends ServiceMap.Service<
@@ -160,14 +160,15 @@ export interface AuthLoginPresenterTestState {
   readonly existingSessions: Array<string>;
   readonly rejectedStoredCredentials: Array<true>;
   readonly deviceCodeFallbacks: Array<DeviceCodeFallbackReason>;
-  readonly sessionReplacementPrompts: Array<string>;
+  readonly sessionReplacementPrompts: Array<true>;
 }
 
 export const AuthLoginPresenterTest = (overrides?: {
   readonly tryEmitPendingDeviceLogin?: (result: DeviceLoginPendingResult) => Effect.Effect<boolean>;
-  readonly confirmSessionReplacement?: (
-    message: string,
-  ) => Effect.Effect<SessionReplacementDecision, AuthInteractionAbandoned>;
+  readonly confirmSessionReplacement?: () => Effect.Effect<
+    SessionReplacementDecision,
+    AuthInteractionAbandoned
+  >;
   /** Stop every wait, as a person pressing the stop key would. */
   readonly abandonWaits?: boolean;
 }) => {
@@ -196,11 +197,7 @@ export const AuthLoginPresenterTest = (overrides?: {
         state.pendingEmissions.push(result);
         return yield* overrides?.tryEmitPendingDeviceLogin?.(result) ?? Effect.succeed(false);
       }),
-    awaitHuman: <A, E, R>(
-      handoff: HumanHandoff,
-      awaited: Effect.Effect<A, E, R>,
-      _interaction: DeviceLoginInteractionService,
-    ) =>
+    awaitHuman: <A, E, R>(handoff: HumanHandoff, awaited: Effect.Effect<A, E, R>) =>
       Effect.suspend((): Effect.Effect<A, E | AuthInteractionAbandoned, R> => {
         state.handoffs.push(handoff);
         return overrides?.abandonWaits === true
@@ -234,10 +231,10 @@ export const AuthLoginPresenterTest = (overrides?: {
       Effect.sync(() => {
         state.deviceCodeFallbacks.push(reason);
       }),
-    confirmSessionReplacement: (message) =>
+    confirmSessionReplacement: () =>
       Effect.gen(function* () {
-        state.sessionReplacementPrompts.push(message);
-        return yield* overrides?.confirmSessionReplacement?.(message) ??
+        state.sessionReplacementPrompts.push(true);
+        return yield* overrides?.confirmSessionReplacement?.() ??
           Effect.succeed<SessionReplacementDecision>("replace");
       }),
   } satisfies AuthLoginPresenterService);

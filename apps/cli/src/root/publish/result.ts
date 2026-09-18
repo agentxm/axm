@@ -12,6 +12,7 @@ import { PublishResultSchema, type PublishResult } from "@agentxm/workspace/publ
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import { Screen } from "../../screen/index.js";
+import { Verbosity } from "../../cli-flags/index.js";
 import {
   type CommandOutcomeSummary,
   type SubjectType,
@@ -19,7 +20,23 @@ import {
   setCommandSemanticProperties,
   summarizeCommandOutcome,
 } from "../../cli-runtime/index.js";
-import { publishBrowserSuggestions, renderHumanPublishResult } from "./view.js";
+import { publishDoc, type PublishDocOptions } from "./view.js";
+
+const publishBrowserSuggestions = (result: PublishResult): ReadonlyArray<SuggestedAction> =>
+  result.execution.outcomes.flatMap((item) =>
+    item.links === undefined ? [] : [{ description: "View in browser", url: item.links.html }],
+  );
+
+const renderHumanPublishResult = (
+  screen: typeof Screen.Service,
+  result: PublishResult,
+  options: Omit<PublishDocOptions, "verbosity">,
+) =>
+  Effect.gen(function* () {
+    const verbosity = yield* Verbosity;
+    yield* screen.result(publishDoc(result, { ...options, verbosity: verbosity.level }));
+    return true;
+  });
 
 /**
  * Emit the publish result: the machine document, or the human view.

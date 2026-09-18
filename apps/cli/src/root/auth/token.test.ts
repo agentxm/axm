@@ -74,7 +74,7 @@ const makeLayers = (opts?: {
     credStoreLayer,
     AuthClientTest(opts?.authOverrides),
     interaction.layer,
-    Layer.provide(AuthLoginPresenterLive, rendererLayer),
+    Layer.provide(AuthLoginPresenterLive, Layer.mergeAll(rendererLayer, interaction.layer)),
     registryUrlLayer,
   );
   const provide = Effect.provide(FullLayer);

@@ -14,9 +14,12 @@ import type { CalloutNode, Doc } from "../doc.js";
 import {
   isQuitKey,
   isSubmitKey,
+  answerDoc,
+  promptNode,
   typedText,
   type AskKey,
   type AskKind,
+  type AskReducerAction,
   type InputAsk,
 } from "./ask.js";
 
@@ -26,10 +29,10 @@ export interface InputState {
   readonly problem?: string;
 }
 
-export type InputAction<A> =
-  | { readonly _tag: "Next"; readonly state: InputState }
-  | { readonly _tag: "Submit"; readonly value: A; readonly raw: string }
-  | { readonly _tag: "Cancel" };
+export type InputAction<A> = AskReducerAction<
+  InputState,
+  { readonly value: A; readonly raw: string }
+>;
 
 export const initialInputState: InputState = { raw: "" };
 
@@ -46,7 +49,10 @@ export const reduceInput = <A>(
   if (isQuitKey(key) || key.name === "escape") return { _tag: "Cancel" };
   if (isSubmitKey(key)) {
     return Result.match(ask.validate(state.raw), {
-      onSuccess: (value): InputAction<A> => ({ _tag: "Submit", value, raw: state.raw }),
+      onSuccess: (value): InputAction<A> => ({
+        _tag: "Submit",
+        submission: { value, raw: state.raw },
+      }),
       onFailure: (problem): InputAction<A> => ({
         _tag: "Next",
         state: { raw: state.raw, problem },
@@ -64,25 +70,20 @@ export const reduceInput = <A>(
 
 /** The question as the live scene shows it while it stands open. */
 export const inputDoc = <A>(ask: InputAsk<A>, state: InputState): Doc => [
-  {
-    _tag: "prompt",
-    question: ask.question,
-    ...(ask.note === undefined ? {} : { note: ask.note }),
+  promptNode(ask, {
     chips: [],
     entry:
       state.raw.length === 0 && ask.placeholder !== undefined
         ? [{ text: ask.placeholder, tone: "dim" }]
         : state.raw,
-  },
+  }),
   ...(state.problem === undefined
     ? []
     : [{ _tag: "callout", tone: "warn", title: state.problem } satisfies CalloutNode]),
 ];
 
 /** The one transcript line an answered input leaves behind: what was typed. */
-export const inputAnswer = <A>(ask: InputAsk<A>, raw: string): Doc => [
-  { _tag: "answer", mark: "ok", label: ask.label ?? ask.question, value: raw },
-];
+export const inputAnswer = <A>(ask: InputAsk<A>, raw: string): Doc => answerDoc(ask, raw);
 
 /** An `Input` as the `Screen` runs it. */
 export const inputKind = <A>(ask: InputAsk<A>): AskKind<InputState, A> => ({
@@ -90,7 +91,11 @@ export const inputKind = <A>(ask: InputAsk<A>): AskKind<InputState, A> => ({
   reduce: (state, key) => {
     const action = reduceInput(ask, state, key);
     return action._tag === "Submit"
-      ? { _tag: "Submit", value: action.value, answer: inputAnswer(ask, action.raw) }
+      ? {
+          _tag: "Submit",
+          value: action.submission.value,
+          answer: inputAnswer(ask, action.submission.raw),
+        }
       : action;
   },
   view: (state) => inputDoc(ask, state),

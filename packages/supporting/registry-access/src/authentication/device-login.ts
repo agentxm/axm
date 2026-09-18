@@ -312,7 +312,6 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
     const credStore = yield* CredentialStore;
     const pendingStore = yield* PendingDeviceLoginStore;
     const presenter = yield* AuthLoginPresenter;
-    const interaction = yield* DeviceLoginInteraction;
     const registryHost = new URL(registryUrl).host;
 
     if (!credStore.allowsPersistedCredentials) {
@@ -391,7 +390,6 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
           copiedToClipboard: options.sideEffects?.copiedToClipboard ?? false,
         },
         boundedPolling,
-        interaction,
       )
       .pipe(
         // Stopping the wait is not a denial: the code is still live and the

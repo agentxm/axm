@@ -1,6 +1,5 @@
 import { encodeMachineEvent, errorEvent } from "./machine-events.js";
-
-const CURSOR_SHOW = "\u001b[?25h";
+import { CURSOR_SHOW } from "./terminal-style.js";
 
 /** Bytes for the sanctioned second-signal fallback after the Screen cannot finish. */
 export const interruptionFallback = (signal: "SIGINT" | "SIGTERM", machine: boolean): string => {

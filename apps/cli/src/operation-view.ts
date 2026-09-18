@@ -19,54 +19,50 @@ import {
 } from "@agentxm/workspace/transitions/planning";
 
 import { Verbosity, type VerbosityLevel } from "./cli-flags/index.js";
-import type { Doc, LedgerColumn, LedgerFold, LedgerRow, Span, Text, Tone } from "./screen/doc.js";
-import { factParts } from "./screen/docs.js";
-import type { LivePlan } from "./screen/live-ledger.js";
-import { Screen } from "./screen/screen.js";
-import { operationExitCode } from "./operation-exit-code.js";
 import {
   INTERRUPTED_IN_FLIGHT,
+  MISSING_VERSION,
   NOT_TRIED,
+  Screen,
+  VERBOSE_DETAILS_HINT,
+  VERBOSE_LIST_HINT,
   agentOutcome,
   artifactChange,
   artifactChangeMark,
   blockingClass,
   count,
   disposition,
+  emphatic,
   exitPhrase,
+  factParts,
   interruptionPhrase,
+  joined,
+  ledgerViewPolicy,
   operationTitle,
   outcomeHeadline,
   planVerdict,
   plannedArtifactChange,
+  resultLedgerColumns,
   scopePhrase,
   subjectHeader,
   subjectNoun,
   unitState,
   unitStateChange,
-} from "./screen/phrases.js";
+  type Doc,
+  type LedgerColumn,
+  type LedgerFold,
+  type LedgerRow,
+  type LivePlan,
+  type Text,
+  type Tone,
+} from "./screen/index.js";
+import { operationExitCode } from "./operation-exit-code.js";
 
 /**
  * Separates the parts of one cell or aside. The painter owns the separator
  * glyph, which a view cannot reach and must not spell, so a cell that carries
  * several facts joins them as prose instead.
  */
-const SEPARATOR = ", ";
-
-/** Stands in the version column for a unit that carries no version of its own. */
-const NO_VERSION = "-";
-
-const joined = (parts: ReadonlyArray<string | undefined>): string =>
-  parts
-    .filter((part): part is string => part !== undefined && part.trim().length > 0)
-    .join(SEPARATOR);
-
-/**
- * A title and a verdict are the two bold lines of a result. A verdict that
- * follows a ledger also carries no glyph, because the rows already do.
- */
-const emphatic = (value: string): ReadonlyArray<Span> => [{ text: value, bold: true }];
-
 const artifactPaths = (artifact: JobStepArtifact): string =>
   artifact.targets === undefined || artifact.targets.length === 0
     ? artifact.path
@@ -93,7 +89,9 @@ const detailCell = (
   ]);
 
 const versionCell = (artifact: JobStepArtifact | undefined): string =>
-  artifact?.version === undefined || artifact.version.length === 0 ? NO_VERSION : artifact.version;
+  artifact?.version === undefined || artifact.version.length === 0
+    ? MISSING_VERSION.operation
+    : artifact.version;
 
 /**
  * Plan, progress, and result ledgers differ only in their third column — what
@@ -102,12 +100,7 @@ const versionCell = (artifact: JobStepArtifact | undefined): string =>
 const ledgerColumns = (
   presentation: OperationPresentation,
   outcomeHeader: "Plan" | "Status",
-): ReadonlyArray<LedgerColumn> => [
-  { header: subjectHeader(presentation), role: "name" },
-  { header: "Version", role: "fixed", priority: "preferred" },
-  { header: outcomeHeader, role: "fixed", priority: "required" },
-  { header: "Detail", role: "elastic", priority: "optional" },
-];
+): ReadonlyArray<LedgerColumn> => resultLedgerColumns(subjectHeader(presentation), outcomeHeader);
 
 /**
  * The columns a live ledger identifies a unit by. Every one of them is
@@ -313,10 +306,10 @@ const planRow = (
  * were already current and the ones the selection left out. Verbose level
  * lists them instead, which is what the fold's hint names.
  */
-const FOLD_HINT = "--verbose to list";
+const FOLD_HINT = VERBOSE_LIST_HINT;
 
 /** Where no gate opens, the only place a reader learns the details are one flag away. */
-const DETAIL_HINT = "--verbose for details";
+const DETAIL_HINT = VERBOSE_DETAILS_HINT;
 
 interface FoldGroup {
   readonly count: number;
@@ -560,7 +553,7 @@ export const operationDoc = (
         : outcome === "interrupted" && resolution.interruption !== undefined
           ? interruptionPhrase(resolution.interruption.signal, resolution.interruption.disposition)
           : outcomeHeadline(presentation, outcome, counts));
-  const detailed = options.verbosity === "verbose" || options.verbosity === "debug";
+  const { detailed, quiet } = ledgerViewPolicy(options.verbosity);
   const visible = resolution.units.filter(
     (unit) => detailed || (unit.state !== "unchanged" && unit.state !== "skipped"),
   );
@@ -586,7 +579,7 @@ export const operationDoc = (
     // Quiet keeps the outcome and drops the narration around it, so the
     // title line the operation opened with does not survive the filter.
     ...titleLine(presentation, resolution.mode, {
-      ledger: ledger.length > 0 && options.verbosity !== "quiet",
+      ledger: ledger.length > 0 && !quiet,
       ...(coverage === undefined ? {} : { scope: coverage.scope, agents: coverage.agents }),
     }),
     ...ledger,
@@ -674,7 +667,7 @@ export const planDoc = (
   const risks = plan.riskConditions ?? [];
   const gated = risks.some((risk) => risk.level === "confirmable");
   if (options.mode === "apply" && !gated) return [];
-  const detailed = options.verbosity === "verbose" || options.verbosity === "debug";
+  const { detailed, quiet } = ledgerViewPolicy(options.verbosity);
   const plannedChanges = steps.filter((step) => step.artifact?.change !== "unchanged");
   const changing = plannedChanges.filter((step) => step.readiness !== "error");
   const unchanged = steps.filter((step) => step.artifact?.change === "unchanged").length;
@@ -697,14 +690,13 @@ export const planDoc = (
       ),
     ),
   ];
-  const ledger =
-    options.verbosity === "quiet"
-      ? []
-      : foldedLedger(
-          ledgerColumns(presentation, "Plan"),
-          (detailed ? steps : plannedChanges).map((step) => planRow(step, presentation, detailed)),
-          detailed ? [] : foldGroups(presentation, [{ count: unchanged, state: "unchanged" }]),
-        );
+  const ledger = quiet
+    ? []
+    : foldedLedger(
+        ledgerColumns(presentation, "Plan"),
+        (detailed ? steps : plannedChanges).map((step) => planRow(step, presentation, detailed)),
+        detailed ? [] : foldGroups(presentation, [{ count: unchanged, state: "unchanged" }]),
+      );
 
   return [
     ...titleLine(presentation, options.mode, {
@@ -747,7 +739,7 @@ export const livePlan = (
 ): LivePlan | undefined => {
   const steps = plan.jobs.flatMap((job) => [...job.steps]);
   const presentation = presentationOf(plan);
-  const detailed = options.verbosity === "verbose" || options.verbosity === "debug";
+  const { detailed } = ledgerViewPolicy(options.verbosity);
   // A unit that is already current has nothing to run, so it never reaches the
   // live region; the verdict and the result ledger account for it.
   const running = steps.filter(

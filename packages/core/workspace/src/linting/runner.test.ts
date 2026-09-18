@@ -1,12 +1,7 @@
 import { renderAxmSkillCompatibility } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 import { describe, expect, it } from "@effect/vitest";
 
-import {
-  resolveLintExitCategory,
-  toLintHumanFindings,
-  toLintJsonDocument,
-  type RenderedFinding,
-} from "./cli.js";
+import { resolveLintExitCategory, toLintJsonDocument } from "./runner.js";
 import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
@@ -43,62 +38,6 @@ describe("lint fact rendering", () => {
       authority: "axm.json",
       observed: "Observed state differs.",
       expected: "Example state is valid.",
-    });
-  });
-
-  const finding = (
-    ruleId: string,
-    severity: "error" | "warning" | "info",
-    message: string,
-    path: string,
-  ): RenderedFinding => ({
-    group: "workspace",
-    ruleDescription: `${ruleId} holds.`,
-    displayRoot: ".",
-    path,
-    finding: { kind: "advisory", ruleId, severity, message, location: { file: path } },
-  });
-
-  it("marks a finding whose repair is determined as fixable", () => {
-    const [human] = toLintHumanFindings([
-      finding(
-        "workspace/instructions-target-current",
-        "warning",
-        "The Claude Code instruction file is missing.",
-        "./docs/CLAUDE.md",
-      ),
-    ]);
-    expect(human?.fixable).toBe(true);
-  });
-
-  it("leaves a finding with no determined repair unfixable", () => {
-    const [human] = toLintHumanFindings([
-      finding(
-        "workspace/settings-keys-recognized",
-        "error",
-        "Workspace settings has unrecognized top-level key 'rulesConfig'.",
-        "./axm.json",
-      ),
-    ]);
-    expect(human?.fixable).toBe(false);
-  });
-
-  it("puts errors first and splits a message into its title, detail, and help", () => {
-    const humans = toLintHumanFindings([
-      finding("workspace/a", "warning", "A warning.", "./a"),
-      finding(
-        "workspace/b",
-        "error",
-        "Lockfile is stale. Detail: 2 entries do not match axm.json. Run axm sync.",
-        "./z",
-      ),
-    ]);
-    expect(humans.map((human) => human.ruleId)).toEqual(["workspace/b", "workspace/a"]);
-    expect(humans[0]).toMatchObject({
-      title: "Lockfile is stale.",
-      details: ["2 entries do not match axm.json."],
-      helps: ["Run axm sync."],
-      ruleDescription: "workspace/b holds.",
     });
   });
 

@@ -52,32 +52,32 @@ describe("reduceConfirm", () => {
     {
       name: "enter takes the first choice, which is the default",
       keys: [key("return")],
-      expected: { _tag: "Submit", choice: no },
+      expected: { _tag: "Submit", submission: no },
     },
     {
       name: "a choice's own key answers outright",
       keys: [key("y")],
-      expected: { _tag: "Submit", choice: yes },
+      expected: { _tag: "Submit", submission: yes },
     },
     {
       name: "the key matches whatever case it was typed in",
       keys: [{ name: "Y", char: "Y", ctrl: false }],
-      expected: { _tag: "Submit", choice: yes },
+      expected: { _tag: "Submit", submission: yes },
     },
     {
       name: "right moves which choice enter takes",
       keys: [key("right"), key("return")],
-      expected: { _tag: "Submit", choice: yes },
+      expected: { _tag: "Submit", submission: yes },
     },
     {
       name: "left wraps round to the last choice",
       keys: [key("left"), key("return")],
-      expected: { _tag: "Submit", choice: details },
+      expected: { _tag: "Submit", submission: details },
     },
     {
       name: "tab moves forward like right",
       keys: [key("tab"), key("tab"), key("return")],
-      expected: { _tag: "Submit", choice: details },
+      expected: { _tag: "Submit", submission: details },
     },
     {
       name: "escape cancels",

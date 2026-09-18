@@ -18,8 +18,8 @@ const settledLine = (state: ProgressState): Doc => {
   const name = state.operation?.name;
   if (name === undefined) return [];
   const elapsed = operationElapsedMs(state);
-  const failedUnits = state.tasks.filter(
-    (task) => task.status === "failed" || task.status === "interrupted",
+  const failedUnits = state.units.filter(
+    (unit) => unit.status === "failed" || unit.status === "interrupted",
   );
   const aside: Text | undefined =
     elapsed === undefined

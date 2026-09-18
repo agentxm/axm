@@ -28,7 +28,7 @@ export {
   errRegistryPublishRejected,
   withAppErrorSemantics,
 } from "./builders.js";
-export { appErrorDoc, defectDoc, renderAppError, renderDefect } from "./view.js";
+export { appErrorDoc, defectDoc, renderAppError } from "./view.js";
 export { serializeErrorCauseChain, type SerializedErrorCause } from "./cause-chain.js";
 export {
   REDACTED_SECRET,

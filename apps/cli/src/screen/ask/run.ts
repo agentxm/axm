@@ -9,39 +9,25 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
-import * as Queue from "effect/Queue";
 import type * as Scope from "effect/Scope";
 import type * as Terminal from "effect/Terminal";
 
-import type { Doc } from "../doc.js";
-import type { ScenePart } from "../scene.js";
-import type { Ask, AskKey, AskKind } from "./ask.js";
+import type { Ask, AskKind } from "./ask.js";
+import { makeInteractionKeyReader, type InteractionSurface } from "../interaction.js";
 import { chooseKind } from "./choose.js";
 import { confirmKind } from "./confirm.js";
 import { inputKind } from "./input.js";
 import { pickKind } from "./pick.js";
-import { PromptCancelled } from "./prompt-cancelled.js";
+import { QuestionCancelled } from "./question-cancelled.js";
 
 /** Where a running question paints, and where its answer lands. */
-export interface AskSurface {
-  /** Replace the interaction beneath the ledger; `undefined` clears it. */
-  readonly showInteraction: (part: ScenePart | undefined) => Effect.Effect<void>;
-  /** Append a settled document to the transcript. */
-  readonly transcript: (doc: Doc) => Effect.Effect<void>;
-}
+export type AskSurface = InteractionSurface;
 
-const CANCELLED = "Operation cancelled.";
+const CANCELLED = "Question cancelled.";
 
-const cancelled = Effect.fail(new PromptCancelled({ message: CANCELLED }));
+const cancelled = Effect.fail(new QuestionCancelled({ message: CANCELLED }));
 
 /** One terminal key event as a reducer sees it. */
-export const askKeyOf = (input: Terminal.UserInput): AskKey => ({
-  name: input.key.name,
-  ...Option.match(input.input, { onNone: () => ({}), onSome: (char) => ({ char }) }),
-  ctrl: input.key.ctrl,
-});
-
 /** Hand a question's own kind to `use`, whatever state type that kind keeps. */
 const withKind = <A, R>(ask: Ask<A>, use: <S>(kind: AskKind<S, A>) => R): R => {
   switch (ask._tag) {
@@ -61,20 +47,16 @@ const runKind = <S, A>(
   kind: AskKind<S, A>,
   terminal: Terminal.Terminal,
   surface: AskSurface,
-): Effect.Effect<A, PromptCancelled, Scope.Scope> =>
+): Effect.Effect<A, QuestionCancelled, Scope.Scope> =>
   Effect.gen(function* () {
-    const keys = yield* terminal.readInput;
     // The queue's one failure is its end, where the terminal stopped sending
     // keys — end of input, or the interrupt it quits on — and an unanswered
     // question is a cancellation.
-    const nextKey = Queue.take(keys).pipe(
-      Effect.map(askKeyOf),
-      Effect.catch(() => cancelled),
-    );
+    const nextKey = yield* makeInteractionKeyReader(terminal, cancelled);
     // The view is handed the space the scene gives it on every paint, so a
     // list sized to the terminal follows a resize without a key being pressed.
     const show = (state: S) => surface.showInteraction((facts) => kind.view(state, facts));
-    const loop = (state: S): Effect.Effect<A, PromptCancelled> =>
+    const loop = (state: S): Effect.Effect<A, QuestionCancelled, Scope.Scope> =>
       Effect.flatMap(nextKey, (key) => {
         const action = kind.reduce(state, key);
         if (action._tag === "Cancel") return cancelled;
@@ -95,7 +77,7 @@ export const runAsk = <A>(
   ask: Ask<A>,
   terminal: Terminal.Terminal,
   surface: AskSurface,
-): Effect.Effect<A, PromptCancelled> =>
+): Effect.Effect<A, QuestionCancelled> =>
   withKind(ask, (kind) => runKind(kind, terminal, surface)).pipe(
     // However it ends — answered, cancelled, or interrupted — nothing of the
     // question is left standing in the live region.

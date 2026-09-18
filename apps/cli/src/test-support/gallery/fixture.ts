@@ -1,5 +1,6 @@
 import type { Doc } from "../../screen/doc.js";
-import { paintText, unicodeGlyphs, type Glyphs, type PaintStyle } from "../../screen/paint-text.js";
+import { paintText, type PaintStyle } from "../../screen/paint-text.js";
+import { unicodeGlyphs, type Glyphs } from "../../screen/glyphs.js";
 import {
   liveColumns,
   liveRows,

@@ -2,21 +2,24 @@ import type {
   SetupAgentScan,
   SetupArtifactTarget,
   SetupOutcome,
+  SetupPlanDetail,
   SetupPlanRow,
 } from "@agentxm/workspace/configuration";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import type { VerbosityLevel } from "../../cli-flags/index.js";
-import type { Doc, LedgerColumn, LedgerRow, Mark, Span } from "../../screen/index.js";
-import { artifactChange, artifactChangeMark, count, factParts } from "../../screen/index.js";
-
-/** A title and a verdict are the two bold lines of a record. */
-const emphatic = (value: string): ReadonlyArray<Span> => [{ text: value, bold: true }];
-
-/** The parts of one aside, joined as prose because the painter owns the separator glyph. */
-const joined = (parts: ReadonlyArray<string | undefined>): string =>
-  parts.filter((part): part is string => part !== undefined && part.length > 0).join(", ");
+import type { Doc, LedgerColumn, LedgerRow, Mark } from "../../screen/index.js";
+import {
+  artifactChange,
+  artifactChangeMark,
+  count,
+  emphatic,
+  factParts,
+  joined,
+  ledgerViewPolicy,
+  suggestionsDoc,
+} from "../../screen/index.js";
 
 /**
  * The title line setup opens with, like every command whose result carries a
@@ -85,6 +88,23 @@ const planAction = (
   }
 };
 
+const planDetail = (detail: SetupPlanDetail): string => {
+  switch (detail._tag) {
+    case "settings":
+      return `agents: ${detail.agentIds.join(", ")}`;
+    case "gitignore":
+      return "AXM runtime and package transaction artifacts";
+    case "instructionSource":
+      return detail.seededFrom === undefined ? "source" : `seeded from ${detail.seededFrom}`;
+    case "instructionTarget":
+      return detail.agentName;
+    case "missingInstructionConvention":
+      return "no instruction convention";
+    case "acceptedResolution":
+      return "accepted resolution";
+  }
+};
+
 /** The plan ledger the apply gate asks about: one row per target setup would touch. */
 export const setupPlanDoc = (rows: ReadonlyArray<SetupPlanRow>): Doc => [
   {
@@ -92,7 +112,7 @@ export const setupPlanDoc = (rows: ReadonlyArray<SetupPlanRow>): Doc => [
     columns: planColumns,
     rows: rows.map((row) => {
       const action = planAction(row.action);
-      return { mark: action.mark, cells: [row.target, action.word, row.detail] };
+      return { mark: action.mark, cells: [row.target, action.word, planDetail(row.detail)] };
     }),
   },
 ];
@@ -196,9 +216,6 @@ const warningsDoc = (result: SetupOutcome): Doc =>
       : [],
   );
 
-const nextDoc = (suggestions: ReadonlyArray<SuggestedAction>): Doc =>
-  suggestions.length === 0 ? [] : [{ _tag: "next", actions: suggestions }];
-
 const agentsPhrase = (agents: number): string =>
   agents === 0 ? "with no coding agents" : `for ${count(agents, "agent")}`;
 
@@ -229,8 +246,8 @@ export interface SetupResultOptions {
  * verdict stands alone. Quiet keeps the verdict and nothing else.
  */
 export const setupResultDoc = (result: SetupOutcome, options: SetupResultOptions): Doc => {
-  const quiet = options.verbosity === "quiet";
-  const next = quiet ? [] : nextDoc(options.suggestions);
+  const { quiet } = ledgerViewPolicy(options.verbosity);
+  const next = quiet ? [] : suggestionsDoc(options.suggestions);
   switch (result.status) {
     case "cancelled":
       return [

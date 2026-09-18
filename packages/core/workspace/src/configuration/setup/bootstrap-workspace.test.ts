@@ -157,7 +157,7 @@ describe("bootstrapWorkspace", () => {
       expect(promptState.presentSetupPlanCalls[0]).toContainEqual({
         target: "AGENTS.md",
         action: "create",
-        detail: "seeded from CLAUDE.md",
+        detail: { _tag: "instructionSource", seededFrom: "CLAUDE.md" },
       });
       expect(fs.existsSync(path.join(projectDir, "axm.json"))).toBe(false);
       expect(fs.existsSync(path.join(projectDir, "AGENTS.md"))).toBe(false);
@@ -205,7 +205,13 @@ describe("bootstrapWorkspace", () => {
 
       expect(interaction.state.selectInstructionSourceCalls).toEqual([]);
       expect(interaction.state.presentSetupPlanCalls).toEqual([
-        [{ target: "axm.json", action: "create", detail: "agents: claude-code" }],
+        [
+          {
+            target: "axm.json",
+            action: "create",
+            detail: { _tag: "settings", agentIds: ["claude-code"] },
+          },
+        ],
       ]);
     }),
   );

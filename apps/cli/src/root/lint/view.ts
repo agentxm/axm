@@ -1,6 +1,7 @@
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import type { FindingCounts, LintHumanFinding } from "@agentxm/workspace/linting";
+import type { FindingCounts } from "@agentxm/workspace/linting";
+import type { LintHumanFinding } from "./human-findings.js";
 
 import type { VerbosityLevel } from "../../cli-flags/index.js";
 import type {
@@ -13,7 +14,7 @@ import type {
   Text,
   Tone,
 } from "../../screen/index.js";
-import { count, exitPhrase, factParts, scopePhrase } from "../../screen/index.js";
+import { count, exitPhrase, factParts, ledgerViewPolicy, scopePhrase } from "../../screen/index.js";
 
 /**
  * A rule reported at this many locations folds into one row with a location
@@ -221,12 +222,11 @@ const driftCallout = (ruleIds: ReadonlyArray<string>): Doc =>
  * whether `--fix` repairs it — with the rule and what it says on a dim line
  * beneath, errors first. A rule that repeats folds into one row with a
  * location count. `--fix` puts what it fixed in the same ledger as ordinary
- * change rows, above what remains. The verdict carries the counts, how many
+ * fixed rows, above what remains. The verdict carries the counts, how many
  * are fixable, and the exit code when the run fails.
  */
 export const lintDoc = (input: LintViewInput): Doc => {
-  const detailed = input.verbosity === "verbose" || input.verbosity === "debug";
-  const quiet = input.verbosity === "quiet";
+  const { detailed, quiet } = ledgerViewPolicy(input.verbosity);
   const remaining = findingRows(input.findings, detailed);
   const rows = [...input.repaired.map(fixedRow), ...remaining.rows];
   const fixable = input.findings.filter((finding) => finding.fixable).length;

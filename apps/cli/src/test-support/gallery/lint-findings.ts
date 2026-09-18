@@ -1,4 +1,4 @@
-import type { LintHumanFinding } from "@agentxm/workspace/linting";
+import type { LintHumanFinding } from "../../root/lint/human-findings.js";
 
 import { lintDoc, type LintViewInput } from "../../root/lint/view.js";
 import type { Doc } from "../../screen/doc.js";

@@ -16,9 +16,12 @@ import type { CalloutNode, Doc, PromptOption, PromptPicked } from "../doc.js";
 import {
   isQuitKey,
   isSubmitKey,
+  answerDoc,
+  promptNode,
   typedText,
   type AskKey,
   type AskKind,
+  type AskReducerAction,
   type PickAsk,
   type PickNoun,
 } from "./ask.js";
@@ -35,10 +38,7 @@ export interface PickState {
   readonly problem?: string;
 }
 
-export type PickAction =
-  | { readonly _tag: "Next"; readonly state: PickState }
-  | { readonly _tag: "Submit"; readonly picked: ReadonlyArray<number> }
-  | { readonly _tag: "Cancel" };
+export type PickAction = AskReducerAction<PickState, ReadonlyArray<number>>;
 
 /**
  * One line of the list: a group's header with every option in the group and
@@ -203,7 +203,10 @@ export const reducePick = <A>(ask: PickAsk<A>, state: PickState, key: AskKey): P
   if (isSubmitKey(key)) {
     const problem = outOfBounds(ask, state.picked.size);
     return problem === undefined
-      ? { _tag: "Submit", picked: [...state.picked].sort((left, right) => left - right) }
+      ? {
+          _tag: "Submit",
+          submission: [...state.picked].sort((left, right) => left - right),
+        }
       : { _tag: "Next", state: { ...state, problem } };
   }
   if (key.name === "up") return moved(ask, state, -1);
@@ -296,10 +299,7 @@ export const pickDoc = <A>(ask: PickAsk<A>, state: PickState, rows: number): Doc
   const above = skippedAbove(window);
   const filtered = state.filter.length > 0;
   return [
-    {
-      _tag: "prompt",
-      question: ask.question,
-      ...(ask.note === undefined ? {} : { note: ask.note }),
+    promptNode(ask, {
       chips: [],
       filter: state.filter,
       options: [
@@ -327,7 +327,7 @@ export const pickDoc = <A>(ask: PickAsk<A>, state: PickState, rows: number): Doc
               { key: "enter", word: "confirm" },
             ],
           },
-    },
+    }),
     ...(state.problem === undefined
       ? []
       : [{ _tag: "callout", tone: "warn", title: state.problem } satisfies CalloutNode]),
@@ -348,14 +348,10 @@ export const pickAnswer = <A>(ask: PickAsk<A>, picked: ReadonlyArray<number>): D
   });
   const rest = titles.length - NAMED_IN_ANSWER;
   const named = titles.slice(0, NAMED_IN_ANSWER).join(", ");
-  return [
-    {
-      _tag: "answer",
-      mark: "ok",
-      label: ask.label ?? ask.question,
-      value: titles.length === 0 ? "none" : rest > 0 ? `${named} +${String(rest)}` : named,
-    },
-  ];
+  return answerDoc(
+    ask,
+    titles.length === 0 ? "none" : rest > 0 ? `${named} +${String(rest)}` : named,
+  );
 };
 
 /** A `Pick` as the `Screen` runs it. */
@@ -364,7 +360,11 @@ export const pickKind = <A>(ask: PickAsk<A>): AskKind<PickState, A> => ({
   reduce: (state, key) => {
     const action = reducePick(ask, state, key);
     return action._tag === "Submit"
-      ? { _tag: "Submit", value: ask.answer(action.picked), answer: pickAnswer(ask, action.picked) }
+      ? {
+          _tag: "Submit",
+          value: ask.answer(action.submission),
+          answer: pickAnswer(ask, action.submission),
+        }
       : action;
   },
   view: (state, facts) => pickDoc(ask, state, facts.rows),

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { resolveCliOutputPolicy, stripTerminalFormatting } from "./output-policy.js";
+import { resolveCliOutputPolicy } from "./output-policy.js";
+import { stripTerminalFormatting } from "./width.js";
 
 describe("stripTerminalFormatting", () => {
   it("removes ANSI styling and OSC hyperlinks", () => {
@@ -19,7 +20,6 @@ describe("resolveCliOutputPolicy", () => {
       stdoutColors: true,
       stderrColors: true,
       animate: true,
-      interactiveActivity: true,
       quiet: false,
       glyphs: "unicode",
     });
@@ -31,7 +31,6 @@ describe("resolveCliOutputPolicy", () => {
       stdoutColors: false,
       stderrColors: false,
       animate: false,
-      interactiveActivity: false,
       quiet: false,
       glyphs: "unicode",
     });
@@ -43,7 +42,6 @@ describe("resolveCliOutputPolicy", () => {
       stdoutColors: false,
       stderrColors: false,
       animate: false,
-      interactiveActivity: false,
       quiet: false,
       glyphs: "unicode",
     });
@@ -55,7 +53,6 @@ describe("resolveCliOutputPolicy", () => {
       stdoutColors: false,
       stderrColors: false,
       animate: false,
-      interactiveActivity: false,
       quiet: false,
       glyphs: "unicode",
     });
@@ -65,7 +62,6 @@ describe("resolveCliOutputPolicy", () => {
       stdoutColors: false,
       stderrColors: false,
       animate: false,
-      interactiveActivity: false,
       quiet: false,
       glyphs: "unicode",
     });
@@ -77,7 +73,6 @@ describe("resolveCliOutputPolicy", () => {
       stdoutColors: false,
       stderrColors: false,
       animate: false,
-      interactiveActivity: false,
       quiet: false,
       glyphs: "unicode",
     });
@@ -89,7 +84,6 @@ describe("resolveCliOutputPolicy", () => {
       stdoutColors: false,
       stderrColors: false,
       animate: false,
-      interactiveActivity: false,
       quiet: false,
       glyphs: "ascii",
     });
@@ -101,7 +95,6 @@ describe("resolveCliOutputPolicy", () => {
       stdoutColors: true,
       stderrColors: true,
       animate: true,
-      interactiveActivity: true,
       quiet: true,
       glyphs: "unicode",
     });
@@ -113,7 +106,6 @@ describe("resolveCliOutputPolicy", () => {
       stdoutColors: false,
       stderrColors: false,
       animate: false,
-      interactiveActivity: false,
       quiet: false,
       glyphs: "unicode",
     });
@@ -132,15 +124,6 @@ describe("resolveCliOutputPolicy", () => {
     expect(
       resolveCliOutputPolicy({ stdoutIsTTY: true, stderrIsTTY: false, env: { FORCE_COLOR: "1" } }),
     ).toMatchObject({ stdoutColors: true, stderrColors: false, animate: false });
-  });
-
-  it("keys live-frame animation to its stderr target", () => {
-    expect(
-      resolveCliOutputPolicy({ stdoutIsTTY: true, stderrIsTTY: false, env: {} }),
-    ).toMatchObject({ colors: true, animate: false, interactiveActivity: false });
-    expect(
-      resolveCliOutputPolicy({ stdoutIsTTY: false, stderrIsTTY: true, env: {} }),
-    ).toMatchObject({ colors: true, animate: true, interactiveActivity: true });
   });
 
   // Mixed-locale precedence remains an open question in the human-output specification.

@@ -7,7 +7,7 @@ import {
 } from "@agentxm/workspace/knowledge/query";
 
 import { ExitCode, makeAppError } from "../../../app-error/index.js";
-import { Screen, rawDoc, tableViewDoc, type TableView } from "../../../screen/index.js";
+import { Screen, rawDoc, tableDoc, type ViewColumn } from "../../../screen/index.js";
 import { effectCliExit, withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   readOnlyCapabilities,
@@ -26,13 +26,11 @@ interface CandidateRow {
   readonly reason: string;
 }
 
-const CandidateTable = {
-  columns: {
-    concept: { header: "Concept" },
-    title: { header: "Title" },
-    reason: { header: "Match" },
-  },
-} as const satisfies TableView<CandidateRow>;
+const candidateColumns: ReadonlyArray<ViewColumn<CandidateRow>> = [
+  { header: "Concept", value: (row) => row.concept },
+  { header: "Title", value: (row) => row.title },
+  { header: "Match", value: (row) => row.reason },
+];
 
 export const handleKnowledgeConceptResolve = Effect.fn("Knowledge.concepts.resolve")(function* (
   input: string,
@@ -65,14 +63,14 @@ export const handleKnowledgeConceptResolve = Effect.fn("Knowledge.concepts.resol
       );
     } else if (output.outcome === "ambiguous" && output.candidates !== undefined) {
       yield* screen.result(
-        tableViewDoc(
+        tableDoc(
           output.candidates.map(({ ref, title, reason }) => ({
             concept: sanitizeKnowledgeTerminalText(`${ref.bundle}#${ref.conceptId}`),
             title: sanitizeKnowledgeTerminalText(title ?? "—"),
             reason,
           })),
-          CandidateTable,
-          "Ambiguous concept reference",
+          candidateColumns,
+          { caption: "Ambiguous concept reference" },
         ),
       );
     }

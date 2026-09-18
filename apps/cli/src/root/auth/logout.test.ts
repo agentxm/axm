@@ -7,7 +7,11 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { CredentialStoreTest, TokenExchangeTest } from "@agentxm/registry-access/testing";
+import {
+  CredentialStoreTest,
+  DeviceLoginInteractionTest,
+  TokenExchangeTest,
+} from "@agentxm/registry-access/testing";
 import { RegistryRequestFailed, RegistryUrl } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { TestMachineRenderer, TestRenderer, logsByTag } from "../../test-support/presenter-test.js";
@@ -64,13 +68,15 @@ const makeLayers = (opts?: {
   });
 
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
+  const interactionLayer = DeviceLoginInteractionTest().layer;
 
   const FullLayer = Layer.mergeAll(
     rendererLayer,
     TestFlagsLayer(),
     credStoreLayer,
     tokenExchangeLayer,
-    Layer.provide(AuthLoginPresenterLive, rendererLayer),
+    Layer.provide(AuthLoginPresenterLive, Layer.mergeAll(rendererLayer, interactionLayer)),
+    interactionLayer,
     registryUrlLayer,
   );
   const provide = Effect.provide(FullLayer);

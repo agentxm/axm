@@ -8,7 +8,7 @@ import * as ConfigProvider from "effect/ConfigProvider";
 import * as semver from "semver";
 
 import { run } from "./release-command.js";
-import { produceReleaseCohort } from "./release-packages.js";
+import { produceReleaseCohort, stampBootstrapManifest } from "./release-packages.js";
 import {
   contentIntegrity,
   isTransientPublicationError,
@@ -66,11 +66,6 @@ const snapshots = RELEASE_PACKAGE_JSON_PATHS.map((path) => ({
   path,
   original: readFileSync(path, "utf8"),
 }));
-const stampVersion = (original: string, path: string): string => {
-  const updated = original.replace(/^(\s*"version":\s*")[^"]+(")/m, `$1${version}$2`);
-  if (updated === original) fail(`Could not stamp version field in ${path}.`);
-  return updated;
-};
 const temporary = mkdtempSync(join(tmpdir(), "axm-bootstrap-prerelease-"));
 const cohort = join(temporary, "cohort");
 mkdirSync(cohort);
@@ -78,7 +73,11 @@ mkdirSync(cohort);
 try {
   try {
     for (const snapshot of snapshots) {
-      writeFileSync(snapshot.path, stampVersion(snapshot.original, snapshot.path), "utf8");
+      writeFileSync(
+        snapshot.path,
+        stampBootstrapManifest(snapshot.original, snapshot.path, version),
+        "utf8",
+      );
     }
     runNx("run-many", "-t", "build", "--projects", "tag:release:cli");
     await produceReleaseCohort(version, sourceSha, cohort);

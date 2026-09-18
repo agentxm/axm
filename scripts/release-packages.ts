@@ -19,6 +19,28 @@ const packedManifest = Schema.Struct({
   dependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   optionalDependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
 });
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+export const stampBootstrapManifest = (original: string, path: string, version: string): string => {
+  const decoded: unknown = JSON.parse(original);
+  if (!isRecord(decoded) || typeof decoded["version"] !== "string") {
+    throw new Error(`Could not stamp version field in ${path}.`);
+  }
+  decoded["version"] = version;
+
+  for (const section of ["dependencies", "optionalDependencies", "peerDependencies"]) {
+    const dependencies = decoded[section];
+    if (!isRecord(dependencies)) continue;
+    for (const pkg of RELEASE_PACKAGES) {
+      if (pkg.name in dependencies) dependencies[pkg.name] = version;
+    }
+  }
+
+  return `${JSON.stringify(decoded, undefined, 2)}\n`;
+};
+
 export const validatePack = async (tarball: string, name: string, version: string) => {
   const manifest = Schema.decodeUnknownSync(Schema.fromJsonString(packedManifest))(
     capture("tar", ["-xOf", tarball, "package/package.json"]),
@@ -37,11 +59,13 @@ export const validatePack = async (tarball: string, name: string, version: strin
       reference.startsWith("link:")
     )
       throw new Error(`Nonportable packed dependency: ${dependency}.`);
-    if (
-      RELEASE_PACKAGES.some((pkg) => pkg.name === dependency) &&
-      !semver.satisfies(version, reference)
-    )
+    const isCohortDependency = RELEASE_PACKAGES.some((pkg) => pkg.name === dependency);
+    if (isCohortDependency && !semver.satisfies(version, reference))
       throw new Error(`Packed cohort dependency mismatch: ${dependency}@${reference}.`);
+    if (isCohortDependency && semver.prerelease(version) !== null && reference !== version)
+      throw new Error(
+        `Packed bootstrap cohort dependency must be exact: ${dependency}@${reference}.`,
+      );
   }
 
   const { messages, pkg } = await publint({

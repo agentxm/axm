@@ -8,6 +8,7 @@ import { RELEASE_PACKAGES } from "./release-shared.js";
 import { capture, captureIn } from "./release-command.js";
 import {
   RELEASE_COHORT_MANIFEST,
+  stampBootstrapManifest,
   validatePack,
   validateReleaseCohort,
   validateReleaseCohortManifest,
@@ -70,6 +71,59 @@ describe("release cohort artifact manifest", () => {
 
     await expect(validateReleaseCohort(directory, version, commit)).rejects.toThrow(
       `Release cohort integrity mismatch: ${first.name}@${version}`,
+    );
+  });
+});
+
+describe("bootstrap cohort manifests", () => {
+  it("pins intra-cohort runtime dependencies to the exact preview version", () => {
+    const preview = "0.31.1-preview.123.abcdef012345";
+    const stamped: unknown = JSON.parse(
+      stampBootstrapManifest(
+        JSON.stringify({
+          name: "@fixture/package",
+          version: "0.31.1",
+          dependencies: {
+            "@agentxm/extension-model": "catalog:",
+            effect: "catalog:",
+          },
+          optionalDependencies: {
+            "@agentxm/registry-protocol": "catalog:",
+          },
+          peerDependencies: {
+            "@agentxm/extension-content": "catalog:",
+          },
+          devDependencies: {
+            "@agentxm/specification-metadata": "catalog:",
+          },
+        }),
+        "package.json",
+        preview,
+      ),
+    );
+
+    expect(stamped).toEqual({
+      name: "@fixture/package",
+      version: preview,
+      dependencies: {
+        "@agentxm/extension-model": preview,
+        effect: "catalog:",
+      },
+      optionalDependencies: {
+        "@agentxm/registry-protocol": preview,
+      },
+      peerDependencies: {
+        "@agentxm/extension-content": preview,
+      },
+      devDependencies: {
+        "@agentxm/specification-metadata": "catalog:",
+      },
+    });
+  });
+
+  it("rejects a manifest without a version field", () => {
+    expect(() => stampBootstrapManifest('{"name":"fixture"}', "fixture.json", "1.0.0")).toThrow(
+      "fixture.json",
     );
   });
 });
@@ -146,6 +200,20 @@ describe("packed package contracts", () => {
       ).rejects.toThrow("Nonportable packed dependency: local");
     },
   );
+
+  it("rejects a ranged dependency inside a bootstrap cohort", async () => {
+    const preview = "0.31.1-preview.123.abcdef012345";
+    await expect(
+      validatePack(
+        packedFixture({
+          version: preview,
+          dependencies: { "@agentxm/extension-model": `^${preview}` },
+        }),
+        "@fixture/package-contract",
+        preview,
+      ),
+    ).rejects.toThrow("bootstrap cohort dependency must be exact");
+  });
 
   it("preserves published condition precedence and excludes workspace source conditions", async () => {
     const directory = dirname(

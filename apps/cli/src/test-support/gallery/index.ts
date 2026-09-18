@@ -15,6 +15,12 @@ import { promptsChooseAnswered } from "./prompts--choose-answered.js";
 import { promptsConfirmAnswered } from "./prompts--confirm-answered.js";
 import { promptsInputAnswered } from "./prompts--input-answered.js";
 import { promptsInputError } from "./prompts--input-error.js";
+import { refLintClean } from "./ref-lint--clean.js";
+import { refLintDefault } from "./ref-lint--default.js";
+import { refLintDrifted } from "./ref-lint--drifted.js";
+import { refLintFix } from "./ref-lint--fix.js";
+import { refLintManyFindings } from "./ref-lint--many-findings.js";
+import { refLintQuiet } from "./ref-lint--quiet.js";
 import { refPickAnswered } from "./ref-pick--answered.js";
 import { refPickFiltered } from "./ref-pick--filtered.js";
 import { refPickGrouped } from "./ref-pick--grouped.js";
@@ -64,6 +70,12 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
     name: "ref-sync--uninstall-kept-reference",
     doc: refSyncUninstallKeptReference,
   },
+  { _tag: "document", name: "ref-lint--default", doc: refLintDefault },
+  { _tag: "document", name: "ref-lint--many-findings", doc: refLintManyFindings },
+  { _tag: "document", name: "ref-lint--fix", doc: refLintFix },
+  { _tag: "document", name: "ref-lint--clean", doc: refLintClean },
+  { _tag: "document", name: "ref-lint--drifted", doc: refLintDrifted },
+  { _tag: "document", name: "ref-lint--quiet", doc: refLintQuiet },
   { _tag: "document", name: "blocked-waiting", doc: blockedWaiting },
   { _tag: "document", name: "prompts--confirm-answered", doc: promptsConfirmAnswered },
   { _tag: "document", name: "prompts--choose-answered", doc: promptsChooseAnswered },

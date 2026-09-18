@@ -34,10 +34,6 @@ const lintConfig = {
     Flag.withDescription("Treat warnings as failing for exit code."),
     Flag.withDefault(false),
   ),
-  details: Flag.Boolean("details").pipe(
-    Flag.withDescription("Show the full human report instead of the grouped summary."),
-    Flag.withDefault(false),
-  ),
   fix: Flag.Boolean("fix").pipe(
     Flag.withDescription(
       "Apply repairs whose desired state is already determined, then report what remains.",
@@ -54,7 +50,6 @@ export interface RunLintCommandArgs {
   readonly path: Option.Option<string>;
   readonly scope: WorkspaceScope;
   readonly strict: boolean;
-  readonly details: boolean;
   readonly fix: boolean;
   readonly view: LintView;
 }
@@ -79,7 +74,6 @@ export const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLint
   return yield* handleLint({
     selection,
     strict: args.strict,
-    details: args.details,
   }).pipe(
     // Lint reports a scope without settings as a finding rather than refusing to run.
     withWorkspace({
@@ -100,11 +94,8 @@ const lintCapabilities: CommandCapabilities = {
   modes: [{ flag: "--fix", effect: "workspace" }],
 };
 
-export const lintCommand = Command.make(
-  "lint",
-  lintConfig,
-  ({ path, scope, strict, details, fix, view }) =>
-    runLintCommand({ path, scope, strict, details, fix, view }).pipe(withRuntime("lint")),
+export const lintCommand = Command.make("lint", lintConfig, ({ path, scope, strict, fix, view }) =>
+  runLintCommand({ path, scope, strict, fix, view }).pipe(withRuntime("lint")),
 ).pipe(
   withArgvTracking(lintConfig),
   withCommandCapabilities(lintCapabilities),
@@ -120,8 +111,8 @@ export const lintCommand = Command.make(
       description: "Treat warnings as failing for exit code",
     },
     {
-      command: "axm lint --details",
-      description: "Show the detailed path-by-path report",
+      command: "axm lint --verbose",
+      description: "List every finding with its full detail",
     },
     {
       command: "axm lint --fix",

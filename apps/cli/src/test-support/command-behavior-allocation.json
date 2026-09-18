@@ -264,9 +264,6 @@
       "topic": "User workspace selection and explicit lint path precedence",
       "nearestSpecification": "cli/lint/observes-selected-filesystem-view"
     },
-    "lint-details": {
-      "topic": "Detailed human lint presentation, quiet precedence and JSON invariance"
-    },
     "lint-fix-index": {
       "topic": "Lint --fix admission with Git-index mode",
       "nearestSpecification": "cli/lint/observes-selected-filesystem-view"
@@ -3299,14 +3296,6 @@
           }
         },
         {
-          "name": "details",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
           "name": "fix",
           "rawHelp": {
             "aliases": [],
@@ -3367,10 +3356,6 @@
         {
           "parameters": ["flag:strict"],
           "requirements": ["cli/lint/normal-and-strict-runs-fail-by-severity"]
-        },
-        {
-          "parameters": ["flag:details"],
-          "openTopics": ["lint-details"]
         },
         {
           "parameters": ["flag:fix"],

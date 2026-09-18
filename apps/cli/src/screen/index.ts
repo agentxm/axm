@@ -166,6 +166,7 @@ export {
   phaseLabel,
   progressMeasure,
   remainingTime,
+  scopePhrase,
   publishDisposition,
   publishParticipation,
   publishReason,

@@ -294,7 +294,10 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
             ...(layout._tag === "grid"
               ? gridRow(layout, row.cells, style, indent, prefix)
               : row.cells.flatMap((cell, index) =>
-                  block(cell, style, indent, index === 0 ? prefix : "  "),
+                  // A stacked row has nothing to align, so an empty cell takes no line.
+                  index > 0 && visibleText(cell).length === 0
+                    ? []
+                    : block(cell, style, indent, index === 0 ? prefix : "  "),
                 )),
             ...(row.children === undefined ? [] : paintNodes(row.children, style, indent + 4)),
           ];

@@ -1,0 +1,4 @@
+ ▲   The registry will still block publish on these rules
+     skill/description-present
+     pack/member-pinned
+ ✔   No other findings             in this project

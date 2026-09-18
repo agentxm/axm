@@ -19,7 +19,9 @@ import type {
   Span,
   Status,
   TableColumn,
+  TableRow,
   Text,
+  Tint,
   Tone,
   TreeItem,
   WaitNode,
@@ -190,9 +192,22 @@ const toneCodes: Readonly<Record<Tone, string>> = {
   dim: `${ESC}2m`,
 };
 
+const tintCodes: Readonly<Record<Tint, string>> = {
+  green: `${ESC}32m`,
+  yellow: `${ESC}33m`,
+  blue: `${ESC}34m`,
+  magenta: `${ESC}35m`,
+  cyan: `${ESC}36m`,
+};
+
+const colorCode = (span: Span): string =>
+  span.tone === undefined && span.tint !== undefined
+    ? tintCodes[span.tint]
+    : toneCodes[span.tone ?? "neutral"];
+
 const styleSpan = (span: Span, colors: boolean): string => {
   if (!colors) return span.text;
-  const prefix = `${span.bold === true ? `${ESC}1m` : ""}${span.invert === true ? INVERT : ""}${toneCodes[span.tone ?? "neutral"]}`;
+  const prefix = `${span.bold === true ? `${ESC}1m` : ""}${span.invert === true ? INVERT : ""}${colorCode(span)}`;
   const linked =
     span.link === undefined
       ? span.text
@@ -203,7 +218,8 @@ const styleSpan = (span: Span, colors: boolean): string => {
 const paintSpans = (spans: ReadonlyArray<Span>, style: ResolvedStyle, inherited?: Tone): string =>
   spans
     .map((span) => {
-      const tone = span.tone ?? inherited;
+      // A tinted span keeps its own colour inside a toned line.
+      const tone = span.tone ?? (span.tint === undefined ? inherited : undefined);
       return styleSpan(tone === undefined ? span : { ...span, tone }, style.colors);
     })
     .join("");
@@ -419,50 +435,71 @@ const hiddenColumnsNote = (
   });
 };
 
+/**
+ * A table sits behind the gutter: its header and unmarked rows leave the
+ * gutter blank, and a row that needs attention puts its status mark there.
+ * Stacked rows carry their mark on their first field.
+ */
 const paintTable = (
   columns: ReadonlyArray<TableColumn>,
-  rows: ReadonlyArray<ReadonlyArray<Text>>,
+  rows: ReadonlyArray<TableRow>,
   style: ResolvedStyle,
   indent: number,
 ): ReadonlyArray<string> => {
   const headers = columns.map((column) => column.header);
+  const rowGutter = (row: TableRow): string =>
+    row.mark === undefined ? blankGutter : gutter(style.glyphs.status[row.mark]);
   const source: GridSource = {
     headers,
-    rows,
+    rows: rows.map((row) => row.cells),
     columns: columns.map((column, index) =>
       layoutColumn(
         column,
         column.header,
-        rows.map((row) => cellAt(row, index)),
+        rows.map((row) => cellAt(row.cells, index)),
       ),
     ),
   };
   const layout = layoutTable({
     columns: source.columns,
-    available: remaining(style.width, indent),
+    available: remaining(style.width, indent + GUTTER_WIDTH),
     gap: COLUMN_GAP,
   });
   if (layout._tag === "stacked") {
-    return rows.flatMap((row, rowIndex) => [
-      ...(rowIndex === 0 ? [] : [""]),
-      ...paintFields(
-        columns.map((column, index) => ({ label: column.header, value: cellAt(row, index) })),
+    const fieldsStart = indent + GUTTER_WIDTH;
+    return rows.flatMap((row, rowIndex) => {
+      // A stacked row names only the cells it has; an empty one would be a bare label.
+      const [first = "", ...rest] = paintFields(
+        columns
+          .map((column, index) => ({ label: column.header, value: cellAt(row.cells, index) }))
+          .filter((field) => visibleText(field.value).length > 0),
         style,
         {
-          indent,
+          indent: fieldsStart,
           valueStart:
-            indent +
+            fieldsStart +
             Math.max(0, ...columns.map((column) => displayWidth(visibleText(column.header)))) +
             2,
           gap: 2,
         },
-      ),
-    ]);
+      );
+      return [
+        ...(rowIndex === 0 ? [] : [""]),
+        `${spaces(indent)}${rowGutter(row)}${first.slice(fieldsStart)}`,
+        ...rest,
+      ];
+    });
   }
   return [
-    ...paintCells(gridCells(layout, headers), style, { indent, first: "", tone: "dim" }),
-    ...rows.flatMap((row) => paintCells(gridCells(layout, row), style, { indent, first: "" })),
-    ...hiddenColumnsNote(source, layout, style, indent),
+    ...paintCells(gridCells(layout, headers), style, {
+      indent,
+      first: blankGutter,
+      tone: "dim",
+    }),
+    ...rows.flatMap((row) =>
+      paintCells(gridCells(layout, row.cells), style, { indent, first: rowGutter(row) }),
+    ),
+    ...hiddenColumnsNote(source, layout, style, indent + GUTTER_WIDTH),
   ];
 };
 
@@ -1145,10 +1182,7 @@ const paintNode = (
         node.caption === undefined
           ? []
           : paintPrefixed(node.caption, style, { indent: content, first: "" });
-      return [
-        ...caption,
-        ...paintTable(node.columns, node.rows, style, content + (caption.length === 0 ? 0 : 2)),
-      ];
+      return [...caption, ...paintTable(node.columns, node.rows, style, indent)];
     }
     case "fields":
       // Fields sit at the content column, never left of it, with values at the value column.

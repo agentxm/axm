@@ -38,7 +38,7 @@ export const setupPlanDoc = (rows: ReadonlyArray<SetupPlanRow>): Doc => [
   {
     _tag: "table",
     columns: [{ header: "Target" }, { header: "Action" }, { header: "Detail" }],
-    rows: rows.map((row) => [row.target, row.action, row.detail]),
+    rows: rows.map((row) => ({ cells: [row.target, row.action, row.detail] })),
   },
 ];
 
@@ -56,12 +56,14 @@ export const setupScopeSupportDoc = (
       { header: "Reason" },
     ],
     rows: categories.flatMap((category) =>
-      category.outcomes.map((outcome) => [
-        category.label,
-        outcome.status,
-        outcome.agentName ?? outcome.target ?? category.placement,
-        outcome.reason,
-      ]),
+      category.outcomes.map((outcome) => ({
+        cells: [
+          category.label,
+          outcome.status,
+          outcome.agentName ?? outcome.target ?? category.placement,
+          outcome.reason,
+        ],
+      })),
     ),
   },
 ];

@@ -9,7 +9,13 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { getAppError, makeWorkspaceHandlerTestContext } from "../../test-support/test-helpers.js";
+import { paintText } from "../../screen/index.js";
+import type { TestRendererState } from "../../test-support/presenter-test.js";
 import { handleView } from "./handler.js";
+
+/** The page a person reads, painted without colour or width limits. */
+const painted = (state: TestRendererState): ReadonlyArray<string> =>
+  state.docs.flatMap((entry) => paintText(entry.doc, { width: "unbounded", colors: false }));
 
 const initWorkspace = (root: string, registryRoot: string) => {
   fs.mkdirSync(path.join(root, ".axm"), { recursive: true });
@@ -110,12 +116,15 @@ describe("view handler", () => {
           registry: Option.some("test-registry"),
         });
 
-        expect(rendererState.tables[0]?.items).toEqual(
-          expect.arrayContaining([
-            { field: "Lifecycle", value: "deprecated" },
-            { field: "Deprecation message", value: "-" },
-            { field: "Replacement", value: "unavailable or not visible" },
-          ]),
+        const page = painted(rendererState);
+        expect(page[0]).toContain("deprecated");
+        expect(page).toContain(" ▲   Deprecated on 1 Mar 2026");
+        expect(page.some((line) => /Replacement\s+unavailable or not visible$/u.test(line))).toBe(
+          true,
+        );
+        // With no replacement to name, the next step is still this extension's install.
+        expect(page).toContain(
+          "  Install this extension · axm skills install @test/skills/code-review",
         );
       }),
     );
@@ -175,8 +184,8 @@ describe("view handler", () => {
               visibility: "public",
             });
           } else {
-            expect(ctx.rendererState.tables[0]?.items).toEqual(
-              expect.arrayContaining([{ field: "Visibility", value: "public" }]),
+            expect(painted(ctx.rendererState)[0]).toMatch(
+              /^@test\/skills\/code-review {2}skill, public, active$/u,
             );
           }
         }),

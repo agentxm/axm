@@ -1,0 +1,59 @@
+     Extension
+       @acme/skills/code-review
+     Type        skill
+     Management  configured
+     Installed   yes
+     Version     1.4.0
+     Source      agentxm
+     Assessment  not-checked
+     Guidance    -
+
+     Extension   @acme/skills/triage
+     Type        skill
+     Management  configured
+     Installed   yes
+     Version     2.0.1
+     Source      agentxm
+     Assessment  not-checked
+     Guidance    -
+
+     Extension
+       @acme/subagents/reviewer
+     Type        subagent
+     Management  configured
+     Installed   yes
+     Version     0.9.0
+     Source      agentxm
+     Assessment  not-checked
+     Guidance    -
+
+     Extension   @acme/packs/review-kit
+     Type        pack
+     Management  configured
+     Installed   yes
+     Version     2.1.0
+     Source      agentxm
+     Assessment  not-checked
+     Guidance    -
+
+     Extension   github
+     Type        mcp-server
+     Management  configured
+     Installed   yes
+     Version     1.0.0
+     Source      local
+     Assessment  not-checked
+     Guidance    -
+
+ ▲   Extension
+       @legacy/skills/changelog
+     Type        skill
+     Management  leftover
+     Installed   yes
+     Version     0.3.0
+     Source      agentxm
+     Assessment  not-checked
+     Guidance    -
+
+6 extensions · 3 enabled · 1 needs
+attention · axm lint explains

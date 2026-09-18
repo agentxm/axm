@@ -18,22 +18,22 @@
      Activation     enabled
 
 Agents
-  Agent   claude-code
-  Status  projected
-  Path    .claude/skills/effect-v4
-  Detail  current
+     Agent   claude-code
+     Status  projected
+     Path    .claude/skills/effect-v4
+     Detail  current
 
-  Agent   codex
-  Status  projected
-  Path    .codex/skills/effect-v4
-  Detail  current
+     Agent   codex
+     Status  projected
+     Path    .codex/skills/effect-v4
+     Detail  current
 
-  Agent   cursor
-  Status  blocked
-  Path    .cursor/skills/effect-v4
-  Detail  hand-authored file at the
-          target path; run `axm adopt`
-          or move it
+ ▲   Agent   cursor
+     Status  blocked
+     Path    .cursor/skills/effect-v4
+     Detail  hand-authored file at the
+             target path; run `axm
+             adopt` or move it
 Next
   Update to the latest version
     axm update @craigsmitham/effect-v4

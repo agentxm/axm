@@ -25,6 +25,7 @@ type Word = ReadonlyArray<Fragment>;
 
 const attributesOf = (span: Span): Attributes => ({
   ...(span.tone === undefined ? {} : { tone: span.tone }),
+  ...(span.tint === undefined ? {} : { tint: span.tint }),
   ...(span.bold === undefined ? {} : { bold: span.bold }),
   ...(span.link === undefined ? {} : { link: span.link }),
   ...(span.copyable === undefined ? {} : { copyable: span.copyable }),
@@ -33,6 +34,7 @@ const attributesOf = (span: Span): Attributes => ({
 
 const sameAttributes = (left: Attributes, right: Attributes): boolean =>
   left.tone === right.tone &&
+  left.tint === right.tint &&
   left.bold === right.bold &&
   left.link === right.link &&
   left.copyable === right.copyable &&

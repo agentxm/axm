@@ -82,7 +82,7 @@ describe("startup notification printing", () => {
   it("formats human and agent notifications at delivery", () => {
     const update = { current: "1.0.0", latest: "1.2.3" };
     expect(notificationMessage(update, "human")).toBe(
-      "Update available: 1.0.0 → 1.2.3\nRun: axm upgrade",
+      "axm 1.2.3 is available (you have 1.0.0), run axm upgrade",
     );
     expect(notificationMessage(update, "agent")).toBe(
       'AXM_UPDATE_AVAILABLE current=1.0.0 latest=1.2.3 command="axm upgrade"',
@@ -100,37 +100,48 @@ describe("startup notification printing", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it.effect("prints a fresh-cache notification before command output", () => {
-    const events: Array<string> = [];
-    const printer: NotificationPrinter = () =>
-      Effect.sync(() => {
-        events.push("notification");
-      });
-    const http = Layer.succeed(
-      HttpClient.HttpClient,
-      HttpClient.make((request) =>
-        Effect.sync(() => HttpClientResponse.fromWeb(request, new Response(null, { status: 500 }))),
-      ),
-    );
-    const updateCheckLayer = makeUpdateCheckCacheLayer(cachePath).pipe(
-      Layer.provide(NodeServices.layer),
-    );
-    const { layer: rendererLayer } = TestRenderer.make();
-    const layer = Layer.mergeAll(
-      NodeServices.layer,
-      updateCheckLayer,
-      StableChannelCheckLive.pipe(Layer.provide(http)),
-      rendererLayer,
-    );
-    return Effect.gen(function* () {
-      yield* rememberStableChannel(channelDocument(), null);
-      yield* withUpdateCheck(
+  for (const testCase of [
+    { audience: "a person", isAgentSession: false, order: ["command", "notification"] },
+    { audience: "an agent session", isAgentSession: true, order: ["notification", "command"] },
+  ]) {
+    it.effect(`tells ${testCase.audience} of a fresh-cache update in its place`, () => {
+      const events: Array<string> = [];
+      const printer: NotificationPrinter = () =>
         Effect.sync(() => {
-          events.push("command");
-        }),
-        { localVersion: "1.0.0", inputs: baseInputs, printNotification: printer },
+          events.push("notification");
+        });
+      const http = Layer.succeed(
+        HttpClient.HttpClient,
+        HttpClient.make((request) =>
+          Effect.sync(() =>
+            HttpClientResponse.fromWeb(request, new Response(null, { status: 500 })),
+          ),
+        ),
       );
-      expect(events).toEqual(["notification", "command"]);
-    }).pipe(Effect.provide(layer));
-  });
+      const updateCheckLayer = makeUpdateCheckCacheLayer(cachePath).pipe(
+        Layer.provide(NodeServices.layer),
+      );
+      const { layer: rendererLayer } = TestRenderer.make();
+      const layer = Layer.mergeAll(
+        NodeServices.layer,
+        updateCheckLayer,
+        StableChannelCheckLive.pipe(Layer.provide(http)),
+        rendererLayer,
+      );
+      return Effect.gen(function* () {
+        yield* rememberStableChannel(channelDocument(), null);
+        yield* withUpdateCheck(
+          Effect.sync(() => {
+            events.push("command");
+          }),
+          {
+            localVersion: "1.0.0",
+            inputs: { ...baseInputs, isAgentSession: testCase.isAgentSession },
+            printNotification: printer,
+          },
+        );
+        expect(events).toEqual(testCase.order);
+      }).pipe(Effect.provide(layer));
+    });
+  }
 });

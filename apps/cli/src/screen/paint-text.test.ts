@@ -47,7 +47,7 @@ const everyNodeDocument: Doc = [
     _tag: "table",
     caption: "Inventory",
     columns: [{ header: "Name" }, { header: "State" }],
-    rows: [["alpha", "ready"]],
+    rows: [{ cells: ["alpha", "ready"] }],
   },
   { _tag: "fields", fields: [{ label: "Owner", value: "@acme" }] },
   {
@@ -108,7 +108,7 @@ const skillsList: Doc = [
   {
     _tag: "table",
     columns: skillColumns,
-    rows: skillRows,
+    rows: skillRows.map((cells) => ({ cells })),
     caption:
       "3 skills (2 configured, 0 implicit, 2 installed, 0 leftover, 0 undeclared, 1 unmanaged)",
   },
@@ -170,8 +170,8 @@ describe("paintText", () => {
       " ▲   Warning",
       "     Check permissions",
       "Inventory",
-      "  Name    State",
-      "  alpha   ready",
+      "     Name    State",
+      "     alpha   ready",
       "     Owner                         @acme",
       "└─ root  managed",
       "   └─ child",
@@ -246,12 +246,12 @@ describe("paintText", () => {
       expect(header.indexOf("Agents")).toBe(firstRow.indexOf("claude-code, codex"));
       expect(lines).toEqual([
         "3 skills (2 configured, 0 implicit, 2 installed, 0 leftover, 0 undeclared, 1 unmanaged)",
-        "  Name                        State       Activation   Type       Agents",
-        "  @craigsmitham/effect-v4     installed   enabled      registry   claude-code, codex, cursor,",
-        "                                                                  gemini-cli",
-        "  @craigsmitham/field-notes   installed   enabled      registry   claude-code, codex",
-        "  local-notes                 detected    n/a          detected   none",
-        "  Not shown at this width: Agent outcomes",
+        "     Name                        State       Activation   Type       Agents",
+        "     @craigsmitham/effect-v4     installed   enabled      registry   claude-code, codex, cursor,",
+        "                                                                     gemini-cli",
+        "     @craigsmitham/field-notes   installed   enabled      registry   claude-code, codex",
+        "     local-notes                 detected    n/a          detected   none",
+        "     Not shown at this width: Agent outcomes",
       ]);
     });
 
@@ -269,15 +269,17 @@ describe("paintText", () => {
           {
             _tag: "table",
             columns: [{ header: "Name", priority: "required" }, { header: "Detail" }],
-            rows: [["deploy", "a detail sentence that is far too wide for the terminal"]],
+            rows: [
+              { cells: ["deploy", "a detail sentence that is far too wide for the terminal"] },
+            ],
           },
         ],
-        44,
+        49,
       );
       expect(lines).toEqual([
-        "Name     Detail",
-        "deploy   a detail sentence that is far too",
-        "         wide for the terminal",
+        "     Name     Detail",
+        "     deploy   a detail sentence that is far too",
+        "              wide for the terminal",
       ]);
     });
 
@@ -292,40 +294,50 @@ describe("paintText", () => {
               { header: "Extra one", priority: "optional" },
               { header: "Extra two", priority: "optional" },
             ],
-            rows: [["deployment-tools", "installed", "twenty-characters-x", "twenty-characters-y"]],
+            rows: [
+              {
+                cells: [
+                  "deployment-tools",
+                  "installed",
+                  "twenty-characters-x",
+                  "twenty-characters-y",
+                ],
+              },
+            ],
           },
         ],
-        48,
+        53,
       );
       expect(lines).toEqual([
-        "Name               State",
-        "deployment-tools   installed",
-        "Not shown at this width: Extra one, Extra two",
+        "     Name               State",
+        "     deployment-tools   installed",
+        "     Not shown at this width: Extra one, Extra two",
       ]);
     });
 
-    it("stacks an overflowing table below the stacked threshold", () => {
+    it("stacks an overflowing table below the stacked threshold, its mark on the first field", () => {
       const lines = plain(
         [
           {
             _tag: "table",
             columns: [{ header: "Name" }, { header: "State" }, { header: "Agents" }],
             rows: [
-              ["deploy", "installed", "claude-code, codex, cursor"],
-              ["audit", "detected", "none"],
+              { cells: ["deploy", "installed", "claude-code, codex, cursor"] },
+              { mark: "warn", cells: ["audit", "detected", "none"] },
             ],
           },
         ],
         36,
       );
       expect(lines).toEqual([
-        "Name    deploy",
-        "State   installed",
-        "Agents  claude-code, codex, cursor",
+        "     Name    deploy",
+        "     State   installed",
+        "     Agents  claude-code, codex,",
+        "             cursor",
         "",
-        "Name    audit",
-        "State   detected",
-        "Agents  none",
+        " ▲   Name    audit",
+        "     State   detected",
+        "     Agents  none",
       ]);
       expect(widest(lines)).toBeLessThanOrEqual(36);
     });
@@ -346,15 +358,62 @@ describe("paintText", () => {
             {
               _tag: "table",
               columns: [{ header: "Bundle" }, { header: "Concepts", align: "right" }],
+              rows: [{ cells: ["agentxm", "12"] }, { cells: ["effect-v4", "7"] }],
+            },
+          ],
+          80,
+        ),
+      ).toEqual([
+        "     Bundle      Concepts",
+        "     agentxm           12",
+        "     effect-v4          7",
+      ]);
+    });
+
+    it("puts a row's mark in the gutter the header and other rows leave blank", () => {
+      expect(
+        plain(
+          [
+            {
+              _tag: "table",
+              columns: [{ header: "Extension" }, { header: "Management" }],
               rows: [
-                ["agentxm", "12"],
-                ["effect-v4", "7"],
+                { cells: ["@acme/skills/review", "configured"] },
+                { mark: "warn", cells: ["@legacy/skills/changelog", "leftover"] },
               ],
             },
           ],
           80,
         ),
-      ).toEqual(["Bundle      Concepts", "agentxm           12", "effect-v4          7"]);
+      ).toEqual([
+        "     Extension                  Management",
+        "     @acme/skills/review        configured",
+        " ▲   @legacy/skills/changelog   leftover",
+      ]);
+    });
+
+    it("paints a tint in its own colour, even inside a dim line, and a tone over it", () => {
+      const [line] = paintText(
+        [
+          {
+            _tag: "paragraph",
+            tone: "dim",
+            text: [{ text: "skill", tint: "green" }, { text: " public" }],
+          },
+          { _tag: "paragraph", text: [{ text: "rule", tint: "yellow", tone: "error" }] },
+        ],
+        { width: 80, colors: true },
+      );
+      expect(line).toBe("\u001b[32mskill\u001b[0m\u001b[2m public\u001b[0m");
+      expect(
+        paintText(
+          [{ _tag: "paragraph", text: [{ text: "rule", tint: "yellow", tone: "error" }] }],
+          {
+            width: 80,
+            colors: true,
+          },
+        ),
+      ).toEqual(["\u001b[31mrule\u001b[0m"]);
     });
   });
 

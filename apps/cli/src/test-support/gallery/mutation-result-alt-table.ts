@@ -21,7 +21,7 @@ export const mutationResultAltTable: Doc = [
       const [name = "", version = "", change = "", ...rest] = row.cells;
       const files = rest.length === 2 ? (rest[0] ?? "") : "";
       const path = rest[rest.length - 1] ?? "";
-      return [name, version, change, files, path];
+      return { cells: [name, version, change, files, path] };
     }),
   },
   {

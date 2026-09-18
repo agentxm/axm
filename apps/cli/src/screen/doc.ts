@@ -18,9 +18,17 @@ export type LiveMark = "working" | "waiting";
 /** Every mark a gutter paints: an outcome, a change operation, or live progress. */
 export type Mark = Change | Status | LiveMark;
 
+/**
+ * A category colour, one of the terminal's standard colours, that tells
+ * like things apart without saying anything about how they went — such as an
+ * extension's type in an inventory. A span's `tone` wins over its tint.
+ */
+export type Tint = "green" | "yellow" | "blue" | "magenta" | "cyan";
+
 export interface Span {
   readonly text: string;
   readonly tone?: Tone;
+  readonly tint?: Tint;
   readonly bold?: boolean;
   readonly link?: string;
   /**
@@ -253,10 +261,25 @@ export interface TableColumn {
   readonly priority?: TableColumnPriority;
 }
 
+export interface TableRow {
+  readonly cells: ReadonlyArray<Text>;
+  /**
+   * The status of a row that needs attention, painted in the gutter before
+   * its first cell, so a reader scanning an inventory finds it without reading
+   * every cell.
+   */
+  readonly mark?: Status;
+}
+
+/**
+ * A read-only inventory. Its header and rows sit behind the gutter, so its
+ * first column starts at the content column like every marked node.
+ */
 export interface TableNode {
   readonly _tag: "table";
   readonly columns: ReadonlyArray<TableColumn>;
-  readonly rows: ReadonlyArray<ReadonlyArray<Text>>;
+  readonly rows: ReadonlyArray<TableRow>;
+  /** A title above the table, at the content column. */
   readonly caption?: Text;
 }
 

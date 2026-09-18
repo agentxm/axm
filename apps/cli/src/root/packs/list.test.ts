@@ -123,8 +123,24 @@ describe("packs list.handler", () => {
         expect(table).toMatchObject({
           _tag: "table",
           rows: expect.arrayContaining([
-            expect.arrayContaining(["starter-pack", "configured", "@acme", "1.0.0", "agentxm"]),
-            expect.arrayContaining(["frontend-tools", "configured", "@team", "2.3.1", "company"]),
+            expect.objectContaining({
+              cells: expect.arrayContaining([
+                "starter-pack",
+                "configured",
+                "@acme",
+                "1.0.0",
+                "agentxm",
+              ]),
+            }),
+            expect.objectContaining({
+              cells: expect.arrayContaining([
+                "frontend-tools",
+                "configured",
+                "@team",
+                "2.3.1",
+                "company",
+              ]),
+            }),
           ]),
         });
       }),

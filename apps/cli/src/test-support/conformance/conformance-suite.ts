@@ -102,7 +102,7 @@ const forEachText = (doc: Doc, visit: (value: Text, copyable: boolean) => void):
       case "table":
         pushText(node.caption);
         node.columns.forEach((column) => pushText(column.header));
-        node.rows.forEach((row) => row.forEach(pushText));
+        node.rows.forEach((row) => row.cells.forEach(pushText));
         return;
       case "fields":
         node.fields.forEach((field) => {

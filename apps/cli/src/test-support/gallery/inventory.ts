@@ -42,8 +42,9 @@ export const inventoryCaption =
 export const inventory: Doc = [
   {
     _tag: "table",
-    caption: inventoryCaption,
     columns: inventoryColumns,
-    rows: inventoryRows,
+    rows: inventoryRows.map((cells) => ({ cells })),
   },
+  { _tag: "blank" },
+  { _tag: "paragraph", text: inventoryCaption },
 ];

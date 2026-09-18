@@ -17,6 +17,7 @@ import { HumanVerificationOptions, isNonInteractive, jsonFlag } from "../../cli-
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import {
   Screen,
+  count,
   fieldsDoc,
   inventoryDoc,
   type ViewColumn,
@@ -276,7 +277,6 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(
         inventoryDoc({
           rows: [],
           columns: TokenListColumns,
-          summary: "",
           empty: "No tokens found",
         }),
       );
@@ -294,7 +294,7 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(
       inventoryDoc({
         rows,
         columns: TokenListColumns,
-        summary: "Tokens",
+        summary: count(rows.length, "token"),
         empty: "No tokens found",
       }),
     );

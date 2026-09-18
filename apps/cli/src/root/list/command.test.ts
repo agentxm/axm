@@ -13,7 +13,15 @@ import {
   writeWorkspaceFiles,
 } from "../../test-support/test-stubs.js";
 import { makeWorkspaceHandlerTestContext } from "../../test-support/test-helpers.js";
+import { paintText } from "../../screen/index.js";
+import type { TestRendererState } from "../../test-support/presenter-test.js";
 import { handleList } from "./command.js";
+
+/** What a person reads, painted without colour or width limits. */
+const painted = (state: TestRendererState): ReadonlyArray<string> =>
+  state.docs.flatMap((entry) => paintText(entry.doc, { width: "unbounded", colors: false }));
+
+const listAll = { type: Option.none(), outdated: false, deprecated: false } as const;
 
 describe("root list", () => {
   let tempDir: string;
@@ -55,6 +63,57 @@ describe("root list", () => {
           ],
         });
         expect(startedUnits(rendererState)).toContain("deprecation status");
+      }),
+    );
+  });
+
+  it.effect("names setup as the next step where no workspace exists", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({
+      wsOptions: { allowUninitialized: true },
+    });
+    // The context initializes a workspace; this case needs the directory without one.
+    fs.rmSync(path.join(tempDir, ".axm"), { recursive: true, force: true });
+    fs.rmSync(path.join(tempDir, "axm.json"), { force: true });
+    return provide(
+      Effect.gen(function* () {
+        yield* handleList(listAll);
+        expect(painted(rendererState)).toEqual([
+          "No AXM workspace in this project.",
+          "Next",
+          "  Set up AXM in this project · axm setup",
+        ]);
+      }),
+    );
+  });
+
+  it.effect("names discover as the next step for a workspace with nothing installed", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({});
+    writeWorkspaceFiles(path.join(tempDir, ".axm"), {});
+    return provide(
+      Effect.gen(function* () {
+        yield* handleList(listAll);
+        expect(painted(rendererState)).toEqual([
+          "No extensions installed in this project.",
+          "Next",
+          "  Find recommended extensions · axm discover",
+        ]);
+      }),
+    );
+  });
+
+  it.effect("marks the row that needs attention and counts it in the summary", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({});
+    writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+      skills: { review: { source: "@acme/skills/review", enabled: true } },
+    });
+    return provide(
+      Effect.gen(function* () {
+        yield* handleList(listAll);
+        const page = painted(rendererState);
+        expect(page.find((line) => line.includes("@acme/skills/review"))).toMatch(
+          /^ ▲ {3}@acme\/skills\/review .* missing /u,
+        );
+        expect(page.at(-1)).toBe("1 extension · 1 enabled · 1 needs attention · axm lint explains");
       }),
     );
   });

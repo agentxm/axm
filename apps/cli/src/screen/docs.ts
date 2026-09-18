@@ -37,15 +37,6 @@ export const errorDoc = (message: string, options?: SuggestionOptions): Doc => [
   ...suggestionsDoc(options?.suggestions, options),
 ];
 
-export const calloutDoc = (message: string, title = "Note", tone: Tone = "info"): Doc => [
-  {
-    _tag: "callout",
-    tone,
-    title,
-    children: paragraphDoc(message),
-  },
-];
-
 export const rawDoc = (content: string): Doc => [{ _tag: "raw", content }];
 
 export const markdownDoc = (content: string): Doc => [{ _tag: "markdown", content }];
@@ -66,7 +57,7 @@ export const tableViewDoc = <T extends object>(
             align: column.align,
             ...(typeof column.width === "number" ? { width: column.width } : {}),
           })),
-          rows: items.map((item) => columns.map((column) => column.render(item))),
+          rows: items.map((item) => ({ cells: columns.map((column) => column.render(item)) })),
           ...(caption === undefined ? {} : { caption }),
         },
       ];

@@ -115,11 +115,9 @@ export const handleAgentsCapabilities = Effect.fn("Agents.capabilities")(functio
 
   const lifecycle = lifecycleCell(agent.id);
   yield* screen.result(
-    tableDoc(
-      items,
-      AgentCapabilityColumns,
-      `${agent.name}${lifecycle === "" ? "" : ` (${lifecycle})`}   ${count(items.length, "capability")}`,
-    ),
+    tableDoc(items, AgentCapabilityColumns, {
+      caption: `${agent.name}${lifecycle === "" ? "" : ` (${lifecycle})`}   ${count(items.length, "capability")}`,
+    }),
   );
 });
 

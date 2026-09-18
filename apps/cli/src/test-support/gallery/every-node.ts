@@ -115,8 +115,8 @@ export const everyNode: Doc = [
       { header: "Count", align: "right" },
     ],
     rows: [
-      ["alpha", "ready", "12"],
-      ["beta", [{ text: "blocked", tone: "warn" }], "3"],
+      { cells: ["alpha", "ready", "12"] },
+      { mark: "warn", cells: ["beta", [{ text: "blocked", tone: "warn" }], "3"] },
     ],
   },
   {

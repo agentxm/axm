@@ -118,7 +118,9 @@ describe("instructions handler", () => {
         expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual(
           expect.objectContaining({
             _tag: "table",
-            rows: expect.arrayContaining([expect.arrayContaining(["claude-code"])]),
+            rows: expect.arrayContaining([
+              expect.objectContaining({ cells: expect.arrayContaining(["claude-code"]) }),
+            ]),
           }),
         );
       }),

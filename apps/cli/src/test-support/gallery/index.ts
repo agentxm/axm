@@ -1,3 +1,9 @@
+import { aReadInventoryTable } from "./a-read--inventory-table.js";
+import { refSmallDiscover } from "./ref-small--discover.js";
+import { refSmallEmptyStates } from "./ref-small--empty-states.js";
+import { refViewDeprecated } from "./ref-view--deprecated.js";
+import { refViewIdentity } from "./ref-view--identity.js";
+import { refViewOneField } from "./ref-view--one-field.js";
 import { blockedWaiting } from "./blocked-waiting.js";
 import { detail } from "./detail.js";
 import { everyNode } from "./every-node.js";
@@ -70,6 +76,12 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
     name: "ref-sync--uninstall-kept-reference",
     doc: refSyncUninstallKeptReference,
   },
+  { _tag: "document", name: "a-read--inventory-table", doc: aReadInventoryTable },
+  { _tag: "document", name: "ref-view--identity", doc: refViewIdentity },
+  { _tag: "document", name: "ref-view--deprecated", doc: refViewDeprecated },
+  { _tag: "document", name: "ref-view--one-field", doc: refViewOneField },
+  { _tag: "document", name: "ref-small--empty-states", doc: refSmallEmptyStates },
+  { _tag: "document", name: "ref-small--discover", doc: refSmallDiscover },
   { _tag: "document", name: "ref-lint--default", doc: refLintDefault },
   { _tag: "document", name: "ref-lint--many-findings", doc: refLintManyFindings },
   { _tag: "document", name: "ref-lint--fix", doc: refLintFix },

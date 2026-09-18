@@ -113,7 +113,7 @@ const nodeText = (node: DocNode): string => {
     case "fields":
       return node.fields.map((field) => `${plain(field.label)}: ${plain(field.value)}`).join("\n");
     case "table":
-      return node.rows.map((row) => row.map(plain).join("   ")).join("\n");
+      return node.rows.map((row) => row.cells.map(plain).join("   ")).join("\n");
     case "tree":
       return node.roots.map((root) => plain(root.text)).join("\n");
     case "rows":
@@ -188,7 +188,7 @@ const captureDoc = (
       state.tables.push({
         items: node.rows.map((row) =>
           Object.fromEntries(
-            row.map((cell, index) => [keys[index] ?? `column${String(index)}`, plain(cell)]),
+            row.cells.map((cell, index) => [keys[index] ?? `column${String(index)}`, plain(cell)]),
           ),
         ),
         view: node.columns,

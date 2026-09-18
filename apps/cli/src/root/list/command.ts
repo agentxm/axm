@@ -1,9 +1,10 @@
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "../../app-error/index.js";
-import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
+import { Screen, paragraphDoc } from "../../screen/index.js";
 import { observeUnit } from "@agentxm/workspace/transitions/planning";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
@@ -17,39 +18,30 @@ import {
   ListExtensions,
   type ExtensionListDocument,
 } from "@agentxm/workspace/inspection";
-import type { ExtensionListItem } from "@agentxm/workspace/inspection";
+import { WorkspaceLocation } from "@agentxm/workspace/desired-state";
 
 import { inspectionFailureToAppError } from "../../feature-errors.js";
+import { emptyInventoryDoc, listDoc } from "./view.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-
-interface ListTableRow {
-  readonly extension: string;
-  readonly type: string;
-  readonly management: string;
-  readonly installed: string;
-  readonly version: string;
-  readonly source: string;
-  readonly state: string;
-  readonly guidance: string;
-}
-
-const ExtensionListColumns = [
-  { header: "Extension", priority: "required", value: (row: ListTableRow) => row.extension },
-  { header: "Type", value: (row: ListTableRow) => row.type },
-  { header: "Management", value: (row: ListTableRow) => row.management },
-  { header: "Installed", value: (row: ListTableRow) => row.installed },
-  { header: "Version", value: (row: ListTableRow) => row.version },
-  { header: "Source", priority: "optional", value: (row: ListTableRow) => row.source },
-  { header: "Assessment", value: (row: ListTableRow) => row.state },
-  { header: "Guidance", priority: "optional", value: (row: ListTableRow) => row.guidance },
-] satisfies ReadonlyArray<ViewColumn<ListTableRow>>;
 
 export interface ListHandlerArgs {
   readonly type: Option.Option<InstallableExtensionType>;
   readonly outdated: boolean;
   readonly deprecated: boolean;
 }
+
+/** Where an empty unfiltered inventory stands: no workspace, or one with nothing installed. */
+const emptyInventory = Effect.fn("List.emptyInventory")(function* () {
+  const location = yield* WorkspaceLocation;
+  const fs = yield* FileSystem.FileSystem;
+  if (location.scope === "user") return "empty-user" as const;
+  const initialized = yield* fs.exists(location.settingsPath).pipe(
+    // An unreadable settings path is not a workspace this command can list.
+    Effect.orElseSucceed(() => false),
+  );
+  return initialized ? ("empty-project" as const) : ("no-workspace" as const);
+});
 
 export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerArgs) {
   if (args.outdated && args.deprecated) {
@@ -72,51 +64,21 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
   );
   const document: ExtensionListDocument = result.document;
   if (yield* screen.document(document, ExtensionListDocumentSchema)) return;
-  const guidanceFor = (item: ExtensionListItem): string => {
-    if (filter === "all") {
-      return item.assessment.state === "deprecated" ? `axm view ${item.ref} deprecation` : "-";
-    }
-    const deprecation = item.assessment.deprecation;
-    if (deprecation === undefined) return "-";
-    const replacement = deprecation.replacement;
-    return [
-      deprecation.message,
-      replacement?.status === "available"
-        ? `Use ${replacement.fqn}`
-        : replacement === undefined
-          ? undefined
-          : replacement.fqn === undefined
-            ? "Replacement unavailable or not visible"
-            : `Replacement ${replacement.fqn} unavailable`,
-    ]
-      .filter((value): value is string => value !== undefined)
-      .join("; ");
-  };
-  const tableRows = result.items.map((item): ListTableRow => ({
-    extension: item.ref,
-    type: item.type,
-    management: item.management,
-    installed: item.installed ? "yes" : "missing",
-    version: item.version ?? "-",
-    source: item.sourceName ?? item.source ?? "-",
-    state: item.assessment.state,
-    guidance: guidanceFor(item),
-  }));
   const coverage = document.coverage;
-  const count = document.count;
-  const summary =
-    coverage === undefined
-      ? `${count} extension${count === 1 ? "" : "s"}`
-      : `${count} ${filter} extension${count === 1 ? "" : "s"}; checked ${coverage.checked}/${coverage.eligible}, ${coverage.unknown} unknown`;
+  const empty =
+    result.items.length > 0
+      ? []
+      : filter === "all"
+        ? emptyInventoryDoc(yield* emptyInventory())
+        : paragraphDoc(
+            `No ${filter} extensions found${coverage !== undefined && coverage.unknown > 0 ? `; ${coverage.unknown} could not be assessed` : ""}`,
+          );
   yield* screen.result(
-    inventoryDoc({
-      rows: tableRows,
-      columns: ExtensionListColumns,
-      summary,
-      empty:
-        filter === "all"
-          ? "No extensions found"
-          : `No ${filter} extensions found${coverage !== undefined && coverage.unknown > 0 ? `; ${coverage.unknown} could not be assessed` : ""}`,
+    listDoc({
+      items: result.items,
+      filter,
+      ...(coverage === undefined ? {} : { coverage }),
+      empty,
     }),
   );
 });

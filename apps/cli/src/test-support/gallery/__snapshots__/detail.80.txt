@@ -11,11 +11,11 @@
      Activation                    enabled
 
 Agents
-  Agent         Status      Path
-  claude-code   projected   .claude/skills/effect-v4
-  codex         projected   .codex/skills/effect-v4
-  cursor        blocked     .cursor/skills/effect-v4
-  Not shown at this width: Detail
+     Agent         Status      Path
+     claude-code   projected   .claude/skills/effect-v4
+     codex         projected   .codex/skills/effect-v4
+ ▲   cursor        blocked     .cursor/skills/effect-v4
+     Not shown at this width: Detail
 Next
   Update to the latest version · axm update @craigsmitham/effect-v4
   Read the package page · https://axm.sh/@craigsmitham/effect-v4

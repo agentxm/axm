@@ -29,9 +29,9 @@
      Check permissions
  ●   Note without children
 Inventory
-  Name    State     Count
-  alpha   ready        12
-  beta    blocked       3
+     Name    State     Count
+     alpha   ready        12
+ ▲   beta    blocked       3
      Owner                         @acme
      Description                   A field whose value is long enough to need wrapping at narrow widths
 └─ root  managed

@@ -21,7 +21,7 @@ import {
 } from "@agentxm/cli-maintenance/self-update/application";
 import type { AvailableUpdate } from "@agentxm/cli-maintenance/self-update/domain";
 
-import { Screen, calloutDoc } from "./screen/index.js";
+import { Screen } from "./screen/index.js";
 import { isAgent } from "./interaction.js";
 
 // -----------------------------------------------------------------------------
@@ -86,27 +86,13 @@ export const notificationMessage = (
 ): string =>
   audience === "agent"
     ? `AXM_UPDATE_AVAILABLE current=${update.current} latest=${update.latest} command="axm upgrade"`
-    : `Update available: ${update.current} → ${update.latest}\nRun: axm upgrade`;
-
-const UPDATE_AVAILABLE_PREFIX = "Update available: ";
-const UPDATE_AVAILABLE_TITLE = "Update Available";
-
-const toHumanUpdateNote = (
-  message: string,
-): { readonly message: string; readonly title: string } => {
-  const [firstLine, ...rest] = message.split("\n");
-  const headline = firstLine?.startsWith(UPDATE_AVAILABLE_PREFIX)
-    ? firstLine.slice(UPDATE_AVAILABLE_PREFIX.length)
-    : (firstLine ?? message);
-  const body = rest.length > 0 ? [headline, ...rest].join("\n") : headline;
-
-  return { message: body, title: UPDATE_AVAILABLE_TITLE };
-};
+    : `axm ${update.latest} is available (you have ${update.current}), run axm upgrade`;
 
 /**
- * Wrap a command program with the startup update check: run the check, print
- * the notification it justified before the command writes anything, then run
- * the command.
+ * Wrap a command program with the startup update check. An agent session is
+ * told before the command writes anything, in one machine-readable line; a
+ * person is told after the command's result, in one dim line that never
+ * interrupts it.
  */
 export const withUpdateCheck = <A, E, R>(
   program: Effect.Effect<A, E, R>,
@@ -135,14 +121,22 @@ export const withUpdateCheck = <A, E, R>(
       const screen = yield* Screen;
       const print =
         options.printNotification ??
-        (audience === "agent"
-          ? (message: string) => screen.note([{ _tag: "paragraph", text: message }])
-          : (message: string) => {
-              const note = toHumanUpdateNote(message);
-              return screen.note(calloutDoc(note.message, note.title));
-            });
+        ((message: string) =>
+          screen.note([
+            {
+              _tag: "paragraph",
+              text: message,
+              ...(audience === "human" ? { tone: "dim" } : {}),
+            },
+          ]));
+      const printed = print(notificationMessage(notification, audience));
 
-      yield* print(notificationMessage(notification, audience));
-      return yield* program;
+      if (audience === "agent") {
+        yield* printed;
+        return yield* program;
+      }
+      const result = yield* program;
+      yield* printed;
+      return result;
     }),
   );

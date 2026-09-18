@@ -1,5 +1,4 @@
 import * as Effect from "effect/Effect";
-import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 
 import { observeUnit } from "@agentxm/workspace/transitions/planning";
@@ -17,12 +16,12 @@ import {
 } from "@agentxm/workspace/inspection";
 import type { PublishedMetadataUnavailable } from "@agentxm/workspace/inspection";
 import type { ExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
-import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import type { IdentifierResourceType } from "@agentxm/workspace/resolution/sources";
 
-import { Screen, rawDoc, tableViewDoc, type TableView } from "../../screen/index.js";
+import { Screen, rawDoc } from "../../screen/index.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import { publishedMetadataUnavailableToAppError } from "../inspection-errors.js";
+import { viewPageDoc } from "./view.js";
 
 export interface ViewHandlerArgs {
   readonly handle: string;
@@ -30,27 +29,6 @@ export interface ViewHandlerArgs {
   readonly registry: Option.Option<string>;
   readonly type?: Option.Option<IdentifierResourceType>;
 }
-
-interface ViewTableRow {
-  readonly field: string;
-  readonly value: string;
-}
-
-const ViewTable = {
-  columns: {
-    field: { header: "Field" },
-    value: { header: "Value" },
-  },
-} as const satisfies TableView<ViewTableRow>;
-
-const deprecationReplacementText = (deprecation: DeprecationView): string => {
-  const replacement = deprecation.replacement;
-  if (replacement === undefined) return "-";
-  if (replacement.status === "available") return replacement.fqn;
-  return replacement.fqn === undefined
-    ? "unavailable or not visible"
-    : `${replacement.fqn} (unavailable)`;
-};
 
 const emitFieldValue = (value: ViewFieldValue) =>
   Effect.gen(function* () {
@@ -74,43 +52,7 @@ const emitDocument = (data: ViewDocument) =>
   Effect.gen(function* () {
     const screen = yield* Screen;
     if (yield* screen.document(data, ViewDocumentSchema)) return;
-    const versions = data.versions.map((entry) => entry.version);
-    const versionSummary =
-      versions.length <= 5
-        ? versions.join(", ")
-        : `${versions.slice(0, 5).join(", ")} (${versions.length} total)`;
-    yield* screen.result(
-      tableViewDoc(
-        [
-          { field: "Handle", value: data.handle },
-          { field: "Type", value: data.type },
-          { field: "Owner", value: data.owner },
-          { field: "Latest", value: data.latest?.version ?? "-" },
-          { field: "Versions", value: versionSummary },
-          { field: "Description", value: data.description ?? "" },
-          { field: "Visibility", value: data.visibility },
-          {
-            field: "Lifecycle",
-            value: data.deprecation === null ? "active" : "deprecated",
-          },
-          ...(data.deprecation === null
-            ? []
-            : [
-                {
-                  field: "Deprecated at",
-                  value: DateTime.formatIso(data.deprecation.deprecatedAt),
-                },
-                { field: "Deprecation message", value: data.deprecation.message ?? "-" },
-                {
-                  field: "Replacement",
-                  value: deprecationReplacementText(data.deprecation),
-                },
-              ]),
-          { field: "Install", value: data.install },
-        ],
-        ViewTable,
-      ),
-    );
+    yield* screen.result(viewPageDoc(data));
   });
 
 const emit = (result: ViewExtensionResult) =>

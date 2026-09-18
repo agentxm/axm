@@ -393,7 +393,12 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
     case "table":
       return [
         ...(node.caption === undefined ? [] : block(node.caption, style, indent, "", "dim")),
-        ...paintTable(node.columns, node.rows, style, indent),
+        ...paintTable(
+          node.columns,
+          node.rows.map((row) => row.cells),
+          style,
+          indent,
+        ),
       ];
     case "fields":
       return node.fields.flatMap((field) =>

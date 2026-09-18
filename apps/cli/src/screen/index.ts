@@ -31,6 +31,7 @@ export type {
   TableColumnPriority,
   TableNode,
   Text,
+  Tint,
   Tone,
   TreeItem,
   TreeNode,
@@ -191,7 +192,6 @@ export {
 } from "./width.js";
 export { fieldsDoc, inventoryDoc, tableDoc, type ViewColumn, type ViewField } from "./view.js";
 export {
-  calloutDoc,
   detailViewDoc,
   errorDoc,
   headlineDoc,

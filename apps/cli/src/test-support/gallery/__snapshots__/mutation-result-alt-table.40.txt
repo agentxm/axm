@@ -1,10 +1,28 @@
  ✔   Installed 3 skills   2.4s
-Extension                   Change
-@craigsmitham/effect-v4     created
-@craigsmitham/field-notes   updated
-@agentxm/knowledge/legacy   removed
-Not shown at this width: Version, Files,
-Path
+     Extension  @craigsmitham/effect-v4
+     Version    0.4.2
+     Change     created
+     Files      14 files
+     Path
+       agent_extensions/agentxm/@craigsm
+       itham/skills/effect-v4
+
+     Extension
+       @craigsmitham/field-notes
+     Version    0.2.3 → 0.2.4
+     Change     updated
+     Files      6 files
+     Path
+       agent_extensions/agentxm/@craigsm
+       itham/skills/field-notes
+
+     Extension
+       @agentxm/knowledge/legacy
+     Version    1.0.0
+     Change     removed
+     Path
+       agent_extensions/agentxm/@agentxm
+       /knowledge/legacy
  =   5 skills already current
      --verbose to list
 Next

@@ -56,7 +56,12 @@ const document = [
     title: "attention",
     children: [{ _tag: "paragraph", text: content }],
   },
-  { _tag: "table", columns: [{ header: "Name" }], rows: [[content]], caption: "inventory" },
+  {
+    _tag: "table",
+    columns: [{ header: "Name" }],
+    rows: [{ cells: [content] }],
+    caption: "inventory",
+  },
   { _tag: "fields", fields: [{ label: "Name", value: content }] },
   {
     _tag: "tree",

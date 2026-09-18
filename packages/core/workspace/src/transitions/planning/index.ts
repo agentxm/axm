@@ -111,6 +111,7 @@ export {
   OperationEventSchema,
   OperationLifecycle,
   OperationModeSchema,
+  ProgressAttemptSchema,
   ProgressUnitSchema,
   SettledOutcomeSchema,
   awaitDrained,
@@ -132,6 +133,7 @@ export {
   type OperationEventInput,
   type OperationLifecycleService,
   type OperationMode,
+  type ProgressAttempt,
   type ProgressUnit,
   type SettledOutcome,
 } from "./plan/operation-events.js";

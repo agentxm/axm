@@ -5,6 +5,7 @@ description: How AXM validates and distributes workspace-authored extensions.
 depends-on:
   - ./overview.md
   - ../workspace/overview.md
+  - ./interaction.md
 ---
 
 # Publish
@@ -90,11 +91,27 @@ or store archive bytes. Repeating recovery against unchanged content converges
 to verified-existing no-ops. Publish writes no local receipt, lockfile,
 baseline, or manifest after a successful upload.
 
+## Authorization and exact resume
+
+Publish asks no confirmation question: the Registry's browser review of the
+exact publication set is the approval, as [Interaction](interaction.md)
+describes. When that review is needed, AXM records the pending request with
+its private initiator proof and publication-set digest in the local AXM user
+home before handing the person to the browser.
+
+A pending authorization outlives the process that started it. The authorization
+request URL is its exact resume capability: pass it with
+`--authorization-request <url>`, and optionally bound an unattended wait with
+`--wait-for-human`. AXM does not select a latest request implicitly. Resume
+rejects a request whose publication set no longer matches its digest, so
+changed archive bytes, membership, visibility, or Registry require a new
+review.
+
 ## Specifications
 
 The `cli/publish/*` specifications own publish's binding obligations — pure
 preview against the fixed publication gate
-(`cli/publish/preview-is-pure-and-gate-is-fixed`) and refusing extensions the
+(`cli/publish/preview-is-pure`) and refusing extensions the
 workspace does not author (`cli/publish/requires-established-authorship`). The
 [specification catalog](../../../specifications/catalog.md) resolves each
 identity to its owning project and file.

@@ -1,0 +1,17 @@
+@legacy/skills/changelog
+  skill · public · deprecated
+
+ ▲   Deprecated on 2 Aug 2026
+     Superseded by release notes that
+     read the pull requests, not the
+     log.
+
+     Owner          @legacy
+     Latest         0.3.0
+     Versions       0.3.0, 0.2.0, 0.1.0
+     Replacement
+       @acme/skills/release-notes
+
+Next
+     axm skills install @acme/skills/release-notes
+     Install the replacement

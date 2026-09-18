@@ -1,0 +1,10 @@
+ ✖   Sign-in expired               auth, exit 4
+     Your session for registry.agentxm.ai ended on 12 Sep.
+Next
+     axm login   Sign in, then run the command again
+
+ ✖   Registry unreachable          network, exit 8
+     registry.agentxm.ai did not answer within 10s (3 attempts)
+     Registry                      https://registry.agentxm.ai
+Next
+     axm install @acme/skills/standup --verbose   Show the requests

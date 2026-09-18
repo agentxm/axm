@@ -179,19 +179,19 @@ describe("subagents enable.handler", () => {
           yield* handleEnableSubagent(defaultArgs("my-agent"));
 
           // Apply mode renders no planned block; the refusal is the terminal
-          // failed-outcome block.
+          // failed-outcome block, whose verdict follows its ledger.
           expect(logs.success).toEqual([]);
-          expect(logs.error[0]).toBe("Failed to enable 1 subagent");
+          expect(logs.error).toContain("Failed to enable 1 subagent");
           expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual(
             expect.objectContaining({
-              _tag: "rows",
+              _tag: "ledger",
               rows: expect.arrayContaining([
                 expect.objectContaining({
-                  _tag: "row",
-                  change: "failed",
+                  id: "my-agent",
+                  mark: "failed",
                   cells: expect.arrayContaining([
                     "my-agent",
-                    'Accepted subagent content for "my-agent" is not usable (not_found)',
+                    'Accepted subagent content for "my-agent" is not usable (not_found), effects were restored',
                   ]),
                 }),
               ]),

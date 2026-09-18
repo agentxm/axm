@@ -1,0 +1,13 @@
+     Extension
+     @acme/skills/code-review
+     @acme/skills/triage
+     @acme/subagents/reviewer
+     @acme/packs/review-kit
+     github
+ ▲   @legacy/skills/changelog
+     Not shown at this width: Type,
+     Management, Installed, Version,
+     Source, Assessment, Guidance
+
+6 extensions · 3 enabled · 1 needs
+attention · axm lint explains

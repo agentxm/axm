@@ -39,7 +39,7 @@ export const makeCliUpgradeExecutionObserver = (): Effect.Effect<UpgradeExecutio
           label: "AXM installation method",
           resolvedLabel: (result: InspectedInstallation) =>
             result.method._tag === "Unknown"
-              ? "AXM installation method — undetermined"
+              ? "AXM installation method - undetermined"
               : `AXM installed with ${methodLabel(methodName(result.method))}`,
         },
         inspection,
@@ -51,7 +51,7 @@ export const makeCliUpgradeExecutionObserver = (): Effect.Effect<UpgradeExecutio
               id: "resolve-channel",
               label: "AXM stable channel",
               resolvedLabel: (selected: SelectedRelease) =>
-                `AXM stable channel — ${selected.targetVersion}`,
+                `AXM stable channel - ${selected.targetVersion}`,
             }
           : { id: "resolve-version", label: `AXM ${version}` },
         selection,
@@ -73,7 +73,7 @@ export const makeCliUpgradeExecutionObserver = (): Effect.Effect<UpgradeExecutio
                     : record.exitCode === 0
                       ? null
                       : `exit ${record.exitCode === null ? "unavailable" : String(record.exitCode)}`;
-              return outcome === null ? display : `${display} · ${outcome}`;
+              return outcome === null ? display : `${display}, ${outcome}`;
             },
           },
           execution,

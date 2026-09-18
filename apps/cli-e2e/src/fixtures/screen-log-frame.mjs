@@ -14,12 +14,16 @@ import {
   OperationLifecycle,
 } from "../../../../packages/core/workspace/dist/src/transitions/planning/index.js";
 
+// `plain` stands for the terminal that cannot animate, where the transitions
+// the live ledger would have shown become transcript lines instead.
+const animate = process.argv[2] !== "plain";
+
 const frameLayer = Layer.provideMerge(
-  FrameLive({ animate: true, quiet: false, colors: false }),
+  FrameLive({ animate, quiet: false, colors: false }),
   OutputStreamsLive,
 );
 const screenLayer = Layer.provideMerge(
-  ScreenLive({ colors: { stdout: false, stderr: false }, animate: true }),
+  ScreenLive({ colors: { stdout: false, stderr: false }, animate }),
   frameLayer,
 );
 const loggerLayer = Layer.provide(ScreenLoggerLive("normal"), screenLayer);

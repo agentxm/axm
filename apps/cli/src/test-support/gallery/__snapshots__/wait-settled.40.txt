@@ -1,0 +1,4 @@
+ ✔   Device sign-in
+       48.2s
+ ✔   Verification of yank
+       12.4s

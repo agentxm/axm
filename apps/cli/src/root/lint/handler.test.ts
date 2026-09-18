@@ -21,7 +21,12 @@ import {
   CodingAgentRepositoryLive,
   NativeWriteAuthorityLive,
 } from "@agentxm/workspace/projection/live";
-import { TestMachineRenderer, TestRenderer, logsByTag } from "../../test-support/presenter-test.js";
+import {
+  TestMachineRenderer,
+  TestRenderer,
+  type TestRendererState,
+} from "../../test-support/presenter-test.js";
+import { asciiGlyphs, paintText } from "../../screen/index.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { HookManagerLive } from "@agentxm/workspace/materialization/live";
 import { ProjectionParticipantsLive } from "@agentxm/workspace/materialization/live";
@@ -91,13 +96,26 @@ describe("axm lint handler", () => {
     );
   };
 
-  const makeLayers = (opts?: { machine?: boolean; quiet?: boolean }) => {
+  /** What one stream received, painted in plain ASCII at unbounded width. */
+  const printed = (state: TestRendererState, channel: "stdout" | "stderr"): string =>
+    state.docs
+      .filter((entry) => entry.channel === channel)
+      .flatMap((entry) =>
+        paintText(entry.doc, { width: "unbounded", colors: false, glyphs: asciiGlyphs }),
+      )
+      .join("\n");
+
+  const makeLayers = (opts?: { machine?: boolean; quiet?: boolean; verbose?: boolean }) => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
     const baseLayer = Layer.mergeAll(
       NodeServices.layer,
       FetchHttpClient.layer,
       renderer.layer,
-      TestFlagsLayer({ nonInteractive: true, quiet: opts?.quiet ?? false }),
+      TestFlagsLayer({
+        nonInteractive: true,
+        quiet: opts?.quiet ?? false,
+        verbose: opts?.verbose ?? false,
+      }),
       Layer.succeed(AxmSkillCompatibilityPolicy, {
         evaluate: () => ({
           status: "compatible",
@@ -175,7 +193,6 @@ describe("axm lint handler", () => {
   const lint = (args: {
     readonly scope?: "project" | "user";
     readonly strict?: boolean;
-    readonly details?: boolean;
     readonly fix?: boolean;
   }) =>
     handleLint({
@@ -187,7 +204,6 @@ describe("axm lint handler", () => {
         fix: args.fix ?? false,
       },
       strict: args.strict ?? false,
-      details: args.details ?? false,
     });
 
   it.effect("resolveLintRoot returns cwd by default", () => {
@@ -259,9 +275,10 @@ describe("axm lint handler", () => {
       Effect.gen(function* () {
         const outcome = yield* lint({}).pipe(Effect.exit);
         expect(outcome._tag).toBe("Success");
-        const allMessages = rendererState.logs.map((e) => e.message).join("\n");
-        expect(allMessages).toContain("workspace/axm-skill-declared");
-        expect(allMessages).not.toContain("manual attention");
+        const stdout = printed(rendererState, "stdout");
+        expect(stdout).toContain("workspace/axm-skill-declared");
+        expect(stdout).toContain("1 info");
+        expect(stdout).not.toContain("exit");
       }),
     );
   });
@@ -292,7 +309,7 @@ describe("axm lint handler", () => {
     );
   });
 
-  it.effect("renders grouped diagnostics with severity-aware log levels", () => {
+  it.effect("prints the findings ledger on stdout, errors first, with the exit code", () => {
     const { provide, rendererState } = makeLayers();
     writeSettings({
       agents: ["claude-code"],
@@ -302,38 +319,31 @@ describe("axm lint handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* lint({}).pipe(Effect.exit);
-        const logs = logsByTag(rendererState);
-        expect(logs.message).not.toContain("More output: `axm lint --details` | `axm lint --json`");
-        expect(rendererState.suggestions).toEqual([]);
-        expect(logs.message.some((message) => message.includes("axm install demo"))).toBe(false);
-        // Rule lines always present
-        expect(logs.message).toContain("  rule: workspace/lockfile-valid");
-        expect(logs.message).toContain("  rule: workspace/skills-artifacts-correct");
-        expect(
-          logs.message.some((message) =>
-            message.includes(
-              "Accepted external-resolution state is missing for desired external content.",
-            ),
-          ),
-        ).toBe(true);
-        expect(
-          logs.message.some((message) =>
-            message.includes("Skill 'demo' is enabled, but it is missing from declared agents"),
-          ),
-        ).toBe(true);
-        expect(
-          logs.error.some(
-            (message) => message.includes("issues.") && message.includes("need manual attention."),
-          ),
-        ).toBe(true);
-        // Diagnostic headers always show location
-        expect(logs.error.some((message) => message.includes("./axm-lock.yaml"))).toBe(true);
-        expect(logs.error.some((message) => message.includes("./axm.json"))).toBe(true);
+        const stdout = printed(rendererState, "stdout");
+        expect(printed(rendererState, "stderr")).toBe("");
+        expect(stdout).toContain("Linting");
+        expect(stdout).toMatch(/Finding\s+Location\s+Fix/);
+        expect(stdout).toContain("workspace/lockfile-valid");
+        expect(stdout).toContain("workspace/skills-artifacts-correct");
+        expect(stdout).toContain("./axm-lock.yaml");
+        expect(stdout).toContain("./axm.json");
+        expect(stdout).toContain("exit 1");
+        // No finding here has a determined repair, so nothing points at --fix.
+        expect(stdout).not.toContain("axm lint --fix");
+        const marks = stdout
+          .split("\n")
+          .flatMap((line) =>
+            line.startsWith(" xx ") || line.startsWith(" !! ") ? [line.slice(1, 3)] : [],
+          );
+        expect(marks.length).toBeGreaterThan(0);
+        expect(marks.indexOf("!!") === -1 || marks.lastIndexOf("xx") < marks.indexOf("!!")).toBe(
+          true,
+        );
       }),
     );
   });
 
-  it.effect("quiet mode emits only the lint summary", () => {
+  it.effect("quiet mode prints only the verdict", () => {
     const { provide, rendererState } = makeLayers({ quiet: true });
     writeSettings({
       agents: ["claude-code"],
@@ -343,13 +353,42 @@ describe("axm lint handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* lint({}).pipe(Effect.exit);
-        const logs = logsByTag(rendererState);
-        expect(logs.error.some((message) => message.includes("issues."))).toBe(true);
-        expect(logs.step).toEqual([]);
-        expect(logs.message).toEqual([]);
-        expect(rendererState.suggestions).toEqual([]);
+        const stdout = printed(rendererState, "stdout");
+        expect(stdout.split("\n")).toHaveLength(1);
+        expect(stdout).toContain("error");
+        expect(stdout).toContain("exit 1");
+        expect(printed(rendererState, "stderr")).toBe("");
       }),
     );
+  });
+
+  it.effect("names a determined repair, then reports it as fixed", () => {
+    writeSettings({
+      agents: ["claude-code"],
+      instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
+    });
+    writeEmptyLockfile();
+    fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Instructions\n");
+
+    return Effect.gen(function* () {
+      const query = makeLayers();
+      yield* query.provide(lint({})).pipe(Effect.exit);
+      const before = printed(query.rendererState, "stdout");
+      expect(before).toMatch(/instruction file is missing\s+\S*CLAUDE\.md\s+fixable/);
+      expect(before).toContain("axm lint --fix");
+
+      const fix = makeLayers();
+      yield* fix.provide(lint({ fix: true })).pipe(Effect.exit);
+      const after = printed(fix.rendererState, "stdout");
+      expect(after).toContain("Fixing");
+      expect(after).toMatch(
+        /~ {3}The Claude Code instruction file is missing\s+\S*CLAUDE\.md\s+fixed/,
+      );
+      expect(after).toContain("Fixed 1 finding");
+      // An informational finding is not one a person still has to act on.
+      expect(after).not.toContain("still need you");
+      expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(true);
+    });
   });
 
   it.effect("fails closed when the lockfile is invalid", () => {
@@ -373,7 +412,7 @@ describe("axm lint handler", () => {
     fs.writeFileSync(path.join(installedDir, "SKILL.md"), "---\nname: demo\n\n# demo\n");
 
     return Effect.gen(function* () {
-      const exit = yield* provide(lint({ details: true })).pipe(Effect.exit);
+      const exit = yield* provide(lint({})).pipe(Effect.exit);
       expect(Exit.isFailure(exit)).toBe(true);
     });
   });
@@ -426,7 +465,7 @@ describe("axm lint handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* lint({}).pipe(Effect.exit);
-        const reportMessages = rendererState.logs.map((e) => e.message).join("\n");
+        const reportMessages = printed(rendererState, "stdout");
         expect(reportMessages).toContain("workspace/mcps-agent-drift");
         expect(reportMessages).toContain("workspace/mcps-agent-orphaned");
 
@@ -453,8 +492,8 @@ describe("axm lint handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* lint({ details: true }).pipe(Effect.exit);
-        const report = rendererState.logs.map(({ message }) => message).join("\n");
+        yield* lint({}).pipe(Effect.exit);
+        const report = printed(rendererState, "stdout");
         expect(report).not.toContain("workspace/projection-ownership-valid");
         expect(fs.readFileSync(projectionPath, "utf8")).toBe(drifted);
       }),
@@ -462,7 +501,7 @@ describe("axm lint handler", () => {
   });
 
   it.effect("reports an unsupported managed-region version without writing", () => {
-    const { provide, rendererState } = makeLayers();
+    const { provide, rendererState } = makeLayers({ verbose: true });
     writeSettings({
       agents: [],
       instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
@@ -475,8 +514,8 @@ describe("axm lint handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* lint({ details: true }).pipe(Effect.exit);
-        const report = rendererState.logs.map(({ message }) => message).join("\n");
+        yield* lint({}).pipe(Effect.exit);
+        const report = printed(rendererState, "stdout");
         expect(report).toContain("workspace/projection-ownership-valid");
         expect(report).toContain("upgrade AXM");
         expect(fs.readFileSync(instructionsPath, "utf8")).toBe(before);

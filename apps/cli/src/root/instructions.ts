@@ -56,7 +56,6 @@ export const handleInstructionsStatus = Effect.fn("Instructions.inspect")(functi
       inventoryDoc({
         rows: [],
         columns: InstructionsColumns,
-        summary: "",
         empty: "Instruction-file management is disabled.",
       }),
     );

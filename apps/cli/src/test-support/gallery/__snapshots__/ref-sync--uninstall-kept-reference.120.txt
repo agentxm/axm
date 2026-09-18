@@ -1,0 +1,11 @@
+Uninstalling  in this project · agents: claude-code, codex
+
+     Extension                     Version   Status         Detail
+ -   @acme/packs/review-kit        2.1.0     removed
+ -   @acme/subagents/reviewer      0.9.0     removed        1 file
+ =   @acme/skills/code-review      1.4.0     not selected   also declared directly
+
+ ▲   AXM will not touch 1 path
+     AGENTS.md — prose AXM did not write still mentions @acme/subagents/reviewer
+
+ ✔   Uninstalled 2 extensions      2 applied · 1 not selected

@@ -94,11 +94,20 @@ describe("hook configured-agent outcomes", () => {
       expect(humanPreview.exitCode, humanPreview.stdout + humanPreview.stderr).toBe(0);
       expect(humanPreview.stdout + humanPreview.stderr).toContain("Would install 1 hook");
       expect(humanPreview.stdout + humanPreview.stderr).toContain("1 to install");
-      expect(humanPreview.stdout + humanPreview.stderr).toContain(
-        "claude-code: projected — All hook bindings have a supported native mapping",
+      // Per-agent outcomes are row children at verbose level; the plan ledger
+      // points there instead of carrying them.
+      expect(humanPreview.stdout + humanPreview.stderr).toContain("--verbose for details");
+      expect(snapshotTree(temp.path)).toEqual(beforePreview);
+      const verbosePreview = await runCli(
+        ["hooks", "install", observational, "--preview", "--non-interactive", "--verbose"],
+        { cwd: temp.path },
       );
-      expect(humanPreview.stdout + humanPreview.stderr).toContain(
-        "windsurf: projected — AXM has not built a hook writer",
+      expect(verbosePreview.exitCode, verbosePreview.stdout + verbosePreview.stderr).toBe(0);
+      expect(verbosePreview.stdout + verbosePreview.stderr).toContain(
+        "claude-code: projected at .claude/settings.json, All hook bindings have a supported native mapping",
+      );
+      expect(verbosePreview.stdout + verbosePreview.stderr).toContain(
+        "windsurf: projected at AGENTS.md, AXM has not built a hook writer",
       );
       expect(snapshotTree(temp.path)).toEqual(beforePreview);
       const preview = await runCli(
@@ -174,11 +183,17 @@ describe("hook configured-agent outcomes", () => {
         cwd: temp.path,
       });
       expect(humanSyncPreview.exitCode, humanSyncPreview.stdout + humanSyncPreview.stderr).toBe(0);
-      expect(humanSyncPreview.stdout + humanSyncPreview.stderr).toContain(
-        "claude-code: projected — All hook bindings have a supported native mapping",
+      expect(snapshotTree(temp.path)).toEqual(beforeSyncPreview);
+      const humanSyncVerbose = await runCli(
+        ["sync", "--preview", "--non-interactive", "--verbose"],
+        { cwd: temp.path },
       );
-      expect(humanSyncPreview.stdout + humanSyncPreview.stderr).toContain(
-        "windsurf: projected — AXM has not built a hook writer",
+      expect(humanSyncVerbose.exitCode, humanSyncVerbose.stdout + humanSyncVerbose.stderr).toBe(0);
+      expect(humanSyncVerbose.stdout + humanSyncVerbose.stderr).toContain(
+        "claude-code: projected at .claude/settings.json, All hook bindings have a supported native mapping",
+      );
+      expect(humanSyncVerbose.stdout + humanSyncVerbose.stderr).toContain(
+        "windsurf: projected at AGENTS.md, AXM has not built a hook writer",
       );
       expect(snapshotTree(temp.path)).toEqual(beforeSyncPreview);
       const syncPreview = await runCli(["sync", "--preview", "--json", "--non-interactive"], {

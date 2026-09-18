@@ -117,12 +117,13 @@ describe("axm lint (e2e, Phase 7)", () => {
         });
         expect(document.result).not.toHaveProperty("axmSkillCompatibility");
 
-        const human = await runCli(["lint", "--details"], { cwd: temp.path, env });
+        // Findings are lint's primary result, so the human ledger is on stdout.
+        const human = await runCli(["lint"], { cwd: temp.path, env });
         expect(human.exitCode, `${human.stderr}\n${human.stdout}`).toBe(0);
-        const humanOutput = `${human.stderr}\n${human.stdout}`;
-        expect(humanOutput).toContain("workspace/axm-skill-declared");
-        expect(humanOutput).not.toContain("workspace/axm-skill-compatible");
-        expect(humanOutput).not.toContain("manual attention");
+        expect(human.stdout).toContain("workspace/axm-skill-declared");
+        expect(human.stdout).toContain("1 info");
+        expect(human.stdout).not.toContain("workspace/axm-skill-compatible");
+        expect(human.stderr).not.toContain("workspace/axm-skill-declared");
       } finally {
         temp.cleanup();
       }
@@ -461,12 +462,12 @@ describe("axm lint (e2e, Phase 7)", () => {
           exitCategory: "warnings",
         });
 
-        const human = await runCli(["lint", "--details"], { cwd: temp.path, env });
+        const human = await runCli(["lint", "--verbose"], { cwd: temp.path, env });
         expect(human.exitCode, `${human.stderr}\n${human.stdout}`).toBe(0);
-        const humanOutput = `${human.stderr}\n${human.stdout}`;
-        expect(humanOutput).toContain("Found 1 warning in 1 location.");
-        expect(humanOutput).toContain("workspace/lockfile-valid");
-        expect(humanOutput).not.toContain("Found 1 error");
+        expect(human.stdout).toContain("1 warning");
+        expect(human.stdout).toContain("workspace/lockfile-valid");
+        expect(human.stdout).not.toContain(" error");
+        expect(human.stderr).not.toContain("workspace/lockfile-valid");
 
         const strict = await runCli(["lint", "--strict", "--json"], {
           cwd: temp.path,

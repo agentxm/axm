@@ -14,7 +14,11 @@ import * as ServiceMap from "effect/Context";
 import * as Layer from "effect/Layer";
 
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
-import { DeviceAuthorizationPending, RegistryAccessFailed } from "./errors.js";
+import {
+  DeviceAuthorizationPending,
+  RegistryAccessFailed,
+  type DeviceWaitEnded,
+} from "./errors.js";
 
 import { AuthClient } from "./auth-client.js";
 import {
@@ -110,6 +114,12 @@ export interface RunDeviceLoginOptions {
 
 export interface ResumeDeviceLoginOptions {
   readonly timeoutSeconds?: number;
+  /**
+   * What the invocation that started this sign-in already did for the person,
+   * so the wait says whether a browser is open and the code is on the
+   * clipboard. A resume of an earlier invocation did neither.
+   */
+  readonly sideEffects?: DeviceHandoffSideEffects;
 }
 
 const DeviceLoginActionSchema = Schema.Struct({
@@ -140,31 +150,28 @@ export const DeviceLoginPendingDocumentSchema = Schema.Struct({
   result: DeviceLoginPendingResultSchema,
 });
 
-const presentDeviceFlow = (
-  verificationUri: string,
-  verificationUriComplete: string,
-  userCode: string,
-  expiresInSeconds: number,
+/**
+ * The side effects that make a device handoff easy to complete: the code on
+ * the clipboard, and the verification page in a browser where one may open.
+ * What they achieved travels with the handoff so the terminal can say so.
+ */
+export interface DeviceHandoffSideEffects {
+  readonly browserOpened: boolean;
+  readonly copiedToClipboard: boolean;
+}
+
+const openDeviceHandoff = (
+  handoff: { readonly verificationUriComplete: string; readonly userCode: string },
   options: RunDeviceLoginOptions,
-) =>
+): Effect.Effect<DeviceHandoffSideEffects, never, DeviceLoginInteraction> =>
   Effect.gen(function* () {
-    const presenter = yield* AuthLoginPresenter;
     const interaction = yield* DeviceLoginInteraction;
-
-    const shouldOpenBrowser = options.openBrowser ?? true;
-    const copiedToClipboard = yield* interaction.copyToClipboard(userCode);
-    const browserOpened = shouldOpenBrowser
-      ? yield* interaction.openBrowser(verificationUriComplete)
-      : false;
-
-    yield* presenter.presentDeviceFlow({
-      verificationUri,
-      verificationUriComplete,
-      userCode,
-      expiresInSeconds,
-      browserOpened,
-      copiedToClipboard,
-    });
+    const copiedToClipboard = yield* interaction.copyToClipboard(handoff.userCode);
+    const browserOpened =
+      (options.openBrowser ?? true)
+        ? yield* interaction.openBrowser(handoff.verificationUriComplete)
+        : false;
+    return { browserOpened, copiedToClipboard };
   });
 
 const makePendingResult = (
@@ -214,20 +221,9 @@ const emitPendingDeviceLogin = (
     if (yield* presenter.tryEmitPendingDeviceLogin(result)) {
       return result;
     }
-    yield* presentDeviceFlow(
-      pending.verificationUri,
-      pending.verificationUriComplete,
-      pending.userCode,
-      Math.max(
-        0,
-        Math.ceil(
-          (DateTime.toEpochMillis(pending.expiresAt) -
-            DateTime.toEpochMillis(yield* DateTime.now)) /
-            1000,
-        ),
-      ),
-      options,
-    );
+    // Nothing will wait on this invocation, so the code, the links, and the
+    // resume command are the whole of what a person is left with.
+    yield* openDeviceHandoff(pending, options);
     yield* presenter.notePendingApproval(result);
     return result;
   });
@@ -253,7 +249,11 @@ export const initiateDeviceLogin = (registryUrl: string, options: RunDeviceLogin
         // A pending sign-in asks for exactly what every sign-in asks for, so
         // the registry it belongs to is the only thing that can make it the
         // wrong one to resume.
-        return yield* emitPendingDeviceLogin(existing.value, options, "re-emitted");
+        // A caller that is about to wait takes the pending sign-in as it
+        // stands; the wait shows it, so nothing is re-presented here.
+        return options.emitPendingResult === false
+          ? makePendingResult(existing.value, "re-emitted")
+          : yield* emitPendingDeviceLogin(existing.value, options, "re-emitted");
       } else {
         return yield* new RegistryAccessFailed({
           category: "conflict",
@@ -288,16 +288,9 @@ export const initiateDeviceLogin = (registryUrl: string, options: RunDeviceLogin
       expiresAt: DateTime.add(yield* DateTime.now, { seconds: deviceFlow.expires_in }),
     };
     yield* pendingStore.save(pending);
-    if (options.emitPendingResult === false) {
-      yield* presentDeviceFlow(
-        pending.verificationUri,
-        pending.verificationUriComplete,
-        pending.userCode,
-        deviceFlow.expires_in,
-        options,
-      );
-      return makePendingResult(pending);
-    }
+    // The caller is about to wait on this sign-in: the wait itself shows the
+    // code and the links, so nothing is presented here.
+    if (options.emitPendingResult === false) return makePendingResult(pending);
     return yield* emitPendingDeviceLogin(pending, options);
   });
 
@@ -319,6 +312,7 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
     const credStore = yield* CredentialStore;
     const pendingStore = yield* PendingDeviceLoginStore;
     const presenter = yield* AuthLoginPresenter;
+    const interaction = yield* DeviceLoginInteraction;
     const registryHost = new URL(registryUrl).host;
 
     if (!credStore.allowsPersistedCredentials) {
@@ -356,34 +350,55 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
     }
 
     const polling = authClient.pollDeviceToken(pending.deviceCode, pending.interval);
+    // The sign-in itself is untouched by how the terminal stopped waiting, so
+    // both endings resolve to the same pending outcome and the same resume.
+    const stillPending = (waitEnded: DeviceWaitEnded) => {
+      const action = makePendingResult(pending).action;
+      return new DeviceAuthorizationPending({
+        waitEnded,
+        registryUrl: pending.registryUrl,
+        intervalSeconds: pending.interval,
+        verificationUri: action.fallbackUrl,
+        verificationUriComplete: action.url,
+        userCode: action.code,
+        expiresAt: action.expiresAt,
+        resume: action.resume,
+      });
+    };
     const boundedPolling =
       options.timeoutSeconds === undefined
         ? polling
         : polling.pipe(
             Effect.timeoutOrElse({
               duration: Duration.seconds(options.timeoutSeconds),
-              orElse: () => {
-                const timeoutSeconds = options.timeoutSeconds ?? 0;
-                const action = makePendingResult(pending).action;
-                return Effect.fail(
-                  new DeviceAuthorizationPending({
-                    timeoutSeconds,
-                    registryUrl: pending.registryUrl,
-                    intervalSeconds: pending.interval,
-                    verificationUri: action.fallbackUrl,
-                    verificationUriComplete: action.url,
-                    userCode: action.code,
-                    expiresAt: action.expiresAt,
-                    resume: action.resume,
-                  }),
-                );
-              },
+              orElse: () =>
+                Effect.fail(
+                  stillPending({ _tag: "Elapsed", seconds: options.timeoutSeconds ?? 0 }),
+                ),
             }),
           );
 
     const token = yield* presenter
-      .withProgress({ _tag: "WaitingForDeviceAuthorization", registryHost }, () => boundedPolling)
+      .awaitHuman(
+        {
+          _tag: "DeviceLogin",
+          registryHost,
+          verificationUriComplete: pending.verificationUriComplete,
+          verificationUri: pending.verificationUri,
+          userCode: pending.userCode,
+          expiresAtMs: DateTime.toEpochMillis(pending.expiresAt),
+          browserOpened: options.sideEffects?.browserOpened ?? false,
+          copiedToClipboard: options.sideEffects?.copiedToClipboard ?? false,
+        },
+        boundedPolling,
+        interaction,
+      )
       .pipe(
+        // Stopping the wait is not a denial: the code is still live and the
+        // stored sign-in is left exactly where it was.
+        Effect.catchTag("AuthInteractionAbandoned", () =>
+          Effect.fail(stillPending({ _tag: "Stopped" })),
+        ),
         Effect.catchTag("DeviceLoginCodeExpired", (error) =>
           pendingStore.clear().pipe(
             Effect.flatMap(() =>
@@ -434,6 +449,10 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
 
 export const runDeviceLogin = (registryUrl: string, options: RunDeviceLoginOptions = {}) =>
   Effect.gen(function* () {
-    yield* initiateDeviceLogin(registryUrl, { ...options, emitPendingResult: false });
-    yield* resumeDeviceLogin(registryUrl);
+    const pending = yield* initiateDeviceLogin(registryUrl, {
+      ...options,
+      emitPendingResult: false,
+    });
+    const sideEffects = yield* openDeviceHandoff(pending, options);
+    yield* resumeDeviceLogin(registryUrl, { sideEffects });
   });

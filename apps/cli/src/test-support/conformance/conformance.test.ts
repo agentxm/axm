@@ -29,7 +29,7 @@ import { FrameLive } from "../../screen/frame.js";
 import { gallery } from "../gallery/index.js";
 import { paintText } from "../../screen/paint-text.js";
 import { initialProgress, reduceProgress, type ProgressState } from "../../screen/progress.js";
-import { liveProgressLines } from "../../screen/progress-view.js";
+import { liveLedgerDoc } from "../../screen/live-ledger.js";
 import { Screen, ScreenLive } from "../../screen/screen.js";
 import { OutputStreams } from "../../screen/streams.js";
 import { displayWidth } from "../../screen/width.js";
@@ -70,6 +70,7 @@ const fold = (events: ReadonlyArray<OperationEvent>): ProgressState =>
   events.reduce(reduceProgress, initialProgress);
 
 const CURSOR_SHOW = "\u001b[?25h";
+const CURSOR_HIDE = "\u001b[?25l";
 
 /** Output streams that keep one ordered log across both channels. */
 const makeOrderedStreams = () => {
@@ -77,7 +78,7 @@ const makeOrderedStreams = () => {
   const layer = Layer.succeed(OutputStreams, {
     stdout: (content) => Effect.sync(() => void log.push({ channel: "stdout", content })),
     stderr: (content) => Effect.sync(() => void log.push({ channel: "stderr", content })),
-    facts: Effect.succeed({ stdoutIsTTY: true, stderrIsTTY: true, columns: 80 }),
+    facts: Effect.succeed({ stdoutIsTTY: true, stderrIsTTY: true, columns: 80, rows: 24 }),
     resize: Stream.empty,
   });
   return { log, layer };
@@ -101,9 +102,8 @@ const replay = (
 
 describe("renderer conformance", () => {
   it("the every-node fixture covers every node kind", () => {
-    const covered = nodeKindsOf(
-      gallery.find((fixture) => fixture.name === "every-node")?.doc ?? [],
-    );
+    const everyNode = gallery.find((fixture) => fixture.name === "every-node");
+    const covered = nodeKindsOf(everyNode?._tag === "document" ? everyNode.doc : []);
     expect([...covered].sort()).toEqual([...nodeKinds].sort());
   });
 
@@ -116,7 +116,10 @@ describe("renderer conformance", () => {
   });
 
   describe.each(painters)("$name", (painter) => {
-    const fixtures = gallery.map((fixture) => ({ name: fixture.name, doc: fixture.doc }));
+    // Painters conform on settled documents; the gallery holds live scenes to their own bounds.
+    const fixtures = gallery.flatMap((fixture) =>
+      fixture._tag === "document" ? [{ name: fixture.name, doc: fixture.doc }] : [],
+    );
 
     it.each(fixtures)("keeps every painted line of $name within the width", ({ doc, name }) => {
       for (const width of conformanceWidths) {
@@ -165,17 +168,16 @@ describe("renderer conformance", () => {
   describe.each(recordedLogs)("recorded log $name", ({ events }) => {
     it("folds deterministically into the same progress state at every width", () => {
       const reference = fold(events);
+      // The live ledger is bound by height as well as width, so the suite
+      // holds it at the two terminal heights the gallery snapshots scenes at.
       for (const width of conformanceWidths) {
         expect(fold(events)).toEqual(reference);
         for (let count = 1; count <= events.length; count += 1) {
-          const lines = liveProgressLines(fold(events.slice(0, count)), {
-            width,
-            colors: false,
-            spinner: "◐",
-            nowMs: 5_000,
-          });
-          for (const line of lines) {
-            expect(displayWidth(line), `${String(width)}: ${line}`).toBeLessThanOrEqual(width);
+          const doc = liveLedgerDoc(fold(events.slice(0, count)), { rows: 22, nowMs: 5_000 });
+          for (const painter of painters) {
+            for (const line of painter.paint(doc, { width, colors: false })) {
+              expect(displayWidth(line), `${String(width)}: ${line}`).toBeLessThanOrEqual(width);
+            }
           }
         }
       }
@@ -201,7 +203,7 @@ describe("renderer conformance", () => {
     });
 
     it.effect(
-      "interleaves a transcript note above the live region and collapses before the settled document",
+      "interleaves a transcript note above the live region and clears it before the settled document",
       () => {
         const streams = makeOrderedStreams();
         const layer = Layer.provide(
@@ -233,16 +235,18 @@ describe("renderer conformance", () => {
             .map((entry) => entry.content)
             .join("");
           expect(stderr).toContain("note during operation\n");
-          const collapse = streams.log.findIndex(
-            (entry) =>
-              entry.channel === "stderr" &&
-              /(?:✔|✖|▲) /u.test(entry.content) &&
-              entry.content.endsWith("\n") &&
-              !entry.content.includes("note during"),
-          );
           const settledDocument = streams.log.findIndex((entry) => entry.channel === "stdout");
-          expect(collapse).toBeGreaterThanOrEqual(0);
-          expect(settledDocument).toBeGreaterThan(collapse);
+          expect(settledDocument).toBeGreaterThanOrEqual(0);
+          // The region is erased before the result reaches stdout and never
+          // repaints after it, so the settled ledger stands alone in scrollback.
+          const erased = streams.log
+            .slice(0, settledDocument)
+            .some((entry) => entry.channel === "stderr" && entry.content.includes("\u001b[0J"));
+          expect(erased).toBe(true);
+          const repaintAfterResult = streams.log
+            .slice(settledDocument)
+            .some((entry) => entry.channel === "stderr" && entry.content.includes("\u001b[?25l"));
+          expect(repaintAfterResult).toBe(false);
           const noteIndex = streams.log.findIndex((entry) => entry.content.includes("note during"));
           const repaintAfterNote = streams.log
             .slice(noteIndex + 1)
@@ -274,10 +278,20 @@ describe("renderer conformance", () => {
           return yield* Effect.never;
         }).pipe(Effect.provide(layer), Effect.scoped, Effect.forkChild);
         yield* Deferred.await(started);
+        // The lifecycle subscription drains on its own fiber, so let the live
+        // region reach the terminal before the command is interrupted: a
+        // cursor that was never hidden proves nothing about restoring it.
+        const written = () => streams.log.map((entry) => entry.content).join("");
+        for (let turn = 0; turn < 50 && !written().includes(CURSOR_HIDE); turn += 1) {
+          yield* Effect.yieldNow;
+        }
+        expect(written()).toContain(CURSOR_HIDE);
+
         yield* Fiber.interrupt(fiber);
-        const stderr = streams.log.map((entry) => entry.content).join("");
+        const stderr = written();
         expect(stderr).toContain("transcript stayed whole\n");
         expect(stderr).toContain(CURSOR_SHOW);
+        expect(stderr.lastIndexOf(CURSOR_SHOW)).toBeGreaterThan(stderr.lastIndexOf(CURSOR_HIDE));
       });
     });
   });

@@ -1,7 +1,14 @@
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import type { Doc, DocNode, Field } from "../screen/doc.js";
+import type { Doc, DocNode, Field, Text } from "../screen/doc.js";
 import { paintText } from "../screen/paint-text.js";
-import { type AppError, effectiveSuggestionsFor } from "./app-error.js";
+import { exitPhrase } from "../screen/phrases.js";
+import {
+  type AppError,
+  type AppErrorCode,
+  defaultSuggestionsFor,
+  effectiveSuggestionsFor,
+  exitCodeFor,
+} from "./app-error.js";
 import { serializeErrorCauseChain } from "./cause-chain.js";
 import {
   collectSensitiveStrings,
@@ -100,6 +107,27 @@ const formatCause = (
   });
 };
 
+/**
+ * The dim aside every problem title carries at the value column: the stable
+ * code a script matches on and the process exit code it will see.
+ */
+const problemAside = (code: AppErrorCode): string => `${code}, ${exitPhrase(exitCodeFor(code))}`;
+
+/** The reason, with how many attempts it took when a retry policy ran out. */
+const reasonText = (error: AppError, secrets: ReadonlyArray<string>): Text => {
+  const detail = redactSensitiveText(error.detail, { secrets });
+  const attempts = error.metadata?.requestPolicy?.attemptCount;
+  return attempts === undefined || attempts < 2
+    ? detail
+    : [{ text: detail }, { text: ` (${String(attempts)} attempts)`, tone: "dim" }];
+};
+
+/**
+ * One problem shape for every error kind: a title with its code and exit code
+ * as an aside, the reason, the inputs and identifiers as fields, and every
+ * recovery as a copyable `next` command. Verbose and debug levels add the
+ * request, the response, and the cause chain beneath the fields.
+ */
 export const appErrorDoc = (
   error: AppError,
   options: { readonly verbose: boolean; readonly debug: boolean } = defaultRenderOptions,
@@ -107,79 +135,89 @@ export const appErrorDoc = (
   const secrets = collectSensitiveStrings(error.metadata);
   const requestId = getRequestId(error);
   const registryUrl = getRegistryUrl(error);
-  const fields: Array<Field> = [];
+  const detailed = options.verbose || options.debug;
+  const title = redactSensitiveText(error.title, { secrets });
+  const fields: Array<Field> = (error.inputs ?? []).map((input) => ({
+    label: redactSensitiveText(input.label, { secrets }),
+    value: redactSensitiveText(input.value, { secrets }),
+  }));
   const children: Array<DocNode> = [];
 
   if (registryUrl !== undefined) {
-    fields.push({ label: "Registry:", value: formatRegistryLocation(registryUrl, secrets) });
+    fields.push({ label: "Registry", value: formatRegistryLocation(registryUrl, secrets) });
   }
 
-  if (options.verbose || options.debug) {
-    fields.push({ label: "Title:", value: redactSensitiveText(error.title, { secrets }) });
-
+  if (detailed) {
     const registryRequest = formatRegistryRequest(error, secrets);
     if (registryRequest !== undefined) {
-      fields.push({ label: "Request:", value: registryRequest });
+      fields.push({ label: "Request", value: registryRequest });
     }
+  }
 
-    if (requestId !== undefined) {
-      fields.push({
-        label: "Request ID:",
-        value: redactSensitiveText(requestId, { secrets }),
-      });
-    }
+  if (requestId !== undefined && (detailed || error.code === "internal")) {
+    fields.push({
+      label: "Request ID",
+      value: [{ text: redactSensitiveText(requestId, { secrets }), copyable: true }],
+    });
+  }
 
+  // A failure about its inputs states them as fields, which say more than
+  // the sentence its detail spells for the machine envelope.
+  if (error.inputs === undefined && redactSensitiveText(error.detail, { secrets }) !== title) {
+    children.push({ _tag: "paragraph", text: reasonText(error, secrets) });
+  }
+  if (fields.length > 0) children.push({ _tag: "fields", fields });
+
+  if (detailed) {
     const responseBody = error.metadata?.response?.body;
     if (responseBody !== undefined) {
       children.push({
         _tag: "section",
-        title: "Response:",
+        title: "Response",
         children: [{ _tag: "raw", content: formatResponseBody(responseBody, secrets).join("\n") }],
       });
     }
-  } else if (error.code === "internal" && requestId !== undefined) {
-    fields.push({
-      label: "Request ID:",
-      value: redactSensitiveText(requestId, { secrets }),
-    });
-  }
-
-  if (fields.length > 0) children.unshift({ _tag: "fields", fields });
-
-  if (options.verbose || options.debug) {
     children.push(...formatCause(error.cause, options, secrets));
   } else if (error.cause !== undefined && error.cause !== null) {
-    children.push({ _tag: "paragraph", text: "Run with `--debug` to see error details." });
+    children.push({ _tag: "paragraph", tone: "dim", text: "--debug shows the cause." });
   }
 
   const next = suggestionsNode(effectiveSuggestionsFor(error), secrets);
-  if (next !== undefined) children.push(next);
-
   return [
     {
       _tag: "callout",
       tone: "error",
-      title: `${redactSensitiveText(error.detail, { secrets })} (${error.code})`,
+      title,
+      aside: problemAside(error.code),
       ...(children.length === 0 ? {} : { children }),
     },
+    ...(next === undefined ? [] : [next]),
   ];
 };
 
+/**
+ * A defect has no category of its own, so it reads as an internal problem:
+ * the message it carried as the reason, and the report link as its recovery.
+ */
 export const defectDoc = (error: unknown): Doc => {
-  const children: Array<DocNode> = [
+  const message =
+    error instanceof Error
+      ? redactSensitiveText(error.message)
+      : typeof error === "string"
+        ? redactSensitiveText(error)
+        : undefined;
+  return [
     {
-      _tag: "paragraph",
-      text: "This is a bug. Please report it at https://github.com/agentxm/axm/issues",
+      _tag: "callout",
+      tone: "error",
+      title: "An unexpected error occurred",
+      aside: problemAside("internal"),
+      ...(message === undefined || message.length === 0
+        ? {}
+        : { children: [{ _tag: "paragraph", text: message }] }),
     },
+    { _tag: "next", actions: defaultSuggestionsFor("internal") },
   ];
-
-  if (error instanceof Error) {
-    children.push({ _tag: "paragraph", text: redactSensitiveText(error.message) });
-  } else if (typeof error === "string") {
-    children.push({ _tag: "paragraph", text: redactSensitiveText(error) });
-  }
-
-  return [{ _tag: "callout", tone: "error", title: "An unexpected error occurred", children }];
 };
 
 export const renderAppError = (

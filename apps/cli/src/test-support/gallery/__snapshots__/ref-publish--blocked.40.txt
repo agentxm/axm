@@ -1,0 +1,21 @@
+Publishing  as @acme · to agentxm
+
+     Extension      Version   Status
+ ▲   @acme/…eview   1.4.0     blocked
+ ·   @a…/reviewer   0.9.0     not tried
+ ·   @acme/…w-kit   2.1.0     not tried
+     --verbose for details
+
+ ▲   Publish is blocked — an explicit
+     override is required
+                    1 blocked, 2 not
+                    tried, exit 2
+     The archive for code-review is not
+     fully represented by Git HEAD
+     a1b2c3d.
+
+Next
+     git commit -a && axm publish
+     Publish what is committed
+     axm publish --accept-warnings
+     Publish the working tree as it is

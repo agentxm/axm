@@ -36,7 +36,7 @@ describe("axm token", () => {
       env: { AXM_TOKEN: "" },
     });
     expect(result.exitCode).toBe(13);
-    expect(result.stdout + result.stderr).toContain("(auth_required)");
+    expect(result.stdout + result.stderr).toContain("auth_required, exit 13");
     expect(result.stderr).toContain("axm login --device-code --json");
   });
 
@@ -73,8 +73,10 @@ describe("axm token", () => {
         },
         data: { token: "axmt_step_up_e2e" },
       });
-      expect(result.stderr).toContain("Action: Create access token");
-      expect(result.stderr).toContain("Target: e2e-step-up");
+      // The wait on verification crosses machine output as instructions and a
+      // suggestion, so an agent is told what to verify and where.
+      expect(result.stderr).toContain("Verify Create access token on e2e-step-up to continue.");
+      expect(result.stderr).toContain("Verify Create access token");
       expect(registry.requests).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ method: "POST", path: "/v1/tokens", status: 401 }),

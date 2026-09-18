@@ -62,11 +62,10 @@ export type {
   AuthLoginPresenterService,
   AuthLoginProgress,
   DeviceCodeFallbackReason,
-  DeviceFlowPresentation,
+  HumanHandoff,
   SessionReplacementDecision,
-  StepUpChallengePresentation,
 } from "./login-presenter.js";
-export { AuthLoginPresenter } from "./login-presenter.js";
+export { AuthLoginPresenter, handoffUrl } from "./login-presenter.js";
 
 export {
   runWithStepUp,

@@ -286,6 +286,16 @@ export const AppErrorProblemSchema = Schema.Union([
 
 export type AppErrorProblem = typeof AppErrorProblemSchema.Type;
 
+/**
+ * One input a failure is about, such as the name a validation rejected. Human
+ * output lists inputs as fields under the reason. They restate what the
+ * detail already names, so the machine envelope does not carry them.
+ */
+export interface AppErrorInput {
+  readonly label: string;
+  readonly value: string;
+}
+
 /** CLI-only suggestion metadata is removed before public rendering or serialization. */
 export type AppErrorSuggestedAction = SuggestedAction & {
   readonly commandScope?: "workspace" | "global";
@@ -412,6 +422,7 @@ export class AppError extends Data.TaggedError("AppError")<{
   readonly blockedOn?: "human";
   readonly action?: AppErrorAction;
   readonly problem?: AppErrorProblem;
+  readonly inputs?: ReadonlyArray<AppErrorInput>;
   readonly suggestions?: ReadonlyArray<AppErrorSuggestedAction>;
   readonly cause: unknown;
 }> {}
@@ -426,6 +437,7 @@ export const makeAppError = (args: {
   readonly blockedOn?: "human";
   readonly action?: AppErrorAction;
   readonly problem?: AppErrorProblem;
+  readonly inputs?: ReadonlyArray<AppErrorInput>;
   readonly recover?: string;
   readonly cmd?: string;
   readonly suggestions?: ReadonlyArray<AppErrorSuggestedAction>;
@@ -452,6 +464,7 @@ export const makeAppError = (args: {
     ...(args.blockedOn !== undefined ? { blockedOn: args.blockedOn } : {}),
     ...(args.action !== undefined ? { action: args.action } : {}),
     ...(args.problem !== undefined ? { problem: args.problem } : {}),
+    ...(args.inputs !== undefined && args.inputs.length > 0 ? { inputs: args.inputs } : {}),
     ...(suggestions.length > 0 ? { suggestions } : {}),
     cause: args.cause,
   });

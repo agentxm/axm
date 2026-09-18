@@ -1,0 +1,3 @@
+ ?   Instructions file name ❯ /etc/AGENTS.md
+     Relative to the project root. It will be created if it does not exist.
+ ▲   Enter a path relative to the project root.

@@ -1,8 +1,33 @@
+import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
+
+import type { Text, Tint } from "../screen/index.js";
 import type {
   ConfiguredAgentOutcome,
   ExtensionInventory,
   ExtensionInventoryLifecycle,
 } from "@agentxm/workspace/desired-state";
+
+/**
+ * Each extension type's tint, so a reader tells types apart down an inventory
+ * column. Terminals offer few standard colours, so a container shares one with
+ * the type it most often holds.
+ */
+const extensionTypeTints: Readonly<Record<InstallableExtensionType, Tint>> = {
+  skill: "green",
+  subagent: "magenta",
+  pack: "magenta",
+  "mcp-server": "blue",
+  knowledge: "blue",
+  rule: "yellow",
+  hook: "cyan",
+};
+
+const isInstallableExtensionType = (type: string): type is InstallableExtensionType =>
+  Object.hasOwn(extensionTypeTints, type);
+
+/** An extension type in its tint; a type this CLI does not know stays plain. */
+export const extensionTypeText = (type: string): Text =>
+  isInstallableExtensionType(type) ? [{ text: type, tint: extensionTypeTints[type] }] : type;
 
 /** Facts every inventory row carries, whatever its extension type. */
 interface InventoryRowFacts {

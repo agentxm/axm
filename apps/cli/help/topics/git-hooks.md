@@ -7,7 +7,7 @@ tracked files remain present, and unstaged, untracked, deleted, and pre-rename
 content stay out. The command is read-only, deterministic, and does not need
 Registry access.
 
-`--strict`, `--json`, and `--details` work with `--view git-index`. `--scope user`
+`--strict`, `--json`, and `--verbose` work with `--view git-index`. `--scope user`
 does not. Exclude `agent_extensions/**` from filename-based formatters and other
 mutating hooks. Run formatters first for repository-authored files so their
 intended output is staged before AXM reads the index. Generated instruction

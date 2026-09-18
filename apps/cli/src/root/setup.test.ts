@@ -15,7 +15,6 @@ import * as YAML from "yaml";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { afterEach, beforeEach } from "vitest";
 import { RegistryUrl } from "@agentxm/registry-client";
-import { BRANDING } from "../branding/index.js";
 import { AgentExecutableResolver } from "@agentxm/workspace/projection/agent-adapters";
 import { TestMachineRenderer, TestRenderer } from "../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../cli-flags/index.js";
@@ -206,7 +205,7 @@ describe("setup.handler", () => {
               .filter((entry) => entry._tag === "success")
               .map((entry) => entry.message);
             expect(successMessages).toEqual([
-              "Initialized with agents: Claude Code",
+              "Set up AXM for 1 agent",
               "Workspace already initialized; use `axm agents add` or `axm agents remove` to change coding agents",
             ]);
             expect(bundledSkillInstalled()).toBe(true);
@@ -382,21 +381,19 @@ describe("setup.handler", () => {
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project", agents: ["claude-code"] });
 
-          expect(rendererState.logs).toContainEqual({
-            _tag: "info",
-            message:
-              "Skill: @agentxm/skills/axm -> agent_extensions/agentxm/@agentxm/skills/axm, .claude/skills/axm",
-          });
-          expect(rendererState.logs).toContainEqual({
-            _tag: "info",
-            message: "Scope support (project)",
-          });
-          expect(rendererState.tables.flatMap((table) => table.items)).toContainEqual({
-            extension: "Skill",
-            status: "supported",
-            target: "Claude Code",
-            reason: "Claude Code supports skills in project scope.",
-          });
+          // The result ledger names every file the bundled skill occupies:
+          // its canonical package, with its version, and the agent's copy.
+          expect(rendererState.summaries).toContainEqual(
+            `@agentxm/skills/axm   created   ${AXM_SKILL_VERSION}`,
+          );
+          expect(rendererState.summaries).toContainEqual(
+            ".claude/skills/axm   created   Claude Code",
+          );
+          // Every type Claude Code takes in project scope is supported, and what
+          // every agent supports needs no mention.
+          expect(rendererState.notes.map((note) => note.title)).not.toContain(
+            "Some extension types are limited in project scope",
+          );
         }),
       );
     });
@@ -1282,10 +1279,7 @@ describe("setup.handler", () => {
           yield* handleSetup({ scope: "project" });
 
           expect(promptState.confirmSetupPlanCalls).toHaveLength(1);
-          expect(rendererState.logs).toContainEqual({
-            _tag: "info",
-            message: "Setup cancelled — no changes applied",
-          });
+          expect(rendererState.logs).toContainEqual({ _tag: "warn", message: "Setup cancelled" });
           expect(bundledSkillInstalled()).toBe(false);
           expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
           expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(false);
@@ -1380,6 +1374,24 @@ describe("setup.handler", () => {
             { description: "List installed extensions", cmd: "axm list --scope user" },
             telemetrySuggestion,
           ]);
+        }),
+      );
+    });
+
+    it.effect("names the extension types the agents cannot take in user scope", () => {
+      const { handleSetup, provide, rendererState } = makeSetupTestContext({
+        flags: { nonInteractive: true },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "user", agents: ["claude-code"] });
+
+          const limits = rendererState.notes.find(
+            (note) => note.title === "Some extension types are limited in user scope",
+          );
+          expect(limits?.message.split("\n").length).toBeGreaterThan(0);
+          expect(limits?.message).not.toMatch(/supports skills/);
         }),
       );
     });
@@ -1492,10 +1504,6 @@ describe("setup.handler", () => {
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project" });
 
-          const infoMessages = rendererState.logs
-            .filter((entry) => entry._tag === "info")
-            .map((entry) => entry.message);
-          expect(infoMessages).toContain("Telemetry is off unless you explicitly opt in.");
           expect(rendererState.suggestions).toContainEqual(telemetrySuggestion);
         }),
       );
@@ -1510,10 +1518,6 @@ describe("setup.handler", () => {
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project" });
 
-          const infoMessages = rendererState.logs
-            .filter((entry) => entry._tag === "info")
-            .map((entry) => entry.message);
-          expect(infoMessages).toContain("Telemetry is enabled to help improve AXM.");
           expect(rendererState.suggestions).toContainEqual(enabledTelemetrySuggestion);
         }).pipe(
           Effect.ensuring(
@@ -1530,8 +1534,8 @@ describe("setup.handler", () => {
     });
   });
 
-  describe("branding", () => {
-    it.effect("shows AXM branding at the start of text setup", () => {
+  describe("title line", () => {
+    it.effect("opens a first setup with where it acts and in which scope", () => {
       const { handleSetup, provide, rendererState } = makeSetupTestContext({
         flags: { nonInteractive: false },
       });
@@ -1541,15 +1545,18 @@ describe("setup.handler", () => {
           yield* handleSetup({ scope: "project" });
 
           expect(rendererState.docs[0]?.doc).toEqual([
-            { _tag: "blank" },
-            { _tag: "paragraph", text: BRANDING },
-            { _tag: "blank" },
+            {
+              _tag: "headline",
+              tone: "neutral",
+              text: [{ text: `Setting up AXM in ${fs.realpathSync(tempDir)}`, bold: true }],
+              aside: [{ text: "project scope" }],
+            },
           ]);
         }),
       );
     });
 
-    it.effect("does not emit branding in JSON mode", () => {
+    it.effect("prints no title in JSON mode", () => {
       const { handleSetup, provide, rendererState } = makeSetupTestContext({
         flags: { json: true },
         renderer: "machine",
@@ -1565,7 +1572,26 @@ describe("setup.handler", () => {
       );
     });
 
-    it.effect("does not emit branding in non-interactive mode", () => {
+    it.effect("prints no title over a scope that is already set up", () => {
+      const { handleSetup, provide, rendererState } = makeSetupTestContext({
+        flags: { nonInteractive: true },
+      });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleSetup({ scope: "project", agents: ["claude-code"] });
+          const before = rendererState.docs.length;
+          yield* handleSetup({ scope: "project", agents: ["claude-code"] });
+
+          expect(rendererState.docs.slice(before).map((entry) => entry.doc[0]?._tag)).toEqual([
+            "headline",
+          ]);
+          expect(rendererState.logs.at(-1)?._tag).toBe("success");
+        }),
+      );
+    });
+
+    it.effect("settles a non-interactive setup into its ledger and verdict", () => {
       const { handleSetup, provide, rendererState } = makeSetupTestContext({
         flags: { nonInteractive: true },
       });
@@ -1574,11 +1600,11 @@ describe("setup.handler", () => {
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project", agents: ["claude-code"] });
 
-          const messageLogs = rendererState.logs.filter((entry) => entry._tag === "message");
-          expect(messageLogs.some((entry) => entry.message === BRANDING)).toBe(false);
-          expect(rendererState.logs[0]).toEqual({
+          expect(rendererState.logs[0]?.message).toMatch(/^Setting up AXM in /);
+          expect(rendererState.summaries).toContainEqual("axm.json   created   ");
+          expect(rendererState.logs).toContainEqual({
             _tag: "success",
-            message: "Initialized with agents: Claude Code",
+            message: "Set up AXM for 1 agent",
           });
         }),
       );
@@ -1594,11 +1620,9 @@ describe("setup.handler", () => {
           yield* handleSetup({ scope: "project", agents: ["claude-code"] });
 
           expect(rendererState.logs).toEqual([
-            {
-              _tag: "success",
-              message: "Initialized with agents: Claude Code",
-            },
+            { _tag: "success", message: "Set up AXM for 1 agent" },
           ]);
+          expect(rendererState.summaries).toEqual([]);
           expect(rendererState.suggestions).toEqual([]);
         }),
       );
@@ -1617,13 +1641,10 @@ describe("setup.handler", () => {
 
           yield* handleSetup({ scope: "project", agents: ["claude-code"] });
 
-          const infoMessages = rendererState.logs
-            .filter((entry) => entry._tag === "message")
-            .map((entry) => entry.message);
-          expect(infoMessages.some((message) => message.includes("existing subagent file"))).toBe(
-            true,
-          );
-          expect(infoMessages.some((message) => message.includes("Claude Code"))).toBe(true);
+          expect(rendererState.notes).toContainEqual({
+            title: "Existing subagent files were left as they are",
+            message: "Claude Code: 1 file in .claude/agents",
+          });
         }),
       );
     });

@@ -96,6 +96,47 @@ describe("layoutTable", () => {
     expect(layoutTable({ columns, available: 60, gap: 3 })).toEqual({ _tag: "stacked" });
   });
 
+  it("honors a lower stacked threshold so a ledger stacks on overflow alone", () => {
+    const columns = [
+      column({ naturalWidth: 27, wordWidth: 27, minWidth: 27, priority: "required" }),
+      column({ naturalWidth: 7, wordWidth: 7, minWidth: 7, priority: "required" }),
+    ];
+    // 27 + 3 + 7 = 37: a grid at 37 cells, stacked at 36, whatever the width.
+    expect(gridWidths(columns, 37)).toEqual({ widths: [27, 7], hidden: [] });
+    expect(layoutTable({ columns, available: 36, gap: 3, stackBelow: 0 })).toEqual({
+      _tag: "stacked",
+    });
+    expect(
+      layoutTable({
+        columns: [column({ naturalWidth: 10 })],
+        available: 20,
+        gap: 3,
+        stackBelow: 0,
+      }),
+    ).toEqual({ _tag: "grid", columns: [{ index: 0, width: 10, align: "left" }], hidden: [] });
+  });
+
+  it("drops only the priorities it is given, stacking instead of losing the rest", () => {
+    const columns = [
+      column({ naturalWidth: 20, wordWidth: 20, minWidth: 20, priority: "required" }),
+      column({ naturalWidth: 20, wordWidth: 20, minWidth: 20, priority: "preferred" }),
+      column({ naturalWidth: 20, wordWidth: 20, minWidth: 20, priority: "optional" }),
+    ];
+    expect(layoutTable({ columns, available: 46, gap: 3, droppable: ["optional"] })).toEqual({
+      _tag: "grid",
+      columns: [
+        { index: 0, width: 20, align: "left" },
+        { index: 1, width: 20, align: "left" },
+      ],
+      hidden: [2],
+    });
+    expect(
+      layoutTable({ columns, available: 42, gap: 3, stackBelow: 0, droppable: ["optional"] }),
+    ).toEqual({ _tag: "stacked" });
+    // The default policy drops the preferred column instead.
+    expect(gridWidths(columns, 42)).toEqual({ widths: [20], hidden: [1, 2] });
+  });
+
   it("stacks an overflowing grid below the stacked threshold but keeps a fitting one", () => {
     const wide = [column({ naturalWidth: 30 }), column({ naturalWidth: 30 })];
     const narrow = [column({ naturalWidth: 10 }), column({ naturalWidth: 10 })];

@@ -1,0 +1,7 @@
+ ?   Which extensions should be
+     installed?
+   ◪ Skills
+     ↑ 2 more
+ ❯ ◯   changelog
+     ↓ 4 more
+2 selected · space · ^a all · enter

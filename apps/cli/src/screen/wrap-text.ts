@@ -1,5 +1,11 @@
 import type { Span, Text } from "./doc.js";
-import { displayWidth } from "./width.js";
+import {
+  displayWidth,
+  takeDisplayEnd,
+  takeDisplayStart,
+  truncateDisplay,
+  type TruncateMode,
+} from "./width.js";
 
 /**
  * Span-aware word wrapping. Words keep their tone, bold, and link attributes
@@ -19,14 +25,26 @@ type Word = ReadonlyArray<Fragment>;
 
 const attributesOf = (span: Span): Attributes => ({
   ...(span.tone === undefined ? {} : { tone: span.tone }),
+  ...(span.tint === undefined ? {} : { tint: span.tint }),
   ...(span.bold === undefined ? {} : { bold: span.bold }),
   ...(span.link === undefined ? {} : { link: span.link }),
+  ...(span.copyable === undefined ? {} : { copyable: span.copyable }),
+  ...(span.invert === undefined ? {} : { invert: span.invert }),
 });
 
 const sameAttributes = (left: Attributes, right: Attributes): boolean =>
-  left.tone === right.tone && left.bold === right.bold && left.link === right.link;
+  left.tone === right.tone &&
+  left.tint === right.tint &&
+  left.bold === right.bold &&
+  left.link === right.link &&
+  left.copyable === right.copyable &&
+  left.invert === right.invert;
 
-const spansOf = (value: Text): ReadonlyArray<Span> =>
+/** A copyable word is one unbreakable unit: it is never split, even at a space. */
+const isCopyable = (word: Word): boolean =>
+  word.length > 0 && word.every((fragment) => fragment.attributes.copyable === true);
+
+export const spansOf = (value: Text): ReadonlyArray<Span> =>
   typeof value === "string" ? [{ text: value }] : value;
 
 const isWhitespace = (character: string): boolean => /^\s$/u.test(character);
@@ -50,6 +68,12 @@ const tokenize = (spans: ReadonlyArray<Span>): ReadonlyArray<ReadonlyArray<Word>
   };
   for (const span of spans) {
     const attributes = attributesOf(span);
+    if (span.copyable === true) {
+      // Whole and unbroken, its own spaces included, so it stays copyable.
+      flushWord();
+      if (span.text.length > 0) currentLine().push([{ text: span.text, attributes }]);
+      continue;
+    }
     let buffer = "";
     const flushBuffer = () => {
       if (buffer.length > 0) {
@@ -111,7 +135,7 @@ const fillLines = (
   let current: Array<Word> = [];
   let used = 0;
   const pieces = words.flatMap((word) =>
-    wordWidth(word) > width ? splitWord(word, width) : [word],
+    wordWidth(word) > width && !isCopyable(word) ? splitWord(word, width) : [word],
   );
   for (const word of pieces) {
     const size = wordWidth(word);
@@ -175,6 +199,69 @@ export const wrapText = (
   return tokenize(spans).flatMap((words) =>
     words.length === 0 ? [[]] : fillLines(words, safeWidth).map(joinWords),
   );
+};
+
+/** Take display columns off one end of a value, keeping every span attribute. */
+const takeSide = (
+  spans: ReadonlyArray<Span>,
+  width: number,
+  side: "start" | "end",
+): ReadonlyArray<Span> => {
+  const ordered = side === "start" ? spans : [...spans].reverse();
+  const taken: Array<Span> = [];
+  let used = 0;
+  for (const span of ordered) {
+    const room = width - used;
+    if (room <= 0) break;
+    const text =
+      side === "start" ? takeDisplayStart(span.text, room) : takeDisplayEnd(span.text, room);
+    if (text.length === 0) break;
+    taken.push({ ...span, text });
+    used += displayWidth(text);
+  }
+  return side === "start" ? taken : taken.reverse();
+};
+
+/** Display width of the run the two values share at `side`. */
+const sharedWidth = (left: string, right: string, side: "start" | "end"): number => {
+  const [one, other] =
+    side === "start" ? [[...left], [...right]] : [[...left].reverse(), [...right].reverse()];
+  let shared = "";
+  for (const [index, character] of one.entries()) {
+    if (character !== other[index]) break;
+    shared += character;
+  }
+  return displayWidth(shared);
+};
+
+/**
+ * Shorten a value to `width` display columns, keeping span attributes. A
+ * copyable value is returned whole: it is never cut.
+ */
+export const truncateText = (
+  value: Text,
+  width: number,
+  mode: TruncateMode = "end",
+  ellipsis = "…",
+): Text => {
+  const spans = spansOf(value);
+  if (spans.some((span) => span.copyable === true)) return value;
+  const plain = visibleText(value);
+  if (displayWidth(plain) <= width || width <= 0) return value;
+  const shortened = truncateDisplay(plain, width, mode, ellipsis);
+  const attributes = { ...spans[0], text: "" };
+  // What survives is a prefix of the value, an ellipsis, and a suffix of it.
+  const head = sharedWidth(shortened, plain, "start");
+  const tail = sharedWidth(shortened, plain, "end");
+  return head + displayWidth(ellipsis) + tail === displayWidth(shortened)
+    ? [
+        ...takeSide(spans, head, "start"),
+        { ...attributes, text: ellipsis },
+        ...takeSide(spans, tail, "end"),
+      ]
+    : // A value carrying its own ellipsis cannot be split that way; keeping it
+      // as one span shows the right text rather than the right styling.
+      [{ ...attributes, text: shortened }];
 };
 
 /** Visible text of a value: what the terminal shows once formatting is removed. */

@@ -1,0 +1,3 @@
+     Extension                Version   Plan
+ +   @acme-ent…/soc2-review   1.4.0     install
+ +   @acme/…/code-review      1.4.0     install

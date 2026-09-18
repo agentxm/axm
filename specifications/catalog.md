@@ -459,8 +459,8 @@ People and agents can understand invalid workspace state and recover it through 
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
 - Derived from: `apps/cli/help/topics/environment.md`, `apps/cli/src/screen/output-policy.test.ts`, `apps/cli/src/screen/paint-text.test.ts`
-- Open questions: Which locale input controls glyph selection when LC_ALL, LC_CTYPE, and LANG disagree? Earlier environment prose described a non-UTF-8 input selecting ASCII, while the resolver and an internal example select Unicode if any input names UTF-8; this requirement does not decide mixed-locale precedence.; Does ASCII output cover animated progress-frame and prompt symbols beyond painted documents? This requirement covers symbols in rendered human documents.
-- Limitation: Examples drive production policy, Screen, and painter over recording streams with supplied terminal facts. They cover nonempty status, change, tree, separator, and content examples, not an actual terminal font, locale installation, animated frame, prompt, or every authored document. Retires when: Add platform, progress, prompt, or new document evidence when its distinct display-symbol obligation is allocated.
+- Open questions: Which locale input controls glyph selection when LC_ALL, LC_CTYPE, and LANG disagree? Earlier environment prose described a non-UTF-8 input selecting ASCII, while the resolver and an internal example select Unicode if any input names UTF-8; this requirement does not decide mixed-locale precedence.
+- Limitation: Examples drive production policy, Screen, and painter over recording streams with supplied terminal facts. They cover status, change, live-progress, prompt, wait, answer, tree, separator, truncation, and content examples, not an actual terminal font, locale installation, or every authored document. Retires when: Add platform, progress, prompt, or new document evidence when its distinct display-symbol obligation is allocated.
 - Source: [`apps/cli/src/screen/ascii-human-output-preserves-content.spec.ts`](../apps/cli/src/screen/ascii-human-output-preserves-content.spec.ts)
 
 ### Goal: agent-interoperability
@@ -1478,6 +1478,19 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Limitation: The refusal is the typed explicit-token policy failure; that the boundary renders it as `auth_required` naming AXM_TOKEN_FILE is a rendering decision this capability cannot observe, witnessed by apps/cli/src/feature-errors.test.ts. Retires when: An apps/cli specification owns the rendered explicit-token guidance, or the guidance becomes a carried field of the typed failure.
 - Source: [`packages/supporting/registry-access/src/credentials/disabled-credential-persistence-requires-explicit-token.spec.ts`](../packages/supporting/registry-access/src/credentials/disabled-credential-persistence-requires-explicit-token.spec.ts)
 
+##### A wait that ends without approval leaves sign-in resumable
+
+- Requirement: `cli/login/ended-wait-preserves-authorization`
+- Owner: `registry-access`
+- Statement: When a device sign-in wait ends before authorization completes — because the requested timeout elapsed or because a person stopped waiting — AXM shall report pending human approval with resume instructions and preserve the pending authorization and existing credentials.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/supporting/registry-access/src/authentication/device-login.ts`
+- Source: [`packages/supporting/registry-access/src/authentication/ended-wait-preserves-authorization.spec.ts`](../packages/supporting/registry-access/src/authentication/ended-wait-preserves-authorization.spec.ts)
+
 ##### Login preapproval starts a new sign-in over a valid session in every mode
 
 - Requirement: `cli/login/preapproval-requests-new-sign-in`
@@ -1587,19 +1600,6 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Derived from: `packages/supporting/registry-access/src/authentication/device-login.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../apps/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
 - Source: [`packages/supporting/registry-access/src/authentication/terminal-authorization-failures-preserve-credentials.spec.ts`](../packages/supporting/registry-access/src/authentication/terminal-authorization-failures-preserve-credentials.spec.ts)
-
-##### A bounded wait leaves sign-in resumable
-
-- Requirement: `cli/login/wait-timeout-preserves-authorization`
-- Owner: `registry-access`
-- Statement: When login --wait reaches the requested timeout before authorization completes, AXM shall report pending human approval with resume instructions and preserve the pending authorization and existing credentials.
-- Class: functional
-- Role: experience
-- Product goals: `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
-- Methods: example
-- Derived from: `packages/supporting/registry-access/src/authentication/device-login.ts`
-- Source: [`packages/supporting/registry-access/src/authentication/wait-timeout-preserves-authorization.spec.ts`](../packages/supporting/registry-access/src/authentication/wait-timeout-preserves-authorization.spec.ts)
 
 ##### Sign-out removes only the selected Registry session
 
@@ -4394,6 +4394,21 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Additional evidence: process via [`apps/cli-e2e/src/quiet-machine-output.e2e.test.ts`](../apps/cli-e2e/src/quiet-machine-output.e2e.test.ts) — Only a real invocation shows the quiet flag spellings reaching the machine screen and the result and diagnostic streams a caller actually reads.
 - Source: [`apps/cli/src/screen/quiet-preserves-machine-diagnostics.spec.ts`](../apps/cli/src/screen/quiet-preserves-machine-diagnostics.spec.ts)
 
+##### A retried unit reports which attempt is in flight, to machines and to people alike
+
+- Requirement: `cli/retried-work-names-the-attempt-in-flight`
+- Owner: `cli`
+- Statement: When a producer retries a unit's work, the unit's progress events shall carry the attempt in flight and the attempt limit, a machine progress event shall carry both unchanged through the published lifecycle schema, and the live row for that unit shall name the retry it is on in place of its measurement; a unit on its first attempt shall name no retry.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The attempt is stated by the producer on the published event; which work retries, and how often, belongs to each producer's request policy and is not decided here.
+- Methods: contract, example
+- Derived from: `cli/machine-progress-events-follow-the-lifecycle-schema`, `packages/supporting/registry-client/src/request-policy.test.ts`, `packages/supporting/registry-client/src/remote-client.test.ts`, `packages/core/workspace/src/transitions/planning/plan/operation-events.test.ts`
+- Limitation: Examples drive the published schema, the projector, and the live join over an authored event log. A registry download that a transport failure actually retries is witnessed by ordinary tests in the registry client, not decided here. Retires when: Bind producer evidence here when a retrying producer's own attempt reporting is allocated its own obligation.
+- Source: [`apps/cli/src/screen/retried-work-names-the-attempt-in-flight.spec.ts`](../apps/cli/src/screen/retried-work-names-the-attempt-in-flight.spec.ts)
+
 ##### Token output exposes the effective credential on request
 
 - Requirement: `cli/token/returns-effective-token`
@@ -4805,16 +4820,16 @@ Changes and releases land through the governed repository process with required 
 - Limitation: The obligation is time-boxed to the pre-launch period and its evidence establishes only that the clean-break policy is declared in the committed agent instructions; it cannot observe whether an individual change honored the policy. Retires when: Public launch of AXM, when backward compatibility returns to scope and this obligation is retired or superseded by the launch compatibility policy in the same change.
 - Source: [`scripts/pre-launch-changes-stay-coherent.spec.ts`](../scripts/pre-launch-changes-stay-coherent.spec.ts)
 
-##### Repository-authored tracked content references no private coordination context
+##### Repository-authored content and history reference no private coordination context
 
 - Requirement: `system/process/public-artifacts-protect-private-context`
 - Owner: `axm`
-- Statement: Repository-authored tracked text content in the public AXM repository shall not reference the private work tracker or the private platform repository, so public artifacts carry no private coordination context.
+- Statement: Repository-authored tracked text content and new commit messages in the public AXM repository shall not reference the private work tracker or the private platform repository, so public artifacts carry no private coordination context.
 - Class: process
 - Role: supporting
 - Product goals: `dependable-change-process`
 - Boundary: repository; selection: per-change
-- Boundary rationale: Only the tracked file set reported by git and the committed text content can show whether public artifacts reference private context.
+- Boundary rationale: Only the tracked file set and commit graph reported by git can show whether public artifacts reference private context.
 - Methods: contract
 - Assumptions: Installed extension content under agent_extensions/ is published extension content that AXM manages and the Registry governs, not a repository-authored artifact; the obligation and its scan cover repository-authored content only.
 - Source: [`scripts/public-artifacts-protect-private-context.spec.ts`](../scripts/public-artifacts-protect-private-context.spec.ts)

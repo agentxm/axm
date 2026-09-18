@@ -1,0 +1,31 @@
+Linting  in this project
+
+     Finding        Location     Fix
+ ✖   Descri…ssing   12
+                    locations
+     skill/description-present —
+     skills/triage/SKILL.md,
+     skills/standup/SKILL.md, and 10
+     more
+ ✖   Lockfi…stale   axm-lock.y   fixable
+                    aml
+     workspace/lockfile-valid — 2
+     entries do not match axm.json
+ ▲   Name d…ctory   7
+                    locations
+     skill/name-matches-directory —
+     skills/code_review, skills/lintFix,
+     and 5 more
+ ▲   Member…loats   3
+                    locations
+     pack/member-pinned —
+     packs/review-kit, packs/ops, and 1
+     more
+
+13 errors, 10 warnings
+  in 23 locations · 1 fixable · exit 1
+--verbose lists every location
+
+Next
+     axm lint --fix
+     apply the deterministic fix

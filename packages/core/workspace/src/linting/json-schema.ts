@@ -97,6 +97,7 @@ export const LintJsonDocumentSchema = Schema.Struct({
   input: LintInputSchema,
   axmSkillCompatibility: Schema.optionalKey(CliAxmSkillCompatibilitySchema),
   findings: Schema.Array(LintJsonFindingSchema),
+  repaired: Schema.Array(LintJsonFindingSchema),
   summary: LintJsonSummarySchema,
   driftBanner: Schema.Array(Schema.String),
 }).annotate({

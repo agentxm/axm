@@ -7,6 +7,7 @@ depends-on:
   - ./output.md
   - ./terminal-design.md
   - ../workspace/sources.md
+  - ../decisions/cli-ledger-grammar-and-application-owned-prompts.md
 ---
 
 # Interaction
@@ -24,17 +25,18 @@ command carries, the flags that declaration may expose, the conditions under
 which a prompt may open, the meaning of `--preview`, `--yes`, and
 `--non-interactive`, the distinction between conditions that can be approved
 in advance and conditions that require an interactive answer, the shape of a
-refused approval's recovery, and the relationship between a prompt and the
-live frame.
+refused approval's recovery, and how prompts and waits for a person take part
+in the live scene.
 
 ## Non-responsibilities
 
-It does not own the prompt widgets, the risk conditions a given planner
-attaches, or the effect of any one command; command definitions, the prompt
-module, and each planner own those. The obligations it explains belong to the
-executable specifications named below, indexed by the
-[specification catalog](../../../specifications/catalog.md), and are not
-restated here as rules.
+It does not own how a prompt or wait looks, the risk conditions a given planner
+attaches, or the effect of any one command; [Terminal
+design](terminal-design.md), the `Screen`'s prompt reducers and views, command
+definitions, and each planner own those. The obligations it explains belong to
+the executable specifications named below, indexed by the [specification
+catalog](../../../specifications/catalog.md), and are not restated here as
+rules.
 
 ## Capability declarations
 
@@ -47,7 +49,7 @@ express a capability are built only from that declaration, so a command cannot
 register `--preview` or `--yes` without the capability that gives the flag its
 meaning, and an architecture specification compares every node's declaration
 with its parsed flags and its executable evidence
-(`system/architecture/every-command-declares-interaction-capabilities`).
+through the repository's command-capability allocation check.
 
 `--preview` is the one spelling of assessment
 (`cli/preview-uses-the-canonical-flag`). Every command that can plan a change
@@ -197,8 +199,47 @@ cancelled with no changes applied.
 
 ## Prompts and the live frame
 
-A prompt takes the terminal from the live frame. The frame erases its live
-region, pauses repainting, runs the prompt, and resumes when the prompt
-returns, so a question is never painted over a spinner and a spinner never
-erases a question. In machine mode there is no frame to yield and no prompt
-reaches the terminal.
+Prompts and waits are part of the live scene, not widgets that take the
+terminal from it. A view describes a question as data and the `Screen` runs
+it beneath the operation's ledger, so a gate is answered while the plan is
+visible. The `Screen` applies the interactivity resolution above before a
+prompt opens; in machine mode asking always fails with the usage error and its
+recovery, so no prompt reaches the terminal by construction. When a prompt is
+answered it leaves the scene and exactly one answer line joins the transcript.
+Cancelling remains an answer with the meaning described above.
+
+An approval gate is a confirmation with three choices: no, yes, and `d` for
+details. No is first and is what `enter` chooses because every plan that reaches
+the gate carries a confirmable condition. Details shows the plan at verbose
+level and asks again without adding an answer line or retaining the details
+choice. Setup's separate `Apply setup?` confirmation is yes-first because it
+confirms the inputs the person just selected. `Use a different account?` is
+no-first because keeping the current session is the safe default.
+
+Gates are rare, because only a plan that carries a confirmable condition
+opens one. `axm publish` never gates: its plan carries no confirmable
+condition, and the browser review of the exact publication set is the
+approval, so publish presents its plan and goes straight to the wait for that
+review. Where no gate opens, a hint under the live ledger names `--verbose`
+for details, and `--preview --verbose` shows everything before acting.
+
+A wait parks the terminal while a person acts elsewhere: signing in, entering a
+device code, authorizing a publication, or completing step-up verification. It
+joins the scene beneath the ledger, shows its code, link, and expiry, and races
+the awaited result against keys: `o` opens the browser, `c` copies the one-time
+code for device login and the link for every other wait, and `esc` abandons the
+wait. A failed open or copy remains on the wait line so the person can recover.
+Abandoning is not a failure of the underlying request; the command ends with
+its pending outcome and names the exact route that resumes it, such as `axm
+login --wait` for a pending device sign-in or `axm publish
+--authorization-request <url>` for publication. When the wait completes it
+settles into one line. Without animation the same information prints once as a
+static block and the command simply waits.
+
+Interaction endings retain their established command semantics:
+
+| Location      | `esc`                                                             | ctrl-c                           |
+| ------------- | ----------------------------------------------------------------- | -------------------------------- |
+| Inside an ask | Cancels or declines the ask; no mutation; exit 0                  | Same ask cancellation; exit 0    |
+| Inside a wait | Stops waiting while the external request remains pending; exit 16 | Same wait abandonment; exit 16   |
+| Elsewhere     | No interaction to end                                             | Interrupts the command; exit 130 |

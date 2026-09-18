@@ -1,0 +1,17 @@
+Setting up AXM in ~/code/storefront
+  project scope
+
+ ✔   Scanned repo and machine
+                    found 4 agents
+
+ ✔   Agents         Claude Code, Codex,
+                    Cursor
+ ✔   Sync instructions
+       no
+
+     Target         Plan
+ +   axm.json       create
+ ~   .gitignore     update
+     --verbose for details
+
+ ?   Apply setup?    Y  yes    n  no

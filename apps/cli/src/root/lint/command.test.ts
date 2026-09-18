@@ -75,25 +75,23 @@ describe("axm lint command surface", () => {
     }),
   );
 
-  it.effect(
-    "accepts --scope, --strict, --details, --fix, --view, --json, and an optional path argument",
-    () =>
-      Effect.gen(function* () {
-        const doc = yield* captureHelpDoc(["lint"]);
-        const flagNames = doc.flags.map((flag) => flag.name);
-        const globalFlagNames = (doc.globalFlags ?? []).map((flag) => flag.name);
-        const allFlagNames = [...flagNames, ...globalFlagNames];
-        expect(allFlagNames).toContain("scope");
-        expect(allFlagNames).toContain("strict");
-        expect(allFlagNames).toContain("details");
-        expect(allFlagNames).toContain("fix");
-        expect(allFlagNames).toContain("view");
-        expect(allFlagNames).not.toContain("staged");
-        // --json is a global flag so it's inherited from the root.
-        expect(allFlagNames).toContain("json");
-        const argumentNames = (doc.args ?? []).map((arg) => arg.name);
-        expect(argumentNames).toContain("path");
-      }),
+  it.effect("accepts --scope, --strict, --fix, --view, --json, and an optional path argument", () =>
+    Effect.gen(function* () {
+      const doc = yield* captureHelpDoc(["lint"]);
+      const flagNames = doc.flags.map((flag) => flag.name);
+      const globalFlagNames = (doc.globalFlags ?? []).map((flag) => flag.name);
+      const allFlagNames = [...flagNames, ...globalFlagNames];
+      expect(allFlagNames).toContain("scope");
+      expect(allFlagNames).toContain("strict");
+      expect(allFlagNames).not.toContain("details");
+      expect(allFlagNames).toContain("fix");
+      expect(allFlagNames).toContain("view");
+      expect(allFlagNames).not.toContain("staged");
+      // --json is a global flag so it's inherited from the root.
+      expect(allFlagNames).toContain("json");
+      const argumentNames = (doc.args ?? []).map((arg) => arg.name);
+      expect(argumentNames).toContain("path");
+    }),
   );
 
   it.effect("does not register 'doctor' as a subcommand", () =>

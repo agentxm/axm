@@ -542,7 +542,7 @@ describe("axm packs install", () => {
         cwd: temp.path,
       });
       expect(blockedHuman.exitCode, blockedHuman.stdout + blockedHuman.stderr).toBe(6);
-      expect(blockedHuman.stdout + blockedHuman.stderr).toContain("Install is blocked — ");
+      expect(blockedHuman.stdout + blockedHuman.stderr).toContain("Install is blocked - ");
       expect(fs.readFileSync(settingsPath, "utf8")).toBe(before.settings);
       expect(fs.readFileSync(lockPath, "utf8")).toBe(before.lock);
       expect(fs.readFileSync(manifestPath, "utf8")).toBe(before.manifest);
@@ -800,7 +800,7 @@ describe("axm packs install", () => {
       });
       expect(humanInstall.exitCode, humanInstall.stdout + humanInstall.stderr).toBe(0);
       const humanOutput = humanInstall.stdout + humanInstall.stderr;
-      expect(humanOutput).toContain("Agents: claude-code, cursor");
+      expect(humanOutput).toContain("agents: claude-code, cursor");
       expect(humanOutput).not.toContain("No coding-agent targets were materialized");
 
       const settings = readSettings();

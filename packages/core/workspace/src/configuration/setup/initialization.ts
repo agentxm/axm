@@ -42,6 +42,7 @@ import { AgentRootResolverLive } from "../../desired-state/index.js";
 import { makeWorkspaceReadModel, WorkspaceReadModelConfig } from "../../desired-state/index.js";
 import {
   WorkspaceInitializationInteraction,
+  type SetupPlanAction,
   type SetupPlanRow,
 } from "./initialization-interaction.js";
 import {
@@ -49,7 +50,6 @@ import {
   locateWorkspace,
   resolveUserHome,
 } from "../../desired-state/index.js";
-import { setupScopeSupport } from "../../desired-state/index.js";
 import { protectWorkspacePath } from "../../transitions/settlement/index.js";
 import { LOCK_FILENAME } from "../../desired-state/index.js";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
@@ -364,17 +364,17 @@ const writeSourceFileIfMissing = (args: {
     return Option.some(filePath);
   });
 
-const instructionMechanismLabel = (mechanism: InstructionMechanism): string => {
+const instructionPlanAction = (mechanism: InstructionMechanism): SetupPlanAction => {
   switch (mechanism) {
     case "native":
-      return "in sync (native)";
+      return "in sync";
     case "symlink":
-      return "write ← symlink";
+      return "link";
     case "copy":
-      return "write ← copy";
+      return "copy";
     case "adapter":
     case "none":
-      return "unsupported";
+      return "skip";
   }
 };
 
@@ -408,7 +408,7 @@ const instructionPlanRows = (args: {
       }
       return {
         target: resolution.relativeTarget,
-        action: instructionMechanismLabel(resolution.mechanism),
+        action: instructionPlanAction(resolution.mechanism),
         detail: agent.name,
       } satisfies SetupPlanRow;
     }),
@@ -694,6 +694,8 @@ const configureProjectWorkspace = (args: {
       : Option.none<SetupInstructionSourceChoice>();
     const sourceWillBeCreated = Option.isSome(sourceContent);
     const gitManaged = yield* isGitManaged(workspaceRoot);
+    // Declining instruction sync leaves every instruction file alone, so the
+    // plan has nothing to say about them.
     const planRows = instructionSetup.enabled
       ? instructionPlanRows({
           selectedAgents,
@@ -701,13 +703,7 @@ const configureProjectWorkspace = (args: {
           sourceWillBeCreated,
           sourceSeed,
         })
-      : [
-          {
-            target: "instructionFiles",
-            action: "skip",
-            detail: "instructions disabled",
-          } satisfies SetupPlanRow,
-        ];
+      : [];
     const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
     if (Option.isSome(interaction) && (!nonInteractive || args.options.preview === true)) {
       yield* interaction.value.presentSetupPlan([
@@ -727,12 +723,6 @@ const configureProjectWorkspace = (args: {
           : []),
         ...planRows,
       ]);
-      if (args.options.preview !== true) {
-        yield* interaction.value.presentScopeSupport(
-          args.options.scope,
-          setupScopeSupport(agentIds, args.options.scope),
-        );
-      }
     }
     const confirmed =
       args.options.preview === true ||
@@ -796,12 +786,6 @@ const initializeUserWorkspace = (workspaceRoot: string, options: WorkspaceStateO
           detail: "accepted resolution",
         },
       ]);
-      if (options.preview !== true) {
-        yield* interaction.value.presentScopeSupport(
-          options.scope,
-          setupScopeSupport(agentIds, options.scope),
-        );
-      }
     }
     const confirmed =
       options.preview === true ||

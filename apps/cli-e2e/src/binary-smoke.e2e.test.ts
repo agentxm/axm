@@ -198,7 +198,7 @@ describe("compiled binary smoke", () => {
       });
 
       expect(result.exitCode).toBe(13);
-      expect(getOutput(result)).toContain("(auth_required)");
+      expect(getOutput(result)).toContain("auth_required, exit 13");
       expect(getOutput(result)).toContain("axm login --device-code --json");
     } finally {
       temp.cleanup();

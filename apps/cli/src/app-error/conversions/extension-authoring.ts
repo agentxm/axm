@@ -129,7 +129,9 @@ export const authoringOwnerMismatchToAppError = (error: AuthoringOwnerMismatch):
 export const scaffoldNameInvalidToAppError = (error: ScaffoldNameInvalid): AppError =>
   makeAppError({
     code: "validation",
+    title: `Invalid ${error.subject} name`,
     detail: `Invalid ${error.subject} name: "${error.name}"`,
+    inputs: [{ label: "Name", value: `"${error.name}"` }],
     recover: `Choose a name matching /${error.pattern}/ (max ${error.maxLength} chars)`,
   });
 

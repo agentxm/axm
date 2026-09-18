@@ -1,0 +1,5 @@
+Setting up AXM in ~/code/storefront  project scope
+ ✔   Scanned repo and machine      found 4 agents
+ ✔   Agents                        Claude Code, Codex, Cursor
+ ?   Sync instructions to the selected agents?    Y  yes    n  no
+     Updates agent instruction files such as AGENTS.md and CLAUDE.md.

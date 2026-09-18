@@ -104,8 +104,15 @@ export class DeviceLoginCodeExpired extends Data.TaggedError("DeviceLoginCodeExp
  * envelope: status, blocked-on semantics, the open-url action with fallback
  * and one-time code, and the resume command.
  */
+/**
+ * How the terminal stopped waiting on a person: its bounded wait elapsed, or
+ * the person stopped it. Neither touches the authorization it parked on.
+ */
+export type DeviceWaitEnded =
+  { readonly _tag: "Elapsed"; readonly seconds: number } | { readonly _tag: "Stopped" };
+
 export class DeviceAuthorizationPending extends Data.TaggedError("DeviceAuthorizationPending")<{
-  readonly timeoutSeconds: number;
+  readonly waitEnded: DeviceWaitEnded;
   readonly registryUrl: string;
   readonly intervalSeconds: number;
   readonly verificationUri: string;

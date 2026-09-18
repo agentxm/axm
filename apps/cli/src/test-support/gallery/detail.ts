@@ -2,7 +2,12 @@ import type { Doc } from "../../screen/doc.js";
 
 /** Inspect one extension: identity fields, a per-agent table, next actions. */
 export const detail: Doc = [
-  { _tag: "headline", tone: "neutral", text: "@craigsmitham/effect-v4", aside: "skill" },
+  {
+    _tag: "headline",
+    tone: "neutral",
+    text: "@craigsmitham/effect-v4",
+    aside: [{ text: "skill" }],
+  },
   {
     _tag: "fields",
     fields: [
@@ -29,14 +34,26 @@ export const detail: Doc = [
       { header: "Detail", priority: "optional" },
     ],
     rows: [
-      ["claude-code", [{ text: "projected", tone: "ok" }], ".claude/skills/effect-v4", "current"],
-      ["codex", [{ text: "projected", tone: "ok" }], ".codex/skills/effect-v4", "current"],
-      [
-        "cursor",
-        [{ text: "blocked", tone: "warn" }],
-        ".cursor/skills/effect-v4",
-        "hand-authored file at the target path; run `axm adopt` or move it",
-      ],
+      {
+        cells: [
+          "claude-code",
+          [{ text: "projected", tone: "ok" }],
+          ".claude/skills/effect-v4",
+          "current",
+        ],
+      },
+      {
+        cells: ["codex", [{ text: "projected", tone: "ok" }], ".codex/skills/effect-v4", "current"],
+      },
+      {
+        mark: "warn",
+        cells: [
+          "cursor",
+          [{ text: "blocked", tone: "warn" }],
+          ".cursor/skills/effect-v4",
+          "hand-authored file at the target path; run `axm adopt` or move it",
+        ],
+      },
     ],
   },
   {

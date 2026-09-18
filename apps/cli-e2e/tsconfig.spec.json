@@ -6,7 +6,8 @@
     "composite": true,
     "outDir": "./out-tsc/vitest",
     "ignoreDeprecations": "6.0",
-    "rootDir": "."
+    "rootDir": ".",
+    "types": ["bun"]
   },
   "include": ["src/**/*.ts", "vitest*.config.ts"],
   "references": [{ "path": "../../tsconfig.json" }]

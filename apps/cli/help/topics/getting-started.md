@@ -87,7 +87,9 @@ Skills, MCP servers, subagents, and hooks report per-agent outcomes. Rules also
 report per-agent instruction-file projection alongside their workspace-owned
 package outcome. Knowledge bundles and packs report workspace/container
 outcomes. Preview and apply derive this matrix from the same selected agents and
-scope; setup never silently reads or writes the other scope.
+scope; setup never silently reads or writes the other scope. Human output lists
+only the outcomes that are not `supported`, with their reasons; the JSON matrix
+carries every outcome.
 
 After setup, use `axm agents list` to inspect configured and detected coding
 agents. If you adopt another coding agent later, run `axm agents add <id>`;

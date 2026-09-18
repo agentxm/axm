@@ -1,0 +1,18 @@
+Setting up AXM in ~/code/storefront  project scope
+
+ ✔   Scanned repo and machine      found 4 agents
+
+ ✔   Agents                        Claude Code, Codex, Cursor
+ ✔   Sync instructions             yes
+ ✔   Instructions source           AGENTS.md
+
+     Target                        Plan     Detail
+ +   axm.json                      create   agents: claude-code, codex, cursor
+ ~   .gitignore                    update   AXM runtime and package transaction
+                                            artifacts
+ =   AGENTS.md                     keep     source
+ +   CLAUDE.md                     link     Claude Code
+ =   AGENTS.md                     keep     Codex
+ +   .cursor/rules/agents.mdc      copy     Cursor
+
+ ?   Apply setup?    Y  yes    n  no

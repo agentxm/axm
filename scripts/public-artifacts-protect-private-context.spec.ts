@@ -10,15 +10,15 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 export const specification = defineSpecification({
   requirement: "system/process/public-artifacts-protect-private-context",
-  title: "Repository-authored tracked content references no private coordination context",
+  title: "Repository-authored content and history reference no private coordination context",
   statement:
-    "Repository-authored tracked text content in the public AXM repository shall not reference the private work tracker or the private platform repository, so public artifacts carry no private coordination context.",
+    "Repository-authored tracked text content and new commit messages in the public AXM repository shall not reference the private work tracker or the private platform repository, so public artifacts carry no private coordination context.",
   class: "process",
   role: "supporting",
   goals: ["dependable-change-process"],
   boundary: "repository",
   boundaryRationale:
-    "Only the tracked file set reported by git and the committed text content can show whether public artifacts reference private context.",
+    "Only the tracked file set and commit graph reported by git can show whether public artifacts reference private context.",
   methods: ["contract"],
   derivedFrom: [],
   supersedes: [],
@@ -39,6 +39,32 @@ const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), ".."
 const PRIVATE_CONTEXT_MARKERS = [
   ["linear.app", "agentxm"].join("/"),
   ["github.com", "agentxm", "agentxm-internal"].join("/"),
+];
+
+const TRACKER_PREFIX = ["A", "XM"].join("");
+const TRACKER_IDENTIFIER = new RegExp(`${TRACKER_PREFIX}-[0-9]+`, "g");
+
+/**
+ * Exact references that predate this guard. Changelog entries preserve their
+ * published history; the remaining two are old fixtures. Any new path or
+ * identifier must be removed rather than added here.
+ */
+const EXISTING_TRACKED_IDENTIFIERS = new Set([
+  ...[1588, 985, 203, 204, 205, 206].map(
+    (number) => `CHANGELOG.md:${TRACKER_PREFIX}-${String(number)}`,
+  ),
+  `packages/core/workspace/src/desired-state/workspace/desired-state-graph.test.ts:${TRACKER_PREFIX}-1268`,
+  `scripts/parity-ledger-check.test.ts:${TRACKER_PREFIX}-985`,
+]);
+
+/**
+ * The two public histories that existed when this guard was introduced: the
+ * target branch and the reviewed terminal-work branch. The guard scans every
+ * commit added beyond both, so it remains effective before and after squash.
+ */
+const COMMIT_MESSAGE_BASELINES = [
+  "681db72976f8f42e22788431c7ee1ec667c46c58",
+  "b88897b04b58c2c91a7e91fa4f72f06413815937",
 ];
 
 /**
@@ -96,8 +122,27 @@ describe("Private context stays out of public artifacts", () => {
               findings.push(`${file}: ${marker}`);
             }
           }
+          for (const identifier of content.match(TRACKER_IDENTIFIER) ?? []) {
+            const finding = `${file}:${identifier}`;
+            if (!EXISTING_TRACKED_IDENTIFIERS.has(finding)) findings.push(finding);
+          }
         }
         expect(findings).toEqual([]);
       }),
+  );
+
+  it.effect("new commit messages contain no private tracker identifiers", () =>
+    Effect.sync(() => {
+      const messages = execFileSync(
+        "git",
+        ["log", "--format=%H%x09%B%x00", "HEAD", "--not", ...COMMIT_MESSAGE_BASELINES],
+        { cwd: repoRoot, encoding: "utf8" },
+      );
+      const findings = messages
+        .split("\0")
+        .filter((message) => message.match(TRACKER_IDENTIFIER) !== null)
+        .map((message) => message.slice(0, 40));
+      expect(findings).toEqual([]);
+    }),
   );
 });

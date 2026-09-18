@@ -106,12 +106,13 @@ describe("runDeviceLogin", () => {
         expect(interactionState.openBrowserCalls).toEqual([
           "https://auth.agentxm.ai/device?user_code=ABCD-1234",
         ]);
-        expect(presenterState.deviceFlowPresentations).toEqual([
+        expect(presenterState.handoffs).toMatchObject([
           {
+            _tag: "DeviceLogin",
+            registryHost: "registry.agentxm.ai",
             verificationUri: "https://auth.agentxm.ai/device",
             verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
             userCode: "ABCD-1234",
-            expiresInSeconds: 600,
             browserOpened: true,
             copiedToClipboard: true,
           },
@@ -131,7 +132,8 @@ describe("runDeviceLogin", () => {
       Effect.map(() => {
         expect(interactionState.openBrowserCalls).toEqual([]);
         expect(interactionState.copyToClipboardCalls).toEqual(["ABCD-1234"]);
-        expect(presenterState.deviceFlowPresentations[0]).toMatchObject({
+        expect(presenterState.handoffs[0]).toMatchObject({
+          _tag: "DeviceLogin",
           userCode: "ABCD-1234",
           browserOpened: false,
         });
@@ -220,7 +222,8 @@ describe("runDeviceLogin", () => {
     return runDeviceLogin(REGISTRY_URL).pipe(
       Effect.provide(layer),
       Effect.map(() => {
-        expect(presenter.state.deviceFlowPresentations[0]).toMatchObject({
+        expect(presenter.state.handoffs[0]).toMatchObject({
+          _tag: "DeviceLogin",
           userCode: "ABCD-1234",
           copiedToClipboard: false,
         });
@@ -239,12 +242,12 @@ describe("resumable device login", () => {
       expect(presenterState.pendingEmissions).toHaveLength(1);
       expect(interactionState.openBrowserCalls).toEqual([]);
       expect(interactionState.copyToClipboardCalls).toEqual([]);
-      expect(presenterState.deviceFlowPresentations).toEqual([]);
+      expect(presenterState.handoffs).toEqual([]);
       expect(presenterState.pendingApprovals).toEqual([]);
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("performs side effects, presents, and notes approval on the human path", () => {
+  it.effect("performs side effects and notes approval on the human path", () => {
     const { layer, presenterState, interactionState } = makeLayers({ browserOpens: true });
 
     return Effect.gen(function* () {
@@ -255,7 +258,9 @@ describe("resumable device login", () => {
       expect(interactionState.openBrowserCalls).toEqual([
         "https://auth.agentxm.ai/device?user_code=ABCD-1234",
       ]);
-      expect(presenterState.deviceFlowPresentations).toHaveLength(1);
+      // Nothing will wait on this sign-in, so the approval note is the whole
+      // presentation and no handoff wait opens.
+      expect(presenterState.handoffs).toEqual([]);
       expect(presenterState.pendingApprovals).toHaveLength(1);
     }).pipe(Effect.provide(layer));
   });

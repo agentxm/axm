@@ -22,12 +22,11 @@ export const specification = defineSpecification({
   assumptions: [],
   openQuestions: [
     "Which locale input controls glyph selection when LC_ALL, LC_CTYPE, and LANG disagree? Earlier environment prose described a non-UTF-8 input selecting ASCII, while the resolver and an internal example select Unicode if any input names UTF-8; this requirement does not decide mixed-locale precedence.",
-    "Does ASCII output cover animated progress-frame and prompt symbols beyond painted documents? This requirement covers symbols in rendered human documents.",
   ],
   limitations: [
     {
       limitation:
-        "Examples drive production policy, Screen, and painter over recording streams with supplied terminal facts. They cover nonempty status, change, tree, separator, and content examples, not an actual terminal font, locale installation, animated frame, prompt, or every authored document.",
+        "Examples drive production policy, Screen, and painter over recording streams with supplied terminal facts. They cover status, change, live-progress, prompt, wait, answer, tree, separator, truncation, and content examples, not an actual terminal font, locale installation, or every authored document.",
       retirementCondition:
         "Add platform, progress, prompt, or new document evidence when its distinct display-symbol obligation is allocated.",
     },
@@ -41,23 +40,48 @@ const document = [
   { _tag: "headline", tone: "error", text: "error" },
   { _tag: "headline", tone: "info", text: "information" },
   { _tag: "paragraph", text: content },
-  { _tag: "row", change: "create", cells: ["created", content] },
-  { _tag: "row", change: "update", cells: ["updated"] },
-  { _tag: "row", change: "remove", cells: ["removed"] },
-  { _tag: "row", change: "unchanged", cells: ["unchanged"] },
-  { _tag: "row", change: "blocked", cells: ["blocked"] },
-  { _tag: "row", change: "failed", cells: ["failed"] },
-  { _tag: "row", change: "rolled-back", cells: ["restored"] },
-  { _tag: "rows", rows: [{ _tag: "row", change: "create", cells: ["grouped", content] }] },
-  { _tag: "collapsed", change: "unchanged", count: 2, noun: "unchanged entries" },
+  {
+    _tag: "ledger",
+    columns: [
+      { header: "Name", role: "name" },
+      { header: "Detail", role: "elastic" },
+    ],
+    rows: [
+      { mark: "create", cells: ["created", content] },
+      { mark: "update", cells: ["updated"] },
+      { mark: "remove", cells: ["removed"] },
+      { mark: "unchanged", cells: ["unchanged"] },
+      { mark: "blocked", cells: ["blocked"] },
+      { mark: "failed", cells: ["failed"] },
+      { mark: "rolled-back", cells: ["restored"] },
+      { mark: "create", cells: ["grouped", content] },
+      { mark: "working", cells: ["working"] },
+      { mark: "waiting", cells: ["waiting"] },
+    ],
+    folds: [{ mark: "unchanged", count: 2, noun: "unchanged entries" }],
+  },
   {
     _tag: "callout",
     tone: "warn",
     title: "attention",
     children: [{ _tag: "paragraph", text: content }],
   },
-  { _tag: "table", columns: [{ header: "Name" }], rows: [[content]], caption: "inventory" },
+  {
+    _tag: "table",
+    columns: [{ header: "Name" }],
+    rows: [{ cells: [content] }],
+    caption: "inventory",
+  },
   { _tag: "fields", fields: [{ label: "Name", value: content }] },
+  {
+    _tag: "prompt",
+    question: "Continue?",
+    chips: [{ key: "y", word: "yes", current: true }],
+    filter: "needle",
+    hint: { status: ["1 shown"], keys: [{ key: "arrows", word: "move" }] },
+  },
+  { _tag: "wait", status: "Waiting", chips: [{ key: "esc", word: "stop" }] },
+  { _tag: "answer", label: "Continue?", value: "yes", mark: "ok" },
   {
     _tag: "tree",
     roots: [
@@ -68,7 +92,7 @@ const document = [
     ],
   },
   { _tag: "next", actions: [{ description: "Inspect", cmd: `axm view ${content}` }] },
-  { _tag: "summary", tone: "ok", parts: [{ text: "finished" }, { text: content }] },
+  { _tag: "summary", parts: [{ text: "finished" }, { text: content }] },
   { _tag: "section", title: "section", children: [{ _tag: "paragraph", text: content }] },
   { _tag: "markdown", content: `# ${content}` },
   { _tag: "raw", content },

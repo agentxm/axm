@@ -51,7 +51,7 @@ export const specification = defineSpecification({
 
 const label = "Broaden extension visibility";
 const stepUp = makeStepUpRequest(label, "@alice/skills/review@1.0.0");
-const presentation = { operationLabel: label, waitingLabel: `verification to ${label}` } as const;
+const presentation = { operationLabel: label } as const;
 
 /** One challenged Registry write, recorded so no replay goes unnoticed. */
 const makeWrite = (writes: Array<string | undefined>) => (verification?: string) =>
@@ -110,7 +110,7 @@ describe("Unattended step-up", () => {
       expect(JSON.stringify(failure)).not.toContain("fixture-stored-access");
       expect(writes).toEqual([undefined]);
       expect(ports.interactionState.openBrowserCalls).toEqual([]);
-      expect(ports.presenterState.stepUpChallenges).toEqual([]);
+      expect(ports.presenterState.handoffs).toEqual([]);
     }).pipe(Effect.provide(ports.layer));
   });
 

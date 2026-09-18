@@ -153,8 +153,8 @@ describe("axm setup", () => {
         const result = await runCli(approvedProjectSetup, { cwd: temp.path });
 
         expect(result.exitCode).toBe(0);
-        // Should indicate initialization occurred
-        expect(result.stdout + result.stderr).toContain("setup");
+        // The settled record ends on the verdict naming what setup did
+        expect(result.stdout + result.stderr).toMatch(/^Set up AXM for 1 agent {2}\d+ created/m);
       } finally {
         temp.cleanup();
       }

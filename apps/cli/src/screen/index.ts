@@ -2,18 +2,24 @@ export type {
   BlankNode,
   CalloutNode,
   Change,
-  CollapsedNode,
   Doc,
   DocNode,
   Field,
   FieldsNode,
   HeadlineNode,
+  LedgerColumn,
+  LedgerColumnRole,
+  LedgerFold,
+  LedgerNode,
+  LedgerRow,
+  LiveMark,
+  Mark,
   MarkdownNode,
   NextNode,
   ParagraphNode,
+  PromptChip,
+  PromptNode,
   RawNode,
-  RowNode,
-  RowsNode,
   SectionNode,
   Span,
   SummaryNode,
@@ -22,14 +28,15 @@ export type {
   TableColumnPriority,
   TableNode,
   Text,
+  Tint,
   Tone,
   TreeItem,
   TreeNode,
+  WaitNode,
 } from "./doc.js";
 export { plain, text } from "./doc.js";
 export {
   asciiGlyphs,
-  paintInline,
   paintText,
   unicodeGlyphs,
   type Glyphs,
@@ -44,7 +51,43 @@ export {
   type LayoutColumn,
   type TableLayout,
 } from "./table-layout.js";
+export {
+  promptRequired,
+  type Ask,
+  type ChooseAsk,
+  type ChooseOption,
+  type ConfirmAsk,
+  type ConfirmChoice,
+  type InputAsk,
+  type InteractiveGuard,
+  type PickAsk,
+  type PickOption,
+  pickAsk,
+} from "./ask/ask.js";
+export { PromptCancelled } from "./ask/prompt-cancelled.js";
+export { WaitAbandoned } from "./wait/wait-abandoned.js";
+export {
+  reduceWaitKey,
+  waitKeys,
+  type WaitActions,
+  type WaitKeyAction,
+  type WaitKeys,
+  type WaitView,
+} from "./wait/wait.js";
+export { waitChips, waitDoc, waitSettled } from "./wait/view.js";
+export { parkedOnWait, runStaticWait, runWait, type WaitSurface } from "./wait/run.js";
 export { Frame, FrameLive, type FrameOptions } from "./frame.js";
+export {
+  liveColumns,
+  liveRows,
+  paintLivePart,
+  paintScene,
+  type Scene,
+  type SceneFacts,
+  type ScenePart,
+  type SceneStyle,
+  type TerminalSize,
+} from "./scene.js";
 export {
   initialProgress,
   operationElapsedMs,
@@ -58,12 +101,16 @@ export {
   type ProgressTask,
   type ProgressWait,
 } from "./progress.js";
+export { progressTransitionDoc } from "./progress-view.js";
 export {
-  liveProgressLines,
-  progressTransitionDoc,
-  type LiveProgressOptions,
-  type ProgressTransitionOptions,
-} from "./progress-view.js";
+  joinLiveRows,
+  liveLedgerDoc,
+  liveWindow,
+  type LiveLedgerOptions,
+  type LivePlan,
+  type LivePlanRow,
+  type LiveRow,
+} from "./live-ledger.js";
 export {
   OutputStreams,
   OutputStreamsLive,
@@ -99,12 +146,12 @@ export {
   type SuggestionEvent,
 } from "./machine-events.js";
 export { ScreenLoggerLive } from "./logger.js";
-export { erasePromptFrame } from "./prompt-clear.js";
 export { interruptionFallback } from "./interruption-fallback.js";
 export {
   Verbs,
   agentOutcome,
   artifactChange,
+  artifactChangeMark,
   blockingClass,
   blockingHeadline,
   bytes,
@@ -112,15 +159,27 @@ export {
   disposition,
   duration,
   interruptionPhrase,
+  liveUnitActivity,
   outcomeHeadline,
   phaseLabel,
+  progressMeasure,
+  remainingTime,
+  scopePhrase,
+  ALREADY_PUBLISHED,
+  NOT_TRIED,
+  exitPhrase,
   publishDisposition,
+  publishOutcome,
   publishParticipation,
+  publishPhase,
   publishReason,
+  publishSourceDifferences,
+  publishSourceState,
+  publishVisibilityOrigin,
   settledOutcomeTone,
-  severityTone,
   unitState,
   unitStateChange,
+  waitKeyWord,
   type VerbForms,
   type PublishDisposition,
   type PublishParticipation,
@@ -129,15 +188,17 @@ export {
 export {
   displayWidth,
   padDisplay,
+  renderedRows,
   stripTerminalFormatting,
   truncateDisplay,
+  truncateLine,
   wrapDisplay,
 } from "./width.js";
 export { fieldsDoc, inventoryDoc, tableDoc, type ViewColumn, type ViewField } from "./view.js";
 export {
-  calloutDoc,
   detailViewDoc,
   errorDoc,
+  factParts,
   headlineDoc,
   markdownDoc,
   paragraphDoc,

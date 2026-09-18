@@ -20,7 +20,7 @@ import {
 import { isKnownFailure, toAppError, type KnownFailure } from "../app-error/conversions.js";
 import type { SkillSelectionCancelled } from "@agentxm/workspace/skills/lifecycle/application";
 import type { SubagentSelectionCancelled } from "@agentxm/workspace/subagents/lifecycle/application";
-import type { PromptCancelled } from "../prompt/prompt-cancelled.js";
+import type { PromptCancelled } from "../screen/ask/prompt-cancelled.js";
 
 /**
  * Structural shape of the workspace configuration feature's typed

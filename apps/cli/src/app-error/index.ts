@@ -14,6 +14,7 @@ export {
   makeAppError,
   type AppErrorClass,
   type AppErrorAction,
+  type AppErrorInput,
   type AppErrorMetadata,
   type AppErrorCode,
   type AppErrorProblem,

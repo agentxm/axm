@@ -32,7 +32,7 @@ emit terminal escapes, padding, or process-stream writes. A pure text painter
 turns the tree into interactive or plain text.
 
 One application-owned `Screen` service owns stdout, stderr, the append-only
-transcript, live task frame, prompts, and Effect log forwarding after runtime
+transcript, live frame, prompts, and Effect log forwarding after runtime
 startup. Human primary results use stdout. Progress, diagnostics, warnings,
 instructions, logs, and errors use stderr. Every write cooperates with the live
 frame so transcript output is inserted above it and interruption restores the
@@ -45,6 +45,10 @@ the human `Doc` is never parsed or serialized to produce machine output.
 Adopting Ink is deferred. The `Doc` tree is the feature-to-output contract, so
 a future Ink renderer can replace the painter and frame without changing
 feature views or machine schemas.
+
+The later [CLI ledger grammar and application-owned
+prompts](cli-ledger-grammar-and-application-owned-prompts.md) decision amends
+the live-frame grammar and interaction ownership described here.
 
 Accepting authority: maintainer approval of the output redesign. Existing
 executable specifications continue to own published machine behavior; this

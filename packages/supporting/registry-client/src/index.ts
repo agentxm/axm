@@ -47,6 +47,7 @@ export { createRemoteRegistryClient } from "./remote-client.js";
 export {
   DEFAULT_REGISTRY_REQUEST_POLICY,
   PUBLISH_REGISTRY_REQUEST_POLICY,
+  RegistryRequestAttempt,
   executeRegistryRequest,
   type RegistryRequestPolicy,
   type RegistryRequestReplaySafety,

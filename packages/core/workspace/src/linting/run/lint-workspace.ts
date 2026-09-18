@@ -57,8 +57,10 @@ import {
   resolveLintExitCategory,
   summarizeEvaluations,
   toLintJsonDocument,
+  toLintJsonFinding,
   type LintExitCategory,
   type LintSummary,
+  type RenderedFinding,
 } from "../cli.js";
 import type { LintInput, LintJsonDocument } from "../json-schema.js";
 import { observeAuthoredPackages } from "./authored-packages.js";
@@ -174,6 +176,8 @@ export interface LintWorkspaceResult {
   readonly exitCategory: LintExitCategory;
   /** Whether this run passes, under the run's strictness. */
   readonly outcome: "success" | "fail";
+  /** Findings `--fix` repaired: present before the repair and absent after it. */
+  readonly repaired: ReadonlyArray<RenderedFinding>;
 }
 
 /** Every service a lint run reads the workspace and its projections through. */
@@ -208,16 +212,6 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
     const axmSkillCompatibilityPolicy = yield* AxmSkillCompatibilityPolicy;
     const invariantFacts = yield* WorkspaceInvariantFacts;
     const settings = yield* loadSettingsDocument(selection.workspaceRoot, selection.scope);
-
-    // Repair before observing, so the report reflects the reconciled state.
-    if (selection.fix) {
-      yield* applyDeterminedRepairs({
-        workspaceRoot: selection.workspaceRoot,
-        scope: selection.scope,
-        settings,
-      });
-    }
-
     const config = lintConfigFromSettings(settings);
     const userHome = selection.scope === "user" ? selection.workspaceRoot : selection.userHome;
     const { rule: workspaceContext, view } = yield* buildLintWorkspace({
@@ -387,15 +381,19 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
       summary,
       exitCategory,
       outcome,
+      repaired: [],
     } satisfies LintWorkspaceResult;
   });
+
+const findingIdentity = (entry: RenderedFinding): string =>
+  [entry.finding.ruleId, entry.path].join("\u0000");
 
 /** Report the workspace's facts without changing it. */
 export const queryLintWorkspace = (
   selection: LintSelection,
   options: { readonly strict: boolean },
 ): Effect.Effect<LintWorkspaceResult, LintWorkspaceFailure, LintWorkspaceRequirements> =>
-  runLint({ ...selection, fix: false }, options);
+  runLint(selection, options);
 
 /**
  * Repair the state whose desired value the workspace already determines, then
@@ -407,7 +405,26 @@ export const fixLintWorkspace = (
   selection: LintSelection,
   options: { readonly strict: boolean },
 ): Effect.Effect<LintWorkspaceResult, LintWorkspaceFailure, LintWorkspaceRequirements> =>
-  runLint({ ...selection, fix: true }, options);
+  Effect.gen(function* () {
+    // Observe before and after the repair, so the report can say what it fixed
+    // as well as what remains.
+    const before = yield* runLint(selection, options);
+    yield* applyDeterminedRepairs({
+      workspaceRoot: selection.workspaceRoot,
+      scope: selection.scope,
+      settings: yield* loadSettingsDocument(selection.workspaceRoot, selection.scope),
+    });
+    const after = yield* runLint(selection, options);
+    const remaining = new Set(after.summary.findings.map(findingIdentity));
+    const repaired = before.summary.findings.filter(
+      (finding) => !remaining.has(findingIdentity(finding)),
+    );
+    return {
+      ...after,
+      document: { ...after.document, repaired: repaired.map(toLintJsonFinding) },
+      repaired,
+    };
+  });
 
 /** The workspace lint use case. */
 export const LintWorkspace = {

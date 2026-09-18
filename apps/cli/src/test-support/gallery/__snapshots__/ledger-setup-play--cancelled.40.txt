@@ -1,0 +1,6 @@
+Setting up AXM in ~/code/storefront
+  project scope
+ ✔   Scanned repo and machine
+                    found 4 agents
+ ▲   Setup cancelled
+                    nothing was changed

@@ -273,7 +273,8 @@ one event per line, wrapped in the `progress` envelope:
 `resolution`, `planning`, `preview`, `confirmation`, `validation`, `apply`, or
 `restoration`), `UnitStarted` and `UnitResolved` (`unitId`, `label`, `index`,
 optional `total`; the resolved event carries the unit `state`), `UnitProgress`
-(`unitId`, `done`, optional `total`, `unit` of `bytes`, `files`, or `items`),
+(`unitId`, `done`, optional `total`, `unit` of `bytes`, `files`, or `items`, and
+optional `attempt` with `n` and `of` when retrying),
 `Waiting` and `WaitEnded` (`subject`, with the waiting event's `blockingClass`
 and `detail`), and `OperationSettled` (`outcome`). Events carry identifiers,
 labels, counts, and states, never presentation wording.

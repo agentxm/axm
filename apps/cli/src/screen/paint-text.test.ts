@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { Doc, TableColumn } from "./doc.js";
+import type { Doc, LedgerColumn, TableColumn } from "./doc.js";
 import { stripTerminalFormatting } from "./output-policy.js";
 import { asciiGlyphs, paintText, type PaintStyle } from "./paint-text.js";
 import { displayWidth } from "./width.js";
@@ -9,18 +9,17 @@ const document: Doc = [
   { _tag: "headline", tone: "ok", text: "Installed 2 skills" },
   { _tag: "blank" },
   {
-    _tag: "rows",
-    rows: [
-      { _tag: "row", change: "create", cells: ["deploy", "1.4.0", "created"] },
-      { _tag: "row", change: "unchanged", cells: ["rollback", "0.9.2", "already installed"] },
+    _tag: "ledger",
+    columns: [
+      { header: "", role: "name" },
+      { header: "", role: "fixed" },
+      { header: "", role: "elastic" },
     ],
-  },
-  {
-    _tag: "collapsed",
-    change: "unchanged",
-    count: 4,
-    noun: "skills unchanged",
-    hint: "--verbose to list",
+    rows: [
+      { mark: "create", cells: ["deploy", "1.4.0", "created"] },
+      { mark: "unchanged", cells: ["rollback", "0.9.2", "already installed"] },
+    ],
+    folds: [{ mark: "unchanged", count: 4, noun: "skills unchanged", hint: "--verbose to list" }],
   },
   {
     _tag: "next",
@@ -31,12 +30,18 @@ const document: Doc = [
 const everyNodeDocument: Doc = [
   { _tag: "headline", tone: "ok", text: "Ready" },
   { _tag: "paragraph", text: "部署 package is ready for review" },
-  { _tag: "row", change: "create", cells: ["alpha", "created"] },
   {
-    _tag: "rows",
-    rows: [{ _tag: "row", change: "update", cells: ["beta", "updated"] }],
+    _tag: "ledger",
+    columns: [
+      { header: "", role: "name" },
+      { header: "", role: "fixed" },
+    ],
+    rows: [
+      { mark: "create", cells: ["alpha", "created"] },
+      { mark: "update", cells: ["beta", "updated"] },
+    ],
+    folds: [{ mark: "unchanged", count: 2, noun: "unchanged" }],
   },
-  { _tag: "collapsed", change: "unchanged", count: 2, noun: "unchanged" },
   {
     _tag: "callout",
     tone: "warn",
@@ -47,7 +52,7 @@ const everyNodeDocument: Doc = [
     _tag: "table",
     caption: "Inventory",
     columns: [{ header: "Name" }, { header: "State" }],
-    rows: [["alpha", "ready"]],
+    rows: [{ cells: ["alpha", "ready"] }],
   },
   { _tag: "fields", fields: [{ label: "Owner", value: "@acme" }] },
   {
@@ -64,7 +69,7 @@ const everyNodeDocument: Doc = [
     _tag: "next",
     actions: [{ description: "Inspect", cmd: "axm list" }],
   },
-  { _tag: "summary", tone: "ok", parts: [{ text: "1 changed" }], elapsedMs: 1200 },
+  { _tag: "summary", parts: [{ text: "1 changed" }] },
   {
     _tag: "section",
     title: "Details",
@@ -108,7 +113,7 @@ const skillsList: Doc = [
   {
     _tag: "table",
     columns: skillColumns,
-    rows: skillRows,
+    rows: skillRows.map((cells) => ({ cells })),
     caption:
       "3 skills (2 configured, 0 implicit, 2 installed, 0 leftover, 0 undeclared, 1 unmanaged)",
   },
@@ -121,13 +126,14 @@ const widest = (lines: ReadonlyArray<string>) => Math.max(0, ...lines.map(displa
 describe("paintText", () => {
   it("paints the document grammar without color", () => {
     expect(plain(document, 80)).toEqual([
-      "✔ Installed 2 skills",
+      " ✔   Installed 2 skills",
       "",
-      "+ deploy     1.4.0   created",
-      "= rollback   0.9.2   already installed",
-      "= 4 skills unchanged  --verbose to list",
+      " +   deploy                        1.4.0   created",
+      " =   rollback                      0.9.2   already installed",
+      " =   4 skills unchanged  --verbose to list",
+      "",
       "Next",
-      "  Inspect installed skills · axm skills list",
+      "     axm skills list   Inspect installed skills",
     ]);
   });
 
@@ -140,41 +146,55 @@ describe("paintText", () => {
     expect(colored).toContain("Careful");
   });
 
-  it("stacks a change row that cannot fit a narrow terminal", () => {
+  it("stacks a ledger row that cannot fit a narrow terminal", () => {
     const lines = plain(
       [
         {
-          _tag: "row",
-          change: "update",
-          cells: ["skill", "a very long destination that cannot fit"],
+          _tag: "ledger",
+          columns: [
+            { header: "", role: "name" },
+            { header: "", role: "fixed", priority: "required" },
+          ],
+          rows: [{ mark: "update", cells: ["skill", "a very long destination that cannot fit"] }],
         },
       ],
       24,
     );
-    expect(lines).toEqual(["~ skill", "  a very long", "  destination that", "  cannot fit"]);
+    expect(lines).toEqual([
+      " ~   skill",
+      "     a very long",
+      "     destination that",
+      "     cannot fit",
+    ]);
     expect(widest(lines)).toBeLessThanOrEqual(24);
   });
 
   it("paints every node kind as one stable wide document", () => {
     expect(plain(everyNodeDocument, 80)).toEqual([
-      "✔ Ready",
+      " ✔   Ready",
       "部署 package is ready for review",
-      "+ alpha   created",
-      "~ beta   updated",
-      "= 2 unchanged",
-      "▲ Warning",
-      "  Check permissions",
+      "",
+      " +   alpha                         created",
+      " ~   beta                          updated",
+      " =   2 unchanged",
+      "",
+      " ▲   Warning",
+      "     Check permissions",
+      "",
       "Inventory",
-      "  Name    State",
-      "  alpha   ready",
-      "Owner  @acme",
+      "     Name    State",
+      "     alpha   ready",
+      "",
+      "     Owner                         @acme",
+      "",
       "└─ root  managed",
       "   └─ child",
+      "",
       "Next",
-      "  Inspect · axm list",
-      "1 changed in 1.2s",
+      "     axm list   Inspect",
+      "1 changed",
       "Details",
-      "  Section body",
+      "     Section body",
       "# Heading",
       "pre-sanitized",
       "",
@@ -241,12 +261,12 @@ describe("paintText", () => {
       expect(header.indexOf("Agents")).toBe(firstRow.indexOf("claude-code, codex"));
       expect(lines).toEqual([
         "3 skills (2 configured, 0 implicit, 2 installed, 0 leftover, 0 undeclared, 1 unmanaged)",
-        "  Name                        State       Activation   Type       Agents",
-        "  @craigsmitham/effect-v4     installed   enabled      registry   claude-code, codex, cursor,",
-        "                                                                  gemini-cli",
-        "  @craigsmitham/field-notes   installed   enabled      registry   claude-code, codex",
-        "  local-notes                 detected    n/a          detected   none",
-        "  Not shown at this width: Agent outcomes",
+        "     Name                        State       Activation   Type       Agents",
+        "     @craigsmitham/effect-v4     installed   enabled      registry   claude-code, codex, cursor,",
+        "                                                                     gemini-cli",
+        "     @craigsmitham/field-notes   installed   enabled      registry   claude-code, codex",
+        "     local-notes                 detected    n/a          detected   none",
+        "     Not shown at this width: Agent outcomes",
       ]);
     });
 
@@ -264,15 +284,17 @@ describe("paintText", () => {
           {
             _tag: "table",
             columns: [{ header: "Name", priority: "required" }, { header: "Detail" }],
-            rows: [["deploy", "a detail sentence that is far too wide for the terminal"]],
+            rows: [
+              { cells: ["deploy", "a detail sentence that is far too wide for the terminal"] },
+            ],
           },
         ],
-        44,
+        49,
       );
       expect(lines).toEqual([
-        "Name     Detail",
-        "deploy   a detail sentence that is far too",
-        "         wide for the terminal",
+        "     Name     Detail",
+        "     deploy   a detail sentence that is far too",
+        "              wide for the terminal",
       ]);
     });
 
@@ -287,40 +309,50 @@ describe("paintText", () => {
               { header: "Extra one", priority: "optional" },
               { header: "Extra two", priority: "optional" },
             ],
-            rows: [["deployment-tools", "installed", "twenty-characters-x", "twenty-characters-y"]],
+            rows: [
+              {
+                cells: [
+                  "deployment-tools",
+                  "installed",
+                  "twenty-characters-x",
+                  "twenty-characters-y",
+                ],
+              },
+            ],
           },
         ],
-        48,
+        53,
       );
       expect(lines).toEqual([
-        "Name               State",
-        "deployment-tools   installed",
-        "Not shown at this width: Extra one, Extra two",
+        "     Name               State",
+        "     deployment-tools   installed",
+        "     Not shown at this width: Extra one, Extra two",
       ]);
     });
 
-    it("stacks an overflowing table below the stacked threshold", () => {
+    it("stacks an overflowing table below the stacked threshold, its mark on the first field", () => {
       const lines = plain(
         [
           {
             _tag: "table",
             columns: [{ header: "Name" }, { header: "State" }, { header: "Agents" }],
             rows: [
-              ["deploy", "installed", "claude-code, codex, cursor"],
-              ["audit", "detected", "none"],
+              { cells: ["deploy", "installed", "claude-code, codex, cursor"] },
+              { mark: "warn", cells: ["audit", "detected", "none"] },
             ],
           },
         ],
         36,
       );
       expect(lines).toEqual([
-        "Name    deploy",
-        "State   installed",
-        "Agents  claude-code, codex, cursor",
+        "     Name    deploy",
+        "     State   installed",
+        "     Agents  claude-code, codex,",
+        "             cursor",
         "",
-        "Name    audit",
-        "State   detected",
-        "Agents  none",
+        " ▲   Name    audit",
+        "     State   detected",
+        "     Agents  none",
       ]);
       expect(widest(lines)).toBeLessThanOrEqual(36);
     });
@@ -341,31 +373,468 @@ describe("paintText", () => {
             {
               _tag: "table",
               columns: [{ header: "Bundle" }, { header: "Concepts", align: "right" }],
+              rows: [{ cells: ["agentxm", "12"] }, { cells: ["effect-v4", "7"] }],
+            },
+          ],
+          80,
+        ),
+      ).toEqual([
+        "     Bundle      Concepts",
+        "     agentxm           12",
+        "     effect-v4          7",
+      ]);
+    });
+
+    it("puts a row's mark in the gutter the header and other rows leave blank", () => {
+      expect(
+        plain(
+          [
+            {
+              _tag: "table",
+              columns: [{ header: "Extension" }, { header: "Management" }],
               rows: [
-                ["agentxm", "12"],
-                ["effect-v4", "7"],
+                { cells: ["@acme/skills/review", "configured"] },
+                { mark: "warn", cells: ["@legacy/skills/changelog", "leftover"] },
               ],
             },
           ],
           80,
         ),
-      ).toEqual(["Bundle      Concepts", "agentxm           12", "effect-v4          7"]);
+      ).toEqual([
+        "     Extension                  Management",
+        "     @acme/skills/review        configured",
+        " ▲   @legacy/skills/changelog   leftover",
+      ]);
+    });
+
+    it("paints a tint in its own colour, even inside a dim line, and a tone over it", () => {
+      const [line] = paintText(
+        [
+          {
+            _tag: "paragraph",
+            tone: "dim",
+            text: [{ text: "skill", tint: "green" }, { text: " public" }],
+          },
+          { _tag: "paragraph", text: [{ text: "rule", tint: "yellow", tone: "error" }] },
+        ],
+        { width: 80, colors: true },
+      );
+      expect(line).toBe("\u001b[32mskill\u001b[0m\u001b[2m public\u001b[0m");
+      expect(
+        paintText(
+          [{ _tag: "paragraph", text: [{ text: "rule", tint: "yellow", tone: "error" }] }],
+          {
+            width: 80,
+            colors: true,
+          },
+        ),
+      ).toEqual(["\u001b[31mrule\u001b[0m"]);
+    });
+  });
+
+  describe("gutter and value column", () => {
+    const marked: Doc = [
+      { _tag: "headline", tone: "error", text: "Install failed" },
+      {
+        _tag: "ledger",
+        columns: [
+          { header: "", role: "name" },
+          { header: "", role: "fixed" },
+        ],
+        rows: [
+          { mark: "create", cells: ["alpha", "created"] },
+          { mark: "rolled-back", cells: ["beta", "rolled back"] },
+        ],
+        folds: [{ mark: "unchanged", count: 2, noun: "unchanged" }],
+      },
+      { _tag: "callout", tone: "info", title: "Note" },
+    ];
+
+    it.each([
+      { name: "Unicode", glyphs: undefined },
+      { name: "ASCII", glyphs: asciiGlyphs },
+    ])("starts content after every $name mark at column six", ({ glyphs }) => {
+      const lines = paintText(marked, {
+        width: 80,
+        colors: false,
+        ...(glyphs === undefined ? {} : { glyphs }),
+      });
+      const markedLines = lines.filter((line) => line.length > 0);
+      expect(markedLines).toHaveLength(5);
+      for (const line of markedLines) {
+        // A mark is one to three cells — ✔ or `ok` or `[-]` — and the gutter
+        // fills the rest, so content starts at column six under either set.
+        expect(line.slice(0, 5), line).toMatch(/^ \S{1,3} *$/u);
+        expect(line.charAt(5), line).not.toBe(" ");
+      }
+    });
+
+    it("gives a verdict after a ledger no glyph and bolds it", () => {
+      const verdict: Doc = [
+        {
+          _tag: "ledger",
+          columns: [
+            { header: "", role: "name" },
+            { header: "", role: "fixed" },
+          ],
+          rows: [{ mark: "remove", cells: ["alpha", "removed"] }],
+        },
+        { _tag: "blank" },
+        {
+          _tag: "headline",
+          tone: "ok",
+          text: "Uninstalled 1 skill",
+          aside: [{ text: "0.5s" }],
+          verdict: true,
+        },
+      ];
+      expect(plain(verdict, 80)).toEqual([
+        " -   alpha                         removed",
+        "",
+        "Uninstalled 1 skill  0.5s",
+      ]);
+      expect(paintText(verdict, { width: 80, colors: true }).join("\n")).toContain(
+        "\u001b[1m\u001b[32mUninstalled",
+      );
+    });
+
+    it("keeps the glyph on a problem with no ledger above it", () => {
+      expect(plain([{ _tag: "headline", tone: "error", text: "Sign-in expired" }], 80)).toEqual([
+        " ✖   Sign-in expired",
+      ]);
+    });
+
+    const problem: Doc = [
+      {
+        _tag: "callout",
+        tone: "error",
+        title: "Invalid skill name",
+        aside: "validation · exit 9",
+        children: [
+          {
+            _tag: "fields",
+            fields: [
+              { label: "name", value: '"Code Review!"' },
+              { label: "allowed", value: "lowercase letters, digits and hyphens" },
+            ],
+          },
+        ],
+      },
+      { _tag: "fields", fields: [{ label: "try", value: "code-review" }] },
+    ];
+
+    it("puts field values and callout asides on one value column", () => {
+      expect(plain(problem, 80)).toEqual([
+        " ✖   Invalid skill name            validation · exit 9",
+        '     name                          "Code Review!"',
+        "     allowed                       lowercase letters, digits and hyphens",
+        "     try                           code-review",
+      ]);
+    });
+
+    it("moves the value column left to keep half a narrow terminal for values", () => {
+      const lines = plain(problem, 60);
+      expect(lines).toEqual([
+        " ✖   Invalid skill name       validation · exit 9",
+        '     name                     "Code Review!"',
+        "     allowed                  lowercase letters, digits and",
+        "                              hyphens",
+        "     try                      code-review",
+      ]);
+      expect(widest(lines)).toBeLessThanOrEqual(60);
+    });
+
+    it("keeps an aside on the title line when the title passes the value column", () => {
+      expect(
+        plain(
+          [
+            {
+              _tag: "headline",
+              tone: "warn",
+              text: "Publish is blocked — an explicit override is required",
+              aside: [{ text: "exit 2" }],
+            },
+          ],
+          80,
+        ),
+      ).toEqual([" ▲   Publish is blocked — an explicit override is required   exit 2"]);
+    });
+
+    it("moves a value below a label too long for the key lane", () => {
+      expect(
+        plain(
+          [
+            {
+              _tag: "fields",
+              fields: [{ label: "A label longer than the key lane allows", value: "value" }],
+            },
+          ],
+          80,
+        ),
+      ).toEqual(["     A label longer than the key lane allows", "       value"]);
+    });
+
+    it("pushes a long label's value right instead of moving it when unbounded", () => {
+      const lines = plain(
+        [
+          {
+            _tag: "fields",
+            fields: [
+              { label: "Owner", value: "@acme" },
+              { label: "A label longer than the key lane allows", value: "value" },
+            ],
+          },
+        ],
+        "unbounded",
+      );
+      expect(lines).toEqual([
+        "     Owner                         @acme",
+        "     A label longer than the key lane allows   value",
+      ]);
+      expect(lines.every((line) => !line.endsWith(" "))).toBe(true);
+    });
+
+    it("keeps marks in the gutter and content at the content column inside a titled section", () => {
+      expect(
+        plain(
+          [
+            {
+              _tag: "section",
+              title: "1 warning",
+              children: [
+                { _tag: "callout", tone: "warn", title: "Pre-release Effect version" },
+                { _tag: "paragraph", text: "@craigsmitham/effect-v4" },
+              ],
+            },
+          ],
+          80,
+        ),
+      ).toEqual(["1 warning", " ▲   Pre-release Effect version", "     @craigsmitham/effect-v4"]);
+    });
+  });
+
+  describe("ledgers", () => {
+    const columns: ReadonlyArray<LedgerColumn> = [
+      { header: "Extension", role: "name" },
+      { header: "Version", role: "fixed", priority: "preferred" },
+      { header: "Plan", role: "fixed", priority: "required" },
+      { header: "Detail", role: "elastic", priority: "optional" },
+    ];
+    const ledger: Doc = [
+      {
+        _tag: "ledger",
+        columns,
+        rows: [
+          {
+            id: "@acme/skills/code-review",
+            mark: "create",
+            cells: ["@acme/skills/code-review", "1.4.0", "install", "42 files"],
+          },
+          {
+            id: "@acme/skills/triage",
+            mark: "update",
+            cells: ["@acme/skills/triage", "2.0.1", "update", "from 1.9.4"],
+          },
+        ],
+        folds: [{ mark: "unchanged", count: 3, noun: "unchanged", hint: "--verbose to list" }],
+      },
+    ];
+
+    it("puts the headers behind a blank gutter and every column after the name at the value column", () => {
+      expect(plain(ledger, 100)).toEqual([
+        "     Extension                     Version   Plan      Detail",
+        " +   @acme/skills/code-review      1.4.0     install   42 files",
+        " ~   @acme/skills/triage           2.0.1     update    from 1.9.4",
+        " =   3 unchanged  --verbose to list",
+      ]);
+      // The name column keeps the key lane, so the second column starts at 36.
+      expect(plain(ledger, 100)[0]?.indexOf("Version")).toBe(35);
+      expect(plain(ledger, 100)[1]?.indexOf("1.4.0")).toBe(35);
+    });
+
+    it("keeps an optional column when shortening names is sufficient", () => {
+      expect(plain(ledger, 60)).toEqual([
+        "     Extension                Version   Plan      Detail",
+        " +   @acme/…/code-review      1.4.0     install   42 files",
+        " ~   @acme/skills/triage      2.0.1     update    from 1.9.4",
+        " =   3 unchanged  --verbose to list",
+      ]);
+    });
+
+    it("drops an optional column before stacking required columns", () => {
+      expect(plain(ledger, 44)).toEqual([
+        "     Extension        Version   Plan",
+        " +   @…/code-review   1.4.0     install",
+        " ~   @acme/…/triage   2.0.1     update",
+        " =   3 unchanged  --verbose to list",
+        "     --verbose for details",
+      ]);
+    });
+
+    it("indents a nested row's name inside the name column", () => {
+      const nested: Doc = [
+        {
+          _tag: "ledger",
+          columns: [
+            { header: "", role: "name" },
+            { header: "", role: "fixed", priority: "required" },
+          ],
+          rows: [
+            { mark: "ok", cells: ["@acme/packs/review-kit", "installed"] },
+            { mark: "ok", depth: 1, cells: ["@acme/skills/code-review", "installed"] },
+          ],
+        },
+      ];
+      expect(plain(nested, 80)).toEqual([
+        " ✔   @acme/packs/review-kit        installed",
+        " ✔     @acme/skills/code-review    installed",
+      ]);
+    });
+
+    it("paints a status mark and a change mark from the same gutter", () => {
+      const marks: Doc = [
+        {
+          _tag: "ledger",
+          columns: [{ header: "", role: "name" }],
+          rows: [
+            { mark: "ok", cells: ["published"] },
+            { mark: "error", cells: ["refused"] },
+            { mark: "failed", cells: ["timed out"] },
+          ],
+        },
+      ];
+      expect(plain(marks, 80)).toEqual([" ✔   published", " ✖   refused", " ✖   timed out"]);
+    });
+
+    it("keeps the lane and natural widths, and never stacks, when unbounded", () => {
+      expect(plain(ledger, "unbounded")).toEqual([
+        "     Extension                     Version   Plan      Detail",
+        " +   @acme/skills/code-review      1.4.0     install   42 files",
+        " ~   @acme/skills/triage           2.0.1     update    from 1.9.4",
+        " =   3 unchanged  --verbose to list",
+      ]);
+    });
+
+    it("paints an answer's value at the value column, or below a label too long for it", () => {
+      const answers: Doc = [
+        { _tag: "answer", mark: "ok", label: "Instructions source", value: "AGENTS.md" },
+        { _tag: "answer", mark: "dim", label: "Agents", value: "claude-code, codex" },
+      ];
+      expect(plain(answers, 80)).toEqual([
+        " ✔   Instructions source           AGENTS.md",
+        "     Agents                        claude-code, codex",
+      ]);
+      expect(
+        plain(
+          [
+            {
+              _tag: "answer",
+              mark: "ok",
+              label: "A question longer than the key lane allows",
+              value: "yes",
+            },
+          ],
+          80,
+        ),
+      ).toEqual([" ✔   A question longer than the key lane allows", "       yes"]);
+    });
+
+    it("shortens a long name in the middle, keeping its scope and last segment", () => {
+      const long: Doc = [
+        {
+          _tag: "ledger",
+          columns: columns.slice(0, 3),
+          rows: [
+            {
+              id: "@acme-enterprise/skills/audits/soc2-review",
+              mark: "create",
+              cells: ["@acme-enterprise/skills/audits/soc2-review", "1.4.0", "install"],
+            },
+            {
+              id: "@acme/skills/code-review",
+              mark: "create",
+              cells: ["@acme/skills/code-review", "1.4.0", "install"],
+            },
+          ],
+        },
+      ];
+      expect(plain(long, 60)).toEqual([
+        "     Extension                Version   Plan",
+        " +   @acme-ent…/soc2-review   1.4.0     install",
+        " +   @acme/…/code-review      1.4.0     install",
+      ]);
+      // The name that fits is untouched, and both versions stay in one column.
+      expect(plain(long, 60)[1]?.indexOf("1.4.0")).toBe(plain(long, 60)[2]?.indexOf("1.4.0"));
+    });
+  });
+
+  describe("copyable values", () => {
+    const url = "https://agentxm.ai/auth/publish-requests/pubreq_8f3k2q7d1m4x";
+
+    it("keeps a copyable value whole on its own line, overflowing the width", () => {
+      const doc: Doc = [{ _tag: "paragraph", text: [{ text: url, copyable: true }] }];
+      expect(plain(doc, 40)).toEqual([url]);
+    });
+
+    it("never splits a copyable value at its spaces", () => {
+      const command = "axm install @acme-enterprise/skills/soc2-evidence-review --yes";
+      const doc: Doc = [
+        {
+          _tag: "paragraph",
+          text: [
+            { text: "Run", tone: "dim" },
+            { text: command, copyable: true },
+          ],
+        },
+      ];
+      expect(plain(doc, 60)).toEqual(["Run", command]);
+    });
+
+    it("gives a next command a line of its own rather than cut it", () => {
+      const doc: Doc = [
+        {
+          _tag: "next",
+          actions: [
+            {
+              description: "Install the reviewed extension",
+              cmd: "axm install @acme-enterprise/skills/soc2-evidence-review --yes",
+            },
+          ],
+        },
+      ];
+      expect(plain(doc, 60)).toEqual([
+        "Next",
+        "     axm install @acme-enterprise/skills/soc2-evidence-review --yes",
+        "     Install the reviewed extension",
+      ]);
+    });
+
+    it("still joins a next command that fits", () => {
+      const doc: Doc = [
+        {
+          _tag: "next",
+          actions: [{ description: "Inspect installed skills", cmd: "axm skills list" }],
+        },
+      ];
+      expect(plain(doc, 80)).toEqual(["Next", "     axm skills list   Inspect installed skills"]);
     });
   });
 
   it("paints the ASCII document layout", () => {
     const lines = paintText(everyNodeDocument, { width: 80, colors: false, glyphs: asciiGlyphs });
-    expect(lines.slice(0, 7)).toEqual([
-      "+ Ready",
+    expect(lines.slice(0, 9)).toEqual([
+      " ok  Ready",
       "部署 package is ready for review",
-      "+ alpha   created",
-      "~ beta   updated",
-      "= 2 unchanged",
-      "! Warning",
-      "  Check permissions",
+      "",
+      " +   alpha                         created",
+      " ~   beta                          updated",
+      " =   2 unchanged",
+      "",
+      " !!  Warning",
+      "     Check permissions",
     ]);
     expect(lines).toContain("`- root  managed");
     expect(lines).toContain("   `- child");
-    expect(lines).toContain("  Inspect - axm list");
+    expect(lines).toContain("     axm list   Inspect");
   });
 });

@@ -1,11 +1,15 @@
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import { resolveDetailFields, resolveTableColumns } from "./command-output.js";
-import type { Doc, Tone } from "./doc.js";
+import type { Doc, SummaryPart, Text, Tone } from "./doc.js";
 import type { DetailView, SuggestionOptions, SuccessOptions, TableView } from "./output.js";
 import { normalizeSuggestions } from "./presenter-helpers.js";
 
 export const paragraphDoc = (message: string): Doc => [{ _tag: "paragraph", text: message }];
+
+/** Semantic facts an aside or summary asks the active glyph set to join. */
+export const factParts = (values: ReadonlyArray<Text | undefined>): ReadonlyArray<SummaryPart> =>
+  values.filter((value): value is Text => value !== undefined).map((text) => ({ text }));
 
 export const headlineDoc = (tone: Tone, message: string): Doc => [
   { _tag: "headline", tone, text: message },
@@ -37,15 +41,6 @@ export const errorDoc = (message: string, options?: SuggestionOptions): Doc => [
   ...suggestionsDoc(options?.suggestions, options),
 ];
 
-export const calloutDoc = (message: string, title = "Note", tone: Tone = "info"): Doc => [
-  {
-    _tag: "callout",
-    tone,
-    title,
-    children: paragraphDoc(message),
-  },
-];
-
 export const rawDoc = (content: string): Doc => [{ _tag: "raw", content }];
 
 export const markdownDoc = (content: string): Doc => [{ _tag: "markdown", content }];
@@ -66,7 +61,7 @@ export const tableViewDoc = <T extends object>(
             align: column.align,
             ...(typeof column.width === "number" ? { width: column.width } : {}),
           })),
-          rows: items.map((item) => columns.map((column) => column.render(item))),
+          rows: items.map((item) => ({ cells: columns.map((column) => column.render(item)) })),
           ...(caption === undefined ? {} : { caption }),
         },
       ];

@@ -1,38 +1,63 @@
-✔ Ready  every node
+ ✔   Ready          every node
 部署 package is ready for review after
 the wide-character check
-+ alpha   created
-~ beta      updated
-    codex: projected at
-    .codex/skills/beta
-– gamma     removed
-▲ delta     blocked   a precondition is
-                      not met
-× epsilon   failed
-↶ zeta      rolled back
-= 2 unchanged  --verbose to list
-▲ Warning
-  Check permissions
-● Note without children
+
+     Extension      Version   Status
+ ✔   @acme/…w-kit   2.1.0     installed
+     claude-code: projected
+ +     @acme…view   1.4.0     installed
+ ✖   @acm…/triage   2.0.1     failed
+ =   3 unchanged  --verbose to list
+     --verbose for details
+
+ ?   Apply 4 changes?
+      N  no    y  yes    d  details
+     Nothing has been written yet.
+
+ ?   Instructions source
+ ❯   AGENTS.md
+     CLAUDE.md
+     ↓ 1 more
+
+ ?   Instructions file name
+     ❯ docs/AGENTS.md
+
+ ◒   Waiting for approval on
+     registry.agentxm.ai   4m 32s left
+      o  open    c  copy    esc  stop
+
+ ✔   Instructions source
+       AGENTS.md
+     Agents         claude-code, codex
+
+ ▲   Warning        not blocking
+     Check permissions
+
+ ●   Note without children
+
 Inventory
-  Name    State     Count
-  alpha   ready        12
-  beta    blocked       3
-Owner        @acme
-Description  A field whose value is long
-             enough to need wrapping at
-             narrow widths
+     Name    State     Count
+     alpha   ready        12
+ ▲   beta    blocked       3
+
+     Owner          @acme
+     Description    A field whose value
+                    is long enough to
+                    need wrapping at
+                    narrow widths
+
 └─ root  managed
    ├─ child
    │  └─ grandchild  leaf
    └─ sibling
+
 Next
-  Inspect · axm list
-  Read the guide · https://axm.sh/docs
-1 changed · 2 unchanged in 1.2s
+     axm list   Inspect
+     https://axm.sh/docs
+1 changed · 2 unchanged
 Details
-  Section body
-  Untitled subsection
+     Section body
+     Untitled subsection
 # Heading
 pre-sanitized
 

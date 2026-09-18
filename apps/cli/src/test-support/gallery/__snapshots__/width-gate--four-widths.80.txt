@@ -1,0 +1,9 @@
+Previewing install  into this project · for claude-code and codex
+
+     Extension                     Version   Plan      Detail
+ +   @acme/skills/code-review      1.4.0     install   42 files, 380 KB
+ +   @acme/subagents/reviewer      0.9.0     install   3 files, 4 KB
+ +   @acme/packs/review-kit        2.1.0     install   after its 2 members
+ ~   @acme/skills/triage           2.0.1     update    from 1.9.4, 8 files
+
+ ▲   Publisher identity changed for @acme/skills/triage

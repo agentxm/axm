@@ -23,8 +23,6 @@ const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), ".."
 const PRODUCTION_SOURCE = "apps/cli/src/root/list/command.ts";
 /** Screen's process adapter: the sole writer after runtime startup. */
 const OUTPUT_BOUNDARY = "apps/cli/src/screen/streams.ts";
-/** The guarded prompt boundary, where requireInteractive lives. */
-const PROMPT_BOUNDARY = "apps/cli/src/prompt/helpers.ts";
 
 /**
  * How long the first lint in this file may take. ESLint resolves the flat
@@ -63,12 +61,27 @@ describe("production source boundary lint rules", () => {
     );
   });
 
-  it("reports called and point-free Prompt.run whatever the spacing", async () => {
-    expect(await violations("const answer = Prompt . run(prompt);", PRODUCTION_SOURCE)).toEqual([
-      "axm-policy/no-unguarded-prompt-run: Production prompts must run through the requireInteractive prompt boundary.",
+  it("reports every way of reaching Effect's Prompt widgets", async () => {
+    expect(
+      await violations('import { Prompt } from "effect/unstable/cli";', PRODUCTION_SOURCE),
+    ).toEqual([
+      "axm-policy/no-effect-prompt: Ask through Screen.ask: Effect's Prompt widgets paint outside the painter and cannot take the gutter, the key hints, or the terminal's height.",
     ]);
-    expect(await violations("effect.pipe(Prompt.run);", PRODUCTION_SOURCE)).toHaveLength(1);
-    expect(await violations("runner.run(task); Command.run(argv);", PRODUCTION_SOURCE)).toEqual([]);
+    expect(
+      await violations('import type * as P from "effect/unstable/cli/Prompt";', PRODUCTION_SOURCE),
+    ).toHaveLength(1);
+    expect(
+      await violations(
+        'import * as Cli from "effect/unstable/cli"; const p = Cli . Prompt;',
+        PRODUCTION_SOURCE,
+      ),
+    ).toHaveLength(1);
+    expect(
+      await violations(
+        'import { Command } from "effect/unstable/cli"; Command.run(argv);',
+        PRODUCTION_SOURCE,
+      ),
+    ).toEqual([]);
   });
 
   it("reports the streaming result shape in code position", async () => {
@@ -94,10 +107,9 @@ describe("production source boundary lint rules", () => {
 
   it("exempts each owning boundary module from its own rule only", async () => {
     expect(await violations("process.stdout.write('x');", OUTPUT_BOUNDARY)).toEqual([]);
-    expect(await violations("const answer = Prompt.run(prompt);", OUTPUT_BOUNDARY)).toHaveLength(1);
-
-    expect(await violations("const answer = Prompt.run(prompt);", PROMPT_BOUNDARY)).toEqual([]);
-    expect(await violations("console.log(a);", PROMPT_BOUNDARY)).toHaveLength(1);
+    expect(
+      await violations('import { Prompt } from "effect/unstable/cli";', OUTPUT_BOUNDARY),
+    ).toHaveLength(1);
   });
 
   it("keeps the boundary rules reachable alongside the co-located restrictions", async () => {

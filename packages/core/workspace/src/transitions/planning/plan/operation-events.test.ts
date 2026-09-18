@@ -195,6 +195,35 @@ describe("operation lifecycle events", () => {
     }).pipe(Effect.scoped),
   );
 
+  it.effect("reports a new attempt without waiting out the throttle interval", () =>
+    Effect.gen(function* () {
+      const lifecycle = yield* makeOperationLifecycle({ name: "Install", mode: "apply" });
+      const observed: Array<OperationEvent> = [];
+      yield* subscribeLossless(lifecycle, (event) => Effect.sync(() => void observed.push(event)));
+      yield* observeUnit(
+        { id: "archive", label: "archive" },
+        Effect.gen(function* () {
+          const report = yield* makeThrottledUnitProgress({ unit: "bytes", intervalMs: 100 });
+          // A first attempt that stalls, then a retry that restarts the count
+          // one millisecond later — well inside the interval.
+          yield* report(0, 1_000, { n: 1, of: 3 });
+          yield* TestClock.adjust(1);
+          yield* report(400, 1_000, { n: 1, of: 3 });
+          yield* TestClock.adjust(1);
+          yield* report(0, 1_000, { n: 2, of: 3 });
+        }),
+      ).pipe(Effect.provideService(OperationLifecycle, lifecycle));
+      yield* lifecycle.settle("applied");
+      yield* lifecycle.drained.await;
+
+      const progress = observed.filter((event) => event._tag === "UnitProgress");
+      expect(progress.map((event) => [event.done, event.attempt])).toEqual([
+        [0, { n: 1, of: 3 }],
+        [0, { n: 2, of: 3 }],
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
   it.effect("every event round-trips through the published schema", () =>
     Effect.gen(function* () {
       const lifecycle = yield* makeOperationLifecycle({ name: "Install skill", mode: "apply" });

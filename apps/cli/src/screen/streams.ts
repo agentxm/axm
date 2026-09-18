@@ -4,7 +4,10 @@ import * as Queue from "effect/Queue";
 import * as ServiceMap from "effect/Context";
 import * as Stream from "effect/Stream";
 
+import type { TerminalSize } from "./scene.js";
+
 const DEFAULT_COLUMNS = 80;
+const DEFAULT_ROWS = 24;
 
 const write = (stream: NodeJS.WriteStream, content: string): Effect.Effect<void> =>
   Effect.callback<void>((resume) => {
@@ -18,10 +21,9 @@ const write = (stream: NodeJS.WriteStream, content: string): Effect.Effect<void>
     if (accepted) complete();
   });
 
-export interface OutputStreamFacts {
+export interface OutputStreamFacts extends TerminalSize {
   readonly stdoutIsTTY: boolean;
   readonly stderrIsTTY: boolean;
-  readonly columns: number;
 }
 
 export class OutputStreams extends ServiceMap.Service<
@@ -36,6 +38,10 @@ export class OutputStreams extends ServiceMap.Service<
 
 const currentColumns = (): number =>
   Math.max(20, process.stderr.columns ?? process.stdout.columns ?? DEFAULT_COLUMNS);
+
+/** The floor keeps a live region of at least one row above the rows it leaves free. */
+const currentRows = (): number =>
+  Math.max(4, process.stderr.rows ?? process.stdout.rows ?? DEFAULT_ROWS);
 
 const resizeStream = Stream.callback<number>((queue) =>
   Effect.acquireRelease(
@@ -60,6 +66,7 @@ export const OutputStreamsLive: Layer.Layer<OutputStreams> = Layer.succeed(Outpu
     stdoutIsTTY: process.stdout.isTTY === true,
     stderrIsTTY: process.stderr.isTTY === true,
     columns: currentColumns(),
+    rows: currentRows(),
   })),
   resize: resizeStream,
 });
@@ -70,25 +77,33 @@ export const stderrIsTTY = (): boolean => process.stderr.isTTY === true;
 export interface TestOutputStreamsState {
   readonly stdout: Array<string>;
   readonly stderr: Array<string>;
+  /** The terminal the streams report. A test narrows it, then offers a resize. */
+  size: TerminalSize;
 }
 
 export const makeTestOutputStreams = (options?: {
   readonly stdoutIsTTY?: boolean;
   readonly stderrIsTTY?: boolean;
   readonly columns?: number;
+  readonly rows?: number;
   readonly resize?: Stream.Stream<number>;
 }): { readonly layer: Layer.Layer<OutputStreams>; readonly state: TestOutputStreamsState } => {
-  const state: TestOutputStreamsState = { stdout: [], stderr: [] };
+  const state: TestOutputStreamsState = {
+    stdout: [],
+    stderr: [],
+    size: { columns: options?.columns ?? DEFAULT_COLUMNS, rows: options?.rows ?? DEFAULT_ROWS },
+  };
   return {
     state,
     layer: Layer.succeed(OutputStreams, {
       stdout: (content) => Effect.sync(() => void state.stdout.push(content)),
       stderr: (content) => Effect.sync(() => void state.stderr.push(content)),
-      facts: Effect.succeed({
+      facts: Effect.sync(() => ({
         stdoutIsTTY: options?.stdoutIsTTY ?? false,
         stderrIsTTY: options?.stderrIsTTY ?? false,
-        columns: options?.columns ?? DEFAULT_COLUMNS,
-      }),
+        columns: state.size.columns,
+        rows: state.size.rows,
+      })),
       resize: options?.resize ?? Stream.empty,
     }),
   };

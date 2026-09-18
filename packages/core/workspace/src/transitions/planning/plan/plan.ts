@@ -52,6 +52,7 @@ export const BlockingClassSchema = Schema.Literals([
   "policy-excluded",
   "resource-conflict",
   "external-blocked",
+  "human-required",
   "operation-aborted",
 ] as const).annotate({
   identifier: "BlockingClass",
@@ -297,6 +298,8 @@ export interface OperationPresentation {
   readonly verb: {
     /** e.g. "update" */
     readonly imperative: string;
+    /** Optional plan word for a created artifact when it differs from "install". */
+    readonly create?: string;
     /** e.g. "Updated" */
     readonly past: string;
     /** e.g. "Updating" */

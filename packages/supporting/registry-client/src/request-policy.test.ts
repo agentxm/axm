@@ -13,6 +13,7 @@ import { RegistryRequestFailed, type RegistryRequestMetadata } from "./errors.js
 import {
   executeRegistryRequest,
   PUBLISH_REGISTRY_REQUEST_POLICY,
+  RegistryRequestAttempt,
   type RegistryRequestPolicy,
   type RegistryRequestReplaySafety,
 } from "./request-policy.js";
@@ -144,6 +145,44 @@ describe("executeRegistryRequest", () => {
 
       // Asking again cannot change why the request never left.
       expect(yield* Ref.get(attempts)).toBe(1);
+    }),
+  );
+
+  it.effect("tells each attempt which attempt it is and how many it may take", () =>
+    Effect.gen(function* () {
+      const seen = yield* Ref.make<ReadonlyArray<{ n: number; of: number }>>([]);
+      const record = Effect.flatMap(RegistryRequestAttempt, (attempt) =>
+        Ref.update(seen, (all) => [...all, attempt]),
+      );
+      const attempts = yield* Ref.make(0);
+
+      const result = yield* execute(
+        record.pipe(
+          Effect.andThen(Ref.updateAndGet(attempts, (count) => count + 1)),
+          Effect.flatMap((attempt) =>
+            attempt === 1 ? Effect.fail(transportError()) : Effect.succeed("ok"),
+          ),
+        ),
+      );
+
+      expect(result).toBe("ok");
+      expect(yield* Ref.get(seen)).toEqual([
+        { n: 1, of: 3 },
+        { n: 2, of: 3 },
+      ]);
+    }),
+  );
+
+  it.effect("tells a request it will not replay that it has one attempt", () =>
+    Effect.gen(function* () {
+      const seen = yield* Ref.make<ReadonlyArray<{ n: number; of: number }>>([]);
+      const record = Effect.flatMap(RegistryRequestAttempt, (attempt) =>
+        Ref.update(seen, (all) => [...all, attempt]),
+      );
+
+      yield* execute(record.pipe(Effect.as("ok")), { replaySafety: { kind: "mutation" } });
+
+      expect(yield* Ref.get(seen)).toEqual([{ n: 1, of: 1 }]);
     }),
   );
 

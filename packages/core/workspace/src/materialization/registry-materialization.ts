@@ -88,14 +88,15 @@ export const materializeRegistryPackageWithTreeIntegrity = <E = never>(
     });
     const client = yield* createRegistryClient(registryLocationForClient(args.sourceLocation));
     // Continuous download progress reaches the lifecycle broadcast throttled:
-    // tens of events per archive, attributed to the unit that is running.
+    // tens of events per archive, attributed to the unit that is running and
+    // to the attempt the request policy is on.
     const reportProgress = yield* makeThrottledUnitProgress({ unit: "bytes" });
     const { archive } = yield* client.getExtensionPackage({
       owner: args.owner,
       type: args.type,
       name: args.name,
       version: Option.some(args.version),
-      onProgress: (progress) => reportProgress(progress.done, progress.total),
+      onProgress: (progress) => reportProgress(progress.done, progress.total, progress.attempt),
     });
 
     if (Option.isSome(args.integrity)) {

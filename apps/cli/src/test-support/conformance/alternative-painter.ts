@@ -13,7 +13,7 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 import type {
   Doc,
   DocNode,
-  RowNode,
+  Mark,
   Span,
   TableColumn,
   Text,
@@ -174,37 +174,6 @@ const paintTable = (
   ];
 };
 
-const paintRows = (
-  rows: ReadonlyArray<RowNode>,
-  style: Style,
-  indent: number,
-): ReadonlyArray<string> => {
-  const count = Math.max(0, ...rows.map((row) => row.cells.length));
-  const layout = layoutTable({
-    columns: Array.from({ length: count }, (_, index) =>
-      column(
-        "",
-        rows.map((row) => row.cells[index] ?? ""),
-      ),
-    ),
-    available: room(style.width, indent + 2),
-    gap: GAP,
-  });
-  return rows.flatMap((row) => {
-    const gutter = `${style.glyphs.change[row.change]} `;
-    const lines =
-      layout._tag === "grid"
-        ? gridRow(layout, row.cells, style, indent, gutter)
-        : row.cells.flatMap((cell, index) =>
-            block(cell, style, indent, index === 0 ? gutter : "  "),
-          );
-    return [
-      ...lines,
-      ...(row.children === undefined ? [] : paintNodes(row.children, style, indent + 4)),
-    ];
-  });
-};
-
 const paintTree = (
   items: ReadonlyArray<TreeItem>,
   style: Style,
@@ -234,8 +203,19 @@ const paintTree = (
 
 const target = (action: SuggestedAction): string => action.cmd ?? action.url ?? "";
 
+const promptKey = (key: string, style: Style): string =>
+  key === "arrows" ? style.glyphs.arrows.key : key;
+
 const statusGlyph = (tone: Tone, glyphs: Glyphs): string =>
   tone === "neutral" || tone === "dim" ? " " : glyphs.status[tone];
+
+const markGlyph = (mark: Mark, glyphs: Glyphs): string => {
+  if (mark === "working") return glyphs.spinner[0] ?? "";
+  if (mark === "waiting") return glyphs.marks.waiting;
+  return mark === "ok" || mark === "warn" || mark === "error" || mark === "info"
+    ? statusGlyph(mark, glyphs)
+    : glyphs.change[mark];
+};
 
 const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<string> => {
   switch (node._tag) {
@@ -247,7 +227,19 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
         `${statusGlyph(node.tone, style.glyphs)} `,
         node.tone,
       );
-      const aside = node.aside === undefined ? [] : block(node.aside, style, indent + 2, "", "dim");
+      const aside =
+        node.aside === undefined
+          ? []
+          : block(
+              node.aside.flatMap((part, index) => [
+                ...(index === 0 ? [] : [{ text: style.glyphs.separator }]),
+                ...(typeof part.text === "string" ? [{ text: part.text }] : part.text),
+              ]),
+              style,
+              indent + 2,
+              "",
+              "dim",
+            );
       return [
         ...lines,
         ...aside,
@@ -256,16 +248,120 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
     }
     case "paragraph":
       return block(node.text, style, indent, "", node.tone);
-    case "row":
-      return paintRows([node], style, indent);
-    case "rows":
-      return paintRows(node.rows, style, indent);
-    case "collapsed":
+    case "ledger": {
+      const layout = layoutTable({
+        columns: node.columns.map((spec, index) =>
+          column(
+            spec.header,
+            node.rows.map((row) => row.cells[index] ?? ""),
+            {
+              header: spec.header,
+              ...(spec.priority === undefined ? {} : { priority: spec.priority }),
+            },
+          ),
+        ),
+        available: room(style.width, indent + 2),
+        gap: GAP,
+      });
+      const headers = node.columns.map((spec) => spec.header);
+      return [
+        ...(layout._tag === "grid" ? gridRow(layout, headers, style, indent, "  ", "dim") : []),
+        ...node.rows.flatMap((row) => {
+          const prefix = `${markGlyph(row.mark, style.glyphs)} `;
+          return [
+            ...(layout._tag === "grid"
+              ? gridRow(layout, row.cells, style, indent, prefix)
+              : row.cells.flatMap((cell, index) =>
+                  // A stacked row has nothing to align, so an empty cell takes no line.
+                  index > 0 && visibleText(cell).length === 0
+                    ? []
+                    : block(cell, style, indent, index === 0 ? prefix : "  "),
+                )),
+            ...(row.children === undefined ? [] : paintNodes(row.children, style, indent + 4)),
+          ];
+        }),
+        ...(node.folds ?? []).flatMap((fold) =>
+          block(
+            `${String(fold.count)} ${fold.noun}${fold.hint === undefined ? "" : ` (${visibleText(fold.hint)})`}`,
+            style,
+            indent,
+            `${markGlyph(fold.mark, style.glyphs)} `,
+          ),
+        ),
+      ];
+    }
+    case "prompt":
+      // A second shape for the same question: the chips and the typed entry
+      // as plain text after it, and each option on its own line beneath.
+      return [
+        ...block(
+          [
+            ...(typeof node.question === "string" ? [{ text: node.question }] : node.question),
+            {
+              text: ` [${node.chips.map((chip) => `${chip.key}=${chip.word}`).join(" ")}]`,
+            },
+            ...(node.entry === undefined ? [] : [{ text: ` = ${visibleText(node.entry)}` }]),
+            ...(node.filter === undefined || node.filter.length === 0
+              ? []
+              : [{ text: ` = ${node.filter}` }]),
+          ],
+          style,
+          indent,
+          `${style.glyphs.marks.prompt} `,
+        ),
+        ...(node.note === undefined ? [] : block(node.note, style, indent + 2, "", "dim")),
+        ...(node.options ?? []).flatMap((option) =>
+          block(
+            [
+              ...(typeof option.title === "string" ? [{ text: option.title }] : option.title),
+              ...(option.details ?? []).map((detail) => ({ text: ` (${visibleText(detail)})` })),
+            ],
+            style,
+            indent + 2,
+            option.current === true ? `${style.glyphs.marks.caret} ` : "  ",
+          ),
+        ),
+        ...(node.more === undefined || node.more <= 0
+          ? []
+          : block(`${String(node.more)} more`, style, indent + 2, "", "dim")),
+        ...(node.hint === undefined
+          ? []
+          : block(
+              [
+                ...node.hint.status.flatMap((status, index) => [
+                  ...(index === 0 ? [] : [{ text: ` ${style.glyphs.separator} ` }]),
+                  { text: status },
+                ]),
+                ...node.hint.keys.flatMap((key) => [
+                  { text: ` ${style.glyphs.separator} ` },
+                  { text: `${promptKey(key.key, style)} ${key.word}` },
+                ]),
+              ],
+              style,
+              indent,
+              "",
+              "dim",
+            )),
+      ];
+    case "wait":
+      // A second shape for the same wait: the keys as plain text after it.
       return block(
-        `${String(node.count)} ${node.noun}${node.hint === undefined ? "" : ` (${node.hint})`}`,
+        [
+          ...(typeof node.status === "string" ? [{ text: node.status }] : node.status),
+          ...(node.clock === undefined ? [] : [{ text: ` (${visibleText(node.clock)})` }]),
+          ...(node.detail === undefined ? [] : [{ text: `, ${visibleText(node.detail)}` }]),
+          { text: ` [${node.chips.map((chip) => `${chip.key}=${chip.word}`).join(" ")}]` },
+        ],
         style,
         indent,
-        `${style.glyphs.change[node.change]} `,
+        `${style.glyphs.spinner[0] ?? ""} `,
+      );
+    case "answer":
+      return block(
+        node.value,
+        style,
+        indent,
+        paintSpans([{ text: `${visibleText(node.label)}: ` }], style, "dim"),
       );
     case "callout": {
       const bar = `${style.box.bar} `;
@@ -277,17 +373,25 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
         node.tone,
         `${bar}  `,
       );
+      const aside =
+        node.aside === undefined ? [] : block(node.aside, style, indent, `${bar}  `, "dim");
       const inner = { ...style, width: room(style.width, indent + displayWidth(bar) + 2) };
       const children = node.children === undefined ? [] : paintNodes(node.children, inner, 0);
       return [
         ...title,
+        ...aside,
         ...children.map((line) => `${spaces(indent)}${bar}  ${line}`.replace(/\s+$/u, "")),
       ];
     }
     case "table":
       return [
         ...(node.caption === undefined ? [] : block(node.caption, style, indent, "", "dim")),
-        ...paintTable(node.columns, node.rows, style, indent),
+        ...paintTable(
+          node.columns,
+          node.rows.map((row) => row.cells),
+          style,
+          indent,
+        ),
       ];
     case "fields":
       return node.fields.flatMap((field) =>
@@ -312,20 +416,13 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
       ];
     case "summary":
       return block(
-        node.parts
-          .flatMap((part, index) => [
-            ...(index === 0 ? [] : [{ text: style.glyphs.separator }]),
-            ...(typeof part.text === "string" ? [{ text: part.text }] : part.text),
-          ])
-          .concat(
-            node.elapsedMs === undefined
-              ? []
-              : [{ text: ` in ${(node.elapsedMs / 1000).toFixed(1)}s` }],
-          ),
+        node.parts.flatMap((part, index) => [
+          ...(index === 0 ? [] : [{ text: style.glyphs.separator }]),
+          ...(typeof part.text === "string" ? [{ text: part.text }] : part.text),
+        ]),
         style,
         indent,
         "",
-        node.tone,
       );
     case "section":
       return [

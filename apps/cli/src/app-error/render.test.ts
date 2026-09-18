@@ -2,6 +2,13 @@ import { describe, expect, it } from "vitest";
 import { AppError } from "./app-error.js";
 import { renderAppError, renderDefect } from "./view.js";
 
+/**
+ * A problem's title line: the mark, the title, and its aside at the value
+ * column, or a column gap after a title that reaches it.
+ */
+const titleLine = (title: string, aside: string): string =>
+  ` \u2716   ${title.padEnd(Math.max(30, title.length + 3))}${aside}`;
+
 describe("renderAppError", () => {
   it("renders caller-supplied suggestions as a Next block", () => {
     const error = new AppError({
@@ -16,9 +23,10 @@ describe("renderAppError", () => {
 
     expect(result).toBe(
       [
-        "\u2716 Workspace state not initialized (internal)",
-        "  Next",
-        "    Create a workspace to continue.",
+        titleLine("Internal Error", "internal, exit 10"),
+        "     Workspace state not initialized",
+        "Next",
+        "     Create a workspace to continue.",
       ].join("\n"),
     );
   });
@@ -39,10 +47,11 @@ describe("renderAppError", () => {
 
     expect(result).toBe(
       [
-        "\u2716 Remote registry is unreachable (network)",
-        "  Next",
-        "    Sign in again. · axm login",
-        "    See the docs. · https://axm.sh/docs",
+        titleLine("Network Error", "network, exit 8"),
+        "     Remote registry is unreachable",
+        "Next",
+        "     axm login   Sign in again.",
+        "     https://axm.sh/docs",
       ].join("\n"),
     );
   });
@@ -59,9 +68,10 @@ describe("renderAppError", () => {
 
     expect(result).toBe(
       [
-        "\u2716 Installation failed (internal)",
-        "  Next",
-        "    This looks like a bug. Please report it, including the request ID if one is shown. · https://github.com/agentxm/axm/issues",
+        titleLine("Internal Error", "internal, exit 10"),
+        "     Installation failed",
+        "Next",
+        "     https://github.com/agentxm/axm/issues",
       ].join("\n"),
     );
   });
@@ -76,7 +86,9 @@ describe("renderAppError", () => {
 
     const result = renderAppError(error);
 
-    expect(result).toBe("\u2716 Resource missing (not_found)");
+    expect(result).toBe(
+      [titleLine("Not Found", "not_found, exit 3"), "     Resource missing"].join("\n"),
+    );
   });
 
   it("formats error with no optional fields", () => {
@@ -89,7 +101,9 @@ describe("renderAppError", () => {
 
     const result = renderAppError(error);
 
-    expect(result).toBe("\u2716 Something went wrong (not_found)");
+    expect(result).toBe(
+      [titleLine("Not Found", "not_found, exit 3"), "     Something went wrong"].join("\n"),
+    );
   });
 
   it("renders registry origin in normal mode", () => {
@@ -115,8 +129,7 @@ describe("renderAppError", () => {
 
     const result = renderAppError(error);
 
-    expect(result).toContain("Registry:");
-    expect(result).toContain("http://localhost:4300");
+    expect(result).toContain("     Registry                      http://localhost:4300");
     expect(result).not.toContain("/v1/extensions");
   });
 
@@ -143,12 +156,11 @@ describe("renderAppError", () => {
 
     const result = renderAppError(error, { verbose: true, debug: false });
 
-    expect(result).toContain("Registry:");
-    expect(result).toContain("http://localhost:4300");
-    expect(result).toContain("Request:");
-    expect(result).toContain("PUT http://localhost:4300/v1/extensions/@examples/packs/demo/0.1.0");
-    expect(result).toContain("Request ID:");
-    expect(result).toContain("req_123");
+    expect(result).toContain("     Registry                      http://localhost:4300");
+    expect(result).toContain(
+      "     Request                       PUT http://localhost:4300/v1/extensions/@examples/packs/demo/0.1.0",
+    );
+    expect(result).toContain("     Request ID                    req_123");
   });
 
   it("formats error with multiple detail lines", () => {
@@ -164,10 +176,54 @@ describe("renderAppError", () => {
 
     expect(result).toBe(
       [
-        "\u2716 Could not resolve source (validation)",
-        "  Next",
-        "    Try a local path or GitHub shorthand.",
+        titleLine("Invalid Request", "validation, exit 9"),
+        "     Could not resolve source",
+        "Next",
+        "     Try a local path or GitHub shorthand.",
       ].join("\n"),
+    );
+  });
+
+  it("lists a validation failure's inputs as fields in place of its sentence", () => {
+    const error = new AppError({
+      code: "validation",
+      title: "Invalid skill name",
+      detail: 'Invalid skill name: "Code Review!"',
+      inputs: [{ label: "Name", value: '"Code Review!"' }],
+      suggestions: [{ description: "Choose a name matching /^[a-z0-9-]+$/ (max 64 chars)" }],
+      cause: undefined,
+    });
+
+    expect(renderAppError(error)).toBe(
+      [
+        titleLine("Invalid skill name", "validation, exit 9"),
+        '     Name                          "Code Review!"',
+        "Next",
+        "     Choose a name matching /^[a-z0-9-]+$/ (max 64 chars)",
+      ].join("\n"),
+    );
+  });
+
+  it("counts the attempts a retry policy spent beside the reason", () => {
+    const error = new AppError({
+      code: "network",
+      title: "Registry unreachable",
+      detail: "registry.agentxm.ai did not answer within 10s",
+      metadata: {
+        requestPolicy: {
+          retryable: true,
+          attemptCount: 3,
+          maxAttempts: 3,
+          exhausted: true,
+          stoppedBy: "attempt-limit",
+          replaySafety: "safe",
+        },
+      },
+      cause: undefined,
+    });
+
+    expect(renderAppError(error)).toContain(
+      "     registry.agentxm.ai did not answer within 10s (3 attempts)",
     );
   });
 
@@ -183,11 +239,11 @@ describe("renderAppError", () => {
 
     expect(result).toBe(
       [
-        "\u2716 Installation failed (internal)",
-        "  Title:  Internal Error",
-        "  Cause: Error: permission denied",
-        "  Next",
-        "    This looks like a bug. Please report it, including the request ID if one is shown. · https://github.com/agentxm/axm/issues",
+        titleLine("Internal Error", "internal, exit 10"),
+        "     Installation failed",
+        "     Cause: Error: permission denied",
+        "Next",
+        "     https://github.com/agentxm/axm/issues",
       ].join("\n"),
     );
   });
@@ -202,7 +258,7 @@ describe("renderAppError", () => {
 
     const result = renderAppError(error);
 
-    expect(result).toContain("Run with `--debug` to see error details.");
+    expect(result).toContain("     --debug shows the cause.");
     expect(result).not.toContain("Cause:");
   });
 
@@ -248,28 +304,27 @@ describe("renderDefect", () => {
   it("formats Error instance with message", () => {
     const result = renderDefect(new Error("something broke"));
 
-    expect(result).toContain("\u2716 An unexpected error occurred");
-    expect(result).toContain("This is a bug");
-    expect(result).toContain("something broke");
+    expect(result).toContain(titleLine("An unexpected error occurred", "internal, exit 10"));
+    expect(result).toContain("     something broke");
+    expect(result).toContain("https://github.com/agentxm/axm/issues");
   });
 
   it("formats string error", () => {
     const result = renderDefect("raw string error");
 
-    expect(result).toContain("\u2716 An unexpected error occurred");
+    expect(result).toContain(" \u2716   An unexpected error occurred");
     expect(result).toContain("raw string error");
   });
 
   it("formats unknown error type", () => {
     const result = renderDefect(42);
 
-    expect(result).toContain("\u2716 An unexpected error occurred");
-    expect(result).toContain("This is a bug");
     // Should not include the number as a detail line
     expect(result).toBe(
       [
-        "\u2716 An unexpected error occurred",
-        "  This is a bug. Please report it at https://github.com/agentxm/axm/issues",
+        titleLine("An unexpected error occurred", "internal, exit 10"),
+        "Next",
+        "     https://github.com/agentxm/axm/issues",
       ].join("\n"),
     );
   });

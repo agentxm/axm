@@ -1,0 +1,14 @@
+Setting up AXM in ~/code/storefront  project scope
+ ✔   Scanned repo and machine      found 4 agents
+ ?   Which agents should AXM configure?  type to filter
+ ❯ ◉ Claude Code                   detected in project · suggested
+   ◉ Codex                         detected in project · suggested
+   ◉ Cursor                        detected on workstation
+   ◯ Gemini CLI                    detected on workstation
+   ◯ Cline
+   ◯ Windsurf
+   ◯ GitHub Copilot
+   ◯ Amp
+   ◯ OpenCode
+     ↓ 3 more
+3 selected · ↑↓ move · space toggle · ^a all · enter confirm

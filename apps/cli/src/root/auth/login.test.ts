@@ -360,7 +360,7 @@ describe("auth login handler", () => {
         const instructions = rendererState.logs
           .filter((log) => log._tag === "info")
           .map((log) => log.message);
-        expect(instructions).toContain("Sign in to AgentXM.ai with a one-time code");
+        expect(instructions).toContain("Sign in to AgentXM.ai with a one-time code.");
         expect(instructions).toContain(
           "This environment appears to be remote or headless; using device-code sign-in.",
         );

@@ -4,8 +4,8 @@
  * The lint run itself — input admission, fact gathering, evaluation, and the
  * machine document — belongs to `@agentxm/workspace/linting`. What is left here
  * is the adapter's own work: wrap the feature's document in the machine
- * envelope, render the human report at the requested verbosity, and translate
- * the severity verdict into a process exit code.
+ * envelope, render the human findings ledger on stdout at the requested
+ * verbosity, and translate the severity verdict into a process exit code.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -16,10 +16,10 @@ import * as Schema from "effect/Schema";
 import {
   LintJsonDocumentSchema,
   LintWorkspace,
-  toLintHumanBlocks,
+  toLintHumanFindings,
   type LintSelection,
   type LintJsonDocument,
-  type LintSummary,
+  type LintWorkspaceResult,
 } from "@agentxm/workspace/linting";
 
 import { ExitCode } from "../../app-error/index.js";
@@ -27,7 +27,7 @@ import { Screen } from "../../screen/index.js";
 import { Verbosity } from "../../cli-flags/index.js";
 import { effectCliExit } from "../../cli-runtime/index.js";
 import { lintFailureToAppError } from "../../feature-errors.js";
-import { lintView } from "./view.js";
+import { lintDoc } from "./view.js";
 
 const LintJsonDocumentFields = {
   result: LintJsonDocumentSchema,
@@ -38,7 +38,6 @@ export type LintResultDocument = typeof LintResultDocumentSchema.Type;
 export interface HandleLintArgs {
   readonly selection: LintSelection;
   readonly strict: boolean;
-  readonly details: boolean;
 }
 
 const emitJsonDocument = (doc: LintJsonDocument, ok: boolean) =>
@@ -47,18 +46,27 @@ const emitJsonDocument = (doc: LintJsonDocument, ok: boolean) =>
     return yield* screen.document({ result: doc }, LintResultDocumentSchema, { ok });
   });
 
-const emitHumanOutput = (args: { readonly summary: LintSummary; readonly details: boolean }) =>
+/** Findings are lint's primary result, so the ledger goes to stdout whole. */
+const emitHumanOutput = (args: {
+  readonly result: LintWorkspaceResult;
+  readonly selection: LintSelection;
+  readonly exitCode: number;
+}) =>
   Effect.gen(function* () {
     const screen = yield* Screen;
     const verbosity = yield* Verbosity;
-    const blocks = toLintHumanBlocks({
-      summary: args.summary,
-      reporter: args.details ? "full" : "grouped",
-    });
-    yield* Effect.forEach(
-      lintView(blocks, verbosity.level),
-      (entry) => (entry.channel === "result" ? screen.result(entry.doc) : screen.note(entry.doc)),
-      { discard: true },
+    const { summary, repaired } = args.result;
+    yield* screen.result(
+      lintDoc({
+        findings: toLintHumanFindings(summary.findings),
+        repaired: toLintHumanFindings(repaired),
+        counts: summary.counts,
+        driftBanner: summary.driftBanner,
+        fix: args.selection.fix,
+        scope: args.selection.scope,
+        exitCode: args.exitCode,
+        verbosity: verbosity.level,
+      }),
     );
   });
 
@@ -72,7 +80,11 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   const ok = result.outcome !== "fail";
   const handledByMachine = yield* emitJsonDocument(result.document, ok);
   if (!handledByMachine) {
-    yield* emitHumanOutput({ summary: result.summary, details: args.details });
+    yield* emitHumanOutput({
+      result,
+      selection: args.selection,
+      exitCode: ok ? 0 : ExitCode.Issues,
+    });
   }
 
   if (!ok) {

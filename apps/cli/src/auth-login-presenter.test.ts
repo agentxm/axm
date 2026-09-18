@@ -12,6 +12,7 @@ import * as Layer from "effect/Layer";
 import {
   AuthLoginPresenter,
   type DeviceLoginPendingResult,
+  type HumanHandoff,
 } from "@agentxm/registry-access/authentication";
 import {
   TestMachineRenderer,
@@ -60,6 +61,39 @@ const pendingSuggestions = [
   { description: "Resume after approval", cmd: "axm login --wait --json" },
 ];
 
+const deviceHandoff = {
+  _tag: "DeviceLogin",
+  registryHost: "registry.agentxm.ai",
+  verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+  verificationUri: "https://auth.agentxm.ai/device",
+  userCode: "ABCD-1234",
+  expiresAtMs: Date.parse("2099-01-01T00:00:00.000Z"),
+  browserOpened: true,
+  copiedToClipboard: true,
+} as const satisfies HumanHandoff;
+
+const loopbackHandoff = {
+  _tag: "LoopbackLogin",
+  registryHost: "registry.agentxm.ai",
+  authorizeUrl: "https://agentxm.ai/oauth/authorize?state=s1",
+  redirectUri: "http://127.0.0.1:3999/callback",
+  expiresAtMs: Date.parse("2099-01-01T00:00:00.000Z"),
+  browserOpened: true,
+} as const satisfies HumanHandoff;
+
+const stepUpHandoff = {
+  _tag: "StepUp",
+  action: "yank",
+  target: "@acme/skills/review",
+  verificationUrl: "https://agentxm.ai/step-up/step_abc",
+  expiresAtMs: Date.parse("2099-01-01T00:00:00.000Z"),
+} as const satisfies HumanHandoff;
+
+const noInteraction = {
+  openBrowser: () => Effect.succeed(false),
+  copyToClipboard: () => Effect.succeed(false),
+};
+
 const loginSuccessSuggestions = [
   { description: "Check active account", cmd: "axm whoami" },
   { description: "Create an API token", cmd: "axm token create --name <name>" },
@@ -84,29 +118,26 @@ const makeMachine = () => {
 };
 
 describe("AuthLoginPresenterLive", () => {
-  it.effect("presents the device flow with the sign-in wording and URL suggestions", () => {
+  it.effect("parks on the device handoff with its code, both links, and its warnings", () => {
     const { layer, state, logs } = makeHuman();
 
     return Effect.gen(function* () {
       const presenter = yield* AuthLoginPresenter;
-      yield* presenter.presentDeviceFlow({
-        verificationUri: "https://auth.agentxm.ai/device",
-        verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
-        userCode: "ABCD-1234",
-        expiresInSeconds: 600,
-        browserOpened: true,
-        copiedToClipboard: true,
-      });
+      const settled = yield* presenter.awaitHuman(
+        deviceHandoff,
+        Effect.succeed("approved"),
+        noInteraction,
+      );
 
+      expect(settled).toBe("approved");
       expect(logs.info).toEqual([
-        "Opening your browser to complete device authorization.",
-        "Sign in to AgentXM.ai with a one-time code",
-        "The one-time code was copied to your clipboard.",
-        "One-time code:\n\n   ABCD-1234",
-        "This code expires in 10 minutes.",
+        "Sign in to AgentXM.ai with a one-time code.",
+        "One-time code: ABCD-1234",
+        "The code was copied to your clipboard.",
         "Only continue if you started this sign-in with AXM.",
         "Never enter a code that another person or website gave you. If that happened, cancel.",
       ]);
+      // Both pages travel as suggestions, so an agent reaches what a person does.
       expect(state.suggestions).toEqual([
         {
           description: "Open the AXM device authorization page",
@@ -120,27 +151,40 @@ describe("AuthLoginPresenterLive", () => {
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("omits browser and clipboard hints when those side effects did not happen", () => {
+  it.effect("omits the clipboard line when that side effect did not happen", () => {
     const { layer, logs } = makeHuman();
 
     return Effect.gen(function* () {
       const presenter = yield* AuthLoginPresenter;
-      yield* presenter.presentDeviceFlow({
-        verificationUri: "https://auth.agentxm.ai/device",
-        verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
-        userCode: "ABCD-1234",
-        expiresInSeconds: 90,
-        browserOpened: false,
-        copiedToClipboard: false,
-      });
+      yield* presenter.awaitHuman(
+        { ...deviceHandoff, browserOpened: false, copiedToClipboard: false },
+        Effect.void,
+        noInteraction,
+      );
 
-      expect(logs.info).toEqual([
-        "Sign in to AgentXM.ai with a one-time code",
-        "One-time code:\n\n   ABCD-1234",
-        "This code expires in 90 seconds.",
-        "Only continue if you started this sign-in with AXM.",
-        "Never enter a code that another person or website gave you. If that happened, cancel.",
+      expect(logs.info).not.toContain("The code was copied to your clipboard.");
+      expect(logs.info).toContain("Only continue if you started this sign-in with AXM.");
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("parks the ledger row the handoff names, and releases it when the wait ends", () => {
+    const { layer, state } = makeHuman();
+
+    return Effect.gen(function* () {
+      const presenter = yield* AuthLoginPresenter;
+      yield* withLiveOperation(
+        { command: "auth.login", name: "Sign in", mode: "apply" },
+        presenter.awaitHuman(deviceHandoff, Effect.void, noInteraction),
+      );
+
+      const waiting = state.events.filter(
+        (event) => event._tag === "Waiting" || event._tag === "WaitEnded",
+      );
+      expect(waiting).toMatchObject([
+        { _tag: "Waiting", subject: "device-authorization" },
+        { _tag: "WaitEnded", subject: "device-authorization" },
       ]);
+      expect(startedUnits(state)).toEqual(["Device sign-in"]);
     }).pipe(Effect.provide(layer));
   });
 
@@ -170,15 +214,17 @@ describe("AuthLoginPresenterLive", () => {
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("notes pending approval with resume suggestions", () => {
+  it.effect("presents pending approval with resume suggestions", () => {
     const { layer, state, logs } = makeHuman();
 
     return Effect.gen(function* () {
       const presenter = yield* AuthLoginPresenter;
       yield* presenter.notePendingApproval(pendingResult);
 
-      expect(logs.success).toEqual(["Device sign-in is waiting for approval."]);
+      expect(logs.success).toEqual([]);
+      // The guidance offers the two pages; the outcome adds only the resume.
       expect(state.suggestions).toEqual(pendingSuggestions);
+      expect(logs.info).toContain("One-time code: ABCD-1234");
     }).pipe(Effect.provide(layer));
   });
 
@@ -242,15 +288,7 @@ describe("AuthLoginPresenterLive", () => {
             () => Effect.void,
           );
           yield* presenter.withProgress(
-            { _tag: "WaitingForDeviceAuthorization", registryHost },
-            () => Effect.void,
-          );
-          yield* presenter.withProgress(
             { _tag: "SavingCredentials", registryHost },
-            () => Effect.void,
-          );
-          yield* presenter.withProgress(
-            { _tag: "WaitingForLoopbackAuthorization", registryHost, timeoutMinutes: 5 },
             () => Effect.void,
           );
           yield* presenter.withProgress(
@@ -262,33 +300,79 @@ describe("AuthLoginPresenterLive", () => {
 
       expect(startedUnits(state)).toEqual([
         "device authorization on registry.agentxm.ai",
-        "authorization on registry.agentxm.ai",
         "credentials for registry.agentxm.ai",
-        "browser authorization on registry.agentxm.ai (expires in 5 minutes)",
         "sign-in to registry.agentxm.ai",
       ]);
       expect(state.events.at(-1)).toMatchObject({ _tag: "OperationSettled", outcome: "completed" });
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("announces the loopback flow and browser outcome", () => {
+  it.effect("parks on the loopback handoff, naming the browser that was opened", () => {
+    const { layer, state, logs } = makeHuman();
+
+    return Effect.gen(function* () {
+      const presenter = yield* AuthLoginPresenter;
+      yield* presenter.awaitHuman(loopbackHandoff, Effect.void, noInteraction);
+
+      expect(logs.info).toEqual([
+        "Authorize AXM in the browser that just opened.",
+        "Sign-in returns to http://127.0.0.1:3999/callback. On a remote or headless machine, run `axm login --device-code`.",
+      ]);
+      expect(state.suggestions).toEqual([
+        { description: "Authorize AXM", url: "https://agentxm.ai/oauth/authorize?state=s1" },
+      ]);
+    }).pipe(Effect.provide(layer));
+  });
+  it.effect("names a browser a person must open themselves", () => {
     const { layer, logs } = makeHuman();
 
     return Effect.gen(function* () {
       const presenter = yield* AuthLoginPresenter;
-      yield* presenter.presentLoopbackStart({
-        redirectUri: "http://127.0.0.1:3999/callback",
-        authorizeUrl: "https://agentxm.ai/oauth/authorize?state=s1",
-      });
-      yield* presenter.noteLoopbackBrowserOutcome(true);
-      yield* presenter.noteLoopbackBrowserOutcome(false);
+      yield* presenter.awaitHuman(
+        { ...loopbackHandoff, browserOpened: false },
+        Effect.void,
+        noInteraction,
+      );
+
+      expect(logs.info[0]).toBe("Authorize AXM in a browser.");
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("parks on the step-up handoff and says it retries by itself", () => {
+    const { layer, state, logs } = makeHuman();
+
+    return Effect.gen(function* () {
+      const presenter = yield* AuthLoginPresenter;
+      yield* presenter.awaitHuman(stepUpHandoff, Effect.void, noInteraction);
 
       expect(logs.info).toEqual([
-        "Starting local sign-in server on http://127.0.0.1:3999/callback.",
-        "If the browser does not open, visit:\n\nhttps://agentxm.ai/oauth/authorize?state=s1\n\nOn a remote or headless machine, run `axm login --device-code`.",
-        "Opening your browser to authorize AXM.",
-        "Could not open the system browser. Use the authorization URL above to continue.",
+        "Verify yank on @acme/skills/review to continue.",
+        "This command retries once, by itself, after verification.",
       ]);
+      expect(state.suggestions).toEqual([
+        { description: "Verify yank", url: "https://agentxm.ai/step-up/step_abc" },
+      ]);
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("parks publish authorization on the shared human wait", () => {
+    const { layer, state, logs } = makeHuman();
+
+    return Effect.gen(function* () {
+      const presenter = yield* AuthLoginPresenter;
+      yield* presenter.awaitHuman(
+        {
+          _tag: "PublishAuthorization",
+          candidateCount: 2,
+          authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_2",
+          expiresAtMs: Date.now() + 60_000,
+        },
+        Effect.void,
+        noInteraction,
+      );
+
+      expect(logs.info).toContain("Review 2 publish candidates in the browser.");
+      expect(state.suggestions).toEqual([]);
     }).pipe(Effect.provide(layer));
   });
 });

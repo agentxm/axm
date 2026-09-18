@@ -1,0 +1,12 @@
+Setting up AXM in ~/code/storefront
+  project scope
+ ✔   Scanned repo and machine
+                    found 4 agents
+ ✔   Agents         Claude Code, Codex,
+                    Cursor
+ ✔   Sync instructions
+       yes
+ ?   Instructions source
+ ❯   AGENTS.md
+     CLAUDE.md
+     Other…

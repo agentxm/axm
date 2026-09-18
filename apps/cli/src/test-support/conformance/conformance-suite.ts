@@ -23,11 +23,13 @@ const ESCAPE = "\u001b";
 
 const textOf = (value: Text): string => visibleText(value);
 
-/** Every text value a document carries, in document order. */
-export const collectTexts = (doc: Doc): ReadonlyArray<string> => {
-  const texts: Array<string> = [];
+/**
+ * Visit every text value a document carries, in document order, saying which
+ * of them a person copies out of the terminal.
+ */
+const forEachText = (doc: Doc, visit: (value: Text, copyable: boolean) => void): void => {
   const pushText = (value: Text | undefined): void => {
-    if (value !== undefined) texts.push(textOf(value));
+    if (value !== undefined) visit(value, false);
   };
   const walkTree = (items: ReadonlyArray<TreeItem>): void => {
     for (const item of items) {
@@ -40,30 +42,65 @@ export const collectTexts = (doc: Doc): ReadonlyArray<string> => {
     switch (node._tag) {
       case "headline":
         pushText(node.text);
-        pushText(node.aside);
+        node.aside?.forEach((part) => pushText(part.text));
         return;
       case "paragraph":
         pushText(node.text);
         return;
-      case "row":
-        node.cells.forEach(pushText);
-        node.children?.forEach(walk);
+      case "ledger":
+        node.columns.forEach((column) => pushText(column.header));
+        node.rows.forEach((row) => {
+          row.cells.forEach(pushText);
+          row.children?.forEach(walk);
+        });
+        node.folds?.forEach((fold) => {
+          visit(fold.noun, false);
+          pushText(fold.hint);
+        });
         return;
-      case "rows":
-        node.rows.forEach(walk);
+      case "prompt":
+        pushText(node.question);
+        if (node.note !== undefined) pushText(node.note);
+        node.chips.forEach((chip) => {
+          visit(chip.key, false);
+          visit(chip.word, false);
+        });
+        node.options?.forEach((option) => {
+          pushText(option.title);
+          option.details?.forEach(pushText);
+        });
+        pushText(node.entry);
+        pushText(node.filter);
+        node.hint?.status.forEach((status) => visit(status, false));
+        node.hint?.keys.forEach((key) => {
+          // `arrows` is a semantic token: each painter chooses its own visible
+          // arrow label rather than printing the token itself.
+          if (key.key !== "arrows") visit(key.key, false);
+          visit(key.word, false);
+        });
         return;
-      case "collapsed":
-        texts.push(node.noun);
-        if (node.hint !== undefined) texts.push(node.hint);
+      case "wait":
+        pushText(node.status);
+        pushText(node.clock);
+        pushText(node.detail);
+        node.chips.forEach((chip) => {
+          visit(chip.key, false);
+          visit(chip.word, false);
+        });
+        return;
+      case "answer":
+        pushText(node.label);
+        pushText(node.value);
         return;
       case "callout":
         pushText(node.title);
+        pushText(node.aside);
         node.children?.forEach(walk);
         return;
       case "table":
         pushText(node.caption);
         node.columns.forEach((column) => pushText(column.header));
-        node.rows.forEach((row) => row.forEach(pushText));
+        node.rows.forEach((row) => row.cells.forEach(pushText));
         return;
       case "fields":
         node.fields.forEach((field) => {
@@ -76,9 +113,12 @@ export const collectTexts = (doc: Doc): ReadonlyArray<string> => {
         return;
       case "next":
         node.actions.forEach((action) => {
-          texts.push(action.description);
-          if (action.cmd !== undefined) texts.push(action.cmd);
-          if (action.url !== undefined) texts.push(action.url);
+          // URL actions are intentionally only the URL; their prose label is
+          // metadata for richer interfaces, not terminal output.
+          if (action.url === undefined) visit(action.description, false);
+          // A next command or URL is copied and run: the painter marks it copyable.
+          if (action.cmd !== undefined) visit(action.cmd, true);
+          if (action.url !== undefined) visit(action.url, true);
         });
         return;
       case "summary":
@@ -90,14 +130,38 @@ export const collectTexts = (doc: Doc): ReadonlyArray<string> => {
         return;
       case "markdown":
       case "raw":
-        texts.push(node.content);
+        visit(node.content, false);
         return;
       case "blank":
         return;
     }
   };
   doc.forEach(walk);
+};
+
+/** Every text value a document carries, in document order. */
+export const collectTexts = (doc: Doc): ReadonlyArray<string> => {
+  const texts: Array<string> = [];
+  forEachText(doc, (value) => texts.push(textOf(value)));
   return texts;
+};
+
+/**
+ * The values a document promises to show whole: URLs, commands, one-time codes
+ * and request identifiers. A value cut to fit cannot be copied and used, so
+ * these are the only content a painter may overflow the width with.
+ */
+export const copyableValues = (doc: Doc): ReadonlyArray<string> => {
+  const values: Array<string> = [];
+  forEachText(doc, (value, copyable) => {
+    if (copyable) {
+      values.push(textOf(value));
+      return;
+    }
+    if (typeof value === "string") return;
+    for (const span of value) if (span.copyable === true) values.push(span.text);
+  });
+  return values;
 };
 
 /** Lines a painter passes through verbatim: the content of `raw` and `markdown` nodes. */
@@ -106,10 +170,10 @@ const verbatimLines = (doc: Doc): ReadonlySet<string> => {
   const walk = (node: DocNode): void => {
     if (node._tag === "markdown" || node._tag === "raw") {
       for (const line of node.content.split("\n")) lines.add(line.trim());
-    } else if (node._tag === "row" || node._tag === "callout") {
+    } else if (node._tag === "callout") {
       node.children?.forEach(walk);
-    } else if (node._tag === "rows") {
-      node.rows.forEach(walk);
+    } else if (node._tag === "ledger") {
+      for (const row of node.rows) row.children?.forEach(walk);
     } else if (node._tag === "section") {
       node.children.forEach(walk);
     }
@@ -120,7 +184,8 @@ const verbatimLines = (doc: Doc): ReadonlySet<string> => {
 
 /**
  * Width property: no painted line exceeds the width, except a line carried
- * verbatim from `raw` or `markdown` content.
+ * verbatim from `raw` or `markdown` content, or one carrying a copyable value,
+ * which is shown whole and overflows rather than be cut.
  */
 export const widthViolations = (
   painter: Painter,
@@ -128,9 +193,15 @@ export const widthViolations = (
   width: number,
 ): ReadonlyArray<string> => {
   const verbatim = verbatimLines(doc);
+  const copyable = copyableValues(doc);
   return painter
     .paint(doc, { width, colors: false })
-    .filter((line) => displayWidth(line) > width && !verbatim.has(line.trim()));
+    .filter(
+      (line) =>
+        displayWidth(line) > width &&
+        !verbatim.has(line.trim()) &&
+        !copyable.some((value) => line.includes(value)),
+    );
 };
 
 /** Trailing whitespace is padding to a phantom width; no painted line carries it. */
@@ -190,9 +261,12 @@ const nonAscii = (value: string): ReadonlySet<string> =>
  */
 export const asciiViolations = (painter: Painter, doc: Doc): ReadonlyArray<string> => {
   const allowed = nonAscii(collectTexts(doc).join(""));
-  return painter
-    .paint(doc, { width: 80, colors: false, glyphs: asciiGlyphs })
-    .filter((line) => [...nonAscii(line)].some((character) => !allowed.has(character)));
+  return [40, 80].flatMap((width) =>
+    painter
+      .paint(doc, { width, colors: false, glyphs: asciiGlyphs })
+      .filter((line) => [...nonAscii(line)].some((character) => !allowed.has(character)))
+      .map((line) => `${String(width)}: ${line}`),
+  );
 };
 
 /** Painting the same document twice yields identical lines. */
@@ -212,9 +286,10 @@ export const determinismViolations = (
 export const nodeKinds: ReadonlyArray<DocNode["_tag"]> = [
   "headline",
   "paragraph",
-  "row",
-  "rows",
-  "collapsed",
+  "ledger",
+  "prompt",
+  "wait",
+  "answer",
   "callout",
   "table",
   "fields",
@@ -232,8 +307,8 @@ export const nodeKindsOf = (doc: Doc): ReadonlySet<DocNode["_tag"]> => {
   const kinds = new Set<DocNode["_tag"]>();
   const walk = (node: DocNode): void => {
     kinds.add(node._tag);
-    if (node._tag === "row" || node._tag === "callout") node.children?.forEach(walk);
-    if (node._tag === "rows") node.rows.forEach(walk);
+    if (node._tag === "callout") node.children?.forEach(walk);
+    if (node._tag === "ledger") for (const row of node.rows) row.children?.forEach(walk);
     if (node._tag === "section") node.children.forEach(walk);
   };
   doc.forEach(walk);

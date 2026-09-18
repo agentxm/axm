@@ -191,6 +191,9 @@
       "executor": "@nx/js:release-publish"
     },
     "gallery": {
+      "metadata": {
+        "description": "Paint terminal design gallery fixtures for review: --name <fixture>, --width <columns>, --rows <rows> (the height a live scene fits), --ascii, --plain."
+      },
       "cache": false,
       "executor": "nx:run-commands",
       "options": {

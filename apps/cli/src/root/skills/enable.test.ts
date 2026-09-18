@@ -269,19 +269,19 @@ describe("enable.handler", () => {
           yield* handleEnable(defaultArgs("my-skill"));
 
           // Apply mode renders no planned block; the refusal is the terminal
-          // failed-outcome block.
+          // failed-outcome block, whose verdict follows its ledger.
           expect(logs.success).toEqual([]);
-          expect(logs.error[0]).toBe("Failed to enable 1 skill");
+          expect(logs.error).toContain("Failed to enable 1 skill");
           expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual(
             expect.objectContaining({
-              _tag: "rows",
+              _tag: "ledger",
               rows: expect.arrayContaining([
                 expect.objectContaining({
-                  _tag: "row",
-                  change: "failed",
+                  id: "my-skill",
+                  mark: "failed",
                   cells: expect.arrayContaining([
                     "my-skill",
-                    'Accepted skill content for "my-skill" is not usable (not_found)',
+                    'Accepted skill content for "my-skill" is not usable (not_found), effects were restored',
                   ]),
                 }),
               ]),

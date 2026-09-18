@@ -100,7 +100,6 @@ describe("Machine lint output", () => {
             fix: false,
           },
           strict: false,
-          details: false,
         }),
       );
 

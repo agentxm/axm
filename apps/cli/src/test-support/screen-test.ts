@@ -6,8 +6,12 @@ import type * as Schema from "effect/Schema";
 import { subscribeLossless, type OperationEvent } from "@agentxm/workspace/transitions/planning";
 
 import type { Doc } from "../screen/doc.js";
+import type { LivePlan } from "../screen/live-ledger.js";
 import { paintText, type PaintStyle } from "../screen/paint-text.js";
 import { Screen, type ResultOptions, type ScreenLogRecord } from "../screen/screen.js";
+import { parkedOnWait } from "../screen/wait/run.js";
+import type { WaitView } from "../screen/wait/wait.js";
+import { emptyAskScript, scriptedAsk, type AskScript } from "./scripted-ask.js";
 
 export interface TestScreenState {
   readonly results: Array<{
@@ -23,7 +27,11 @@ export interface TestScreenState {
   }>;
   /** Every lifecycle event observed, in order, across observed operations. */
   readonly events: Array<OperationEvent>;
+  /** Every plan handed to the live ledger, in order. */
+  readonly plans: Array<LivePlan>;
   readonly logs: Array<ScreenLogRecord>;
+  /** Questions this screen was given, and the keys it answers the next ones with. */
+  readonly script: AskScript;
 }
 
 const emptyState = (): TestScreenState => ({
@@ -31,7 +39,9 @@ const emptyState = (): TestScreenState => ({
   suggestions: [],
   docs: [],
   events: [],
+  plans: [],
   logs: [],
+  script: emptyAskScript(),
 });
 
 export const makeTestScreen = (
@@ -69,8 +79,25 @@ export const makeTestScreen = (
       }),
     observe: (lifecycle) =>
       subscribeLossless(lifecycle, (event) => Effect.sync(() => void state.events.push(event))),
+    showPlan: (plan) =>
+      Effect.sync(() => {
+        state.plans.push(plan);
+        return true;
+      }),
     log: (record) => Effect.sync(() => void state.logs.push(record)),
-    prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect,
+    ask: scriptedAsk(state.script, (doc) =>
+      state.docs.push({ channel: "stderr", doc, persistent: false }),
+    ),
+    // A test screen cannot be stopped, so a wait is its brief and the effect
+    // it was parked on, in the order a terminal would have shown them.
+    wait: <A, E, R>(view: WaitView, awaited: Effect.Effect<A, E, R>) =>
+      parkedOnWait(
+        view,
+        Effect.suspend((): Effect.Effect<A, E, R> => {
+          state.docs.push({ channel: "stderr", doc: view.brief, persistent: true });
+          return awaited;
+        }),
+      ),
     facts: Effect.succeed({ columns: 80, colors: false, animate: false }),
     settle: Effect.void,
   });

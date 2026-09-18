@@ -111,13 +111,17 @@ describe("discover handler", () => {
     return program.pipe(
       Effect.tap(() =>
         Effect.sync(() => {
-          expect(rendererState.logs).toEqual([]);
+          expect(rendererState.docs).toHaveLength(1);
           expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual(
             expect.objectContaining({
               _tag: "table",
               rows: expect.arrayContaining([
-                expect.arrayContaining(["react@18.2.0", "@acme/skills/react-testing", "yes"]),
-                expect.arrayContaining(["vitest@3.2.1", "@acme/skills/effect-testing", "no"]),
+                expect.objectContaining({
+                  cells: expect.arrayContaining(["@acme/skills/react-testing", "react@18.2.0"]),
+                }),
+                expect.objectContaining({
+                  cells: expect.arrayContaining(["@acme/skills/effect-testing", "vitest@3.2.1"]),
+                }),
               ]),
             }),
           );
@@ -141,7 +145,7 @@ describe("discover handler", () => {
           expect(rendererState.logs).toEqual([]);
           expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual({
             _tag: "paragraph",
-            text: "No companion extensions found.",
+            text: "No dependencies detected in this project.",
           });
         }),
       ),
@@ -160,9 +164,14 @@ describe("discover handler", () => {
         Effect.sync(() => {
           expect(rendererState.tables).toEqual([]);
           expect(rendererState.logs).toEqual([]);
-          expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual({
+          const doc = rendererState.docs.flatMap((entry) => entry.doc);
+          expect(doc).toContainEqual({
             _tag: "paragraph",
-            text: "Registry unavailable. Showing local recommendations only. No companion extensions found.",
+            text: "No companion extensions for the 1 package this project depends on.",
+          });
+          expect(doc).toContainEqual({
+            _tag: "paragraph",
+            text: [{ text: "Registry unavailable, local recommendations only", tone: "warn" }],
           });
         }),
       ),
@@ -183,12 +192,19 @@ describe("discover handler", () => {
     return program.pipe(
       Effect.tap(() =>
         Effect.sync(() => {
-          expect(rendererState.logs).toEqual([]);
+          expect(rendererState.docs).toHaveLength(1);
           expect(rendererState.docs.flatMap((entry) => entry.doc)).toContainEqual(
             expect.objectContaining({
-              _tag: "table",
-              caption:
-                "Registry unavailable. Showing local recommendations only. Found 1 companion extension for 1 of 1 detected package.",
+              _tag: "summary",
+              parts: [
+                { text: "1 companion extension for 1 of 1 detected package" },
+                {
+                  text: [
+                    { text: "Registry unavailable, local recommendations only", tone: "warn" },
+                  ],
+                },
+                { text: [{ text: "axm view <extension> for details", tone: "dim" }] },
+              ],
             }),
           );
         }),

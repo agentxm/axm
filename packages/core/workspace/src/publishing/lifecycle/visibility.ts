@@ -200,7 +200,6 @@ export const set = Effect.fn("ManagePublishedVisibility.set")(function* (
       }),
     {
       operationLabel: `Update ${request.target}`,
-      waitingLabel: `verification to update ${request.target}`,
     },
     request.verification,
     registryUrl,
@@ -252,7 +251,6 @@ export const reconcile = Effect.fn("ManagePublishedVisibility.reconcile")(functi
       }),
     {
       operationLabel: `Reconcile ${request.target}`,
-      waitingLabel: `verification to reconcile ${request.target}`,
     },
     request.verification,
     registryUrl,

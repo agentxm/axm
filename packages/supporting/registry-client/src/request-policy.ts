@@ -5,6 +5,7 @@ import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import * as Schedule from "effect/Schedule";
+import * as ServiceMap from "effect/Context";
 
 import {
   isAnyRegistryClientError,
@@ -20,6 +21,16 @@ import {
   type RegistryRequestMetadata,
 } from "./errors.js";
 import { registryRetryAfterSeconds } from "./retry-after.js";
+
+/**
+ * The attempt in flight, provided to the attempted effect so work inside a
+ * retried request can report which attempt produced its measurements. Absent
+ * outside a policy-governed request.
+ */
+export class RegistryRequestAttempt extends ServiceMap.Service<
+  RegistryRequestAttempt,
+  { readonly n: number; readonly of: number }
+>()("@agentxm/registry-client/request-policy/RegistryRequestAttempt") {}
 
 export interface RegistryRequestPolicy {
   readonly requestTimeout: Duration.Input;
@@ -226,15 +237,25 @@ export const executeRegistryRequest = <A, E, R>(
     readonly mapError: (error: E) => RegistryClientFailure;
     readonly policy?: RegistryRequestPolicy;
   },
-): Effect.Effect<A, RegistryClientFailure, R> => {
+  // The policy owns the attempt, so it satisfies the service the governed work
+  // reads rather than leaving it for the caller to provide.
+): Effect.Effect<A, RegistryClientFailure, Exclude<R, RegistryRequestAttempt>> => {
   const policy = args.policy ?? DEFAULT_REGISTRY_REQUEST_POLICY;
   const maxAttempts = Math.max(1, policy.maxAttempts);
+  const replaySafe = isReplaySafe(args.replaySafety);
+  // A request the policy will not replay gets exactly one attempt, whatever
+  // the policy allows, and says so to the work it governs.
+  const attemptLimit = replaySafe ? maxAttempts : 1;
   const attempt = effect.pipe(Effect.timeout(policy.requestTimeout));
 
   return Effect.gen(function* () {
     const attempts = yield* Ref.make(0);
-    const countedAttempt = Ref.update(attempts, (count) => count + 1).pipe(Effect.andThen(attempt));
-    const executed = isReplaySafe(args.replaySafety)
+    const countedAttempt = Ref.updateAndGet(attempts, (count) => count + 1).pipe(
+      Effect.flatMap((n) =>
+        Effect.provideService(attempt, RegistryRequestAttempt, { n, of: attemptLimit }),
+      ),
+    );
+    const executed = replaySafe
       ? countedAttempt.pipe(Effect.retry(retrySchedule(policy, args.operation)))
       : countedAttempt;
 

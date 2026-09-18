@@ -4,8 +4,6 @@ import * as Layer from "effect/Layer";
 import * as ServiceMap from "effect/Context";
 import type { AgentDescriptor } from "@agentxm/extension-model/unstable/agents/types";
 import type { WorkspaceConfigurationFailed } from "../errors.js";
-import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import type { SetupScopeSupportCategory } from "../../desired-state/index.js";
 
 /**
  * Typed cancellation of workspace initialization. The CLI implementation maps
@@ -22,10 +20,17 @@ export interface InstructionSourceChoice {
   readonly lines: number;
 }
 
+/**
+ * What setup would do to one target: write it anew, change it, leave one that
+ * already agrees, link or copy an agent's instruction file to the shared
+ * source, or pass over an agent that has no instruction convention.
+ */
+export type SetupPlanAction = "create" | "update" | "in sync" | "link" | "copy" | "skip";
+
 /** One row of the setup plan presented before confirmation. */
 export interface SetupPlanRow {
   readonly target: string;
-  readonly action: string;
+  readonly action: SetupPlanAction;
   readonly detail: string;
 }
 
@@ -62,11 +67,6 @@ export interface WorkspaceInitializationInteractionService {
   readonly presentAgentScan: (scan: SetupAgentScan) => Effect.Effect<void>;
   /** Present the setup plan rows before confirmation. */
   readonly presentSetupPlan: (rows: ReadonlyArray<SetupPlanRow>) => Effect.Effect<void>;
-  /** Present per-category scope-support outcomes for the selected agents. */
-  readonly presentScopeSupport: (
-    scope: WorkspaceScope,
-    categories: ReadonlyArray<SetupScopeSupportCategory>,
-  ) => Effect.Effect<void>;
 }
 
 export class WorkspaceInitializationInteraction extends ServiceMap.Service<
@@ -93,10 +93,6 @@ export interface WorkspaceInitializationInteractionTestState {
   readonly confirmSetupPlanCalls: Array<null>;
   readonly presentAgentScanCalls: Array<SetupAgentScan>;
   readonly presentSetupPlanCalls: Array<ReadonlyArray<SetupPlanRow>>;
-  readonly presentScopeSupportCalls: Array<{
-    readonly scope: WorkspaceScope;
-    readonly categories: ReadonlyArray<SetupScopeSupportCategory>;
-  }>;
 }
 
 export const WorkspaceInitializationInteractionTest = (overrides?: {
@@ -130,7 +126,6 @@ export const WorkspaceInitializationInteractionTest = (overrides?: {
     confirmSetupPlanCalls: [],
     presentAgentScanCalls: [],
     presentSetupPlanCalls: [],
-    presentScopeSupportCalls: [],
   };
 
   const layer = Layer.succeed(WorkspaceInitializationInteraction, {
@@ -170,10 +165,6 @@ export const WorkspaceInitializationInteractionTest = (overrides?: {
     presentSetupPlan: (rows) =>
       Effect.sync(() => {
         state.presentSetupPlanCalls.push(rows);
-      }),
-    presentScopeSupport: (scope, categories) =>
-      Effect.sync(() => {
-        state.presentScopeSupportCalls.push({ scope, categories });
       }),
   } satisfies WorkspaceInitializationInteractionService);
 

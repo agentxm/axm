@@ -20,6 +20,7 @@ describe("lint JSON contract", () => {
         expected: "Example state is valid.",
       },
     ],
+    repaired: [],
     summary: { total: 1, errors: 1, warnings: 0, infos: 0, exitCategory: "errors" as const },
     driftBanner: [],
   };

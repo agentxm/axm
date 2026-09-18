@@ -1,0 +1,9 @@
+Installing  in this project · agents: …
+
+     Extension     Version   Status
+ +   @a…/standup   0.4.2     install
+     --verbose for details
+
+ ◒   Waiting - another operation holds…
+     axm sync (pid 4122)
+ctrl-c stops waiting; nothing has been…

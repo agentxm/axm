@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
 import { makeAppError } from "../app-error/index.js";
-import { PromptCancelled } from "../prompt/prompt-cancelled.js";
+import { PromptCancelled } from "../screen/ask/prompt-cancelled.js";
 import { TelemetryClient, type TelemetryClientService } from "../telemetry/index.js";
 import type { TelemetryProperties } from "../telemetry/client.js";
 import {

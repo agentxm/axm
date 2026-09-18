@@ -1,0 +1,20 @@
+ ✖   Invalid skill name
+                    validation, exit 9
+     Name           "Code Review!"
+Next
+     Choose a name matching
+     /^[a-z0-9][a-z0-9-]*$/ (max 64
+     chars)
+
+ ✖   Unrecognized flag --staged
+                    usage, exit 2
+Next
+     axm list --help
+     See the flags the command takes
+
+ ✖   An unexpected error occurred
+                    internal, exit 10
+     Cannot read properties of undefined
+     (reading 'agents')
+Next
+     https://github.com/agentxm/axm/issues

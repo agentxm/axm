@@ -1,9 +1,11 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import type * as Scope from "effect/Scope";
 import * as ServiceMap from "effect/Context";
+import * as Terminal from "effect/Terminal";
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
@@ -11,10 +13,19 @@ import {
   type OperationLifecycleService,
 } from "@agentxm/workspace/transitions/planning";
 
+import type { AppError } from "../app-error/index.js";
+import { promptAvailability } from "../cli-flags/index.js";
 import { makeJsonSuccessEnvelope } from "../cli-runtime/json-envelope.js";
+import { promptRequired, type Ask, type InteractiveGuard } from "./ask/ask.js";
+import type { PromptCancelled } from "./ask/prompt-cancelled.js";
+import { runAsk } from "./ask/run.js";
+import { WaitAbandoned } from "./wait/wait-abandoned.js";
+import { parkedOnWait, runStaticWait, runWait, type WaitSurface } from "./wait/run.js";
+import type { WaitActions, WaitView } from "./wait/wait.js";
 import type { Doc, DocNode } from "./doc.js";
 import { plain } from "./doc.js";
 import { Frame } from "./frame.js";
+import type { LivePlan } from "./live-ledger.js";
 import {
   encodeMachineEvent,
   instructionEvent,
@@ -64,8 +75,36 @@ export class Screen extends ServiceMap.Service<
     readonly observe: (
       lifecycle: OperationLifecycleService,
     ) => Effect.Effect<void, never, Scope.Scope>;
+    /**
+     * Give the live ledger the plan whose rows it paints while the operation
+     * runs. Returns whether the plan is visible in the live frame, so a caller
+     * can print a static fallback when it is not.
+     */
+    readonly showPlan: (plan: LivePlan) => Effect.Effect<boolean>;
     readonly log: (record: ScreenLogRecord) => Effect.Effect<void>;
-    readonly prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
+    /**
+     * Put a question to the person and answer with what they chose. The guard
+     * decides whether a question may open at all: where it may not, and in
+     * machine mode always, this fails with the usage error and its recovery
+     * instead, so no prompt can reach a terminal that must not see one.
+     */
+    readonly ask: <A>(
+      ask: Ask<A>,
+      guard: InteractiveGuard,
+    ) => Effect.Effect<A, PromptCancelled | AppError>;
+    /**
+     * Park the terminal while a person acts somewhere else, and answer with
+     * what the awaited effect settled on. The wait's brief prints once, its
+     * countdown is the only live line, and stopping it fails with
+     * `WaitAbandoned` so the caller can end with its own pending outcome. A
+     * screen that cannot animate — or is quiet — prints the brief and simply
+     * waits.
+     */
+    readonly wait: <A, E, R>(
+      view: WaitView,
+      awaited: Effect.Effect<A, E, R>,
+      actions?: WaitActions,
+    ) => Effect.Effect<A, E | WaitAbandoned, R>;
     readonly facts: Effect.Effect<ScreenFacts>;
     readonly settle: Effect.Effect<void>;
   }
@@ -87,6 +126,8 @@ export interface ScreenLiveOptions {
   /** ANSI styling per stream: only a stream that is itself a terminal is styled. */
   readonly colors: { readonly stdout: boolean; readonly stderr: boolean };
   readonly animate: boolean;
+  /** Quiet keeps a wait static: its brief prints once and nothing counts down. */
+  readonly quiet?: boolean;
   /** Symbol set for every painted document; defaults to the Unicode glyphs. */
   readonly glyphs?: Glyphs;
 }
@@ -99,6 +140,9 @@ export const ScreenLive = (
     Effect.gen(function* () {
       const frame = yield* Frame;
       const streams = yield* OutputStreams;
+      // A composition without a terminal cannot ask, and says so through the
+      // same guard that closes a prompt for every other reason.
+      const terminal = yield* Effect.serviceOption(Terminal.Terminal);
 
       // A stream that is not a terminal is unbounded: nothing written to it is
       // wrapped, truncated, or padded to a terminal width. The output policy
@@ -115,6 +159,8 @@ export const ScreenLive = (
           );
         });
 
+      const note = (doc: Doc) => Effect.flatMap(render(doc, "stderr"), frame.stderr);
+
       return {
         result: (doc) => {
           const literal =
@@ -125,7 +171,7 @@ export const ScreenLive = (
             ? Effect.flatMap(render(doc, "stdout"), frame.stdout)
             : frame.stdout(literal);
         },
-        note: (doc) => Effect.flatMap(render(doc, "stderr"), frame.stderr),
+        note,
         document: () => Effect.succeed(false),
         // One projector folds the stream into progress state; the frame reads
         // the latest state and collapses it at settlement. The projector holds
@@ -140,12 +186,48 @@ export const ScreenLive = (
               ),
             );
           }),
+        showPlan: frame.showPlan,
         log: (record) =>
           Effect.flatMap(
             render([{ _tag: "paragraph", tone: "dim", text: record.message }], "stderr"),
             frame.stderr,
           ),
-        prompt: frame.prompt,
+        ask: <A>(ask: Ask<A>, guard: InteractiveGuard) =>
+          Effect.gen(function* () {
+            if (!(yield* promptAvailability) || !(yield* frame.canInteract)) {
+              return yield* promptRequired(guard);
+            }
+            return yield* Option.match(terminal, {
+              onNone: () => Effect.fail(promptRequired(guard)),
+              onSome: (service) =>
+                runAsk(ask, service, {
+                  showInteraction: frame.showInteraction,
+                  transcript: note,
+                }),
+            });
+          }),
+        wait: <A, E, R>(view: WaitView, awaited: Effect.Effect<A, E, R>, actions?: WaitActions) => {
+          const surface: WaitSurface = {
+            showInteraction: frame.showInteraction,
+            transcript: note,
+          };
+          return Effect.gen(function* () {
+            const interactive = (yield* promptAvailability) && (yield* frame.canInteract);
+            // A terminal that cannot animate, a non-interactive invocation,
+            // and a quiet invocation get the static block: the same brief, no
+            // countdown, and no keys to press.
+            const service =
+              interactive && Option.isSome(terminal) && options.animate && options.quiet !== true
+                ? terminal.value
+                : undefined;
+            return yield* parkedOnWait(
+              view,
+              service === undefined
+                ? runStaticWait(view, awaited, surface)
+                : runWait(view, awaited, actions ?? {}, service, surface),
+            );
+          });
+        },
         facts: Effect.map(streams.facts, (facts) => ({
           columns: facts.columns,
           colors: options.colors.stdout,
@@ -196,15 +278,21 @@ export const ScreenMachine = (options?: {
         if (node._tag === "section") {
           return Effect.forEach(node.children, nodeEvents, { discard: true });
         }
-        if (node._tag === "rows") {
-          return Effect.forEach(node.rows, nodeEvents, { discard: true });
-        }
-        if (node._tag === "row") {
-          const message = node.cells.map(plain).join("   ");
-          const level = node.change === "failed" ? "error" : "warn";
-          return node.change === "failed" || node.change === "blocked"
-            ? emit(logEvent(level, message))
-            : Effect.void;
+        if (node._tag === "ledger") {
+          // A ledger row that failed or is blocked logs at its own level.
+          return Effect.forEach(
+            node.rows,
+            (row) => {
+              const message = row.cells.map(plain).join("   ");
+              if (row.mark === "failed" || row.mark === "error") {
+                return emit(logEvent("error", message));
+              }
+              return row.mark === "blocked" || row.mark === "warn"
+                ? emit(logEvent("warn", message))
+                : Effect.void;
+            },
+            { discard: true },
+          );
         }
         if (node._tag === "headline") {
           return node.tone === "error" || node.tone === "warn"
@@ -225,6 +313,24 @@ export const ScreenMachine = (options?: {
         return Effect.void;
       };
 
+      const note = (
+        doc: Doc,
+        noteOptions?: { readonly persistent?: boolean },
+      ): Effect.Effect<void> => {
+        const literal = doc
+          .filter((node) => node._tag === "raw" || node._tag === "markdown")
+          .map((node) => node.content)
+          .join("");
+        if (literal.length > 0) return streams.stderr(literal);
+        return noteOptions?.persistent === true
+          ? emit(
+              instructionEvent(
+                doc.map((node) => ("text" in node ? plain(node.text) : "")).join("\n"),
+              ),
+            ).pipe(Effect.andThen(Effect.forEach(doc, nodeEvents, { discard: true })))
+          : Effect.forEach(doc, nodeEvents, { discard: true });
+      };
+
       return {
         result: (doc) => {
           const literal = doc
@@ -233,20 +339,7 @@ export const ScreenMachine = (options?: {
             .join("");
           return literal.length === 0 ? Effect.void : writeResult(literal);
         },
-        note: (doc, noteOptions) => {
-          const literal = doc
-            .filter((node) => node._tag === "raw" || node._tag === "markdown")
-            .map((node) => node.content)
-            .join("");
-          if (literal.length > 0) return streams.stderr(literal);
-          return noteOptions?.persistent === true
-            ? emit(
-                instructionEvent(
-                  doc.map((node) => ("text" in node ? plain(node.text) : "")).join("\n"),
-                ),
-              )
-            : Effect.forEach(doc, nodeEvents, { discard: true });
-        },
+        note,
         document: <S extends Schema.Top>(
           data: Schema.Schema.Type<S>,
           schema: S,
@@ -278,8 +371,18 @@ export const ScreenMachine = (options?: {
           subscribeLossless(lifecycle, (event) =>
             quiet ? Effect.void : emit(progressEvent(event)),
           ),
+        // Machine output carries the lifecycle events themselves, so there is
+        // no live ledger for a plan to paint into.
+        showPlan: () => Effect.succeed(false),
         log: (record) => emit(logEvent(logLevel(record.level), record.message)),
-        prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect,
+        // Machine output never prompts: asking is the usage error by
+        // construction, whatever the terminal on the other end can do.
+        ask: (_ask, guard) => Effect.fail(promptRequired(guard)),
+        // Machine output has no terminal to park and no keys to offer, but the
+        // brief is what a person or an agent needs to finish elsewhere, so it
+        // crosses as instructions and suggestions exactly as it always has.
+        wait: (view, awaited) =>
+          parkedOnWait(view, note(view.brief, { persistent: true }).pipe(Effect.andThen(awaited))),
         facts: Effect.succeed({ columns: 80, colors: false, animate: false }),
         settle: Effect.void,
       };

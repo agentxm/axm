@@ -223,7 +223,7 @@ describe("mcps import output", () => {
 
         expect(logs.success).toEqual(["Imported 1 MCP server"]);
         expect(rendererState.summaries).toEqual([
-          "Import 1 MCP server   updated   2 files   axm.json, .mcp.json",
+          "Import 1 MCP server   -   updated   2 files, axm.json, .mcp.json",
         ]);
         expect(rendererState.suggestions).toEqual([
           { description: "Inspect MCP servers", cmd: "axm mcps list" },

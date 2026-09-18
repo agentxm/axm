@@ -1,7 +1,12 @@
 import { renderAxmSkillCompatibility } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 import { describe, expect, it } from "@effect/vitest";
 
-import { resolveLintExitCategory, toLintHumanBlocks, toLintJsonDocument } from "./cli.js";
+import {
+  resolveLintExitCategory,
+  toLintHumanFindings,
+  toLintJsonDocument,
+  type RenderedFinding,
+} from "./cli.js";
 import {
   AXM_SKILL_CLI_VERSION_METADATA_KEY,
   AXM_SKILL_CLI_VERSION_RANGE_METADATA_KEY,
@@ -41,102 +46,60 @@ describe("lint fact rendering", () => {
     });
   });
 
-  it("names the determined repair for a missing instruction projection", () => {
-    const blocks = toLintHumanBlocks({
-      summary: {
-        findings: [
-          {
-            group: "workspace",
-            ruleDescription: "Configured agent instruction target files are current.",
-            displayRoot: ".",
-            path: "./docs/CLAUDE.md",
-            finding: {
-              kind: "advisory",
-              ruleId: "workspace/instructions-target-current",
-              severity: "warning",
-              message: "The Claude Code instruction file is missing.",
-              location: { file: "docs/CLAUDE.md" },
-            },
-          },
-        ],
-        counts: { total: 1, errors: 0, warnings: 1, infos: 0 },
-        exitCategory: "warnings",
-        driftBanner: [],
-      },
-      reporter: "grouped",
-    });
-
-    const diagnostics = blocks.flatMap((block) =>
-      block.kind === "diagnostic" ? [block.diagnostic] : [],
-    );
-    expect(diagnostics).toHaveLength(1);
-    expect(diagnostics[0]?.fixable).toBe(true);
-    expect(diagnostics[0]?.helps).toContain(
-      "Fix: Run `axm lint --fix` to regenerate the instruction files from their canonical source.",
-    );
+  const finding = (
+    ruleId: string,
+    severity: "error" | "warning" | "info",
+    message: string,
+    path: string,
+  ): RenderedFinding => ({
+    group: "workspace",
+    ruleDescription: `${ruleId} holds.`,
+    displayRoot: ".",
+    path,
+    finding: { kind: "advisory", ruleId, severity, message, location: { file: path } },
   });
 
-  it("leaves a finding with no determined repair unannotated", () => {
-    const blocks = toLintHumanBlocks({
-      summary: {
-        findings: [
-          {
-            group: "workspace",
-            ruleDescription: "Workspace settings keys are recognized.",
-            displayRoot: ".",
-            path: "./axm.json",
-            finding: {
-              kind: "advisory",
-              ruleId: "workspace/settings-keys-recognized",
-              severity: "error",
-              message: "Workspace settings has unrecognized top-level key 'rulesConfig'.",
-              location: { file: "axm.json" },
-            },
-          },
-        ],
-        counts: { total: 1, errors: 1, warnings: 0, infos: 0 },
-        exitCategory: "errors",
-        driftBanner: [],
-      },
-      reporter: "grouped",
-    });
-
-    const diagnostics = blocks.flatMap((block) =>
-      block.kind === "diagnostic" ? [block.diagnostic] : [],
-    );
-    expect(diagnostics[0]?.fixable).toBe(false);
+  it("marks a finding whose repair is determined as fixable", () => {
+    const [human] = toLintHumanFindings([
+      finding(
+        "workspace/instructions-target-current",
+        "warning",
+        "The Claude Code instruction file is missing.",
+        "./docs/CLAUDE.md",
+      ),
+    ]);
+    expect(human?.fixable).toBe(true);
   });
 
-  it("does not describe informational findings as needing manual attention", () => {
-    const blocks = toLintHumanBlocks({
-      summary: {
-        findings: [
-          {
-            group: "workspace",
-            ruleDescription: "The workspace declares the official AXM skill.",
-            displayRoot: ".",
-            path: "./axm.json",
-            finding: {
-              kind: "advisory",
-              ruleId: "workspace/axm-skill-declared",
-              severity: "info",
-              message: "This workspace does not declare the official AXM skill.",
-              location: { file: "axm.json" },
-            },
-          },
-        ],
-        counts: { total: 1, errors: 0, warnings: 0, infos: 1 },
-        exitCategory: "clean",
-        driftBanner: [],
-      },
-      reporter: "grouped",
-    });
+  it("leaves a finding with no determined repair unfixable", () => {
+    const [human] = toLintHumanFindings([
+      finding(
+        "workspace/settings-keys-recognized",
+        "error",
+        "Workspace settings has unrecognized top-level key 'rulesConfig'.",
+        "./axm.json",
+      ),
+    ]);
+    expect(human?.fixable).toBe(false);
+  });
 
-    const overview = blocks.find((block) => block.kind === "overview");
-    expect(overview?.kind).toBe("overview");
-    if (overview?.kind === "overview") {
-      expect(overview.message).toBe("1 issue.");
-    }
+  it("puts errors first and splits a message into its title, detail, and help", () => {
+    const humans = toLintHumanFindings([
+      finding("workspace/a", "warning", "A warning.", "./a"),
+      finding(
+        "workspace/b",
+        "error",
+        "Lockfile is stale. Detail: 2 entries do not match axm.json. Run axm sync.",
+        "./z",
+      ),
+    ]);
+    expect(humans.map((human) => human.ruleId)).toEqual(["workspace/b", "workspace/a"]);
+    expect(humans[0]).toMatchObject({
+      title: "Lockfile is stale.",
+      details: ["2 entries do not match axm.json."],
+      helps: ["Run axm sync."],
+      ruleDescription: "workspace/b holds.",
+    });
   });
 
   it("keeps strictness as exit policy without relabeling warnings", () => {

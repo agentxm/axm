@@ -91,8 +91,8 @@ describe("subagents list.handler", () => {
         expect(table).toMatchObject({
           _tag: "table",
           rows: expect.arrayContaining([
-            expect.arrayContaining(["subagent-one"]),
-            expect.arrayContaining(["subagent-two"]),
+            expect.objectContaining({ cells: expect.arrayContaining(["subagent-one"]) }),
+            expect.objectContaining({ cells: expect.arrayContaining(["subagent-two"]) }),
           ]),
         });
       }),
@@ -144,7 +144,11 @@ describe("subagents list.handler", () => {
         const table = rendererState.docs[0]?.doc.find((node) => node._tag === "table");
         expect(table).toMatchObject({
           _tag: "table",
-          rows: [expect.arrayContaining(["my-subagent", "configured"])],
+          rows: [
+            expect.objectContaining({
+              cells: expect.arrayContaining(["my-subagent", "configured"]),
+            }),
+          ],
         });
       }),
     );
@@ -172,7 +176,9 @@ describe("subagents list.handler", () => {
         const table = rendererState.docs[0]?.doc.find((node) => node._tag === "table");
         expect(table).toMatchObject({
           _tag: "table",
-          rows: [expect.arrayContaining(["my-subagent", "disabled"])],
+          rows: [
+            expect.objectContaining({ cells: expect.arrayContaining(["my-subagent", "disabled"]) }),
+          ],
         });
       }),
     );
@@ -203,8 +209,8 @@ describe("subagents list.handler", () => {
         expect(table).toMatchObject({
           _tag: "table",
           rows: expect.arrayContaining([
-            expect.arrayContaining(["subagent-a"]),
-            expect.arrayContaining(["subagent-b"]),
+            expect.objectContaining({ cells: expect.arrayContaining(["subagent-a"]) }),
+            expect.objectContaining({ cells: expect.arrayContaining(["subagent-b"]) }),
           ]),
         });
       }),
@@ -232,8 +238,12 @@ describe("subagents list.handler", () => {
         expect(table).toMatchObject({
           _tag: "table",
           rows: expect.arrayContaining([
-            expect.arrayContaining(["subagent-claude", "claude-code"]),
-            expect.arrayContaining(["subagent-cursor", "claude-code"]),
+            expect.objectContaining({
+              cells: expect.arrayContaining(["subagent-claude", "claude-code"]),
+            }),
+            expect.objectContaining({
+              cells: expect.arrayContaining(["subagent-cursor", "claude-code"]),
+            }),
           ]),
         });
       }),

@@ -87,10 +87,17 @@ describe("runLoopbackLogin", () => {
     return Effect.gen(function* () {
       yield* runLoopbackLogin(REGISTRY_URL);
 
-      expect(presenter.state.loopbackStarts).toHaveLength(1);
-      expect(presenter.state.loopbackStarts[0]?.redirectUri).toContain("127.0.0.1");
-      expect(presenter.state.loopbackStarts[0]?.authorizeUrl).toContain("oauth/authorize");
-      expect(presenter.state.loopbackBrowserOutcomes).toEqual([false]);
+      const [handoff] = presenter.state.handoffs;
+      expect(handoff?._tag).toBe("LoopbackLogin");
+      expect(handoff).toMatchObject({
+        _tag: "LoopbackLogin",
+        registryHost: "registry.agentxm.ai",
+        browserOpened: false,
+      });
+      expect(handoff?._tag === "LoopbackLogin" ? handoff.redirectUri : "").toContain("127.0.0.1");
+      expect(handoff?._tag === "LoopbackLogin" ? handoff.authorizeUrl : "").toContain(
+        "oauth/authorize",
+      );
       expect(presenter.state.loginSuccesses).toEqual([
         { status: "logged-in", registryHost: "registry.agentxm.ai", handle: "@alice" },
       ]);

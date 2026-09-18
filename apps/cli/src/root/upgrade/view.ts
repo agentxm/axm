@@ -58,7 +58,7 @@ const outputTail = (output: string): string | null => {
   const lines = output.split(/\r?\n/u).filter((line) => line.trim().length > 0);
   if (lines.length === 0) return null;
   const tail = lines.slice(-MAX_TAIL_LINES).join("\n");
-  return tail.length > MAX_TAIL_CHARACTERS ? `…${tail.slice(-MAX_TAIL_CHARACTERS)}` : tail;
+  return tail.length > MAX_TAIL_CHARACTERS ? `...${tail.slice(-MAX_TAIL_CHARACTERS)}` : tail;
 };
 
 /**
@@ -117,7 +117,7 @@ const verboseEntries = (upgrade: UpgradeAssessmentResult): ReadonlyArray<Upgrade
     note(
       headlineDoc(
         "info",
-        `${command.purpose}: ${command.display} · ${command.executionState} · exit ${command.exitCode === null ? "unavailable" : String(command.exitCode)}${command.outputTruncated ? " · output truncated" : ""}`,
+        `${command.purpose}: ${command.display}, ${command.executionState}, exit ${command.exitCode === null ? "unavailable" : String(command.exitCode)}${command.outputTruncated ? ", output truncated" : ""}`,
       ),
     ),
     ...(command.stdout.length === 0
@@ -131,7 +131,7 @@ const verboseEntries = (upgrade: UpgradeAssessmentResult): ReadonlyArray<Upgrade
     note(
       headlineDoc(
         "info",
-        `Verification (${verification.role}${verification.phase === undefined ? "" : `, ${verification.phase}`}): ${verification.resolvedExecutable ?? verification.path} → ${verification.reportedVersion ?? verification.queryOutcome ?? "unavailable"}`,
+        `Verification (${verification.role}${verification.phase === undefined ? "" : `, ${verification.phase}`}): ${verification.resolvedExecutable ?? verification.path} -> ${verification.reportedVersion ?? verification.queryOutcome ?? "unavailable"}`,
       ),
     ),
   ),
@@ -156,7 +156,7 @@ export const upgradeView = (
   const recommended = upgrade.recovery.recommendedCommand;
   if (verbosity === "quiet") {
     const quietMessage =
-      recommended === null ? upgrade.message : `${upgrade.message} · Next: ${recommended.display}`;
+      recommended === null ? upgrade.message : `${upgrade.message}, Next: ${recommended.display}`;
     return [outcomeEntry(upgrade, quietMessage)];
   }
 

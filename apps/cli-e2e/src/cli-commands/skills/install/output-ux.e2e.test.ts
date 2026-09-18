@@ -33,7 +33,10 @@ describe("axm skills install output UX", () => {
 
       expect(result.exitCode).toBe(0);
       const output = getOutput(result);
-      expect(output).toContain("Agents: none");
+      // With no agent to name, the title line says only where it acted; the
+      // callout is what tells a reader nothing was materialized.
+      expect(output).toContain("Installing  in this project");
+      expect(output).not.toContain("agents:");
       expect(output).toContain("No coding-agent targets were materialized");
       expect(output).toContain("axm agents add --detected");
     } finally {
@@ -41,7 +44,7 @@ describe("axm skills install output UX", () => {
     }
   });
 
-  it("C-27: summarizes human output outcome-first by recipient agents and distinct locations", async () => {
+  it("summarizes human output as a ledger of distinct locations under one title", async () => {
     const temp = createTempDir();
     try {
       await runCli(
@@ -71,13 +74,16 @@ describe("axm skills install output UX", () => {
 
       expect(result.exitCode).toBe(0);
       const output = getOutput(result);
-      const headline = "Installed 1 skill";
+      const verdict = "Installed 1 skill";
       const unitRow =
-        "my-skill   created   1 file   .agents/skills/my-skill, .claude/skills/my-skill";
-      expect(output).toContain(headline);
+        "my-skill                      -         created   1 file, .agents/skills/my-skill, .claude/skills/my-skill";
+      expect(output).toContain(verdict);
       expect(output).toContain(unitRow);
-      expect(output.indexOf(headline)).toBeLessThan(output.indexOf(unitRow));
-      expect(output).toContain("Agents: antigravity, amp, claude-code");
+      // The verdict settles the ledger, so it follows the rows it rests on.
+      expect(output.indexOf(unitRow)).toBeLessThan(output.indexOf(verdict));
+      expect(output).toContain(
+        "Installing  in this project - agents: antigravity, amp, claude-code",
+      );
       expect(output).not.toContain("skill(s)");
     } finally {
       temp.cleanup();
@@ -258,7 +264,9 @@ describe("axm skills install output UX", () => {
 
       expect(result.exitCode).toBe(0);
       const output = getOutput(result);
-      expect(output).toContain("Already up to date — 1 skill");
+      // The verdict states the outcome; the count it rests on is the fold
+      // line above it and the aside beside it.
+      expect(output).toContain("Already up to date");
       expect(output).toContain("1 skill already current");
     } finally {
       temp.cleanup();

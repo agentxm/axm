@@ -164,6 +164,11 @@ export const lintConfigFromSettings = (settings: Option.Option<Settings>): LintC
  * instruction-file management has nothing determined to restore, so `--fix`
  * leaves it untouched.
  */
+export const DETERMINED_REPAIR_RULE_IDS = [
+  "workspace/instructions-target-current",
+  "workspace/instructions-target-stale",
+] as const;
+
 export const applyDeterminedRepairs = (args: {
   readonly workspaceRoot: string;
   readonly scope: WorkspaceScope;

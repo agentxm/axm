@@ -139,7 +139,7 @@ describe("Registry mutation verification", () => {
         return Effect.gen(function* () {
           const exit = yield* runWithStepUp(
             write,
-            { operationLabel: mutation.name, waitingLabel: `verification to ${mutation.name}` },
+            { operationLabel: mutation.name },
             { unattended: true, waitForHumanSeconds: 60 },
             authRegistry,
           ).pipe(Effect.exit);
@@ -147,13 +147,13 @@ describe("Registry mutation verification", () => {
           expect(exit._tag).toBe(behavior === "approved" ? "Success" : "Failure");
           expect(ports.waits).toEqual(expectedWait);
           expect(ports.interactionState.openBrowserCalls).toEqual([]);
-          expect(ports.presenterState.stepUpChallenges).toEqual([
+          expect(ports.presenterState.handoffs).toEqual([
             {
+              _tag: "StepUp",
               action: mutation.name,
               target: mutation.target,
               verificationUrl: stepUpVerificationUrl,
-              expiresAt: stepUp.expiresAt,
-              browserOpened: false,
+              expiresAtMs: Date.parse(stepUp.expiresAt),
             },
           ]);
 
@@ -229,13 +229,13 @@ describe("Token creation verification", () => {
         }
         expect(ports.waits).toEqual(expectedWait);
         expect(ports.interactionState.openBrowserCalls).toEqual([]);
-        expect(ports.presenterState.stepUpChallenges).toEqual([
+        expect(ports.presenterState.handoffs).toEqual([
           {
+            _tag: "StepUp",
             action: label,
             target: label,
             verificationUrl: stepUpVerificationUrl,
-            expiresAt: stepUp.expiresAt,
-            browserOpened: false,
+            expiresAtMs: Date.parse(stepUp.expiresAt),
           },
         ]);
       }).pipe(Effect.provide(ports.layer));

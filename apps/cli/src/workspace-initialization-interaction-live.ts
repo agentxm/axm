@@ -2,37 +2,147 @@
  * CLI implementation of the workspace-initialization interaction port.
  *
  * Owns the setup prompts and every piece of setup presentation wording: the
- * agent scan summary, retired-agent warnings, the setup-phases banner, and
- * the setup plan and scope-support tables. Prompt cancellations map into the
- * kernel-owned `WorkspaceInitializationCancelled`.
+ * agent scan line, retired-agent warnings, the plan ledger, and the apply
+ * gate. Prompt cancellations map into the kernel-owned
+ * `WorkspaceInitializationCancelled`.
  */
 
-import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Path from "effect/Path";
-import * as Terminal from "effect/Terminal";
-import { Prompt } from "effect/unstable/cli";
-import { autocompleteMultiselect, requireInteractive } from "./prompt/index.js";
-import { Screen } from "./screen/index.js";
+import * as Result from "effect/Result";
+import {
+  Screen,
+  pickAsk,
+  type ChooseAsk,
+  type ChooseOption,
+  type ConfirmAsk,
+  type InputAsk,
+  type PickAsk,
+} from "./screen/index.js";
 import type { AppError } from "./app-error/index.js";
 import {
   WorkspaceConfigurationFailed,
   WorkspaceInitializationCancelled,
   WorkspaceInitializationInteraction,
+  type InstructionSourceChoice,
   type WorkspaceInitializationInteractionService,
 } from "@agentxm/workspace/configuration";
-import { setupAgentScanDoc, setupPlanDoc, setupScopeSupportDoc } from "./root/setup/view.js";
+import { setupAgentScanDoc, setupPlanDoc } from "./root/setup/view.js";
 
 const selectAgentsMessage = "Select agents to configure";
-const confirmInstructionSyncMessage =
-  "Sync instructions to the selected agents?\n  Updates agent instruction files such as AGENTS.md and CLAUDE.md.";
-const selectInstructionSourceMessage =
-  "Choose the source file for shared instructions\n  AXM will sync its contents to the selected agents' instruction files.";
-const customInstructionSourceMessage = "Source instructions file name";
-const confirmSetupPlanMessage = "Proceed?";
+const confirmInstructionSyncMessage = "Sync instructions to the selected agents?";
+const instructionSyncNote = "Updates agent instruction files such as AGENTS.md and CLAUDE.md.";
+const selectInstructionSourceMessage = "Instructions source";
+const instructionSourceNote =
+  "AXM will sync its contents to the selected agents' instruction files.";
+const customInstructionSourceMessage = "Instructions file name";
+const customInstructionSourceNote =
+  "Relative to the project root. It will be created if it does not exist.";
+const confirmSetupPlanMessage = "Apply setup?";
 
-const CUSTOM_SOURCE_FILE = "__custom__";
+const yesNo = (
+  defaultsToYes: boolean,
+): ReadonlyArray<{
+  readonly key: string;
+  readonly word: string;
+  readonly value: boolean;
+}> => {
+  const yes = { key: "y", word: "yes", value: true };
+  const no = { key: "n", word: "no", value: false };
+  return defaultsToYes ? [yes, no] : [no, yes];
+};
+
+/** Which agents the scan found, and which of them a person already chose. */
+type AgentFacts = Parameters<WorkspaceInitializationInteractionService["selectAgents"]>[0];
+
+/**
+ * Every supported agent, each with what the scan knows about it. Agents that
+ * are configured, found in the project, or suggested open picked.
+ */
+const selectAgentsAsk = (facts: AgentFacts): PickAsk<ReadonlyArray<string>> =>
+  pickAsk({
+    question: selectAgentsMessage,
+    label: "Agents",
+    noun: { one: "agent", other: "agents" },
+    options: facts.allAgents.map((agent) => ({
+      title: agent.name,
+      value: agent.id,
+      details: [
+        ...(facts.configuredIds.includes(agent.id) ? ["configured"] : []),
+        ...(facts.projectDetectedIds.includes(agent.id) ? ["detected in project"] : []),
+        ...(facts.userDetectedIds.includes(agent.id) ? ["detected on workstation"] : []),
+        ...(facts.suggestedIds.includes(agent.id) ? ["suggested"] : []),
+        agent.skills === undefined ? "skills: unsupported" : `skills: ${agent.skills.dir}`,
+      ],
+      ...(facts.configuredIds.includes(agent.id) ||
+      facts.projectDetectedIds.includes(agent.id) ||
+      facts.suggestedIds.includes(agent.id)
+        ? { selected: true }
+        : {}),
+    })),
+  });
+
+/** The setup gate: nothing has been written yet, so the default is to proceed. */
+const setupPlanAsk: ConfirmAsk<boolean> = {
+  _tag: "Confirm",
+  question: confirmSetupPlanMessage,
+  label: "Apply setup",
+  choices: yesNo(true),
+};
+
+const instructionSyncAsk = (enabled: boolean): ConfirmAsk<boolean> => ({
+  _tag: "Confirm",
+  question: confirmInstructionSyncMessage,
+  note: instructionSyncNote,
+  label: "Sync instructions",
+  choices: yesNo(enabled),
+});
+
+/** What the source list answers: a file it offered, or a name still to be typed. */
+type InstructionSource =
+  { readonly _tag: "File"; readonly fileName: string } | { readonly _tag: "Other" };
+
+const instructionSourceAsk = (
+  defaultFileName: string,
+  choices: ReadonlyArray<InstructionSourceChoice>,
+): ChooseAsk<InstructionSource> => ({
+  _tag: "Choose",
+  question: selectInstructionSourceMessage,
+  note: instructionSourceNote,
+  options: [
+    ...choices.map((choice): ChooseOption<InstructionSource> => ({
+      title: choice.fileName,
+      details: [
+        ...(choice.fileName === defaultFileName ? ["recommended"] : []),
+        choice.exists ? "existing" : "will be created",
+        ...(choice.exists ? [`${String(choice.lines)} lines`] : []),
+      ],
+      value: { _tag: "File", fileName: choice.fileName },
+      ...(choice.fileName === defaultFileName ? { selected: true } : {}),
+    })),
+    { title: "Other…", details: ["type a file name"], value: { _tag: "Other" } },
+  ],
+});
+
+/**
+ * A typed source file: a path inside the project, so it is neither empty nor
+ * absolute. Surrounding space is not part of a file name.
+ */
+const validateSourceFileName = (raw: string): Result.Result<string, string> => {
+  const fileName = raw.trim();
+  if (fileName.length === 0) return Result.fail("Enter a file name, such as docs/AGENTS.md.");
+  return /^([/\\]|[A-Za-z]:)/.test(fileName)
+    ? Result.fail("Enter a path relative to the project root.")
+    : Result.succeed(fileName);
+};
+
+const customSourceAsk: InputAsk<string> = {
+  _tag: "Input",
+  question: customInstructionSourceMessage,
+  note: customInstructionSourceNote,
+  placeholder: "docs/AGENTS.md",
+  validate: validateSourceFileName,
+};
 
 const cancelled = (error: { readonly message: string }) =>
   Effect.fail(new WorkspaceInitializationCancelled({ message: error.message }));
@@ -63,137 +173,43 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
   WorkspaceInitializationInteraction,
   Effect.gen(function* () {
     const screen = yield* Screen;
-    const fileSystem = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const terminal = yield* Terminal.Terminal;
-    const promptEnvironment = Layer.mergeAll(
-      Layer.succeed(FileSystem.FileSystem, fileSystem),
-      Layer.succeed(Path.Path, path),
-      Layer.succeed(Terminal.Terminal, terminal),
-    );
 
     return {
-      selectAgents: ({
-        allAgents,
-        projectDetectedIds,
-        userDetectedIds,
-        suggestedIds,
-        configuredIds,
-      }) =>
+      selectAgents: (facts) =>
         screen
-          .prompt(
-            requireInteractive(
-              autocompleteMultiselect({
-                message: selectAgentsMessage,
-                maxPerPage: 10,
-                filterLabel: "Filter",
-                selectionCountMessage: (selected) =>
-                  `${selected.length} ${selected.length === 1 ? "agent" : "agents"} selected`,
-                submissionMessage: (selected) =>
-                  `Selected ${selected.length} ${selected.length === 1 ? "agent" : "agents"}`,
-                choices: allAgents.map((agent) => ({
-                  title: agent.name,
-                  value: agent.id,
-                  description: [
-                    configuredIds.includes(agent.id) ? "configured" : undefined,
-                    projectDetectedIds.includes(agent.id) ? "detected in project" : undefined,
-                    userDetectedIds.includes(agent.id) ? "detected on workstation" : undefined,
-                    suggestedIds.includes(agent.id) ? "suggested" : undefined,
-                    agent.skills === undefined
-                      ? "skills: unsupported"
-                      : `skills: ${agent.skills.dir}`,
-                  ]
-                    .filter((part) => part !== undefined)
-                    .join(" · "),
-                  selected:
-                    configuredIds.includes(agent.id) ||
-                    projectDetectedIds.includes(agent.id) ||
-                    suggestedIds.includes(agent.id),
-                })),
-              }),
-              { message: selectAgentsMessage },
-            ),
-          )
+          .ask(selectAgentsAsk(facts), { message: selectAgentsMessage })
           .pipe(
-            Effect.provide(promptEnvironment),
             Effect.catchTag("PromptCancelled", cancelled),
             Effect.mapError(toInteractionFailure),
           ),
       confirmInstructionSync: ({ enabled }) =>
         screen
-          .prompt(
-            requireInteractive(
-              Prompt.Confirm({ message: confirmInstructionSyncMessage, initial: enabled }),
-              { message: confirmInstructionSyncMessage },
-            ),
-          )
+          .ask(instructionSyncAsk(enabled), { message: confirmInstructionSyncMessage })
           .pipe(
-            Effect.provide(promptEnvironment),
             Effect.catchTag("PromptCancelled", cancelled),
             Effect.mapError(toInteractionFailure),
           ),
       selectInstructionSource: ({ defaultFileName, choices }) =>
         Effect.gen(function* () {
-          yield* screen.note([{ _tag: "blank" }]);
-          const selected = yield* screen.prompt(
-            requireInteractive(
-              Prompt.Select({
-                message: selectInstructionSourceMessage,
-                choices: [
-                  ...choices.map((choice) => {
-                    const description = [
-                      choice.fileName === defaultFileName ? "Recommended" : undefined,
-                      choice.exists ? "existing" : "will be created",
-                      choice.exists ? `${String(choice.lines)} lines` : undefined,
-                    ]
-                      .filter((part) => part !== undefined)
-                      .join(" · ");
-                    return {
-                      title: choice.fileName,
-                      value: choice.fileName,
-                      description,
-                      selected: choice.fileName === defaultFileName,
-                    };
-                  }),
-                  {
-                    title: "Enter another filename...",
-                    value: CUSTOM_SOURCE_FILE,
-                  },
-                ],
-              }),
-              { message: selectInstructionSourceMessage },
-            ).pipe(Effect.provide(promptEnvironment)),
-          );
-          if (selected !== CUSTOM_SOURCE_FILE) return selected;
-          yield* screen.note([{ _tag: "blank" }]);
-          return yield* screen.prompt(
-            requireInteractive(Prompt.String({ message: customInstructionSourceMessage }), {
-              message: customInstructionSourceMessage,
-            }).pipe(Effect.provide(promptEnvironment)),
-          );
+          const source = yield* screen.ask(instructionSourceAsk(defaultFileName, choices), {
+            message: selectInstructionSourceMessage,
+          });
+          return source._tag === "File"
+            ? source.fileName
+            : yield* screen.ask(customSourceAsk, { message: customInstructionSourceMessage });
         }).pipe(
           Effect.catchTag("PromptCancelled", cancelled),
           Effect.mapError(toInteractionFailure),
         ),
       confirmSetupPlan: () =>
         screen
-          .prompt(
-            requireInteractive(
-              Prompt.Confirm({ message: confirmSetupPlanMessage, initial: true }),
-              {
-                message: confirmSetupPlanMessage,
-              },
-            ),
-          )
+          .ask(setupPlanAsk, { message: confirmSetupPlanMessage })
           .pipe(
-            Effect.provide(promptEnvironment),
             Effect.catchTag("PromptCancelled", cancelled),
             Effect.mapError(toInteractionFailure),
           ),
       presentAgentScan: (scan) => screen.note(setupAgentScanDoc(scan)),
       presentSetupPlan: (rows) => screen.note(setupPlanDoc(rows)),
-      presentScopeSupport: (scope, categories) =>
-        screen.note(setupScopeSupportDoc(scope, categories)),
     } satisfies WorkspaceInitializationInteractionService;
   }),
 );

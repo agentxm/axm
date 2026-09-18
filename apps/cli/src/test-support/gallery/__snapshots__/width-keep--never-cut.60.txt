@@ -1,0 +1,6 @@
+ ●   Waiting for your approval in the browser
+     https://agentxm.ai/auth/publish-requests/pubreq_8f3k2q7d1m4x
+
+Next
+     axm install @acme-enterprise/skills/soc2-evidence-review --yes
+     Install the reviewed extension

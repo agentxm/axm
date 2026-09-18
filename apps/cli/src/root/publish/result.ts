@@ -21,11 +21,17 @@ import {
 } from "../../cli-runtime/index.js";
 import { publishBrowserSuggestions, renderHumanPublishResult } from "./view.js";
 
-export const emitPublishResult = <TCommand extends string>(
-  _command: TCommand,
+/**
+ * Emit the publish result: the machine document, or the human view.
+ *
+ * @returns whether the outcome reached the person or program running the
+ * command, so the caller ends with its exit code instead of a second report
+ */
+export const emitPublishResult = (
   result: PublishResult,
-  options?: {
-    readonly summary?: string;
+  options: {
+    readonly exitCode: number;
+    readonly elapsedMs?: number;
     readonly suggestions?: ReadonlyArray<SuggestedAction>;
     readonly withoutSuggestions?: boolean;
   },
@@ -37,41 +43,38 @@ export const emitPublishResult = <TCommand extends string>(
       (item.findings ?? []).flatMap((finding) => finding.suggestions),
     );
     const suggestions = [
-      ...(options?.suggestions ?? []),
+      ...(options.suggestions ?? []),
       ...(result.recovery === undefined ? [] : [result.recovery]),
       ...result.publicationSet.findings.flatMap((finding) => finding.suggestions),
       ...findingSuggestions,
       ...browserSuggestions,
     ];
     const summary = publishResultToSummary(result);
-    const renderOptions = {
-      ...(options?.summary === undefined ? {} : { summary: options.summary }),
-      ...(suggestions.length === 0 ? {} : { suggestions }),
-      ...(options?.withoutSuggestions === undefined
+    const withoutSuggestions =
+      options.withoutSuggestions === undefined
         ? {}
-        : { withoutSuggestions: options.withoutSuggestions }),
-      ok:
-        result.execution.status !== "failed" &&
-        result.execution.status !== "partial" &&
-        result.execution.failure === undefined &&
-        summary.failedCount === 0,
-    };
+        : { withoutSuggestions: options.withoutSuggestions };
     const existingSemanticProperties = yield* getCommandSemanticProperties;
     yield* setCommandSemanticProperties({
       ...existingSemanticProperties,
       ...summarizeCommandOutcome(summary),
     });
-    const emitted = yield* screen.document(result, PublishResultSchema, renderOptions);
-    if (!emitted) {
-      yield* renderHumanPublishResult(screen, result, {
-        ok: renderOptions.ok,
-        suggestions,
-        ...(options?.withoutSuggestions === undefined
-          ? {}
-          : { withoutSuggestions: options.withoutSuggestions }),
-      });
-    }
-    return emitted;
+    const emitted = yield* screen.document(result, PublishResultSchema, {
+      ...(suggestions.length === 0 ? {} : { suggestions }),
+      ...withoutSuggestions,
+      ok:
+        result.execution.status !== "failed" &&
+        result.execution.status !== "partial" &&
+        result.execution.failure === undefined &&
+        summary.failedCount === 0,
+    });
+    if (emitted) return true;
+    return yield* renderHumanPublishResult(screen, result, {
+      exitCode: options.exitCode,
+      suggestions,
+      ...(options.elapsedMs === undefined ? {} : { elapsedMs: options.elapsedMs }),
+      ...withoutSuggestions,
+    });
   });
 
 /**

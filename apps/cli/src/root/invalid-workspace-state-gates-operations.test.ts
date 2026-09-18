@@ -213,7 +213,6 @@ const invokeOperation = (
               fix: false,
             },
             strict: false,
-            details: false,
           }),
         )
         .pipe(

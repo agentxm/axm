@@ -1,0 +1,32 @@
+Previewing publish  as @acme · to agentxm
+
+     Extension                     Version   Plan      Detail
+ +   @acme/skills/code-review      1.4.0     publish   42 files, 380 KB
+     visibility public from the manifest
+     source matches Git HEAD a1b2c3d at skills/code-review
+     archive 42 included, 0 excluded, 760 KB source, 380 KB ZIP
+     include SKILL.md (2 KB)
+     dependency order 0
+ +   @acme/subagents/reviewer      0.9.0     publish   3 files, 4 KB
+     visibility public from the manifest
+     source matches Git HEAD a1b2c3d at subagents/reviewer
+     archive 3 included, 0 excluded, 8 KB source, 4 KB ZIP
+     include SKILL.md (2 KB)
+     dependency order 0
+ =   @acme/skills/triage           2.0.1     skip      already published
+     visibility public kept from the existing publication
+     source matches Git HEAD a1b2c3d at skills/triage
+     archive 6 included, 0 excluded, 24 KB source, 12 KB ZIP
+     include SKILL.md (2 KB)
+     dependency order 0
+ +   @acme/packs/review-kit        2.1.0     publish   after its 2 members
+     visibility public from the manifest
+     source matches Git HEAD a1b2c3d at packs/review-kit
+     archive 1 included, 0 excluded, 1.8 KB source, 900 B ZIP
+     include SKILL.md (2 KB)
+     dependency order 1, after @acme/skills/code-review, @acme/subagents/reviewer
+
+     Visibility                    public (from the manifest)
+     Source                        matches Git HEAD a1b2c3d
+
+Would publish 3 extensions  1 already published · nothing was uploaded

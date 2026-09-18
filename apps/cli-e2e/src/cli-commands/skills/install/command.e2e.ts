@@ -103,7 +103,7 @@ describe("axm skills install", () => {
       }
     });
 
-    it("C-27: prints outcome-first output for a single skill install", async () => {
+    it("prints a ledger and then its verdict for a single skill install", async () => {
       const temp = createTempDir();
       try {
         await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
@@ -119,12 +119,15 @@ describe("axm skills install", () => {
 
         expect(result.exitCode).toBe(0);
         const output = getOutput(result);
-        const headlineIndex = output.indexOf("Installed 1 skill");
-        expect(headlineIndex).toBeGreaterThanOrEqual(0);
+        // The rows carry the marks and the verdict follows them, so the
+        // outcome is the last thing a reader sees, not the first.
+        const verdictIndex = output.indexOf("Installed 1 skill");
+        expect(verdictIndex).toBeGreaterThanOrEqual(0);
         const unitRow =
-          "my-skill   created   1 file   .agents/skills/my-skill, .claude/skills/my-skill";
-        expect(output.indexOf(unitRow)).toBeGreaterThan(headlineIndex);
-        expect(output).toContain("Agents: claude-code");
+          "my-skill                      -         created   1 file, .agents/skills/my-skill, .claude/skills/my-skill";
+        expect(output.indexOf(unitRow)).toBeGreaterThanOrEqual(0);
+        expect(output.indexOf(unitRow)).toBeLessThan(verdictIndex);
+        expect(output).toContain("Installing  in this project - agents: claude-code");
         expect(output).not.toContain("Source:");
         expect(output).not.toContain("Resolution:");
         expect(output).not.toContain("skill(s)");
@@ -151,7 +154,8 @@ describe("axm skills install", () => {
         });
 
         expect(result.exitCode).not.toBe(0);
-        expect(result.stderr).toContain("No skills found in source (not_found)");
+        expect(result.stderr).toContain("No skills found in source");
+        expect(result.stderr).toContain("not_found, exit 3");
       } finally {
         temp.cleanup();
       }

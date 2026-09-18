@@ -106,25 +106,46 @@ const axmPolicyPlugin = {
         };
       },
     },
-    "no-unguarded-prompt-run": {
+    "no-effect-prompt": {
       meta: {
         type: "problem",
         schema: [],
         messages: {
-          guarded: "Production prompts must run through the requireInteractive prompt boundary.",
+          screen:
+            "Ask through Screen.ask: Effect's Prompt widgets paint outside the painter and cannot take the gutter, the key hints, or the terminal's height.",
         },
       },
       create(context) {
+        const CLI = "effect/unstable/cli";
+        const namespaces = new Set();
         return {
+          ImportDeclaration(node) {
+            if (node.source.value === `${CLI}/Prompt`) {
+              context.report({ node, messageId: "screen" });
+              return;
+            }
+            if (node.source.value !== CLI) return;
+            for (const specifier of node.specifiers) {
+              if (specifier.type === "ImportNamespaceSpecifier") {
+                namespaces.add(specifier.local.name);
+              } else if (
+                specifier.type === "ImportSpecifier" &&
+                specifier.imported.type === "Identifier" &&
+                specifier.imported.name === "Prompt"
+              ) {
+                context.report({ node: specifier, messageId: "screen" });
+              }
+            }
+          },
           MemberExpression(node) {
             if (
               !node.computed &&
               node.object.type === "Identifier" &&
-              node.object.name === "Prompt" &&
+              namespaces.has(node.object.name) &&
               node.property.type === "Identifier" &&
-              node.property.name === "run"
+              node.property.name === "Prompt"
             ) {
-              context.report({ node, messageId: "guarded" });
+              context.report({ node, messageId: "screen" });
             }
           },
         };
@@ -479,7 +500,7 @@ export default [
     rules: {
       "axm-policy/no-direct-process-output": "error",
       "axm-policy/no-result-stream": "error",
-      "axm-policy/no-unguarded-prompt-run": "error",
+      "axm-policy/no-effect-prompt": "error",
     },
   },
   {
@@ -489,14 +510,6 @@ export default [
     files: ["apps/cli/src/screen/streams.ts"],
     rules: {
       "axm-policy/no-direct-process-output": "off",
-    },
-  },
-  {
-    // The guarded prompt boundary: requireInteractive lives here, so this is
-    // the one production module that may reach Prompt.run.
-    files: ["apps/cli/src/prompt/helpers.ts"],
-    rules: {
-      "axm-policy/no-unguarded-prompt-run": "off",
     },
   },
   {

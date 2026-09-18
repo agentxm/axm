@@ -10,8 +10,10 @@ import {
   isEffectCliExit,
 } from "../../cli-runtime/index.js";
 import {
+  ResolvePlanInteraction,
   StepFailure,
   renderConfirmationRecoveryCommand,
+  type Plan,
 } from "@agentxm/workspace/transitions/planning";
 import {
   extensionTypes,
@@ -27,13 +29,13 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { RegistryProblem } from "@agentxm/registry-client";
+import { GitDirectoryComparison } from "@agentxm/workspace/resolution/sources";
 import { GitDirectoryComparisonLive } from "@agentxm/workspace/resolution/sources/live";
 
 import {
   at,
   expectPublishResult,
   expectRecord,
-  getAppError,
   makeWorkspaceHandlerTestContext,
   property,
 } from "../../test-support/test-helpers.js";
@@ -43,7 +45,11 @@ import {
   handle,
   versionRange,
 } from "../../test-support/test-stubs.js";
+import { exitCodeFor } from "../../app-error/index.js";
 import { emitPublishResult } from "./result.js";
+import { asciiGlyphs, paintText } from "../../screen/index.js";
+import { livePlan } from "../../operation-view.js";
+import type { TestRendererState } from "../../test-support/presenter-test.js";
 import {
   normalizePublishResult,
   publishCause,
@@ -177,10 +183,14 @@ describe("root publish", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const makeContext = (machine = true) => {
+  const makeContext = (
+    machine = true,
+    flags?: { readonly quiet?: boolean; readonly verbose?: boolean },
+  ) => {
     const context = makeWorkspaceHandlerTestContext({
       machine,
       wsOptions: { projectRoot: tempDir },
+      ...(flags === undefined ? {} : { flags }),
     });
     const interaction = DeviceLoginInteractionTest();
     const gitDirectoryComparisonLayer = Layer.provide(
@@ -348,23 +358,88 @@ describe("root publish", () => {
   );
 
   describe("human output", () => {
-    it.effect("renders the published FQN and version after a successful apply", () => {
+    /** What a person reads on stdout, painted without colour or width limits. */
+    const painted = (state: TestRendererState): ReadonlyArray<string> =>
+      state.docs.flatMap((entry) =>
+        entry.channel === "stdout"
+          ? paintText(entry.doc, { width: "unbounded", colors: false, glyphs: asciiGlyphs })
+          : [],
+      );
+
+    const differsFromHead = Effect.provideService(GitDirectoryComparison, {
+      compare: ({ directory }) =>
+        Effect.succeed(
+          Option.some({
+            repositoryRoot: path.dirname(path.dirname(directory)),
+            repositoryDirectory: `skills/${path.basename(directory)}`,
+            headRevision: "0123456789abcdef0123456789abcdef01234567",
+            differences: [{ path: "src/SKILL.md", change: "modified" }],
+          }),
+        ),
+    });
+
+    it.effect("previews one plan ledger instead of a sentence per fact", () => {
       writeReviewSkill();
-      const { provide, logs, rendererState } = makeContext(false);
+      const { provide, rendererState } = makeContext(false);
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleRootPublish(args(registryUrl));
+
+          // The view owns the preview, so the execution plan is not printed too.
+          expect(rendererState.docs.map((entry) => entry.channel)).toEqual(["stdout"]);
+          expect(painted(rendererState)).toEqual([
+            "Previewing publish  as @acme - to override",
+            "",
+            "     Extension                     Version   Plan      Detail",
+            " +   @acme/skills/review           1.0.0     publish   2 files, 340 B",
+            "",
+            "     Visibility                    public (from platform defaults)",
+            "",
+            "Would publish 1 extension  nothing was uploaded",
+            "--verbose for details",
+          ]);
+        }),
+      );
+    });
+
+    it.effect("shows the evidence behind each row with --verbose", () => {
+      writeReviewSkill();
+      const { provide, rendererState } = makeContext(false, { verbose: true });
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleRootPublish(args(registryUrl));
+
+          const lines = painted(rendererState);
+          expect(lines).toContain("     visibility public from platform defaults");
+          expect(lines).toContain("     archive 2 included, 0 excluded, 122 B source, 340 B ZIP");
+          expect(lines).toContain("     include src/SKILL.md (56 B)");
+          expect(lines).toContain("     dependency order 0");
+          expect(lines).not.toContain("--verbose for details");
+        }),
+      );
+    });
+
+    it.effect("settles an apply as a result ledger with visibility in the verdict", () => {
+      writeReviewSkill();
+      const { provide, rendererState } = makeContext(false);
       const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
       return provide(
         Effect.gen(function* () {
           yield* handleRootPublish(args(registryUrl, { preview: false }));
 
-          expect(
-            logs.success.some((message) =>
-              message.startsWith("Published @acme/skills/review@1.0.0"),
-            ),
-          ).toBe(true);
-          expect(logs.success.join("\n")).toContain(
-            "visibility: public (set from platform defaults)",
-          );
+          expect(painted(rendererState)).toEqual([
+            "Publishing  as @acme - to override",
+            "",
+            "     Extension                     Version   Status      Detail",
+            " +   @acme/skills/review           1.0.0     published",
+            "",
+            "Published 1 extension  public - 0ms",
+          ]);
           expect(startedUnits(rendererState)).toContain("publish registry");
           expect(startedUnits(rendererState)).toContain("publish candidates");
           // The apply phase reaches the observer as a typed lifecycle event.
@@ -377,70 +452,188 @@ describe("root publish", () => {
       );
     });
 
-    it.effect("renders an honest preview without claiming the extension was published", () => {
+    it.effect("hands the live ledger the extensions it will publish", () => {
       writeReviewSkill();
-      const { provide, logs } = makeContext(false);
+      const { provide } = makeContext(false);
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+      const presented: Array<Plan<unknown, unknown>> = [];
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleRootPublish(args(registryUrl, { preview: false })).pipe(
+            Effect.updateService(ResolvePlanInteraction, (interaction) => ({
+              ...interaction,
+              presentPlan: (plan, options) =>
+                Effect.sync(() => void presented.push(plan)).pipe(
+                  Effect.andThen(interaction.presentPlan(plan, options)),
+                ),
+            })),
+          );
+
+          const [plan] = presented;
+          if (plan === undefined) throw new Error("Expected the publish plan to be presented");
+          expect(livePlan(plan, { verbosity: "normal" })).toMatchObject({
+            title: "Publishing",
+            rows: [
+              {
+                id: "@acme/skills/review",
+                plannedMark: "create",
+                plannedStatus: "publish",
+                cells: ["@acme/skills/review", "1.0.0"],
+              },
+            ],
+          });
+        }),
+      );
+    });
+
+    it.effect("states that a version is already published without a ledger", () => {
+      writeReviewSkill();
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+      const first = makeContext(false);
+      const second = makeContext(false);
+
+      return first.provide(handleRootPublish(args(registryUrl, { preview: false }))).pipe(
+        Effect.andThen(
+          second.provide(
+            Effect.gen(function* () {
+              yield* handleRootPublish(args(registryUrl, { preview: false }));
+              expect(painted(second.rendererState)).toEqual([
+                " ok  @acme/skills/review@1.0.0 is already published and verified",
+              ]);
+            }),
+          ),
+        ),
+      );
+    });
+
+    it.effect("keeps an already-published verification quiet under --quiet", () => {
+      writeReviewSkill();
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+      const first = makeContext(false);
+      const second = makeContext(false, { quiet: true });
+
+      return first.provide(handleRootPublish(args(registryUrl, { preview: false }))).pipe(
+        Effect.andThen(
+          second.provide(
+            Effect.gen(function* () {
+              yield* handleRootPublish(args(registryUrl, { preview: false }));
+              expect(painted(second.rendererState)).toEqual([]);
+            }),
+          ),
+        ),
+      );
+    });
+
+    it.effect("blocks on a source that differs from Git HEAD and ends with its exit code", () => {
+      writeReviewSkill();
+      const { provide, rendererState } = makeContext(false);
       const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
       return provide(
         Effect.gen(function* () {
-          yield* handleRootPublish(args(registryUrl));
+          const exit = yield* handleRootPublish(args(registryUrl, { preview: false })).pipe(
+            differsFromHead,
+            Effect.exit,
+          );
 
+          // The reported outcome is the whole report: the invocation ends with
+          // its exit code, not with a second problem on stderr.
+          expect(Exit.isFailure(exit)).toBe(true);
+          if (Exit.isFailure(exit)) {
+            const squashed = Cause.squash(exit.cause);
+            expect(isEffectCliExit(squashed) ? squashed.exitCode : undefined).toBe(2);
+          }
+          const lines = painted(rendererState);
+          expect(lines).toContain(
+            " !!  @acme/skills/review           1.0.0     blocked   1 path differs from HEAD",
+          );
+          expect(lines).toContain(
+            " !!  Publish is blocked — an explicit override is required   1 blocked, exit 2",
+          );
           expect(
-            logs.success.some((message) =>
-              message.startsWith("Would publish @acme/skills/review@1.0.0"),
+            rendererState.suggestions.some((suggestion) =>
+              suggestion.cmd?.includes("--accept-warnings"),
             ),
           ).toBe(true);
-          expect(logs.success.join("\n")).toContain(
-            "visibility: public (set from platform defaults)",
+        }),
+      );
+    });
+
+    it.effect("names the source state once as a field when the override is accepted", () => {
+      writeReviewSkill();
+      const { provide, rendererState } = makeContext(false);
+      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+      return provide(
+        Effect.gen(function* () {
+          yield* handleRootPublish(args(registryUrl, { acceptWarnings: true })).pipe(
+            differsFromHead,
           );
-          expect(logs.success.some((message) => message.startsWith("Published "))).toBe(false);
+
+          expect(painted(rendererState)).toContain(
+            "     Source                        differs from Git HEAD 0123456",
+          );
         }),
       );
     });
 
     it.effect("renders an explicit empty-selection outcome", () => {
-      const { provide, logs } = makeContext(false);
+      const { provide, rendererState } = makeContext(false);
       const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
       return provide(
         Effect.gen(function* () {
           yield* handleRootPublish(args(registryUrl, { preview: false }));
 
-          expect(logs.success).toContain("No extensions selected for publishing");
+          expect(painted(rendererState)).toEqual([" ok  No extensions selected for publishing"]);
         }),
       );
     });
 
-    it.effect("surfaces the registry URL and browser suggestion", () => {
-      const { provide, logs, rendererState } = makeContext(false);
+    const publishedReview = normalizePublishResult({
+      mode: "apply",
+      results: [
+        {
+          id: "@acme/skills/review",
+          owner: handle("@acme"),
+          type: "skill",
+          name: extensionName("review"),
+          version: exactVersion("1.0.0"),
+          action: "publish",
+          phase: "upload_execution",
+          status: "success",
+          reason: "selected",
+          visibility: { value: "public", disposition: "establish", source: "manifest" },
+          links: { html: "https://agentxm.ai/acme/skills/review" },
+        },
+      ],
+    });
+
+    it.effect("prints the registry page as a copyable line beneath the verdict", () => {
+      const { provide, rendererState } = makeContext(false);
 
       return provide(
         Effect.gen(function* () {
-          yield* emitPublishResult(
-            "publish",
-            normalizePublishResult({
-              mode: "apply",
-              results: [
-                {
-                  id: "@acme/skills/review",
-                  owner: handle("@acme"),
-                  type: "skill",
-                  name: extensionName("review"),
-                  version: exactVersion("1.0.0"),
-                  action: "publish",
-                  phase: "upload_execution",
-                  status: "success",
-                  reason: "selected",
-                  links: { html: "https://agentxm.ai/acme/skills/review" },
-                },
-              ],
-            }),
-          );
+          yield* emitPublishResult(publishedReview, { exitCode: 0, elapsedMs: 1_200 });
 
-          expect(logs.success).toContain(
-            "Published @acme/skills/review@1.0.0\nhttps://agentxm.ai/acme/skills/review",
-          );
+          expect(painted(rendererState).slice(-2)).toEqual([
+            "Published 1 extension  public - 1.2s",
+            "https://agentxm.ai/acme/skills/review",
+          ]);
+          // The page is already on screen, so the next steps do not repeat it.
+          expect(rendererState.suggestions).toEqual([]);
+        }),
+      );
+    });
+
+    it.effect("keeps the browser suggestion in the machine document", () => {
+      const { provide, rendererState } = makeContext(true);
+
+      return provide(
+        Effect.gen(function* () {
+          yield* emitPublishResult(publishedReview, { exitCode: 0 });
+
           expect(rendererState.suggestions).toContainEqual({
             description: "View in browser",
             url: "https://agentxm.ai/acme/skills/review",
@@ -449,8 +642,8 @@ describe("root publish", () => {
       );
     });
 
-    it.effect("renders retryable upload evidence and an exact continuation", () => {
-      const { provide, logs, rendererState } = makeContext(false);
+    it.effect("renders a retryable upload failure and an exact continuation", () => {
+      const { provide, rendererState } = makeContext(false);
       const retryableCause = publishCause(
         new RegistryProblem({
           category: "unavailable",
@@ -473,7 +666,6 @@ describe("root publish", () => {
       return provide(
         Effect.gen(function* () {
           yield* emitPublishResult(
-            "publish",
             normalizePublishResult({
               mode: "apply",
               results: [
@@ -498,22 +690,73 @@ describe("root publish", () => {
                 blockedDependents: [],
               },
             }),
+            { exitCode: 8 },
           );
 
-          expect(logs.error).toContain("Publish failed for @acme/skills/review@1.0.0");
-          expect(logs.info.join("\n")).toContain("retryable; attempts exhausted: 1/1");
-          expect(
-            rendererState.suggestions.some(
-              (suggestion) =>
-                suggestion.cmd === "axm publish --on-existing verify @acme/skills/review",
-            ),
-          ).toBe(true);
+          expect(painted(rendererState)).toEqual([
+            "Publishing  as @acme - to unknown",
+            "",
+            "     Extension                     Version   Status   Detail",
+            " xx  @acme/skills/review           1.0.0     failed   upload failed, retryable",
+            "     Registry upload is temporarily unavailable.",
+            "",
+            "Publish failed for 1 extension  1 failed - exit 8",
+            "",
+            "Next",
+            "     axm publish --on-existing verify @acme/skills/review   Continue the failed items and their blocked dependents",
+          ]);
+        }),
+      );
+    });
+
+    it.effect("states the attempts and message behind a failure with --verbose", () => {
+      const { provide, rendererState } = makeContext(false, { verbose: true });
+
+      return provide(
+        Effect.gen(function* () {
+          yield* emitPublishResult(
+            normalizePublishResult({
+              mode: "apply",
+              results: [
+                {
+                  id: "@acme/skills/review",
+                  owner: handle("@acme"),
+                  type: "skill",
+                  name: extensionName("review"),
+                  version: exactVersion("1.0.0"),
+                  action: "error",
+                  phase: "upload_execution",
+                  status: "failed",
+                  reason: "upload_failed",
+                  message: "Registry upload is temporarily unavailable.",
+                  cause: {
+                    code: "unavailable",
+                    class: "external",
+                    message: "Registry upload is temporarily unavailable.",
+                    retryable: true,
+                    attemptCount: 1,
+                    maxAttempts: 1,
+                    requestId: "req_retry",
+                  },
+                },
+              ],
+            }),
+            { exitCode: 8 },
+          );
+
+          expect(painted(rendererState)).toEqual(
+            expect.arrayContaining([
+              "     failed during upload, attempts exhausted at 1 of 1",
+              "     Registry upload is temporarily unavailable.",
+              "     request req_retry",
+            ]),
+          );
         }),
       );
     });
 
     it.effect("reports an apply that confirmed nothing as an unsettled outcome", () => {
-      const { provide, logs } = makeContext(false);
+      const { provide, rendererState } = makeContext(false);
       const unknownItem = (name: string): PublishResultItem => ({
         id: `@acme/skills/${name}`,
         owner: handle("@acme"),
@@ -532,60 +775,41 @@ describe("root publish", () => {
       return provide(
         Effect.gen(function* () {
           yield* emitPublishResult(
-            "publish",
             normalizePublishResult({
               mode: "apply",
               results: [unknownItem("review"), unknownItem("triage")],
-              recovery: {
-                description: "Continue the failed items and their blocked dependents",
-                cmd: "axm publish --on-existing verify @acme/skills/review",
-                remainingItems: ["@acme/skills/review", "@acme/skills/triage"],
-                blockedDependents: [],
-              },
             }),
+            { exitCode: 3 },
           );
 
-          expect(logs.error).toContain("Publish did not confirm 2 extensions");
-          const details = logs.info.join("\n");
+          const lines = painted(rendererState);
           for (const name of ["review", "triage"]) {
-            expect(details).toContain(
-              `@acme/skills/${name}@1.0.0 — settlement unknown during upload: registry settlement could not be verified`,
+            expect(lines).toContain(
+              ` !!  @acme/skills/${name}           1.0.0     unconfirmed   registry settlement could not be verified`,
             );
           }
-          expect(logs.success.join("\n")).not.toContain("No extensions published");
+          expect(lines).toContain("Publish did not confirm 2 extensions  2 unconfirmed - exit 3");
+          expect(lines.join("\n")).not.toContain("No extensions published");
         }),
       );
     });
 
-    it.effect("names the single unconfirmed extension when nothing settled", () => {
-      const { provide, logs } = makeContext(false);
+    it.effect("keeps the settled verdict under --quiet", () => {
+      const context = makeWorkspaceHandlerTestContext({
+        machine: false,
+        wsOptions: { projectRoot: tempDir },
+        flags: { quiet: true },
+      });
 
-      return provide(
+      return Effect.provide(
         Effect.gen(function* () {
-          yield* emitPublishResult(
-            "publish",
-            normalizePublishResult({
-              mode: "apply",
-              results: [
-                {
-                  id: "@acme/skills/review",
-                  owner: handle("@acme"),
-                  type: "skill",
-                  name: extensionName("review"),
-                  version: exactVersion("1.0.0"),
-                  action: "publish",
-                  phase: "upload_execution",
-                  status: "unknown",
-                  reason: "settlement_unresolved",
-                  settlement: "unresolved",
-                },
-              ],
-            }),
-          );
+          const reported = yield* emitPublishResult(publishedReview, { exitCode: 0 });
 
-          expect(logs.error).toContain("Publish did not confirm @acme/skills/review@1.0.0");
-          expect(logs.success).not.toContain("No extensions published — 0 extensions skipped");
+          expect(reported).toBe(true);
+          expect(painted(context.rendererState)).toContain("Published 1 extension  public");
+          expect(painted(context.rendererState).join("\n")).not.toContain("Publishing");
         }),
+        context.fullLayer,
       );
     });
   });
@@ -677,7 +901,7 @@ describe("root publish", () => {
 
     describe("version monotonicity", () => {
       it.effect("rejects a version below the highest published version", () => {
-        const { provide } = makeContext(false);
+        const { provide, rendererState } = makeContext(false);
         const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
         return provide(
@@ -686,20 +910,30 @@ describe("root publish", () => {
             yield* handleRootPublish(args(registryUrl, { preview: false }));
 
             writeReviewSkill("1.0.5");
-            const error = getAppError(
-              yield* handleRootPublish(explicit(registryUrl)).pipe(Effect.flip),
-            );
+            const exit = yield* handleRootPublish(explicit(registryUrl)).pipe(Effect.exit);
 
-            expect(error.code).toBe("conflict");
-            expect(error.detail).toContain("lower than the highest published version 1.1.0");
-            const suggestions = error.suggestions ?? [];
+            // The reported outcome carries the failure's recoveries and ends
+            // with the conflict's exit code.
+            expect(Exit.isFailure(exit)).toBe(true);
+            if (Exit.isFailure(exit)) {
+              const squashed = Cause.squash(exit.cause);
+              expect(isEffectCliExit(squashed) ? squashed.exitCode : undefined).toBe(
+                exitCodeFor("conflict"),
+              );
+            }
+            const reported = rendererState.docs
+              .flatMap((entry) => paintText(entry.doc, { width: "unbounded", colors: false }))
+              .join("\n");
+            expect(reported).toContain("lower than the highest published version 1.1.0");
             expect(
-              suggestions.some(
+              rendererState.suggestions.some(
                 (suggestion) => suggestion.cmd === "axm version @acme/skills/review patch",
               ),
             ).toBe(true);
             expect(
-              suggestions.some((suggestion) => suggestion.description.includes("--backfill")),
+              rendererState.suggestions.some((suggestion) =>
+                suggestion.description.includes("--backfill"),
+              ),
             ).toBe(true);
           }),
         );
@@ -856,7 +1090,6 @@ describe("root publish", () => {
         Effect.gen(function* () {
           const properties = yield* semanticProperties(
             emitPublishResult(
-              "publish",
               normalizePublishResult({
                 mode: "apply",
                 results: [
@@ -874,6 +1107,7 @@ describe("root publish", () => {
                   },
                 ],
               }),
+              { exitCode: 1 },
             ),
           );
 

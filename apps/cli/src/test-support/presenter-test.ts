@@ -6,7 +6,16 @@ import type * as Schema from "effect/Schema";
 import { type BoxOptions, type LogMessage, type ResultOptions } from "../screen/output.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { subscribeLossless, type OperationEvent } from "@agentxm/workspace/transitions/planning";
-import { Screen, plain, type Doc, type DocNode } from "../screen/index.js";
+import {
+  Screen,
+  parkedOnWait,
+  plain,
+  promptRequired,
+  type Doc,
+  type DocNode,
+  type WaitView,
+} from "../screen/index.js";
+import { emptyAskScript, scriptedAsk, type AskScript } from "./scripted-ask.js";
 
 // ---------------------------------------------------------------------------
 // TestRendererState — mutable state object capturing all ScreenPresenter calls
@@ -45,6 +54,8 @@ export interface TestRendererState {
   readonly suggestions: Array<SuggestedAction>;
   readonly summaries: Array<string>;
   readonly docs: Array<{ readonly channel: "stdout" | "stderr"; readonly doc: Doc }>;
+  /** Questions this screen was given, and the keys it answers the next ones with. */
+  readonly script: AskScript;
 }
 
 // ---------------------------------------------------------------------------
@@ -67,6 +78,7 @@ const makeEmptyState = (): TestRendererState => ({
   suggestions: [],
   summaries: [],
   docs: [],
+  script: emptyAskScript(),
 });
 
 const nodeText = (node: DocNode): string => {
@@ -74,12 +86,18 @@ const nodeText = (node: DocNode): string => {
     case "headline":
     case "paragraph":
       return plain(node.text);
-    case "row":
-      return node.cells.map(plain).join("   ");
-    case "collapsed":
-      return `${String(node.count)} ${node.noun}`;
+    case "ledger":
+      return node.rows.map((row) => row.cells.map(plain).join("   ")).join("\n");
+    case "prompt":
+      return plain(node.question);
+    case "wait":
+      return plain(node.status);
+    case "answer":
+      return `${plain(node.label)}: ${plain(node.value)}`;
     case "callout":
-      return plain(node.title);
+      return node.aside === undefined
+        ? plain(node.title)
+        : `${plain(node.title)} ${plain(node.aside)}`;
     case "summary":
       return node.parts.map((part) => plain(part.text)).join(", ");
     case "section":
@@ -91,10 +109,9 @@ const nodeText = (node: DocNode): string => {
     case "fields":
       return node.fields.map((field) => `${plain(field.label)}: ${plain(field.value)}`).join("\n");
     case "table":
-      return node.rows.map((row) => row.map(plain).join("   ")).join("\n");
+      return node.rows.map((row) => row.cells.map(plain).join("   ")).join("\n");
     case "tree":
       return node.roots.map((root) => plain(root.text)).join("\n");
-    case "rows":
     case "next":
     case "blank":
       return "";
@@ -121,13 +138,15 @@ const captureDoc = (
   persistent = false,
 ): void => {
   const capture = (node: DocNode): void => {
-    if (node._tag === "rows") {
+    if (node._tag === "ledger") {
       for (const row of node.rows) {
-        state.summaries.push(nodeText(row));
-        if (row.change === "failed") {
-          state.logs.push({ _tag: "error", message: nodeText(row) });
-        }
+        const message = row.cells.map(plain).join("   ");
+        state.summaries.push(message);
+        if (row.mark === "failed") state.logs.push({ _tag: "error", message });
         if (row.children !== undefined) captureDoc(state, row.children, channel, persistent);
+      }
+      for (const fold of node.folds ?? []) {
+        state.logs.push({ _tag: "message", message: `${String(fold.count)} ${fold.noun}` });
       }
       return;
     }
@@ -151,7 +170,7 @@ const captureDoc = (
       state.tables.push({
         items: node.rows.map((row) =>
           Object.fromEntries(
-            row.map((cell, index) => [keys[index] ?? `column${String(index)}`, plain(cell)]),
+            row.cells.map((cell, index) => [keys[index] ?? `column${String(index)}`, plain(cell)]),
           ),
         ),
         view: node.columns,
@@ -257,6 +276,8 @@ const makeTestScreenService = (
     }),
   observe: (lifecycle) =>
     subscribeLossless(lifecycle, (event) => Effect.sync(() => void state.events.push(event))),
+  // A presenter test screen never animates, so it has no live ledger.
+  showPlan: () => Effect.succeed(false),
   log: (record) =>
     Effect.sync(() => {
       state.logs.push({
@@ -269,7 +290,21 @@ const makeTestScreenService = (
         message: record.message,
       });
     }),
-  prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect,
+  // Machine output never prompts, whatever the script holds: asking is the
+  // usage error by construction, as it is on the real machine screen.
+  ask: resultReturnValue
+    ? (_ask, guard) => Effect.fail(promptRequired(guard))
+    : scriptedAsk(state.script, (doc) => captureDoc(state, doc, "stderr")),
+  // A test screen cannot be stopped, so a wait is its brief and the effect it
+  // was parked on, in the order a terminal would have shown them.
+  wait: <A, E, R>(view: WaitView, awaited: Effect.Effect<A, E, R>) =>
+    parkedOnWait(
+      view,
+      Effect.suspend((): Effect.Effect<A, E, R> => {
+        captureDoc(state, view.brief, "stderr", true);
+        return awaited;
+      }),
+    ),
   facts: Effect.succeed({ columns: 80, colors: false, animate: false }),
   settle: Effect.void,
 });

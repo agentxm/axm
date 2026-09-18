@@ -54,7 +54,7 @@ describe("Token revocation", () => {
         expect(requests).toEqual([{ id: "selected-token" }]);
         // Taking authority away is not one of the operations that may ask a
         // signed-in person for more.
-        expect(presenterState.stepUpChallenges).toEqual([]);
+        expect(presenterState.handoffs).toEqual([]);
         expect(interactionState.openBrowserCalls).toEqual([]);
       }).pipe(Effect.provide(layer));
     });

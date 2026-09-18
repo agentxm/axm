@@ -2,14 +2,52 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 
 export type Tone = "neutral" | "ok" | "warn" | "error" | "info" | "dim";
 
+/** A tone that carries a status glyph; `neutral` and `dim` carry none. */
+export type Status = Exclude<Tone, "neutral" | "dim">;
+
+/**
+ * What happened to a unit. The first four are the operation's planned
+ * changes; the rest are a unit that did not change as planned: `blocked` by
+ * its own condition, `failed`, `rolled-back` after it ran, or `not-tried`
+ * because the operation stopped before it.
+ */
 export type Change =
-  "create" | "update" | "remove" | "unchanged" | "blocked" | "failed" | "rolled-back";
+  "create" | "update" | "remove" | "unchanged" | "blocked" | "failed" | "rolled-back" | "not-tried";
+
+/**
+ * A unit that has not settled: `working` is the running mark the live region
+ * animates, and `waiting` a unit that has not started. Only a live ledger
+ * carries one, because a settled document knows what happened.
+ */
+export type LiveMark = "working" | "waiting";
+
+/** Every mark a gutter paints: an outcome, a change operation, or live progress. */
+export type Mark = Change | Status | LiveMark;
+
+/**
+ * A category colour, one of the terminal's standard colours, that tells
+ * like things apart without saying anything about how they went — such as an
+ * extension's type in an inventory. A span's `tone` wins over its tint.
+ */
+export type Tint = "green" | "yellow" | "blue" | "magenta" | "cyan";
 
 export interface Span {
   readonly text: string;
   readonly tone?: Tone;
+  readonly tint?: Tint;
   readonly bold?: boolean;
   readonly link?: string;
+  /**
+   * A value a person copies out of the terminal — a URL, a command, a one-time
+   * code, a request identifier. The painter never wraps, splits, or truncates
+   * one: it moves to a line of its own and overflows the width instead.
+   */
+  readonly copyable?: true;
+  /**
+   * Reverse video, so the span reads as a filled cell. A key chip uses bold or
+   * capitalized text as its separate default-choice signal.
+   */
+  readonly invert?: true;
 }
 
 export type Text = string | ReadonlyArray<Span>;
@@ -18,7 +56,10 @@ export interface HeadlineNode {
   readonly _tag: "headline";
   readonly tone: Tone;
   readonly text: Text;
-  readonly aside?: Text;
+  /** Facts joined by the active glyph set's separator at the value column. */
+  readonly aside?: ReadonlyArray<SummaryPart>;
+  /** A settled verdict following a ledger; its rows already carry the outcome marks. */
+  readonly verdict?: true;
 }
 
 export interface ParagraphNode {
@@ -27,30 +68,174 @@ export interface ParagraphNode {
   readonly tone?: Tone;
 }
 
-export interface RowNode {
-  readonly _tag: "row";
-  readonly change: Change;
+/**
+ * How a ledger column takes and yields width: the `name` column is protected
+ * and shortened last, a `fixed` column keeps its natural width, and an
+ * `elastic` column takes the spare width and shrinks first.
+ */
+export type LedgerColumnRole = "name" | "fixed" | "elastic";
+
+export interface LedgerColumn {
+  readonly header: Text;
+  readonly role: LedgerColumnRole;
+  readonly priority?: TableColumnPriority;
+  readonly align?: "left" | "right";
+}
+
+export interface LedgerRow {
+  /** The unit this row is about; live progress joins to plan rows by it. */
+  readonly id?: string;
+  readonly mark: Mark;
   readonly cells: ReadonlyArray<Text>;
+  /** Nesting under the row above, such as a pack's members under their pack. */
+  readonly depth?: number;
+  /** Per-agent outcomes and details, shown at verbose level. */
   readonly children?: Doc;
 }
 
-export interface RowsNode {
-  readonly _tag: "rows";
-  readonly rows: ReadonlyArray<RowNode>;
-}
-
-export interface CollapsedNode {
-  readonly _tag: "collapsed";
-  readonly change: Change;
+/** The rows a ledger folds into one line because they repeat one outcome. */
+export interface LedgerFold {
+  readonly mark: Mark;
   readonly count: number;
   readonly noun: string;
-  readonly hint?: string;
+  readonly hint?: Text;
+}
+
+export interface LedgerNode {
+  readonly _tag: "ledger";
+  readonly columns: ReadonlyArray<LedgerColumn>;
+  readonly rows: ReadonlyArray<LedgerRow>;
+  /** One line per group of rows that repeat an outcome, beneath the rows. */
+  readonly folds?: ReadonlyArray<LedgerFold>;
+}
+
+/**
+ * One lettered choice of a question: the key that picks it, and the word that
+ * says what it means. The key is shown as it must be typed, so the capital
+ * letter is what marks the default on a terminal without color.
+ */
+export interface PromptChip {
+  readonly key: string;
+  readonly word: string;
+  /** The choice `enter` takes: its chip is filled and its word emphasized. */
+  readonly current?: true;
+}
+
+/**
+ * One option of a question whose answers need reading before one is chosen:
+ * its title at the content column, and what it means dim at the value column.
+ */
+export interface PromptOption {
+  readonly title: Text;
+  /**
+   * Facts about the option, which the painter joins with its own separator.
+   * They show whole or not at all, so a narrow terminal loses them before it
+   * touches a title.
+   */
+  readonly details?: ReadonlyArray<Text>;
+  /** The option the caret stands on, which `enter` takes. */
+  readonly current?: true;
+  /**
+   * Whether the option is picked, for a question that takes several: its mark
+   * stands between the caret and the title. A group's header is `partial`
+   * while only some of its options are.
+   */
+  readonly picked?: PromptPicked;
+  /** Steps in from the content column, such as a group's options under its header. */
+  readonly depth?: number;
+  /** How many options the list skips before this one, named on a line above it. */
+  readonly before?: number;
+}
+
+export type PromptPicked = "all" | "some" | "none";
+
+/**
+ * One key a list answers to: the key as typed, or `arrows` for the up and
+ * down arrows the painter draws, and the word for what it does.
+ */
+export interface PromptKey {
+  readonly key: string;
+  readonly word: string;
+}
+
+/**
+ * The line beneath a list: where it stands, such as how many are picked, and
+ * the keys that act on it. Where the line is short the keys lose their words
+ * and the arrows go; where it is shorter still only the status stays.
+ */
+export interface PromptHint {
+  readonly status: ReadonlyArray<string>;
+  readonly keys: ReadonlyArray<PromptKey>;
+}
+
+/**
+ * A question being asked: the prompt mark in the gutter, the question itself,
+ * and whatever answers it — key chips, a list of options that opens beneath
+ * it, or the line being typed behind the caret. The painter puts the chips
+ * after the question, on their own line, or without their words, as the width
+ * allows. Every option is one line, so a list is exactly as tall as it looks.
+ * The `Screen` builds one from an `Ask` while a prompt is open; views never
+ * build it.
+ */
+export interface PromptNode {
+  readonly _tag: "prompt";
+  readonly question: Text;
+  /** What the question means, in one dim line beneath it. */
+  readonly note?: Text;
+  readonly chips: ReadonlyArray<PromptChip>;
+  /** The options that fit the space the question was given, in order. */
+  readonly options?: ReadonlyArray<PromptOption>;
+  /** How many options did not fit below the list, named on one line beneath it. */
+  readonly more?: number;
+  /** The answer being typed, behind the caret. */
+  readonly entry?: Text;
+  /**
+   * What narrows the list, typed after the question. An empty filter invites
+   * typing while the line has room for the invitation.
+   */
+  readonly filter?: string;
+  /** The line beneath a list naming where it stands and the keys it takes. */
+  readonly hint?: PromptHint;
+}
+
+/**
+ * A wait standing open: the running mark in the gutter, what is being waited
+ * on, its clock at the value column, and the key chips that act on it. The
+ * `Screen` builds one while a wait is open — on a person, or on the system,
+ * such as another operation that holds the workspace; views never build it.
+ */
+export interface WaitNode {
+  readonly _tag: "wait";
+  /** What the terminal is parked on, in one line that never carries a value to copy. */
+  readonly status: Text;
+  /**
+   * At the value column: how long is left for a wait that expires, or how
+   * long it has lasted for one that does not.
+   */
+  readonly clock?: Text;
+  /** Who or what holds the wait, dim at the content column beneath it. */
+  readonly detail?: Text;
+  readonly chips: ReadonlyArray<PromptChip>;
+}
+
+/**
+ * A settled prompt: one gutter line whose answer sits at the value column.
+ * The `Screen` appends it when a prompt settles; views never build it.
+ */
+export interface AnswerNode {
+  readonly _tag: "answer";
+  readonly label: Text;
+  readonly value: Text;
+  /** `ok` marks an answer the person gave; `dim` an answer taken as given. */
+  readonly mark: "ok" | "dim";
 }
 
 export interface CalloutNode {
   readonly _tag: "callout";
   readonly tone: Tone;
   readonly title: Text;
+  /** A dim aside, such as a stable code, painted at the value column. */
+  readonly aside?: Text;
   readonly children?: Doc;
 }
 
@@ -71,10 +256,25 @@ export interface TableColumn {
   readonly priority?: TableColumnPriority;
 }
 
+export interface TableRow {
+  readonly cells: ReadonlyArray<Text>;
+  /**
+   * The status of a row that needs attention, painted in the gutter before
+   * its first cell, so a reader scanning an inventory finds it without reading
+   * every cell.
+   */
+  readonly mark?: Status;
+}
+
+/**
+ * A read-only inventory. Its header and rows sit behind the gutter, so its
+ * first column starts at the content column like every marked node.
+ */
 export interface TableNode {
   readonly _tag: "table";
   readonly columns: ReadonlyArray<TableColumn>;
-  readonly rows: ReadonlyArray<ReadonlyArray<Text>>;
+  readonly rows: ReadonlyArray<TableRow>;
+  /** A title above the table, at the content column. */
   readonly caption?: Text;
 }
 
@@ -110,9 +310,7 @@ export interface SummaryPart {
 
 export interface SummaryNode {
   readonly _tag: "summary";
-  readonly tone?: Tone;
   readonly parts: ReadonlyArray<SummaryPart>;
-  readonly elapsedMs?: number;
 }
 
 export interface SectionNode {
@@ -138,9 +336,10 @@ export interface BlankNode {
 export type DocNode =
   | HeadlineNode
   | ParagraphNode
-  | RowNode
-  | RowsNode
-  | CollapsedNode
+  | LedgerNode
+  | PromptNode
+  | WaitNode
+  | AnswerNode
   | CalloutNode
   | TableNode
   | FieldsNode

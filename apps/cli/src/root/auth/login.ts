@@ -13,7 +13,7 @@ import {
   type CommandCapabilities,
 } from "../shared/command-capabilities.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import { PromptCancelled } from "../../prompt/prompt-cancelled.js";
+import { PromptCancelled } from "../../screen/ask/prompt-cancelled.js";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { withRuntime } from "../../runtime.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";

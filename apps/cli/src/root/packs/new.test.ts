@@ -133,7 +133,7 @@ describe("packs-new.handler", () => {
 
           expect(logs.success).toContain("Created 1 pack");
           expect(rendererState.summaries).toContain(
-            "@acme/packs/frontend-tools   0.0.1   created   1 file   packs/frontend-tools/pack.json, axm.json",
+            "@acme/packs/frontend-tools   0.0.1   created   1 file, packs/frontend-tools/pack.json, axm.json",
           );
           expect(rendererState.suggestions).toEqual([
             {

@@ -4354,6 +4354,21 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Additional evidence: process via [`apps/cli-e2e/src/quiet-machine-output.e2e.test.ts`](../apps/cli-e2e/src/quiet-machine-output.e2e.test.ts) — Only a real invocation shows the quiet flag spellings reaching the machine screen and the result and diagnostic streams a caller actually reads.
 - Source: [`apps/cli/src/screen/quiet-preserves-machine-diagnostics.spec.ts`](../apps/cli/src/screen/quiet-preserves-machine-diagnostics.spec.ts)
 
+##### A retried unit reports which attempt is in flight, to machines and to people alike
+
+- Requirement: `cli/retried-work-names-the-attempt-in-flight`
+- Owner: `cli`
+- Statement: When a producer retries a unit's work, the unit's progress events shall carry the attempt in flight and the attempt limit, a machine progress event shall carry both unchanged through the published lifecycle schema, and the live row for that unit shall name the retry it is on in place of its measurement; a unit on its first attempt shall name no retry.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The attempt is stated by the producer on the published event; which work retries, and how often, belongs to each producer's request policy and is not decided here.
+- Methods: contract, example
+- Derived from: `cli/machine-progress-events-follow-the-lifecycle-schema`, `packages/supporting/registry-client/src/request-policy.test.ts`, `packages/supporting/registry-client/src/remote-client.test.ts`, `packages/core/workspace/src/transitions/planning/plan/operation-events.test.ts`
+- Limitation: Examples drive the published schema, the projector, and the live join over an authored event log. A registry download that a transport failure actually retries is witnessed by ordinary tests in the registry client, not decided here. Retires when: Bind producer evidence here when a retrying producer's own attempt reporting is allocated its own obligation.
+- Source: [`apps/cli/src/screen/retried-work-names-the-attempt-in-flight.spec.ts`](../apps/cli/src/screen/retried-work-names-the-attempt-in-flight.spec.ts)
+
 ##### Token output exposes the effective credential on request
 
 - Requirement: `cli/token/returns-effective-token`

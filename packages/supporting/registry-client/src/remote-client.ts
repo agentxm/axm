@@ -84,6 +84,7 @@ import { captureRegistryErrorResponseBodies, mapRegistryFailure } from "./failur
 import {
   executeRegistryRequest,
   PUBLISH_REGISTRY_REQUEST_POLICY,
+  RegistryRequestAttempt,
   type RegistryRequestPolicy,
   type RegistryRequestReplaySafety,
 } from "./request-policy.js";
@@ -304,9 +305,9 @@ const contentLength = (response: HttpClientResponse.HttpClientResponse): number 
   });
 
 /**
- * Stream one archive body into memory, reporting received bytes per chunk.
- * Non-2xx statuses fail as `HttpClientError` so the caller's mapping keeps
- * the response evidence.
+ * Stream one archive body into memory, reporting received bytes per chunk and
+ * the attempt they arrived on. Non-2xx statuses fail as `HttpClientError` so
+ * the caller's mapping keeps the response evidence.
  */
 const downloadArchive = (
   http: HttpClient.HttpClient,
@@ -314,6 +315,7 @@ const downloadArchive = (
   onProgress: GetExtensionPackageArgs["onProgress"],
 ): Effect.Effect<Uint8Array, HttpClientError.HttpClientError> =>
   Effect.gen(function* () {
+    const attempt = yield* Effect.serviceOption(RegistryRequestAttempt);
     const response = yield* HttpClient.filterStatusOk(http).execute(HttpClientRequest.get(path));
     const total = contentLength(response);
     const received = MutableRef.make(0);
@@ -323,6 +325,7 @@ const downloadArchive = (
         report({
           done: MutableRef.updateAndGet(received, (done) => done + chunk.byteLength),
           ...(total === undefined ? {} : { total }),
+          ...(Option.isNone(attempt) ? {} : { attempt: attempt.value }),
         }),
       ),
       Stream.runCollect,

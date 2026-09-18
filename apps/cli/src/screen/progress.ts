@@ -12,6 +12,7 @@ import type {
   OperationEvent,
   OperationMode,
   OperationPhase,
+  ProgressAttempt,
   ProgressUnit,
   SettledOutcome,
   UnitState,
@@ -33,6 +34,8 @@ export interface ProgressTask {
   readonly startedAtMs: number;
   readonly settledAtMs?: number;
   readonly measure?: ProgressMeasure;
+  /** The attempt in flight, present only while a producer is retrying the unit. */
+  readonly attempt?: ProgressAttempt;
 }
 
 export interface ProgressWait {
@@ -112,13 +115,16 @@ export const reduceProgress = (state: ProgressState, event: OperationEvent): Pro
       return {
         ...state,
         lastSeq,
-        tasks: replaceTask(state.tasks, event.unitId, (task) => ({
+        // The event states the attempt it measured, so an event without one
+        // leaves the task on no attempt rather than on a stale earlier one.
+        tasks: replaceTask(state.tasks, event.unitId, ({ attempt: _replaced, ...task }) => ({
           ...task,
           measure: {
             done: event.done,
             ...(event.total === undefined ? {} : { total: event.total }),
             unit: event.unit,
           },
+          ...(event.attempt === undefined ? {} : { attempt: event.attempt }),
         })),
       };
     case "UnitResolved": {

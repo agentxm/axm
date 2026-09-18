@@ -85,10 +85,16 @@ export interface GetExtensionsByOwnerArgs {
  * - `name`: extension name
  * - `version`: specific version to fetch, or `None` for latest
  */
-/** Bytes received so far and the declared total when the transport reports one. */
+/**
+ * Bytes received so far, the declared total when the transport reports one,
+ * and the attempt that received them when the request policy governs the
+ * download. A retried download restarts its count, so the attempt is what
+ * tells an observer why the same bytes arrive twice.
+ */
 export interface ArchiveDownloadProgress {
   readonly done: number;
   readonly total?: number | undefined;
+  readonly attempt?: { readonly n: number; readonly of: number } | undefined;
 }
 
 export interface GetExtensionPackageArgs {

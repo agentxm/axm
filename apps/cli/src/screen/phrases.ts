@@ -3,6 +3,7 @@ import type {
   OperationOutcome,
   OperationPhase,
   OperationPresentation,
+  ProgressAttempt,
   ProgressUnit,
   SettledOutcome,
   UnitDisposition,
@@ -177,6 +178,13 @@ export const progressMeasure = (measure: {
       return unreachable(measure.unit);
   }
 };
+
+/**
+ * That a running unit is on a later attempt, and how many its producer may
+ * make. A first attempt is not a retry and says nothing.
+ */
+export const retryAttempt = (attempt: ProgressAttempt): string | undefined =>
+  attempt.n <= 1 ? undefined : `retry ${String(attempt.n)} of ${String(attempt.of)}`;
 
 export const disposition = (value: UnitDisposition): string => {
   switch (value) {

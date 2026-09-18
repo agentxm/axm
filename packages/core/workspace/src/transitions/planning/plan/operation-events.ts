@@ -76,6 +76,22 @@ export const ProgressUnitSchema = Schema.Literals(["bytes", "files", "items"] as
 });
 export type ProgressUnit = typeof ProgressUnitSchema.Type;
 
+/**
+ * Which attempt at a unit's work is in flight, and how many its producer may
+ * make. A producer that retries publishes it with every measurement, so an
+ * observer can say a unit is on its second of three attempts instead of
+ * reporting the same state for longer.
+ */
+export const ProgressAttemptSchema = Schema.Struct({
+  n: Schema.Number,
+  of: Schema.Number,
+}).annotate({
+  identifier: "ProgressAttempt",
+  title: "Progress Attempt",
+  description: "The attempt in flight and the attempt limit its producer works to.",
+});
+export type ProgressAttempt = typeof ProgressAttemptSchema.Type;
+
 /** Per-operation monotonic order and wall-clock time, on every event. */
 const EventBase = {
   seq: Schema.Number,
@@ -109,6 +125,7 @@ export const UnitProgressEventSchema = Schema.TaggedStruct("UnitProgress", {
   done: Schema.Number,
   total: Schema.optional(Schema.Number),
   unit: ProgressUnitSchema,
+  attempt: Schema.optional(ProgressAttemptSchema),
 }).annotate({ identifier: "UnitProgressEvent" });
 
 export const UnitResolvedEventSchema = Schema.TaggedStruct("UnitResolved", {
@@ -305,14 +322,16 @@ export class CurrentOperationUnit extends ServiceMap.Service<
 >()("@agentxm/workspace/transitions/planning/plan/operation-events/CurrentOperationUnit") {}
 
 /**
- * Publish a continuous measurement for the current unit. Producers throttle
- * before calling: a download publishes tens of events, never one per chunk.
- * No-op without a broadcast or without a current unit.
+ * Publish a continuous measurement for the current unit, and the attempt it
+ * belongs to when the producer retries. Producers throttle before calling: a
+ * download publishes tens of events, never one per chunk. No-op without a
+ * broadcast or without a current unit.
  */
 export const publishUnitProgress = (progress: {
   readonly done: number;
   readonly total?: number | undefined;
   readonly unit: ProgressUnit;
+  readonly attempt?: ProgressAttempt | undefined;
 }): Effect.Effect<void> =>
   Effect.flatMap(Effect.serviceOption(CurrentOperationUnit), (unit) =>
     Option.isNone(unit)
@@ -325,28 +344,44 @@ export const publishUnitProgress = (progress: {
           done: progress.done,
           ...(progress.total === undefined ? {} : { total: progress.total }),
           unit: progress.unit,
+          ...(progress.attempt === undefined ? {} : { attempt: progress.attempt }),
         })),
   );
+
+interface ThrottledProgressState {
+  readonly atMs: number;
+  readonly attempt: ProgressAttempt | undefined;
+}
 
 /**
  * Time-gated progress publisher for a producer loop: at most one event per
  * `intervalMs` of wall clock, plus the final measurement when `done` reaches
- * `total`. Keeps continuous measurements to tens of events per unit.
+ * `total`, plus the first measurement of every new attempt. Keeps continuous
+ * measurements to tens of events per unit.
  */
 export const makeThrottledUnitProgress = (options: {
   readonly unit: ProgressUnit;
   readonly intervalMs?: number | undefined;
-}): Effect.Effect<(done: number, total?: number | undefined) => Effect.Effect<void>> =>
+}): Effect.Effect<
+  (
+    done: number,
+    total?: number | undefined,
+    attempt?: ProgressAttempt | undefined,
+  ) => Effect.Effect<void>
+> =>
   Effect.map(
-    Ref.make(-Infinity),
-    (last) => (done: number, total?: number | undefined) =>
+    Ref.make<ThrottledProgressState>({ atMs: -Infinity, attempt: undefined }),
+    (last) => (done: number, total?: number | undefined, attempt?: ProgressAttempt | undefined) =>
       Effect.gen(function* () {
         const now = yield* Clock.currentTimeMillis;
         const previous = yield* Ref.get(last);
         const final = total !== undefined && done >= total;
-        if (!final && now - previous < (options.intervalMs ?? 100)) return;
-        yield* Ref.set(last, now);
-        yield* publishUnitProgress({ done, unit: options.unit, total });
+        // A new attempt is a discrete transition, not a measurement, so it
+        // never waits out the interval that throttles continuous progress.
+        const retried = attempt?.n !== previous.attempt?.n;
+        if (!final && !retried && now - previous.atMs < (options.intervalMs ?? 100)) return;
+        yield* Ref.set(last, { atMs: now, attempt });
+        yield* publishUnitProgress({ done, unit: options.unit, total, attempt });
       }),
   );
 

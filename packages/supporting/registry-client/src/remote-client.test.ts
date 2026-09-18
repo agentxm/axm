@@ -24,6 +24,7 @@ import {
   publicationSetDigest,
 } from "@agentxm/registry-protocol/unstable/registry/publication-set";
 import type { ArchiveCache } from "./archive-cache.js";
+import type { ArchiveDownloadProgress } from "./client.js";
 import type { RegistryClientFailure } from "./errors.js";
 import {
   extensionName,
@@ -580,6 +581,34 @@ describe("getExtensionPackage", () => {
         undefined,
         undefined,
       ]);
+    }),
+  );
+
+  it.effect("reports which attempt received the archive bytes", () =>
+    Effect.gen(function* () {
+      const archiveData = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+      let archiveRequests = 0;
+      const httpClient = makeMockHttpClient((request) => {
+        if (!request.url.endsWith("/archive")) {
+          return new Response(JSON.stringify(extensionIndexResponse), { status: 200 });
+        }
+        archiveRequests += 1;
+        // The first attempt never reaches the body, so only the attempt that
+        // streamed bytes reports any.
+        return archiveRequests === 1
+          ? new Response(undefined, { status: 503 })
+          : new Response(archiveData, { status: 200 });
+      });
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+      const reported: Array<ArchiveDownloadProgress> = [];
+
+      yield* client.getExtensionPackage({
+        ...makePackageArgs(),
+        onProgress: (progress) => Effect.sync(() => void reported.push(progress)),
+      });
+
+      expect(archiveRequests).toBe(2);
+      expect(reported.map((progress) => progress.attempt)).toEqual([{ n: 2, of: 3 }]);
     }),
   );
 

@@ -207,9 +207,26 @@ A paused row needs no schema change. `Waiting` already carries a `subject`,
 and the plan layer sets it to the unit id, so a wait whose subject is a unit
 marks that row paused.
 
-A visible retry count is deferred. It would need an additive attempt field on
-`UnitProgress`, which changes machine progress events and therefore ships with
-its own specification. Until then a retried unit reports its ordinary state.
+## Amendment: the attempt in flight
+
+`UnitProgress` carries an optional `attempt` of `{ n, of }`: which attempt at a
+unit's work produced the measurement, and how many the producer may make. It
+stays a count, not a phrase, so the machine event and the human row read the
+same fact and each words it its own way. A producer that does not retry omits
+it, and an observer that sees no attempt reports the unit's ordinary state.
+
+The producer states it because only the producer knows its policy. A registry
+request provides the attempt to the work it governs, and the archive download
+reports it with the bytes that attempt received; the attempt limit is the one
+the policy will actually spend, so a request it will not replay reports a
+single attempt. Because a new attempt is a discrete transition rather than a
+continuous measurement, it is published as soon as it changes instead of
+waiting out the throttle interval, which leaves the event count proportional to
+attempts and still bounded.
+
+The live row names the retry in place of its measurement, because a restarted
+attempt counts the same bytes again and the attempt is what explains the wait.
+`cli/retried-work-names-the-attempt-in-flight` owns that obligation.
 
 Reconsider the unbounded broadcast if a producer cannot keep its event count
 proportional to planned units or cannot throttle a continuous measurement at

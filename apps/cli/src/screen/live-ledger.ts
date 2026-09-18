@@ -26,6 +26,7 @@ import {
   liveUnitActivity,
   phaseLabel,
   progressMeasure,
+  retryAttempt,
   systemWaitHint,
   systemWaitStatus,
   unitState,
@@ -200,11 +201,20 @@ const statusOf = (activity: Activity, state: ProgressState): Text => {
   }
 };
 
-/** What a row shows beyond its state: how far a running unit has come, or why it is parked. */
+/**
+ * What a row shows beyond its state: which attempt a retrying unit is on, how
+ * far a running unit has come, or why it is parked. A retry displaces the
+ * measurement, because an attempt that restarts counts the same bytes again
+ * and the attempt is what explains the wait.
+ */
 const detailOf = (activity: Activity): Text => {
   switch (activity._tag) {
-    case "running":
+    case "running": {
+      const retry =
+        activity.task.attempt === undefined ? undefined : retryAttempt(activity.task.attempt);
+      if (retry !== undefined) return retry;
       return activity.task.measure === undefined ? "" : progressMeasure(activity.task.measure);
+    }
     case "paused":
       return blockingClass(activity.wait.blockingClass);
     case "waiting":

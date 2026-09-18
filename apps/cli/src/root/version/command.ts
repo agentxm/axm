@@ -8,11 +8,7 @@ import {
   changeAuthoredVersionPlanName,
   type AuthoredVersionChange,
 } from "@agentxm/workspace/authoring";
-import {
-  extensionTypeSentenceLabels,
-  extensionTypeToPlural,
-  parseFqn,
-} from "@agentxm/extension-model/unstable/extensions";
+import { extensionTypeToPlural, parseFqn } from "@agentxm/extension-model/unstable/extensions";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 import { operationPresentation } from "@agentxm/workspace/transitions/planning";
 
@@ -22,8 +18,6 @@ import { withArgvTracking } from "../../cli-runtime/index.js";
 import { authoringFailureToAppError } from "../../feature-errors.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { Screen, headlineDoc, successDoc } from "../../screen/index.js";
-import { Verbosity } from "../../cli-flags/index.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
@@ -118,19 +112,7 @@ const handleVersionBody = Effect.fn("Version.handle")(function* (args: VersionHa
   const resolution = yield* ChangeAuthoredVersion.previewOrApply(candidate, execution).pipe(
     Effect.mapError(authoringFailureToAppError),
   );
-  const { emitted } = yield* emitOperationResolution("version", resolution);
-
-  // The preview display is the planning-time render this command owns.
-  if (args.preview && !emitted) {
-    const screen = yield* Screen;
-    const verbosity = yield* Verbosity;
-    const message = `Would update ${extensionTypeSentenceLabels[candidate.type]} ${candidate.fqn} ${candidate.from} -> ${candidate.to}`;
-    if (verbosity.level === "quiet") {
-      yield* screen.result(successDoc(message));
-      return;
-    }
-    yield* screen.note(headlineDoc("info", `${message}\n  -> ${candidate.manifestPath}`));
-  }
+  yield* emitOperationResolution("version", resolution);
 });
 
 export interface RootVersionHandlerArgs {

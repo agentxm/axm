@@ -10,7 +10,10 @@ import { mutationResult } from "./mutation-result.js";
 import { mutationResultAltTable } from "./mutation-result-alt-table.js";
 import { mutationResultAltTree } from "./mutation-result-alt-tree.js";
 import { planPreview } from "./plan-preview.js";
+import { promptsChooseAnswered } from "./prompts--choose-answered.js";
 import { promptsConfirmAnswered } from "./prompts--confirm-answered.js";
+import { promptsInputAnswered } from "./prompts--input-answered.js";
+import { promptsInputError } from "./prompts--input-error.js";
 import { refSyncMixedOperations } from "./ref-sync--mixed-operations.js";
 import { refSyncNothingToDo } from "./ref-sync--nothing-to-do.js";
 import { refSyncUninstallKeptReference } from "./ref-sync--uninstall-kept-reference.js";
@@ -19,6 +22,8 @@ import { widthGateFourWidths } from "./width-gate--four-widths.js";
 import { widthKeepLongNames } from "./width-keep--long-names.js";
 import { widthKeepNeverCut } from "./width-keep--never-cut.js";
 import { widthLiveHeightCap } from "./width-live--height-cap.js";
+import { widthPromptsChoose } from "./width-prompts--choose.js";
+import { widthPromptsChooseHeight } from "./width-prompts--choose-height.js";
 import { widthPromptsConfirm } from "./width-prompts--confirm.js";
 import { waitOpen, waitStatic } from "./wait-open.js";
 import { waitSettledFixture } from "./wait-settled.js";
@@ -54,6 +59,9 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
   },
   { _tag: "document", name: "blocked-waiting", doc: blockedWaiting },
   { _tag: "document", name: "prompts--confirm-answered", doc: promptsConfirmAnswered },
+  { _tag: "document", name: "prompts--choose-answered", doc: promptsChooseAnswered },
+  { _tag: "document", name: "prompts--input-answered", doc: promptsInputAnswered },
+  { _tag: "document", name: "prompts--input-error", doc: promptsInputError },
   { _tag: "document", name: "wait-open", doc: waitOpen },
   { _tag: "document", name: "wait-static", doc: waitStatic },
   { _tag: "document", name: "wait-settled", doc: waitSettledFixture },
@@ -85,7 +93,20 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
     // The widths the canvas draws the three chip fallbacks at.
     widths: [80, 48, 30],
   },
+  {
+    _tag: "document",
+    name: "width-prompts--choose",
+    doc: widthPromptsChoose,
+    // The confirmation's three widths, where details show, drop, and titles hold.
+    widths: [80, 48, 30],
+  },
   { _tag: "scene", name: "width-live--height-cap", scene: widthLiveHeightCap },
+  {
+    _tag: "scene",
+    name: "width-prompts--choose-height",
+    scene: widthPromptsChooseHeight,
+    widths: [80],
+  },
 ];
 
 export const galleryWidths = [40, 80, 120, 200] as const;

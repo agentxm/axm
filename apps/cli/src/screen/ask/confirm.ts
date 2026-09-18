@@ -10,7 +10,14 @@
  */
 
 import type { Doc, PromptChip } from "../doc.js";
-import { isQuitKey, type AskKey, type ConfirmAsk, type ConfirmChoice } from "./ask.js";
+import {
+  isQuitKey,
+  isSubmitKey,
+  type AskKey,
+  type AskKind,
+  type ConfirmAsk,
+  type ConfirmChoice,
+} from "./ask.js";
 
 /** Which choice `enter` takes. */
 export interface ConfirmState {
@@ -56,7 +63,7 @@ export const reduceConfirm = <A>(
   key: AskKey,
 ): ConfirmAction<A> => {
   if (isQuitKey(key) || key.name === "escape") return { _tag: "Cancel" };
-  if (key.name === "return" || key.name === "enter") {
+  if (isSubmitKey(key)) {
     const choice = at(ask, state.index);
     return choice === undefined ? { _tag: "Cancel" } : { _tag: "Submit", choice };
   }
@@ -93,3 +100,15 @@ export const confirmAnswer = <A>(ask: ConfirmAsk<A>, choice: ConfirmChoice<A>): 
     value: choice.word,
   },
 ];
+
+/** A `Confirm` as the `Screen` runs it. */
+export const confirmKind = <A>(ask: ConfirmAsk<A>): AskKind<ConfirmState, A> => ({
+  initial: initialConfirmState,
+  reduce: (state, key) => {
+    const action = reduceConfirm(ask, state, key);
+    return action._tag === "Submit"
+      ? { _tag: "Submit", value: action.choice.value, answer: confirmAnswer(ask, action.choice) }
+      : action;
+  },
+  view: (state) => confirmDoc(ask, state),
+});

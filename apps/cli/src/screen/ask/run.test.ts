@@ -4,12 +4,13 @@ import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Option from "effect/Option";
 import * as Queue from "effect/Queue";
+import * as Result from "effect/Result";
 import * as Terminal from "effect/Terminal";
 
 import type { Doc } from "../doc.js";
 import { paintText } from "../paint-text.js";
 import type { ScenePart } from "../scene.js";
-import type { ConfirmAsk } from "./ask.js";
+import type { ChooseAsk, ConfirmAsk, InputAsk } from "./ask.js";
 import { runAsk, type AskSurface } from "./run.js";
 
 const gate: ConfirmAsk<"declined" | "approved"> = {
@@ -58,15 +59,31 @@ const makeHarness: Effect.Effect<Harness> = Effect.gen(function* () {
   };
 });
 
-/** The lines the live region last stood on before it was cleared. */
-const lastFrame = (harness: Harness): ReadonlyArray<string> => {
+/** The lines the live region last stood on before it was cleared, in `rows` rows. */
+const lastFrame = (harness: Harness, rows = 24): ReadonlyArray<string> => {
   const part = harness.shown.filter((entry) => entry !== undefined).at(-1);
   return part === undefined
     ? []
-    : paintText(part({ columns: 80, rows: 24, spinner: "", nowMs: 0 }), {
+    : paintText(part({ columns: 80, rows, spinner: "", nowMs: 0 }), {
         width: 80,
         colors: false,
       });
+};
+
+const source: ChooseAsk<string> = {
+  _tag: "Choose",
+  question: "Instructions source",
+  options: [
+    { title: "AGENTS.md", value: "AGENTS.md" },
+    { title: "CLAUDE.md", value: "CLAUDE.md" },
+    { title: "GEMINI.md", value: "GEMINI.md" },
+  ],
+};
+
+const fileName: InputAsk<string> = {
+  _tag: "Input",
+  question: "Instructions file name",
+  validate: (raw) => (raw.length === 0 ? Result.fail("Enter a file name.") : Result.succeed(raw)),
 };
 
 describe("runAsk", () => {
@@ -135,6 +152,80 @@ describe("runAsk", () => {
       yield* Fiber.interrupt(running);
 
       expect(harness.shown.length).toBeGreaterThanOrEqual(2);
+      expect(harness.shown.at(-1)).toBeUndefined();
+    }),
+  );
+
+  it.effect("answers a list with the option under the caret", () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHarness;
+      yield* Queue.offer(harness.keys, press("down"));
+      yield* Queue.offer(harness.keys, press("return"));
+
+      const answer = yield* runAsk(source, harness.terminal, harness.surface);
+
+      expect(answer).toBe("CLAUDE.md");
+      expect(harness.transcript).toEqual([
+        [{ _tag: "answer", mark: "ok", label: "Instructions source", value: "CLAUDE.md" }],
+      ]);
+      expect(harness.shown.at(-1)).toBeUndefined();
+    }),
+  );
+
+  it.effect("sizes an open list to the rows the scene gives it on each paint", () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHarness;
+      yield* Queue.offer(harness.keys, press("down"));
+      yield* Queue.offer(harness.keys, press("return"));
+
+      yield* runAsk(source, harness.terminal, harness.surface);
+
+      expect(lastFrame(harness, 24)).toHaveLength(4);
+      expect(lastFrame(harness, 3)).toEqual([
+        " ?   Instructions source",
+        " ❯   CLAUDE.md",
+        " ·   2 more",
+      ]);
+    }),
+  );
+
+  it.effect("keeps a refused line open until a valid one is submitted", () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHarness;
+      yield* Queue.offer(harness.keys, press("return"));
+      yield* Queue.offer(harness.keys, press("a"));
+      yield* Queue.offer(harness.keys, press("return"));
+
+      const answer = yield* runAsk(fileName, harness.terminal, harness.surface);
+
+      expect(answer).toBe("a");
+      // The refusal was shown before the line was fixed, and left no trace.
+      const refused = harness.shown
+        .filter((entry) => entry !== undefined)
+        .map((part) =>
+          paintText(part({ columns: 80, rows: 24, spinner: "", nowMs: 0 }), {
+            width: 80,
+            colors: false,
+          }),
+        )
+        .some((lines) => lines.includes(" ▲   Enter a file name."));
+      expect(refused).toBe(true);
+      expect(harness.transcript).toEqual([
+        [{ _tag: "answer", mark: "ok", label: "Instructions file name", value: "a" }],
+      ]);
+    }),
+  );
+
+  it.effect("cancels a typed line on escape", () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHarness;
+      yield* Queue.offer(harness.keys, press("a"));
+      yield* Queue.offer(harness.keys, press("escape"));
+
+      const failure = yield* runAsk(fileName, harness.terminal, harness.surface).pipe(Effect.flip);
+
+      expect(failure._tag).toBe("PromptCancelled");
+      expect(harness.transcript).toEqual([]);
       expect(harness.shown.at(-1)).toBeUndefined();
     }),
   );

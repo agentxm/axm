@@ -189,6 +189,17 @@ then they lose their words and the question wraps with a hanging indent. The
 chip of the choice `enter` takes is filled and its key capitalised, so the
 default reads the same on a terminal without color.
 
+A list opens under its question with one line per option, so it is exactly
+as tall as it looks. The caret marks the option `enter` takes, titles sit at
+the content column, and details sit at the value column. Details show for
+every option or for none: a narrow list drops them all before it shortens a
+title in the middle, rather than leaving some options looking bare. A list
+shows as many options as the height it is given and names the rest on one
+line with the waiting mark, and its window follows the caret instead of
+scrolling the terminal. A typed line follows its question behind the caret,
+or takes the line beneath it when both do not fit; a line the question
+refuses stays open with the reason beneath it in the attention mark.
+
 A long name shortens in the middle, keeping its scope and last path segment:
 `@acme-enterprise/…/soc2-review`. A copyable value — a URL, a `next` command, a
 one-time code, a request identifier — is never cut, truncated, or hyphenated;

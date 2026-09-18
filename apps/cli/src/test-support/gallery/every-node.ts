@@ -65,6 +65,17 @@ export const everyNode: Doc = [
     ],
   },
   {
+    _tag: "prompt",
+    question: "Instructions source",
+    chips: [],
+    options: [
+      { title: "AGENTS.md", details: ["recommended", "existing"], current: true },
+      { title: "CLAUDE.md", details: ["existing"] },
+    ],
+    more: 1,
+  },
+  { _tag: "prompt", question: "Instructions file name", chips: [], entry: "docs/AGENTS.md" },
+  {
     _tag: "wait",
     status: "Waiting for approval on registry.agentxm.ai",
     remaining: "4m 32s left",

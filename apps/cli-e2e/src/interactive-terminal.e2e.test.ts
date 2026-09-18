@@ -241,6 +241,62 @@ describe.skipIf(!ptyIsSupported)("axm prompts under a pseudo-terminal", () => {
   });
 });
 
+describe.skipIf(!ptyIsSupported)("setup's instructions source under a pseudo-terminal", () => {
+  it("chooses from a list, refuses a bad file name, and writes nothing when declined", async () => {
+    const cwd = tempDir("axm-pty-workspace-");
+    const refused = "/abs.md";
+
+    const result = await runCliUnderPty(["setup", "--scope", "project"], {
+      home: tempDir("axm-pty-home-"),
+      cwd,
+      columns: 100,
+      rows: 30,
+      actions: [
+        { awaiting: "Select agents to configure" },
+        { send: "clau" },
+        { send: Keys.space },
+        { send: Keys.enter },
+        { awaiting: "Sync instructions to the selected agents?" },
+        { send: "y" },
+        { awaiting: "Instructions source" },
+        // The caret stops at the last option, so pressing past it lands there.
+        ...Array.from({ length: 8 }, () => ({ send: Keys.down })),
+        { send: Keys.enter },
+        { awaiting: "Instructions file name" },
+        { send: refused },
+        { send: Keys.enter },
+        { awaiting: "Enter a path relative to the project root." },
+        ...Array.from({ length: refused.length }, () => ({ send: Keys.backspace })),
+        { send: "docs/AGENTS.md" },
+        { send: Keys.enter },
+        { awaiting: "Proceed?" },
+        { send: "n" },
+      ],
+    });
+
+    for (const outcome of result.actions) {
+      expect(outcome.matched, `${JSON.stringify(outcome.action)}\n${result.transcript}`).toBe(true);
+    }
+    // The list opens under its question with the caret on the recommended
+    // file, the caret moves with the arrows, and another file comes last.
+    expect(result.transcript).toMatch(/❯ {3}AGENTS\.md +recommended/u);
+    expect(result.transcript).toMatch(/❯ {3}CLAUDE\.md/u);
+    expect(result.transcript).toMatch(/Other… +type a file name/u);
+    // A refused name stays open with the reason in the attention mark.
+    expect(result.transcript).toContain("▲   Enter a path relative to the project root.");
+    // Each answered question leaves one line, and the refused name left none.
+    expect(result.transcript).toMatch(/✔ {3}Instructions source +Other…/u);
+    expect(result.transcript).toMatch(/✔ {3}Instructions file name +docs\/AGENTS\.md/u);
+    expect(result.transcript).not.toMatch(/✔ {3}Instructions file name +\/abs\.md/u);
+
+    // Declining the plan writes nothing, and the terminal comes back.
+    expect(result.timedOut, result.transcript).toBe(false);
+    expect(fs.existsSync(path.join(cwd, "axm.json"))).toBe(false);
+    expect(result.rawModeRestored, "raw mode was not handed back").toBe(true);
+    expect(result.cursorRestored, "the cursor was left hidden").toBe(true);
+  });
+});
+
 /**
  * A Registry whose device authorization never completes, so a wait on it
  * stands open until the person watching it does something. Nothing here opens

@@ -25,6 +25,12 @@ the wide-character check
  ?   Apply 4 changes?
       N  no    y  yes    d  details
      Nothing has been written yet.
+ ?   Instructions source
+ ❯   AGENTS.md
+     CLAUDE.md
+ ·   1 more
+ ?   Instructions file name
+     ❯ docs/AGENTS.md
  ◒   Waiting for approval on
      registry.agentxm.ai   4m 32s left
       o  open    c  copy    esc  stop

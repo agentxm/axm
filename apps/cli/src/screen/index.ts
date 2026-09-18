@@ -57,8 +57,11 @@ export {
 export {
   promptRequired,
   type Ask,
+  type ChooseAsk,
+  type ChooseOption,
   type ConfirmAsk,
   type ConfirmChoice,
+  type InputAsk,
   type InteractiveGuard,
 } from "./ask/ask.js";
 export { PromptCancelled } from "./ask/prompt-cancelled.js";

@@ -117,9 +117,27 @@ export interface PromptChip {
 }
 
 /**
+ * One option of a question whose answers need reading before one is chosen:
+ * its title at the content column, and what it means dim at the value column.
+ */
+export interface PromptOption {
+  readonly title: Text;
+  /**
+   * Facts about the option, which the painter joins with its own separator.
+   * They show whole or not at all, so a narrow terminal loses them before it
+   * touches a title.
+   */
+  readonly details?: ReadonlyArray<Text>;
+  /** The option the caret stands on, which `enter` takes. */
+  readonly current?: true;
+}
+
+/**
  * A question being asked: the prompt mark in the gutter, the question itself,
- * and the key chips that answer it. The painter puts the chips after the
- * question, on their own line, or without their words, as the width allows.
+ * and whatever answers it — key chips, a list of options that opens beneath
+ * it, or the line being typed behind the caret. The painter puts the chips
+ * after the question, on their own line, or without their words, as the width
+ * allows. Every option is one line, so a list is exactly as tall as it looks.
  * The `Screen` builds one from an `Ask` while a prompt is open; views never
  * build it.
  */
@@ -129,6 +147,12 @@ export interface PromptNode {
   /** What the question means, in one dim line beneath it. */
   readonly note?: Text;
   readonly chips: ReadonlyArray<PromptChip>;
+  /** The options that fit the space the question was given, in order. */
+  readonly options?: ReadonlyArray<PromptOption>;
+  /** How many options did not fit, named on one line beneath the list. */
+  readonly more?: number;
+  /** The answer being typed, behind the caret. */
+  readonly entry?: Text;
 }
 
 /**

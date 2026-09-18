@@ -1,0 +1,22 @@
+ ?   Instructions source
+     AXM will sync its contents to the selected agents' instruction files.
+     packages/api/AGENTS.md        existing
+     packages/billing/AGENTS.md    existing
+     packages/cli/AGENTS.md        existing
+     packages/console/AGENTS.md    existing
+     packages/docs/AGENTS.md       existing
+     packages/emails/AGENTS.md     existing
+     packages/gateway/AGENTS.md    existing
+     packages/identity/AGENTS.md   existing
+     packages/indexer/AGENTS.md    existing
+     packages/ingest/AGENTS.md     existing
+     packages/jobs/AGENTS.md       existing
+     packages/ledger/AGENTS.md     existing
+     packages/mailer/AGENTS.md     existing
+     packages/metrics/AGENTS.md    existing
+     packages/notifier/AGENTS.md   existing
+     packages/payments/AGENTS.md   existing
+     packages/registry/AGENTS.md   existing
+ ❯   packages/reports/AGENTS.md    existing
+     packages/search/AGENTS.md     existing
+ ·   5 more

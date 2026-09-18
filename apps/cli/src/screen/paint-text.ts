@@ -11,6 +11,7 @@ import type {
   Mark,
   PromptChip,
   PromptNode,
+  PromptOption,
   RowNode,
   Span,
   Status,
@@ -22,7 +23,7 @@ import type {
 } from "./doc.js";
 import { joinGridLine, layoutTable, type LayoutColumn, type TableLayout } from "./table-layout.js";
 import { displayWidth, padDisplay } from "./width.js";
-import { longestWordWidth, truncateText, visibleText, wrapText } from "./wrap-text.js";
+import { longestWordWidth, spansOf, truncateText, visibleText, wrapText } from "./wrap-text.js";
 
 const ESC = "\u001b[";
 const RESET = `${ESC}0m`;
@@ -774,11 +775,22 @@ const chipsSpans = (chips: ReadonlyArray<PromptChip>, word: boolean): ReadonlyAr
 const spansWidth = (spans: ReadonlyArray<Span>): number => displayWidth(visibleText(spans));
 
 /**
- * A question and its key chips. The chips follow the question while both fit
- * one line; then they take the line beneath it, aligned to the content column;
- * then they lose their words, and the question wraps with a hanging indent.
+ * The line being typed, behind the caret. An empty line is the caret alone,
+ * so the question line never ends in a space.
  */
-const paintPrompt = (
+const entrySpans = (entry: Text, style: ResolvedStyle): ReadonlyArray<Span> =>
+  visibleText(entry).length === 0
+    ? [{ text: style.glyphs.marks.caret }]
+    : [{ text: `${style.glyphs.marks.caret} ` }, ...spansOf(entry)];
+
+/**
+ * The question and what answers it on its own line. A typed entry follows the
+ * question while both fit, else takes the line beneath it. Key chips follow
+ * the question while both fit one line; then they take the line beneath it,
+ * aligned to the content column; then they lose their words, and the question
+ * wraps with a hanging indent.
+ */
+const paintQuestion = (
   node: PromptNode,
   style: ResolvedStyle,
   indent: number,
@@ -786,26 +798,101 @@ const paintPrompt = (
   const first = gutter(style.glyphs.marks.prompt);
   const contentStart = indent + GUTTER_WIDTH;
   const question = bold(node.question);
-  const worded = chipsSpans(node.chips, true);
+  const questionWidth = displayWidth(visibleText(node.question));
   const room = (used: number): boolean => style.width === "unbounded" || used <= style.width;
-  const inline = room(
-    contentStart + displayWidth(visibleText(node.question)) + COLUMN_GAP + spansWidth(worded),
-  );
+  const alone = paintPrefixed(question, style, { indent, first });
+  if (node.entry !== undefined) {
+    const entry = entrySpans(node.entry, style);
+    return room(contentStart + questionWidth + 1 + spansWidth(entry))
+      ? [`${spaces(indent)}${first}${paintSpans(question, style)} ${paintSpans(entry, style)}`]
+      : [...alone, ...paintPrefixed(entry, style, { indent: contentStart, first: "" })];
+  }
+  if (node.chips.length === 0) return alone;
+  const worded = chipsSpans(node.chips, true);
   const chips = room(contentStart + spansWidth(worded)) ? worded : chipsSpans(node.chips, false);
-  const lines = inline
+  return room(contentStart + questionWidth + COLUMN_GAP + spansWidth(worded))
     ? [
         `${spaces(indent)}${first}${paintSpans(question, style)}${spaces(COLUMN_GAP)}${paintSpans(worded, style)}`,
       ]
-    : [
-        ...paintPrefixed(question, style, { indent, first }),
-        `${spaces(contentStart)}${paintSpans(chips, style)}`,
-      ];
-  return node.note === undefined
-    ? lines
-    : [
-        ...lines,
-        ...paintPrefixed(node.note, style, { indent: contentStart, first: "", tone: "dim" }),
-      ];
+    : [...alone, `${spaces(contentStart)}${paintSpans(chips, style)}`];
+};
+
+/** An option's title, shortened in the middle to what the line leaves it. */
+const optionTitle = (option: PromptOption, style: ResolvedStyle, start: number): Text =>
+  style.width === "unbounded"
+    ? option.title
+    : truncateText(option.title, Math.max(1, style.width - start), "middle");
+
+/** An option's details joined by the painter's own separator. */
+const optionDetails = (option: PromptOption, style: ResolvedStyle): ReadonlyArray<Span> =>
+  (option.details ?? []).flatMap((detail, index) => [
+    ...(index === 0 ? [] : [{ text: style.glyphs.separator }]),
+    ...spansOf(detail),
+  ]);
+
+/** Where an option's details start: the value column, unless its title reaches past it. */
+const detailsStart = (title: Text, style: ResolvedStyle, start: number): number =>
+  Math.max(style.valueColumn, start + displayWidth(visibleText(title)) + COLUMN_GAP);
+
+/**
+ * One option on one line: the caret in the gutter where it stands, the title
+ * at the content column, and — when the list shows details at all — its
+ * details dim at the value column. A title too long for the line shortens in
+ * the middle.
+ */
+const paintOption = (
+  option: PromptOption,
+  style: ResolvedStyle,
+  indent: number,
+  withDetails: boolean,
+): string => {
+  const current = option.current === true;
+  const start = indent + GUTTER_WIDTH;
+  const title = optionTitle(option, style, start);
+  const line = `${spaces(indent)}${gutter(current ? style.glyphs.marks.caret : undefined)}${paintValue(title, style, current ? "info" : undefined)}`;
+  const details = optionDetails(option, style);
+  if (!withDetails || details.length === 0) return line;
+  const gap = detailsStart(title, style, start) - start - displayWidth(visibleText(title));
+  return `${line}${spaces(gap)}${paintSpans(details, style, "dim")}`;
+};
+
+/**
+ * A question and what answers it: its question line, a dim note beneath it,
+ * and — for a question whose answers need reading — the options that fit,
+ * with one line naming how many did not. Options show their details only
+ * when every option's fit whole: a list whose details come and go row by row
+ * would read as options that have none, so a narrow list drops them all
+ * before it touches a title.
+ */
+const paintPrompt = (
+  node: PromptNode,
+  style: ResolvedStyle,
+  indent: number,
+): ReadonlyArray<string> => {
+  const contentStart = indent + GUTTER_WIDTH;
+  const options = node.options ?? [];
+  const withDetails = options.every((option) => {
+    const title = optionTitle(option, style, contentStart);
+    return (
+      style.width === "unbounded" ||
+      detailsStart(title, style, contentStart) + spansWidth(optionDetails(option, style)) <=
+        style.width
+    );
+  });
+  return [
+    ...paintQuestion(node, style, indent),
+    ...(node.note === undefined
+      ? []
+      : paintPrefixed(node.note, style, { indent: contentStart, first: "", tone: "dim" })),
+    ...options.map((option) => paintOption(option, style, indent, withDetails)),
+    ...(node.more === undefined || node.more <= 0
+      ? []
+      : paintPrefixed(`${String(node.more)} more`, style, {
+          indent,
+          first: gutter(style.glyphs.marks.waiting),
+          tone: "dim",
+        })),
+  ];
 };
 
 /**

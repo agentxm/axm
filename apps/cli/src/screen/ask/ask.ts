@@ -6,14 +6,16 @@
  * paints or reads input, so a reducer and a view are ordinary pure functions
  * that a table test can drive.
  *
- * Only `Confirm` exists so far; the remaining kinds join this union with their
- * own reducers and views.
+ * `Confirm` answers with one lettered key, `Choose` with one option from a list
+ * that opens under the question, and `Input` with one typed line.
  */
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import type * as Result from "effect/Result";
 
 import { makeAppError, type AppError } from "../../app-error/index.js";
-import type { Text } from "../doc.js";
+import type { Doc, Text } from "../doc.js";
+import type { SceneFacts } from "../scene.js";
 
 /** One lettered choice: the key that picks it, the word that says what it means. */
 export interface ConfirmChoice<A> {
@@ -33,8 +35,44 @@ export interface ConfirmAsk<A> {
   readonly choices: ReadonlyArray<ConfirmChoice<A>>;
 }
 
+/** One option of a `Choose`: what it is called, and the facts that tell it apart. */
+export interface ChooseOption<A> {
+  readonly title: string;
+  /** Facts shown beside the title, which the painter joins with its separator. */
+  readonly details?: ReadonlyArray<Text>;
+  readonly value: A;
+  /** The option the question opens on; the first option when none is. */
+  readonly selected?: true;
+}
+
+export interface ChooseAsk<A> {
+  readonly _tag: "Choose";
+  readonly question: Text;
+  /** What the question means, in one dim line beneath it. */
+  readonly note?: Text;
+  /** The label the settled answer line carries; the question by default. */
+  readonly label?: string;
+  readonly options: ReadonlyArray<ChooseOption<A>>;
+}
+
+export interface InputAsk<A> {
+  readonly _tag: "Input";
+  readonly question: Text;
+  /** What the question means, in one dim line beneath it. */
+  readonly note?: Text;
+  /** The label the settled answer line carries; the question by default. */
+  readonly label?: string;
+  /** An example answer, shown dim until something is typed. */
+  readonly placeholder?: string;
+  /**
+   * What the typed line answers, or in one line what is wrong with it. It is
+   * pure, so a line that fails stays open with the reason beneath it.
+   */
+  readonly validate: (raw: string) => Result.Result<A, string>;
+}
+
 /** A question a view describes as data and the `Screen` runs. */
-export type Ask<A> = ConfirmAsk<A>;
+export type Ask<A> = ConfirmAsk<A> | ChooseAsk<A> | InputAsk<A>;
 
 /**
  * One key press, as a reducer sees it: the key's own name, and the character
@@ -51,6 +89,30 @@ export interface AskKey {
 /** Whether the key ends input the way `ctrl`+`c` and `ctrl`+`d` do. */
 export const isQuitKey = (key: AskKey): boolean =>
   key.ctrl && (key.name === "c" || key.name === "d");
+
+/** Whether the key submits what the question stands on. */
+export const isSubmitKey = (key: AskKey): boolean => key.name === "return" || key.name === "enter";
+
+/**
+ * What one key did to a running question, whatever its kind: the state to
+ * show next, the value it settled on with the one transcript line it leaves,
+ * or a cancellation.
+ */
+export type AskAction<S, A> =
+  | { readonly _tag: "Next"; readonly state: S }
+  | { readonly _tag: "Submit"; readonly value: A; readonly answer: Doc }
+  | { readonly _tag: "Cancel" };
+
+/**
+ * One kind of question as the `Screen` runs it: where it starts, what a key
+ * does to it, and what the live region shows in the space it is given. Each
+ * kind keeps its own state type behind this, so one loop runs them all.
+ */
+export interface AskKind<S, A> {
+  readonly initial: S;
+  readonly reduce: (state: S, key: AskKey) => AskAction<S, A>;
+  readonly view: (state: S, facts: SceneFacts) => Doc;
+}
 
 /** Why a prompt would open, and how to get past it where one may not. */
 export interface InteractiveGuard {

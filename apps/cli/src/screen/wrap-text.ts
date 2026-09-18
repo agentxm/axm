@@ -42,7 +42,7 @@ const sameAttributes = (left: Attributes, right: Attributes): boolean =>
 const isCopyable = (word: Word): boolean =>
   word.length > 0 && word.every((fragment) => fragment.attributes.copyable === true);
 
-const spansOf = (value: Text): ReadonlyArray<Span> =>
+export const spansOf = (value: Text): ReadonlyArray<Span> =>
   typeof value === "string" ? [{ text: value }] : value;
 
 const isWhitespace = (character: string): boolean => /^\s$/u.test(character);

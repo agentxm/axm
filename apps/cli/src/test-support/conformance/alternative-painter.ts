@@ -310,18 +310,37 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
       ];
     }
     case "prompt":
-      // A second shape for the same question: the chips as plain text after it.
-      return block(
-        [
-          ...(typeof node.question === "string" ? [{ text: node.question }] : node.question),
-          {
-            text: ` [${node.chips.map((chip) => `${chip.key}=${chip.word}`).join(" ")}]`,
-          },
-        ],
-        style,
-        indent,
-        `${style.glyphs.marks.prompt} `,
-      ).concat(node.note === undefined ? [] : block(node.note, style, indent + 2, "", "dim"));
+      // A second shape for the same question: the chips and the typed entry
+      // as plain text after it, and each option on its own line beneath.
+      return [
+        ...block(
+          [
+            ...(typeof node.question === "string" ? [{ text: node.question }] : node.question),
+            {
+              text: ` [${node.chips.map((chip) => `${chip.key}=${chip.word}`).join(" ")}]`,
+            },
+            ...(node.entry === undefined ? [] : [{ text: ` = ${visibleText(node.entry)}` }]),
+          ],
+          style,
+          indent,
+          `${style.glyphs.marks.prompt} `,
+        ),
+        ...(node.note === undefined ? [] : block(node.note, style, indent + 2, "", "dim")),
+        ...(node.options ?? []).flatMap((option) =>
+          block(
+            [
+              ...(typeof option.title === "string" ? [{ text: option.title }] : option.title),
+              ...(option.details ?? []).map((detail) => ({ text: ` (${visibleText(detail)})` })),
+            ],
+            style,
+            indent + 2,
+            option.current === true ? `${style.glyphs.marks.caret} ` : "  ",
+          ),
+        ),
+        ...(node.more === undefined || node.more <= 0
+          ? []
+          : block(`${String(node.more)} more`, style, indent + 2, "", "dim")),
+      ];
     case "wait":
       // A second shape for the same wait: the keys as plain text after it.
       return block(

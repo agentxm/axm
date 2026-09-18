@@ -72,6 +72,11 @@ const forEachText = (doc: Doc, visit: (value: Text, copyable: boolean) => void):
           visit(chip.key, false);
           visit(chip.word, false);
         });
+        node.options?.forEach((option) => {
+          pushText(option.title);
+          option.details?.forEach(pushText);
+        });
+        pushText(node.entry);
         return;
       case "wait":
         pushText(node.status);

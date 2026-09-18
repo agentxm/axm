@@ -11,18 +11,15 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Queue from "effect/Queue";
+import type * as Scope from "effect/Scope";
 import type * as Terminal from "effect/Terminal";
 
 import type { Doc } from "../doc.js";
 import type { ScenePart } from "../scene.js";
-import type { Ask, AskKey } from "./ask.js";
-import {
-  confirmAnswer,
-  confirmDoc,
-  initialConfirmState,
-  reduceConfirm,
-  type ConfirmState,
-} from "./confirm.js";
+import type { Ask, AskKey, AskKind } from "./ask.js";
+import { chooseKind } from "./choose.js";
+import { confirmKind } from "./confirm.js";
+import { inputKind } from "./input.js";
 import { PromptCancelled } from "./prompt-cancelled.js";
 
 /** Where a running question paints, and where its answer lands. */
@@ -44,11 +41,24 @@ export const askKeyOf = (input: Terminal.UserInput): AskKey => ({
   ctrl: input.key.ctrl,
 });
 
-export const runAsk = <A>(
-  ask: Ask<A>,
+/** Hand a question's own kind to `use`, whatever state type that kind keeps. */
+const withKind = <A, R>(ask: Ask<A>, use: <S>(kind: AskKind<S, A>) => R): R => {
+  switch (ask._tag) {
+    case "Confirm":
+      return use(confirmKind(ask));
+    case "Choose":
+      return use(chooseKind(ask));
+    case "Input":
+      return use(inputKind(ask));
+  }
+};
+
+/** Read keys into one kind until it settles; raw mode lasts as long as the scope. */
+const runKind = <S, A>(
+  kind: AskKind<S, A>,
   terminal: Terminal.Terminal,
   surface: AskSurface,
-): Effect.Effect<A, PromptCancelled> =>
+): Effect.Effect<A, PromptCancelled, Scope.Scope> =>
   Effect.gen(function* () {
     const keys = yield* terminal.readInput;
     // The queue's one failure is its end, where the terminal stopped sending
@@ -58,26 +68,32 @@ export const runAsk = <A>(
       Effect.map(askKeyOf),
       Effect.catch(() => cancelled),
     );
-    const show = (state: ConfirmState) => surface.showInteraction(() => confirmDoc(ask, state));
-    const loop = (state: ConfirmState): Effect.Effect<A, PromptCancelled> =>
+    // The view is handed the space the scene gives it on every paint, so a
+    // list sized to the terminal follows a resize without a key being pressed.
+    const show = (state: S) => surface.showInteraction((facts) => kind.view(state, facts));
+    const loop = (state: S): Effect.Effect<A, PromptCancelled> =>
       Effect.flatMap(nextKey, (key) => {
-        const action = reduceConfirm(ask, state, key);
+        const action = kind.reduce(state, key);
         if (action._tag === "Cancel") return cancelled;
         if (action._tag === "Submit") {
           // The question leaves the region before its answer joins the
           // transcript, so the two never stand on screen together.
           return surface
             .showInteraction(undefined)
-            .pipe(
-              Effect.andThen(surface.transcript(confirmAnswer(ask, action.choice))),
-              Effect.as(action.choice.value),
-            );
+            .pipe(Effect.andThen(surface.transcript(action.answer)), Effect.as(action.value));
         }
         return Effect.flatMap(show(action.state), () => loop(action.state));
       });
-    yield* show(initialConfirmState);
-    return yield* loop(initialConfirmState);
-  }).pipe(
+    yield* show(kind.initial);
+    return yield* loop(kind.initial);
+  });
+
+export const runAsk = <A>(
+  ask: Ask<A>,
+  terminal: Terminal.Terminal,
+  surface: AskSurface,
+): Effect.Effect<A, PromptCancelled> =>
+  withKind(ask, (kind) => runKind(kind, terminal, surface)).pipe(
     // However it ends — answered, cancelled, or interrupted — nothing of the
     // question is left standing in the live region.
     Effect.ensuring(surface.showInteraction(undefined)),

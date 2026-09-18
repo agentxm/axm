@@ -1,7 +1,3 @@
-import type {
-  PublishAuthorizationDelivery,
-  PublishAuthorizationPollingStatus,
-} from "@agentxm/registry-protocol/unstable/publish-authorization";
 // @effect-diagnostics anyUnknownInErrorContext:off — HTTP schema/status errors remain opaque only inside this translating adapter
 /**
  * AuthClient Effect service — device flow login, token refresh, revocation, identity queries.
@@ -28,20 +24,9 @@ import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import { normalizeHandle, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import {
-  PublishVisibilitySchema,
-  type PublishVisibility,
-} from "@agentxm/registry-protocol/unstable/publish";
-import {
-  PreviewPublicationSetResponseSchema,
-  type PreviewPublicationSetRequest,
-  type PreviewPublicationSetResponse,
-  type Sha256Hex,
-} from "@agentxm/registry-protocol/unstable/registry/publication-set";
 import { type NormalizedTokenResponse } from "./oauth-contract.js";
 import {
   GeneratedRegistryClient,
-  executeRegistryRequest,
   RegistryUrl,
   captureRegistryErrorResponseBodies,
   getString,
@@ -176,56 +161,6 @@ export interface ExchangePkceCodeParams {
   readonly redirectUri: string;
 }
 
-export interface CreatePublishAuthorizationRequestParams {
-  readonly registryUrl: string;
-  readonly delivery: PublishAuthorizationDelivery;
-  readonly publicationSet: PreviewPublicationSetRequest;
-}
-
-export interface PublishAuthorizationRequestResponse {
-  readonly interval: number;
-  readonly requestId: string;
-  readonly authorizationUrl: string;
-  readonly expiresAt: DateTime.Utc;
-}
-
-export interface PublishAuthorizationPollingParams {
-  readonly registryUrl: string;
-  readonly requestId: string;
-  readonly initiatorProof: string;
-}
-
-export interface ExchangePublishAuthorizationCodeParams {
-  readonly registryUrl: string;
-  readonly code: string;
-  readonly verifier: string;
-  readonly redirectUri: string;
-}
-
-export interface PublishCapabilityResponse {
-  readonly accessToken: string;
-  readonly expiresAt: DateTime.Utc;
-  readonly scope: string;
-  readonly publishRequestId: string;
-  readonly visibilityContract: "v2";
-  readonly visibility: PublishVisibility;
-  readonly condition: string;
-  readonly publicationSetDigest: Sha256Hex;
-  readonly publicationDescriptorDigest: Sha256Hex;
-}
-
-export type PublishAuthorizationExchangeResponse =
-  | {
-      readonly status: "admitted";
-      readonly preview: PreviewPublicationSetResponse;
-      readonly grants: ReadonlyArray<PublishCapabilityResponse>;
-    }
-  | {
-      readonly status: "blocked";
-      readonly preview: PreviewPublicationSetResponse;
-      readonly grants: readonly [];
-    };
-
 // -----------------------------------------------------------------------------
 // Polling state (for testability)
 // -----------------------------------------------------------------------------
@@ -248,18 +183,6 @@ export interface AuthClientService {
   readonly exchangePkceCode: (
     params: ExchangePkceCodeParams,
   ) => Effect.Effect<NormalizedTokenResponse, AuthError>;
-  readonly createPublishAuthorizationRequest: (
-    params: CreatePublishAuthorizationRequestParams,
-  ) => Effect.Effect<PublishAuthorizationRequestResponse, AuthError>;
-  readonly pollPublishAuthorization: (
-    params: PublishAuthorizationPollingParams,
-  ) => Effect.Effect<PublishAuthorizationPollingStatus, AuthError>;
-  readonly exchangePublishAuthorization: (
-    params: PublishAuthorizationPollingParams,
-  ) => Effect.Effect<PublishAuthorizationExchangeResponse, AuthError>;
-  readonly exchangePublishAuthorizationCode: (
-    params: ExchangePublishAuthorizationCodeParams,
-  ) => Effect.Effect<PublishAuthorizationExchangeResponse, AuthError>;
   readonly initiateDeviceFlow: (
     options?: LoginScopeOptions,
   ) => Effect.Effect<DeviceFlowResponse, AuthError>;
@@ -336,62 +259,6 @@ const SessionTokenResponseSchema = Schema.Struct({
   access_token: Schema.String,
   refresh_token: Schema.String,
   expires_at: DateTimeUtcSchema,
-});
-
-const PublishCapabilityResponseSchema = Schema.Struct({
-  access_token: Schema.String,
-  expires_at: DateTimeUtcSchema,
-  scope: Schema.String,
-  publish_request_id: Schema.String,
-  visibility_contract: Schema.Literal("v2"),
-  visibility: PublishVisibilitySchema,
-  condition: Schema.String.check(Schema.isMinLength(1)),
-  publication_set_digest: Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/)),
-  publication_descriptor_digest: Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/)),
-});
-
-const PublishAuthorizationExchangeResponseSchema = Schema.Union([
-  Schema.Struct({
-    status: Schema.Literal("admitted"),
-    preview: PreviewPublicationSetResponseSchema,
-    grants: Schema.Array(PublishCapabilityResponseSchema),
-  }),
-  Schema.Struct({
-    status: Schema.Literal("blocked"),
-    preview: PreviewPublicationSetResponseSchema,
-    grants: Schema.Tuple([]),
-  }),
-]);
-
-const decodePublishAuthorizationExchange = Effect.fn(
-  "AuthClient.decodePublishAuthorizationExchange",
-)(function* (registryUrl: string, response: unknown) {
-  if (!Schema.is(PublishAuthorizationExchangeResponseSchema)(response)) {
-    return yield* mapRegistryAccessError(
-      registryUrl,
-      "The Registry is incompatible with exact publish authorization",
-      new Error("Invalid publish capability response"),
-    );
-  }
-
-  if (response.status === "blocked") {
-    return response;
-  }
-  return {
-    status: "admitted",
-    preview: response.preview,
-    grants: response.grants.map((grant): PublishCapabilityResponse => ({
-      accessToken: grant.access_token,
-      expiresAt: grant.expires_at,
-      scope: grant.scope,
-      publishRequestId: grant.publish_request_id,
-      visibilityContract: grant.visibility_contract,
-      visibility: grant.visibility,
-      condition: grant.condition,
-      publicationSetDigest: grant.publication_set_digest,
-      publicationDescriptorDigest: grant.publication_descriptor_digest,
-    })),
-  } satisfies PublishAuthorizationExchangeResponse;
 });
 
 type StepUpPollResult =
@@ -718,138 +585,6 @@ export const AuthClientLive = Layer.effect(
       return response;
     });
 
-    const createPublishAuthorizationRequest: AuthClientService["createPublishAuthorizationRequest"] =
-      Effect.fn("AuthClient.createPublishAuthorizationRequest")(function* (params) {
-        const publishClient = makeGeneratedAuthClient(httpClient, params.registryUrl);
-        const publicationSet = yield* Schema.encodeUnknownEffect(
-          GeneratedRegistryClient.PreviewPublicationSetRequest,
-        )(params.publicationSet).pipe(
-          Effect.mapError((error) =>
-            mapRegistryAccessError(
-              params.registryUrl,
-              "Could not encode publish authorization request",
-              error,
-            ),
-          ),
-        );
-        const response = yield* executeRegistryRequest(
-          publishClient.AuthCreatePublishAuthorizationRequest({
-            payload: {
-              client_id: CLIENT_ID,
-              delivery: params.delivery,
-              publication_set: publicationSet,
-            },
-          }),
-          {
-            operation: "createPublishAuthorizationRequest",
-            request: {
-              service: "registry",
-              method: "POST",
-              url: `${params.registryUrl.replace(/\/+$/, "")}/v1/auth/publish-requests`,
-            },
-            replaySafety: { kind: "mutation" },
-            mapError: (error) =>
-              mapRegistryAccessError(
-                params.registryUrl,
-                "Could not create publish authorization request; no automatic replacement was attempted",
-                error,
-              ),
-          },
-        );
-
-        return {
-          interval: response.interval,
-          requestId: response.request_id,
-          authorizationUrl: response.authorization_url,
-          expiresAt: response.expires_at,
-        } satisfies PublishAuthorizationRequestResponse;
-      });
-
-    const pollPublishAuthorization: AuthClientService["pollPublishAuthorization"] = Effect.fn(
-      "AuthClient.pollPublishAuthorization",
-    )(function* (params) {
-      const publishClient = makeGeneratedAuthClient(httpClient, params.registryUrl);
-      const requestRef = `${params.registryUrl.replace(/\/+$/, "")}/v1/auth/publish-requests/${params.requestId}`;
-      return yield* executeRegistryRequest(
-        publishClient.AuthPollPublishAuthorization(params.requestId, {
-          payload: { initiator_proof: params.initiatorProof },
-        }),
-        {
-          operation: "pollPublishAuthorization",
-          request: { service: "registry", method: "POST", url: `${requestRef}/status` },
-          replaySafety: { kind: "safe" },
-          mapError: (error) =>
-            mapRegistryAccessError(
-              params.registryUrl,
-              `Could not read publish authorization status. Resume the same command with --authorization-request ${requestRef}`,
-              error,
-            ),
-        },
-      );
-    });
-    const exchangePublishAuthorization: AuthClientService["exchangePublishAuthorization"] =
-      Effect.fn("AuthClient.exchangePublishAuthorization")(function* (params) {
-        const publishClient = makeGeneratedAuthClient(httpClient, params.registryUrl);
-        const requestRef = `${params.registryUrl.replace(/\/+$/, "")}/v1/auth/publish-requests/${params.requestId}`;
-        const response = yield* executeRegistryRequest(
-          publishClient.AuthExchangePublishAuthorization(params.requestId, {
-            payload: { initiator_proof: params.initiatorProof },
-          }),
-          {
-            operation: "exchangePublishAuthorization",
-            request: { service: "registry", method: "POST", url: `${requestRef}/exchange` },
-            replaySafety: { kind: "mutation" },
-            mapError: (error) =>
-              mapRegistryAccessError(
-                params.registryUrl,
-                `Publish authorization exchange did not complete. Resume with --authorization-request ${requestRef} to check its status before requesting new consent`,
-                error,
-              ),
-          },
-        );
-        return yield* decodePublishAuthorizationExchange(params.registryUrl, response);
-      });
-
-    const exchangePublishAuthorizationCode: AuthClientService["exchangePublishAuthorizationCode"] =
-      Effect.fn("AuthClient.exchangePublishAuthorizationCode")(function* (params) {
-        const publishClient = makeGeneratedAuthClient(httpClient, params.registryUrl);
-        const response = yield* publishClient
-          .AuthExchangeToken({
-            payload: {
-              grant_type: AUTHORIZATION_CODE_GRANT_TYPE,
-              code: params.code,
-              code_verifier: params.verifier,
-              client_id: CLIENT_ID,
-              redirect_uri: params.redirectUri,
-            },
-          })
-          .pipe(
-            Effect.mapError((error) => {
-              const mapped = mapRegistryAccessError(
-                params.registryUrl,
-                "Publish authorization code exchange failed",
-                error,
-              );
-              const code = isRegistryClientError("AuthExchangeToken400")(error)
-                ? getOAuthErrorCode(error.cause)
-                : undefined;
-              return code === "invalid_grant"
-                ? new AuthExchangeFailed({
-                    detail: "Publish authorization expired or was already used",
-                    suggestions: [
-                      {
-                        description: "Review the exact publish request again by rerunning publish.",
-                      },
-                    ],
-                    failure: mapped,
-                  })
-                : mapped;
-            }),
-          );
-
-        return yield* decodePublishAuthorizationExchange(params.registryUrl, response);
-      });
-
     const initiateDeviceFlow: AuthClientService["initiateDeviceFlow"] = Effect.fn(
       "AuthClient.initiateDeviceFlow",
     )(function* (options) {
@@ -1133,10 +868,6 @@ export const AuthClientLive = Layer.effect(
       buildAuthorizeUrl,
       getAuthorizationIssuer,
       exchangePkceCode,
-      createPublishAuthorizationRequest,
-      pollPublishAuthorization,
-      exchangePublishAuthorization,
-      exchangePublishAuthorizationCode,
       initiateDeviceFlow,
       pollDeviceToken,
       refreshToken,
@@ -1161,28 +892,6 @@ export const AuthClientTest = (overrides?: Partial<AuthClientService>) =>
       `https://agentxm.ai/oauth/authorize?redirect_uri=${redirectUri}`,
     getAuthorizationIssuer: () => "https://agentxm.ai",
     exchangePkceCode: () =>
-      Effect.fail(
-        new RegistryAccessFailed({
-          category: "auth",
-          detail: "Not implemented in test",
-        }),
-      ),
-    createPublishAuthorizationRequest: () =>
-      Effect.fail(
-        new RegistryAccessFailed({
-          category: "auth",
-          detail: "Not implemented in test",
-        }),
-      ),
-    pollPublishAuthorization: () =>
-      Effect.fail(
-        new RegistryAccessFailed({ category: "auth", detail: "Not implemented in test" }),
-      ),
-    exchangePublishAuthorization: () =>
-      Effect.fail(
-        new RegistryAccessFailed({ category: "auth", detail: "Not implemented in test" }),
-      ),
-    exchangePublishAuthorizationCode: () =>
       Effect.fail(
         new RegistryAccessFailed({
           category: "auth",

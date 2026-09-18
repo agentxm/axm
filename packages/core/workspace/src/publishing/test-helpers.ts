@@ -22,6 +22,7 @@ import { inflateRawSync } from "node:zlib";
 
 import { expect } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
+import * as Schema from "effect/Schema";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
@@ -37,16 +38,19 @@ import {
   AuthLoginPresenterTest,
   CredentialStoreTest,
   DeviceLoginInteractionTest,
-  PendingPublishAuthorizationStoreTest,
 } from "@agentxm/registry-access/testing";
+import { AuthMiddlewareLive } from "@agentxm/registry-access/adapters";
 import { RegistryUrlTest, testRegistryUrl } from "@agentxm/registry-client/testing";
-import type { CreatePublishAuthorizationRequestParams } from "@agentxm/registry-access/authentication";
 import { validateArchive } from "@agentxm/extension-content";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions";
+import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
+  PUBLICATION_SET_CONTRACT,
+  PreviewPublicationSetRequestSchema,
   publicationDescriptorDigest,
   publicationSetDigest,
+  type PreviewPublicationSetRequest,
 } from "@agentxm/registry-protocol/unstable/registry";
 import {
   applyPlanExecution,
@@ -224,6 +228,8 @@ export interface PublishWorldOptions {
   readonly httpClient?: HttpClient.HttpClient;
   /** The default Registry endpoint, when a request names no override. */
   readonly registryUrl?: string;
+  /** The signed-in session a remote publish carries; omitted, the world is signed out. */
+  readonly credentials?: NonNullable<Parameters<typeof CredentialStoreTest>[1]>;
 }
 
 /**
@@ -262,7 +268,7 @@ export const makePublishWorld = (options: PublishWorldOptions = {}) => {
     NodeServices.layer,
   );
   const interaction = ResolvePlanInteractionTest();
-  const services = Layer.provideMerge(
+  const base = Layer.provideMerge(
     Layer.mergeAll(
       WorkspaceStateLayer({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
       AuthClientTest(options.auth),
@@ -272,10 +278,9 @@ export const makePublishWorld = (options: PublishWorldOptions = {}) => {
           openBrowser: () => Effect.die(new Error("This publish fixture opens no browser")),
         },
       ).layer,
-      PendingPublishAuthorizationStoreTest(),
-      // No stored credential: a remote publish therefore has to acquire exact
-      // authorization rather than inheriting a session.
-      CredentialStoreTest(),
+      // A world without seeded credentials is signed out, which is what a
+      // `file://` target example wants and what a remote example refuses.
+      CredentialStoreTest("restricted-file", options.credentials),
       GitDirectoryComparisonTest(options.compare),
       RegistryUrlTest(options.registryUrl ?? testRegistryUrl),
       Layer.succeed(HttpClient.HttpClient, transport),
@@ -284,6 +289,9 @@ export const makePublishWorld = (options: PublishWorldOptions = {}) => {
     ),
     platform,
   );
+  // The production auth middleware wraps the transport, so a seeded session
+  // authenticates every Registry request exactly as it does in the CLI.
+  const services = Layer.provideMerge(Layer.provide(AuthMiddlewareLive, base), base);
 
   return {
     /** Absolute project root of the temporary workspace. */
@@ -455,14 +463,14 @@ export const archiveContents = (bytes: Uint8Array) =>
     );
   });
 
-/** The remote Registry a publication authorization and its uploads address. */
+/** The remote Registry an authenticated publish and its uploads address. */
 export const remotePublicationRegistry = "https://registry.example.test";
-/** The condition the reviewed publication set binds every upload to. */
+/** The condition the authoritative publication preview binds every upload to. */
 export const publicationCondition = '"pv2-reviewed"';
-/** The capability the Registry grants for the reviewed publication set. */
-export const publicationCapability = "SYNTHETIC_PUBLICATION_CAPABILITY";
+/** The session token the signed-in remote fixture publishes with. */
+export const publicationSessionToken = "SYNTHETIC_PUBLICATION_SESSION";
 
-/** The visibility a reviewed publication resolves to in the remote fixture. */
+/** The visibility a previewed publication resolves to in the remote fixture. */
 const reviewedVisibility = {
   value: "private",
   disposition: "establish",
@@ -472,46 +480,44 @@ const reviewedVisibility = {
 export interface RemotePublishWorldOptions {
   readonly settings?: Readonly<Record<string, unknown>>;
   readonly compare?: GitDirectoryComparisonService["compare"];
-  /** Answer one archive upload; the default acknowledges the reviewed bytes. */
+  /** Answer one archive upload; the default acknowledges the previewed bytes. */
   readonly upload?: (
     request: HttpClientRequest.HttpClientRequest,
     index: number,
     success: (request: HttpClientRequest.HttpClientRequest) => Response,
   ) => Effect.Effect<Response>;
-  /** Run before the Registry records the authorization request. */
-  readonly beforeAuthorization?: Effect.Effect<void>;
   /** Answer an owner lookup; the default reports every owner as existing. */
   readonly ownerResponse?: (owner: string) => Response;
+  /** Publish signed out; the default seeds a session for the remote Registry. */
+  readonly signedOut?: boolean;
 }
 
 /**
- * A publish world whose target is a remote Registry: the publication set is
- * reviewed and approved without a browser, and every upload is observed as
- * the actual HTTP request the Registry would receive.
+ * A publish world whose target is a remote Registry and whose person is signed
+ * in: the publication set is previewed under their own session, and every
+ * upload is observed as the actual HTTP request the Registry would receive.
  */
 export const makeRemotePublishWorld = (options: RemotePublishWorldOptions = {}) => {
-  let authorizationRequest: CreatePublishAuthorizationRequestParams | undefined;
   const requests: Array<HttpClientRequest.HttpClientRequest> = [];
   const uploads: Array<HttpClientRequest.HttpClientRequest> = [];
-  const authorized = (): CreatePublishAuthorizationRequestParams => {
-    if (authorizationRequest === undefined) {
-      throw new Error("Expected a publication authorization request");
-    }
-    return authorizationRequest;
+  let previewed: PreviewPublicationSetRequest | undefined;
+  const previewedSet = (): PreviewPublicationSetRequest => {
+    if (previewed === undefined) throw new Error("Expected an authoritative publication preview");
+    return previewed;
   };
-  // The construction lives outside `Effect.sync` so a fixture invariant it
-  // cannot satisfy throws where the rule expects a thrown failure to live.
-  const reviewedExchange = () => {
-    const candidates = authorized().publicationSet.candidates;
-    const setDigest = publicationSetDigest(candidates);
-    return {
-      status: "admitted" as const,
-      preview: {
-        contract: "publication-set-v2" as const,
-        publicationSetDigest: setDigest,
-        status: "admitted" as const,
+  const previewResponse = (body: unknown): Response => {
+    if (!Schema.is(PreviewPublicationSetRequestSchema)(body)) {
+      throw new Error("Expected a publication-set-v2 preview request");
+    }
+    previewed = body;
+    const candidates = body.candidates;
+    return jsonRegistryResponse(
+      {
+        contract: PUBLICATION_SET_CONTRACT,
+        publicationSetDigest: publicationSetDigest(candidates),
+        status: "admitted",
         candidates: candidates.map((candidate) => ({
-          kind: "resolved" as const,
+          kind: "resolved",
           target: candidate.target,
           participation: candidate.participation,
           descriptorDigest: publicationDescriptorDigest(candidate),
@@ -521,7 +527,7 @@ export const makeRemotePublishWorld = (options: RemotePublishWorldOptions = {}) 
             request: candidate.visibility.request,
             resolved: reviewedVisibility,
             actual: null,
-            comparison: "not-established" as const,
+            comparison: "not-established",
             findings: [],
           },
           condition: publicationCondition,
@@ -532,7 +538,7 @@ export const makeRemotePublishWorld = (options: RemotePublishWorldOptions = {}) 
             : [
                 {
                   target: candidate.target,
-                  status: "admitted" as const,
+                  status: "admitted",
                   findings: [],
                   resolutions: candidate.pack.dependencies.map((dependency) => {
                     const selected = candidates.find(
@@ -549,25 +555,12 @@ export const makeRemotePublishWorld = (options: RemotePublishWorldOptions = {}) 
               ],
         ),
       },
-      grants: candidates
-        .filter((candidate) => candidate.participation === "publish")
-        .map((candidate) => ({
-          accessToken: publicationCapability,
-          expiresAt: DateTime.makeUnsafe("2099-01-01T00:15:00.000Z"),
-          scope: "extensions:publish:new",
-          publishRequestId: "pubreq_01h455vb4pexka56gq5w2r7cpc",
-          visibilityContract: "v2" as const,
-          visibility: reviewedVisibility,
-          condition: publicationCondition,
-          publicationSetDigest: setDigest,
-          publicationDescriptorDigest: publicationDescriptorDigest(candidate),
-        })),
-    };
+      200,
+    );
   };
-  const exchangeApproved = () => Effect.sync(reviewedExchange);
   const success = (request: HttpClientRequest.HttpClientRequest): Response => {
     const url = Option.getOrThrow(HttpClientRequest.toUrl(request));
-    const candidate = authorized().publicationSet.candidates.find((item) =>
+    const candidate = previewedSet().candidates.find((item) =>
       url.pathname.endsWith(`/${item.target.name}/${item.target.version}`),
     );
     if (candidate === undefined || request.body._tag !== "Uint8Array") {
@@ -600,6 +593,15 @@ export const makeRemotePublishWorld = (options: RemotePublishWorldOptions = {}) 
         );
       }
       const url = new URL(request.url);
+      if (request.method === "POST" && url.pathname === "/v1/publish-previews") {
+        if (request.body._tag !== "Uint8Array") {
+          throw new Error("Expected an encoded preview request body");
+        }
+        return HttpClientResponse.fromWeb(
+          request,
+          previewResponse(JSON.parse(new TextDecoder().decode(request.body.body))),
+        );
+      }
       if (request.method === "GET" && url.pathname.startsWith("/v1/owners/")) {
         return HttpClientResponse.fromWeb(
           request,
@@ -615,30 +617,25 @@ export const makeRemotePublishWorld = (options: RemotePublishWorldOptions = {}) 
     ...(options.compare === undefined ? {} : { compare: options.compare }),
     httpClient,
     registryUrl: remotePublicationRegistry,
-    auth: {
-      createPublishAuthorizationRequest: (request) =>
-        Effect.gen(function* () {
-          authorizationRequest = request;
-          if (options.beforeAuthorization !== undefined) yield* options.beforeAuthorization;
-          return {
-            requestId: "pubreq_01h455vb4pexka56gq5w2r7cpc",
-            authorizationUrl:
-              "https://agentxm.ai/publish/authorize/pubreq_01h455vb4pexka56gq5w2r7cpc",
-            interval: 2,
-            expiresAt: DateTime.makeUnsafe("2099-01-01T00:10:00.000Z"),
-          };
+    ...(options.signedOut === true
+      ? {}
+      : {
+          credentials: {
+            version: 1,
+            registries: {
+              [remotePublicationRegistry]: {
+                accounts: {
+                  [normalizeHandle("@acme")]: {
+                    access_token: publicationSessionToken,
+                    refresh_token: "SYNTHETIC_PUBLICATION_REFRESH",
+                    expires_at: DateTime.makeUnsafe("2099-01-01T00:00:00.000Z"),
+                    active: true,
+                  },
+                },
+              },
+            },
+          },
         }),
-      exchangePublishAuthorizationCode: exchangeApproved,
-      exchangePublishAuthorization: exchangeApproved,
-      pollPublishAuthorization: () =>
-        Effect.succeed({
-          purpose: "publish",
-          status: "approved",
-          expires_at: DateTime.makeUnsafe("2099-01-01T00:10:00.000Z"),
-          interval: 2,
-          publication_set_digest: publicationSetDigest(authorized().publicationSet.candidates),
-        }),
-    },
   });
   return {
     ...world,
@@ -646,19 +643,18 @@ export const makeRemotePublishWorld = (options: RemotePublishWorldOptions = {}) 
     requests,
     /** Every archive upload the run dispatched, in order. */
     uploads,
-    /** The authorization request the Registry recorded. */
-    authorized,
-    /** Whether a publication authorization was requested at all. */
-    authorizationCount: (): number => (authorizationRequest === undefined ? 0 : 1),
+    /** The publication set the Registry previewed. */
+    previewed: previewedSet,
+    /** How many authoritative previews the run asked the Registry for. */
+    previewCount: (): number => (previewed === undefined ? 0 : 1),
   };
 };
 
-/** The request a remote publish builds: reviewed, unattended, private. */
+/** The request a remote publish builds: previewed, unattended, private. */
 export const remoteRequest = (overrides: Partial<PublishRequest> = {}): PublishRequest =>
   publishRequest(remotePublicationRegistry, {
     preview: false,
     unattended: true,
-    waitForHumanSeconds: 60,
     visibility: Option.some("private"),
     ...overrides,
   });

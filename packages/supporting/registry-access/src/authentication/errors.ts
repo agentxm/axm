@@ -128,11 +128,6 @@ export class AuthExchangeFailed extends Data.TaggedError("AuthExchangeFailed")<{
   readonly failure: RegistryClientFailure;
 }> {}
 
-export class PublishAuthorizationPending extends Data.TaggedError("PublishAuthorizationPending")<{
-  readonly action: HumanHandoffAction;
-  readonly timedOut: boolean;
-}> {}
-
 /**
  * A challenged Registry write is waiting on human verification. No challenged
  * write has completed: the operation is retried exactly once, after the
@@ -159,7 +154,6 @@ export type RegistryAccessFailure =
   | DeviceLoginDenied
   | DeviceLoginCodeExpired
   | DeviceAuthorizationPending
-  | PublishAuthorizationPending
   | StepUpVerificationPending
   | AuthInteractionAbandoned
   | StepUpRequired
@@ -172,7 +166,6 @@ export const isRegistryAccessFailure = (error: unknown): error is RegistryAccess
   error instanceof DeviceLoginDenied ||
   error instanceof DeviceLoginCodeExpired ||
   error instanceof DeviceAuthorizationPending ||
-  error instanceof PublishAuthorizationPending ||
   error instanceof StepUpVerificationPending ||
   error instanceof AuthInteractionAbandoned ||
   error instanceof StepUpRequired ||

@@ -2,8 +2,7 @@
  * CLI implementation of the auth login presentation seam.
  *
  * Owns all sign-in wording, suggestion sets, lifecycle unit labels, and
- * machine-mode document emission for the device, loopback, and
- * publish-authorization flows.
+ * machine-mode document emission for the device and loopback sign-in flows.
  */
 
 import * as Effect from "effect/Effect";
@@ -39,7 +38,6 @@ import {
   loopbackStartView,
   pendingApprovalDoc,
   pendingDeviceSuggestions,
-  publishReviewDoc,
   rejectedStoredCredentialsNote,
   stepUpChallengeView,
 } from "./root/auth/view.js";
@@ -104,7 +102,6 @@ export const AuthLoginPresenterLive = Layer.effect(
         const entry = loopbackBrowserOutcomeView(opened);
         return screen.note(entry.doc, { persistent: entry.persistent === true });
       },
-      notePublishReview: (review) => screen.note(publishReviewDoc(review)),
       noteExistingSession: (handle) => screen.note(existingSessionNote(handle).doc),
       noteRejectedStoredCredentials: screen.note(rejectedStoredCredentialsNote.doc),
       noteDeviceCodeFallback: (reason) => {

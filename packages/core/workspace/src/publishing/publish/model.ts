@@ -205,8 +205,6 @@ export interface PublishRequest {
   readonly scope: "project" | "user";
   readonly visibility: Option.Option<ExtensionVisibility>;
   readonly includeDependencies: boolean;
-  readonly authorizationRequest?: string;
-  readonly waitForHumanSeconds?: number;
   /** No terminal is available to confirm or to guide human verification. */
   readonly unattended: boolean;
 }

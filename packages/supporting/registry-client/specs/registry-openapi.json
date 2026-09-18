@@ -107,15 +107,10 @@
         "security": [],
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "OAuth 2.0 token response containing an access/refresh token pair.",
             "content": {
               "application/json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/SessionTokenResponse" },
-                    { "$ref": "#/components/schemas/PublishAuthorizationExchangeResponse" }
-                  ]
-                }
+                "schema": { "$ref": "#/components/schemas/SessionTokenResponse" }
               }
             }
           },
@@ -420,183 +415,6 @@
         "summary": "Poll step-up request status"
       }
     },
-    "/v1/auth/publish-requests": {
-      "post": {
-        "tags": ["Auth"],
-        "operationId": "Auth.createPublishAuthorizationRequest",
-        "parameters": [],
-        "security": [],
-        "responses": {
-          "201": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "request_id": { "$ref": "#/components/schemas/PublishAuthorizationRequestId" },
-                    "authorization_url": { "type": "string" },
-                    "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString" },
-                    "interval": { "type": "integer", "exclusiveMinimum": 0 }
-                  },
-                  "required": ["request_id", "authorization_url", "expires_at", "interval"],
-                  "additionalProperties": false
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ProblemDetails" },
-                    { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
-                  ]
-                }
-              }
-            }
-          }
-        },
-        "summary": "Create an exact browser-reviewed publish authorization request",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "client_id": { "type": "string", "minLength": 1 },
-                  "delivery": { "$ref": "#/components/schemas/PublishAuthorizationDelivery" },
-                  "publication_set": { "$ref": "#/components/schemas/PreviewPublicationSetRequest" }
-                },
-                "required": ["client_id", "delivery", "publication_set"],
-                "additionalProperties": false
-              }
-            }
-          },
-          "required": true
-        }
-      }
-    },
-    "/v1/auth/publish-requests/{requestId}/status": {
-      "post": {
-        "tags": ["Auth"],
-        "operationId": "Auth.pollPublishAuthorization",
-        "parameters": [
-          {
-            "name": "requestId",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/PublishAuthorizationRequestId" },
-            "required": true
-          }
-        ],
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "Proof-protected authorization status and material binding; approval is not publication completion.",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/PublishAuthorizationPollingStatus" }
-              }
-            }
-          },
-          "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ProblemDetails" },
-                    { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
-                  ]
-                }
-              }
-            }
-          }
-        },
-        "summary": "Read publish approval status using the initiating CLI's private proof",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/PublishAuthorizationPollingProof" }
-            }
-          },
-          "required": true
-        }
-      }
-    },
-    "/v1/auth/publish-requests/{requestId}/exchange": {
-      "post": {
-        "tags": ["Auth"],
-        "operationId": "Auth.exchangePublishAuthorization",
-        "parameters": [
-          {
-            "name": "requestId",
-            "in": "path",
-            "schema": { "$ref": "#/components/schemas/PublishAuthorizationRequestId" },
-            "required": true
-          }
-        ],
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "PublishAuthorizationExchangeResponse",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/PublishAuthorizationExchangeResponse" }
-              }
-            }
-          },
-          "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    { "$ref": "#/components/schemas/ProblemDetails" },
-                    { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
-                  ]
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "ConflictError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "410": {
-            "description": "GoneError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          },
-          "500": {
-            "description": "InternalError",
-            "content": {
-              "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/ProblemDetails" }
-              }
-            }
-          }
-        },
-        "summary": "Exchange an approved publish request once using its private initiator proof",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/PublishAuthorizationPollingProof" }
-            }
-          },
-          "required": true
-        }
-      }
-    },
     "/v1/tokens": {
       "get": {
         "tags": ["Tokens"],
@@ -623,7 +441,7 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "description": "Maximum number of tokens to return (1–100, default 50)."
+                  "description": "Maximum number of tokens to return (1\u2013100, default 50)."
                 },
                 { "type": "null" }
               ]
@@ -698,7 +516,7 @@
         "security": [{ "bearer": [] }],
         "responses": {
           "201": {
-            "description": "Your new access token. The token value is only shown once — save it now.",
+            "description": "Your new access token. The token value is only shown once \u2014 save it now.",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/CreateTokenResponse" }
@@ -3870,7 +3688,7 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "description": "Maximum number of results to return (1–100, default 20)."
+                  "description": "Maximum number of results to return (1\u2013100, default 20)."
                 },
                 { "type": "null" }
               ]
@@ -3989,7 +3807,10 @@
             "in": "query",
             "schema": {
               "anyOf": [
-                { "type": "string", "description": "Number of events to emit (0–100, default 3)." },
+                {
+                  "type": "string",
+                  "description": "Number of events to emit (0\u2013100, default 3)."
+                },
                 { "type": "null" }
               ]
             },
@@ -4243,53 +4064,13 @@
         "description": "A date and time string (e.g. 2024-01-15T12:00:00.000Z).",
         "format": "date-time"
       },
-      "ExtensionVisibility": {
-        "type": "string",
-        "enum": ["public", "private"],
-        "title": "Extension Visibility",
-        "description": "Whole-Extension Registry visibility applied to every published version."
-      },
-      "PublishVisibility": {
-        "anyOf": [
-          {
-            "type": "object",
-            "properties": {
-              "value": { "$ref": "#/components/schemas/ExtensionVisibility" },
-              "disposition": { "type": "string", "enum": ["establish"] },
-              "source": {
-                "type": "string",
-                "enum": ["manifest", "workspace", "explicit", "account", "platform"]
-              }
-            },
-            "required": ["value", "disposition", "source"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "value": { "$ref": "#/components/schemas/ExtensionVisibility" },
-              "disposition": { "type": "string", "enum": ["preserve"] },
-              "source": { "type": "string", "enum": ["existing"] }
-            },
-            "required": ["value", "disposition", "source"],
-            "additionalProperties": false
-          }
-        ],
-        "title": "Publish Visibility",
-        "description": "Authoritative whole-Extension visibility and provenance resolved for a publication."
-      },
       "SessionTokenResponse": {
         "type": "object",
         "properties": {
           "access_token": { "type": "string", "description": "OAuth 2.0 access token." },
           "refresh_token": {
-            "anyOf": [
-              {
-                "type": "string",
-                "description": "OAuth 2.0 refresh token for obtaining new token pairs. Omitted for exact publish capabilities."
-              },
-              { "type": "null" }
-            ]
+            "type": "string",
+            "description": "OAuth 2.0 refresh token for obtaining new token pairs."
           },
           "token_type": { "type": "string", "enum": ["Bearer"] },
           "expires_in": {
@@ -4302,452 +4083,12 @@
               { "type": "string", "description": "Space-delimited list of granted scopes." },
               { "type": "null" }
             ]
-          },
-          "publish_request_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "description": "Publish authorization request that produced a non-refreshable exact capability."
-              },
-              { "type": "null" }
-            ]
-          },
-          "visibility_contract": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": ["v2"],
-                "description": "Visibility binding contract carried by an exact publish capability."
-              },
-              { "type": "null" }
-            ]
-          },
-          "visibility": {
-            "anyOf": [{ "$ref": "#/components/schemas/PublishVisibility" }, { "type": "null" }]
-          },
-          "condition": {
-            "anyOf": [
-              {
-                "type": "string",
-                "description": "Opaque reviewed publish condition to send as If-Match during upload."
-              },
-              { "type": "null" }
-            ]
-          },
-          "publication_set_digest": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-          "publication_descriptor_digest": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+          }
         },
-        "required": ["access_token", "token_type", "expires_in", "expires_at"],
+        "required": ["access_token", "refresh_token", "token_type", "expires_in", "expires_at"],
         "additionalProperties": false,
         "title": "Session Token Response",
         "description": "OAuth 2.0 token response containing an access/refresh token pair."
-      },
-      "Sha256Hex": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-      "Handle": {
-        "type": "string",
-        "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
-        "title": "Handle",
-        "description": "A unique username or organization name starting with @, like @my-org.",
-        "examples": ["@my-org", "@username"]
-      },
-      "ExtensionType": {
-        "type": "string",
-        "enum": ["skill", "mcp-server", "subagent", "rule", "hook", "knowledge", "pack"],
-        "title": "Extension Type",
-        "description": "What kind of extension this is: skill, mcp-server, subagent, rule, hook, knowledge, or pack."
-      },
-      "ExtensionName": {
-        "type": "string",
-        "minLength": 1,
-        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
-        "title": "Extension Name",
-        "description": "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
-        "examples": ["my-skill", "code-review", "prettier"]
-      },
-      "Version": {
-        "type": "string",
-        "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
-        "title": "Version",
-        "description": "A semver version like 1.0.0. Ranges are not allowed here.",
-        "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"]
-      },
-      "PublicationTarget": {
-        "type": "object",
-        "properties": {
-          "owner": { "$ref": "#/components/schemas/Handle" },
-          "type": { "$ref": "#/components/schemas/ExtensionType" },
-          "name": { "$ref": "#/components/schemas/ExtensionName" },
-          "version": { "$ref": "#/components/schemas/Version" }
-        },
-        "required": ["owner", "type", "name", "version"],
-        "additionalProperties": false
-      },
-      "ExtensionFqn": {
-        "type": "string",
-        "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
-        "title": "Extension FQN",
-        "description": "Canonical extension identifier in @owner/<type>s/<name> form.",
-        "examples": ["@acme/skills/code-review", "@my-org/rules/typescript"]
-      },
-      "VisibilityFingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-      "VisibilityIntent": {
-        "type": "object",
-        "properties": {
-          "value": { "$ref": "#/components/schemas/ExtensionVisibility" },
-          "source": { "type": "string", "enum": ["manifest", "workspace"] },
-          "fingerprint": { "$ref": "#/components/schemas/VisibilityFingerprint" }
-        },
-        "required": ["value", "source", "fingerprint"],
-        "additionalProperties": false
-      },
-      "VisibilityRevision": {
-        "type": "string",
-        "minLength": 1,
-        "description": "Opaque revision for conditional whole-Extension visibility mutation."
-      },
-      "VisibilityActual": {
-        "type": "object",
-        "properties": {
-          "value": { "$ref": "#/components/schemas/ExtensionVisibility" },
-          "revision": { "$ref": "#/components/schemas/VisibilityRevision" }
-        },
-        "required": ["value", "revision"],
-        "additionalProperties": false
-      },
-      "VisibilityComparison": {
-        "type": "string",
-        "enum": ["not-established", "unconfigured", "match", "drift"]
-      },
-      "VisibilityFindingCode": {
-        "type": "string",
-        "enum": [
-          "visibility/intent-conflict",
-          "visibility/drift",
-          "visibility/unavailable",
-          "visibility/intent-required",
-          "visibility/not-established",
-          "visibility/stale-source",
-          "visibility/stale-revision",
-          "visibility/confirmation-required",
-          "visibility/authorization-denied",
-          "visibility/impersonation-denied",
-          "visibility/verification-required",
-          "visibility/verification-expired",
-          "visibility/verification-cancelled",
-          "visibility/verification-replayed",
-          "visibility/pack-blocked"
-        ]
-      },
-      "VisibilityFinding": {
-        "type": "object",
-        "properties": {
-          "code": { "$ref": "#/components/schemas/VisibilityFindingCode" },
-          "severity": { "type": "string", "enum": ["error", "warning"] },
-          "message": { "type": "string" }
-        },
-        "required": ["code", "severity", "message"],
-        "additionalProperties": false
-      },
-      "VisibilityEvaluation": {
-        "type": "object",
-        "properties": {
-          "target": { "$ref": "#/components/schemas/ExtensionFqn" },
-          "intent": {
-            "anyOf": [{ "$ref": "#/components/schemas/VisibilityIntent" }, { "type": "null" }]
-          },
-          "request": {
-            "anyOf": [{ "$ref": "#/components/schemas/ExtensionVisibility" }, { "type": "null" }]
-          },
-          "resolved": {
-            "anyOf": [{ "$ref": "#/components/schemas/PublishVisibility" }, { "type": "null" }]
-          },
-          "actual": {
-            "anyOf": [{ "$ref": "#/components/schemas/VisibilityActual" }, { "type": "null" }]
-          },
-          "comparison": { "$ref": "#/components/schemas/VisibilityComparison" },
-          "findings": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/VisibilityFinding" }
-          }
-        },
-        "required": ["target", "intent", "request", "resolved", "actual", "comparison", "findings"],
-        "additionalProperties": false
-      },
-      "VisibilityEvaluationUnavailable": {
-        "type": "object",
-        "properties": {
-          "target": { "$ref": "#/components/schemas/ExtensionFqn" },
-          "unavailable": { "type": "boolean", "enum": [true] },
-          "findings": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/VisibilityFinding" }
-          }
-        },
-        "required": ["target", "unavailable", "findings"],
-        "additionalProperties": false
-      },
-      "VersionRange": {
-        "type": "string",
-        "minLength": 1,
-        "pattern": "^[~^<>=*xXvV0-9A-Za-z+| .-]+$",
-        "title": "Version Range",
-        "description": "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use \"*\" to always resolve to the latest available version.",
-        "examples": ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"]
-      },
-      "PackDependencyDescriptor": {
-        "type": "object",
-        "properties": {
-          "owner": { "$ref": "#/components/schemas/Handle" },
-          "type": {
-            "type": "string",
-            "enum": ["hook", "knowledge", "mcp-server", "rule", "skill", "subagent"]
-          },
-          "name": { "$ref": "#/components/schemas/ExtensionName" },
-          "range": { "$ref": "#/components/schemas/VersionRange" }
-        },
-        "required": ["owner", "type", "name", "range"],
-        "additionalProperties": false
-      },
-      "DeprecationMessage": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 500,
-        "description": "Concise publisher guidance for consumers of a deprecated extension."
-      },
-      "DeprecationReplacement": {
-        "anyOf": [
-          {
-            "type": "object",
-            "properties": {
-              "status": { "type": "string", "enum": ["available"] },
-              "fqn": { "$ref": "#/components/schemas/ExtensionFqn" }
-            },
-            "required": ["status", "fqn"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "status": { "type": "string", "enum": ["unavailable"] },
-              "fqn": {
-                "anyOf": [{ "$ref": "#/components/schemas/ExtensionFqn" }, { "type": "null" }]
-              }
-            },
-            "required": ["status"],
-            "additionalProperties": false
-          }
-        ],
-        "description": "Authorization-safe current availability of a recorded replacement identity."
-      },
-      "DeprecationView": {
-        "anyOf": [
-          {
-            "type": "object",
-            "properties": {
-              "deprecatedAt": { "$ref": "#/components/schemas/IsoDateTimeString" },
-              "message": { "$ref": "#/components/schemas/DeprecationMessage" },
-              "replacement": {
-                "anyOf": [
-                  { "$ref": "#/components/schemas/DeprecationReplacement" },
-                  { "type": "null" }
-                ]
-              }
-            },
-            "required": ["deprecatedAt", "message"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "deprecatedAt": { "$ref": "#/components/schemas/IsoDateTimeString" },
-              "message": {
-                "anyOf": [{ "$ref": "#/components/schemas/DeprecationMessage" }, { "type": "null" }]
-              },
-              "replacement": { "$ref": "#/components/schemas/DeprecationReplacement" }
-            },
-            "required": ["deprecatedAt", "replacement"],
-            "additionalProperties": false
-          }
-        ],
-        "description": "Canonical authorization-safe identity deprecation guidance."
-      },
-      "SuggestedAction": {
-        "type": "object",
-        "properties": {
-          "description": { "type": "string" },
-          "cmd": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-          "url": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-        },
-        "required": ["description"],
-        "additionalProperties": false
-      },
-      "PackDependencyFinding": {
-        "type": "object",
-        "properties": {
-          "kind": { "type": "string", "enum": ["advisory"] },
-          "ruleId": {
-            "type": "string",
-            "enum": ["pack/dependency-version-resolvable", "pack/dependency-deprecated"]
-          },
-          "severity": { "type": "string", "enum": ["error", "warning"] },
-          "reason": {
-            "type": "string",
-            "enum": [
-              "selected-new-private",
-              "selected-existing-private",
-              "target-unavailable",
-              "lifecycle-unavailable",
-              "no-installable-version",
-              "range-unsatisfied",
-              "deprecated"
-            ]
-          },
-          "dependency": { "$ref": "#/components/schemas/PackDependencyDescriptor" },
-          "effectiveVisibility": {
-            "anyOf": [{ "type": "string", "enum": ["public", "private"] }, { "type": "null" }]
-          },
-          "lifecycle": {
-            "anyOf": [{ "type": "string", "enum": ["active", "unavailable"] }, { "type": "null" }]
-          },
-          "deprecation": {
-            "anyOf": [{ "$ref": "#/components/schemas/DeprecationView" }, { "type": "null" }]
-          },
-          "location": {
-            "type": "object",
-            "properties": { "file": { "type": "string", "enum": ["pack.json"] } },
-            "required": ["file"],
-            "additionalProperties": false
-          },
-          "path": { "type": "string", "enum": ["./pack.json"] },
-          "message": { "type": "string" },
-          "suggestions": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/SuggestedAction" }
-          }
-        },
-        "required": [
-          "kind",
-          "ruleId",
-          "severity",
-          "reason",
-          "dependency",
-          "location",
-          "path",
-          "message",
-          "suggestions"
-        ],
-        "additionalProperties": false
-      },
-      "PackDependencyResolution": {
-        "type": "object",
-        "properties": {
-          "dependency": { "$ref": "#/components/schemas/PackDependencyDescriptor" },
-          "effectiveVersion": { "$ref": "#/components/schemas/Version" }
-        },
-        "required": ["dependency", "effectiveVersion"],
-        "additionalProperties": false
-      },
-      "PreviewPublicationSetResponse": {
-        "type": "object",
-        "properties": {
-          "contract": { "type": "string", "enum": ["publication-set-v2"] },
-          "publicationSetDigest": { "$ref": "#/components/schemas/Sha256Hex" },
-          "status": { "type": "string", "enum": ["admitted", "blocked"] },
-          "candidates": {
-            "type": "array",
-            "items": {
-              "anyOf": [
-                {
-                  "type": "object",
-                  "properties": {
-                    "kind": { "type": "string", "enum": ["resolved"] },
-                    "target": { "$ref": "#/components/schemas/PublicationTarget" },
-                    "participation": { "type": "string", "enum": ["publish", "verified-existing"] },
-                    "descriptorDigest": { "$ref": "#/components/schemas/Sha256Hex" },
-                    "visibility": { "$ref": "#/components/schemas/VisibilityEvaluation" },
-                    "condition": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-                  },
-                  "required": ["kind", "target", "participation", "descriptorDigest", "visibility"],
-                  "additionalProperties": false
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "kind": { "type": "string", "enum": ["unavailable"] },
-                    "target": { "$ref": "#/components/schemas/PublicationTarget" },
-                    "participation": { "type": "string", "enum": ["publish", "verified-existing"] },
-                    "descriptorDigest": { "$ref": "#/components/schemas/Sha256Hex" },
-                    "code": { "type": "string", "enum": ["publish/target-unavailable"] },
-                    "visibility": { "$ref": "#/components/schemas/VisibilityEvaluationUnavailable" }
-                  },
-                  "required": [
-                    "kind",
-                    "target",
-                    "participation",
-                    "descriptorDigest",
-                    "code",
-                    "visibility"
-                  ],
-                  "additionalProperties": false
-                }
-              ]
-            }
-          },
-          "packs": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "target": { "$ref": "#/components/schemas/PublicationTarget" },
-                "status": { "type": "string", "enum": ["admitted", "blocked"] },
-                "findings": {
-                  "type": "array",
-                  "items": { "$ref": "#/components/schemas/PackDependencyFinding" }
-                },
-                "resolutions": {
-                  "type": "array",
-                  "items": { "$ref": "#/components/schemas/PackDependencyResolution" }
-                }
-              },
-              "required": ["target", "status", "findings", "resolutions"],
-              "additionalProperties": false
-            }
-          }
-        },
-        "required": ["contract", "publicationSetDigest", "status", "candidates", "packs"],
-        "additionalProperties": false
-      },
-      "PublishAuthorizationExchangeResponse": {
-        "anyOf": [
-          {
-            "type": "object",
-            "properties": {
-              "status": { "type": "string", "enum": ["admitted"] },
-              "preview": {
-                "anyOf": [
-                  { "$ref": "#/components/schemas/PreviewPublicationSetResponse" },
-                  { "type": "null" }
-                ]
-              },
-              "grants": {
-                "type": "array",
-                "items": { "$ref": "#/components/schemas/SessionTokenResponse" }
-              }
-            },
-            "required": ["status", "grants"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "status": { "type": "string", "enum": ["blocked"] },
-              "preview": { "$ref": "#/components/schemas/PreviewPublicationSetResponse" },
-              "grants": { "type": "array", "items": false }
-            },
-            "required": ["status", "preview", "grants"],
-            "additionalProperties": false
-          }
-        ]
       },
       "TokenOAuthErrorEncoded": {
         "type": "object",
@@ -4832,7 +4173,7 @@
           },
           "type": {
             "type": "string",
-            "enum": ["session", "pat", "oidc", "publish-capability"],
+            "enum": ["session", "pat", "oidc"],
             "title": "Token Type",
             "description": "The type of authentication token."
           },
@@ -4958,8 +4299,6 @@
               "staff_credential_required",
               "staff_role_required",
               "delegated_permission_not_held",
-              "publish_capability_mismatch",
-              "publish_capability_inactive",
               "recent_authentication_required",
               "step_up_wrong_actor",
               "team_create_not_authorized",
@@ -4982,11 +4321,7 @@
               "publish/insufficient-scope",
               "publish/resource-restriction",
               "publish/handle-not-owned",
-              "publish/publish-forbidden",
-              "publish/capability-binding-mismatch",
-              "publish/capability-expired",
-              "publish/capability-revoked",
-              "publish/capability-consumed"
+              "publish/publish-forbidden"
             ]
           },
           "details": {
@@ -4998,127 +4333,6 @@
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
-      },
-      "PublishAuthorizationDelivery": {
-        "anyOf": [
-          {
-            "type": "object",
-            "properties": {
-              "kind": { "type": "string", "enum": ["loopback"] },
-              "redirect_uri": { "type": "string", "minLength": 1 },
-              "state": { "type": "string", "minLength": 1 },
-              "code_challenge": { "type": "string", "pattern": "^[A-Za-z0-9_-]{43}$" },
-              "code_challenge_method": { "type": "string", "enum": ["S256"] }
-            },
-            "required": [
-              "kind",
-              "redirect_uri",
-              "state",
-              "code_challenge",
-              "code_challenge_method"
-            ],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "kind": { "type": "string", "enum": ["polling"] },
-              "proof_challenge": { "type": "string", "pattern": "^[A-Za-z0-9_-]{43}$" },
-              "proof_challenge_method": { "type": "string", "enum": ["S256"] }
-            },
-            "required": ["kind", "proof_challenge", "proof_challenge_method"],
-            "additionalProperties": false
-          }
-        ],
-        "title": "Publish authorization delivery",
-        "description": "Loopback code delivery or resumable polling protected by a distinct initiator proof."
-      },
-      "PublicationVisibilityInput": {
-        "type": "object",
-        "properties": {
-          "intent": {
-            "anyOf": [{ "$ref": "#/components/schemas/VisibilityIntent" }, { "type": "null" }]
-          },
-          "request": {
-            "anyOf": [{ "$ref": "#/components/schemas/ExtensionVisibility" }, { "type": "null" }]
-          }
-        },
-        "required": ["intent", "request"],
-        "additionalProperties": false
-      },
-      "PublicationDescriptor": {
-        "type": "object",
-        "properties": {
-          "target": { "$ref": "#/components/schemas/PublicationTarget" },
-          "participation": { "type": "string", "enum": ["publish", "verified-existing"] },
-          "archiveSha256Hex": {
-            "anyOf": [{ "$ref": "#/components/schemas/Sha256Hex" }, { "type": "null" }]
-          },
-          "visibility": { "$ref": "#/components/schemas/PublicationVisibilityInput" },
-          "pack": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "dependencies": {
-                    "type": "array",
-                    "items": { "$ref": "#/components/schemas/PackDependencyDescriptor" }
-                  }
-                },
-                "required": ["dependencies"],
-                "additionalProperties": false
-              },
-              { "type": "null" }
-            ]
-          }
-        },
-        "required": ["target", "participation", "visibility"],
-        "additionalProperties": false
-      },
-      "PreviewPublicationSetRequest": {
-        "type": "object",
-        "properties": {
-          "contract": { "type": "string", "enum": ["publication-set-v2"] },
-          "candidates": {
-            "type": "array",
-            "items": { "$ref": "#/components/schemas/PublicationDescriptor" }
-          }
-        },
-        "required": ["contract", "candidates"],
-        "additionalProperties": false
-      },
-      "PublishAuthorizationRequestId": {
-        "type": "string",
-        "pattern": "^pubreq_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-        "title": "Publish Authorization Request ID",
-        "description": "Identifies one exact browser-reviewed publish authorization request.",
-        "examples": ["pubreq_01h455vb4pexka56gq5w2r7cpc"]
-      },
-      "PublishAuthorizationPollingProof": {
-        "type": "object",
-        "properties": {
-          "initiator_proof": { "type": "string", "pattern": "^[A-Za-z0-9_-]{43,128}$" }
-        },
-        "required": ["initiator_proof"],
-        "additionalProperties": false,
-        "description": "Secret proof held by the initiator; never a public request reference or browser code."
-      },
-      "PublishAuthorizationPollingStatus": {
-        "type": "object",
-        "properties": {
-          "purpose": { "type": "string", "enum": ["publish"] },
-          "status": {
-            "type": "string",
-            "enum": ["pending", "approved", "denied", "expired", "exchanged"]
-          },
-          "expires_at": { "$ref": "#/components/schemas/IsoDateTimeString" },
-          "interval": { "type": "integer", "exclusiveMinimum": 0 },
-          "publication_set_digest": { "$ref": "#/components/schemas/Sha256Hex" }
-        },
-        "required": ["purpose", "status", "expires_at", "interval", "publication_set_digest"],
-        "additionalProperties": false,
-        "title": "Publish authorization status",
-        "description": "Proof-protected authorization status and material binding; approval is not publication completion."
       },
       "TokenId": {
         "type": "string",
@@ -5240,7 +4454,7 @@
           "id": { "$ref": "#/components/schemas/TokenId" },
           "token": {
             "type": "string",
-            "description": "The token value — save this, it won't be shown again.",
+            "description": "The token value \u2014 save this, it won't be shown again.",
             "readOnly": true
           },
           "name": { "type": "string" },
@@ -5251,7 +4465,7 @@
         "required": ["id", "token", "name", "permissions", "created_at", "expires_at"],
         "additionalProperties": false,
         "title": "Create Token Response",
-        "description": "Your new access token. The token value is only shown once — save it now."
+        "description": "Your new access token. The token value is only shown once \u2014 save it now."
       },
       "IsoDateTimeString_1": {
         "type": "string",
@@ -5296,6 +4510,13 @@
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
+      "Handle": {
+        "type": "string",
+        "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
+        "title": "Handle",
+        "description": "A unique username or organization name starting with @, like @my-org.",
+        "examples": ["@my-org", "@username"]
+      },
       "OwnerResponse": {
         "type": "object",
         "properties": {
@@ -5305,6 +4526,27 @@
         "additionalProperties": false,
         "title": "Owner Response",
         "description": "Minimal owner summary for machine clients."
+      },
+      "ExtensionName": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
+        "title": "Extension Name",
+        "description": "The name of an extension \u2014 lowercase letters, numbers, and hyphens (e.g. my-skill).",
+        "examples": ["my-skill", "code-review", "prettier"]
+      },
+      "ExtensionType": {
+        "type": "string",
+        "enum": ["skill", "mcp-server", "subagent", "rule", "hook", "knowledge", "pack"],
+        "title": "Extension Type",
+        "description": "What kind of extension this is: skill, mcp-server, subagent, rule, hook, knowledge, or pack."
+      },
+      "Version": {
+        "type": "string",
+        "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+        "title": "Version",
+        "description": "A semver version like 1.0.0. Ranges are not allowed here.",
+        "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"]
       },
       "Repository": {
         "type": "object",
@@ -5376,6 +4618,76 @@
         "title": "Author",
         "description": "Author details: name, email, and homepage URL."
       },
+      "DeprecationMessage": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500,
+        "description": "Concise publisher guidance for consumers of a deprecated extension."
+      },
+      "ExtensionFqn": {
+        "type": "string",
+        "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+        "title": "Extension FQN",
+        "description": "Canonical extension identifier in @owner/<type>s/<name> form.",
+        "examples": ["@acme/skills/code-review", "@my-org/rules/typescript"]
+      },
+      "DeprecationReplacement": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "status": { "type": "string", "enum": ["available"] },
+              "fqn": { "$ref": "#/components/schemas/ExtensionFqn" }
+            },
+            "required": ["status", "fqn"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "status": { "type": "string", "enum": ["unavailable"] },
+              "fqn": {
+                "anyOf": [{ "$ref": "#/components/schemas/ExtensionFqn" }, { "type": "null" }]
+              }
+            },
+            "required": ["status"],
+            "additionalProperties": false
+          }
+        ],
+        "description": "Authorization-safe current availability of a recorded replacement identity."
+      },
+      "DeprecationView": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "deprecatedAt": { "$ref": "#/components/schemas/IsoDateTimeString" },
+              "message": { "$ref": "#/components/schemas/DeprecationMessage" },
+              "replacement": {
+                "anyOf": [
+                  { "$ref": "#/components/schemas/DeprecationReplacement" },
+                  { "type": "null" }
+                ]
+              }
+            },
+            "required": ["deprecatedAt", "message"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "deprecatedAt": { "$ref": "#/components/schemas/IsoDateTimeString" },
+              "message": {
+                "anyOf": [{ "$ref": "#/components/schemas/DeprecationMessage" }, { "type": "null" }]
+              },
+              "replacement": { "$ref": "#/components/schemas/DeprecationReplacement" }
+            },
+            "required": ["deprecatedAt", "replacement"],
+            "additionalProperties": false
+          }
+        ],
+        "description": "Canonical authorization-safe identity deprecation guidance."
+      },
       "ExtensionTypePlural": {
         "type": "string",
         "enum": ["skills", "mcps", "subagents", "rules", "hooks", "knowledge", "packs"],
@@ -5409,6 +4721,14 @@
         "additionalProperties": false,
         "title": "Bugs",
         "description": "Bug reporting details for an extension manifest."
+      },
+      "VersionRange": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[~^<>=*xXvV0-9A-Za-z+| .-]+$",
+        "title": "Version Range",
+        "description": "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use \"*\" to always resolve to the latest available version.",
+        "examples": ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"]
       },
       "PackageIdentityPurl": {
         "type": "string",
@@ -5450,6 +4770,125 @@
         "examples": ["edel_01h455vb4pexka56gq5w2r7cpc"]
       },
       "Visibility": { "type": "string", "enum": ["public", "private"], "title": "Visibility" },
+      "VisibilityFingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+      "ExtensionVisibility": {
+        "type": "string",
+        "enum": ["public", "private"],
+        "title": "Extension Visibility",
+        "description": "Whole-Extension Registry visibility applied to every published version."
+      },
+      "VisibilityIntent": {
+        "type": "object",
+        "properties": {
+          "value": { "$ref": "#/components/schemas/ExtensionVisibility" },
+          "source": { "type": "string", "enum": ["manifest", "workspace"] },
+          "fingerprint": { "$ref": "#/components/schemas/VisibilityFingerprint" }
+        },
+        "required": ["value", "source", "fingerprint"],
+        "additionalProperties": false
+      },
+      "PublishVisibility": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "value": { "$ref": "#/components/schemas/ExtensionVisibility" },
+              "disposition": { "type": "string", "enum": ["establish"] },
+              "source": {
+                "type": "string",
+                "enum": ["manifest", "workspace", "explicit", "account", "platform"]
+              }
+            },
+            "required": ["value", "disposition", "source"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "value": { "$ref": "#/components/schemas/ExtensionVisibility" },
+              "disposition": { "type": "string", "enum": ["preserve"] },
+              "source": { "type": "string", "enum": ["existing"] }
+            },
+            "required": ["value", "disposition", "source"],
+            "additionalProperties": false
+          }
+        ],
+        "title": "Publish Visibility",
+        "description": "Authoritative whole-Extension visibility and provenance resolved for a publication."
+      },
+      "VisibilityRevision": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Opaque revision for conditional whole-Extension visibility mutation."
+      },
+      "VisibilityActual": {
+        "type": "object",
+        "properties": {
+          "value": { "$ref": "#/components/schemas/ExtensionVisibility" },
+          "revision": { "$ref": "#/components/schemas/VisibilityRevision" }
+        },
+        "required": ["value", "revision"],
+        "additionalProperties": false
+      },
+      "VisibilityComparison": {
+        "type": "string",
+        "enum": ["not-established", "unconfigured", "match", "drift"]
+      },
+      "VisibilityFindingCode": {
+        "type": "string",
+        "enum": [
+          "visibility/intent-conflict",
+          "visibility/drift",
+          "visibility/unavailable",
+          "visibility/intent-required",
+          "visibility/not-established",
+          "visibility/stale-source",
+          "visibility/stale-revision",
+          "visibility/confirmation-required",
+          "visibility/authorization-denied",
+          "visibility/impersonation-denied",
+          "visibility/verification-required",
+          "visibility/verification-expired",
+          "visibility/verification-cancelled",
+          "visibility/verification-replayed",
+          "visibility/pack-blocked"
+        ]
+      },
+      "VisibilityFinding": {
+        "type": "object",
+        "properties": {
+          "code": { "$ref": "#/components/schemas/VisibilityFindingCode" },
+          "severity": { "type": "string", "enum": ["error", "warning"] },
+          "message": { "type": "string" }
+        },
+        "required": ["code", "severity", "message"],
+        "additionalProperties": false
+      },
+      "VisibilityEvaluation": {
+        "type": "object",
+        "properties": {
+          "target": { "$ref": "#/components/schemas/ExtensionFqn" },
+          "intent": {
+            "anyOf": [{ "$ref": "#/components/schemas/VisibilityIntent" }, { "type": "null" }]
+          },
+          "request": {
+            "anyOf": [{ "$ref": "#/components/schemas/ExtensionVisibility" }, { "type": "null" }]
+          },
+          "resolved": {
+            "anyOf": [{ "$ref": "#/components/schemas/PublishVisibility" }, { "type": "null" }]
+          },
+          "actual": {
+            "anyOf": [{ "$ref": "#/components/schemas/VisibilityActual" }, { "type": "null" }]
+          },
+          "comparison": { "$ref": "#/components/schemas/VisibilityComparison" },
+          "findings": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/VisibilityFinding" }
+          }
+        },
+        "required": ["target", "intent", "request", "resolved", "actual", "comparison", "findings"],
+        "additionalProperties": false
+      },
       "VisibilityMutationAuthority": {
         "anyOf": [
           {
@@ -5595,6 +5034,7 @@
         "required": ["target", "before", "after", "disposition", "revision"],
         "additionalProperties": false
       },
+      "Sha256Hex": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
       "PublishFindingLocation": {
         "type": "object",
         "properties": {
@@ -5628,6 +5068,16 @@
         "additionalProperties": false,
         "title": "Finding Location",
         "description": "Accessor-relative location of a lint finding."
+      },
+      "SuggestedAction": {
+        "type": "object",
+        "properties": {
+          "description": { "type": "string" },
+          "cmd": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+          "url": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+        },
+        "required": ["description"],
+        "additionalProperties": false
       },
       "PublishLintFinding": {
         "type": "object",
@@ -5816,6 +5266,234 @@
         "additionalProperties": false,
         "title": "Delete Extension Body",
         "description": "High-intent confirmation for permanent whole-Extension deletion."
+      },
+      "PublicationTarget": {
+        "type": "object",
+        "properties": {
+          "owner": { "$ref": "#/components/schemas/Handle" },
+          "type": { "$ref": "#/components/schemas/ExtensionType" },
+          "name": { "$ref": "#/components/schemas/ExtensionName" },
+          "version": { "$ref": "#/components/schemas/Version" }
+        },
+        "required": ["owner", "type", "name", "version"],
+        "additionalProperties": false
+      },
+      "PublicationVisibilityInput": {
+        "type": "object",
+        "properties": {
+          "intent": {
+            "anyOf": [{ "$ref": "#/components/schemas/VisibilityIntent" }, { "type": "null" }]
+          },
+          "request": {
+            "anyOf": [{ "$ref": "#/components/schemas/ExtensionVisibility" }, { "type": "null" }]
+          }
+        },
+        "required": ["intent", "request"],
+        "additionalProperties": false
+      },
+      "PackDependencyDescriptor": {
+        "type": "object",
+        "properties": {
+          "owner": { "$ref": "#/components/schemas/Handle" },
+          "type": {
+            "type": "string",
+            "enum": ["hook", "knowledge", "mcp-server", "rule", "skill", "subagent"]
+          },
+          "name": { "$ref": "#/components/schemas/ExtensionName" },
+          "range": { "$ref": "#/components/schemas/VersionRange" }
+        },
+        "required": ["owner", "type", "name", "range"],
+        "additionalProperties": false
+      },
+      "PublicationDescriptor": {
+        "type": "object",
+        "properties": {
+          "target": { "$ref": "#/components/schemas/PublicationTarget" },
+          "participation": { "type": "string", "enum": ["publish", "verified-existing"] },
+          "archiveSha256Hex": {
+            "anyOf": [{ "$ref": "#/components/schemas/Sha256Hex" }, { "type": "null" }]
+          },
+          "visibility": { "$ref": "#/components/schemas/PublicationVisibilityInput" },
+          "pack": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "dependencies": {
+                    "type": "array",
+                    "items": { "$ref": "#/components/schemas/PackDependencyDescriptor" }
+                  }
+                },
+                "required": ["dependencies"],
+                "additionalProperties": false
+              },
+              { "type": "null" }
+            ]
+          }
+        },
+        "required": ["target", "participation", "visibility"],
+        "additionalProperties": false
+      },
+      "PreviewPublicationSetRequest": {
+        "type": "object",
+        "properties": {
+          "contract": { "type": "string", "enum": ["publication-set-v2"] },
+          "candidates": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/PublicationDescriptor" }
+          }
+        },
+        "required": ["contract", "candidates"],
+        "additionalProperties": false
+      },
+      "VisibilityEvaluationUnavailable": {
+        "type": "object",
+        "properties": {
+          "target": { "$ref": "#/components/schemas/ExtensionFqn" },
+          "unavailable": { "type": "boolean", "enum": [true] },
+          "findings": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/VisibilityFinding" }
+          }
+        },
+        "required": ["target", "unavailable", "findings"],
+        "additionalProperties": false
+      },
+      "PackDependencyFinding": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "string", "enum": ["advisory"] },
+          "ruleId": {
+            "type": "string",
+            "enum": ["pack/dependency-version-resolvable", "pack/dependency-deprecated"]
+          },
+          "severity": { "type": "string", "enum": ["error", "warning"] },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "selected-new-private",
+              "selected-existing-private",
+              "target-unavailable",
+              "lifecycle-unavailable",
+              "no-installable-version",
+              "range-unsatisfied",
+              "deprecated"
+            ]
+          },
+          "dependency": { "$ref": "#/components/schemas/PackDependencyDescriptor" },
+          "effectiveVisibility": {
+            "anyOf": [{ "type": "string", "enum": ["public", "private"] }, { "type": "null" }]
+          },
+          "lifecycle": {
+            "anyOf": [{ "type": "string", "enum": ["active", "unavailable"] }, { "type": "null" }]
+          },
+          "deprecation": {
+            "anyOf": [{ "$ref": "#/components/schemas/DeprecationView" }, { "type": "null" }]
+          },
+          "location": {
+            "type": "object",
+            "properties": { "file": { "type": "string", "enum": ["pack.json"] } },
+            "required": ["file"],
+            "additionalProperties": false
+          },
+          "path": { "type": "string", "enum": ["./pack.json"] },
+          "message": { "type": "string" },
+          "suggestions": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SuggestedAction" }
+          }
+        },
+        "required": [
+          "kind",
+          "ruleId",
+          "severity",
+          "reason",
+          "dependency",
+          "location",
+          "path",
+          "message",
+          "suggestions"
+        ],
+        "additionalProperties": false
+      },
+      "PackDependencyResolution": {
+        "type": "object",
+        "properties": {
+          "dependency": { "$ref": "#/components/schemas/PackDependencyDescriptor" },
+          "effectiveVersion": { "$ref": "#/components/schemas/Version" }
+        },
+        "required": ["dependency", "effectiveVersion"],
+        "additionalProperties": false
+      },
+      "PreviewPublicationSetResponse": {
+        "type": "object",
+        "properties": {
+          "contract": { "type": "string", "enum": ["publication-set-v2"] },
+          "publicationSetDigest": { "$ref": "#/components/schemas/Sha256Hex" },
+          "status": { "type": "string", "enum": ["admitted", "blocked"] },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": { "type": "string", "enum": ["resolved"] },
+                    "target": { "$ref": "#/components/schemas/PublicationTarget" },
+                    "participation": { "type": "string", "enum": ["publish", "verified-existing"] },
+                    "descriptorDigest": { "$ref": "#/components/schemas/Sha256Hex" },
+                    "visibility": { "$ref": "#/components/schemas/VisibilityEvaluation" },
+                    "condition": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                  },
+                  "required": ["kind", "target", "participation", "descriptorDigest", "visibility"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": { "type": "string", "enum": ["unavailable"] },
+                    "target": { "$ref": "#/components/schemas/PublicationTarget" },
+                    "participation": { "type": "string", "enum": ["publish", "verified-existing"] },
+                    "descriptorDigest": { "$ref": "#/components/schemas/Sha256Hex" },
+                    "code": { "type": "string", "enum": ["publish/target-unavailable"] },
+                    "visibility": { "$ref": "#/components/schemas/VisibilityEvaluationUnavailable" }
+                  },
+                  "required": [
+                    "kind",
+                    "target",
+                    "participation",
+                    "descriptorDigest",
+                    "code",
+                    "visibility"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "packs": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "target": { "$ref": "#/components/schemas/PublicationTarget" },
+                "status": { "type": "string", "enum": ["admitted", "blocked"] },
+                "findings": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/PackDependencyFinding" }
+                },
+                "resolutions": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/PackDependencyResolution" }
+                }
+              },
+              "required": ["target", "status", "findings", "resolutions"],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": ["contract", "publicationSetDigest", "status", "candidates", "packs"],
+        "additionalProperties": false
       },
       "PublishPreviewBatchTooLargeHttpErrorEncoded": {
         "type": "object",

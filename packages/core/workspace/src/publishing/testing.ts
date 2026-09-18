@@ -32,13 +32,11 @@ import {
   AuthClient,
   AuthLoginPresenter,
   DeviceLoginInteraction,
-  PendingPublishAuthorizationStore,
 } from "@agentxm/registry-access/authentication";
 import {
   AuthClientTest,
   AuthLoginPresenterTest,
   DeviceLoginInteractionTest,
-  PendingPublishAuthorizationStoreTest,
 } from "@agentxm/registry-access/testing";
 import { OfflineHttpClient } from "@agentxm/registry-client/testing";
 
@@ -260,7 +258,6 @@ export type PublishPorts =
   | AuthClient
   | AuthLoginPresenter
   | DeviceLoginInteraction
-  | PendingPublishAuthorizationStore
   | GitDirectoryComparison
   | HttpClient.HttpClient;
 
@@ -290,7 +287,6 @@ export const PublishPortsTest = (
     AuthClientTest(options.auth),
     AuthLoginPresenterTest().layer,
     DeviceLoginInteractionTest().layer,
-    PendingPublishAuthorizationStoreTest(),
     GitDirectoryComparisonTest(options.compare),
     OfflineHttpClient,
   );

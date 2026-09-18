@@ -1,33 +1,16 @@
 /**
- * Authentication requirements and grant bindings for exact publication.
+ * Authentication requirements and upload bindings for publication.
  *
  * The publishing feature never invokes authentication itself: it expresses the
- * requirement as typed precondition data and consumes the authorization
- * RESULT as a structural grant value. The application sequences the
- * Registry access capability to satisfy the requirement and passes each issued
- * grant into the upload binding as data.
+ * requirement as typed precondition data. Publishing is a write the person
+ * makes as themselves, so the only credential an upload carries is the one the
+ * application already resolved for the invocation.
  */
 
 import type { OperationPrecondition } from "../transitions/planning/index.js";
 import type { PublishVisibility } from "@agentxm/registry-protocol/unstable/publish";
-import type {
-  PublicationVisibilityInput,
-  Sha256Hex,
-} from "@agentxm/registry-protocol/unstable/registry";
+import type { PublicationVisibilityInput } from "@agentxm/registry-protocol/unstable/registry";
 import type { PublishExtensionArgs } from "@agentxm/registry-client";
-
-/**
- * One exact publish capability the application obtained from the Registry
- * authorization flow. Structurally satisfied by the Registry access
- * capability; this module never owns that policy.
- */
-export interface PublishGrant {
-  readonly accessToken: string;
-  readonly visibility: PublishVisibility;
-  readonly condition: string;
-  readonly publicationSetDigest: Sha256Hex;
-  readonly publicationDescriptorDigest: Sha256Hex;
-}
 
 /** The authoritative preview facts one upload binds to. */
 export interface ResolvedPublishPreview {
@@ -51,36 +34,13 @@ export const publishAuthenticationPreconditions = (options: {
     ? [
         {
           id: "authentication",
-          label: "Publication authorization",
+          label: "Sign-in",
           status: "unmet",
-          detail:
-            "Apply the same publish selection to request approval for this exact publication set.",
+          detail: "Publishing requires you to be signed in. Run `axm login`, then publish.",
           blockedOn: "human",
         },
       ]
     : [];
-
-export const exactPublishUploadBinding = (
-  capability: PublishGrant,
-  visibilityInput: PublicationVisibilityInput,
-): Pick<
-  PublishExtensionArgs,
-  | "accessToken"
-  | "condition"
-  | "visibility"
-  | "visibilityInput"
-  | "publicationSetDigest"
-  | "publicationDescriptorDigest"
-> => ({
-  accessToken: capability.accessToken,
-  condition: capability.condition,
-  publicationSetDigest: capability.publicationSetDigest,
-  publicationDescriptorDigest: capability.publicationDescriptorDigest,
-  visibilityInput,
-  ...(capability.visibility.disposition === "establish"
-    ? { visibility: capability.visibility }
-    : {}),
-});
 
 export const previewPublishUploadBinding = (
   preview: ResolvedPublishPreview,

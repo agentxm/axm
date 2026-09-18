@@ -1587,21 +1587,6 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Derived from: `packages/supporting/registry-access/src/authentication/logout.ts`
 - Source: [`packages/supporting/registry-access/src/credentials/erases-selected-registry-credentials.spec.ts`](../packages/supporting/registry-access/src/credentials/erases-selected-registry-credentials.spec.ts)
 
-##### Publish authorization resumes the exact reviewed publication
-
-- Requirement: `cli/publish/authorization-resumes-the-exact-publication`
-- Owner: `registry-access`
-- Statement: When unattended publish has no publication authority, AXM shall persist a private initiator proof, return a human handoff carrying the registry-protocol publish action and no proof, and neither wait nor upload; a resume reference shall resume only that same request with unchanged publication material, a bounded wait shall return the same handoff when it elapses, and resume shall refuse a foreign, different-purpose or query-bearing reference and changed archives or visibility before exchange, exchange only an approved request, and require explicit recovery for denial, expiry or a prior exchange without replacing the request or replaying uploads.
-- Class: functional
-- Role: experience
-- Product goals: `machine-automation`, `privacy-and-consent`, `safe-repetition`
-- Boundary: memory; selection: per-change
-- Methods: decision-table, example
-- Open questions: Which specification owns the generic human-handoff protocol (an immediate pending handoff unless a bounded wait was requested, resume only the referenced request, never a silent replacement) that this identity, cli/unattended-verification-is-resumable and cli/login/starts-resumable-device-sign-in each restate for their own purpose?
-- Limitation: These cases control the Registry boundary and observe typed outcomes; the server owns approval and atomic exchange enforcement, and full publish command evidence separately covers upload settlement. Retires when: Coordinated end-to-end evidence binds persisted CLI resume, server approval and publication outcome recovery.
-- Limitation: The exit codes and rendered JSON envelope these outcomes produce (13 pending, 14 expired, 15 denied, 16 wait elapsed, 6 already exchanged) are a boundary mapping this capability cannot observe; they are pinned by apps/cli/src/auth-pending-envelopes.test.ts. Retires when: cli/exit-codes-match-published-reference adopts the publish-authorization exit codes as decisive rows.
-- Source: [`packages/supporting/registry-access/src/authentication/publish-authorization-resumes-the-exact-publication.spec.ts`](../packages/supporting/registry-access/src/authentication/publish-authorization-resumes-the-exact-publication.spec.ts)
-
 ##### Token creation requests the chosen lifetime and permissions
 
 - Requirement: `cli/token/create/submits-requested-authority`
@@ -2241,7 +2226,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 
 - Requirement: `cli/publish/preview-is-pure`
 - Owner: `workspace`
-- Statement: When publish runs in preview mode, AXM shall report the admitted publication set or identify missing exact-publication authorization with a next action for the same selection, without creating authorization, uploading anything to the target registry, or changing settings, the lockfile, or authored content.
+- Statement: When publish runs in preview mode, AXM shall report the admitted publication set or, for a signed-out person, report sign-in as the unmet precondition for the same selection, without contacting the target registry for anything but reads, uploading anything, or changing settings, the lockfile, or authored content.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `trustworthy-distribution`
@@ -4527,19 +4512,20 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 #### External conformance
 
-##### Publication uploads are bound to the reviewed source and visibility
+##### Publishing is a write the publisher makes as themselves
 
-- Requirement: `cli/publish/uploads-the-reviewed-publication-set`
+- Requirement: `cli/publish/requires-a-signed-in-person`
 - Owner: `workspace`
-- Statement: For a remotely authorized publication, AXM shall bind each actual archive upload to its reviewed publication-set-v2 candidate using the granted capability, condition, publication-set digest, descriptor digest, and resolved visibility, and report the Registry's acknowledged outcome.
+- Statement: AXM shall publish with the credential the invocation already holds — binding each archive upload to its previewed publication-set-v2 candidate through that credential, with the condition, publication-set digest, descriptor digest and resolved visibility, and reporting the Registry's acknowledged outcome — and, with no credential, shall report that the person is signed out, offer sign-in, dispatch no upload and create no server state.
 - Class: external-conformance
 - Role: interface
 - Product goals: `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: example, contract
 - Derived from: `AgentXM Registry API 0.1.0`, `apps/cli/src/root/publish/command.test.ts`
-- Open questions: If local source changes after publication review, must AXM abort and revoke unused grants, or may it upload the frozen reviewed archive? The current implementation aborts; the accepted requirement binds actual upload bytes to the reviewed set without choosing an enforcement strategy.
-- Source: [`packages/core/workspace/src/publishing/authorization/uploads-the-reviewed-publication-set.spec.ts`](../packages/core/workspace/src/publishing/authorization/uploads-the-reviewed-publication-set.spec.ts)
+- Supersedes: `cli/publish/uploads-the-reviewed-publication-set`
+- Open questions: If local source changes after the authoritative preview, must AXM abort or may it upload the previewed archive? The current implementation aborts; the accepted requirement binds actual upload bytes to the previewed set without choosing an enforcement strategy.
+- Source: [`packages/core/workspace/src/publishing/authorization/publishing-requires-a-signed-in-person.spec.ts`](../packages/core/workspace/src/publishing/authorization/publishing-requires-a-signed-in-person.spec.ts)
 
 ### Goal: workspace-intent-fidelity
 

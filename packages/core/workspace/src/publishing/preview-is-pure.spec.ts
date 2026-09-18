@@ -21,7 +21,7 @@ export const specification = defineSpecification({
   requirement: "cli/publish/preview-is-pure",
   title: "Publish preview reports the admitted publication set without distributing anything",
   statement:
-    "When publish runs in preview mode, AXM shall report the admitted publication set or identify missing exact-publication authorization with a next action for the same selection, without creating authorization, uploading anything to the target registry, or changing settings, the lockfile, or authored content.",
+    "When publish runs in preview mode, AXM shall report the admitted publication set or, for a signed-out person, report sign-in as the unmet precondition for the same selection, without contacting the target registry for anything but reads, uploading anything, or changing settings, the lockfile, or authored content.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "trustworthy-distribution"],
@@ -120,7 +120,7 @@ describe("Publish preview purity", () => {
     expect(world.protectedWrites(PUBLISH_PROTECTED_STATE)).toEqual([]);
   };
 
-  it.effect("an unauthenticated preview directs the same selection to publication approval", () =>
+  it.effect("a signed-out preview reports sign-in as the unmet precondition", () =>
     Effect.gen(function* () {
       const { world, before } = authoredWorkspace({ httpClient: readOnlyRegistry });
 
@@ -145,15 +145,13 @@ describe("Publish preview purity", () => {
             {
               status: "unmet",
               blockedOn: "human",
-              label: "Publication authorization",
-              detail:
-                "Apply the same publish selection to request approval for this exact publication set.",
+              label: "Sign-in",
+              detail: "Publishing requires you to be signed in. Run `axm login`, then publish.",
             },
           ],
         },
         counts: { selected: 1, published: 0 },
       });
-      expect(JSON.stringify(document)).not.toContain("axm login");
       expect(outcome.disposition._tag).toBe("Completed");
     }),
   );

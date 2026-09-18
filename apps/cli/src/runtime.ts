@@ -83,7 +83,6 @@ import {
   CredentialStoreLive,
   CredentialStoreSessionLive,
   PendingDeviceLoginStoreLive,
-  PendingPublishAuthorizationStoreLive,
 } from "@agentxm/registry-access/adapters";
 import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
 import { resolveTelemetryMode } from "./telemetry/index.js";
@@ -223,7 +222,7 @@ const CredentialStoreLayer = Layer.provide(
 );
 
 const AuthServicesLayer = Layer.provideMerge(
-  Layer.mergeAll(PendingDeviceLoginStoreLive, PendingPublishAuthorizationStoreLive, AuthClientLive),
+  Layer.mergeAll(PendingDeviceLoginStoreLive, AuthClientLive),
   Layer.mergeAll(RegistryRuntimeLayer, CredentialStoreLayer),
 );
 

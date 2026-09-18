@@ -48,10 +48,8 @@ export {
 } from "./settlement.js";
 
 export {
-  exactPublishUploadBinding,
   previewPublishUploadBinding,
   publishAuthenticationPreconditions,
-  type PublishGrant,
   type ResolvedPublishPreview,
 } from "./authorization.js";
 

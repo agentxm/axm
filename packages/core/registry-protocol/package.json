@@ -49,11 +49,6 @@
       "types": "./dist/src/unstable/human-handoff.d.ts",
       "axm-source": "./src/unstable/human-handoff.ts",
       "default": "./dist/src/unstable/human-handoff.js"
-    },
-    "./unstable/publish-authorization": {
-      "types": "./dist/src/unstable/publish-authorization.d.ts",
-      "axm-source": "./src/unstable/publish-authorization.ts",
-      "default": "./dist/src/unstable/publish-authorization.js"
     }
   },
   "files": [

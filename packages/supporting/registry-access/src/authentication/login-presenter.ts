@@ -1,7 +1,7 @@
 /**
  * Auth login presentation seam.
  *
- * The device, loopback, and publish-authorization flows report progress and
+ * The device and loopback sign-in flows report progress and
  * present sign-in guidance exclusively through this service. The CLI runtime
  * provides the renderer-backed implementation; wording, suggestion sets, and
  * machine-mode document emission belong to that implementation, never to the
@@ -85,11 +85,6 @@ export interface AuthLoginPresenterService {
     readonly authorizeUrl: string;
   }) => Effect.Effect<void>;
   readonly noteLoopbackBrowserOutcome: (opened: boolean) => Effect.Effect<void>;
-  readonly notePublishReview: (review: {
-    readonly browserOpened: boolean;
-    readonly candidateCount: number;
-    readonly authorizationUrl: string;
-  }) => Effect.Effect<void>;
   /** A still-valid session was found for the selected Registry. */
   readonly noteExistingSession: (handle: string) => Effect.Effect<void>;
   /** Stored credentials were rejected, so a new sign-in starts. */
@@ -120,11 +115,6 @@ export interface AuthLoginPresenterTestState {
   readonly loginSuccesses: Array<LoginResult>;
   readonly loopbackStarts: Array<{ readonly redirectUri: string; readonly authorizeUrl: string }>;
   readonly loopbackBrowserOutcomes: Array<boolean>;
-  readonly publishReviews: Array<{
-    readonly browserOpened: boolean;
-    readonly candidateCount: number;
-    readonly authorizationUrl: string;
-  }>;
   readonly existingSessions: Array<string>;
   readonly rejectedStoredCredentials: Array<true>;
   readonly deviceCodeFallbacks: Array<DeviceCodeFallbackReason>;
@@ -146,7 +136,6 @@ export const AuthLoginPresenterTest = (overrides?: {
     loginSuccesses: [],
     loopbackStarts: [],
     loopbackBrowserOutcomes: [],
-    publishReviews: [],
     existingSessions: [],
     rejectedStoredCredentials: [],
     deviceCodeFallbacks: [],
@@ -184,10 +173,6 @@ export const AuthLoginPresenterTest = (overrides?: {
     noteLoopbackBrowserOutcome: (opened) =>
       Effect.sync(() => {
         state.loopbackBrowserOutcomes.push(opened);
-      }),
-    notePublishReview: (review) =>
-      Effect.sync(() => {
-        state.publishReviews.push(review);
       }),
     noteExistingSession: (handle) =>
       Effect.sync(() => {

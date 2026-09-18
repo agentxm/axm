@@ -1506,7 +1506,7 @@
       ],
       "relatedRequirements": [
         "cli/publish/outcomes-distinguish-unresolved-uploads",
-        "cli/publish/uploads-the-reviewed-publication-set"
+        "cli/publish/requires-a-signed-in-person"
       ],
       "parameterBindings": [
         {
@@ -3025,7 +3025,7 @@
       ],
       "relatedRequirements": [
         "cli/publish/outcomes-distinguish-unresolved-uploads",
-        "cli/publish/uploads-the-reviewed-publication-set"
+        "cli/publish/requires-a-signed-in-person"
       ],
       "parameterBindings": [
         {
@@ -4244,7 +4244,7 @@
       ],
       "relatedRequirements": [
         "cli/publish/outcomes-distinguish-unresolved-uploads",
-        "cli/publish/uploads-the-reviewed-publication-set"
+        "cli/publish/requires-a-signed-in-person"
       ],
       "parameterBindings": [
         {
@@ -4993,7 +4993,7 @@
       ],
       "relatedRequirements": [
         "cli/publish/outcomes-distinguish-unresolved-uploads",
-        "cli/publish/uploads-the-reviewed-publication-set"
+        "cli/publish/requires-a-signed-in-person"
       ],
       "parameterBindings": [
         {
@@ -5329,22 +5329,6 @@
     "publish": {
       "flags": [
         {
-          "name": "authorization-request",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": false
-          }
-        },
-        {
-          "name": "wait-for-human",
-          "rawHelp": {
-            "aliases": [],
-            "type": "integer",
-            "required": false
-          }
-        },
-        {
           "name": "owner",
           "rawHelp": {
             "aliases": [],
@@ -5444,7 +5428,6 @@
         }
       ],
       "relatedRequirements": [
-        "cli/publish/authorization-resumes-the-exact-publication",
         "cli/publish/archive-inventory-matches-published-bytes",
         "cli/publish/archives-satisfy-distribution-contract",
         "cli/publish/ignore-patterns-have-declared-path-semantics",
@@ -5454,14 +5437,10 @@
         "cli/publish/reports-pack-resolution-differences",
         "cli/publish/requires-existing-publish-owners",
         "cli/publish/requires-explicit-acceptance-for-non-head-source",
-        "cli/publish/respects-local-pack-constraints",
-        "cli/publish/uploads-the-reviewed-publication-set"
+        "cli/publish/requires-a-signed-in-person",
+        "cli/publish/respects-local-pack-constraints"
       ],
       "parameterBindings": [
-        {
-          "parameters": ["flag:authorization-request", "flag:wait-for-human"],
-          "requirements": ["cli/publish/authorization-resumes-the-exact-publication"]
-        },
         {
           "parameters": ["argument:extension"],
           "requirements": [
@@ -5978,7 +5957,7 @@
       ],
       "relatedRequirements": [
         "cli/publish/outcomes-distinguish-unresolved-uploads",
-        "cli/publish/uploads-the-reviewed-publication-set"
+        "cli/publish/requires-a-signed-in-person"
       ],
       "parameterBindings": [
         {
@@ -6872,7 +6851,7 @@
       ],
       "relatedRequirements": [
         "cli/publish/outcomes-distinguish-unresolved-uploads",
-        "cli/publish/uploads-the-reviewed-publication-set"
+        "cli/publish/requires-a-signed-in-person"
       ],
       "parameterBindings": [
         {
@@ -7690,7 +7669,7 @@
       ],
       "relatedRequirements": [
         "cli/publish/outcomes-distinguish-unresolved-uploads",
-        "cli/publish/uploads-the-reviewed-publication-set"
+        "cli/publish/requires-a-signed-in-person"
       ],
       "parameterBindings": [
         {

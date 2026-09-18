@@ -13,7 +13,6 @@ export {
   DeviceAuthorizationPending,
   DeviceLoginCodeExpired,
   DeviceLoginDenied,
-  PublishAuthorizationPending,
   REGISTRY_ACCESS_ERROR_CATEGORIES,
   RegistryAccessFailed,
   StepUpRequired,
@@ -29,15 +28,10 @@ export {
 
 export type {
   AuthClientService,
-  CreatePublishAuthorizationRequestParams,
   CreateTokenOptions,
   DeviceFlowResponse,
-  ExchangePublishAuthorizationCodeParams,
   MeResponse,
   PollResult,
-  PublishAuthorizationExchangeResponse,
-  PublishAuthorizationRequestResponse,
-  PublishCapabilityResponse,
 } from "./auth-client.js";
 export { AuthClient, pollOnce, readStepUpRequest } from "./auth-client.js";
 export type { NormalizedTokenResponse } from "./oauth-contract.js";
@@ -116,10 +110,6 @@ export {
 } from "./tokens/permissions.js";
 
 export {
-  runPublishAuthorization,
-  type PublishAuthorizationInput,
-} from "./publish-authorization.js";
-export {
   selectLoginStrategy,
   type LoginStrategy,
   type LoginStrategyEnvironment,
@@ -136,9 +126,3 @@ export type {
   PendingDeviceLoginStoreService,
 } from "./pending-device-login-store.js";
 export { PendingDeviceLoginSchema, PendingDeviceLoginStore } from "./pending-device-login-store.js";
-export {
-  PendingPublishAuthorizationSchema,
-  PendingPublishAuthorizationStore,
-  type PendingPublishAuthorization,
-  type PendingPublishAuthorizationStoreService,
-} from "./pending-publish-authorization-store.js";

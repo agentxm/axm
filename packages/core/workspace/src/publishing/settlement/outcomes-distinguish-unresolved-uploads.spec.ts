@@ -10,7 +10,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {
   makeRemotePublishWorld,
-  publicationCapability,
+  publicationSessionToken,
   publishDocument,
   publishFailureOf,
   registryProblem,
@@ -113,20 +113,31 @@ describe("Publication outcome evidence", () => {
           "@acme/packs/toolkit",
         ]);
         expect(outcome.recovery?.blockedDependents).toEqual(["@acme/packs/toolkit"]);
-        expect(JSON.stringify(outcome.recovery)).not.toContain(publicationCapability);
+        expect(JSON.stringify(outcome.recovery)).not.toContain(publicationSessionToken);
       }),
   );
 
   for (const dispatched of [false, true]) {
     it.effect(
-      `interruption ${dispatched ? "after upload dispatch remains unknown" : "before authorization leaves publication pending"}`,
+      `interruption ${dispatched ? "after upload dispatch remains unknown" : "before upload dispatch leaves publication pending"}`,
       () =>
         Effect.gen(function* () {
           const reached = yield* Deferred.make<void>();
           const stopHere = Deferred.succeed(reached, undefined).pipe(Effect.andThen(Effect.never));
+          // Planning assesses each source once; the apply re-assesses it just
+          // before dispatching, which is the last point at which nothing has
+          // left the process.
+          let assessments = 0;
           const remote = world({
             settings: { skills: { review: "workspace" } },
-            ...(dispatched ? { upload: () => stopHere } : { beforeAuthorization: stopHere }),
+            ...(dispatched
+              ? { upload: () => stopHere }
+              : {
+                  compare: () => {
+                    assessments += 1;
+                    return assessments > 1 ? stopHere : Effect.succeedNone;
+                  },
+                }),
           });
           remote.write("skill", { name: "review" });
 
@@ -162,7 +173,7 @@ describe("Publication outcome evidence", () => {
           });
           expect(outcome.recovery?.remainingItems).toEqual(["@acme/skills/review"]);
           expect(outcome.recovery?.description.length).toBeGreaterThan(0);
-          for (const secret of [publicationCapability, "SYNTHETIC_PUBLISH_CALLBACK_CODE"])
+          for (const secret of [publicationSessionToken, "SYNTHETIC_PUBLISH_CALLBACK_CODE"])
             expect(JSON.stringify({ document, recovery: outcome.recovery })).not.toContain(secret);
         }),
     );

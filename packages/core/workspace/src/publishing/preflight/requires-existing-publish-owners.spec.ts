@@ -67,7 +67,7 @@ describe("Publication owner validation", () => {
           "/v1/owners/%40acme",
         ]);
         expect(world.uploads).toEqual([]);
-        expect(world.authorizationCount()).toBe(0);
+        expect(world.previewCount()).toBe(0);
       }),
   );
 });

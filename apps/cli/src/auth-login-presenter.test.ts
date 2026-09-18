@@ -292,33 +292,4 @@ describe("AuthLoginPresenterLive", () => {
       ]);
     }).pipe(Effect.provide(layer));
   });
-
-  it.effect("presents the publish review step for browser and manual paths", () => {
-    const { layer, logs } = makeHuman();
-
-    return Effect.gen(function* () {
-      const presenter = yield* AuthLoginPresenter;
-      yield* presenter.notePublishReview({
-        browserOpened: true,
-        candidateCount: 1,
-        authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_1",
-      });
-      yield* presenter.notePublishReview({
-        browserOpened: true,
-        candidateCount: 2,
-        authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_2",
-      });
-      yield* presenter.notePublishReview({
-        browserOpened: false,
-        candidateCount: 1,
-        authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_3",
-      });
-
-      expect(logs.info).toEqual([
-        "Opening browser to review 1 publish candidate...",
-        "Opening browser to review 2 publish candidates...",
-        "Open this URL to review the exact publish: https://agentxm.ai/publish/authorize/pubreq_3",
-      ]);
-    }).pipe(Effect.provide(layer));
-  });
 });

@@ -27,7 +27,7 @@ import {
   CredentialStoreTest,
   PendingDeviceLoginStoreTest,
 } from "@agentxm/registry-access/testing";
-import { RegistryUrl } from "@agentxm/registry-client";
+import { RegistryProblem, RegistryRequestFailed, RegistryUrl } from "@agentxm/registry-client";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { AuthLoginPresenterLive } from "../../auth-login-presenter.js";
@@ -49,6 +49,8 @@ const makeLayers = (opts?: {
   /** How the person answers the replace-a-valid-session question. */
   confirmReplacement?: "replace" | "keep";
   getMeFails?: boolean;
+  /** The identity read cannot reach the Registry at all. */
+  getMeUnreachable?: boolean;
   allowsPersistedCredentials?: boolean;
   machine?: boolean;
   json?: boolean;
@@ -88,7 +90,7 @@ const makeLayers = (opts?: {
     userHandle: ALICE,
     tokenType: "session",
     authority: "account" as const,
-    scopes: null,
+    permissions: null,
     resourceRestrictions: null,
     expiresAt: null,
     approvedAt: null,
@@ -110,15 +112,30 @@ const makeLayers = (opts?: {
         refresh_token: "axm_ref_new",
         expires_at: DateTime.makeUnsafe("2099-06-01T00:00:00Z"),
       }),
+    // The Registry's own rejection of the credential: the only answer that
+    // makes a stored session one to replace.
     getMe: opts?.getMeFails
       ? () =>
           Effect.fail(
-            new RegistryAccessFailed({
+            new RegistryProblem({
               category: "auth",
-              detail: "Token invalid",
+              title: "Unauthorized",
+              metadata: {
+                request: { service: "registry", url: `${REGISTRY_URL}/v1/auth/me` },
+                response: { status: 401 },
+              },
+              cause: undefined,
             }),
           )
-      : () => Effect.succeed(meData),
+      : opts?.getMeUnreachable
+        ? () =>
+            Effect.fail(
+              new RegistryRequestFailed({
+                category: "network",
+                detail: "Could not read authenticated user: the Registry could not be reached.",
+              }),
+            )
+        : () => Effect.succeed(meData),
   });
 
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
@@ -587,6 +604,24 @@ describe("auth login handler", () => {
           _tag: "info",
           message: "Your saved credentials are no longer valid. Starting a new sign-in…",
         });
+      }),
+    );
+  });
+
+  it.effect("reports a Registry it could not ask instead of replacing the session", () => {
+    const { provide, rendererState } = makeLayers({
+      existingCredentials: true,
+      getMeUnreachable: true,
+    });
+    return provide(
+      Effect.gen(function* () {
+        const error = yield* handleLogin({ yes: false, deviceCode: true }).pipe(Effect.flip);
+        expect(error).toMatchObject({ _tag: "RegistryRequestFailed", category: "network" });
+        expect(
+          rendererState.logs.some(
+            (l) => l._tag === "info" && l.message.includes("no longer valid"),
+          ),
+        ).toBe(false);
       }),
     );
   });

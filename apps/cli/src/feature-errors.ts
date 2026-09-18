@@ -31,8 +31,6 @@ import {
   REGISTRY_ACCESS_ERROR_CATEGORIES,
   type AuthExchangeFailed,
   type AuthTokenPolicyRequired,
-  type RefreshUnavailable,
-  type SessionEnded,
   type SignedOut,
   type DeviceAuthorizationPending,
   type DeviceLoginCodeExpired,
@@ -274,27 +272,6 @@ export const registryAccessFailedToAppError = (error: RegistryAccessFailed): App
 export const signedOutToAppError = (error: SignedOut): AppError =>
   errSignedOut(error.message, error.cause);
 
-/**
- * A session the Registry ended is simply being signed out, reached from the
- * other direction.
- */
-export const sessionEndedToAppError = (error: SessionEnded): AppError =>
-  errSignedOut("Your session ended. You are not signed in.", error.cause);
-
-/**
- * A session that could not be renewed is still a session. This is a
- * reachability failure and reads as one, so nobody signs in again to fix a
- * network that was briefly down.
- */
-export const refreshUnavailableToAppError = (error: RefreshUnavailable): AppError =>
-  makeAppError({
-    code: "network",
-    detail: error.detail,
-    retryable: true,
-    suggestions: [{ description: "Retry once the Registry is reachable." }],
-    cause: error.cause,
-  });
-
 /** Ambient-token-only policy: the former builder's envelope, verbatim. */
 export const authTokenPolicyRequiredToAppError = (error: AuthTokenPolicyRequired): AppError =>
   makeAppError({
@@ -394,10 +371,6 @@ export const registryAccessFailureToAppError = (failure: RegistryAccessFailure):
       return registryAccessFailedToAppError(failure);
     case "SignedOut":
       return signedOutToAppError(failure);
-    case "SessionEnded":
-      return sessionEndedToAppError(failure);
-    case "RefreshUnavailable":
-      return refreshUnavailableToAppError(failure);
     case "AuthTokenPolicyRequired":
       return authTokenPolicyRequiredToAppError(failure);
     case "DeviceLoginDenied":

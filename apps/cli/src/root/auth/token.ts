@@ -9,6 +9,7 @@ import {
   createToken,
   currentToken,
   describeTokenPermissions,
+  readTokenPermissions,
   listTokens,
   revokeToken,
   selectedRegistry,
@@ -89,7 +90,6 @@ export type TokenListDocument = typeof TokenListDocumentSchema.Type;
 export const RevokeTokenResultSchema = Schema.Struct({
   status: Schema.Literal("revoked"),
   tokenId: Schema.String,
-  stepUpCompleted: Schema.Boolean,
 });
 const RevokeTokenDocumentFields = {
   result: RevokeTokenResultSchema,
@@ -147,14 +147,6 @@ export interface CreateTokenHandlerArgs {
   readonly extensions: readonly string[];
   readonly permission: TokenPermissionLevel;
 }
-
-/**
- * A permission document decodes for every token this CLI mints. One stored
- * before the vocabulary narrowed may not; the machine document reports null
- * rather than guessing a level for it.
- */
-const permissionsDocument = (permissions: unknown) =>
-  Schema.decodeUnknownOption(TokenPermissionsSchema)(permissions).pipe(Option.getOrNull);
 
 /** The invocation's human-verification inputs, as the capability reads them. */
 const verificationOptions = Effect.gen(function* () {
@@ -221,7 +213,7 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
             id: created.id,
             token: created.token,
             name: created.name,
-            permissions: permissionsDocument(created.permissions),
+            permissions: readTokenPermissions(created.permissions),
             createdAt: created.createdAt,
             expiresAt: created.expiresAt,
           },
@@ -237,7 +229,7 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
       id: created.id,
       name: created.name,
       token: created.token,
-      canDo: describeTokenPermissions(created.permissions),
+      canDo: describeTokenPermissions(readTokenPermissions(created.permissions)),
       expiresAt: DateTime.formatIso(created.expiresAt),
     };
     yield* screen.result([
@@ -267,7 +259,7 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(
             id: item.id,
             name: item.name,
             type: item.type,
-            permissions: permissionsDocument(item.permissions),
+            permissions: readTokenPermissions(item.permissions),
             createdAt: item.createdAt,
             expiresAt: item.expiresAt,
             lastUsedAt: item.lastUsedAt,
@@ -298,7 +290,7 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(
       id: item.id,
       name: item.name ?? "",
       type: item.type,
-      canDo: describeTokenPermissions(item.permissions),
+      canDo: describeTokenPermissions(readTokenPermissions(item.permissions)),
       expiresAt: DateTime.formatIso(item.expiresAt),
       lastUsedAt: item.lastUsedAt === null ? "never" : DateTime.formatIso(item.lastUsedAt),
     }));
@@ -319,20 +311,14 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(
   function* (tokenId: string) {
     const registry = yield* selectedRegistry;
     const screen = yield* Screen;
-    const revokeResult = yield* withLiveOperation(
+    yield* withLiveOperation(
       { command: "auth.token.revoke", name: `Revoke registry token ${tokenId}`, mode: "apply" },
-      revokeToken(tokenId, yield* verificationOptions, registry.url),
+      revokeToken(tokenId, registry.url),
     );
 
     if (
       yield* screen.document(
-        {
-          result: {
-            status: "revoked",
-            tokenId,
-            stepUpCompleted: revokeResult.stepUpCompleted,
-          },
-        },
+        { result: { status: "revoked", tokenId } },
         RevokeTokenDocumentSchema,
         { suggestions: RevokeTokenSuggestions },
       )
@@ -423,14 +409,12 @@ const listTokenCommand = Command.make("list", listTokenConfig, () =>
 );
 
 const revokeTokenConfig = {
-  ...humanVerificationFlags,
   id: Argument.String("id").pipe(Argument.withDescription("Token id to revoke")),
 } as const;
 
 const revokeTokenCommand = Command.make("revoke", revokeTokenConfig, ({ id }) =>
   handleRevokeToken(id).pipe(withRuntime("auth token revoke")),
 ).pipe(
-  withHumanVerificationOptions,
   withArgvTracking(revokeTokenConfig),
   withCommandCapabilities(directWriteCapabilities("credentials")),
   Command.withDescription("Revoke a granular access token"),

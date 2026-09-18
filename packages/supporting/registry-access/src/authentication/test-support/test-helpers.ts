@@ -15,7 +15,12 @@ import * as Layer from "effect/Layer";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { RegistryProblem } from "@agentxm/registry-client";
 
-import { AuthClientTest, type AuthClientService } from "../auth-client.js";
+import {
+  AuthClientTest,
+  TokenExchangeTest,
+  type AuthClientService,
+  type TokenExchangeService,
+} from "../auth-client.js";
 import {
   CredentialStore,
   CredentialStoreSessionLive,
@@ -74,6 +79,8 @@ export interface AuthPortsOptions {
   readonly afterCredentialRead?: (registryUrl: string) => Effect.Effect<void>;
   readonly pending?: PendingDeviceLogin;
   readonly auth?: Partial<AuthClientService>;
+  /** The token endpoints a stored session is renewed and revoked through. */
+  readonly exchange?: Partial<TokenExchangeService>;
   /**
    * The environment auth policy reads. Defaults to an empty environment, so
    * no specification observes the developer's own `AXM_TOKEN`.
@@ -121,7 +128,7 @@ export const makeAuthPorts = (options: AuthPortsOptions = {}) => {
         userHandle: authHandle,
         tokenType: "session",
         authority: "account" as const,
-        scopes: null,
+        permissions: null,
         resourceRestrictions: null,
         expiresAt: authExpiry,
         approvedAt: null,
@@ -156,6 +163,7 @@ export const makeAuthPorts = (options: AuthPortsOptions = {}) => {
     interaction.layer,
     deviceInteraction.layer,
     auth,
+    TokenExchangeTest(options.exchange),
     Layer.provide(CredentialStoreSessionLive, credentialStore),
     PendingDeviceLoginStoreTest(options.pending),
     Layer.succeed(AuthEnvironment, ConfigProvider.fromEnvRecord(options.environment ?? {})),

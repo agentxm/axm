@@ -6,7 +6,7 @@
  */
 
 export { AuthEnvironment } from "./environment.js";
-export { AuthMiddlewareLive, makeAuthMiddlewareLive } from "./auth-middleware.js";
+export { AuthMiddlewareLive } from "./auth-middleware.js";
 export { AuthLoginInteractionLive } from "./login-interaction.js";
 export { AuthClientLive, TokenExchangeLive } from "../authentication/auth-client.js";
 export { PendingDeviceLoginStoreLive } from "../authentication/pending-device-login-store.js";

@@ -1,7 +1,7 @@
 /**
  * Granular access-token policy: the public vocabulary a token is described in,
- * the expiry grammar and its bounds, and the human-verification requirement on
- * every token write.
+ * the expiry grammar and its bounds, and the human verification that creating
+ * a credential asks for.
  *
  * A token is narrowed by one permission level, an optional allowlist of owners
  * and extensions, and an expiry. Scope strings are the Registry's internal
@@ -126,27 +126,18 @@ export const createToken = Effect.fn("Tokens.create")(function* (
   return { token: created.value, stepUpCompleted: created.stepUpCompleted } satisfies CreatedToken;
 });
 
+/**
+ * Revoking a token takes authority away, so a signed-in person simply does it:
+ * nothing here asks them to prove themselves again.
+ */
 export const revokeToken = Effect.fn("Tokens.revoke")(function* (
   tokenId: string,
-  verification: StepUpOptions,
   registryUrl: string,
 ) {
   const authClient = yield* AuthClient;
   yield* requireSignedIn(registryUrl);
-  const revoked = yield* runWithStepUp(
-    (stepUpRequestId) =>
-      authClient.deleteToken(
-        tokenId,
-        stepUpRequestId === undefined ? undefined : { stepUpRequestId },
-      ),
-    {
-      operationLabel: `Revoke registry token ${tokenId}`,
-      waitingLabel: `verification to revoke token ${tokenId}`,
-    },
-    verification,
-    registryUrl,
-  );
-  return { tokenId, stepUpCompleted: revoked.stepUpCompleted };
+  yield* authClient.deleteToken(tokenId);
+  return { tokenId };
 });
 
 export const listTokens = Effect.fn("Tokens.list")(function* (registryUrl: string) {

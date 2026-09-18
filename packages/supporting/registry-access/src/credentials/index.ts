@@ -18,7 +18,6 @@ export {
   CredentialStoreTokenSource,
   EnvVarTokenSource,
   FileTokenSource,
-  FlagTokenSource,
   RegistryAccountsSchema,
 } from "./schema.js";
 
@@ -41,8 +40,4 @@ export {
 } from "./token-resolution.js";
 export { hasCredentialsForAll } from "./login-suggestion.js";
 
-export {
-  SessionRefresher,
-  type SessionRefreshError,
-  type SessionRefresherService,
-} from "./session-refresh.js";
+export { SessionRefresher } from "./session-refresh.js";

@@ -13,7 +13,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { AuthClient } from "./auth-client.js";
+import { AuthClient, type MeResponse } from "./auth-client.js";
 import {
   CredentialStore,
   makePersistedCredentialsUnsupportedError,
@@ -24,7 +24,7 @@ import {
   runDeviceLogin,
   type RunDeviceLoginOptions,
 } from "./device-login.js";
-import { RegistryAccessFailed } from "./errors.js";
+import { isRejectedCredential, RegistryAccessFailed } from "./errors.js";
 import type {
   LoopbackCallbackRejected,
   LoopbackLoginFallback,
@@ -174,9 +174,18 @@ export const login = Effect.fn("Login.run")(function* (request: LoginRequest, re
   const existing = yield* credentials.load(registryUrl);
   if (Option.isSome(existing)) {
     const authClient = yield* AuthClient;
+    // The identity read travels the renewing transport, so a session whose
+    // access token has lapsed is renewed rather than mistaken for one the
+    // Registry ended. Only the Registry's rejection starts a new sign-in: a
+    // Registry that could not be asked says nothing about the session, and the
+    // failure is reported instead of replacing a session that may be valid.
     const identity = yield* presenter.withProgress(
       { _tag: "CheckingRegistrySession", registryHost },
-      () => authClient.getMe(existing.value.access_token).pipe(Effect.option),
+      () =>
+        authClient.getMe().pipe(
+          Effect.asSome,
+          Effect.catchIf(isRejectedCredential, () => Effect.succeed(Option.none<MeResponse>())),
+        ),
     );
     if (Option.isSome(identity)) {
       if (!(yield* shouldReplaceValidSession(request, identity.value.userHandle))) {

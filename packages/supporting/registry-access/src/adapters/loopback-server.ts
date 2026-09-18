@@ -144,7 +144,7 @@ const makeCallbackOutcome = (request: IncomingRequest, expectedState: string): A
   };
 };
 
-export const startLoopbackServer = (expectedState: string, purpose: "login" | "publish") =>
+export const startLoopbackServer = (expectedState: string) =>
   Effect.gen(function* () {
     const http = yield* Effect.tryPromise({
       try: () => import("node:http"),
@@ -168,14 +168,10 @@ export const startLoopbackServer = (expectedState: string, purpose: "login" | "p
         const response = yield* pending.value;
         if (response.writableEnded || response.destroyed) return;
         const title = completed
-          ? purpose === "login"
-            ? "You’re signed in to AgentXM.ai"
-            : "Publish authorization received"
+          ? "You’re signed in to AgentXM.ai"
           : "AXM authorization could not be completed";
         const content = completed
-          ? purpose === "login"
-            ? "Your credentials have been saved. Return to your terminal to continue. You can close this tab."
-            : "AXM received permission for the reviewed publication. Return to your terminal to check the publish result. You can close this tab."
+          ? "Your credentials have been saved. Return to your terminal to continue. You can close this tab."
           : "Return to your terminal for details and recovery instructions.";
         yield* Effect.callback<void>((resume) => {
           const done = () => resume(Effect.void);

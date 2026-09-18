@@ -6,7 +6,11 @@ import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import * as Schedule from "effect/Schedule";
 
-import { isAnyRegistryClientError, isHttpClientError } from "./error-mapping.js";
+import {
+  isAnyRegistryClientError,
+  isHttpClientError,
+  isTransientTransportError,
+} from "./error-mapping.js";
 import {
   RegistryOperationFailed,
   RegistryProblem,
@@ -66,7 +70,7 @@ const retryEvidence = (error: unknown): RetryEvidence | undefined => {
 const isRetryableRegistryError = (error: unknown): boolean => {
   if (Cause.isTimeoutError(error)) return true;
   if (isHttpClientError(error)) {
-    if (error.reason._tag === "TransportError") return true;
+    if (error.reason._tag === "TransportError") return isTransientTransportError(error);
     if (error.reason._tag !== "StatusCodeError") return false;
   }
 

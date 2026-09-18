@@ -8,7 +8,11 @@ import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { TokenExchange, TokenExchangeTest } from "../authentication/auth-client.js";
-import { RefreshUnavailable, SessionEnded } from "../authentication/errors.js";
+import {
+  RefreshUnavailable,
+  RegistryAccessFailed,
+  SessionEnded,
+} from "../authentication/errors.js";
 import {
   CredentialStore,
   CredentialStoreSessionLive,
@@ -21,7 +25,7 @@ export const specification = defineSpecification({
   requirement: "cli/session/concurrent-renewal-spends-one-refresh-token",
   title: "Concurrent invocations spend one refresh token and end with one session",
   statement:
-    "When several invocations sharing a credential home renew the same session at once, AXM shall present the refresh token to the Registry once, leave exactly one valid session stored, answer every invocation with the session that was stored, and, when the Registry ends the session, answer every invocation that it ended without presenting a spent refresh token again.",
+    "When several invocations sharing a credential home renew the same session at once, AXM shall present the refresh token to the Registry once, leave exactly one valid session stored, answer every invocation with the session that was stored, and, when the Registry ends the session, erase it and answer every invocation that it ended without presenting the refused refresh token again.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "actionable-diagnostics"],
@@ -93,27 +97,35 @@ const harness = (outcome: "rotates" | "ends") =>
     return { presented, exchange };
   });
 
-const layerFor = (exchange: Layer.Layer<TokenExchange>) => {
-  const store = Layer.provide(
-    CredentialStoreSessionLive,
-    CredentialStoreTest("restricted-file", storedSession),
+/**
+ * One credential home: the stored session and the Registry every invocation
+ * shares.
+ */
+const credentialHome = (exchange: Layer.Layer<TokenExchange>) =>
+  Layer.mergeAll(exchange, CredentialStoreTest("restricted-file", storedSession));
+
+/**
+ * One invocation over that home. Each has its own refresher and its own
+ * per-session read memo, exactly as separate processes do, so nothing one of
+ * them learned is visible to another except through the store.
+ */
+const invocation = <A, E>(use: (refresher: SessionRefresher["Service"]) => Effect.Effect<A, E>) =>
+  Effect.flatMap(SessionRefresher, use).pipe(
+    Effect.provide(
+      Layer.fresh(Layer.provide(SessionRefresherLive, Layer.fresh(CredentialStoreSessionLive))),
+    ),
   );
-  return Layer.mergeAll(Layer.provide(SessionRefresherLive, Layer.merge(exchange, store)), store);
-};
 
 describe("Concurrent session renewal", () => {
   it.effect("spends the refresh token once and leaves one valid session", () =>
     Effect.gen(function* () {
       const { presented, exchange } = yield* harness("rotates");
 
-      const results = yield* Effect.gen(function* () {
-        const refresher = yield* SessionRefresher;
-        return yield* Effect.forEach(
-          Array.from({ length: CONCURRENT_INVOCATIONS }),
-          () => refresher.renew(held),
-          { concurrency: "unbounded" },
-        );
-      }).pipe(Effect.provide(layerFor(exchange)));
+      const results = yield* Effect.forEach(
+        Array.from({ length: CONCURRENT_INVOCATIONS }),
+        () => invocation((refresher) => refresher.renew(held)),
+        { concurrency: "unbounded" },
+      ).pipe(Effect.provide(credentialHome(exchange)));
 
       expect(yield* Ref.get(presented)).toEqual(["stored-refresh"]);
       expect(results.map((credential) => credential.token)).toEqual(
@@ -126,14 +138,13 @@ describe("Concurrent session renewal", () => {
     Effect.gen(function* () {
       const { presented, exchange } = yield* harness("ends");
 
-      const failures = yield* Effect.gen(function* () {
-        const refresher = yield* SessionRefresher;
-        return yield* Effect.forEach(
-          Array.from({ length: CONCURRENT_INVOCATIONS }),
-          () => Effect.flip(refresher.renew(held)),
-          { concurrency: "unbounded" },
-        );
-      }).pipe(Effect.provide(layerFor(exchange)));
+      // The first invocation to be refused erases the session, so the others
+      // find none and never present the refused refresh token again.
+      const failures = yield* Effect.forEach(
+        Array.from({ length: CONCURRENT_INVOCATIONS }),
+        () => invocation((refresher) => Effect.flip(refresher.renew(held))),
+        { concurrency: "unbounded" },
+      ).pipe(Effect.provide(credentialHome(exchange)));
 
       expect(yield* Ref.get(presented)).toEqual(["stored-refresh"]);
       expect(failures.map((failure) => failure._tag)).toEqual(
@@ -143,28 +154,55 @@ describe("Concurrent session renewal", () => {
     }),
   );
 
-  it.effect("adopts the session another holder of the lock already rotated", () =>
+  it.effect("adopts the session another invocation already rotated", () =>
     Effect.gen(function* () {
       const { presented, exchange } = yield* harness("rotates");
 
       yield* Effect.gen(function* () {
-        const refresher = yield* SessionRefresher;
-        const store = yield* CredentialStore;
-
-        const first = yield* refresher.renew(held);
+        const first = yield* invocation((refresher) => refresher.renew(held));
         expect(first.token).toBe("renewed-access");
 
-        // A second invocation still holding the old credential re-reads the
-        // store rather than presenting a refresh token the Registry has seen.
-        const second = yield* refresher.renew(held);
-        expect(second.token).toBe("renewed-access");
+        // A second invocation still holds the old credential and remembers
+        // nothing. It re-reads the store under the lock and takes what it
+        // finds rather than presenting a refresh token the Registry has seen.
+        const second = yield* invocation((refresher) => refresher.renew(held));
+        expect(second).toEqual(first);
         expect(yield* Ref.get(presented)).toEqual(["stored-refresh"]);
 
+        const store = yield* CredentialStore;
         expect(Option.getOrThrow(yield* store.load(registry))).toMatchObject({
           access_token: "renewed-access",
           refresh_token: "renewed-refresh",
         });
-      }).pipe(Effect.provide(layerFor(exchange)));
+      }).pipe(Effect.provide(credentialHome(exchange)));
+    }),
+  );
+
+  it.effect("remembers a renewal it could not keep as the end of the session", () =>
+    Effect.gen(function* () {
+      const { presented, exchange } = yield* harness("rotates");
+      const refusingStore = Layer.effect(
+        CredentialStore,
+        Effect.map(CredentialStore, (store) => ({
+          ...store,
+          save: () =>
+            Effect.fail(
+              new RegistryAccessFailed({ category: "auth", detail: "Fixture store is read-only" }),
+            ),
+        })),
+      ).pipe(Layer.provide(CredentialStoreTest("restricted-file", storedSession)));
+
+      const failures = yield* invocation((refresher) =>
+        Effect.all([Effect.flip(refresher.renew(held)), Effect.flip(refresher.renew(held))]),
+      ).pipe(Effect.provide(Layer.mergeAll(exchange, refusingStore)));
+
+      // The refresh token was spent on the first attempt and its replacement
+      // was lost, so a second attempt would present a spent token.
+      expect(failures.map((failure) => failure._tag)).toEqual([
+        "RegistryAccessFailed",
+        "SessionEnded",
+      ]);
+      expect(yield* Ref.get(presented)).toEqual(["stored-refresh"]);
     }),
   );
 });

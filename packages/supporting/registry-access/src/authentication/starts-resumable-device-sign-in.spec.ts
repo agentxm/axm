@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   requirement: "cli/login/starts-resumable-device-sign-in",
   title: "Unattended device sign-in returns the human action",
   statement:
-    "When device sign-in starts unattended, AXM shall retain the pending authorization and return its verification URL, user code, expiry, requested scopes, and resume command without waiting for approval or opening a browser.",
+    "When device sign-in starts unattended, AXM shall retain the pending authorization and return its verification URL, user code, expiry, and resume command without waiting for approval or opening a browser.",
   class: "functional",
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],

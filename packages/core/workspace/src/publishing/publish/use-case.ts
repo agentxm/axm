@@ -196,6 +196,10 @@ export interface PublishCandidateSet {
 
 const isRemote = (url: string): boolean => url.startsWith("https://") || url.startsWith("http://");
 
+/** The one refusal a signed-out publish gets, wherever it is caught. */
+const publishingSignedOut = (registryName: string) =>
+  signedOut(undefined, `Publishing to ${registryName} requires you to be signed in.`);
+
 /**
  * The pack/member reachability the local workspace represents, derived from
  * the manifests the catalog already read. Publish uses it to refuse a
@@ -366,9 +370,7 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
     Option.isNone(storedToken) &&
     sourceAssessedCandidates.length > 0
   ) {
-    return yield* Effect.fail(
-      signedOut(undefined, `Publishing to ${registry.name} requires you to be signed in.`),
-    );
+    return yield* Effect.fail(publishingSignedOut(registry.name));
   }
   const workspaceDefaultVisibility = yield* settings.publishDefaultVisibility;
   const shouldPreviewAuthoritatively =
@@ -591,14 +593,12 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
   const remoteUnauthenticated = candidateSet.remoteRegistry && !candidateSet.authenticated;
 
   /**
-   * Preparation refuses a signed-out apply, so this is the last line of
-   * defence for a candidate set assembled elsewhere: the plan never applies
-   * without the person's own credential.
+   * Preparation refuses a signed-out apply, but a signed-out preview prepares
+   * a candidate set too, and nothing in its type stops a caller from applying
+   * that one. The plan never applies without the person's own credential.
    */
   const requireSignedIn: Effect.Effect<void, AuthError> = remoteUnauthenticated
-    ? Effect.fail(
-        signedOut(undefined, `Publishing to ${registry.name} requires you to be signed in.`),
-      )
+    ? Effect.fail(publishingSignedOut(registry.name))
     : Effect.void;
 
   // Invocation-local evidence of dispatched uploads: which candidates'

@@ -13,9 +13,7 @@ export {
   DeviceLoginCodeExpired,
   DeviceLoginDenied,
   REGISTRY_ACCESS_ERROR_CATEGORIES,
-  RefreshUnavailable,
   RegistryAccessFailed,
-  SessionEnded,
   SignedOut,
   StepUpRequired,
   StepUpVerificationPending,
@@ -34,16 +32,8 @@ export type {
   DeviceFlowResponse,
   MeResponse,
   PollResult,
-  TokenExchangeService,
 } from "./auth-client.js";
-export {
-  AuthClient,
-  LOGIN_SCOPE,
-  REFRESH_SKEW_SECONDS,
-  TokenExchange,
-  pollOnce,
-  readStepUpRequest,
-} from "./auth-client.js";
+export { AuthClient, TokenExchange, pollOnce, readStepUpRequest } from "./auth-client.js";
 export type { NormalizedTokenResponse } from "./oauth-contract.js";
 
 export type {
@@ -116,11 +106,10 @@ export {
 } from "./tokens.js";
 
 export {
-  TOKEN_PERMISSION_LABELS,
   TOKEN_PERMISSION_LEVELS,
   TokenPermissionsSchema,
   describeTokenPermissions,
-  maxTokenLifetimeSeconds,
+  readTokenPermissions,
   type TokenPermissionLevel,
   type TokenPermissions,
 } from "./tokens/permissions.js";

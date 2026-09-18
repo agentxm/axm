@@ -9,6 +9,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 export const TOKEN_PERMISSION_LEVELS = ["read", "publish", "admin"] as const;
@@ -16,7 +17,7 @@ export const TOKEN_PERMISSION_LEVELS = ["read", "publish", "admin"] as const;
 export type TokenPermissionLevel = (typeof TOKEN_PERMISSION_LEVELS)[number];
 
 /** What each level lets a token do, in the words every surface uses. */
-export const TOKEN_PERMISSION_LABELS = {
+const TOKEN_PERMISSION_LABELS = {
   read: "Read extensions",
   publish: "Publish versions",
   admin: "Administer extensions",
@@ -32,8 +33,12 @@ const WRITE_MAX_LIFETIME_SECONDS = 7_776_000;
 export const maxTokenLifetimeSeconds = (permission: TokenPermissionLevel): number =>
   permission === "read" ? READ_MAX_LIFETIME_SECONDS : WRITE_MAX_LIFETIME_SECONDS;
 
+/**
+ * A token's permissions, in the public vocabulary and nothing else. The
+ * Registry's document also names its internal permission model; decoding
+ * leaves that behind, so no surface repeats it.
+ */
 export const TokenPermissionsSchema = Schema.Struct({
-  model: Schema.Literal("gat"),
   owners: Schema.Array(Schema.String),
   extensions: Schema.Array(Schema.String),
   permission: Schema.Literals(TOKEN_PERMISSION_LEVELS),
@@ -44,14 +49,16 @@ export type TokenPermissions = typeof TokenPermissionsSchema.Type;
 const decodePermissions = Schema.decodeUnknownOption(TokenPermissionsSchema);
 
 /**
- * Reads the permission document the Registry returned. A token minted before
- * the vocabulary narrowed may carry something this shape does not name; saying
- * so is more honest than inventing a level for it.
+ * Reads the permission document the Registry returned, or null for one this
+ * vocabulary does not name: reporting nothing is more honest than inventing a
+ * level for it.
  */
-export const describeTokenPermissions = (permissions: unknown): string => {
-  const decoded = decodePermissions(permissions);
-  if (decoded._tag === "None") return "not described";
-  const document = decoded.value;
+export const readTokenPermissions = (permissions: unknown): TokenPermissions | null =>
+  Option.getOrNull(decodePermissions(permissions));
+
+/** One line saying what a token may do and where, in the words every surface uses. */
+export const describeTokenPermissions = (document: TokenPermissions | null): string => {
+  if (document === null) return "not described";
   const level = TOKEN_PERMISSION_LABELS[document.permission];
   const reach =
     document.owners.includes("all") ||

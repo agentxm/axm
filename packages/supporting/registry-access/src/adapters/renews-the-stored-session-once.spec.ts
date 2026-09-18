@@ -6,25 +6,29 @@ import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { RegistryUrl } from "@agentxm/registry-client";
+import { RegistryRequestFailed, RegistryUrl } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { TokenExchangeTest } from "../authentication/auth-client.js";
-import { RefreshUnavailable, SessionEnded } from "../authentication/errors.js";
+import {
+  RefreshUnavailable,
+  RegistryAccessFailed,
+  SessionEnded,
+} from "../authentication/errors.js";
 import {
   CredentialStore,
   CredentialStoreSessionLive,
   CredentialStoreTest,
 } from "../credentials/credential-store.js";
 import { SessionRefresherLive } from "../credentials/session-refresh.js";
-import { makeAuthMiddlewareLive } from "./auth-middleware.js";
+import { AuthMiddlewareLive } from "./auth-middleware.js";
 
 export const specification = defineSpecification({
   requirement: "cli/session/renews-the-stored-session-once",
   title: "The transport renews a stored session, and nothing else does",
   statement:
-    "When an invocation presents a stored session, AXM shall renew it before a request whose access token expires within five minutes and once after the Registry rejects it, present the renewed credential on a single retry, report being signed out when the Registry refuses the renewal, keep the session and report a transport failure when the Registry cannot be reached, and never renew an ambient credential.",
+    "When an invocation presents a stored session, AXM shall renew it before a request whose access token expires within five minutes and once after the Registry rejects it, present the renewed credential on a single retry, report being signed out when the Registry refuses the renewal, keep the session and fail the request with the reason when the Registry cannot be reached or credential storage refuses, never reporting either as being signed out, and never renew an ambient credential.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "machine-automation"],
@@ -66,10 +70,12 @@ const insideSkew = () => DateTime.makeUnsafe("1970-01-01T00:02:00.000Z");
 interface Harness {
   readonly expiresAt: DateTime.Utc;
   readonly refresh?: ReturnType<typeof TokenExchangeTest>;
+  /** Replaces the credential home's refresh lock. */
+  readonly lock?: CredentialStore["Service"]["withRefreshLock"];
   readonly respond: (request: HttpClientRequest.HttpClientRequest) => Response;
 }
 
-const harness = ({ expiresAt, refresh, respond }: Harness) => {
+const harness = ({ expiresAt, refresh, lock, respond }: Harness) => {
   const presented: Array<string | undefined> = [];
   const transport = HttpClient.make((request) =>
     Effect.sync(() => {
@@ -79,9 +85,15 @@ const harness = ({ expiresAt, refresh, respond }: Harness) => {
     }),
   );
   const transportLayer = Layer.succeed(HttpClient.HttpClient, transport);
+  const home = CredentialStoreTest("restricted-file", storedSession(expiresAt));
   const storeLayer = Layer.provide(
     CredentialStoreSessionLive,
-    CredentialStoreTest("restricted-file", storedSession(expiresAt)),
+    lock === undefined
+      ? home
+      : Layer.effect(
+          CredentialStore,
+          Effect.map(CredentialStore, (store) => ({ ...store, withRefreshLock: lock })),
+        ).pipe(Layer.provide(home)),
   );
   const exchangeLayer =
     refresh ??
@@ -99,7 +111,7 @@ const harness = ({ expiresAt, refresh, respond }: Harness) => {
   );
   const registryUrlLayer = Layer.succeed(RegistryUrl, registry);
   const middleware = Layer.provide(
-    makeAuthMiddlewareLive(),
+    AuthMiddlewareLive,
     Layer.mergeAll(transportLayer, storeLayer, refresherLayer, registryUrlLayer),
   );
   return { presented, layer: Layer.mergeAll(middleware, storeLayer, registryUrlLayer) };
@@ -184,6 +196,32 @@ describe("Stored session renewal", () => {
       expect(Option.getOrThrow(yield* (yield* CredentialStore).load(registry))).toMatchObject({
         access_token: "stored-access",
       });
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("fails the request with the reason when credential storage refuses", () => {
+    const { presented, layer } = harness({
+      expiresAt: farFuture(),
+      lock: () =>
+        Effect.fail(
+          new RegistryAccessFailed({
+            category: "auth",
+            detail: "Could not lock the session for refresh",
+          }),
+        ),
+      respond: () => new Response("unauthorized", { status: 401 }),
+    });
+
+    return Effect.gen(function* () {
+      const failure = yield* call.pipe(Effect.flip);
+      // The rejection that prompted the renewal is not the answer: the person
+      // is not signed out, their session could not be renewed.
+      const carried = failure.reason._tag === "TransportError" ? failure.reason.cause : undefined;
+      expect(carried).toBeInstanceOf(RegistryRequestFailed);
+      expect(carried instanceof RegistryRequestFailed ? carried.detail : null).toBe(
+        "Your session could not be renewed: Could not lock the session for refresh",
+      );
+      expect(presented).toEqual(["stored-access"]);
     }).pipe(Effect.provide(layer));
   });
 

@@ -15,7 +15,12 @@ import * as Predicate from "effect/Predicate";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { isLoopbackAddress } from "./network.js";
 import type { RegistryClientError } from "./__generated__/registry-client.js";
-import { RegistryRequestFailed, type RegistryProblem } from "./errors.js";
+import {
+  isRegistryClientFailure,
+  RegistryRequestFailed,
+  type RegistryClientFailure,
+  type RegistryProblem,
+} from "./errors.js";
 import { registryClientErrorToProblem } from "./translate.js";
 
 // -----------------------------------------------------------------------------
@@ -59,6 +64,30 @@ export const isHttpClientError = (e: unknown): e is HttpClientError.HttpClientEr
   HttpClientError.isHttpClientError(e);
 
 /**
+ * The typed failure a transport layer settled on before the request left.
+ *
+ * A layer in front of the client — the one that presents a credential, above
+ * all — can know why a request cannot be sent in terms no status code carries.
+ * It fails the transport with that failure as the cause, and it arrives at the
+ * caller as itself rather than as a guess about the network.
+ */
+export const carriedRegistryFailure = (
+  error: HttpClientError.HttpClientError,
+): RegistryClientFailure | undefined =>
+  error.reason._tag === "TransportError" && isRegistryClientFailure(error.reason.cause)
+    ? error.reason.cause
+    : undefined;
+
+/**
+ * Whether a transport failure is worth another attempt: one that carries a
+ * typed failure is only as transient as that failure says it is.
+ */
+export const isTransientTransportError = (error: HttpClientError.HttpClientError): boolean => {
+  const carried = carriedRegistryFailure(error);
+  return carried === undefined || carried.category === "network";
+};
+
+/**
  * Classify transient Registry boundary failures: transport failures and valid
  * 5xx responses, including errors decoded by the generated client.
  * Deterministic failures — encode errors, invalid URLs, decode errors,
@@ -67,7 +96,7 @@ export const isHttpClientError = (e: unknown): e is HttpClientError.HttpClientEr
 export const isTransientRegistryError = (e: unknown): boolean => {
   if (isAnyRegistryClientError(e)) return e.response.status >= 500;
   if (!HttpClientError.isHttpClientError(e)) return false;
-  if (e.reason._tag === "TransportError") return true;
+  if (e.reason._tag === "TransportError") return isTransientTransportError(e);
   // A 5xx the client could not decode is still a 5xx: the failure is the
   // server's, whatever shape its body arrived in.
   return (e.response?.status ?? 0) >= 500;

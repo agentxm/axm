@@ -5,6 +5,7 @@ import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
+import { RegistryRequestFailed } from "./errors.js";
 import { captureRegistryErrorResponseBodies, mapRegistryFailure } from "./failure-mapping.js";
 
 const context = {
@@ -120,6 +121,22 @@ describe("mapRegistryFailure", () => {
     expect(transported.category).toBe("network");
     expect(transported.metadata?.response).toBeUndefined();
     expect(transported.cause).toBe(transportCause);
+  });
+
+  it("hands on the typed failure a transport layer settled on, unchanged", () => {
+    const request = HttpClientRequest.get("https://registry.agentxm.ai/test");
+    const settled = new RegistryRequestFailed({
+      category: "auth",
+      detail: "Your session could not be renewed: Could not lock the session for refresh",
+    });
+    const cause = new HttpClientError.HttpClientError({
+      reason: new HttpClientError.TransportError({ request, cause: settled }),
+    });
+
+    // The layer that presents a credential knows why the request never left;
+    // calling that a network failure would send a person to check a connection
+    // that is fine.
+    expect(mapRegistryFailure(cause, context)).toBe(settled);
   });
 
   it.each(["EncodeError", "InvalidUrlError"] as const)(

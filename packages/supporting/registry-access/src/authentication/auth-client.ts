@@ -27,14 +27,17 @@ import { normalizeHandle, type Handle } from "@agentxm/extension-model/unstable/
 import { type NormalizedTokenResponse } from "./oauth-contract.js";
 import {
   GeneratedRegistryClient,
+  RegistryRequestFailed,
   RegistryUrl,
   captureRegistryErrorResponseBodies,
   getString,
   isHttpClientError,
   isRegistryClientError,
   isRegistryClientFailure,
+  isSchemaError,
   isTransientRegistryError,
   mapRegistryFailure,
+  retainedRegistryResponseBody,
   type RegistryClientFailure,
 } from "@agentxm/registry-client";
 import {
@@ -48,6 +51,7 @@ import {
   type AuthError,
   type StepUpRequest,
 } from "./errors.js";
+import { readTokenPermissions, type TokenPermissions } from "./tokens/permissions.js";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -91,7 +95,8 @@ export interface MeResponse {
    * themselves, and the limits below say how.
    */
   readonly authority: "account" | "limited";
-  readonly scopes: ReadonlyArray<string> | null;
+  /** What a limited credential may do, in the token vocabulary. Null otherwise. */
+  readonly permissions: TokenPermissions | null;
   readonly resourceRestrictions: { readonly extensions: ReadonlyArray<string> | null } | null;
   readonly expiresAt: DateTime.Utc | null;
   /**
@@ -138,10 +143,6 @@ export interface TokenListResponse {
   readonly cursor: string | null;
 }
 
-export interface DeleteTokenOptions {
-  readonly stepUpRequestId?: string;
-}
-
 export interface CreateTokenOptions {
   readonly stepUpRequestId?: string;
 }
@@ -186,7 +187,6 @@ export interface AuthClientService {
     deviceCode: string,
     interval: number,
   ) => Effect.Effect<NormalizedTokenResponse, AuthError>;
-  readonly revokeToken: (token: string) => Effect.Effect<void, AuthError>;
   /**
    * Read the credential's identity. The transport carries the caller's
    * credential, so only a flow holding a token the store has not persisted yet
@@ -208,10 +208,7 @@ export interface AuthClientService {
     statusUrl: string,
     intervalSeconds: number,
   ) => Effect.Effect<void, AuthError>;
-  readonly deleteToken: (
-    tokenId: string,
-    options?: DeleteTokenOptions,
-  ) => Effect.Effect<void, AuthError>;
+  readonly deleteToken: (tokenId: string) => Effect.Effect<void, AuthError>;
 }
 
 export class AuthClient extends ServiceMap.Service<AuthClient, AuthClientService>()(
@@ -219,20 +216,30 @@ export class AuthClient extends ServiceMap.Service<AuthClient, AuthClientService
 ) {}
 
 /**
- * The OAuth token endpoint, as the session refresher needs it.
+ * The OAuth endpoints that renew and end a stored session.
  *
- * It is a separate service from `AuthClient` because it is the one call that
- * must not travel through the authenticated transport: the middleware asks for
+ * It is a separate service from `AuthClient` because these are the calls that
+ * must not travel through the authenticated transport. The middleware asks for
  * a renewed session while it is deciding what credential a request carries, so
- * a refresh that went back through the middleware would not terminate. It
- * carries its own failure vocabulary because the refresher acts on the
- * difference between a session the Registry ended and one it could not reach.
+ * a refresh that went back through it would not terminate, and a revoke that
+ * did would renew the session it is ending. Both endpoints authenticate the
+ * token in the request body, never a bearer. The refresh grant carries its own
+ * failure vocabulary because the refresher acts on the difference between a
+ * session the Registry ended and one it could not reach.
  */
 export interface TokenExchangeService {
   readonly refreshToken: (
     refreshTokenValue: string,
     registryUrl: string,
-  ) => Effect.Effect<NormalizedTokenResponse, SessionEnded | RefreshUnavailable>;
+  ) => Effect.Effect<
+    NormalizedTokenResponse,
+    SessionEnded | RefreshUnavailable | RegistryAccessFailed
+  >;
+  /** Revoke a refresh token and, with it, the session it belongs to. */
+  readonly revokeToken: (
+    refreshTokenValue: string,
+    registryUrl: string,
+  ) => Effect.Effect<void, RegistryClientFailure>;
 }
 
 export class TokenExchange extends ServiceMap.Service<TokenExchange, TokenExchangeService>()(
@@ -336,25 +343,17 @@ const makeGeneratedAuthClient = (
   httpClient: HttpClient.HttpClient,
   registryUrl: string,
   accessToken?: string,
-  stepUpRequestId?: string,
 ) => {
   const remoteHttpClient = httpClient.pipe(
     HttpClient.mapRequest(HttpClientRequest.prependUrl(registryUrl)),
   );
-  const authedHttpClient =
-    accessToken === undefined
-      ? remoteHttpClient
-      : remoteHttpClient.pipe(HttpClient.mapRequest(HttpClientRequest.bearerToken(accessToken)));
-  const registryHttpClient = captureRegistryErrorResponseBodies(
-    stepUpRequestId === undefined
-      ? authedHttpClient
-      : authedHttpClient.pipe(
-          HttpClient.mapRequest(
-            HttpClientRequest.setHeaders({ "x-axm-step-up-request": stepUpRequestId }),
-          ),
-        ),
+  return GeneratedRegistryClient.make(
+    captureRegistryErrorResponseBodies(
+      accessToken === undefined
+        ? remoteHttpClient
+        : remoteHttpClient.pipe(HttpClient.mapRequest(HttpClientRequest.bearerToken(accessToken))),
+    ),
   );
-  return GeneratedRegistryClient.make(registryHttpClient);
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -650,22 +649,6 @@ export const AuthClientLive = Layer.effect(
       }
     });
 
-    const revokeToken: AuthClientService["revokeToken"] = Effect.fn("AuthClient.revokeToken")(
-      function* (token) {
-        yield* client
-          .AuthRevokeOAuthToken({
-            payload: { token, token_type_hint: "refresh_token" },
-          })
-          .pipe(
-            Effect.catch((error) => {
-              const mapped = mapRegistryAccessError(registryUrl, "Token revocation failed", error);
-              const detail = mapped.detail ?? "Token revocation failed";
-              return Effect.logWarning(`${detail} Local credentials will still be cleared.`);
-            }),
-          );
-      },
-    );
-
     const getMe: AuthClientService["getMe"] = Effect.fn("AuthClient.getMe")(
       function* (accessToken) {
         // The transport carries whichever credential the invocation resolved.
@@ -685,7 +668,7 @@ export const AuthClientLive = Layer.effect(
           userHandle: normalizeHandle(decoded.user.handle),
           tokenType: decoded.token.type,
           authority: decoded.token.authority,
-          scopes: decoded.token.scopes ?? null,
+          permissions: readTokenPermissions(decoded.token.permissions),
           resourceRestrictions: decoded.token.resource_restrictions ?? null,
           expiresAt: decoded.token.expires_at,
           approvedAt: decoded.token.approved_at,
@@ -837,22 +820,15 @@ export const AuthClientLive = Layer.effect(
     });
 
     const deleteToken: AuthClientService["deleteToken"] = Effect.fn("AuthClient.deleteToken")(
-      function* (tokenId, options) {
-        const authedClient = makeGeneratedAuthClient(
-          httpClient,
-          registryUrl,
-          undefined,
-          options?.stepUpRequestId,
-        );
-        yield* authedClient.TokensDelete(tokenId, undefined).pipe(
-          Effect.mapError((error) =>
-            mapRegistryAccessError(registryUrl, "Could not revoke token", error),
-          ),
-          Effect.mapError((error) => {
-            const stepUp = readStepUpRequest(error);
-            return stepUp === null ? error : new StepUpRequired({ stepUp, failure: error });
-          }),
-        );
+      function* (tokenId) {
+        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl);
+        yield* authedClient
+          .TokensDelete(tokenId, undefined)
+          .pipe(
+            Effect.mapError((error) =>
+              mapRegistryAccessError(registryUrl, "Could not revoke token", error),
+            ),
+          );
       },
     );
 
@@ -862,7 +838,6 @@ export const AuthClientLive = Layer.effect(
       exchangePkceCode,
       initiateDeviceFlow,
       pollDeviceToken,
-      revokeToken,
       getMe,
       createToken,
       listTokens,
@@ -878,15 +853,48 @@ export const AuthClientLive = Layer.effect(
 // -----------------------------------------------------------------------------
 
 /**
+ * How long one call to a token endpoint may take before the Registry counts as
+ * unreachable. Both calls run inside the credential home's refresh lock, so
+ * this is also the longest one invocation makes the others wait.
+ */
+const TOKEN_ENDPOINT_DEADLINE = Duration.seconds(30);
+
+/**
+ * What the token endpoint's answer to a refresh grant means for the session.
+ *
+ * - `refused`: the Registry itself refused the grant — the refusal its
+ *   contract declares, or an authentication refusal carrying the Registry's own
+ *   error document. The refresh token is spent, revoked, or replaced.
+ * - `unusable`: the Registry accepted the grant, or answered in a shape this
+ *   client cannot read. The refresh token may be spent and nothing usable came
+ *   back, so presenting it again would trip reuse detection.
+ * - `undecided`: nothing that speaks for the grant answered — no connection, a
+ *   server error, a rate limit, or a refusal with no Registry error document,
+ *   which is an intermediary's. The session is whatever it was before the
+ *   attempt.
+ */
+const refreshAnswer = (error: unknown): "refused" | "unusable" | "undecided" => {
+  if (isRegistryClientError("AuthExchangeToken400")(error)) return "refused";
+  if (isSchemaError(error)) return "unusable";
+  if (!isHttpClientError(error) || error.response === undefined) return "undecided";
+  const status = error.response.status;
+  if (status >= 200 && status < 300) return "unusable";
+  return (status === 401 || status === 403) &&
+    getOAuthErrorCode(retainedRegistryResponseBody(error.response, undefined)) !== undefined
+    ? "refused"
+    : "undecided";
+};
+
+/**
  * The refresh grant, on the unauthenticated transport.
  *
- * The two outcomes a refresher must tell apart are the only two failures it
- * reports, and the line between them is whether the Registry answered. An
- * answer that refuses the grant — `invalid_grant` above all, but any decided
- * refusal — means this refresh token is spent, revoked, or replaced, and the
- * session is over. A Registry that could not be reached, or that failed while
- * trying, has decided nothing: the session is still whatever it was before the
- * attempt, so the credential is kept and the caller may retry.
+ * The refresher acts on the line between a session the Registry ended and one
+ * it said nothing about. Only the refusal the token endpoint's contract
+ * declares ends a session. A Registry that could not be reached, failed while
+ * trying, limited the rate, or was answered for by an intermediary has decided
+ * nothing: the credential is kept and the caller may retry. An accepted grant
+ * whose answer cannot be read is neither — the session cannot be kept, and the
+ * failure says why instead of blaming the network.
  */
 export const TokenExchangeLive = Layer.effect(
   TokenExchange,
@@ -896,32 +904,72 @@ export const TokenExchangeLive = Layer.effect(
     const refreshToken: TokenExchangeService["refreshToken"] = Effect.fn(
       "TokenExchange.refreshToken",
     )(function* (refreshTokenValue, registryUrl) {
+      const unusable = (cause: unknown) =>
+        new RegistryAccessFailed({
+          category: "internal",
+          detail:
+            "The Registry answered the session renewal outside its contract, so the renewed session could not be kept.",
+          suggestions: [{ description: "Sign in again.", cmd: "axm login" }],
+          cause,
+        });
       return yield* postTokenForm(httpClient, registryUrl, {
         grant_type: "refresh_token",
         refresh_token: refreshTokenValue,
         client_id: CLIENT_ID,
       }).pipe(
-        Effect.catch((error) =>
-          Effect.fail(
-            isRegistryClientFailure(error)
-              ? new RefreshUnavailable({
-                  registryUrl,
-                  detail: "The Registry could not be reached to renew your session.",
-                  cause: error,
-                })
-              : error.retryable
-                ? new RefreshUnavailable({
-                    registryUrl,
-                    detail: "The Registry could not renew your session.",
-                    cause: error.cause,
-                  })
-                : new SessionEnded({ registryUrl, cause: error.cause }),
-          ),
-        ),
+        Effect.mapError((error): SessionEnded | RefreshUnavailable | RegistryAccessFailed => {
+          if (isRegistryClientFailure(error)) return unusable(error);
+          switch (refreshAnswer(error.cause)) {
+            case "refused":
+              return new SessionEnded({ registryUrl, cause: error.cause });
+            case "unusable":
+              return unusable(error.cause);
+            case "undecided":
+              return new RefreshUnavailable({
+                registryUrl,
+                detail: "The Registry could not be reached to renew your session.",
+                cause: error.cause,
+              });
+          }
+        }),
+        Effect.timeoutOrElse({
+          duration: TOKEN_ENDPOINT_DEADLINE,
+          orElse: () =>
+            Effect.fail(
+              new RefreshUnavailable({
+                registryUrl,
+                detail: "The Registry did not answer in time to renew your session.",
+              }),
+            ),
+        }),
       );
     });
 
-    return { refreshToken } satisfies TokenExchangeService;
+    const revokeToken: TokenExchangeService["revokeToken"] = Effect.fn("TokenExchange.revokeToken")(
+      function* (refreshTokenValue, registryUrl) {
+        yield* makeGeneratedAuthClient(httpClient, registryUrl)
+          .AuthRevokeOAuthToken({
+            payload: { token: refreshTokenValue, token_type_hint: "refresh_token" },
+          })
+          .pipe(
+            Effect.mapError((error) =>
+              mapRegistryAccessError(registryUrl, "Token revocation failed", error),
+            ),
+            Effect.timeoutOrElse({
+              duration: TOKEN_ENDPOINT_DEADLINE,
+              orElse: () =>
+                Effect.fail(
+                  new RegistryRequestFailed({
+                    category: "timeout",
+                    detail: "Token revocation failed: the Registry did not answer in time.",
+                  }),
+                ),
+            }),
+          );
+      },
+    );
+
+    return { refreshToken, revokeToken } satisfies TokenExchangeService;
   }),
 );
 
@@ -934,6 +982,7 @@ export const TokenExchangeTest = (overrides?: Partial<TokenExchangeService>) =>
           detail: "Not implemented in test",
         }),
       ),
+    revokeToken: () => Effect.void,
     ...overrides,
   } satisfies TokenExchangeService);
 
@@ -967,7 +1016,6 @@ export const AuthClientTest = (overrides?: Partial<AuthClientService>) =>
           detail: "Not implemented in test",
         }),
       ),
-    revokeToken: () => Effect.void,
     getMe: () =>
       Effect.fail(
         new RegistryAccessFailed({

@@ -44,7 +44,7 @@ describe("Identity lookup recovery", () => {
                   userHandle: authHandle,
                   tokenType: "session",
                   authority: "account" as const,
-                  scopes: null,
+                  permissions: null,
                   resourceRestrictions: null,
                   expiresAt: authExpiry,
                   approvedAt: null,

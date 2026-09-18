@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   requirement: "cli/token/list/reports-token-inventory",
   title: "Token listing reports Registry inventory and completeness",
   statement:
-    "When token list succeeds, AXM shall report the Registry token metadata and pagination state without including token secrets.",
+    "When token list succeeds, AXM shall report the Registry token metadata, each token's permission level and allowlist in the public token vocabulary, and pagination state, without including token secrets or the Registry's internal permission model.",
   class: "functional",
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -98,7 +98,9 @@ describe("Token inventory", () => {
                 {
                   id: item.id,
                   name: item.name,
-                  permissions: item.permissions,
+                  // The public vocabulary only: the Registry's internal
+                  // permission model stays out of the document.
+                  permissions: { owners: ["@alice"], extensions: [], permission: "read" },
                   lastUsedAt: null,
                 },
               ],
@@ -106,6 +108,7 @@ describe("Token inventory", () => {
           hasMore: !empty,
           cursor: empty ? null : "next-page",
         });
+        expect(JSON.stringify(output)).not.toContain('"model"');
         expect(JSON.stringify(output)).not.toContain("fixture-hidden-secret");
         expect(JSON.stringify(output)).not.toContain("fixture-stored-access");
       }).pipe(Effect.provide(layer));

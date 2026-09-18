@@ -72,7 +72,7 @@ describe("registry-access envelope conversions", () => {
 
   it("renders the signed-out envelope exactly as the shared builder", () => {
     const error = signedOutToAppError(new SignedOut({ message: "You are not signed in." }));
-    expect(error.code).toBe("auth");
+    expect(error.code).toBe("auth_required");
     expect(error.detail).toBe("You are not signed in.");
     expect(error.blockedOn).toBe("human");
     expect(error.suggestions).toEqual([

@@ -1,5 +1,6 @@
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
+  carriedRegistryFailure,
   isAnyRegistryClientError,
   isHttpClientError,
   isSchemaError,
@@ -118,7 +119,10 @@ export const mapRegistryFailure = (
       case "EmptyBodyError":
         return incompatibleResponse(error, context);
       case "TransportError":
-        return mapNetworkError(error, context.networkDetail, context.baseUrl);
+        return (
+          carriedRegistryFailure(error) ??
+          mapNetworkError(error, context.networkDetail, context.baseUrl)
+        );
       case "EncodeError":
       case "InvalidUrlError":
         return requestConstructionError(error, context);

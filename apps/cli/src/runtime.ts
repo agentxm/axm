@@ -219,13 +219,16 @@ const CredentialStoreLayer = Layer.provide(
   Layer.provide(CredentialStoreLive, RegistryRuntimeLayer),
 );
 
-// The refresh grant is the one call that must not travel through the
-// authenticated transport: it is what the transport asks for while it is
-// deciding which credential a request carries. It is built on the plain
-// client, and nothing else is.
+// Renewing and revoking a session are the calls that must not travel through
+// the authenticated transport: the refresh grant is what the transport asks
+// for while it is deciding which credential a request carries, and a revoke
+// sent through it would renew the session it is ending. They are built on the
+// plain client, and nothing else is.
+const TokenExchangeLayer = Layer.provide(TokenExchangeLive, PlatformLayer);
+
 const SessionRefreshLayer = Layer.provide(
   SessionRefresherLive,
-  Layer.mergeAll(Layer.provide(TokenExchangeLive, PlatformLayer), CredentialStoreLayer),
+  Layer.mergeAll(TokenExchangeLayer, CredentialStoreLayer),
 );
 
 /**
@@ -250,7 +253,7 @@ const RegistryClientFactoryLayer = Layer.provide(
 );
 
 const AuthServicesLayer = Layer.provideMerge(
-  Layer.mergeAll(PendingDeviceLoginStoreLive, AuthClientLive),
+  Layer.mergeAll(PendingDeviceLoginStoreLive, AuthClientLive, TokenExchangeLayer),
   Layer.mergeAll(AuthenticatedRuntimeLayer, CredentialStoreLayer),
 );
 

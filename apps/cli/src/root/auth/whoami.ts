@@ -4,7 +4,12 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
-import { currentIdentity, selectedRegistry } from "@agentxm/registry-access/authentication";
+import {
+  currentIdentity,
+  describeTokenPermissions,
+  selectedRegistry,
+  TokenPermissionsSchema,
+} from "@agentxm/registry-access/authentication";
 import { Screen, rawDoc } from "../../screen/index.js";
 import { observeUnit } from "@agentxm/workspace/transitions/planning";
 import { withLiveOperation } from "../../operation-lifecycle.js";
@@ -18,7 +23,7 @@ export const WhoamiDataSchema = Schema.Struct({
   registry: Schema.String,
   credentialType: Schema.String,
   authority: Schema.Literals(["account", "limited"]),
-  scopes: Schema.NullOr(Schema.Array(Schema.String)),
+  permissions: Schema.NullOr(TokenPermissionsSchema),
   resourceRestrictions: Schema.NullOr(
     Schema.Struct({ extensions: Schema.NullOr(Schema.Array(Schema.String)) }),
   ),
@@ -46,15 +51,16 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(
 
     if (yield* screen.document({ data: identity }, WhoamiDocumentSchema)) return;
 
-    // A signed-in person is limited only by their permissions, so there is no
-    // scope list to show them. Only a credential they narrowed has one.
+    // A signed-in person is limited only by their permissions, so there is
+    // nothing narrower to show them. Only a credential they narrowed has a
+    // permission level and an allowlist, in the words a token is described in.
     const restrictions = identity.resourceRestrictions?.extensions ?? null;
     const limits =
       identity.authority === "account"
         ? [`Authority  everything your permissions allow`]
         : [
             `Authority  limited`,
-            `Can do  ${identity.scopes === null || identity.scopes.length === 0 ? "nothing" : identity.scopes.join(", ")}`,
+            `Can do  ${describeTokenPermissions(identity.permissions)}`,
             `Extensions  ${restrictions === null ? "unrestricted" : restrictions.length === 0 ? "none" : restrictions.join(", ")}`,
           ];
     yield* screen.result(

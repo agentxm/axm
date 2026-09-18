@@ -15,6 +15,7 @@ import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
 import * as Cache from "effect/Cache";
 import type * as DateTime from "effect/DateTime";
+import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -176,6 +177,63 @@ const checkFilePermissions = (fs: FileSystem.FileSystem, filePath: string) =>
 const setFilePermissions = (fs: FileSystem.FileSystem, filePath: string) =>
   fs.chmod(filePath, FILE_PERMISSIONS).pipe(Effect.catch(() => Effect.void));
 
+/**
+ * Hold one `proper-lockfile` lock for the duration of `effect`.
+ *
+ * Acquisition and release are one resource, so nothing stays held however
+ * `effect` ends. Waiting for the lock stays interruptible — a caller's deadline
+ * is not extended by another process's turn — and a wait that is abandoned
+ * gives the lock straight back if it arrives afterwards. A lock that is
+ * compromised while held — its directory removed, or its heartbeat missed for
+ * longer than `stale` because the process was suspended — interrupts `effect`
+ * and fails with `failure`: whoever took the lock over may already be inside
+ * the section this holder believed it owned.
+ */
+export const withFileLock = <A, E, R>(
+  target: string,
+  options: Pick<lockfile.LockOptions, "retries" | "stale" | "update">,
+  failure: (cause: unknown) => RegistryAccessFailed,
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E | RegistryAccessFailed, R> =>
+  Effect.gen(function* () {
+    const compromised = yield* Deferred.make<never, RegistryAccessFailed>();
+    const acquire = Effect.callback<() => Promise<void>, RegistryAccessFailed>((resume) => {
+      let abandoned = false;
+      lockfile
+        .lock(target, {
+          ...options,
+          onCompromised: (cause) => {
+            Deferred.doneUnsafe(compromised, Effect.fail(failure(cause)));
+          },
+        })
+        .then(
+          (release) => {
+            if (abandoned) {
+              release().then(undefined, () => undefined);
+            } else {
+              resume(Effect.succeed(release));
+            }
+          },
+          (cause: unknown) => resume(Effect.fail(failure(cause))),
+        );
+      return Effect.sync(() => {
+        abandoned = true;
+      });
+    });
+    // `Effect.acquireUseRelease` with one difference: the wait for the lock is
+    // restored to the caller's interruptibility. The hand-over from a granted
+    // lock to its release registration is not.
+    return yield* Effect.uninterruptibleMask((restore) =>
+      Effect.flatMap(restore(acquire), (release) =>
+        restore(Effect.raceFirst(effect, Deferred.await(compromised))).pipe(
+          // Releasing a lock that was compromised rejects; there is nothing
+          // left to give back, so release is complete either way.
+          Effect.ensuring(Effect.ignore(Effect.tryPromise(() => release()))),
+        ),
+      ),
+    );
+  });
+
 const withCredentialFileLock = <A, E, R>(
   fs: FileSystem.FileSystem,
   path: Path.Path,
@@ -184,24 +242,20 @@ const withCredentialFileLock = <A, E, R>(
 ) =>
   Effect.gen(function* () {
     yield* ensureCredentialsDir(fs, path, homeDir);
-    const dir = getCredentialsDir(path, homeDir);
-    const release = yield* Effect.tryPromise({
-      try: () => lockfile.lock(dir, { retries: { retries: 5, minTimeout: 25, maxTimeout: 100 } }),
-      catch: (error) =>
+    return yield* withFileLock(
+      getCredentialsDir(path, homeDir),
+      // The section is one file read or write, so a holder is gone in
+      // milliseconds. The budget covers many invocations queueing behind each
+      // other, because a request that cannot read its credential fails rather
+      // than going out without one.
+      { retries: { retries: 40, minTimeout: 25, maxTimeout: 100 } },
+      (cause) =>
         new RegistryAccessFailed({
           category: "auth",
           detail: "Could not lock credential storage",
-          cause: error,
+          cause,
         }),
-    });
-
-    return yield* effect.pipe(
-      Effect.ensuring(
-        Effect.tryPromise({
-          try: () => release(),
-          catch: () => undefined,
-        }).pipe(Effect.catch(() => Effect.void)),
-      ),
+      effect,
     );
   });
 
@@ -209,8 +263,9 @@ const withCredentialFileLock = <A, E, R>(
  * Hold the credential home's refresh lock for the duration of `effect`.
  *
  * `stale` is generous because the protected section includes a network round
- * trip; the retry budget is long enough for every waiter to take its turn
- * after the first one finishes, and each waiter's own turn is short because it
+ * trip. The retry budget outlasts the refresh grant's 30-second deadline, so a
+ * waiter takes its turn after a slow holder instead of giving up on a session
+ * that is still being renewed; each waiter's own turn is short because it
  * re-reads and finds the work already done.
  */
 const withRefreshFileLock = <A, E, R>(
@@ -235,28 +290,20 @@ const withRefreshFileLock = <A, E, R>(
         ),
       );
     }
-    const release = yield* Effect.tryPromise({
-      try: () =>
-        lockfile.lock(lockPath, {
-          stale: 30_000,
-          update: 5_000,
-          retries: { retries: 30, minTimeout: 50, maxTimeout: 500, factor: 1.5 },
-        }),
-      catch: (error) =>
+    return yield* withFileLock(
+      lockPath,
+      {
+        stale: 30_000,
+        update: 5_000,
+        retries: { retries: 80, minTimeout: 50, maxTimeout: 500, factor: 1.5 },
+      },
+      (cause) =>
         new RegistryAccessFailed({
           category: "auth",
           detail: "Could not lock the session for refresh",
-          cause: error,
+          cause,
         }),
-    });
-
-    return yield* effect.pipe(
-      Effect.ensuring(
-        Effect.tryPromise({
-          try: () => release(),
-          catch: () => undefined,
-        }).pipe(Effect.catch(() => Effect.void)),
-      ),
+      effect,
     );
   });
 

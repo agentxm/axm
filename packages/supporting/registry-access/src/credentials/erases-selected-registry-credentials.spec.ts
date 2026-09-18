@@ -6,7 +6,8 @@ import * as Option from "effect/Option";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { CredentialStore } from "./credential-store.js";
-import { SignedOut, RegistryAccessFailed } from "../authentication/errors.js";
+import { RegistryRequestFailed } from "@agentxm/registry-client";
+import { SignedOut } from "../authentication/errors.js";
 import { currentToken } from "../authentication/identity.js";
 import { logout } from "../authentication/logout.js";
 import {
@@ -63,13 +64,13 @@ describe("Local sign-out", () => {
       const revoked: Array<string> = [];
       const { layer } = makeAuthPorts({
         credentials: authCredentialFile,
-        auth: {
+        exchange: {
           revokeToken: (token) =>
             Effect.gen(function* () {
               revoked.push(token);
               if (remoteRevoke === "fails")
-                return yield* new RegistryAccessFailed({
-                  category: "auth",
+                return yield* new RegistryRequestFailed({
+                  category: "network",
                   detail: "Fixture Registry unavailable",
                 });
             }),

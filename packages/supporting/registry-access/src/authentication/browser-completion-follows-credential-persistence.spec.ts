@@ -88,7 +88,7 @@ describe("Truthful browser sign-in completion", () => {
                 userHandle: normalizeHandle("@alice"),
                 tokenType: "session",
                 authority: "account" as const,
-                scopes: null,
+                permissions: null,
                 resourceRestrictions: null,
                 expiresAt: null,
                 approvedAt: null,

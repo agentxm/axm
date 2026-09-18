@@ -15,7 +15,7 @@ export const specification = defineSpecification({
   requirement: "cli/token/revoke/revokes-only-selected-token",
   title: "Token revocation names the selected credential",
   statement:
-    "When token revoke is requested, AXM shall request deletion of the selected token identifier and report success only after the Registry accepts deletion.",
+    "When token revoke is requested, AXM shall request deletion of the selected token identifier once, without asking the signed-in person for further verification, and report success only after the Registry accepts deletion.",
   class: "functional",
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -30,7 +30,7 @@ describe("Token revocation", () => {
   for (const accepted of [true, false]) {
     it.effect(accepted ? "accepted deletion" : "refused deletion", () => {
       const requests: Array<unknown> = [];
-      const { layer } = makeAuthPorts({
+      const { layer, presenterState, interactionState } = makeAuthPorts({
         credentials: authCredentialFile,
         auth: {
           deleteToken: (id) =>
@@ -45,16 +45,17 @@ describe("Token revocation", () => {
         },
       });
       return Effect.gen(function* () {
-        const operation = revokeToken("selected-token", { unattended: true }, authRegistry);
+        const operation = revokeToken("selected-token", authRegistry);
         if (accepted) {
-          expect(yield* operation).toEqual({
-            tokenId: "selected-token",
-            stepUpCompleted: false,
-          });
+          expect(yield* operation).toEqual({ tokenId: "selected-token" });
         } else {
           expect(authFailureCategory(yield* operation.pipe(Effect.flip))).toBe("auth");
         }
         expect(requests).toEqual([{ id: "selected-token" }]);
+        // Taking authority away is not one of the operations that may ask a
+        // signed-in person for more.
+        expect(presenterState.stepUpChallenges).toEqual([]);
+        expect(interactionState.openBrowserCalls).toEqual([]);
       }).pipe(Effect.provide(layer));
     });
   }

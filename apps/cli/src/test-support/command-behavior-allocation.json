@@ -8169,24 +8169,7 @@
       "parameterBindings": []
     },
     "token revoke": {
-      "flags": [
-        {
-          "name": "step-up-request",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": false
-          }
-        },
-        {
-          "name": "wait-for-human",
-          "rawHelp": {
-            "aliases": [],
-            "type": "integer",
-            "required": false
-          }
-        }
-      ],
+      "flags": [],
       "arguments": [
         {
           "name": "id",
@@ -8197,11 +8180,7 @@
           }
         }
       ],
-      "relatedRequirements": [
-        "cli/credentials-follow-explicit-source-precedence",
-        "cli/registry-writes-complete-required-verification",
-        "cli/unattended-verification-is-resumable"
-      ],
+      "relatedRequirements": ["cli/credentials-follow-explicit-source-precedence"],
       "conditionalLinks": [
         {
           "requirement": "cli/credentials-stay-with-their-registry",
@@ -8214,18 +8193,8 @@
       ],
       "parameterBindings": [
         {
-          "parameters": ["flag:step-up-request", "flag:wait-for-human"],
-          "requirements": [
-            "cli/registry-writes-complete-required-verification",
-            "cli/unattended-verification-is-resumable"
-          ]
-        },
-        {
           "parameters": ["argument:id"],
-          "requirements": [
-            "cli/token/revoke/revokes-only-selected-token",
-            "cli/registry-writes-complete-required-verification"
-          ],
+          "requirements": ["cli/token/revoke/revokes-only-selected-token"],
           "details": [
             "The token identifier is neither an authentication credential nor a Registry/workspace selector."
           ]

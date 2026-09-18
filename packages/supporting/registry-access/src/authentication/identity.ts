@@ -13,12 +13,12 @@ import type * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import { isRegistryClientFailure } from "@agentxm/registry-client";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 
 import { AuthClient } from "./auth-client.js";
+import type { TokenPermissions } from "./tokens/permissions.js";
 import { CredentialStore } from "../credentials/credential-store.js";
-import { signedOut } from "./errors.js";
+import { isRejectedCredential, signedOut } from "./errors.js";
 import { resolveRequiredToken, resolveToken } from "../credentials/token-resolution.js";
 
 /** The Registry's canonical answer to "who is this credential". */
@@ -28,15 +28,13 @@ export interface RegistryIdentity {
   readonly credentialType: string;
   /** `account` carries the whole account's authority; `limited` is narrowed. */
   readonly authority: "account" | "limited";
-  readonly scopes: ReadonlyArray<string> | null;
+  /** What a limited credential may do, in the token vocabulary. Null otherwise. */
+  readonly permissions: TokenPermissions | null;
   readonly resourceRestrictions: { readonly extensions: ReadonlyArray<string> | null } | null;
   readonly expiresAt: DateTime.Utc | null;
   /** When the sign-in that approved this CLI session authenticated. */
   readonly approvedAt: DateTime.Utc | null;
 }
-
-const isRejectedCredential = (error: unknown): boolean =>
-  isRegistryClientFailure(error) && error.metadata?.response?.status === 401;
 
 /**
  * Read the canonical Registry identity for the resolved credential.
@@ -55,7 +53,7 @@ export const currentIdentity = Effect.fn("Identity.current")(function* (registry
     registry: registryUrl,
     credentialType: identity.tokenType,
     authority: identity.authority,
-    scopes: identity.scopes,
+    permissions: identity.permissions,
     resourceRestrictions: identity.resourceRestrictions,
     expiresAt: identity.expiresAt,
     approvedAt: identity.approvedAt,

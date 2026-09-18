@@ -31,7 +31,8 @@ import { CredentialStoreTokenSource, type StoredCredentials } from "./schema.js"
 
 /**
  * Every way asking for a usable session can fail: the session is over, the
- * Registry could not be reached, or local credential storage refused.
+ * Registry could not be reached, the renewal could not be kept, or local
+ * credential storage refused.
  */
 export type SessionRefreshError =
   SessionEnded | RefreshUnavailable | RegistryAccessFailed | AuthTokenPolicyRequired;
@@ -123,6 +124,55 @@ export const SessionRefresherLive = Layer.effect(
         : Effect.fail(new SessionEnded({ registryUrl }));
 
     /**
+     * A session the Registry ended is erased, still under the lock. The memo
+     * only tells this invocation; every other one sharing the credential home
+     * learns it from the store, finds no session, and never presents the
+     * refused refresh token again. Failing to erase changes nothing about the
+     * answer, which is still that the session ended.
+     */
+    const forget = (registryUrl: string) =>
+      store.clear(registryUrl).pipe(
+        Effect.catch((error) =>
+          Effect.logWarning("An ended session could not be erased from credential storage.", {
+            error,
+          }),
+        ),
+      );
+
+    /**
+     * Spend the refresh token and keep what it bought. The round trip can be
+     * interrupted; once it has answered, the write cannot, because a rotated
+     * token that is never written leaves the store holding a spent one. Only a
+     * Registry that decided nothing leaves the session worth asking about
+     * again: every other failure, a refused write included, is remembered as
+     * the end of it.
+     */
+    const exchangeAndSave = (credential: CredentialStoreTokenSource, stored: StoredCredentials) =>
+      Effect.uninterruptibleMask((restore) =>
+        Effect.gen(function* () {
+          const renewed = yield* restore(
+            exchange.refreshToken(stored.refresh_token, credential.registryUrl),
+          );
+          yield* store.save(credential.registryUrl, stored.handle, {
+            access_token: renewed.access_token,
+            refresh_token: renewed.refresh_token,
+            expires_at: renewed.expires_at,
+          });
+          return renewed;
+        }),
+      ).pipe(
+        Effect.tapError((error) =>
+          error._tag === "RefreshUnavailable"
+            ? Effect.void
+            : remember(credential, { _tag: "Ended" }).pipe(
+                Effect.andThen(
+                  error._tag === "SessionEnded" ? forget(credential.registryUrl) : Effect.void,
+                ),
+              ),
+        ),
+      );
+
+    /**
      * Renew under both locks. The in-process permit keeps this invocation's own
      * fibers to one attempt; the store's lock does the same across every
      * process sharing the credential home. Inside, the store is read past the
@@ -144,19 +194,7 @@ export const SessionRefresherLive = Layer.effect(
           return asTokenSource(credential.registryUrl, stored.value);
         }
 
-        const renewed = yield* exchange
-          .refreshToken(stored.value.refresh_token, credential.registryUrl)
-          .pipe(
-            Effect.tapError((error) =>
-              error._tag === "SessionEnded" ? remember(credential, { _tag: "Ended" }) : Effect.void,
-            ),
-          );
-
-        yield* store.save(credential.registryUrl, stored.value.handle, {
-          access_token: renewed.access_token,
-          refresh_token: renewed.refresh_token,
-          expires_at: renewed.expires_at,
-        });
+        const renewed = yield* exchangeAndSave(credential, stored.value);
         const result = asTokenSource(credential.registryUrl, renewed);
         yield* remember(credential, { _tag: "Renewed", credential: result });
         return result;

@@ -213,8 +213,8 @@ and `result.status: "pending-human"`; this means the handoff is available,
 not that credentials were stored. Resume it with `axm login --wait --json`,
 optionally adding `--timeout 60`. The `action` uses `purpose: "login"` and
 includes both the complete browser link and the clean fallback URL and code.
-Keep the same Registry and scopes. `--restart` explicitly replaces a pending
-sign-in; repeating initiation does not.
+Keep the same Registry. `--restart` explicitly replaces a pending sign-in;
+repeating initiation does not.
 
 Publishing requires you to be signed in. A signed-out `axm publish` reports
 `code: "auth_required"` with exit 13 and creates nothing on the Registry; sign

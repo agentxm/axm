@@ -22,7 +22,7 @@ const defaultWhoami = {
   userHandle: ALICE,
   tokenType: "session",
   authority: "account" as const,
-  scopes: null,
+  permissions: null,
   resourceRestrictions: null,
   expiresAt: null,
   approvedAt: null,
@@ -86,7 +86,7 @@ describe("auth whoami handler", () => {
         const result = yield* handleWhoami().pipe(
           Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
         );
-        expect(result).toMatchObject({ error: true, code: "auth" });
+        expect(result).toMatchObject({ error: true, code: "auth_required" });
       }),
     );
   });

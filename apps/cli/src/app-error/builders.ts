@@ -22,7 +22,7 @@ export const BC = {
  */
 export const errSignedOut = (message = "You are not signed in.", cause?: unknown) =>
   makeAppError({
-    code: "auth",
+    code: "auth_required",
     detail: message,
     blockedOn: "human",
     suggestions: [

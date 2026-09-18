@@ -6,10 +6,9 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 import {
   ExtensionIdentityMismatchErrorEncoded,
   ExtensionLintFailedErrorEncoded,
-  ForbiddenErrorEncoded,
+  type ForbiddenErrorEncoded,
   type RegistryClientError,
 } from "./__generated__/registry-client.js";
-import type { ForbiddenErrorEncoded as ForbiddenError } from "./__generated__/registry-client.js";
 import { RegistryProblem, type RegistryErrorCategory } from "./errors.js";
 import { registryRetryAfterSeconds } from "./retry-after.js";
 import { retainedRegistryResponseBody } from "./response-body.js";
@@ -27,7 +26,6 @@ const EmptyProblem: ProblemDetails = {};
 const isProblemDetails = (value: unknown): value is ProblemDetails =>
   typeof value === "object" && value !== null;
 
-const decodeForbiddenError = Schema.decodeUnknownSync(ForbiddenErrorEncoded);
 const decodeExtensionLintFailedError = Schema.decodeUnknownSync(ExtensionLintFailedErrorEncoded);
 const decodeExtensionIdentityMismatchError = Schema.decodeUnknownSync(
   ExtensionIdentityMismatchErrorEncoded,
@@ -39,6 +37,15 @@ const tryDecode = <A>(decode: (input: unknown) => A, input: unknown): A | undefi
   } catch {
     return undefined;
   }
+};
+
+const getStringField = (value: unknown, field: string): string | undefined => {
+  if (value === null || value === undefined || typeof value !== "object") {
+    return undefined;
+  }
+
+  const fieldValue: unknown = Reflect.get(value, field);
+  return typeof fieldValue === "string" ? fieldValue : undefined;
 };
 
 export const httpStatusToCategory = (status: number, code?: string): RegistryErrorCategory => {
@@ -89,15 +96,48 @@ const retryAfterSuggestedAction = (
     : { description: `Retry after ${String(retryAfterSeconds)}s.` };
 };
 
+/** The credential kinds a `credential_not_admitted` refusal says it would accept. */
+const admittedCredentials = (body: unknown): ReadonlyArray<string> => {
+  if (typeof body !== "object" || body === null) return [];
+  const details: unknown = Reflect.get(body, "details");
+  if (typeof details !== "object" || details === null) return [];
+  const admitted: unknown = Reflect.get(details, "admittedCredentials");
+  return Array.isArray(admitted)
+    ? admitted.filter((kind): kind is string => typeof kind === "string")
+    : [];
+};
+
+/**
+ * An operation that does not admit the presented credential names the kinds it
+ * does. A CLI session among them means the person already holds what it takes;
+ * a browser session alone means the operation lives on the web. Neither is a
+ * reason to sign in again.
+ */
+const credentialNotAdmittedRecovery = (body: unknown): SuggestedAction => {
+  const admitted = admittedCredentials(body);
+  if (admitted.includes("session")) {
+    return {
+      description:
+        "This operation does not accept a token. Use your signed-in session: unset AXM_TOKEN and AXM_TOKEN_FILE, then rerun.",
+    };
+  }
+  return admitted.includes("browser-session")
+    ? { description: "Complete this one on the web.", url: "https://agentxm.ai" }
+    : { description: "This credential may not perform this operation." };
+};
+
 /**
  * What a person can do about one forbidding rule.
  *
  * A 403 reaches a caller who is signed in, so no entry here suggests signing
- * in: the answer is never a different credential for the same person. Each
- * code gets at most one recovery, and a code this table does not know keeps
- * the Registry\'s own title and detail rather than inventing guidance for it.
+ * in. A credential the person made narrower than themselves is pointed at the
+ * session they already hold, never at a new one. Each code gets at most one
+ * recovery, and a code this table does not know keeps the Registry's own title
+ * and detail rather than inventing guidance for it.
  */
-const FORBIDDEN_RECOVERIES: Partial<Record<ForbiddenError["code"], SuggestedAction>> = {
+const FORBIDDEN_RECOVERIES: Partial<
+  Record<ForbiddenErrorEncoded["code"], SuggestedAction | ((body: unknown) => SuggestedAction)>
+> = {
   insufficient_scope: {
     description: "This credential is narrower than your account. Use your signed-in session.",
   },
@@ -108,19 +148,7 @@ const FORBIDDEN_RECOVERIES: Partial<Record<ForbiddenError["code"], SuggestedActi
     description: "Complete this one on the web.",
     url: "https://agentxm.ai",
   },
-  gat_requires_session: {
-    description: "Complete this one on the web.",
-    url: "https://agentxm.ai",
-  },
-  credential_not_admitted: {
-    description: "This credential may not perform this operation.",
-  },
-  recent_authentication_required: {
-    description: "Verify it is you, then rerun the command.",
-  },
-  step_up_wrong_actor: {
-    description: "The verification was completed by a different person. Rerun the command.",
-  },
+  credential_not_admitted: (body) => credentialNotAdmittedRecovery(body),
   identity_suspended: {
     description: "Contact support to restore this account.",
     url: "https://agentxm.ai/support",
@@ -144,9 +172,18 @@ const FORBIDDEN_RECOVERIES: Partial<Record<ForbiddenError["code"], SuggestedActi
   },
 };
 
+const hasRecovery = (code: string): code is keyof typeof FORBIDDEN_RECOVERIES =>
+  Object.hasOwn(FORBIDDEN_RECOVERIES, code);
+
+/**
+ * The recovery is keyed by the wire code alone, so a refusal whose details
+ * this client cannot decode still gets the guidance its code deserves.
+ */
 const forbiddenSuggestedAction = (body: unknown): SuggestedAction | undefined => {
-  const decoded = tryDecode(decodeForbiddenError, body);
-  return decoded === undefined ? undefined : FORBIDDEN_RECOVERIES[decoded.code];
+  const code = getStringField(body, "code");
+  if (code === undefined || !hasRecovery(code)) return undefined;
+  const recovery = FORBIDDEN_RECOVERIES[code];
+  return typeof recovery === "function" ? recovery(body) : recovery;
 };
 
 const lintFailedSuggestions = (body: unknown): ReadonlyArray<SuggestedAction> => {
@@ -195,15 +232,6 @@ const serverErrorSuggestedAction = (status: number): SuggestedAction | undefined
           "The registry returned a server error. Retry shortly; if it persists, report it with the request ID.",
       }
     : undefined;
-
-const getStringField = (value: unknown, field: string): string | undefined => {
-  if (value === null || value === undefined || typeof value !== "object") {
-    return undefined;
-  }
-
-  const fieldValue: unknown = Reflect.get(value, field);
-  return typeof fieldValue === "string" ? fieldValue : undefined;
-};
 
 const problemSuggestions = (
   status: number,

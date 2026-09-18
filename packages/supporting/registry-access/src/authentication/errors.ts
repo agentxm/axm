@@ -70,7 +70,9 @@ export class AuthTokenPolicyRequired extends Data.TaggedError("AuthTokenPolicyRe
 
 /**
  * The Registry ended this session: it refused the stored refresh token, so no
- * credential remains to renew. The only recovery is signing in again.
+ * credential remains to renew. The only recovery is signing in again. It is
+ * the session refresher's answer to the transport, which leaves the request to
+ * be rejected by the Registry; no feature receives it.
  */
 export class SessionEnded extends Data.TaggedError("SessionEnded")<{
   readonly registryUrl: string;
@@ -79,8 +81,10 @@ export class SessionEnded extends Data.TaggedError("SessionEnded")<{
 
 /**
  * The session could not be renewed right now and is still valid as far as
- * anyone knows: the token endpoint was unreachable or answered with a server
- * error. The credential is kept and the invocation is worth retrying.
+ * anyone knows: nothing that speaks for the refresh grant answered. The
+ * credential is kept and the invocation is worth retrying. The transport
+ * carries it to a feature as a network failure of the request it was renewing
+ * for.
  */
 export class RefreshUnavailable extends Data.TaggedError("RefreshUnavailable")<{
   readonly registryUrl: string;
@@ -170,8 +174,6 @@ export type RegistryAccessFailure =
   | RegistryAccessFailed
   | SignedOut
   | AuthTokenPolicyRequired
-  | SessionEnded
-  | RefreshUnavailable
   | DeviceLoginDenied
   | DeviceLoginCodeExpired
   | DeviceAuthorizationPending
@@ -184,8 +186,6 @@ export const isRegistryAccessFailure = (error: unknown): error is RegistryAccess
   error instanceof RegistryAccessFailed ||
   error instanceof SignedOut ||
   error instanceof AuthTokenPolicyRequired ||
-  error instanceof SessionEnded ||
-  error instanceof RefreshUnavailable ||
   error instanceof DeviceLoginDenied ||
   error instanceof DeviceLoginCodeExpired ||
   error instanceof DeviceAuthorizationPending ||
@@ -199,6 +199,15 @@ export const isRegistryAccessFailure = (error: unknown): error is RegistryAccess
  * failures plus registry transport failures propagated unwrapped.
  */
 export type AuthError = RegistryAccessFailure | RegistryClientFailure;
+
+/**
+ * Whether the Registry rejected the credential a request presented. A request
+ * that carried a stored session has been through renewal by then, so this is
+ * the Registry saying the person is signed out — not that it was unreachable,
+ * and not that the person lacks a permission.
+ */
+export const isRejectedCredential = (error: unknown): boolean =>
+  isRegistryClientFailure(error) && error.metadata?.response?.status === 401;
 
 export const isAuthError = (error: unknown): error is AuthError =>
   isRegistryAccessFailure(error) || isRegistryClientFailure(error);

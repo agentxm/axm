@@ -76,18 +76,6 @@ describe("resolveToken", () => {
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("returns Flag token source when --token flag is provided", () => {
-    const layer = makeRuntimeLayer();
-    return Effect.gen(function* () {
-      const result = yield* resolveToken(REGISTRY_URL, "axm_ses_flag_token");
-      expect(Option.isSome(result)).toBe(true);
-      if (Option.isSome(result)) {
-        expect(result.value._tag).toBe("Flag");
-        expect(result.value.token).toBe("axm_ses_flag_token");
-      }
-    }).pipe(Effect.provide(layer));
-  });
-
   it.effect("reads and trims AXM_TOKEN_FILE without exposing it as an env token", () => {
     const directory = mkdtempSync(join(tmpdir(), "axm-token-file-"));
     const tokenPath = join(directory, "token");
@@ -158,61 +146,11 @@ describe("resolveToken", () => {
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("AXM_TOKEN takes priority over --token flag", () => {
-    process.env["AXM_TOKEN"] = "axm_ses_env_priority";
-    const layer = makeRuntimeLayer();
-    return Effect.gen(function* () {
-      const result = yield* resolveToken(REGISTRY_URL, "axm_ses_flag_ignored");
-      expect(Option.isSome(result)).toBe(true);
-      if (Option.isSome(result)) {
-        expect(result.value._tag).toBe("EnvVar");
-        expect(result.value.token).toBe("axm_ses_env_priority");
-      }
-    }).pipe(Effect.provide(layer));
-  });
-
-  it.effect("--token flag takes priority over credential store", () => {
-    const layer = makeRuntimeLayer(
-      makeCredentialFile({
-        [REGISTRY_URL]: {
-          accounts: {
-            "@alice": {
-              access_token: "axm_ses_stored_ignored",
-              refresh_token: "axm_ref_stored",
-              expires_at: futureExpiry(),
-              active: true,
-            },
-          },
-        },
-      }),
-    );
-
-    return Effect.gen(function* () {
-      const result = yield* resolveToken(REGISTRY_URL, "axm_ses_flag_priority");
-      expect(Option.isSome(result)).toBe(true);
-      if (Option.isSome(result)) {
-        expect(result.value._tag).toBe("Flag");
-        expect(result.value.token).toBe("axm_ses_flag_priority");
-      }
-    }).pipe(Effect.provide(layer));
-  });
-
   it.effect("ignores empty AXM_TOKEN", () => {
     process.env["AXM_TOKEN"] = "";
     const layer = makeRuntimeLayer();
     return Effect.gen(function* () {
-      const result = yield* resolveToken(REGISTRY_URL, "axm_ses_flag");
-      expect(Option.isSome(result)).toBe(true);
-      if (Option.isSome(result)) {
-        expect(result.value._tag).toBe("Flag");
-      }
-    }).pipe(Effect.provide(layer));
-  });
-
-  it.effect("ignores empty --token flag", () => {
-    const layer = makeRuntimeLayer();
-    return Effect.gen(function* () {
-      const result = yield* resolveToken(REGISTRY_URL, "");
+      const result = yield* resolveToken(REGISTRY_URL);
       expect(Option.isNone(result)).toBe(true);
     }).pipe(Effect.provide(layer));
   });
@@ -386,7 +324,7 @@ describe("resolveAmbientToken", () => {
   it.effect("returns EnvVar token when AXM_TOKEN is set", () => {
     process.env["AXM_TOKEN"] = "axm_ses_env_ambient";
     return Effect.gen(function* () {
-      const result = yield* resolveAmbientToken();
+      const result = yield* resolveAmbientToken;
       expect(Option.isSome(result)).toBe(true);
       if (Option.isSome(result)) {
         expect(result.value._tag).toBe("EnvVar");
@@ -395,40 +333,17 @@ describe("resolveAmbientToken", () => {
     });
   });
 
-  it.effect("returns Flag token when flagToken is provided", () =>
-    Effect.gen(function* () {
-      const result = yield* resolveAmbientToken("axm_ses_flag_ambient");
-      expect(Option.isSome(result)).toBe(true);
-      if (Option.isSome(result)) {
-        expect(result.value._tag).toBe("Flag");
-        expect(result.value.token).toBe("axm_ses_flag_ambient");
-      }
-    }),
-  );
-
   it.effect("returns none when neither is available", () =>
     Effect.gen(function* () {
-      const result = yield* resolveAmbientToken();
+      const result = yield* resolveAmbientToken;
       expect(Option.isNone(result)).toBe(true);
     }),
   );
 
-  it.effect("AXM_TOKEN takes priority over flag", () => {
-    process.env["AXM_TOKEN"] = "axm_ses_env_priority";
-    return Effect.gen(function* () {
-      const result = yield* resolveAmbientToken("axm_ses_flag_ignored");
-      expect(Option.isSome(result)).toBe(true);
-      if (Option.isSome(result)) {
-        expect(result.value._tag).toBe("EnvVar");
-        expect(result.value.token).toBe("axm_ses_env_priority");
-      }
-    });
-  });
-
   it.effect("does not access credential store (no CredentialStore layer needed)", () =>
     Effect.gen(function* () {
       // resolveAmbientToken does not require CredentialStore
-      const result = yield* resolveAmbientToken();
+      const result = yield* resolveAmbientToken;
       expect(Option.isNone(result)).toBe(true);
     }),
   );

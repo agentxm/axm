@@ -108,7 +108,7 @@ describe("auth token handler", () => {
             }),
           ),
         );
-        expect(result).toMatchObject({ error: true, code: "auth" });
+        expect(result).toMatchObject({ error: true, code: "auth_required" });
       }),
     );
   });
@@ -509,7 +509,6 @@ describe("auth token handler", () => {
         expect(result).toEqual({
           status: "revoked",
           tokenId: "token_123",
-          stepUpCompleted: false,
         });
         expect(rendererState.logs).toContainEqual({
           _tag: "success",
@@ -543,147 +542,12 @@ describe("auth token handler", () => {
           result: {
             status: "revoked",
             tokenId: "token_123",
-            stepUpCompleted: false,
           },
         });
         expect(rendererState.logs).toEqual([]);
         expect(rendererState.suggestions).toEqual([
           { description: "List remaining tokens", cmd: "axm token list" },
         ]);
-      }),
-    );
-  });
-
-  it.effect("completes step-up before retrying token revoke", () => {
-    const deleteCalls: Array<unknown> = [];
-    const { provide, rendererState, interactionState } = makeLayers({
-      hasCredentials: true,
-      nonInteractive: false,
-      authOverrides: {
-        deleteToken: (tokenId, options) => {
-          deleteCalls.push({ tokenId, options });
-          if (options?.stepUpRequestId === undefined) {
-            return Effect.fail(
-              new StepUpRequired({
-                stepUp: {
-                  requestId: "step_01h455vb4pexka56gq5w2r7cpc",
-                  verificationUrl: "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
-                  statusUrl:
-                    "https://registry.agentxm.ai/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc",
-                  expiresAt: "2026-08-10T16:05:00.000Z",
-                  intervalSeconds: 2,
-                  maxAgeSeconds: 300,
-                  action: "Revoke access token",
-                  target: "token_123",
-                },
-                failure: new RegistryRequestFailed({
-                  category: "auth",
-                  detail: "Step-up authentication is required",
-                  metadata: { response: { status: 401 } },
-                }),
-              }),
-            );
-          }
-          return Effect.void;
-        },
-        waitForStepUpRequest: () => Effect.void,
-      },
-    });
-
-    return provide(
-      Effect.gen(function* () {
-        yield* handleRevokeToken("token_123");
-
-        expect(interactionState.openBrowserCalls).toEqual([
-          "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
-        ]);
-        expect(deleteCalls).toMatchObject([
-          { tokenId: "token_123", options: undefined },
-          {
-            tokenId: "token_123",
-            options: {
-              stepUpRequestId: "step_01h455vb4pexka56gq5w2r7cpc",
-            },
-          },
-        ]);
-        const result = expectRecord(
-          property(expectRecord(rendererState.results[0]?.data), "result"),
-        );
-        expect(result).toEqual({
-          status: "revoked",
-          tokenId: "token_123",
-          stepUpCompleted: true,
-        });
-        expect(rendererState.logs).toContainEqual({
-          _tag: "success",
-          message: "Revoked token token_123. It is refused on its next request.",
-        });
-        expect(rendererState.suggestions).toEqual([
-          { description: "List remaining tokens", cmd: "axm token list" },
-        ]);
-      }),
-    );
-  });
-
-  it.effect("emits actionable step-up instructions without opening a browser in JSON mode", () => {
-    const deleteCalls: Array<unknown> = [];
-    const { provide, rendererState, interactionState } = makeLayers({
-      hasCredentials: true,
-      machine: true,
-      json: true,
-      nonInteractive: true,
-      authOverrides: {
-        deleteToken: (tokenId, options) => {
-          deleteCalls.push({ tokenId, options });
-          if (options?.stepUpRequestId === undefined) {
-            return Effect.fail(
-              new StepUpRequired({
-                stepUp: {
-                  requestId: "step_01h455vb4pexka56gq5w2r7cpc",
-                  verificationUrl: "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
-                  statusUrl:
-                    "https://registry.agentxm.ai/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc",
-                  expiresAt: "2026-08-10T16:05:00.000Z",
-                  intervalSeconds: 2,
-                  maxAgeSeconds: 300,
-                  action: "Revoke access token",
-                  target: "token_123",
-                },
-                failure: new RegistryRequestFailed({
-                  category: "auth",
-                  detail: "Step-up authentication is required",
-                  metadata: { response: { status: 401 } },
-                }),
-              }),
-            );
-          }
-          return Effect.void;
-        },
-        waitForStepUpRequest: () => Effect.void,
-      },
-    });
-
-    return provide(
-      Effect.gen(function* () {
-        const error = yield* handleRevokeToken("token_123").pipe(Effect.flip);
-
-        expect(interactionState.openBrowserCalls).toEqual([]);
-        expect(deleteCalls).toEqual([{ tokenId: "token_123", options: undefined }]);
-        expect(error).toMatchObject({
-          code: "auth_required",
-          status: "pending-human",
-          blockedOn: "human",
-          action: {
-            kind: "open-url",
-            purpose: "step-up",
-            requestRef:
-              "https://registry.agentxm.ai/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc",
-            url: "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
-          },
-        });
-        expect(rendererState.results).toEqual([]);
-        expect(rendererState.logs).toEqual([]);
-        expect(rendererState.suggestions).toEqual([]);
       }),
     );
   });

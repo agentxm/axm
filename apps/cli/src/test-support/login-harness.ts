@@ -57,7 +57,7 @@ export const makeLoginSpecContext = (options: LoginSpecContextOptions = {}) => {
     userHandle: EXISTING_HANDLE,
     tokenType: "session",
     authority: "account" as const,
-    scopes: null,
+    permissions: null,
     resourceRestrictions: null,
     expiresAt: null,
     approvedAt: null,

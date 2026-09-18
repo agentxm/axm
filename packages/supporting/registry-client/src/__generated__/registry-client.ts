@@ -148,7 +148,6 @@ export type TokenOAuthErrorEncoded = {
     | "invalid_grant"
     | "unauthorized_client"
     | "unsupported_grant_type"
-    | "invalid_scope"
     | "authorization_pending"
     | "slow_down"
     | "expired_token"
@@ -163,7 +162,6 @@ export const TokenOAuthErrorEncoded = Schema.Struct({
     "invalid_grant",
     "unauthorized_client",
     "unsupported_grant_type",
-    "invalid_scope",
     "authorization_pending",
     "slow_down",
     "expired_token",
@@ -185,6 +183,28 @@ export const UserId = Schema.String.annotate({
     identifier: "UserId",
   }),
 );
+export type TokenPermissions = {
+  readonly permission: "read" | "publish" | "admin";
+  readonly owners: ReadonlyArray<string>;
+  readonly extensions: ReadonlyArray<string>;
+};
+export const TokenPermissions = Schema.Struct({
+  permission: Schema.Literals(["read", "publish", "admin"]).annotate({
+    description: "What the token may do: read extensions, publish versions, or administer them.",
+  }),
+  owners: Schema.Array(Schema.String).annotate({
+    description: 'Owner handles the token reaches, or "all".',
+    examples: [["@example"]],
+  }),
+  extensions: Schema.Array(Schema.String).annotate({
+    description: "Extensions the token reaches, in @handle/<plural-type>/<name> form.",
+    examples: [["@example/skills/release-bot"]],
+  }),
+}).annotate({
+  title: "Token Permissions",
+  description: "What a limited credential may do, and to which owners and extensions.",
+  identifier: "TokenPermissions",
+});
 export type ResourceRestrictions = { readonly extensions: ReadonlyArray<string> | null };
 export const ResourceRestrictions = Schema.Struct({
   extensions: Schema.Union([Schema.Array(Schema.String), Schema.Null]).annotate({
@@ -850,7 +870,6 @@ export type SessionTokenResponse = {
   readonly token_type: "Bearer";
   readonly expires_in: number;
   readonly expires_at: IsoDateTimeString;
-  readonly scope?: string | null;
 };
 export const SessionTokenResponse = Schema.Struct({
   access_token: Schema.String.annotate({ description: "OAuth 2.0 access token." }),
@@ -862,12 +881,6 @@ export const SessionTokenResponse = Schema.Struct({
     description: "Access token lifetime remaining in seconds.",
   }).check(Schema.isInt().annotate({ expected: "an integer" })),
   expires_at: IsoDateTimeString,
-  scope: Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({ description: "Space-delimited list of granted scopes." }),
-      Schema.Null,
-    ]),
-  ),
 }).annotate({
   title: "Session Token Response",
   description: "OAuth 2.0 token response containing an access/refresh token pair.",
@@ -911,9 +924,8 @@ export type AuthMeToken = {
   readonly id: string;
   readonly type: "session" | "pat" | "oidc";
   readonly name: string | null;
-  readonly permissions: Schema.Json | null;
+  readonly permissions: TokenPermissions | null;
   readonly authority: "account" | "limited";
-  readonly scopes?: ReadonlyArray<string>;
   readonly resource_restrictions?: ResourceRestrictions;
   readonly expires_at: IsoDateTimeString | null;
   readonly approved_at: IsoDateTimeString | null;
@@ -930,21 +942,14 @@ export const AuthMeToken = Schema.Struct({
     Schema.String.annotate({ description: "Human-readable name of the token, if assigned." }),
     Schema.Null,
   ]),
-  permissions: Schema.Union([
-    Schema.Json.annotate({ expected: "JSON value" }),
-    Schema.Null,
-  ]).annotate({ description: "Structured permissions associated with this token." }),
+  permissions: Schema.Union([TokenPermissions, Schema.Null]).annotate({
+    description: "What this credential may do. Null when the authority is `account`.",
+  }),
   authority: Schema.Literals(["account", "limited"]).annotate({
     title: "Credential Authority",
     description:
       "`account` when the credential is you signed in, bounded only by your permissions. `limited` when it is a credential you deliberately made narrower than yourself.",
   }),
-  scopes: Schema.optionalKey(
-    Schema.Array(Schema.String).annotate({
-      description:
-        "Scopes this credential is limited to. Present only when the authority is `limited`.",
-    }),
-  ),
   resource_restrictions: Schema.optionalKey(ResourceRestrictions),
   expires_at: Schema.Union([IsoDateTimeString, Schema.Null]),
   approved_at: Schema.Union([IsoDateTimeString, Schema.Null]).annotate({
@@ -967,15 +972,12 @@ export type ForbiddenErrorEncoded = {
     | "forbidden"
     | "insufficient_scope"
     | "resource_restriction"
-    | "gat_requires_session"
     | "credential_not_admitted"
     | "browser_session_required"
     | "identity_suspended"
     | "staff_credential_required"
     | "staff_role_required"
     | "delegated_permission_not_held"
-    | "recent_authentication_required"
-    | "step_up_wrong_actor"
     | "team_create_not_authorized"
     | "team_delete_not_authorized"
     | "team_update_not_authorized"
@@ -1010,15 +1012,12 @@ export const ForbiddenErrorEncoded = Schema.Struct({
     "forbidden",
     "insufficient_scope",
     "resource_restriction",
-    "gat_requires_session",
     "credential_not_admitted",
     "browser_session_required",
     "identity_suspended",
     "staff_credential_required",
     "staff_role_required",
     "delegated_permission_not_held",
-    "recent_authentication_required",
-    "step_up_wrong_actor",
     "team_create_not_authorized",
     "team_delete_not_authorized",
     "team_update_not_authorized",
@@ -1047,7 +1046,7 @@ export type TokenListItem = {
   readonly id: TokenId;
   readonly name: string | null;
   readonly type: string;
-  readonly permissions: Schema.Json | null;
+  readonly permissions: TokenPermissions | null;
   readonly created_at: IsoDateTimeString;
   readonly expires_at: IsoDateTimeString;
   readonly last_used_at: IsoDateTimeString | null;
@@ -1059,12 +1058,9 @@ export const TokenListItem = Schema.Struct({
     Schema.Null,
   ]),
   type: Schema.String.annotate({ description: "Token type (e.g. 'pat', 'session')." }),
-  permissions: Schema.Union([
-    Schema.Json.annotate({ expected: "JSON value" }),
-    Schema.Null,
-  ]).annotate({
+  permissions: Schema.Union([TokenPermissions, Schema.Null]).annotate({
     description:
-      "What this token may do: a permission level and an optional owner and extension allowlist.",
+      "What this token may do. Null for an interactive session, which is its holder's whole authority.",
   }),
   created_at: IsoDateTimeString,
   expires_at: IsoDateTimeString,
@@ -1078,7 +1074,7 @@ export type CreateTokenResponse = {
   readonly id: TokenId;
   readonly token: string;
   readonly name: string;
-  readonly permissions: Schema.Json;
+  readonly permissions: TokenPermissions;
   readonly created_at: IsoDateTimeString;
   readonly expires_at: IsoDateTimeString;
 };
@@ -1089,7 +1085,7 @@ export const CreateTokenResponse = Schema.Struct({
     readOnly: true,
   }),
   name: Schema.String,
-  permissions: Schema.Json.annotate({ expected: "JSON value" }),
+  permissions: TokenPermissions,
   created_at: IsoDateTimeString,
   expires_at: IsoDateTimeString,
 }).annotate({
@@ -1891,7 +1887,6 @@ export type AuthExchangeTokenRequestFormUrlEncoded = {
   readonly redirect_uri?: string | null;
   readonly device_code?: string | null;
   readonly refresh_token?: string | null;
-  readonly scope?: string | null;
 };
 export const AuthExchangeTokenRequestFormUrlEncoded = Schema.Struct({
   grant_type: Schema.String.annotate({
@@ -1944,14 +1939,6 @@ export const AuthExchangeTokenRequestFormUrlEncoded = Schema.Struct({
   refresh_token: Schema.optionalKey(
     Schema.Union([
       Schema.String.annotate({ description: "Refresh token to exchange for a new token pair." }),
-      Schema.Null,
-    ]),
-  ),
-  scope: Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({
-        description: "Optional requested scope for refresh-token exchange.",
-      }),
       Schema.Null,
     ]),
   ),
@@ -2122,6 +2109,8 @@ export const ExtensionsListByOwner200 = Schema.Struct({
 });
 export type ExtensionsListByOwner400 = DecodeErrorResponseEncoded;
 export const ExtensionsListByOwner400 = DecodeErrorResponseEncoded;
+export type ExtensionsListByOwner401 = ProblemDetails;
+export const ExtensionsListByOwner401 = ProblemDetails;
 export type ExtensionsListByOwner500 = ProblemDetails;
 export const ExtensionsListByOwner500 = ProblemDetails;
 export type ExtensionsListByOwner503 = ProblemDetails;
@@ -2173,6 +2162,8 @@ export const ExtensionsListByType200 = Schema.Struct({
 });
 export type ExtensionsListByType400 = DecodeErrorResponseEncoded;
 export const ExtensionsListByType400 = DecodeErrorResponseEncoded;
+export type ExtensionsListByType401 = ProblemDetails;
+export const ExtensionsListByType401 = ProblemDetails;
 export type ExtensionsListByType500 = ProblemDetails;
 export const ExtensionsListByType500 = ProblemDetails;
 export type ExtensionsListByType503 = ProblemDetails;
@@ -2234,6 +2225,8 @@ export const ExtensionsGet200 = Schema.Struct({
 });
 export type ExtensionsGet400 = DecodeErrorResponseEncoded;
 export const ExtensionsGet400 = DecodeErrorResponseEncoded;
+export type ExtensionsGet401 = ProblemDetails;
+export const ExtensionsGet401 = ProblemDetails;
 export type ExtensionsGet404 = ProblemDetails;
 export const ExtensionsGet404 = ProblemDetails;
 export type ExtensionsGet500 = ProblemDetails;
@@ -2395,6 +2388,8 @@ export const ExtensionsGetVersion200 = Schema.Struct({
 });
 export type ExtensionsGetVersion400 = DecodeErrorResponseEncoded;
 export const ExtensionsGetVersion400 = DecodeErrorResponseEncoded;
+export type ExtensionsGetVersion401 = ProblemDetails;
+export const ExtensionsGetVersion401 = ProblemDetails;
 export type ExtensionsGetVersion404 = ProblemDetails;
 export const ExtensionsGetVersion404 = ProblemDetails;
 export type ExtensionsGetVersion410 = ProblemDetails;
@@ -2537,6 +2532,8 @@ export type ExtensionsGetDeletionOperation503 = ProblemDetails;
 export const ExtensionsGetDeletionOperation503 = ProblemDetails;
 export type ExtensionsDownloadArchive400 = DecodeErrorResponseEncoded;
 export const ExtensionsDownloadArchive400 = DecodeErrorResponseEncoded;
+export type ExtensionsDownloadArchive401 = ProblemDetails;
+export const ExtensionsDownloadArchive401 = ProblemDetails;
 export type ExtensionsDownloadArchive404 = ProblemDetails;
 export const ExtensionsDownloadArchive404 = ProblemDetails;
 export type ExtensionsDownloadArchive500 = ProblemDetails;
@@ -2672,10 +2669,6 @@ export type ExtensionsYankVersion403 = ForbiddenErrorEncoded;
 export const ExtensionsYankVersion403 = ForbiddenErrorEncoded;
 export type ExtensionsYankVersion404 = ProblemDetails;
 export const ExtensionsYankVersion404 = ProblemDetails;
-export type ExtensionsYankVersion409 = ProblemDetails;
-export const ExtensionsYankVersion409 = ProblemDetails;
-export type ExtensionsYankVersion410 = ProblemDetails;
-export const ExtensionsYankVersion410 = ProblemDetails;
 export type ExtensionsYankVersion500 = ProblemDetails;
 export const ExtensionsYankVersion500 = ProblemDetails;
 export type ExtensionsYankVersion503 = ProblemDetails;
@@ -2708,10 +2701,6 @@ export type ExtensionsUnyankVersion403 = ForbiddenErrorEncoded;
 export const ExtensionsUnyankVersion403 = ForbiddenErrorEncoded;
 export type ExtensionsUnyankVersion404 = ProblemDetails;
 export const ExtensionsUnyankVersion404 = ProblemDetails;
-export type ExtensionsUnyankVersion409 = ProblemDetails;
-export const ExtensionsUnyankVersion409 = ProblemDetails;
-export type ExtensionsUnyankVersion410 = ProblemDetails;
-export const ExtensionsUnyankVersion410 = ProblemDetails;
 export type ExtensionsUnyankVersion500 = ProblemDetails;
 export const ExtensionsUnyankVersion500 = ProblemDetails;
 export type ExtensionsUnyankVersion503 = ProblemDetails;
@@ -2736,10 +2725,6 @@ export type ExtensionsYankAvailableVersions403 = ForbiddenErrorEncoded;
 export const ExtensionsYankAvailableVersions403 = ForbiddenErrorEncoded;
 export type ExtensionsYankAvailableVersions404 = ProblemDetails;
 export const ExtensionsYankAvailableVersions404 = ProblemDetails;
-export type ExtensionsYankAvailableVersions409 = ProblemDetails;
-export const ExtensionsYankAvailableVersions409 = ProblemDetails;
-export type ExtensionsYankAvailableVersions410 = ProblemDetails;
-export const ExtensionsYankAvailableVersions410 = ProblemDetails;
 export type ExtensionsYankAvailableVersions500 = ProblemDetails;
 export const ExtensionsYankAvailableVersions500 = ProblemDetails;
 export type ExtensionsYankAvailableVersions503 = ProblemDetails;
@@ -2834,6 +2819,8 @@ export const LibrariesListLibraries200 = Schema.Struct({
 });
 export type LibrariesListLibraries400 = DecodeErrorResponseEncoded;
 export const LibrariesListLibraries400 = DecodeErrorResponseEncoded;
+export type LibrariesListLibraries401 = ProblemDetails;
+export const LibrariesListLibraries401 = ProblemDetails;
 export type LibrariesListLibraries404 = ProblemDetails;
 export const LibrariesListLibraries404 = ProblemDetails;
 export type LibrariesListLibraries500 = ProblemDetails;
@@ -2844,6 +2831,8 @@ export type LibrariesGetLibrary200 = LibraryDetail;
 export const LibrariesGetLibrary200 = LibraryDetail;
 export type LibrariesGetLibrary400 = DecodeErrorResponseEncoded;
 export const LibrariesGetLibrary400 = DecodeErrorResponseEncoded;
+export type LibrariesGetLibrary401 = ProblemDetails;
+export const LibrariesGetLibrary401 = ProblemDetails;
 export type LibrariesGetLibrary404 = ProblemDetails;
 export const LibrariesGetLibrary404 = ProblemDetails;
 export type LibrariesGetLibrary422 = ProblemDetails;
@@ -2868,6 +2857,8 @@ export type LibrariesListLibraryMembers200 = ListLibraryMembersResponse;
 export const LibrariesListLibraryMembers200 = ListLibraryMembersResponse;
 export type LibrariesListLibraryMembers400 = DecodeErrorResponseEncoded;
 export const LibrariesListLibraryMembers400 = DecodeErrorResponseEncoded;
+export type LibrariesListLibraryMembers401 = ProblemDetails;
+export const LibrariesListLibraryMembers401 = ProblemDetails;
 export type LibrariesListLibraryMembers404 = ProblemDetails;
 export const LibrariesListLibraryMembers404 = ProblemDetails;
 export type LibrariesListLibraryMembers422 = ProblemDetails;
@@ -2953,6 +2944,8 @@ export const DiscoveryPostDiscovery200 = Schema.Struct({
 });
 export type DiscoveryPostDiscovery400 = ProblemDetails | DecodeErrorResponseEncoded;
 export const DiscoveryPostDiscovery400 = Schema.Union([ProblemDetails, DecodeErrorResponseEncoded]);
+export type DiscoveryPostDiscovery401 = ProblemDetails;
+export const DiscoveryPostDiscovery401 = ProblemDetails;
 export type DiscoveryPostDiscovery500 = ProblemDetails;
 export const DiscoveryPostDiscovery500 = ProblemDetails;
 export type HealthGetShallowHealth200 = { readonly status: "pass" | "warn" | "fail" };
@@ -3075,6 +3068,8 @@ export type SearchSearchExtensions200 = SearchResponse;
 export const SearchSearchExtensions200 = SearchResponse;
 export type SearchSearchExtensions400 = ProblemDetails | DecodeErrorResponseEncoded;
 export const SearchSearchExtensions400 = Schema.Union([ProblemDetails, DecodeErrorResponseEncoded]);
+export type SearchSearchExtensions401 = ProblemDetails;
+export const SearchSearchExtensions401 = ProblemDetails;
 export type SearchSearchExtensions500 = ProblemDetails;
 export const SearchSearchExtensions500 = ProblemDetails;
 export type SearchSearchExtensions503 = ProblemDetails;
@@ -3445,6 +3440,7 @@ export const make = (
               HttpClientResponse.matchStatus({
                 "2xx": decodeSuccess(ExtensionsListByOwner200),
                 "400": decodeError("ExtensionsListByOwner400", ExtensionsListByOwner400),
+                "401": decodeError("ExtensionsListByOwner401", ExtensionsListByOwner401),
                 "500": decodeError("ExtensionsListByOwner500", ExtensionsListByOwner500),
                 "503": decodeError("ExtensionsListByOwner503", ExtensionsListByOwner503),
                 orElse: unexpectedStatus,
@@ -3469,6 +3465,7 @@ export const make = (
               HttpClientResponse.matchStatus({
                 "2xx": decodeSuccess(ExtensionsListByType200),
                 "400": decodeError("ExtensionsListByType400", ExtensionsListByType400),
+                "401": decodeError("ExtensionsListByType401", ExtensionsListByType401),
                 "500": decodeError("ExtensionsListByType500", ExtensionsListByType500),
                 "503": decodeError("ExtensionsListByType503", ExtensionsListByType503),
                 orElse: unexpectedStatus,
@@ -3496,6 +3493,7 @@ export const make = (
               HttpClientResponse.matchStatus({
                 "200": decodeSuccess(ExtensionsGet200),
                 "400": decodeError("ExtensionsGet400", ExtensionsGet400),
+                "401": decodeError("ExtensionsGet401", ExtensionsGet401),
                 "404": decodeError("ExtensionsGet404", ExtensionsGet404),
                 "500": decodeError("ExtensionsGet500", ExtensionsGet500),
                 "503": decodeError("ExtensionsGet503", ExtensionsGet503),
@@ -3561,6 +3559,7 @@ export const make = (
               HttpClientResponse.matchStatus({
                 "200": () => Effect.void,
                 "400": decodeVoidError("400"),
+                "401": decodeVoidError("401"),
                 "404": decodeVoidError("404"),
                 "500": decodeVoidError("500"),
                 "503": decodeVoidError("503"),
@@ -3629,6 +3628,7 @@ export const make = (
               HttpClientResponse.matchStatus({
                 "2xx": decodeSuccess(ExtensionsGetVersion200),
                 "400": decodeError("ExtensionsGetVersion400", ExtensionsGetVersion400),
+                "401": decodeError("ExtensionsGetVersion401", ExtensionsGetVersion401),
                 "404": decodeError("ExtensionsGetVersion404", ExtensionsGetVersion404),
                 "410": decodeError("ExtensionsGetVersion410", ExtensionsGetVersion410),
                 "500": decodeError("ExtensionsGetVersion500", ExtensionsGetVersion500),
@@ -3748,6 +3748,7 @@ export const make = (
               HttpClientResponse.matchStatus({
                 "2xx": decodeBinary,
                 "400": decodeError("ExtensionsDownloadArchive400", ExtensionsDownloadArchive400),
+                "401": decodeError("ExtensionsDownloadArchive401", ExtensionsDownloadArchive401),
                 "404": decodeError("ExtensionsDownloadArchive404", ExtensionsDownloadArchive404),
                 "500": decodeError("ExtensionsDownloadArchive500", ExtensionsDownloadArchive500),
                 "503": decodeError("ExtensionsDownloadArchive503", ExtensionsDownloadArchive503),
@@ -3795,6 +3796,7 @@ export const make = (
               HttpClientResponse.matchStatus({
                 "200": () => Effect.void,
                 "400": decodeVoidError("400"),
+                "401": decodeVoidError("401"),
                 "404": decodeVoidError("404"),
                 "500": decodeVoidError("500"),
                 "503": decodeVoidError("503"),
@@ -3985,8 +3987,6 @@ export const make = (
                 "401": decodeError("ExtensionsYankVersion401", ExtensionsYankVersion401),
                 "403": decodeError("ExtensionsYankVersion403", ExtensionsYankVersion403),
                 "404": decodeError("ExtensionsYankVersion404", ExtensionsYankVersion404),
-                "409": decodeError("ExtensionsYankVersion409", ExtensionsYankVersion409),
-                "410": decodeError("ExtensionsYankVersion410", ExtensionsYankVersion410),
                 "500": decodeError("ExtensionsYankVersion500", ExtensionsYankVersion500),
                 "503": decodeError("ExtensionsYankVersion503", ExtensionsYankVersion503),
                 orElse: unexpectedStatus,
@@ -4019,8 +4019,6 @@ export const make = (
                 "401": decodeError("ExtensionsUnyankVersion401", ExtensionsUnyankVersion401),
                 "403": decodeError("ExtensionsUnyankVersion403", ExtensionsUnyankVersion403),
                 "404": decodeError("ExtensionsUnyankVersion404", ExtensionsUnyankVersion404),
-                "409": decodeError("ExtensionsUnyankVersion409", ExtensionsUnyankVersion409),
-                "410": decodeError("ExtensionsUnyankVersion410", ExtensionsUnyankVersion410),
                 "500": decodeError("ExtensionsUnyankVersion500", ExtensionsUnyankVersion500),
                 "503": decodeError("ExtensionsUnyankVersion503", ExtensionsUnyankVersion503),
                 orElse: unexpectedStatus,
@@ -4063,14 +4061,6 @@ export const make = (
                 "404": decodeError(
                   "ExtensionsYankAvailableVersions404",
                   ExtensionsYankAvailableVersions404,
-                ),
-                "409": decodeError(
-                  "ExtensionsYankAvailableVersions409",
-                  ExtensionsYankAvailableVersions409,
-                ),
-                "410": decodeError(
-                  "ExtensionsYankAvailableVersions410",
-                  ExtensionsYankAvailableVersions410,
                 ),
                 "500": decodeError(
                   "ExtensionsYankAvailableVersions500",
@@ -4182,6 +4172,7 @@ export const make = (
               HttpClientResponse.matchStatus({
                 "2xx": decodeSuccess(LibrariesListLibraries200),
                 "400": decodeError("LibrariesListLibraries400", LibrariesListLibraries400),
+                "401": decodeError("LibrariesListLibraries401", LibrariesListLibraries401),
                 "404": decodeError("LibrariesListLibraries404", LibrariesListLibraries404),
                 "500": decodeError("LibrariesListLibraries500", LibrariesListLibraries500),
                 "503": decodeError("LibrariesListLibraries503", LibrariesListLibraries503),
@@ -4203,6 +4194,7 @@ export const make = (
               HttpClientResponse.matchStatus({
                 "2xx": decodeSuccess(LibrariesGetLibrary200),
                 "400": decodeError("LibrariesGetLibrary400", LibrariesGetLibrary400),
+                "401": decodeError("LibrariesGetLibrary401", LibrariesGetLibrary401),
                 "404": decodeError("LibrariesGetLibrary404", LibrariesGetLibrary404),
                 "422": decodeError("LibrariesGetLibrary422", LibrariesGetLibrary422),
                 "500": decodeError("LibrariesGetLibrary500", LibrariesGetLibrary500),
@@ -4235,6 +4227,10 @@ export const make = (
                   "LibrariesListLibraryMembers400",
                   LibrariesListLibraryMembers400,
                 ),
+                "401": decodeError(
+                  "LibrariesListLibraryMembers401",
+                  LibrariesListLibraryMembers401,
+                ),
                 "404": decodeError(
                   "LibrariesListLibraryMembers404",
                   LibrariesListLibraryMembers404,
@@ -4264,6 +4260,7 @@ export const make = (
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(DiscoveryPostDiscovery200),
             "400": decodeError("DiscoveryPostDiscovery400", DiscoveryPostDiscovery400),
+            "401": decodeError("DiscoveryPostDiscovery401", DiscoveryPostDiscovery401),
             "500": decodeError("DiscoveryPostDiscovery500", DiscoveryPostDiscovery500),
             orElse: unexpectedStatus,
           }),
@@ -4310,6 +4307,7 @@ export const make = (
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(SearchSearchExtensions200),
             "400": decodeError("SearchSearchExtensions400", SearchSearchExtensions400),
+            "401": decodeError("SearchSearchExtensions401", SearchSearchExtensions401),
             "500": decodeError("SearchSearchExtensions500", SearchSearchExtensions500),
             "503": decodeError("SearchSearchExtensions503", SearchSearchExtensions503),
             orElse: unexpectedStatus,
@@ -4506,6 +4504,7 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"ExtensionsListByOwner400", typeof ExtensionsListByOwner400.Type>
+    | RegistryClientError<"ExtensionsListByOwner401", typeof ExtensionsListByOwner401.Type>
     | RegistryClientError<"ExtensionsListByOwner500", typeof ExtensionsListByOwner500.Type>
     | RegistryClientError<"ExtensionsListByOwner503", typeof ExtensionsListByOwner503.Type>
   >;
@@ -4526,6 +4525,7 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"ExtensionsListByType400", typeof ExtensionsListByType400.Type>
+    | RegistryClientError<"ExtensionsListByType401", typeof ExtensionsListByType401.Type>
     | RegistryClientError<"ExtensionsListByType500", typeof ExtensionsListByType500.Type>
     | RegistryClientError<"ExtensionsListByType503", typeof ExtensionsListByType503.Type>
   >;
@@ -4542,6 +4542,7 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"ExtensionsGet400", typeof ExtensionsGet400.Type>
+    | RegistryClientError<"ExtensionsGet401", typeof ExtensionsGet401.Type>
     | RegistryClientError<"ExtensionsGet404", typeof ExtensionsGet404.Type>
     | RegistryClientError<"ExtensionsGet500", typeof ExtensionsGet500.Type>
     | RegistryClientError<"ExtensionsGet503", typeof ExtensionsGet503.Type>
@@ -4584,6 +4585,7 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"400", undefined>
+    | RegistryClientError<"401", undefined>
     | RegistryClientError<"404", undefined>
     | RegistryClientError<"500", undefined>
     | RegistryClientError<"503", undefined>
@@ -4655,6 +4657,7 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"ExtensionsGetVersion400", typeof ExtensionsGetVersion400.Type>
+    | RegistryClientError<"ExtensionsGetVersion401", typeof ExtensionsGetVersion401.Type>
     | RegistryClientError<"ExtensionsGetVersion404", typeof ExtensionsGetVersion404.Type>
     | RegistryClientError<"ExtensionsGetVersion410", typeof ExtensionsGetVersion410.Type>
     | RegistryClientError<"ExtensionsGetVersion500", typeof ExtensionsGetVersion500.Type>
@@ -4740,6 +4743,7 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"ExtensionsDownloadArchive400", typeof ExtensionsDownloadArchive400.Type>
+    | RegistryClientError<"ExtensionsDownloadArchive401", typeof ExtensionsDownloadArchive401.Type>
     | RegistryClientError<"ExtensionsDownloadArchive404", typeof ExtensionsDownloadArchive404.Type>
     | RegistryClientError<"ExtensionsDownloadArchive500", typeof ExtensionsDownloadArchive500.Type>
     | RegistryClientError<"ExtensionsDownloadArchive503", typeof ExtensionsDownloadArchive503.Type>
@@ -4767,6 +4771,7 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"400", undefined>
+    | RegistryClientError<"401", undefined>
     | RegistryClientError<"404", undefined>
     | RegistryClientError<"500", undefined>
     | RegistryClientError<"503", undefined>
@@ -4907,8 +4912,6 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsYankVersion401", typeof ExtensionsYankVersion401.Type>
     | RegistryClientError<"ExtensionsYankVersion403", typeof ExtensionsYankVersion403.Type>
     | RegistryClientError<"ExtensionsYankVersion404", typeof ExtensionsYankVersion404.Type>
-    | RegistryClientError<"ExtensionsYankVersion409", typeof ExtensionsYankVersion409.Type>
-    | RegistryClientError<"ExtensionsYankVersion410", typeof ExtensionsYankVersion410.Type>
     | RegistryClientError<"ExtensionsYankVersion500", typeof ExtensionsYankVersion500.Type>
     | RegistryClientError<"ExtensionsYankVersion503", typeof ExtensionsYankVersion503.Type>
   >;
@@ -4929,8 +4932,6 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsUnyankVersion401", typeof ExtensionsUnyankVersion401.Type>
     | RegistryClientError<"ExtensionsUnyankVersion403", typeof ExtensionsUnyankVersion403.Type>
     | RegistryClientError<"ExtensionsUnyankVersion404", typeof ExtensionsUnyankVersion404.Type>
-    | RegistryClientError<"ExtensionsUnyankVersion409", typeof ExtensionsUnyankVersion409.Type>
-    | RegistryClientError<"ExtensionsUnyankVersion410", typeof ExtensionsUnyankVersion410.Type>
     | RegistryClientError<"ExtensionsUnyankVersion500", typeof ExtensionsUnyankVersion500.Type>
     | RegistryClientError<"ExtensionsUnyankVersion503", typeof ExtensionsUnyankVersion503.Type>
   >;
@@ -4964,14 +4965,6 @@ export interface RegistryClient {
     | RegistryClientError<
         "ExtensionsYankAvailableVersions404",
         typeof ExtensionsYankAvailableVersions404.Type
-      >
-    | RegistryClientError<
-        "ExtensionsYankAvailableVersions409",
-        typeof ExtensionsYankAvailableVersions409.Type
-      >
-    | RegistryClientError<
-        "ExtensionsYankAvailableVersions410",
-        typeof ExtensionsYankAvailableVersions410.Type
       >
     | RegistryClientError<
         "ExtensionsYankAvailableVersions500",
@@ -5066,6 +5059,7 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"LibrariesListLibraries400", typeof LibrariesListLibraries400.Type>
+    | RegistryClientError<"LibrariesListLibraries401", typeof LibrariesListLibraries401.Type>
     | RegistryClientError<"LibrariesListLibraries404", typeof LibrariesListLibraries404.Type>
     | RegistryClientError<"LibrariesListLibraries500", typeof LibrariesListLibraries500.Type>
     | RegistryClientError<"LibrariesListLibraries503", typeof LibrariesListLibraries503.Type>
@@ -5082,6 +5076,7 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"LibrariesGetLibrary400", typeof LibrariesGetLibrary400.Type>
+    | RegistryClientError<"LibrariesGetLibrary401", typeof LibrariesGetLibrary401.Type>
     | RegistryClientError<"LibrariesGetLibrary404", typeof LibrariesGetLibrary404.Type>
     | RegistryClientError<"LibrariesGetLibrary422", typeof LibrariesGetLibrary422.Type>
     | RegistryClientError<"LibrariesGetLibrary500", typeof LibrariesGetLibrary500.Type>
@@ -5106,6 +5101,10 @@ export interface RegistryClient {
     | RegistryClientError<
         "LibrariesListLibraryMembers400",
         typeof LibrariesListLibraryMembers400.Type
+      >
+    | RegistryClientError<
+        "LibrariesListLibraryMembers401",
+        typeof LibrariesListLibraryMembers401.Type
       >
     | RegistryClientError<
         "LibrariesListLibraryMembers404",
@@ -5135,6 +5134,7 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"DiscoveryPostDiscovery400", typeof DiscoveryPostDiscovery400.Type>
+    | RegistryClientError<"DiscoveryPostDiscovery401", typeof DiscoveryPostDiscovery401.Type>
     | RegistryClientError<"DiscoveryPostDiscovery500", typeof DiscoveryPostDiscovery500.Type>
   >;
   /**
@@ -5175,6 +5175,7 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"SearchSearchExtensions400", typeof SearchSearchExtensions400.Type>
+    | RegistryClientError<"SearchSearchExtensions401", typeof SearchSearchExtensions401.Type>
     | RegistryClientError<"SearchSearchExtensions500", typeof SearchSearchExtensions500.Type>
     | RegistryClientError<"SearchSearchExtensions503", typeof SearchSearchExtensions503.Type>
   >;

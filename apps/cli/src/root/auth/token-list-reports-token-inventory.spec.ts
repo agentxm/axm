@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   requirement: "cli/token/list/reports-token-inventory",
   title: "Token listing reports Registry inventory and completeness",
   statement:
-    "When token list succeeds, AXM shall report the Registry token metadata and pagination state without including token secrets.",
+    "When token list succeeds, AXM shall report the Registry token metadata, each token's permission level and allowlist in the public token vocabulary, and pagination state, without including token secrets or the Registry's internal permission model.",
   class: "functional",
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -40,9 +40,13 @@ describe("Token inventory", () => {
       const item = {
         id: "token-fixture",
         name: "automation",
-        type: "granular",
-        scopes: ["extensions:read"],
-        permissions: null,
+        type: "pat",
+        permissions: {
+          model: "gat",
+          owners: ["@alice"],
+          extensions: [],
+          permission: "read",
+        },
         createdAt: expiry,
         expiresAt: expiry,
         lastUsedAt: null,
@@ -55,9 +59,8 @@ describe("Token inventory", () => {
         Layer.succeed(RegistryUrl, registry),
         Layer.succeed(AuthEnvironment, ConfigProvider.fromEnvRecord({})),
         AuthClientTest({
-          listTokens: (token) =>
+          listTokens: () =>
             Effect.sync(() => {
-              expect(token).toBe("fixture-stored-access");
               return {
                 tokens: empty ? [] : [item],
                 hasMore: !empty,
@@ -91,11 +94,21 @@ describe("Token inventory", () => {
         expect(Schema.encodeUnknownSync(TokenListDocumentSchema)(output[0]?.data)).toMatchObject({
           items: empty
             ? []
-            : [{ id: item.id, name: item.name, scopes: item.scopes, lastUsedAt: null }],
+            : [
+                {
+                  id: item.id,
+                  name: item.name,
+                  // The public vocabulary only: the Registry's internal
+                  // permission model stays out of the document.
+                  permissions: { owners: ["@alice"], extensions: [], permission: "read" },
+                  lastUsedAt: null,
+                },
+              ],
           count: empty ? 0 : 1,
           hasMore: !empty,
           cursor: empty ? null : "next-page",
         });
+        expect(JSON.stringify(output)).not.toContain('"model"');
         expect(JSON.stringify(output)).not.toContain("fixture-hidden-secret");
         expect(JSON.stringify(output)).not.toContain("fixture-stored-access");
       }).pipe(Effect.provide(layer));

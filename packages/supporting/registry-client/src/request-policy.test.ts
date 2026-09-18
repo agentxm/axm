@@ -123,6 +123,30 @@ describe("executeRegistryRequest", () => {
     }),
   );
 
+  it.effect("does not replay a request the transport already refused for a typed reason", () =>
+    Effect.gen(function* () {
+      const attempts = yield* Ref.make(0);
+      const refused = new RegistryRequestFailed({
+        category: "auth",
+        detail: "Your session could not be renewed: Could not lock the session for refresh",
+      });
+      yield* execute(
+        Ref.update(attempts, (count) => count + 1).pipe(
+          Effect.andThen(
+            Effect.fail(
+              new HttpClientError.HttpClientError({
+                reason: new HttpClientError.TransportError({ request, cause: refused }),
+              }),
+            ),
+          ),
+        ),
+      ).pipe(Effect.flip);
+
+      // Asking again cannot change why the request never left.
+      expect(yield* Ref.get(attempts)).toBe(1);
+    }),
+  );
+
   it.effect("stops after the configured attempt bound", () =>
     Effect.gen(function* () {
       const attempts = yield* Ref.make(0);

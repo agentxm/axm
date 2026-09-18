@@ -27,7 +27,9 @@ const makeLayer = (load: CredentialStoreService["load"]) =>
     Layer.succeed(CredentialStore, {
       tier: "restricted-file",
       allowsPersistedCredentials: true,
+      withRefreshLock: (effect) => effect,
       load,
+      reload: load,
       save: () => Effect.void,
       clear: () => Effect.void,
     }),

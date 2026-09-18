@@ -87,15 +87,19 @@ describe("Truthful browser sign-in completion", () => {
               Effect.succeed({
                 userHandle: normalizeHandle("@alice"),
                 tokenType: "session",
-                scopes: [],
-                resourceRestrictions: { extensions: null },
+                authority: "account" as const,
+                permissions: null,
+                resourceRestrictions: null,
                 expiresAt: null,
+                approvedAt: null,
               }),
           }),
           Layer.succeed(CredentialStore, {
             tier: "restricted-file",
             allowsPersistedCredentials: true,
+            withRefreshLock: (effect) => effect,
             load: () => Effect.succeed(Option.none()),
+            reload: () => Effect.succeed(Option.none()),
             clear: () => Effect.void,
             save: (_registry, _handle, credentials) =>
               Deferred.await(allowPersistence).pipe(

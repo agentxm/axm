@@ -88,7 +88,7 @@ describe("registry-client failure conversion (golden pairs)", () => {
     expect(error.suggestions?.[0]?.description).toBe("Retry after 30s.");
   });
 
-  it("carries scope suggestions for insufficient-scope 403 responses", () => {
+  it("carries the narrowed-credential recovery for insufficient-scope 403 responses", () => {
     const error = toAppError(
       registryErrorToProblem(
         {
@@ -109,9 +109,10 @@ describe("registry-client failure conversion (golden pairs)", () => {
 
     expect(error.code).toBe("forbidden");
     expect(error.suggestions).toContainEqual({
-      description: "Sign in with the required registry scope.",
-      cmd: "axm login --scope extensions:publish:version",
+      description: "This credential is narrower than your account. Use your signed-in session.",
     });
+    // A 403 reaches someone who is signed in; signing in again is never it.
+    expect(JSON.stringify(error.suggestions)).not.toContain("axm login");
   });
 
   it("carries lint finding suggestions for publish lint responses", () => {

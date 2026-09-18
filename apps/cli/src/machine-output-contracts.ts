@@ -234,7 +234,7 @@ const tokenRevokeFamily = defineResultFamily({
   id: "token-revoke",
   schemaNames: ["RevokeTokenDocumentSchema"],
   requiredTopLevelKeys: ["result"],
-  scenarios: ["revoked", "step-up authentication", "auth failure"],
+  scenarios: ["revoked", "auth failure"],
   rationale: "Revocation reports one durable credential operation.",
   humanOutputKind: "mutation",
   commandCoverage: ["apps/cli/src/root/auth/token.test.ts"],

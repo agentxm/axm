@@ -75,6 +75,19 @@ People and agents can understand invalid workspace state and recover it through 
 - Limitation: Upgrade is the only delegating operation this specification exercises; another command that delegates to an external tool is covered by the statement but not yet by an example. Retires when: A second command delegates to an external tool and its event log is added to this specification.
 - Source: [`apps/cli/src/root/upgrade/delegated-operations-narrate-external-work.spec.ts`](../apps/cli/src/root/upgrade/delegated-operations-narrate-external-work.spec.ts)
 
+##### A refusal a signed-in person can hit never suggests signing in
+
+- Requirement: `cli/denials/only-being-signed-out-suggests-signing-in`
+- Owner: `registry-client`
+- Statement: When the Registry forbids an operation, AXM shall render the refusal from its wire code, offer at most one recovery, point a credential the operation does not admit at the kind it does admit, fall back to the Registry's own title and detail for a code it carries no recovery for, and never suggest signing in.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/supporting/registry-client/src/translate.ts`
+- Source: [`packages/supporting/registry-client/src/only-being-signed-out-suggests-signing-in.spec.ts`](../packages/supporting/registry-client/src/only-being-signed-out-suggests-signing-in.spec.ts)
+
 ##### Quiet takes precedence over debug and verbose diagnostics
 
 - Requirement: `cli/diagnostic-controls-select-the-requested-detail`
@@ -334,6 +347,34 @@ People and agents can understand invalid workspace state and recover it through 
 - Limitation: The HTTP evidence does not establish visual rendering or a real identity-provider round trip. Retires when: Record browser verification of the provider, callback, and terminal result.
 - Source: [`packages/supporting/registry-access/src/authentication/browser-completion-follows-credential-persistence.spec.ts`](../packages/supporting/registry-access/src/authentication/browser-completion-follows-credential-persistence.spec.ts)
 
+##### A read carries the credential the invocation holds
+
+- Requirement: `cli/reads-carry-the-invocations-credential`
+- Owner: `registry-access`
+- Statement: When an invocation reads from a Registry, AXM shall present the credential it holds — so a signed-in person sees what their permissions allow, including their own private extensions — shall read anonymously when it holds none rather than refusing, shall fail the read with the reason, sending nothing, when a credential source it was pointed at — a token file or the credential store — cannot be read, shall treat a read the Registry rejects for its credential exactly as a rejected write — renewing a stored session once and retrying, and otherwise keeping the rejection rather than reading anonymously — and shall leave a credential the caller set on the request exactly as the caller set it.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/supporting/registry-access/src/adapters/auth-middleware.ts`
+- Additional evidence: process via [`apps/cli-e2e/src/rejected-read-credential.e2e.test.ts`](../apps/cli-e2e/src/rejected-read-credential.e2e.test.ts) — Only a real invocation against a real HTTP origin shows a rejected read travelling the same renewal as a rejected write, and a rejected or unreadable ambient credential reported for what it is rather than hidden behind a not-found.
+- Source: [`packages/supporting/registry-access/src/adapters/reads-carry-the-invocations-credential.spec.ts`](../packages/supporting/registry-access/src/adapters/reads-carry-the-invocations-credential.spec.ts)
+
+##### The transport renews a stored session, and nothing else does
+
+- Requirement: `cli/session/renews-the-stored-session-once`
+- Owner: `registry-access`
+- Statement: When an invocation presents a stored session, AXM shall renew it before a request whose access token expires within five minutes and once after the Registry rejects it, present the renewed credential on a single retry, report being signed out when the Registry refuses the renewal, keep the session and fail the request with the reason when the Registry cannot be reached or credential storage refuses, never reporting either as being signed out, and never renew an ambient credential.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/supporting/registry-access/src/adapters/auth-middleware.ts`, `packages/supporting/registry-access/src/credentials/session-refresh.ts`
+- Supersedes: `cli/whoami/refreshes-rejected-stored-credentials`
+- Source: [`packages/supporting/registry-access/src/adapters/renews-the-stored-session-once.spec.ts`](../packages/supporting/registry-access/src/adapters/renews-the-stored-session-once.spec.ts)
+
 ##### Availability outcomes retain the observed reason
 
 - Requirement: `cli/upgrade/availability-failures-are-attributed`
@@ -347,25 +388,11 @@ People and agents can understand invalid workspace state and recover it through 
 - Derived from: `cli/upgrade/machine-result-is-upgrade-assessment`
 - Source: [`apps/cli/src/root/upgrade/availability-failures-are-attributed.spec.ts`](../apps/cli/src/root/upgrade/availability-failures-are-attributed.spec.ts)
 
-##### Identity inspection recovers an expired stored session
-
-- Requirement: `cli/whoami/refreshes-rejected-stored-credentials`
-- Owner: `registry-access`
-- Statement: When the Registry rejects identity credentials with HTTP 401, AXM shall recover a stored session by refreshing and persisting its replacement credentials and retrying once, report authentication required when rejection remains, and leave ambient credentials and other failures without refresh retries.
-- Class: functional
-- Role: experience
-- Product goals: `actionable-diagnostics`
-- Boundary: memory; selection: per-change
-- Methods: example
-- Derived from: `packages/supporting/registry-access/src/authentication/identity.ts`
-- Open questions: Is this the authority for registry-access's generic Registry-request 401 recovery, which auth-middleware.ts implements for every authenticated request, or only for identity inspection? cli/registry-management-preserves-authentication-failures asserts no replay for lifecycle and visibility writes holding a stored session, so one of the two must name the credential class it governs.
-- Source: [`packages/supporting/registry-access/src/credentials/refreshes-rejected-stored-credentials.spec.ts`](../packages/supporting/registry-access/src/credentials/refreshes-rejected-stored-credentials.spec.ts)
-
 ##### Identity inspection shows the active identity and permissions
 
 - Requirement: `cli/whoami/reports-safe-effective-identity`
 - Owner: `cli`
-- Statement: When authenticated, whoami shall report the handle, Registry, credential type, effective scopes, enforced extension restrictions, and source-backed or unavailable expiry from the canonical Registry identity operation in human and machine output, excluding email, credential identifiers, token material, and internal permission markers.
+- Statement: When signed in, whoami shall report the handle, Registry, credential type, credential authority, the approving sign-in time when there is one, and source-backed or unavailable expiry from the canonical Registry identity operation in human and machine output; it shall report the permission level, its owner and extension allowlist, and enforced extension restrictions only for a limited credential, in the vocabulary a token is described in, and shall exclude email, credential identifiers, token material, and the Registry's internal scope strings and permission markers.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `machine-automation`
@@ -1523,7 +1550,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/login/reuses-pending-authorization`
 - Owner: `registry-access`
-- Statement: When a device authorization is unexpired, AXM shall reuse it for the same Registry and equivalent requested scopes, refuse a conflicting request without changing it, and replace it only when restart is explicitly requested.
+- Statement: When a device authorization is unexpired, AXM shall reuse it for the same Registry, refuse a request for a different Registry without changing it, and replace it only when restart is explicitly requested.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -1536,7 +1563,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/login/starts-resumable-device-sign-in`
 - Owner: `registry-access`
-- Statement: When device sign-in starts unattended, AXM shall retain the pending authorization and return its verification URL, user code, expiry, requested scopes, and resume command without waiting for approval or opening a browser.
+- Statement: When device sign-in starts unattended, AXM shall retain the pending authorization and return its verification URL, user code, expiry, and resume command without waiting for approval or opening a browser.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -1587,40 +1614,24 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Derived from: `packages/supporting/registry-access/src/authentication/logout.ts`
 - Source: [`packages/supporting/registry-access/src/credentials/erases-selected-registry-credentials.spec.ts`](../packages/supporting/registry-access/src/credentials/erases-selected-registry-credentials.spec.ts)
 
-##### Publish authorization resumes the exact reviewed publication
-
-- Requirement: `cli/publish/authorization-resumes-the-exact-publication`
-- Owner: `registry-access`
-- Statement: When unattended publish has no publication authority, AXM shall persist a private initiator proof, return a human handoff carrying the registry-protocol publish action and no proof, and neither wait nor upload; a resume reference shall resume only that same request with unchanged publication material, a bounded wait shall return the same handoff when it elapses, and resume shall refuse a foreign, different-purpose or query-bearing reference and changed archives or visibility before exchange, exchange only an approved request, and require explicit recovery for denial, expiry or a prior exchange without replacing the request or replaying uploads.
-- Class: functional
-- Role: experience
-- Product goals: `machine-automation`, `privacy-and-consent`, `safe-repetition`
-- Boundary: memory; selection: per-change
-- Methods: decision-table, example
-- Open questions: Which specification owns the generic human-handoff protocol (an immediate pending handoff unless a bounded wait was requested, resume only the referenced request, never a silent replacement) that this identity, cli/unattended-verification-is-resumable and cli/login/starts-resumable-device-sign-in each restate for their own purpose?
-- Limitation: These cases control the Registry boundary and observe typed outcomes; the server owns approval and atomic exchange enforcement, and full publish command evidence separately covers upload settlement. Retires when: Coordinated end-to-end evidence binds persisted CLI resume, server approval and publication outcome recovery.
-- Limitation: The exit codes and rendered JSON envelope these outcomes produce (13 pending, 14 expired, 15 denied, 16 wait elapsed, 6 already exchanged) are a boundary mapping this capability cannot observe; they are pinned by apps/cli/src/auth-pending-envelopes.test.ts. Retires when: cli/exit-codes-match-published-reference adopts the publish-authorization exit codes as decisive rows.
-- Source: [`packages/supporting/registry-access/src/authentication/publish-authorization-resumes-the-exact-publication.spec.ts`](../packages/supporting/registry-access/src/authentication/publish-authorization-resumes-the-exact-publication.spec.ts)
-
 ##### Token creation requests the chosen lifetime and permissions
 
 - Requirement: `cli/token/create/submits-requested-authority`
 - Owner: `registry-access`
-- Statement: When creating a token, AXM shall submit the requested name, lifetime, and permission restrictions using the effective credential and report the issued token without replacing the current session.
+- Statement: When creating a token, AXM shall submit the requested name, lifetime, and permission restrictions, and report the issued token without replacing the current session.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `packages/supporting/registry-access/src/authentication/tokens.ts`
-- Open questions: Which token-lifetime input forms, omitted-input default, and valid range should the CLI guarantee? Command help and parser tests are witnesses for the current forms and default; this requirement allocates submission of the selected lifetime, not an undecided lifetime-input policy.
 - Source: [`packages/supporting/registry-access/src/authentication/tokens/create-submits-requested-authority.spec.ts`](../packages/supporting/registry-access/src/authentication/tokens/create-submits-requested-authority.spec.ts)
 
 ##### Token listing reports Registry inventory and completeness
 
 - Requirement: `cli/token/list/reports-token-inventory`
 - Owner: `cli`
-- Statement: When token list succeeds, AXM shall report the Registry token metadata and pagination state without including token secrets.
+- Statement: When token list succeeds, AXM shall report the Registry token metadata, each token's permission level and allowlist in the public token vocabulary, and pagination state, without including token secrets or the Registry's internal permission model.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -1633,7 +1644,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/token/revoke/revokes-only-selected-token`
 - Owner: `registry-access`
-- Statement: When token revoke is requested, AXM shall request deletion of the selected token identifier using the effective credential and report success only after the Registry accepts deletion.
+- Statement: When token revoke is requested, AXM shall request deletion of the selected token identifier once, without asking the signed-in person for further verification, and report success only after the Registry accepts deletion.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -1729,7 +1740,7 @@ Observation of product use stays within the documented data boundary and under t
 - Methods: decision-table, example
 - Derived from: `AgentXM Registry API 0.1.0`, `packages/supporting/registry-access/src/authentication/step-up.ts`, `cli/token/completes-required-human-verification`
 - Supersedes: `cli/token/completes-required-human-verification`
-- Limitation: Token creation and revocation are exercised through their own use cases; the version-lifecycle and visibility writes are exercised as parameterized mutation ports, so that yank, unyank, visibility set and visibility reconcile each compose this capability is not established here. Retires when: Workspace publishing carries a test proving each lifecycle and visibility command composes runWithStepUp with its observed revision.
+- Limitation: Token creation is exercised through its own use case; the visibility writes are exercised as parameterized mutation ports, so that visibility set and visibility reconcile each compose this capability is not established here. Retires when: Workspace publishing carries a test proving each visibility command composes runWithStepUp with its observed revision.
 - Additional evidence: process via [`apps/cli-e2e/src/auth.e2e.test.ts`](../apps/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout and HTTP verification followed by token creation. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
 - Source: [`packages/supporting/registry-access/src/authentication/step-up/registry-writes-complete-required-verification.spec.ts`](../packages/supporting/registry-access/src/authentication/step-up/registry-writes-complete-required-verification.spec.ts)
 
@@ -2068,6 +2079,20 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `cli/knowledge/new/creates-enabled-workspace-content`
 - Source: [`packages/core/workspace/src/knowledge/authoring/preview-is-pure.spec.ts`](../packages/core/workspace/src/knowledge/authoring/preview-is-pure.spec.ts)
 
+##### Login replaces a stored session only when the Registry rejects it
+
+- Requirement: `cli/login/only-a-rejected-session-starts-a-new-sign-in`
+- Owner: `registry-access`
+- Statement: When login finds a stored session, AXM shall ask the Registry who it is through the transport that renews a stored session, without naming the stored access token; it shall start a new sign-in when the Registry rejects the credential, and shall report the failure and start no sign-in when the Registry cannot be asked.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/supporting/registry-access/src/authentication/login.ts`
+- Assumptions: The transport renews a stored session before and after a rejection, as cli/session/renews-the-stored-session-once requires, so a rejection that reaches login is the Registry's answer about the session and not about a lapsed access token.
+- Source: [`packages/supporting/registry-access/src/authentication/only-a-rejected-session-starts-a-new-sign-in.spec.ts`](../packages/supporting/registry-access/src/authentication/only-a-rejected-session-starts-a-new-sign-in.spec.ts)
+
 ##### Inline MCP server add preview describes the entry without changing any state
 
 - Requirement: `cli/mcps/add/preview-is-pure`
@@ -2242,7 +2267,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 
 - Requirement: `cli/publish/preview-is-pure`
 - Owner: `workspace`
-- Statement: When publish runs in preview mode, AXM shall report the admitted publication set or identify missing exact-publication authorization with a next action for the same selection, without creating authorization, uploading anything to the target registry, or changing settings, the lockfile, or authored content.
+- Statement: When publish runs in preview mode, AXM shall report the admitted publication set or, for a signed-out person, report sign-in as the unmet precondition for the same selection, without contacting the target registry for anything but reads, uploading anything, or changing settings, the lockfile, or authored content.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `trustworthy-distribution`
@@ -2267,6 +2292,21 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Methods: example
 - Derived from: `cli/rules/new/creates-enabled-workspace-content`
 - Source: [`packages/core/workspace/src/instructions/authoring/new/preview-is-pure.spec.ts`](../packages/core/workspace/src/instructions/authoring/new/preview-is-pure.spec.ts)
+
+##### Concurrent invocations spend one refresh token and end with one session
+
+- Requirement: `cli/session/concurrent-renewal-spends-one-refresh-token`
+- Owner: `registry-access`
+- Statement: When several invocations sharing a credential home renew the same session at once, AXM shall present the refresh token to the Registry once, leave exactly one valid session stored, answer every invocation with the session that was stored, and, when the Registry ends the session, erase it and answer every invocation that it ended without presenting the refused refresh token again.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/supporting/registry-access/src/credentials/session-refresh.ts`, `packages/supporting/registry-access/src/credentials/credential-store.ts`
+- Assumptions: Registry refresh tokens rotate with reuse detection: presenting a spent one ends the whole family.
+- Additional evidence: process via [`apps/cli-e2e/src/concurrent-session-renewal.e2e.test.ts`](../apps/cli-e2e/src/concurrent-session-renewal.e2e.test.ts) — Only separate processes over one credential home exercise the cross-process file lock and the re-read under it; an in-memory permit shared by fibers proves neither.
+- Source: [`packages/supporting/registry-access/src/credentials/concurrent-renewal-spends-one-refresh-token.spec.ts`](../packages/supporting/registry-access/src/credentials/concurrent-renewal-spends-one-refresh-token.spec.ts)
 
 ##### Setup preview describes the workspace it would create without creating it
 
@@ -4528,19 +4568,20 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 #### External conformance
 
-##### Publication uploads are bound to the reviewed source and visibility
+##### Publishing is a write the publisher makes as themselves
 
-- Requirement: `cli/publish/uploads-the-reviewed-publication-set`
+- Requirement: `cli/publish/requires-a-signed-in-person`
 - Owner: `workspace`
-- Statement: For a remotely authorized publication, AXM shall bind each actual archive upload to its reviewed publication-set-v2 candidate using the granted capability, condition, publication-set digest, descriptor digest, and resolved visibility, and report the Registry's acknowledged outcome.
+- Statement: AXM shall publish with the credential the invocation already holds — binding each archive upload to its previewed publication-set-v2 candidate through that credential, with the condition, publication-set digest, descriptor digest and resolved visibility, and reporting the Registry's acknowledged outcome — and, with no credential, shall report that the person is signed out, offer sign-in, dispatch no upload and create no server state.
 - Class: external-conformance
 - Role: interface
 - Product goals: `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: example, contract
 - Derived from: `AgentXM Registry API 0.1.0`, `apps/cli/src/root/publish/command.test.ts`
-- Open questions: If local source changes after publication review, must AXM abort and revoke unused grants, or may it upload the frozen reviewed archive? The current implementation aborts; the accepted requirement binds actual upload bytes to the reviewed set without choosing an enforcement strategy.
-- Source: [`packages/core/workspace/src/publishing/authorization/uploads-the-reviewed-publication-set.spec.ts`](../packages/core/workspace/src/publishing/authorization/uploads-the-reviewed-publication-set.spec.ts)
+- Supersedes: `cli/publish/uploads-the-reviewed-publication-set`
+- Open questions: If local source changes after the authoritative preview, must AXM abort or may it upload the previewed archive? The current implementation aborts; the accepted requirement binds actual upload bytes to the previewed set without choosing an enforcement strategy.
+- Source: [`packages/core/workspace/src/publishing/authorization/publishing-requires-a-signed-in-person.spec.ts`](../packages/core/workspace/src/publishing/authorization/publishing-requires-a-signed-in-person.spec.ts)
 
 ### Goal: workspace-intent-fidelity
 

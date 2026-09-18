@@ -10,11 +10,7 @@ import * as Option from "effect/Option";
 
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import { redactRegistryText } from "@agentxm/registry-client";
-import {
-  PublishAuthorizationPending,
-  StepUpVerificationPending,
-  type AuthError,
-} from "@agentxm/registry-access/authentication";
+import { StepUpVerificationPending, type AuthError } from "@agentxm/registry-access/authentication";
 import {
   StepFailure,
   unitIdOf,
@@ -45,7 +41,7 @@ export const publishStepFailure = (failure: PublishFailure | AuthError): StepFai
   if (!isPublishFailure(failure)) {
     return new StepFailure({
       category: "auth",
-      detail: "Publication authorization did not complete.",
+      detail: "Publication did not complete because authentication did not.",
       cause: failure,
     });
   }
@@ -62,13 +58,8 @@ export const publishStepFailure = (failure: PublishFailure | AuthError): StepFai
  * The pending human handoff a settled step carried, if any. Publication did
  * not start, so the invocation reports the handoff instead of a result.
  */
-export const pendingHumanCause = (
-  failure: StepFailure,
-): PublishAuthorizationPending | StepUpVerificationPending | undefined =>
-  failure.cause instanceof PublishAuthorizationPending ||
-  failure.cause instanceof StepUpVerificationPending
-    ? failure.cause
-    : undefined;
+export const pendingHumanCause = (failure: StepFailure): StepUpVerificationPending | undefined =>
+  failure.cause instanceof StepUpVerificationPending ? failure.cause : undefined;
 
 /** The typed failure a settled step carried, or a generic one it did not. */
 export const publishStepFailureCause = (failure: StepFailure): PublishFailure =>

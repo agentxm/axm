@@ -6,7 +6,7 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 import {
   ExtensionIdentityMismatchErrorEncoded,
   ExtensionLintFailedErrorEncoded,
-  ForbiddenErrorEncoded,
+  type ForbiddenErrorEncoded,
   type RegistryClientError,
 } from "./__generated__/registry-client.js";
 import { RegistryProblem, type RegistryErrorCategory } from "./errors.js";
@@ -26,7 +26,6 @@ const EmptyProblem: ProblemDetails = {};
 const isProblemDetails = (value: unknown): value is ProblemDetails =>
   typeof value === "object" && value !== null;
 
-const decodeForbiddenError = Schema.decodeUnknownSync(ForbiddenErrorEncoded);
 const decodeExtensionLintFailedError = Schema.decodeUnknownSync(ExtensionLintFailedErrorEncoded);
 const decodeExtensionIdentityMismatchError = Schema.decodeUnknownSync(
   ExtensionIdentityMismatchErrorEncoded,
@@ -38,6 +37,15 @@ const tryDecode = <A>(decode: (input: unknown) => A, input: unknown): A | undefi
   } catch {
     return undefined;
   }
+};
+
+const getStringField = (value: unknown, field: string): string | undefined => {
+  if (value === null || value === undefined || typeof value !== "object") {
+    return undefined;
+  }
+
+  const fieldValue: unknown = Reflect.get(value, field);
+  return typeof fieldValue === "string" ? fieldValue : undefined;
 };
 
 export const httpStatusToCategory = (status: number, code?: string): RegistryErrorCategory => {
@@ -88,19 +96,94 @@ const retryAfterSuggestedAction = (
     : { description: `Retry after ${String(retryAfterSeconds)}s.` };
 };
 
-const scopeDeniedSuggestedAction = (body: unknown): SuggestedAction | undefined => {
-  const decoded = tryDecode(decodeForbiddenError, body);
-  const requiredScope =
-    decoded?.details !== undefined && "requiredScope" in decoded.details
-      ? decoded.details.requiredScope
-      : undefined;
+/** The credential kinds a `credential_not_admitted` refusal says it would accept. */
+const admittedCredentials = (body: unknown): ReadonlyArray<string> => {
+  if (typeof body !== "object" || body === null) return [];
+  const details: unknown = Reflect.get(body, "details");
+  if (typeof details !== "object" || details === null) return [];
+  const admitted: unknown = Reflect.get(details, "admittedCredentials");
+  return Array.isArray(admitted)
+    ? admitted.filter((kind): kind is string => typeof kind === "string")
+    : [];
+};
 
-  return requiredScope === undefined
-    ? undefined
-    : {
-        description: "Sign in with the required registry scope.",
-        cmd: `axm login --scope ${requiredScope}`,
-      };
+/**
+ * An operation that does not admit the presented credential names the kinds it
+ * does. A CLI session among them means the person already holds what it takes;
+ * a browser session alone means the operation lives on the web. Neither is a
+ * reason to sign in again.
+ */
+const credentialNotAdmittedRecovery = (body: unknown): SuggestedAction => {
+  const admitted = admittedCredentials(body);
+  if (admitted.includes("session")) {
+    return {
+      description:
+        "This operation does not accept a token. Use your signed-in session: unset AXM_TOKEN and AXM_TOKEN_FILE, then rerun.",
+    };
+  }
+  return admitted.includes("browser-session")
+    ? { description: "Complete this one on the web.", url: "https://agentxm.ai" }
+    : { description: "This credential may not perform this operation." };
+};
+
+/**
+ * What a person can do about one forbidding rule.
+ *
+ * A 403 reaches a caller who is signed in, so no entry here suggests signing
+ * in. A credential the person made narrower than themselves is pointed at the
+ * session they already hold, never at a new one. Each code gets at most one
+ * recovery, and a code this table does not know keeps the Registry's own title
+ * and detail rather than inventing guidance for it.
+ */
+const FORBIDDEN_RECOVERIES: Partial<
+  Record<ForbiddenErrorEncoded["code"], SuggestedAction | ((body: unknown) => SuggestedAction)>
+> = {
+  insufficient_scope: {
+    description: "This credential is narrower than your account. Use your signed-in session.",
+  },
+  resource_restriction: {
+    description: "This credential is restricted to other resources. Use your signed-in session.",
+  },
+  browser_session_required: {
+    description: "Complete this one on the web.",
+    url: "https://agentxm.ai",
+  },
+  credential_not_admitted: (body) => credentialNotAdmittedRecovery(body),
+  identity_suspended: {
+    description: "Contact support to restore this account.",
+    url: "https://agentxm.ai/support",
+  },
+  staff_credential_required: { description: "This operation is restricted to AgentXM staff." },
+  staff_role_required: { description: "Your staff role does not include this operation." },
+  delegated_permission_not_held: {
+    description: "Ask an owner of this resource for the permission this needs.",
+  },
+  "publish/handle-not-owned": {
+    description: "Publish under a handle you own, or ask its owner to add you.",
+  },
+  "publish/insufficient-scope": {
+    description: "This credential cannot publish. Use your signed-in session.",
+  },
+  "publish/resource-restriction": {
+    description: "This credential is restricted to other extensions. Use your signed-in session.",
+  },
+  "publish/publish-forbidden": {
+    description: "Ask an owner of this extension for publish permission.",
+  },
+};
+
+const hasRecovery = (code: string): code is keyof typeof FORBIDDEN_RECOVERIES =>
+  Object.hasOwn(FORBIDDEN_RECOVERIES, code);
+
+/**
+ * The recovery is keyed by the wire code alone, so a refusal whose details
+ * this client cannot decode still gets the guidance its code deserves.
+ */
+const forbiddenSuggestedAction = (body: unknown): SuggestedAction | undefined => {
+  const code = getStringField(body, "code");
+  if (code === undefined || !hasRecovery(code)) return undefined;
+  const recovery = FORBIDDEN_RECOVERIES[code];
+  return typeof recovery === "function" ? recovery(body) : recovery;
 };
 
 const lintFailedSuggestions = (body: unknown): ReadonlyArray<SuggestedAction> => {
@@ -150,15 +233,6 @@ const serverErrorSuggestedAction = (status: number): SuggestedAction | undefined
       }
     : undefined;
 
-const getStringField = (value: unknown, field: string): string | undefined => {
-  if (value === null || value === undefined || typeof value !== "object") {
-    return undefined;
-  }
-
-  const fieldValue: unknown = Reflect.get(value, field);
-  return typeof fieldValue === "string" ? fieldValue : undefined;
-};
-
 const problemSuggestions = (
   status: number,
   problem: ProblemDetails,
@@ -166,11 +240,11 @@ const problemSuggestions = (
 ): ReadonlyArray<SuggestedAction> => {
   const body = problem;
   const retry = retryAfterSuggestedAction(status, body, response);
-  const scope = status === 403 ? scopeDeniedSuggestedAction(body) : undefined;
+  const forbidden = status === 403 ? forbiddenSuggestedAction(body) : undefined;
   const serverError = serverErrorSuggestedAction(status);
   return [
     ...(retry === undefined ? [] : [retry]),
-    ...(scope === undefined ? [] : [scope]),
+    ...(forbidden === undefined ? [] : [forbidden]),
     ...(serverError === undefined ? [] : [serverError]),
     ...(status === 422 && problem.code === "extension_lint_failed"
       ? lintFailedSuggestions(body)

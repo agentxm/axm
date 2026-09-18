@@ -16,13 +16,12 @@ import {
 } from "./pending-device-login-store.js";
 
 const pending: PendingDeviceLogin = {
-  version: 2,
+  version: 3,
   registryUrl: "https://registry.agentxm.ai",
   deviceCode: "device-secret",
   userCode: "ABCD-1234",
   verificationUri: "https://agentxm.ai/device",
   verificationUriComplete: "https://agentxm.ai/device?user_code=ABCD-1234",
-  requestedScopes: ["account:read", "extensions:read"],
   interval: 5,
   expiresAt: DateTime.makeUnsafe("2099-08-03T15:10:00Z"),
 };

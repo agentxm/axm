@@ -9,10 +9,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { GitDirectoryComparison } from "../resolution/sources/index.js";
-import {
-  AuthClient,
-  PendingPublishAuthorizationStore,
-} from "@agentxm/registry-access/authentication";
+import { AuthClient } from "@agentxm/registry-access/authentication";
 
 import { PUBLISHABLE_TYPES, type PublishableType } from "./publishable-types.js";
 import {
@@ -76,8 +73,6 @@ describe("./testing.js", () => {
     Effect.gen(function* () {
       const auth = yield* AuthClient;
       expect(typeof auth.getMe).toBe("function");
-      const pending = yield* PendingPublishAuthorizationStore;
-      expect(typeof pending.load).toBe("function");
       const comparison = yield* GitDirectoryComparison;
       // A temporary fixture directory is inside no worktree, and the default
       // comparison says exactly that rather than inventing a clean tree.

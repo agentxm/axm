@@ -17,13 +17,12 @@ import { RegistryAccessFailed } from "./errors.js";
 import { envOption } from "../adapters/environment.js";
 
 export const PendingDeviceLoginSchema = Schema.Struct({
-  version: Schema.Literal(2),
+  version: Schema.Literal(3),
   registryUrl: Schema.String,
   deviceCode: Schema.String,
   userCode: Schema.String,
   verificationUri: Schema.String,
   verificationUriComplete: Schema.String,
-  requestedScopes: Schema.Array(Schema.String),
   interval: Schema.Number,
   expiresAt: DateTimeUtcSchema,
 }).annotate({

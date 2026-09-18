@@ -22,7 +22,6 @@ import { isRegistryClientFailure } from "@agentxm/registry-client";
 import { AuthClient, readStepUpRequest } from "./auth-client.js";
 import { CredentialStore } from "../credentials/credential-store.js";
 import {
-  authLoginRequired,
   RegistryAccessFailed,
   StepUpRequired,
   StepUpVerificationPending,
@@ -160,13 +159,9 @@ export const runWithStepUp = <A, E, R>(
       return yield* Effect.fail(initial.failure);
     }
 
-    const token = yield* resolveRequiredToken(registryUrl, {
-      missingTokenError: authLoginRequired("Not authenticated"),
-    });
+    yield* resolveRequiredToken(registryUrl);
     const resumed =
-      resumedId === undefined
-        ? undefined
-        : yield* authClient.getStepUpRequest(token.token, resumedId);
+      resumedId === undefined ? undefined : yield* authClient.getStepUpRequest(resumedId);
     if (resumed !== undefined && resumed.status !== "pending" && resumed.status !== "verified") {
       return yield* new RegistryAccessFailed({
         category:
@@ -230,7 +225,7 @@ export const runWithStepUp = <A, E, R>(
         { _tag: "WaitingForHumanVerification", operation: presentation.waitingLabel },
         () =>
           authClient
-            .waitForStepUpRequest(token.token, stepUp.statusUrl, stepUp.intervalSeconds)
+            .waitForStepUpRequest(stepUp.statusUrl, stepUp.intervalSeconds)
             .pipe(
               Effect.timeoutOption(
                 Duration.millis(

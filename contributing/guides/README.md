@@ -14,7 +14,7 @@ commands or executable sources.
 - [Effect](effect.md) — AXM's Effect version and local policy
 - [Effect errors](effect-errors.md) — CLI error translation and cancellation
 - [Effect layers](effect-layers.md) — CLI runtime composition
-- [Authentication](authentication.md) — login scope policy and device-flow contracts
+- [Authentication](authentication.md) — the two sign-in states, the commands that may ask for more, session renewal, and device-flow contracts
 
 ## Engineering and operations
 

@@ -1,4 +1,3 @@
-import { humanVerificationFlags, withHumanVerificationOptions } from "../../cli-flags/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
@@ -24,23 +23,11 @@ import {
 import { publishFailureToAppError } from "../../feature-errors.js";
 
 import { withRuntime } from "../../runtime.js";
-import { HumanVerificationOptions, isNonInteractive, jsonFlag } from "../../cli-flags/index.js";
 
 const categoryValues = ["broken", "security", "accidental", "other"] as const;
 
 export const LifecycleTransitionOutputSchema = DeprecationTransitionSchema.annotate({
   identifier: "LifecycleTransitionOutput",
-});
-
-/** The invocation's human-verification inputs, as the capability reads them. */
-const verificationOptions = Effect.gen(function* () {
-  const { stepUpRequest, waitForHuman } = yield* HumanVerificationOptions;
-  const unattended = (yield* isNonInteractive) || Option.getOrElse(yield* jsonFlag, () => false);
-  return {
-    ...(Option.isNone(stepUpRequest) ? {} : { resumeReference: stepUpRequest.value }),
-    ...(Option.isNone(waitForHuman) ? {} : { waitForHumanSeconds: waitForHuman.value }),
-    unattended,
-  };
 });
 
 /**
@@ -69,7 +56,6 @@ export const handleYank = Effect.fn("Yank.handle")(
         allVersions: input.allVersions,
         ...(category === undefined ? {} : { category }),
         ...(notice === undefined ? {} : { notice }),
-        verification: yield* verificationOptions,
       }),
     );
   },
@@ -79,9 +65,7 @@ export const handleYank = Effect.fn("Yank.handle")(
 
 export const handleUnyank = Effect.fn("Unyank.handle")(
   function* (ref: string) {
-    yield* emitRegistryTransition(
-      yield* RetirePublishedVersion.unyank(ref, yield* verificationOptions),
-    );
+    yield* emitRegistryTransition(yield* RetirePublishedVersion.unyank(ref));
   },
   Effect.mapError(publishFailureToAppError),
   Effect.asVoid,
@@ -145,7 +129,6 @@ export const handleUndeprecate = Effect.fn("Undeprecate.handle")(
 );
 
 const yankConfig = {
-  ...humanVerificationFlags,
   ref: Argument.String("extension").pipe(
     Argument.withDescription("Exact version ref, or an extension FQN with --all-versions"),
   ),
@@ -164,7 +147,6 @@ const yankConfig = {
 } as const;
 
 const exactRefConfig = {
-  ...humanVerificationFlags,
   ref: Argument.String("extension").pipe(
     Argument.withDescription("Exact extension version ref (@owner/<plural-type>/name@1.2.3)"),
   ),
@@ -213,7 +195,6 @@ const deprecateCapabilities: CommandCapabilities = {
 export const yankCommand = Command.make("yank", yankConfig, (input) =>
   handleYank(input).pipe(withRuntime("yank")),
 ).pipe(
-  withHumanVerificationOptions,
   withArgvTracking(yankConfig),
   withCommandCapabilities(directWriteCapabilities("registry")),
   Command.withDescription("Exclude extension versions from fresh resolution"),
@@ -229,7 +210,6 @@ export const yankCommand = Command.make("yank", yankConfig, (input) =>
 export const unyankCommand = Command.make("unyank", exactRefConfig, ({ ref }) =>
   handleUnyank(ref).pipe(withRuntime("unyank")),
 ).pipe(
-  withHumanVerificationOptions,
   withArgvTracking(exactRefConfig),
   withCommandCapabilities(directWriteCapabilities("registry")),
   Command.withDescription("Restore one exact version to fresh resolution"),

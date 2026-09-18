@@ -59,7 +59,7 @@ describe("Disabled credential persistence", () => {
         AuthTokenPolicyRequired,
       );
 
-      expect(ports.requestedScopes).toEqual([]);
+      expect(ports.deviceAuthorizations).toEqual([]);
       expect(Option.isNone(yield* (yield* PendingDeviceLoginStore).load())).toBe(true);
       expect(yield* store.load(authRegistry)).toEqual(before);
 

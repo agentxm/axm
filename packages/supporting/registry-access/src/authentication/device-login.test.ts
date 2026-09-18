@@ -33,16 +33,16 @@ const makeLayers = (opts?: {
   const presenter = AuthLoginPresenterTest(
     opts?.machine ? { tryEmitPendingDeviceLogin: () => Effect.succeed(true) } : undefined,
   );
-  const initiateCalls: Array<ReadonlyArray<string> | undefined> = [];
+  const deviceAuthorizations: Array<string> = [];
   const interaction = DeviceLoginInteractionTest({
     openBrowser: () => Effect.succeed(opts?.browserOpens ?? false),
     copyToClipboard: () => Effect.succeed(true),
   });
 
   const authClientLayer = AuthClientTest({
-    initiateDeviceFlow: (options) =>
+    initiateDeviceFlow: () =>
       Effect.sync(() => {
-        initiateCalls.push(options?.scopes);
+        deviceAuthorizations.push("dc-123");
         return {
           device_code: "dc-123",
           user_code: "ABCD-1234",
@@ -60,7 +60,7 @@ const makeLayers = (opts?: {
             refresh_token: "axm_ref_new",
             expires_at: DateTime.makeUnsafe("2099-06-01T00:00:00Z"),
           }),
-    getMe: (_accessToken: string) =>
+    getMe: () =>
       opts?.getMeFails
         ? Effect.fail(
             new RegistryAccessFailed({
@@ -71,9 +71,11 @@ const makeLayers = (opts?: {
         : Effect.succeed({
             userHandle: handle("@alice"),
             tokenType: "session",
-            scopes: ["extensions:read"],
-            resourceRestrictions: { extensions: null },
+            authority: "account" as const,
+            permissions: null,
+            resourceRestrictions: null,
             expiresAt: null,
+            approvedAt: null,
           }),
   });
 
@@ -89,7 +91,7 @@ const makeLayers = (opts?: {
     layer,
     presenterState: presenter.state,
     interactionState: interaction.state,
-    initiateCalls,
+    deviceAuthorizations,
   };
 };
 
@@ -195,13 +197,15 @@ describe("runDeviceLogin", () => {
           refresh_token: "axm_ref_new",
           expires_at: DateTime.makeUnsafe("2099-06-01T00:00:00Z"),
         }),
-      getMe: (_accessToken: string) =>
+      getMe: () =>
         Effect.succeed({
           userHandle: handle("@alice"),
           tokenType: "session",
-          scopes: ["extensions:read"],
-          resourceRestrictions: { extensions: null },
+          authority: "account" as const,
+          permissions: null,
+          resourceRestrictions: null,
           expiresAt: null,
+          approvedAt: null,
         }),
     });
 
@@ -270,14 +274,6 @@ describe("resumable device login", () => {
           flow: "started",
           verificationUri: "https://auth.agentxm.ai/device",
           verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
-          requestedScopes: [
-            "account:read",
-            "email",
-            "extensions:read",
-            "offline_access",
-            "openid",
-            "profile",
-          ],
           userCode: "ABCD-1234",
           resume: "axm login --wait --json",
           action: {

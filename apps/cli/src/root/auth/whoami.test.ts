@@ -21,9 +21,11 @@ const ALICE = normalizeHandle("@alice");
 const defaultWhoami = {
   userHandle: ALICE,
   tokenType: "session",
-  scopes: ["extensions:read"],
-  resourceRestrictions: { extensions: null },
+  authority: "account" as const,
+  permissions: null,
+  resourceRestrictions: null,
   expiresAt: null,
+  approvedAt: null,
 };
 
 const makeLayers = (opts?: {
@@ -77,7 +79,7 @@ const makeLayers = (opts?: {
 };
 
 describe("auth whoami handler", () => {
-  it.effect("fails with auth_required when no token", () => {
+  it.effect("reports being signed out when no credential resolves", () => {
     const { provide } = makeLayers();
     return provide(
       Effect.gen(function* () {
@@ -120,7 +122,7 @@ describe("auth whoami handler", () => {
 
         expect(rendererState.logs).toContainEqual({
           _tag: "message",
-          message: `Authenticated as ${ALICE}\nRegistry  ${REGISTRY_URL}\nCredential  session\nScopes  extensions:read\nExtensions  unrestricted\nExpires  unavailable\n`,
+          message: `Authenticated as ${ALICE}\nRegistry  ${REGISTRY_URL}\nCredential  session\nAuthority  everything your permissions allow\nExpires  unavailable\n`,
         });
       }),
     );

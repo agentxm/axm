@@ -49,7 +49,7 @@ export const specification = defineSpecification({
   ],
 });
 
-const label = "Unyank extension version";
+const label = "Broaden extension visibility";
 const stepUp = makeStepUpRequest(label, "@alice/skills/review@1.0.0");
 const presentation = { operationLabel: label, waitingLabel: `verification to ${label}` } as const;
 
@@ -121,7 +121,7 @@ describe("Unattended step-up", () => {
       const ports = makeAuthPorts({
         credentials: authCredentialFile,
         auth: {
-          getStepUpRequest: (_token, requestId) =>
+          getStepUpRequest: (requestId) =>
             Effect.sync(() => {
               statusRequests.push(requestId);
               return { status, expires_at: DateTime.makeUnsafe(stepUpExpiresAt) };

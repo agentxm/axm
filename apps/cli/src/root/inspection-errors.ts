@@ -40,8 +40,17 @@ export const packInspectionRefusedToAppError = (failure: PackInspectionRefused):
     ...(failure.cause === undefined ? {} : { cause: failure.cause }),
   });
 
+/**
+ * `offerSignIn` decides one thing: whether a miss suggests signing in.
+ *
+ * A read hides an extension the caller may not see behind the same not-found
+ * as one that does not exist, so a signed-out reader is told that signing in
+ * may change the answer. For someone already signed in it cannot, and saying
+ * so would send them round a loop that ends where it started.
+ */
 export const publishedMetadataUnavailableToAppError = (
   failure: PublishedMetadataUnavailable,
+  offerSignIn: boolean,
 ): AppError => {
   switch (failure.reason) {
     case "workspace-not-initialized":
@@ -73,7 +82,13 @@ export const publishedMetadataUnavailableToAppError = (
       return makeAppError({
         code: "not_found",
         detail: failure.detail,
-        suggestions: [{ description: "Sign in if this extension is private.", cmd: "axm login" }],
+        ...(offerSignIn
+          ? {
+              suggestions: [
+                { description: "Sign in if this extension is private.", cmd: "axm login" },
+              ],
+            }
+          : {}),
       });
     case "unknown-field":
       return makeAppError({ code: "not_found", detail: failure.detail });

@@ -46,19 +46,19 @@ const expiry = DateTime.makeUnsafe("2099-01-01T00:00:00.000Z");
 const inconsistentOptions = [
   {
     name: "resume combined with a new device sign-in",
-    options: { yes: false, deviceCode: true, wait: true, scopes: [] },
+    options: { yes: false, deviceCode: true, wait: true },
   },
   {
     name: "resume combined with restart",
-    options: { yes: false, deviceCode: false, wait: true, restart: true, scopes: [] },
+    options: { yes: false, deviceCode: false, wait: true, restart: true },
   },
   {
     name: "restart without device-code",
-    options: { yes: false, deviceCode: false, restart: true, scopes: [] },
+    options: { yes: false, deviceCode: false, restart: true },
   },
   {
     name: "timeout without resume",
-    options: { yes: false, deviceCode: true, timeoutSeconds: 5, scopes: [] },
+    options: { yes: false, deviceCode: true, timeoutSeconds: 5 },
   },
 ] as const;
 
@@ -66,7 +66,7 @@ describe("Sign-in option validation", () => {
   for (const { name, options } of inconsistentOptions) {
     it.effect(name, () => {
       const renderer = TestMachineRenderer.make();
-      const deviceFlowStarts: Array<ReadonlyArray<string>> = [];
+      const deviceFlowStarts: Array<string> = [];
       const ports = Layer.mergeAll(
         renderer.layer,
         TestFlagsLayer({ json: true, nonInteractive: true }),
@@ -74,9 +74,9 @@ describe("Sign-in option validation", () => {
         Layer.succeed(AuthEnvironment, ConfigProvider.fromEnvRecord({})),
         AuthLoginInteractionTest().layer,
         AuthClientTest({
-          initiateDeviceFlow: (request) =>
+          initiateDeviceFlow: () =>
             Effect.sync(() => {
-              deviceFlowStarts.push(request?.scopes ?? []);
+              deviceFlowStarts.push("fixture-device-secret");
               return {
                 device_code: "fixture-device-secret",
                 user_code: "ABCD-1234",

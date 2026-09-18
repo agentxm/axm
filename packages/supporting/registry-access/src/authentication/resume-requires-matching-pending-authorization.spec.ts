@@ -38,7 +38,6 @@ describe("Resume eligibility", () => {
 
       yield* initiateDeviceLogin(authRegistry, {
         openBrowser: false,
-        scopes: ["extensions:read"],
       });
       const pending = yield* PendingDeviceLoginStore;
       const before = yield* pending.load();

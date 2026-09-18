@@ -10,7 +10,7 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import {
-  errAuthRequired,
+  errSignedOut,
   makeAppError,
   withAppErrorSemantics,
   AppError,
@@ -30,8 +30,8 @@ import {
   isRegistryAccessFailure,
   REGISTRY_ACCESS_ERROR_CATEGORIES,
   type AuthExchangeFailed,
-  type AuthLoginRequired,
   type AuthTokenPolicyRequired,
+  type SignedOut,
   type DeviceAuthorizationPending,
   type DeviceLoginCodeExpired,
   type DeviceLoginDenied,
@@ -268,9 +268,9 @@ export const registryAccessFailedToAppError = (error: RegistryAccessFailed): App
         }),
   });
 
-/** Sign-in required: the shared builder renders the fixed device-flow guidance. */
-export const authLoginRequiredToAppError = (error: AuthLoginRequired): AppError =>
-  errAuthRequired(error.message, error.cause);
+/** Signed out: one result, rendered the one way. */
+export const signedOutToAppError = (error: SignedOut): AppError =>
+  errSignedOut(error.message, error.cause);
 
 /** Ambient-token-only policy: the former builder's envelope, verbatim. */
 export const authTokenPolicyRequiredToAppError = (error: AuthTokenPolicyRequired): AppError =>
@@ -369,24 +369,14 @@ export const registryAccessFailureToAppError = (failure: RegistryAccessFailure):
   switch (failure._tag) {
     case "RegistryAccessFailed":
       return registryAccessFailedToAppError(failure);
-    case "AuthLoginRequired":
-      return authLoginRequiredToAppError(failure);
+    case "SignedOut":
+      return signedOutToAppError(failure);
     case "AuthTokenPolicyRequired":
       return authTokenPolicyRequiredToAppError(failure);
     case "DeviceLoginDenied":
       return deviceLoginDeniedToAppError(failure);
     case "DeviceLoginCodeExpired":
       return deviceLoginCodeExpiredToAppError(failure);
-    case "PublishAuthorizationPending":
-      return makeAppError({
-        code: failure.timedOut ? "timeout" : "auth_required",
-        detail: "Human approval of this exact publication set is pending. No upload was attempted.",
-        status: "pending-human",
-        blockedOn: "human",
-        retryable: true,
-        action: failure.action,
-        recover: failure.action.resume,
-      });
     case "StepUpVerificationPending":
       return makeAppError({
         code: failure.timedOut ? "timeout" : "auth_required",

@@ -15,12 +15,14 @@ import * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
 import * as Cache from "effect/Cache";
 import type * as DateTime from "effect/DateTime";
+import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import * as Semaphore from "effect/Semaphore";
 import * as lockfile from "proper-lockfile";
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { AuthTokenPolicyRequired, RegistryAccessFailed } from "../authentication/errors.js";
@@ -49,7 +51,30 @@ export interface CredentialStoreService {
   readonly load: (
     registryUrl: string,
   ) => Effect.Effect<Option.Option<StoredCredentials>, RegistryAccessFailed>;
+  /**
+   * Read the stored credential from storage, past any per-session memo.
+   *
+   * Session refresh is the one reader that must see what another process just
+   * wrote: it decides between spending its own refresh token and adopting the
+   * one a concurrent process rotated, and a memoized snapshot would make every
+   * waiter spend a token that is already gone.
+   */
+  readonly reload: (
+    registryUrl: string,
+  ) => Effect.Effect<Option.Option<StoredCredentials>, RegistryAccessFailed>;
   readonly clear: (registryUrl: string) => Effect.Effect<void, RegistryAccessFailed>;
+  /**
+   * Run an effect while holding the credential home's refresh lock.
+   *
+   * The lock spans the whole renewal — the re-read, the token round trip, and
+   * the write — because refresh tokens rotate with reuse detection: two
+   * processes that spend the same one lose the family and both end up holding
+   * dead credentials. The store owns the lock because it owns the directory the
+   * processes share.
+   */
+  readonly withRefreshLock: <A, E, R>(
+    effect: Effect.Effect<A, E, R>,
+  ) => Effect.Effect<A, E | RegistryAccessFailed, R>;
   readonly tier: StorageTier;
   readonly allowsPersistedCredentials: boolean;
 }
@@ -63,6 +88,7 @@ export class CredentialStore extends ServiceMap.Service<CredentialStore, Credent
 // -----------------------------------------------------------------------------
 
 const CREDENTIALS_FILENAME = "credentials.json";
+const REFRESH_LOCK_FILENAME = "refresh.lock";
 const CONFIG_DIR_NAME = "axm";
 const DIR_PERMISSIONS = 0o700;
 const FILE_PERMISSIONS = 0o600;
@@ -151,6 +177,63 @@ const checkFilePermissions = (fs: FileSystem.FileSystem, filePath: string) =>
 const setFilePermissions = (fs: FileSystem.FileSystem, filePath: string) =>
   fs.chmod(filePath, FILE_PERMISSIONS).pipe(Effect.catch(() => Effect.void));
 
+/**
+ * Hold one `proper-lockfile` lock for the duration of `effect`.
+ *
+ * Acquisition and release are one resource, so nothing stays held however
+ * `effect` ends. Waiting for the lock stays interruptible — a caller's deadline
+ * is not extended by another process's turn — and a wait that is abandoned
+ * gives the lock straight back if it arrives afterwards. A lock that is
+ * compromised while held — its directory removed, or its heartbeat missed for
+ * longer than `stale` because the process was suspended — interrupts `effect`
+ * and fails with `failure`: whoever took the lock over may already be inside
+ * the section this holder believed it owned.
+ */
+export const withFileLock = <A, E, R>(
+  target: string,
+  options: Pick<lockfile.LockOptions, "retries" | "stale" | "update">,
+  failure: (cause: unknown) => RegistryAccessFailed,
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E | RegistryAccessFailed, R> =>
+  Effect.gen(function* () {
+    const compromised = yield* Deferred.make<never, RegistryAccessFailed>();
+    const acquire = Effect.callback<() => Promise<void>, RegistryAccessFailed>((resume) => {
+      let abandoned = false;
+      lockfile
+        .lock(target, {
+          ...options,
+          onCompromised: (cause) => {
+            Deferred.doneUnsafe(compromised, Effect.fail(failure(cause)));
+          },
+        })
+        .then(
+          (release) => {
+            if (abandoned) {
+              release().then(undefined, () => undefined);
+            } else {
+              resume(Effect.succeed(release));
+            }
+          },
+          (cause: unknown) => resume(Effect.fail(failure(cause))),
+        );
+      return Effect.sync(() => {
+        abandoned = true;
+      });
+    });
+    // `Effect.acquireUseRelease` with one difference: the wait for the lock is
+    // restored to the caller's interruptibility. The hand-over from a granted
+    // lock to its release registration is not.
+    return yield* Effect.uninterruptibleMask((restore) =>
+      Effect.flatMap(restore(acquire), (release) =>
+        restore(Effect.raceFirst(effect, Deferred.await(compromised))).pipe(
+          // Releasing a lock that was compromised rejects; there is nothing
+          // left to give back, so release is complete either way.
+          Effect.ensuring(Effect.ignore(Effect.tryPromise(() => release()))),
+        ),
+      ),
+    );
+  });
+
 const withCredentialFileLock = <A, E, R>(
   fs: FileSystem.FileSystem,
   path: Path.Path,
@@ -159,24 +242,68 @@ const withCredentialFileLock = <A, E, R>(
 ) =>
   Effect.gen(function* () {
     yield* ensureCredentialsDir(fs, path, homeDir);
-    const dir = getCredentialsDir(path, homeDir);
-    const release = yield* Effect.tryPromise({
-      try: () => lockfile.lock(dir, { retries: { retries: 5, minTimeout: 25, maxTimeout: 100 } }),
-      catch: (error) =>
+    return yield* withFileLock(
+      getCredentialsDir(path, homeDir),
+      // The section is one file read or write, so a holder is gone in
+      // milliseconds. The budget covers many invocations queueing behind each
+      // other, because a request that cannot read its credential fails rather
+      // than going out without one.
+      { retries: { retries: 40, minTimeout: 25, maxTimeout: 100 } },
+      (cause) =>
         new RegistryAccessFailed({
           category: "auth",
           detail: "Could not lock credential storage",
-          cause: error,
+          cause,
         }),
-    });
+      effect,
+    );
+  });
 
-    return yield* effect.pipe(
-      Effect.ensuring(
-        Effect.tryPromise({
-          try: () => release(),
-          catch: () => undefined,
-        }).pipe(Effect.catch(() => Effect.void)),
-      ),
+/**
+ * Hold the credential home's refresh lock for the duration of `effect`.
+ *
+ * `stale` is generous because the protected section includes a network round
+ * trip. The retry budget outlasts the refresh grant's 30-second deadline, so a
+ * waiter takes its turn after a slow holder instead of giving up on a session
+ * that is still being renewed; each waiter's own turn is short because it
+ * re-reads and finds the work already done.
+ */
+const withRefreshFileLock = <A, E, R>(
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  homeDir: string,
+  effect: Effect.Effect<A, E, R>,
+): Effect.Effect<A, E | RegistryAccessFailed, R> =>
+  Effect.gen(function* () {
+    yield* ensureCredentialsDir(fs, path, homeDir);
+    const lockPath = path.join(getCredentialsDir(path, homeDir), REFRESH_LOCK_FILENAME);
+    const exists = yield* fs.exists(lockPath).pipe(Effect.catch(() => Effect.succeed(false)));
+    if (!exists) {
+      yield* fs.writeFileString(lockPath, "").pipe(
+        Effect.mapError(
+          (error) =>
+            new RegistryAccessFailed({
+              category: "auth",
+              detail: "Could not create the session refresh lock",
+              cause: error,
+            }),
+        ),
+      );
+    }
+    return yield* withFileLock(
+      lockPath,
+      {
+        stale: 30_000,
+        update: 5_000,
+        retries: { retries: 80, minTimeout: 50, maxTimeout: 500, factor: 1.5 },
+      },
+      (cause) =>
+        new RegistryAccessFailed({
+          category: "auth",
+          detail: "Could not lock the session for refresh",
+          cause,
+        }),
+      effect,
     );
   });
 
@@ -550,7 +677,10 @@ export const CredentialStoreLive = Layer.effect(
       allowsPersistedCredentials: persistedCredentialsAllowed,
       save,
       load,
+      // Nothing memoizes here, so the storage read is already the fresh one.
+      reload: load,
       clear,
+      withRefreshLock: (effect) => withRefreshFileLock(fs, path, homeDir, effect),
     } satisfies CredentialStoreService;
   }),
 );
@@ -614,6 +744,11 @@ export const CredentialStoreSessionLive = Layer.effect(
         Cache.get(cache, registryUrl).pipe(
           Effect.onInterrupt(() => Cache.invalidate(cache, registryUrl)),
         ),
+      // Drop the memo first, so a caller reading past it also leaves the next
+      // ordinary read observing storage rather than the snapshot it replaced.
+      reload: (registryUrl) =>
+        Cache.invalidate(cache, registryUrl).pipe(Effect.andThen(() => store.reload(registryUrl))),
+      withRefreshLock: store.withRefreshLock,
       save: (registryUrl, handle, credentials) =>
         store
           .save(registryUrl, handle, credentials)
@@ -635,10 +770,31 @@ export const CredentialStoreTest = (
 ) => {
   let data: CredentialFile = initialData ?? emptyCredentialFile;
   const persistedCredentialsAllowed = allowsPersistedCredentials ?? true;
+  const refreshLock = Semaphore.makeUnsafe(1);
+
+  const read = (registryUrl: string) =>
+    Effect.sync(() => {
+      const registry = data.registries[registryUrl];
+      if (!registry) return Option.none<StoredCredentials>();
+      for (const [handle, entry] of Object.entries(registry.accounts)) {
+        if (entry?.active) {
+          return Option.some<StoredCredentials>({
+            handle: decodeHandleSync(handle),
+            access_token: entry.access_token,
+            refresh_token: entry.refresh_token,
+            expires_at: entry.expires_at,
+          });
+        }
+      }
+      return Option.none<StoredCredentials>();
+    });
 
   return Layer.succeed(CredentialStore, {
     tier,
     allowsPersistedCredentials: persistedCredentialsAllowed,
+    // One process, so the in-memory permit is the whole mutual exclusion the
+    // real cross-process lock provides.
+    withRefreshLock: (effect) => refreshLock.withPermits(1)(effect),
 
     save: (registryUrl, handle, credentials) =>
       persistedCredentialsAllowed
@@ -666,22 +822,9 @@ export const CredentialStoreTest = (
           })
         : Effect.fail(makePersistedCredentialsUnsupportedError()),
 
-    load: (registryUrl) =>
-      Effect.sync(() => {
-        const registry = data.registries[registryUrl];
-        if (!registry) return Option.none<StoredCredentials>();
-        for (const [handle, entry] of Object.entries(registry.accounts)) {
-          if (entry?.active) {
-            return Option.some<StoredCredentials>({
-              handle: decodeHandleSync(handle),
-              access_token: entry.access_token,
-              refresh_token: entry.refresh_token,
-              expires_at: entry.expires_at,
-            });
-          }
-        }
-        return Option.none<StoredCredentials>();
-      }),
+    load: read,
+
+    reload: read,
 
     clear: (registryUrl) =>
       Effect.sync(() => {

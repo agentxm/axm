@@ -193,15 +193,3 @@ export const loopbackBrowserOutcomeView = (opened: boolean): AuthViewEntry =>
         ),
         persistent: true,
       };
-
-export const publishReviewDoc = (review: {
-  readonly browserOpened: boolean;
-  readonly candidateCount: number;
-  readonly authorizationUrl: string;
-}): Doc =>
-  headlineDoc(
-    "info",
-    review.browserOpened
-      ? `Opening browser to review ${review.candidateCount} publish candidate${review.candidateCount === 1 ? "" : "s"}...`
-      : `Open this URL to review the exact publish: ${review.authorizationUrl}`,
-  );

@@ -1,7 +1,11 @@
 /**
- * Granular access-token policy: the expiry grammar and its bounds, the
- * permission payload the Registry accepts, and the human-verification
- * requirement on every token write.
+ * Granular access-token policy: the public vocabulary a token is described in,
+ * the expiry grammar and its bounds, and the human verification that creating
+ * a credential asks for.
+ *
+ * A token is narrowed by one permission level, an optional allowlist of owners
+ * and extensions, and an expiry. Scope strings are the Registry's internal
+ * representation and never reach a person here.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -19,21 +23,18 @@ import {
 import { CredentialStore } from "../credentials/credential-store.js";
 import { RegistryAccessFailed } from "./errors.js";
 import { AuthLoginPresenter } from "./login-presenter.js";
-import { currentToken } from "./identity.js";
+import { requireSignedIn } from "./identity.js";
 import { runWithStepUp, type StepUpOptions } from "./step-up.js";
+import { maxTokenLifetimeSeconds, type TokenPermissionLevel } from "./tokens/permissions.js";
 
-/** A token may live no less than an hour and no more than a year. */
+/** A token may live no less than an hour. Its ceiling depends on what it can do. */
 export const MIN_TOKEN_LIFETIME_SECONDS = 3_600;
-export const MAX_TOKEN_LIFETIME_SECONDS = 31_536_000;
 
 /** The authority a new token carries. */
 export interface TokenAuthorityRequest {
   readonly owners: ReadonlyArray<string>;
   readonly extensions: ReadonlyArray<string>;
-  readonly permission: Option.Option<"read" | "publish" | "admin">;
-  readonly orgPermission: Option.Option<"read" | "write" | "admin">;
-  readonly cidr: ReadonlyArray<string>;
-  readonly bypassMfa: boolean;
+  readonly permission: TokenPermissionLevel;
 }
 
 export interface CreateTokenRequest extends TokenAuthorityRequest {
@@ -73,22 +74,31 @@ export const parseExpiresInSeconds = (raw: string): Effect.Effect<number, Regist
   });
 };
 
-/** Enforce the accepted lifetime window. */
+/**
+ * Enforce the accepted lifetime window. A token that can change the registry is
+ * worth more than one that can only read it, so the two do not share a ceiling.
+ */
 export const validateExpiresInSeconds = (
   expiresIn: number,
-): Effect.Effect<number, RegistryAccessFailed> =>
-  expiresIn < MIN_TOKEN_LIFETIME_SECONDS || expiresIn > MAX_TOKEN_LIFETIME_SECONDS
-    ? Effect.fail(invalid("Token expiry must be between 1 hour and 365 days."))
+  permission: TokenPermissionLevel,
+): Effect.Effect<number, RegistryAccessFailed> => {
+  const maximum = maxTokenLifetimeSeconds(permission);
+  return expiresIn < MIN_TOKEN_LIFETIME_SECONDS || expiresIn > maximum
+    ? Effect.fail(
+        invalid(
+          permission === "read"
+            ? "Token expiry must be between 1 hour and 365 days."
+            : "A token that can publish or administer extensions must expire within 90 days.",
+        ),
+      )
     : Effect.succeed(expiresIn);
+};
 
 /** Only the authority a caller actually asked for reaches the Registry. */
 export const tokenPermissions = (request: TokenAuthorityRequest): TokenPermissionsRequest => ({
   ...(request.owners.length > 0 ? { owners: request.owners } : {}),
   ...(request.extensions.length > 0 ? { extensions: request.extensions } : {}),
-  ...(Option.isSome(request.permission) ? { permission: request.permission.value } : {}),
-  ...(Option.isSome(request.orgPermission) ? { org_permission: request.orgPermission.value } : {}),
-  ...(request.cidr.length > 0 ? { cidr: request.cidr } : {}),
-  ...(request.bypassMfa ? { bypass_mfa: true } : {}),
+  permission: request.permission,
 });
 
 export const createToken = Effect.fn("Tokens.create")(function* (
@@ -96,14 +106,13 @@ export const createToken = Effect.fn("Tokens.create")(function* (
   registryUrl: string,
 ) {
   const authClient = yield* AuthClient;
-  const token = yield* currentToken(registryUrl);
+  yield* requireSignedIn(registryUrl);
   const expiresIn = yield* parseExpiresInSeconds(request.expires).pipe(
-    Effect.flatMap(validateExpiresInSeconds),
+    Effect.flatMap((seconds) => validateExpiresInSeconds(seconds, request.permission)),
   );
   const created = yield* runWithStepUp(
     (stepUpRequestId) =>
       authClient.createToken(
-        token,
         { name: request.name, expiresIn, permissions: tokenPermissions(request) },
         stepUpRequestId === undefined ? undefined : { stepUpRequestId },
       ),
@@ -117,36 +126,26 @@ export const createToken = Effect.fn("Tokens.create")(function* (
   return { token: created.value, stepUpCompleted: created.stepUpCompleted } satisfies CreatedToken;
 });
 
+/**
+ * Revoking a token takes authority away, so a signed-in person simply does it:
+ * nothing here asks them to prove themselves again.
+ */
 export const revokeToken = Effect.fn("Tokens.revoke")(function* (
   tokenId: string,
-  verification: StepUpOptions,
   registryUrl: string,
 ) {
   const authClient = yield* AuthClient;
-  const token = yield* currentToken(registryUrl);
-  const revoked = yield* runWithStepUp(
-    (stepUpRequestId) =>
-      authClient.deleteToken(
-        token,
-        tokenId,
-        stepUpRequestId === undefined ? undefined : { stepUpRequestId },
-      ),
-    {
-      operationLabel: `Revoke registry token ${tokenId}`,
-      waitingLabel: `verification to revoke token ${tokenId}`,
-    },
-    verification,
-    registryUrl,
-  );
-  return { tokenId, stepUpCompleted: revoked.stepUpCompleted };
+  yield* requireSignedIn(registryUrl);
+  yield* authClient.deleteToken(tokenId);
+  return { tokenId };
 });
 
 export const listTokens = Effect.fn("Tokens.list")(function* (registryUrl: string) {
   const authClient = yield* AuthClient;
   const presenter = yield* AuthLoginPresenter;
-  const token = yield* currentToken(registryUrl);
+  yield* requireSignedIn(registryUrl);
   return yield* presenter.withProgress({ _tag: "ListingRegistryTokens" }, () =>
-    authClient.listTokens(token),
+    authClient.listTokens(),
   );
 });
 

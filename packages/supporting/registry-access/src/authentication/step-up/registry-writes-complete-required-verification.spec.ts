@@ -1,6 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { RegistryAccessFailed } from "../errors.js";
@@ -16,7 +15,7 @@ import {
   stepUpStatusUrl,
   stepUpVerificationUrl,
 } from "../test-support/test-helpers.js";
-import { createToken, revokeToken } from "../tokens.js";
+import { createToken } from "../tokens.js";
 import { runWithStepUp } from "../step-up.js";
 
 export const specification = defineSpecification({
@@ -39,9 +38,9 @@ export const specification = defineSpecification({
   limitations: [
     {
       limitation:
-        "Token creation and revocation are exercised through their own use cases; the version-lifecycle and visibility writes are exercised as parameterized mutation ports, so that yank, unyank, visibility set and visibility reconcile each compose this capability is not established here.",
+        "Token creation is exercised through its own use case; the visibility writes are exercised as parameterized mutation ports, so that visibility set and visibility reconcile each compose this capability is not established here.",
       retirementCondition:
-        "Workspace publishing carries a test proving each lifecycle and visibility command composes runWithStepUp with its observed revision.",
+        "Workspace publishing carries a test proving each visibility command composes runWithStepUp with its observed revision.",
     },
   ],
 });
@@ -56,27 +55,14 @@ interface RecordedWrite {
 }
 
 const observedRevision = "observed-revision";
-const registryVersion = "@alice/skills/review@1.0.0";
 const registryTarget = "@alice/skills/review";
 
-/** The four version-lifecycle and visibility writes, as mutation ports. */
+/**
+ * The visibility writes, as mutation ports. Only the operations that may ask a
+ * signed-in person for more are challenged: creating a token, broadening
+ * visibility, and deleting an extension.
+ */
 const mutations = [
-  {
-    name: "yank",
-    target: registryVersion,
-    method: "POST",
-    url: `${authRegistry}/v1/extensions/${registryVersion}/yank`,
-    body: { category: "security", notice: "Unsafe release." },
-    ifMatch: undefined,
-  },
-  {
-    name: "unyank",
-    target: registryVersion,
-    method: "DELETE",
-    url: `${authRegistry}/v1/extensions/${registryVersion}/yank`,
-    body: {},
-    ifMatch: undefined,
-  },
   {
     name: "visibility set",
     target: registryTarget,
@@ -107,13 +93,13 @@ const makePorts = (
   behavior: (typeof behaviors)[number],
   overrides: AuthPortsOptions["auth"] = {},
 ) => {
-  const waits: Array<{ token: string; url: string; interval: number }> = [];
+  const waits: Array<{ url: string; interval: number }> = [];
   const ports = makeAuthPorts({
     credentials: authCredentialFile,
     auth: {
-      waitForStepUpRequest: (token, url, interval) =>
+      waitForStepUpRequest: (url, interval) =>
         Effect.gen(function* () {
-          waits.push({ token, url, interval });
+          waits.push({ url, interval });
           if (behavior === "denied")
             return yield* new RegistryAccessFailed({
               category: "auth_denied",
@@ -126,9 +112,7 @@ const makePorts = (
   return { ...ports, waits };
 };
 
-const expectedWait = [
-  { token: "fixture-stored-access", url: stepUpStatusUrl, interval: 2 },
-] as const;
+const expectedWait = [{ url: stepUpStatusUrl, interval: 2 }] as const;
 
 describe("Registry mutation verification", () => {
   for (const mutation of mutations) {
@@ -191,99 +175,70 @@ describe("Registry mutation verification", () => {
   }
 });
 
-describe("Token administration verification", () => {
-  for (const command of ["token create", "token revoke"] as const) {
-    for (const behavior of behaviors) {
-      it.effect(`${command}: ${behavior}`, () => {
-        const label =
-          command === "token create"
-            ? 'Create registry token "automation"'
-            : "Revoke registry token automation";
-        const stepUp = makeStepUpRequest(label, label);
-        const requests: Array<{
-          token: string;
-          intent: unknown;
-          verification: string | undefined;
-        }> = [];
+describe("Token creation verification", () => {
+  for (const behavior of behaviors) {
+    it.effect(`token create: ${behavior}`, () => {
+      const label = 'Create registry token "automation"';
+      const stepUp = makeStepUpRequest(label, label);
+      const requests: Array<{
+        intent: unknown;
+        verification: string | undefined;
+      }> = [];
 
-        const challengedWrite = (token: string, intent: unknown, verification?: string) =>
+      const ports = makePorts(behavior, {
+        createToken: (params, options) =>
           Effect.gen(function* () {
-            requests.push({ token, intent, verification });
+            requests.push({ intent: params, verification: options?.stepUpRequestId });
             if (requests.length === 1 || behavior === "challenged-again")
               return yield* stepUpChallenge(stepUp);
-          });
-
-        const ports = makePorts(behavior, {
-          createToken: (token, params, options) =>
-            challengedWrite(token, params, options?.stepUpRequestId).pipe(
-              Effect.as({
-                id: "fixture-created",
-                token: "fixture-issued-secret",
-                name: "automation",
-                scopes: ["extensions:admin"],
-                permissions: null,
-                createdAt: authExpiry,
-                expiresAt: authExpiry,
-              }),
-            ),
-          deleteToken: (token, id, options) => challengedWrite(token, id, options?.stepUpRequestId),
-        });
-
-        const verification = { unattended: true, waitForHumanSeconds: 60 } as const;
-        return Effect.gen(function* () {
-          if (command === "token create") {
-            const exit = yield* createToken(
-              {
-                name: "automation",
-                expires: "7d",
-                owners: [],
-                extensions: [],
-                permission: Option.some("admin"),
-                orgPermission: Option.none(),
-                cidr: [],
-                bypassMfa: false,
-                verification,
-              },
-              authRegistry,
-            ).pipe(Effect.exit);
-            if (behavior === "approved") {
-              expect(exit._tag).toBe("Success");
-              if (exit._tag === "Success") expect(exit.value.stepUpCompleted).toBe(true);
-            } else {
-              expect(exit._tag).toBe("Failure");
-            }
-          } else {
-            const exit = yield* revokeToken("automation", verification, authRegistry).pipe(
-              Effect.exit,
-            );
-            if (behavior === "approved") {
-              expect(exit._tag).toBe("Success");
-              if (exit._tag === "Success")
-                expect(exit.value).toEqual({ tokenId: "automation", stepUpCompleted: true });
-            } else {
-              expect(exit._tag).toBe("Failure");
-            }
-          }
-
-          if (behavior === "denied") {
-            expect(requests).toHaveLength(1);
-          } else {
-            expect(requests).toHaveLength(2);
-            expect(requests[1]).toEqual({ ...requests[0], verification: stepUpRequestId });
-          }
-          expect(ports.waits).toEqual(expectedWait);
-          expect(ports.interactionState.openBrowserCalls).toEqual([]);
-          expect(ports.presenterState.stepUpChallenges).toEqual([
-            {
-              action: label,
-              target: label,
-              verificationUrl: stepUpVerificationUrl,
-              expiresAt: stepUp.expiresAt,
-              browserOpened: false,
-            },
-          ]);
-        }).pipe(Effect.provide(ports.layer));
+            return {
+              id: "fixture-created",
+              token: "fixture-issued-secret",
+              name: "automation",
+              permissions: null,
+              createdAt: authExpiry,
+              expiresAt: authExpiry,
+            };
+          }),
       });
-    }
+
+      return Effect.gen(function* () {
+        const exit = yield* createToken(
+          {
+            name: "automation",
+            expires: "7d",
+            owners: [],
+            extensions: [],
+            permission: "admin",
+            verification: { unattended: true, waitForHumanSeconds: 60 },
+          },
+          authRegistry,
+        ).pipe(Effect.exit);
+        if (behavior === "approved") {
+          expect(exit._tag).toBe("Success");
+          if (exit._tag === "Success") expect(exit.value.stepUpCompleted).toBe(true);
+        } else {
+          expect(exit._tag).toBe("Failure");
+        }
+
+        if (behavior === "denied") {
+          expect(requests).toHaveLength(1);
+        } else {
+          expect(requests).toHaveLength(2);
+          expect(requests[1]).toEqual({ ...requests[0], verification: stepUpRequestId });
+        }
+        expect(ports.waits).toEqual(expectedWait);
+        expect(ports.interactionState.openBrowserCalls).toEqual([]);
+        expect(ports.presenterState.stepUpChallenges).toEqual([
+          {
+            action: label,
+            target: label,
+            verificationUrl: stepUpVerificationUrl,
+            expiresAt: stepUp.expiresAt,
+            browserOpened: false,
+          },
+        ]);
+      }).pipe(Effect.provide(ports.layer));
+    });
   }
 });

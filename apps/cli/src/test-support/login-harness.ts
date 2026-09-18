@@ -56,15 +56,17 @@ export const makeLoginSpecContext = (options: LoginSpecContextOptions = {}) => {
   const identity: MeResponse = {
     userHandle: EXISTING_HANDLE,
     tokenType: "session",
-    scopes: ["extensions:read"],
-    resourceRestrictions: { extensions: null },
+    authority: "account" as const,
+    permissions: null,
+    resourceRestrictions: null,
     expiresAt: null,
+    approvedAt: null,
   };
-  const deviceFlowStarts: Array<ReadonlyArray<string>> = [];
+  const deviceFlowStarts: Array<string> = [];
   const authClient = AuthClientTest({
-    initiateDeviceFlow: (request) =>
+    initiateDeviceFlow: () =>
       Effect.sync(() => {
-        deviceFlowStarts.push(request?.scopes ?? []);
+        deviceFlowStarts.push("dc-123");
         return {
           device_code: "dc-123",
           user_code: DEVICE_USER_CODE,

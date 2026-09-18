@@ -1,7 +1,3 @@
-import type {
-  PublishAuthorizationDelivery,
-  PublishAuthorizationPollingStatus,
-} from "@agentxm/registry-protocol/unstable/publish-authorization";
 // @effect-diagnostics anyUnknownInErrorContext:off — HTTP schema/status errors remain opaque only inside this translating adapter
 /**
  * AuthClient Effect service — device flow login, token refresh, revocation, identity queries.
@@ -28,51 +24,49 @@ import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import { normalizeHandle, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import {
-  PublishVisibilitySchema,
-  type PublishVisibility,
-} from "@agentxm/registry-protocol/unstable/publish";
-import {
-  PreviewPublicationSetResponseSchema,
-  type PreviewPublicationSetRequest,
-  type PreviewPublicationSetResponse,
-  type Sha256Hex,
-} from "@agentxm/registry-protocol/unstable/registry/publication-set";
 import { type NormalizedTokenResponse } from "./oauth-contract.js";
 import {
   GeneratedRegistryClient,
-  executeRegistryRequest,
+  RegistryRequestFailed,
   RegistryUrl,
   captureRegistryErrorResponseBodies,
   getString,
   isHttpClientError,
   isRegistryClientError,
   isRegistryClientFailure,
+  isSchemaError,
   isTransientRegistryError,
   mapRegistryFailure,
+  retainedRegistryResponseBody,
   type RegistryClientFailure,
 } from "@agentxm/registry-client";
 import {
   AuthExchangeFailed,
   DeviceLoginCodeExpired,
   DeviceLoginDenied,
+  RefreshUnavailable,
   RegistryAccessFailed,
+  SessionEnded,
   StepUpRequired,
   type AuthError,
   type StepUpRequest,
 } from "./errors.js";
+import { readTokenPermissions, type TokenPermissions } from "./tokens/permissions.js";
 
 // -----------------------------------------------------------------------------
 // Constants
 // -----------------------------------------------------------------------------
 
 const CLIENT_ID = "axm-cli";
-export const OIDC_LOGIN_SCOPES = ["openid", "profile", "email", "offline_access"] as const;
-export const BASELINE_REGISTRY_LOGIN_SCOPES = ["extensions:read", "account:read"] as const;
-export const DEFAULT_LOGIN_SCOPES = [
-  ...OIDC_LOGIN_SCOPES,
-  ...BASELINE_REGISTRY_LOGIN_SCOPES,
-] as const;
+/**
+ * The OIDC scopes every sign-in asks for. They name the identity claims and
+ * the refresh grant the flow needs, and nothing a person can do: a signed-in
+ * session is limited only by their permissions, so there is no registry scope
+ * to request and no caller may vary this list.
+ */
+export const LOGIN_SCOPE = ["openid", "profile", "email", "offline_access"].join(" ");
+/** Skew before expiry at which a session is renewed rather than spent. */
+export const REFRESH_SKEW_SECONDS = 300;
 const DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
 const AUTHORIZATION_CODE_GRANT_TYPE = "authorization_code";
 const SLOW_DOWN_INCREMENT_MS = 5000;
@@ -92,32 +86,30 @@ export interface DeviceFlowResponse {
   readonly expires_in: number;
 }
 
-export const normalizeRequestedLoginScopes = (
-  scopes: ReadonlyArray<string> = DEFAULT_LOGIN_SCOPES,
-): ReadonlyArray<string> =>
-  Array.from(
-    new Set([...OIDC_LOGIN_SCOPES, ...scopes].map((scope) => scope.trim()).filter(Boolean)),
-  ).sort();
-
-export interface LoginScopeOptions {
-  readonly scopes?: ReadonlyArray<string>;
-}
-
 export interface MeResponse {
   readonly userHandle: Handle;
   readonly tokenType: string;
-  readonly scopes: ReadonlyArray<string>;
-  readonly resourceRestrictions: { readonly extensions: ReadonlyArray<string> | null };
+  /**
+   * `account` means the credential carries the whole account's authority and
+   * nothing narrows it. `limited` means its holder made it narrower than
+   * themselves, and the limits below say how.
+   */
+  readonly authority: "account" | "limited";
+  /** What a limited credential may do, in the token vocabulary. Null otherwise. */
+  readonly permissions: TokenPermissions | null;
+  readonly resourceRestrictions: { readonly extensions: ReadonlyArray<string> | null } | null;
   readonly expiresAt: DateTime.Utc | null;
+  /**
+   * When the browser sign-in that approved this CLI session authenticated.
+   * Null for every other kind of credential.
+   */
+  readonly approvedAt: DateTime.Utc | null;
 }
 
 export interface TokenPermissionsRequest {
   readonly owners?: ReadonlyArray<string>;
   readonly extensions?: ReadonlyArray<string>;
-  readonly permission?: "read" | "publish" | "admin";
-  readonly org_permission?: "read" | "write" | "admin";
-  readonly cidr?: ReadonlyArray<string>;
-  readonly bypass_mfa?: boolean;
+  readonly permission: "read" | "publish" | "admin";
 }
 
 export interface CreateTokenParams {
@@ -130,7 +122,6 @@ export interface CreatedTokenResponse {
   readonly id: string;
   readonly token: string;
   readonly name: string;
-  readonly scopes: ReadonlyArray<string>;
   readonly permissions: unknown;
   readonly createdAt: DateTime.Utc;
   readonly expiresAt: DateTime.Utc;
@@ -140,7 +131,6 @@ export interface TokenListItem {
   readonly id: string;
   readonly name: string | null;
   readonly type: string;
-  readonly scopes: ReadonlyArray<string>;
   readonly permissions: unknown;
   readonly createdAt: DateTime.Utc;
   readonly expiresAt: DateTime.Utc;
@@ -153,10 +143,6 @@ export interface TokenListResponse {
   readonly cursor: string | null;
 }
 
-export interface DeleteTokenOptions {
-  readonly stepUpRequestId?: string;
-}
-
 export interface CreateTokenOptions {
   readonly stepUpRequestId?: string;
 }
@@ -166,7 +152,6 @@ export interface BuildAuthorizeUrlParams {
   readonly expiresAt?: DateTime.Utc;
   readonly state: string;
   readonly redirectUri: string;
-  readonly scopes?: ReadonlyArray<string>;
 }
 
 export interface ExchangePkceCodeParams {
@@ -174,56 +159,6 @@ export interface ExchangePkceCodeParams {
   readonly verifier: string;
   readonly redirectUri: string;
 }
-
-export interface CreatePublishAuthorizationRequestParams {
-  readonly registryUrl: string;
-  readonly delivery: PublishAuthorizationDelivery;
-  readonly publicationSet: PreviewPublicationSetRequest;
-}
-
-export interface PublishAuthorizationRequestResponse {
-  readonly interval: number;
-  readonly requestId: string;
-  readonly authorizationUrl: string;
-  readonly expiresAt: DateTime.Utc;
-}
-
-export interface PublishAuthorizationPollingParams {
-  readonly registryUrl: string;
-  readonly requestId: string;
-  readonly initiatorProof: string;
-}
-
-export interface ExchangePublishAuthorizationCodeParams {
-  readonly registryUrl: string;
-  readonly code: string;
-  readonly verifier: string;
-  readonly redirectUri: string;
-}
-
-export interface PublishCapabilityResponse {
-  readonly accessToken: string;
-  readonly expiresAt: DateTime.Utc;
-  readonly scope: string;
-  readonly publishRequestId: string;
-  readonly visibilityContract: "v2";
-  readonly visibility: PublishVisibility;
-  readonly condition: string;
-  readonly publicationSetDigest: Sha256Hex;
-  readonly publicationDescriptorDigest: Sha256Hex;
-}
-
-export type PublishAuthorizationExchangeResponse =
-  | {
-      readonly status: "admitted";
-      readonly preview: PreviewPublicationSetResponse;
-      readonly grants: ReadonlyArray<PublishCapabilityResponse>;
-    }
-  | {
-      readonly status: "blocked";
-      readonly preview: PreviewPublicationSetResponse;
-      readonly grants: readonly [];
-    };
 
 // -----------------------------------------------------------------------------
 // Polling state (for testability)
@@ -247,57 +182,68 @@ export interface AuthClientService {
   readonly exchangePkceCode: (
     params: ExchangePkceCodeParams,
   ) => Effect.Effect<NormalizedTokenResponse, AuthError>;
-  readonly createPublishAuthorizationRequest: (
-    params: CreatePublishAuthorizationRequestParams,
-  ) => Effect.Effect<PublishAuthorizationRequestResponse, AuthError>;
-  readonly pollPublishAuthorization: (
-    params: PublishAuthorizationPollingParams,
-  ) => Effect.Effect<PublishAuthorizationPollingStatus, AuthError>;
-  readonly exchangePublishAuthorization: (
-    params: PublishAuthorizationPollingParams,
-  ) => Effect.Effect<PublishAuthorizationExchangeResponse, AuthError>;
-  readonly exchangePublishAuthorizationCode: (
-    params: ExchangePublishAuthorizationCodeParams,
-  ) => Effect.Effect<PublishAuthorizationExchangeResponse, AuthError>;
-  readonly initiateDeviceFlow: (
-    options?: LoginScopeOptions,
-  ) => Effect.Effect<DeviceFlowResponse, AuthError>;
+  readonly initiateDeviceFlow: () => Effect.Effect<DeviceFlowResponse, AuthError>;
   readonly pollDeviceToken: (
     deviceCode: string,
     interval: number,
   ) => Effect.Effect<NormalizedTokenResponse, AuthError>;
-  readonly refreshToken: (
-    refreshTokenValue: string,
-  ) => Effect.Effect<NormalizedTokenResponse, AuthError>;
-  readonly revokeToken: (token: string) => Effect.Effect<void, AuthError>;
-  readonly getMe: (accessToken: string) => Effect.Effect<MeResponse, AuthError>;
+  /**
+   * Read the credential's identity. The transport carries the caller's
+   * credential, so only a flow holding a token the store has not persisted yet
+   * — a just-issued sign-in — names one.
+   */
+  readonly getMe: (accessToken?: string) => Effect.Effect<MeResponse, AuthError>;
   readonly createToken: (
-    accessToken: string,
     params: CreateTokenParams,
     options?: CreateTokenOptions,
   ) => Effect.Effect<CreatedTokenResponse, AuthError>;
-  readonly listTokens: (
-    accessToken: string,
-    params?: { readonly limit?: number; readonly cursor?: string },
-  ) => Effect.Effect<TokenListResponse, AuthError>;
+  readonly listTokens: (params?: {
+    readonly limit?: number;
+    readonly cursor?: string;
+  }) => Effect.Effect<TokenListResponse, AuthError>;
   readonly getStepUpRequest: (
-    accessToken: string,
     requestId: string,
   ) => Effect.Effect<GeneratedRegistryClient.StepUpRequestStatusResponse, AuthError>;
   readonly waitForStepUpRequest: (
-    accessToken: string,
     statusUrl: string,
     intervalSeconds: number,
   ) => Effect.Effect<void, AuthError>;
-  readonly deleteToken: (
-    accessToken: string,
-    tokenId: string,
-    options?: DeleteTokenOptions,
-  ) => Effect.Effect<void, AuthError>;
+  readonly deleteToken: (tokenId: string) => Effect.Effect<void, AuthError>;
 }
 
 export class AuthClient extends ServiceMap.Service<AuthClient, AuthClientService>()(
   "@agentxm/registry-access/auth-client/AuthClient",
+) {}
+
+/**
+ * The OAuth endpoints that renew and end a stored session.
+ *
+ * It is a separate service from `AuthClient` because these are the calls that
+ * must not travel through the authenticated transport. The middleware asks for
+ * a renewed session while it is deciding what credential a request carries, so
+ * a refresh that went back through it would not terminate, and a revoke that
+ * did would renew the session it is ending. Both endpoints authenticate the
+ * token in the request body, never a bearer. The refresh grant carries its own
+ * failure vocabulary because the refresher acts on the difference between a
+ * session the Registry ended and one it could not reach.
+ */
+export interface TokenExchangeService {
+  readonly refreshToken: (
+    refreshTokenValue: string,
+    registryUrl: string,
+  ) => Effect.Effect<
+    NormalizedTokenResponse,
+    SessionEnded | RefreshUnavailable | RegistryAccessFailed
+  >;
+  /** Revoke a refresh token and, with it, the session it belongs to. */
+  readonly revokeToken: (
+    refreshTokenValue: string,
+    registryUrl: string,
+  ) => Effect.Effect<void, RegistryClientFailure>;
+}
+
+export class TokenExchange extends ServiceMap.Service<TokenExchange, TokenExchangeService>()(
+  "@agentxm/registry-access/auth-client/TokenExchange",
 ) {}
 
 // -----------------------------------------------------------------------------
@@ -335,62 +281,6 @@ const SessionTokenResponseSchema = Schema.Struct({
   access_token: Schema.String,
   refresh_token: Schema.String,
   expires_at: DateTimeUtcSchema,
-});
-
-const PublishCapabilityResponseSchema = Schema.Struct({
-  access_token: Schema.String,
-  expires_at: DateTimeUtcSchema,
-  scope: Schema.String,
-  publish_request_id: Schema.String,
-  visibility_contract: Schema.Literal("v2"),
-  visibility: PublishVisibilitySchema,
-  condition: Schema.String.check(Schema.isMinLength(1)),
-  publication_set_digest: Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/)),
-  publication_descriptor_digest: Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/)),
-});
-
-const PublishAuthorizationExchangeResponseSchema = Schema.Union([
-  Schema.Struct({
-    status: Schema.Literal("admitted"),
-    preview: PreviewPublicationSetResponseSchema,
-    grants: Schema.Array(PublishCapabilityResponseSchema),
-  }),
-  Schema.Struct({
-    status: Schema.Literal("blocked"),
-    preview: PreviewPublicationSetResponseSchema,
-    grants: Schema.Tuple([]),
-  }),
-]);
-
-const decodePublishAuthorizationExchange = Effect.fn(
-  "AuthClient.decodePublishAuthorizationExchange",
-)(function* (registryUrl: string, response: unknown) {
-  if (!Schema.is(PublishAuthorizationExchangeResponseSchema)(response)) {
-    return yield* mapRegistryAccessError(
-      registryUrl,
-      "The Registry is incompatible with exact publish authorization",
-      new Error("Invalid publish capability response"),
-    );
-  }
-
-  if (response.status === "blocked") {
-    return response;
-  }
-  return {
-    status: "admitted",
-    preview: response.preview,
-    grants: response.grants.map((grant): PublishCapabilityResponse => ({
-      accessToken: grant.access_token,
-      expiresAt: grant.expires_at,
-      scope: grant.scope,
-      publishRequestId: grant.publish_request_id,
-      visibilityContract: grant.visibility_contract,
-      visibility: grant.visibility,
-      condition: grant.condition,
-      publicationSetDigest: grant.publication_set_digest,
-      publicationDescriptorDigest: grant.publication_descriptor_digest,
-    })),
-  } satisfies PublishAuthorizationExchangeResponse;
 });
 
 type StepUpPollResult =
@@ -453,25 +343,17 @@ const makeGeneratedAuthClient = (
   httpClient: HttpClient.HttpClient,
   registryUrl: string,
   accessToken?: string,
-  stepUpRequestId?: string,
 ) => {
   const remoteHttpClient = httpClient.pipe(
     HttpClient.mapRequest(HttpClientRequest.prependUrl(registryUrl)),
   );
-  const authedHttpClient =
-    accessToken === undefined
-      ? remoteHttpClient
-      : remoteHttpClient.pipe(HttpClient.mapRequest(HttpClientRequest.bearerToken(accessToken)));
-  const registryHttpClient = captureRegistryErrorResponseBodies(
-    stepUpRequestId === undefined
-      ? authedHttpClient
-      : authedHttpClient.pipe(
-          HttpClient.mapRequest(
-            HttpClientRequest.setHeaders({ "x-axm-step-up-request": stepUpRequestId }),
-          ),
-        ),
+  return GeneratedRegistryClient.make(
+    captureRegistryErrorResponseBodies(
+      accessToken === undefined
+        ? remoteHttpClient
+        : remoteHttpClient.pipe(HttpClient.mapRequest(HttpClientRequest.bearerToken(accessToken))),
+    ),
   );
-  return GeneratedRegistryClient.make(registryHttpClient);
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -674,7 +556,6 @@ export const AuthClientLive = Layer.effect(
       expiresAt,
       state,
       redirectUri,
-      scopes,
     }) => {
       const url = new URL("/oauth/authorize", authorizationOrigin);
       url.searchParams.set("response_type", "code");
@@ -683,7 +564,7 @@ export const AuthClientLive = Layer.effect(
       url.searchParams.set("code_challenge_method", "S256");
       url.searchParams.set("state", state);
       url.searchParams.set("redirect_uri", redirectUri);
-      url.searchParams.set("scope", normalizeRequestedLoginScopes(scopes).join(" "));
+      url.searchParams.set("scope", LOGIN_SCOPE);
       if (expiresAt !== undefined) {
         url.searchParams.set("request_expires_at", DateTime.formatIso(expiresAt));
       }
@@ -717,147 +598,12 @@ export const AuthClientLive = Layer.effect(
       return response;
     });
 
-    const createPublishAuthorizationRequest: AuthClientService["createPublishAuthorizationRequest"] =
-      Effect.fn("AuthClient.createPublishAuthorizationRequest")(function* (params) {
-        const publishClient = makeGeneratedAuthClient(httpClient, params.registryUrl);
-        const publicationSet = yield* Schema.encodeUnknownEffect(
-          GeneratedRegistryClient.PreviewPublicationSetRequest,
-        )(params.publicationSet).pipe(
-          Effect.mapError((error) =>
-            mapRegistryAccessError(
-              params.registryUrl,
-              "Could not encode publish authorization request",
-              error,
-            ),
-          ),
-        );
-        const response = yield* executeRegistryRequest(
-          publishClient.AuthCreatePublishAuthorizationRequest({
-            payload: {
-              client_id: CLIENT_ID,
-              delivery: params.delivery,
-              publication_set: publicationSet,
-            },
-          }),
-          {
-            operation: "createPublishAuthorizationRequest",
-            request: {
-              service: "registry",
-              method: "POST",
-              url: `${params.registryUrl.replace(/\/+$/, "")}/v1/auth/publish-requests`,
-            },
-            replaySafety: { kind: "mutation" },
-            mapError: (error) =>
-              mapRegistryAccessError(
-                params.registryUrl,
-                "Could not create publish authorization request; no automatic replacement was attempted",
-                error,
-              ),
-          },
-        );
-
-        return {
-          interval: response.interval,
-          requestId: response.request_id,
-          authorizationUrl: response.authorization_url,
-          expiresAt: response.expires_at,
-        } satisfies PublishAuthorizationRequestResponse;
-      });
-
-    const pollPublishAuthorization: AuthClientService["pollPublishAuthorization"] = Effect.fn(
-      "AuthClient.pollPublishAuthorization",
-    )(function* (params) {
-      const publishClient = makeGeneratedAuthClient(httpClient, params.registryUrl);
-      const requestRef = `${params.registryUrl.replace(/\/+$/, "")}/v1/auth/publish-requests/${params.requestId}`;
-      return yield* executeRegistryRequest(
-        publishClient.AuthPollPublishAuthorization(params.requestId, {
-          payload: { initiator_proof: params.initiatorProof },
-        }),
-        {
-          operation: "pollPublishAuthorization",
-          request: { service: "registry", method: "POST", url: `${requestRef}/status` },
-          replaySafety: { kind: "safe" },
-          mapError: (error) =>
-            mapRegistryAccessError(
-              params.registryUrl,
-              `Could not read publish authorization status. Resume the same command with --authorization-request ${requestRef}`,
-              error,
-            ),
-        },
-      );
-    });
-    const exchangePublishAuthorization: AuthClientService["exchangePublishAuthorization"] =
-      Effect.fn("AuthClient.exchangePublishAuthorization")(function* (params) {
-        const publishClient = makeGeneratedAuthClient(httpClient, params.registryUrl);
-        const requestRef = `${params.registryUrl.replace(/\/+$/, "")}/v1/auth/publish-requests/${params.requestId}`;
-        const response = yield* executeRegistryRequest(
-          publishClient.AuthExchangePublishAuthorization(params.requestId, {
-            payload: { initiator_proof: params.initiatorProof },
-          }),
-          {
-            operation: "exchangePublishAuthorization",
-            request: { service: "registry", method: "POST", url: `${requestRef}/exchange` },
-            replaySafety: { kind: "mutation" },
-            mapError: (error) =>
-              mapRegistryAccessError(
-                params.registryUrl,
-                `Publish authorization exchange did not complete. Resume with --authorization-request ${requestRef} to check its status before requesting new consent`,
-                error,
-              ),
-          },
-        );
-        return yield* decodePublishAuthorizationExchange(params.registryUrl, response);
-      });
-
-    const exchangePublishAuthorizationCode: AuthClientService["exchangePublishAuthorizationCode"] =
-      Effect.fn("AuthClient.exchangePublishAuthorizationCode")(function* (params) {
-        const publishClient = makeGeneratedAuthClient(httpClient, params.registryUrl);
-        const response = yield* publishClient
-          .AuthExchangeToken({
-            payload: {
-              grant_type: AUTHORIZATION_CODE_GRANT_TYPE,
-              code: params.code,
-              code_verifier: params.verifier,
-              client_id: CLIENT_ID,
-              redirect_uri: params.redirectUri,
-            },
-          })
-          .pipe(
-            Effect.mapError((error) => {
-              const mapped = mapRegistryAccessError(
-                params.registryUrl,
-                "Publish authorization code exchange failed",
-                error,
-              );
-              const code = isRegistryClientError("AuthExchangeToken400")(error)
-                ? getOAuthErrorCode(error.cause)
-                : undefined;
-              return code === "invalid_grant"
-                ? new AuthExchangeFailed({
-                    detail: "Publish authorization expired or was already used",
-                    suggestions: [
-                      {
-                        description: "Review the exact publish request again by rerunning publish.",
-                      },
-                    ],
-                    failure: mapped,
-                  })
-                : mapped;
-            }),
-          );
-
-        return yield* decodePublishAuthorizationExchange(params.registryUrl, response);
-      });
-
     const initiateDeviceFlow: AuthClientService["initiateDeviceFlow"] = Effect.fn(
       "AuthClient.initiateDeviceFlow",
-    )(function* (options) {
+    )(function* () {
       const response = yield* client
         .AuthIssueDeviceCode({
-          payload: {
-            client_id: CLIENT_ID,
-            scope: normalizeRequestedLoginScopes(options?.scopes).join(" "),
-          },
+          payload: { client_id: CLIENT_ID, scope: LOGIN_SCOPE },
         })
         .pipe(
           Effect.mapError((error) =>
@@ -903,47 +649,11 @@ export const AuthClientLive = Layer.effect(
       }
     });
 
-    const refreshToken: AuthClientService["refreshToken"] = Effect.fn("AuthClient.refreshToken")(
-      function* (refreshTokenValue) {
-        return yield* postTokenForm(httpClient, registryUrl, {
-          grant_type: "refresh_token",
-          refresh_token: refreshTokenValue,
-          client_id: CLIENT_ID,
-        }).pipe(
-          Effect.catchTag("OAuthTokenResponseError", (error) =>
-            Effect.fail(
-              new AuthExchangeFailed({
-                detail: "Token refresh request failed",
-                suggestions: [{ description: "Sign in again.", cmd: "axm login" }],
-                failure: registryAccessFailure(registryUrl, "Token exchange failed", error.cause),
-              }),
-            ),
-          ),
-        );
-      },
-    );
-
-    const revokeToken: AuthClientService["revokeToken"] = Effect.fn("AuthClient.revokeToken")(
-      function* (token) {
-        yield* client
-          .AuthRevokeOAuthToken({
-            payload: { token, token_type_hint: "refresh_token" },
-          })
-          .pipe(
-            Effect.catch((error) => {
-              const mapped = mapRegistryAccessError(registryUrl, "Token revocation failed", error);
-              const detail = mapped.detail ?? "Token revocation failed";
-              return Effect.logWarning(`${detail} Local credentials will still be cleared.`);
-            }),
-          );
-      },
-    );
-
     const getMe: AuthClientService["getMe"] = Effect.fn("AuthClient.getMe")(
       function* (accessToken) {
-        // Inject bearer token via a per-request HttpClient wrapper for getMe.
-        // The generated AuthGetMe operation uses GET /v1/auth/me with no payload,
-        // so we need to add the Authorization header via the httpClient.
+        // The transport carries whichever credential the invocation resolved.
+        // A caller only names a token when the store does not hold it yet —
+        // the identity read that follows a just-issued sign-in.
         const authedClient = makeGeneratedAuthClient(httpClient, registryUrl, accessToken);
 
         const decoded = yield* authedClient
@@ -957,16 +667,18 @@ export const AuthClientLive = Layer.effect(
         return {
           userHandle: normalizeHandle(decoded.user.handle),
           tokenType: decoded.token.type,
-          scopes: decoded.token.scopes,
-          resourceRestrictions: decoded.token.resource_restrictions,
+          authority: decoded.token.authority,
+          permissions: readTokenPermissions(decoded.token.permissions),
+          resourceRestrictions: decoded.token.resource_restrictions ?? null,
           expiresAt: decoded.token.expires_at,
+          approvedAt: decoded.token.approved_at,
         } satisfies MeResponse;
       },
     );
 
     const createToken: AuthClientService["createToken"] = Effect.fn("AuthClient.createToken")(
-      function* (accessToken, params, options) {
-        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl, accessToken);
+      function* (params, options) {
+        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl);
         const decoded = yield* authedClient
           .TokensCreate({
             ...(options?.stepUpRequestId === undefined
@@ -990,7 +702,6 @@ export const AuthClientLive = Layer.effect(
           id: decoded.id,
           token: decoded.token,
           name: decoded.name,
-          scopes: decoded.scopes,
           permissions: decoded.permissions,
           createdAt: decoded.created_at,
           expiresAt: decoded.expires_at,
@@ -999,8 +710,8 @@ export const AuthClientLive = Layer.effect(
     );
 
     const listTokens: AuthClientService["listTokens"] = Effect.fn("AuthClient.listTokens")(
-      function* (accessToken, params) {
-        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl, accessToken);
+      function* (params) {
+        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl);
         const decoded = yield* authedClient
           .TokensList({
             params: {
@@ -1019,7 +730,6 @@ export const AuthClientLive = Layer.effect(
             id: token.id,
             name: token.name,
             type: token.type,
-            scopes: token.scopes,
             permissions: token.permissions,
             createdAt: token.created_at,
             expiresAt: token.expires_at,
@@ -1031,8 +741,8 @@ export const AuthClientLive = Layer.effect(
       },
     );
 
-    const getStepUpRequest: AuthClientService["getStepUpRequest"] = (accessToken, requestId) =>
-      makeGeneratedAuthClient(httpClient, registryUrl, accessToken)
+    const getStepUpRequest: AuthClientService["getStepUpRequest"] = (requestId) =>
+      makeGeneratedAuthClient(httpClient, registryUrl)
         .AuthGetStepUpRequest(requestId, undefined)
         .pipe(
           Effect.mapError((error) =>
@@ -1042,14 +752,14 @@ export const AuthClientLive = Layer.effect(
 
     const waitForStepUpRequest: AuthClientService["waitForStepUpRequest"] = Effect.fn(
       "AuthClient.waitForStepUpRequest",
-    )(function* (accessToken, statusUrl, intervalSeconds) {
+    )(function* (statusUrl, intervalSeconds) {
       const parsedStatusUrl = new URL(statusUrl);
       const requestId = parsedStatusUrl.pathname.slice(
         parsedStatusUrl.pathname.lastIndexOf("/") + 1,
       );
 
       for (let attempt = 0; attempt < 300; attempt += 1) {
-        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl, accessToken);
+        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl);
         const result: StepUpPollResult = yield* authedClient
           .AuthGetStepUpRequest(requestId, undefined)
           .pipe(
@@ -1110,22 +820,15 @@ export const AuthClientLive = Layer.effect(
     });
 
     const deleteToken: AuthClientService["deleteToken"] = Effect.fn("AuthClient.deleteToken")(
-      function* (accessToken, tokenId, options) {
-        const authedClient = makeGeneratedAuthClient(
-          httpClient,
-          registryUrl,
-          accessToken,
-          options?.stepUpRequestId,
-        );
-        yield* authedClient.TokensDelete(tokenId, undefined).pipe(
-          Effect.mapError((error) =>
-            mapRegistryAccessError(registryUrl, "Could not revoke token", error),
-          ),
-          Effect.mapError((error) => {
-            const stepUp = readStepUpRequest(error);
-            return stepUp === null ? error : new StepUpRequired({ stepUp, failure: error });
-          }),
-        );
+      function* (tokenId) {
+        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl);
+        yield* authedClient
+          .TokensDelete(tokenId, undefined)
+          .pipe(
+            Effect.mapError((error) =>
+              mapRegistryAccessError(registryUrl, "Could not revoke token", error),
+            ),
+          );
       },
     );
 
@@ -1133,14 +836,8 @@ export const AuthClientLive = Layer.effect(
       buildAuthorizeUrl,
       getAuthorizationIssuer,
       exchangePkceCode,
-      createPublishAuthorizationRequest,
-      pollPublishAuthorization,
-      exchangePublishAuthorization,
-      exchangePublishAuthorizationCode,
       initiateDeviceFlow,
       pollDeviceToken,
-      refreshToken,
-      revokeToken,
       getMe,
       createToken,
       listTokens,
@@ -1152,6 +849,144 @@ export const AuthClientLive = Layer.effect(
 );
 
 // -----------------------------------------------------------------------------
+// Token exchange live layer
+// -----------------------------------------------------------------------------
+
+/**
+ * How long one call to a token endpoint may take before the Registry counts as
+ * unreachable. Both calls run inside the credential home's refresh lock, so
+ * this is also the longest one invocation makes the others wait.
+ */
+const TOKEN_ENDPOINT_DEADLINE = Duration.seconds(30);
+
+/**
+ * What the token endpoint's answer to a refresh grant means for the session.
+ *
+ * - `refused`: the Registry itself refused the grant — the refusal its
+ *   contract declares, or an authentication refusal carrying the Registry's own
+ *   error document. The refresh token is spent, revoked, or replaced.
+ * - `unusable`: the Registry accepted the grant, or answered in a shape this
+ *   client cannot read. The refresh token may be spent and nothing usable came
+ *   back, so presenting it again would trip reuse detection.
+ * - `undecided`: nothing that speaks for the grant answered — no connection, a
+ *   server error, a rate limit, or a refusal with no Registry error document,
+ *   which is an intermediary's. The session is whatever it was before the
+ *   attempt.
+ */
+const refreshAnswer = (error: unknown): "refused" | "unusable" | "undecided" => {
+  if (isRegistryClientError("AuthExchangeToken400")(error)) return "refused";
+  if (isSchemaError(error)) return "unusable";
+  if (!isHttpClientError(error) || error.response === undefined) return "undecided";
+  const status = error.response.status;
+  if (status >= 200 && status < 300) return "unusable";
+  return (status === 401 || status === 403) &&
+    getOAuthErrorCode(retainedRegistryResponseBody(error.response, undefined)) !== undefined
+    ? "refused"
+    : "undecided";
+};
+
+/**
+ * The refresh grant, on the unauthenticated transport.
+ *
+ * The refresher acts on the line between a session the Registry ended and one
+ * it said nothing about. Only the refusal the token endpoint's contract
+ * declares ends a session. A Registry that could not be reached, failed while
+ * trying, limited the rate, or was answered for by an intermediary has decided
+ * nothing: the credential is kept and the caller may retry. An accepted grant
+ * whose answer cannot be read is neither — the session cannot be kept, and the
+ * failure says why instead of blaming the network.
+ */
+export const TokenExchangeLive = Layer.effect(
+  TokenExchange,
+  Effect.gen(function* () {
+    const httpClient = yield* HttpClient.HttpClient;
+
+    const refreshToken: TokenExchangeService["refreshToken"] = Effect.fn(
+      "TokenExchange.refreshToken",
+    )(function* (refreshTokenValue, registryUrl) {
+      const unusable = (cause: unknown) =>
+        new RegistryAccessFailed({
+          category: "internal",
+          detail:
+            "The Registry answered the session renewal outside its contract, so the renewed session could not be kept.",
+          suggestions: [{ description: "Sign in again.", cmd: "axm login" }],
+          cause,
+        });
+      return yield* postTokenForm(httpClient, registryUrl, {
+        grant_type: "refresh_token",
+        refresh_token: refreshTokenValue,
+        client_id: CLIENT_ID,
+      }).pipe(
+        Effect.mapError((error): SessionEnded | RefreshUnavailable | RegistryAccessFailed => {
+          if (isRegistryClientFailure(error)) return unusable(error);
+          switch (refreshAnswer(error.cause)) {
+            case "refused":
+              return new SessionEnded({ registryUrl, cause: error.cause });
+            case "unusable":
+              return unusable(error.cause);
+            case "undecided":
+              return new RefreshUnavailable({
+                registryUrl,
+                detail: "The Registry could not be reached to renew your session.",
+                cause: error.cause,
+              });
+          }
+        }),
+        Effect.timeoutOrElse({
+          duration: TOKEN_ENDPOINT_DEADLINE,
+          orElse: () =>
+            Effect.fail(
+              new RefreshUnavailable({
+                registryUrl,
+                detail: "The Registry did not answer in time to renew your session.",
+              }),
+            ),
+        }),
+      );
+    });
+
+    const revokeToken: TokenExchangeService["revokeToken"] = Effect.fn("TokenExchange.revokeToken")(
+      function* (refreshTokenValue, registryUrl) {
+        yield* makeGeneratedAuthClient(httpClient, registryUrl)
+          .AuthRevokeOAuthToken({
+            payload: { token: refreshTokenValue, token_type_hint: "refresh_token" },
+          })
+          .pipe(
+            Effect.mapError((error) =>
+              mapRegistryAccessError(registryUrl, "Token revocation failed", error),
+            ),
+            Effect.timeoutOrElse({
+              duration: TOKEN_ENDPOINT_DEADLINE,
+              orElse: () =>
+                Effect.fail(
+                  new RegistryRequestFailed({
+                    category: "timeout",
+                    detail: "Token revocation failed: the Registry did not answer in time.",
+                  }),
+                ),
+            }),
+          );
+      },
+    );
+
+    return { refreshToken, revokeToken } satisfies TokenExchangeService;
+  }),
+);
+
+export const TokenExchangeTest = (overrides?: Partial<TokenExchangeService>) =>
+  Layer.succeed(TokenExchange, {
+    refreshToken: (_token, registryUrl) =>
+      Effect.fail(
+        new RefreshUnavailable({
+          registryUrl,
+          detail: "Not implemented in test",
+        }),
+      ),
+    revokeToken: () => Effect.void,
+    ...overrides,
+  } satisfies TokenExchangeService);
+
+// -----------------------------------------------------------------------------
 // Test layer factory
 // -----------------------------------------------------------------------------
 
@@ -1161,28 +996,6 @@ export const AuthClientTest = (overrides?: Partial<AuthClientService>) =>
       `https://agentxm.ai/oauth/authorize?redirect_uri=${redirectUri}`,
     getAuthorizationIssuer: () => "https://agentxm.ai",
     exchangePkceCode: () =>
-      Effect.fail(
-        new RegistryAccessFailed({
-          category: "auth",
-          detail: "Not implemented in test",
-        }),
-      ),
-    createPublishAuthorizationRequest: () =>
-      Effect.fail(
-        new RegistryAccessFailed({
-          category: "auth",
-          detail: "Not implemented in test",
-        }),
-      ),
-    pollPublishAuthorization: () =>
-      Effect.fail(
-        new RegistryAccessFailed({ category: "auth", detail: "Not implemented in test" }),
-      ),
-    exchangePublishAuthorization: () =>
-      Effect.fail(
-        new RegistryAccessFailed({ category: "auth", detail: "Not implemented in test" }),
-      ),
-    exchangePublishAuthorizationCode: () =>
       Effect.fail(
         new RegistryAccessFailed({
           category: "auth",
@@ -1203,14 +1016,6 @@ export const AuthClientTest = (overrides?: Partial<AuthClientService>) =>
           detail: "Not implemented in test",
         }),
       ),
-    refreshToken: () =>
-      Effect.fail(
-        new RegistryAccessFailed({
-          category: "auth",
-          detail: "Not implemented in test",
-        }),
-      ),
-    revokeToken: () => Effect.void,
     getMe: () =>
       Effect.fail(
         new RegistryAccessFailed({

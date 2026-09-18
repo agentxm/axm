@@ -3,7 +3,7 @@ import * as Schema from "effect/Schema";
 /** Public references describe pending work; they never convey exchange authority. */
 export const HumanHandoffActionSchema = Schema.Struct({
   kind: Schema.Literal("open-url"),
-  purpose: Schema.Literals(["login", "step-up", "publish"]),
+  purpose: Schema.Literals(["login", "step-up"]),
   requestRef: Schema.String,
   registryUrl: Schema.String,
   url: Schema.String,

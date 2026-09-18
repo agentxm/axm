@@ -29,7 +29,6 @@ export const repeatedFlagControls = [
   ...["field", "property", "metadata", "lifecycle", "tag"].map((flag) =>
     control("knowledge concepts query", flag),
   ),
-  control("login", "scope"),
   control("mcps add", "env", ["ONE=1", "TWO=2"], ["parser-fixture"]),
   control("mcps add", "header", ["X-One:1", "X-Two:2"], ["parser-fixture"]),
   control("mcps install", "env", ["ONE=1", "TWO=2"]),
@@ -38,18 +37,17 @@ export const repeatedFlagControls = [
   control("skills list", "agent", ["claude-code", "claude-code"]),
   control("subagents install", "subagent"),
   control("subagents list", "agent", ["claude-code", "claude-code"]),
-  control("token create", "owner", ["@first", "@second"], ["--name", "parser-fixture"]),
+  control(
+    "token create",
+    "owner",
+    ["@first", "@second"],
+    ["--name", "parser-fixture", "--permission", "read"],
+  ),
   control(
     "token create",
     "extension",
     ["@first/skills/one", "@second/skills/two"],
-    ["--name", "parser-fixture"],
-  ),
-  control(
-    "token create",
-    "cidr",
-    ["192.0.2.0/24", "198.51.100.0/24"],
-    ["--name", "parser-fixture"],
+    ["--name", "parser-fixture", "--permission", "read"],
   ),
 ] satisfies ReadonlyArray<Control>;
 

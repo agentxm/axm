@@ -44,7 +44,7 @@ describe("startLoopbackServer", () => {
 
       yield* Effect.scoped(
         Effect.gen(function* () {
-          const server = yield* startLoopbackServer("expected-state", "login");
+          const server = yield* startLoopbackServer("expected-state");
           listenerOrigin = new URL(server.redirectUri).origin;
         }),
       );
@@ -58,7 +58,7 @@ describe("startLoopbackServer", () => {
 
   it.effect("accepts an exact callback and returns its authorization values", () =>
     Effect.gen(function* () {
-      const server = yield* startLoopbackServer("expected-state", "login");
+      const server = yield* startLoopbackServer("expected-state");
       const callback = new URL(server.redirectUri);
       callback.searchParams.set("code", "axm_pubac_exact");
       callback.searchParams.set("state", "expected-state");
@@ -83,7 +83,7 @@ describe("startLoopbackServer", () => {
 
   it.effect("reports an explicit browser denial", () =>
     Effect.gen(function* () {
-      const server = yield* startLoopbackServer("expected-state", "login");
+      const server = yield* startLoopbackServer("expected-state");
       const callback = new URL(server.redirectUri);
       callback.searchParams.set("error", "access_denied");
       callback.searchParams.set("state", "expected-state");
@@ -103,7 +103,7 @@ describe("startLoopbackServer", () => {
 
   it.effect("rejects a callback whose OAuth state does not match", () =>
     Effect.gen(function* () {
-      const server = yield* startLoopbackServer("expected-state", "login");
+      const server = yield* startLoopbackServer("expected-state");
       const callback = new URL(server.redirectUri);
       callback.searchParams.set("code", "axm_pubac_wrong_state");
       callback.searchParams.set("state", "unexpected-state");
@@ -123,7 +123,7 @@ describe("startLoopbackServer", () => {
 
   it.live("closes the listener and reports a timeout when no callback arrives", () =>
     Effect.gen(function* () {
-      const server = yield* startLoopbackServer("expected-state", "login");
+      const server = yield* startLoopbackServer("expected-state");
 
       const error = yield* Effect.flip(server.awaitCallback(10));
 

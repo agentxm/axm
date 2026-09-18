@@ -37,10 +37,7 @@ describe("Bounded approval wait", () => {
       auth: { pollDeviceToken: () => Effect.never },
     });
     return Effect.gen(function* () {
-      yield* initiateDeviceLogin(authRegistry, {
-        openBrowser: false,
-        scopes: ["extensions:read"],
-      });
+      yield* initiateDeviceLogin(authRegistry, { openBrowser: false });
       const pendingStore = yield* PendingDeviceLoginStore;
       const before = yield* pendingStore.load();
 

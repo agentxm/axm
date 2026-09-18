@@ -147,7 +147,7 @@ describe("registryErrorToProblem", () => {
     });
   });
 
-  it("adds scope suggestions for insufficient-scope 403 responses", () => {
+  it("recovers a narrowed credential by naming the session, never a new sign-in", () => {
     const error = registryErrorToProblem(
       {
         kind: "ForbiddenError",
@@ -166,9 +166,28 @@ describe("registryErrorToProblem", () => {
 
     expect(error.category).toBe("forbidden");
     expect(error.suggestions).toContainEqual({
-      description: "Sign in with the required registry scope.",
-      cmd: "axm login --scope extensions:publish:version",
+      description: "This credential is narrower than your account. Use your signed-in session.",
     });
+    expect(JSON.stringify(error.suggestions)).not.toContain("axm login");
+  });
+
+  it("keeps the Registry's own words for a forbidding rule it has no recovery for", () => {
+    const error = registryErrorToProblem(
+      {
+        kind: "ForbiddenError",
+        type: "about:blank",
+        title: "Forbidden",
+        status: 403,
+        detail: "Resource groups are not yours to move",
+        code: "resource_move_not_authorized",
+      },
+      responseFor(403),
+    );
+
+    expect(error.category).toBe("forbidden");
+    expect(error.title).toBe("Forbidden");
+    expect(error.detail).toBe("Resource groups are not yours to move");
+    expect(error.suggestions).toBeUndefined();
   });
 
   it("adds lint finding suggestions for publish lint responses", () => {

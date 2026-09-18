@@ -15,7 +15,12 @@ import * as Layer from "effect/Layer";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { RegistryProblem } from "@agentxm/registry-client";
 
-import { AuthClientTest, type AuthClientService } from "../auth-client.js";
+import {
+  AuthClientTest,
+  TokenExchangeTest,
+  type AuthClientService,
+  type TokenExchangeService,
+} from "../auth-client.js";
 import {
   CredentialStore,
   CredentialStoreSessionLive,
@@ -74,6 +79,8 @@ export interface AuthPortsOptions {
   readonly afterCredentialRead?: (registryUrl: string) => Effect.Effect<void>;
   readonly pending?: PendingDeviceLogin;
   readonly auth?: Partial<AuthClientService>;
+  /** The token endpoints a stored session is renewed and revoked through. */
+  readonly exchange?: Partial<TokenExchangeService>;
   /**
    * The environment auth policy reads. Defaults to an empty environment, so
    * no specification observes the developer's own `AXM_TOKEN`.
@@ -87,18 +94,19 @@ export interface AuthPortsOptions {
  * needs, and expose what each port recorded.
  */
 export const makeAuthPorts = (options: AuthPortsOptions = {}) => {
-  const requestedScopes: Array<ReadonlyArray<string>> = [];
+  const deviceAuthorizations: Array<string> = [];
   const polledCodes: Array<string> = [];
   const presenter = AuthLoginPresenterTest(options.presenter);
   const interaction = AuthLoginInteractionTest();
   const deviceInteraction = DeviceLoginInteractionTest();
 
   const auth = AuthClientTest({
-    initiateDeviceFlow: (request) =>
+    initiateDeviceFlow: () =>
       Effect.sync(() => {
-        requestedScopes.push(request?.scopes ?? []);
+        const code = `fixture-device-secret-${deviceAuthorizations.length + 1}`;
+        deviceAuthorizations.push(code);
         return {
-          device_code: `fixture-device-secret-${requestedScopes.length}`,
+          device_code: code,
           user_code: "ABCD-1234",
           verification_uri: "https://identity.example.test/device",
           verification_uri_complete: "https://identity.example.test/device?user_code=ABCD-1234",
@@ -119,9 +127,11 @@ export const makeAuthPorts = (options: AuthPortsOptions = {}) => {
       Effect.succeed({
         userHandle: authHandle,
         tokenType: "session",
-        scopes: ["extensions:read"],
-        resourceRestrictions: { extensions: null },
+        authority: "account" as const,
+        permissions: null,
+        resourceRestrictions: null,
         expiresAt: authExpiry,
+        approvedAt: null,
       }),
     ...options.auth,
   });
@@ -153,6 +163,7 @@ export const makeAuthPorts = (options: AuthPortsOptions = {}) => {
     interaction.layer,
     deviceInteraction.layer,
     auth,
+    TokenExchangeTest(options.exchange),
     Layer.provide(CredentialStoreSessionLive, credentialStore),
     PendingDeviceLoginStoreTest(options.pending),
     Layer.succeed(AuthEnvironment, ConfigProvider.fromEnvRecord(options.environment ?? {})),
@@ -163,8 +174,8 @@ export const makeAuthPorts = (options: AuthPortsOptions = {}) => {
     presenterState: presenter.state,
     interactionState: interaction.state,
     deviceInteractionState: deviceInteraction.state,
-    /** The scope set of every device authorization the flow asked for. */
-    requestedScopes,
+    /** The device code of every device authorization the flow started. */
+    deviceAuthorizations,
     /** Every device code the flow presented for polling. */
     polledCodes,
   };
@@ -185,7 +196,6 @@ export const deviceLoginRequest = (overrides: Partial<LoginRequest> = {}): Login
   deviceCode: true,
   restart: false,
   wait: false,
-  scopes: ["extensions:read"],
   nonInteractive: true,
   machineOutput: true,
   ...overrides,
@@ -193,7 +203,7 @@ export const deviceLoginRequest = (overrides: Partial<LoginRequest> = {}): Login
 
 /** A request that resumes a pending device sign-in instead of starting one. */
 export const resumeLoginRequest = (overrides: Partial<LoginRequest> = {}): LoginRequest =>
-  deviceLoginRequest({ deviceCode: false, wait: true, scopes: [], ...overrides });
+  deviceLoginRequest({ deviceCode: false, wait: true, ...overrides });
 
 // -----------------------------------------------------------------------------
 // Step-up verification fixtures

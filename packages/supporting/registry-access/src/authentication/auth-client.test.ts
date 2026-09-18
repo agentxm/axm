@@ -20,17 +20,12 @@ import * as Layer from "effect/Layer";
 import * as TestClock from "effect/testing/TestClock";
 import { expect } from "vitest";
 
-import { exactVersion, extensionName, handle } from "../test-helpers.js";
-import {
-  PUBLICATION_SET_CONTRACT,
-  archiveSha256Hex,
-  publicationDescriptorDigest,
-  publicationSetDigest,
-} from "@agentxm/registry-protocol/unstable/registry/publication-set";
 import {
   AuthClient,
   AuthClientLive,
-  normalizeRequestedLoginScopes,
+  LOGIN_SCOPE,
+  TokenExchange,
+  TokenExchangeLive,
   pollOnce,
 } from "./auth-client.js";
 import {
@@ -136,9 +131,9 @@ const makeMeResponse = () => ({
     type: "session",
     name: null,
     permissions: null,
-    scopes: ["extensions:read", "account:read"],
-    resource_restrictions: { extensions: null },
+    authority: "account",
     expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+    approved_at: new Date(Date.now() - 60 * 1000).toISOString(),
   },
 });
 
@@ -153,6 +148,13 @@ const makeUnauthorizedError = () => ({
 });
 
 // Build a RefreshTokenError-compatible JSON error body.
+/** A token request whose only interesting part is whether it is challenged. */
+const createTokenParams = {
+  name: "ci",
+  expiresIn: 86_400,
+  permissions: { permission: "read" },
+} as const;
+
 const makeRefreshTokenError = () => ({
   kind: "RefreshTokenError",
   type: "urn:ietf:params:problem:refresh-token",
@@ -207,9 +209,7 @@ describe("AuthClient.buildAuthorizeUrl", () => {
 
       expect(url.pathname).toBe("/oauth/authorize");
       expect(url.searchParams.get("request_expires_at")).toBe(DateTime.formatIso(expiresAt));
-      expect(url.searchParams.get("scope")).toBe(
-        "account:read email extensions:read offline_access openid profile",
-      );
+      expect(url.searchParams.get("scope")).toBe(LOGIN_SCOPE);
     }).pipe(Effect.provide(layer));
   });
 
@@ -238,169 +238,9 @@ describe("AuthClient.buildAuthorizeUrl", () => {
   });
 });
 
-describe("AuthClient exact publish authorization", () => {
-  it.effect("sends one publication set and decodes its complete grant bundle", () => {
-    const requests: Array<Readonly<Record<string, unknown>>> = [];
-    const layer = makeTestLayer((request) => {
-      if (request.url.endsWith("/v1/auth/publish-requests")) {
-        if (request.body._tag !== "Uint8Array") {
-          throw new Error("Expected an encoded request body");
-        }
-        const body: unknown = JSON.parse(new TextDecoder().decode(request.body.body));
-        if (typeof body !== "object" || body === null || Array.isArray(body)) {
-          throw new Error("Expected a JSON object request body");
-        }
-        requests.push(Object.fromEntries(Object.entries(body)));
-        return new Response(
-          JSON.stringify({
-            request_id: "pubreq_01h455vb4pexka56gq5w2r7cpc",
-            authorization_url:
-              "https://agentxm.ai/publish/authorize/pubreq_01h455vb4pexka56gq5w2r7cpc",
-            expires_at: "2099-01-01T00:10:00.000Z",
-            interval: 2,
-          }),
-          { status: 201, headers: { "content-type": "application/json" } },
-        );
-      }
-
-      return new Response(
-        JSON.stringify({
-          status: "admitted",
-          preview: {
-            contract: PUBLICATION_SET_CONTRACT,
-            publicationSetDigest: "b".repeat(64),
-            status: "admitted",
-            candidates: [
-              {
-                kind: "resolved",
-                target: {
-                  owner: "@alice",
-                  type: "skill",
-                  name: "review",
-                  version: "1.0.0",
-                },
-                participation: "publish",
-                descriptorDigest: "c".repeat(64),
-                visibility: {
-                  target: "@alice/skills/review",
-                  intent: null,
-                  request: "private",
-                  resolved: {
-                    value: "private",
-                    disposition: "establish",
-                    source: "explicit",
-                  },
-                  actual: null,
-                  comparison: "not-established",
-                  findings: [],
-                },
-                condition: '"pv2-reviewed"',
-              },
-            ],
-            packs: [],
-          },
-          grants: [
-            {
-              access_token: "axm_pub_capability",
-              token_type: "Bearer",
-              expires_in: 900,
-              expires_at: "2099-01-01T00:15:00.000Z",
-              scope: "extensions:publish:new",
-              publish_request_id: "pubreq_01h455vb4pexka56gq5w2r7cpc",
-              visibility_contract: "v2",
-              visibility: {
-                value: "private",
-                disposition: "establish",
-                source: "explicit",
-              },
-              condition: '"pv2-reviewed"',
-              publication_set_digest: "b".repeat(64),
-              publication_descriptor_digest: "c".repeat(64),
-            },
-          ],
-        }),
-        { status: 200, headers: { "content-type": "application/json" } },
-      );
-    });
-
-    return Effect.gen(function* () {
-      const client = yield* AuthClient;
-      const archive = new TextEncoder().encode("archive");
-      const descriptor = {
-        target: {
-          owner: handle("@alice"),
-          type: "skill" as const,
-          name: extensionName("review"),
-          version: exactVersion("1.0.0"),
-        },
-        participation: "publish" as const,
-        archiveSha256Hex: archiveSha256Hex(archive),
-        visibility: { intent: null, request: "private" as const },
-      };
-      yield* client.createPublishAuthorizationRequest({
-        registryUrl: REGISTRY_URL,
-        delivery: {
-          kind: "loopback",
-          redirect_uri: "http://127.0.0.1:49152/callback",
-          state: "state",
-          code_challenge: "a".repeat(43),
-          code_challenge_method: "S256",
-        },
-        publicationSet: {
-          contract: PUBLICATION_SET_CONTRACT,
-          candidates: [descriptor],
-        },
-      });
-      const capability = yield* client.exchangePublishAuthorizationCode({
-        registryUrl: REGISTRY_URL,
-        code: "code",
-        verifier: "verifier",
-        redirectUri: "http://127.0.0.1:49152/callback",
-      });
-
-      expect(requests[0]).toMatchObject({
-        publication_set: {
-          contract: PUBLICATION_SET_CONTRACT,
-          candidates: [descriptor],
-        },
-      });
-      expect(capability).toMatchObject({
-        status: "admitted",
-        preview: {
-          contract: PUBLICATION_SET_CONTRACT,
-          status: "admitted",
-        },
-        grants: [
-          {
-            accessToken: "axm_pub_capability",
-            visibilityContract: "v2",
-            condition: '"pv2-reviewed"',
-          },
-        ],
-      });
-      expect(publicationSetDigest([descriptor])).toHaveLength(64);
-      expect(publicationDescriptorDigest(descriptor)).toHaveLength(64);
-    }).pipe(Effect.provide(layer));
-  });
-});
-
 describe("AuthClient.initiateDeviceFlow", () => {
-  it("uses baseline read authority and preserves OIDC session semantics", () => {
-    expect(normalizeRequestedLoginScopes()).toEqual([
-      "account:read",
-      "email",
-      "extensions:read",
-      "offline_access",
-      "openid",
-      "profile",
-    ]);
-    expect(normalizeRequestedLoginScopes(["account:write", "account:write"])).toEqual([
-      "account:write",
-      "email",
-      "offline_access",
-      "openid",
-      "profile",
-    ]);
+  it("asks for identity claims and the refresh grant, and nothing a person can do", () => {
+    expect(LOGIN_SCOPE.split(" ").sort()).toEqual(["email", "offline_access", "openid", "profile"]);
   });
 
   it.effect("returns device flow response on success", () => {
@@ -861,7 +701,6 @@ describe("AuthClient step-up requests", () => {
     return Effect.gen(function* () {
       const client = yield* AuthClient;
       yield* client.waitForStepUpRequest(
-        "axm_ses_token",
         `${REGISTRY_URL}/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc`,
         0,
       );
@@ -888,7 +727,6 @@ describe("AuthClient step-up requests", () => {
       const client = yield* AuthClient;
       const fiber = yield* Effect.forkChild(
         client.waitForStepUpRequest(
-          "axm_ses_token",
           `${REGISTRY_URL}/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc`,
           0,
         ),
@@ -920,7 +758,6 @@ describe("AuthClient step-up requests", () => {
         const error = asAuthFailed(
           yield* client
             .waitForStepUpRequest(
-              "axm_ses_token",
               `${REGISTRY_URL}/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc`,
               0,
             )
@@ -950,8 +787,8 @@ describe("AuthClient step-up requests", () => {
               status_url: `${REGISTRY_URL}/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc`,
               expires_at: "2026-08-10T16:05:00.000Z",
               interval: 2,
-              action: "Revoke access token",
-              target: "token_123",
+              action: "Create access token",
+              target: "ci",
             },
           }),
           { status: 401, headers: { "content-type": "application/problem+json" } },
@@ -960,7 +797,7 @@ describe("AuthClient step-up requests", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const error = yield* client.deleteToken("axm_ses_token", "token_123").pipe(Effect.flip);
+      const error = yield* client.createToken(createTokenParams).pipe(Effect.flip);
       expect(error instanceof StepUpRequired ? error.stepUp : null).toEqual({
         requestId: "step_01h455vb4pexka56gq5w2r7cpc",
         verificationUrl: "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
@@ -968,38 +805,69 @@ describe("AuthClient step-up requests", () => {
         expiresAt: "2026-08-10T16:05:00.000Z",
         intervalSeconds: 2,
         maxAgeSeconds: 300,
-        action: "Revoke access token",
-        target: "token_123",
+        action: "Create access token",
+        target: "ci",
       });
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("retries a token deletion with only the opaque request header", () => {
+  it.effect("retries a token creation with only the opaque request header", () => {
     let stepUpRequestHeader: string | undefined;
     const layer = makeTestLayer((request) => {
+      stepUpRequestHeader = request.headers["x-axm-step-up-request"];
+      return new Response(
+        JSON.stringify({
+          id: "tok_01h455vb4pexka56gq5w2r7cpc",
+          token: "axmt_created",
+          name: "ci",
+          permissions: { model: "gat", owners: [], extensions: [], permission: "read" },
+          created_at: "2026-08-10T16:00:00.000Z",
+          expires_at: "2026-09-09T16:00:00.000Z",
+        }),
+        { status: 201, headers: { "content-type": "application/json" } },
+      );
+    });
+
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      yield* client.createToken(createTokenParams, {
+        stepUpRequestId: "step_01h455vb4pexka56gq5w2r7cpc",
+      });
+      expect(stepUpRequestHeader).toBe("step_01h455vb4pexka56gq5w2r7cpc");
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("revokes a token without a verification header", () => {
+    let stepUpRequestHeader: string | undefined;
+    const layer = makeTestLayer((request) => {
+      expect(request.method).toBe("DELETE");
       stepUpRequestHeader = request.headers["x-axm-step-up-request"];
       return new Response(null, { status: 204 });
     });
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      yield* client.deleteToken("axm_ses_token", "token_123", {
-        stepUpRequestId: "step_01h455vb4pexka56gq5w2r7cpc",
-      });
-      expect(stepUpRequestHeader).toBe("step_01h455vb4pexka56gq5w2r7cpc");
+      yield* client.deleteToken("token_123");
+      expect(stepUpRequestHeader).toBeUndefined();
     }).pipe(Effect.provide(layer));
   });
 });
 
 // -----------------------------------------------------------------------------
-// refreshToken
+// TokenExchange.refreshToken
 // -----------------------------------------------------------------------------
 
-describe("AuthClient.refreshToken", () => {
+describe("TokenExchange.refreshToken", () => {
+  const exchangeLayer = (handler: (request: HttpClientRequest.HttpClientRequest) => Response) =>
+    Layer.provide(
+      TokenExchangeLive,
+      Layer.succeed(HttpClient.HttpClient, makeMockHttpClient(handler)),
+    );
+
   it.effect("returns new tokens on success", () => {
     const expiresAt = "2026-03-10T12:30:00.000Z";
 
-    const layer = makeTestLayer((req) => {
+    const layer = exchangeLayer((req) => {
       expect(req.url).toContain("/v1/auth/token");
       expect(req.method).toBe("POST");
       return new Response(
@@ -1016,16 +884,16 @@ describe("AuthClient.refreshToken", () => {
     });
 
     return Effect.gen(function* () {
-      const client = yield* AuthClient;
-      const result = yield* client.refreshToken("axm_ref_old");
+      const exchange = yield* TokenExchange;
+      const result = yield* exchange.refreshToken("axm_ref_old", REGISTRY_URL);
       expect(result.access_token).toBe("axm_ses_refreshed");
       expect(result.refresh_token).toBe("axm_ref_refreshed");
       expect(DateTime.formatIso(result.expires_at)).toBe(expiresAt);
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("fails with AUTH_REFRESH_FAILED on 400", () => {
-    const layer = makeTestLayer(
+  it.effect("reports a refused refresh token as the session having ended", () => {
+    const layer = exchangeLayer(
       () =>
         new Response(JSON.stringify(makeDecodeError("invalid_grant", 400)), {
           status: 400,
@@ -1034,14 +902,14 @@ describe("AuthClient.refreshToken", () => {
     );
 
     return Effect.gen(function* () {
-      const client = yield* AuthClient;
-      const error = yield* client.refreshToken("axm_ref_expired").pipe(Effect.flip);
-      expect(error._tag).toBe("AuthExchangeFailed");
+      const exchange = yield* TokenExchange;
+      const error = yield* exchange.refreshToken("axm_ref_expired", REGISTRY_URL).pipe(Effect.flip);
+      expect(error._tag).toBe("SessionEnded");
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("fails with AUTH_REFRESH_FAILED on non-OAuth error status", () => {
-    const layer = makeTestLayer(
+  it.effect("reports the Registry's own authentication refusal as the session having ended", () => {
+    const layer = exchangeLayer(
       () =>
         new Response(JSON.stringify(makeRefreshTokenError()), {
           status: 401,
@@ -1050,78 +918,122 @@ describe("AuthClient.refreshToken", () => {
     );
 
     return Effect.gen(function* () {
-      const client = yield* AuthClient;
-      const error = yield* client.refreshToken("axm_ref_expired").pipe(Effect.flip);
-      expect(error._tag).toBe("AuthExchangeFailed");
+      const exchange = yield* TokenExchange;
+      const error = yield* exchange.refreshToken("axm_ref_expired", REGISTRY_URL).pipe(Effect.flip);
+      expect(error._tag).toBe("SessionEnded");
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("fails with AUTH_REFRESH_FAILED on network error", () => {
-    const httpLayer = Layer.succeed(HttpClient.HttpClient, makeNetworkErrorHttpClient());
-    const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
-    const layer = Layer.provide(AuthClientLive, Layer.mergeAll(httpLayer, registryUrlLayer));
+  it.effect("keeps the session when the Registry fails while renewing it", () => {
+    const layer = exchangeLayer(() => new Response("unavailable", { status: 503 }));
 
     return Effect.gen(function* () {
-      const client = yield* AuthClient;
-      const error = yield* client.refreshToken("axm_ref_old").pipe(Effect.flip);
-      expect(error._tag).toBe("AuthExchangeFailed");
+      const exchange = yield* TokenExchange;
+      const error = yield* exchange.refreshToken("axm_ref_old", REGISTRY_URL).pipe(Effect.flip);
+      expect(error._tag).toBe("RefreshUnavailable");
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("keeps the session when the Registry cannot be reached", () => {
+    const layer = Layer.provide(
+      TokenExchangeLive,
+      Layer.succeed(HttpClient.HttpClient, makeNetworkErrorHttpClient()),
+    );
+
+    return Effect.gen(function* () {
+      const exchange = yield* TokenExchange;
+      const error = yield* exchange.refreshToken("axm_ref_old", REGISTRY_URL).pipe(Effect.flip);
+      expect(error._tag).toBe("RefreshUnavailable");
+    }).pipe(Effect.provide(layer));
+  });
+
+  // Neither answer speaks for the grant: a rate limit decided nothing about
+  // it, and a refusal without the Registry's error document came from
+  // something in front of the Registry.
+  for (const [name, response] of [
+    ["a rate limit", () => new Response("slow down", { status: 429 })],
+    [
+      "an intermediary's refusal",
+      () =>
+        new Response("<html>Forbidden</html>", {
+          status: 403,
+          headers: { "content-type": "text/html" },
+        }),
+    ],
+  ] as const) {
+    it.effect(`keeps the session on ${name}`, () =>
+      Effect.gen(function* () {
+        const exchange = yield* TokenExchange;
+        const error = yield* exchange.refreshToken("axm_ref_old", REGISTRY_URL).pipe(Effect.flip);
+        expect(error._tag).toBe("RefreshUnavailable");
+      }).pipe(Effect.provide(exchangeLayer(response))),
+    );
+  }
+
+  it.effect("does not blame the network for an accepted grant it cannot read", () => {
+    const layer = exchangeLayer(
+      () =>
+        new Response(JSON.stringify({ access_token: "axm_ses_refreshed" }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+    );
+
+    return Effect.gen(function* () {
+      const exchange = yield* TokenExchange;
+      const error = yield* exchange.refreshToken("axm_ref_old", REGISTRY_URL).pipe(Effect.flip);
+      expect(error._tag).toBe("RegistryAccessFailed");
+      expect(error instanceof RegistryAccessFailed ? error.category : null).toBe("internal");
     }).pipe(Effect.provide(layer));
   });
 });
 
 // -----------------------------------------------------------------------------
-// revokeToken
+// TokenExchange.revokeToken
 // -----------------------------------------------------------------------------
 
-describe("AuthClient.revokeToken", () => {
+describe("TokenExchange.revokeToken", () => {
+  const exchangeLayer = (handler: (request: HttpClientRequest.HttpClientRequest) => Response) =>
+    Layer.provide(
+      TokenExchangeLive,
+      Layer.succeed(HttpClient.HttpClient, makeMockHttpClient(handler)),
+    );
+
   it.effect("succeeds on 200", () => {
-    const layer = makeTestLayer((req) => {
+    const layer = exchangeLayer((req) => {
       expect(req.url).toContain("/v1/auth/revoke");
       expect(req.method).toBe("POST");
       return new Response("", { status: 200 });
     });
 
     return Effect.gen(function* () {
-      const client = yield* AuthClient;
-      yield* client.revokeToken("axm_ses_revoke");
+      const exchange = yield* TokenExchange;
+      yield* exchange.revokeToken("axm_ref_revoke", REGISTRY_URL);
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("succeeds (non-fatal) on server error — errors swallowed", () => {
-    const layer = makeTestLayer(() => new Response("internal error", { status: 500 }));
+  // The caller decides that sign-out continues without a confirmed revoke, so
+  // it has to be told when there was none.
+  it.effect("reports a server error", () => {
+    const layer = exchangeLayer(() => new Response("internal error", { status: 500 }));
 
-    // Should not throw — revoke is best-effort
     return Effect.gen(function* () {
-      const client = yield* AuthClient;
-      yield* client.revokeToken("axm_ses_revoke");
+      const exchange = yield* TokenExchange;
+      const error = yield* exchange.revokeToken("axm_ref_revoke", REGISTRY_URL).pipe(Effect.flip);
+      expect(error.category).toBe("internal");
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("succeeds (non-fatal) on 400 error — errors swallowed", () => {
-    const layer = makeTestLayer(
-      () =>
-        new Response(JSON.stringify(makeDecodeError("invalid_token", 400)), {
-          status: 400,
-          headers: { "content-type": "application/json" },
-        }),
+  it.effect("reports an unreachable Registry", () => {
+    const layer = Layer.provide(
+      TokenExchangeLive,
+      Layer.succeed(HttpClient.HttpClient, makeNetworkErrorHttpClient()),
     );
 
-    // Should not throw — revoke is best-effort
     return Effect.gen(function* () {
-      const client = yield* AuthClient;
-      yield* client.revokeToken("axm_ses_revoke");
-    }).pipe(Effect.provide(layer));
-  });
-
-  it.effect("succeeds (non-fatal) on network error — errors swallowed", () => {
-    const httpLayer = Layer.succeed(HttpClient.HttpClient, makeNetworkErrorHttpClient());
-    const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
-    const layer = Layer.provide(AuthClientLive, Layer.mergeAll(httpLayer, registryUrlLayer));
-
-    // Should not throw — revoke is best-effort
-    return Effect.gen(function* () {
-      const client = yield* AuthClient;
-      yield* client.revokeToken("axm_ses_revoke");
+      const exchange = yield* TokenExchange;
+      const error = yield* exchange.revokeToken("axm_ref_revoke", REGISTRY_URL).pipe(Effect.flip);
+      expect(error.category).toBe("network");
     }).pipe(Effect.provide(layer));
   });
 });
@@ -1150,13 +1062,19 @@ describe("AuthClient.getMe", () => {
       expect(capturedAuth).toBe("Bearer axm_ses_test");
       expect(result.userHandle).toBe("@alice");
       expect(result.tokenType).toBe("session");
-      expect(result.scopes).toEqual(["extensions:read", "account:read"]);
-      expect(result.resourceRestrictions).toEqual({ extensions: null });
+      // A session carries the account's whole authority, so it reports no
+      // permission level and no restrictions — there is nothing narrower to
+      // report.
+      expect(result.authority).toBe("account");
+      expect(result.permissions).toBeNull();
+      expect(result.resourceRestrictions).toBeNull();
       expect(result.expiresAt).not.toBeNull();
       expect(Object.keys(result).sort()).toEqual([
+        "approvedAt",
+        "authority",
         "expiresAt",
+        "permissions",
         "resourceRestrictions",
-        "scopes",
         "tokenType",
         "userHandle",
       ]);

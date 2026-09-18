@@ -83,7 +83,8 @@ import {
   CredentialStoreLive,
   CredentialStoreSessionLive,
   PendingDeviceLoginStoreLive,
-  PendingPublishAuthorizationStoreLive,
+  SessionRefresherLive,
+  TokenExchangeLive,
 } from "@agentxm/registry-access/adapters";
 import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
 import { resolveTelemetryMode } from "./telemetry/index.js";
@@ -213,26 +214,50 @@ const AxmHttpClientLayer = Layer.provide(
 const PlatformLayer = Layer.mergeAll(NodeServices.layer, AxmHttpClientLayer);
 const RegistryRuntimeLayer = Layer.mergeAll(PlatformLayer, RegistryUrlLayer);
 
-// Registry clients are constructed here, once, from the transport services and
-// the configured default registry; features keep the factory in `R`.
-const RegistryClientFactoryLayer = Layer.provide(RegistryClientFactoryLive, RegistryRuntimeLayer);
-
 const CredentialStoreLayer = Layer.provide(
   CredentialStoreSessionLive,
   Layer.provide(CredentialStoreLive, RegistryRuntimeLayer),
 );
 
-const AuthServicesLayer = Layer.provideMerge(
-  Layer.mergeAll(PendingDeviceLoginStoreLive, PendingPublishAuthorizationStoreLive, AuthClientLive),
-  Layer.mergeAll(RegistryRuntimeLayer, CredentialStoreLayer),
+// Renewing and revoking a session are the calls that must not travel through
+// the authenticated transport: the refresh grant is what the transport asks
+// for while it is deciding which credential a request carries, and a revoke
+// sent through it would renew the session it is ending. They are built on the
+// plain client, and nothing else is.
+const TokenExchangeLayer = Layer.provide(TokenExchangeLive, PlatformLayer);
+
+const SessionRefreshLayer = Layer.provide(
+  SessionRefresherLive,
+  Layer.mergeAll(TokenExchangeLayer, CredentialStoreLayer),
 );
 
-const AuthMiddlewareWrappedLayer = Layer.provide(
+/**
+ * The transport every Registry call uses. It presents the invocation's
+ * credential and keeps a stored session alive, so no caller decides for itself
+ * whether it is authenticated — including the reads, which is what lets a
+ * signed-in person see their own private extensions.
+ */
+const AuthenticatedHttpLayer = Layer.provide(
   AuthMiddlewareLive,
-  Layer.mergeAll(AuthServicesLayer, PlatformLayer),
+  Layer.mergeAll(SessionRefreshLayer, CredentialStoreLayer, RegistryRuntimeLayer),
 );
 
-export const AuthLayer = Layer.mergeAll(AuthServicesLayer, AuthMiddlewareWrappedLayer);
+const AuthenticatedRuntimeLayer = Layer.provideMerge(AuthenticatedHttpLayer, RegistryRuntimeLayer);
+
+// Registry clients are constructed here, once, from the authenticated
+// transport and the configured default registry; features keep the factory in
+// `R`.
+const RegistryClientFactoryLayer = Layer.provide(
+  RegistryClientFactoryLive,
+  AuthenticatedRuntimeLayer,
+);
+
+const AuthServicesLayer = Layer.provideMerge(
+  Layer.mergeAll(PendingDeviceLoginStoreLive, AuthClientLive, TokenExchangeLayer),
+  Layer.mergeAll(AuthenticatedRuntimeLayer, CredentialStoreLayer),
+);
+
+export const AuthLayer = Layer.mergeAll(AuthServicesLayer, AuthenticatedHttpLayer);
 
 export const runtimeBaseLayer = Layer.mergeAll(
   NodeServices.layer,
@@ -568,7 +593,7 @@ export const withRuntime =
           telemetryConfig: config.telemetryConfig,
         },
       ).pipe(Effect.provide(appLayer), Effect.scoped);
-    }).pipe(Effect.provide(Layer.mergeAll(RegistryRuntimeLayer, RegistryClientFactoryLayer)));
+    }).pipe(Effect.provide(Layer.mergeAll(AuthenticatedRuntimeLayer, RegistryClientFactoryLayer)));
 
 // Machine-output decoding surface for JavaScript and TypeScript automation.
 // The machine-output help topic points consumers here, so the published

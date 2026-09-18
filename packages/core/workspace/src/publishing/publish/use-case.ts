@@ -13,7 +13,6 @@
  */
 
 import * as Cause from "effect/Cause";
-import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -26,8 +25,6 @@ import type * as HttpClient from "effect/unstable/http/HttpClient";
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
-  publicationDescriptorDigest,
-  publicationSetDigest,
   PreviewPublicationSetResponseSchema,
   type PreviewPublicationSetRequest,
   type PreviewPublicationSetResponse,
@@ -41,11 +38,9 @@ import type { GitDirectoryComparison } from "../../resolution/sources/index.js";
 import {
   AuthClient,
   AuthLoginPresenter,
+  signedOut,
   DeviceLoginInteraction,
-  PendingPublishAuthorizationStore,
-  runPublishAuthorization,
   type AuthError,
-  type PublishCapabilityResponse,
 } from "@agentxm/registry-access/authentication";
 import { resolveRequestToken } from "@agentxm/registry-access/credentials";
 import {
@@ -66,7 +61,6 @@ import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
   settleOperation,
-  type Job,
   type JobStepResult,
   type OperationPrecondition,
   type Plan,
@@ -85,10 +79,10 @@ import {
   findPackPublishDivergenceFindings,
   localPackConstraintFailures,
   validatePublishOwners,
-  type PublishAdvisoryFinding,
 } from "../preflight.js";
 import { publishRecoverySelection } from "../recovery.js";
 import { assessPublishSourceState, publishSourceRiskCondition } from "../source-state.js";
+import type { PublishVisibility } from "@agentxm/registry-protocol/unstable/publish";
 import type { PublishSettlement } from "../settlement.js";
 import {
   catalogEntries,
@@ -164,26 +158,13 @@ export type PublishPreparation =
   | { readonly _tag: "Settled"; readonly outcome: PublishOutcome }
   | { readonly _tag: "Ready"; readonly candidate: PublishCandidateSet };
 
-interface PublishAuthorizationState {
-  readonly exactCapabilities: ReadonlyMap<string, PublishCapabilityResponse>;
-  readonly issuedCapabilities: ReadonlyArray<PublishCapabilityResponse>;
-  readonly packDivergenceFindings: ReadonlyMap<string, ReadonlyArray<PublishAdvisoryFinding>>;
-  readonly preview?: PreviewPublicationSetResponse;
+interface PublishPlanOutput {
+  readonly _tag: "PublishedCandidateOutput";
+  readonly targetKey: string;
+  readonly visibility: PublishVisibility;
+  readonly warnings: ReadonlyArray<RegistryPublishWarning>;
+  readonly settlement: Exclude<PublishSettlement, "unresolved">;
 }
-
-type PublishPlanOutput =
-  | {
-      readonly _tag: "PublishAuthorizationOutput";
-      readonly packDivergenceFindings: ReadonlyMap<string, ReadonlyArray<PublishAdvisoryFinding>>;
-      readonly preview?: PreviewPublicationSetResponse;
-    }
-  | {
-      readonly _tag: "PublishedCandidateOutput";
-      readonly targetKey: string;
-      readonly visibility: PublishCapabilityResponse["visibility"];
-      readonly warnings: ReadonlyArray<RegistryPublishWarning>;
-      readonly settlement: Exclude<PublishSettlement, "unresolved">;
-    };
 
 type PublishPlanRequirements =
   | HttpClient.HttpClient
@@ -192,8 +173,7 @@ type PublishPlanRequirements =
   | GitDirectoryComparison
   | AuthClient
   | AuthLoginPresenter
-  | DeviceLoginInteraction
-  | PendingPublishAuthorizationStore;
+  | DeviceLoginInteraction;
 
 /** Everything an admitted publish run needs to preview, confirm, and apply. */
 export interface PublishCandidateSet {
@@ -215,6 +195,10 @@ export interface PublishCandidateSet {
 }
 
 const isRemote = (url: string): boolean => url.startsWith("https://") || url.startsWith("http://");
+
+/** The one refusal a signed-out publish gets, wherever it is caught. */
+const publishingSignedOut = (registryName: string) =>
+  signedOut(undefined, `Publishing to ${registryName} requires you to be signed in.`);
 
 /**
  * The pack/member reachability the local workspace represents, derived from
@@ -251,37 +235,11 @@ const workspaceReachability = (
   return buildPackDependencyReachability({ packs, members });
 };
 
-const rejectIncoherentRequest = (request: PublishRequest, registry: TargetRegistry) => {
-  if (
-    request.waitForHumanSeconds !== undefined &&
-    (!Number.isSafeInteger(request.waitForHumanSeconds) || request.waitForHumanSeconds <= 0)
-  ) {
-    return Option.some(
-      new PublishFailed({
-        category: "validation",
-        detail: "--wait-for-human must be a positive whole number of seconds.",
-      }),
-    );
-  }
-  if (request.authorizationRequest !== undefined && (request.preview || !isRemote(registry.url))) {
-    return Option.some(
-      new PublishFailed({
-        category: "validation",
-        detail: "--authorization-request requires a remote publish operation.",
-      }),
-    );
-  }
-  return Option.none();
-};
-
 export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request: PublishRequest) {
   const registry = yield* observeUnit(
     { id: "registry", label: "publish registry" },
     resolveTargetRegistry(request.registry, request.registryUrl),
   );
-  const incoherent = rejectIncoherentRequest(request, registry);
-  if (Option.isSome(incoherent)) return yield* Effect.fail(incoherent.value);
-
   const settings = yield* SettingsReader;
   const registryUrl = yield* RegistryUrl;
   const remoteRegistry = isRemote(registry.url);
@@ -402,6 +360,18 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
   }
 
   const storedToken = yield* resolveRequestToken(registry.url, registryUrl);
+  // Publishing is a write the person makes as themselves. A signed-out apply
+  // says so before anything is previewed or uploaded, so no server state is
+  // created and nothing has to be undone. A preview stays available and
+  // reports the same requirement as an unmet precondition.
+  if (
+    !request.preview &&
+    remoteRegistry &&
+    Option.isNone(storedToken) &&
+    sourceAssessedCandidates.length > 0
+  ) {
+    return yield* Effect.fail(publishingSignedOut(registry.name));
+  }
   const workspaceDefaultVisibility = yield* settings.publishDefaultVisibility;
   const shouldPreviewAuthoritatively =
     preflightFailures.length === 0 &&
@@ -619,113 +589,17 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
   candidateSet: PublishCandidateSet,
   execution: PlanExecution,
 ) {
-  const {
-    request,
-    registry,
-    candidates,
-    uploadCandidates,
-    publicationSet,
-    packDependencyReachability,
-  } = candidateSet;
-  const authClient = yield* AuthClient;
+  const { request, registry, candidates, uploadCandidates } = candidateSet;
   const remoteUnauthenticated = candidateSet.remoteRegistry && !candidateSet.authenticated;
 
-  const expectedPublicationSetDigest =
-    publicationSet === undefined ? undefined : publicationSetDigest(publicationSet.candidates);
-  const descriptorDigestsByTarget = new Map(
-    (publicationSet?.candidates ?? []).map((descriptor) => [
-      publishTargetKey(descriptor.target),
-      publicationDescriptorDigest(descriptor),
-    ]),
-  );
-  const visibilityInputsByTarget = new Map(
-    (publicationSet?.candidates ?? []).map((descriptor) => [
-      publishTargetKey(descriptor.target),
-      descriptor.visibility,
-    ]),
-  );
-
-  const acquirePublishAuthorization: Effect.Effect<
-    PublishAuthorizationState,
-    PublishFailure | AuthError,
-    AuthClient | AuthLoginPresenter | DeviceLoginInteraction | PendingPublishAuthorizationStore
-  > =
-    candidateSet.remoteRegistry &&
-    (!candidateSet.authenticated || request.authorizationRequest !== undefined)
-      ? Effect.gen(function* () {
-          if (publicationSet === undefined) {
-            return yield* Effect.fail(
-              internal("The publication set was unavailable for exact authorization."),
-            );
-          }
-          const exchange = yield* runPublishAuthorization({
-            registryUrl: registry.url,
-            publicationSet,
-            unattended: request.unattended,
-            ...(request.authorizationRequest === undefined
-              ? {}
-              : { authorizationRequest: request.authorizationRequest }),
-            ...(request.waitForHumanSeconds === undefined
-              ? {}
-              : { waitForHumanSeconds: request.waitForHumanSeconds }),
-          });
-          if (exchange.status === "blocked") {
-            const firstFinding = exchange.preview.packs
-              .flatMap((pack) => pack.findings)
-              .find((finding) => finding.severity === "error");
-            return yield* Effect.fail(
-              new PublishFailed({
-                category: "validation",
-                detail:
-                  firstFinding?.message ??
-                  "The reviewed publication set was blocked before any upload.",
-                suggestions: firstFinding?.suggestions ?? [],
-                cause: exchange.preview,
-              }),
-            );
-          }
-          const divergence = findPackPublishDivergenceFindings({
-            candidates,
-            reachability: packDependencyReachability,
-            packs: exchange.preview.packs,
-          });
-          const byDescriptor = new Map<string, PublishCapabilityResponse>();
-          for (const capability of exchange.grants) {
-            if (
-              byDescriptor.has(capability.publicationDescriptorDigest) ||
-              capability.publicationSetDigest !== expectedPublicationSetDigest
-            ) {
-              return yield* Effect.fail(
-                internal("The registry returned an incompatible exact publish grant bundle."),
-              );
-            }
-            byDescriptor.set(capability.publicationDescriptorDigest, capability);
-          }
-          if (byDescriptor.size !== uploadCandidates.length) {
-            return yield* Effect.fail(
-              internal("The registry returned an incomplete exact publish grant bundle."),
-            );
-          }
-          return {
-            exactCapabilities: byDescriptor,
-            issuedCapabilities: exchange.grants,
-            packDivergenceFindings: divergence,
-            preview: exchange.preview,
-          } satisfies PublishAuthorizationState;
-        })
-      : Effect.succeed<PublishAuthorizationState>({
-          exactCapabilities: new Map<string, PublishCapabilityResponse>(),
-          issuedCapabilities: [],
-          packDivergenceFindings: new Map<string, ReadonlyArray<PublishAdvisoryFinding>>(),
-        });
-
-  const releasePublishAuthorization = (authorization: PublishAuthorizationState) =>
-    Effect.forEach(
-      authorization.issuedCapabilities,
-      (capability) =>
-        authClient.revokeToken(capability.accessToken).pipe(Effect.catch(() => Effect.void)),
-      { concurrency: 4, discard: true },
-    );
+  /**
+   * Preparation refuses a signed-out apply, but a signed-out preview prepares
+   * a candidate set too, and nothing in its type stops a caller from applying
+   * that one. The plan never applies without the person's own credential.
+   */
+  const requireSignedIn: Effect.Effect<void, AuthError> = remoteUnauthenticated
+    ? Effect.fail(publishingSignedOut(registry.name))
+    : Effect.void;
 
   // Invocation-local evidence of dispatched uploads: which candidates'
   // requests were released toward the registry before termination.
@@ -734,28 +608,12 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
   const unresolvedReasons = yield* Ref.make<ReadonlyMap<string, string>>(new Map());
 
   const candidateStep = (
-    authorizationState: Effect.Effect<PublishAuthorizationState, PublishFailure | AuthError>,
     candidate: PublishCandidate,
   ): PlannedJobStep<PublishPlanRequirements, PublishPlanOutput> => {
     const run = Effect.gen(function* () {
-      const authorization = yield* authorizationState;
-      const descriptorDigest =
-        candidate.publishPreview?.publicationDescriptorDigest ??
-        descriptorDigestsByTarget.get(publishTargetKey(candidate));
-      const exactCapability =
-        descriptorDigest === undefined
-          ? undefined
-          : authorization.exactCapabilities.get(descriptorDigest);
-      if (remoteUnauthenticated && exactCapability === undefined) {
-        return yield* Effect.fail(
-          internal(`The exact grant bundle omitted ${candidate.fqn}@${candidate.version}.`),
-        );
-      }
       const published = yield* publishCandidate(
         candidate,
         registry,
-        exactCapability,
-        visibilityInputsByTarget.get(publishTargetKey(candidate)),
         Ref.update(dispatchedUploads, (dispatched) => new Set([...dispatched, candidate.fqn])),
       );
       if (published.status === "unknown") {
@@ -836,58 +694,6 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
   const resolved = yield* Effect.interruptible(
     Effect.scoped(
       Effect.gen(function* () {
-        const authorizationDeferred = yield* Deferred.make<
-          PublishAuthorizationState,
-          PublishFailure | AuthError
-        >();
-        const acquired = yield* Ref.make(Option.none<PublishAuthorizationState>());
-        yield* Effect.addFinalizer(() =>
-          Ref.get(acquired).pipe(
-            Effect.flatMap(
-              Option.match({ onNone: () => Effect.void, onSome: releasePublishAuthorization }),
-            ),
-          ),
-        );
-        const authorize = yield* Effect.cached(
-          acquirePublishAuthorization.pipe(
-            Effect.tap((authorization) => Ref.set(acquired, Option.some(authorization))),
-            Effect.tap((authorization) => Deferred.succeed(authorizationDeferred, authorization)),
-            Effect.tapError((failure) => Deferred.fail(authorizationDeferred, failure)),
-            Effect.asVoid,
-          ),
-        );
-        const authorizationState = Deferred.await(authorizationDeferred);
-        const authorizationJobs: ReadonlyArray<Job<PublishPlanRequirements, PublishPlanOutput>> =
-          remoteUnauthenticated
-            ? [
-                {
-                  concurrency: 1,
-                  steps: [
-                    {
-                      readiness: "ready",
-                      label: "Authorize exact publication set",
-                      run: authorizationState.pipe(
-                        Effect.mapError(publishStepFailure),
-                        Effect.map(
-                          (authorization) =>
-                            ({
-                              result: "success",
-                              message: "Authorized exact publication set",
-                              output: {
-                                _tag: "PublishAuthorizationOutput",
-                                packDivergenceFindings: authorization.packDivergenceFindings,
-                                ...(authorization.preview === undefined
-                                  ? {}
-                                  : { preview: authorization.preview }),
-                              },
-                            }) satisfies JobStepResult<PublishPlanOutput>,
-                        ),
-                      ),
-                    },
-                  ],
-                },
-              ]
-            : [];
         const plan: Plan<PublishPlanRequirements, PublishPlanOutput> = {
           _tag: "Plan",
           name: "Publish extensions",
@@ -902,17 +708,12 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
           ...(candidateSet.riskConditions.length === 0
             ? {}
             : { riskConditions: candidateSet.riskConditions }),
-          jobs: [
-            ...authorizationJobs,
-            ...buildPublishJobs(uploadCandidates, (candidate) =>
-              candidateStep(authorizationState, candidate),
-            ),
-          ],
+          jobs: buildPublishJobs(uploadCandidates, candidateStep),
         };
         const preparedCandidate = yield* prepareExecutionCandidate(plan);
         return yield* resolveExecutionCandidate(preparedCandidate, execution, {
           beforeApply: () =>
-            authorize.pipe(
+            requireSignedIn.pipe(
               Effect.andThen(revalidatePublishSources),
               Effect.mapError(publishStepFailure),
             ),
@@ -994,13 +795,8 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
   const executionOutputs = resolution.units.flatMap((unit) =>
     unit.output === undefined ? [] : [unit.output],
   );
-  const authorizationOutput = executionOutputs.find(
-    (output) => output._tag === "PublishAuthorizationOutput",
-  );
   const publishedOutputs = new Map(
-    executionOutputs.flatMap((output) =>
-      output._tag === "PublishedCandidateOutput" ? [[output.targetKey, output] as const] : [],
-    ),
+    executionOutputs.map((output) => [output.targetKey, output] as const),
   );
   const unresolvedFailures = yield* Ref.get(unresolvedSettlements);
   const unresolvedByTarget = yield* Ref.get(unresolvedReasons);
@@ -1083,13 +879,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
       }
       const publishedOutput =
         candidate === undefined ? undefined : publishedOutputs.get(publishTargetKey(candidate));
-      const findings = [
-        ...(result.findings ?? []),
-        ...(candidate === undefined
-          ? []
-          : (authorizationOutput?.packDivergenceFindings.get(candidate.fqn) ?? [])),
-        ...(publishedOutput?.warnings ?? []),
-      ].sort(
+      const findings = [...(result.findings ?? []), ...(publishedOutput?.warnings ?? [])].sort(
         (left, right) =>
           Number(right.ruleId === "publish/required-pack-version-unreachable") -
             Number(left.ruleId === "publish/required-pack-version-unreachable") ||
@@ -1147,25 +937,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
     });
   }
   const recoverySelection = publishRecoverySelection(results);
-  const authorizedPublicationPreview = authorizationOutput?.preview;
-  const finalPublicationSetOutput =
-    authorizedPublicationPreview === undefined
-      ? candidateSet.publicationSetOutput
-      : publicationSetResult({
-          candidates,
-          preview: authorizedPublicationPreview,
-          ...(authorizedPublicationPreview.status === "blocked" && planFailed
-            ? {
-                blocked:
-                  resolution.failure === undefined
-                    ? new PublishFailed({
-                        category: planFailureCategory,
-                        detail: "The reviewed publication set was blocked before upload.",
-                      })
-                    : publishStepFailureCause(resolution.failure),
-              }
-            : {}),
-        });
+  const finalPublicationSetOutput = candidateSet.publicationSetOutput;
   // Live-to-settled handoff: observers collapse before the result document.
   yield* settleOperation(deriveOperationOutcome(resolution));
   yield* awaitDrained;
@@ -1179,7 +951,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
           failure: new PublishFailed({
             category: planFailureCategory,
             detail: staleCandidate
-              ? "Workspace material changed after authorization; no upload was attempted."
+              ? "Workspace material changed after planning; no upload was attempted."
               : (resolution.failure?.detail ??
                 planBlocking?.detail ??
                 `Publish execution did not start: ${planFailureReason}.`),
@@ -1233,7 +1005,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
               ? new PublishFailed({
                   category: planFailureCategory,
                   detail: staleCandidate
-                    ? "Workspace material changed after authorization; no upload was attempted."
+                    ? "Workspace material changed after planning; no upload was attempted."
                     : (planBlocking?.detail ??
                       `Publish execution did not start: ${planFailureReason}.`),
                 })
@@ -1250,4 +1022,4 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
 /** The application API for publishing workspace-authored extensions. */
 export const PublishExtensions = { prepare, previewOrApply } as const;
 
-export type { OperationJournal, PublishAuthorizationState, PublishPlanOutput };
+export type { OperationJournal, PublishPlanOutput };

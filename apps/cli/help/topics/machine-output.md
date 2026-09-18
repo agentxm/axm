@@ -213,29 +213,17 @@ and `result.status: "pending-human"`; this means the handoff is available,
 not that credentials were stored. Resume it with `axm login --wait --json`,
 optionally adding `--timeout 60`. The `action` uses `purpose: "login"` and
 includes both the complete browser link and the clean fallback URL and code.
-Keep the same Registry and scopes. `--restart` explicitly replaces a pending
-sign-in; repeating initiation does not.
+Keep the same Registry. `--restart` explicitly replaces a pending sign-in;
+repeating initiation does not.
 
-Publish without existing publication authority uses the same pending-human
-error envelope, with `action.purpose: "publish"` and exit 13:
+Publishing requires you to be signed in. A signed-out `axm publish` reports
+`code: "auth_required"` with exit 13 and creates nothing on the Registry; sign
+in and publish again:
 
 ```sh
+axm login
 axm publish @acme/skills/review --json
-axm publish @acme/skills/review --json \
-  --authorization-request 'https://registry.agentxm.ai/v1/auth/publish-requests/pubreq_01h455vb4pexka56gq5w2r7cpc'
 ```
-
-Use the exact returned `action.requestRef`; the URL above is illustrative.
-Keep the original command inputs and local AXM user home. AXM retains a private
-proof there so a later process can resume the request. Copying its public URL to
-another machine does not transfer that proof. Changed archive bytes, publication
-membership, visibility inputs, or Registry require a new review.
-
-Add `--wait-for-human 60` for a bounded wait. Approval authorizes the reviewed
-publication; check the final `publish-result-v3` document to determine which
-uploads completed. If approval was already exchanged, follow the explicit
-recovery instruction to verify publication outcomes before requesting fresh
-consent. AXM does not silently replace the request or replay uploads.
 
 Interactive Registry writes open the verification page and retry once after
 verification. The browser's approval page and the originating command report

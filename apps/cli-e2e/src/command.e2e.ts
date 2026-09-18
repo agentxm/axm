@@ -174,7 +174,7 @@ describe("global text-output policy", () => {
     expect(invalid.exitCode).not.toBe(0);
     expect(getOutput(invalid)).toMatch(/invalid|scope/iu);
     expect(auth.exitCode).not.toBe(0);
-    expect(getOutput(auth)).toContain("No token available");
+    expect(getOutput(auth)).toContain("You are not signed in.");
     expect(getOutput(auth)).toContain("axm login --device-code --json");
     expect(getOutput(auth)).toContain("https://agentxm.ai/u/settings/tokens");
   });

@@ -27,7 +27,7 @@ import {
   CredentialStoreTest,
   PendingDeviceLoginStoreTest,
 } from "@agentxm/registry-access/testing";
-import { RegistryUrl } from "@agentxm/registry-client";
+import { RegistryProblem, RegistryRequestFailed, RegistryUrl } from "@agentxm/registry-client";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { AuthLoginPresenterLive } from "../../auth-login-presenter.js";
@@ -49,6 +49,8 @@ const makeLayers = (opts?: {
   /** How the person answers the replace-a-valid-session question. */
   confirmReplacement?: "replace" | "keep";
   getMeFails?: boolean;
+  /** The identity read cannot reach the Registry at all. */
+  getMeUnreachable?: boolean;
   allowsPersistedCredentials?: boolean;
   machine?: boolean;
   json?: boolean;
@@ -87,9 +89,11 @@ const makeLayers = (opts?: {
   const meData: MeResponse = opts?.meResponse ?? {
     userHandle: ALICE,
     tokenType: "session",
-    scopes: ["extensions:read"],
-    resourceRestrictions: { extensions: null },
+    authority: "account" as const,
+    permissions: null,
+    resourceRestrictions: null,
     expiresAt: null,
+    approvedAt: null,
   };
 
   const authClientLayer = AuthClientTest({
@@ -108,15 +112,30 @@ const makeLayers = (opts?: {
         refresh_token: "axm_ref_new",
         expires_at: DateTime.makeUnsafe("2099-06-01T00:00:00Z"),
       }),
+    // The Registry's own rejection of the credential: the only answer that
+    // makes a stored session one to replace.
     getMe: opts?.getMeFails
       ? () =>
           Effect.fail(
-            new RegistryAccessFailed({
+            new RegistryProblem({
               category: "auth",
-              detail: "Token invalid",
+              title: "Unauthorized",
+              metadata: {
+                request: { service: "registry", url: `${REGISTRY_URL}/v1/auth/me` },
+                response: { status: 401 },
+              },
+              cause: undefined,
             }),
           )
-      : () => Effect.succeed(meData),
+      : opts?.getMeUnreachable
+        ? () =>
+            Effect.fail(
+              new RegistryRequestFailed({
+                category: "network",
+                detail: "Could not read authenticated user: the Registry could not be reached.",
+              }),
+            )
+        : () => Effect.succeed(meData),
   });
 
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
@@ -167,7 +186,7 @@ describe("auth login handler", () => {
     return provide(
       Effect.gen(function* () {
         const error = yield* Effect.flip(
-          handleLogin({ yes: true, deviceCode: true, timeoutSeconds: 300, scopes: [] }),
+          handleLogin({ yes: true, deviceCode: true, timeoutSeconds: 300 }),
         );
         expect(error).toMatchObject({ code: "usage", detail: "--timeout requires --wait." });
       }),
@@ -190,7 +209,6 @@ describe("auth login handler", () => {
         yield* handleLogin({
           yes: false,
           deviceCode: false,
-          scopes: [],
         });
         expect(rendererState.results[0]?.data).toMatchObject({
           result: {
@@ -214,7 +232,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: false, scopes: [] });
+        yield* handleLogin({ yes: false, deviceCode: false });
         expect(sessionReplacementPrompts).toEqual([]);
         const result = expectRecord(
           property(expectRecord(rendererState.results[0]?.data), "result"),
@@ -235,7 +253,6 @@ describe("auth login handler", () => {
         const result = yield* handleLogin({
           yes: false,
           deviceCode: true,
-          scopes: [],
         }).pipe(Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })));
         expect(result).toMatchObject({ error: true, code: "auth_required" });
       }),
@@ -246,7 +263,7 @@ describe("auth login handler", () => {
     const { provide, rendererState } = makeLayers();
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
+        yield* handleLogin({ yes: false, deviceCode: true });
         expect(
           rendererState.logs.some(
             (l) =>
@@ -258,14 +275,8 @@ describe("auth login handler", () => {
     );
   });
 
-  it("passes requested scopes to device login", () => {
-    expect(
-      deviceLoginOptions({ restart: false, scopes: ["extensions:publish:new"] }, false).scopes,
-    ).toEqual(["extensions:publish:new"]);
-  });
-
   it("passes explicit restart intent to device login", () => {
-    expect(deviceLoginOptions({ restart: true, scopes: [] }, false).restart).toBe(true);
+    expect(deviceLoginOptions({ restart: true }, false).restart).toBe(true);
   });
 
   it.effect("requires device-code mode for explicit restart", () => {
@@ -278,7 +289,6 @@ describe("auth login handler", () => {
             yes: false,
             deviceCode: false,
             restart: true,
-            scopes: [],
           }),
         );
 
@@ -291,7 +301,7 @@ describe("auth login handler", () => {
   });
 
   it("does not launch a browser for explicit device-code login", () => {
-    expect(deviceLoginOptions({ restart: false, scopes: [] }, false).openBrowser).toBe(false);
+    expect(deviceLoginOptions({ restart: false }, false).openBrowser).toBe(false);
   });
 
   it("does not fall back to device code after loopback timeout", () => {
@@ -343,7 +353,7 @@ describe("auth login handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: false, scopes: [] }).pipe(
+        yield* handleLogin({ yes: false, deviceCode: false }).pipe(
           Effect.provideService(AuthEnvironment, ConfigProvider.fromEnvRecord({ CI: "1" })),
         );
 
@@ -382,7 +392,7 @@ describe("auth login handler", () => {
     const { provide, rendererState } = makeLayers();
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
+        yield* handleLogin({ yes: false, deviceCode: true });
         const instructions = rendererState.logs
           .filter((log) => log._tag === "info")
           .map((log) => log.message);
@@ -406,7 +416,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
+        yield* handleLogin({ yes: false, deviceCode: true });
         expect(
           rendererState.logs.some(
             (l) => l._tag === "info" && l.message.includes("Already logged in"),
@@ -431,7 +441,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: true, deviceCode: true, scopes: [] });
+        yield* handleLogin({ yes: true, deviceCode: true });
         expect(
           rendererState.logs.some(
             (l) => l._tag === "info" && l.message.includes("Already logged in"),
@@ -457,7 +467,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: true, deviceCode: true, scopes: [] });
+        yield* handleLogin({ yes: true, deviceCode: true });
         const result = expectRecord(
           property(expectRecord(rendererState.results[0]?.data), "result"),
         );
@@ -479,7 +489,7 @@ describe("auth login handler", () => {
       });
       return provide(
         Effect.gen(function* () {
-          yield* handleLogin({ yes: true, deviceCode: true, scopes: [] });
+          yield* handleLogin({ yes: true, deviceCode: true });
           expect(
             rendererState.logs.filter(
               (l) => l._tag === "success" && l.message.includes("Already logged in to"),
@@ -506,7 +516,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
+        yield* handleLogin({ yes: false, deviceCode: true });
         expect(rendererState.logs).toContainEqual({
           _tag: "success",
           message: "Already logged in to registry.agentxm.ai as @alice.",
@@ -526,7 +536,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
+        yield* handleLogin({ yes: false, deviceCode: true });
         expect(sessionReplacementPrompts).toEqual(["Log in with a different account?"]);
         expect(
           rendererState.logs.filter(
@@ -555,7 +565,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
+        yield* handleLogin({ yes: false, deviceCode: true });
 
         expect(
           rendererState.logs.filter((log) => log._tag === "info" || log._tag === "success"),
@@ -584,7 +594,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
+        yield* handleLogin({ yes: false, deviceCode: true });
         expect(
           rendererState.logs.some(
             (l) => l._tag === "info" && l.message.includes("Already logged in"),
@@ -594,6 +604,24 @@ describe("auth login handler", () => {
           _tag: "info",
           message: "Your saved credentials are no longer valid. Starting a new sign-in…",
         });
+      }),
+    );
+  });
+
+  it.effect("reports a Registry it could not ask instead of replacing the session", () => {
+    const { provide, rendererState } = makeLayers({
+      existingCredentials: true,
+      getMeUnreachable: true,
+    });
+    return provide(
+      Effect.gen(function* () {
+        const error = yield* handleLogin({ yes: false, deviceCode: true }).pipe(Effect.flip);
+        expect(error).toMatchObject({ _tag: "RegistryRequestFailed", category: "network" });
+        expect(
+          rendererState.logs.some(
+            (l) => l._tag === "info" && l.message.includes("no longer valid"),
+          ),
+        ).toBe(false);
       }),
     );
   });
@@ -640,7 +668,7 @@ describe("auth login handler", () => {
     );
 
     return Effect.gen(function* () {
-      yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
+      yield* handleLogin({ yes: false, deviceCode: true });
 
       expect(
         rendererState2.logs.some(

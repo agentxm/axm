@@ -3,12 +3,7 @@ import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { AppError, exitCodeFor } from "../../app-error/index.js";
-import {
-  acceptWarningsFlag,
-  isNonInteractive,
-  jsonFlag,
-  waitForHumanOption,
-} from "../../cli-flags/index.js";
+import { acceptWarningsFlag, isNonInteractive, jsonFlag } from "../../cli-flags/index.js";
 import {
   effectCliExit,
   recordCommandCompletion,
@@ -60,8 +55,6 @@ export interface RootPublishHandlerArgs {
   readonly scope: WorkspaceScope;
   readonly visibility: Option.Option<ExtensionVisibility>;
   readonly includeDependencies: boolean;
-  readonly authorizationRequest?: string;
-  readonly waitForHumanSeconds?: number;
   readonly recoveryCommand?: ReadonlyArray<string>;
   readonly recoverySelectors?: ReadonlyArray<string>;
   readonly recoveryExcludes?: ReadonlyArray<string>;
@@ -116,12 +109,6 @@ const publishRequest = (args: RootPublishHandlerArgs, unattended: boolean): Publ
   scope: args.scope === "user" ? "user" : "project",
   visibility: args.visibility,
   includeDependencies: args.includeDependencies,
-  ...(args.authorizationRequest === undefined
-    ? {}
-    : { authorizationRequest: args.authorizationRequest }),
-  ...(args.waitForHumanSeconds === undefined
-    ? {}
-    : { waitForHumanSeconds: args.waitForHumanSeconds }),
   unattended,
 });
 
@@ -222,13 +209,6 @@ export const handleRootPublish = Effect.fn("Publish.handle")(
 );
 
 const publishConfig = {
-  authorizationRequest: Flag.String("authorization-request").pipe(
-    Flag.withDescription(
-      "Resume this exact publication request using its URL and unchanged inputs",
-    ),
-    Flag.optional,
-  ),
-  waitForHuman: waitForHumanOption,
   selectors: Argument.String("extension").pipe(
     Argument.withDescription("FQNs or type-qualified extension selectors"),
     Argument.atLeast(0),
@@ -279,12 +259,6 @@ export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
     scope: "project",
     visibility: parsed.visibility,
     includeDependencies: parsed.includeDependencies,
-    ...(Option.isNone(parsed.authorizationRequest)
-      ? {}
-      : { authorizationRequest: parsed.authorizationRequest.value }),
-    ...(Option.isNone(parsed.waitForHuman)
-      ? {}
-      : { waitForHumanSeconds: parsed.waitForHuman.value }),
   }).pipe(withWorkspace("project"), withRuntime("publish")),
 ).pipe(
   withArgvTracking(publishConfig),

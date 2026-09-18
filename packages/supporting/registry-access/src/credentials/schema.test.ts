@@ -11,7 +11,6 @@ import {
   CredentialFileSchema,
   CredentialStoreTokenSource,
   EnvVarTokenSource,
-  FlagTokenSource,
   RegistryAccountsSchema,
 } from "./schema.js";
 
@@ -235,13 +234,6 @@ describe("Auth schema", () => {
       expect(source.token).toBe("axm_pat_abc");
     });
 
-    it("creates Flag token source", () => {
-      const source = new FlagTokenSource({ token: "axm_pat_abc" });
-
-      expect(source._tag).toBe("Flag");
-      expect(source.token).toBe("axm_pat_abc");
-    });
-
     it("creates CredentialStore token source", () => {
       const source = new CredentialStoreTokenSource({
         token: "axm_ses_abc",
@@ -258,7 +250,6 @@ describe("Auth schema", () => {
 
     it("distinguishes token sources by tag", () => {
       const env = new EnvVarTokenSource({ token: "t1" });
-      const flag = new FlagTokenSource({ token: "t2" });
       const store = new CredentialStoreTokenSource({
         token: "t3",
         refresh_token: "r3",
@@ -266,8 +257,6 @@ describe("Auth schema", () => {
         registryUrl: "https://example.com",
       });
 
-      expect(env._tag).not.toBe(flag._tag);
-      expect(flag._tag).not.toBe(store._tag);
       expect(env._tag).not.toBe(store._tag);
     });
   });

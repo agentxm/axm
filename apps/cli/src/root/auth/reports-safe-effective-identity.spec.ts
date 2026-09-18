@@ -16,7 +16,7 @@ export const specification = defineSpecification({
   requirement: "cli/whoami/reports-safe-effective-identity",
   title: "Identity inspection shows the active identity and permissions",
   statement:
-    "When authenticated, whoami shall report the handle, Registry, credential type, effective scopes, enforced extension restrictions, and source-backed or unavailable expiry from the canonical Registry identity operation in human and machine output, excluding email, credential identifiers, token material, and internal permission markers.",
+    "When signed in, whoami shall report the handle, Registry, credential type, credential authority, the approving sign-in time when there is one, and source-backed or unavailable expiry from the canonical Registry identity operation in human and machine output; it shall report the permission level, its owner and extension allowlist, and enforced extension restrictions only for a limited credential, in the vocabulary a token is described in, and shall exclude email, credential identifiers, token material, and the Registry's internal scope strings and permission markers.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "machine-automation"],
@@ -41,22 +41,31 @@ describe("Safe effective identity", () => {
             const renderer = machine ? TestMachineRenderer.make() : TestRenderer.make();
             const registryLayer = Layer.succeed(RegistryUrl, registry);
             const authLayer = AuthClientTest({
-              getMe: (presented) =>
-                Effect.sync(() => {
-                  expect(presented).toBe(credential);
-                  return {
-                    userHandle: normalizeHandle("@alice"),
-                    tokenType: "session",
-                    scopes: ["extensions:read", "extensions:publish:version"],
-                    resourceRestrictions: { extensions: ["@alice/skills/review"] },
-                    expiresAt: expiresAt === null ? null : DateTime.makeUnsafe(expiresAt),
-                    email: "private@example.test",
-                    userId: "user_01h455vb4pexka56gq5w2r7cpc",
-                    credentialId: "tok_01h455vb4pexka56gq5w2r7cpc",
-                    name: "private-credential-name",
-                    permissions: { bypass_mfa: true, cidr: ["192.0.2.0/24"] },
-                  };
-                }),
+              // The transport carries the credential, so the identity read
+              // names none: whoami reports what the Registry answers for
+              // whoever this invocation is.
+              getMe: () =>
+                Effect.sync(() => ({
+                  // A limited credential, so the limits themselves are part of
+                  // the answer; everything else the Registry knows is not.
+                  userHandle: normalizeHandle("@alice"),
+                  tokenType: "pat",
+                  authority: "limited" as const,
+                  permissions: {
+                    owners: ["@alice"],
+                    extensions: [],
+                    permission: "publish" as const,
+                  },
+                  resourceRestrictions: { extensions: ["@alice/skills/review"] },
+                  expiresAt: expiresAt === null ? null : DateTime.makeUnsafe(expiresAt),
+                  approvedAt: null,
+                  email: "private@example.test",
+                  userId: "user_01h455vb4pexka56gq5w2r7cpc",
+                  credentialId: "tok_01h455vb4pexka56gq5w2r7cpc",
+                  name: "private-credential-name",
+                  scopes: ["extensions:read", "extensions:publish:version"],
+                  model: "gat",
+                })),
             });
             const layer = Layer.mergeAll(
               renderer.layer,
@@ -88,9 +97,9 @@ describe("Safe effective identity", () => {
               "private-credential-name",
               credential,
               "axm_ref_private_fixture",
-              "permissions",
-              "bypass_mfa",
-              "192.0.2.0/24",
+              "extensions:read",
+              "extensions:publish:version",
+              "gat",
             ]) {
               expect(output).not.toContain(secret);
             }
@@ -102,19 +111,20 @@ describe("Safe effective identity", () => {
                 data: {
                   user: "@alice",
                   registry,
-                  credentialType: "session",
-                  scopes: ["extensions:read", "extensions:publish:version"],
+                  credentialType: "pat",
+                  authority: "limited",
+                  permissions: { owners: ["@alice"], extensions: [], permission: "publish" },
                   resourceRestrictions: { extensions: ["@alice/skills/review"] },
                   expiresAt,
+                  approvedAt: null,
                 },
               });
             } else {
               for (const text of [
                 "@alice",
                 registry,
-                "session",
-                "extensions:read",
-                "extensions:publish:version",
+                "pat",
+                "Publish versions",
                 "@alice/skills/review",
                 expiresAt ?? "unavailable",
               ])

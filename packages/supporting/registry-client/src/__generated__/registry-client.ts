@@ -140,183 +140,6 @@ export const PublishDetails = Schema.Struct({
 });
 export type IsoDateTimeString = typeof DateTimeUtcSchema.Type;
 export const IsoDateTimeString = DateTimeUtcSchema;
-export type ExtensionVisibility = "public" | "private";
-export const ExtensionVisibility = Schema.Literals(["public", "private"]).annotate({
-  title: "Extension Visibility",
-  description: "Whole-Extension Registry visibility applied to every published version.",
-  identifier: "ExtensionVisibility",
-});
-export type Sha256Hex = string;
-export const Sha256Hex = Schema.String.check(
-  Schema.isPattern(new RegExp("^[a-f0-9]{64}$")).annotate({
-    expected: "a string matching the RegExp ^[a-f0-9]{64}$",
-    identifier: "Sha256Hex",
-  }),
-);
-export type Handle = string;
-export const Handle = Schema.String.annotate({
-  title: "Handle",
-  description: "A unique username or organization name starting with @, like @my-org.",
-  examples: ["@my-org", "@username"],
-}).check(
-  Schema.isPattern(new RegExp("^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$")).annotate({
-    expected: "a string matching the RegExp ^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
-    identifier: "Handle",
-  }),
-);
-export type ExtensionType =
-  "skill" | "mcp-server" | "subagent" | "rule" | "hook" | "knowledge" | "pack";
-export const ExtensionType = Schema.Literals([
-  "skill",
-  "mcp-server",
-  "subagent",
-  "rule",
-  "hook",
-  "knowledge",
-  "pack",
-]).annotate({
-  title: "Extension Type",
-  description:
-    "What kind of extension this is: skill, mcp-server, subagent, rule, hook, knowledge, or pack.",
-  identifier: "ExtensionType",
-});
-export type ExtensionName = string;
-export const ExtensionName = Schema.String.annotate({
-  title: "Extension Name",
-  description:
-    "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
-  examples: ["my-skill", "code-review", "prettier"],
-})
-  .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
-  .check(
-    Schema.isPattern(new RegExp("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")).annotate({
-      expected: "a string matching the RegExp ^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
-      identifier: "ExtensionName",
-    }),
-  );
-export type Version = string;
-export const Version = Schema.String.annotate({
-  title: "Version",
-  description: "A semver version like 1.0.0. Ranges are not allowed here.",
-  examples: ["1.0.0", "2.3.1", "0.1.0-beta.1"],
-}).check(
-  Schema.isPattern(
-    new RegExp(
-      "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
-    ),
-  ).annotate({
-    expected:
-      "a string matching the RegExp ^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
-    identifier: "Version",
-  }),
-);
-export type ExtensionFqn = string;
-export const ExtensionFqn = Schema.String.annotate({
-  title: "Extension FQN",
-  description: "Canonical extension identifier in @owner/<type>s/<name> form.",
-  examples: ["@acme/skills/code-review", "@my-org/rules/typescript"],
-}).check(
-  Schema.isPattern(
-    new RegExp(
-      "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
-    ),
-  ).annotate({
-    expected:
-      "a string matching the RegExp ^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
-    identifier: "ExtensionFqn",
-  }),
-);
-export type VisibilityFingerprint = string;
-export const VisibilityFingerprint = Schema.String.check(
-  Schema.isPattern(new RegExp("^[a-f0-9]{64}$")).annotate({
-    expected: "a string matching the RegExp ^[a-f0-9]{64}$",
-    identifier: "VisibilityFingerprint",
-  }),
-);
-export type VisibilityRevision = string;
-export const VisibilityRevision = Schema.String.annotate({
-  description: "Opaque revision for conditional whole-Extension visibility mutation.",
-}).check(
-  Schema.isMinLength(1).annotate({
-    expected: "a value with a length of at least 1",
-    identifier: "VisibilityRevision",
-  }),
-);
-export type VisibilityComparison = "not-established" | "unconfigured" | "match" | "drift";
-export const VisibilityComparison = Schema.Literals([
-  "not-established",
-  "unconfigured",
-  "match",
-  "drift",
-]).annotate({ identifier: "VisibilityComparison" });
-export type VisibilityFindingCode =
-  | "visibility/intent-conflict"
-  | "visibility/drift"
-  | "visibility/unavailable"
-  | "visibility/intent-required"
-  | "visibility/not-established"
-  | "visibility/stale-source"
-  | "visibility/stale-revision"
-  | "visibility/confirmation-required"
-  | "visibility/authorization-denied"
-  | "visibility/impersonation-denied"
-  | "visibility/verification-required"
-  | "visibility/verification-expired"
-  | "visibility/verification-cancelled"
-  | "visibility/verification-replayed"
-  | "visibility/pack-blocked";
-export const VisibilityFindingCode = Schema.Literals([
-  "visibility/intent-conflict",
-  "visibility/drift",
-  "visibility/unavailable",
-  "visibility/intent-required",
-  "visibility/not-established",
-  "visibility/stale-source",
-  "visibility/stale-revision",
-  "visibility/confirmation-required",
-  "visibility/authorization-denied",
-  "visibility/impersonation-denied",
-  "visibility/verification-required",
-  "visibility/verification-expired",
-  "visibility/verification-cancelled",
-  "visibility/verification-replayed",
-  "visibility/pack-blocked",
-]).annotate({ identifier: "VisibilityFindingCode" });
-export type VersionRange = string;
-export const VersionRange = Schema.String.annotate({
-  title: "Version Range",
-  description:
-    'A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use "*" to always resolve to the latest available version.',
-  examples: ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"],
-})
-  .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
-  .check(
-    Schema.isPattern(new RegExp("^[~^<>=*xXvV0-9A-Za-z+| .-]+$")).annotate({
-      expected: "a string matching the RegExp ^[~^<>=*xXvV0-9A-Za-z+| .-]+$",
-      identifier: "VersionRange",
-    }),
-  );
-export type DeprecationMessage = string;
-export const DeprecationMessage = Schema.String.annotate({
-  description: "Concise publisher guidance for consumers of a deprecated extension.",
-})
-  .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
-  .check(
-    Schema.isMaxLength(500).annotate({
-      expected: "a value with a length of at most 500",
-      identifier: "DeprecationMessage",
-    }),
-  );
-export type SuggestedAction = {
-  readonly description: string;
-  readonly cmd?: string | null;
-  readonly url?: string | null;
-};
-export const SuggestedAction = Schema.Struct({
-  description: Schema.String,
-  cmd: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-  url: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-}).annotate({ identifier: "SuggestedAction" });
 export type TokenOAuthErrorEncoded = {
   readonly kind: "TokenOAuthError";
   readonly error:
@@ -325,7 +148,6 @@ export type TokenOAuthErrorEncoded = {
     | "invalid_grant"
     | "unauthorized_client"
     | "unsupported_grant_type"
-    | "invalid_scope"
     | "authorization_pending"
     | "slow_down"
     | "expired_token"
@@ -340,7 +162,6 @@ export const TokenOAuthErrorEncoded = Schema.Struct({
     "invalid_grant",
     "unauthorized_client",
     "unsupported_grant_type",
-    "invalid_scope",
     "authorization_pending",
     "slow_down",
     "expired_token",
@@ -362,38 +183,46 @@ export const UserId = Schema.String.annotate({
     identifier: "UserId",
   }),
 );
+export type TokenPermissions = {
+  readonly permission: "read" | "publish" | "admin";
+  readonly owners: ReadonlyArray<string>;
+  readonly extensions: ReadonlyArray<string>;
+};
+export const TokenPermissions = Schema.Struct({
+  permission: Schema.Literals(["read", "publish", "admin"]).annotate({
+    description: "What the token may do: read extensions, publish versions, or administer them.",
+  }),
+  owners: Schema.Array(Schema.String).annotate({
+    description: 'Owner handles the token reaches, or "all".',
+    examples: [["@example"]],
+  }),
+  extensions: Schema.Array(Schema.String).annotate({
+    description: "Extensions the token reaches, in @handle/<plural-type>/<name> form.",
+    examples: [["@example/skills/release-bot"]],
+  }),
+}).annotate({
+  title: "Token Permissions",
+  description: "What a limited credential may do, and to which owners and extensions.",
+  identifier: "TokenPermissions",
+});
 export type ResourceRestrictions = { readonly extensions: ReadonlyArray<string> | null };
 export const ResourceRestrictions = Schema.Struct({
   extensions: Schema.Union([Schema.Array(Schema.String), Schema.Null]).annotate({
-    description: "Extension patterns this token is limited to, or null if unrestricted.",
+    description: "Extension patterns this credential is limited to, or null if unrestricted.",
   }),
 }).annotate({
   title: "Resource Restrictions",
-  description: "What this token is allowed to access.",
+  description:
+    "What this credential is allowed to access. Present only when the authority is `limited`.",
   identifier: "ResourceRestrictions",
-});
-export type ScopeCheckDetails = {
-  readonly requiredScope?: string;
-  readonly grantedScopes: ReadonlyArray<string>;
-};
-export const ScopeCheckDetails = Schema.Struct({
-  requiredScope: Schema.optionalKey(
-    Schema.String.annotate({
-      description: "The scope required to perform the requested operation.",
-    }),
-  ),
-  grantedScopes: Schema.Array(Schema.String).annotate({
-    description: "The scopes granted to the current credential.",
-  }),
-}).annotate({
-  title: "Scope Check Details",
-  description: "Diagnostic details returned when a request is denied due to insufficient scopes.",
-  identifier: "ScopeCheckDetails",
 });
 export type AuthorizationDenyDetails = {
   readonly requiredScope?: string;
-  readonly tokenScopes: ReadonlyArray<string>;
+  readonly tokenScopes?: ReadonlyArray<string>;
   readonly requiredRole?: string;
+  readonly requiredPermission?: string;
+  readonly admittedCredentials?: ReadonlyArray<string>;
+  readonly settingsUrl?: string;
 };
 export const AuthorizationDenyDetails = Schema.Struct({
   requiredScope: Schema.optionalKey(
@@ -401,84 +230,32 @@ export const AuthorizationDenyDetails = Schema.Struct({
       description: "The scope required to perform the requested operation.",
     }),
   ),
-  tokenScopes: Schema.Array(Schema.String).annotate({
-    description: "The scopes present on the token used for the request.",
-  }),
+  tokenScopes: Schema.optionalKey(
+    Schema.Array(Schema.String).annotate({
+      description: "The scopes present on the token used for the request.",
+    }),
+  ),
   requiredRole: Schema.optionalKey(
     Schema.String.annotate({ description: "The management role required, if applicable." }),
+  ),
+  requiredPermission: Schema.optionalKey(
+    Schema.String.annotate({ description: "The staff permission required, if applicable." }),
+  ),
+  admittedCredentials: Schema.optionalKey(
+    Schema.Array(Schema.String).annotate({
+      description: "The credential kinds the refused operation admits, if applicable.",
+    }),
+  ),
+  settingsUrl: Schema.optionalKey(
+    Schema.String.annotate({
+      description: "Where the person can perform a browser-only operation themselves.",
+    }),
   ),
 }).annotate({
   title: "Authorization Deny Details",
   description:
     "Diagnostic details returned when a request is denied due to insufficient authorization.",
   identifier: "AuthorizationDenyDetails",
-});
-export type PublishAuthorizationDelivery =
-  | {
-      readonly kind: "loopback";
-      readonly redirect_uri: string;
-      readonly state: string;
-      readonly code_challenge: string;
-      readonly code_challenge_method: "S256";
-    }
-  | {
-      readonly kind: "polling";
-      readonly proof_challenge: string;
-      readonly proof_challenge_method: "S256";
-    };
-export const PublishAuthorizationDelivery = Schema.Union([
-  Schema.Struct({
-    kind: Schema.Literal("loopback"),
-    redirect_uri: Schema.String.check(
-      Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
-    ),
-    state: Schema.String.check(
-      Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
-    ),
-    code_challenge: Schema.String.check(
-      Schema.isPattern(new RegExp("^[A-Za-z0-9_-]{43}$")).annotate({
-        expected: "a string matching the RegExp ^[A-Za-z0-9_-]{43}$",
-      }),
-    ),
-    code_challenge_method: Schema.Literal("S256"),
-  }),
-  Schema.Struct({
-    kind: Schema.Literal("polling"),
-    proof_challenge: Schema.String.check(
-      Schema.isPattern(new RegExp("^[A-Za-z0-9_-]{43}$")).annotate({
-        expected: "a string matching the RegExp ^[A-Za-z0-9_-]{43}$",
-      }),
-    ),
-    proof_challenge_method: Schema.Literal("S256"),
-  }),
-]).annotate({
-  title: "Publish authorization delivery",
-  description:
-    "Loopback code delivery or resumable polling protected by a distinct initiator proof.",
-  identifier: "PublishAuthorizationDelivery",
-});
-export type PublishAuthorizationRequestId = string;
-export const PublishAuthorizationRequestId = Schema.String.annotate({
-  title: "Publish Authorization Request ID",
-  description: "Identifies one exact browser-reviewed publish authorization request.",
-  examples: ["pubreq_01h455vb4pexka56gq5w2r7cpc"],
-}).check(
-  Schema.isPattern(new RegExp("^pubreq_[0-7][0-9a-hjkmnp-tv-z]{25}$")).annotate({
-    expected: "a string matching the RegExp ^pubreq_[0-7][0-9a-hjkmnp-tv-z]{25}$",
-    identifier: "PublishAuthorizationRequestId",
-  }),
-);
-export type PublishAuthorizationPollingProof = { readonly initiator_proof: string };
-export const PublishAuthorizationPollingProof = Schema.Struct({
-  initiator_proof: Schema.String.check(
-    Schema.isPattern(new RegExp("^[A-Za-z0-9_-]{43,128}$")).annotate({
-      expected: "a string matching the RegExp ^[A-Za-z0-9_-]{43,128}$",
-    }),
-  ),
-}).annotate({
-  description:
-    "Secret proof held by the initiator; never a public request reference or browser code.",
-  identifier: "PublishAuthorizationPollingProof",
 });
 export type TokenId = string;
 export const TokenId = Schema.String.annotate({
@@ -506,10 +283,7 @@ export const StepUpRequestId = Schema.String.annotate({
 export type CreateTokenPermissionsRequest = {
   readonly owners?: ReadonlyArray<string> | null;
   readonly extensions?: ReadonlyArray<string> | null;
-  readonly permission?: "read" | "publish" | "admin" | null;
-  readonly org_permission?: "read" | "write" | "admin" | null;
-  readonly cidr?: ReadonlyArray<string> | null;
-  readonly bypass_mfa?: boolean | null;
+  readonly permission: "read" | "publish" | "admin";
 };
 export const CreateTokenPermissionsRequest = Schema.Struct({
   owners: Schema.optionalKey(
@@ -524,26 +298,9 @@ export const CreateTokenPermissionsRequest = Schema.Struct({
       examples: [["@example/skills/release-bot"]],
     }),
   ),
-  permission: Schema.optionalKey(
-    Schema.Union([Schema.Literals(["read", "publish", "admin"]), Schema.Null]).annotate({
-      description: "Extension-level permission to grant.",
-    }),
-  ),
-  org_permission: Schema.optionalKey(
-    Schema.Union([Schema.Literals(["read", "write", "admin"]), Schema.Null]).annotate({
-      description: "Organization-level permission to grant.",
-    }),
-  ),
-  cidr: Schema.optionalKey(
-    Schema.Union([Schema.Array(Schema.String), Schema.Null]).annotate({
-      description: "Optional CIDR allowlist for the token.",
-    }),
-  ),
-  bypass_mfa: Schema.optionalKey(
-    Schema.Union([Schema.Boolean, Schema.Null]).annotate({
-      description: "Whether this automation token bypasses step-up MFA.",
-    }),
-  ),
+  permission: Schema.Literals(["read", "publish", "admin"]).annotate({
+    description: "What the token may do: read extensions, publish versions, or administer them.",
+  }),
 }).annotate({
   title: "Create Token Permissions Request",
   description: "Structured permission request for the token.",
@@ -564,6 +321,63 @@ export const OwnerResponse = Schema.Struct({
   description: "Minimal owner summary for machine clients.",
   identifier: "OwnerResponse",
 });
+export type ExtensionName = string;
+export const ExtensionName = Schema.String.annotate({
+  title: "Extension Name",
+  description:
+    "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
+  examples: ["my-skill", "code-review", "prettier"],
+})
+  .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
+  .check(
+    Schema.isPattern(new RegExp("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")).annotate({
+      expected: "a string matching the RegExp ^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
+      identifier: "ExtensionName",
+    }),
+  );
+export type Handle = string;
+export const Handle = Schema.String.annotate({
+  title: "Handle",
+  description: "A unique username or organization name starting with @, like @my-org.",
+  examples: ["@my-org", "@username"],
+}).check(
+  Schema.isPattern(new RegExp("^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$")).annotate({
+    expected: "a string matching the RegExp ^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
+    identifier: "Handle",
+  }),
+);
+export type ExtensionType =
+  "skill" | "mcp-server" | "subagent" | "rule" | "hook" | "knowledge" | "pack";
+export const ExtensionType = Schema.Literals([
+  "skill",
+  "mcp-server",
+  "subagent",
+  "rule",
+  "hook",
+  "knowledge",
+  "pack",
+]).annotate({
+  title: "Extension Type",
+  description:
+    "What kind of extension this is: skill, mcp-server, subagent, rule, hook, knowledge, or pack.",
+  identifier: "ExtensionType",
+});
+export type Version = string;
+export const Version = Schema.String.annotate({
+  title: "Version",
+  description: "A semver version like 1.0.0. Ranges are not allowed here.",
+  examples: ["1.0.0", "2.3.1", "0.1.0-beta.1"],
+}).check(
+  Schema.isPattern(
+    new RegExp(
+      "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+    ),
+  ).annotate({
+    expected:
+      "a string matching the RegExp ^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+    identifier: "Version",
+  }),
+);
 export type Repository = {
   readonly url: string;
   readonly type?: string | null;
@@ -634,6 +448,33 @@ export const Author = Schema.Struct({
   description: "Author details: name, email, and homepage URL.",
   identifier: "Author",
 });
+export type DeprecationMessage = string;
+export const DeprecationMessage = Schema.String.annotate({
+  description: "Concise publisher guidance for consumers of a deprecated extension.",
+})
+  .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
+  .check(
+    Schema.isMaxLength(500).annotate({
+      expected: "a value with a length of at most 500",
+      identifier: "DeprecationMessage",
+    }),
+  );
+export type ExtensionFqn = string;
+export const ExtensionFqn = Schema.String.annotate({
+  title: "Extension FQN",
+  description: "Canonical extension identifier in @owner/<type>s/<name> form.",
+  examples: ["@acme/skills/code-review", "@my-org/rules/typescript"],
+}).check(
+  Schema.isPattern(
+    new RegExp(
+      "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+    ),
+  ).annotate({
+    expected:
+      "a string matching the RegExp ^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+    identifier: "ExtensionFqn",
+  }),
+);
 export type Bugs = { readonly url?: string | null; readonly email?: string | null };
 export const Bugs = Schema.Struct({
   url: Schema.optionalKey(
@@ -659,6 +500,20 @@ export const Bugs = Schema.Struct({
   description: "Bug reporting details for an extension manifest.",
   identifier: "Bugs",
 });
+export type VersionRange = string;
+export const VersionRange = Schema.String.annotate({
+  title: "Version Range",
+  description:
+    'A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use "*" to always resolve to the latest available version.',
+  examples: ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"],
+})
+  .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
+  .check(
+    Schema.isPattern(new RegExp("^[~^<>=*xXvV0-9A-Za-z+| .-]+$")).annotate({
+      expected: "a string matching the RegExp ^[~^<>=*xXvV0-9A-Za-z+| .-]+$",
+      identifier: "VersionRange",
+    }),
+  );
 export type PackageIdentityPurl = string;
 export const PackageIdentityPurl = Schema.String.annotate({
   title: "Package Identity Purl",
@@ -692,6 +547,35 @@ export const ExtensionDeletionOperationId = Schema.String.annotate({
   Schema.isPattern(new RegExp("^edel_[0-7][0-9a-hjkmnp-tv-z]{25}$")).annotate({
     expected: "a string matching the RegExp ^edel_[0-7][0-9a-hjkmnp-tv-z]{25}$",
     identifier: "ExtensionDeletionOperationId",
+  }),
+);
+export type ExtensionVisibility = "public" | "private";
+export const ExtensionVisibility = Schema.Literals(["public", "private"]).annotate({
+  title: "Extension Visibility",
+  description: "Whole-Extension Registry visibility applied to every published version.",
+  identifier: "ExtensionVisibility",
+});
+export type VisibilityRevision = string;
+export const VisibilityRevision = Schema.String.annotate({
+  description: "Opaque revision for conditional whole-Extension visibility mutation.",
+}).check(
+  Schema.isMinLength(1).annotate({
+    expected: "a value with a length of at least 1",
+    identifier: "VisibilityRevision",
+  }),
+);
+export type VisibilityFingerprint = string;
+export const VisibilityFingerprint = Schema.String.check(
+  Schema.isPattern(new RegExp("^[a-f0-9]{64}$")).annotate({
+    expected: "a string matching the RegExp ^[a-f0-9]{64}$",
+    identifier: "VisibilityFingerprint",
+  }),
+);
+export type Sha256Hex = string;
+export const Sha256Hex = Schema.String.check(
+  Schema.isPattern(new RegExp("^[a-f0-9]{64}$")).annotate({
+    expected: "a string matching the RegExp ^[a-f0-9]{64}$",
+    identifier: "Sha256Hex",
   }),
 );
 export type Visibility = "public" | "private";
@@ -737,6 +621,16 @@ export const PublishFindingLocation = Schema.Struct({
   description: "Accessor-relative location of a lint finding.",
   identifier: "PublishFindingLocation",
 });
+export type SuggestedAction = {
+  readonly description: string;
+  readonly cmd?: string | null;
+  readonly url?: string | null;
+};
+export const SuggestedAction = Schema.Struct({
+  description: Schema.String,
+  cmd: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  url: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+}).annotate({ identifier: "SuggestedAction" });
 export type ExtensionLinks = { readonly html: string };
 export const ExtensionLinks = Schema.Struct({
   html: Schema.String.annotate({ format: "uri" }),
@@ -769,6 +663,46 @@ export const PublishIdentityMismatchEntry = Schema.Struct({
   description: "Single divergent identity field between URL-path and archive.",
   identifier: "PublishIdentityMismatchEntry",
 });
+export type VisibilityComparison = "not-established" | "unconfigured" | "match" | "drift";
+export const VisibilityComparison = Schema.Literals([
+  "not-established",
+  "unconfigured",
+  "match",
+  "drift",
+]).annotate({ identifier: "VisibilityComparison" });
+export type VisibilityFindingCode =
+  | "visibility/intent-conflict"
+  | "visibility/drift"
+  | "visibility/unavailable"
+  | "visibility/intent-required"
+  | "visibility/not-established"
+  | "visibility/stale-source"
+  | "visibility/stale-revision"
+  | "visibility/confirmation-required"
+  | "visibility/authorization-denied"
+  | "visibility/impersonation-denied"
+  | "visibility/verification-required"
+  | "visibility/verification-expired"
+  | "visibility/verification-cancelled"
+  | "visibility/verification-replayed"
+  | "visibility/pack-blocked";
+export const VisibilityFindingCode = Schema.Literals([
+  "visibility/intent-conflict",
+  "visibility/drift",
+  "visibility/unavailable",
+  "visibility/intent-required",
+  "visibility/not-established",
+  "visibility/stale-source",
+  "visibility/stale-revision",
+  "visibility/confirmation-required",
+  "visibility/authorization-denied",
+  "visibility/impersonation-denied",
+  "visibility/verification-required",
+  "visibility/verification-expired",
+  "visibility/verification-cancelled",
+  "visibility/verification-replayed",
+  "visibility/pack-blocked",
+]).annotate({ identifier: "VisibilityFindingCode" });
 export type DeprecationRevision = string;
 export const DeprecationRevision = Schema.String.annotate({
   description: "Opaque publisher lifecycle revision used for conditional writes.",
@@ -930,6 +864,28 @@ export const PreconditionFailedErrorEncoded = Schema.Struct({
   ]),
   details: Schema.optionalKey(PublishDetails),
 }).annotate({ identifier: "PreconditionFailedErrorEncoded" });
+export type SessionTokenResponse = {
+  readonly access_token: string;
+  readonly refresh_token: string;
+  readonly token_type: "Bearer";
+  readonly expires_in: number;
+  readonly expires_at: IsoDateTimeString;
+};
+export const SessionTokenResponse = Schema.Struct({
+  access_token: Schema.String.annotate({ description: "OAuth 2.0 access token." }),
+  refresh_token: Schema.String.annotate({
+    description: "OAuth 2.0 refresh token for obtaining new token pairs.",
+  }),
+  token_type: Schema.Literal("Bearer"),
+  expires_in: Schema.Number.annotate({
+    description: "Access token lifetime remaining in seconds.",
+  }).check(Schema.isInt().annotate({ expected: "an integer" })),
+  expires_at: IsoDateTimeString,
+}).annotate({
+  title: "Session Token Response",
+  description: "OAuth 2.0 token response containing an access/refresh token pair.",
+  identifier: "SessionTokenResponse",
+});
 export type StepUpRequestStatusResponse = {
   readonly status: "pending" | "verified" | "consumed" | "cancelled" | "expired";
   readonly expires_at: IsoDateTimeString;
@@ -941,160 +897,6 @@ export const StepUpRequestStatusResponse = Schema.Struct({
   title: "Step-up Request Status Response",
   identifier: "StepUpRequestStatusResponse",
 });
-export type PublishVisibility =
-  | {
-      readonly value: ExtensionVisibility;
-      readonly disposition: "establish";
-      readonly source: "manifest" | "workspace" | "explicit" | "account" | "platform";
-    }
-  | {
-      readonly value: ExtensionVisibility;
-      readonly disposition: "preserve";
-      readonly source: "existing";
-    };
-export const PublishVisibility = Schema.Union([
-  Schema.Struct({
-    value: ExtensionVisibility,
-    disposition: Schema.Literal("establish"),
-    source: Schema.Literals(["manifest", "workspace", "explicit", "account", "platform"]),
-  }),
-  Schema.Struct({
-    value: ExtensionVisibility,
-    disposition: Schema.Literal("preserve"),
-    source: Schema.Literal("existing"),
-  }),
-]).annotate({
-  title: "Publish Visibility",
-  description:
-    "Authoritative whole-Extension visibility and provenance resolved for a publication.",
-  identifier: "PublishVisibility",
-});
-export type PublishAuthorizationPollingStatus = {
-  readonly purpose: "publish";
-  readonly status: "pending" | "approved" | "denied" | "expired" | "exchanged";
-  readonly expires_at: IsoDateTimeString;
-  readonly interval: number;
-  readonly publication_set_digest: Sha256Hex;
-};
-export const PublishAuthorizationPollingStatus = Schema.Struct({
-  purpose: Schema.Literal("publish"),
-  status: Schema.Literals(["pending", "approved", "denied", "expired", "exchanged"]),
-  expires_at: IsoDateTimeString,
-  interval: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })).check(
-    Schema.isGreaterThan(0).annotate({ expected: "a value greater than 0" }),
-  ),
-  publication_set_digest: Sha256Hex,
-}).annotate({
-  title: "Publish authorization status",
-  description:
-    "Proof-protected authorization status and material binding; approval is not publication completion.",
-  identifier: "PublishAuthorizationPollingStatus",
-});
-export type PublicationTarget = {
-  readonly owner: Handle;
-  readonly type: ExtensionType;
-  readonly name: ExtensionName;
-  readonly version: Version;
-};
-export const PublicationTarget = Schema.Struct({
-  owner: Handle,
-  type: ExtensionType,
-  name: ExtensionName,
-  version: Version,
-}).annotate({ identifier: "PublicationTarget" });
-export type PublishIdentity = {
-  readonly owner: Handle;
-  readonly type: ExtensionType;
-  readonly name: ExtensionName;
-  readonly version: Version;
-};
-export const PublishIdentity = Schema.Struct({
-  owner: Handle,
-  type: ExtensionType,
-  name: ExtensionName,
-  version: Version,
-}).annotate({
-  title: "Publish Identity",
-  description: "URL-path identity of the extension version under publish.",
-  identifier: "PublishIdentity",
-});
-export type DeprecationReplacement =
-  | { readonly status: "available"; readonly fqn: ExtensionFqn }
-  | { readonly status: "unavailable"; readonly fqn?: ExtensionFqn | null };
-export const DeprecationReplacement = Schema.Union([
-  Schema.Struct({ status: Schema.Literal("available"), fqn: ExtensionFqn }),
-  Schema.Struct({
-    status: Schema.Literal("unavailable"),
-    fqn: Schema.optionalKey(Schema.Union([ExtensionFqn, Schema.Null])),
-  }),
-]).annotate({
-  description: "Authorization-safe current availability of a recorded replacement identity.",
-  identifier: "DeprecationReplacement",
-});
-export type DeprecationReplacementIntent =
-  | { readonly kind: "clear" }
-  | { readonly kind: "set"; readonly fqn: ExtensionFqn }
-  | { readonly kind: "preserve" };
-export const DeprecationReplacementIntent = Schema.Union([
-  Schema.Struct({ kind: Schema.Literal("clear") }),
-  Schema.Struct({ kind: Schema.Literal("set"), fqn: ExtensionFqn }),
-  Schema.Struct({ kind: Schema.Literal("preserve") }),
-]).annotate({ identifier: "DeprecationReplacementIntent" });
-export type VisibilityIntent = {
-  readonly value: ExtensionVisibility;
-  readonly source: "manifest" | "workspace";
-  readonly fingerprint: VisibilityFingerprint;
-};
-export const VisibilityIntent = Schema.Struct({
-  value: ExtensionVisibility,
-  source: Schema.Literals(["manifest", "workspace"]),
-  fingerprint: VisibilityFingerprint,
-}).annotate({ identifier: "VisibilityIntent" });
-export type VisibilityMutationAuthority =
-  | { readonly kind: "operator" }
-  | {
-      readonly kind: "repository";
-      readonly source: "manifest" | "workspace";
-      readonly fingerprint: VisibilityFingerprint;
-    };
-export const VisibilityMutationAuthority = Schema.Union([
-  Schema.Struct({ kind: Schema.Literal("operator") }),
-  Schema.Struct({
-    kind: Schema.Literal("repository"),
-    source: Schema.Literals(["manifest", "workspace"]),
-    fingerprint: VisibilityFingerprint,
-  }),
-]).annotate({ identifier: "VisibilityMutationAuthority" });
-export type VisibilityActual = {
-  readonly value: ExtensionVisibility;
-  readonly revision: VisibilityRevision;
-};
-export const VisibilityActual = Schema.Struct({
-  value: ExtensionVisibility,
-  revision: VisibilityRevision,
-}).annotate({ identifier: "VisibilityActual" });
-export type VisibilityFinding = {
-  readonly code: VisibilityFindingCode;
-  readonly severity: "error" | "warning";
-  readonly message: string;
-};
-export const VisibilityFinding = Schema.Struct({
-  code: VisibilityFindingCode,
-  severity: Schema.Literals(["error", "warning"]),
-  message: Schema.String,
-}).annotate({ identifier: "VisibilityFinding" });
-export type PackDependencyDescriptor = {
-  readonly owner: Handle;
-  readonly type: "hook" | "knowledge" | "mcp-server" | "rule" | "skill" | "subagent";
-  readonly name: ExtensionName;
-  readonly range: VersionRange;
-};
-export const PackDependencyDescriptor = Schema.Struct({
-  owner: Handle,
-  type: Schema.Literals(["hook", "knowledge", "mcp-server", "rule", "skill", "subagent"]),
-  name: ExtensionName,
-  range: VersionRange,
-}).annotate({ identifier: "PackDependencyDescriptor" });
 export type AuthMeUser = {
   readonly id: UserId;
   readonly handle: string;
@@ -1120,18 +922,19 @@ export const AuthMeUser = Schema.Struct({
 });
 export type AuthMeToken = {
   readonly id: string;
-  readonly type: "session" | "pat" | "oidc" | "publish-capability";
+  readonly type: "session" | "pat" | "oidc";
   readonly name: string | null;
-  readonly permissions: Schema.Json | null;
-  readonly scopes: ReadonlyArray<string>;
-  readonly resource_restrictions: ResourceRestrictions;
+  readonly permissions: TokenPermissions | null;
+  readonly authority: "account" | "limited";
+  readonly resource_restrictions?: ResourceRestrictions;
   readonly expires_at: IsoDateTimeString | null;
+  readonly approved_at: IsoDateTimeString | null;
 };
 export const AuthMeToken = Schema.Struct({
   id: Schema.String.annotate({
     description: "Opaque identifier of the credential used for this request.",
   }),
-  type: Schema.Literals(["session", "pat", "oidc", "publish-capability"]).annotate({
+  type: Schema.Literals(["session", "pat", "oidc"]).annotate({
     title: "Token Type",
     description: "The type of authentication token.",
   }),
@@ -1139,13 +942,20 @@ export const AuthMeToken = Schema.Struct({
     Schema.String.annotate({ description: "Human-readable name of the token, if assigned." }),
     Schema.Null,
   ]),
-  permissions: Schema.Union([
-    Schema.Json.annotate({ expected: "JSON value" }),
-    Schema.Null,
-  ]).annotate({ description: "Structured permissions associated with this token." }),
-  scopes: Schema.Array(Schema.String).annotate({ description: "Scopes granted to this token." }),
-  resource_restrictions: ResourceRestrictions,
+  permissions: Schema.Union([TokenPermissions, Schema.Null]).annotate({
+    description: "What this credential may do. Null when the authority is `account`.",
+  }),
+  authority: Schema.Literals(["account", "limited"]).annotate({
+    title: "Credential Authority",
+    description:
+      "`account` when the credential is you signed in, bounded only by your permissions. `limited` when it is a credential you deliberately made narrower than yourself.",
+  }),
+  resource_restrictions: Schema.optionalKey(ResourceRestrictions),
   expires_at: Schema.Union([IsoDateTimeString, Schema.Null]),
+  approved_at: Schema.Union([IsoDateTimeString, Schema.Null]).annotate({
+    description:
+      "When the browser sign-in that approved this CLI session approved it. Null for any other kind of credential.",
+  }),
 }).annotate({
   title: "Token Info",
   description: "Details about the token you used to authenticate.",
@@ -1162,10 +972,12 @@ export type ForbiddenErrorEncoded = {
     | "forbidden"
     | "insufficient_scope"
     | "resource_restriction"
-    | "scope_escalation"
-    | "gat_requires_session"
-    | "recent_authentication_required"
-    | "step_up_wrong_actor"
+    | "credential_not_admitted"
+    | "browser_session_required"
+    | "identity_suspended"
+    | "staff_credential_required"
+    | "staff_role_required"
+    | "delegated_permission_not_held"
     | "team_create_not_authorized"
     | "team_delete_not_authorized"
     | "team_update_not_authorized"
@@ -1186,12 +998,8 @@ export type ForbiddenErrorEncoded = {
     | "publish/insufficient-scope"
     | "publish/resource-restriction"
     | "publish/handle-not-owned"
-    | "publish/publish-forbidden"
-    | "publish/capability-binding-mismatch"
-    | "publish/capability-expired"
-    | "publish/capability-revoked"
-    | "publish/capability-consumed";
-  readonly details?: ScopeCheckDetails | AuthorizationDenyDetails | PublishDetails;
+    | "publish/publish-forbidden";
+  readonly details?: AuthorizationDenyDetails | PublishDetails;
 };
 export const ForbiddenErrorEncoded = Schema.Struct({
   kind: Schema.Literal("ForbiddenError"),
@@ -1204,10 +1012,12 @@ export const ForbiddenErrorEncoded = Schema.Struct({
     "forbidden",
     "insufficient_scope",
     "resource_restriction",
-    "scope_escalation",
-    "gat_requires_session",
-    "recent_authentication_required",
-    "step_up_wrong_actor",
+    "credential_not_admitted",
+    "browser_session_required",
+    "identity_suspended",
+    "staff_credential_required",
+    "staff_role_required",
+    "delegated_permission_not_held",
     "team_create_not_authorized",
     "team_delete_not_authorized",
     "team_update_not_authorized",
@@ -1229,21 +1039,14 @@ export const ForbiddenErrorEncoded = Schema.Struct({
     "publish/resource-restriction",
     "publish/handle-not-owned",
     "publish/publish-forbidden",
-    "publish/capability-binding-mismatch",
-    "publish/capability-expired",
-    "publish/capability-revoked",
-    "publish/capability-consumed",
   ]),
-  details: Schema.optionalKey(
-    Schema.Union([ScopeCheckDetails, AuthorizationDenyDetails, PublishDetails]),
-  ),
+  details: Schema.optionalKey(Schema.Union([AuthorizationDenyDetails, PublishDetails])),
 }).annotate({ identifier: "ForbiddenErrorEncoded" });
 export type TokenListItem = {
   readonly id: TokenId;
   readonly name: string | null;
   readonly type: string;
-  readonly scopes: ReadonlyArray<string>;
-  readonly permissions: Schema.Json | null;
+  readonly permissions: TokenPermissions | null;
   readonly created_at: IsoDateTimeString;
   readonly expires_at: IsoDateTimeString;
   readonly last_used_at: IsoDateTimeString | null;
@@ -1255,11 +1058,10 @@ export const TokenListItem = Schema.Struct({
     Schema.Null,
   ]),
   type: Schema.String.annotate({ description: "Token type (e.g. 'pat', 'session')." }),
-  scopes: Schema.Array(Schema.String).annotate({ description: "Scopes granted to this token." }),
-  permissions: Schema.Union([
-    Schema.Json.annotate({ expected: "JSON value" }),
-    Schema.Null,
-  ]).annotate({ description: "Structured permissions associated with this token." }),
+  permissions: Schema.Union([TokenPermissions, Schema.Null]).annotate({
+    description:
+      "What this token may do. Null for an interactive session, which is its holder's whole authority.",
+  }),
   created_at: IsoDateTimeString,
   expires_at: IsoDateTimeString,
   last_used_at: Schema.Union([IsoDateTimeString, Schema.Null]),
@@ -1272,8 +1074,7 @@ export type CreateTokenResponse = {
   readonly id: TokenId;
   readonly token: string;
   readonly name: string;
-  readonly scopes: ReadonlyArray<string>;
-  readonly permissions: Schema.Json;
+  readonly permissions: TokenPermissions;
   readonly created_at: IsoDateTimeString;
   readonly expires_at: IsoDateTimeString;
 };
@@ -1284,8 +1085,7 @@ export const CreateTokenResponse = Schema.Struct({
     readOnly: true,
   }),
   name: Schema.String,
-  scopes: Schema.Array(Schema.String),
-  permissions: Schema.Json.annotate({ expected: "JSON value" }),
+  permissions: TokenPermissions,
   created_at: IsoDateTimeString,
   expires_at: IsoDateTimeString,
 }).annotate({
@@ -1305,7 +1105,8 @@ export const CreateTokenRequest = Schema.Struct({
   }).check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" })),
   permissions: CreateTokenPermissionsRequest,
   expires_in: Schema.Number.annotate({
-    description: "How long the token lasts, in seconds (1 hour to 365 days).",
+    description:
+      "How long the token lasts, in seconds. At least 1 hour; at most 90 days for a publish or admin token and 365 days for a read token.",
   })
     .check(Schema.isInt().annotate({ expected: "an integer" }))
     .check(
@@ -1365,6 +1166,68 @@ export const StepUpRequiredErrorEncoded = Schema.Struct({
     Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
   ),
 }).annotate({ identifier: "StepUpRequiredErrorEncoded" });
+export type PublishIdentity = {
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly version: Version;
+};
+export const PublishIdentity = Schema.Struct({
+  owner: Handle,
+  type: ExtensionType,
+  name: ExtensionName,
+  version: Version,
+}).annotate({
+  title: "Publish Identity",
+  description: "URL-path identity of the extension version under publish.",
+  identifier: "PublishIdentity",
+});
+export type PublicationTarget = {
+  readonly owner: Handle;
+  readonly type: ExtensionType;
+  readonly name: ExtensionName;
+  readonly version: Version;
+};
+export const PublicationTarget = Schema.Struct({
+  owner: Handle,
+  type: ExtensionType,
+  name: ExtensionName,
+  version: Version,
+}).annotate({ identifier: "PublicationTarget" });
+export type DeprecationReplacement =
+  | { readonly status: "available"; readonly fqn: ExtensionFqn }
+  | { readonly status: "unavailable"; readonly fqn?: ExtensionFqn | null };
+export const DeprecationReplacement = Schema.Union([
+  Schema.Struct({ status: Schema.Literal("available"), fqn: ExtensionFqn }),
+  Schema.Struct({
+    status: Schema.Literal("unavailable"),
+    fqn: Schema.optionalKey(Schema.Union([ExtensionFqn, Schema.Null])),
+  }),
+]).annotate({
+  description: "Authorization-safe current availability of a recorded replacement identity.",
+  identifier: "DeprecationReplacement",
+});
+export type DeprecationReplacementIntent =
+  | { readonly kind: "clear" }
+  | { readonly kind: "set"; readonly fqn: ExtensionFqn }
+  | { readonly kind: "preserve" };
+export const DeprecationReplacementIntent = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("clear") }),
+  Schema.Struct({ kind: Schema.Literal("set"), fqn: ExtensionFqn }),
+  Schema.Struct({ kind: Schema.Literal("preserve") }),
+]).annotate({ identifier: "DeprecationReplacementIntent" });
+export type PackDependencyDescriptor = {
+  readonly owner: Handle;
+  readonly type: "hook" | "knowledge" | "mcp-server" | "rule" | "skill" | "subagent";
+  readonly name: ExtensionName;
+  readonly range: VersionRange;
+};
+export const PackDependencyDescriptor = Schema.Struct({
+  owner: Handle,
+  type: Schema.Literals(["hook", "knowledge", "mcp-server", "rule", "skill", "subagent"]),
+  name: ExtensionName,
+  range: VersionRange,
+}).annotate({ identifier: "PackDependencyDescriptor" });
 export type CompanionPackage = {
   readonly purl: PackageIdentityPurl;
   readonly versionRange?: string | null;
@@ -1384,6 +1247,67 @@ export const CompanionPackage = Schema.Struct({
   description: "A companion package purl identity with an optional VERS compatibility range.",
   identifier: "CompanionPackage",
 });
+export type PublishVisibility =
+  | {
+      readonly value: ExtensionVisibility;
+      readonly disposition: "establish";
+      readonly source: "manifest" | "workspace" | "explicit" | "account" | "platform";
+    }
+  | {
+      readonly value: ExtensionVisibility;
+      readonly disposition: "preserve";
+      readonly source: "existing";
+    };
+export const PublishVisibility = Schema.Union([
+  Schema.Struct({
+    value: ExtensionVisibility,
+    disposition: Schema.Literal("establish"),
+    source: Schema.Literals(["manifest", "workspace", "explicit", "account", "platform"]),
+  }),
+  Schema.Struct({
+    value: ExtensionVisibility,
+    disposition: Schema.Literal("preserve"),
+    source: Schema.Literal("existing"),
+  }),
+]).annotate({
+  title: "Publish Visibility",
+  description:
+    "Authoritative whole-Extension visibility and provenance resolved for a publication.",
+  identifier: "PublishVisibility",
+});
+export type VisibilityActual = {
+  readonly value: ExtensionVisibility;
+  readonly revision: VisibilityRevision;
+};
+export const VisibilityActual = Schema.Struct({
+  value: ExtensionVisibility,
+  revision: VisibilityRevision,
+}).annotate({ identifier: "VisibilityActual" });
+export type VisibilityMutationAuthority =
+  | { readonly kind: "operator" }
+  | {
+      readonly kind: "repository";
+      readonly source: "manifest" | "workspace";
+      readonly fingerprint: VisibilityFingerprint;
+    };
+export const VisibilityMutationAuthority = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("operator") }),
+  Schema.Struct({
+    kind: Schema.Literal("repository"),
+    source: Schema.Literals(["manifest", "workspace"]),
+    fingerprint: VisibilityFingerprint,
+  }),
+]).annotate({ identifier: "VisibilityMutationAuthority" });
+export type VisibilityIntent = {
+  readonly value: ExtensionVisibility;
+  readonly source: "manifest" | "workspace";
+  readonly fingerprint: VisibilityFingerprint;
+};
+export const VisibilityIntent = Schema.Struct({
+  value: ExtensionVisibility,
+  source: Schema.Literals(["manifest", "workspace"]),
+  fingerprint: VisibilityFingerprint,
+}).annotate({ identifier: "VisibilityIntent" });
 export type PublishLintFinding = {
   readonly kind: "advisory" | "autofixable";
   readonly ruleId: string;
@@ -1428,6 +1352,16 @@ export const PublishLintFinding_1 = Schema.Struct({
   description: "One lint finding produced against the publish subject.",
   identifier: "PublishLintFinding_1",
 });
+export type VisibilityFinding = {
+  readonly code: VisibilityFindingCode;
+  readonly severity: "error" | "warning";
+  readonly message: string;
+};
+export const VisibilityFinding = Schema.Struct({
+  code: VisibilityFindingCode,
+  severity: Schema.Literals(["error", "warning"]),
+  message: Schema.String,
+}).annotate({ identifier: "VisibilityFinding" });
 export type Library = {
   readonly id: LibraryId;
   readonly owner: Handle;
@@ -1466,74 +1400,32 @@ export const LibraryMember = Schema.Struct({
   extensionName: ExtensionName,
   addedAt: IsoDateTimeString,
 }).annotate({ title: "Library Member", identifier: "LibraryMember" });
-export type SessionTokenResponse = {
-  readonly access_token: string;
-  readonly refresh_token?: string | null;
-  readonly token_type: "Bearer";
-  readonly expires_in: number;
-  readonly expires_at: IsoDateTimeString;
-  readonly scope?: string | null;
-  readonly publish_request_id?: string | null;
-  readonly visibility_contract?: "v2" | null;
-  readonly visibility?: PublishVisibility | null;
-  readonly condition?: string | null;
-  readonly publication_set_digest?: string | null;
-  readonly publication_descriptor_digest?: string | null;
+export type AuthMeResponse = { readonly user: AuthMeUser; readonly token: AuthMeToken };
+export const AuthMeResponse = Schema.Struct({ user: AuthMeUser, token: AuthMeToken }).annotate({
+  title: "Auth Me Response",
+  description: "Your user profile and credential details.",
+  identifier: "AuthMeResponse",
+});
+export type TokenListResponse = {
+  readonly tokens: ReadonlyArray<TokenListItem>;
+  readonly has_more: boolean;
+  readonly cursor: string | null;
 };
-export const SessionTokenResponse = Schema.Struct({
-  access_token: Schema.String.annotate({ description: "OAuth 2.0 access token." }),
-  refresh_token: Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({
-        description:
-          "OAuth 2.0 refresh token for obtaining new token pairs. Omitted for exact publish capabilities.",
-      }),
-      Schema.Null,
-    ]),
-  ),
-  token_type: Schema.Literal("Bearer"),
-  expires_in: Schema.Number.annotate({
-    description: "Access token lifetime remaining in seconds.",
-  }).check(Schema.isInt().annotate({ expected: "an integer" })),
-  expires_at: IsoDateTimeString,
-  scope: Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({ description: "Space-delimited list of granted scopes." }),
-      Schema.Null,
-    ]),
-  ),
-  publish_request_id: Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({
-        description:
-          "Publish authorization request that produced a non-refreshable exact capability.",
-      }),
-      Schema.Null,
-    ]),
-  ),
-  visibility_contract: Schema.optionalKey(
-    Schema.Union([
-      Schema.Literal("v2").annotate({
-        description: "Visibility binding contract carried by an exact publish capability.",
-      }),
-      Schema.Null,
-    ]),
-  ),
-  visibility: Schema.optionalKey(Schema.Union([PublishVisibility, Schema.Null])),
-  condition: Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({
-        description: "Opaque reviewed publish condition to send as If-Match during upload.",
-      }),
-      Schema.Null,
-    ]),
-  ),
-  publication_set_digest: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-  publication_descriptor_digest: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+export const TokenListResponse = Schema.Struct({
+  tokens: Schema.Array(TokenListItem).annotate({
+    description: "List of access tokens for the authenticated user.",
+  }),
+  has_more: Schema.Boolean.annotate({
+    description: "Whether additional tokens exist beyond this page.",
+  }),
+  cursor: Schema.Union([
+    Schema.String.annotate({ description: "Opaque cursor for fetching the next page of results." }),
+    Schema.Null,
+  ]),
 }).annotate({
-  title: "Session Token Response",
-  description: "OAuth 2.0 token response containing an access/refresh token pair.",
-  identifier: "SessionTokenResponse",
+  title: "Token List Response",
+  description: "A page of your access tokens.",
+  identifier: "TokenListResponse",
 });
 export type ExtensionIdentityMismatchErrorEncoded = {
   readonly kind: "ExtensionIdentityMismatchError";
@@ -1600,14 +1492,14 @@ export const PutDeprecationBody = Schema.Struct({
   ]),
   replacement: DeprecationReplacementIntent,
 }).annotate({ identifier: "PutDeprecationBody" });
-export type PublicationVisibilityInput = {
-  readonly intent: VisibilityIntent | null;
-  readonly request: ExtensionVisibility | null;
+export type PackDependencyResolution = {
+  readonly dependency: PackDependencyDescriptor;
+  readonly effectiveVersion: Version;
 };
-export const PublicationVisibilityInput = Schema.Struct({
-  intent: Schema.Union([VisibilityIntent, Schema.Null]),
-  request: Schema.Union([ExtensionVisibility, Schema.Null]),
-}).annotate({ identifier: "PublicationVisibilityInput" });
+export const PackDependencyResolution = Schema.Struct({
+  dependency: PackDependencyDescriptor,
+  effectiveVersion: Version,
+}).annotate({ identifier: "PackDependencyResolution" });
 export type VisibilityMutationRequest = {
   readonly target: ExtensionFqn;
   readonly visibility: ExtensionVisibility;
@@ -1645,6 +1537,40 @@ export const VisibilityMutationResult = Schema.Struct({
   result: Schema.Literals(["already-satisfied", "changed"]),
   revision: VisibilityRevision,
 }).annotate({ identifier: "VisibilityMutationResult" });
+export type PublicationVisibilityInput = {
+  readonly intent: VisibilityIntent | null;
+  readonly request: ExtensionVisibility | null;
+};
+export const PublicationVisibilityInput = Schema.Struct({
+  intent: Schema.Union([VisibilityIntent, Schema.Null]),
+  request: Schema.Union([ExtensionVisibility, Schema.Null]),
+}).annotate({ identifier: "PublicationVisibilityInput" });
+export type ExtensionLintFailedErrorEncoded = {
+  readonly kind: "ExtensionLintFailedError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: "extension_lint_failed";
+  readonly error: "extension_lint_failed";
+  readonly identity: PublishIdentity;
+  readonly displayRoot: string;
+  readonly findings: ReadonlyArray<PublishLintFinding_1>;
+};
+export const ExtensionLintFailedErrorEncoded = Schema.Struct({
+  kind: Schema.Literal("ExtensionLintFailedError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.Literal("extension_lint_failed"),
+  error: Schema.Literal("extension_lint_failed"),
+  identity: PublishIdentity,
+  displayRoot: Schema.String,
+  findings: Schema.Array(PublishLintFinding_1),
+}).annotate({ identifier: "ExtensionLintFailedErrorEncoded" });
 export type VisibilityEvaluation = {
   readonly target: ExtensionFqn;
   readonly intent: VisibilityIntent | null;
@@ -1673,67 +1599,6 @@ export const VisibilityEvaluationUnavailable = Schema.Struct({
   unavailable: Schema.Literal(true),
   findings: Schema.Array(VisibilityFinding),
 }).annotate({ identifier: "VisibilityEvaluationUnavailable" });
-export type PackDependencyResolution = {
-  readonly dependency: PackDependencyDescriptor;
-  readonly effectiveVersion: Version;
-};
-export const PackDependencyResolution = Schema.Struct({
-  dependency: PackDependencyDescriptor,
-  effectiveVersion: Version,
-}).annotate({ identifier: "PackDependencyResolution" });
-export type AuthMeResponse = { readonly user: AuthMeUser; readonly token: AuthMeToken };
-export const AuthMeResponse = Schema.Struct({ user: AuthMeUser, token: AuthMeToken }).annotate({
-  title: "Auth Me Response",
-  description: "Your user profile and credential details.",
-  identifier: "AuthMeResponse",
-});
-export type TokenListResponse = {
-  readonly tokens: ReadonlyArray<TokenListItem>;
-  readonly has_more: boolean;
-  readonly cursor: string | null;
-};
-export const TokenListResponse = Schema.Struct({
-  tokens: Schema.Array(TokenListItem).annotate({
-    description: "List of access tokens for the authenticated user.",
-  }),
-  has_more: Schema.Boolean.annotate({
-    description: "Whether additional tokens exist beyond this page.",
-  }),
-  cursor: Schema.Union([
-    Schema.String.annotate({ description: "Opaque cursor for fetching the next page of results." }),
-    Schema.Null,
-  ]),
-}).annotate({
-  title: "Token List Response",
-  description: "A page of your access tokens.",
-  identifier: "TokenListResponse",
-});
-export type ExtensionLintFailedErrorEncoded = {
-  readonly kind: "ExtensionLintFailedError";
-  readonly type: string;
-  readonly title: string;
-  readonly status: number;
-  readonly detail: string;
-  readonly instance?: string;
-  readonly code: "extension_lint_failed";
-  readonly error: "extension_lint_failed";
-  readonly identity: PublishIdentity;
-  readonly displayRoot: string;
-  readonly findings: ReadonlyArray<PublishLintFinding_1>;
-};
-export const ExtensionLintFailedErrorEncoded = Schema.Struct({
-  kind: Schema.Literal("ExtensionLintFailedError"),
-  type: Schema.String,
-  title: Schema.String,
-  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
-  detail: Schema.String,
-  instance: Schema.optionalKey(Schema.String),
-  code: Schema.Literal("extension_lint_failed"),
-  error: Schema.Literal("extension_lint_failed"),
-  identity: PublishIdentity,
-  displayRoot: Schema.String,
-  findings: Schema.Array(PublishLintFinding_1),
-}).annotate({ identifier: "ExtensionLintFailedErrorEncoded" });
 export type LibraryDetail = {
   readonly library: Library;
   readonly members: ReadonlyArray<LibraryMember>;
@@ -1762,6 +1627,28 @@ export const ListLibraryMembersResponse = Schema.Struct({
   offset: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
   viewerRelative: Schema.Literal(true),
 }).annotate({ title: "List Library Members Response", identifier: "ListLibraryMembersResponse" });
+export type DeprecationManagementView = {
+  readonly deprecation: DeprecationView | null;
+  readonly revision: DeprecationRevision;
+};
+export const DeprecationManagementView = Schema.Struct({
+  deprecation: Schema.Union([DeprecationView, Schema.Null]),
+  revision: DeprecationRevision,
+}).annotate({ identifier: "DeprecationManagementView" });
+export type DeprecationTransition = {
+  readonly target: ExtensionFqn;
+  readonly before: DeprecationView | null;
+  readonly after: DeprecationView | null;
+  readonly disposition: "created" | "edited" | "restored" | "unchanged";
+  readonly revision: DeprecationRevision;
+};
+export const DeprecationTransition = Schema.Struct({
+  target: ExtensionFqn,
+  before: Schema.Union([DeprecationView, Schema.Null]),
+  after: Schema.Union([DeprecationView, Schema.Null]),
+  disposition: Schema.Literals(["created", "edited", "restored", "unchanged"]),
+  revision: DeprecationRevision,
+}).annotate({ identifier: "DeprecationTransition" });
 export type PackDependencyFinding = {
   readonly kind: "advisory";
   readonly ruleId: "pack/dependency-version-resolvable" | "pack/dependency-deprecated";
@@ -1809,28 +1696,6 @@ export const PackDependencyFinding = Schema.Struct({
   message: Schema.String,
   suggestions: Schema.Array(SuggestedAction),
 }).annotate({ identifier: "PackDependencyFinding" });
-export type DeprecationManagementView = {
-  readonly deprecation: DeprecationView | null;
-  readonly revision: DeprecationRevision;
-};
-export const DeprecationManagementView = Schema.Struct({
-  deprecation: Schema.Union([DeprecationView, Schema.Null]),
-  revision: DeprecationRevision,
-}).annotate({ identifier: "DeprecationManagementView" });
-export type DeprecationTransition = {
-  readonly target: ExtensionFqn;
-  readonly before: DeprecationView | null;
-  readonly after: DeprecationView | null;
-  readonly disposition: "created" | "edited" | "restored" | "unchanged";
-  readonly revision: DeprecationRevision;
-};
-export const DeprecationTransition = Schema.Struct({
-  target: ExtensionFqn,
-  before: Schema.Union([DeprecationView, Schema.Null]),
-  after: Schema.Union([DeprecationView, Schema.Null]),
-  disposition: Schema.Literals(["created", "edited", "restored", "unchanged"]),
-  revision: DeprecationRevision,
-}).annotate({ identifier: "DeprecationTransition" });
 export type SearchHit = {
   readonly name: ExtensionName;
   readonly owner: Handle;
@@ -1981,29 +1846,6 @@ export const PreviewPublicationSetRequest = Schema.Struct({
   contract: Schema.Literal("publication-set-v2"),
   candidates: Schema.Array(PublicationDescriptor),
 }).annotate({ identifier: "PreviewPublicationSetRequest" });
-export type PublishAuthorizationExchangeResponse =
-  | {
-      readonly status: "admitted";
-      readonly preview?: PreviewPublicationSetResponse | null;
-      readonly grants: ReadonlyArray<SessionTokenResponse>;
-    }
-  | {
-      readonly status: "blocked";
-      readonly preview: PreviewPublicationSetResponse;
-      readonly grants: readonly [];
-    };
-export const PublishAuthorizationExchangeResponse = Schema.Union([
-  Schema.Struct({
-    status: Schema.Literal("admitted"),
-    preview: Schema.optionalKey(Schema.Union([PreviewPublicationSetResponse, Schema.Null])),
-    grants: Schema.Array(SessionTokenResponse),
-  }),
-  Schema.Struct({
-    status: Schema.Literal("blocked"),
-    preview: PreviewPublicationSetResponse,
-    grants: Schema.Tuple([]),
-  }),
-]).annotate({ identifier: "PublishAuthorizationExchangeResponse" });
 // schemas
 export type MetaGet200 = MetaResponse;
 export const MetaGet200 = MetaResponse;
@@ -2045,7 +1887,6 @@ export type AuthExchangeTokenRequestFormUrlEncoded = {
   readonly redirect_uri?: string | null;
   readonly device_code?: string | null;
   readonly refresh_token?: string | null;
-  readonly scope?: string | null;
 };
 export const AuthExchangeTokenRequestFormUrlEncoded = Schema.Struct({
   grant_type: Schema.String.annotate({
@@ -2101,20 +1942,9 @@ export const AuthExchangeTokenRequestFormUrlEncoded = Schema.Struct({
       Schema.Null,
     ]),
   ),
-  scope: Schema.optionalKey(
-    Schema.Union([
-      Schema.String.annotate({
-        description: "Optional requested scope for refresh-token exchange.",
-      }),
-      Schema.Null,
-    ]),
-  ),
 });
-export type AuthExchangeToken200 = SessionTokenResponse | PublishAuthorizationExchangeResponse;
-export const AuthExchangeToken200 = Schema.Union([
-  SessionTokenResponse,
-  PublishAuthorizationExchangeResponse,
-]);
+export type AuthExchangeToken200 = SessionTokenResponse;
+export const AuthExchangeToken200 = SessionTokenResponse;
 export type AuthExchangeToken400 =
   ProblemDetails | DecodeErrorResponseEncoded | TokenOAuthErrorEncoded;
 export const AuthExchangeToken400 = Schema.Union([
@@ -2154,6 +1984,8 @@ export type AuthGetMe401 = ProblemDetails;
 export const AuthGetMe401 = ProblemDetails;
 export type AuthGetMe500 = ProblemDetails;
 export const AuthGetMe500 = ProblemDetails;
+export type AuthGetMe503 = ProblemDetails;
+export const AuthGetMe503 = ProblemDetails;
 export type AuthGetStepUpRequest200 = StepUpRequestStatusResponse;
 export const AuthGetStepUpRequest200 = StepUpRequestStatusResponse;
 export type AuthGetStepUpRequest400 = DecodeErrorResponseEncoded;
@@ -2168,61 +2000,6 @@ export type AuthGetStepUpRequest500 = ProblemDetails;
 export const AuthGetStepUpRequest500 = ProblemDetails;
 export type AuthGetStepUpRequest503 = ProblemDetails;
 export const AuthGetStepUpRequest503 = ProblemDetails;
-export type AuthCreatePublishAuthorizationRequestRequestJson = {
-  readonly client_id: string;
-  readonly delivery: PublishAuthorizationDelivery;
-  readonly publication_set: PreviewPublicationSetRequest;
-};
-export const AuthCreatePublishAuthorizationRequestRequestJson = Schema.Struct({
-  client_id: Schema.String.check(
-    Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
-  ),
-  delivery: PublishAuthorizationDelivery,
-  publication_set: PreviewPublicationSetRequest,
-});
-export type AuthCreatePublishAuthorizationRequest201 = {
-  readonly request_id: PublishAuthorizationRequestId;
-  readonly authorization_url: string;
-  readonly expires_at: IsoDateTimeString;
-  readonly interval: number;
-};
-export const AuthCreatePublishAuthorizationRequest201 = Schema.Struct({
-  request_id: PublishAuthorizationRequestId,
-  authorization_url: Schema.String,
-  expires_at: IsoDateTimeString,
-  interval: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })).check(
-    Schema.isGreaterThan(0).annotate({ expected: "a value greater than 0" }),
-  ),
-});
-export type AuthCreatePublishAuthorizationRequest400 = ProblemDetails | DecodeErrorResponseEncoded;
-export const AuthCreatePublishAuthorizationRequest400 = Schema.Union([
-  ProblemDetails,
-  DecodeErrorResponseEncoded,
-]);
-export type AuthPollPublishAuthorizationRequestJson = PublishAuthorizationPollingProof;
-export const AuthPollPublishAuthorizationRequestJson = PublishAuthorizationPollingProof;
-export type AuthPollPublishAuthorization200 = PublishAuthorizationPollingStatus;
-export const AuthPollPublishAuthorization200 = PublishAuthorizationPollingStatus;
-export type AuthPollPublishAuthorization400 = ProblemDetails | DecodeErrorResponseEncoded;
-export const AuthPollPublishAuthorization400 = Schema.Union([
-  ProblemDetails,
-  DecodeErrorResponseEncoded,
-]);
-export type AuthExchangePublishAuthorizationRequestJson = PublishAuthorizationPollingProof;
-export const AuthExchangePublishAuthorizationRequestJson = PublishAuthorizationPollingProof;
-export type AuthExchangePublishAuthorization200 = PublishAuthorizationExchangeResponse;
-export const AuthExchangePublishAuthorization200 = PublishAuthorizationExchangeResponse;
-export type AuthExchangePublishAuthorization400 = ProblemDetails | DecodeErrorResponseEncoded;
-export const AuthExchangePublishAuthorization400 = Schema.Union([
-  ProblemDetails,
-  DecodeErrorResponseEncoded,
-]);
-export type AuthExchangePublishAuthorization409 = ProblemDetails;
-export const AuthExchangePublishAuthorization409 = ProblemDetails;
-export type AuthExchangePublishAuthorization410 = ProblemDetails;
-export const AuthExchangePublishAuthorization410 = ProblemDetails;
-export type AuthExchangePublishAuthorization500 = ProblemDetails;
-export const AuthExchangePublishAuthorization500 = ProblemDetails;
 export type TokensListParams = { readonly cursor?: string | null; readonly limit?: string | null };
 export const TokensListParams = Schema.Struct({
   cursor: Schema.optionalKey(
@@ -2296,6 +2073,8 @@ export type OwnersGetOwner400 = DecodeErrorResponseEncoded;
 export const OwnersGetOwner400 = DecodeErrorResponseEncoded;
 export type OwnersGetOwner404 = ProblemDetails;
 export const OwnersGetOwner404 = ProblemDetails;
+export type OwnersGetOwner503 = ProblemDetails;
+export const OwnersGetOwner503 = ProblemDetails;
 export type ExtensionsListByOwner200 = {
   readonly extensions: ReadonlyArray<{
     readonly name: ExtensionName;
@@ -2330,6 +2109,8 @@ export const ExtensionsListByOwner200 = Schema.Struct({
 });
 export type ExtensionsListByOwner400 = DecodeErrorResponseEncoded;
 export const ExtensionsListByOwner400 = DecodeErrorResponseEncoded;
+export type ExtensionsListByOwner401 = ProblemDetails;
+export const ExtensionsListByOwner401 = ProblemDetails;
 export type ExtensionsListByOwner500 = ProblemDetails;
 export const ExtensionsListByOwner500 = ProblemDetails;
 export type ExtensionsListByOwner503 = ProblemDetails;
@@ -2381,6 +2162,8 @@ export const ExtensionsListByType200 = Schema.Struct({
 });
 export type ExtensionsListByType400 = DecodeErrorResponseEncoded;
 export const ExtensionsListByType400 = DecodeErrorResponseEncoded;
+export type ExtensionsListByType401 = ProblemDetails;
+export const ExtensionsListByType401 = ProblemDetails;
 export type ExtensionsListByType500 = ProblemDetails;
 export const ExtensionsListByType500 = ProblemDetails;
 export type ExtensionsListByType503 = ProblemDetails;
@@ -2442,10 +2225,14 @@ export const ExtensionsGet200 = Schema.Struct({
 });
 export type ExtensionsGet400 = DecodeErrorResponseEncoded;
 export const ExtensionsGet400 = DecodeErrorResponseEncoded;
+export type ExtensionsGet401 = ProblemDetails;
+export const ExtensionsGet401 = ProblemDetails;
 export type ExtensionsGet404 = ProblemDetails;
 export const ExtensionsGet404 = ProblemDetails;
 export type ExtensionsGet500 = ProblemDetails;
 export const ExtensionsGet500 = ProblemDetails;
+export type ExtensionsGet503 = ProblemDetails;
+export const ExtensionsGet503 = ProblemDetails;
 export type ExtensionsDeleteExtensionParams = {
   readonly "x-axm-step-up-request"?: StepUpRequestId | null;
 };
@@ -2601,12 +2388,16 @@ export const ExtensionsGetVersion200 = Schema.Struct({
 });
 export type ExtensionsGetVersion400 = DecodeErrorResponseEncoded;
 export const ExtensionsGetVersion400 = DecodeErrorResponseEncoded;
+export type ExtensionsGetVersion401 = ProblemDetails;
+export const ExtensionsGetVersion401 = ProblemDetails;
 export type ExtensionsGetVersion404 = ProblemDetails;
 export const ExtensionsGetVersion404 = ProblemDetails;
 export type ExtensionsGetVersion410 = ProblemDetails;
 export const ExtensionsGetVersion410 = ProblemDetails;
 export type ExtensionsGetVersion500 = ProblemDetails;
 export const ExtensionsGetVersion500 = ProblemDetails;
+export type ExtensionsGetVersion503 = ProblemDetails;
+export const ExtensionsGetVersion503 = ProblemDetails;
 export type ExtensionsPublishVersionParams = {
   readonly "if-match": string;
   readonly "x-axm-publication-set-digest": Sha256Hex;
@@ -2737,12 +2528,18 @@ export type ExtensionsGetDeletionOperation404 = ProblemDetails;
 export const ExtensionsGetDeletionOperation404 = ProblemDetails;
 export type ExtensionsGetDeletionOperation500 = ProblemDetails;
 export const ExtensionsGetDeletionOperation500 = ProblemDetails;
+export type ExtensionsGetDeletionOperation503 = ProblemDetails;
+export const ExtensionsGetDeletionOperation503 = ProblemDetails;
 export type ExtensionsDownloadArchive400 = DecodeErrorResponseEncoded;
 export const ExtensionsDownloadArchive400 = DecodeErrorResponseEncoded;
+export type ExtensionsDownloadArchive401 = ProblemDetails;
+export const ExtensionsDownloadArchive401 = ProblemDetails;
 export type ExtensionsDownloadArchive404 = ProblemDetails;
 export const ExtensionsDownloadArchive404 = ProblemDetails;
 export type ExtensionsDownloadArchive500 = ProblemDetails;
 export const ExtensionsDownloadArchive500 = ProblemDetails;
+export type ExtensionsDownloadArchive503 = ProblemDetails;
+export const ExtensionsDownloadArchive503 = ProblemDetails;
 export type ExtensionsGetVisibilityParams = {
   readonly intent_visibility?: Visibility | null;
   readonly intent_source?: "manifest" | "workspace" | null;
@@ -2770,6 +2567,8 @@ export type ExtensionsGetVisibility404 = ProblemDetails;
 export const ExtensionsGetVisibility404 = ProblemDetails;
 export type ExtensionsGetVisibility500 = ProblemDetails;
 export const ExtensionsGetVisibility500 = ProblemDetails;
+export type ExtensionsGetVisibility503 = ProblemDetails;
+export const ExtensionsGetVisibility503 = ProblemDetails;
 export type ExtensionsGetDeprecation200 = DeprecationManagementView;
 export const ExtensionsGetDeprecation200 = DeprecationManagementView;
 export type ExtensionsGetDeprecation400 = DecodeErrorResponseEncoded;
@@ -2782,6 +2581,8 @@ export type ExtensionsGetDeprecation404 = ProblemDetails;
 export const ExtensionsGetDeprecation404 = ProblemDetails;
 export type ExtensionsGetDeprecation500 = ProblemDetails;
 export const ExtensionsGetDeprecation500 = ProblemDetails;
+export type ExtensionsGetDeprecation503 = ProblemDetails;
+export const ExtensionsGetDeprecation503 = ProblemDetails;
 export type ExtensionsPutDeprecationParams = { readonly "if-match": string };
 export const ExtensionsPutDeprecationParams = Schema.Struct({ "if-match": Schema.String });
 export type ExtensionsPutDeprecationRequestJson = PutDeprecationBody;
@@ -2830,12 +2631,6 @@ export type ExtensionsDeleteDeprecation500 = ProblemDetails;
 export const ExtensionsDeleteDeprecation500 = ProblemDetails;
 export type ExtensionsDeleteDeprecation503 = ProblemDetails;
 export const ExtensionsDeleteDeprecation503 = ProblemDetails;
-export type ExtensionsYankVersionParams = {
-  readonly "x-axm-step-up-request"?: StepUpRequestId | null;
-};
-export const ExtensionsYankVersionParams = Schema.Struct({
-  "x-axm-step-up-request": Schema.optionalKey(Schema.Union([StepUpRequestId, Schema.Null])),
-});
 export type ExtensionsYankVersionRequestJson = YankVersionBody;
 export const ExtensionsYankVersionRequestJson = YankVersionBody;
 export type ExtensionsYankVersion200 = {
@@ -2868,26 +2663,16 @@ export const ExtensionsYankVersion200 = Schema.Struct({
 });
 export type ExtensionsYankVersion400 = DecodeErrorResponseEncoded;
 export const ExtensionsYankVersion400 = DecodeErrorResponseEncoded;
-export type ExtensionsYankVersion401 = StepUpRequiredErrorEncoded | ProblemDetails;
-export const ExtensionsYankVersion401 = Schema.Union([StepUpRequiredErrorEncoded, ProblemDetails]);
+export type ExtensionsYankVersion401 = ProblemDetails;
+export const ExtensionsYankVersion401 = ProblemDetails;
 export type ExtensionsYankVersion403 = ForbiddenErrorEncoded;
 export const ExtensionsYankVersion403 = ForbiddenErrorEncoded;
 export type ExtensionsYankVersion404 = ProblemDetails;
 export const ExtensionsYankVersion404 = ProblemDetails;
-export type ExtensionsYankVersion409 = ProblemDetails;
-export const ExtensionsYankVersion409 = ProblemDetails;
-export type ExtensionsYankVersion410 = ProblemDetails;
-export const ExtensionsYankVersion410 = ProblemDetails;
 export type ExtensionsYankVersion500 = ProblemDetails;
 export const ExtensionsYankVersion500 = ProblemDetails;
 export type ExtensionsYankVersion503 = ProblemDetails;
 export const ExtensionsYankVersion503 = ProblemDetails;
-export type ExtensionsUnyankVersionParams = {
-  readonly "x-axm-step-up-request"?: StepUpRequestId | null;
-};
-export const ExtensionsUnyankVersionParams = Schema.Struct({
-  "x-axm-step-up-request": Schema.optionalKey(Schema.Union([StepUpRequestId, Schema.Null])),
-});
 export type ExtensionsUnyankVersion200 = {
   readonly owner: Handle;
   readonly type: ExtensionType;
@@ -2910,29 +2695,16 @@ export const ExtensionsUnyankVersion200 = Schema.Struct({
 });
 export type ExtensionsUnyankVersion400 = DecodeErrorResponseEncoded;
 export const ExtensionsUnyankVersion400 = DecodeErrorResponseEncoded;
-export type ExtensionsUnyankVersion401 = StepUpRequiredErrorEncoded | ProblemDetails;
-export const ExtensionsUnyankVersion401 = Schema.Union([
-  StepUpRequiredErrorEncoded,
-  ProblemDetails,
-]);
+export type ExtensionsUnyankVersion401 = ProblemDetails;
+export const ExtensionsUnyankVersion401 = ProblemDetails;
 export type ExtensionsUnyankVersion403 = ForbiddenErrorEncoded;
 export const ExtensionsUnyankVersion403 = ForbiddenErrorEncoded;
 export type ExtensionsUnyankVersion404 = ProblemDetails;
 export const ExtensionsUnyankVersion404 = ProblemDetails;
-export type ExtensionsUnyankVersion409 = ProblemDetails;
-export const ExtensionsUnyankVersion409 = ProblemDetails;
-export type ExtensionsUnyankVersion410 = ProblemDetails;
-export const ExtensionsUnyankVersion410 = ProblemDetails;
 export type ExtensionsUnyankVersion500 = ProblemDetails;
 export const ExtensionsUnyankVersion500 = ProblemDetails;
 export type ExtensionsUnyankVersion503 = ProblemDetails;
 export const ExtensionsUnyankVersion503 = ProblemDetails;
-export type ExtensionsYankAvailableVersionsParams = {
-  readonly "x-axm-step-up-request"?: StepUpRequestId | null;
-};
-export const ExtensionsYankAvailableVersionsParams = Schema.Struct({
-  "x-axm-step-up-request": Schema.optionalKey(Schema.Union([StepUpRequestId, Schema.Null])),
-});
 export type ExtensionsYankAvailableVersionsRequestJson = YankAvailableVersionsBody;
 export const ExtensionsYankAvailableVersionsRequestJson = YankAvailableVersionsBody;
 export type ExtensionsYankAvailableVersions200 = {
@@ -2947,19 +2719,12 @@ export const ExtensionsYankAvailableVersions200 = Schema.Struct({
 });
 export type ExtensionsYankAvailableVersions400 = DecodeErrorResponseEncoded;
 export const ExtensionsYankAvailableVersions400 = DecodeErrorResponseEncoded;
-export type ExtensionsYankAvailableVersions401 = StepUpRequiredErrorEncoded | ProblemDetails;
-export const ExtensionsYankAvailableVersions401 = Schema.Union([
-  StepUpRequiredErrorEncoded,
-  ProblemDetails,
-]);
+export type ExtensionsYankAvailableVersions401 = ProblemDetails;
+export const ExtensionsYankAvailableVersions401 = ProblemDetails;
 export type ExtensionsYankAvailableVersions403 = ForbiddenErrorEncoded;
 export const ExtensionsYankAvailableVersions403 = ForbiddenErrorEncoded;
 export type ExtensionsYankAvailableVersions404 = ProblemDetails;
 export const ExtensionsYankAvailableVersions404 = ProblemDetails;
-export type ExtensionsYankAvailableVersions409 = ProblemDetails;
-export const ExtensionsYankAvailableVersions409 = ProblemDetails;
-export type ExtensionsYankAvailableVersions410 = ProblemDetails;
-export const ExtensionsYankAvailableVersions410 = ProblemDetails;
 export type ExtensionsYankAvailableVersions500 = ProblemDetails;
 export const ExtensionsYankAvailableVersions500 = ProblemDetails;
 export type ExtensionsYankAvailableVersions503 = ProblemDetails;
@@ -3004,6 +2769,8 @@ export type ExtensionsGetDeletionPreview404 = ProblemDetails;
 export const ExtensionsGetDeletionPreview404 = ProblemDetails;
 export type ExtensionsGetDeletionPreview500 = ProblemDetails;
 export const ExtensionsGetDeletionPreview500 = ProblemDetails;
+export type ExtensionsGetDeletionPreview503 = ProblemDetails;
+export const ExtensionsGetDeletionPreview503 = ProblemDetails;
 export type PublishPreviewsPreviewExtensionPublishesRequestJson = PreviewPublicationSetRequest;
 export const PublishPreviewsPreviewExtensionPublishesRequestJson = PreviewPublicationSetRequest;
 export type PublishPreviewsPreviewExtensionPublishes200 = PreviewPublicationSetResponse;
@@ -3016,8 +2783,6 @@ export const PublishPreviewsPreviewExtensionPublishes400 = Schema.Union([
 ]);
 export type PublishPreviewsPreviewExtensionPublishes401 = ProblemDetails;
 export const PublishPreviewsPreviewExtensionPublishes401 = ProblemDetails;
-export type PublishPreviewsPreviewExtensionPublishes403 = ForbiddenErrorEncoded;
-export const PublishPreviewsPreviewExtensionPublishes403 = ForbiddenErrorEncoded;
 export type PublishPreviewsPreviewExtensionPublishes413 =
   PublishPreviewBatchTooLargeHttpErrorEncoded;
 export const PublishPreviewsPreviewExtensionPublishes413 =
@@ -3054,20 +2819,28 @@ export const LibrariesListLibraries200 = Schema.Struct({
 });
 export type LibrariesListLibraries400 = DecodeErrorResponseEncoded;
 export const LibrariesListLibraries400 = DecodeErrorResponseEncoded;
+export type LibrariesListLibraries401 = ProblemDetails;
+export const LibrariesListLibraries401 = ProblemDetails;
 export type LibrariesListLibraries404 = ProblemDetails;
 export const LibrariesListLibraries404 = ProblemDetails;
 export type LibrariesListLibraries500 = ProblemDetails;
 export const LibrariesListLibraries500 = ProblemDetails;
+export type LibrariesListLibraries503 = ProblemDetails;
+export const LibrariesListLibraries503 = ProblemDetails;
 export type LibrariesGetLibrary200 = LibraryDetail;
 export const LibrariesGetLibrary200 = LibraryDetail;
 export type LibrariesGetLibrary400 = DecodeErrorResponseEncoded;
 export const LibrariesGetLibrary400 = DecodeErrorResponseEncoded;
+export type LibrariesGetLibrary401 = ProblemDetails;
+export const LibrariesGetLibrary401 = ProblemDetails;
 export type LibrariesGetLibrary404 = ProblemDetails;
 export const LibrariesGetLibrary404 = ProblemDetails;
 export type LibrariesGetLibrary422 = ProblemDetails;
 export const LibrariesGetLibrary422 = ProblemDetails;
 export type LibrariesGetLibrary500 = ProblemDetails;
 export const LibrariesGetLibrary500 = ProblemDetails;
+export type LibrariesGetLibrary503 = ProblemDetails;
+export const LibrariesGetLibrary503 = ProblemDetails;
 export type LibrariesListLibraryMembersParams = {
   readonly limit?: string | null;
   readonly offset?: string | null;
@@ -3084,12 +2857,16 @@ export type LibrariesListLibraryMembers200 = ListLibraryMembersResponse;
 export const LibrariesListLibraryMembers200 = ListLibraryMembersResponse;
 export type LibrariesListLibraryMembers400 = DecodeErrorResponseEncoded;
 export const LibrariesListLibraryMembers400 = DecodeErrorResponseEncoded;
+export type LibrariesListLibraryMembers401 = ProblemDetails;
+export const LibrariesListLibraryMembers401 = ProblemDetails;
 export type LibrariesListLibraryMembers404 = ProblemDetails;
 export const LibrariesListLibraryMembers404 = ProblemDetails;
 export type LibrariesListLibraryMembers422 = ProblemDetails;
 export const LibrariesListLibraryMembers422 = ProblemDetails;
 export type LibrariesListLibraryMembers500 = ProblemDetails;
 export const LibrariesListLibraryMembers500 = ProblemDetails;
+export type LibrariesListLibraryMembers503 = ProblemDetails;
+export const LibrariesListLibraryMembers503 = ProblemDetails;
 export type DiscoveryPostDiscoveryRequestJson = {
   readonly client: { readonly axmVersion: string };
   readonly packages: ReadonlyArray<{
@@ -3167,6 +2944,8 @@ export const DiscoveryPostDiscovery200 = Schema.Struct({
 });
 export type DiscoveryPostDiscovery400 = ProblemDetails | DecodeErrorResponseEncoded;
 export const DiscoveryPostDiscovery400 = Schema.Union([ProblemDetails, DecodeErrorResponseEncoded]);
+export type DiscoveryPostDiscovery401 = ProblemDetails;
+export const DiscoveryPostDiscovery401 = ProblemDetails;
 export type DiscoveryPostDiscovery500 = ProblemDetails;
 export const DiscoveryPostDiscovery500 = ProblemDetails;
 export type HealthGetShallowHealth200 = { readonly status: "pass" | "warn" | "fail" };
@@ -3289,6 +3068,8 @@ export type SearchSearchExtensions200 = SearchResponse;
 export const SearchSearchExtensions200 = SearchResponse;
 export type SearchSearchExtensions400 = ProblemDetails | DecodeErrorResponseEncoded;
 export const SearchSearchExtensions400 = Schema.Union([ProblemDetails, DecodeErrorResponseEncoded]);
+export type SearchSearchExtensions401 = ProblemDetails;
+export const SearchSearchExtensions401 = ProblemDetails;
 export type SearchSearchExtensions500 = ProblemDetails;
 export const SearchSearchExtensions500 = ProblemDetails;
 export type SearchSearchExtensions503 = ProblemDetails;
@@ -3537,6 +3318,7 @@ export const make = (
             "400": decodeError("AuthGetMe400", AuthGetMe400),
             "401": decodeError("AuthGetMe401", AuthGetMe401),
             "500": decodeError("AuthGetMe500", AuthGetMe500),
+            "503": decodeError("AuthGetMe503", AuthGetMe503),
             orElse: unexpectedStatus,
           }),
         ),
@@ -3558,76 +3340,6 @@ export const make = (
                 "404": decodeError("AuthGetStepUpRequest404", AuthGetStepUpRequest404),
                 "500": decodeError("AuthGetStepUpRequest500", AuthGetStepUpRequest500),
                 "503": decodeError("AuthGetStepUpRequest503", AuthGetStepUpRequest503),
-                orElse: unexpectedStatus,
-              }),
-            ),
-          ),
-        ),
-      ),
-    AuthCreatePublishAuthorizationRequest: (options) =>
-      HttpClientRequest.post("/v1/auth/publish-requests").pipe(
-        HttpClientRequest.bodyJsonUnsafe(options.payload),
-        withResponse(options.config)(
-          HttpClientResponse.matchStatus({
-            "2xx": decodeSuccess(AuthCreatePublishAuthorizationRequest201),
-            "400": decodeError(
-              "AuthCreatePublishAuthorizationRequest400",
-              AuthCreatePublishAuthorizationRequest400,
-            ),
-            orElse: unexpectedStatus,
-          }),
-        ),
-      ),
-    AuthPollPublishAuthorization: (requestId, options) =>
-      __makePathRequest(
-        HttpClientRequest.post,
-        [requestId],
-        () => "/v1/auth/publish-requests/" + __encodePathParam(requestId) + "/status",
-      ).pipe(
-        Effect.flatMap((request) =>
-          request.pipe(
-            HttpClientRequest.bodyJsonUnsafe(options.payload),
-            withResponse(options.config)(
-              HttpClientResponse.matchStatus({
-                "2xx": decodeSuccess(AuthPollPublishAuthorization200),
-                "400": decodeError(
-                  "AuthPollPublishAuthorization400",
-                  AuthPollPublishAuthorization400,
-                ),
-                orElse: unexpectedStatus,
-              }),
-            ),
-          ),
-        ),
-      ),
-    AuthExchangePublishAuthorization: (requestId, options) =>
-      __makePathRequest(
-        HttpClientRequest.post,
-        [requestId],
-        () => "/v1/auth/publish-requests/" + __encodePathParam(requestId) + "/exchange",
-      ).pipe(
-        Effect.flatMap((request) =>
-          request.pipe(
-            HttpClientRequest.bodyJsonUnsafe(options.payload),
-            withResponse(options.config)(
-              HttpClientResponse.matchStatus({
-                "2xx": decodeSuccess(AuthExchangePublishAuthorization200),
-                "400": decodeError(
-                  "AuthExchangePublishAuthorization400",
-                  AuthExchangePublishAuthorization400,
-                ),
-                "409": decodeError(
-                  "AuthExchangePublishAuthorization409",
-                  AuthExchangePublishAuthorization409,
-                ),
-                "410": decodeError(
-                  "AuthExchangePublishAuthorization410",
-                  AuthExchangePublishAuthorization410,
-                ),
-                "500": decodeError(
-                  "AuthExchangePublishAuthorization500",
-                  AuthExchangePublishAuthorization500,
-                ),
                 orElse: unexpectedStatus,
               }),
             ),
@@ -3709,6 +3421,7 @@ export const make = (
                 "2xx": decodeSuccess(OwnersGetOwner200),
                 "400": decodeError("OwnersGetOwner400", OwnersGetOwner400),
                 "404": decodeError("OwnersGetOwner404", OwnersGetOwner404),
+                "503": decodeError("OwnersGetOwner503", OwnersGetOwner503),
                 orElse: unexpectedStatus,
               }),
             ),
@@ -3727,6 +3440,7 @@ export const make = (
               HttpClientResponse.matchStatus({
                 "2xx": decodeSuccess(ExtensionsListByOwner200),
                 "400": decodeError("ExtensionsListByOwner400", ExtensionsListByOwner400),
+                "401": decodeError("ExtensionsListByOwner401", ExtensionsListByOwner401),
                 "500": decodeError("ExtensionsListByOwner500", ExtensionsListByOwner500),
                 "503": decodeError("ExtensionsListByOwner503", ExtensionsListByOwner503),
                 orElse: unexpectedStatus,
@@ -3751,6 +3465,7 @@ export const make = (
               HttpClientResponse.matchStatus({
                 "2xx": decodeSuccess(ExtensionsListByType200),
                 "400": decodeError("ExtensionsListByType400", ExtensionsListByType400),
+                "401": decodeError("ExtensionsListByType401", ExtensionsListByType401),
                 "500": decodeError("ExtensionsListByType500", ExtensionsListByType500),
                 "503": decodeError("ExtensionsListByType503", ExtensionsListByType503),
                 orElse: unexpectedStatus,
@@ -3778,8 +3493,10 @@ export const make = (
               HttpClientResponse.matchStatus({
                 "200": decodeSuccess(ExtensionsGet200),
                 "400": decodeError("ExtensionsGet400", ExtensionsGet400),
+                "401": decodeError("ExtensionsGet401", ExtensionsGet401),
                 "404": decodeError("ExtensionsGet404", ExtensionsGet404),
                 "500": decodeError("ExtensionsGet500", ExtensionsGet500),
+                "503": decodeError("ExtensionsGet503", ExtensionsGet503),
                 "304": () => Effect.void,
                 orElse: unexpectedStatus,
               }),
@@ -3842,8 +3559,10 @@ export const make = (
               HttpClientResponse.matchStatus({
                 "200": () => Effect.void,
                 "400": decodeVoidError("400"),
+                "401": decodeVoidError("401"),
                 "404": decodeVoidError("404"),
                 "500": decodeVoidError("500"),
+                "503": decodeVoidError("503"),
                 orElse: unexpectedStatus,
               }),
             ),
@@ -3909,9 +3628,11 @@ export const make = (
               HttpClientResponse.matchStatus({
                 "2xx": decodeSuccess(ExtensionsGetVersion200),
                 "400": decodeError("ExtensionsGetVersion400", ExtensionsGetVersion400),
+                "401": decodeError("ExtensionsGetVersion401", ExtensionsGetVersion401),
                 "404": decodeError("ExtensionsGetVersion404", ExtensionsGetVersion404),
                 "410": decodeError("ExtensionsGetVersion410", ExtensionsGetVersion410),
                 "500": decodeError("ExtensionsGetVersion500", ExtensionsGetVersion500),
+                "503": decodeError("ExtensionsGetVersion503", ExtensionsGetVersion503),
                 orElse: unexpectedStatus,
               }),
             ),
@@ -3996,6 +3717,10 @@ export const make = (
                   "ExtensionsGetDeletionOperation500",
                   ExtensionsGetDeletionOperation500,
                 ),
+                "503": decodeError(
+                  "ExtensionsGetDeletionOperation503",
+                  ExtensionsGetDeletionOperation503,
+                ),
                 orElse: unexpectedStatus,
               }),
             ),
@@ -4023,8 +3748,10 @@ export const make = (
               HttpClientResponse.matchStatus({
                 "2xx": decodeBinary,
                 "400": decodeError("ExtensionsDownloadArchive400", ExtensionsDownloadArchive400),
+                "401": decodeError("ExtensionsDownloadArchive401", ExtensionsDownloadArchive401),
                 "404": decodeError("ExtensionsDownloadArchive404", ExtensionsDownloadArchive404),
                 "500": decodeError("ExtensionsDownloadArchive500", ExtensionsDownloadArchive500),
+                "503": decodeError("ExtensionsDownloadArchive503", ExtensionsDownloadArchive503),
                 orElse: unexpectedStatus,
               }),
             ),
@@ -4069,8 +3796,10 @@ export const make = (
               HttpClientResponse.matchStatus({
                 "200": () => Effect.void,
                 "400": decodeVoidError("400"),
+                "401": decodeVoidError("401"),
                 "404": decodeVoidError("404"),
                 "500": decodeVoidError("500"),
+                "503": decodeVoidError("503"),
                 orElse: unexpectedStatus,
               }),
             ),
@@ -4105,6 +3834,7 @@ export const make = (
                 "403": decodeError("ExtensionsGetVisibility403", ExtensionsGetVisibility403),
                 "404": decodeError("ExtensionsGetVisibility404", ExtensionsGetVisibility404),
                 "500": decodeError("ExtensionsGetVisibility500", ExtensionsGetVisibility500),
+                "503": decodeError("ExtensionsGetVisibility503", ExtensionsGetVisibility503),
                 orElse: unexpectedStatus,
               }),
             ),
@@ -4134,6 +3864,7 @@ export const make = (
                 "403": decodeError("ExtensionsGetDeprecation403", ExtensionsGetDeprecation403),
                 "404": decodeError("ExtensionsGetDeprecation404", ExtensionsGetDeprecation404),
                 "500": decodeError("ExtensionsGetDeprecation500", ExtensionsGetDeprecation500),
+                "503": decodeError("ExtensionsGetDeprecation503", ExtensionsGetDeprecation503),
                 orElse: unexpectedStatus,
               }),
             ),
@@ -4248,9 +3979,6 @@ export const make = (
       ).pipe(
         Effect.flatMap((request) =>
           request.pipe(
-            HttpClientRequest.setHeaders({
-              "x-axm-step-up-request": options.params?.["x-axm-step-up-request"] ?? undefined,
-            }),
             HttpClientRequest.bodyJsonUnsafe(options.payload),
             withResponse(options.config)(
               HttpClientResponse.matchStatus({
@@ -4259,8 +3987,6 @@ export const make = (
                 "401": decodeError("ExtensionsYankVersion401", ExtensionsYankVersion401),
                 "403": decodeError("ExtensionsYankVersion403", ExtensionsYankVersion403),
                 "404": decodeError("ExtensionsYankVersion404", ExtensionsYankVersion404),
-                "409": decodeError("ExtensionsYankVersion409", ExtensionsYankVersion409),
-                "410": decodeError("ExtensionsYankVersion410", ExtensionsYankVersion410),
                 "500": decodeError("ExtensionsYankVersion500", ExtensionsYankVersion500),
                 "503": decodeError("ExtensionsYankVersion503", ExtensionsYankVersion503),
                 orElse: unexpectedStatus,
@@ -4286,9 +4012,6 @@ export const make = (
       ).pipe(
         Effect.flatMap((request) =>
           request.pipe(
-            HttpClientRequest.setHeaders({
-              "x-axm-step-up-request": options?.params?.["x-axm-step-up-request"] ?? undefined,
-            }),
             withResponse(options?.config)(
               HttpClientResponse.matchStatus({
                 "2xx": decodeSuccess(ExtensionsUnyankVersion200),
@@ -4296,8 +4019,6 @@ export const make = (
                 "401": decodeError("ExtensionsUnyankVersion401", ExtensionsUnyankVersion401),
                 "403": decodeError("ExtensionsUnyankVersion403", ExtensionsUnyankVersion403),
                 "404": decodeError("ExtensionsUnyankVersion404", ExtensionsUnyankVersion404),
-                "409": decodeError("ExtensionsUnyankVersion409", ExtensionsUnyankVersion409),
-                "410": decodeError("ExtensionsUnyankVersion410", ExtensionsUnyankVersion410),
                 "500": decodeError("ExtensionsUnyankVersion500", ExtensionsUnyankVersion500),
                 "503": decodeError("ExtensionsUnyankVersion503", ExtensionsUnyankVersion503),
                 orElse: unexpectedStatus,
@@ -4321,9 +4042,6 @@ export const make = (
       ).pipe(
         Effect.flatMap((request) =>
           request.pipe(
-            HttpClientRequest.setHeaders({
-              "x-axm-step-up-request": options.params?.["x-axm-step-up-request"] ?? undefined,
-            }),
             HttpClientRequest.bodyJsonUnsafe(options.payload),
             withResponse(options.config)(
               HttpClientResponse.matchStatus({
@@ -4343,14 +4061,6 @@ export const make = (
                 "404": decodeError(
                   "ExtensionsYankAvailableVersions404",
                   ExtensionsYankAvailableVersions404,
-                ),
-                "409": decodeError(
-                  "ExtensionsYankAvailableVersions409",
-                  ExtensionsYankAvailableVersions409,
-                ),
-                "410": decodeError(
-                  "ExtensionsYankAvailableVersions410",
-                  ExtensionsYankAvailableVersions410,
                 ),
                 "500": decodeError(
                   "ExtensionsYankAvailableVersions500",
@@ -4404,6 +4114,10 @@ export const make = (
                   "ExtensionsGetDeletionPreview500",
                   ExtensionsGetDeletionPreview500,
                 ),
+                "503": decodeError(
+                  "ExtensionsGetDeletionPreview503",
+                  ExtensionsGetDeletionPreview503,
+                ),
                 orElse: unexpectedStatus,
               }),
             ),
@@ -4423,10 +4137,6 @@ export const make = (
             "401": decodeError(
               "PublishPreviewsPreviewExtensionPublishes401",
               PublishPreviewsPreviewExtensionPublishes401,
-            ),
-            "403": decodeError(
-              "PublishPreviewsPreviewExtensionPublishes403",
-              PublishPreviewsPreviewExtensionPublishes403,
             ),
             "413": decodeError(
               "PublishPreviewsPreviewExtensionPublishes413",
@@ -4462,8 +4172,10 @@ export const make = (
               HttpClientResponse.matchStatus({
                 "2xx": decodeSuccess(LibrariesListLibraries200),
                 "400": decodeError("LibrariesListLibraries400", LibrariesListLibraries400),
+                "401": decodeError("LibrariesListLibraries401", LibrariesListLibraries401),
                 "404": decodeError("LibrariesListLibraries404", LibrariesListLibraries404),
                 "500": decodeError("LibrariesListLibraries500", LibrariesListLibraries500),
+                "503": decodeError("LibrariesListLibraries503", LibrariesListLibraries503),
                 orElse: unexpectedStatus,
               }),
             ),
@@ -4482,9 +4194,11 @@ export const make = (
               HttpClientResponse.matchStatus({
                 "2xx": decodeSuccess(LibrariesGetLibrary200),
                 "400": decodeError("LibrariesGetLibrary400", LibrariesGetLibrary400),
+                "401": decodeError("LibrariesGetLibrary401", LibrariesGetLibrary401),
                 "404": decodeError("LibrariesGetLibrary404", LibrariesGetLibrary404),
                 "422": decodeError("LibrariesGetLibrary422", LibrariesGetLibrary422),
                 "500": decodeError("LibrariesGetLibrary500", LibrariesGetLibrary500),
+                "503": decodeError("LibrariesGetLibrary503", LibrariesGetLibrary503),
                 orElse: unexpectedStatus,
               }),
             ),
@@ -4513,6 +4227,10 @@ export const make = (
                   "LibrariesListLibraryMembers400",
                   LibrariesListLibraryMembers400,
                 ),
+                "401": decodeError(
+                  "LibrariesListLibraryMembers401",
+                  LibrariesListLibraryMembers401,
+                ),
                 "404": decodeError(
                   "LibrariesListLibraryMembers404",
                   LibrariesListLibraryMembers404,
@@ -4524,6 +4242,10 @@ export const make = (
                 "500": decodeError(
                   "LibrariesListLibraryMembers500",
                   LibrariesListLibraryMembers500,
+                ),
+                "503": decodeError(
+                  "LibrariesListLibraryMembers503",
+                  LibrariesListLibraryMembers503,
                 ),
                 orElse: unexpectedStatus,
               }),
@@ -4538,6 +4260,7 @@ export const make = (
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(DiscoveryPostDiscovery200),
             "400": decodeError("DiscoveryPostDiscovery400", DiscoveryPostDiscovery400),
+            "401": decodeError("DiscoveryPostDiscovery401", DiscoveryPostDiscovery401),
             "500": decodeError("DiscoveryPostDiscovery500", DiscoveryPostDiscovery500),
             orElse: unexpectedStatus,
           }),
@@ -4584,6 +4307,7 @@ export const make = (
           HttpClientResponse.matchStatus({
             "2xx": decodeSuccess(SearchSearchExtensions200),
             "400": decodeError("SearchSearchExtensions400", SearchSearchExtensions400),
+            "401": decodeError("SearchSearchExtensions401", SearchSearchExtensions401),
             "500": decodeError("SearchSearchExtensions500", SearchSearchExtensions500),
             "503": decodeError("SearchSearchExtensions503", SearchSearchExtensions503),
             orElse: unexpectedStatus,
@@ -4679,6 +4403,7 @@ export interface RegistryClient {
     | RegistryClientError<"AuthGetMe400", typeof AuthGetMe400.Type>
     | RegistryClientError<"AuthGetMe401", typeof AuthGetMe401.Type>
     | RegistryClientError<"AuthGetMe500", typeof AuthGetMe500.Type>
+    | RegistryClientError<"AuthGetMe503", typeof AuthGetMe503.Type>
   >;
   /**
    * Poll step-up request status
@@ -4696,69 +4421,6 @@ export interface RegistryClient {
     | RegistryClientError<"AuthGetStepUpRequest404", typeof AuthGetStepUpRequest404.Type>
     | RegistryClientError<"AuthGetStepUpRequest500", typeof AuthGetStepUpRequest500.Type>
     | RegistryClientError<"AuthGetStepUpRequest503", typeof AuthGetStepUpRequest503.Type>
-  >;
-  /**
-   * Create an exact browser-reviewed publish authorization request
-   */
-  readonly AuthCreatePublishAuthorizationRequest: <Config extends OperationConfig>(options: {
-    readonly payload: typeof AuthCreatePublishAuthorizationRequestRequestJson.Encoded;
-    readonly config?: Config | undefined;
-  }) => Effect.Effect<
-    WithOptionalResponse<typeof AuthCreatePublishAuthorizationRequest201.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<
-        "AuthCreatePublishAuthorizationRequest400",
-        typeof AuthCreatePublishAuthorizationRequest400.Type
-      >
-  >;
-  /**
-   * Read publish approval status using the initiating CLI's private proof
-   */
-  readonly AuthPollPublishAuthorization: <Config extends OperationConfig>(
-    requestId: string,
-    options: {
-      readonly payload: typeof AuthPollPublishAuthorizationRequestJson.Encoded;
-      readonly config?: Config | undefined;
-    },
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof AuthPollPublishAuthorization200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<
-        "AuthPollPublishAuthorization400",
-        typeof AuthPollPublishAuthorization400.Type
-      >
-  >;
-  /**
-   * Exchange an approved publish request once using its private initiator proof
-   */
-  readonly AuthExchangePublishAuthorization: <Config extends OperationConfig>(
-    requestId: string,
-    options: {
-      readonly payload: typeof AuthExchangePublishAuthorizationRequestJson.Encoded;
-      readonly config?: Config | undefined;
-    },
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof AuthExchangePublishAuthorization200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<
-        "AuthExchangePublishAuthorization400",
-        typeof AuthExchangePublishAuthorization400.Type
-      >
-    | RegistryClientError<
-        "AuthExchangePublishAuthorization409",
-        typeof AuthExchangePublishAuthorization409.Type
-      >
-    | RegistryClientError<
-        "AuthExchangePublishAuthorization410",
-        typeof AuthExchangePublishAuthorization410.Type
-      >
-    | RegistryClientError<
-        "AuthExchangePublishAuthorization500",
-        typeof AuthExchangePublishAuthorization500.Type
-      >
   >;
   /**
    * List access tokens
@@ -4829,6 +4491,7 @@ export interface RegistryClient {
     | SchemaError
     | RegistryClientError<"OwnersGetOwner400", typeof OwnersGetOwner400.Type>
     | RegistryClientError<"OwnersGetOwner404", typeof OwnersGetOwner404.Type>
+    | RegistryClientError<"OwnersGetOwner503", typeof OwnersGetOwner503.Type>
   >;
   /**
    * List owner extensions
@@ -4841,6 +4504,7 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"ExtensionsListByOwner400", typeof ExtensionsListByOwner400.Type>
+    | RegistryClientError<"ExtensionsListByOwner401", typeof ExtensionsListByOwner401.Type>
     | RegistryClientError<"ExtensionsListByOwner500", typeof ExtensionsListByOwner500.Type>
     | RegistryClientError<"ExtensionsListByOwner503", typeof ExtensionsListByOwner503.Type>
   >;
@@ -4861,6 +4525,7 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"ExtensionsListByType400", typeof ExtensionsListByType400.Type>
+    | RegistryClientError<"ExtensionsListByType401", typeof ExtensionsListByType401.Type>
     | RegistryClientError<"ExtensionsListByType500", typeof ExtensionsListByType500.Type>
     | RegistryClientError<"ExtensionsListByType503", typeof ExtensionsListByType503.Type>
   >;
@@ -4877,8 +4542,10 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"ExtensionsGet400", typeof ExtensionsGet400.Type>
+    | RegistryClientError<"ExtensionsGet401", typeof ExtensionsGet401.Type>
     | RegistryClientError<"ExtensionsGet404", typeof ExtensionsGet404.Type>
     | RegistryClientError<"ExtensionsGet500", typeof ExtensionsGet500.Type>
+    | RegistryClientError<"ExtensionsGet503", typeof ExtensionsGet503.Type>
   >;
   /**
    * Permanently delete a whole Extension
@@ -4918,8 +4585,10 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"400", undefined>
+    | RegistryClientError<"401", undefined>
     | RegistryClientError<"404", undefined>
     | RegistryClientError<"500", undefined>
+    | RegistryClientError<"503", undefined>
   >;
   /**
    * Update extension visibility
@@ -4988,9 +4657,11 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"ExtensionsGetVersion400", typeof ExtensionsGetVersion400.Type>
+    | RegistryClientError<"ExtensionsGetVersion401", typeof ExtensionsGetVersion401.Type>
     | RegistryClientError<"ExtensionsGetVersion404", typeof ExtensionsGetVersion404.Type>
     | RegistryClientError<"ExtensionsGetVersion410", typeof ExtensionsGetVersion410.Type>
     | RegistryClientError<"ExtensionsGetVersion500", typeof ExtensionsGetVersion500.Type>
+    | RegistryClientError<"ExtensionsGetVersion503", typeof ExtensionsGetVersion503.Type>
   >;
   /**
    * Publish extension version
@@ -5053,6 +4724,10 @@ export interface RegistryClient {
         "ExtensionsGetDeletionOperation500",
         typeof ExtensionsGetDeletionOperation500.Type
       >
+    | RegistryClientError<
+        "ExtensionsGetDeletionOperation503",
+        typeof ExtensionsGetDeletionOperation503.Type
+      >
   >;
   /**
    * Download extension archive
@@ -5068,8 +4743,10 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"ExtensionsDownloadArchive400", typeof ExtensionsDownloadArchive400.Type>
+    | RegistryClientError<"ExtensionsDownloadArchive401", typeof ExtensionsDownloadArchive401.Type>
     | RegistryClientError<"ExtensionsDownloadArchive404", typeof ExtensionsDownloadArchive404.Type>
     | RegistryClientError<"ExtensionsDownloadArchive500", typeof ExtensionsDownloadArchive500.Type>
+    | RegistryClientError<"ExtensionsDownloadArchive503", typeof ExtensionsDownloadArchive503.Type>
   >;
   /**
    * Download extension archive
@@ -5094,8 +4771,10 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"400", undefined>
+    | RegistryClientError<"401", undefined>
     | RegistryClientError<"404", undefined>
     | RegistryClientError<"500", undefined>
+    | RegistryClientError<"503", undefined>
   >;
   /**
    * Evaluate extension visibility
@@ -5119,6 +4798,7 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsGetVisibility403", typeof ExtensionsGetVisibility403.Type>
     | RegistryClientError<"ExtensionsGetVisibility404", typeof ExtensionsGetVisibility404.Type>
     | RegistryClientError<"ExtensionsGetVisibility500", typeof ExtensionsGetVisibility500.Type>
+    | RegistryClientError<"ExtensionsGetVisibility503", typeof ExtensionsGetVisibility503.Type>
   >;
   /**
    * Get extension deprecation
@@ -5137,6 +4817,7 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsGetDeprecation403", typeof ExtensionsGetDeprecation403.Type>
     | RegistryClientError<"ExtensionsGetDeprecation404", typeof ExtensionsGetDeprecation404.Type>
     | RegistryClientError<"ExtensionsGetDeprecation500", typeof ExtensionsGetDeprecation500.Type>
+    | RegistryClientError<"ExtensionsGetDeprecation503", typeof ExtensionsGetDeprecation503.Type>
   >;
   /**
    * Create or edit extension deprecation
@@ -5220,7 +4901,6 @@ export interface RegistryClient {
     name: string,
     version: string,
     options: {
-      readonly params?: typeof ExtensionsYankVersionParams.Encoded | undefined;
       readonly payload: typeof ExtensionsYankVersionRequestJson.Encoded;
       readonly config?: Config | undefined;
     },
@@ -5232,8 +4912,6 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsYankVersion401", typeof ExtensionsYankVersion401.Type>
     | RegistryClientError<"ExtensionsYankVersion403", typeof ExtensionsYankVersion403.Type>
     | RegistryClientError<"ExtensionsYankVersion404", typeof ExtensionsYankVersion404.Type>
-    | RegistryClientError<"ExtensionsYankVersion409", typeof ExtensionsYankVersion409.Type>
-    | RegistryClientError<"ExtensionsYankVersion410", typeof ExtensionsYankVersion410.Type>
     | RegistryClientError<"ExtensionsYankVersion500", typeof ExtensionsYankVersion500.Type>
     | RegistryClientError<"ExtensionsYankVersion503", typeof ExtensionsYankVersion503.Type>
   >;
@@ -5245,12 +4923,7 @@ export interface RegistryClient {
     type: string,
     name: string,
     version: string,
-    options:
-      | {
-          readonly params?: typeof ExtensionsUnyankVersionParams.Encoded | undefined;
-          readonly config?: Config | undefined;
-        }
-      | undefined,
+    options: { readonly config?: Config | undefined } | undefined,
   ) => Effect.Effect<
     WithOptionalResponse<typeof ExtensionsUnyankVersion200.Type, Config>,
     | HttpClientError.HttpClientError
@@ -5259,8 +4932,6 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsUnyankVersion401", typeof ExtensionsUnyankVersion401.Type>
     | RegistryClientError<"ExtensionsUnyankVersion403", typeof ExtensionsUnyankVersion403.Type>
     | RegistryClientError<"ExtensionsUnyankVersion404", typeof ExtensionsUnyankVersion404.Type>
-    | RegistryClientError<"ExtensionsUnyankVersion409", typeof ExtensionsUnyankVersion409.Type>
-    | RegistryClientError<"ExtensionsUnyankVersion410", typeof ExtensionsUnyankVersion410.Type>
     | RegistryClientError<"ExtensionsUnyankVersion500", typeof ExtensionsUnyankVersion500.Type>
     | RegistryClientError<"ExtensionsUnyankVersion503", typeof ExtensionsUnyankVersion503.Type>
   >;
@@ -5272,7 +4943,6 @@ export interface RegistryClient {
     type: string,
     name: string,
     options: {
-      readonly params?: typeof ExtensionsYankAvailableVersionsParams.Encoded | undefined;
       readonly payload: typeof ExtensionsYankAvailableVersionsRequestJson.Encoded;
       readonly config?: Config | undefined;
     },
@@ -5295,14 +4965,6 @@ export interface RegistryClient {
     | RegistryClientError<
         "ExtensionsYankAvailableVersions404",
         typeof ExtensionsYankAvailableVersions404.Type
-      >
-    | RegistryClientError<
-        "ExtensionsYankAvailableVersions409",
-        typeof ExtensionsYankAvailableVersions409.Type
-      >
-    | RegistryClientError<
-        "ExtensionsYankAvailableVersions410",
-        typeof ExtensionsYankAvailableVersions410.Type
       >
     | RegistryClientError<
         "ExtensionsYankAvailableVersions500",
@@ -5345,6 +5007,10 @@ export interface RegistryClient {
         "ExtensionsGetDeletionPreview500",
         typeof ExtensionsGetDeletionPreview500.Type
       >
+    | RegistryClientError<
+        "ExtensionsGetDeletionPreview503",
+        typeof ExtensionsGetDeletionPreview503.Type
+      >
   >;
   /**
    * Preview a complete publication set
@@ -5363,10 +5029,6 @@ export interface RegistryClient {
     | RegistryClientError<
         "PublishPreviewsPreviewExtensionPublishes401",
         typeof PublishPreviewsPreviewExtensionPublishes401.Type
-      >
-    | RegistryClientError<
-        "PublishPreviewsPreviewExtensionPublishes403",
-        typeof PublishPreviewsPreviewExtensionPublishes403.Type
       >
     | RegistryClientError<
         "PublishPreviewsPreviewExtensionPublishes413",
@@ -5397,8 +5059,10 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"LibrariesListLibraries400", typeof LibrariesListLibraries400.Type>
+    | RegistryClientError<"LibrariesListLibraries401", typeof LibrariesListLibraries401.Type>
     | RegistryClientError<"LibrariesListLibraries404", typeof LibrariesListLibraries404.Type>
     | RegistryClientError<"LibrariesListLibraries500", typeof LibrariesListLibraries500.Type>
+    | RegistryClientError<"LibrariesListLibraries503", typeof LibrariesListLibraries503.Type>
   >;
   /**
    * Get a Library
@@ -5412,9 +5076,11 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"LibrariesGetLibrary400", typeof LibrariesGetLibrary400.Type>
+    | RegistryClientError<"LibrariesGetLibrary401", typeof LibrariesGetLibrary401.Type>
     | RegistryClientError<"LibrariesGetLibrary404", typeof LibrariesGetLibrary404.Type>
     | RegistryClientError<"LibrariesGetLibrary422", typeof LibrariesGetLibrary422.Type>
     | RegistryClientError<"LibrariesGetLibrary500", typeof LibrariesGetLibrary500.Type>
+    | RegistryClientError<"LibrariesGetLibrary503", typeof LibrariesGetLibrary503.Type>
   >;
   /**
    * List viewer-visible Library members
@@ -5437,6 +5103,10 @@ export interface RegistryClient {
         typeof LibrariesListLibraryMembers400.Type
       >
     | RegistryClientError<
+        "LibrariesListLibraryMembers401",
+        typeof LibrariesListLibraryMembers401.Type
+      >
+    | RegistryClientError<
         "LibrariesListLibraryMembers404",
         typeof LibrariesListLibraryMembers404.Type
       >
@@ -5447,6 +5117,10 @@ export interface RegistryClient {
     | RegistryClientError<
         "LibrariesListLibraryMembers500",
         typeof LibrariesListLibraryMembers500.Type
+      >
+    | RegistryClientError<
+        "LibrariesListLibraryMembers503",
+        typeof LibrariesListLibraryMembers503.Type
       >
   >;
   /**
@@ -5460,6 +5134,7 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"DiscoveryPostDiscovery400", typeof DiscoveryPostDiscovery400.Type>
+    | RegistryClientError<"DiscoveryPostDiscovery401", typeof DiscoveryPostDiscovery401.Type>
     | RegistryClientError<"DiscoveryPostDiscovery500", typeof DiscoveryPostDiscovery500.Type>
   >;
   /**
@@ -5500,6 +5175,7 @@ export interface RegistryClient {
     | HttpClientError.HttpClientError
     | SchemaError
     | RegistryClientError<"SearchSearchExtensions400", typeof SearchSearchExtensions400.Type>
+    | RegistryClientError<"SearchSearchExtensions401", typeof SearchSearchExtensions401.Type>
     | RegistryClientError<"SearchSearchExtensions500", typeof SearchSearchExtensions500.Type>
     | RegistryClientError<"SearchSearchExtensions503", typeof SearchSearchExtensions503.Type>
   >;

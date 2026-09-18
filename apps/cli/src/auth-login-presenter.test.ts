@@ -30,7 +30,6 @@ const pendingResult: DeviceLoginPendingResult = {
   registryHost: "registry.agentxm.ai",
   verificationUri: "https://auth.agentxm.ai/device",
   verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
-  requestedScopes: ["extensions:read"],
   userCode: "ABCD-1234",
   expiresAt: "2099-01-01T00:00:00.000Z",
   interval: 5,
@@ -289,35 +288,6 @@ describe("AuthLoginPresenterLive", () => {
         "If the browser does not open, visit:\n\nhttps://agentxm.ai/oauth/authorize?state=s1\n\nOn a remote or headless machine, run `axm login --device-code`.",
         "Opening your browser to authorize AXM.",
         "Could not open the system browser. Use the authorization URL above to continue.",
-      ]);
-    }).pipe(Effect.provide(layer));
-  });
-
-  it.effect("presents the publish review step for browser and manual paths", () => {
-    const { layer, logs } = makeHuman();
-
-    return Effect.gen(function* () {
-      const presenter = yield* AuthLoginPresenter;
-      yield* presenter.notePublishReview({
-        browserOpened: true,
-        candidateCount: 1,
-        authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_1",
-      });
-      yield* presenter.notePublishReview({
-        browserOpened: true,
-        candidateCount: 2,
-        authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_2",
-      });
-      yield* presenter.notePublishReview({
-        browserOpened: false,
-        candidateCount: 1,
-        authorizationUrl: "https://agentxm.ai/publish/authorize/pubreq_3",
-      });
-
-      expect(logs.info).toEqual([
-        "Opening browser to review 1 publish candidate...",
-        "Opening browser to review 2 publish candidates...",
-        "Open this URL to review the exact publish: https://agentxm.ai/publish/authorize/pubreq_3",
       ]);
     }).pipe(Effect.provide(layer));
   });

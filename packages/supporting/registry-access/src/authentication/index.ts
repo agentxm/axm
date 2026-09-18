@@ -8,19 +8,18 @@
 export {
   AuthExchangeFailed,
   AuthInteractionAbandoned,
-  AuthLoginRequired,
   AuthTokenPolicyRequired,
   DeviceAuthorizationPending,
   DeviceLoginCodeExpired,
   DeviceLoginDenied,
-  PublishAuthorizationPending,
   REGISTRY_ACCESS_ERROR_CATEGORIES,
   RegistryAccessFailed,
+  SignedOut,
   StepUpRequired,
   StepUpVerificationPending,
-  authLoginRequired,
   isAuthError,
   isRegistryAccessFailure,
+  signedOut,
   type AuthError,
   type RegistryAccessErrorCategory,
   type RegistryAccessFailure,
@@ -29,17 +28,12 @@ export {
 
 export type {
   AuthClientService,
-  CreatePublishAuthorizationRequestParams,
   CreateTokenOptions,
   DeviceFlowResponse,
-  ExchangePublishAuthorizationCodeParams,
   MeResponse,
   PollResult,
-  PublishAuthorizationExchangeResponse,
-  PublishAuthorizationRequestResponse,
-  PublishCapabilityResponse,
 } from "./auth-client.js";
-export { AuthClient, pollOnce, readStepUpRequest } from "./auth-client.js";
+export { AuthClient, TokenExchange, pollOnce, readStepUpRequest } from "./auth-client.js";
 export type { NormalizedTokenResponse } from "./oauth-contract.js";
 
 export type {
@@ -91,9 +85,14 @@ export {
   type LoginRequest,
 } from "./login.js";
 export { logout, type LogoutOutcome } from "./logout.js";
-export { currentIdentity, currentToken, type RegistryIdentity } from "./identity.js";
 export {
-  MAX_TOKEN_LIFETIME_SECONDS,
+  currentIdentity,
+  currentToken,
+  isSignedIn,
+  requireSignedIn,
+  type RegistryIdentity,
+} from "./identity.js";
+export {
   MIN_TOKEN_LIFETIME_SECONDS,
   createToken,
   listTokens,
@@ -107,16 +106,20 @@ export {
 } from "./tokens.js";
 
 export {
-  runPublishAuthorization,
-  type PublishAuthorizationInput,
-} from "./publish-authorization.js";
+  TOKEN_PERMISSION_LEVELS,
+  TokenPermissionsSchema,
+  describeTokenPermissions,
+  readTokenPermissions,
+  type TokenPermissionLevel,
+  type TokenPermissions,
+} from "./tokens/permissions.js";
+
 export {
   selectLoginStrategy,
   type LoginStrategy,
   type LoginStrategyEnvironment,
   type LoginStrategyOptions,
 } from "./login-strategy.js";
-export { withAuthGuard } from "./guard.js";
 
 export type { AuthLoginInteractionService } from "../adapters/login-interaction.js";
 export { AuthLoginInteraction } from "../adapters/login-interaction.js";
@@ -127,9 +130,3 @@ export type {
   PendingDeviceLoginStoreService,
 } from "./pending-device-login-store.js";
 export { PendingDeviceLoginSchema, PendingDeviceLoginStore } from "./pending-device-login-store.js";
-export {
-  PendingPublishAuthorizationSchema,
-  PendingPublishAuthorizationStore,
-  type PendingPublishAuthorization,
-  type PendingPublishAuthorizationStoreService,
-} from "./pending-publish-authorization-store.js";

@@ -21,7 +21,7 @@ export {
 } from "./app-error.js";
 export {
   BC,
-  errAuthRequired,
+  errSignedOut,
   errInstallFailed,
   errPublishConflict,
   errRegistryPublishRejected,

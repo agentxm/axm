@@ -49,12 +49,7 @@ import {
 } from "@agentxm/registry-client";
 
 import { PublishFailed } from "../errors.js";
-import {
-  exactPublishUploadBinding,
-  previewPublishUploadBinding,
-  type PublishGrant,
-  type ResolvedPublishPreview,
-} from "../authorization.js";
+import { previewPublishUploadBinding, type ResolvedPublishPreview } from "../authorization.js";
 import { settlePublish } from "../settlement.js";
 
 import type { PublishFailure } from "../failure.js";
@@ -299,8 +294,6 @@ export type PublishedCandidate =
 export const publishCandidate: (
   candidate: PublishCandidate,
   registry: TargetRegistry,
-  exactCapability: PublishGrant | undefined,
-  exactVisibilityInput: PublicationVisibilityInput | undefined,
   onUploadDispatched?: Effect.Effect<void>,
 ) => Effect.Effect<
   PublishedCandidate,
@@ -309,8 +302,6 @@ export const publishCandidate: (
 > = (
   candidate: PublishCandidate,
   registry: TargetRegistry,
-  exactCapability: PublishGrant | undefined,
-  exactVisibilityInput: PublicationVisibilityInput | undefined,
   /**
    * Records that the upload request is being dispatched, before the response
    * wait — the invocation-local evidence that separates "nothing left the
@@ -329,29 +320,13 @@ export const publishCandidate: (
       ...(candidate.dependencies === undefined ? {} : { dependencies: candidate.dependencies }),
     };
     const publishPreview = candidate.publishPreview;
-    if (publishPreview === undefined && exactCapability === undefined) {
+    if (publishPreview === undefined) {
       return yield* Effect.fail(
         internal(`Missing authoritative visibility input for ${candidate.fqn}.`),
       );
     }
-    const visibilityInput = publishPreview?.visibilityInput ?? exactVisibilityInput;
-    if (visibilityInput === undefined) {
-      return yield* Effect.fail(internal(`Missing exact visibility input for ${candidate.fqn}.`));
-    }
-    const authoritativeVisibility = publishPreview?.visibility ?? exactCapability?.visibility;
-    if (authoritativeVisibility === undefined) {
-      return yield* Effect.fail(
-        internal(`Missing authoritative visibility outcome for ${candidate.fqn}.`),
-      );
-    }
-    const uploadBinding =
-      exactCapability === undefined
-        ? publishPreview === undefined
-          ? yield* Effect.fail(
-              internal(`Missing authoritative visibility input for ${candidate.fqn}.`),
-            )
-          : previewPublishUploadBinding(publishPreview)
-        : exactPublishUploadBinding(exactCapability, visibilityInput);
+    const authoritativeVisibility = publishPreview.visibility;
+    const uploadBinding = previewPublishUploadBinding(publishPreview);
     // The dispatch evidence is recorded before the request can leave the
     // process; the response wait itself stays interruptible. Publication is
     // replay-unsafe, so an unrecorded response is never auto-retried — it is

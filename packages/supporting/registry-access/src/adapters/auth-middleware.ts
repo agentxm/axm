@@ -1,11 +1,16 @@
 /**
- * Auth middleware — HttpClient wrapping layer.
+ * Auth middleware — the one place a request acquires a credential.
  *
- * Intercepts outgoing HTTP requests to inject Bearer tokens and handle
- * automatic refresh on 401.
+ * Every outgoing request to a Registry origin is presented with whatever
+ * credential the invocation resolved: an ambient token or the stored session.
+ * A stored session is renewed here — before the request when it is about to
+ * expire, and again if the Registry rejects it — through the single
+ * `SessionRefresher` authority.
  *
- * Layer composition: wraps the base HttpClient so all downstream consumers
- * get auth headers automatically for registry URLs.
+ * A request that already carries an `Authorization` header is left exactly as
+ * its caller built it. That is how a sign-in flow reads the identity of a
+ * token the store does not hold yet, and it keeps the ambient rule simple:
+ * this layer supplies a credential, it never replaces one.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -15,148 +20,206 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Ref from "effect/Ref";
-import * as Semaphore from "effect/Semaphore";
 
+import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 
-import { AuthClient } from "../authentication/auth-client.js";
 import { CredentialStore } from "../credentials/credential-store.js";
-import { RegistryUrl } from "@agentxm/registry-client";
-import type { CredentialStoreTokenSource, TokenSource } from "../credentials/schema.js";
+import { SessionRefresher, type SessionRefreshError } from "../credentials/session-refresh.js";
 import {
-  refreshStoredToken,
-  resolveRequestToken,
-  resolveStoredToken,
-} from "../credentials/token-resolution.js";
+  REGISTRY_ERROR_CATEGORIES,
+  RegistryRequestFailed,
+  RegistryUrl,
+  type RegistryErrorCategory,
+} from "@agentxm/registry-client";
+import type { RegistryAccessFailed, SessionEnded } from "../authentication/errors.js";
+import type { CredentialStoreTokenSource } from "../credentials/schema.js";
+import { resolveRequestToken } from "../credentials/token-resolution.js";
+
+// -----------------------------------------------------------------------------
+// Credential failures, in the vocabulary the transport's callers read
+// -----------------------------------------------------------------------------
+
+const registryCategory = (category: string): RegistryErrorCategory =>
+  REGISTRY_ERROR_CATEGORIES.find((known) => known === category) ?? "internal";
+
+const requestMetadata = (request: HttpClientRequest.HttpClientRequest) =>
+  ({ request: { service: "registry", method: request.method, url: request.url } }) as const;
+
+/**
+ * The transport can only fail with a transport error, so a failure to supply
+ * the request's credential travels as its cause, as a typed registry failure
+ * the Registry client hands on unchanged. A caller is told what went wrong
+ * with the credential, never that the network might be down.
+ */
+const asTransportFailure = (
+  request: HttpClientRequest.HttpClientRequest,
+  description: string,
+  failure: RegistryRequestFailed,
+) =>
+  new HttpClientError.HttpClientError({
+    reason: new HttpClientError.TransportError({ request, cause: failure, description }),
+  });
+
+/**
+ * A credential source the invocation was pointed at — a token file, or the
+ * credential store — that could not be read. It keeps the producer's own
+ * reason: which file, which store, and what to do about it.
+ */
+const credentialUnreadable = (
+  request: HttpClientRequest.HttpClientRequest,
+  error: RegistryAccessFailed,
+): RegistryRequestFailed =>
+  new RegistryRequestFailed({
+    category: registryCategory(error.category),
+    detail: error.detail,
+    metadata: requestMetadata(request),
+    ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
+    cause: error,
+  });
+
+/** A renewal failure, as the typed registry failure the request's caller receives. */
+const sessionRenewalFailure = (
+  request: HttpClientRequest.HttpClientRequest,
+  error: Exclude<SessionRefreshError, SessionEnded>,
+): RegistryRequestFailed => {
+  const metadata = requestMetadata(request);
+  switch (error._tag) {
+    case "RefreshUnavailable":
+      return new RegistryRequestFailed({
+        category: "network",
+        detail: error.detail,
+        metadata,
+        suggestions: [{ description: "Retry once the Registry is reachable." }],
+        cause: error,
+      });
+    case "RegistryAccessFailed":
+      return new RegistryRequestFailed({
+        category: registryCategory(error.category),
+        detail: `Your session could not be renewed: ${error.detail}`,
+        metadata,
+        ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
+        cause: error,
+      });
+    case "AuthTokenPolicyRequired":
+      return new RegistryRequestFailed({
+        category: "auth",
+        detail:
+          "Your session could not be renewed: persisted credentials are disabled in this environment.",
+        metadata,
+        suggestions: [
+          {
+            description:
+              "Set AXM_TOKEN_FILE (preferred) or AXM_TOKEN for non-interactive authentication.",
+          },
+        ],
+        cause: error,
+      });
+  }
+};
 
 // -----------------------------------------------------------------------------
 // AuthMiddleware layer
 // -----------------------------------------------------------------------------
 
 /**
- * Creates an auth middleware layer that wraps HttpClient with token injection
- * and automatic refresh on 401.
- *
- * The `flagToken` parameter allows per-command --token flag injection.
+ * The auth middleware layer: presents the invocation's credential and keeps a
+ * stored session alive.
  */
-export const makeAuthMiddlewareLive = (flagToken?: string) =>
-  Layer.effect(
-    HttpClient.HttpClient,
-    Effect.gen(function* () {
-      const baseClient = yield* HttpClient.HttpClient;
-      const store = yield* CredentialStore;
-      const authClient = yield* AuthClient;
-      const fs = yield* Effect.serviceOption(FileSystem.FileSystem);
-      const defaultRegistryUrl = yield* RegistryUrl;
-      const authLayerBase = Layer.mergeAll(
-        Layer.succeed(CredentialStore, store),
-        Layer.succeed(AuthClient, authClient),
+export const AuthMiddlewareLive = Layer.effect(
+  HttpClient.HttpClient,
+  Effect.gen(function* () {
+    const baseClient = yield* HttpClient.HttpClient;
+    const store = yield* CredentialStore;
+    const refresher = yield* SessionRefresher;
+    const fs = yield* Effect.serviceOption(FileSystem.FileSystem);
+    const defaultRegistryUrl = yield* RegistryUrl;
+    const storeLayerBase = Layer.succeed(CredentialStore, store);
+    const storeLayer = Option.match(fs, {
+      onNone: () => storeLayerBase,
+      onSome: (fileSystem) =>
+        Layer.merge(storeLayerBase, Layer.succeed(FileSystem.FileSystem, fileSystem)),
+    });
+
+    /**
+     * A session the Registry ended leaves the request to be answered by the
+     * Registry itself: it rejects the stale credential and the caller renders
+     * the one signed-out result. Every other way renewal can fail — a
+     * Registry that could not be reached, a lock or a credential store that
+     * refused, a renewal that could not be kept — is not being signed out, so
+     * the request fails with that reason instead of going out to collect a
+     * rejection the caller would read as one.
+     */
+    const renewed = (
+      request: HttpClientRequest.HttpClientRequest,
+      renewal: Effect.Effect<CredentialStoreTokenSource, SessionRefreshError>,
+    ) =>
+      Effect.asSome(renewal).pipe(
+        Effect.catchTag("SessionEnded", () =>
+          Effect.succeed(Option.none<CredentialStoreTokenSource>()),
+        ),
+        Effect.mapError((error) =>
+          asTransportFailure(
+            request,
+            "The session could not be renewed.",
+            sessionRenewalFailure(request, error),
+          ),
+        ),
       );
-      const authLayer = Option.match(fs, {
-        onNone: () => authLayerBase,
-        onSome: (fileSystem) =>
-          Layer.merge(authLayerBase, Layer.succeed(FileSystem.FileSystem, fileSystem)),
-      });
-      const refreshLocks = yield* Ref.make(new Map<string, Semaphore.Semaphore>());
-      const refreshOutcomes = yield* Ref.make(
-        new Map<
-          string,
-          {
-            readonly attemptedToken: string;
-            readonly result: Option.Option<CredentialStoreTokenSource>;
-          }
-        >(),
+
+    /**
+     * No credential is one answer and a credential that could not be read is
+     * another. An invocation with nothing configured and nothing stored reads
+     * anonymously. One pointed at a token file it cannot read, or holding a
+     * credential store that refuses, fails with that reason: sent without its
+     * credential, the request would be answered as if the person were nobody,
+     * and a private extension would simply not exist.
+     */
+    const credentialFor = (request: HttpClientRequest.HttpClientRequest) =>
+      resolveRequestToken(request.url, defaultRegistryUrl).pipe(
+        Effect.provide(storeLayer),
+        Effect.mapError((error) =>
+          asTransportFailure(
+            request,
+            "The credential for this request could not be read.",
+            credentialUnreadable(request, error),
+          ),
+        ),
       );
 
-      const getRefreshLock = (registryUrl: string) =>
-        Ref.modify(refreshLocks, (current) => {
-          const existing = current.get(registryUrl);
-          if (existing !== undefined) return [existing, current];
-          const created = Semaphore.makeUnsafe(1);
-          const updated = new Map(current);
-          updated.set(registryUrl, created);
-          return [created, updated];
-        });
+    return HttpClient.make((request) =>
+      Effect.gen(function* () {
+        // A request that names its own credential keeps it, and one whose URL
+        // has no origin has no credential to look up; the transport reports
+        // that URL for what it is.
+        if (request.headers["authorization"] !== undefined || !URL.canParse(request.url)) {
+          return yield* baseClient.execute(request);
+        }
 
-      const refreshAfterUnauthorized = (tokenSource: CredentialStoreTokenSource) =>
-        Effect.gen(function* () {
-          const lock = yield* getRefreshLock(tokenSource.registryUrl);
-          return yield* lock.withPermits(1)(
-            Effect.gen(function* () {
-              const latest = yield* resolveStoredToken(tokenSource.registryUrl).pipe(
-                Effect.provide(authLayer),
-                Effect.catch(() => Effect.succeed(Option.none<CredentialStoreTokenSource>())),
-              );
-              if (Option.isNone(latest)) return latest;
-              if (latest.value.token !== tokenSource.token) return latest;
+        const maybeToken = yield* credentialFor(request);
+        if (Option.isNone(maybeToken)) {
+          return yield* baseClient.execute(request);
+        }
 
-              const outcomes = yield* Ref.get(refreshOutcomes);
-              const previous = outcomes.get(tokenSource.registryUrl);
-              if (previous?.attemptedToken === tokenSource.token) return previous.result;
-
-              const result = yield* refreshStoredToken(latest.value).pipe(
-                Effect.provide(authLayer),
-                Effect.option,
-              );
-              yield* Ref.update(refreshOutcomes, (current) => {
-                const updated = new Map(current);
-                updated.set(tokenSource.registryUrl, {
-                  attemptedToken: tokenSource.token,
-                  result,
-                });
-                return updated;
-              });
-              return result;
-            }),
+        const tokenSource = maybeToken.value;
+        if (tokenSource._tag !== "CredentialStore") {
+          return yield* baseClient.execute(
+            HttpClientRequest.bearerToken(request, tokenSource.token),
           );
-        });
+        }
 
-      return HttpClient.make((request) =>
-        Effect.gen(function* () {
-          const maybeToken = yield* resolveRequestToken(
-            request.url,
-            defaultRegistryUrl,
-            flagToken,
-          ).pipe(
-            Effect.provide(authLayer),
-            Effect.tapError((e) => Effect.logDebug("Token resolution failed", { error: e })),
-            Effect.catch(() => Effect.succeed(Option.none<TokenSource>())),
-          );
+        const fresh = yield* renewed(request, refresher.fresh(tokenSource));
+        const current = Option.getOrElse(fresh, () => tokenSource);
+        const response = yield* baseClient.execute(
+          HttpClientRequest.bearerToken(request, current.token),
+        );
+        if (response.status !== 401) return response;
 
-          if (Option.isNone(maybeToken)) {
-            return yield* baseClient.execute(request);
-          }
-
-          const tokenSource = maybeToken.value;
-          const currentToken = tokenSource.token;
-
-          // Inject Bearer header
-          const authedRequest = HttpClientRequest.bearerToken(request, currentToken);
-          const response = yield* baseClient.execute(authedRequest);
-
-          // Automatic refresh on 401 (credential store tokens only)
-          if (response.status === 401 && tokenSource._tag === "CredentialStore") {
-            const refreshResult = yield* refreshAfterUnauthorized(tokenSource);
-
-            if (Option.isSome(refreshResult)) {
-              const retryRequest = HttpClientRequest.bearerToken(
-                request,
-                refreshResult.value.token,
-              );
-              return yield* baseClient.execute(retryRequest);
-            }
-
-            return response;
-          }
-
-          return response;
-        }),
-      );
-    }),
-  );
-
-/**
- * Default auth middleware layer (no --token flag).
- */
-export const AuthMiddlewareLive = makeAuthMiddlewareLive();
+        const again = yield* renewed(request, refresher.renew(current));
+        return Option.isNone(again)
+          ? response
+          : yield* baseClient.execute(HttpClientRequest.bearerToken(request, again.value.token));
+      }),
+    );
+  }),
+);

@@ -3,12 +3,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
-import { type CreatePublishAuthorizationRequestParams } from "@agentxm/registry-access/authentication";
-import {
-  AuthClientTest,
-  DeviceLoginInteractionTest,
-  PendingPublishAuthorizationStoreTest,
-} from "@agentxm/registry-access/testing";
+import { AuthClientTest, DeviceLoginInteractionTest } from "@agentxm/registry-access/testing";
 import {
   CommandSemanticPropertiesLive,
   getCommandSemanticProperties,
@@ -21,24 +16,16 @@ import {
 import {
   extensionTypes,
   extensionTypeToPlural,
-  formatFqn,
 } from "@agentxm/extension-model/unstable/extensions";
 import { applyPlan, type JobStepResult } from "@agentxm/workspace/transitions/planning";
-import {
-  archiveSha256Hex,
-  publicationDescriptorDigest,
-  publicationSetDigest,
-} from "@agentxm/registry-protocol/unstable/registry";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
-import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { RegistryAccessFailed } from "@agentxm/registry-access/authentication";
 import { RegistryProblem } from "@agentxm/registry-client";
 import { GitDirectoryComparisonLive } from "@agentxm/workspace/resolution/sources/live";
 
@@ -64,10 +51,8 @@ import {
 } from "@agentxm/workspace/publishing";
 import {
   buildPublishJobs,
-  exactPublishUploadBinding,
   findPackPublishDivergenceFindings,
   isPublishableType,
-  previewPublishUploadBinding,
   publishAuthenticationPreconditions,
   publishRecoverySelection,
   validatePublishOwners,
@@ -207,7 +192,6 @@ describe("root publish", () => {
       provide: Effect.provide(
         Layer.mergeAll(
           context.fullLayer,
-          PendingPublishAuthorizationStoreTest(),
           AuthClientTest(),
           interaction.layer,
           gitDirectoryComparisonLayer,
@@ -248,10 +232,9 @@ describe("root publish", () => {
     ).toEqual([
       {
         id: "authentication",
-        label: "Publication authorization",
+        label: "Sign-in",
         status: "unmet",
-        detail:
-          "Apply the same publish selection to request approval for this exact publication set.",
+        detail: "Publishing requires you to be signed in. Run `axm login`, then publish.",
         blockedOn: "human",
       },
     ]);
@@ -267,103 +250,17 @@ describe("root publish", () => {
     ).toEqual([[], [], []]);
   });
 
-  it("maps the browser-reviewed exact binding into the upload request", () => {
-    const publicationSetDigestValue = archiveSha256Hex(new TextEncoder().encode("set"));
-    const publicationDescriptorDigestValue = archiveSha256Hex(
-      new TextEncoder().encode("descriptor"),
-    );
-    const baseCapability = {
-      accessToken: "axm_pub_capability",
-      expiresAt: DateTime.makeUnsafe("2099-01-01T00:15:00.000Z"),
-      scope: "extensions:publish:new",
-      publishRequestId: "pubreq_test",
-      visibilityContract: "v2" as const,
-      condition: '"pv2-reviewed"',
-      publicationSetDigest: publicationSetDigestValue,
-      publicationDescriptorDigest: publicationDescriptorDigestValue,
-    };
-
-    expect(
-      exactPublishUploadBinding(
-        {
-          ...baseCapability,
-          visibility: {
-            value: "private",
-            disposition: "establish",
-            source: "explicit",
-          },
-        },
-        { intent: null, request: "private" },
-      ),
-    ).toEqual({
-      accessToken: "axm_pub_capability",
-      condition: '"pv2-reviewed"',
-      visibility: { value: "private", disposition: "establish", source: "explicit" },
-      visibilityInput: { intent: null, request: "private" },
-      publicationSetDigest: publicationSetDigestValue,
-      publicationDescriptorDigest: publicationDescriptorDigestValue,
-    });
-
-    for (const visibility of [
-      { value: "private", disposition: "establish", source: "account" },
-      { value: "private", disposition: "preserve", source: "existing" },
-    ] as const) {
-      expect(
-        exactPublishUploadBinding(
-          { ...baseCapability, visibility },
-          { intent: null, request: null },
-        ),
-      ).toEqual({
-        accessToken: "axm_pub_capability",
-        condition: '"pv2-reviewed"',
-        ...(visibility.disposition === "establish" ? { visibility } : {}),
-        publicationSetDigest: publicationSetDigestValue,
-        publicationDescriptorDigest: publicationDescriptorDigestValue,
-        visibilityInput: { intent: null, request: null },
-      });
-    }
-
-    expect(
-      previewPublishUploadBinding({
-        condition: '"pv2-existing"',
-        publicationSetDigest: publicationSetDigestValue,
-        publicationDescriptorDigest: publicationDescriptorDigestValue,
-        visibility: { value: "public", disposition: "preserve", source: "existing" },
-        visibilityInput: { intent: null, request: null },
-      }),
-    ).toEqual({
-      condition: '"pv2-existing"',
-      publicationSetDigest: publicationSetDigestValue,
-      publicationDescriptorDigest: publicationDescriptorDigestValue,
-      visibilityInput: { intent: null, request: null },
-    });
-    expect(
-      previewPublishUploadBinding({
-        condition: '"pv2-explicit"',
-        publicationSetDigest: publicationSetDigestValue,
-        publicationDescriptorDigest: publicationDescriptorDigestValue,
-        visibility: { value: "private", disposition: "establish", source: "explicit" },
-        visibilityInput: { intent: null, request: "private" },
-      }),
-    ).toEqual({
-      condition: '"pv2-explicit"',
-      visibility: { value: "private", disposition: "establish", source: "explicit" },
-      publicationSetDigest: publicationSetDigestValue,
-      publicationDescriptorDigest: publicationDescriptorDigestValue,
-      visibilityInput: { intent: null, request: "private" },
-    });
-  });
-
-  it.effect("does not create exact authority during an unauthenticated preview", () => {
+  it.effect("creates no server state during a signed-out preview", () => {
     writeReviewSkill();
     const context = makeWorkspaceHandlerTestContext({
       machine: true,
       wsOptions: { projectRoot: tempDir },
     });
-    let authorizationRequests = 0;
+    const writes: Array<string> = [];
     const httpClient = HttpClient.make((request) =>
       Effect.sync(() => {
         const url = new URL(request.url);
+        if (request.method !== "GET") writes.push(`${request.method} ${url.pathname}`);
         if (request.method === "GET" && url.pathname === "/v1/owners/%40acme") {
           return HttpClientResponse.fromWeb(
             request,
@@ -388,22 +285,10 @@ describe("root publish", () => {
         );
       }),
     );
-    const authClient = AuthClientTest({
-      createPublishAuthorizationRequest: () => {
-        authorizationRequests += 1;
-        return Effect.fail(
-          new RegistryAccessFailed({
-            category: "internal",
-            detail: "Preview must not create publish authority",
-          }),
-        );
-      },
-    });
     const provide = Effect.provide(
       Layer.mergeAll(
         context.fullLayer,
-        PendingPublishAuthorizationStoreTest(),
-        authClient,
+        AuthClientTest(),
         DeviceLoginInteractionTest().layer,
         Layer.succeed(HttpClient.HttpClient, httpClient),
         Layer.provide(GitDirectoryComparisonLive, context.fullLayer),
@@ -416,7 +301,7 @@ describe("root publish", () => {
           args("https://registry.example.com", { visibility: Option.some("private") }),
         );
 
-        expect(authorizationRequests).toBe(0);
+        expect(writes).toEqual([]);
         const result = expectPublishResult(at(context.rendererState.results, 0).data, {
           mode: "preview",
           count: 1,
@@ -429,186 +314,6 @@ describe("root publish", () => {
         expect(expectRecord(at(preconditions, 0))).toMatchObject({
           id: "authentication",
           status: "unmet",
-        });
-      }),
-    );
-  });
-
-  it.effect("aborts before upload when material changes during exact authorization", () => {
-    writeReviewSkill();
-    const context = makeWorkspaceHandlerTestContext({
-      machine: true,
-      wsOptions: { projectRoot: tempDir },
-    });
-    const registryUrl = "https://registry.example.com";
-    let authorizationRequest: CreatePublishAuthorizationRequestParams | undefined;
-    let uploadCount = 0;
-    let revokeCount = 0;
-    const httpClient = HttpClient.make((request) =>
-      Effect.sync(() => {
-        const url = new URL(request.url);
-        if (request.method === "GET" && url.pathname === "/v1/owners/%40acme") {
-          return HttpClientResponse.fromWeb(
-            request,
-            new Response(JSON.stringify({ displayName: "Acme" }), {
-              status: 200,
-              headers: { "content-type": "application/json" },
-            }),
-          );
-        }
-        if (request.method === "PUT") uploadCount += 1;
-        return HttpClientResponse.fromWeb(
-          request,
-          new Response(
-            JSON.stringify({
-              type: "about:blank",
-              title: "Not Found",
-              status: 404,
-              detail: "Extension not found",
-              code: "not_found",
-            }),
-            { status: 404, headers: { "content-type": "application/json" } },
-          ),
-        );
-      }),
-    );
-    const exchangeApproved = () =>
-      Effect.gen(function* () {
-        const request = authorizationRequest;
-        if (request === undefined) {
-          return yield* new RegistryAccessFailed({
-            category: "internal",
-            detail: "Missing auth request",
-          });
-        }
-        const descriptor = request.publicationSet.candidates[0];
-        if (descriptor === undefined) {
-          return yield* new RegistryAccessFailed({
-            category: "internal",
-            detail: "Missing descriptor",
-          });
-        }
-        const setDigest = publicationSetDigest(request.publicationSet.candidates);
-        return {
-          status: "admitted" as const,
-          preview: {
-            contract: "publication-set-v2" as const,
-            publicationSetDigest: setDigest,
-            status: "admitted" as const,
-            candidates: [
-              {
-                kind: "resolved" as const,
-                target: descriptor.target,
-                participation: descriptor.participation,
-                descriptorDigest: publicationDescriptorDigest(descriptor),
-                visibility: {
-                  target: formatFqn(descriptor.target),
-                  intent: descriptor.visibility.intent,
-                  request: descriptor.visibility.request,
-                  resolved: {
-                    value: "public" as const,
-                    disposition: "establish" as const,
-                    source: "platform" as const,
-                  },
-                  actual: null,
-                  comparison: "not-established" as const,
-                  findings: [],
-                },
-                condition: '"pv2-stale"',
-              },
-            ],
-            packs: [],
-          },
-          grants: [
-            {
-              accessToken: "axm_pub_stale",
-              expiresAt: DateTime.makeUnsafe("2099-01-01T00:15:00.000Z"),
-              scope: "extensions:publish:new",
-              publishRequestId: "pubreq_01h455vb4pexka56gq5w2r7cpd",
-              visibilityContract: "v2" as const,
-              visibility: {
-                value: "public" as const,
-                disposition: "establish" as const,
-                source: "platform" as const,
-              },
-              condition: '"pv2-stale"',
-              publicationSetDigest: setDigest,
-              publicationDescriptorDigest: publicationDescriptorDigest(descriptor),
-            },
-          ],
-        };
-      });
-    const authClient = AuthClientTest({
-      createPublishAuthorizationRequest: (request) => {
-        authorizationRequest = request;
-        return Effect.succeed({
-          requestId: "pubreq_01h455vb4pexka56gq5w2r7cpd",
-          authorizationUrl:
-            "https://agentxm.ai/publish/authorize/pubreq_01h455vb4pexka56gq5w2r7cpd",
-          interval: 2,
-          expiresAt: DateTime.makeUnsafe("2099-01-01T00:10:00.000Z"),
-        });
-      },
-      exchangePublishAuthorizationCode: exchangeApproved,
-      exchangePublishAuthorization: exchangeApproved,
-      pollPublishAuthorization: () =>
-        Effect.sync(() => {
-          const request = authorizationRequest;
-          if (request === undefined) throw new Error("Expected publish request");
-          fs.appendFileSync(
-            path.join(tempDir, "skills", "review", "src", "SKILL.md"),
-            "\nChanged during authorization.\n",
-          );
-          return {
-            purpose: "publish",
-            status: "approved",
-            expires_at: DateTime.makeUnsafe("2099-01-01T00:10:00.000Z"),
-            interval: 2,
-            publication_set_digest: publicationSetDigest(request.publicationSet.candidates),
-          };
-        }),
-      revokeToken: () =>
-        Effect.sync(() => {
-          revokeCount += 1;
-        }),
-    });
-    const interaction = DeviceLoginInteractionTest({
-      openBrowser: () => Effect.die("Unattended authorization must not open a browser"),
-    });
-    const provide = Effect.provide(
-      Layer.mergeAll(
-        context.fullLayer,
-        PendingPublishAuthorizationStoreTest(),
-        authClient,
-        interaction.layer,
-        Layer.succeed(HttpClient.HttpClient, httpClient),
-        Layer.provide(GitDirectoryComparisonLive, context.fullLayer),
-      ),
-    );
-
-    return provide(
-      Effect.gen(function* () {
-        const exit = yield* handleRootPublish(
-          args(registryUrl, { preview: false, waitForHumanSeconds: 60 }),
-        ).pipe(Effect.exit);
-        expect(Exit.isFailure(exit)).toBe(true);
-        expect(uploadCount).toBe(0);
-        expect(revokeCount).toBe(1);
-
-        const result = expectPublishResult(at(context.rendererState.results, 0).data, {
-          mode: "apply",
-          count: 1,
-        });
-        const execution = expectRecord(property(result, "execution"));
-        expect(expectRecord(property(execution, "failure"))).toMatchObject({
-          code: "conflict",
-          message: expect.stringContaining("changed after authorization"),
-        });
-        const outcomes = property(execution, "outcomes");
-        if (!Array.isArray(outcomes)) throw new Error("Expected publish outcomes");
-        expect(expectRecord(at(outcomes, 0))).toMatchObject({
-          status: "blocked",
-          reason: "stale_material",
         });
       }),
     );
@@ -650,7 +355,7 @@ describe("root publish", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleRootPublish(args(registryUrl, { preview: false, waitForHumanSeconds: 60 }));
+          yield* handleRootPublish(args(registryUrl, { preview: false }));
 
           expect(
             logs.success.some((message) =>
@@ -700,7 +405,7 @@ describe("root publish", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleRootPublish(args(registryUrl, { preview: false, waitForHumanSeconds: 60 }));
+          yield* handleRootPublish(args(registryUrl, { preview: false }));
 
           expect(logs.success).toContain("No extensions selected for publishing");
         }),
@@ -919,9 +624,9 @@ describe("root publish", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleRootPublish(args(registryUrl, { preview: false, waitForHumanSeconds: 60 }));
+          yield* handleRootPublish(args(registryUrl, { preview: false }));
           writeSkill("new-release", "1.1.0");
-          yield* handleRootPublish(args(registryUrl, { preview: false, waitForHumanSeconds: 60 }));
+          yield* handleRootPublish(args(registryUrl, { preview: false }));
 
           const result = expectPublishResult(at(rendererState.results, 1).data, {
             mode: "apply",
@@ -978,9 +683,7 @@ describe("root publish", () => {
         return provide(
           Effect.gen(function* () {
             writeReviewSkill("1.1.0");
-            yield* handleRootPublish(
-              args(registryUrl, { preview: false, waitForHumanSeconds: 60 }),
-            );
+            yield* handleRootPublish(args(registryUrl, { preview: false }));
 
             writeReviewSkill("1.0.5");
             const error = getAppError(
@@ -1118,7 +821,7 @@ describe("root publish", () => {
       return provide(
         Effect.gen(function* () {
           const properties = yield* semanticProperties(
-            handleRootPublish(args(registryUrl, { preview: false, waitForHumanSeconds: 60 })),
+            handleRootPublish(args(registryUrl, { preview: false })),
           );
 
           expect(properties["cli.outcome"]).toBe("applied");
@@ -1136,7 +839,7 @@ describe("root publish", () => {
       return provide(
         Effect.gen(function* () {
           const properties = yield* semanticProperties(
-            handleRootPublish(args(registryUrl, { preview: false, waitForHumanSeconds: 60 })),
+            handleRootPublish(args(registryUrl, { preview: false })),
           );
 
           expect(properties["cli.outcome"]).toBe("no-op");
@@ -1197,7 +900,7 @@ describe("root publish", () => {
       return provide(
         Effect.gen(function* () {
           const properties = yield* semanticProperties(
-            handleRootPublish(args(registryUrl, { preview: false, waitForHumanSeconds: 60 })),
+            handleRootPublish(args(registryUrl, { preview: false })),
           );
 
           expect(properties["cli.subject_type"]).toBe("mixed");

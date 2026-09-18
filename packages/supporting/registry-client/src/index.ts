@@ -74,7 +74,6 @@ export {
 export type {
   RegistryExtensionReference,
   RegistryExtensionVersionReference,
-  RegistryLifecycleCallOptions,
   PutExtensionDeprecationInput,
   YankCategory,
 } from "./admin-client.js";
@@ -115,6 +114,7 @@ export {
   mapRegistryFailure,
   type RegistryFailureContext,
 } from "./failure-mapping.js";
+export { retainedRegistryResponseBody } from "./response-body.js";
 
 // Error mapping helpers
 export {

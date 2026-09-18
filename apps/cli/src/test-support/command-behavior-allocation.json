@@ -1506,7 +1506,7 @@
       ],
       "relatedRequirements": [
         "cli/publish/outcomes-distinguish-unresolved-uploads",
-        "cli/publish/uploads-the-reviewed-publication-set"
+        "cli/publish/requires-a-signed-in-person"
       ],
       "parameterBindings": [
         {
@@ -3025,7 +3025,7 @@
       ],
       "relatedRequirements": [
         "cli/publish/outcomes-distinguish-unresolved-uploads",
-        "cli/publish/uploads-the-reviewed-publication-set"
+        "cli/publish/requires-a-signed-in-person"
       ],
       "parameterBindings": [
         {
@@ -3517,18 +3517,6 @@
             "type": "integer",
             "required": false
           }
-        },
-        {
-          "name": "scope",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": true
-          },
-          "occurrences": {
-            "minimumOccurrences": 0,
-            "repeatable": true
-          }
         }
       ],
       "arguments": [],
@@ -3537,14 +3525,6 @@
         "cli/login/retains-issued-session-when-identity-unavailable"
       ],
       "parameterBindings": [
-        {
-          "parameters": ["flag:scope"],
-          "requirements": [
-            "cli/login/reuses-pending-authorization",
-            "cli/login/starts-resumable-device-sign-in"
-          ],
-          "details": ["Registry authorization scope; unrelated to project/user workspace scope."]
-        },
         {
           "parameters": ["flag:yes"],
           "requirements": ["cli/login/preapproval-requests-new-sign-in"]
@@ -4244,7 +4224,7 @@
       ],
       "relatedRequirements": [
         "cli/publish/outcomes-distinguish-unresolved-uploads",
-        "cli/publish/uploads-the-reviewed-publication-set"
+        "cli/publish/requires-a-signed-in-person"
       ],
       "parameterBindings": [
         {
@@ -4993,7 +4973,7 @@
       ],
       "relatedRequirements": [
         "cli/publish/outcomes-distinguish-unresolved-uploads",
-        "cli/publish/uploads-the-reviewed-publication-set"
+        "cli/publish/requires-a-signed-in-person"
       ],
       "parameterBindings": [
         {
@@ -5329,22 +5309,6 @@
     "publish": {
       "flags": [
         {
-          "name": "authorization-request",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": false
-          }
-        },
-        {
-          "name": "wait-for-human",
-          "rawHelp": {
-            "aliases": [],
-            "type": "integer",
-            "required": false
-          }
-        },
-        {
           "name": "owner",
           "rawHelp": {
             "aliases": [],
@@ -5444,7 +5408,6 @@
         }
       ],
       "relatedRequirements": [
-        "cli/publish/authorization-resumes-the-exact-publication",
         "cli/publish/archive-inventory-matches-published-bytes",
         "cli/publish/archives-satisfy-distribution-contract",
         "cli/publish/ignore-patterns-have-declared-path-semantics",
@@ -5454,14 +5417,10 @@
         "cli/publish/reports-pack-resolution-differences",
         "cli/publish/requires-existing-publish-owners",
         "cli/publish/requires-explicit-acceptance-for-non-head-source",
-        "cli/publish/respects-local-pack-constraints",
-        "cli/publish/uploads-the-reviewed-publication-set"
+        "cli/publish/requires-a-signed-in-person",
+        "cli/publish/respects-local-pack-constraints"
       ],
       "parameterBindings": [
-        {
-          "parameters": ["flag:authorization-request", "flag:wait-for-human"],
-          "requirements": ["cli/publish/authorization-resumes-the-exact-publication"]
-        },
         {
           "parameters": ["argument:extension"],
           "requirements": [
@@ -5978,7 +5937,7 @@
       ],
       "relatedRequirements": [
         "cli/publish/outcomes-distinguish-unresolved-uploads",
-        "cli/publish/uploads-the-reviewed-publication-set"
+        "cli/publish/requires-a-signed-in-person"
       ],
       "parameterBindings": [
         {
@@ -6872,7 +6831,7 @@
       ],
       "relatedRequirements": [
         "cli/publish/outcomes-distinguish-unresolved-uploads",
-        "cli/publish/uploads-the-reviewed-publication-set"
+        "cli/publish/requires-a-signed-in-person"
       ],
       "parameterBindings": [
         {
@@ -7690,7 +7649,7 @@
       ],
       "relatedRequirements": [
         "cli/publish/outcomes-distinguish-unresolved-uploads",
-        "cli/publish/uploads-the-reviewed-publication-set"
+        "cli/publish/requires-a-signed-in-person"
       ],
       "parameterBindings": [
         {
@@ -8151,35 +8110,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "choice",
-            "required": false
-          }
-        },
-        {
-          "name": "org-permission",
-          "rawHelp": {
-            "aliases": [],
-            "type": "choice",
-            "required": false
-          }
-        },
-        {
-          "name": "cidr",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
             "required": true
-          },
-          "occurrences": {
-            "minimumOccurrences": 0,
-            "repeatable": true
-          }
-        },
-        {
-          "name": "bypass-mfa",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
           }
         }
       ],
@@ -8208,15 +8139,7 @@
           ]
         },
         {
-          "parameters": [
-            "flag:name",
-            "flag:owner",
-            "flag:extension",
-            "flag:permission",
-            "flag:org-permission",
-            "flag:cidr",
-            "flag:bypass-mfa"
-          ],
+          "parameters": ["flag:name", "flag:owner", "flag:extension", "flag:permission"],
           "requirements": ["cli/token/create/submits-requested-authority"]
         },
         {
@@ -8246,24 +8169,7 @@
       "parameterBindings": []
     },
     "token revoke": {
-      "flags": [
-        {
-          "name": "step-up-request",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": false
-          }
-        },
-        {
-          "name": "wait-for-human",
-          "rawHelp": {
-            "aliases": [],
-            "type": "integer",
-            "required": false
-          }
-        }
-      ],
+      "flags": [],
       "arguments": [
         {
           "name": "id",
@@ -8274,11 +8180,7 @@
           }
         }
       ],
-      "relatedRequirements": [
-        "cli/credentials-follow-explicit-source-precedence",
-        "cli/registry-writes-complete-required-verification",
-        "cli/unattended-verification-is-resumable"
-      ],
+      "relatedRequirements": ["cli/credentials-follow-explicit-source-precedence"],
       "conditionalLinks": [
         {
           "requirement": "cli/credentials-stay-with-their-registry",
@@ -8291,18 +8193,8 @@
       ],
       "parameterBindings": [
         {
-          "parameters": ["flag:step-up-request", "flag:wait-for-human"],
-          "requirements": [
-            "cli/registry-writes-complete-required-verification",
-            "cli/unattended-verification-is-resumable"
-          ]
-        },
-        {
           "parameters": ["argument:id"],
-          "requirements": [
-            "cli/token/revoke/revokes-only-selected-token",
-            "cli/registry-writes-complete-required-verification"
-          ],
+          "requirements": ["cli/token/revoke/revokes-only-selected-token"],
           "details": [
             "The token identifier is neither an authentication credential nor a Registry/workspace selector."
           ]
@@ -8386,24 +8278,7 @@
       ]
     },
     "unyank": {
-      "flags": [
-        {
-          "name": "step-up-request",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": false
-          }
-        },
-        {
-          "name": "wait-for-human",
-          "rawHelp": {
-            "aliases": [],
-            "type": "integer",
-            "required": false
-          }
-        }
-      ],
+      "flags": [],
       "arguments": [
         {
           "name": "extension",
@@ -8419,13 +8294,6 @@
         "cli/unattended-verification-is-resumable"
       ],
       "parameterBindings": [
-        {
-          "parameters": ["flag:step-up-request", "flag:wait-for-human"],
-          "requirements": [
-            "cli/registry-writes-complete-required-verification",
-            "cli/unattended-verification-is-resumable"
-          ]
-        },
         {
           "parameters": ["argument:extension"],
           "requirements": ["cli/unyank/requires-an-exact-version"],
@@ -8898,7 +8766,7 @@
       "arguments": [],
       "relatedRequirements": [
         "cli/credentials-follow-explicit-source-precedence",
-        "cli/whoami/refreshes-rejected-stored-credentials",
+        "cli/session/renews-the-stored-session-once",
         "cli/whoami/reports-safe-effective-identity"
       ],
       "conditionalLinks": [
@@ -8915,22 +8783,6 @@
     },
     "yank": {
       "flags": [
-        {
-          "name": "step-up-request",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": false
-          }
-        },
-        {
-          "name": "wait-for-human",
-          "rawHelp": {
-            "aliases": [],
-            "type": "integer",
-            "required": false
-          }
-        },
         {
           "name": "all-versions",
           "rawHelp": {
@@ -8971,13 +8823,6 @@
         "cli/unattended-verification-is-resumable"
       ],
       "parameterBindings": [
-        {
-          "parameters": ["flag:step-up-request", "flag:wait-for-human"],
-          "requirements": [
-            "cli/registry-writes-complete-required-verification",
-            "cli/unattended-verification-is-resumable"
-          ]
-        },
         {
           "parameters": ["argument:extension"],
           "requirements": ["cli/yank/submits-the-requested-version-selection"],

@@ -8,10 +8,15 @@ import { Argument, Command, Flag } from "effect/unstable/cli";
 import {
   createToken,
   currentToken,
+  describeTokenPermissions,
+  readTokenPermissions,
   listTokens,
   revokeToken,
   selectedRegistry,
+  TOKEN_PERMISSION_LEVELS,
+  TokenPermissionsSchema,
   type CreateTokenRequest,
+  type TokenPermissionLevel,
 } from "@agentxm/registry-access/authentication";
 import { HumanVerificationOptions, isNonInteractive, jsonFlag } from "../../cli-flags/index.js";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
@@ -46,7 +51,7 @@ export const CreatedTokenDataSchema = Schema.Struct({
   id: Schema.String,
   token: Schema.String,
   name: Schema.String,
-  scopes: Schema.Array(Schema.String),
+  permissions: Schema.NullOr(TokenPermissionsSchema),
   createdAt: DateTimeUtcSchema,
   expiresAt: DateTimeUtcSchema,
 });
@@ -68,7 +73,7 @@ export const TokenListItemSchema = Schema.Struct({
   id: Schema.String,
   name: Schema.NullOr(Schema.String),
   type: Schema.String,
-  scopes: Schema.Array(Schema.String),
+  permissions: Schema.NullOr(TokenPermissionsSchema),
   createdAt: DateTimeUtcSchema,
   expiresAt: DateTimeUtcSchema,
   lastUsedAt: Schema.NullOr(DateTimeUtcSchema),
@@ -85,7 +90,6 @@ export type TokenListDocument = typeof TokenListDocumentSchema.Type;
 export const RevokeTokenResultSchema = Schema.Struct({
   status: Schema.Literal("revoked"),
   tokenId: Schema.String,
-  stepUpCompleted: Schema.Boolean,
 });
 const RevokeTokenDocumentFields = {
   result: RevokeTokenResultSchema,
@@ -101,6 +105,7 @@ interface CreatedTokenDetailItem {
   readonly id: string;
   readonly name: string;
   readonly token: string;
+  readonly canDo: string;
   readonly expiresAt: string;
 }
 
@@ -113,6 +118,7 @@ const CreatedTokenFields = [
   { label: "ID", value: (row: CreatedTokenDetailItem) => row.id },
   { label: "Name", value: (row: CreatedTokenDetailItem) => row.name },
   { label: "Token", value: (row: CreatedTokenDetailItem) => row.token },
+  { label: "Can do", value: (row: CreatedTokenDetailItem) => row.canDo },
   { label: "Expires", value: (row: CreatedTokenDetailItem) => row.expiresAt },
 ] satisfies ReadonlyArray<ViewField<CreatedTokenDetailItem>>;
 
@@ -120,6 +126,7 @@ interface TokenTableItem {
   readonly id: string;
   readonly name: string;
   readonly type: string;
+  readonly canDo: string;
   readonly expiresAt: string;
   readonly lastUsedAt: string;
 }
@@ -128,6 +135,7 @@ const TokenListColumns = [
   { header: "ID", priority: "required", value: (row: TokenTableItem) => row.id },
   { header: "Name", value: (row: TokenTableItem) => row.name },
   { header: "Type", value: (row: TokenTableItem) => row.type },
+  { header: "Can do", value: (row: TokenTableItem) => row.canDo },
   { header: "Expires", value: (row: TokenTableItem) => row.expiresAt },
   { header: "Last used", priority: "optional", value: (row: TokenTableItem) => row.lastUsedAt },
 ] satisfies ReadonlyArray<ViewColumn<TokenTableItem>>;
@@ -137,10 +145,7 @@ export interface CreateTokenHandlerArgs {
   readonly expires: string;
   readonly owners: readonly string[];
   readonly extensions: readonly string[];
-  readonly permission: Option.Option<"read" | "publish" | "admin">;
-  readonly orgPermission: Option.Option<"read" | "write" | "admin">;
-  readonly cidr: readonly string[];
-  readonly bypassMfa: boolean;
+  readonly permission: TokenPermissionLevel;
 }
 
 /** The invocation's human-verification inputs, as the capability reads them. */
@@ -181,9 +186,6 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
       owners: args.owners,
       extensions: args.extensions,
       permission: args.permission,
-      orgPermission: args.orgPermission,
-      cidr: args.cidr,
-      bypassMfa: args.bypassMfa,
       verification: yield* verificationOptions,
     };
     const createResult = yield* withLiveOperation(
@@ -211,7 +213,7 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
             id: created.id,
             token: created.token,
             name: created.name,
-            scopes: created.scopes,
+            permissions: readTokenPermissions(created.permissions),
             createdAt: created.createdAt,
             expiresAt: created.expiresAt,
           },
@@ -227,6 +229,7 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
       id: created.id,
       name: created.name,
       token: created.token,
+      canDo: describeTokenPermissions(readTokenPermissions(created.permissions)),
       expiresAt: DateTime.formatIso(created.expiresAt),
     };
     yield* screen.result([
@@ -256,7 +259,7 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(
             id: item.id,
             name: item.name,
             type: item.type,
-            scopes: item.scopes,
+            permissions: readTokenPermissions(item.permissions),
             createdAt: item.createdAt,
             expiresAt: item.expiresAt,
             lastUsedAt: item.lastUsedAt,
@@ -287,6 +290,7 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(
       id: item.id,
       name: item.name ?? "",
       type: item.type,
+      canDo: describeTokenPermissions(readTokenPermissions(item.permissions)),
       expiresAt: DateTime.formatIso(item.expiresAt),
       lastUsedAt: item.lastUsedAt === null ? "never" : DateTime.formatIso(item.lastUsedAt),
     }));
@@ -307,20 +311,14 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(
   function* (tokenId: string) {
     const registry = yield* selectedRegistry;
     const screen = yield* Screen;
-    const revokeResult = yield* withLiveOperation(
+    yield* withLiveOperation(
       { command: "auth.token.revoke", name: `Revoke registry token ${tokenId}`, mode: "apply" },
-      revokeToken(tokenId, yield* verificationOptions, registry.url),
+      revokeToken(tokenId, registry.url),
     );
 
     if (
       yield* screen.document(
-        {
-          result: {
-            status: "revoked",
-            tokenId,
-            stepUpCompleted: revokeResult.stepUpCompleted,
-          },
-        },
+        { result: { status: "revoked", tokenId } },
         RevokeTokenDocumentSchema,
         { suggestions: RevokeTokenSuggestions },
       )
@@ -328,8 +326,14 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(
       return;
     }
 
+    // Revocation evicts the cached credential in the same command, so the
+    // bound a person needs is the next request, not a propagation window.
     yield* screen.result([
-      { _tag: "headline", tone: "ok", text: `Revoked token ${tokenId}.` },
+      {
+        _tag: "headline",
+        tone: "ok",
+        text: `Revoked token ${tokenId}. It is refused on its next request.`,
+      },
       { _tag: "next", actions: RevokeTokenSuggestions },
     ]);
   },
@@ -339,14 +343,13 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(
 
 const tokenConfig = {} as const;
 
-const permissionValues = ["read", "publish", "admin"] as const;
-const orgPermissionValues = ["read", "write", "admin"] as const;
-
 const createTokenConfig = {
   ...humanVerificationFlags,
   name: Flag.String("name").pipe(Flag.withDescription("Human-readable token name")),
   expires: Flag.String("expires").pipe(
-    Flag.withDescription("Token lifetime: 7d, 30d, 1y, or an ISO timestamp"),
+    Flag.withDescription(
+      "Token lifetime: 7d, 30d, 1y, or an ISO timestamp. At most 90d for a publish or admin token, 1y for a read token.",
+    ),
     Flag.withDefault("30d"),
   ),
   owner: Flag.String("owner").pipe(
@@ -357,37 +360,23 @@ const createTokenConfig = {
     Flag.withDescription("Extension selector in @handle/<type>/<name> form; repeatable"),
     Flag.atLeast(0),
   ),
-  permission: Flag.Literals("permission", permissionValues).pipe(
-    Flag.withDescription("Extension permission level"),
-    Flag.optional,
-  ),
-  orgPermission: Flag.Literals("org-permission", orgPermissionValues).pipe(
-    Flag.withDescription("Organization permission level"),
-    Flag.optional,
-  ),
-  cidr: Flag.String("cidr").pipe(
-    Flag.withDescription("CIDR allowlist entry; repeatable"),
-    Flag.atLeast(0),
-  ),
-  bypassMfa: Flag.Boolean("bypass-mfa").pipe(
-    Flag.withDescription("Allow this automation token to bypass step-up MFA"),
-    Flag.withDefault(false),
+  permission: Flag.Literals("permission", TOKEN_PERMISSION_LEVELS).pipe(
+    Flag.withDescription(
+      "What the token may do: read, publish, or admin. A token can do less than you, never more.",
+    ),
   ),
 } as const;
 
 const createTokenCommand = Command.make(
   "create",
   createTokenConfig,
-  ({ name, expires, owner, extension, permission, orgPermission, cidr, bypassMfa }) =>
+  ({ name, expires, owner, extension, permission }) =>
     handleCreateToken({
       name,
       expires,
       owners: owner,
       extensions: extension,
       permission,
-      orgPermission,
-      cidr,
-      bypassMfa,
     }).pipe(withRuntime("auth token create")),
 ).pipe(
   withHumanVerificationOptions,
@@ -420,14 +409,12 @@ const listTokenCommand = Command.make("list", listTokenConfig, () =>
 );
 
 const revokeTokenConfig = {
-  ...humanVerificationFlags,
   id: Argument.String("id").pipe(Argument.withDescription("Token id to revoke")),
 } as const;
 
 const revokeTokenCommand = Command.make("revoke", revokeTokenConfig, ({ id }) =>
   handleRevokeToken(id).pipe(withRuntime("auth token revoke")),
 ).pipe(
-  withHumanVerificationOptions,
   withArgvTracking(revokeTokenConfig),
   withCommandCapabilities(directWriteCapabilities("credentials")),
   Command.withDescription("Revoke a granular access token"),

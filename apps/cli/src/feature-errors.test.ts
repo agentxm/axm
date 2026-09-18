@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { makeAppError } from "./app-error/index.js";
 import {
   AuthExchangeFailed,
-  AuthLoginRequired,
+  SignedOut,
   AuthTokenPolicyRequired,
   DeviceAuthorizationPending,
   DeviceLoginCodeExpired,
@@ -23,7 +23,7 @@ import { RegistryRequestFailed } from "@agentxm/registry-client";
 import {
   authExchangeFailedToAppError,
   authFailureToAppError,
-  authLoginRequiredToAppError,
+  signedOutToAppError,
   authTokenPolicyRequiredToAppError,
   deviceAuthorizationPendingToAppError,
   deviceLoginCodeExpiredToAppError,
@@ -70,14 +70,13 @@ describe("registry-access envelope conversions", () => {
     });
   });
 
-  it("renders the sign-in-required envelope exactly as the shared builder", () => {
-    const error = authLoginRequiredToAppError(
-      new AuthLoginRequired({ message: "Not authenticated" }),
-    );
+  it("renders the signed-out envelope exactly as the shared builder", () => {
+    const error = signedOutToAppError(new SignedOut({ message: "You are not signed in." }));
     expect(error.code).toBe("auth_required");
-    expect(error.detail).toBe("Not authenticated");
+    expect(error.detail).toBe("You are not signed in.");
     expect(error.blockedOn).toBe("human");
     expect(error.suggestions).toEqual([
+      { description: "Sign in.", cmd: "axm login" },
       {
         description: "Start a non-blocking device sign-in and ask a person to approve it.",
         cmd: "axm login --device-code --json",

@@ -40,7 +40,6 @@ export const specification = defineSpecification({
 const registryVersion = `${registryTarget}@1.2.3`;
 
 /** No terminal and no pending request: the write needs no step-up here. */
-const verification = { unattended: true } as const;
 
 /** The authorization ports every Registry write passes through. */
 const withAuthPorts = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -80,7 +79,6 @@ describe("Yank selection", () => {
             allVersions: false,
             category: "security",
             notice: "Unsafe release.",
-            verification,
           }),
         ),
       );
@@ -114,7 +112,7 @@ describe("Yank selection", () => {
       );
 
       const transition = yield* world.provide(
-        withAuthPorts(yank({ ref: registryTarget, allVersions: true, verification })),
+        withAuthPorts(yank({ ref: registryTarget, allVersions: true })),
       );
 
       expect(world.requests).toHaveLength(1);
@@ -137,7 +135,7 @@ describe("Yank selection", () => {
         });
 
         const failure = yield* world.provide(
-          withAuthPorts(Effect.flip(yank({ ref, allVersions: false, verification }))),
+          withAuthPorts(Effect.flip(yank({ ref, allVersions: false }))),
         );
 
         expect(expectPublishFailed(failure).category).toBe("validation");

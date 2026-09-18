@@ -37,16 +37,17 @@ describe("Identity lookup recovery", () => {
     const ports = makeAuthPorts({
       presenter: machineOutputPresenter,
       auth: {
-        getMe: (token) =>
+        getMe: () =>
           Effect.suspend(() => {
-            expect(token).toBe("fixture-new-access");
             return identityAvailable
               ? Effect.succeed({
                   userHandle: authHandle,
                   tokenType: "session",
-                  scopes: ["extensions:read"],
-                  resourceRestrictions: { extensions: null },
+                  authority: "account" as const,
+                  permissions: null,
+                  resourceRestrictions: null,
                   expiresAt: authExpiry,
+                  approvedAt: null,
                 })
               : Effect.fail(
                   new RegistryAccessFailed({
@@ -60,7 +61,6 @@ describe("Identity lookup recovery", () => {
     return Effect.gen(function* () {
       yield* initiateDeviceLogin(authRegistry, {
         openBrowser: false,
-        scopes: ["extensions:read"],
       });
       yield* resumeDeviceLogin(authRegistry);
 
@@ -75,7 +75,7 @@ describe("Identity lookup recovery", () => {
       expect(yield* currentIdentity(authRegistry)).toMatchObject({
         user: "@alice",
         registry: authRegistry,
-        scopes: ["extensions:read"],
+        authority: "account",
       });
 
       // Secondary sweep; output redaction itself is owned by

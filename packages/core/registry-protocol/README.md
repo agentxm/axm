@@ -5,8 +5,7 @@ implementation must interpret identically: extension index and version entry
 schemas (`./unstable/registry/schema`), discovery responses
 (`./unstable/registry/discover-schema`), publication-set preview and
 validation (`./unstable/registry/publication-set`), publish visibility
-(`./unstable/publish`), publish authorization
-(`./unstable/publish-authorization`), and the shared suggested-action and
+(`./unstable/publish`), and the shared suggested-action and
 human-handoff error vocabulary (`./unstable/suggested-action`,
 `./unstable/human-handoff`).
 

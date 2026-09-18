@@ -9,7 +9,7 @@
  */
 
 import type { Doc, Text } from "./doc.js";
-import { blockingClass, duration, settledOutcomeTone, unitState } from "./phrases.js";
+import { duration, settledOutcomeTone, systemWaitStatus, unitState } from "./phrases.js";
 import { operationElapsedMs, type ProgressState } from "./progress.js";
 
 const settledLine = (state: ProgressState): Doc => {
@@ -62,7 +62,7 @@ export const progressTransitionDoc = (
     doc.push({
       _tag: "headline",
       tone: "warn",
-      text: `Waiting — ${blockingClass(wait.blockingClass)}${wait.detail.length === 0 ? "" : `: ${wait.detail}`}`,
+      text: `${systemWaitStatus(wait.blockingClass)}${wait.detail.length === 0 ? "" : `: ${wait.detail}`}`,
     });
   }
   if (settledNow) doc.push(...settledLine(next));

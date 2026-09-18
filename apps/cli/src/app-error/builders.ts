@@ -80,6 +80,7 @@ export const withAppErrorSemantics = (
     detail: semantics.detail ?? error.detail,
     ...(error.metadata === undefined ? {} : { metadata: error.metadata }),
     ...(error.problem === undefined ? {} : { problem: error.problem }),
+    ...(error.inputs === undefined ? {} : { inputs: error.inputs }),
     ...(error.blockedOn === undefined ? {} : { blockedOn: error.blockedOn }),
     ...(error.action === undefined ? {} : { action: error.action }),
     ...(semantics.suggestions === undefined

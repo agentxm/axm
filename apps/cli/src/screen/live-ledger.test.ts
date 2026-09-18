@@ -214,6 +214,32 @@ describe("liveLedgerDoc", () => {
     ]);
   });
 
+  it("stands a wait that names no unit beneath the ledger in place of the status line", () => {
+    const state = fold([
+      ...recordedInstallLog.slice(0, 11),
+      {
+        _tag: "Waiting",
+        seq: 900,
+        atMs: 1_200,
+        blockingClass: "resource-conflict",
+        subject: "workspace-transition",
+        detail: "axm sync (pid 4122)",
+      },
+    ]);
+    expect(paint(state, { plan: installPlan })).toEqual([
+      "Installing  in this project",
+      "",
+      "     Extension                     Version   Status    Detail",
+      " ·   code-review                   1.2.0     waiting",
+      " ·   deploy                        0.4.1     waiting",
+      "",
+      " ◒   Waiting — another operation holds the workspace   1.2s",
+      "     axm sync (pid 4122)",
+      "ctrl-c stops waiting; nothing has been changed",
+      "--verbose for details",
+    ]);
+  });
+
   it("is empty before an operation starts and once it has settled", () => {
     expect(paint(initialProgress, { plan: installPlan })).toEqual([]);
     expect(paint(stateAt(recordedInstallLog.length), { plan: installPlan })).toEqual([]);

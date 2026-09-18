@@ -5,8 +5,14 @@ export type Tone = "neutral" | "ok" | "warn" | "error" | "info" | "dim";
 /** A tone that carries a status glyph; `neutral` and `dim` carry none. */
 export type Status = Exclude<Tone, "neutral" | "dim">;
 
+/**
+ * What happened to a unit. The first four are the operation's planned
+ * changes; the rest are a unit that did not change as planned: `blocked` by
+ * its own condition, `failed`, `rolled-back` after it ran, or `not-tried`
+ * because the operation stopped before it.
+ */
 export type Change =
-  "create" | "update" | "remove" | "unchanged" | "blocked" | "failed" | "rolled-back";
+  "create" | "update" | "remove" | "unchanged" | "blocked" | "failed" | "rolled-back" | "not-tried";
 
 /**
  * A unit that has not settled: `working` is the running mark the live region
@@ -203,15 +209,21 @@ export interface PromptNode {
 
 /**
  * A wait standing open: the running mark in the gutter, what is being waited
- * on, how long is left at the value column, and the key chips that act on it.
- * The `Screen` builds one while a wait is open; views never build it.
+ * on, its clock at the value column, and the key chips that act on it. The
+ * `Screen` builds one while a wait is open — on a person, or on the system,
+ * such as another operation that holds the workspace; views never build it.
  */
 export interface WaitNode {
   readonly _tag: "wait";
   /** What the terminal is parked on, in one line that never carries a value to copy. */
   readonly status: Text;
-  /** How long is left, at the value column; absent when nothing expires. */
-  readonly remaining?: Text;
+  /**
+   * At the value column: how long is left for a wait that expires, or how
+   * long it has lasted for one that does not.
+   */
+  readonly clock?: Text;
+  /** Who or what holds the wait, dim at the content column beneath it. */
+  readonly detail?: Text;
   readonly chips: ReadonlyArray<PromptChip>;
 }
 

@@ -78,7 +78,7 @@ export const everyNode: Doc = [
   {
     _tag: "wait",
     status: "Waiting for approval on registry.agentxm.ai",
-    remaining: "4m 32s left",
+    clock: "4m 32s left",
     chips: [
       { key: "o", word: "open" },
       { key: "c", word: "copy" },

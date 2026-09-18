@@ -80,7 +80,8 @@ const forEachText = (doc: Doc, visit: (value: Text, copyable: boolean) => void):
         return;
       case "wait":
         pushText(node.status);
-        pushText(node.remaining);
+        pushText(node.clock);
+        pushText(node.detail);
         node.chips.forEach((chip) => {
           visit(chip.key, false);
           visit(chip.word, false);

@@ -105,6 +105,7 @@ export const unicodeGlyphs: Glyphs = {
     blocked: "▲",
     failed: "✖",
     "rolled-back": "↶",
+    "not-tried": "·",
   },
   marks: {
     prompt: "?",
@@ -138,6 +139,7 @@ export const asciiGlyphs: Glyphs = {
     blocked: "!!",
     failed: "xx",
     "rolled-back": "<",
+    "not-tried": ".",
   },
   marks: {
     prompt: "?",
@@ -1053,7 +1055,14 @@ const paintWait = (node: WaitNode, style: ResolvedStyle, indent: number): Readon
     indent,
     first: gutter(markGlyph("working", style)),
   });
-  const lines = node.remaining === undefined ? status : withAside(status, node.remaining, style);
+  const clocked = node.clock === undefined ? status : withAside(status, node.clock, style);
+  const lines =
+    node.detail === undefined
+      ? clocked
+      : [
+          ...clocked,
+          ...paintPrefixed(node.detail, style, { indent: contentStart, first: "", tone: "dim" }),
+        ];
   if (node.chips.length === 0) return lines;
   const worded = chipsSpans(node.chips, true);
   const chips =

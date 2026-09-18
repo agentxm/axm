@@ -4,10 +4,8 @@ import { refSmallEmptyStates } from "./ref-small--empty-states.js";
 import { refViewDeprecated } from "./ref-view--deprecated.js";
 import { refViewIdentity } from "./ref-view--identity.js";
 import { refViewOneField } from "./ref-view--one-field.js";
-import { blockedWaiting } from "./blocked-waiting.js";
 import { detail } from "./detail.js";
 import { everyNode } from "./every-node.js";
-import { failureRecovery } from "./failure-recovery.js";
 import type { GalleryFixture } from "./fixture.js";
 import { asciiGlyphs } from "../../screen/paint-text.js";
 import { inventory } from "./inventory.js";
@@ -22,6 +20,10 @@ import { promptsConfirmAnswered } from "./prompts--confirm-answered.js";
 import { promptsInputAnswered } from "./prompts--input-answered.js";
 import { promptsInputError } from "./prompts--input-error.js";
 import { refLintClean } from "./ref-lint--clean.js";
+import { refMidflightBusyWorkspace } from "./ref-midflight--busy-workspace.js";
+import { refMidflightErrorFamily1 } from "./ref-midflight--error-family-1.js";
+import { refMidflightErrorFamily2 } from "./ref-midflight--error-family-2.js";
+import { refMidflightInterrupted } from "./ref-midflight--interrupted.js";
 import { refLintDefault } from "./ref-lint--default.js";
 import { refLintDrifted } from "./ref-lint--drifted.js";
 import { refLintFix } from "./ref-lint--fix.js";
@@ -31,6 +33,7 @@ import { refPickAnswered } from "./ref-pick--answered.js";
 import { refPickFiltered } from "./ref-pick--filtered.js";
 import { refPickGrouped } from "./ref-pick--grouped.js";
 import { refPickShortTerminal } from "./ref-pick--short-terminal.js";
+import { refPublishBlocked } from "./ref-publish--blocked.js";
 import { refSyncMixedOperations } from "./ref-sync--mixed-operations.js";
 import { refSyncNothingToDo } from "./ref-sync--nothing-to-do.js";
 import { refSyncUninstallKeptReference } from "./ref-sync--uninstall-kept-reference.js";
@@ -66,7 +69,6 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
   { _tag: "document", name: "mutation-result", doc: mutationResult },
   { _tag: "document", name: "mutation-result-alt-tree", doc: mutationResultAltTree },
   { _tag: "document", name: "mutation-result-alt-table", doc: mutationResultAltTable },
-  { _tag: "document", name: "failure-recovery", doc: failureRecovery },
   { _tag: "document", name: "plan-preview", doc: planPreview },
   { _tag: "document", name: "ref-sync--mixed-operations", doc: refSyncMixedOperations },
   { _tag: "document", name: "ref-sync--verbose-children", doc: refSyncVerboseChildren },
@@ -88,7 +90,10 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
   { _tag: "document", name: "ref-lint--clean", doc: refLintClean },
   { _tag: "document", name: "ref-lint--drifted", doc: refLintDrifted },
   { _tag: "document", name: "ref-lint--quiet", doc: refLintQuiet },
-  { _tag: "document", name: "blocked-waiting", doc: blockedWaiting },
+  { _tag: "document", name: "ref-midflight--interrupted", doc: refMidflightInterrupted },
+  { _tag: "document", name: "ref-midflight--error-family-1", doc: refMidflightErrorFamily1 },
+  { _tag: "document", name: "ref-midflight--error-family-2", doc: refMidflightErrorFamily2 },
+  { _tag: "document", name: "ref-publish--blocked", doc: refPublishBlocked },
   { _tag: "document", name: "prompts--confirm-answered", doc: promptsConfirmAnswered },
   { _tag: "document", name: "prompts--choose-answered", doc: promptsChooseAnswered },
   { _tag: "document", name: "prompts--input-answered", doc: promptsInputAnswered },
@@ -144,6 +149,7 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
     widths: [80, 48],
   },
   { _tag: "scene", name: "width-live--height-cap", scene: widthLiveHeightCap },
+  { _tag: "scene", name: "ref-midflight--busy-workspace", scene: refMidflightBusyWorkspace },
   {
     _tag: "scene",
     name: "width-prompts--choose-height",

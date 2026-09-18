@@ -1,0 +1,12 @@
+Installing
+  in this project, agents: claude-code,
+  codex
+
+     Extension
+ ·   @acme/skills/standup
+
+ ◒   Waiting — another operation holds
+     the workspace   12s
+     axm sync (pid 4122)
+ctrl-c stops waiting; nothing has been
+changed

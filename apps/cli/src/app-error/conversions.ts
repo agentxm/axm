@@ -342,7 +342,9 @@ OPERATION_ERROR_CATEGORIES satisfies ReadonlyArray<AppErrorCode>;
 export const fqnInvalidErrorToAppError = (error: FqnInvalidError): AppError =>
   makeAppError({
     code: "validation",
+    title: "Invalid fully qualified name",
     detail: `Invalid fully qualified name: ${error.input}`,
+    inputs: [{ label: "Name", value: error.input }],
     suggestions: [
       {
         description:

@@ -113,13 +113,20 @@ callout or a blocked row.
 Where a glyph goes is fixed. A row carries its own mark. A verdict that follows
 a ledger has no glyph, because the rows already carry status; it is bold and
 toned. A problem with no ledger above it leads with its glyph in the gutter. A
-callout always has one.
+callout always has one. A blocked verdict is the one callout that states an
+outcome: the operation is waiting on a person, so it keeps the attention mark
+and carries its reason beneath it.
 
 A problem reads the same for every error kind: a title naming the category,
 with the stable code and the process exit code as a dim aside at the value
-column; validation failures list their inputs as fields; and every recovery is
-a copyable `next` command. Blocked, partial, and interrupted outcomes reuse the
-ledger rather than a bespoke layout.
+column; the reason beneath it; identifiers as fields, where validation failures
+list the inputs they rejected in place of a sentence; and every recovery as a
+copyable `next` command. A defect reads as an internal problem whose recovery
+is the report link. Blocked, partial, and interrupted outcomes reuse the ledger
+rather than a bespoke layout: a unit blocked by its own condition is ▲, a unit
+the operation stopped before is · not tried, and a unit in flight when a
+restoring operation stopped is ↶ rolled back. Their verdict's aside ends with
+the exit code.
 
 Glyph width is measured, not trusted. ✔ ✖ ◒ ◓ ↶ ❯ ◉ ◪ are Neutral in Unicode
 East Asian Width. ▲ ● ◯ · … and the tree connectors are Ambiguous: they resolve
@@ -234,7 +241,10 @@ obtain it from the plan layer rather than rebuilding it. A running row shows ◒
 its state word, and its measure; a settled row shows its final mark; a row not
 yet started shows `· waiting`; and a row is paused while a wait whose subject
 is that unit is open. An operation with no plan, such as sign-in or upgrade,
-synthesizes rows from its units. Nested units roll up into their parent row's
+synthesizes rows from its units. A wait that names no unit, such as another
+operation holding the workspace, is the system's rather than a row's: it
+stands beneath the ledger in place of the status line, with how long it has
+lasted, who holds it, and what stopping costs. Nested units roll up into their parent row's
 state word and measure.
 
 The scene never exceeds the terminal height less two rows. The ledger window

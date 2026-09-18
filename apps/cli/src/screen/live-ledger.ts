@@ -26,6 +26,8 @@ import {
   liveUnitActivity,
   phaseLabel,
   progressMeasure,
+  systemWaitHint,
+  systemWaitStatus,
   unitState,
   unitStateChange,
 } from "./phrases.js";
@@ -312,11 +314,46 @@ const statusLine = (state: ProgressState, rows: ReadonlyArray<LiveRow>, nowMs: n
   return elapsed === undefined ? progress : `${progress} in ${duration(elapsed)}`;
 };
 
+/**
+ * Waits that name no unit, such as another operation holding the workspace:
+ * the system, not a row, is what the operation is parked on, so they stand
+ * beneath the ledger in place of the status line.
+ */
+const systemWaits = (
+  state: ProgressState,
+  rows: ReadonlyArray<LiveRow>,
+): ReadonlyArray<ProgressWait> => {
+  const units = new Set([
+    ...state.tasks.map((task) => task.id),
+    ...rows.flatMap((row) => (row.row.id === undefined ? [] : [row.row.id])),
+  ]);
+  return state.waiting.filter((wait) => !units.has(wait.subject));
+};
+
+/** One system wait: its status and how long it has lasted, who holds it, and what stopping costs. */
+const systemWaitDoc = (wait: ProgressWait, nowMs: number): Doc => {
+  const hint = systemWaitHint(wait.blockingClass);
+  return [
+    {
+      _tag: "wait",
+      status: systemWaitStatus(wait.blockingClass),
+      clock: duration(Math.max(0, nowMs - wait.sinceMs)),
+      ...(wait.detail.length === 0 ? {} : { detail: wait.detail }),
+      chips: [],
+    },
+    ...(hint === undefined ? [] : [{ _tag: "paragraph", tone: "dim", text: hint } as const]),
+  ];
+};
+
+/** Rows what stands beneath the ledger takes: one per line it paints. */
+const beneathRows = (doc: Doc): number =>
+  doc.reduce((rows, node) => rows + (node._tag === "wait" && node.detail !== undefined ? 2 : 1), 0);
+
 /** Rows the part spends on everything that is not a ledger row or its fold line. */
-const fixedRows = (plan: LivePlan | undefined, headed: boolean): number =>
-  // Title, the blank under it, the header, the blank above the status line,
-  // the status line, and the hint when the plan carries one.
-  2 + (headed ? 1 : 0) + 2 + (plan?.hint === undefined ? 0 : 1);
+const fixedRows = (plan: LivePlan | undefined, headed: boolean, beneath: number): number =>
+  // Title, the blank under it, the header, the blank above what stands beneath
+  // the ledger, what stands there, and the hint when the plan carries one.
+  2 + (headed ? 1 : 0) + 1 + beneath + (plan?.hint === undefined ? 0 : 1);
 
 /**
  * The live region's ledger: the operation's title, the window of rows the
@@ -330,7 +367,12 @@ export const liveLedgerDoc = (state: ProgressState, options: LiveLedgerOptions):
   const rows = joinLiveRows(state, plan);
   const columns = [...(plan?.columns ?? SYNTHESIZED_COLUMNS), STATUS_COLUMN, DETAIL_COLUMN];
   const headed = columns.some((column) => column.header !== "");
-  const window = liveWindow(rows, options.rows - fixedRows(plan, headed));
+  const waits = systemWaits(state, rows);
+  const beneath: Doc =
+    waits.length === 0
+      ? [{ _tag: "paragraph", tone: "dim", text: statusLine(state, rows, options.nowMs) }]
+      : waits.flatMap((wait) => systemWaitDoc(wait, options.nowMs));
+  const window = liveWindow(rows, options.rows - fixedRows(plan, headed, beneathRows(beneath)));
   const title = plan?.title ?? state.operation.name;
   const aside = plan?.aside;
   return [
@@ -352,7 +394,7 @@ export const liveLedgerDoc = (state: ProgressState, options: LiveLedgerOptions):
           } as const,
           { _tag: "blank" } as const,
         ]),
-    { _tag: "paragraph", tone: "dim", text: statusLine(state, rows, options.nowMs) },
+    ...beneath,
     ...(plan?.hint === undefined
       ? []
       : [{ _tag: "paragraph", tone: "dim", text: plan.hint } as const]),

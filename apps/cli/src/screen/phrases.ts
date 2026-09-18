@@ -104,6 +104,19 @@ export const unitState = (state: UnitState): string => {
   }
 };
 
+/** The process exit code a problem ends with, as its aside states it. */
+export const exitPhrase = (code: number): string => `exit ${String(code)}`;
+
+/**
+ * What a result row says about a unit the operation stopped before: it was
+ * never attempted, which is not the same as being blocked by a condition of
+ * its own.
+ */
+export const NOT_TRIED = "not tried";
+
+/** Why a row rolled back when the unit was still running as the operation stopped. */
+export const INTERRUPTED_IN_FLIGHT = "interrupted in flight";
+
 export const unitStateChange = (state: UnitState): Change => {
   switch (state) {
     case "planned":
@@ -208,6 +221,18 @@ export const blockingClass = (value: BlockingClass): string => {
       return unreachable(value);
   }
 };
+
+/** What the terminal is parked on while it waits on the system rather than a person. */
+export const systemWaitStatus = (value: BlockingClass): string =>
+  `Waiting — ${blockingClass(value)}`;
+
+/**
+ * What stopping a system wait costs, where that is known. Contention for the
+ * workspace is decided before anything is written, so leaving it changes
+ * nothing.
+ */
+export const systemWaitHint = (value: BlockingClass): string | undefined =>
+  value === "resource-conflict" ? "ctrl-c stops waiting; nothing has been changed" : undefined;
 
 export const blockingHeadline = (value: BlockingClass): string => {
   switch (value) {

@@ -104,7 +104,9 @@ describe("classifyError — known typed failures", () => {
     const result = classifyError(failure, "text");
 
     expect(result.exitCode).toBe(ExitCode.Validation);
-    expect(result.stderr?.join("\n")).toContain("Invalid fully qualified name: still-not-valid");
+    const text = result.stderr?.join("\n");
+    expect(text).toContain("Invalid fully qualified name");
+    expect(text).toContain("still-not-valid");
   });
 });
 
@@ -233,8 +235,9 @@ describe("classifyError — generic errors", () => {
 
     expect(result.exitCode).toBe(ExitCode.Internal);
     expect(result.stdout).toBeUndefined();
-    expect(result.stderr?.[0]).toContain(" ✖   boom (internal)");
-    expect(result.stderr?.[0]).toContain("Run with `--debug` to see error details.");
+    expect(result.stderr?.[0]).toContain(" ✖   Internal Error                internal, exit 10");
+    expect(result.stderr?.[0]).toContain("     boom");
+    expect(result.stderr?.[0]).toContain("     --debug shows the cause.");
     expect(result.stderr?.[0]).not.toContain("✗");
   });
 

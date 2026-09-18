@@ -349,7 +349,8 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
       return block(
         [
           ...(typeof node.status === "string" ? [{ text: node.status }] : node.status),
-          ...(node.remaining === undefined ? [] : [{ text: ` (${visibleText(node.remaining)})` }]),
+          ...(node.clock === undefined ? [] : [{ text: ` (${visibleText(node.clock)})` }]),
+          ...(node.detail === undefined ? [] : [{ text: `, ${visibleText(node.detail)}` }]),
           { text: ` [${node.chips.map((chip) => `${chip.key}=${chip.word}`).join(" ")}]` },
         ],
         style,

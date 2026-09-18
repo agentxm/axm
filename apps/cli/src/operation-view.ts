@@ -16,30 +16,23 @@ import {
   type PlannedJobStep,
   type ResolvedUnit,
   type UnitState,
-  type UnitStateCounts,
 } from "@agentxm/workspace/transitions/planning";
 
 import { Verbosity, type VerbosityLevel } from "./cli-flags/index.js";
-import type {
-  Change,
-  Doc,
-  LedgerColumn,
-  LedgerFold,
-  LedgerRow,
-  Span,
-  Status,
-  Text,
-  Tone,
-} from "./screen/doc.js";
+import type { Doc, LedgerColumn, LedgerFold, LedgerRow, Span, Text, Tone } from "./screen/doc.js";
 import type { LivePlan } from "./screen/live-ledger.js";
 import { Screen } from "./screen/screen.js";
+import { operationExitCode } from "./operation-exit-code.js";
 import {
+  INTERRUPTED_IN_FLIGHT,
+  NOT_TRIED,
   agentOutcome,
   artifactChange,
   artifactChangeMark,
   blockingClass,
   count,
   disposition,
+  exitPhrase,
   interruptionPhrase,
   operationTitle,
   outcomeHeadline,
@@ -184,33 +177,95 @@ const rowChildren = (
 const withChildren = (row: LedgerRow, children: Doc): LedgerRow =>
   children.length === 0 ? row : { ...row, children };
 
-/** The mark a settled row carries: its change when it changed as planned. */
-const resultMark = (unit: ResolvedUnit<unknown>): Change | Status =>
-  unit.state === "committed" && unit.artifact !== undefined
-    ? artifactChangeMark(unit.artifact.change)
-    : unitStateChange(unit.state);
+/**
+ * How a unit settled, as its result row reads: the change it made as planned,
+ * a state of its own, or — for a unit the operation stopped before — never
+ * tried. A unit still in flight when a restoring operation stopped reads as
+ * rolled back, because that is what became of it.
+ */
+type Settlement =
+  | { readonly _tag: "changed"; readonly artifact: JobStepArtifact }
+  | { readonly _tag: "not-tried" }
+  | { readonly _tag: "rolled-back-in-flight" }
+  | { readonly _tag: "state"; readonly state: UnitState };
 
-const resultRow = (unit: ResolvedUnit<unknown>, detailed: boolean): LedgerRow =>
-  withChildren(
-    {
-      id: unitIdOf(unit),
-      mark: resultMark(unit),
-      cells: [
-        unit.artifact?.packMembership?.pack ?? unit.label,
-        versionCell(unit.artifact),
-        unit.state === "committed" && unit.artifact !== undefined
-          ? artifactChange(unit.artifact.change)
-          : unitState(unit.state),
-        detailCell(unit.artifact, [
+/** States whose unit did not settle as planned, so its message is the reason why. */
+const UNSETTLED: ReadonlySet<UnitState> = new Set(["failed", "blocked", "interrupted"]);
+
+const settlementOf = (
+  unit: ResolvedUnit<unknown>,
+  mode: OperationResolution<unknown>["mode"],
+): Settlement => {
+  if (unit.state === "committed" && unit.artifact !== undefined) {
+    return { _tag: "changed", artifact: unit.artifact };
+  }
+  // A unit an applying operation settled without running — it stopped, was
+  // blocked, or was declined first — or one the interruption stopped before.
+  if (
+    (mode === "apply" && (unit.state === "planned" || unit.state === "ready")) ||
+    (unit.state === "blocked" && unit.blocking?.class === "operation-aborted")
+  ) {
+    return { _tag: "not-tried" };
+  }
+  if (unit.state === "interrupted" && unit.disposition === "restored") {
+    return { _tag: "rolled-back-in-flight" };
+  }
+  return { _tag: "state", state: unit.state };
+};
+
+const resultRow = (
+  unit: ResolvedUnit<unknown>,
+  mode: OperationResolution<unknown>["mode"],
+  detailed: boolean,
+): LedgerRow => {
+  const settlement = settlementOf(unit, mode);
+  const name = unit.artifact?.packMembership?.pack ?? unit.label;
+  const version = versionCell(unit.artifact);
+  const row = ((): LedgerRow => {
+    switch (settlement._tag) {
+      case "changed":
+        return {
+          mark: artifactChangeMark(settlement.artifact.change),
           // An artifact's change already says what happened, so its own
           // message would only repeat the status column.
-          unit.artifact === undefined ? unit.message : undefined,
-          unit.disposition === undefined ? undefined : disposition(unit.disposition),
-        ]),
-      ],
-    },
-    rowChildren(unit, detailed),
-  );
+          cells: [
+            name,
+            version,
+            artifactChange(settlement.artifact.change),
+            detailCell(settlement.artifact, [
+              unit.disposition === undefined ? undefined : disposition(unit.disposition),
+            ]),
+          ],
+        };
+      case "not-tried":
+        // Nothing happened to it, so there is nothing to detail.
+        return { mark: "not-tried", cells: [name, version, NOT_TRIED, ""] };
+      case "rolled-back-in-flight":
+        return {
+          mark: "rolled-back",
+          cells: [name, version, unitState("rolled-back"), INTERRUPTED_IN_FLIGHT],
+        };
+      case "state":
+        return {
+          mark: unitStateChange(settlement.state),
+          cells: [
+            name,
+            version,
+            unitState(settlement.state),
+            detailCell(unit.artifact, [
+              // A unit that did not settle as planned says why in its own
+              // message; any other unit's message restates its status.
+              unit.artifact === undefined || UNSETTLED.has(settlement.state)
+                ? unit.message
+                : undefined,
+              unit.disposition === undefined ? undefined : disposition(unit.disposition),
+            ]),
+          ],
+        };
+    }
+  })();
+  return withChildren({ id: unitIdOf(unit), ...row }, rowChildren(unit, detailed));
+};
 
 const planRow = (
   step: PlannedJobStep<unknown, unknown>,
@@ -417,25 +472,52 @@ const titleLine = (
   ];
 };
 
-/** The counts a verdict carries as its aside: how much, never what happened. */
+/** The word a result row's status column says for a unit, whatever its settlement. */
+const statusWord = (settlement: Settlement): string => {
+  switch (settlement._tag) {
+    case "changed":
+      return unitState("committed");
+    case "not-tried":
+      return NOT_TRIED;
+    case "rolled-back-in-flight":
+      return unitState("rolled-back");
+    case "state":
+      return unitState(settlement.state);
+  }
+};
+
+/** The settlements a verdict's aside counts, in the order it names them. */
+const TALLIED: ReadonlyArray<string> = [
+  unitState("committed"),
+  unitState("failed"),
+  unitState("blocked"),
+  unitState("rolled-back"),
+  NOT_TRIED,
+  unitState("unchanged"),
+  unitState("skipped"),
+];
+
+/**
+ * The counts a verdict carries as its aside — how much, never what happened
+ * — tallied the way the rows read, so a unit the operation stopped before
+ * counts as not tried rather than blocked. An outcome that exits non-zero
+ * adds the exit code a script will see.
+ */
 const verdictAside = (
-  presentation: OperationPresentation,
-  counts: UnitStateCounts,
+  units: ReadonlyArray<ResolvedUnit<unknown>>,
   mode: "preview" | "apply",
-): string =>
-  joined([
-    ...(
-      [
-        { value: counts.committed, noun: unitState("committed") },
-        { value: counts.failed, noun: unitState("failed") },
-        { value: counts.blocked, noun: unitState("blocked") },
-        { value: counts.rolledBack, noun: unitState("rolled-back") },
-        { value: counts.unchanged, noun: unitState("unchanged") },
-        { value: counts.skipped, noun: unitState("skipped") },
-      ] as const
-    ).map((part) => (part.value === 0 ? undefined : `${String(part.value)} ${part.noun}`)),
+  exitCode: number,
+): string => {
+  const words = units.map((unit) => statusWord(settlementOf(unit, mode)));
+  return joined([
+    ...TALLIED.map((word) => {
+      const value = words.filter((candidate) => candidate === word).length;
+      return value === 0 ? undefined : `${String(value)} ${word}`;
+    }),
     mode === "preview" ? "nothing was written" : undefined,
+    exitCode === 0 ? undefined : exitPhrase(exitCode),
   ]);
+};
 
 export interface OperationDocOptions {
   readonly verbosity: VerbosityLevel;
@@ -467,7 +549,7 @@ export const operationDoc = (
   const coverage = resolutionAgentCoverage(resolution);
   const ledger = foldedLedger(
     ledgerColumns(presentation, "Status"),
-    visible.map((unit) => resultRow(unit, detailed)),
+    visible.map((unit) => resultRow(unit, resolution.mode, detailed)),
     detailed
       ? []
       : foldGroups(presentation, [
@@ -476,7 +558,11 @@ export const operationDoc = (
         ]),
   );
   const next = [...(options.suggestions ?? []), ...(resolution.recovery?.actions ?? [])];
-  const aside = verdictAside(presentation, counts, resolution.mode);
+  const aside = verdictAside(
+    resolution.units,
+    resolution.mode,
+    operationExitCode(resolution, outcome),
+  );
 
   return [
     // Quiet keeps the outcome and drops the narration around it, so the
@@ -485,12 +571,6 @@ export const operationDoc = (
       ledger: ledger.length > 0 && options.verbosity !== "quiet",
       ...(coverage === undefined ? {} : { scope: coverage.scope, agents: coverage.agents }),
     }),
-    ...(resolution.failure?.detail === undefined
-      ? []
-      : [{ _tag: "paragraph", tone: "error", text: resolution.failure.detail } as const]),
-    ...(resolution.blocking?.detail === undefined
-      ? []
-      : [{ _tag: "paragraph", text: resolution.blocking.detail } as const]),
     ...ledger,
     ...groupedWarnings(resolution.units),
     ...untouchedPaths(resolution.units),
@@ -509,13 +589,55 @@ export const operationDoc = (
             ],
           } as const,
         ]),
-    {
-      _tag: "headline",
+    ...verdictDoc({
+      ledger: ledger.length > 0,
       tone: headlineTone(outcome),
-      text: emphatic(verdict),
-      ...(aside.length === 0 ? {} : { aside }),
-    },
+      verdict,
+      aside,
+      // A blocked operation stopped on a condition a person must resolve, so
+      // its reason stands with its verdict; a failure's reason follows it.
+      ...(resolution.blocking === undefined
+        ? resolution.failure?.detail === undefined
+          ? {}
+          : { reason: resolution.failure.detail }
+        : { reason: resolution.blocking.detail, blocked: true }),
+    }),
     ...(next.length === 0 ? [] : [{ _tag: "next", actions: next } as const]),
+  ];
+};
+
+/**
+ * The verdict and, when the outcome has one, its reason. A verdict after a
+ * ledger is a bold toned line whose rows already carry their marks. A blocked
+ * operation is waiting on a person, so its verdict is a callout that keeps its
+ * attention mark and carries the reason beneath it, and the recoveries that
+ * follow answer it; a problem with no ledger above it takes the same shape.
+ */
+const verdictDoc = (verdict: {
+  readonly ledger: boolean;
+  readonly tone: Tone;
+  readonly verdict: string;
+  readonly aside: string;
+  readonly reason?: string;
+  readonly blocked?: true;
+}): Doc => {
+  const aside = verdict.aside.length === 0 ? {} : { aside: verdict.aside };
+  if (verdict.blocked === true || (!verdict.ledger && verdict.reason !== undefined)) {
+    return [
+      {
+        _tag: "callout",
+        tone: verdict.tone,
+        title: emphatic(verdict.verdict),
+        ...aside,
+        ...(verdict.reason === undefined
+          ? {}
+          : { children: [{ _tag: "paragraph", text: verdict.reason }] }),
+      },
+    ];
+  }
+  return [
+    { _tag: "headline", tone: verdict.tone, text: emphatic(verdict.verdict), ...aside },
+    ...(verdict.reason === undefined ? [] : [{ _tag: "paragraph", text: verdict.reason } as const]),
   ];
 };
 

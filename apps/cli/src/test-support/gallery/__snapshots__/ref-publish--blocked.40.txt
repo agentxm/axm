@@ -1,0 +1,19 @@
+Publishing
+ ▲   @acme/skills/code-review
+     1.4.0 · blocked
+ ·   @acme/subagents/reviewer
+     0.9.0 · not tried
+ ·   @acme/packs/review-kit
+     2.1.0 · not tried
+ ▲   Publish is blocked — an explicit
+     override is required
+                    1 blocked, 2 not
+                    tried, exit 2
+     The archive for code-review is not
+     fully represented by Git HEAD
+     a1b2c3d.
+Next
+  Publish what is committed
+    git commit -a && axm publish
+  Publish the working tree as it is
+    axm publish --accept-warnings

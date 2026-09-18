@@ -36,7 +36,7 @@ describe("axm token", () => {
       env: { AXM_TOKEN: "" },
     });
     expect(result.exitCode).toBe(13);
-    expect(result.stdout + result.stderr).toContain("(auth_required)");
+    expect(result.stdout + result.stderr).toContain("auth_required, exit 13");
     expect(result.stderr).toContain("axm login --device-code --json");
   });
 

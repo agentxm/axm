@@ -26,7 +26,7 @@ export const waitDoc = (view: WaitView, keys: WaitKeys, facts: { readonly nowMs:
     status: view.status,
     ...(view.expiresAtMs === undefined
       ? {}
-      : { remaining: remainingTime(view.expiresAtMs - facts.nowMs) }),
+      : { clock: remainingTime(view.expiresAtMs - facts.nowMs) }),
     chips: waitChips(keys),
   },
 ];

@@ -5,6 +5,7 @@ import * as Option from "effect/Option";
 import {
   makeOperationResolution,
   operationPresentation,
+  StepFailure,
   type JobStepArtifact,
   type Plan,
   type ResolvedUnit,
@@ -240,5 +241,110 @@ describe("result ledger", () => {
     );
     expect(doc.some((node) => node._tag === "headline" && node.tone === "neutral")).toBe(false);
     expect(paint(doc)).toContain("Synced 1 extension");
+  });
+});
+
+describe("problem outcomes", () => {
+  const notTried = (id: string): ResolvedUnit<never> => ({
+    id,
+    label: id,
+    state: "blocked",
+    message: "not attempted: the operation was interrupted",
+    blocking: {
+      class: "operation-aborted",
+      subject: id,
+      phase: "apply",
+      detail: "not attempted: the operation was interrupted",
+    },
+  });
+
+  it("settles an interruption into rolled-back and not-tried rows with the exit code", () => {
+    const text = paint(
+      operationDoc(
+        makeOperationResolution({
+          ...resolutionOf([
+            {
+              id: "@acme/skills/triage",
+              label: "@acme/skills/triage",
+              state: "interrupted",
+              disposition: "restored",
+              artifact: artifactOf("created", "2.0.1"),
+              message: "interrupted while in flight; effects were restored",
+            },
+            notTried("@acme/skills/standup"),
+          ]),
+          interruption: { signal: "SIGINT", disposition: "restored" },
+        }),
+        { verbosity: "normal" },
+      ),
+    );
+    expect(text).toMatch(
+      /< {3}@acme\/skills\/triage\s+2\.0\.1\s+rolled back\s+interrupted in flight/,
+    );
+    expect(text).toMatch(/\. {3}@acme\/skills\/standup\s+—\s+not tried$/m);
+    expect(text).not.toContain("not attempted");
+    expect(text.split("\n").at(-1)).toBe(
+      "Interrupted — changes rolled back  1 rolled back, 1 not tried, exit 130",
+    );
+  });
+
+  it("states a blocked operation as a marked callout with its reason and recoveries", () => {
+    const doc = operationDoc(
+      makeOperationResolution({
+        ...resolutionOf([
+          {
+            id: "@acme/skills/standup",
+            label: "@acme/skills/standup",
+            state: "ready",
+            artifact: artifactOf("created", "0.4.2"),
+          },
+        ]),
+        blocking: {
+          class: "approval-required",
+          subject: "Sync workspace",
+          phase: "confirmation",
+          detail: "This plan removes extensions another agent still uses.",
+        },
+      }),
+      {
+        verbosity: "normal",
+        suggestions: [{ description: "Approve it up front", cmd: "axm sync --yes" }],
+      },
+    );
+    expect(doc.map((node) => node._tag)).toEqual(["headline", "ledger", "callout", "next"]);
+    const text = paint(doc);
+    expect(text).toMatch(/\. {3}@acme\/skills\/standup\s+0\.4\.2\s+not tried/);
+    expect(text).toContain(
+      " !!  Sync is blocked — approval is required   1 not tried, exit 2\n     This plan removes extensions another agent still uses.",
+    );
+    expect(text).toContain("Approve it up front - axm sync --yes");
+  });
+
+  it("follows a failed verdict with its reason and the exit code its cause class sets", () => {
+    const text = paint(
+      operationDoc(
+        makeOperationResolution({
+          ...resolutionOf([
+            {
+              id: "@acme/skills/standup",
+              label: "@acme/skills/standup",
+              state: "failed",
+              artifact: artifactOf("created", "0.4.2"),
+              message: "registry returned 502",
+            },
+          ]),
+          failure: new StepFailure({
+            category: "network",
+            detail: "The registry could not be reached.",
+          }),
+        }),
+        { verbosity: "normal" },
+      ),
+    );
+    expect(text).toMatch(/xx {2}@acme\/skills\/standup\s+0\.4\.2\s+failed\s+registry returned 502/);
+    expect(text.split("\n").slice(-2)).toEqual([
+      "Failed to sync 1 extension  1 failed, exit 8",
+      "The registry could not be reached.",
+    ]);
   });
 });

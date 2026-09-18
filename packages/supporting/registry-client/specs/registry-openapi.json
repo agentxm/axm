@@ -735,7 +735,7 @@
             "required": true
           }
         ],
-        "security": [],
+        "security": [{}, { "bearer": [] }],
         "responses": {
           "200": {
             "description": "Success",
@@ -854,7 +854,7 @@
             "required": false
           }
         ],
-        "security": [],
+        "security": [{}, { "bearer": [] }],
         "responses": {
           "200": {
             "description": "Success",
@@ -973,7 +973,7 @@
             "required": true
           }
         ],
-        "security": [],
+        "security": [{}, { "bearer": [] }],
         "responses": {
           "200": { "description": "<No Content>" },
           "400": { "description": "DecodeErrorResponse" },
@@ -1006,7 +1006,7 @@
             "required": true
           }
         ],
-        "security": [],
+        "security": [{}, { "bearer": [] }],
         "responses": {
           "200": {
             "description": "Success",
@@ -1484,7 +1484,7 @@
             "required": true
           }
         ],
-        "security": [],
+        "security": [{}, { "bearer": [] }],
         "responses": {
           "200": {
             "description": "Success",
@@ -2013,7 +2013,7 @@
             "required": true
           }
         ],
-        "security": [],
+        "security": [{}, { "bearer": [] }],
         "responses": {
           "200": {
             "description": "Success",
@@ -2083,7 +2083,7 @@
             "required": true
           }
         ],
-        "security": [],
+        "security": [{}, { "bearer": [] }],
         "responses": {
           "200": { "description": "<No Content>" },
           "400": { "description": "DecodeErrorResponse" },
@@ -3157,7 +3157,7 @@
             "required": false
           }
         ],
-        "security": [],
+        "security": [{}, { "bearer": [] }],
         "responses": {
           "200": {
             "description": "Success",
@@ -3235,7 +3235,7 @@
             "required": true
           }
         ],
-        "security": [],
+        "security": [{}, { "bearer": [] }],
         "responses": {
           "200": {
             "description": "LibraryDetail",
@@ -3331,7 +3331,7 @@
             "required": false
           }
         ],
-        "security": [],
+        "security": [{}, { "bearer": [] }],
         "responses": {
           "200": {
             "description": "ListLibraryMembersResponse",
@@ -3390,7 +3390,7 @@
         "tags": ["Discovery"],
         "operationId": "Discovery.postDiscovery",
         "parameters": [],
-        "security": [],
+        "security": [{}, { "bearer": [] }],
         "responses": {
           "200": {
             "description": "Success",
@@ -3755,7 +3755,7 @@
             "required": false
           }
         ],
-        "security": [],
+        "security": [{}, { "bearer": [] }],
         "responses": {
           "200": {
             "description": "A page of extensions matching the search query.",

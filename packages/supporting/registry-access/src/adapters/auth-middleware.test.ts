@@ -16,13 +16,14 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach, expect } from "vitest";
 
-import { AuthClientLive } from "../authentication/auth-client.js";
+import { TokenExchangeLive } from "../authentication/auth-client.js";
 import {
   CredentialStore,
   CredentialStoreSessionLive,
   CredentialStoreTest,
   type CredentialStoreService,
 } from "../credentials/credential-store.js";
+import { SessionRefresherLive } from "../credentials/session-refresh.js";
 import { makeAuthMiddlewareLive } from "./auth-middleware.js";
 import { RegistryAccessFailed } from "../authentication/errors.js";
 import { RegistryUrl } from "@agentxm/registry-client";
@@ -64,19 +65,19 @@ const makeTestLayers = (
       : Layer.succeed(CredentialStore, credentialStoreService);
   const credStoreLayer = Layer.provide(CredentialStoreSessionLive, rawCredStoreLayer);
   const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
-  const authClientLayer = Layer.provide(
-    AuthClientLive,
-    Layer.mergeAll(baseClientLayer, registryUrlLayer),
+  const refresherLayer = Layer.provide(
+    SessionRefresherLive,
+    Layer.mergeAll(Layer.provide(TokenExchangeLive, baseClientLayer), credStoreLayer),
   );
 
-  // Auth middleware depends on HttpClient, CredentialStore, AuthClient, RegistryUrl
+  // Auth middleware depends on HttpClient, CredentialStore, SessionRefresher, RegistryUrl
   const middlewareLayer = Layer.provide(
     makeAuthMiddlewareLive(flagToken),
-    Layer.mergeAll(baseClientLayer, credStoreLayer, authClientLayer, registryUrlLayer),
+    Layer.mergeAll(baseClientLayer, credStoreLayer, refresherLayer, registryUrlLayer),
   );
 
   // Merge credential store so tests can access it
-  return Layer.mergeAll(middlewareLayer, credStoreLayer, authClientLayer, registryUrlLayer);
+  return Layer.mergeAll(middlewareLayer, credStoreLayer, refresherLayer, registryUrlLayer);
 };
 
 const futureExpiry = () => DateTime.add(DateTime.nowUnsafe(), { hours: 1 });
@@ -104,22 +105,25 @@ const makeCountingCredentialStore = (
 ) => {
   const credentials = new Map(Object.entries(initial));
   const loadCounts = new Map<string, number>();
+  const read = (origin: string) =>
+    Effect.gen(function* () {
+      loadCounts.set(origin, (loadCounts.get(origin) ?? 0) + 1);
+      if (failingOrigins.has(origin)) {
+        return yield* new RegistryAccessFailed({
+          category: "auth",
+          detail: `Credential load failed for ${origin}`,
+        });
+      }
+      const entry = credentials.get(origin);
+      if (entry === undefined || Option.isNone(entry)) return Option.none();
+      return Option.some({ handle: handle("@alice"), ...entry.value });
+    });
   const service: CredentialStoreService = {
     tier: "restricted-file",
     allowsPersistedCredentials: true,
-    load: (origin) =>
-      Effect.gen(function* () {
-        loadCounts.set(origin, (loadCounts.get(origin) ?? 0) + 1);
-        if (failingOrigins.has(origin)) {
-          return yield* new RegistryAccessFailed({
-            category: "auth",
-            detail: `Credential load failed for ${origin}`,
-          });
-        }
-        const entry = credentials.get(origin);
-        if (entry === undefined || Option.isNone(entry)) return Option.none();
-        return Option.some({ handle: handle("@alice"), ...entry.value });
-      }),
+    withRefreshLock: (effect) => effect,
+    load: read,
+    reload: read,
     save: (origin, _handle, entry) =>
       Effect.sync(() => {
         credentials.set(origin, Option.some(entry));
@@ -473,19 +477,19 @@ describe("AuthMiddleware", () => {
         },
       });
       const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
-      const authClientLayer = Layer.provide(
-        AuthClientLive,
-        Layer.mergeAll(baseClientLayer, registryUrlLayer),
+      const refresherLayer = Layer.provide(
+        SessionRefresherLive,
+        Layer.mergeAll(Layer.provide(TokenExchangeLive, baseClientLayer), credStoreLayer),
       );
 
       const middlewareLayer = Layer.provide(
         makeAuthMiddlewareLive(),
-        Layer.mergeAll(baseClientLayer, credStoreLayer, authClientLayer, registryUrlLayer),
+        Layer.mergeAll(baseClientLayer, credStoreLayer, refresherLayer, registryUrlLayer),
       );
       const layers = Layer.mergeAll(
         middlewareLayer,
         credStoreLayer,
-        authClientLayer,
+        refresherLayer,
         registryUrlLayer,
       );
 

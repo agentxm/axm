@@ -23,7 +23,9 @@ import { expect } from "vitest";
 import {
   AuthClient,
   AuthClientLive,
-  normalizeRequestedLoginScopes,
+  LOGIN_SCOPE,
+  TokenExchange,
+  TokenExchangeLive,
   pollOnce,
 } from "./auth-client.js";
 import {
@@ -200,9 +202,7 @@ describe("AuthClient.buildAuthorizeUrl", () => {
 
       expect(url.pathname).toBe("/oauth/authorize");
       expect(url.searchParams.get("request_expires_at")).toBe(DateTime.formatIso(expiresAt));
-      expect(url.searchParams.get("scope")).toBe(
-        "account:read email extensions:read offline_access openid profile",
-      );
+      expect(url.searchParams.get("scope")).toBe(LOGIN_SCOPE);
     }).pipe(Effect.provide(layer));
   });
 
@@ -232,22 +232,8 @@ describe("AuthClient.buildAuthorizeUrl", () => {
 });
 
 describe("AuthClient.initiateDeviceFlow", () => {
-  it("uses baseline read authority and preserves OIDC session semantics", () => {
-    expect(normalizeRequestedLoginScopes()).toEqual([
-      "account:read",
-      "email",
-      "extensions:read",
-      "offline_access",
-      "openid",
-      "profile",
-    ]);
-    expect(normalizeRequestedLoginScopes(["account:write", "account:write"])).toEqual([
-      "account:write",
-      "email",
-      "offline_access",
-      "openid",
-      "profile",
-    ]);
+  it("asks for identity claims and the refresh grant, and nothing a person can do", () => {
+    expect(LOGIN_SCOPE.split(" ").sort()).toEqual(["email", "offline_access", "openid", "profile"]);
   });
 
   it.effect("returns device flow response on success", () => {
@@ -708,7 +694,6 @@ describe("AuthClient step-up requests", () => {
     return Effect.gen(function* () {
       const client = yield* AuthClient;
       yield* client.waitForStepUpRequest(
-        "axm_ses_token",
         `${REGISTRY_URL}/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc`,
         0,
       );
@@ -735,7 +720,6 @@ describe("AuthClient step-up requests", () => {
       const client = yield* AuthClient;
       const fiber = yield* Effect.forkChild(
         client.waitForStepUpRequest(
-          "axm_ses_token",
           `${REGISTRY_URL}/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc`,
           0,
         ),
@@ -767,7 +751,6 @@ describe("AuthClient step-up requests", () => {
         const error = asAuthFailed(
           yield* client
             .waitForStepUpRequest(
-              "axm_ses_token",
               `${REGISTRY_URL}/v1/auth/step-up/requests/step_01h455vb4pexka56gq5w2r7cpc`,
               0,
             )
@@ -807,7 +790,7 @@ describe("AuthClient step-up requests", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const error = yield* client.deleteToken("axm_ses_token", "token_123").pipe(Effect.flip);
+      const error = yield* client.deleteToken("token_123").pipe(Effect.flip);
       expect(error instanceof StepUpRequired ? error.stepUp : null).toEqual({
         requestId: "step_01h455vb4pexka56gq5w2r7cpc",
         verificationUrl: "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
@@ -830,7 +813,7 @@ describe("AuthClient step-up requests", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      yield* client.deleteToken("axm_ses_token", "token_123", {
+      yield* client.deleteToken("token_123", {
         stepUpRequestId: "step_01h455vb4pexka56gq5w2r7cpc",
       });
       expect(stepUpRequestHeader).toBe("step_01h455vb4pexka56gq5w2r7cpc");
@@ -839,14 +822,20 @@ describe("AuthClient step-up requests", () => {
 });
 
 // -----------------------------------------------------------------------------
-// refreshToken
+// TokenExchange.refreshToken
 // -----------------------------------------------------------------------------
 
-describe("AuthClient.refreshToken", () => {
+describe("TokenExchange.refreshToken", () => {
+  const exchangeLayer = (handler: (request: HttpClientRequest.HttpClientRequest) => Response) =>
+    Layer.provide(
+      TokenExchangeLive,
+      Layer.succeed(HttpClient.HttpClient, makeMockHttpClient(handler)),
+    );
+
   it.effect("returns new tokens on success", () => {
     const expiresAt = "2026-03-10T12:30:00.000Z";
 
-    const layer = makeTestLayer((req) => {
+    const layer = exchangeLayer((req) => {
       expect(req.url).toContain("/v1/auth/token");
       expect(req.method).toBe("POST");
       return new Response(
@@ -863,16 +852,16 @@ describe("AuthClient.refreshToken", () => {
     });
 
     return Effect.gen(function* () {
-      const client = yield* AuthClient;
-      const result = yield* client.refreshToken("axm_ref_old");
+      const exchange = yield* TokenExchange;
+      const result = yield* exchange.refreshToken("axm_ref_old", REGISTRY_URL);
       expect(result.access_token).toBe("axm_ses_refreshed");
       expect(result.refresh_token).toBe("axm_ref_refreshed");
       expect(DateTime.formatIso(result.expires_at)).toBe(expiresAt);
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("fails with AUTH_REFRESH_FAILED on 400", () => {
-    const layer = makeTestLayer(
+  it.effect("reports a refused refresh token as the session having ended", () => {
+    const layer = exchangeLayer(
       () =>
         new Response(JSON.stringify(makeDecodeError("invalid_grant", 400)), {
           status: 400,
@@ -881,14 +870,14 @@ describe("AuthClient.refreshToken", () => {
     );
 
     return Effect.gen(function* () {
-      const client = yield* AuthClient;
-      const error = yield* client.refreshToken("axm_ref_expired").pipe(Effect.flip);
-      expect(error._tag).toBe("AuthExchangeFailed");
+      const exchange = yield* TokenExchange;
+      const error = yield* exchange.refreshToken("axm_ref_expired", REGISTRY_URL).pipe(Effect.flip);
+      expect(error._tag).toBe("SessionEnded");
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("fails with AUTH_REFRESH_FAILED on non-OAuth error status", () => {
-    const layer = makeTestLayer(
+  it.effect("reports any other decided refusal as the session having ended", () => {
+    const layer = exchangeLayer(
       () =>
         new Response(JSON.stringify(makeRefreshTokenError()), {
           status: 401,
@@ -897,21 +886,32 @@ describe("AuthClient.refreshToken", () => {
     );
 
     return Effect.gen(function* () {
-      const client = yield* AuthClient;
-      const error = yield* client.refreshToken("axm_ref_expired").pipe(Effect.flip);
-      expect(error._tag).toBe("AuthExchangeFailed");
+      const exchange = yield* TokenExchange;
+      const error = yield* exchange.refreshToken("axm_ref_expired", REGISTRY_URL).pipe(Effect.flip);
+      expect(error._tag).toBe("SessionEnded");
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("fails with AUTH_REFRESH_FAILED on network error", () => {
-    const httpLayer = Layer.succeed(HttpClient.HttpClient, makeNetworkErrorHttpClient());
-    const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
-    const layer = Layer.provide(AuthClientLive, Layer.mergeAll(httpLayer, registryUrlLayer));
+  it.effect("keeps the session when the Registry fails while renewing it", () => {
+    const layer = exchangeLayer(() => new Response("unavailable", { status: 503 }));
 
     return Effect.gen(function* () {
-      const client = yield* AuthClient;
-      const error = yield* client.refreshToken("axm_ref_old").pipe(Effect.flip);
-      expect(error._tag).toBe("AuthExchangeFailed");
+      const exchange = yield* TokenExchange;
+      const error = yield* exchange.refreshToken("axm_ref_old", REGISTRY_URL).pipe(Effect.flip);
+      expect(error._tag).toBe("RefreshUnavailable");
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("keeps the session when the Registry cannot be reached", () => {
+    const layer = Layer.provide(
+      TokenExchangeLive,
+      Layer.succeed(HttpClient.HttpClient, makeNetworkErrorHttpClient()),
+    );
+
+    return Effect.gen(function* () {
+      const exchange = yield* TokenExchange;
+      const error = yield* exchange.refreshToken("axm_ref_old", REGISTRY_URL).pipe(Effect.flip);
+      expect(error._tag).toBe("RefreshUnavailable");
     }).pipe(Effect.provide(layer));
   });
 });
@@ -1004,6 +1004,7 @@ describe("AuthClient.getMe", () => {
       expect(result.resourceRestrictions).toBeNull();
       expect(result.expiresAt).not.toBeNull();
       expect(Object.keys(result).sort()).toEqual([
+        "approvedAt",
         "authority",
         "expiresAt",
         "resourceRestrictions",

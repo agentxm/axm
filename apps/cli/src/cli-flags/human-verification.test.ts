@@ -25,7 +25,23 @@ describe("human-verification flags", () => {
     }),
   );
 
-  for (const path of [["unyank"], ["yank"], ["token", "create"], ["token", "revoke"]]) {
+  // Yank and un-yank exclude a version from fresh resolution and put it back;
+  // neither destroys anything, so neither asks a signed-in publisher to prove
+  // themselves again and neither carries the flags that resume such a request.
+  for (const path of [["unyank"], ["yank"]]) {
+    it.effect(`axm ${path.join(" ")} offers neither`, () =>
+      Effect.gen(function* () {
+        const doc = yield* captureHelpDoc(path);
+        expect(flagNames(doc.flags)).not.toContain("step-up-request");
+        expect(flagNames(doc.flags)).not.toContain("wait-for-human");
+      }),
+    );
+  }
+
+  for (const path of [
+    ["token", "create"],
+    ["token", "revoke"],
+  ]) {
     it.effect(`axm ${path.join(" ")} offers both`, () =>
       Effect.gen(function* () {
         const doc = yield* captureHelpDoc(path);

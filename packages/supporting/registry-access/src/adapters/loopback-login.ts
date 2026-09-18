@@ -29,10 +29,6 @@ const UNKNOWN_HANDLE = normalizeHandle("@unknown");
 const LOOPBACK_TIMEOUT_MINUTES = 5;
 const LOOPBACK_TIMEOUT = Duration.minutes(LOOPBACK_TIMEOUT_MINUTES);
 
-export interface RunLoopbackLoginOptions {
-  readonly scopes?: ReadonlyArray<string>;
-}
-
 export const makePkceVerifier = (): string => randomBytes(64).toString("base64url");
 
 export const makePkceChallenge = (verifier: string): string =>
@@ -62,7 +58,7 @@ const persistLoginCredentials = (registryUrl: string, token: NormalizedTokenResp
     return Option.map(meResult, (me) => me.userHandle);
   });
 
-export const runLoopbackLogin = (registryUrl: string, options: RunLoopbackLoginOptions = {}) =>
+export const runLoopbackLogin = (registryUrl: string) =>
   Effect.scoped(
     Effect.gen(function* () {
       const authClient = yield* AuthClient;
@@ -84,7 +80,6 @@ export const runLoopbackLogin = (registryUrl: string, options: RunLoopbackLoginO
         expiresAt: DateTime.addDuration(yield* DateTime.now, LOOPBACK_TIMEOUT),
         state,
         redirectUri: server.redirectUri,
-        ...(options.scopes === undefined ? {} : { scopes: options.scopes }),
       });
 
       yield* presenter.presentLoopbackStart({

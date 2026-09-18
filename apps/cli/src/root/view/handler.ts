@@ -20,6 +20,8 @@ import type { ExtensionFqnParts } from "@agentxm/extension-model/unstable/extens
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import type { IdentifierResourceType } from "@agentxm/workspace/resolution/sources";
 
+import { isSignedIn } from "@agentxm/registry-access/authentication";
+
 import { Screen, rawDoc, tableViewDoc, type TableView } from "../../screen/index.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import { publishedMetadataUnavailableToAppError } from "../inspection-errors.js";
@@ -116,11 +118,6 @@ const emitDocument = (data: ViewDocument) =>
 const emit = (result: ViewExtensionResult) =>
   result.outcome === "field" ? emitFieldValue(result.value) : emitDocument(result.document);
 
-const unavailable = {
-  PublishedMetadataUnavailable: (failure: PublishedMetadataUnavailable) =>
-    Effect.fail(publishedMetadataUnavailableToAppError(failure)),
-} as const;
-
 const readAndEmit = (args: {
   readonly handle: string;
   readonly field: Option.Option<string>;
@@ -128,21 +125,37 @@ const readAndEmit = (args: {
   readonly parts: ExtensionFqnParts;
 }) =>
   Effect.gen(function* () {
+    // The read itself carries the invocation's credential, so a signed-in
+    // person sees their own private extensions here. What being signed in
+    // changes for a miss is only whether signing in is offered as a recovery.
+    const signedIn = yield* isSignedIn(args.targetRegistry.registryUrl);
     const result = yield* withLiveOperation(
       { command: "view", name: `View ${args.handle}`, mode: "preview" },
       observeUnit(
         { id: "index", label: `${args.handle} from ${args.targetRegistry.registryName}` },
-        Effect.catchTags(ViewExtension.read(args), unavailable),
+        Effect.catchTags(ViewExtension.read(args), {
+          PublishedMetadataUnavailable: (failure: PublishedMetadataUnavailable) =>
+            Effect.fail(publishedMetadataUnavailableToAppError(failure, !signedIn)),
+        }),
       ),
     );
     yield* emit(result);
   });
 
+/**
+ * Naming the target and the handle happens before any read, so none of these
+ * is a miss and none of them is answered by signing in.
+ */
+const unresolvable = {
+  PublishedMetadataUnavailable: (failure: PublishedMetadataUnavailable) =>
+    Effect.fail(publishedMetadataUnavailableToAppError(failure, false)),
+} as const;
+
 export const handleView = Effect.fn("View.handle")(function* (args: ViewHandlerArgs) {
-  const targetRegistry = yield* Effect.catchTags(resolveViewRegistry(args.registry), unavailable);
+  const targetRegistry = yield* Effect.catchTags(resolveViewRegistry(args.registry), unresolvable);
   const parts = yield* Effect.catchTags(
     resolveViewHandle({ handle: args.handle, type: args.type ?? Option.none() }),
-    unavailable,
+    unresolvable,
   );
   yield* readAndEmit({ handle: args.handle, field: args.field, targetRegistry, parts });
 });

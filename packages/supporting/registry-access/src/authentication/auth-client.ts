@@ -41,7 +41,9 @@ import {
   AuthExchangeFailed,
   DeviceLoginCodeExpired,
   DeviceLoginDenied,
+  RefreshUnavailable,
   RegistryAccessFailed,
+  SessionEnded,
   StepUpRequired,
   type AuthError,
   type StepUpRequest,
@@ -52,12 +54,15 @@ import {
 // -----------------------------------------------------------------------------
 
 const CLIENT_ID = "axm-cli";
-export const OIDC_LOGIN_SCOPES = ["openid", "profile", "email", "offline_access"] as const;
-export const BASELINE_REGISTRY_LOGIN_SCOPES = ["extensions:read", "account:read"] as const;
-export const DEFAULT_LOGIN_SCOPES = [
-  ...OIDC_LOGIN_SCOPES,
-  ...BASELINE_REGISTRY_LOGIN_SCOPES,
-] as const;
+/**
+ * The OIDC scopes every sign-in asks for. They name the identity claims and
+ * the refresh grant the flow needs, and nothing a person can do: a signed-in
+ * session is limited only by their permissions, so there is no registry scope
+ * to request and no caller may vary this list.
+ */
+export const LOGIN_SCOPE = ["openid", "profile", "email", "offline_access"].join(" ");
+/** Skew before expiry at which a session is renewed rather than spent. */
+export const REFRESH_SKEW_SECONDS = 300;
 const DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
 const AUTHORIZATION_CODE_GRANT_TYPE = "authorization_code";
 const SLOW_DOWN_INCREMENT_MS = 5000;
@@ -77,17 +82,6 @@ export interface DeviceFlowResponse {
   readonly expires_in: number;
 }
 
-export const normalizeRequestedLoginScopes = (
-  scopes: ReadonlyArray<string> = DEFAULT_LOGIN_SCOPES,
-): ReadonlyArray<string> =>
-  Array.from(
-    new Set([...OIDC_LOGIN_SCOPES, ...scopes].map((scope) => scope.trim()).filter(Boolean)),
-  ).sort();
-
-export interface LoginScopeOptions {
-  readonly scopes?: ReadonlyArray<string>;
-}
-
 export interface MeResponse {
   readonly userHandle: Handle;
   readonly tokenType: string;
@@ -100,6 +94,11 @@ export interface MeResponse {
   readonly scopes: ReadonlyArray<string> | null;
   readonly resourceRestrictions: { readonly extensions: ReadonlyArray<string> | null } | null;
   readonly expiresAt: DateTime.Utc | null;
+  /**
+   * When the browser sign-in that approved this CLI session authenticated.
+   * Null for every other kind of credential.
+   */
+  readonly approvedAt: DateTime.Utc | null;
 }
 
 export interface TokenPermissionsRequest {
@@ -152,7 +151,6 @@ export interface BuildAuthorizeUrlParams {
   readonly expiresAt?: DateTime.Utc;
   readonly state: string;
   readonly redirectUri: string;
-  readonly scopes?: ReadonlyArray<string>;
 }
 
 export interface ExchangePkceCodeParams {
@@ -183,38 +181,34 @@ export interface AuthClientService {
   readonly exchangePkceCode: (
     params: ExchangePkceCodeParams,
   ) => Effect.Effect<NormalizedTokenResponse, AuthError>;
-  readonly initiateDeviceFlow: (
-    options?: LoginScopeOptions,
-  ) => Effect.Effect<DeviceFlowResponse, AuthError>;
+  readonly initiateDeviceFlow: () => Effect.Effect<DeviceFlowResponse, AuthError>;
   readonly pollDeviceToken: (
     deviceCode: string,
     interval: number,
   ) => Effect.Effect<NormalizedTokenResponse, AuthError>;
-  readonly refreshToken: (
-    refreshTokenValue: string,
-  ) => Effect.Effect<NormalizedTokenResponse, AuthError>;
   readonly revokeToken: (token: string) => Effect.Effect<void, AuthError>;
-  readonly getMe: (accessToken: string) => Effect.Effect<MeResponse, AuthError>;
+  /**
+   * Read the credential's identity. The transport carries the caller's
+   * credential, so only a flow holding a token the store has not persisted yet
+   * — a just-issued sign-in — names one.
+   */
+  readonly getMe: (accessToken?: string) => Effect.Effect<MeResponse, AuthError>;
   readonly createToken: (
-    accessToken: string,
     params: CreateTokenParams,
     options?: CreateTokenOptions,
   ) => Effect.Effect<CreatedTokenResponse, AuthError>;
-  readonly listTokens: (
-    accessToken: string,
-    params?: { readonly limit?: number; readonly cursor?: string },
-  ) => Effect.Effect<TokenListResponse, AuthError>;
+  readonly listTokens: (params?: {
+    readonly limit?: number;
+    readonly cursor?: string;
+  }) => Effect.Effect<TokenListResponse, AuthError>;
   readonly getStepUpRequest: (
-    accessToken: string,
     requestId: string,
   ) => Effect.Effect<GeneratedRegistryClient.StepUpRequestStatusResponse, AuthError>;
   readonly waitForStepUpRequest: (
-    accessToken: string,
     statusUrl: string,
     intervalSeconds: number,
   ) => Effect.Effect<void, AuthError>;
   readonly deleteToken: (
-    accessToken: string,
     tokenId: string,
     options?: DeleteTokenOptions,
   ) => Effect.Effect<void, AuthError>;
@@ -222,6 +216,27 @@ export interface AuthClientService {
 
 export class AuthClient extends ServiceMap.Service<AuthClient, AuthClientService>()(
   "@agentxm/registry-access/auth-client/AuthClient",
+) {}
+
+/**
+ * The OAuth token endpoint, as the session refresher needs it.
+ *
+ * It is a separate service from `AuthClient` because it is the one call that
+ * must not travel through the authenticated transport: the middleware asks for
+ * a renewed session while it is deciding what credential a request carries, so
+ * a refresh that went back through the middleware would not terminate. It
+ * carries its own failure vocabulary because the refresher acts on the
+ * difference between a session the Registry ended and one it could not reach.
+ */
+export interface TokenExchangeService {
+  readonly refreshToken: (
+    refreshTokenValue: string,
+    registryUrl: string,
+  ) => Effect.Effect<NormalizedTokenResponse, SessionEnded | RefreshUnavailable>;
+}
+
+export class TokenExchange extends ServiceMap.Service<TokenExchange, TokenExchangeService>()(
+  "@agentxm/registry-access/auth-client/TokenExchange",
 ) {}
 
 // -----------------------------------------------------------------------------
@@ -542,7 +557,6 @@ export const AuthClientLive = Layer.effect(
       expiresAt,
       state,
       redirectUri,
-      scopes,
     }) => {
       const url = new URL("/oauth/authorize", authorizationOrigin);
       url.searchParams.set("response_type", "code");
@@ -551,7 +565,7 @@ export const AuthClientLive = Layer.effect(
       url.searchParams.set("code_challenge_method", "S256");
       url.searchParams.set("state", state);
       url.searchParams.set("redirect_uri", redirectUri);
-      url.searchParams.set("scope", normalizeRequestedLoginScopes(scopes).join(" "));
+      url.searchParams.set("scope", LOGIN_SCOPE);
       if (expiresAt !== undefined) {
         url.searchParams.set("request_expires_at", DateTime.formatIso(expiresAt));
       }
@@ -587,13 +601,10 @@ export const AuthClientLive = Layer.effect(
 
     const initiateDeviceFlow: AuthClientService["initiateDeviceFlow"] = Effect.fn(
       "AuthClient.initiateDeviceFlow",
-    )(function* (options) {
+    )(function* () {
       const response = yield* client
         .AuthIssueDeviceCode({
-          payload: {
-            client_id: CLIENT_ID,
-            scope: normalizeRequestedLoginScopes(options?.scopes).join(" "),
-          },
+          payload: { client_id: CLIENT_ID, scope: LOGIN_SCOPE },
         })
         .pipe(
           Effect.mapError((error) =>
@@ -639,26 +650,6 @@ export const AuthClientLive = Layer.effect(
       }
     });
 
-    const refreshToken: AuthClientService["refreshToken"] = Effect.fn("AuthClient.refreshToken")(
-      function* (refreshTokenValue) {
-        return yield* postTokenForm(httpClient, registryUrl, {
-          grant_type: "refresh_token",
-          refresh_token: refreshTokenValue,
-          client_id: CLIENT_ID,
-        }).pipe(
-          Effect.catchTag("OAuthTokenResponseError", (error) =>
-            Effect.fail(
-              new AuthExchangeFailed({
-                detail: "Token refresh request failed",
-                suggestions: [{ description: "Sign in again.", cmd: "axm login" }],
-                failure: registryAccessFailure(registryUrl, "Token exchange failed", error.cause),
-              }),
-            ),
-          ),
-        );
-      },
-    );
-
     const revokeToken: AuthClientService["revokeToken"] = Effect.fn("AuthClient.revokeToken")(
       function* (token) {
         yield* client
@@ -677,9 +668,9 @@ export const AuthClientLive = Layer.effect(
 
     const getMe: AuthClientService["getMe"] = Effect.fn("AuthClient.getMe")(
       function* (accessToken) {
-        // Inject bearer token via a per-request HttpClient wrapper for getMe.
-        // The generated AuthGetMe operation uses GET /v1/auth/me with no payload,
-        // so we need to add the Authorization header via the httpClient.
+        // The transport carries whichever credential the invocation resolved.
+        // A caller only names a token when the store does not hold it yet —
+        // the identity read that follows a just-issued sign-in.
         const authedClient = makeGeneratedAuthClient(httpClient, registryUrl, accessToken);
 
         const decoded = yield* authedClient
@@ -697,13 +688,14 @@ export const AuthClientLive = Layer.effect(
           scopes: decoded.token.scopes ?? null,
           resourceRestrictions: decoded.token.resource_restrictions ?? null,
           expiresAt: decoded.token.expires_at,
+          approvedAt: decoded.token.approved_at,
         } satisfies MeResponse;
       },
     );
 
     const createToken: AuthClientService["createToken"] = Effect.fn("AuthClient.createToken")(
-      function* (accessToken, params, options) {
-        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl, accessToken);
+      function* (params, options) {
+        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl);
         const decoded = yield* authedClient
           .TokensCreate({
             ...(options?.stepUpRequestId === undefined
@@ -735,8 +727,8 @@ export const AuthClientLive = Layer.effect(
     );
 
     const listTokens: AuthClientService["listTokens"] = Effect.fn("AuthClient.listTokens")(
-      function* (accessToken, params) {
-        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl, accessToken);
+      function* (params) {
+        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl);
         const decoded = yield* authedClient
           .TokensList({
             params: {
@@ -766,8 +758,8 @@ export const AuthClientLive = Layer.effect(
       },
     );
 
-    const getStepUpRequest: AuthClientService["getStepUpRequest"] = (accessToken, requestId) =>
-      makeGeneratedAuthClient(httpClient, registryUrl, accessToken)
+    const getStepUpRequest: AuthClientService["getStepUpRequest"] = (requestId) =>
+      makeGeneratedAuthClient(httpClient, registryUrl)
         .AuthGetStepUpRequest(requestId, undefined)
         .pipe(
           Effect.mapError((error) =>
@@ -777,14 +769,14 @@ export const AuthClientLive = Layer.effect(
 
     const waitForStepUpRequest: AuthClientService["waitForStepUpRequest"] = Effect.fn(
       "AuthClient.waitForStepUpRequest",
-    )(function* (accessToken, statusUrl, intervalSeconds) {
+    )(function* (statusUrl, intervalSeconds) {
       const parsedStatusUrl = new URL(statusUrl);
       const requestId = parsedStatusUrl.pathname.slice(
         parsedStatusUrl.pathname.lastIndexOf("/") + 1,
       );
 
       for (let attempt = 0; attempt < 300; attempt += 1) {
-        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl, accessToken);
+        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl);
         const result: StepUpPollResult = yield* authedClient
           .AuthGetStepUpRequest(requestId, undefined)
           .pipe(
@@ -845,11 +837,11 @@ export const AuthClientLive = Layer.effect(
     });
 
     const deleteToken: AuthClientService["deleteToken"] = Effect.fn("AuthClient.deleteToken")(
-      function* (accessToken, tokenId, options) {
+      function* (tokenId, options) {
         const authedClient = makeGeneratedAuthClient(
           httpClient,
           registryUrl,
-          accessToken,
+          undefined,
           options?.stepUpRequestId,
         );
         yield* authedClient.TokensDelete(tokenId, undefined).pipe(
@@ -870,7 +862,6 @@ export const AuthClientLive = Layer.effect(
       exchangePkceCode,
       initiateDeviceFlow,
       pollDeviceToken,
-      refreshToken,
       revokeToken,
       getMe,
       createToken,
@@ -881,6 +872,70 @@ export const AuthClientLive = Layer.effect(
     } satisfies AuthClientService;
   }),
 );
+
+// -----------------------------------------------------------------------------
+// Token exchange live layer
+// -----------------------------------------------------------------------------
+
+/**
+ * The refresh grant, on the unauthenticated transport.
+ *
+ * The two outcomes a refresher must tell apart are the only two failures it
+ * reports, and the line between them is whether the Registry answered. An
+ * answer that refuses the grant — `invalid_grant` above all, but any decided
+ * refusal — means this refresh token is spent, revoked, or replaced, and the
+ * session is over. A Registry that could not be reached, or that failed while
+ * trying, has decided nothing: the session is still whatever it was before the
+ * attempt, so the credential is kept and the caller may retry.
+ */
+export const TokenExchangeLive = Layer.effect(
+  TokenExchange,
+  Effect.gen(function* () {
+    const httpClient = yield* HttpClient.HttpClient;
+
+    const refreshToken: TokenExchangeService["refreshToken"] = Effect.fn(
+      "TokenExchange.refreshToken",
+    )(function* (refreshTokenValue, registryUrl) {
+      return yield* postTokenForm(httpClient, registryUrl, {
+        grant_type: "refresh_token",
+        refresh_token: refreshTokenValue,
+        client_id: CLIENT_ID,
+      }).pipe(
+        Effect.catch((error) =>
+          Effect.fail(
+            isRegistryClientFailure(error)
+              ? new RefreshUnavailable({
+                  registryUrl,
+                  detail: "The Registry could not be reached to renew your session.",
+                  cause: error,
+                })
+              : error.retryable
+                ? new RefreshUnavailable({
+                    registryUrl,
+                    detail: "The Registry could not renew your session.",
+                    cause: error.cause,
+                  })
+                : new SessionEnded({ registryUrl, cause: error.cause }),
+          ),
+        ),
+      );
+    });
+
+    return { refreshToken } satisfies TokenExchangeService;
+  }),
+);
+
+export const TokenExchangeTest = (overrides?: Partial<TokenExchangeService>) =>
+  Layer.succeed(TokenExchange, {
+    refreshToken: (_token, registryUrl) =>
+      Effect.fail(
+        new RefreshUnavailable({
+          registryUrl,
+          detail: "Not implemented in test",
+        }),
+      ),
+    ...overrides,
+  } satisfies TokenExchangeService);
 
 // -----------------------------------------------------------------------------
 // Test layer factory
@@ -906,13 +961,6 @@ export const AuthClientTest = (overrides?: Partial<AuthClientService>) =>
         }),
       ),
     pollDeviceToken: () =>
-      Effect.fail(
-        new RegistryAccessFailed({
-          category: "auth",
-          detail: "Not implemented in test",
-        }),
-      ),
-    refreshToken: () =>
       Effect.fail(
         new RegistryAccessFailed({
           category: "auth",

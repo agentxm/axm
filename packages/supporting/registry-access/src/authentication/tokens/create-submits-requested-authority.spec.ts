@@ -15,7 +15,7 @@ export const specification = defineSpecification({
   requirement: "cli/token/create/submits-requested-authority",
   title: "Token creation requests the chosen lifetime and permissions",
   statement:
-    "When creating a token, AXM shall submit the requested name, lifetime, and permission restrictions using the effective credential and report the issued token without replacing the current session.",
+    "When creating a token, AXM shall submit the requested name, lifetime, and permission restrictions, and report the issued token without replacing the current session.",
   class: "functional",
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -46,9 +46,9 @@ describe("Token creation", () => {
       const { layer } = makeAuthPorts({
         credentials: authCredentialFile,
         auth: {
-          createToken: (token, params) =>
+          createToken: (params) =>
             Effect.sync(() => {
-              requests.push({ token, params });
+              requests.push({ params });
               return created;
             }),
         },
@@ -71,7 +71,6 @@ describe("Token creation", () => {
 
         expect(requests).toEqual([
           {
-            token: "fixture-stored-access",
             params: {
               name: "automation",
               expiresIn: 604800,

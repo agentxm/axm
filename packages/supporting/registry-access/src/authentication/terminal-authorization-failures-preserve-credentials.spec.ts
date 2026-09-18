@@ -52,10 +52,7 @@ describe("Terminal authorization failure", () => {
         // Start with no selected session so sign-in may initiate; keep the
         // other Registry as the preservation witness.
         yield* credentials.clear(authRegistry);
-        yield* initiateDeviceLogin(authRegistry, {
-          openBrowser: false,
-          scopes: ["extensions:read"],
-        });
+        yield* initiateDeviceLogin(authRegistry, { openBrowser: false });
         yield* credentials.save(authRegistry, authHandle, {
           access_token: "existing-access",
           refresh_token: "existing-refresh",

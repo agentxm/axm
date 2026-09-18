@@ -110,7 +110,7 @@ describe("Publishing requires a signed-in person", () => {
 
       const failure = yield* remote.provide(runPublish(remoteRequest())).pipe(Effect.flip);
 
-      expect(failure._tag).toBe("AuthLoginRequired");
+      expect(failure._tag).toBe("SignedOut");
       // Nothing about the publication reached the Registry: no authoritative
       // preview was requested and no archive left the process.
       expect(remote.previewCount()).toBe(0);

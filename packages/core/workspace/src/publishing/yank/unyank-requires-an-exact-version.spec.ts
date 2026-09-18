@@ -40,7 +40,6 @@ export const specification = defineSpecification({
 const registryVersion = `${registryTarget}@1.2.3`;
 
 /** No terminal and no pending request: the write needs no step-up here. */
-const verification = { unattended: true } as const;
 
 /** The authorization ports every Registry write passes through. */
 const withAuthPorts = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
@@ -73,7 +72,7 @@ describe("Exact restoration", () => {
     Effect.gen(function* () {
       const world = makeRegistryManagementWorld(() => restoredVersionResponse());
 
-      const transition = yield* world.provide(withAuthPorts(unyank(registryVersion, verification)));
+      const transition = yield* world.provide(withAuthPorts(unyank(registryVersion)));
 
       expect(world.requests).toHaveLength(1);
       expect(world.requests[0]?.method).toBe("DELETE");
@@ -95,7 +94,7 @@ describe("Exact restoration", () => {
           throw new Error("Invalid selection must not contact the Registry");
         });
 
-        const failure = yield* world.provide(withAuthPorts(Effect.flip(unyank(ref, verification))));
+        const failure = yield* world.provide(withAuthPorts(Effect.flip(unyank(ref))));
 
         expect(expectPublishFailed(failure).category).toBe("validation");
         expect(world.requests).toEqual([]);

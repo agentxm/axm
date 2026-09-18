@@ -76,7 +76,7 @@ describe("Login preapproval over a valid session", () => {
           handle: "@alice",
         });
         expect(yield* storedAccessToken).toEqual(before);
-        expect(context.requestedScopes).toEqual([]);
+        expect(context.deviceAuthorizations).toEqual([]);
         expect(context.interactionState.openBrowserCalls).toEqual([]);
         expect(context.deviceInteractionState.openBrowserCalls).toEqual([]);
       }).pipe(Effect.provide(context.layer));
@@ -87,13 +87,13 @@ describe("Login preapproval over a valid session", () => {
     const context = ports({ machineOutput: false, sessionReplacement: "replace" });
     return Effect.gen(function* () {
       yield* login(
-        deviceLoginRequest({ yes: true, scopes: [], nonInteractive: false, machineOutput: false }),
+        deviceLoginRequest({ yes: true, nonInteractive: false, machineOutput: false }),
         authRegistry,
       );
 
       expect(context.presenterState.sessionReplacementPrompts).toEqual([]);
       expect(context.presenterState.existingSessions).toEqual(["@alice"]);
-      expect(context.requestedScopes).toHaveLength(1);
+      expect(context.deviceAuthorizations).toHaveLength(1);
       expect(yield* storedAccessToken).toEqual(Option.some("fixture-new-access"));
       expect(context.presenterState.loginSuccesses).toEqual([
         { status: "logged-in", registryHost: authRegistryHost, handle: "@alice" },
@@ -104,12 +104,9 @@ describe("Login preapproval over a valid session", () => {
   it.effect("machine output with preapproval signs in again and reports the new session", () => {
     const context = ports({ machineOutput: true });
     return Effect.gen(function* () {
-      yield* login(
-        deviceLoginRequest({ yes: true, scopes: [], nonInteractive: false }),
-        authRegistry,
-      );
+      yield* login(deviceLoginRequest({ yes: true, nonInteractive: false }), authRegistry);
 
-      expect(context.requestedScopes).toHaveLength(1);
+      expect(context.deviceAuthorizations).toHaveLength(1);
       expect(yield* storedAccessToken).toEqual(Option.some("fixture-new-access"));
       expect(context.presenterState.loginSuccesses.at(-1)).toEqual({
         status: "logged-in",
@@ -124,9 +121,9 @@ describe("Login preapproval over a valid session", () => {
     () => {
       const context = ports({ machineOutput: true });
       return Effect.gen(function* () {
-        yield* login(deviceLoginRequest({ yes: true, scopes: [] }), authRegistry);
+        yield* login(deviceLoginRequest({ yes: true }), authRegistry);
 
-        expect(context.requestedScopes).toHaveLength(1);
+        expect(context.deviceAuthorizations).toHaveLength(1);
         expect(context.presenterState.pendingEmissions.at(-1)).toMatchObject({
           status: "pending-human",
           userCode: "ABCD-1234",
@@ -141,14 +138,14 @@ describe("Login preapproval over a valid session", () => {
   it.effect("a non-interactive session without preapproval keeps the session", () => {
     const context = ports({ machineOutput: true });
     return Effect.gen(function* () {
-      const outcome = yield* login(deviceLoginRequest({ scopes: [] }), authRegistry);
+      const outcome = yield* login(deviceLoginRequest({}), authRegistry);
 
       expect(outcome).toEqual({
         _tag: "SessionRetained",
         registryHost: authRegistryHost,
         handle: "@alice",
       });
-      expect(context.requestedScopes).toEqual([]);
+      expect(context.deviceAuthorizations).toEqual([]);
       expect(yield* storedAccessToken).toEqual(Option.some("fixture-stored-access"));
     }).pipe(Effect.provide(context.layer));
   });
@@ -158,10 +155,7 @@ describe("Login preapproval over a valid session", () => {
     () => {
       const context = ports({ machineOutput: true, sessionReplacement: "replace" });
       return Effect.gen(function* () {
-        const outcome = yield* login(
-          deviceLoginRequest({ scopes: [], nonInteractive: false }),
-          authRegistry,
-        );
+        const outcome = yield* login(deviceLoginRequest({ nonInteractive: false }), authRegistry);
 
         expect(outcome).toEqual({
           _tag: "SessionRetained",
@@ -169,7 +163,7 @@ describe("Login preapproval over a valid session", () => {
           handle: "@alice",
         });
         expect(context.presenterState.sessionReplacementPrompts).toEqual([]);
-        expect(context.requestedScopes).toEqual([]);
+        expect(context.deviceAuthorizations).toEqual([]);
       }).pipe(Effect.provide(context.layer));
     },
   );
@@ -178,7 +172,7 @@ describe("Login preapproval over a valid session", () => {
     const context = ports({ machineOutput: false, sessionReplacement: "keep" });
     return Effect.gen(function* () {
       const outcome = yield* login(
-        deviceLoginRequest({ scopes: [], nonInteractive: false, machineOutput: false }),
+        deviceLoginRequest({ nonInteractive: false, machineOutput: false }),
         authRegistry,
       );
 
@@ -186,7 +180,7 @@ describe("Login preapproval over a valid session", () => {
         "Log in with a different account?",
       ]);
       expect(context.presenterState.existingSessions).toEqual(["@alice"]);
-      expect(context.requestedScopes).toEqual([]);
+      expect(context.deviceAuthorizations).toEqual([]);
       expect(outcome).toEqual({
         _tag: "SessionRetained",
         registryHost: authRegistryHost,

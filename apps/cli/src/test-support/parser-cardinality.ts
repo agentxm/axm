@@ -29,7 +29,6 @@ export const repeatedFlagControls = [
   ...["field", "property", "metadata", "lifecycle", "tag"].map((flag) =>
     control("knowledge concepts query", flag),
   ),
-  control("login", "scope"),
   control("mcps add", "env", ["ONE=1", "TWO=2"], ["parser-fixture"]),
   control("mcps add", "header", ["X-One:1", "X-Two:2"], ["parser-fixture"]),
   control("mcps install", "env", ["ONE=1", "TWO=2"]),

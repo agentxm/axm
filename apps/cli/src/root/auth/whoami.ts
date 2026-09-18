@@ -23,6 +23,7 @@ export const WhoamiDataSchema = Schema.Struct({
     Schema.Struct({ extensions: Schema.NullOr(Schema.Array(Schema.String)) }),
   ),
   expiresAt: Schema.NullOr(DateTimeUtcSchema),
+  approvedAt: Schema.NullOr(DateTimeUtcSchema),
 });
 const WhoamiDocumentFields = {
   data: WhoamiDataSchema,
@@ -63,6 +64,12 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(
           `Registry  ${identity.registry}`,
           `Credential  ${identity.credentialType}`,
           ...limits,
+          // Only a CLI session has an approving sign-in, and how recently that
+          // person authenticated is what stands behind this session's
+          // authority.
+          ...(identity.approvedAt === null
+            ? []
+            : [`Approved  ${DateTime.formatIso(identity.approvedAt)}`]),
           `Expires  ${identity.expiresAt === null ? "unavailable" : DateTime.formatIso(identity.expiresAt)}`,
           "",
         ].join("\n"),

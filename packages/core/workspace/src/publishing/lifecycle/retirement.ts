@@ -2,9 +2,11 @@
  * `RetirePublishedVersion`: excluding published versions from fresh
  * resolution, and restoring one.
  *
- * A yank is a Registry write. Every form carries human verification through
- * the `registry-access` step-up capability and reports the honest remote
- * outcome — never a workspace operation resolution.
+ * A yank is a Registry write that a signed-in publisher with the permission
+ * may simply make: excluding a version from fresh resolution leaves every
+ * exact install working, so nothing here asks a person to prove themselves
+ * again. Each form reports the honest remote outcome — never a workspace
+ * operation resolution.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -24,8 +26,6 @@ import {
   type RegistryExtensionVersionReference,
   type YankCategory,
 } from "@agentxm/registry-client";
-import { runWithStepUp, type StepUpOptions } from "@agentxm/registry-access/authentication";
-
 import { PublishFailed } from "../errors.js";
 import { registryTransition } from "./remote-outcome.js";
 
@@ -97,7 +97,6 @@ export interface YankRequest {
   readonly allVersions: boolean;
   readonly category?: YankCategory;
   readonly notice?: string;
-  readonly verification: StepUpOptions;
 }
 
 export const yank = Effect.fn("RetirePublishedVersion.yank")(function* (request: YankRequest) {
@@ -110,81 +109,37 @@ export const yank = Effect.fn("RetirePublishedVersion.yank")(function* (request:
   if (request.allVersions) {
     const ref = yield* parseExtensionReference(request.ref);
     const target = `${ref.owner}/${ref.type}/${ref.name}`;
-    const result = yield* runWithStepUp(
-      (stepUpRequestId) =>
-        yankAvailableExtensionVersions(
-          ref,
-          input,
-          stepUpRequestId === undefined ? undefined : { stepUpRequestId },
-        ),
-      {
-        operationLabel: `Yank ${request.ref}`,
-        waitingLabel: `verification to update ${request.ref}`,
-      },
-      request.verification,
-      registryUrl,
-    );
-    const affected = result.value.affectedVersions;
+    const result = yield* yankAvailableExtensionVersions(ref, input);
+    const affected = result.affectedVersions;
     return registryTransition({
       action: "yank",
       registry: registryUrl,
       target,
-      verificationCompleted: result.stepUpCompleted,
       affectedVersions: affected,
       message: `Yanked ${affected.length} available version${affected.length === 1 ? "" : "s"} of ${target}. Future versions are unaffected.`,
     });
   }
 
   const ref = yield* parseExactVersionReference(request.ref);
-  const result = yield* runWithStepUp(
-    (stepUpRequestId) =>
-      yankExtensionVersion(
-        ref,
-        input,
-        stepUpRequestId === undefined ? undefined : { stepUpRequestId },
-      ),
-    {
-      operationLabel: `Yank ${request.ref}`,
-      waitingLabel: `verification to update ${request.ref}`,
-    },
-    request.verification,
-    registryUrl,
-  );
+  yield* yankExtensionVersion(ref, input);
   return registryTransition({
     action: "yank",
     registry: registryUrl,
     target: request.ref,
     version: ref.version,
-    verificationCompleted: result.stepUpCompleted,
     message: `Yanked ${request.ref}. Exact installs remain available with a warning.`,
   });
 });
 
-export const unyank = Effect.fn("RetirePublishedVersion.unyank")(function* (
-  ref: string,
-  verification: StepUpOptions,
-) {
+export const unyank = Effect.fn("RetirePublishedVersion.unyank")(function* (ref: string) {
   const registryUrl = yield* RegistryUrl;
   const parsed = yield* parseExactVersionReference(ref);
-  const result = yield* runWithStepUp(
-    (stepUpRequestId) =>
-      unyankExtensionVersion(
-        parsed,
-        stepUpRequestId === undefined ? undefined : { stepUpRequestId },
-      ),
-    {
-      operationLabel: `Un-yank ${ref}`,
-      waitingLabel: `verification to update ${ref}`,
-    },
-    verification,
-    registryUrl,
-  );
+  yield* unyankExtensionVersion(parsed);
   return registryTransition({
     action: "unyank",
     registry: registryUrl,
     target: ref,
     version: parsed.version,
-    verificationCompleted: result.stepUpCompleted,
     message: `Restored ${ref} to fresh resolution.`,
   });
 });

@@ -95,7 +95,7 @@ describe("auth token handler", () => {
     else delete process.env["AXM_TOKEN"];
   });
 
-  it.effect("fails with auth_required when no token", () => {
+  it.effect("reports being signed out when no credential resolves", () => {
     const { provide } = makeLayers();
     return provide(
       Effect.gen(function* () {
@@ -108,7 +108,7 @@ describe("auth token handler", () => {
             }),
           ),
         );
-        expect(result).toMatchObject({ error: true, code: "auth_required" });
+        expect(result).toMatchObject({ error: true, code: "auth" });
       }),
     );
   });
@@ -198,7 +198,7 @@ describe("auth token handler", () => {
     const { provide, rendererState } = makeLayers({
       hasCredentials: true,
       authOverrides: {
-        createToken: (_accessToken, params) => {
+        createToken: (params) => {
           return Effect.succeed({
             id: "token_123",
             token: "axmt_created",
@@ -244,7 +244,7 @@ describe("auth token handler", () => {
       hasCredentials: true,
       nonInteractive: false,
       authOverrides: {
-        createToken: (_accessToken, params, options) => {
+        createToken: (params, options) => {
           createCalls.push({ params, options });
           if (options?.stepUpRequestId === undefined) {
             return Effect.fail(
@@ -316,7 +316,7 @@ describe("auth token handler", () => {
       hasCredentials: true,
       machine: true,
       authOverrides: {
-        createToken: (_accessToken, params) =>
+        createToken: (params) =>
           Effect.succeed({
             id: "token_123",
             token: "axmt_created",
@@ -492,7 +492,7 @@ describe("auth token handler", () => {
     const { provide, rendererState } = makeLayers({
       hasCredentials: true,
       authOverrides: {
-        deleteToken: (_accessToken, tokenId) => {
+        deleteToken: (tokenId) => {
           revoked.push(tokenId);
           return Effect.void;
         },
@@ -528,7 +528,7 @@ describe("auth token handler", () => {
       hasCredentials: true,
       machine: true,
       authOverrides: {
-        deleteToken: (_accessToken, tokenId) => {
+        deleteToken: (tokenId) => {
           revoked.push(tokenId);
           return Effect.void;
         },
@@ -560,7 +560,7 @@ describe("auth token handler", () => {
       hasCredentials: true,
       nonInteractive: false,
       authOverrides: {
-        deleteToken: (_accessToken, tokenId, options) => {
+        deleteToken: (tokenId, options) => {
           deleteCalls.push({ tokenId, options });
           if (options?.stepUpRequestId === undefined) {
             return Effect.fail(
@@ -633,7 +633,7 @@ describe("auth token handler", () => {
       json: true,
       nonInteractive: true,
       authOverrides: {
-        deleteToken: (_accessToken, tokenId, options) => {
+        deleteToken: (tokenId, options) => {
           deleteCalls.push({ tokenId, options });
           if (options?.stepUpRequestId === undefined) {
             return Effect.fail(

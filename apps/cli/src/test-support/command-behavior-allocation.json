@@ -3517,18 +3517,6 @@
             "type": "integer",
             "required": false
           }
-        },
-        {
-          "name": "scope",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": true
-          },
-          "occurrences": {
-            "minimumOccurrences": 0,
-            "repeatable": true
-          }
         }
       ],
       "arguments": [],
@@ -3537,14 +3525,6 @@
         "cli/login/retains-issued-session-when-identity-unavailable"
       ],
       "parameterBindings": [
-        {
-          "parameters": ["flag:scope"],
-          "requirements": [
-            "cli/login/reuses-pending-authorization",
-            "cli/login/starts-resumable-device-sign-in"
-          ],
-          "details": ["Registry authorization scope; unrelated to project/user workspace scope."]
-        },
         {
           "parameters": ["flag:yes"],
           "requirements": ["cli/login/preapproval-requests-new-sign-in"]
@@ -8329,24 +8309,7 @@
       ]
     },
     "unyank": {
-      "flags": [
-        {
-          "name": "step-up-request",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": false
-          }
-        },
-        {
-          "name": "wait-for-human",
-          "rawHelp": {
-            "aliases": [],
-            "type": "integer",
-            "required": false
-          }
-        }
-      ],
+      "flags": [],
       "arguments": [
         {
           "name": "extension",
@@ -8362,13 +8325,6 @@
         "cli/unattended-verification-is-resumable"
       ],
       "parameterBindings": [
-        {
-          "parameters": ["flag:step-up-request", "flag:wait-for-human"],
-          "requirements": [
-            "cli/registry-writes-complete-required-verification",
-            "cli/unattended-verification-is-resumable"
-          ]
-        },
         {
           "parameters": ["argument:extension"],
           "requirements": ["cli/unyank/requires-an-exact-version"],
@@ -8841,7 +8797,7 @@
       "arguments": [],
       "relatedRequirements": [
         "cli/credentials-follow-explicit-source-precedence",
-        "cli/whoami/refreshes-rejected-stored-credentials",
+        "cli/session/renews-the-stored-session-once",
         "cli/whoami/reports-safe-effective-identity"
       ],
       "conditionalLinks": [
@@ -8858,22 +8814,6 @@
     },
     "yank": {
       "flags": [
-        {
-          "name": "step-up-request",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": false
-          }
-        },
-        {
-          "name": "wait-for-human",
-          "rawHelp": {
-            "aliases": [],
-            "type": "integer",
-            "required": false
-          }
-        },
         {
           "name": "all-versions",
           "rawHelp": {
@@ -8914,13 +8854,6 @@
         "cli/unattended-verification-is-resumable"
       ],
       "parameterBindings": [
-        {
-          "parameters": ["flag:step-up-request", "flag:wait-for-human"],
-          "requirements": [
-            "cli/registry-writes-complete-required-verification",
-            "cli/unattended-verification-is-resumable"
-          ]
-        },
         {
           "parameters": ["argument:extension"],
           "requirements": ["cli/yank/submits-the-requested-version-selection"],

@@ -6,7 +6,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-export { AuthClientTest } from "./authentication/auth-client.js";
+export { AuthClientTest, TokenExchangeTest } from "./authentication/auth-client.js";
 export { CredentialStoreTest } from "./credentials/credential-store.js";
 export {
   DeviceLoginInteractionTest,

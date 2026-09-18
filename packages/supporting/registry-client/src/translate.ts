@@ -9,6 +9,7 @@ import {
   ForbiddenErrorEncoded,
   type RegistryClientError,
 } from "./__generated__/registry-client.js";
+import type { ForbiddenErrorEncoded as ForbiddenError } from "./__generated__/registry-client.js";
 import { RegistryProblem, type RegistryErrorCategory } from "./errors.js";
 import { registryRetryAfterSeconds } from "./retry-after.js";
 import { retainedRegistryResponseBody } from "./response-body.js";
@@ -88,19 +89,64 @@ const retryAfterSuggestedAction = (
     : { description: `Retry after ${String(retryAfterSeconds)}s.` };
 };
 
-const scopeDeniedSuggestedAction = (body: unknown): SuggestedAction | undefined => {
-  const decoded = tryDecode(decodeForbiddenError, body);
-  const requiredScope =
-    decoded?.details !== undefined && "requiredScope" in decoded.details
-      ? decoded.details.requiredScope
-      : undefined;
+/**
+ * What a person can do about one forbidding rule.
+ *
+ * A 403 reaches a caller who is signed in, so no entry here suggests signing
+ * in: the answer is never a different credential for the same person. Each
+ * code gets at most one recovery, and a code this table does not know keeps
+ * the Registry\'s own title and detail rather than inventing guidance for it.
+ */
+const FORBIDDEN_RECOVERIES: Partial<Record<ForbiddenError["code"], SuggestedAction>> = {
+  insufficient_scope: {
+    description: "This credential is narrower than your account. Use your signed-in session.",
+  },
+  resource_restriction: {
+    description: "This credential is restricted to other resources. Use your signed-in session.",
+  },
+  browser_session_required: {
+    description: "Complete this one on the web.",
+    url: "https://agentxm.ai",
+  },
+  gat_requires_session: {
+    description: "Complete this one on the web.",
+    url: "https://agentxm.ai",
+  },
+  credential_not_admitted: {
+    description: "This credential may not perform this operation.",
+  },
+  recent_authentication_required: {
+    description: "Verify it is you, then rerun the command.",
+  },
+  step_up_wrong_actor: {
+    description: "The verification was completed by a different person. Rerun the command.",
+  },
+  identity_suspended: {
+    description: "Contact support to restore this account.",
+    url: "https://agentxm.ai/support",
+  },
+  staff_credential_required: { description: "This operation is restricted to AgentXM staff." },
+  staff_role_required: { description: "Your staff role does not include this operation." },
+  delegated_permission_not_held: {
+    description: "Ask an owner of this resource for the permission this needs.",
+  },
+  "publish/handle-not-owned": {
+    description: "Publish under a handle you own, or ask its owner to add you.",
+  },
+  "publish/insufficient-scope": {
+    description: "This credential cannot publish. Use your signed-in session.",
+  },
+  "publish/resource-restriction": {
+    description: "This credential is restricted to other extensions. Use your signed-in session.",
+  },
+  "publish/publish-forbidden": {
+    description: "Ask an owner of this extension for publish permission.",
+  },
+};
 
-  return requiredScope === undefined
-    ? undefined
-    : {
-        description: "Sign in with the required registry scope.",
-        cmd: `axm login --scope ${requiredScope}`,
-      };
+const forbiddenSuggestedAction = (body: unknown): SuggestedAction | undefined => {
+  const decoded = tryDecode(decodeForbiddenError, body);
+  return decoded === undefined ? undefined : FORBIDDEN_RECOVERIES[decoded.code];
 };
 
 const lintFailedSuggestions = (body: unknown): ReadonlyArray<SuggestedAction> => {
@@ -166,11 +212,11 @@ const problemSuggestions = (
 ): ReadonlyArray<SuggestedAction> => {
   const body = problem;
   const retry = retryAfterSuggestedAction(status, body, response);
-  const scope = status === 403 ? scopeDeniedSuggestedAction(body) : undefined;
+  const forbidden = status === 403 ? forbiddenSuggestedAction(body) : undefined;
   const serverError = serverErrorSuggestedAction(status);
   return [
     ...(retry === undefined ? [] : [retry]),
-    ...(scope === undefined ? [] : [scope]),
+    ...(forbidden === undefined ? [] : [forbidden]),
     ...(serverError === undefined ? [] : [serverError]),
     ...(status === 422 && problem.code === "extension_lint_failed"
       ? lintFailedSuggestions(body)

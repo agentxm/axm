@@ -15,7 +15,7 @@ export const specification = defineSpecification({
   requirement: "cli/token/revoke/revokes-only-selected-token",
   title: "Token revocation names the selected credential",
   statement:
-    "When token revoke is requested, AXM shall request deletion of the selected token identifier using the effective credential and report success only after the Registry accepts deletion.",
+    "When token revoke is requested, AXM shall request deletion of the selected token identifier and report success only after the Registry accepts deletion.",
   class: "functional",
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -33,9 +33,9 @@ describe("Token revocation", () => {
       const { layer } = makeAuthPorts({
         credentials: authCredentialFile,
         auth: {
-          deleteToken: (token, id) =>
+          deleteToken: (id) =>
             Effect.gen(function* () {
-              requests.push({ token, id });
+              requests.push({ id });
               if (!accepted)
                 return yield* new RegistryAccessFailed({
                   category: "auth",
@@ -54,7 +54,7 @@ describe("Token revocation", () => {
         } else {
           expect(authFailureCategory(yield* operation.pipe(Effect.flip))).toBe("auth");
         }
-        expect(requests).toEqual([{ token: "fixture-stored-access", id: "selected-token" }]);
+        expect(requests).toEqual([{ id: "selected-token" }]);
       }).pipe(Effect.provide(layer));
     });
   }

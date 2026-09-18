@@ -8,18 +8,20 @@
 export {
   AuthExchangeFailed,
   AuthInteractionAbandoned,
-  AuthLoginRequired,
   AuthTokenPolicyRequired,
   DeviceAuthorizationPending,
   DeviceLoginCodeExpired,
   DeviceLoginDenied,
   REGISTRY_ACCESS_ERROR_CATEGORIES,
+  RefreshUnavailable,
   RegistryAccessFailed,
+  SessionEnded,
+  SignedOut,
   StepUpRequired,
   StepUpVerificationPending,
-  authLoginRequired,
   isAuthError,
   isRegistryAccessFailure,
+  signedOut,
   type AuthError,
   type RegistryAccessErrorCategory,
   type RegistryAccessFailure,
@@ -32,8 +34,16 @@ export type {
   DeviceFlowResponse,
   MeResponse,
   PollResult,
+  TokenExchangeService,
 } from "./auth-client.js";
-export { AuthClient, pollOnce, readStepUpRequest } from "./auth-client.js";
+export {
+  AuthClient,
+  LOGIN_SCOPE,
+  REFRESH_SKEW_SECONDS,
+  TokenExchange,
+  pollOnce,
+  readStepUpRequest,
+} from "./auth-client.js";
 export type { NormalizedTokenResponse } from "./oauth-contract.js";
 
 export type {
@@ -85,7 +95,13 @@ export {
   type LoginRequest,
 } from "./login.js";
 export { logout, type LogoutOutcome } from "./logout.js";
-export { currentIdentity, currentToken, type RegistryIdentity } from "./identity.js";
+export {
+  currentIdentity,
+  currentToken,
+  isSignedIn,
+  requireSignedIn,
+  type RegistryIdentity,
+} from "./identity.js";
 export {
   MIN_TOKEN_LIFETIME_SECONDS,
   createToken,
@@ -115,7 +131,6 @@ export {
   type LoginStrategyEnvironment,
   type LoginStrategyOptions,
 } from "./login-strategy.js";
-export { withAuthGuard } from "./guard.js";
 
 export type { AuthLoginInteractionService } from "../adapters/login-interaction.js";
 export { AuthLoginInteraction } from "../adapters/login-interaction.js";

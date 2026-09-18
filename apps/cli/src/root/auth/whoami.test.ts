@@ -25,6 +25,7 @@ const defaultWhoami = {
   scopes: null,
   resourceRestrictions: null,
   expiresAt: null,
+  approvedAt: null,
 };
 
 const makeLayers = (opts?: {
@@ -78,14 +79,14 @@ const makeLayers = (opts?: {
 };
 
 describe("auth whoami handler", () => {
-  it.effect("fails with auth_required when no token", () => {
+  it.effect("reports being signed out when no credential resolves", () => {
     const { provide } = makeLayers();
     return provide(
       Effect.gen(function* () {
         const result = yield* handleWhoami().pipe(
           Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })),
         );
-        expect(result).toMatchObject({ error: true, code: "auth_required" });
+        expect(result).toMatchObject({ error: true, code: "auth" });
       }),
     );
   });

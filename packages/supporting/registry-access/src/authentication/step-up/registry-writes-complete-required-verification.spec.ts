@@ -55,27 +55,13 @@ interface RecordedWrite {
 }
 
 const observedRevision = "observed-revision";
-const registryVersion = "@alice/skills/review@1.0.0";
 const registryTarget = "@alice/skills/review";
 
 /** The four version-lifecycle and visibility writes, as mutation ports. */
+// Only the operations in the exceptions register challenge a signed-in
+// person. Yank and un-yank left it: neither destroys anything, so neither asks
+// the publisher to prove themselves again.
 const mutations = [
-  {
-    name: "yank",
-    target: registryVersion,
-    method: "POST",
-    url: `${authRegistry}/v1/extensions/${registryVersion}/yank`,
-    body: { category: "security", notice: "Unsafe release." },
-    ifMatch: undefined,
-  },
-  {
-    name: "unyank",
-    target: registryVersion,
-    method: "DELETE",
-    url: `${authRegistry}/v1/extensions/${registryVersion}/yank`,
-    body: {},
-    ifMatch: undefined,
-  },
   {
     name: "visibility set",
     target: registryTarget,
@@ -106,13 +92,13 @@ const makePorts = (
   behavior: (typeof behaviors)[number],
   overrides: AuthPortsOptions["auth"] = {},
 ) => {
-  const waits: Array<{ token: string; url: string; interval: number }> = [];
+  const waits: Array<{ url: string; interval: number }> = [];
   const ports = makeAuthPorts({
     credentials: authCredentialFile,
     auth: {
-      waitForStepUpRequest: (token, url, interval) =>
+      waitForStepUpRequest: (url, interval) =>
         Effect.gen(function* () {
-          waits.push({ token, url, interval });
+          waits.push({ url, interval });
           if (behavior === "denied")
             return yield* new RegistryAccessFailed({
               category: "auth_denied",
@@ -125,9 +111,7 @@ const makePorts = (
   return { ...ports, waits };
 };
 
-const expectedWait = [
-  { token: "fixture-stored-access", url: stepUpStatusUrl, interval: 2 },
-] as const;
+const expectedWait = [{ url: stepUpStatusUrl, interval: 2 }] as const;
 
 describe("Registry mutation verification", () => {
   for (const mutation of mutations) {
@@ -200,21 +184,20 @@ describe("Token administration verification", () => {
             : "Revoke registry token automation";
         const stepUp = makeStepUpRequest(label, label);
         const requests: Array<{
-          token: string;
           intent: unknown;
           verification: string | undefined;
         }> = [];
 
-        const challengedWrite = (token: string, intent: unknown, verification?: string) =>
+        const challengedWrite = (intent: unknown, verification?: string) =>
           Effect.gen(function* () {
-            requests.push({ token, intent, verification });
+            requests.push({ intent, verification });
             if (requests.length === 1 || behavior === "challenged-again")
               return yield* stepUpChallenge(stepUp);
           });
 
         const ports = makePorts(behavior, {
-          createToken: (token, params, options) =>
-            challengedWrite(token, params, options?.stepUpRequestId).pipe(
+          createToken: (params, options) =>
+            challengedWrite(params, options?.stepUpRequestId).pipe(
               Effect.as({
                 id: "fixture-created",
                 token: "fixture-issued-secret",
@@ -225,7 +208,7 @@ describe("Token administration verification", () => {
                 expiresAt: authExpiry,
               }),
             ),
-          deleteToken: (token, id, options) => challengedWrite(token, id, options?.stepUpRequestId),
+          deleteToken: (id, options) => challengedWrite(id, options?.stepUpRequestId),
         });
 
         const verification = { unattended: true, waitForHumanSeconds: 60 } as const;

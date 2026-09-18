@@ -23,7 +23,7 @@ import {
 import { CredentialStore } from "../credentials/credential-store.js";
 import { RegistryAccessFailed } from "./errors.js";
 import { AuthLoginPresenter } from "./login-presenter.js";
-import { currentToken } from "./identity.js";
+import { requireSignedIn } from "./identity.js";
 import { runWithStepUp, type StepUpOptions } from "./step-up.js";
 import { maxTokenLifetimeSeconds, type TokenPermissionLevel } from "./tokens/permissions.js";
 
@@ -106,14 +106,13 @@ export const createToken = Effect.fn("Tokens.create")(function* (
   registryUrl: string,
 ) {
   const authClient = yield* AuthClient;
-  const token = yield* currentToken(registryUrl);
+  yield* requireSignedIn(registryUrl);
   const expiresIn = yield* parseExpiresInSeconds(request.expires).pipe(
     Effect.flatMap((seconds) => validateExpiresInSeconds(seconds, request.permission)),
   );
   const created = yield* runWithStepUp(
     (stepUpRequestId) =>
       authClient.createToken(
-        token,
         { name: request.name, expiresIn, permissions: tokenPermissions(request) },
         stepUpRequestId === undefined ? undefined : { stepUpRequestId },
       ),
@@ -133,11 +132,10 @@ export const revokeToken = Effect.fn("Tokens.revoke")(function* (
   registryUrl: string,
 ) {
   const authClient = yield* AuthClient;
-  const token = yield* currentToken(registryUrl);
+  yield* requireSignedIn(registryUrl);
   const revoked = yield* runWithStepUp(
     (stepUpRequestId) =>
       authClient.deleteToken(
-        token,
         tokenId,
         stepUpRequestId === undefined ? undefined : { stepUpRequestId },
       ),
@@ -154,9 +152,9 @@ export const revokeToken = Effect.fn("Tokens.revoke")(function* (
 export const listTokens = Effect.fn("Tokens.list")(function* (registryUrl: string) {
   const authClient = yield* AuthClient;
   const presenter = yield* AuthLoginPresenter;
-  const token = yield* currentToken(registryUrl);
+  yield* requireSignedIn(registryUrl);
   return yield* presenter.withProgress({ _tag: "ListingRegistryTokens" }, () =>
-    authClient.listTokens(token),
+    authClient.listTokens(),
   );
 });
 

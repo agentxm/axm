@@ -38,8 +38,9 @@ import {
   AuthLoginPresenterTest,
   CredentialStoreTest,
   DeviceLoginInteractionTest,
+  TokenExchangeTest,
 } from "@agentxm/registry-access/testing";
-import { AuthMiddlewareLive } from "@agentxm/registry-access/adapters";
+import { AuthMiddlewareLive, SessionRefresherLive } from "@agentxm/registry-access/adapters";
 import { RegistryUrlTest, testRegistryUrl } from "@agentxm/registry-client/testing";
 import { validateArchive } from "@agentxm/extension-content";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -290,8 +291,17 @@ export const makePublishWorld = (options: PublishWorldOptions = {}) => {
     platform,
   );
   // The production auth middleware wraps the transport, so a seeded session
-  // authenticates every Registry request exactly as it does in the CLI.
-  const services = Layer.provideMerge(Layer.provide(AuthMiddlewareLive, base), base);
+  // authenticates every Registry request exactly as it does in the CLI. No
+  // example here exercises renewal, so the token endpoint stays unimplemented:
+  // a seeded session is valid and never reaches it.
+  const withRefresher = Layer.provideMerge(
+    Layer.provide(SessionRefresherLive, Layer.merge(TokenExchangeTest(), base)),
+    base,
+  );
+  const services = Layer.provideMerge(
+    Layer.provide(AuthMiddlewareLive, withRefresher),
+    withRefresher,
+  );
 
   return {
     /** Absolute project root of the temporary workspace. */

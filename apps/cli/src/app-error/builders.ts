@@ -11,12 +11,22 @@ export const BC = {
   }),
 } as const;
 
-export const errAuthRequired = (message = "Authentication required", cause?: unknown) =>
+/**
+ * The one result for being signed out.
+ *
+ * There are two states, so there is one way to report the first: signed out,
+ * with the command that ends it. The device-code form is carried alongside for
+ * an invocation that has no terminal of its own to run a browser sign-in from,
+ * and a token for one that cannot sign in at all. Nothing that a signed-in
+ * person can hit renders this.
+ */
+export const errSignedOut = (message = "You are not signed in.", cause?: unknown) =>
   makeAppError({
-    code: "auth_required",
+    code: "auth",
     detail: message,
     blockedOn: "human",
     suggestions: [
+      BC.run("axm login", "Sign in."),
       BC.run(
         "axm login --device-code --json",
         "Start a non-blocking device sign-in and ask a person to approve it.",

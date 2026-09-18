@@ -37,9 +37,8 @@ describe("Identity lookup recovery", () => {
     const ports = makeAuthPorts({
       presenter: machineOutputPresenter,
       auth: {
-        getMe: (token) =>
+        getMe: () =>
           Effect.suspend(() => {
-            expect(token).toBe("fixture-new-access");
             return identityAvailable
               ? Effect.succeed({
                   userHandle: authHandle,
@@ -48,6 +47,7 @@ describe("Identity lookup recovery", () => {
                   scopes: null,
                   resourceRestrictions: null,
                   expiresAt: authExpiry,
+                  approvedAt: null,
                 })
               : Effect.fail(
                   new RegistryAccessFailed({
@@ -61,7 +61,6 @@ describe("Identity lookup recovery", () => {
     return Effect.gen(function* () {
       yield* initiateDeviceLogin(authRegistry, {
         openBrowser: false,
-        scopes: ["extensions:read"],
       });
       yield* resumeDeviceLogin(authRegistry);
 

@@ -15,17 +15,14 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import { envOption } from "../adapters/environment.js";
 
-import { normalizeHandle, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
+import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
-  authLoginRequired,
   RegistryAccessFailed,
-  type AuthError,
-  type AuthLoginRequired,
+  signedOut,
   type AuthTokenPolicyRequired,
+  type SignedOut,
 } from "../authentication/errors.js";
-import { AuthClient } from "../authentication/auth-client.js";
 import { CredentialStore, makePersistedCredentialsUnsupportedError } from "./credential-store.js";
-import type { NormalizedTokenResponse } from "../authentication/oauth-contract.js";
 import {
   CredentialStoreTokenSource,
   EnvVarTokenSource,
@@ -61,26 +58,6 @@ const makeStoredTokenSource = (
     expires_at: credentials.expires_at,
     registryUrl,
   });
-
-const persistRefreshedCredentials = (registryUrl: string, token: NormalizedTokenResponse) =>
-  Effect.gen(function* () {
-    const store = yield* CredentialStore;
-    const existing = yield* store.load(registryUrl);
-    const handle = Option.match(existing, {
-      onNone: () => normalizeHandle("@unknown"),
-      onSome: (credentials) => credentials.handle,
-    });
-
-    yield* store.save(registryUrl, handle, {
-      access_token: token.access_token,
-      refresh_token: token.refresh_token,
-      expires_at: token.expires_at,
-    });
-
-    return makeStoredTokenSource(registryUrl, token);
-  });
-
-const makeLoginRequiredError = (): AuthLoginRequired => authLoginRequired();
 
 /**
  * Read the locally-stored user handle for the given registry URL.
@@ -121,14 +98,6 @@ export const resolveStoredToken = (
 
     const stored = yield* store.load(origin);
     return Option.map(stored, (credentials) => makeStoredTokenSource(origin, credentials));
-  });
-
-export const refreshStoredToken = (tokenSource: CredentialStoreTokenSource) =>
-  Effect.gen(function* () {
-    const authClient = yield* AuthClient;
-
-    const token = yield* authClient.refreshToken(tokenSource.refresh_token);
-    return yield* persistRefreshedCredentials(tokenSource.registryUrl, token);
   });
 
 /**
@@ -220,10 +189,9 @@ export const resolveRequestToken = (
  * 3. --token flag (passed as `flagToken` parameter)
  * 4. CredentialStore lookup by registry URL
  *
- * Returns the stored token as-is without proactive refresh. Callers should
- * handle 401 responses from the server (e.g., prompt re-login). The auth
- * middleware handles automatic refresh on 401 for requests going through
- * HttpClient.
+ * Returns the stored token as it is. Renewal belongs to the auth middleware
+ * and the session refresher behind it, so nothing here decides whether a
+ * session is still alive.
  *
  * Returns `Option.none()` when no token is available from any source.
  */
@@ -238,20 +206,20 @@ export const resolveToken = (
   });
 
 /**
- * Resolve a token and fail with the correct auth policy error when none is available.
+ * Resolve the invocation's credential, or say which of the two signed-out
+ * situations it is in.
  *
- * In CI environments, persisted credentials are disabled by policy, so
- * callers should surface the auth policy error instead of suggesting `axm login`.
+ * Where persisted credentials are disabled by policy — CI, most notably — an
+ * ambient token is the only way to be signed in, so the refusal names that
+ * rather than a sign-in the environment cannot perform. Everywhere else there
+ * is one signed-out result, with one message.
  */
 export const resolveRequiredToken = (
   registryUrl: string,
-  options?: {
-    readonly flagToken?: string;
-    readonly missingTokenError?: AuthError;
-  },
+  options?: { readonly flagToken?: string },
 ): Effect.Effect<
   TokenSource,
-  RegistryAccessFailed | AuthLoginRequired | AuthTokenPolicyRequired | AuthError,
+  RegistryAccessFailed | SignedOut | AuthTokenPolicyRequired,
   CredentialStore
 > =>
   Effect.gen(function* () {
@@ -265,5 +233,5 @@ export const resolveRequiredToken = (
       return yield* makePersistedCredentialsUnsupportedError();
     }
 
-    return yield* options?.missingTokenError ?? makeLoginRequiredError();
+    return yield* signedOut();
   });

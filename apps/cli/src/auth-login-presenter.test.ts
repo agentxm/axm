@@ -30,7 +30,6 @@ const pendingResult: DeviceLoginPendingResult = {
   registryHost: "registry.agentxm.ai",
   verificationUri: "https://auth.agentxm.ai/device",
   verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
-  requestedScopes: ["extensions:read"],
   userCode: "ABCD-1234",
   expiresAt: "2099-01-01T00:00:00.000Z",
   interval: 5,

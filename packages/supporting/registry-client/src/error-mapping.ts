@@ -67,10 +67,10 @@ export const isHttpClientError = (e: unknown): e is HttpClientError.HttpClientEr
 export const isTransientRegistryError = (e: unknown): boolean => {
   if (isAnyRegistryClientError(e)) return e.response.status >= 500;
   if (!HttpClientError.isHttpClientError(e)) return false;
-  const reason = e.reason;
-  if (reason._tag === "TransportError") return true;
-  if (reason._tag === "StatusCodeError" && reason.response.status >= 500) return true;
-  return false;
+  if (e.reason._tag === "TransportError") return true;
+  // A 5xx the client could not decode is still a 5xx: the failure is the
+  // server's, whatever shape its body arrived in.
+  return (e.response?.status ?? 0) >= 500;
 };
 
 /**

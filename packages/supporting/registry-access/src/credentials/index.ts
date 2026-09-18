@@ -33,7 +33,6 @@ export {
 
 export {
   getCurrentUserHandle,
-  refreshStoredToken,
   resolveAmbientToken,
   resolveRequestToken,
   resolveRequiredToken,
@@ -41,3 +40,9 @@ export {
   resolveToken,
 } from "./token-resolution.js";
 export { hasCredentialsForAll } from "./login-suggestion.js";
+
+export {
+  SessionRefresher,
+  type SessionRefreshError,
+  type SessionRefresherService,
+} from "./session-refresh.js";

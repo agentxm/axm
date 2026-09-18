@@ -40,17 +40,50 @@ A token refused for its own limits reports `insufficient_scope` or
 `resource_restriction`, which names the level it would have needed. A session
 reaching either is a defect, not a reason to mint a token.
 
+## Keeping a session alive
+
+One place renews a stored session: `SessionRefresher`, behind the auth
+middleware. It runs before a request whose access token expires within five
+minutes, and again once if the Registry rejects one. Nothing else spends a
+refresh token, and no command decides for itself whether it is authenticated.
+
+Refresh tokens rotate with reuse detection, so two processes that spend the
+same one lose the whole family. Renewal therefore holds a cross-process lock on
+`refresh.lock` in the credential home for the whole attempt — the re-read, the
+token round trip, and the write — and re-reads the store past the per-session
+memo before deciding. A process that finds a different token on disk adopts it
+instead of spending its own.
+
+A failed renewal is two outcomes, not one. A Registry that answers and refuses
+ends the session, and the person is signed out. A Registry that could not be
+reached, or that failed while trying, has decided nothing: the credential is
+kept and the invocation reports a transport failure. Never collapse the second
+into the first — a network blip must not read as being signed out.
+
 ## Device-flow contract
 
 Nonblocking device login emits a complete authorization URL, a clean fallback
-URL, the code as a separate field, expiry, requested scopes, and a resume
-command. Repeating initiation for the same Registry and normalized scope set
-re-emits the unexpired request. A different Registry or scope set conflicts;
+URL, the code as a separate field, expiry, and a resume command. Every sign-in
+asks for the same thing, so repeating initiation for the same Registry
+re-emits the unexpired request and only a different Registry conflicts;
 `--restart` is the explicit replacement operation.
 
 Timeout remains retryable and preserves the pending request. Denial and expiry
 are distinct terminal outcomes and clear it. These states are part of the JSON
 contract, so update schemas, tests, help, and telemetry together.
+
+## Signed out
+
+Being signed out is one result with one rendering: code `auth`, exit 4, and
+`axm login`, with the device-code form and token guidance alongside for an
+invocation that cannot run a browser sign-in. `axm publish` returns it when no
+credential resolves, exactly as every other command does.
+
+No 403 renders it. A refusal that reaches a signed-in person is answered by
+their permissions, by using their session instead of a narrower credential, or
+by a step-up from the table above — never by signing in again. `translate.ts`
+keys its recovery off the wire code and falls back to the Registry's own title
+and detail; no branch may emit `axm login`.
 
 ## Step-up handoff contract
 
@@ -69,23 +102,8 @@ signals capability acquisition separately from the eventual publication result.
 The listener's scoped failure finalizer must close a received callback without
 claiming success when its owner fails or is interrupted.
 
-## Exact publish handoff
+## Publishing
 
-An unattended publish without existing publication authority returns an
-`auth_required` pending-human error at exit 13 with `action.purpose: "publish"`.
-It persists a private initiator proof locally before returning. Only the proof's
-challenge is sent when creating the request; the public request URL cannot
-exchange approval by itself.
-
-Resume with the original publication inputs and `--authorization-request URL`,
-using the returned `action.requestRef`. The rebuilt publication set, archives,
-visibility inputs, Registry, and request must still match before polling or
-exchange. `--wait-for-human SECONDS` selects a positive bounded wait and returns
-the same handoff at exit 16 if the wait ends first. Ordinary interactive publish
-continues to use exact browser consent and loopback delivery.
-
-Polling exchanges only an approved request and does not retry a lost exchange
-response. A later resume checks the retained request: prior exchange requires
-publication-outcome verification before new consent. Denied and expired
-requests are terminal. Never turn authorization resume into blind upload replay;
-the publication result and its recovery instruction own upload settlement.
+Publishing requires a session or a token. There is no signed-out approval path
+and no browser-approved publish capability: a signed-out `axm publish` returns
+the signed-out result above and offers sign-in.

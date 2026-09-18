@@ -91,6 +91,7 @@ const makeLayers = (opts?: {
     scopes: null,
     resourceRestrictions: null,
     expiresAt: null,
+    approvedAt: null,
   };
 
   const authClientLayer = AuthClientTest({
@@ -168,7 +169,7 @@ describe("auth login handler", () => {
     return provide(
       Effect.gen(function* () {
         const error = yield* Effect.flip(
-          handleLogin({ yes: true, deviceCode: true, timeoutSeconds: 300, scopes: [] }),
+          handleLogin({ yes: true, deviceCode: true, timeoutSeconds: 300 }),
         );
         expect(error).toMatchObject({ code: "usage", detail: "--timeout requires --wait." });
       }),
@@ -191,7 +192,6 @@ describe("auth login handler", () => {
         yield* handleLogin({
           yes: false,
           deviceCode: false,
-          scopes: [],
         });
         expect(rendererState.results[0]?.data).toMatchObject({
           result: {
@@ -215,7 +215,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: false, scopes: [] });
+        yield* handleLogin({ yes: false, deviceCode: false });
         expect(sessionReplacementPrompts).toEqual([]);
         const result = expectRecord(
           property(expectRecord(rendererState.results[0]?.data), "result"),
@@ -236,7 +236,6 @@ describe("auth login handler", () => {
         const result = yield* handleLogin({
           yes: false,
           deviceCode: true,
-          scopes: [],
         }).pipe(Effect.catchTag("AppError", (e) => Effect.succeed({ error: true, code: e.code })));
         expect(result).toMatchObject({ error: true, code: "auth_required" });
       }),
@@ -247,7 +246,7 @@ describe("auth login handler", () => {
     const { provide, rendererState } = makeLayers();
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
+        yield* handleLogin({ yes: false, deviceCode: true });
         expect(
           rendererState.logs.some(
             (l) =>
@@ -259,14 +258,8 @@ describe("auth login handler", () => {
     );
   });
 
-  it("passes requested scopes to device login", () => {
-    expect(
-      deviceLoginOptions({ restart: false, scopes: ["extensions:publish:new"] }, false).scopes,
-    ).toEqual(["extensions:publish:new"]);
-  });
-
   it("passes explicit restart intent to device login", () => {
-    expect(deviceLoginOptions({ restart: true, scopes: [] }, false).restart).toBe(true);
+    expect(deviceLoginOptions({ restart: true }, false).restart).toBe(true);
   });
 
   it.effect("requires device-code mode for explicit restart", () => {
@@ -279,7 +272,6 @@ describe("auth login handler", () => {
             yes: false,
             deviceCode: false,
             restart: true,
-            scopes: [],
           }),
         );
 
@@ -292,7 +284,7 @@ describe("auth login handler", () => {
   });
 
   it("does not launch a browser for explicit device-code login", () => {
-    expect(deviceLoginOptions({ restart: false, scopes: [] }, false).openBrowser).toBe(false);
+    expect(deviceLoginOptions({ restart: false }, false).openBrowser).toBe(false);
   });
 
   it("does not fall back to device code after loopback timeout", () => {
@@ -344,7 +336,7 @@ describe("auth login handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: false, scopes: [] }).pipe(
+        yield* handleLogin({ yes: false, deviceCode: false }).pipe(
           Effect.provideService(AuthEnvironment, ConfigProvider.fromEnvRecord({ CI: "1" })),
         );
 
@@ -383,7 +375,7 @@ describe("auth login handler", () => {
     const { provide, rendererState } = makeLayers();
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
+        yield* handleLogin({ yes: false, deviceCode: true });
         const instructions = rendererState.logs
           .filter((log) => log._tag === "info")
           .map((log) => log.message);
@@ -407,7 +399,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
+        yield* handleLogin({ yes: false, deviceCode: true });
         expect(
           rendererState.logs.some(
             (l) => l._tag === "info" && l.message.includes("Already logged in"),
@@ -432,7 +424,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: true, deviceCode: true, scopes: [] });
+        yield* handleLogin({ yes: true, deviceCode: true });
         expect(
           rendererState.logs.some(
             (l) => l._tag === "info" && l.message.includes("Already logged in"),
@@ -458,7 +450,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: true, deviceCode: true, scopes: [] });
+        yield* handleLogin({ yes: true, deviceCode: true });
         const result = expectRecord(
           property(expectRecord(rendererState.results[0]?.data), "result"),
         );
@@ -480,7 +472,7 @@ describe("auth login handler", () => {
       });
       return provide(
         Effect.gen(function* () {
-          yield* handleLogin({ yes: true, deviceCode: true, scopes: [] });
+          yield* handleLogin({ yes: true, deviceCode: true });
           expect(
             rendererState.logs.filter(
               (l) => l._tag === "success" && l.message.includes("Already logged in to"),
@@ -507,7 +499,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
+        yield* handleLogin({ yes: false, deviceCode: true });
         expect(rendererState.logs).toContainEqual({
           _tag: "success",
           message: "Already logged in to registry.agentxm.ai as @alice.",
@@ -527,7 +519,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
+        yield* handleLogin({ yes: false, deviceCode: true });
         expect(sessionReplacementPrompts).toEqual(["Log in with a different account?"]);
         expect(
           rendererState.logs.filter(
@@ -556,7 +548,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
+        yield* handleLogin({ yes: false, deviceCode: true });
 
         expect(
           rendererState.logs.filter((log) => log._tag === "info" || log._tag === "success"),
@@ -585,7 +577,7 @@ describe("auth login handler", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
+        yield* handleLogin({ yes: false, deviceCode: true });
         expect(
           rendererState.logs.some(
             (l) => l._tag === "info" && l.message.includes("Already logged in"),
@@ -641,7 +633,7 @@ describe("auth login handler", () => {
     );
 
     return Effect.gen(function* () {
-      yield* handleLogin({ yes: false, deviceCode: true, scopes: [] });
+      yield* handleLogin({ yes: false, deviceCode: true });
 
       expect(
         rendererState2.logs.some(

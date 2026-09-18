@@ -43,8 +43,6 @@ export const RegistryTransitionSchema = Schema.Struct({
    * mistakes a Registry transition for a rollbackable workspace operation.
    */
   restorable: Schema.Literal(false),
-  /** Whether a person completed step-up verification for this write. */
-  verification: Schema.Literals(["not-required", "completed"] as const),
   message: Schema.String,
   /** Versions the write affected, when the Registry enumerated them. */
   affectedVersions: Schema.optional(Schema.Array(Schema.String)),
@@ -64,7 +62,6 @@ export const registryTransition = (input: {
   readonly target: string;
   readonly version?: string;
   readonly disposition?: RegistryTransition["disposition"];
-  readonly verificationCompleted: boolean;
   readonly message: string;
   readonly affectedVersions?: ReadonlyArray<string>;
 }): RegistryTransition => ({
@@ -75,7 +72,6 @@ export const registryTransition = (input: {
   ...(input.version === undefined ? {} : { version: input.version }),
   disposition: input.disposition ?? "changed",
   restorable: false,
-  verification: input.verificationCompleted ? "completed" : "not-required",
   message: input.message,
   ...(input.affectedVersions === undefined ? {} : { affectedVersions: input.affectedVersions }),
 });

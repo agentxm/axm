@@ -75,6 +75,19 @@ People and agents can understand invalid workspace state and recover it through 
 - Limitation: Upgrade is the only delegating operation this specification exercises; another command that delegates to an external tool is covered by the statement but not yet by an example. Retires when: A second command delegates to an external tool and its event log is added to this specification.
 - Source: [`apps/cli/src/root/upgrade/delegated-operations-narrate-external-work.spec.ts`](../apps/cli/src/root/upgrade/delegated-operations-narrate-external-work.spec.ts)
 
+##### A refusal a signed-in person can hit never suggests signing in
+
+- Requirement: `cli/denials/only-being-signed-out-suggests-signing-in`
+- Owner: `registry-client`
+- Statement: When the Registry forbids an operation, AXM shall render the refusal from its wire code, offer at most one recovery, fall back to the Registry's own title and detail for a code it carries no recovery for, and never suggest signing in.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/supporting/registry-client/src/translate.ts`
+- Source: [`packages/supporting/registry-client/src/only-being-signed-out-suggests-signing-in.spec.ts`](../packages/supporting/registry-client/src/only-being-signed-out-suggests-signing-in.spec.ts)
+
 ##### Quiet takes precedence over debug and verbose diagnostics
 
 - Requirement: `cli/diagnostic-controls-select-the-requested-detail`
@@ -334,6 +347,33 @@ People and agents can understand invalid workspace state and recover it through 
 - Limitation: The HTTP evidence does not establish visual rendering or a real identity-provider round trip. Retires when: Record browser verification of the provider, callback, and terminal result.
 - Source: [`packages/supporting/registry-access/src/authentication/browser-completion-follows-credential-persistence.spec.ts`](../packages/supporting/registry-access/src/authentication/browser-completion-follows-credential-persistence.spec.ts)
 
+##### A read carries the credential the invocation holds
+
+- Requirement: `cli/reads-carry-the-invocations-credential`
+- Owner: `registry-access`
+- Statement: When an invocation reads from a Registry, AXM shall present the credential it holds — so a signed-in person sees what their permissions allow, including their own private extensions — shall read anonymously when it holds none rather than refusing, and shall leave a credential the caller set on the request exactly as the caller set it.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/supporting/registry-access/src/adapters/auth-middleware.ts`
+- Source: [`packages/supporting/registry-access/src/adapters/reads-carry-the-invocations-credential.spec.ts`](../packages/supporting/registry-access/src/adapters/reads-carry-the-invocations-credential.spec.ts)
+
+##### The transport renews a stored session, and nothing else does
+
+- Requirement: `cli/session/renews-the-stored-session-once`
+- Owner: `registry-access`
+- Statement: When an invocation presents a stored session, AXM shall renew it before a request whose access token expires within five minutes and once after the Registry rejects it, present the renewed credential on a single retry, report being signed out when the Registry refuses the renewal, keep the session and report a transport failure when the Registry cannot be reached, and never renew an ambient credential.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/supporting/registry-access/src/adapters/auth-middleware.ts`, `packages/supporting/registry-access/src/credentials/session-refresh.ts`
+- Supersedes: `cli/whoami/refreshes-rejected-stored-credentials`
+- Source: [`packages/supporting/registry-access/src/adapters/renews-the-stored-session-once.spec.ts`](../packages/supporting/registry-access/src/adapters/renews-the-stored-session-once.spec.ts)
+
 ##### Availability outcomes retain the observed reason
 
 - Requirement: `cli/upgrade/availability-failures-are-attributed`
@@ -347,25 +387,11 @@ People and agents can understand invalid workspace state and recover it through 
 - Derived from: `cli/upgrade/machine-result-is-upgrade-assessment`
 - Source: [`apps/cli/src/root/upgrade/availability-failures-are-attributed.spec.ts`](../apps/cli/src/root/upgrade/availability-failures-are-attributed.spec.ts)
 
-##### Identity inspection recovers an expired stored session
-
-- Requirement: `cli/whoami/refreshes-rejected-stored-credentials`
-- Owner: `registry-access`
-- Statement: When the Registry rejects identity credentials with HTTP 401, AXM shall recover a stored session by refreshing and persisting its replacement credentials and retrying once, report authentication required when rejection remains, and leave ambient credentials and other failures without refresh retries.
-- Class: functional
-- Role: experience
-- Product goals: `actionable-diagnostics`
-- Boundary: memory; selection: per-change
-- Methods: example
-- Derived from: `packages/supporting/registry-access/src/authentication/identity.ts`
-- Open questions: Is this the authority for registry-access's generic Registry-request 401 recovery, which auth-middleware.ts implements for every authenticated request, or only for identity inspection? cli/registry-management-preserves-authentication-failures asserts no replay for lifecycle and visibility writes holding a stored session, so one of the two must name the credential class it governs.
-- Source: [`packages/supporting/registry-access/src/credentials/refreshes-rejected-stored-credentials.spec.ts`](../packages/supporting/registry-access/src/credentials/refreshes-rejected-stored-credentials.spec.ts)
-
 ##### Identity inspection shows the active identity and permissions
 
 - Requirement: `cli/whoami/reports-safe-effective-identity`
 - Owner: `cli`
-- Statement: When authenticated, whoami shall report the handle, Registry, credential type, effective scopes, enforced extension restrictions, and source-backed or unavailable expiry from the canonical Registry identity operation in human and machine output, excluding email, credential identifiers, token material, and internal permission markers.
+- Statement: When signed in, whoami shall report the handle, Registry, credential type, credential authority, the approving sign-in time when there is one, and source-backed or unavailable expiry from the canonical Registry identity operation in human and machine output; it shall report scopes and enforced extension restrictions only for a limited credential, and shall exclude email, credential identifiers, token material, and internal permission markers.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `machine-automation`
@@ -1523,7 +1549,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/login/reuses-pending-authorization`
 - Owner: `registry-access`
-- Statement: When a device authorization is unexpired, AXM shall reuse it for the same Registry and equivalent requested scopes, refuse a conflicting request without changing it, and replace it only when restart is explicitly requested.
+- Statement: When a device authorization is unexpired, AXM shall reuse it for the same Registry, refuse a request for a different Registry without changing it, and replace it only when restart is explicitly requested.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -1591,7 +1617,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/token/create/submits-requested-authority`
 - Owner: `registry-access`
-- Statement: When creating a token, AXM shall submit the requested name, lifetime, and permission restrictions using the effective credential and report the issued token without replacing the current session.
+- Statement: When creating a token, AXM shall submit the requested name, lifetime, and permission restrictions, and report the issued token without replacing the current session.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -1617,7 +1643,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/token/revoke/revokes-only-selected-token`
 - Owner: `registry-access`
-- Statement: When token revoke is requested, AXM shall request deletion of the selected token identifier using the effective credential and report success only after the Registry accepts deletion.
+- Statement: When token revoke is requested, AXM shall request deletion of the selected token identifier and report success only after the Registry accepts deletion.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -2251,6 +2277,20 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Methods: example
 - Derived from: `cli/rules/new/creates-enabled-workspace-content`
 - Source: [`packages/core/workspace/src/instructions/authoring/new/preview-is-pure.spec.ts`](../packages/core/workspace/src/instructions/authoring/new/preview-is-pure.spec.ts)
+
+##### Concurrent invocations spend one refresh token and end with one session
+
+- Requirement: `cli/session/concurrent-renewal-spends-one-refresh-token`
+- Owner: `registry-access`
+- Statement: When several invocations sharing a credential home renew the same session at once, AXM shall present the refresh token to the Registry once, leave exactly one valid session stored, answer every invocation with the session that was stored, and, when the Registry ends the session, answer every invocation that it ended without presenting a spent refresh token again.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/supporting/registry-access/src/credentials/session-refresh.ts`, `packages/supporting/registry-access/src/credentials/credential-store.ts`
+- Assumptions: Registry refresh tokens rotate with reuse detection: presenting a spent one ends the whole family.
+- Source: [`packages/supporting/registry-access/src/credentials/concurrent-renewal-spends-one-refresh-token.spec.ts`](../packages/supporting/registry-access/src/credentials/concurrent-renewal-spends-one-refresh-token.spec.ts)
 
 ##### Setup preview describes the workspace it would create without creating it
 

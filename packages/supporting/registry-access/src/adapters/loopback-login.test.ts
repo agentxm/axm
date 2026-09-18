@@ -60,6 +60,7 @@ const makeAuthClientLayer = () =>
         scopes: null,
         resourceRestrictions: null,
         expiresAt: null,
+        approvedAt: null,
       }),
   });
 

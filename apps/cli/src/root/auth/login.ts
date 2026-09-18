@@ -58,7 +58,6 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
     readonly restart?: boolean;
     readonly wait?: boolean;
     readonly timeoutSeconds?: number;
-    readonly scopes: ReadonlyArray<string>;
   }) {
     const screen = yield* Screen;
     const registry = yield* selectedRegistry;
@@ -76,7 +75,6 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
           ...(options.timeoutSeconds === undefined
             ? {}
             : { timeoutSeconds: options.timeoutSeconds }),
-          scopes: options.scopes,
           nonInteractive,
           machineOutput,
         },
@@ -131,16 +129,12 @@ const loginConfig = {
     Flag.withDescription("Maximum seconds to wait for device approval; requires --wait"),
     Flag.optional,
   ),
-  scope: Flag.String("scope").pipe(
-    Flag.withDescription("Registry scope to request; repeatable"),
-    Flag.atLeast(0),
-  ),
 } as const;
 
 export const loginCommand = Command.make(
   "login",
   loginConfig,
-  ({ yes, deviceCode, wait, restart, timeout, scope }) =>
+  ({ yes, deviceCode, wait, restart, timeout }) =>
     handleLogin({
       yes,
       deviceCode,
@@ -150,7 +144,6 @@ export const loginCommand = Command.make(
         onNone: () => ({}),
         onSome: (timeoutSeconds) => ({ timeoutSeconds }),
       }),
-      scopes: scope,
     }).pipe(withRuntime("auth login")),
 ).pipe(
   withArgvTracking(loginConfig),

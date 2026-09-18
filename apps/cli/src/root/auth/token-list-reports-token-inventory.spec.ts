@@ -59,9 +59,8 @@ describe("Token inventory", () => {
         Layer.succeed(RegistryUrl, registry),
         Layer.succeed(AuthEnvironment, ConfigProvider.fromEnvRecord({})),
         AuthClientTest({
-          listTokens: (token) =>
+          listTokens: () =>
             Effect.sync(() => {
-              expect(token).toBe("fixture-stored-access");
               return {
                 tokens: empty ? [] : [item],
                 hasMore: !empty,

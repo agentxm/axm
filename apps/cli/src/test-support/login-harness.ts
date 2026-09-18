@@ -60,12 +60,13 @@ export const makeLoginSpecContext = (options: LoginSpecContextOptions = {}) => {
     scopes: null,
     resourceRestrictions: null,
     expiresAt: null,
+    approvedAt: null,
   };
-  const deviceFlowStarts: Array<ReadonlyArray<string>> = [];
+  const deviceFlowStarts: Array<string> = [];
   const authClient = AuthClientTest({
-    initiateDeviceFlow: (request) =>
+    initiateDeviceFlow: () =>
       Effect.sync(() => {
-        deviceFlowStarts.push(request?.scopes ?? []);
+        deviceFlowStarts.push("dc-123");
         return {
           device_code: "dc-123",
           user_code: DEVICE_USER_CODE,

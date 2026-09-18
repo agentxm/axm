@@ -6,7 +6,7 @@ import * as Option from "effect/Option";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { CredentialStore } from "./credential-store.js";
-import { AuthLoginRequired, RegistryAccessFailed } from "../authentication/errors.js";
+import { SignedOut, RegistryAccessFailed } from "../authentication/errors.js";
 import { currentToken } from "../authentication/identity.js";
 import { logout } from "../authentication/logout.js";
 import {
@@ -52,9 +52,7 @@ describe("Local sign-out", () => {
         expect(yield* logout(authRegistry)).toMatchObject({ _tag: "SignedOut" });
         yield* Fiber.join(reader);
 
-        expect(yield* currentToken(authRegistry).pipe(Effect.flip)).toBeInstanceOf(
-          AuthLoginRequired,
-        );
+        expect(yield* currentToken(authRegistry).pipe(Effect.flip)).toBeInstanceOf(SignedOut);
         expect(yield* store.load(otherAuthRegistry)).toEqual(otherBefore);
       }).pipe(Effect.provide(layer));
     }),
@@ -92,9 +90,7 @@ describe("Local sign-out", () => {
         expect(yield* credentials.load(otherAuthRegistry)).toEqual(otherBefore);
 
         // The removed session is no longer available to a subsequent command.
-        expect(yield* currentToken(authRegistry).pipe(Effect.flip)).toBeInstanceOf(
-          AuthLoginRequired,
-        );
+        expect(yield* currentToken(authRegistry).pipe(Effect.flip)).toBeInstanceOf(SignedOut);
 
         expect(yield* logout(authRegistry)).toEqual({
           _tag: "NotSignedIn",

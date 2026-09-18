@@ -38,7 +38,7 @@ import type { GitDirectoryComparison } from "../../resolution/sources/index.js";
 import {
   AuthClient,
   AuthLoginPresenter,
-  authLoginRequired,
+  signedOut,
   DeviceLoginInteraction,
   type AuthError,
 } from "@agentxm/registry-access/authentication";
@@ -367,7 +367,7 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
     sourceAssessedCandidates.length > 0
   ) {
     return yield* Effect.fail(
-      authLoginRequired(`Publishing to ${registry.name} requires you to be signed in.`),
+      signedOut(undefined, `Publishing to ${registry.name} requires you to be signed in.`),
     );
   }
   const workspaceDefaultVisibility = yield* settings.publishDefaultVisibility;
@@ -596,7 +596,9 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
    * without the person's own credential.
    */
   const requireSignedIn: Effect.Effect<void, AuthError> = remoteUnauthenticated
-    ? Effect.fail(authLoginRequired(`Publishing to ${registry.name} requires you to be signed in.`))
+    ? Effect.fail(
+        signedOut(undefined, `Publishing to ${registry.name} requires you to be signed in.`),
+      )
     : Effect.void;
 
   // Invocation-local evidence of dispatched uploads: which candidates'

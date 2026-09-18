@@ -45,13 +45,12 @@ describe("Application-resource home", () => {
       const registry = "https://home-isolation.example.test";
       const handle = normalizeHandle("@fixture");
       const pending = {
-        version: 2,
+        version: 3,
         registryUrl: registry,
         deviceCode: "fixture-device",
         userCode: "CODE-1234",
         verificationUri: "https://identity.example.test/device",
         verificationUriComplete: "https://identity.example.test/device?code=CODE-1234",
-        requestedScopes: ["extensions:read"],
         interval: 5,
         expiresAt: DateTime.makeUnsafe("2099-01-01T00:00:00Z"),
       };
@@ -124,7 +123,7 @@ describe("Application-resource home", () => {
           refresh_token: "fixture-refresh",
           expires_at: pending.expiresAt,
         });
-        yield* pendingStore.save({ ...pending, version: 2 });
+        yield* pendingStore.save({ ...pending, version: 3 });
         yield* metadata.write({
           schemaVersion: 2,
           method: "script",

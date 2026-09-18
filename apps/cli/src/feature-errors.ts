@@ -10,7 +10,7 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import {
-  errAuthRequired,
+  errSignedOut,
   makeAppError,
   withAppErrorSemantics,
   AppError,
@@ -30,8 +30,10 @@ import {
   isRegistryAccessFailure,
   REGISTRY_ACCESS_ERROR_CATEGORIES,
   type AuthExchangeFailed,
-  type AuthLoginRequired,
   type AuthTokenPolicyRequired,
+  type RefreshUnavailable,
+  type SessionEnded,
+  type SignedOut,
   type DeviceAuthorizationPending,
   type DeviceLoginCodeExpired,
   type DeviceLoginDenied,
@@ -268,9 +270,30 @@ export const registryAccessFailedToAppError = (error: RegistryAccessFailed): App
         }),
   });
 
-/** Sign-in required: the shared builder renders the fixed device-flow guidance. */
-export const authLoginRequiredToAppError = (error: AuthLoginRequired): AppError =>
-  errAuthRequired(error.message, error.cause);
+/** Signed out: one result, rendered the one way. */
+export const signedOutToAppError = (error: SignedOut): AppError =>
+  errSignedOut(error.message, error.cause);
+
+/**
+ * A session the Registry ended is simply being signed out, reached from the
+ * other direction.
+ */
+export const sessionEndedToAppError = (error: SessionEnded): AppError =>
+  errSignedOut("Your session ended. You are not signed in.", error.cause);
+
+/**
+ * A session that could not be renewed is still a session. This is a
+ * reachability failure and reads as one, so nobody signs in again to fix a
+ * network that was briefly down.
+ */
+export const refreshUnavailableToAppError = (error: RefreshUnavailable): AppError =>
+  makeAppError({
+    code: "network",
+    detail: error.detail,
+    retryable: true,
+    suggestions: [{ description: "Retry once the Registry is reachable." }],
+    cause: error.cause,
+  });
 
 /** Ambient-token-only policy: the former builder's envelope, verbatim. */
 export const authTokenPolicyRequiredToAppError = (error: AuthTokenPolicyRequired): AppError =>
@@ -369,8 +392,12 @@ export const registryAccessFailureToAppError = (failure: RegistryAccessFailure):
   switch (failure._tag) {
     case "RegistryAccessFailed":
       return registryAccessFailedToAppError(failure);
-    case "AuthLoginRequired":
-      return authLoginRequiredToAppError(failure);
+    case "SignedOut":
+      return signedOutToAppError(failure);
+    case "SessionEnded":
+      return sessionEndedToAppError(failure);
+    case "RefreshUnavailable":
+      return refreshUnavailableToAppError(failure);
     case "AuthTokenPolicyRequired":
       return authTokenPolicyRequiredToAppError(failure);
     case "DeviceLoginDenied":

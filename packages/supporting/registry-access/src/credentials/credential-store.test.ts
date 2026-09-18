@@ -176,16 +176,20 @@ describe("CredentialStore", () => {
           ) => Effect.Effect<Option.Option<StoredCredentials>, RegistryAccessFailed>)
         | undefined;
 
+      const read = (registryUrl: string) =>
+        Effect.suspend(() => {
+          loadCounts.set(registryUrl, (loadCounts.get(registryUrl) ?? 0) + 1);
+          if (loadOverride !== undefined) return loadOverride(registryUrl);
+          const found = stored.get(registryUrl);
+          return Effect.succeed(found === undefined ? Option.none() : Option.some(found));
+        });
+
       const service: CredentialStoreService = {
         tier: "restricted-file",
         allowsPersistedCredentials: true,
-        load: (registryUrl) =>
-          Effect.suspend(() => {
-            loadCounts.set(registryUrl, (loadCounts.get(registryUrl) ?? 0) + 1);
-            if (loadOverride !== undefined) return loadOverride(registryUrl);
-            const found = stored.get(registryUrl);
-            return Effect.succeed(found === undefined ? Option.none() : Option.some(found));
-          }),
+        withRefreshLock: (effect) => effect,
+        load: read,
+        reload: read,
         save: (registryUrl, handle, credentials) =>
           Effect.sync(() => {
             stored.set(registryUrl, { handle, ...credentials });

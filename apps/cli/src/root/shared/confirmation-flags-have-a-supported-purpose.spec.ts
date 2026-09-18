@@ -244,9 +244,7 @@ describe("Advance approval", () => {
       Effect.gen(function* () {
         const context = signedInUnattended();
 
-        yield* handleLogin({ yes: false, deviceCode: true, scopes: [] }).pipe(
-          Effect.provide(context.layer),
-        );
+        yield* handleLogin({ yes: false, deviceCode: true }).pipe(Effect.provide(context.layer));
 
         expect(context.deviceFlowStarts).toEqual([]);
         expect(yield* context.storedAccessToken).toBe(EXISTING_ACCESS_TOKEN);
@@ -264,9 +262,7 @@ describe("Advance approval", () => {
       Effect.gen(function* () {
         const context = signedInUnattended();
 
-        yield* handleLogin({ yes: true, deviceCode: true, scopes: [] }).pipe(
-          Effect.provide(context.layer),
-        );
+        yield* handleLogin({ yes: true, deviceCode: true }).pipe(Effect.provide(context.layer));
 
         expect(context.deviceFlowStarts).toHaveLength(1);
         expect(context.rendererState.results.at(-1)?.data).toMatchObject({

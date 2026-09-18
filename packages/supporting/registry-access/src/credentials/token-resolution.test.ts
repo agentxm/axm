@@ -272,9 +272,9 @@ describe("resolveRequiredToken", () => {
     const layer = makeRuntimeLayer();
     return Effect.gen(function* () {
       const error = yield* Effect.flip(resolveRequiredToken(REGISTRY_URL));
-      expect(error._tag).toBe("AuthLoginRequired");
-      if (error._tag !== "AuthLoginRequired") throw new Error("Expected AuthLoginRequired");
-      expect(error.message).toBe("Authentication required");
+      expect(error._tag).toBe("SignedOut");
+      if (error._tag !== "SignedOut") throw new Error("Expected SignedOut");
+      expect(error.message).toBe("You are not signed in.");
     }).pipe(Effect.provide(layer));
   });
 

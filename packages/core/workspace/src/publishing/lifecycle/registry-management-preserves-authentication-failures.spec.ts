@@ -87,9 +87,9 @@ describe("Registry management authentication failures", () => {
   const commands = [
     {
       name: "yank",
-      run: () => yank({ ref: registryVersion, allVersions: false, verification }),
+      run: () => yank({ ref: registryVersion, allVersions: false }),
     },
-    { name: "unyank", run: () => unyank(registryVersion, verification) },
+    { name: "unyank", run: () => unyank(registryVersion) },
     {
       name: "deprecate",
       run: () =>

@@ -8,9 +8,10 @@
 export { AuthEnvironment } from "./environment.js";
 export { AuthMiddlewareLive, makeAuthMiddlewareLive } from "./auth-middleware.js";
 export { AuthLoginInteractionLive } from "./login-interaction.js";
-export { AuthClientLive } from "../authentication/auth-client.js";
+export { AuthClientLive, TokenExchangeLive } from "../authentication/auth-client.js";
 export { PendingDeviceLoginStoreLive } from "../authentication/pending-device-login-store.js";
 export {
   CredentialStoreLive,
   CredentialStoreSessionLive,
 } from "../credentials/credential-store.js";
+export { SessionRefresherLive } from "../credentials/session-refresh.js";

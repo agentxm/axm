@@ -16,7 +16,7 @@ import * as Layer from "effect/Layer";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { DeviceAuthorizationPending, RegistryAccessFailed } from "./errors.js";
 
-import { AuthClient, normalizeRequestedLoginScopes } from "./auth-client.js";
+import { AuthClient } from "./auth-client.js";
 import {
   CredentialStore,
   makePersistedCredentialsUnsupportedError,
@@ -106,7 +106,6 @@ export interface RunDeviceLoginOptions {
   readonly emitPendingResult?: boolean;
   readonly openBrowser?: boolean;
   readonly restart?: boolean;
-  readonly scopes?: ReadonlyArray<string>;
 }
 
 export interface ResumeDeviceLoginOptions {
@@ -128,7 +127,6 @@ export const DeviceLoginPendingResultSchema = Schema.Struct({
   registryHost: Schema.String,
   verificationUri: Schema.String,
   verificationUriComplete: Schema.String,
-  requestedScopes: Schema.Array(Schema.String),
   userCode: Schema.String,
   expiresAt: Schema.String,
   interval: Schema.Number,
@@ -184,7 +182,6 @@ const makePendingResult = (
     registryHost,
     verificationUri: pending.verificationUri,
     verificationUriComplete: pending.verificationUriComplete,
-    requestedScopes: pending.requestedScopes,
     userCode: pending.userCode,
     expiresAt,
     interval: pending.interval,
@@ -242,7 +239,6 @@ export const initiateDeviceLogin = (registryUrl: string, options: RunDeviceLogin
     const pendingStore = yield* PendingDeviceLoginStore;
     const presenter = yield* AuthLoginPresenter;
     const registryHost = new URL(registryUrl).host;
-    const requestedScopes = normalizeRequestedLoginScopes(options.scopes);
 
     if (!credStore.allowsPersistedCredentials) {
       return yield* makePersistedCredentialsUnsupportedError();
@@ -253,19 +249,15 @@ export const initiateDeviceLogin = (registryUrl: string, options: RunDeviceLogin
       const expired = yield* DateTime.isPast(existing.value.expiresAt);
       if (expired || options.restart === true) {
         yield* pendingStore.clear();
-      } else if (
-        existing.value.registryUrl === registryUrl &&
-        existing.value.requestedScopes.length === requestedScopes.length &&
-        existing.value.requestedScopes.every((scope, index) => scope === requestedScopes[index])
-      ) {
+      } else if (existing.value.registryUrl === registryUrl) {
+        // A pending sign-in asks for exactly what every sign-in asks for, so
+        // the registry it belongs to is the only thing that can make it the
+        // wrong one to resume.
         return yield* emitPendingDeviceLogin(existing.value, options, "re-emitted");
       } else {
         return yield* new RegistryAccessFailed({
           category: "conflict",
-          detail:
-            existing.value.registryUrl === registryUrl
-              ? `A device sign-in for ${registryHost} is already pending with a different scope set.`
-              : `A device sign-in for ${new URL(existing.value.registryUrl).host} is already pending.`,
+          detail: `A device sign-in for ${new URL(existing.value.registryUrl).host} is already pending.`,
           suggestions: [
             {
               description: "Finish the pending sign-in before starting another.",
@@ -282,17 +274,16 @@ export const initiateDeviceLogin = (registryUrl: string, options: RunDeviceLogin
 
     const deviceFlow = yield* presenter.withProgress(
       { _tag: "StartingDeviceAuthorization", registryHost },
-      () => authClient.initiateDeviceFlow({ scopes: requestedScopes }),
+      () => authClient.initiateDeviceFlow(),
     );
 
     const pending: PendingDeviceLogin = {
-      version: 2,
+      version: 3,
       registryUrl,
       deviceCode: deviceFlow.device_code,
       userCode: deviceFlow.user_code,
       verificationUri: deviceFlow.verification_uri,
       verificationUriComplete: deviceFlow.verification_uri_complete,
-      requestedScopes,
       interval: deviceFlow.interval,
       expiresAt: DateTime.add(yield* DateTime.now, { seconds: deviceFlow.expires_in }),
     };

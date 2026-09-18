@@ -45,20 +45,19 @@ export class RegistryAccessFailed extends Data.TaggedError("RegistryAccessFailed
 }> {}
 
 /**
- * Sign-in is required and a person must approve it. The boundary renders the
- * fixed device-flow and token-creation guidance; the producer chooses only
- * the leading message.
+ * Signed out: the invocation carries no credential the Registry accepts.
+ *
+ * This is one of the two states a person can be in, so it is one failure with
+ * one rendering. Nothing else may report being signed out, and no refusal that
+ * a signed-in person can hit may borrow it.
  */
-export class AuthLoginRequired extends Data.TaggedError("AuthLoginRequired")<{
+export class SignedOut extends Data.TaggedError("SignedOut")<{
   readonly message: string;
   readonly cause?: unknown;
 }> {}
 
-export const authLoginRequired = (
-  message = "Authentication required",
-  cause?: unknown,
-): AuthLoginRequired =>
-  new AuthLoginRequired({ message, ...(cause === undefined ? {} : { cause }) });
+export const signedOut = (cause?: unknown, message = "You are not signed in."): SignedOut =>
+  new SignedOut({ message, ...(cause === undefined ? {} : { cause }) });
 
 /**
  * Persisted credentials are unavailable by policy (for example in CI), so an
@@ -66,6 +65,26 @@ export const authLoginRequired = (
  * fixed AXM_TOKEN_FILE / token-creation guidance.
  */
 export class AuthTokenPolicyRequired extends Data.TaggedError("AuthTokenPolicyRequired")<{
+  readonly cause?: unknown;
+}> {}
+
+/**
+ * The Registry ended this session: it refused the stored refresh token, so no
+ * credential remains to renew. The only recovery is signing in again.
+ */
+export class SessionEnded extends Data.TaggedError("SessionEnded")<{
+  readonly registryUrl: string;
+  readonly cause?: unknown;
+}> {}
+
+/**
+ * The session could not be renewed right now and is still valid as far as
+ * anyone knows: the token endpoint was unreachable or answered with a server
+ * error. The credential is kept and the invocation is worth retrying.
+ */
+export class RefreshUnavailable extends Data.TaggedError("RefreshUnavailable")<{
+  readonly registryUrl: string;
+  readonly detail: string;
   readonly cause?: unknown;
 }> {}
 
@@ -149,8 +168,10 @@ export class AuthInteractionAbandoned extends Data.TaggedError("AuthInteractionA
 /** Every typed failure the Registry access capability constructs. */
 export type RegistryAccessFailure =
   | RegistryAccessFailed
-  | AuthLoginRequired
+  | SignedOut
   | AuthTokenPolicyRequired
+  | SessionEnded
+  | RefreshUnavailable
   | DeviceLoginDenied
   | DeviceLoginCodeExpired
   | DeviceAuthorizationPending
@@ -161,8 +182,10 @@ export type RegistryAccessFailure =
 
 export const isRegistryAccessFailure = (error: unknown): error is RegistryAccessFailure =>
   error instanceof RegistryAccessFailed ||
-  error instanceof AuthLoginRequired ||
+  error instanceof SignedOut ||
   error instanceof AuthTokenPolicyRequired ||
+  error instanceof SessionEnded ||
+  error instanceof RefreshUnavailable ||
   error instanceof DeviceLoginDenied ||
   error instanceof DeviceLoginCodeExpired ||
   error instanceof DeviceAuthorizationPending ||

@@ -87,18 +87,19 @@ export interface AuthPortsOptions {
  * needs, and expose what each port recorded.
  */
 export const makeAuthPorts = (options: AuthPortsOptions = {}) => {
-  const requestedScopes: Array<ReadonlyArray<string>> = [];
+  const deviceAuthorizations: Array<string> = [];
   const polledCodes: Array<string> = [];
   const presenter = AuthLoginPresenterTest(options.presenter);
   const interaction = AuthLoginInteractionTest();
   const deviceInteraction = DeviceLoginInteractionTest();
 
   const auth = AuthClientTest({
-    initiateDeviceFlow: (request) =>
+    initiateDeviceFlow: () =>
       Effect.sync(() => {
-        requestedScopes.push(request?.scopes ?? []);
+        const code = `fixture-device-secret-${deviceAuthorizations.length + 1}`;
+        deviceAuthorizations.push(code);
         return {
-          device_code: `fixture-device-secret-${requestedScopes.length}`,
+          device_code: code,
           user_code: "ABCD-1234",
           verification_uri: "https://identity.example.test/device",
           verification_uri_complete: "https://identity.example.test/device?user_code=ABCD-1234",
@@ -123,6 +124,7 @@ export const makeAuthPorts = (options: AuthPortsOptions = {}) => {
         scopes: null,
         resourceRestrictions: null,
         expiresAt: authExpiry,
+        approvedAt: null,
       }),
     ...options.auth,
   });
@@ -164,8 +166,8 @@ export const makeAuthPorts = (options: AuthPortsOptions = {}) => {
     presenterState: presenter.state,
     interactionState: interaction.state,
     deviceInteractionState: deviceInteraction.state,
-    /** The scope set of every device authorization the flow asked for. */
-    requestedScopes,
+    /** The device code of every device authorization the flow started. */
+    deviceAuthorizations,
     /** Every device code the flow presented for polling. */
     polledCodes,
   };
@@ -186,7 +188,6 @@ export const deviceLoginRequest = (overrides: Partial<LoginRequest> = {}): Login
   deviceCode: true,
   restart: false,
   wait: false,
-  scopes: ["extensions:read"],
   nonInteractive: true,
   machineOutput: true,
   ...overrides,
@@ -194,7 +195,7 @@ export const deviceLoginRequest = (overrides: Partial<LoginRequest> = {}): Login
 
 /** A request that resumes a pending device sign-in instead of starting one. */
 export const resumeLoginRequest = (overrides: Partial<LoginRequest> = {}): LoginRequest =>
-  deviceLoginRequest({ deviceCode: false, wait: true, scopes: [], ...overrides });
+  deviceLoginRequest({ deviceCode: false, wait: true, ...overrides });
 
 // -----------------------------------------------------------------------------
 // Step-up verification fixtures

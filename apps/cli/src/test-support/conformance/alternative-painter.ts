@@ -14,7 +14,6 @@ import type {
   Doc,
   DocNode,
   Mark,
-  RowNode,
   Span,
   TableColumn,
   Text,
@@ -175,37 +174,6 @@ const paintTable = (
   ];
 };
 
-const paintRows = (
-  rows: ReadonlyArray<RowNode>,
-  style: Style,
-  indent: number,
-): ReadonlyArray<string> => {
-  const count = Math.max(0, ...rows.map((row) => row.cells.length));
-  const layout = layoutTable({
-    columns: Array.from({ length: count }, (_, index) =>
-      column(
-        "",
-        rows.map((row) => row.cells[index] ?? ""),
-      ),
-    ),
-    available: room(style.width, indent + 2),
-    gap: GAP,
-  });
-  return rows.flatMap((row) => {
-    const gutter = `${style.glyphs.change[row.change]} `;
-    const lines =
-      layout._tag === "grid"
-        ? gridRow(layout, row.cells, style, indent, gutter)
-        : row.cells.flatMap((cell, index) =>
-            block(cell, style, indent, index === 0 ? gutter : "  "),
-          );
-    return [
-      ...lines,
-      ...(row.children === undefined ? [] : paintNodes(row.children, style, indent + 4)),
-    ];
-  });
-};
-
 const paintTree = (
   items: ReadonlyArray<TreeItem>,
   style: Style,
@@ -265,10 +233,6 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
     }
     case "paragraph":
       return block(node.text, style, indent, "", node.tone);
-    case "row":
-      return paintRows([node], style, indent);
-    case "rows":
-      return paintRows(node.rows, style, indent);
     case "ledger": {
       const layout = layoutTable({
         columns: node.columns.map((spec, index) =>
@@ -285,7 +249,6 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
         gap: GAP,
       });
       const headers = node.columns.map((spec) => spec.header);
-      const fold = node.folded;
       return [
         ...(layout._tag === "grid" ? gridRow(layout, headers, style, indent, "  ", "dim") : []),
         ...node.rows.flatMap((row) => {
@@ -302,14 +265,14 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
             ...(row.children === undefined ? [] : paintNodes(row.children, style, indent + 4)),
           ];
         }),
-        ...(fold === undefined
-          ? []
-          : block(
-              `${String(fold.count)} ${fold.noun}${fold.hint === undefined ? "" : ` (${visibleText(fold.hint)})`}`,
-              style,
-              indent,
-              `${markGlyph(fold.mark, style.glyphs)} `,
-            )),
+        ...(node.folds ?? []).flatMap((fold) =>
+          block(
+            `${String(fold.count)} ${fold.noun}${fold.hint === undefined ? "" : ` (${visibleText(fold.hint)})`}`,
+            style,
+            indent,
+            `${markGlyph(fold.mark, style.glyphs)} `,
+          ),
+        ),
       ];
     }
     case "prompt":
@@ -363,13 +326,6 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
         style,
         indent,
         paintSpans([{ text: `${visibleText(node.label)}: ` }], style, "dim"),
-      );
-    case "collapsed":
-      return block(
-        `${String(node.count)} ${node.noun}${node.hint === undefined ? "" : ` (${node.hint})`}`,
-        style,
-        indent,
-        `${style.glyphs.change[node.change]} `,
       );
     case "callout": {
       const bar = `${style.box.bar} `;

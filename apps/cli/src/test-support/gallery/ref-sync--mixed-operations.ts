@@ -49,12 +49,14 @@ export const refSyncMixedOperations: Doc = [
         cells: ["@legacy/skills/changelog", "0.3.0", "remove", "no longer declared"],
       },
     ],
-    folded: {
-      mark: "unchanged",
-      count: 12,
-      noun: "extensions already current",
-      hint: "--verbose to list",
-    },
+    folds: [
+      {
+        mark: "unchanged",
+        count: 12,
+        noun: "extensions already current",
+        hint: "--verbose to list",
+      },
+    ],
   },
   { _tag: "blank" },
   {

@@ -375,12 +375,14 @@ const publishLedger = (
       ...(detailed || left === 0
         ? {}
         : {
-            folded: {
-              mark: "unchanged",
-              count: left,
-              noun: `${left === 1 ? "extension" : "extensions"} not selected`,
-              hint: FOLD_HINT,
-            },
+            folds: [
+              {
+                mark: "unchanged",
+                count: left,
+                noun: `${left === 1 ? "extension" : "extensions"} not selected`,
+                hint: FOLD_HINT,
+              },
+            ],
           }),
     },
   ];

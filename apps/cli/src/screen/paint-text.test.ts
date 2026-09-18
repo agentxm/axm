@@ -9,18 +9,17 @@ const document: Doc = [
   { _tag: "headline", tone: "ok", text: "Installed 2 skills" },
   { _tag: "blank" },
   {
-    _tag: "rows",
-    rows: [
-      { _tag: "row", change: "create", cells: ["deploy", "1.4.0", "created"] },
-      { _tag: "row", change: "unchanged", cells: ["rollback", "0.9.2", "already installed"] },
+    _tag: "ledger",
+    columns: [
+      { header: "", role: "name" },
+      { header: "", role: "fixed" },
+      { header: "", role: "elastic" },
     ],
-  },
-  {
-    _tag: "collapsed",
-    change: "unchanged",
-    count: 4,
-    noun: "skills unchanged",
-    hint: "--verbose to list",
+    rows: [
+      { mark: "create", cells: ["deploy", "1.4.0", "created"] },
+      { mark: "unchanged", cells: ["rollback", "0.9.2", "already installed"] },
+    ],
+    folds: [{ mark: "unchanged", count: 4, noun: "skills unchanged", hint: "--verbose to list" }],
   },
   {
     _tag: "next",
@@ -31,12 +30,18 @@ const document: Doc = [
 const everyNodeDocument: Doc = [
   { _tag: "headline", tone: "ok", text: "Ready" },
   { _tag: "paragraph", text: "部署 package is ready for review" },
-  { _tag: "row", change: "create", cells: ["alpha", "created"] },
   {
-    _tag: "rows",
-    rows: [{ _tag: "row", change: "update", cells: ["beta", "updated"] }],
+    _tag: "ledger",
+    columns: [
+      { header: "", role: "name" },
+      { header: "", role: "fixed" },
+    ],
+    rows: [
+      { mark: "create", cells: ["alpha", "created"] },
+      { mark: "update", cells: ["beta", "updated"] },
+    ],
+    folds: [{ mark: "unchanged", count: 2, noun: "unchanged" }],
   },
-  { _tag: "collapsed", change: "unchanged", count: 2, noun: "unchanged" },
   {
     _tag: "callout",
     tone: "warn",
@@ -123,8 +128,8 @@ describe("paintText", () => {
     expect(plain(document, 80)).toEqual([
       " ✔   Installed 2 skills",
       "",
-      " +   deploy     1.4.0   created",
-      " =   rollback   0.9.2   already installed",
+      " +   deploy                        1.4.0   created",
+      " =   rollback                      0.9.2   already installed",
       " =   4 skills unchanged  --verbose to list",
       "Next",
       "  Inspect installed skills · axm skills list",
@@ -140,13 +145,16 @@ describe("paintText", () => {
     expect(colored).toContain("Careful");
   });
 
-  it("stacks a change row that cannot fit a narrow terminal", () => {
+  it("stacks a ledger row that cannot fit a narrow terminal", () => {
     const lines = plain(
       [
         {
-          _tag: "row",
-          change: "update",
-          cells: ["skill", "a very long destination that cannot fit"],
+          _tag: "ledger",
+          columns: [
+            { header: "", role: "name" },
+            { header: "", role: "fixed", priority: "required" },
+          ],
+          rows: [{ mark: "update", cells: ["skill", "a very long destination that cannot fit"] }],
         },
       ],
       24,
@@ -164,8 +172,8 @@ describe("paintText", () => {
     expect(plain(everyNodeDocument, 80)).toEqual([
       " ✔   Ready",
       "部署 package is ready for review",
-      " +   alpha   created",
-      " ~   beta   updated",
+      " +   alpha                         created",
+      " ~   beta                          updated",
       " =   2 unchanged",
       " ▲   Warning",
       "     Check permissions",
@@ -421,13 +429,17 @@ describe("paintText", () => {
     const marked: Doc = [
       { _tag: "headline", tone: "error", text: "Install failed" },
       {
-        _tag: "rows",
-        rows: [
-          { _tag: "row", change: "create", cells: ["alpha", "created"] },
-          { _tag: "row", change: "rolled-back", cells: ["beta", "rolled back"] },
+        _tag: "ledger",
+        columns: [
+          { header: "", role: "name" },
+          { header: "", role: "fixed" },
         ],
+        rows: [
+          { mark: "create", cells: ["alpha", "created"] },
+          { mark: "rolled-back", cells: ["beta", "rolled back"] },
+        ],
+        folds: [{ mark: "unchanged", count: 2, noun: "unchanged" }],
       },
-      { _tag: "collapsed", change: "unchanged", count: 2, noun: "unchanged" },
       { _tag: "callout", tone: "info", title: "Note" },
     ];
 
@@ -449,19 +461,30 @@ describe("paintText", () => {
       }
     });
 
-    it("gives a verdict after change rows no glyph and bolds it", () => {
+    it("gives a verdict after a ledger no glyph and bolds it", () => {
       const verdict: Doc = [
-        { _tag: "row", change: "remove", cells: ["alpha", "removed"] },
+        {
+          _tag: "ledger",
+          columns: [
+            { header: "", role: "name" },
+            { header: "", role: "fixed" },
+          ],
+          rows: [{ mark: "remove", cells: ["alpha", "removed"] }],
+        },
         { _tag: "blank" },
         { _tag: "headline", tone: "ok", text: "Uninstalled 1 skill", aside: "0.5s" },
       ];
-      expect(plain(verdict, 80)).toEqual([" -   alpha   removed", "", "Uninstalled 1 skill  0.5s"]);
+      expect(plain(verdict, 80)).toEqual([
+        " -   alpha                         removed",
+        "",
+        "Uninstalled 1 skill  0.5s",
+      ]);
       expect(paintText(verdict, { width: 80, colors: true }).join("\n")).toContain(
         "\u001b[1m\u001b[32mUninstalled",
       );
     });
 
-    it("keeps the glyph on a problem with no change rows above it", () => {
+    it("keeps the glyph on a problem with no ledger above it", () => {
       expect(plain([{ _tag: "headline", tone: "error", text: "Sign-in expired" }], 80)).toEqual([
         " ✖   Sign-in expired",
       ]);
@@ -599,7 +622,7 @@ describe("paintText", () => {
             cells: ["@acme/skills/triage", "2.0.1", "update", "from 1.9.4"],
           },
         ],
-        folded: { mark: "unchanged", count: 3, noun: "unchanged", hint: "--verbose to list" },
+        folds: [{ mark: "unchanged", count: 3, noun: "unchanged", hint: "--verbose to list" }],
       },
     ];
 
@@ -788,8 +811,8 @@ describe("paintText", () => {
     expect(lines.slice(0, 7)).toEqual([
       " ok  Ready",
       "部署 package is ready for review",
-      " +   alpha   created",
-      " ~   beta   updated",
+      " +   alpha                         created",
+      " ~   beta                          updated",
       " =   2 unchanged",
       " !!  Warning",
       "     Check permissions",

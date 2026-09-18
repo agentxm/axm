@@ -121,14 +121,23 @@ const liveColumns = (presentation: OperationPresentation): ReadonlyArray<LedgerC
 
 const cellOf = (row: LedgerRow, index: number): Text => row.cells[index] ?? "";
 
+/**
+ * A pack's members as a ledger of their own beneath the pack's row. It needs
+ * no header, because the pack's row already says what the change is.
+ */
+const MEMBER_COLUMNS: ReadonlyArray<LedgerColumn> = [
+  { header: "", role: "name" },
+  { header: "", role: "fixed", priority: "required" },
+];
+
 const membershipChildren = (artifact: JobStepArtifact | undefined): Doc => {
   if (artifact?.packMembership === undefined) return [];
   return [
     {
-      _tag: "rows",
+      _tag: "ledger",
+      columns: MEMBER_COLUMNS,
       rows: artifact.packMembership.members.map((member) => ({
-        _tag: "row",
-        change: member.before === null ? "create" : member.after === null ? "remove" : "update",
+        mark: member.before === null ? "create" : member.after === null ? "remove" : "update",
         cells: [
           member.member,
           member.before === null
@@ -323,28 +332,30 @@ const foldGroups = (
     }));
 
 /**
- * One ledger carries one fold line, so a second group follows it as its own
- * line; neither the already-current nor the not-selected count is lost.
+ * Each group folds into a line of its own, so neither the already-current nor
+ * the not-selected count is lost.
  */
 const foldedLedger = (
   columns: ReadonlyArray<LedgerColumn>,
   rows: ReadonlyArray<LedgerRow>,
   folds: ReadonlyArray<FoldGroup>,
 ): Doc => {
-  const [first, ...rest] = folds;
-  if (rows.length === 0 && first === undefined) return [];
+  if (rows.length === 0 && folds.length === 0) return [];
   return [
     {
       _tag: "ledger",
       columns,
       rows,
-      ...(first === undefined
+      ...(folds.length === 0
         ? {}
-        : { folded: { mark: "unchanged", ...first, hint: FOLD_HINT } satisfies LedgerFold }),
+        : {
+            folds: folds.map((fold): LedgerFold => ({
+              mark: "unchanged",
+              ...fold,
+              hint: FOLD_HINT,
+            })),
+          }),
     },
-    ...rest.map(
-      (fold) => ({ _tag: "collapsed", change: "unchanged", ...fold, hint: FOLD_HINT }) as const,
-    ),
   ];
 };
 

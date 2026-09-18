@@ -7,24 +7,6 @@ import type { Doc } from "../../screen/doc.js";
 export const everyNode: Doc = [
   { _tag: "headline", tone: "ok", text: "Ready", aside: "every node" },
   { _tag: "paragraph", text: "部署 package is ready for review after the wide-character check" },
-  { _tag: "row", change: "create", cells: ["alpha", "created"] },
-  {
-    _tag: "rows",
-    rows: [
-      {
-        _tag: "row",
-        change: "update",
-        cells: ["beta", "updated"],
-        children: [
-          { _tag: "paragraph", tone: "dim", text: "codex: projected at .codex/skills/beta" },
-        ],
-      },
-      { _tag: "row", change: "remove", cells: ["gamma", "removed"] },
-      { _tag: "row", change: "blocked", cells: ["delta", "blocked", "a precondition is not met"] },
-      { _tag: "row", change: "failed", cells: ["epsilon", "failed"] },
-      { _tag: "row", change: "rolled-back", cells: ["zeta", "rolled back"] },
-    ],
-  },
   {
     _tag: "ledger",
     columns: [
@@ -52,7 +34,7 @@ export const everyNode: Doc = [
         cells: ["@acme/skills/triage", "2.0.1", "failed", "the registry refused the request"],
       },
     ],
-    folded: { mark: "unchanged", count: 3, noun: "unchanged", hint: "--verbose to list" },
+    folds: [{ mark: "unchanged", count: 3, noun: "unchanged", hint: "--verbose to list" }],
   },
   {
     _tag: "prompt",
@@ -87,13 +69,6 @@ export const everyNode: Doc = [
   },
   { _tag: "answer", mark: "ok", label: "Instructions source", value: "AGENTS.md" },
   { _tag: "answer", mark: "dim", label: "Agents", value: "claude-code, codex" },
-  {
-    _tag: "collapsed",
-    change: "unchanged",
-    count: 2,
-    noun: "unchanged",
-    hint: "--verbose to list",
-  },
   {
     _tag: "callout",
     tone: "warn",

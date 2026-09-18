@@ -390,7 +390,7 @@ export const liveLedgerDoc = (state: ProgressState, options: LiveLedgerOptions):
             _tag: "ledger",
             columns,
             rows: window.rows,
-            ...(window.folded === undefined ? {} : { folded: window.folded }),
+            ...(window.folded === undefined ? {} : { folds: [window.folded] }),
           } as const,
           { _tag: "blank" } as const,
         ]),

@@ -86,8 +86,6 @@ const nodeText = (node: DocNode): string => {
     case "headline":
     case "paragraph":
       return plain(node.text);
-    case "row":
-      return node.cells.map(plain).join("   ");
     case "ledger":
       return node.rows.map((row) => row.cells.map(plain).join("   ")).join("\n");
     case "prompt":
@@ -96,8 +94,6 @@ const nodeText = (node: DocNode): string => {
       return plain(node.status);
     case "answer":
       return `${plain(node.label)}: ${plain(node.value)}`;
-    case "collapsed":
-      return `${String(node.count)} ${node.noun}`;
     case "callout":
       return node.aside === undefined
         ? plain(node.title)
@@ -116,7 +112,6 @@ const nodeText = (node: DocNode): string => {
       return node.rows.map((row) => row.cells.map(plain).join("   ")).join("\n");
     case "tree":
       return node.roots.map((root) => plain(root.text)).join("\n");
-    case "rows":
     case "next":
     case "blank":
       return "";
@@ -143,16 +138,6 @@ const captureDoc = (
   persistent = false,
 ): void => {
   const capture = (node: DocNode): void => {
-    if (node._tag === "rows") {
-      for (const row of node.rows) {
-        state.summaries.push(nodeText(row));
-        if (row.change === "failed") {
-          state.logs.push({ _tag: "error", message: nodeText(row) });
-        }
-        if (row.children !== undefined) captureDoc(state, row.children, channel, persistent);
-      }
-      return;
-    }
     if (node._tag === "ledger") {
       for (const row of node.rows) {
         const message = row.cells.map(plain).join("   ");
@@ -160,11 +145,8 @@ const captureDoc = (
         if (row.mark === "failed") state.logs.push({ _tag: "error", message });
         if (row.children !== undefined) captureDoc(state, row.children, channel, persistent);
       }
-      if (node.folded !== undefined) {
-        state.logs.push({
-          _tag: "message",
-          message: `${String(node.folded.count)} ${node.folded.noun}`,
-        });
+      for (const fold of node.folds ?? []) {
+        state.logs.push({ _tag: "message", message: `${String(fold.count)} ${fold.noun}` });
       }
       return;
     }

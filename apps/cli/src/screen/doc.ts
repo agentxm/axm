@@ -66,18 +66,6 @@ export interface ParagraphNode {
   readonly tone?: Tone;
 }
 
-export interface RowNode {
-  readonly _tag: "row";
-  readonly change: Change;
-  readonly cells: ReadonlyArray<Text>;
-  readonly children?: Doc;
-}
-
-export interface RowsNode {
-  readonly _tag: "rows";
-  readonly rows: ReadonlyArray<RowNode>;
-}
-
 /**
  * How a ledger column takes and yields width: the `name` column is protected
  * and shortened last, a `fixed` column keeps its natural width, and an
@@ -115,7 +103,8 @@ export interface LedgerNode {
   readonly _tag: "ledger";
   readonly columns: ReadonlyArray<LedgerColumn>;
   readonly rows: ReadonlyArray<LedgerRow>;
-  readonly folded?: LedgerFold;
+  /** One line per group of rows that repeat an outcome, beneath the rows. */
+  readonly folds?: ReadonlyArray<LedgerFold>;
 }
 
 /**
@@ -239,14 +228,6 @@ export interface AnswerNode {
   readonly mark: "ok" | "dim";
 }
 
-export interface CollapsedNode {
-  readonly _tag: "collapsed";
-  readonly change: Change;
-  readonly count: number;
-  readonly noun: string;
-  readonly hint?: string;
-}
-
 export interface CalloutNode {
   readonly _tag: "callout";
   readonly tone: Tone;
@@ -355,13 +336,10 @@ export interface BlankNode {
 export type DocNode =
   | HeadlineNode
   | ParagraphNode
-  | RowNode
-  | RowsNode
   | LedgerNode
   | PromptNode
   | WaitNode
   | AnswerNode
-  | CollapsedNode
   | CalloutNode
   | TableNode
   | FieldsNode

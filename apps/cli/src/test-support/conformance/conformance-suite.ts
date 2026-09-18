@@ -47,23 +47,16 @@ const forEachText = (doc: Doc, visit: (value: Text, copyable: boolean) => void):
       case "paragraph":
         pushText(node.text);
         return;
-      case "row":
-        node.cells.forEach(pushText);
-        node.children?.forEach(walk);
-        return;
-      case "rows":
-        node.rows.forEach(walk);
-        return;
       case "ledger":
         node.columns.forEach((column) => pushText(column.header));
         node.rows.forEach((row) => {
           row.cells.forEach(pushText);
           row.children?.forEach(walk);
         });
-        if (node.folded !== undefined) {
-          visit(node.folded.noun, false);
-          pushText(node.folded.hint);
-        }
+        node.folds?.forEach((fold) => {
+          visit(fold.noun, false);
+          pushText(fold.hint);
+        });
         return;
       case "prompt":
         pushText(node.question);
@@ -90,10 +83,6 @@ const forEachText = (doc: Doc, visit: (value: Text, copyable: boolean) => void):
       case "answer":
         pushText(node.label);
         pushText(node.value);
-        return;
-      case "collapsed":
-        visit(node.noun, false);
-        if (node.hint !== undefined) visit(node.hint, false);
         return;
       case "callout":
         pushText(node.title);
@@ -171,10 +160,8 @@ const verbatimLines = (doc: Doc): ReadonlySet<string> => {
   const walk = (node: DocNode): void => {
     if (node._tag === "markdown" || node._tag === "raw") {
       for (const line of node.content.split("\n")) lines.add(line.trim());
-    } else if (node._tag === "row" || node._tag === "callout") {
+    } else if (node._tag === "callout") {
       node.children?.forEach(walk);
-    } else if (node._tag === "rows") {
-      node.rows.forEach(walk);
     } else if (node._tag === "ledger") {
       for (const row of node.rows) row.children?.forEach(walk);
     } else if (node._tag === "section") {
@@ -286,13 +273,10 @@ export const determinismViolations = (
 export const nodeKinds: ReadonlyArray<DocNode["_tag"]> = [
   "headline",
   "paragraph",
-  "row",
-  "rows",
   "ledger",
   "prompt",
   "wait",
   "answer",
-  "collapsed",
   "callout",
   "table",
   "fields",
@@ -310,8 +294,7 @@ export const nodeKindsOf = (doc: Doc): ReadonlySet<DocNode["_tag"]> => {
   const kinds = new Set<DocNode["_tag"]>();
   const walk = (node: DocNode): void => {
     kinds.add(node._tag);
-    if (node._tag === "row" || node._tag === "callout") node.children?.forEach(walk);
-    if (node._tag === "rows") node.rows.forEach(walk);
+    if (node._tag === "callout") node.children?.forEach(walk);
     if (node._tag === "ledger") for (const row of node.rows) row.children?.forEach(walk);
     if (node._tag === "section") node.children.forEach(walk);
   };

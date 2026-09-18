@@ -271,18 +271,8 @@ export const ScreenMachine = (options?: {
         if (node._tag === "section") {
           return Effect.forEach(node.children, nodeEvents, { discard: true });
         }
-        if (node._tag === "rows") {
-          return Effect.forEach(node.rows, nodeEvents, { discard: true });
-        }
-        if (node._tag === "row") {
-          const message = node.cells.map(plain).join("   ");
-          const level = node.change === "failed" ? "error" : "warn";
-          return node.change === "failed" || node.change === "blocked"
-            ? emit(logEvent(level, message))
-            : Effect.void;
-        }
         if (node._tag === "ledger") {
-          // A ledger row that failed or is blocked logs as a change row does.
+          // A ledger row that failed or is blocked logs at its own level.
           return Effect.forEach(
             node.rows,
             (row) => {

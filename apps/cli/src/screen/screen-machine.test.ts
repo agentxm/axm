@@ -94,7 +94,7 @@ describe("machine Screen", () => {
     }).pipe(Effect.provide(harness.layer), Effect.scoped);
   });
 
-  it.effect("logs a ledger's failed and blocked rows as change rows do", () => {
+  it.effect("logs a ledger's failed and blocked rows", () => {
     const harness = makeHarness();
     return Effect.gen(function* () {
       const screen = yield* Screen;
@@ -104,20 +104,10 @@ describe("machine Screen", () => {
         { mark: "blocked" as const, cells: ["gamma", "blocked"] },
         { mark: "ok" as const, cells: ["delta", "installed"] },
       ];
-      yield* screen.note([
-        { _tag: "ledger", columns: [{ header: "", role: "name" }], rows },
-        {
-          _tag: "rows",
-          rows: rows
-            .filter((row) => row.mark !== "ok")
-            .map((row) => ({ _tag: "row" as const, change: row.mark, cells: row.cells })),
-        },
-      ]);
+      yield* screen.note([{ _tag: "ledger", columns: [{ header: "", role: "name" }], rows }]);
 
       const logs = harness.state.stderr.map((line) => JSON.parse(line));
       expect(logs).toEqual([
-        { type: "log", level: "error", message: "beta   failed" },
-        { type: "log", level: "warn", message: "gamma   blocked" },
         { type: "log", level: "error", message: "beta   failed" },
         { type: "log", level: "warn", message: "gamma   blocked" },
       ]);

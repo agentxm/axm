@@ -9,7 +9,6 @@ import { everyNode } from "./every-node.js";
 import type { GalleryFixture } from "./fixture.js";
 import { asciiGlyphs } from "../../screen/paint-text.js";
 import { inventory } from "./inventory.js";
-import { inventoryAltRows } from "./inventory-alt-rows.js";
 import { inventoryAltStacked } from "./inventory-alt-stacked.js";
 import { ledgerSetupPlayAgents } from "./ledger-setup-play--agents.js";
 import { ledgerSetupPlayCancelled } from "./ledger-setup-play--cancelled.js";
@@ -20,10 +19,6 @@ import { ledgerSetupPlayPlanWithoutSync } from "./ledger-setup-play--plan-withou
 import { ledgerSetupPlaySource } from "./ledger-setup-play--source.js";
 import { ledgerSetupPlaySync } from "./ledger-setup-play--sync.js";
 import { setupPreview } from "./setup-preview.js";
-import { mutationResult } from "./mutation-result.js";
-import { mutationResultAltTable } from "./mutation-result-alt-table.js";
-import { mutationResultAltTree } from "./mutation-result-alt-tree.js";
-import { planPreview } from "./plan-preview.js";
 import { promptsChooseAnswered } from "./prompts--choose-answered.js";
 import { promptsConfirmAnswered } from "./prompts--confirm-answered.js";
 import { promptsInputAnswered } from "./prompts--input-answered.js";
@@ -78,13 +73,8 @@ import { waitSettledFixture } from "./wait-settled.js";
  */
 export const gallery: ReadonlyArray<GalleryFixture> = [
   { _tag: "document", name: "inventory", doc: inventory },
-  { _tag: "document", name: "inventory-alt-rows", doc: inventoryAltRows },
   { _tag: "document", name: "inventory-alt-stacked", doc: inventoryAltStacked },
   { _tag: "document", name: "detail", doc: detail },
-  { _tag: "document", name: "mutation-result", doc: mutationResult },
-  { _tag: "document", name: "mutation-result-alt-tree", doc: mutationResultAltTree },
-  { _tag: "document", name: "mutation-result-alt-table", doc: mutationResultAltTable },
-  { _tag: "document", name: "plan-preview", doc: planPreview },
   { _tag: "document", name: "ref-sync--mixed-operations", doc: refSyncMixedOperations },
   { _tag: "document", name: "ref-sync--verbose-children", doc: refSyncVerboseChildren },
   { _tag: "document", name: "ref-sync--nothing-to-do", doc: refSyncNothingToDo },

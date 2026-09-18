@@ -584,19 +584,6 @@ export const agentOutcome = (value: ConfiguredAgentOutcome["outcome"]): string =
   }
 };
 
-export const severityTone = (severity: "info" | "warning" | "error"): Tone => {
-  switch (severity) {
-    case "info":
-      return "info";
-    case "warning":
-      return "warn";
-    case "error":
-      return "error";
-    default:
-      return unreachable(severity);
-  }
-};
-
 const subjectCount = (presentation: OperationPresentation, value: number): string =>
   count(value, presentation.subject.singular, presentation.subject.plural);
 

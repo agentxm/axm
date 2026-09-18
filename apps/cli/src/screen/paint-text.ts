@@ -15,7 +15,6 @@ import type {
   PromptNode,
   PromptOption,
   PromptPicked,
-  RowNode,
   Span,
   Status,
   TableColumn,
@@ -46,8 +45,6 @@ const GUTTER_WIDTH = 5;
  */
 const KEY_WIDTH = 27;
 const MIN_FIELD_VALUE_WIDTH = 12;
-/** Narrowest inline width a change row's last cell accepts before taking its own line. */
-const FLEX_MIN_WIDTH = 16;
 /** Cells between one key chip and the next. */
 const CHIP_GAP = 3;
 /** Cells between a question and the filter typed after it. */
@@ -505,79 +502,6 @@ const paintTable = (
   ];
 };
 
-/**
- * Change rows align every cell but each row's last across the block; the last
- * cell flexes: it paints inline in the width left on its line when that holds
- * its longest word, and otherwise on continuation lines of its own. Below the
- * stacked threshold, or when the aligned cells cannot fit, every cell takes a
- * line.
- */
-const paintRows = (
-  rows: ReadonlyArray<RowNode>,
-  style: ResolvedStyle,
-  indent: number,
-): ReadonlyArray<string> => {
-  if (rows.length === 0) return [];
-  const glyphs = style.glyphs;
-  const columnCount = Math.max(0, ...rows.map((row) => row.cells.length));
-  const available = remaining(style.width, indent + GUTTER_WIDTH);
-  const columns = Array.from({ length: Math.max(0, columnCount - 1) }, (_, index) =>
-    layoutColumn(
-      { header: "", priority: "required" },
-      "",
-      rows.flatMap((row) => (index < row.cells.length - 1 ? [cellAt(row.cells, index)] : [])),
-    ),
-  );
-  const layout = layoutTable({ columns, available, gap: COLUMN_GAP });
-  const tailWidth = (row: RowNode): PaintWidth => {
-    if (available === "unbounded" || layout._tag !== "grid") return "unbounded";
-    const used = layout.columns
-      .slice(0, Math.max(0, row.cells.length - 1))
-      .reduce((sum, column) => sum + column.width + COLUMN_GAP, 0);
-    return Math.max(0, available - used);
-  };
-  const inlineTail =
-    layout._tag === "grid" &&
-    rows.every((row) => {
-      const tail = row.cells[row.cells.length - 1];
-      const width = tailWidth(row);
-      return (
-        tail === undefined ||
-        width === "unbounded" ||
-        (width >= FLEX_MIN_WIDTH && width >= longestWordWidth(tail))
-      );
-    });
-  return rows.flatMap((row) => {
-    const first = gutter(glyphs.change[row.change]);
-    const tail = row.cells[row.cells.length - 1];
-    const lines =
-      layout._tag !== "grid"
-        ? row.cells.flatMap((cell, index) =>
-            paintPrefixed(cell, style, { indent, first: index === 0 ? first : blankGutter }),
-          )
-        : [
-            ...paintCells(
-              [
-                ...gridCells(layout, row.cells.slice(0, -1)).slice(0, row.cells.length - 1),
-                ...(tail !== undefined && inlineTail
-                  ? [{ text: tail, width: tailWidth(row), align: "left" as const }]
-                  : []),
-              ],
-              style,
-              { indent, first },
-            ),
-            ...(tail !== undefined && !inlineTail
-              ? paintPrefixed(tail, style, { indent, first: blankGutter })
-              : []),
-          ];
-    const children =
-      row.children === undefined
-        ? []
-        : paintNodes(row.children, style, indent + GUTTER_WIDTH, indent + GUTTER_WIDTH);
-    return [...lines, ...children];
-  });
-};
-
 // ---------------------------------------------------------------------------
 // Ledgers
 // ---------------------------------------------------------------------------
@@ -631,8 +555,9 @@ const paintFold = (
 
 /**
  * One ledger: a dim header line, one gutter-marked line per row, and a fold
- * line for the rows that repeat an outcome. Columns after the name start at
- * the value column, so a ledger, its fields, and its answers share one lane.
+ * line for each group of rows that repeat an outcome. Columns after the name
+ * start at the value column, so a ledger, its fields, and its answers share
+ * one lane.
  *
  * Under width pressure a ledger drops its `optional` columns and then stacks,
  * keeping each row's mark and name on one line with its remaining cells dim
@@ -663,7 +588,7 @@ const paintLedger = (
     stackBelow: 0,
     droppable: ["optional"],
   });
-  const fold = node.folded === undefined ? [] : paintFold(node.folded, style, indent);
+  const fold = (node.folds ?? []).flatMap((each) => paintFold(each, style, indent));
   const children = (row: LedgerRow): ReadonlyArray<string> =>
     row.children === undefined
       ? []
@@ -1072,13 +997,6 @@ const paintWait = (node: WaitNode, style: ResolvedStyle, indent: number): Readon
   return [...lines, `${spaces(contentStart)}${paintSpans(chips, style)}`];
 };
 
-/** Nodes that carry marked rows; a headline after one is their verdict. */
-const isMarkedRows = (node: DocNode): boolean =>
-  node._tag === "row" ||
-  node._tag === "rows" ||
-  node._tag === "collapsed" ||
-  node._tag === "ledger";
-
 /**
  * Where a node paints: `mark` is the column its gutter starts at, and
  * `content` is where a node without a mark starts. They differ inside a titled
@@ -1088,7 +1006,8 @@ const isMarkedRows = (node: DocNode): boolean =>
 interface Placement {
   readonly mark: number;
   readonly content: number;
-  readonly afterChangeRows: boolean;
+  /** A headline after a ledger is its verdict. */
+  readonly afterLedger: boolean;
 }
 
 const paintNode = (
@@ -1101,10 +1020,10 @@ const paintNode = (
   switch (node._tag) {
     case "headline": {
       const mark = statusGlyph(node.tone, glyphs);
-      if (mark === undefined || placement.afterChangeRows) {
+      if (mark === undefined || placement.afterLedger) {
         // A title carries no mark, and a verdict leaves status to the rows above it.
         const lines = paintPrefixed(
-          placement.afterChangeRows && mark !== undefined ? bold(node.text) : node.text,
+          placement.afterLedger && mark !== undefined ? bold(node.text) : node.text,
           style,
           { indent: content, first: "", tone: node.tone },
         );
@@ -1125,19 +1044,6 @@ const paintNode = (
         first: "",
         ...(node.tone === undefined ? {} : { tone: node.tone }),
       });
-    case "row":
-      return paintRows([node], style, indent);
-    case "rows":
-      return paintRows(node.rows, style, indent);
-    case "collapsed": {
-      const lines = paintPrefixed(`${String(node.count)} ${node.noun}`, style, {
-        indent,
-        first: gutter(glyphs.change[node.change]),
-      });
-      return node.hint === undefined
-        ? lines
-        : withTrailing(lines, node.hint, style, indent + GUTTER_WIDTH);
-    }
     case "ledger":
       return paintLedger(node, style, indent);
     case "prompt":
@@ -1263,7 +1169,7 @@ const paintNodes = (
     paintNode(node, style, {
       mark,
       content,
-      afterChangeRows: doc.slice(0, index).some(isMarkedRows),
+      afterLedger: doc.slice(0, index).some((earlier) => earlier._tag === "ledger"),
     }),
   );
 
@@ -1285,7 +1191,3 @@ const resolveStyle = (style: PaintStyle): ResolvedStyle => {
 
 export const paintText = (doc: Doc, style: PaintStyle): ReadonlyArray<string> =>
   paintNodes(doc, resolveStyle(style), 0, 0);
-
-/** Paint one already laid-out line of spans without wrapping or padding. */
-export const paintInline = (value: Text, style: PaintStyle): string =>
-  paintValue(value, resolveStyle(style));

@@ -2,7 +2,6 @@ export type {
   BlankNode,
   CalloutNode,
   Change,
-  CollapsedNode,
   Doc,
   DocNode,
   Field,
@@ -21,8 +20,6 @@ export type {
   PromptChip,
   PromptNode,
   RawNode,
-  RowNode,
-  RowsNode,
   SectionNode,
   Span,
   SummaryNode,
@@ -40,7 +37,6 @@ export type {
 export { plain, text } from "./doc.js";
 export {
   asciiGlyphs,
-  paintInline,
   paintText,
   unicodeGlyphs,
   type Glyphs,
@@ -181,7 +177,6 @@ export {
   publishSourceState,
   publishVisibilityOrigin,
   settledOutcomeTone,
-  severityTone,
   unitState,
   unitStateChange,
   waitKeyWord,

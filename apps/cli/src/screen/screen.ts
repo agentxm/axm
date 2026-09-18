@@ -104,7 +104,6 @@ export class Screen extends ServiceMap.Service<
       awaited: Effect.Effect<A, E, R>,
       actions?: WaitActions,
     ) => Effect.Effect<A, E | WaitAbandoned, R>;
-    readonly prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
     readonly facts: Effect.Effect<ScreenFacts>;
     readonly settle: Effect.Effect<void>;
   }
@@ -222,7 +221,6 @@ export const ScreenLive = (
               : runWait(view, awaited, actions ?? {}, service, surface),
           );
         },
-        prompt: frame.prompt,
         facts: Effect.map(streams.facts, (facts) => ({
           columns: facts.columns,
           colors: options.colors.stdout,
@@ -388,7 +386,6 @@ export const ScreenMachine = (options?: {
         // crosses as instructions and suggestions exactly as it always has.
         wait: (view, awaited) =>
           parkedOnWait(view, note(view.brief, { persistent: true }).pipe(Effect.andThen(awaited))),
-        prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect,
         facts: Effect.succeed({ columns: 80, colors: false, animate: false }),
         settle: Effect.void,
       };

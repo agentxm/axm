@@ -1,0 +1,13 @@
+Installing  from @acme/toolkit 3.2.0
+
+Installing 0 of 6 in 0ms
+ ?   Which extensions should be installed?  type to filter
+ ❯ ◪ Skills
+   ◉   code-review
+   ◉   triage
+   ◯   changelog
+   ◯   standup
+   ◯ Subagents
+   ◯   reviewer
+   ◯   planner
+2 selected · ↑↓ move · space toggle · ^a all · enter confirm

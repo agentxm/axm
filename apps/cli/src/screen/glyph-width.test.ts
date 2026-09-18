@@ -30,6 +30,8 @@ const eastAsianWidth = {
   "─": "ambiguous", // ─ BOX DRAWINGS LIGHT HORIZONTAL
   "└": "ambiguous", // └ BOX DRAWINGS LIGHT UP AND RIGHT
   "│": "ambiguous", // │ BOX DRAWINGS LIGHT VERTICAL
+  "↑": "ambiguous", // ↑ UPWARDS ARROW
+  "↓": "ambiguous", // ↓ DOWNWARDS ARROW
 } as const satisfies Readonly<Record<string, "neutral" | "ambiguous">>;
 
 const isSevenBit = (glyph: string): boolean => /^[\x20-\x7e]*$/u.test(glyph);
@@ -55,6 +57,7 @@ const gutterMarks = (glyphs: Glyphs): ReadonlyArray<string> => [
 const inlineGlyphs = (glyphs: Glyphs): ReadonlyArray<string> => [
   ...Object.values(glyphs.tree),
   glyphs.separator,
+  ...Object.values(glyphs.arrows),
 ];
 
 const sets = [
@@ -102,7 +105,7 @@ describe("glyph width", () => {
     expect(new Set(unicodeGlyphs.spinner.map(displayWidth)).size).toBe(1);
   });
 
-  it("paints ambiguous-width glyphs inline only as the separator and the tree connectors", () => {
+  it("paints ambiguous-width glyphs inline only as the separator, tree connectors, and list arrows", () => {
     // Where an Ambiguous glyph is drawn two cells wide, a mark is absorbed by
     // its own gutter, while an inline glyph pushes the rest of its line right.
     // These are the inline roles the design accepts that for; a new one has to
@@ -110,7 +113,7 @@ describe("glyph width", () => {
     const ambiguous = inlineGlyphs(unicodeGlyphs).filter((glyph) =>
       characters(glyph).some((character) => widthClass(character) === "ambiguous"),
     );
-    expect(ambiguous).toEqual(["├─ ", "└─ ", "│  ", " · "]);
+    expect(ambiguous).toEqual(["├─ ", "└─ ", "│  ", " · ", "↑", "↓"]);
     for (const glyph of inlineGlyphs(asciiGlyphs)) expect(isSevenBit(glyph), glyph).toBe(true);
   });
 

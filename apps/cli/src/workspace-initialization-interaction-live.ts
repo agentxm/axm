@@ -7,19 +7,17 @@
  * kernel-owned `WorkspaceInitializationCancelled`.
  */
 
-import * as FileSystem from "effect/FileSystem";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Path from "effect/Path";
 import * as Result from "effect/Result";
-import * as Terminal from "effect/Terminal";
-import { autocompleteMultiselect, requireInteractive } from "./prompt/index.js";
 import {
   Screen,
+  pickAsk,
   type ChooseAsk,
   type ChooseOption,
   type ConfirmAsk,
   type InputAsk,
+  type PickAsk,
 } from "./screen/index.js";
 import type { AppError } from "./app-error/index.js";
 import {
@@ -53,6 +51,36 @@ const yesNo = (
   const no = { key: "n", word: "no", value: false };
   return defaultsToYes ? [yes, no] : [no, yes];
 };
+
+/** Which agents the scan found, and which of them a person already chose. */
+type AgentFacts = Parameters<WorkspaceInitializationInteractionService["selectAgents"]>[0];
+
+/**
+ * Every supported agent, each with what the scan knows about it. Agents that
+ * are configured, found in the project, or suggested open picked.
+ */
+const selectAgentsAsk = (facts: AgentFacts): PickAsk<ReadonlyArray<string>> =>
+  pickAsk({
+    question: selectAgentsMessage,
+    label: "Agents",
+    noun: { one: "agent", other: "agents" },
+    options: facts.allAgents.map((agent) => ({
+      title: agent.name,
+      value: agent.id,
+      details: [
+        ...(facts.configuredIds.includes(agent.id) ? ["configured"] : []),
+        ...(facts.projectDetectedIds.includes(agent.id) ? ["detected in project"] : []),
+        ...(facts.userDetectedIds.includes(agent.id) ? ["detected on workstation"] : []),
+        ...(facts.suggestedIds.includes(agent.id) ? ["suggested"] : []),
+        agent.skills === undefined ? "skills: unsupported" : `skills: ${agent.skills.dir}`,
+      ],
+      ...(facts.configuredIds.includes(agent.id) ||
+      facts.projectDetectedIds.includes(agent.id) ||
+      facts.suggestedIds.includes(agent.id)
+        ? { selected: true }
+        : {}),
+    })),
+  });
 
 /** The setup gate: nothing has been written yet, so the default is to proceed. */
 const setupPlanAsk: ConfirmAsk<boolean> = {
@@ -145,59 +173,12 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
   WorkspaceInitializationInteraction,
   Effect.gen(function* () {
     const screen = yield* Screen;
-    const fileSystem = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const terminal = yield* Terminal.Terminal;
-    const promptEnvironment = Layer.mergeAll(
-      Layer.succeed(FileSystem.FileSystem, fileSystem),
-      Layer.succeed(Path.Path, path),
-      Layer.succeed(Terminal.Terminal, terminal),
-    );
 
     return {
-      selectAgents: ({
-        allAgents,
-        projectDetectedIds,
-        userDetectedIds,
-        suggestedIds,
-        configuredIds,
-      }) =>
+      selectAgents: (facts) =>
         screen
-          .prompt(
-            requireInteractive(
-              autocompleteMultiselect({
-                message: selectAgentsMessage,
-                maxPerPage: 10,
-                filterLabel: "Filter",
-                selectionCountMessage: (selected) =>
-                  `${selected.length} ${selected.length === 1 ? "agent" : "agents"} selected`,
-                submissionMessage: (selected) =>
-                  `Selected ${selected.length} ${selected.length === 1 ? "agent" : "agents"}`,
-                choices: allAgents.map((agent) => ({
-                  title: agent.name,
-                  value: agent.id,
-                  description: [
-                    configuredIds.includes(agent.id) ? "configured" : undefined,
-                    projectDetectedIds.includes(agent.id) ? "detected in project" : undefined,
-                    userDetectedIds.includes(agent.id) ? "detected on workstation" : undefined,
-                    suggestedIds.includes(agent.id) ? "suggested" : undefined,
-                    agent.skills === undefined
-                      ? "skills: unsupported"
-                      : `skills: ${agent.skills.dir}`,
-                  ]
-                    .filter((part) => part !== undefined)
-                    .join(" · "),
-                  selected:
-                    configuredIds.includes(agent.id) ||
-                    projectDetectedIds.includes(agent.id) ||
-                    suggestedIds.includes(agent.id),
-                })),
-              }),
-              { message: selectAgentsMessage },
-            ),
-          )
+          .ask(selectAgentsAsk(facts), { message: selectAgentsMessage })
           .pipe(
-            Effect.provide(promptEnvironment),
             Effect.catchTag("PromptCancelled", cancelled),
             Effect.mapError(toInteractionFailure),
           ),

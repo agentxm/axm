@@ -130,6 +130,37 @@ export interface PromptOption {
   readonly details?: ReadonlyArray<Text>;
   /** The option the caret stands on, which `enter` takes. */
   readonly current?: true;
+  /**
+   * Whether the option is picked, for a question that takes several: its mark
+   * stands between the caret and the title. A group's header is `partial`
+   * while only some of its options are.
+   */
+  readonly picked?: PromptPicked;
+  /** Steps in from the content column, such as a group's options under its header. */
+  readonly depth?: number;
+  /** How many options the list skips before this one, named on a line above it. */
+  readonly before?: number;
+}
+
+export type PromptPicked = "all" | "some" | "none";
+
+/**
+ * One key a list answers to: the key as typed, or `arrows` for the up and
+ * down arrows the painter draws, and the word for what it does.
+ */
+export interface PromptKey {
+  readonly key: string;
+  readonly word: string;
+}
+
+/**
+ * The line beneath a list: where it stands, such as how many are picked, and
+ * the keys that act on it. Where the line is short the keys lose their words
+ * and the arrows go; where it is shorter still only the status stays.
+ */
+export interface PromptHint {
+  readonly status: ReadonlyArray<string>;
+  readonly keys: ReadonlyArray<PromptKey>;
 }
 
 /**
@@ -149,10 +180,17 @@ export interface PromptNode {
   readonly chips: ReadonlyArray<PromptChip>;
   /** The options that fit the space the question was given, in order. */
   readonly options?: ReadonlyArray<PromptOption>;
-  /** How many options did not fit, named on one line beneath the list. */
+  /** How many options did not fit below the list, named on one line beneath it. */
   readonly more?: number;
   /** The answer being typed, behind the caret. */
   readonly entry?: Text;
+  /**
+   * What narrows the list, typed after the question. An empty filter invites
+   * typing while the line has room for the invitation.
+   */
+  readonly filter?: string;
+  /** The line beneath a list naming where it stands and the keys it takes. */
+  readonly hint?: PromptHint;
 }
 
 /**

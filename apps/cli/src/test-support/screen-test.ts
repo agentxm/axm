@@ -94,7 +94,6 @@ export const makeTestScreen = (
           return awaited;
         }),
       ),
-    prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect,
     facts: Effect.succeed({ columns: 80, colors: false, animate: false }),
     settle: Effect.void,
   });

@@ -3,6 +3,7 @@ import { detail } from "./detail.js";
 import { everyNode } from "./every-node.js";
 import { failureRecovery } from "./failure-recovery.js";
 import type { GalleryFixture } from "./fixture.js";
+import { asciiGlyphs } from "../../screen/paint-text.js";
 import { inventory } from "./inventory.js";
 import { inventoryAltRows } from "./inventory-alt-rows.js";
 import { inventoryAltStacked } from "./inventory-alt-stacked.js";
@@ -14,6 +15,10 @@ import { promptsChooseAnswered } from "./prompts--choose-answered.js";
 import { promptsConfirmAnswered } from "./prompts--confirm-answered.js";
 import { promptsInputAnswered } from "./prompts--input-answered.js";
 import { promptsInputError } from "./prompts--input-error.js";
+import { refPickAnswered } from "./ref-pick--answered.js";
+import { refPickFiltered } from "./ref-pick--filtered.js";
+import { refPickGrouped } from "./ref-pick--grouped.js";
+import { refPickShortTerminal } from "./ref-pick--short-terminal.js";
 import { refSyncMixedOperations } from "./ref-sync--mixed-operations.js";
 import { refSyncNothingToDo } from "./ref-sync--nothing-to-do.js";
 import { refSyncUninstallKeptReference } from "./ref-sync--uninstall-kept-reference.js";
@@ -25,6 +30,8 @@ import { widthLiveHeightCap } from "./width-live--height-cap.js";
 import { widthPromptsChoose } from "./width-prompts--choose.js";
 import { widthPromptsChooseHeight } from "./width-prompts--choose-height.js";
 import { widthPromptsConfirm } from "./width-prompts--confirm.js";
+import { widthPromptsPick } from "./width-prompts--pick.js";
+import { widthPromptsPickWithLedger } from "./width-prompts--pick-with-ledger.js";
 import { waitOpen, waitStatic } from "./wait-open.js";
 import { waitSettledFixture } from "./wait-settled.js";
 
@@ -62,6 +69,11 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
   { _tag: "document", name: "prompts--choose-answered", doc: promptsChooseAnswered },
   { _tag: "document", name: "prompts--input-answered", doc: promptsInputAnswered },
   { _tag: "document", name: "prompts--input-error", doc: promptsInputError },
+  { _tag: "document", name: "ref-pick--grouped", doc: refPickGrouped },
+  { _tag: "document", name: "ref-pick--filtered", doc: refPickFiltered },
+  { _tag: "document", name: "ref-pick--short-terminal", doc: refPickShortTerminal },
+  { _tag: "document", name: "ref-pick--answered", doc: refPickAnswered },
+  { _tag: "document", name: "ref-pick--ascii", doc: refPickGrouped, glyphs: asciiGlyphs },
   { _tag: "document", name: "wait-open", doc: waitOpen },
   { _tag: "document", name: "wait-static", doc: waitStatic },
   { _tag: "document", name: "wait-settled", doc: waitSettledFixture },
@@ -100,11 +112,24 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
     // The confirmation's three widths, where details show, drop, and titles hold.
     widths: [80, 48, 30],
   },
+  {
+    _tag: "document",
+    name: "width-prompts--pick",
+    doc: widthPromptsPick,
+    // The widths the canvas draws the list at, with and without descriptions.
+    widths: [80, 48],
+  },
   { _tag: "scene", name: "width-live--height-cap", scene: widthLiveHeightCap },
   {
     _tag: "scene",
     name: "width-prompts--choose-height",
     scene: widthPromptsChooseHeight,
+    widths: [80],
+  },
+  {
+    _tag: "composed",
+    name: "width-prompts--pick-with-ledger",
+    scene: widthPromptsPickWithLedger,
     widths: [80],
   },
 ];

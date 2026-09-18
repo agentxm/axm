@@ -18,7 +18,7 @@
  ?   Instructions source
  ❯   AGENTS.md                     recommended · existing
      CLAUDE.md                     existing
- ·   1 more
+     ↓ 1 more
  ?   Instructions file name ❯ docs/AGENTS.md
  ◒   Waiting for approval on registry.agentxm.ai   4m 32s left
       o  open    c  copy    esc  stop

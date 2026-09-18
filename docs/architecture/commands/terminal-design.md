@@ -126,9 +126,9 @@ East Asian Width. ▲ ● ◯ · … and the tree connectors are Ambiguous: they
 to one cell outside East Asian contexts, so they are measured as one. Every
 ambiguous mark paints in the gutter, which absorbs it: a terminal that draws ▲
 two cells wide shifts only that row's content. The separator, the middle
-ellipsis of a shortened name, and the tree connectors are the ones that paint
-inline instead, where a two-cell render pushes the rest of their own line
-right. The spinner uses only the Neutral frames ◒ and ◓ so its width never
+ellipsis of a shortened name, the tree connectors, and a list's ↑ ↓ arrows are
+the ones that paint inline instead, where a two-cell render pushes the rest of
+their own line right. The spinner uses only the Neutral frames ◒ and ◓ so its width never
 changes between frames. `AXM_ASCII=1` is the escape for a terminal that still
 misdraws them.
 
@@ -136,8 +136,8 @@ An ASCII glyph set replaces the symbols when the terminal cannot be trusted to
 render them: when `TERM` is `dumb`, when the locale does not declare UTF-8, or
 when `AXM_ASCII=1` forces it. ASCII status is two letters — `ok`, `!!`, `xx`,
 and `..` — so `+` always means created and never collides with a status. The
-caret is `>`, and a selection is `[x]` selected, `[ ]` unselected, and `[-]`
-partially selected. A running unit is `..` and does not animate, because a
+caret is `>`, a selection is `[x]` selected, `[ ]` unselected, and `[-]`
+partially selected, and a list's arrows are `^` and `v`. A running unit is `..` and does not animate, because a
 terminal that cannot be trusted with symbols is not trusted with motion either.
 Every ASCII mark fits the same five-column gutter, so layout is identical under
 both sets.
@@ -194,11 +194,22 @@ as tall as it looks. The caret marks the option `enter` takes, titles sit at
 the content column, and details sit at the value column. Details show for
 every option or for none: a narrow list drops them all before it shortens a
 title in the middle, rather than leaving some options looking bare. A list
-shows as many options as the height it is given and names the rest on one
-line with the waiting mark, and its window follows the caret instead of
-scrolling the terminal. A typed line follows its question behind the caret,
-or takes the line beneath it when both do not fit; a line the question
-refuses stays open with the reason beneath it in the attention mark.
+shows as many options as the height it is given and names the rest on a dim
+line at the content column, `↑ 3 more` above the window and `↓ 3 more` below
+it, and its window follows the caret instead of scrolling the terminal. A
+typed line follows its question behind the caret, or takes the line beneath it
+when both do not fit; a line the question refuses stays open with the reason
+beneath it in the attention mark.
+
+A list that takes several puts each option's selection mark between the caret
+and the title. Options that share a group sit one step in under the group's
+header, whose mark is partial while only some of them are picked and whose
+count sits at the value column; a group whose header scrolls away stays
+pinned above the window while the caret is in it. Typing after the question
+narrows the list to the titles that contain it and drops groups with no
+match. One dim line beneath the list says how many are picked and names its
+keys; a narrow line drops the arrows and the words of named keys first, then
+every key.
 
 A long name shortens in the middle, keeping its scope and last path segment:
 `@acme-enterprise/…/soc2-review`. A copyable value — a URL, a `next` command, a

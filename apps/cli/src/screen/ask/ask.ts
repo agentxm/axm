@@ -7,7 +7,8 @@
  * that a table test can drive.
  *
  * `Confirm` answers with one lettered key, `Choose` with one option from a list
- * that opens under the question, and `Input` with one typed line.
+ * that opens under the question, `Pick` with several from a list that filters
+ * as a person types, and `Input` with one typed line.
  */
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
@@ -55,6 +56,70 @@ export interface ChooseAsk<A> {
   readonly options: ReadonlyArray<ChooseOption<A>>;
 }
 
+/**
+ * One option of a `Pick` as the list shows it: what it is called, the facts
+ * that tell it apart, and the group it is listed under.
+ */
+export interface PickEntry {
+  readonly title: string;
+  /** Facts shown beside the title, which the painter joins with its separator. */
+  readonly details?: ReadonlyArray<Text>;
+  /**
+   * The group the option is listed under. Options that name a group sit one
+   * step in beneath its header, and groups keep the order they first appear in.
+   */
+  readonly group?: string;
+  /** Whether the option is picked when the question opens. */
+  readonly selected?: true;
+}
+
+/** One option of a `Pick` and the value picking it contributes to the answer. */
+export interface PickOption<V> extends PickEntry {
+  readonly value: V;
+}
+
+/** What one picked option is called, and what several are. */
+export interface PickNoun {
+  readonly one: string;
+  readonly other: string;
+}
+
+export interface PickAsk<A> {
+  readonly _tag: "Pick";
+  readonly question: Text;
+  /** What the question means, in one dim line beneath it. */
+  readonly note?: Text;
+  /** The label the settled answer line carries; the question by default. */
+  readonly label?: string;
+  readonly options: ReadonlyArray<PickEntry>;
+  /** What the options are, for the count and for a bound that is not met. */
+  readonly noun: PickNoun;
+  /** The fewest options `enter` accepts; none by default. */
+  readonly min?: number;
+  /** The most options that may be picked; any number by default. */
+  readonly max?: number;
+  /** The answer the picked options make, given their positions in `options`. */
+  readonly answer: (picked: ReadonlyArray<number>) => A;
+}
+
+/**
+ * A `Pick` whose answer is the values of the options picked, in the order the
+ * options are listed.
+ */
+export const pickAsk = <V>(
+  spec: Omit<PickAsk<ReadonlyArray<V>>, "_tag" | "options" | "answer"> & {
+    readonly options: ReadonlyArray<PickOption<V>>;
+  },
+): PickAsk<ReadonlyArray<V>> => ({
+  ...spec,
+  _tag: "Pick",
+  answer: (picked) =>
+    picked.flatMap((index) => {
+      const option = spec.options[index];
+      return option === undefined ? [] : [option.value];
+    }),
+});
+
 export interface InputAsk<A> {
   readonly _tag: "Input";
   readonly question: Text;
@@ -72,7 +137,7 @@ export interface InputAsk<A> {
 }
 
 /** A question a view describes as data and the `Screen` runs. */
-export type Ask<A> = ConfirmAsk<A> | ChooseAsk<A> | InputAsk<A>;
+export type Ask<A> = ConfirmAsk<A> | ChooseAsk<A> | PickAsk<A> | InputAsk<A>;
 
 /**
  * One key press, as a reducer sees it: the key's own name, and the character
@@ -92,6 +157,19 @@ export const isQuitKey = (key: AskKey): boolean =>
 
 /** Whether the key submits what the question stands on. */
 export const isSubmitKey = (key: AskKey): boolean => key.name === "return" || key.name === "enter";
+
+/** Whether text carries a control character, which is a key rather than text. */
+const hasControl = (text: string): boolean =>
+  [...text].some((character) => {
+    const code = character.codePointAt(0) ?? 0;
+    return code < 0x20 || code === 0x7f;
+  });
+
+/** The text a key typed, or `undefined` for a key that typed none. */
+export const typedText = (key: AskKey): string | undefined =>
+  key.char === undefined || key.char.length === 0 || key.ctrl || hasControl(key.char)
+    ? undefined
+    : key.char;
 
 /**
  * What one key did to a running question, whatever its kind: the state to

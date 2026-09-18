@@ -10,7 +10,7 @@ import * as Terminal from "effect/Terminal";
 import type { Doc } from "../doc.js";
 import { paintText } from "../paint-text.js";
 import type { ScenePart } from "../scene.js";
-import type { ChooseAsk, ConfirmAsk, InputAsk } from "./ask.js";
+import { pickAsk, type ChooseAsk, type ConfirmAsk, type InputAsk } from "./ask.js";
 import { runAsk, type AskSurface } from "./run.js";
 
 const gate: ConfirmAsk<"declined" | "approved"> = {
@@ -85,6 +85,18 @@ const fileName: InputAsk<string> = {
   question: "Instructions file name",
   validate: (raw) => (raw.length === 0 ? Result.fail("Enter a file name.") : Result.succeed(raw)),
 };
+
+const agents = pickAsk({
+  question: "Select agents to configure",
+  label: "Agents",
+  noun: { one: "agent", other: "agents" },
+  min: 1,
+  options: [
+    { title: "Claude Code", value: "claude-code" },
+    { title: "Codex", value: "codex" },
+    { title: "Cursor", value: "cursor" },
+  ],
+});
 
 describe("runAsk", () => {
   it.effect("answers with the choice whose key was pressed", () =>
@@ -176,6 +188,7 @@ describe("runAsk", () => {
     Effect.gen(function* () {
       const harness = yield* makeHarness;
       yield* Queue.offer(harness.keys, press("down"));
+      yield* Queue.offer(harness.keys, press("down"));
       yield* Queue.offer(harness.keys, press("return"));
 
       yield* runAsk(source, harness.terminal, harness.surface);
@@ -183,8 +196,34 @@ describe("runAsk", () => {
       expect(lastFrame(harness, 24)).toHaveLength(4);
       expect(lastFrame(harness, 3)).toEqual([
         " ?   Instructions source",
-        " ❯   CLAUDE.md",
-        " ·   2 more",
+        "     ↑ 2 more",
+        " ❯   GEMINI.md",
+      ]);
+    }),
+  );
+
+  it.effect("filters a pick as keys arrive and answers with what was picked", () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHarness;
+      for (const input of [
+        press("c"),
+        press("u"),
+        press("space"),
+        press("escape"),
+        press("up"),
+        press("space"),
+        press("return"),
+      ]) {
+        yield* Queue.offer(harness.keys, input);
+      }
+
+      const answer = yield* runAsk(agents, harness.terminal, harness.surface);
+
+      // `cu` left Cursor alone to pick; escape cleared the filter with the
+      // caret still on Cursor, so the row above it was the one picked next.
+      expect(answer).toEqual(["codex", "cursor"]);
+      expect(harness.transcript).toEqual([
+        [{ _tag: "answer", mark: "ok", label: "Agents", value: "Codex, Cursor" }],
       ]);
     }),
   );

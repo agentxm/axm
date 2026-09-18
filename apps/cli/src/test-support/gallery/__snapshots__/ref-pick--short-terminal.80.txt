@@ -1,0 +1,6 @@
+ ?   Which extensions should be installed?  type to filter
+   ◪ Skills                        2 of 4
+     ↑ 2 more
+ ❯ ◯   changelog                   Drafts release notes from merged work
+     ↓ 4 more
+2 selected · ↑↓ move · space toggle · ^a all · enter confirm

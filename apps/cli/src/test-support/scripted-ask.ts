@@ -5,8 +5,9 @@
  * was given can be answered at all, so this replays the keys a person would
  * press through the question's real reducer. A script entry means what a person
  * would do with that kind of question: a choice key such as `"y"` for a
- * confirmation, an option's title for a list, and the line to type for an
- * input. An unscripted question takes `enter` where it opens. An entry of
+ * confirmation, an option's title for a list, the titles to leave picked —
+ * joined by `", "`, or `""` for none — for a list that takes several, and the
+ * line to type for an input. An unscripted question takes `enter` where it opens. An entry of
  * `"cancel"`, or one the question cannot take, cancels.
  */
 
@@ -16,6 +17,7 @@ import type { Ask, AskKey, AskKind } from "../screen/ask/ask.js";
 import { chooseKind } from "../screen/ask/choose.js";
 import { confirmKind } from "../screen/ask/confirm.js";
 import { inputKind } from "../screen/ask/input.js";
+import { pickKind, pickRows } from "../screen/ask/pick.js";
 import { PromptCancelled } from "../screen/ask/prompt-cancelled.js";
 import type { Doc } from "../screen/doc.js";
 
@@ -49,6 +51,22 @@ const keysFor = <A>(ask: Ask<A>, scripted: string | undefined): ReadonlyArray<As
             enter,
           ];
     }
+    case "Pick": {
+      const wanted = new Set(scripted.length === 0 ? [] : scripted.split(", "));
+      const rows = pickRows(ask, "");
+      // Walk every row from the top, toggling each option whose mark is not
+      // what the script leaves it as.
+      return [
+        ...rows.map((): AskKey => ({ name: "up", ctrl: false })),
+        ...rows.flatMap((row): ReadonlyArray<AskKey> => {
+          const option = row._tag === "Option" ? ask.options[row.index] : undefined;
+          const toggle =
+            option !== undefined && (option.selected === true) !== wanted.has(option.title);
+          return [...(toggle ? [pressed(" ")] : []), { name: "down", ctrl: false }];
+        }),
+        enter,
+      ];
+    }
     case "Input":
       return [...[...scripted].map(pressed), enter];
   }
@@ -75,7 +93,9 @@ const answered = <A>(
       ? replay(confirmKind(ask), keys)
       : ask._tag === "Choose"
         ? replay(chooseKind(ask), keys)
-        : replay(inputKind(ask), keys);
+        : ask._tag === "Pick"
+          ? replay(pickKind(ask), keys)
+          : replay(inputKind(ask), keys);
   return action._tag === "Submit" ? { value: action.value, answer: action.answer } : undefined;
 };
 

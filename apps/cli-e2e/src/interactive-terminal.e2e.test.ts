@@ -24,23 +24,21 @@ afterAll(() => {
 });
 
 /** The row the selection cursor sits on, as the last frame painted it. */
+/** The row the caret stands on in the last frame of a list. */
 const cursorRow = (frame: string): string => {
   const row = frame
     .split("\n")
-    .filter((line) => line.startsWith(">"))
+    .filter((line) => line.startsWith(" ❯ "))
     .at(-1);
   if (row === undefined) throw new Error(`No cursor row in frame:\n${frame}`);
   return row.trim();
 };
 
-/** The `[x]` or `[ ]` mark on the Claude Code row of the last frame. */
+/** The `◉` or `◯` mark on the Claude Code row of the last frame. */
 const claudeCodeMark = (frame: string): string => {
-  const row = frame
-    .split("\n")
-    .filter((line) => line.includes("] Claude Code "))
-    .at(-1);
-  if (row === undefined) throw new Error(`No Claude Code row in frame:\n${frame}`);
-  return row.slice(row.indexOf("["), row.indexOf("]") + 1);
+  const mark = [...frame.matchAll(/([◉◯]) Claude Code\b/gu)].at(-1)?.[1];
+  if (mark === undefined) throw new Error(`No Claude Code row in frame:\n${frame}`);
+  return mark;
 };
 
 describe.skipIf(!ptyIsSupported)("pseudo-terminal harness", () => {
@@ -223,9 +221,10 @@ describe.skipIf(!ptyIsSupported)("axm prompts under a pseudo-terminal", () => {
     // An arrow arrives as an escape sequence and has to be decoded as one key.
     expect(cursorRow(moved?.emitted ?? "")).not.toBe(cursorRow(opened?.emitted ?? ""));
 
-    // Printable text reaches the prompt's own filter.
-    expect(filtered?.emitted).toContain("Filter: clau");
+    // Printable text narrows the list, typed after the question.
+    expect(filtered?.emitted).toContain("Select agents to configure  clau");
     expect(filtered?.emitted).toContain("Claude Code");
+    expect(filtered?.emitted).toMatch(/\d+ of \d+ shown · esc clears the filter/u);
 
     // Space toggles the row the cursor sits on.
     expect(claudeCodeMark(toggled?.emitted ?? "")).not.toBe(
@@ -277,6 +276,8 @@ describe.skipIf(!ptyIsSupported)("setup's instructions source under a pseudo-ter
     for (const outcome of result.actions) {
       expect(outcome.matched, `${JSON.stringify(outcome.action)}\n${result.transcript}`).toBe(true);
     }
+    // The agent pick left one line naming what was picked.
+    expect(result.transcript).toMatch(/✔ {3}Agents +\S/u);
     // The list opens under its question with the caret on the recommended
     // file, the caret moves with the arrows, and another file comes last.
     expect(result.transcript).toMatch(/❯ {3}AGENTS\.md +recommended/u);

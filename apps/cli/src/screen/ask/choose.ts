@@ -4,8 +4,8 @@
  * A list opens only when the options need reading, so each carries the facts
  * that tell it apart. The caret stands in the gutter beside the option `enter`
  * takes. The list shows as many options as the height it is given allows and
- * names how many it left out, so it never scrolls the terminal; the window
- * follows the caret. Neither the reducer nor the view touches the terminal.
+ * names how many it left out above and below, so it never scrolls the
+ * terminal; the window follows the caret. Neither the reducer nor the view touches the terminal.
  */
 
 import type { Doc } from "../doc.js";
@@ -17,6 +17,7 @@ import {
   type ChooseAsk,
   type ChooseOption,
 } from "./ask.js";
+import { listWindow } from "./list-window.js";
 
 /** Which option the caret stands on. */
 export interface ChooseState {
@@ -62,39 +63,24 @@ export const reduceChoose = <A>(
   return { _tag: "Next", state };
 };
 
-/**
- * The options that fit `rows` lines once the question and its note have
- * theirs. A list that fits shows whole; one that does not gives a line to
- * naming what it left out, and keeps the caret in view by starting no later
- * than it must.
- */
-export const chooseWindow = <A>(
-  ask: ChooseAsk<A>,
-  state: ChooseState,
-  rows: number,
-): { readonly start: number; readonly size: number } => {
-  const count = ask.options.length;
-  const room = rows - 1 - (ask.note === undefined ? 0 : 1);
-  if (count <= room) return { start: 0, size: count };
-  const size = Math.max(1, room - 1);
-  return { start: Math.min(Math.max(0, state.index - size + 1), count - size), size };
-};
-
 /** The question as the live scene shows it in `rows` lines while it stands open. */
 export const chooseDoc = <A>(ask: ChooseAsk<A>, state: ChooseState, rows: number): Doc => {
-  const { start, size } = chooseWindow(ask, state, rows);
+  // The question and its note take their lines before any option does.
+  const room = rows - 1 - (ask.note === undefined ? 0 : 1);
+  const window = listWindow(ask.options.length, state.index, room);
   return [
     {
       _tag: "prompt",
       question: ask.question,
       ...(ask.note === undefined ? {} : { note: ask.note }),
       chips: [],
-      options: ask.options.slice(start, start + size).map((option, offset) => ({
+      options: ask.options.slice(window.start, window.end).map((option, offset) => ({
         title: option.title,
         ...(option.details === undefined ? {} : { details: option.details }),
-        ...(start + offset === state.index ? { current: true } : {}),
+        ...(window.start + offset === state.index ? { current: true } : {}),
+        ...(offset === 0 && window.start > 0 ? { before: window.start } : {}),
       })),
-      more: ask.options.length - size,
+      more: ask.options.length - window.end,
     },
   ];
 };

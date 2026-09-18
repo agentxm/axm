@@ -28,7 +28,7 @@ the wide-character check
  ?   Instructions source
  ❯   AGENTS.md
      CLAUDE.md
- ·   1 more
+     ↓ 1 more
  ?   Instructions file name
      ❯ docs/AGENTS.md
  ◒   Waiting for approval on

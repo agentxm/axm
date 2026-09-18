@@ -1,0 +1,10 @@
+ ?   Which extensions should be installed?  type to filter
+ ❯ ◪ Skills                        2 of 4
+   ◉   code-review                 Reviews a diff before you open a pull request
+   ◉   triage                      Sorts incoming issues by severity
+   ◯   changelog                   Drafts release notes from merged work
+   ◯   standup                     Summarises yesterday from your commits
+   ◯ Subagents                     0 of 2
+   ◯   reviewer                    A second reader for risky changes
+   ◯   planner                     Breaks a goal into ordered tasks
+2 selected · ↑↓ move · space toggle · ^a all · enter confirm

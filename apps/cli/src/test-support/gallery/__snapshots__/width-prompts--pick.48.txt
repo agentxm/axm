@@ -1,0 +1,7 @@
+ ?   Which agents should AXM configure?
+ ❯ ◉ Claude Code
+   ◉ Codex
+   ◉ Cursor
+   ◯ Gemini CLI
+     ↓ 8 more
+3 selected · space · ^a all · enter

@@ -159,15 +159,15 @@ describe("chooseDoc", () => {
     expect(paint(80, 3)).toEqual([
       " ?   Instructions source",
       " ❯   AGENTS.md                     recommended · existing · 128 lines",
-      " ·   2 more",
+      "     ↓ 2 more",
     ]);
   });
 
   it("keeps the caret in view as it moves past the window", () => {
     expect(paint(80, 3, { index: 2 })).toEqual([
       " ?   Instructions source",
+      "     ↑ 2 more",
       " ❯   Other…                        type a file name",
-      " ·   2 more",
     ]);
   });
 
@@ -181,7 +181,7 @@ describe("chooseDoc", () => {
       " ?   Instructions source",
       "     AXM syncs its contents to each agent.",
       " ❯   AGENTS.md                     recommended · existing · 128 lines",
-      " ·   2 more",
+      "     ↓ 2 more",
     ]);
   });
 });

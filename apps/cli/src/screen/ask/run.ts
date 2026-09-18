@@ -20,6 +20,7 @@ import type { Ask, AskKey, AskKind } from "./ask.js";
 import { chooseKind } from "./choose.js";
 import { confirmKind } from "./confirm.js";
 import { inputKind } from "./input.js";
+import { pickKind } from "./pick.js";
 import { PromptCancelled } from "./prompt-cancelled.js";
 
 /** Where a running question paints, and where its answer lands. */
@@ -48,6 +49,8 @@ const withKind = <A, R>(ask: Ask<A>, use: <S>(kind: AskKind<S, A>) => R): R => {
       return use(confirmKind(ask));
     case "Choose":
       return use(chooseKind(ask));
+    case "Pick":
+      return use(pickKind(ask));
     case "Input":
       return use(inputKind(ask));
   }

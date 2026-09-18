@@ -10,8 +10,11 @@ import type {
   LedgerRow,
   Mark,
   PromptChip,
+  PromptHint,
+  PromptKey,
   PromptNode,
   PromptOption,
+  PromptPicked,
   RowNode,
   Span,
   Status,
@@ -45,6 +48,12 @@ const MIN_FIELD_VALUE_WIDTH = 12;
 const FLEX_MIN_WIDTH = 16;
 /** Cells between one key chip and the next. */
 const CHIP_GAP = 3;
+/** Cells between a question and the filter typed after it. */
+const FILTER_GAP = 2;
+/** What an empty filter shows, inviting a person to narrow the list. */
+const FILTER_INVITATION = "type to filter";
+/** A key whose name is at least this long is a word, such as `space`, and reads alone. */
+const NAMED_KEY_LENGTH = 3;
 
 export interface Glyphs {
   readonly status: Readonly<Record<Exclude<Tone, "neutral" | "dim">, string>>;
@@ -62,6 +71,11 @@ export interface Glyphs {
     readonly unselected: string;
     readonly partial: string;
   };
+  /**
+   * The arrows that point at the options a list leaves out, and that name the
+   * keys that move through it. They paint inline, leading their own line.
+   */
+  readonly arrows: { readonly up: string; readonly down: string };
   /**
    * The frames a running unit's mark animates through, in paint order. The
    * first frame is the mark a still document paints, so a set with one frame
@@ -98,6 +112,7 @@ export const unicodeGlyphs: Glyphs = {
     unselected: "◯",
     partial: "◪",
   },
+  arrows: { up: "↑", down: "↓" },
   // Both frames are Neutral in Unicode East Asian Width, so the mark occupies
   // one cell in every terminal; ◐ and ◑ are Ambiguous and were dropped.
   spinner: ["◒", "◓"],
@@ -130,6 +145,7 @@ export const asciiGlyphs: Glyphs = {
     unselected: "[ ]",
     partial: "[-]",
   },
+  arrows: { up: "^", down: "v" },
   // A terminal that cannot be trusted with symbols is not animated either, so
   // the running mark stands still.
   spinner: [".."],
@@ -801,6 +817,22 @@ const paintQuestion = (
   const questionWidth = displayWidth(visibleText(node.question));
   const room = (used: number): boolean => style.width === "unbounded" || used <= style.width;
   const alone = paintPrefixed(question, style, { indent, first });
+  if (node.filter !== undefined) {
+    // An empty filter invites typing while the line has room for it; a typed
+    // one is what the list shows, so it takes the next line rather than go.
+    const filter: ReadonlyArray<Span> =
+      node.filter.length === 0
+        ? [{ text: FILTER_INVITATION, tone: "dim" }]
+        : [{ text: node.filter }];
+    if (room(contentStart + questionWidth + FILTER_GAP + spansWidth(filter))) {
+      return [
+        `${spaces(indent)}${first}${paintSpans(question, style)}${spaces(FILTER_GAP)}${paintSpans(filter, style)}`,
+      ];
+    }
+    return node.filter.length === 0
+      ? alone
+      : [...alone, ...paintPrefixed(node.filter, style, { indent: contentStart, first: "" })];
+  }
   if (node.entry !== undefined) {
     const entry = entrySpans(node.entry, style);
     return room(contentStart + questionWidth + 1 + spansWidth(entry))
@@ -815,6 +847,35 @@ const paintQuestion = (
         `${spaces(indent)}${first}${paintSpans(question, style)}${spaces(COLUMN_GAP)}${paintSpans(worded, style)}`,
       ]
     : [...alone, `${spaces(contentStart)}${paintSpans(chips, style)}`];
+};
+
+/** The mark a picked, partly picked, or unpicked option carries. */
+const pickedGlyph = (picked: PromptPicked, style: ResolvedStyle): string =>
+  picked === "all"
+    ? style.glyphs.marks.selected
+    : picked === "some"
+      ? style.glyphs.marks.partial
+      : style.glyphs.marks.unselected;
+
+/**
+ * What stands before an option's title: the caret in the gutter where it
+ * stands, then — for a question that takes several — the option's mark, and
+ * two cells for each step in.
+ */
+const optionLead = (
+  option: PromptOption,
+  style: ResolvedStyle,
+  indent: number,
+): { readonly caret: string; readonly mark: string; readonly width: number } => {
+  const current = option.current === true;
+  const step = spaces(2 * (option.depth ?? 0));
+  if (option.picked === undefined) {
+    const caret = `${spaces(indent)}${gutter(current ? style.glyphs.marks.caret : undefined)}${step}`;
+    return { caret, mark: "", width: displayWidth(caret) };
+  }
+  const caret = `${spaces(indent)} ${current ? style.glyphs.marks.caret : " "} `;
+  const mark = `${pickedGlyph(option.picked, style)} ${step}`;
+  return { caret, mark, width: displayWidth(caret) + displayWidth(mark) };
 };
 
 /** An option's title, shortened in the middle to what the line leaves it. */
@@ -835,10 +896,11 @@ const detailsStart = (title: Text, style: ResolvedStyle, start: number): number 
   Math.max(style.valueColumn, start + displayWidth(visibleText(title)) + COLUMN_GAP);
 
 /**
- * One option on one line: the caret in the gutter where it stands, the title
- * at the content column, and — when the list shows details at all — its
- * details dim at the value column. A title too long for the line shortens in
- * the middle.
+ * One option on one line: the caret in the gutter where it stands, its mark
+ * when the question takes several, the title, and — when the list shows
+ * details at all — its details dim at the value column. The option the caret
+ * stands on is tinted, mark and title together. A title too long for the line
+ * shortens in the middle.
  */
 const paintOption = (
   option: PromptOption,
@@ -846,23 +908,68 @@ const paintOption = (
   indent: number,
   withDetails: boolean,
 ): string => {
-  const current = option.current === true;
-  const start = indent + GUTTER_WIDTH;
+  const tone: Tone | undefined = option.current === true ? "info" : undefined;
+  const lead = optionLead(option, style, indent);
+  const start = lead.width;
   const title = optionTitle(option, style, start);
-  const line = `${spaces(indent)}${gutter(current ? style.glyphs.marks.caret : undefined)}${paintValue(title, style, current ? "info" : undefined)}`;
+  const line = `${lead.caret}${lead.mark.length === 0 ? "" : paintSpans([{ text: lead.mark }], style, tone)}${paintValue(title, style, tone)}`;
   const details = optionDetails(option, style);
   if (!withDetails || details.length === 0) return line;
   const gap = detailsStart(title, style, start) - start - displayWidth(visibleText(title));
   return `${line}${spaces(gap)}${paintSpans(details, style, "dim")}`;
 };
 
+/** The dim line that names how many options a list leaves out on one side. */
+const paintSkipped = (
+  arrow: string,
+  count: number,
+  style: ResolvedStyle,
+  indent: number,
+): ReadonlyArray<string> =>
+  paintPrefixed(`${arrow} ${String(count)} more`, style, {
+    indent: indent + GUTTER_WIDTH,
+    first: "",
+    tone: "dim",
+  });
+
+/** One key as the hint names it, with its word or, where the line is short, without. */
+const keyText = (key: PromptKey, style: ResolvedStyle, worded: boolean): string => {
+  const name =
+    key.key === "arrows" ? `${style.glyphs.arrows.up}${style.glyphs.arrows.down}` : key.key;
+  return worded ? `${name} ${key.word}` : name;
+};
+
+/**
+ * The line beneath a list. The whole hint when it fits; then without the
+ * arrows, and with named keys such as `space` standing alone; then its status
+ * alone.
+ */
+const paintHint = (
+  hint: PromptHint,
+  style: ResolvedStyle,
+  indent: number,
+): ReadonlyArray<string> => {
+  const full = [...hint.status, ...hint.keys.map((key) => keyText(key, style, true))];
+  const short = [
+    ...hint.status,
+    ...hint.keys
+      .filter((key) => key.key !== "arrows")
+      .map((key) => keyText(key, style, key.key.length < NAMED_KEY_LENGTH)),
+  ];
+  const joined = (parts: ReadonlyArray<string>): string => parts.join(style.glyphs.separator);
+  const fitting =
+    [full, short].find((parts) => fits(style.width, `${spaces(indent)}${joined(parts)}`)) ??
+    hint.status;
+  return paintPrefixed(joined(fitting), style, { indent, first: "", tone: "dim" });
+};
+
 /**
  * A question and what answers it: its question line, a dim note beneath it,
  * and — for a question whose answers need reading — the options that fit,
- * with one line naming how many did not. Options show their details only
- * when every option's fit whole: a list whose details come and go row by row
- * would read as options that have none, so a narrow list drops them all
- * before it touches a title.
+ * with a line naming how many it left out above and below, and the hint
+ * beneath the list. Options show their details only when every option's fit
+ * whole: a list whose details come and go row by row would read as options
+ * that have none, so a narrow list drops them all before it touches a title.
  */
 const paintPrompt = (
   node: PromptNode,
@@ -872,11 +979,11 @@ const paintPrompt = (
   const contentStart = indent + GUTTER_WIDTH;
   const options = node.options ?? [];
   const withDetails = options.every((option) => {
-    const title = optionTitle(option, style, contentStart);
+    const start = optionLead(option, style, indent).width;
+    const title = optionTitle(option, style, start);
     return (
       style.width === "unbounded" ||
-      detailsStart(title, style, contentStart) + spansWidth(optionDetails(option, style)) <=
-        style.width
+      detailsStart(title, style, start) + spansWidth(optionDetails(option, style)) <= style.width
     );
   });
   return [
@@ -884,14 +991,16 @@ const paintPrompt = (
     ...(node.note === undefined
       ? []
       : paintPrefixed(node.note, style, { indent: contentStart, first: "", tone: "dim" })),
-    ...options.map((option) => paintOption(option, style, indent, withDetails)),
+    ...options.flatMap((option) => [
+      ...(option.before === undefined || option.before <= 0
+        ? []
+        : paintSkipped(style.glyphs.arrows.up, option.before, style, indent)),
+      paintOption(option, style, indent, withDetails),
+    ]),
     ...(node.more === undefined || node.more <= 0
       ? []
-      : paintPrefixed(`${String(node.more)} more`, style, {
-          indent,
-          first: gutter(style.glyphs.marks.waiting),
-          tone: "dim",
-        })),
+      : paintSkipped(style.glyphs.arrows.down, node.more, style, indent)),
+    ...(node.hint === undefined ? [] : paintHint(node.hint, style, indent)),
   ];
 };
 

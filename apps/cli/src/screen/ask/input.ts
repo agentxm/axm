@@ -11,7 +11,14 @@
 import * as Result from "effect/Result";
 
 import type { CalloutNode, Doc } from "../doc.js";
-import { isQuitKey, isSubmitKey, type AskKey, type AskKind, type InputAsk } from "./ask.js";
+import {
+  isQuitKey,
+  isSubmitKey,
+  typedText,
+  type AskKey,
+  type AskKind,
+  type InputAsk,
+} from "./ask.js";
 
 /** The line typed so far, and what was wrong with it when it was last submitted. */
 export interface InputState {
@@ -25,13 +32,6 @@ export type InputAction<A> =
   | { readonly _tag: "Cancel" };
 
 export const initialInputState: InputState = { raw: "" };
-
-/** Whether typed text carries a control character, which is a key rather than text. */
-const hasControl = (text: string): boolean =>
-  [...text].some((character) => {
-    const code = character.codePointAt(0) ?? 0;
-    return code < 0x20 || code === 0x7f;
-  });
 
 /**
  * One key against one line. Text appends, backspace removes the last
@@ -56,8 +56,8 @@ export const reduceInput = <A>(
   if (key.name === "backspace") {
     return { _tag: "Next", state: { raw: [...state.raw].slice(0, -1).join("") } };
   }
-  const typed = key.char;
-  return typed === undefined || typed.length === 0 || key.ctrl || hasControl(typed)
+  const typed = typedText(key);
+  return typed === undefined
     ? { _tag: "Next", state }
     : { _tag: "Next", state: { raw: `${state.raw}${typed}` } };
 };

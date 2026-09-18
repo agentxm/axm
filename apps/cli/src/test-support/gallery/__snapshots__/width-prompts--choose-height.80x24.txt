@@ -19,4 +19,4 @@
      packages/registry/AGENTS.md   existing
  ❯   packages/reports/AGENTS.md    existing
      packages/search/AGENTS.md     existing
- ·   5 more
+     ↓ 5 more

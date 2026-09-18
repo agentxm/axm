@@ -63,6 +63,9 @@ export {
   type ConfirmChoice,
   type InputAsk,
   type InteractiveGuard,
+  type PickAsk,
+  type PickOption,
+  pickAsk,
 } from "./ask/ask.js";
 export { PromptCancelled } from "./ask/prompt-cancelled.js";
 export { WaitAbandoned } from "./wait/wait-abandoned.js";
@@ -146,7 +149,6 @@ export {
   type SuggestionEvent,
 } from "./machine-events.js";
 export { ScreenLoggerLive } from "./logger.js";
-export { erasePromptFrame } from "./prompt-clear.js";
 export { interruptionFallback } from "./interruption-fallback.js";
 export {
   Verbs,

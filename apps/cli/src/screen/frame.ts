@@ -42,7 +42,6 @@ export class Frame extends ServiceMap.Service<
     readonly showPlan: (plan: LivePlan | undefined) => Effect.Effect<void>;
     /** Replace the interaction beneath the ledger — a prompt or a wait; `undefined` clears it. */
     readonly showInteraction: (part: ScenePart | undefined) => Effect.Effect<void>;
-    readonly prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
     readonly settle: Effect.Effect<void>;
   }
 >()("axm.sh/screen/Frame") {}
@@ -56,7 +55,6 @@ interface FrameState {
   /** Display widths of the lines standing in the live region, in paint order. */
   readonly painted: ReadonlyArray<number>;
   readonly spinner: number;
-  readonly paused: boolean;
   /** Whether the region hid the cursor and still owes the terminal a show. */
   readonly cursorHidden: boolean;
 }
@@ -67,7 +65,6 @@ const initialState: FrameState = {
   scene: {},
   painted: [],
   spinner: 0,
-  paused: false,
   cursorHidden: false,
 };
 
@@ -146,7 +143,6 @@ export const FrameLive = (options: FrameOptions): Layer.Layer<Frame, never, Outp
         current: FrameState,
         facts: { readonly stderrIsTTY: boolean },
       ): Scene => {
-        if (current.paused) return {};
         if (options.animate && !options.quiet) return current.scene;
         return facts.stderrIsTTY ? { interaction: current.scene.interaction } : {};
       };
@@ -267,25 +263,6 @@ export const FrameLive = (options: FrameOptions): Layer.Layer<Frame, never, Outp
           })),
         showInteraction: (part: ScenePart | undefined) =>
           show((value) => ({ ...value, scene: { ...value.scene, interaction: part } })),
-        prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-          permit
-            .withPermit(
-              Effect.gen(function* () {
-                yield* eraseLocked;
-                yield* Ref.update(state, (value) => ({ ...value, paused: true }));
-              }),
-            )
-            .pipe(
-              Effect.andThen(effect),
-              Effect.ensuring(
-                permit.withPermit(
-                  Effect.gen(function* () {
-                    yield* Ref.update(state, (current) => ({ ...current, paused: false }));
-                    yield* repaintLocked;
-                  }),
-                ),
-              ),
-            ),
         settle,
       };
     }),

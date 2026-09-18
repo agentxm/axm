@@ -81,8 +81,8 @@ describe("axm skills install output UX", () => {
       expect(output).toContain(unitRow);
       // The verdict settles the ledger, so it follows the rows it rests on.
       expect(output.indexOf(unitRow)).toBeLessThan(output.indexOf(verdict));
-      expect(output).toContain(
-        "Installing  in this project - agents: antigravity, amp, claude-code",
+      expect(output).toMatch(
+        /Installing {2}in this project [·-] agents: antigravity, amp, claude-code/,
       );
       expect(output).not.toContain("skill(s)");
     } finally {

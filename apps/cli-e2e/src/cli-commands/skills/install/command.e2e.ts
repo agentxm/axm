@@ -127,7 +127,7 @@ describe("axm skills install", () => {
           "my-skill                      -         created   1 file, .agents/skills/my-skill, .claude/skills/my-skill";
         expect(output.indexOf(unitRow)).toBeGreaterThanOrEqual(0);
         expect(output.indexOf(unitRow)).toBeLessThan(verdictIndex);
-        expect(output).toContain("Installing  in this project - agents: claude-code");
+        expect(output).toMatch(/Installing {2}in this project [·-] agents: claude-code/);
         expect(output).not.toContain("Source:");
         expect(output).not.toContain("Resolution:");
         expect(output).not.toContain("skill(s)");

@@ -57,6 +57,8 @@ interface FrameState {
   readonly painted: ReadonlyArray<number>;
   readonly spinner: number;
   readonly paused: boolean;
+  /** Whether the region hid the cursor and still owes the terminal a show. */
+  readonly cursorHidden: boolean;
 }
 
 const initialState: FrameState = {
@@ -66,6 +68,7 @@ const initialState: FrameState = {
   painted: [],
   spinner: 0,
   paused: false,
+  cursorHidden: false,
 };
 
 /**
@@ -133,27 +136,43 @@ export const FrameLive = (options: FrameOptions): Layer.Layer<Frame, never, Outp
         yield* Ref.update(state, (value) => ({ ...value, painted: [] }));
       });
 
+      /**
+       * What the region may show. Progress animates only where the terminal
+       * can animate and quiet has not silenced it, but an open question is not
+       * progress: it is the thing the person has to answer, so it paints
+       * wherever the region can be erased and repainted at all.
+       */
+      const visibleScene = (
+        current: FrameState,
+        facts: { readonly stderrIsTTY: boolean },
+      ): Scene => {
+        if (current.paused) return {};
+        if (options.animate && !options.quiet) return current.scene;
+        return facts.stderrIsTTY ? { interaction: current.scene.interaction } : {};
+      };
+
       const repaintLocked = Effect.gen(function* () {
         const current = yield* Ref.get(state);
         const facts = yield* streams.facts;
         const erase = eraseBytes(current.painted, facts.columns);
         const nowMs = yield* Clock.currentTimeMillis;
         const frames = (options.glyphs ?? unicodeGlyphs).spinner;
-        const lines =
-          current.paused || !options.animate || options.quiet
-            ? []
-            : paintScene(current.scene, facts, {
-                colors: options.colors,
-                spinner: frames[current.spinner % frames.length] ?? "",
-                nowMs,
-                ...(options.glyphs === undefined ? {} : { glyphs: options.glyphs }),
-              });
-        const paint = lines.length === 0 ? "" : `${CURSOR_HIDE}${lines.join("\n")}`;
+        const lines = paintScene(visibleScene(current, facts), facts, {
+          colors: options.colors,
+          spinner: frames[current.spinner % frames.length] ?? "",
+          nowMs,
+          ...(options.glyphs === undefined ? {} : { glyphs: options.glyphs }),
+        });
+        // A painted region hides the cursor; an empty one hands it back, but
+        // only where it was the region that hid it.
+        const handback = current.cursorHidden ? CURSOR_SHOW : "";
+        const paint = lines.length === 0 ? handback : `${CURSOR_HIDE}${lines.join("\n")}`;
         if (erase.length > 0 || paint.length > 0) yield* streams.stderr(`${erase}${paint}`);
         yield* Ref.set(state, {
           ...current,
           painted: lines.map(displayWidth),
           spinner: current.spinner + 1,
+          cursorHidden: lines.length > 0,
         });
       });
 
@@ -173,10 +192,15 @@ export const FrameLive = (options: FrameOptions): Layer.Layer<Frame, never, Outp
           const current = yield* Ref.get(state);
           const facts = yield* streams.facts;
           const erase = eraseBytes(current.painted, facts.columns);
-          if (erase.length > 0 || options.animate) yield* streams.stderr(`${erase}${CURSOR_SHOW}`);
+          // The region hands the cursor back the moment it empties, so
+          // settlement owes one only where something was still standing.
+          if (erase.length > 0 || current.cursorHidden) {
+            yield* streams.stderr(`${erase}${CURSOR_SHOW}`);
+          }
           yield* Ref.set(state, {
             ...current,
             painted: [],
+            cursorHidden: false,
             progress: undefined,
             plan: undefined,
             scene: {},

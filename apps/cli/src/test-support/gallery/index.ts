@@ -10,6 +10,7 @@ import { mutationResult } from "./mutation-result.js";
 import { mutationResultAltTable } from "./mutation-result-alt-table.js";
 import { mutationResultAltTree } from "./mutation-result-alt-tree.js";
 import { planPreview } from "./plan-preview.js";
+import { promptsConfirmAnswered } from "./prompts--confirm-answered.js";
 import { refSyncMixedOperations } from "./ref-sync--mixed-operations.js";
 import { refSyncNothingToDo } from "./ref-sync--nothing-to-do.js";
 import { refSyncUninstallKeptReference } from "./ref-sync--uninstall-kept-reference.js";
@@ -18,6 +19,7 @@ import { widthGateFourWidths } from "./width-gate--four-widths.js";
 import { widthKeepLongNames } from "./width-keep--long-names.js";
 import { widthKeepNeverCut } from "./width-keep--never-cut.js";
 import { widthLiveHeightCap } from "./width-live--height-cap.js";
+import { widthPromptsConfirm } from "./width-prompts--confirm.js";
 
 /**
  * The terminal design gallery: one typed document or live scene per key use
@@ -49,6 +51,7 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
     doc: refSyncUninstallKeptReference,
   },
   { _tag: "document", name: "blocked-waiting", doc: blockedWaiting },
+  { _tag: "document", name: "prompts--confirm-answered", doc: promptsConfirmAnswered },
   { _tag: "document", name: "every-node", doc: everyNode },
   {
     _tag: "document",
@@ -69,6 +72,13 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
     name: "width-keep--long-names",
     doc: widthKeepLongNames,
     widths: [60],
+  },
+  {
+    _tag: "document",
+    name: "width-prompts--confirm",
+    doc: widthPromptsConfirm,
+    // The widths the canvas draws the three chip fallbacks at.
+    widths: [80, 48, 30],
   },
   { _tag: "scene", name: "width-live--height-cap", scene: widthLiveHeightCap },
 ];

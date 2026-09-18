@@ -187,6 +187,74 @@ describe("Frame", () => {
     }).pipe(Effect.provide(harness.layer), Effect.scoped);
   });
 
+  it.effect("paints an open question where the region cannot animate", () => {
+    const streams = makeTestOutputStreams({ stdoutIsTTY: true, stderrIsTTY: true });
+    return Effect.gen(function* () {
+      const frame = yield* Frame;
+      // Progress is silent without animation, but a question is not progress:
+      // it is the thing the person has to answer.
+      yield* frame.present(stateAt(4));
+      expect(liveLines(streams.state)).toEqual([]);
+
+      yield* frame.showInteraction(part("ask", 2));
+      expect(liveLines(streams.state)).toEqual(["ask 1", "ask 2"]);
+    }).pipe(
+      Effect.provide(
+        Layer.provide(FrameLive({ animate: false, quiet: false, colors: false }), streams.layer),
+      ),
+      Effect.scoped,
+    );
+  });
+
+  it.effect("paints an open question under quiet, which silences everything else", () => {
+    const streams = makeTestOutputStreams({ stdoutIsTTY: true, stderrIsTTY: true });
+    return Effect.gen(function* () {
+      const frame = yield* Frame;
+      yield* frame.showPlan(plan(3));
+      yield* frame.present(stateAt(4));
+      expect(liveLines(streams.state)).toEqual([]);
+
+      yield* frame.showInteraction(part("ask", 1));
+      expect(liveLines(streams.state)).toEqual(["ask 1"]);
+    }).pipe(
+      Effect.provide(
+        Layer.provide(FrameLive({ animate: true, quiet: true, colors: false }), streams.layer),
+      ),
+      Effect.scoped,
+    );
+  });
+
+  it.effect("keeps the region off a stream that is not a terminal", () => {
+    const streams = makeTestOutputStreams({ stdoutIsTTY: false, stderrIsTTY: false });
+    return Effect.gen(function* () {
+      const frame = yield* Frame;
+      yield* frame.showInteraction(part("ask", 1));
+      expect(streams.state.stderr).toEqual([]);
+    }).pipe(
+      Effect.provide(
+        Layer.provide(FrameLive({ animate: false, quiet: false, colors: false }), streams.layer),
+      ),
+      Effect.scoped,
+    );
+  });
+
+  it.effect("hands the cursor back when a question it hid the cursor for leaves", () => {
+    const streams = makeTestOutputStreams({ stdoutIsTTY: true, stderrIsTTY: true });
+    return Effect.gen(function* () {
+      const frame = yield* Frame;
+      yield* frame.showInteraction(part("ask", 1));
+      expect(streams.state.stderr.at(-1)).toContain(CURSOR_HIDE);
+
+      yield* frame.showInteraction(undefined);
+      expect(streams.state.stderr.at(-1)).toContain("\u001b[?25h");
+    }).pipe(
+      Effect.provide(
+        Layer.provide(FrameLive({ animate: false, quiet: false, colors: false }), streams.layer),
+      ),
+      Effect.scoped,
+    );
+  });
+
   it.effect("erases the rows a narrowed terminal rewrapped, not the lines it painted", () => {
     return Effect.gen(function* () {
       const resizes = yield* Queue.unbounded<number>();

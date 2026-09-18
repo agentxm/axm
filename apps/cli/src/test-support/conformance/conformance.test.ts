@@ -70,6 +70,7 @@ const fold = (events: ReadonlyArray<OperationEvent>): ProgressState =>
   events.reduce(reduceProgress, initialProgress);
 
 const CURSOR_SHOW = "\u001b[?25h";
+const CURSOR_HIDE = "\u001b[?25l";
 
 /** Output streams that keep one ordered log across both channels. */
 const makeOrderedStreams = () => {
@@ -277,10 +278,20 @@ describe("renderer conformance", () => {
           return yield* Effect.never;
         }).pipe(Effect.provide(layer), Effect.scoped, Effect.forkChild);
         yield* Deferred.await(started);
+        // The lifecycle subscription drains on its own fiber, so let the live
+        // region reach the terminal before the command is interrupted: a
+        // cursor that was never hidden proves nothing about restoring it.
+        const written = () => streams.log.map((entry) => entry.content).join("");
+        for (let turn = 0; turn < 50 && !written().includes(CURSOR_HIDE); turn += 1) {
+          yield* Effect.yieldNow;
+        }
+        expect(written()).toContain(CURSOR_HIDE);
+
         yield* Fiber.interrupt(fiber);
-        const stderr = streams.log.map((entry) => entry.content).join("");
+        const stderr = written();
         expect(stderr).toContain("transcript stayed whole\n");
         expect(stderr).toContain(CURSOR_SHOW);
+        expect(stderr.lastIndexOf(CURSOR_SHOW)).toBeGreaterThan(stderr.lastIndexOf(CURSOR_HIDE));
       });
     });
   });

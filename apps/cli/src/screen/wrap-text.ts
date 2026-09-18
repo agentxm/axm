@@ -28,13 +28,15 @@ const attributesOf = (span: Span): Attributes => ({
   ...(span.bold === undefined ? {} : { bold: span.bold }),
   ...(span.link === undefined ? {} : { link: span.link }),
   ...(span.copyable === undefined ? {} : { copyable: span.copyable }),
+  ...(span.invert === undefined ? {} : { invert: span.invert }),
 });
 
 const sameAttributes = (left: Attributes, right: Attributes): boolean =>
   left.tone === right.tone &&
   left.bold === right.bold &&
   left.link === right.link &&
-  left.copyable === right.copyable;
+  left.copyable === right.copyable &&
+  left.invert === right.invert;
 
 /** A copyable word is one unbreakable unit: it is never split, even at a space. */
 const isCopyable = (word: Word): boolean =>

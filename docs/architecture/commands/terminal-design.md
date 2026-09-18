@@ -63,6 +63,7 @@ shape happens to fit the terminal.
 | Explain a condition that needs attention                     | `callout` with a tone and optional children; never for the outcome itself                             |
 | Say something in prose                                       | `paragraph`; a tone only when the prose is itself a warning, error, or aside                          |
 | Point to the next command or link                            | `next` with suggested actions; machine mode emits them as suggestion events                           |
+| Ask a question                                               | `prompt`, built by the `Screen` from an `Ask` while one is open; views never build it                 |
 | Record an answered prompt                                    | `answer`, appended by the `Screen` when a prompt settles; views never build it                        |
 | Group related nodes under a dim title                        | `section`                                                                                             |
 | Pass text through untouched                                  | `raw` or `markdown`; the painter never wraps, truncates, or restyles them                             |
@@ -181,6 +182,12 @@ its fields, and its answers share the value column. A read-only table instead
 drops `preferred` columns and stacks below forty columns, which suits wide
 inventories.
 
+A question yields in three steps. Its key chips follow it on one line while
+both fit; then they take the line beneath it, aligned to the content column;
+then they lose their words and the question wraps with a hanging indent. The
+chip of the choice `enter` takes is filled and its key capitalised, so the
+default reads the same on a terminal without color.
+
 A long name shortens in the middle, keeping its scope and last path segment:
 `@acme-enterprise/…/soc2-review`. A copyable value — a URL, a `next` command, a
 one-time code, a request identifier — is never cut, truncated, or hyphenated;
@@ -233,7 +240,10 @@ output.
 When animation is unavailable — CI, pipes, `TERM=dumb` — the same transitions
 become transcript lines: one when the operation starts, one per wait, and one
 when it settles, followed by the result ledger. Per-unit lines appear only with
-`--verbose`. How quiet mode treats these lines belongs to
+`--verbose`. An open interaction is the exception: it is not progress but the
+thing the person has to answer, so it paints and repaints wherever the region
+can be erased at all, including under quiet. The region hands the cursor back
+the moment it empties. How quiet mode treats the transition lines belongs to
 [CLI output](output.md).
 
 ## Gallery

@@ -1,9 +1,11 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import type * as Scope from "effect/Scope";
 import * as ServiceMap from "effect/Context";
+import * as Terminal from "effect/Terminal";
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
@@ -11,7 +13,12 @@ import {
   type OperationLifecycleService,
 } from "@agentxm/workspace/transitions/planning";
 
+import type { AppError } from "../app-error/index.js";
+import { promptAvailability } from "../cli-flags/index.js";
 import { makeJsonSuccessEnvelope } from "../cli-runtime/json-envelope.js";
+import { promptRequired, type Ask, type InteractiveGuard } from "./ask/ask.js";
+import type { PromptCancelled } from "./ask/prompt-cancelled.js";
+import { runAsk } from "./ask/run.js";
 import type { Doc, DocNode } from "./doc.js";
 import { plain } from "./doc.js";
 import { Frame } from "./frame.js";
@@ -71,6 +78,16 @@ export class Screen extends ServiceMap.Service<
      */
     readonly showPlan: (plan: LivePlan) => Effect.Effect<void>;
     readonly log: (record: ScreenLogRecord) => Effect.Effect<void>;
+    /**
+     * Put a question to the person and answer with what they chose. The guard
+     * decides whether a question may open at all: where it may not, and in
+     * machine mode always, this fails with the usage error and its recovery
+     * instead, so no prompt can reach a terminal that must not see one.
+     */
+    readonly ask: <A>(
+      ask: Ask<A>,
+      guard: InteractiveGuard,
+    ) => Effect.Effect<A, PromptCancelled | AppError>;
     readonly prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
     readonly facts: Effect.Effect<ScreenFacts>;
     readonly settle: Effect.Effect<void>;
@@ -105,6 +122,9 @@ export const ScreenLive = (
     Effect.gen(function* () {
       const frame = yield* Frame;
       const streams = yield* OutputStreams;
+      // A composition without a terminal cannot ask, and says so through the
+      // same guard that closes a prompt for every other reason.
+      const terminal = yield* Effect.serviceOption(Terminal.Terminal);
 
       // A stream that is not a terminal is unbounded: nothing written to it is
       // wrapped, truncated, or padded to a terminal width. The output policy
@@ -121,6 +141,8 @@ export const ScreenLive = (
           );
         });
 
+      const note = (doc: Doc) => Effect.flatMap(render(doc, "stderr"), frame.stderr);
+
       return {
         result: (doc) => {
           const literal =
@@ -131,7 +153,7 @@ export const ScreenLive = (
             ? Effect.flatMap(render(doc, "stdout"), frame.stdout)
             : frame.stdout(literal);
         },
-        note: (doc) => Effect.flatMap(render(doc, "stderr"), frame.stderr),
+        note,
         document: () => Effect.succeed(false),
         // One projector folds the stream into progress state; the frame reads
         // the latest state and collapses it at settlement. The projector holds
@@ -152,6 +174,18 @@ export const ScreenLive = (
             render([{ _tag: "paragraph", tone: "dim", text: record.message }], "stderr"),
             frame.stderr,
           ),
+        ask: <A>(ask: Ask<A>, guard: InteractiveGuard) =>
+          Effect.gen(function* () {
+            if (!(yield* promptAvailability)) return yield* promptRequired(guard);
+            return yield* Option.match(terminal, {
+              onNone: () => Effect.fail(promptRequired(guard)),
+              onSome: (service) =>
+                runAsk(ask, service, {
+                  showInteraction: frame.showInteraction,
+                  transcript: note,
+                }),
+            });
+          }),
         prompt: frame.prompt,
         facts: Effect.map(streams.facts, (facts) => ({
           columns: facts.columns,
@@ -305,6 +339,9 @@ export const ScreenMachine = (options?: {
         // no live ledger for a plan to paint into.
         showPlan: () => Effect.void,
         log: (record) => emit(logEvent(logLevel(record.level), record.message)),
+        // Machine output never prompts: asking is the usage error by
+        // construction, whatever the terminal on the other end can do.
+        ask: (_ask, guard) => Effect.fail(promptRequired(guard)),
         prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect,
         facts: Effect.succeed({ columns: 80, colors: false, animate: false }),
         settle: Effect.void,

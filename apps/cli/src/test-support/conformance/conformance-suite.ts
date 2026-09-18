@@ -65,6 +65,14 @@ const forEachText = (doc: Doc, visit: (value: Text, copyable: boolean) => void):
           pushText(node.folded.hint);
         }
         return;
+      case "prompt":
+        pushText(node.question);
+        if (node.note !== undefined) pushText(node.note);
+        node.chips.forEach((chip) => {
+          visit(chip.key, false);
+          visit(chip.word, false);
+        });
+        return;
       case "answer":
         pushText(node.label);
         pushText(node.value);
@@ -267,6 +275,7 @@ export const nodeKinds: ReadonlyArray<DocNode["_tag"]> = [
   "row",
   "rows",
   "ledger",
+  "prompt",
   "answer",
   "collapsed",
   "callout",

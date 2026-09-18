@@ -9,6 +9,7 @@ import type { Doc } from "../screen/doc.js";
 import type { LivePlan } from "../screen/live-ledger.js";
 import { paintText, type PaintStyle } from "../screen/paint-text.js";
 import { Screen, type ResultOptions, type ScreenLogRecord } from "../screen/screen.js";
+import { emptyAskScript, scriptedAsk, type AskScript } from "./scripted-ask.js";
 
 export interface TestScreenState {
   readonly results: Array<{
@@ -27,6 +28,8 @@ export interface TestScreenState {
   /** Every plan handed to the live ledger, in order. */
   readonly plans: Array<LivePlan>;
   readonly logs: Array<ScreenLogRecord>;
+  /** Questions this screen was given, and the keys it answers the next ones with. */
+  readonly script: AskScript;
 }
 
 const emptyState = (): TestScreenState => ({
@@ -36,6 +39,7 @@ const emptyState = (): TestScreenState => ({
   events: [],
   plans: [],
   logs: [],
+  script: emptyAskScript(),
 });
 
 export const makeTestScreen = (
@@ -75,6 +79,9 @@ export const makeTestScreen = (
       subscribeLossless(lifecycle, (event) => Effect.sync(() => void state.events.push(event))),
     showPlan: (plan) => Effect.sync(() => void state.plans.push(plan)),
     log: (record) => Effect.sync(() => void state.logs.push(record)),
+    ask: scriptedAsk(state.script, (doc) =>
+      state.docs.push({ channel: "stderr", doc, persistent: false }),
+    ),
     prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect,
     facts: Effect.succeed({ columns: 80, colors: false, animate: false }),
     settle: Effect.void,

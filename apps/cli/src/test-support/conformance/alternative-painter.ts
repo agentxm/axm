@@ -309,6 +309,19 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
             )),
       ];
     }
+    case "prompt":
+      // A second shape for the same question: the chips as plain text after it.
+      return block(
+        [
+          ...(typeof node.question === "string" ? [{ text: node.question }] : node.question),
+          {
+            text: ` [${node.chips.map((chip) => `${chip.key}=${chip.word}`).join(" ")}]`,
+          },
+        ],
+        style,
+        indent,
+        `${style.glyphs.marks.prompt} `,
+      ).concat(node.note === undefined ? [] : block(node.note, style, indent + 2, "", "dim"));
     case "answer":
       return block(
         node.value,

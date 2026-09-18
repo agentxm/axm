@@ -29,6 +29,12 @@ export interface Span {
    * one: it moves to a line of its own and overflows the width instead.
    */
   readonly copyable?: true;
+  /**
+   * Reverse video, so the span reads as a filled cell. A key chip uses it for
+   * the choice `enter` takes; a terminal without color shows the same choice
+   * by its capital letter instead.
+   */
+  readonly invert?: true;
 }
 
 export type Text = string | ReadonlyArray<Span>;
@@ -96,6 +102,33 @@ export interface LedgerNode {
   readonly columns: ReadonlyArray<LedgerColumn>;
   readonly rows: ReadonlyArray<LedgerRow>;
   readonly folded?: LedgerFold;
+}
+
+/**
+ * One lettered choice of a question: the key that picks it, and the word that
+ * says what it means. The key is shown as it must be typed, so the capital
+ * letter is what marks the default on a terminal without color.
+ */
+export interface PromptChip {
+  readonly key: string;
+  readonly word: string;
+  /** The choice `enter` takes: its chip is filled and its word emphasized. */
+  readonly current?: true;
+}
+
+/**
+ * A question being asked: the prompt mark in the gutter, the question itself,
+ * and the key chips that answer it. The painter puts the chips after the
+ * question, on their own line, or without their words, as the width allows.
+ * The `Screen` builds one from an `Ask` while a prompt is open; views never
+ * build it.
+ */
+export interface PromptNode {
+  readonly _tag: "prompt";
+  readonly question: Text;
+  /** What the question means, in one dim line beneath it. */
+  readonly note?: Text;
+  readonly chips: ReadonlyArray<PromptChip>;
 }
 
 /**
@@ -214,6 +247,7 @@ export type DocNode =
   | RowNode
   | RowsNode
   | LedgerNode
+  | PromptNode
   | AnswerNode
   | CollapsedNode
   | CalloutNode

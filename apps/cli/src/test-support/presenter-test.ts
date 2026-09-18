@@ -7,6 +7,7 @@ import { type BoxOptions, type LogMessage, type ResultOptions } from "../screen/
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { subscribeLossless, type OperationEvent } from "@agentxm/workspace/transitions/planning";
 import { Screen, plain, type Doc, type DocNode } from "../screen/index.js";
+import { emptyAskScript, scriptedAsk, type AskScript } from "./scripted-ask.js";
 
 // ---------------------------------------------------------------------------
 // TestRendererState — mutable state object capturing all ScreenPresenter calls
@@ -45,6 +46,8 @@ export interface TestRendererState {
   readonly suggestions: Array<SuggestedAction>;
   readonly summaries: Array<string>;
   readonly docs: Array<{ readonly channel: "stdout" | "stderr"; readonly doc: Doc }>;
+  /** Questions this screen was given, and the keys it answers the next ones with. */
+  readonly script: AskScript;
 }
 
 // ---------------------------------------------------------------------------
@@ -67,6 +70,7 @@ const makeEmptyState = (): TestRendererState => ({
   suggestions: [],
   summaries: [],
   docs: [],
+  script: emptyAskScript(),
 });
 
 const nodeText = (node: DocNode): string => {
@@ -78,6 +82,8 @@ const nodeText = (node: DocNode): string => {
       return node.cells.map(plain).join("   ");
     case "ledger":
       return node.rows.map((row) => row.cells.map(plain).join("   ")).join("\n");
+    case "prompt":
+      return plain(node.question);
     case "answer":
       return `${plain(node.label)}: ${plain(node.value)}`;
     case "collapsed":
@@ -292,6 +298,7 @@ const makeTestScreenService = (
         message: record.message,
       });
     }),
+  ask: scriptedAsk(state.script, (doc) => captureDoc(state, doc, "stderr")),
   prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect,
   facts: Effect.succeed({ columns: 80, colors: false, animate: false }),
   settle: Effect.void,

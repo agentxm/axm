@@ -14,7 +14,7 @@ import * as Path from "effect/Path";
 import * as Terminal from "effect/Terminal";
 import { Prompt } from "effect/unstable/cli";
 import { autocompleteMultiselect, requireInteractive } from "./prompt/index.js";
-import { Screen } from "./screen/index.js";
+import { Screen, type ConfirmAsk } from "./screen/index.js";
 import type { AppError } from "./app-error/index.js";
 import {
   WorkspaceConfigurationFailed,
@@ -25,12 +25,40 @@ import {
 import { setupAgentScanDoc, setupPlanDoc, setupScopeSupportDoc } from "./root/setup/view.js";
 
 const selectAgentsMessage = "Select agents to configure";
-const confirmInstructionSyncMessage =
-  "Sync instructions to the selected agents?\n  Updates agent instruction files such as AGENTS.md and CLAUDE.md.";
+const confirmInstructionSyncMessage = "Sync instructions to the selected agents?";
+const instructionSyncNote = "Updates agent instruction files such as AGENTS.md and CLAUDE.md.";
 const selectInstructionSourceMessage =
   "Choose the source file for shared instructions\n  AXM will sync its contents to the selected agents' instruction files.";
 const customInstructionSourceMessage = "Source instructions file name";
 const confirmSetupPlanMessage = "Proceed?";
+
+const yesNo = (
+  defaultsToYes: boolean,
+): ReadonlyArray<{
+  readonly key: string;
+  readonly word: string;
+  readonly value: boolean;
+}> => {
+  const yes = { key: "y", word: "yes", value: true };
+  const no = { key: "n", word: "no", value: false };
+  return defaultsToYes ? [yes, no] : [no, yes];
+};
+
+/** The setup gate: nothing has been written yet, so the default is to proceed. */
+const setupPlanAsk: ConfirmAsk<boolean> = {
+  _tag: "Confirm",
+  question: confirmSetupPlanMessage,
+  label: "Proceed",
+  choices: yesNo(true),
+};
+
+const instructionSyncAsk = (enabled: boolean): ConfirmAsk<boolean> => ({
+  _tag: "Confirm",
+  question: confirmInstructionSyncMessage,
+  note: instructionSyncNote,
+  label: "Sync instructions",
+  choices: yesNo(enabled),
+});
 
 const CUSTOM_SOURCE_FILE = "__custom__";
 
@@ -121,14 +149,8 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
           ),
       confirmInstructionSync: ({ enabled }) =>
         screen
-          .prompt(
-            requireInteractive(
-              Prompt.Confirm({ message: confirmInstructionSyncMessage, initial: enabled }),
-              { message: confirmInstructionSyncMessage },
-            ),
-          )
+          .ask(instructionSyncAsk(enabled), { message: confirmInstructionSyncMessage })
           .pipe(
-            Effect.provide(promptEnvironment),
             Effect.catchTag("PromptCancelled", cancelled),
             Effect.mapError(toInteractionFailure),
           ),
@@ -177,16 +199,8 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
         ),
       confirmSetupPlan: () =>
         screen
-          .prompt(
-            requireInteractive(
-              Prompt.Confirm({ message: confirmSetupPlanMessage, initial: true }),
-              {
-                message: confirmSetupPlanMessage,
-              },
-            ),
-          )
+          .ask(setupPlanAsk, { message: confirmSetupPlanMessage })
           .pipe(
-            Effect.provide(promptEnvironment),
             Effect.catchTag("PromptCancelled", cancelled),
             Effect.mapError(toInteractionFailure),
           ),

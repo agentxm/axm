@@ -33,6 +33,7 @@ const makeInput = (name: string): Terminal.UserInput => ({
 
 const makeHarness = Effect.gen(function* () {
   const output: Array<string> = [];
+  const renderer = TestRenderer.make();
   const queue = yield* Queue.make<Terminal.UserInput, Cause.Done>();
   const terminal = Terminal.make({
     columns: Effect.succeed(80),
@@ -48,7 +49,7 @@ const makeHarness = Effect.gen(function* () {
     FileSystem.layerNoop({}),
     Path.layer,
     Layer.succeed(Terminal.Terminal, terminal),
-    TestRenderer.make().layer,
+    renderer.layer,
   );
 
   const layer = Layer.mergeAll(
@@ -57,7 +58,7 @@ const makeHarness = Effect.gen(function* () {
     WorkspaceInitializationInteractionLive.pipe(Layer.provide(platformLayer)),
   );
 
-  return { layer, output, queue };
+  return { layer, output, queue, script: renderer.state.script };
 });
 
 describe("WorkspaceInitializationInteractionLive", () => {
@@ -115,7 +116,7 @@ describe("WorkspaceInitializationInteractionLive", () => {
   it.effect("maps a cancelled prompt into WorkspaceInitializationCancelled", () =>
     Effect.gen(function* () {
       const harness = yield* makeHarness;
-      yield* Queue.end(harness.queue);
+      harness.script.answers.push("cancel");
 
       const exit = yield* Effect.gen(function* () {
         const interaction = yield* WorkspaceInitializationInteraction;
@@ -133,20 +134,48 @@ describe("WorkspaceInitializationInteractionLive", () => {
   it.effect("explains instruction syncing before confirmation", () =>
     Effect.gen(function* () {
       const harness = yield* makeHarness;
-      yield* Queue.offer(harness.queue, makeInput("enter"));
 
       const enabled = yield* Effect.gen(function* () {
         const interaction = yield* WorkspaceInitializationInteraction;
         return yield* interaction.confirmInstructionSync({ enabled: true });
       }).pipe(Effect.provide(harness.layer));
 
+      // Nothing was scripted, so the question settled on its default, which
+      // the caller's own setting decides.
       expect(enabled).toBe(true);
 
-      const rendered = harness.output.map(stripAnsi).join("\n");
-      expect(rendered).toContain("Sync instructions to the selected agents?");
-      expect(rendered).toContain(
-        "Updates agent instruction files such as AGENTS.md and CLAUDE.md.",
-      );
+      const [asked] = harness.script.asks;
+      expect(asked?.question).toBe("Sync instructions to the selected agents?");
+      expect(asked?.note).toBe("Updates agent instruction files such as AGENTS.md and CLAUDE.md.");
+      expect(asked?.choices.map((choice) => choice.word)).toEqual(["yes", "no"]);
+    }),
+  );
+
+  it.effect("offers the setup gate with proceeding as its default", () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHarness;
+
+      const proceed = yield* Effect.gen(function* () {
+        const interaction = yield* WorkspaceInitializationInteraction;
+        return yield* interaction.confirmSetupPlan();
+      }).pipe(Effect.provide(harness.layer));
+
+      expect(proceed).toBe(true);
+      expect(harness.script.asks[0]?.question).toBe("Proceed?");
+    }),
+  );
+
+  it.effect("puts the risk-bearing choice first where syncing is off", () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHarness;
+
+      const enabled = yield* Effect.gen(function* () {
+        const interaction = yield* WorkspaceInitializationInteraction;
+        return yield* interaction.confirmInstructionSync({ enabled: false });
+      }).pipe(Effect.provide(harness.layer));
+
+      expect(enabled).toBe(false);
+      expect(harness.script.asks[0]?.choices.map((choice) => choice.word)).toEqual(["no", "yes"]);
     }),
   );
 

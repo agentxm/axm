@@ -9,6 +9,8 @@ import type {
   LedgerNode,
   LedgerRow,
   Mark,
+  PromptChip,
+  PromptNode,
   RowNode,
   Span,
   Status,
@@ -23,6 +25,8 @@ import { longestWordWidth, truncateText, visibleText, wrapText } from "./wrap-te
 
 const ESC = "\u001b[";
 const RESET = `${ESC}0m`;
+/** Reverse video: the terminal's own way to fill a cell behind its text. */
+const INVERT = `${ESC}7m`;
 const COLUMN_GAP = 3;
 /**
  * Every marked node paints its mark in this gutter — a space, the mark, and
@@ -37,6 +41,8 @@ const KEY_WIDTH = 27;
 const MIN_FIELD_VALUE_WIDTH = 12;
 /** Narrowest inline width a change row's last cell accepts before taking its own line. */
 const FLEX_MIN_WIDTH = 16;
+/** Cells between one key chip and the next. */
+const CHIP_GAP = 3;
 
 export interface Glyphs {
   readonly status: Readonly<Record<Exclude<Tone, "neutral" | "dim">, string>>;
@@ -168,7 +174,7 @@ const toneCodes: Readonly<Record<Tone, string>> = {
 
 const styleSpan = (span: Span, colors: boolean): string => {
   if (!colors) return span.text;
-  const prefix = `${span.bold === true ? `${ESC}1m` : ""}${toneCodes[span.tone ?? "neutral"]}`;
+  const prefix = `${span.bold === true ? `${ESC}1m` : ""}${span.invert === true ? INVERT : ""}${toneCodes[span.tone ?? "neutral"]}`;
   const linked =
     span.link === undefined
       ? span.text
@@ -732,6 +738,75 @@ const paintFields = (
   });
 };
 
+// ---------------------------------------------------------------------------
+// Prompts
+// ---------------------------------------------------------------------------
+
+/**
+ * One key chip: the key in a filled cell, and its word after it. The fill's
+ * trailing cell is dropped on a line's last wordless chip, because a painted
+ * line never ends in a space.
+ */
+const chipSpans = (
+  chip: PromptChip,
+  options: { readonly word: boolean; readonly last: boolean },
+): ReadonlyArray<Span> => {
+  const emphasis: Omit<Span, "text"> =
+    chip.current === true ? { tone: "info", bold: true } : { tone: "dim" };
+  const fill: Span = {
+    text: ` ${chip.key}${options.word || !options.last ? " " : ""}`,
+    invert: true,
+    ...emphasis,
+  };
+  return options.word
+    ? [fill, { text: " " }, { text: chip.word, ...(chip.current === true ? { bold: true } : {}) }]
+    : [fill];
+};
+
+/** Every chip of one prompt, in paint order, with or without their words. */
+const chipsSpans = (chips: ReadonlyArray<PromptChip>, word: boolean): ReadonlyArray<Span> =>
+  chips.flatMap((chip, index) => [
+    ...(index === 0 ? [] : [{ text: spaces(CHIP_GAP) }]),
+    ...chipSpans(chip, { word, last: index === chips.length - 1 }),
+  ]);
+
+const spansWidth = (spans: ReadonlyArray<Span>): number => displayWidth(visibleText(spans));
+
+/**
+ * A question and its key chips. The chips follow the question while both fit
+ * one line; then they take the line beneath it, aligned to the content column;
+ * then they lose their words, and the question wraps with a hanging indent.
+ */
+const paintPrompt = (
+  node: PromptNode,
+  style: ResolvedStyle,
+  indent: number,
+): ReadonlyArray<string> => {
+  const first = gutter(style.glyphs.marks.prompt);
+  const contentStart = indent + GUTTER_WIDTH;
+  const question = bold(node.question);
+  const worded = chipsSpans(node.chips, true);
+  const room = (used: number): boolean => style.width === "unbounded" || used <= style.width;
+  const inline = room(
+    contentStart + displayWidth(visibleText(node.question)) + COLUMN_GAP + spansWidth(worded),
+  );
+  const chips = room(contentStart + spansWidth(worded)) ? worded : chipsSpans(node.chips, false);
+  const lines = inline
+    ? [
+        `${spaces(indent)}${first}${paintSpans(question, style)}${spaces(COLUMN_GAP)}${paintSpans(worded, style)}`,
+      ]
+    : [
+        ...paintPrefixed(question, style, { indent, first }),
+        `${spaces(contentStart)}${paintSpans(chips, style)}`,
+      ];
+  return node.note === undefined
+    ? lines
+    : [
+        ...lines,
+        ...paintPrefixed(node.note, style, { indent: contentStart, first: "", tone: "dim" }),
+      ];
+};
+
 /** Nodes that carry marked rows; a headline after one is their verdict. */
 const isMarkedRows = (node: DocNode): boolean =>
   node._tag === "row" ||
@@ -800,6 +875,8 @@ const paintNode = (
     }
     case "ledger":
       return paintLedger(node, style, indent);
+    case "prompt":
+      return paintPrompt(node, style, indent);
     case "answer": {
       // A settled prompt reads as one record line: the question behind a mark,
       // its answer at the value column, and the answer below when it cannot fit.

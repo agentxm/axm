@@ -54,6 +54,16 @@ export const everyNode: Doc = [
     ],
     folded: { mark: "unchanged", count: 3, noun: "unchanged", hint: "--verbose to list" },
   },
+  {
+    _tag: "prompt",
+    question: "Apply 4 changes?",
+    note: "Nothing has been written yet.",
+    chips: [
+      { key: "N", word: "no", current: true },
+      { key: "y", word: "yes" },
+      { key: "d", word: "details" },
+    ],
+  },
   { _tag: "answer", mark: "ok", label: "Instructions source", value: "AGENTS.md" },
   { _tag: "answer", mark: "dim", label: "Agents", value: "claude-code, codex" },
   {

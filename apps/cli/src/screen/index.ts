@@ -18,6 +18,8 @@ export type {
   MarkdownNode,
   NextNode,
   ParagraphNode,
+  PromptChip,
+  PromptNode,
   RawNode,
   RowNode,
   RowsNode,
@@ -51,6 +53,14 @@ export {
   type LayoutColumn,
   type TableLayout,
 } from "./table-layout.js";
+export {
+  promptRequired,
+  type Ask,
+  type ConfirmAsk,
+  type ConfirmChoice,
+  type InteractiveGuard,
+} from "./ask/ask.js";
+export { PromptCancelled } from "./ask/prompt-cancelled.js";
 export { Frame, FrameLive, type FrameOptions } from "./frame.js";
 export {
   liveColumns,

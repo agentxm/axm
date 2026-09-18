@@ -80,6 +80,27 @@ describe("compiled CLI package composition", () => {
       }),
   );
 
+  it.effect("keeps an exact prerelease when a bundled package declares a compatible range", () =>
+    Effect.gen(function* () {
+      const preview = "0.31.1-preview.123.abcdef012345";
+      const result = yield* composeCliManifest(
+        {
+          ...cli,
+          dependencies: { "@agentxm/extension-content": preview },
+        },
+        [
+          {
+            name: "@fixture/update",
+            version: "0.0.1",
+            private: true,
+            dependencies: { "@agentxm/extension-content": `^${preview}` },
+          },
+        ],
+      );
+      expect(result.dependencies["@agentxm/extension-content"]).toBe(preview);
+    }),
+  );
+
   it.effect("refuses a second version of a shared runtime dependency", () =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(

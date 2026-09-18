@@ -5,6 +5,7 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as ChildProcess from "effect/unstable/process/ChildProcess";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
+import * as semver from "semver";
 
 const manifestFields = Schema.Struct({
   name: Schema.String,
@@ -18,6 +19,18 @@ const manifestJson = Schema.fromJsonString(Schema.Record(Schema.String, Schema.U
 export class CliPackageError extends Data.TaggedError("CliPackageError")<{
   readonly message: string;
 }> {}
+
+const compatibleExactReference = (left: string, right: string): string | undefined => {
+  const leftVersion = semver.valid(left);
+  if (leftVersion !== null && semver.satisfies(leftVersion, right, { includePrerelease: true })) {
+    return left;
+  }
+  const rightVersion = semver.valid(right);
+  if (rightVersion !== null && semver.satisfies(rightVersion, left, { includePrerelease: true })) {
+    return right;
+  }
+  return undefined;
+};
 
 /**
  * A bundled implementation resolves every runtime dependency from the CLI
@@ -61,15 +74,20 @@ export const composeCliManifest = (
         for (const [name, reference] of Object.entries(entries ?? {})) {
           if (names.has(name)) continue;
           const previous = required.get(name) ?? optional.get(name);
+          let resolved = reference;
           if (previous !== undefined && previous !== reference) {
-            return yield* new CliPackageError({
-              message: `CLI dependency ${name} has conflicting references ${previous} and ${reference}.`,
-            });
+            const compatible = compatibleExactReference(previous, reference);
+            if (compatible === undefined) {
+              return yield* new CliPackageError({
+                message: `CLI dependency ${name} has conflicting references ${previous} and ${reference}.`,
+              });
+            }
+            resolved = compatible;
           }
           if (field === "optionalDependencies" && !required.has(name)) {
-            optional.set(name, reference);
+            optional.set(name, resolved);
           } else {
-            required.set(name, reference);
+            required.set(name, resolved);
             optional.delete(name);
           }
         }

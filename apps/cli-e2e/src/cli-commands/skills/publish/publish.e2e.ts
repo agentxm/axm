@@ -77,7 +77,10 @@ describe("axm skills publish", () => {
           env: { AXM_TOKEN: "e2e-test-token", NO_COLOR: "1" },
         });
         expect(publishResult.exitCode).toBe(0);
-        expect(publishResult.stdout).toContain("Published @test/skills/my-publish-skill@1.0.0");
+        expect(publishResult.stdout).toMatch(
+          /@test\/skills\/my-publish-skill\s+1\.0\.0\s+published/u,
+        );
+        expect(publishResult.stdout).toContain("Published 1 extension");
         // Plain mode narrates the operation start and its settlement.
         expect(publishResult.stderr).toContain("Publish extensions");
         expect(publishResult.stderr).toMatch(/Publish extensions\s+\d+(?:\.\d+)?(?:ms|s)/u);

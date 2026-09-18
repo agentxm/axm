@@ -10,7 +10,7 @@ import {
 
 describe("human vocabulary", () => {
   it("uses human phrases for publish decisions", () => {
-    expect(publishParticipation("verified-existing")).toBe("already published and verified");
+    expect(publishParticipation("verified-existing")).toBe("skip");
     expect(publishDisposition("not-authored")).toBe("not authored here");
     expect(publishReason("unmatched_selector")).toBe("selector did not match");
     expect(publishReason("settlement_unresolved")).toBe(

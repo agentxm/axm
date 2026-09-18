@@ -1,3 +1,4 @@
+import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
@@ -16,6 +17,10 @@ import {
 } from "../../cli-runtime/index.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import {
+  ResolvePlanInteraction,
+  type ResolvePlanInteractionService,
+} from "@agentxm/workspace/transitions/planning";
+import {
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
@@ -32,6 +37,7 @@ import {
   type PublishRequest,
 } from "@agentxm/workspace/publishing";
 import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions";
+import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import {
   previewCapabilityFlag,
@@ -125,10 +131,46 @@ const publishRequest = (args: RootPublishHandlerArgs, unattended: boolean): Publ
   unattended,
 });
 
+/** The exit code an outcome's disposition ends the invocation with. */
+const dispositionExitCode = (disposition: PublishOutcome["disposition"]): number => {
+  switch (disposition._tag) {
+    case "Completed":
+      return 0;
+    case "Interrupted":
+      return disposition.signal === "SIGTERM" ? 143 : 130;
+    case "Failed":
+      return exitCodeFor(publishFailureToAppError(disposition.failure).code);
+  }
+};
+
+/**
+ * What the reported outcome offers next: the feature's suggestions and the
+ * recoveries its failure carries, once each. A reported failure ends with its
+ * exit code rather than a problem report, so its recoveries travel here.
+ */
+const outcomeSuggestions = (outcome: PublishOutcome): ReadonlyArray<SuggestedAction> => {
+  const suggestions = [
+    ...outcome.suggestions,
+    ...(outcome.disposition._tag === "Failed"
+      ? (publishFailureToAppError(outcome.disposition.failure).suggestions ?? [])
+      : []),
+  ];
+  return suggestions.filter(
+    (suggestion, index) =>
+      suggestions.findIndex(
+        (other) =>
+          other.description === suggestion.description &&
+          other.cmd === suggestion.cmd &&
+          other.url === suggestion.url,
+      ) === index,
+  );
+};
+
 /** Render the feature's outcome, then terminate the way it says to. */
 const reportPublishOutcome = Effect.fn("Publish.report")(function* (
   args: RootPublishHandlerArgs,
   outcome: PublishOutcome,
+  startedAtMs: number,
 ) {
   const recovery =
     outcome.recovery === undefined
@@ -151,8 +193,8 @@ const reportPublishOutcome = Effect.fn("Publish.report")(function* (
                 blockedDependents: outcome.recovery?.blockedDependents ?? [],
               };
         });
-  const emitted = yield* emitPublishResult(
-    "publish",
+  const exitCode = dispositionExitCode(outcome.disposition);
+  const reported = yield* emitPublishResult(
     normalizePublishResult({
       mode: outcome.mode,
       ...(outcome.preconditions === undefined ? {} : { preconditions: outcome.preconditions }),
@@ -164,21 +206,43 @@ const reportPublishOutcome = Effect.fn("Publish.report")(function* (
       ...(outcome.interruption === undefined ? {} : { interruption: outcome.interruption }),
       ...(recovery === undefined ? {} : { recovery }),
     }),
-    outcome.suggestions.length === 0 ? undefined : { suggestions: outcome.suggestions },
+    {
+      exitCode,
+      elapsedMs: (yield* Clock.currentTimeMillis) - startedAtMs,
+      suggestions: outcomeSuggestions(outcome),
+    },
   );
   if (outcome.disposition._tag === "Interrupted") {
-    const exitCode = outcome.disposition.signal === "SIGTERM" ? 143 : 130;
     yield* recordCommandCompletion(exitCode);
     return yield* Effect.die(effectCliExit(exitCode));
   }
   if (outcome.disposition._tag === "Failed") {
-    const failure = publishFailureToAppError(outcome.disposition.failure);
-    return emitted ? yield* Effect.die(effectCliExit(exitCodeFor(failure.code))) : yield* failure;
+    // A reported outcome already carries the verdict and its recoveries, so
+    // the invocation ends with its exit code rather than a second report.
+    return reported
+      ? yield* Effect.die(effectCliExit(exitCode))
+      : yield* publishFailureToAppError(outcome.disposition.failure);
   }
 });
 
+/**
+ * Publish's view renders its preview from the publication set, which carries
+ * what the execution plan cannot — skipped extensions, visibility, and source
+ * state — so the plan is not printed a second time as its own result. An apply
+ * still hands its rows to the live ledger.
+ */
+const withPublishPreviewOwnedByView = Effect.updateService(
+  ResolvePlanInteraction,
+  (interaction): ResolvePlanInteractionService => ({
+    ...interaction,
+    presentPlan: (plan, options) =>
+      options.mode === "preview" ? Effect.void : interaction.presentPlan(plan, options),
+  }),
+);
+
 export const handleRootPublish = Effect.fn("Publish.handle")(
   function* (args: RootPublishHandlerArgs) {
+    const startedAtMs = yield* Clock.currentTimeMillis;
     const unattended = (yield* isNonInteractive) || Option.getOrElse(yield* jsonFlag, () => false);
     yield* withLiveOperation(
       {
@@ -197,7 +261,7 @@ export const handleRootPublish = Effect.fn("Publish.handle")(
             PublishExtensions.prepare(publishRequest(args, unattended)),
           );
           if (preparation._tag === "Settled") {
-            return yield* reportPublishOutcome(args, preparation.outcome);
+            return yield* reportPublishOutcome(args, preparation.outcome, startedAtMs);
           }
           const execution = yield* restore(
             makePlanExecution(
@@ -209,8 +273,11 @@ export const handleRootPublish = Effect.fn("Publish.handle")(
           // The feature settles an interruption into an outcome behind its own
           // interruptibility control, so this call is not restored: what it
           // returns must reach the report.
-          const outcome = yield* PublishExtensions.previewOrApply(preparation.candidate, execution);
-          return yield* reportPublishOutcome(args, outcome);
+          const outcome = yield* PublishExtensions.previewOrApply(
+            preparation.candidate,
+            execution,
+          ).pipe(withPublishPreviewOwnedByView);
+          return yield* reportPublishOutcome(args, outcome, startedAtMs);
         }),
       ),
     );

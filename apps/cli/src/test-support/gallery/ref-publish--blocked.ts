@@ -1,75 +1,60 @@
-import * as Option from "effect/Option";
+import type { PublishResultItem } from "@agentxm/workspace/publishing";
 
-import {
-  makeOperationResolution,
-  operationPresentation,
-  type JobStepArtifact,
-  type ResolvedUnit,
-} from "@agentxm/workspace/transitions/planning";
+import { admittedSet, codeReview, publishFrame, reviewKit, reviewer } from "./publish-results.js";
 
-import { operationDoc } from "../../operation-view.js";
-
-const published = (version: string): JobStepArtifact => ({
-  path: "",
-  scope: "project",
-  change: "created",
-  version,
-});
-
-const ready = (id: string, version: string): ResolvedUnit<unknown> => ({
-  id,
-  label: id,
-  state: "ready",
-  artifact: published(version),
+const notTried = (item: PublishResultItem): PublishResultItem => ({
+  ...item,
+  status: "blocked",
+  reason: "blocked_by_preflight",
+  blockedBy: [codeReview.id],
 });
 
 /**
- * A blocked operation (*Reference cases*, board `1 · Publish, contract-true`,
+ * A blocked publish (*Reference cases*, board `1 · Publish, contract-true`,
  * frame *Blocked — a working tree that differs from Git HEAD is a policy
  * override, not a warning*).
  *
- * The unit whose condition stopped the operation keeps the attention mark and
- * says why; the units behind it were never tried. The verdict is a callout,
+ * The extension whose own source stopped the run keeps the attention mark and
+ * says why; the ones behind it were never tried. The verdict is a callout,
  * because a person has to act: its reason sits beneath it, the exit code in
  * its aside, and each recovery is a copyable command.
  */
-export const refPublishBlocked = operationDoc(
-  makeOperationResolution({
-    name: "Publish",
-    description: Option.none(),
+export const refPublishBlocked = publishFrame(
+  {
     mode: "apply",
-    presentation: operationPresentation({
-      imperative: "publish",
-      past: "Published",
-      gerund: "Publishing",
-    }),
-    atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
-    units: [
+    publicationSet: admittedSet([codeReview, reviewer, reviewKit]),
+    results: [
       {
-        id: "@acme/skills/code-review",
-        label: "@acme/skills/code-review",
-        state: "blocked",
-        artifact: published("1.4.0"),
-        message: "4 paths differ from HEAD",
-        blocking: {
-          class: "override-required",
-          subject: "@acme/skills/code-review",
-          phase: "confirmation",
-          detail: "4 paths differ from HEAD",
+        ...codeReview,
+        status: "blocked",
+        reason: "source_state_not_accepted",
+        sourceState: {
+          basis: "git-head",
+          status: "differs-from-head",
+          revision: "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678",
+          directory: "skills/code-review",
+          differences: [
+            { path: "SKILL.md", change: "modified" },
+            { path: "scripts/review.py", change: "modified" },
+            { path: "scripts/lint.py", change: "added" },
+            { path: "notes.md", change: "deleted" },
+          ],
+          differenceCount: 4,
+          truncated: false,
         },
       },
-      ready("@acme/subagents/reviewer", "0.9.0"),
-      ready("@acme/packs/review-kit", "2.1.0"),
+      notTried(reviewer),
+      notTried(reviewKit),
     ],
-    blocking: {
-      class: "override-required",
-      subject: "@acme/skills/code-review",
-      phase: "confirmation",
-      detail: "The archive for code-review is not fully represented by Git HEAD a1b2c3d.",
+    failure: {
+      code: "usage",
+      class: "user",
+      message: "The archive for code-review is not fully represented by Git HEAD a1b2c3d.",
+      retryable: false,
     },
-  }),
+  },
   {
-    verbosity: "normal",
+    exitCode: 2,
     suggestions: [
       { description: "Publish what is committed", cmd: "git commit -a && axm publish" },
       { description: "Publish the working tree as it is", cmd: "axm publish --accept-warnings" },

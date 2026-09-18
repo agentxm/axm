@@ -1,4 +1,4 @@
-Publishing
+Publishing  as @acme, to agentxm
      Extension                     Version   Status      Detail
  ▲   @acme/skills/code-review      1.4.0     blocked     4 paths differ from
                                                          HEAD

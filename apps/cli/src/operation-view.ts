@@ -613,7 +613,7 @@ export const operationDoc = (
  * attention mark and carries the reason beneath it, and the recoveries that
  * follow answer it; a problem with no ledger above it takes the same shape.
  */
-const verdictDoc = (verdict: {
+export const verdictDoc = (verdict: {
   readonly ledger: boolean;
   readonly tone: Tone;
   readonly verdict: string;

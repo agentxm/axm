@@ -33,7 +33,13 @@ import { refPickAnswered } from "./ref-pick--answered.js";
 import { refPickFiltered } from "./ref-pick--filtered.js";
 import { refPickGrouped } from "./ref-pick--grouped.js";
 import { refPickShortTerminal } from "./ref-pick--short-terminal.js";
+import { refPublishAlreadyPublished } from "./ref-publish--already-published.js";
 import { refPublishBlocked } from "./ref-publish--blocked.js";
+import { refPublishNothingSelected } from "./ref-publish--nothing-selected.js";
+import { refPublishPartial } from "./ref-publish--partial.js";
+import { refPublishPlan } from "./ref-publish--plan.js";
+import { refPublishSettled } from "./ref-publish--settled.js";
+import { refPublishVerbose } from "./ref-publish--verbose.js";
 import { refSyncMixedOperations } from "./ref-sync--mixed-operations.js";
 import { refSyncNothingToDo } from "./ref-sync--nothing-to-do.js";
 import { refSyncUninstallKeptReference } from "./ref-sync--uninstall-kept-reference.js";
@@ -93,7 +99,17 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
   { _tag: "document", name: "ref-midflight--interrupted", doc: refMidflightInterrupted },
   { _tag: "document", name: "ref-midflight--error-family-1", doc: refMidflightErrorFamily1 },
   { _tag: "document", name: "ref-midflight--error-family-2", doc: refMidflightErrorFamily2 },
+  { _tag: "document", name: "ref-publish--plan", doc: refPublishPlan },
+  { _tag: "document", name: "ref-publish--settled", doc: refPublishSettled },
   { _tag: "document", name: "ref-publish--blocked", doc: refPublishBlocked },
+  { _tag: "document", name: "ref-publish--verbose", doc: refPublishVerbose },
+  { _tag: "document", name: "ref-publish--partial", doc: refPublishPartial },
+  {
+    _tag: "document",
+    name: "ref-publish--already-published",
+    doc: refPublishAlreadyPublished,
+  },
+  { _tag: "document", name: "ref-publish--nothing-selected", doc: refPublishNothingSelected },
   { _tag: "document", name: "prompts--confirm-answered", doc: promptsConfirmAnswered },
   { _tag: "document", name: "prompts--choose-answered", doc: promptsChooseAnswered },
   { _tag: "document", name: "prompts--input-answered", doc: promptsInputAnswered },

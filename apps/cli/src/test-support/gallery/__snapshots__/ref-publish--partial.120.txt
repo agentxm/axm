@@ -1,0 +1,10 @@
+Publishing  as @acme, to agentxm
+     Extension                     Version   Status      Detail
+ +   @acme/skills/code-review      1.4.0     published
+ ✖   @acme/subagents/reviewer      0.9.0     failed      upload failed, retryable
+     Registry upload is temporarily unavailable.
+ ·   @acme/packs/review-kit        2.1.0     not tried   blocked by a dependency
+Partially published  1 published, 1 failed, 1 not tried, exit 8
+Next
+  Continue the failed items and their blocked dependents
+    axm publish --on-existing verify @acme/subagents/reviewer @acme/packs/review-kit

@@ -63,6 +63,7 @@ import {
   getOperationJournal,
   makeOperationJournal,
   observeUnit,
+  operationPresentation,
   prepareExecutionCandidate,
   resolveExecutionCandidate,
   settleOperation,
@@ -781,9 +782,18 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
         },
       } satisfies JobStepResult<PublishPlanOutput>;
     }).pipe(Effect.mapError(publishStepFailure));
+    // The step names the extension and carries its version, so the live
+    // ledger streams the rows the publish plan showed rather than sentences.
     return {
       readiness: "ready",
-      label: `${candidate.backfill ? "Backfill" : "Publish"} ${candidate.fqn}`,
+      label: candidate.fqn,
+      artifact: {
+        path: candidate.extensionDir,
+        scope: request.scope,
+        version: candidate.version,
+        change: "created",
+        fileCount: candidate.archivePlan.includedCount,
+      },
       run,
     };
   };
@@ -891,6 +901,11 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
         const plan: Plan<PublishPlanRequirements, PublishPlanOutput> = {
           _tag: "Plan",
           name: "Publish extensions",
+          presentation: operationPresentation({
+            imperative: "publish",
+            past: "Published",
+            gerund: "Publishing",
+          }),
           description: Option.some(
             `Publish ${uploadCandidates.length} extension${uploadCandidates.length === 1 ? "" : "s"} to registry "${registry.name}"; ${candidates.length - uploadCandidates.length} already published and integrity-verified`,
           ),

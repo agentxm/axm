@@ -1,4 +1,4 @@
-Publishing
+Publishing  as @acme, to agentxm
  ▲   @acme/skills/code-review
      1.4.0 · blocked
  ·   @acme/subagents/reviewer

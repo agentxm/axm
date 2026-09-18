@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { asciiGlyphs, unicodeGlyphs, type Glyphs } from "./paint-text.js";
+import { asciiGlyphs, unicodeGlyphs, type Glyphs } from "./glyphs.js";
 import { displayWidth } from "./width.js";
 
 /**
@@ -48,8 +48,7 @@ const widthClass = (character: string): "neutral" | "ambiguous" | undefined =>
 
 /** The marks a set paints in the gutter, where a wider render shifts only its own row. */
 const gutterMarks = (glyphs: Glyphs): ReadonlyArray<string> => [
-  ...Object.values(glyphs.status),
-  ...Object.values(glyphs.change),
+  ...Object.values(glyphs.outcomes),
   ...Object.values(glyphs.marks),
   ...glyphs.spinner,
 ];
@@ -121,18 +120,23 @@ describe("glyph width", () => {
 
   it("keeps a status mark from doubling as a completed change", () => {
     for (const { glyphs } of sets) {
-      const statuses = Object.values(glyphs.status);
+      const statuses = [
+        glyphs.outcomes.ok,
+        glyphs.outcomes.warn,
+        glyphs.outcomes.error,
+        glyphs.outcomes.info,
+      ];
       // `+` meant both `ok` and `create` in the ASCII set, so a created row and
       // a satisfied one were indistinguishable.
       for (const change of ["create", "update", "remove", "unchanged"] as const) {
-        expect(statuses, `${glyphs.change[change]} for ${change}`).not.toContain(
-          glyphs.change[change],
+        expect(statuses, `${glyphs.outcomes[change]} for ${change}`).not.toContain(
+          glyphs.outcomes[change],
         );
       }
       // An outcome that did not complete carries the status mark of the same
       // meaning, so ▲ reads as attention and ✖ as failure wherever it appears.
-      expect(glyphs.change.blocked).toBe(glyphs.status.warn);
-      expect(glyphs.change.failed).toBe(glyphs.status.error);
+      expect(glyphs.outcomes.blocked).toBe(glyphs.outcomes.warn);
+      expect(glyphs.outcomes.failed).toBe(glyphs.outcomes.error);
     }
   });
 

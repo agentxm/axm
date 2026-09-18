@@ -57,22 +57,34 @@ export const sourceAnswered: Doc = [
 const settings: SetupPlanRow = {
   target: "axm.json",
   action: "create",
-  detail: "agents: claude-code, codex, cursor",
+  detail: { _tag: "settings", agentIds: ["claude-code", "codex", "cursor"] },
 };
 const gitignore: SetupPlanRow = {
   target: ".gitignore",
   action: "update",
-  detail: "AXM runtime and package transaction artifacts",
+  detail: { _tag: "gitignore" },
 };
 
 /** What setup would touch with instructions synced from the existing AGENTS.md. */
 export const syncedPlan: ReadonlyArray<SetupPlanRow> = [
   settings,
   gitignore,
-  { target: "AGENTS.md", action: "in sync", detail: "source" },
-  { target: "CLAUDE.md", action: "link", detail: "Claude Code" },
-  { target: "AGENTS.md", action: "in sync", detail: "Codex" },
-  { target: ".cursor/rules/agents.mdc", action: "copy", detail: "Cursor" },
+  { target: "AGENTS.md", action: "in sync", detail: { _tag: "instructionSource" } },
+  {
+    target: "CLAUDE.md",
+    action: "link",
+    detail: { _tag: "instructionTarget", agentName: "Claude Code" },
+  },
+  {
+    target: "AGENTS.md",
+    action: "in sync",
+    detail: { _tag: "instructionTarget", agentName: "Codex" },
+  },
+  {
+    target: ".cursor/rules/agents.mdc",
+    action: "copy",
+    detail: { _tag: "instructionTarget", agentName: "Cursor" },
+  },
 ];
 
 /** A declined sync leaves every instruction file alone, so its plan names none. */

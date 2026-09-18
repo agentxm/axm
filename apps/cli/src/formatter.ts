@@ -11,7 +11,7 @@ import { CliOutput } from "effect/unstable/cli";
 
 import { BRANDING } from "./branding/index.js";
 import { stripTerminalFormatting } from "./screen/index.js";
-import { boldText, cyanText, dimText, greenText } from "./screen/terminal-style.js";
+import { boldText, cyanText, dimText, greenText } from "./screen/index.js";
 import {
   JsonHelpDocSchema,
   JsonVersionDocSchema,

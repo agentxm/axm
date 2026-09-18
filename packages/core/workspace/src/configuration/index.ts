@@ -24,6 +24,7 @@ export {
 export type {
   InstructionSourceChoice,
   SetupAgentScan,
+  SetupPlanDetail,
   SetupPlanRow,
   WorkspaceInitializationInteractionService,
 } from "./setup/initialization-interaction.js";

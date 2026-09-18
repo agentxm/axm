@@ -105,8 +105,12 @@ export const makeLoginSpecContext = (options: LoginSpecContextOptions = {}) => {
 
   // The renderer-backed presenter keeps every wording assertion observing the
   // real CLI output; only the one question a person answers is decided here.
-  const sessionReplacementPrompts: Array<string> = [];
-  const basePresenter = Layer.provide(AuthLoginPresenterLive, renderer.layer);
+  const sessionReplacementPrompts: Array<true> = [];
+  const interaction = AuthLoginInteractionTest();
+  const basePresenter = Layer.provide(
+    AuthLoginPresenterLive,
+    Layer.mergeAll(renderer.layer, interaction.layer),
+  );
   const presenter =
     options.sessionReplacement === undefined
       ? basePresenter
@@ -117,8 +121,8 @@ export const makeLoginSpecContext = (options: LoginSpecContextOptions = {}) => {
               const base = yield* AuthLoginPresenter;
               return {
                 ...base,
-                confirmSessionReplacement: (message: string) => {
-                  sessionReplacementPrompts.push(message);
+                confirmSessionReplacement: () => {
+                  sessionReplacementPrompts.push(true);
                   return Effect.succeed(options.sessionReplacement ?? "replace");
                 },
               };
@@ -131,7 +135,7 @@ export const makeLoginSpecContext = (options: LoginSpecContextOptions = {}) => {
     NodeServices.layer,
     renderer.layer,
     presenter,
-    AuthLoginInteractionTest().layer,
+    interaction.layer,
     TestFlagsLayer({
       nonInteractive: options.flags?.nonInteractive ?? false,
       json: options.flags?.json ?? options.machine === true,

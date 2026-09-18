@@ -8,7 +8,6 @@ import * as Option from "effect/Option";
 
 import { jsonFlag, debugFlag, verboseFlag, quietFlag } from "../cli-flags/index.js";
 import type { OutputFormat } from "./output-mode.js";
-import { errorEvent } from "../screen/machine-events.js";
 import type { AppError } from "../app-error/index.js";
 import {
   AppErrorCodes,
@@ -20,7 +19,6 @@ import {
 import { isKnownFailure, toAppError, type KnownFailure } from "../app-error/conversions.js";
 import type { SkillSelectionCancelled } from "@agentxm/workspace/skills/lifecycle/application";
 import type { SubagentSelectionCancelled } from "@agentxm/workspace/subagents/lifecycle/application";
-import type { PromptCancelled } from "../screen/ask/prompt-cancelled.js";
 
 /**
  * Structural shape of the workspace configuration feature's typed
@@ -54,7 +52,13 @@ import {
   type TelemetryProperties,
 } from "../telemetry/index.js";
 
-import { InteractiveScreen, MachineScreen, resolveCliOutputPolicy } from "../screen/index.js";
+import {
+  InteractiveScreen,
+  MachineScreen,
+  errorEvent,
+  resolveCliOutputPolicy,
+  type QuestionCancelled,
+} from "../screen/index.js";
 import {
   makeVerbosityLayer,
   resolveVerbosityLevel,
@@ -121,7 +125,7 @@ export const writeDefect = (cause: Cause.Cause<unknown>, format: OutputFormat) =
 export type ExpectedCliError =
   | AppError
   | KnownFailure
-  | PromptCancelled
+  | QuestionCancelled
   | WorkspaceInitializationCancelled
   | SkillSelectionCancelled
   | SubagentSelectionCancelled;
@@ -130,7 +134,7 @@ export type CliRuntimeFoundation = Screen | Verbosity;
 /**
  * Resolve the AppError rendering for an expected error. Known typed failures
  * convert through the application-error boundary; cancellation tags
- * (PromptCancelled, WorkspaceInitializationCancelled,
+ * (QuestionCancelled, WorkspaceInitializationCancelled,
  * SkillSelectionCancelled, SubagentSelectionCancelled) resolve to none and exit successfully.
  */
 const expectedErrorToAppError = (error: ExpectedCliError): AppError | undefined =>

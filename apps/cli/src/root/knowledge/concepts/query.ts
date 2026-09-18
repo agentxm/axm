@@ -9,7 +9,7 @@ import {
 import { observeUnit } from "@agentxm/workspace/transitions/planning";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
-import { Screen, headlineDoc, tableViewDoc, type TableView } from "../../../screen/index.js";
+import { Screen, inventoryDoc, type ViewColumn } from "../../../screen/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   readOnlyCapabilities,
@@ -29,14 +29,12 @@ interface ConceptRow {
   readonly matched: string;
 }
 
-const ConceptTable = {
-  columns: {
-    bundle: { header: "Bundle" },
-    concept: { header: "Concept" },
-    title: { header: "Title" },
-    matched: { header: "Matched" },
-  },
-} as const satisfies TableView<ConceptRow>;
+const conceptColumns: ReadonlyArray<ViewColumn<ConceptRow>> = [
+  { header: "Bundle", value: (row) => row.bundle },
+  { header: "Concept", value: (row) => row.concept },
+  { header: "Title", value: (row) => row.title },
+  { header: "Matched", value: (row) => row.matched },
+];
 
 export interface KnowledgeConceptQueryArgs {
   readonly expression?: string;
@@ -77,16 +75,13 @@ export const handleKnowledgeConceptQuery = Effect.fn("Knowledge.concepts.query")
     title: sanitizeKnowledgeTerminalText(title ?? "—"),
     matched: matchedFields.join(", ") || "—",
   }));
-  if (rows.length === 0) {
-    yield* screen.note(headlineDoc("info", "No installed knowledge concepts matched the query"));
-    return;
-  }
   yield* screen.result(
-    tableViewDoc(
+    inventoryDoc({
       rows,
-      ConceptTable,
-      `${rows.length} concept result${rows.length === 1 ? "" : "s"}`,
-    ),
+      columns: conceptColumns,
+      summary: `${rows.length} concept result${rows.length === 1 ? "" : "s"}`,
+      empty: "No installed knowledge concepts matched the query",
+    }),
   );
 });
 

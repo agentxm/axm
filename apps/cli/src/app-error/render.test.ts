@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AppError } from "./app-error.js";
-import { renderAppError, renderDefect } from "./view.js";
+import { renderAppError } from "./view.js";
 
 /**
  * A problem's title line: the mark, the title, and its aside at the value
@@ -297,35 +297,5 @@ describe("renderAppError", () => {
     const result = renderAppError(error, { verbose: true, debug: true });
 
     expect(result).toContain("Cause: AppError: Remote registry is unreachable (network)");
-  });
-});
-
-describe("renderDefect", () => {
-  it("formats Error instance with message", () => {
-    const result = renderDefect(new Error("something broke"));
-
-    expect(result).toContain(titleLine("An unexpected error occurred", "internal, exit 10"));
-    expect(result).toContain("     something broke");
-    expect(result).toContain("https://github.com/agentxm/axm/issues");
-  });
-
-  it("formats string error", () => {
-    const result = renderDefect("raw string error");
-
-    expect(result).toContain(" \u2716   An unexpected error occurred");
-    expect(result).toContain("raw string error");
-  });
-
-  it("formats unknown error type", () => {
-    const result = renderDefect(42);
-
-    // Should not include the number as a detail line
-    expect(result).toBe(
-      [
-        titleLine("An unexpected error occurred", "internal, exit 10"),
-        "Next",
-        "     https://github.com/agentxm/axm/issues",
-      ].join("\n"),
-    );
   });
 });

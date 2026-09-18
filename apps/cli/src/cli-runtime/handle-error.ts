@@ -12,13 +12,18 @@ import {
   redactSuggestedAction,
   renderAppError,
 } from "../app-error/index.js";
-import type { Doc } from "../screen/doc.js";
 import { isKnownFailure, toAppError } from "../app-error/conversions.js";
 import type { OutputFormat } from "./output-mode.js";
 import { isEffectCliExit } from "./effect-cli-exit.js";
 import { makeJsonErrorEnvelope, makeJsonErrorEnvelopeFromAppError } from "./json-envelope.js";
-import { errorEvent, suggestionEvent } from "../screen/machine-events.js";
-import { InteractiveScreen, MachineScreen, Screen } from "../screen/index.js";
+import {
+  InteractiveScreen,
+  MachineScreen,
+  Screen,
+  errorEvent,
+  suggestionEvent,
+  type Doc,
+} from "../screen/index.js";
 
 const cliErrorMessage = (errors: ReadonlyArray<{ readonly message?: string }>): string =>
   errors.map((error) => error.message ?? String(error)).join("; ");

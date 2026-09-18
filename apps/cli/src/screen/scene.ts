@@ -11,7 +11,8 @@
  */
 
 import type { Doc } from "./doc.js";
-import { paintText, unicodeGlyphs, type PaintStyle } from "./paint-text.js";
+import { paintText, type PaintStyle } from "./paint-text.js";
+import { unicodeGlyphs } from "./glyphs.js";
 import { truncateLine } from "./width.js";
 
 /** The terminal a live scene is laid out against. */

@@ -11,27 +11,21 @@
 
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
-import * as Queue from "effect/Queue";
+import type * as Scope from "effect/Scope";
 import type * as Terminal from "effect/Terminal";
 
 import { publishWaitEnded, publishWaiting } from "@agentxm/workspace/transitions/planning";
 
 import type { Doc } from "../doc.js";
-import type { ScenePart } from "../scene.js";
-import { askKeyOf } from "../ask/run.js";
+import { makeInteractionKeyReader, type InteractionSurface } from "../interaction.js";
 import { WaitAbandoned } from "./wait-abandoned.js";
 import { waitDoc, waitSettled } from "./view.js";
 import { reduceWaitKey, waitKeys, type WaitActions, type WaitView } from "./wait.js";
 
 /** Where a running wait paints, and where its brief and its settlement land. */
-export interface WaitSurface {
-  /** Replace the interaction beneath the ledger; `undefined` clears it. */
-  readonly showInteraction: (part: ScenePart | undefined) => Effect.Effect<void>;
-  /** Append a settled document to the transcript. */
-  readonly transcript: (doc: Doc) => Effect.Effect<void>;
-}
+export type WaitSurface = InteractionSurface;
 
-const STOPPED = "Stopped waiting.";
+const STOPPED = "Wait stopped.";
 
 const failedActionDoc = (action: "open" | "copy"): Doc => [
   {
@@ -88,13 +82,9 @@ export const runWait = <A, E, R>(
 ): Effect.Effect<A, E | WaitAbandoned, R> =>
   Effect.gen(function* () {
     const keys = waitKeys(actions);
-    const input = yield* terminal.readInput;
     // A terminal that stopped sending keys cannot stop the wait either, so the
     // wait goes on waiting for the one thing that can still end it.
-    const nextKey = Queue.take(input).pipe(
-      Effect.map(askKeyOf),
-      Effect.catch(() => Effect.never),
-    );
+    const nextKey = yield* makeInteractionKeyReader(terminal, Effect.never);
     const runAction = (action: "open" | "copy", effect: Effect.Effect<unknown>) =>
       Effect.flatMap(effect, (result) =>
         Effect.andThen(
@@ -102,7 +92,7 @@ export const runWait = <A, E, R>(
           readKeys(),
         ),
       );
-    const readKeys = (): Effect.Effect<never, WaitAbandoned> =>
+    const readKeys = (): Effect.Effect<never, WaitAbandoned, Scope.Scope> =>
       Effect.flatMap(nextKey, (key) => {
         switch (reduceWaitKey(key, keys)) {
           case "stop":

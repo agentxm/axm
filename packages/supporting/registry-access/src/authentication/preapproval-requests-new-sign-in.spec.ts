@@ -176,9 +176,7 @@ describe("Login preapproval over a valid session", () => {
         authRegistry,
       );
 
-      expect(context.presenterState.sessionReplacementPrompts).toEqual([
-        "Log in with a different account?",
-      ]);
+      expect(context.presenterState.sessionReplacementPrompts).toEqual([true]);
       expect(context.presenterState.existingSessions).toEqual(["@alice"]);
       expect(context.deviceAuthorizations).toEqual([]);
       expect(outcome).toEqual({

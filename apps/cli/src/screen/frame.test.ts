@@ -81,7 +81,7 @@ describe("Frame", () => {
     const harness = makeHarness(true);
     return Effect.gen(function* () {
       const frame = yield* Frame;
-      yield* frame.present(stateAt(12));
+      yield* frame.present("operation-1", stateAt(12));
       yield* frame.stderr("warning\n");
       const running = harness.state.stderr.join("");
       expect(running).toContain("Install skill");
@@ -89,7 +89,7 @@ describe("Frame", () => {
       expect(running).toContain("warning\n");
       expect(running.indexOf("warning\n")).toBeLessThan(running.lastIndexOf("code-review"));
 
-      yield* frame.present(stateAt(19));
+      yield* frame.present("operation-1", stateAt(19));
       // The result ledger the command prints is the settlement, so nothing
       // about progress is left behind in the transcript.
       const afterSettlement = harness.state.stderr.join("").slice(running.length);
@@ -104,7 +104,7 @@ describe("Frame", () => {
     return Effect.gen(function* () {
       const frame = yield* Frame;
       for (let count = 1; count <= recordedInstallLog.length; count += 1) {
-        yield* frame.present(stateAt(count));
+        yield* frame.present("operation-1", stateAt(count));
       }
       expect(harness.state.stderr.join("")).toBe(
         [
@@ -136,7 +136,7 @@ describe("Frame", () => {
         const started = yield* Deferred.make<void>();
         const fiber = yield* Effect.gen(function* () {
           const frame = yield* Frame;
-          yield* frame.present(stateAt(12));
+          yield* frame.present("operation-1", stateAt(12));
           yield* frame.stderr("warning stayed whole\n");
           yield* Deferred.succeed(started, undefined);
           return yield* Effect.never;
@@ -161,8 +161,8 @@ describe("Frame", () => {
     const harness = makeHarness(true, { columns: 80, rows: 16 });
     return Effect.gen(function* () {
       const frame = yield* Frame;
-      yield* frame.showPlan(plan(40));
-      yield* frame.present(stateAt(1));
+      yield* frame.showPlan("operation-1", plan(40));
+      yield* frame.present("operation-1", stateAt(1));
       yield* frame.showInteraction(part("ask", 4));
       const lines = liveLines(harness.state);
       expect(lines).toHaveLength(14);
@@ -178,13 +178,35 @@ describe("Frame", () => {
     const harness = makeHarness(true, { columns: 80, rows: 16 });
     return Effect.gen(function* () {
       const frame = yield* Frame;
-      yield* frame.showPlan(plan(2));
-      yield* frame.present(stateAt(1));
+      yield* frame.showPlan("operation-1", plan(2));
+      yield* frame.present("operation-1", stateAt(1));
       yield* frame.showInteraction(part("ask", 2));
       const withAsk = liveLines(harness.state);
       expect(withAsk.slice(-2)).toEqual(["ask 1", "ask 2"]);
       yield* frame.showInteraction(undefined);
       expect(liveLines(harness.state)).toEqual(withAsk.slice(0, -2));
+    }).pipe(Effect.provide(harness.layer), Effect.scoped);
+  });
+
+  it.effect("restores the enclosing operation when a nested operation settles", () => {
+    const harness = makeHarness(true, { columns: 80, rows: 16 });
+    return Effect.gen(function* () {
+      const frame = yield* Frame;
+      yield* frame.showPlan("outer", { ...plan(2), title: "Installing" });
+      yield* frame.present("outer", stateAt(1));
+      expect(liveLines(harness.state).join("\n")).toContain("Installing");
+
+      yield* frame.showPlan("inner", { ...plan(1), title: "Syncing" });
+      yield* frame.present("inner", stateAt(1));
+      expect(liveLines(harness.state).join("\n")).toContain("Syncing");
+
+      yield* frame.present("inner", stateAt(recordedInstallLog.length));
+      const restored = liveLines(harness.state).join("\n");
+      expect(restored).toContain("Installing");
+      expect(restored).not.toContain("Syncing");
+
+      yield* frame.present("outer", stateAt(recordedInstallLog.length));
+      expect(liveLines(harness.state)).toEqual([]);
     }).pipe(Effect.provide(harness.layer), Effect.scoped);
   });
 
@@ -194,7 +216,7 @@ describe("Frame", () => {
       const frame = yield* Frame;
       // Progress is silent without animation, but a question is not progress:
       // it is the thing the person has to answer.
-      yield* frame.present(stateAt(4));
+      yield* frame.present("operation-1", stateAt(4));
       expect(liveLines(streams.state)).toEqual([]);
 
       yield* frame.showInteraction(part("ask", 2));
@@ -211,8 +233,8 @@ describe("Frame", () => {
     const streams = makeTestOutputStreams({ stdoutIsTTY: true, stderrIsTTY: true });
     return Effect.gen(function* () {
       const frame = yield* Frame;
-      yield* frame.showPlan(plan(3));
-      yield* frame.present(stateAt(4));
+      yield* frame.showPlan("operation-1", plan(3));
+      yield* frame.present("operation-1", stateAt(4));
       expect(liveLines(streams.state)).toEqual([]);
 
       yield* frame.showInteraction(part("ask", 1));
@@ -246,13 +268,13 @@ describe("Frame", () => {
     const staticFrame = makeHarness(false);
     return Effect.gen(function* () {
       expect(
-        yield* Effect.flatMap(Frame, (frame) => frame.showPlan(plan(1))).pipe(
+        yield* Effect.flatMap(Frame, (frame) => frame.showPlan("operation-1", plan(1))).pipe(
           Effect.provide(visible.layer),
           Effect.scoped,
         ),
       ).toBe(true);
       expect(
-        yield* Effect.flatMap(Frame, (frame) => frame.showPlan(plan(1))).pipe(
+        yield* Effect.flatMap(Frame, (frame) => frame.showPlan("operation-1", plan(1))).pipe(
           Effect.provide(staticFrame.layer),
           Effect.scoped,
         ),

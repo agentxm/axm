@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import type { Doc, LedgerColumn, TableColumn } from "./doc.js";
-import { stripTerminalFormatting } from "./output-policy.js";
-import { asciiGlyphs, paintText, type PaintStyle } from "./paint-text.js";
+import { stripTerminalFormatting } from "./width.js";
+import { paintText, type PaintStyle } from "./paint-text.js";
+import { asciiGlyphs } from "./glyphs.js";
 import { displayWidth } from "./width.js";
 
 const document: Doc = [

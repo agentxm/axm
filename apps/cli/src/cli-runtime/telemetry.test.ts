@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
 import { makeAppError } from "../app-error/index.js";
-import { PromptCancelled } from "../screen/ask/prompt-cancelled.js";
+import { QuestionCancelled } from "../screen/ask/question-cancelled.js";
 import { TelemetryClient, type TelemetryClientService } from "../telemetry/index.js";
 import type { TelemetryProperties } from "../telemetry/client.js";
 import {
@@ -120,11 +120,11 @@ describe("cli telemetry helpers", () => {
     }),
   );
 
-  it.effect("skips PromptCancelled", () =>
+  it.effect("skips QuestionCancelled", () =>
     Effect.gen(function* () {
       const [layer, capture] = makeCaptureLayer();
 
-      yield* reportCliError(new PromptCancelled({ message: "cancelled" }), "setup").pipe(
+      yield* reportCliError(new QuestionCancelled({ message: "cancelled" }), "setup").pipe(
         Effect.provide(layer),
       );
 

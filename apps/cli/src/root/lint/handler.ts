@@ -16,7 +16,6 @@ import * as Schema from "effect/Schema";
 import {
   LintJsonDocumentSchema,
   LintWorkspace,
-  toLintHumanFindings,
   type LintSelection,
   type LintJsonDocument,
   type LintWorkspaceResult,
@@ -28,6 +27,7 @@ import { Verbosity } from "../../cli-flags/index.js";
 import { effectCliExit } from "../../cli-runtime/index.js";
 import { lintFailureToAppError } from "../../feature-errors.js";
 import { lintDoc } from "./view.js";
+import { toLintHumanFindings } from "./human-findings.js";
 
 const LintJsonDocumentFields = {
   result: LintJsonDocumentSchema,

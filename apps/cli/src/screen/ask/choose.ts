@@ -12,8 +12,11 @@ import type { Doc } from "../doc.js";
 import {
   isQuitKey,
   isSubmitKey,
+  answerDoc,
+  promptNode,
   type AskKey,
   type AskKind,
+  type AskReducerAction,
   type ChooseAsk,
   type ChooseOption,
 } from "./ask.js";
@@ -24,10 +27,7 @@ export interface ChooseState {
   readonly index: number;
 }
 
-export type ChooseAction<A> =
-  | { readonly _tag: "Next"; readonly state: ChooseState }
-  | { readonly _tag: "Submit"; readonly option: ChooseOption<A> }
-  | { readonly _tag: "Cancel" };
+export type ChooseAction<A> = AskReducerAction<ChooseState, ChooseOption<A>>;
 
 /** The question opens on its selected option, else on its first. */
 export const initialChooseState = <A>(ask: ChooseAsk<A>): ChooseState => ({
@@ -56,7 +56,7 @@ export const reduceChoose = <A>(
   if (isQuitKey(key) || key.name === "escape") return { _tag: "Cancel" };
   if (isSubmitKey(key)) {
     const option = ask.options[state.index];
-    return option === undefined ? { _tag: "Cancel" } : { _tag: "Submit", option };
+    return option === undefined ? { _tag: "Cancel" } : { _tag: "Submit", submission: option };
   }
   if (key.name === "up") return moved(ask, state.index, -1);
   if (key.name === "down") return moved(ask, state.index, 1);
@@ -69,10 +69,7 @@ export const chooseDoc = <A>(ask: ChooseAsk<A>, state: ChooseState, rows: number
   const room = rows - 1 - (ask.note === undefined ? 0 : 1);
   const window = listWindow(ask.options.length, state.index, room);
   return [
-    {
-      _tag: "prompt",
-      question: ask.question,
-      ...(ask.note === undefined ? {} : { note: ask.note }),
+    promptNode(ask, {
       chips: [],
       options: ask.options.slice(window.start, window.end).map((option, offset) => ({
         title: option.title,
@@ -81,14 +78,13 @@ export const chooseDoc = <A>(ask: ChooseAsk<A>, state: ChooseState, rows: number
         ...(offset === 0 && window.start > 0 ? { before: window.start } : {}),
       })),
       more: ask.options.length - window.end,
-    },
+    }),
   ];
 };
 
 /** The one transcript line an answered list leaves behind: the option's title. */
-export const chooseAnswer = <A>(ask: ChooseAsk<A>, option: ChooseOption<A>): Doc => [
-  { _tag: "answer", mark: "ok", label: ask.label ?? ask.question, value: option.title },
-];
+export const chooseAnswer = <A>(ask: ChooseAsk<A>, option: ChooseOption<A>): Doc =>
+  answerDoc(ask, option.title);
 
 /** A `Choose` as the `Screen` runs it. */
 export const chooseKind = <A>(ask: ChooseAsk<A>): AskKind<ChooseState, A> => ({
@@ -96,7 +92,11 @@ export const chooseKind = <A>(ask: ChooseAsk<A>): AskKind<ChooseState, A> => ({
   reduce: (state, key) => {
     const action = reduceChoose(ask, state, key);
     return action._tag === "Submit"
-      ? { _tag: "Submit", value: action.option.value, answer: chooseAnswer(ask, action.option) }
+      ? {
+          _tag: "Submit",
+          value: action.submission.value,
+          answer: chooseAnswer(ask, action.submission),
+        }
       : action;
   },
   view: (state, facts) => chooseDoc(ask, state, facts.rows),

@@ -38,15 +38,14 @@ export {
   evaluateAllCatalogs,
   resolveLintExitCategory,
   summarizeEvaluations,
-  toLintHumanFindings,
   toLintJsonDocument,
   type FindingCounts,
   type GroupEvaluations,
-  type LintHumanFinding,
   type LintExitCategory,
   type LintSummary,
   type RenderedFinding,
-} from "./cli.js";
+} from "./runner.js";
+export { DETERMINED_REPAIR_RULE_IDS } from "./run/settings.js";
 
 // Rule catalogs and their stable metadata.
 export {

@@ -2,16 +2,12 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { Command } from "effect/unstable/cli";
 
-import { formatMarkdown } from "../../screen/index.js";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import { extensionTypePluralSegments } from "@agentxm/extension-model/unstable/extensions";
-import { HELP_TOPICS, HELP_TOPIC_KINDS } from "../../__generated__/help-topics.js";
+import { HELP_TOPICS } from "../../__generated__/help-topics.js";
 import { handleHelpPath, ORDERED_TOPIC_NAMES } from "./command.js";
 
 const testRootCommand = Command.make("axm");
-
-const ansiPattern = new RegExp(`${String.fromCharCode(27)}\\[[0-9;?]*[A-Za-z]`, "g");
-const stripAnsi = (value: string): string => value.replace(ansiPattern, "");
 
 const helpIndexSuggestions = [
   {
@@ -100,18 +96,4 @@ describe("help topic command", () => {
       expect(state.markdown[0]).not.toMatch(/reference the target's canonical path/);
     }),
   );
-
-  it("renders every bundled topic without markdown delimiters in color mode", () => {
-    for (const topic of ORDERED_TOPIC_NAMES) {
-      if (HELP_TOPIC_KINDS[topic] !== "markdown") {
-        continue;
-      }
-      const rendered = formatMarkdown(HELP_TOPICS[topic], 88, true);
-      const plain = stripAnsi(rendered);
-
-      expect(rendered.length).toBeGreaterThan(0);
-      expect(plain).not.toContain("```");
-      expect(plain).not.toContain("<!-- axm:embed-schema");
-    }
-  });
 });

@@ -11,6 +11,7 @@ import * as Layer from "effect/Layer";
 
 import {
   AuthLoginPresenter,
+  DeviceLoginInteraction,
   type DeviceLoginPendingResult,
   type HumanHandoff,
 } from "@agentxm/registry-access/authentication";
@@ -101,8 +102,12 @@ const loginSuccessSuggestions = [
 
 const makeHuman = () => {
   const renderer = TestRenderer.make();
+  const dependencies = Layer.merge(
+    renderer.layer,
+    Layer.succeed(DeviceLoginInteraction, noInteraction),
+  );
   return {
-    layer: Layer.provideMerge(AuthLoginPresenterLive, renderer.layer),
+    layer: Layer.provideMerge(AuthLoginPresenterLive, dependencies),
     state: renderer.state,
     logs: logsByTag(renderer.state),
   };
@@ -110,8 +115,12 @@ const makeHuman = () => {
 
 const makeMachine = () => {
   const renderer = TestMachineRenderer.make();
+  const dependencies = Layer.merge(
+    renderer.layer,
+    Layer.succeed(DeviceLoginInteraction, noInteraction),
+  );
   return {
-    layer: Layer.provide(AuthLoginPresenterLive, renderer.layer),
+    layer: Layer.provide(AuthLoginPresenterLive, dependencies),
     state: renderer.state,
     logs: logsByTag(renderer.state),
   };
@@ -123,11 +132,7 @@ describe("AuthLoginPresenterLive", () => {
 
     return Effect.gen(function* () {
       const presenter = yield* AuthLoginPresenter;
-      const settled = yield* presenter.awaitHuman(
-        deviceHandoff,
-        Effect.succeed("approved"),
-        noInteraction,
-      );
+      const settled = yield* presenter.awaitHuman(deviceHandoff, Effect.succeed("approved"));
 
       expect(settled).toBe("approved");
       expect(logs.info).toEqual([
@@ -159,7 +164,6 @@ describe("AuthLoginPresenterLive", () => {
       yield* presenter.awaitHuman(
         { ...deviceHandoff, browserOpened: false, copiedToClipboard: false },
         Effect.void,
-        noInteraction,
       );
 
       expect(logs.info).not.toContain("The code was copied to your clipboard.");
@@ -174,7 +178,7 @@ describe("AuthLoginPresenterLive", () => {
       const presenter = yield* AuthLoginPresenter;
       yield* withLiveOperation(
         { command: "auth.login", name: "Sign in", mode: "apply" },
-        presenter.awaitHuman(deviceHandoff, Effect.void, noInteraction),
+        presenter.awaitHuman(deviceHandoff, Effect.void),
       );
 
       const waiting = state.events.filter(
@@ -312,7 +316,7 @@ describe("AuthLoginPresenterLive", () => {
 
     return Effect.gen(function* () {
       const presenter = yield* AuthLoginPresenter;
-      yield* presenter.awaitHuman(loopbackHandoff, Effect.void, noInteraction);
+      yield* presenter.awaitHuman(loopbackHandoff, Effect.void);
 
       expect(logs.info).toEqual([
         "Authorize AXM in the browser that just opened.",
@@ -328,11 +332,7 @@ describe("AuthLoginPresenterLive", () => {
 
     return Effect.gen(function* () {
       const presenter = yield* AuthLoginPresenter;
-      yield* presenter.awaitHuman(
-        { ...loopbackHandoff, browserOpened: false },
-        Effect.void,
-        noInteraction,
-      );
+      yield* presenter.awaitHuman({ ...loopbackHandoff, browserOpened: false }, Effect.void);
 
       expect(logs.info[0]).toBe("Authorize AXM in a browser.");
     }).pipe(Effect.provide(layer));
@@ -343,7 +343,7 @@ describe("AuthLoginPresenterLive", () => {
 
     return Effect.gen(function* () {
       const presenter = yield* AuthLoginPresenter;
-      yield* presenter.awaitHuman(stepUpHandoff, Effect.void, noInteraction);
+      yield* presenter.awaitHuman(stepUpHandoff, Effect.void);
 
       expect(logs.info).toEqual([
         "Verify yank on @acme/skills/review to continue.",
@@ -368,7 +368,6 @@ describe("AuthLoginPresenterLive", () => {
           expiresAtMs: Date.now() + 60_000,
         },
         Effect.void,
-        noInteraction,
       );
 
       expect(logs.info).toContain("Review 2 publish candidates in the browser.");

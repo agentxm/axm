@@ -97,7 +97,6 @@ export const runLoopbackLogin = (registryUrl: string) =>
             browserOpened,
           },
           server.awaitCallback(Duration.toMillis(LOOPBACK_TIMEOUT)),
-          interaction,
         )
         // Browser sign-in has nothing to resume: the local server closes with
         // this scope, so stopping the wait ends the attempt and changes nothing.

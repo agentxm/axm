@@ -18,26 +18,6 @@ const unreachable = (value: never): never => {
   throw new Error(`Unrecognized CLI vocabulary: ${String(value)}`);
 };
 
-export interface VerbForms {
-  readonly imperative: string;
-  readonly past: string;
-  readonly gerund: string;
-}
-
-export const Verbs = {
-  install: { imperative: "install", past: "Installed", gerund: "Installing" },
-  update: { imperative: "update", past: "Updated", gerund: "Updating" },
-  uninstall: { imperative: "uninstall", past: "Uninstalled", gerund: "Uninstalling" },
-  create: { imperative: "create", past: "Created", gerund: "Creating" },
-  enable: { imperative: "enable", past: "Enabled", gerund: "Enabling" },
-  disable: { imperative: "disable", past: "Disabled", gerund: "Disabling" },
-  sync: { imperative: "sync", past: "Synced", gerund: "Syncing" },
-  publish: { imperative: "publish", past: "Published", gerund: "Publishing" },
-  adopt: { imperative: "adopt", past: "Adopted", gerund: "Adopting" },
-  fork: { imperative: "fork", past: "Forked", gerund: "Forking" },
-  import: { imperative: "import", past: "Imported", gerund: "Importing" },
-} satisfies Record<string, VerbForms>;
-
 export const count = (value: number, singular: string, plural = `${singular}s`): string =>
   `${value} ${value === 1 ? singular : plural}`;
 
@@ -242,35 +222,6 @@ export const systemWaitStatus = (value: BlockingClass): string =>
  */
 export const systemWaitHint = (value: BlockingClass): string | undefined =>
   value === "resource-conflict" ? "ctrl-c stops waiting; nothing has been changed" : undefined;
-
-export const blockingHeadline = (value: BlockingClass): string => {
-  switch (value) {
-    case "approval-required":
-      return "Approval required";
-    case "override-required":
-      return "Override required";
-    case "precondition-unmet":
-      return "Precondition not met";
-    case "dependency-failed":
-      return "Dependency failed";
-    case "dependency-cycle":
-      return "Dependency cycle";
-    case "stale-candidate":
-      return "Operation changed while waiting";
-    case "policy-excluded":
-      return "Excluded by policy";
-    case "resource-conflict":
-      return "Workspace is busy";
-    case "external-blocked":
-      return "External service blocked the operation";
-    case "human-required":
-      return "Waiting on a person";
-    case "operation-aborted":
-      return "Operation stopped";
-    default:
-      return unreachable(value);
-  }
-};
 
 export const interruptionPhrase = (
   signal: "SIGINT" | "SIGTERM",

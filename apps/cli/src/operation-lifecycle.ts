@@ -39,7 +39,7 @@ import {
   type OperationPresentation,
   type SettledOutcome,
 } from "@agentxm/workspace/transitions/planning";
-import { Screen } from "./screen/index.js";
+import { CurrentScreenOperationId, Screen } from "./screen/index.js";
 import { WorkspaceLocation } from "@agentxm/workspace/desired-state";
 import {
   FootprintRecorder,
@@ -115,6 +115,7 @@ export const withLiveOperation = <A, E, R>(
       }));
       return yield* body.pipe(
         Effect.provideService(OperationLifecycle, lifecycle),
+        Effect.provideService(CurrentScreenOperationId, lifecycle.operationId),
         Effect.onExit((exit) =>
           lifecycle
             .settle(settledOutcomeForExit(exit, args.successOutcome ?? "completed"))

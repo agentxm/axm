@@ -5,7 +5,11 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import { AuthEnvironment } from "@agentxm/registry-access/adapters";
-import { AuthClientTest, CredentialStoreTest } from "@agentxm/registry-access/testing";
+import {
+  AuthClientTest,
+  CredentialStoreTest,
+  DeviceLoginInteractionTest,
+} from "@agentxm/registry-access/testing";
 import { RegistryUrl } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -83,6 +87,7 @@ describe("Token inventory", () => {
             },
           },
         }),
+        DeviceLoginInteractionTest().layer,
       );
       const layer = Layer.provideMerge(AuthLoginPresenterLive, ports);
 

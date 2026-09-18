@@ -293,7 +293,7 @@ const makeTestScreenService = (
   // Machine output never prompts, whatever the script holds: asking is the
   // usage error by construction, as it is on the real machine screen.
   ask: resultReturnValue
-    ? (_ask, guard) => Effect.fail(promptRequired(guard))
+    ? (ask, guard) => Effect.fail(promptRequired(plain(ask.question), guard))
     : scriptedAsk(state.script, (doc) => captureDoc(state, doc, "stderr")),
   // A test screen cannot be stopped, so a wait is its brief and the effect it
   // was parked on, in the order a terminal would have shown them.

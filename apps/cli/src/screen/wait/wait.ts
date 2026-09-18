@@ -12,7 +12,7 @@
 import type * as Effect from "effect/Effect";
 
 import type { Doc } from "../doc.js";
-import { isQuitKey, type AskKey } from "../ask/ask.js";
+import { isQuitKey, type InteractionKey } from "../interaction.js";
 
 /** One handoff to a person, as the terminal shows it while it stands open. */
 export interface WaitView {
@@ -63,7 +63,7 @@ export type WaitKeyAction = "open" | "copy" | "stop" | "ignore";
  * act where the wait offers them. Every other key leaves the wait exactly as
  * it stood, because a wait has nothing to answer.
  */
-export const reduceWaitKey = (key: AskKey, keys: WaitKeys): WaitKeyAction => {
+export const reduceWaitKey = (key: InteractionKey, keys: WaitKeys): WaitKeyAction => {
   if (isQuitKey(key) || key.name === "escape") return "stop";
   const typed = (key.char ?? key.name).toLowerCase();
   if (keys.open && typed === "o") return "open";

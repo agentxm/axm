@@ -30,16 +30,27 @@ const packages = [
   "webhooks",
 ];
 
+const [firstPackage, ...remainingPackages] = packages;
+if (firstPackage === undefined)
+  throw new Error("The package gallery requires at least one option.");
+
 /** A source list longer than any terminal it opens in, caret partway down. */
 const longSource: ChooseAsk<string> = {
   _tag: "Choose",
   question: "Instructions source",
   note: "AXM will sync its contents to the selected agents' instruction files.",
-  options: packages.map((name) => ({
-    title: `packages/${name}/AGENTS.md`,
-    details: ["existing"],
-    value: name,
-  })),
+  options: [
+    {
+      title: `packages/${firstPackage}/AGENTS.md`,
+      details: ["existing"],
+      value: firstPackage,
+    },
+    ...remainingPackages.map((name) => ({
+      title: `packages/${name}/AGENTS.md`,
+      details: ["existing"],
+      value: name,
+    })),
+  ],
 };
 
 /**

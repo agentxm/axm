@@ -35,15 +35,9 @@ export type {
   WaitNode,
 } from "./doc.js";
 export { plain, text } from "./doc.js";
-export {
-  asciiGlyphs,
-  paintText,
-  unicodeGlyphs,
-  type Glyphs,
-  type PaintStyle,
-  type PaintWidth,
-} from "./paint-text.js";
-export { wrapText, visibleText } from "./wrap-text.js";
+export { paintText, type PaintStyle, type PaintWidth } from "./paint-text.js";
+export { asciiGlyphs, unicodeGlyphs, type Glyphs } from "./glyphs.js";
+export { wrapText } from "./wrap-text.js";
 export {
   STACKED_THRESHOLD,
   layoutTable,
@@ -53,6 +47,7 @@ export {
 } from "./table-layout.js";
 export {
   promptRequired,
+  yesNo,
   type Ask,
   type ChooseAsk,
   type ChooseOption,
@@ -64,7 +59,7 @@ export {
   type PickOption,
   pickAsk,
 } from "./ask/ask.js";
-export { PromptCancelled } from "./ask/prompt-cancelled.js";
+export { QuestionCancelled } from "./ask/question-cancelled.js";
 export { WaitAbandoned } from "./wait/wait-abandoned.js";
 export {
   reduceWaitKey,
@@ -91,14 +86,12 @@ export {
 export {
   initialProgress,
   operationElapsedMs,
-  plannedProgress,
   reduceProgress,
-  runningTasks,
   type ProgressMeasure,
   type ProgressOperation,
   type ProgressSettlement,
   type ProgressState,
-  type ProgressTask,
+  type ProgressUnitState,
   type ProgressWait,
 } from "./progress.js";
 export { progressTransitionDoc } from "./progress-view.js";
@@ -121,6 +114,7 @@ export {
 } from "./streams.js";
 export {
   Screen,
+  CurrentScreenOperationId,
   ScreenLive,
   ScreenMachine,
   emitSuggestionEvents,
@@ -147,26 +141,31 @@ export {
 } from "./machine-events.js";
 export { ScreenLoggerLive } from "./logger.js";
 export { interruptionFallback } from "./interruption-fallback.js";
+export { boldText, cyanText, dimText, greenText } from "./terminal-style.js";
 export {
-  Verbs,
   agentOutcome,
   artifactChange,
   artifactChangeMark,
   blockingClass,
-  blockingHeadline,
   bytes,
   count,
   disposition,
   duration,
   interruptionPhrase,
   liveUnitActivity,
+  operationTitle,
   outcomeHeadline,
   phaseLabel,
   progressMeasure,
   remainingTime,
+  planVerdict,
+  plannedArtifactChange,
   scopePhrase,
+  subjectHeader,
+  subjectNoun,
   ALREADY_PUBLISHED,
   NOT_TRIED,
+  INTERRUPTED_IN_FLIGHT,
   exitPhrase,
   publishDisposition,
   publishOutcome,
@@ -180,7 +179,6 @@ export {
   unitState,
   unitStateChange,
   waitKeyWord,
-  type VerbForms,
   type PublishDisposition,
   type PublishParticipation,
   type PublishReason,
@@ -196,7 +194,6 @@ export {
 } from "./width.js";
 export { fieldsDoc, inventoryDoc, tableDoc, type ViewColumn, type ViewField } from "./view.js";
 export {
-  detailViewDoc,
   errorDoc,
   factParts,
   headlineDoc,
@@ -205,33 +202,31 @@ export {
   rawDoc,
   successDoc,
   suggestionsDoc,
-  tableViewDoc,
 } from "./docs.js";
 export {
   type SuggestionOptions,
   type BoxOptions,
-  type DetailFieldConfig,
-  type DetailView,
   type LogLevel,
   type LogMessage,
   type ListPayload,
   type DetailOptions,
-  type ResolvedDetailField,
-  type ResolvedTableColumn,
   type SuccessOptions,
-  type TableAlign,
-  type TableColumnConfig,
-  type TableView,
-  type TableWidth,
   type TreeDef,
-  type ViewKey,
 } from "./output.js";
-export { resolveDetailFields, resolveTableColumns } from "./command-output.js";
 export { InteractiveScreen } from "./interactive.js";
 export { MachineScreen } from "./machine.js";
-export { formatMarkdown } from "./markdown-formatter.js";
 export {
   resolveCliOutputPolicy,
   type CliOutputEnvironment,
   type CliOutputPolicy,
 } from "./output-policy.js";
+export {
+  MISSING_VERSION,
+  PROSE_SEPARATOR,
+  VERBOSE_DETAILS_HINT,
+  VERBOSE_LIST_HINT,
+  emphatic,
+  joined,
+  ledgerViewPolicy,
+  resultLedgerColumns,
+} from "./presenter-helpers.js";

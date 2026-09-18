@@ -4,7 +4,7 @@ import * as Option from "effect/Option";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { makeAppError } from "../../app-error/index.js";
-import { Screen, paragraphDoc } from "../../screen/index.js";
+import { Screen } from "../../screen/index.js";
 import { observeUnit } from "@agentxm/workspace/transitions/planning";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
@@ -21,7 +21,7 @@ import {
 import { WorkspaceLocation } from "@agentxm/workspace/desired-state";
 
 import { inspectionFailureToAppError } from "../../feature-errors.js";
-import { emptyInventoryDoc, listDoc } from "./view.js";
+import { listDoc } from "./view.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 
@@ -65,20 +65,14 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
   const document: ExtensionListDocument = result.document;
   if (yield* screen.document(document, ExtensionListDocumentSchema)) return;
   const coverage = document.coverage;
-  const empty =
-    result.items.length > 0
-      ? []
-      : filter === "all"
-        ? emptyInventoryDoc(yield* emptyInventory())
-        : paragraphDoc(
-            `No ${filter} extensions found${coverage !== undefined && coverage.unknown > 0 ? `; ${coverage.unknown} could not be assessed` : ""}`,
-          );
+  const emptyState =
+    result.items.length === 0 && filter === "all" ? yield* emptyInventory() : undefined;
   yield* screen.result(
     listDoc({
       items: result.items,
       filter,
       ...(coverage === undefined ? {} : { coverage }),
-      empty,
+      ...(emptyState === undefined ? {} : { emptyState }),
     }),
   );
 });

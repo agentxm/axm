@@ -31,7 +31,7 @@ import {
 import {
   operationElapsedMs,
   type ProgressState,
-  type ProgressTask,
+  type ProgressUnitState,
   type ProgressWait,
 } from "./progress.js";
 
@@ -81,7 +81,7 @@ export interface LiveLedgerOptions {
 /** What a row is doing right now, which decides its mark, its word, and its place. */
 type Activity =
   | { readonly _tag: "waiting" }
-  | { readonly _tag: "running"; readonly task: ProgressTask; readonly nested: boolean }
+  | { readonly _tag: "running"; readonly unit: ProgressUnitState; readonly nested: boolean }
   | { readonly _tag: "paused"; readonly wait: ProgressWait }
   | { readonly _tag: "settled" };
 
@@ -97,20 +97,20 @@ const SYNTHESIZED_COLUMNS: ReadonlyArray<LedgerColumn> = [{ header: "", role: "n
  * several times a second over every row, so the index is built once per join
  * rather than searched once per row.
  */
-interface TaskIndex {
-  readonly byId: ReadonlyMap<string, ProgressTask>;
-  readonly byParent: ReadonlyMap<string, ReadonlyArray<ProgressTask>>;
+interface UnitIndex {
+  readonly byId: ReadonlyMap<string, ProgressUnitState>;
+  readonly byParent: ReadonlyMap<string, ReadonlyArray<ProgressUnitState>>;
 }
 
-const indexTasks = (tasks: ReadonlyArray<ProgressTask>): TaskIndex => {
-  const byId = new Map<string, ProgressTask>();
-  const byParent = new Map<string, Array<ProgressTask>>();
-  for (const task of tasks) {
-    byId.set(task.id, task);
-    if (task.parentId === undefined) continue;
-    const siblings = byParent.get(task.parentId);
-    if (siblings === undefined) byParent.set(task.parentId, [task]);
-    else siblings.push(task);
+const indexUnits = (units: ReadonlyArray<ProgressUnitState>): UnitIndex => {
+  const byId = new Map<string, ProgressUnitState>();
+  const byParent = new Map<string, Array<ProgressUnitState>>();
+  for (const unit of units) {
+    byId.set(unit.id, unit);
+    if (unit.parentId === undefined) continue;
+    const siblings = byParent.get(unit.parentId);
+    if (siblings === undefined) byParent.set(unit.parentId, [unit]);
+    else siblings.push(unit);
   }
   return { byId, byParent };
 };
@@ -120,44 +120,44 @@ const indexTasks = (tasks: ReadonlyArray<ProgressTask>): TaskIndex => {
  * download and the per-agent projection that follows it both belong to the row
  * that planned the extension. The visited set keeps a malformed chain finite.
  */
-const descendants = (index: TaskIndex, id: string): ReadonlyArray<ProgressTask> => {
-  const found: Array<ProgressTask> = [];
+const descendants = (index: UnitIndex, id: string): ReadonlyArray<ProgressUnitState> => {
+  const found: Array<ProgressUnitState> = [];
   const visited = new Set<string>([id]);
   const frontier = [id];
   while (frontier.length > 0) {
     const parent = frontier.pop();
     if (parent === undefined) break;
-    for (const task of index.byParent.get(parent) ?? []) {
-      if (visited.has(task.id)) continue;
-      visited.add(task.id);
-      found.push(task);
-      frontier.push(task.id);
+    for (const unit of index.byParent.get(parent) ?? []) {
+      if (visited.has(unit.id)) continue;
+      visited.add(unit.id);
+      found.push(unit);
+      frontier.push(unit.id);
     }
   }
   return found;
 };
 
 /** The innermost work in flight: the running unit that started last. */
-const innermostRunning = (tasks: ReadonlyArray<ProgressTask>): ProgressTask | undefined =>
-  tasks
-    .filter((task) => task.status === "running")
-    .reduce<ProgressTask | undefined>(
-      (latest, task) =>
-        latest === undefined || task.startedAtMs >= latest.startedAtMs ? task : latest,
+const innermostRunning = (units: ReadonlyArray<ProgressUnitState>): ProgressUnitState | undefined =>
+  units
+    .filter((unit) => unit.status === "running")
+    .reduce<ProgressUnitState | undefined>(
+      (latest, unit) =>
+        latest === undefined || unit.startedAtMs >= latest.startedAtMs ? unit : latest,
       undefined,
     );
 
-const activityOf = (state: ProgressState, index: TaskIndex, id: string): Activity => {
+const activityOf = (state: ProgressState, index: UnitIndex, id: string): Activity => {
   const own = index.byId.get(id);
   const nested = descendants(index, id);
   // A wait names one subject, and an operation holds few of them at once.
   const wait = state.waiting.find(
-    (open) => open.subject === id || nested.some((task) => task.id === open.subject),
+    (open) => open.subject === id || nested.some((unit) => unit.id === open.subject),
   );
   if (wait !== undefined) return { _tag: "paused", wait };
   const running = innermostRunning(own === undefined ? nested : [own, ...nested]);
   if (running !== undefined) {
-    return { _tag: "running", task: running, nested: running.id !== id };
+    return { _tag: "running", unit: running, nested: running.id !== id };
   }
   if (own === undefined || own.status === "running") return { _tag: "waiting" };
   return { _tag: "settled" };
@@ -199,7 +199,7 @@ const statusOf = (
       return liveUnitActivity("paused");
     case "running":
       return activity.nested
-        ? activity.task.label
+        ? activity.unit.label
         : state.phase === undefined
           ? liveUnitActivity("running")
           : phaseLabel(state.phase);
@@ -216,9 +216,9 @@ const detailOf = (activity: Activity): Text => {
   switch (activity._tag) {
     case "running": {
       const retry =
-        activity.task.attempt === undefined ? undefined : retryAttempt(activity.task.attempt);
+        activity.unit.attempt === undefined ? undefined : retryAttempt(activity.unit.attempt);
       if (retry !== undefined) return retry;
-      return activity.task.measure === undefined ? "" : progressMeasure(activity.task.measure);
+      return activity.unit.measure === undefined ? "" : progressMeasure(activity.unit.measure);
     }
     case "paused":
       return blockingClass(activity.wait.blockingClass);
@@ -249,7 +249,7 @@ const placeOf = (activity: Activity): LiveRow["place"] => {
 
 const joinRow = (
   state: ProgressState,
-  index: TaskIndex,
+  index: UnitIndex,
   planned: {
     readonly id: string;
     readonly plannedMark?: Mark;
@@ -291,11 +291,11 @@ export const joinLiveRows = (
   state: ProgressState,
   plan: LivePlan | undefined,
 ): ReadonlyArray<LiveRow> => {
-  const index = indexTasks(state.tasks);
+  const index = indexUnits(state.units);
   return plan === undefined
-    ? state.tasks
-        .filter((task) => task.parentId === undefined)
-        .map((task) => joinRow(state, index, { id: task.id, cells: [task.label] }))
+    ? state.units
+        .filter((unit) => unit.parentId === undefined)
+        .map((unit) => joinRow(state, index, { id: unit.id, cells: [unit.label] }))
     : plan.rows.map((row) => joinRow(state, index, row));
 };
 
@@ -352,7 +352,7 @@ const systemWaits = (
   rows: ReadonlyArray<LiveRow>,
 ): ReadonlyArray<ProgressWait> => {
   const units = new Set([
-    ...state.tasks.map((task) => task.id),
+    ...state.units.map((unit) => unit.id),
     ...rows.flatMap((row) => (row.row.id === undefined ? [] : [row.row.id])),
   ]);
   return state.waiting.filter((wait) => !units.has(wait.subject));

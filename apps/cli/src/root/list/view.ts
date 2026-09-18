@@ -117,7 +117,7 @@ const inventorySentence = (rows: ReadonlyArray<ListTableRow>): ReadonlyArray<Tex
 };
 
 /** Where an inventory with nothing in it stands, which decides what it says next. */
-type EmptyInventory = "no-workspace" | "empty-project" | "empty-user";
+export type EmptyInventory = "no-workspace" | "empty-project" | "empty-user";
 
 /** An empty inventory says what is true, then the one command that moves on. */
 export const emptyInventoryDoc = (state: EmptyInventory): Doc => {
@@ -137,6 +137,15 @@ export const emptyInventoryDoc = (state: EmptyInventory): Doc => {
   }
 };
 
+/** A filtered empty state distinguishes no matches from incomplete assessment. */
+const emptyFilteredInventoryDoc = (
+  filter: Exclude<ExtensionListFilter, "all">,
+  coverage: ExtensionListDocument["coverage"] | undefined,
+): Doc =>
+  paragraphDoc(
+    `No ${filter} extensions found${coverage !== undefined && coverage.unknown > 0 ? `; ${String(coverage.unknown)} could not be assessed` : ""}`,
+  );
+
 /**
  * `axm list` for a person: one table whose rows that need attention carry a
  * mark and a toned cell, and the summary sentence after it.
@@ -146,10 +155,14 @@ export const listDoc = (options: {
   readonly filter: ExtensionListFilter;
   /** How much of the inventory a filtered listing could assess. */
   readonly coverage?: ExtensionListDocument["coverage"];
-  readonly empty: Doc;
+  readonly emptyState?: EmptyInventory;
 }): Doc => {
   const rows = options.items.map((item) => toRow(item, options.filter));
   const coverage = options.coverage;
+  const empty =
+    options.filter === "all"
+      ? emptyInventoryDoc(options.emptyState ?? "empty-project")
+      : emptyFilteredInventoryDoc(options.filter, coverage);
   return inventoryDoc({
     rows,
     columns: ExtensionListColumns,
@@ -162,6 +175,6 @@ export const listDoc = (options: {
             `${String(coverage.unknown)} unknown`,
           ],
     mark: (row) => (needsAttention(row) ? "warn" : undefined),
-    empty: options.empty,
+    empty,
   });
 };

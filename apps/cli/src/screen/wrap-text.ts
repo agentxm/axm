@@ -1,4 +1,4 @@
-import type { Span, Text } from "./doc.js";
+import { plain, type Span, type Text } from "./doc.js";
 import {
   displayWidth,
   takeDisplayEnd,
@@ -246,13 +246,13 @@ export const truncateText = (
 ): Text => {
   const spans = spansOf(value);
   if (spans.some((span) => span.copyable === true)) return value;
-  const plain = visibleText(value);
-  if (displayWidth(plain) <= width || width <= 0) return value;
-  const shortened = truncateDisplay(plain, width, mode, ellipsis);
+  const rendered = plain(value);
+  if (displayWidth(rendered) <= width || width <= 0) return value;
+  const shortened = truncateDisplay(rendered, width, mode, ellipsis);
   const attributes = { ...spans[0], text: "" };
   // What survives is a prefix of the value, an ellipsis, and a suffix of it.
-  const head = sharedWidth(shortened, plain, "start");
-  const tail = sharedWidth(shortened, plain, "end");
+  const head = sharedWidth(shortened, rendered, "start");
+  const tail = sharedWidth(shortened, rendered, "end");
   return head + displayWidth(ellipsis) + tail === displayWidth(shortened)
     ? [
         ...takeSide(spans, head, "start"),
@@ -263,10 +263,6 @@ export const truncateText = (
       // as one span shows the right text rather than the right styling.
       [{ ...attributes, text: shortened }];
 };
-
-/** Visible text of a value: what the terminal shows once formatting is removed. */
-export const visibleText = (value: Text): string =>
-  typeof value === "string" ? value : value.map((span) => span.text).join("");
 
 /** Width of the longest unbreakable word, the floor below which wrapping splits words. */
 export const longestWordWidth = (value: Text): number =>

@@ -10,6 +10,7 @@
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
+import { plain } from "../../screen/doc.js";
 import type {
   Doc,
   DocNode,
@@ -20,15 +21,11 @@ import type {
   Tone,
   TreeItem,
 } from "../../screen/doc.js";
-import {
-  unicodeGlyphs,
-  type Glyphs,
-  type PaintStyle,
-  type PaintWidth,
-} from "../../screen/paint-text.js";
+import { unicodeGlyphs, type Glyphs } from "../../screen/glyphs.js";
+import type { PaintStyle, PaintWidth } from "../../screen/paint-text.js";
 import { layoutTable, type LayoutColumn, type TableLayout } from "../../screen/table-layout.js";
 import { displayWidth, padDisplay } from "../../screen/width.js";
-import { longestWordWidth, visibleText, wrapText } from "../../screen/wrap-text.js";
+import { longestWordWidth, wrapText } from "../../screen/wrap-text.js";
 
 const ESC = "\u001b[";
 const RESET = `${ESC}0m`;
@@ -85,8 +82,8 @@ const rule = (style: Style, indent: number, length: number): string =>
 const column = (header: Text, cells: ReadonlyArray<Text>, spec?: TableColumn): LayoutColumn => {
   const values = [header, ...cells];
   return {
-    headerWidth: displayWidth(visibleText(header)),
-    naturalWidth: Math.max(0, ...values.map((value) => displayWidth(visibleText(value)))),
+    headerWidth: displayWidth(plain(header)),
+    naturalWidth: Math.max(0, ...values.map((value) => displayWidth(plain(value)))),
     wordWidth: Math.max(0, ...values.map(longestWordWidth)),
     ...(spec?.width === undefined ? {} : { width: spec.width }),
     ...(spec?.minWidth === undefined ? {} : { minWidth: spec.minWidth }),
@@ -114,7 +111,7 @@ const gridRow = (
     // Trailing empty cells (a short row, or a continuation line) end the line
     // early so no separator or padding trails past the last visible cell.
     const lastVisible = segments.reduce(
-      (last, text, position) => (visibleText(text).length > 0 ? position : last),
+      (last, text, position) => (plain(text).length > 0 ? position : last),
       -1,
     );
     const line = layout.columns
@@ -158,14 +155,14 @@ const paintTable = (
           row[index] ?? "",
           style,
           indent,
-          `${paintSpans([{ text: `${visibleText(spec.header)}: ` }], style, "dim")}`,
+          `${paintSpans([{ text: `${plain(spec.header)}: ` }], style, "dim")}`,
         ),
       ),
     ]);
   }
   const width =
     layout.columns.reduce((sum, entry) => sum + entry.width, 0) + GAP * (layout.columns.length - 1);
-  const hidden = layout.hidden.map((index) => visibleText(headers[index] ?? "")).join(", ");
+  const hidden = layout.hidden.map((index) => plain(headers[index] ?? "")).join(", ");
   return [
     ...gridRow(layout, headers, style, indent, "", "dim"),
     rule(style, indent, width),
@@ -186,7 +183,7 @@ const paintTree = (
       ...(typeof item.text === "string" ? [{ text: item.text }] : item.text),
       ...(item.detail === undefined
         ? []
-        : [{ text: `  ${visibleText(item.detail)}`, tone: "dim" as const }]),
+        : [{ text: `  ${plain(item.detail)}`, tone: "dim" as const }]),
     ];
     return [
       ...block(
@@ -207,14 +204,14 @@ const promptKey = (key: string, style: Style): string =>
   key === "arrows" ? style.glyphs.arrows.key : key;
 
 const statusGlyph = (tone: Tone, glyphs: Glyphs): string =>
-  tone === "neutral" || tone === "dim" ? " " : glyphs.status[tone];
+  tone === "neutral" || tone === "dim" ? " " : glyphs.outcomes[tone];
 
 const markGlyph = (mark: Mark, glyphs: Glyphs): string => {
   if (mark === "working") return glyphs.spinner[0] ?? "";
   if (mark === "waiting") return glyphs.marks.waiting;
   return mark === "ok" || mark === "warn" || mark === "error" || mark === "info"
     ? statusGlyph(mark, glyphs)
-    : glyphs.change[mark];
+    : glyphs.outcomes[mark];
 };
 
 const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<string> => {
@@ -273,7 +270,7 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
               ? gridRow(layout, row.cells, style, indent, prefix)
               : row.cells.flatMap((cell, index) =>
                   // A stacked row has nothing to align, so an empty cell takes no line.
-                  index > 0 && visibleText(cell).length === 0
+                  index > 0 && plain(cell).length === 0
                     ? []
                     : block(cell, style, indent, index === 0 ? prefix : "  "),
                 )),
@@ -282,7 +279,7 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
         }),
         ...(node.folds ?? []).flatMap((fold) =>
           block(
-            `${String(fold.count)} ${fold.noun}${fold.hint === undefined ? "" : ` (${visibleText(fold.hint)})`}`,
+            `${String(fold.count)} ${fold.noun}${fold.hint === undefined ? "" : ` (${plain(fold.hint)})`}`,
             style,
             indent,
             `${markGlyph(fold.mark, style.glyphs)} `,
@@ -300,7 +297,7 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
             {
               text: ` [${node.chips.map((chip) => `${chip.key}=${chip.word}`).join(" ")}]`,
             },
-            ...(node.entry === undefined ? [] : [{ text: ` = ${visibleText(node.entry)}` }]),
+            ...(node.entry === undefined ? [] : [{ text: ` = ${plain(node.entry)}` }]),
             ...(node.filter === undefined || node.filter.length === 0
               ? []
               : [{ text: ` = ${node.filter}` }]),
@@ -314,7 +311,7 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
           block(
             [
               ...(typeof option.title === "string" ? [{ text: option.title }] : option.title),
-              ...(option.details ?? []).map((detail) => ({ text: ` (${visibleText(detail)})` })),
+              ...(option.details ?? []).map((detail) => ({ text: ` (${plain(detail)})` })),
             ],
             style,
             indent + 2,
@@ -348,8 +345,8 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
       return block(
         [
           ...(typeof node.status === "string" ? [{ text: node.status }] : node.status),
-          ...(node.clock === undefined ? [] : [{ text: ` (${visibleText(node.clock)})` }]),
-          ...(node.detail === undefined ? [] : [{ text: `, ${visibleText(node.detail)}` }]),
+          ...(node.clock === undefined ? [] : [{ text: ` (${plain(node.clock)})` }]),
+          ...(node.detail === undefined ? [] : [{ text: `, ${plain(node.detail)}` }]),
           { text: ` [${node.chips.map((chip) => `${chip.key}=${chip.word}`).join(" ")}]` },
         ],
         style,
@@ -361,7 +358,7 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
         node.value,
         style,
         indent,
-        paintSpans([{ text: `${visibleText(node.label)}: ` }], style, "dim"),
+        paintSpans([{ text: `${plain(node.label)}: ` }], style, "dim"),
       );
     case "callout": {
       const bar = `${style.box.bar} `;
@@ -399,7 +396,7 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
           field.value,
           style,
           indent,
-          paintSpans([{ text: `${visibleText(field.label)}: ` }], style, "dim"),
+          paintSpans([{ text: `${plain(field.label)}: ` }], style, "dim"),
         ),
       );
     case "tree":

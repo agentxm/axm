@@ -87,8 +87,16 @@ describe("Setup preview input resolution", () => {
           expectNoPrompt(created);
           expect(created.promptState().presentSetupPlanCalls[0]).toEqual(
             expect.arrayContaining([
-              { target: "axm.json", action: "create", detail: "agents: claude-code" },
-              { target: "AGENTS.md", action: "create", detail: "seeded from CLAUDE.md" },
+              {
+                target: "axm.json",
+                action: "create",
+                detail: { _tag: "settings", agentIds: ["claude-code"] },
+              },
+              {
+                target: "AGENTS.md",
+                action: "create",
+                detail: { _tag: "instructionSource", seededFrom: "CLAUDE.md" },
+              },
             ]),
           );
           expect(created.exists("axm.json")).toBe(false);

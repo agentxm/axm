@@ -13,7 +13,7 @@
 import { paintFixture } from "../src/test-support/gallery/fixture.js";
 import { gallery } from "../src/test-support/gallery/index.js";
 import { resolveCliOutputPolicy } from "../src/screen/output-policy.js";
-import { asciiGlyphs, unicodeGlyphs } from "../src/screen/paint-text.js";
+import { asciiGlyphs, unicodeGlyphs } from "../src/screen/glyphs.js";
 
 interface Options {
   readonly name: string | undefined;

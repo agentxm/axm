@@ -6,13 +6,7 @@
 
 import * as Effect from "effect/Effect";
 
-import {
-  Screen,
-  paragraphDoc,
-  successDoc,
-  tableViewDoc,
-  type TableView,
-} from "../../screen/index.js";
+import { Screen, paragraphDoc, successDoc, tableDoc, type ViewColumn } from "../../screen/index.js";
 import {
   VisibilityEvaluationSchema,
   VisibilityMutationResultSchema,
@@ -28,12 +22,10 @@ interface VisibilityRow {
   readonly value: string;
 }
 
-const VisibilityTable = {
-  columns: {
-    field: { header: "Field" },
-    value: { header: "Value" },
-  },
-} as const satisfies TableView<VisibilityRow>;
+const visibilityColumns: ReadonlyArray<ViewColumn<VisibilityRow>> = [
+  { header: "Field", value: (row) => row.field },
+  { header: "Value", value: (row) => row.value },
+];
 
 /** The invocation's human-verification inputs, as the capability reads them. */
 const verificationOptions = Effect.gen(function* () {
@@ -51,7 +43,7 @@ const emitEvaluation = (evaluation: typeof VisibilityEvaluationSchema.Type) =>
     const screen = yield* Screen;
     if (yield* screen.document(evaluation, VisibilityEvaluationSchema)) return;
     yield* screen.result(
-      tableViewDoc(
+      tableDoc(
         [
           { field: "Extension", value: evaluation.target },
           { field: "Intended", value: evaluation.intent?.value ?? "not configured" },
@@ -59,7 +51,7 @@ const emitEvaluation = (evaluation: typeof VisibilityEvaluationSchema.Type) =>
           { field: "Comparison", value: evaluation.comparison },
           { field: "Source", value: evaluation.intent?.source ?? "-" },
         ],
-        VisibilityTable,
+        visibilityColumns,
       ),
     );
     for (const finding of evaluation.findings) {

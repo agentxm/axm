@@ -13,8 +13,8 @@ import {
   rawDoc,
   resolveCliOutputPolicy,
   suggestionsDoc,
-  tableViewDoc,
-  type TableView,
+  tableDoc,
+  type ViewColumn,
 } from "../../screen/index.js";
 import { resolveCliFormat, withArgvTracking } from "../../cli-runtime/index.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
@@ -96,12 +96,10 @@ interface HelpTopicRow {
   readonly description: string;
 }
 
-const HelpTopicTableView = {
-  columns: {
-    topic: { header: "Topic" },
-    description: { header: "Description" },
-  },
-} as const satisfies TableView<HelpTopicRow>;
+const helpTopicColumns: ReadonlyArray<ViewColumn<HelpTopicRow>> = [
+  { header: "Topic", value: (row) => row.topic },
+  { header: "Description", value: (row) => row.description },
+];
 
 const HELP_INDEX_SUGGESTIONS = [
   {
@@ -151,7 +149,7 @@ const writeHelpTopicIndex = () =>
     if (emitted) return;
     // Render the index through the renderer's structured table so topics align
     // in columns and pick up the standard chrome — no Markdown reflow.
-    yield* screen.result(tableViewDoc(rows, HelpTopicTableView));
+    yield* screen.result(tableDoc(rows, helpTopicColumns));
     yield* screen.note(suggestionsDoc(HELP_INDEX_SUGGESTIONS));
   });
 

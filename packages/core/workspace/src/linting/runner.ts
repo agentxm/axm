@@ -15,7 +15,6 @@ import { renderAxmSkillCompatibility } from "@agentxm/cli-maintenance/official-s
  * - {@link detectPublishGateDrift}      — compute whether the configured
  *   `LintConfig` weakens any `skill/*` / `pack/*` platform-default-`error`
  *   rule (task 5.7).
- * - {@link toLintHumanFindings}         — findings as a person reads them.
  * - {@link toLintJsonDocument}          — `--json` document shape (task 5.6).
  * - {@link resolveLintExitCategory}     — exit-code contract evaluator (task
  *   5.9).
@@ -37,7 +36,7 @@ import { platformCanonicalLintConfig } from "@agentxm/extension-content/lint";
 import type { Evaluated } from "@agentxm/extension-content/lint";
 import { evaluateContexts } from "@agentxm/extension-content/lint";
 import type { LintInput, LintJsonDocument, LintJsonFinding } from "./json-schema.js";
-import type { LintFinding, Severity } from "@agentxm/extension-content/lint";
+import type { LintFinding } from "@agentxm/extension-content/lint";
 
 import {
   CATALOG_GROUP_ORDER,
@@ -48,7 +47,6 @@ import {
   type LintView,
 } from "./catalog-contexts.js";
 import { type AxmSkillCompatibility } from "@agentxm/cli-maintenance/official-skill/domain";
-import { DETERMINED_REPAIR_RULE_IDS } from "./run/settings.js";
 
 // -----------------------------------------------------------------------------
 // Grouping + summary
@@ -161,17 +159,6 @@ export const evaluateAllCatalogs = (args: {
 // Summary
 // -----------------------------------------------------------------------------
 
-const severityOrder = (s: Severity): number => {
-  switch (s) {
-    case "error":
-      return 0;
-    case "warning":
-      return 1;
-    case "info":
-      return 2;
-  }
-};
-
 /**
  * Every rule context carries a `displayRoot`; that is all rendering needs, so
  * this reads the structural minimum rather than the per-group context type —
@@ -282,6 +269,15 @@ const exitCategoryFromCounts = (counts: FindingCounts): LintExitCategory => {
   return "clean";
 };
 
+/** Rebuild a summary after a repair pass removes a known subset of findings. */
+export const summarizeRenderedFindings = (
+  findings: ReadonlyArray<RenderedFinding>,
+  driftBanner: ReadonlyArray<string>,
+): LintSummary => {
+  const counts = countFindings(findings);
+  return { findings, counts, exitCategory: exitCategoryFromCounts(counts), driftBanner };
+};
+
 // -----------------------------------------------------------------------------
 // Exit-code contract (task 5.9)
 // -----------------------------------------------------------------------------
@@ -341,189 +337,6 @@ export const detectPublishGateDrift = (config: LintConfig): ReadonlyArray<string
   void config;
   return [];
 };
-
-// -----------------------------------------------------------------------------
-// Human findings
-// -----------------------------------------------------------------------------
-
-/**
- * One finding as a person reads it: the first sentence of its message as the
- * title, the `Detail:` clause and any further sentences split out as details
- * and help, and whether `axm lint --fix` repairs it.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface LintHumanFinding {
-  readonly severity: Severity;
-  readonly ruleId: string;
-  /** The invariant the rule holds, which names a rule that repeats across findings. */
-  readonly ruleDescription: string;
-  readonly title: string;
-  readonly details: ReadonlyArray<string>;
-  readonly helps: ReadonlyArray<string>;
-  readonly fixable: boolean;
-  readonly path: string;
-}
-
-/** Errors first, then by location, so the findings that fail a run lead. */
-const compareRenderedFindings = (left: RenderedFinding, right: RenderedFinding): number => {
-  const bySeverity = severityOrder(left.finding.severity) - severityOrder(right.finding.severity);
-  if (bySeverity !== 0) {
-    return bySeverity;
-  }
-  const byPath = left.path.localeCompare(right.path);
-  if (byPath !== 0) {
-    return byPath;
-  }
-  const byRuleId = left.finding.ruleId.localeCompare(right.finding.ruleId);
-  if (byRuleId !== 0) {
-    return byRuleId;
-  }
-  return left.finding.message.localeCompare(right.finding.message);
-};
-
-const isWhitespace = (character: string): boolean => character.trim() === "";
-
-const isSentenceStarter = (character: string): boolean => {
-  const code = character.charCodeAt(0);
-  return character === "`" || (code >= 65 && code <= 90);
-};
-
-const sentenceBoundary = (
-  message: string,
-): { readonly head: string; readonly tail: string } | undefined => {
-  for (let index = 1; index < message.length - 1; index += 1) {
-    if (message[index] !== "." || !isWhitespace(message[index + 1] ?? "x")) {
-      continue;
-    }
-    let tailStart = index + 1;
-    while (tailStart < message.length && isWhitespace(message[tailStart] ?? "x")) {
-      tailStart += 1;
-    }
-    const starter = message[tailStart];
-    if (starter !== undefined && isSentenceStarter(starter)) {
-      return {
-        head: message.slice(0, index + 1),
-        tail: message.slice(tailStart),
-      };
-    }
-  }
-  return undefined;
-};
-
-const splitSentences = (message: string): ReadonlyArray<string> => {
-  const out: Array<string> = [];
-  let remaining = message.trim();
-
-  while (remaining.length > 0) {
-    const boundary = sentenceBoundary(remaining);
-    if (boundary === undefined) {
-      out.push(remaining);
-      break;
-    }
-    out.push(boundary.head);
-    remaining = boundary.tail;
-  }
-
-  return out;
-};
-
-const splitDetailClause = (
-  message: string,
-): {
-  readonly lead: string;
-  readonly detail: string | undefined;
-  readonly trailing: ReadonlyArray<string>;
-} => {
-  const marker = " Detail: ";
-  const index = message.indexOf(marker);
-  if (index === -1) {
-    return {
-      lead: message,
-      detail: undefined,
-      trailing: [],
-    };
-  }
-
-  const lead = message.slice(0, index);
-  const rest = message.slice(index + marker.length);
-  const sentences = splitSentences(rest);
-  const detail = sentences[0];
-  return {
-    lead,
-    detail,
-    trailing: sentences.slice(1),
-  };
-};
-
-const parseFindingMessage = (
-  message: string,
-): {
-  readonly title: string;
-  readonly details: ReadonlyArray<string>;
-  readonly helps: ReadonlyArray<string>;
-} => {
-  const detailSplit = splitDetailClause(message);
-  const leadSentences = splitSentences(detailSplit.lead);
-  const title = leadSentences[0] ?? message.trim();
-  const details = detailSplit.detail === undefined ? [] : [detailSplit.detail];
-  return {
-    title,
-    details,
-    helps: [...leadSentences.slice(1), ...detailSplit.trailing],
-  };
-};
-
-const dirnamePosix = (path: string): string => {
-  if (path === "." || path === "..") {
-    return path;
-  }
-  const index = path.lastIndexOf("/");
-  if (index <= 0) {
-    return path;
-  }
-  return path.slice(0, index);
-};
-
-const groupDisplayPath = (entry: RenderedFinding): string => {
-  switch (entry.finding.ruleId) {
-    case "workspace/skills-managed":
-      return dirnamePosix(entry.path);
-    default:
-      return entry.path;
-  }
-};
-
-/**
- * Rules whose repair is fully determined by authoritative local state, so
- * `axm lint --fix` restores them. Naming the repair is a reporting concern, so
- * it lives here rather than in the rule, which states the intrinsic fact alone.
- */
-const DETERMINED_REPAIR_RULES: ReadonlySet<string> = new Set(DETERMINED_REPAIR_RULE_IDS);
-
-const toHumanFinding = (entry: RenderedFinding): LintHumanFinding => {
-  const parsed = parseFindingMessage(entry.finding.message);
-  return {
-    severity: entry.finding.severity,
-    ruleId: entry.finding.ruleId,
-    ruleDescription: entry.ruleDescription,
-    title: parsed.title,
-    details: parsed.details,
-    helps: parsed.helps,
-    fixable: DETERMINED_REPAIR_RULES.has(entry.finding.ruleId),
-    path: groupDisplayPath(entry),
-  };
-};
-
-/**
- * Findings as a person reads them, errors first.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const toLintHumanFindings = (
-  findings: ReadonlyArray<RenderedFinding>,
-): ReadonlyArray<LintHumanFinding> =>
-  [...findings].sort(compareRenderedFindings).map(toHumanFinding);
 
 // -----------------------------------------------------------------------------
 // JSON document (task 5.6)

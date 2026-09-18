@@ -251,7 +251,6 @@ export const runWithStepUp = <A, E, R>(
                 Option.isNone(verified) ? { _tag: "Elapsed" } : { _tag: "Verified" },
               ),
             ),
-          interaction,
         )
         // Stopping the wait leaves the request pending exactly as an elapsed
         // wait does; only what the result says about it differs.

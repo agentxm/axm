@@ -56,12 +56,13 @@ import {
   evaluateAllCatalogs,
   resolveLintExitCategory,
   summarizeEvaluations,
+  summarizeRenderedFindings,
   toLintJsonDocument,
   toLintJsonFinding,
   type LintExitCategory,
   type LintSummary,
   type RenderedFinding,
-} from "../cli.js";
+} from "../runner.js";
 import type { LintInput, LintJsonDocument } from "../json-schema.js";
 import { observeAuthoredPackages } from "./authored-packages.js";
 import {
@@ -385,9 +386,6 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
     } satisfies LintWorkspaceResult;
   });
 
-const findingIdentity = (entry: RenderedFinding): string =>
-  [entry.finding.ruleId, entry.path].join("\u0000");
-
 /** Report the workspace's facts without changing it. */
 export const queryLintWorkspace = (
   selection: LintSelection,
@@ -406,22 +404,43 @@ export const fixLintWorkspace = (
   options: { readonly strict: boolean },
 ): Effect.Effect<LintWorkspaceResult, LintWorkspaceFailure, LintWorkspaceRequirements> =>
   Effect.gen(function* () {
-    // Observe before and after the repair, so the report can say what it fixed
-    // as well as what remains.
+    // The reconciliation pass proves every determined instruction target
+    // current after it writes. Reuse that proof instead of gathering every
+    // lint catalog a second time.
     const before = yield* runLint(selection, options);
-    yield* applyDeterminedRepairs({
-      workspaceRoot: selection.workspaceRoot,
-      scope: selection.scope,
-      settings: yield* loadSettingsDocument(selection.workspaceRoot, selection.scope),
-    });
-    const after = yield* runLint(selection, options);
-    const remaining = new Set(after.summary.findings.map(findingIdentity));
-    const repaired = before.summary.findings.filter(
-      (finding) => !remaining.has(findingIdentity(finding)),
+    const repairedRuleIds = new Set(
+      yield* applyDeterminedRepairs({
+        workspaceRoot: selection.workspaceRoot,
+        scope: selection.scope,
+        settings: yield* loadSettingsDocument(selection.workspaceRoot, selection.scope),
+      }),
     );
+    const repaired = before.summary.findings.filter((finding) =>
+      repairedRuleIds.has(finding.finding.ruleId),
+    );
+    const summary = summarizeRenderedFindings(
+      before.summary.findings.filter((finding) => !repairedRuleIds.has(finding.finding.ruleId)),
+      before.summary.driftBanner,
+    );
+    const exitCategory = summary.exitCategory;
+    const outcome = resolveLintExitCategory({ category: exitCategory, strict: options.strict });
     return {
-      ...after,
-      document: { ...after.document, repaired: repaired.map(toLintJsonFinding) },
+      ...before,
+      document: {
+        ...before.document,
+        findings: summary.findings.map(toLintJsonFinding),
+        repaired: repaired.map(toLintJsonFinding),
+        summary: {
+          total: summary.counts.total,
+          errors: summary.counts.errors,
+          warnings: summary.counts.warnings,
+          infos: summary.counts.infos,
+          exitCategory,
+        },
+      },
+      summary,
+      exitCategory,
+      outcome,
       repaired,
     };
   });

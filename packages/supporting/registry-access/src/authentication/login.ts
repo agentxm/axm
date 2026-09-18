@@ -150,7 +150,7 @@ const shouldReplaceValidSession = (request: LoginRequest, handle: string) =>
     }
     if (request.nonInteractive || request.machineOutput) return false;
     yield* presenter.noteExistingSession(handle);
-    const decision = yield* presenter.confirmSessionReplacement("Log in with a different account?");
+    const decision = yield* presenter.confirmSessionReplacement();
     return decision === "replace";
   });
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { asciiGlyphs, paintText } from "../paint-text.js";
+import { paintText } from "../paint-text.js";
+import { asciiGlyphs } from "../glyphs.js";
 import type { AskKey, ChooseAsk, ChooseOption } from "./ask.js";
 import {
   chooseAnswer,
@@ -54,12 +55,12 @@ describe("reduceChoose", () => {
     {
       name: "enter takes the option the question opened on",
       keys: [key("return")],
-      expected: { _tag: "Submit", option: agents },
+      expected: { _tag: "Submit", submission: agents },
     },
     {
       name: "down moves the caret to the next option",
       keys: [key("down"), key("return")],
-      expected: { _tag: "Submit", option: claude },
+      expected: { _tag: "Submit", submission: claude },
     },
     {
       name: "the caret stops at the last option rather than wrapping",
@@ -74,7 +75,7 @@ describe("reduceChoose", () => {
     {
       name: "up moves the caret back",
       keys: [key("down"), key("down"), key("up"), key("return")],
-      expected: { _tag: "Submit", option: claude },
+      expected: { _tag: "Submit", submission: claude },
     },
     {
       name: "escape cancels",

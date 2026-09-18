@@ -10,9 +10,11 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Result from "effect/Result";
+import type * as Array from "effect/Array";
 import {
   Screen,
   pickAsk,
+  yesNo,
   type ChooseAsk,
   type ChooseOption,
   type ConfirmAsk,
@@ -39,18 +41,6 @@ const customInstructionSourceMessage = "Instructions file name";
 const customInstructionSourceNote =
   "Relative to the project root. It will be created if it does not exist.";
 const confirmSetupPlanMessage = "Apply setup?";
-
-const yesNo = (
-  defaultsToYes: boolean,
-): ReadonlyArray<{
-  readonly key: string;
-  readonly word: string;
-  readonly value: boolean;
-}> => {
-  const yes = { key: "y", word: "yes", value: true };
-  const no = { key: "n", word: "no", value: false };
-  return defaultsToYes ? [yes, no] : [no, yes];
-};
 
 /** Which agents the scan found, and which of them a person already chose. */
 type AgentFacts = Parameters<WorkspaceInitializationInteractionService["selectAgents"]>[0];
@@ -102,6 +92,18 @@ const instructionSyncAsk = (enabled: boolean): ConfirmAsk<boolean> => ({
 type InstructionSource =
   { readonly _tag: "File"; readonly fileName: string } | { readonly _tag: "Other" };
 
+const withOtherChoice = (
+  choices: ReadonlyArray<ChooseOption<InstructionSource>>,
+): Array.NonEmptyReadonlyArray<ChooseOption<InstructionSource>> => {
+  const other: ChooseOption<InstructionSource> = {
+    title: "Other…",
+    details: ["type a file name"],
+    value: { _tag: "Other" },
+  };
+  const [first, ...rest] = choices;
+  return first === undefined ? [other] : [first, ...rest, other];
+};
+
 const instructionSourceAsk = (
   defaultFileName: string,
   choices: ReadonlyArray<InstructionSourceChoice>,
@@ -109,8 +111,8 @@ const instructionSourceAsk = (
   _tag: "Choose",
   question: selectInstructionSourceMessage,
   note: instructionSourceNote,
-  options: [
-    ...choices.map((choice): ChooseOption<InstructionSource> => ({
+  options: withOtherChoice(
+    choices.map((choice): ChooseOption<InstructionSource> => ({
       title: choice.fileName,
       details: [
         ...(choice.fileName === defaultFileName ? ["recommended"] : []),
@@ -120,8 +122,7 @@ const instructionSourceAsk = (
       value: { _tag: "File", fileName: choice.fileName },
       ...(choice.fileName === defaultFileName ? { selected: true } : {}),
     })),
-    { title: "Other…", details: ["type a file name"], value: { _tag: "Other" } },
-  ],
+  ),
 });
 
 /**
@@ -179,14 +180,14 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
         screen
           .ask(selectAgentsAsk(facts), { message: selectAgentsMessage })
           .pipe(
-            Effect.catchTag("PromptCancelled", cancelled),
+            Effect.catchTag("QuestionCancelled", cancelled),
             Effect.mapError(toInteractionFailure),
           ),
       confirmInstructionSync: ({ enabled }) =>
         screen
           .ask(instructionSyncAsk(enabled), { message: confirmInstructionSyncMessage })
           .pipe(
-            Effect.catchTag("PromptCancelled", cancelled),
+            Effect.catchTag("QuestionCancelled", cancelled),
             Effect.mapError(toInteractionFailure),
           ),
       selectInstructionSource: ({ defaultFileName, choices }) =>
@@ -198,14 +199,14 @@ export const WorkspaceInitializationInteractionLive = Layer.effect(
             ? source.fileName
             : yield* screen.ask(customSourceAsk, { message: customInstructionSourceMessage });
         }).pipe(
-          Effect.catchTag("PromptCancelled", cancelled),
+          Effect.catchTag("QuestionCancelled", cancelled),
           Effect.mapError(toInteractionFailure),
         ),
       confirmSetupPlan: () =>
         screen
           .ask(setupPlanAsk, { message: confirmSetupPlanMessage })
           .pipe(
-            Effect.catchTag("PromptCancelled", cancelled),
+            Effect.catchTag("QuestionCancelled", cancelled),
             Effect.mapError(toInteractionFailure),
           ),
       presentAgentScan: (scan) => screen.note(setupAgentScanDoc(scan)),

@@ -5,9 +5,7 @@ import type { OperationEvent } from "@agentxm/workspace/transitions/planning";
 import {
   initialProgress,
   operationElapsedMs,
-  plannedProgress,
   reduceProgress,
-  runningTasks,
   type ProgressState,
 } from "./progress.js";
 
@@ -146,20 +144,18 @@ describe("reduceProgress", () => {
     expect(once.phase).toBe("restoration");
     expect(once.settled).toEqual({ outcome: "failed", atMs: 2_500 });
     expect(once.waiting).toEqual([]);
-    expect(once.tasks.map((task) => [task.id, task.status])).toEqual([
+    expect(once.units.map((unit) => [unit.id, unit.status])).toEqual([
       ["extension-sources", "committed"],
       ["lockfile-reconciliation", "committed"],
       ["skill:code-review", "committed"],
       ["skill:deploy", "failed"],
     ]);
-    expect(once.tasks[2]?.measure).toEqual({ done: 2_048_000, total: 2_048_000, unit: "bytes" });
+    expect(once.units[2]?.measure).toEqual({ done: 2_048_000, total: 2_048_000, unit: "bytes" });
     expect(operationElapsedMs(once)).toBe(1_500);
   });
 
-  it("tracks running units, open waits, and planned counts mid-flight", () => {
+  it("tracks open waits and elapsed time mid-flight", () => {
     const midApply = fold(recordedInstallLog.slice(0, 13));
-    expect(runningTasks(midApply).map((task) => task.id)).toEqual(["skill:code-review"]);
-    expect(plannedProgress(midApply)).toEqual({ settled: 0, total: 2 });
     expect(midApply.phase).toBe("apply");
     expect(operationElapsedMs(midApply, 2_000)).toBe(1_000);
 
@@ -172,7 +168,6 @@ describe("reduceProgress", () => {
         sinceMs: 1_252,
       },
     ]);
-    expect(plannedProgress(waiting)).toBeUndefined();
   });
 
   it("admits a resolution for a unit whose start was not observed", () => {
@@ -185,7 +180,7 @@ describe("reduceProgress", () => {
       state: "unchanged",
       index: 0,
     });
-    expect(state.tasks).toEqual([
+    expect(state.units).toEqual([
       {
         id: "late",
         label: "late unit",

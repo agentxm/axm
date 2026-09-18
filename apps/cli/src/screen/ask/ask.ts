@@ -13,10 +13,21 @@
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type * as Result from "effect/Result";
+import type * as Array from "effect/Array";
 
 import { makeAppError, type AppError } from "../../app-error/index.js";
-import type { Doc, Text } from "../doc.js";
+import type { Doc, PromptNode, Text } from "../doc.js";
 import type { SceneFacts } from "../scene.js";
+import { isQuitKey, isSubmitKey, type InteractionKey } from "../interaction.js";
+
+export type AskKey = InteractionKey;
+export { isQuitKey, isSubmitKey };
+
+interface AskBase {
+  readonly question: Text;
+  readonly note?: Text;
+  readonly label?: string;
+}
 
 /** One lettered choice: the key that picks it, the word that says what it means. */
 export interface ConfirmChoice<A> {
@@ -27,15 +38,10 @@ export interface ConfirmChoice<A> {
   readonly transcript?: boolean;
 }
 
-export interface ConfirmAsk<A> {
+export interface ConfirmAsk<A> extends AskBase {
   readonly _tag: "Confirm";
-  readonly question: Text;
-  /** What the question means, in one dim line beneath it. */
-  readonly note?: Text;
-  /** The label the settled answer line carries; the question by default. */
-  readonly label?: string;
   /** The choices, the first of which is the default `enter` takes. */
-  readonly choices: ReadonlyArray<ConfirmChoice<A>>;
+  readonly choices: Array.NonEmptyReadonlyArray<ConfirmChoice<A>>;
 }
 
 /** One option of a `Choose`: what it is called, and the facts that tell it apart. */
@@ -48,14 +54,9 @@ export interface ChooseOption<A> {
   readonly selected?: true;
 }
 
-export interface ChooseAsk<A> {
+export interface ChooseAsk<A> extends AskBase {
   readonly _tag: "Choose";
-  readonly question: Text;
-  /** What the question means, in one dim line beneath it. */
-  readonly note?: Text;
-  /** The label the settled answer line carries; the question by default. */
-  readonly label?: string;
-  readonly options: ReadonlyArray<ChooseOption<A>>;
+  readonly options: Array.NonEmptyReadonlyArray<ChooseOption<A>>;
 }
 
 /**
@@ -86,13 +87,8 @@ export interface PickNoun {
   readonly other: string;
 }
 
-export interface PickAsk<A> {
+export interface PickAsk<A> extends AskBase {
   readonly _tag: "Pick";
-  readonly question: Text;
-  /** What the question means, in one dim line beneath it. */
-  readonly note?: Text;
-  /** The label the settled answer line carries; the question by default. */
-  readonly label?: string;
   readonly options: ReadonlyArray<PickEntry>;
   /** What the options are, for the count and for a bound that is not met. */
   readonly noun: PickNoun;
@@ -122,13 +118,8 @@ export const pickAsk = <V>(
     }),
 });
 
-export interface InputAsk<A> {
+export interface InputAsk<A> extends AskBase {
   readonly _tag: "Input";
-  readonly question: Text;
-  /** What the question means, in one dim line beneath it. */
-  readonly note?: Text;
-  /** The label the settled answer line carries; the question by default. */
-  readonly label?: string;
   /** An example answer, shown dim until something is typed. */
   readonly placeholder?: string;
   /**
@@ -141,24 +132,21 @@ export interface InputAsk<A> {
 /** A question a view describes as data and the `Screen` runs. */
 export type Ask<A> = ConfirmAsk<A> | ChooseAsk<A> | PickAsk<A> | InputAsk<A>;
 
-/**
- * One key press, as a reducer sees it: the key's own name, and the character
- * it produced when it produced one.
- */
-export interface AskKey {
-  /** The name the terminal reports: `return`, `escape`, `left`, `y`. */
-  readonly name: string;
-  /** The character typed, when the key produced one. */
-  readonly char?: string;
-  readonly ctrl: boolean;
-}
+/** The shared prompt head; each kind supplies only its kind-specific body. */
+export const promptNode = (
+  ask: AskBase,
+  body: Omit<PromptNode, "_tag" | "question" | "note">,
+): PromptNode => ({
+  _tag: "prompt",
+  question: ask.question,
+  ...(ask.note === undefined ? {} : { note: ask.note }),
+  ...body,
+});
 
-/** Whether the key ends input the way `ctrl`+`c` and `ctrl`+`d` do. */
-export const isQuitKey = (key: AskKey): boolean =>
-  key.ctrl && (key.name === "c" || key.name === "d");
-
-/** Whether the key submits what the question stands on. */
-export const isSubmitKey = (key: AskKey): boolean => key.name === "return" || key.name === "enter";
+/** The common transcript line left by an answered question. */
+export const answerDoc = (ask: AskBase, value: Text): Doc => [
+  { _tag: "answer", mark: "ok", label: ask.label ?? ask.question, value },
+];
 
 /** Whether text carries a control character, which is a key rather than text. */
 const hasControl = (text: string): boolean =>
@@ -183,6 +171,12 @@ export type AskAction<S, A> =
   | { readonly _tag: "Submit"; readonly value: A; readonly answer: Doc }
   | { readonly _tag: "Cancel" };
 
+/** A kind reducer's common control flow before its submission becomes an answer. */
+export type AskReducerAction<S, Submission> =
+  | { readonly _tag: "Next"; readonly state: S }
+  | { readonly _tag: "Submit"; readonly submission: Submission }
+  | { readonly _tag: "Cancel" };
+
 /**
  * One kind of question as the `Screen` runs it: where it starts, what a key
  * does to it, and what the live region shows in the space it is given. Each
@@ -196,7 +190,7 @@ export interface AskKind<S, A> {
 
 /** Why a prompt would open, and how to get past it where one may not. */
 export interface InteractiveGuard {
-  readonly message: string;
+  readonly message?: string;
   readonly guidance?: string;
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
 }
@@ -207,9 +201,18 @@ const DEFAULT_GUIDANCE = "Pass the value via a flag or remove --non-interactive.
  * The failure a guarded prompt raises where it may not open: a usage error
  * naming what was needed and how to supply it without answering a question.
  */
-export const promptRequired = (guard: InteractiveGuard): AppError =>
+export const promptRequired = (message: string, guard: InteractiveGuard = {}): AppError =>
   makeAppError({
     code: "usage",
-    detail: `Interactive prompt required: ${guard.message}`,
+    detail: `Interactive prompt required: ${guard.message ?? message}`,
     suggestions: guard.suggestions ?? [{ description: guard.guidance ?? DEFAULT_GUIDANCE }],
   });
+
+/** The ordinary yes/no choices with the safe default first. */
+export const yesNo = (
+  defaultsToYes: boolean,
+): Array.NonEmptyReadonlyArray<ConfirmChoice<boolean>> => {
+  const yes = { key: "y", word: "yes", value: true };
+  const no = { key: "n", word: "no", value: false };
+  return defaultsToYes ? [yes, no] : [no, yes];
+};

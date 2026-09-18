@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { Screen, detailViewDoc, type DetailView } from "../../screen/index.js";
+import { Screen, fieldsDoc, headlineDoc, type ViewField } from "../../screen/index.js";
 import { PackShowResultSchema, ShowPack, type PackShowResult } from "@agentxm/workspace/inspection";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
@@ -9,26 +9,22 @@ import { withRuntime, withWorkspace } from "../../runtime.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { packInspectionRefusedToAppError } from "../inspection-errors.js";
 
-const ShowDetail = {
-  fields: {
-    scope: { label: "Scope" },
-    pack: { label: "Pack" },
-    sourceAuthority: { label: "Source authority" },
-    canonicalPath: { label: "Canonical path" },
-    manifestVersion: { label: "Manifest version" },
-    acceptedResolution: { label: "Resolution" },
-    canonicalStatus: { label: "Canonical" },
-    desiredCount: { label: "Desired members" },
-    problems: {
-      label: "Problems",
-      render: (items) => (items.length === 0 ? "none" : items.join("; ")),
-    },
+type ShowRow = Omit<PackShowResult, "desiredDependencies"> & { readonly desiredCount: number };
+
+const showFields: ReadonlyArray<ViewField<ShowRow>> = [
+  { label: "Scope", value: (row) => row.scope },
+  { label: "Pack", value: (row) => row.pack },
+  { label: "Source authority", value: (row) => row.sourceAuthority },
+  { label: "Canonical path", value: (row) => row.canonicalPath },
+  { label: "Manifest version", value: (row) => row.manifestVersion },
+  { label: "Resolution", value: (row) => row.acceptedResolution },
+  { label: "Canonical", value: (row) => row.canonicalStatus },
+  { label: "Desired members", value: (row) => String(row.desiredCount) },
+  {
+    label: "Problems",
+    value: (row) => (row.problems.length === 0 ? "none" : row.problems.join("; ")),
   },
-} as const satisfies DetailView<
-  Omit<PackShowResult, "desiredDependencies"> & {
-    readonly desiredCount: number;
-  }
->;
+];
 
 export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: string) {
   const screen = yield* Screen;
@@ -38,9 +34,11 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
     (failure) => Effect.fail(packInspectionRefusedToAppError(failure)),
   );
   if (yield* screen.document(result, PackShowResultSchema)) return;
-  yield* screen.result(
-    detailViewDoc(
+  yield* screen.result([
+    ...headlineDoc("neutral", `Pack ${result.pack}`),
+    ...fieldsDoc(
       {
+        scope: result.scope,
         pack: result.pack,
         sourceAuthority: result.sourceAuthority,
         canonicalPath: result.canonicalPath,
@@ -50,10 +48,9 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
         desiredCount: result.desiredDependencies.length,
         problems: result.problems,
       },
-      ShowDetail,
-      `Pack ${result.pack}`,
+      showFields,
     ),
-  );
+  ]);
 });
 
 const showConfig = {

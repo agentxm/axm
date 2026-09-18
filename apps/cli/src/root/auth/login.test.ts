@@ -142,8 +142,11 @@ const makeLayers = (opts?: {
 
   // The renderer-backed presenter keeps the output assertions observing real
   // CLI wording; only the one question a person answers is decided here.
-  const sessionReplacementPrompts: Array<string> = [];
-  const basePresenterLayer = Layer.provide(AuthLoginPresenterLive, rendererLayer);
+  const sessionReplacementPrompts: Array<true> = [];
+  const basePresenterLayer = Layer.provide(
+    AuthLoginPresenterLive,
+    Layer.mergeAll(rendererLayer, interactionLayer),
+  );
   const presenterLayer =
     opts?.confirmReplacement === undefined
       ? basePresenterLayer
@@ -154,8 +157,8 @@ const makeLayers = (opts?: {
               const base = yield* AuthLoginPresenter;
               return {
                 ...base,
-                confirmSessionReplacement: (message: string) => {
-                  sessionReplacementPrompts.push(message);
+                confirmSessionReplacement: () => {
+                  sessionReplacementPrompts.push(true);
                   return Effect.succeed(opts.confirmReplacement ?? "replace");
                 },
               };
@@ -422,7 +425,7 @@ describe("auth login handler", () => {
             (l) => l._tag === "info" && l.message.includes("Already logged in"),
           ),
         ).toBe(true);
-        expect(sessionReplacementPrompts).toEqual(["Log in with a different account?"]);
+        expect(sessionReplacementPrompts).toEqual([true]);
         expect(
           rendererState.logs.some(
             (l) =>
@@ -537,7 +540,7 @@ describe("auth login handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleLogin({ yes: false, deviceCode: true });
-        expect(sessionReplacementPrompts).toEqual(["Log in with a different account?"]);
+        expect(sessionReplacementPrompts).toEqual([true]);
         expect(
           rendererState.logs.filter(
             (l) => l._tag === "success" && l.message.includes("Logged in to"),
@@ -658,7 +661,7 @@ describe("auth login handler", () => {
     const layer = Layer.mergeAll(
       NodeServices.layer,
       rendererLayer2,
-      Layer.provide(AuthLoginPresenterLive, rendererLayer2),
+      Layer.provide(AuthLoginPresenterLive, Layer.mergeAll(rendererLayer2, interactionLayer2)),
       interactionLayer2,
       TestFlagsLayer({ nonInteractive: false }),
       CredentialStoreTest(),

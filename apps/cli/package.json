@@ -85,8 +85,7 @@
     "@agentxm/workspace": "workspace:^",
     "@effect/platform-node": "catalog:",
     "@effect/platform-node-shared": "catalog:",
-    "effect": "catalog:",
-    "marked": "^18.0.9"
+    "effect": "catalog:"
   },
   "devDependencies": {
     "@agentxm/extension-type-parity": "workspace:*",

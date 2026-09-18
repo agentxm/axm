@@ -12,12 +12,12 @@ import { observeChildUnit, observeUnit } from "@agentxm/workspace/transitions/pl
 import {
   AuthInteractionAbandoned,
   AuthLoginPresenter,
+  DeviceLoginInteraction,
   DeviceLoginPendingDocumentSchema,
   LoginDocumentSchema,
   handoffUrl,
   type AuthLoginPresenterService,
   type AuthLoginProgress,
-  type DeviceLoginInteractionService,
   type HumanHandoff,
   type SessionReplacementDecision,
 } from "@agentxm/registry-access/authentication";
@@ -43,20 +43,21 @@ import {
 const isWaitAbandoned = (error: unknown): error is WaitAbandoned => error instanceof WaitAbandoned;
 
 /** Replacing a live session is the risk here, so the default is to keep it. */
-const sessionReplacementAsk = (message: string): ConfirmAsk<SessionReplacementDecision> => ({
+const sessionReplacementAsk: ConfirmAsk<SessionReplacementDecision> = {
   _tag: "Confirm",
-  question: message,
+  question: "Log in with a different account?",
   label: "Replace session",
   choices: [
     { key: "n", word: "no", value: "keep" },
     { key: "y", word: "yes", value: "replace" },
   ],
-});
+};
 
 export const AuthLoginPresenterLive = Layer.effect(
   AuthLoginPresenter,
   Effect.gen(function* () {
     const screen = yield* Screen;
+    const interaction = yield* DeviceLoginInteraction;
     return {
       withProgress: <A, E, R>(progress: AuthLoginProgress, run: () => Effect.Effect<A, E, R>) =>
         observeUnit(
@@ -72,7 +73,6 @@ export const AuthLoginPresenterLive = Layer.effect(
       awaitHuman: <A, E, R>(
         handoff: HumanHandoff,
         awaited: Effect.Effect<A, E, R>,
-        interaction: DeviceLoginInteractionService,
       ): Effect.Effect<A, E | AuthInteractionAbandoned, R> =>
         Effect.gen(function* () {
           const view = handoffWaitView(handoff);
@@ -124,9 +124,9 @@ export const AuthLoginPresenterLive = Layer.effect(
         const entry = deviceCodeFallbackNote(reason);
         return screen.note(entry.doc, { persistent: entry.persistent === true });
       },
-      confirmSessionReplacement: (message) =>
-        screen.ask(sessionReplacementAsk(message), { message }).pipe(
-          Effect.catchTag("PromptCancelled", (cancelled) =>
+      confirmSessionReplacement: () =>
+        screen.ask(sessionReplacementAsk).pipe(
+          Effect.catchTag("QuestionCancelled", (cancelled) =>
             Effect.fail(new AuthInteractionAbandoned({ message: cancelled.message })),
           ),
           Effect.catchTag("AppError", (error) =>

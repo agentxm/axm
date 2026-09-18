@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { asciiGlyphs, paintText } from "../paint-text.js";
+import { paintText } from "../paint-text.js";
+import { asciiGlyphs } from "../glyphs.js";
 import { pickAsk, type AskKey, type PickAsk, type PickOption } from "./ask.js";
 import {
   initialPickState,
@@ -227,7 +228,7 @@ describe("reducePick", () => {
   it("submits what is picked, in the order the options are listed", () => {
     expect(replay(agents, [key("down"), space, key("up"), space, key("return")])).toEqual({
       _tag: "Submit",
-      picked: [0, 1],
+      submission: [0, 1],
     });
   });
 

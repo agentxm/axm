@@ -25,7 +25,7 @@ import {
   type Settings,
 } from "../../desired-state/index.js";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import type { LintSummary } from "../cli.js";
+import type { LintSummary } from "../runner.js";
 
 export type PathRemapper = Pick<Path.Path, "isAbsolute" | "join" | "relative">;
 
@@ -175,13 +175,15 @@ export const applyDeterminedRepairs = (args: {
   readonly settings: Option.Option<Settings>;
 }) =>
   Effect.gen(function* () {
-    if (Option.isNone(args.settings)) return;
+    const none: ReadonlyArray<string> = [];
+    if (Option.isNone(args.settings)) return none;
     const instructionFiles = args.settings.value.instructionFiles;
-    if (instructionFiles === undefined || instructionFiles === false) return;
+    if (instructionFiles === undefined || instructionFiles === false) return none;
     yield* reconcileInstructionTargets({
       workspaceRoot: args.workspaceRoot,
       scope: args.scope,
       configuredAgents: args.settings.value.agents ?? [],
       config: resolveInstructionsConfig(instructionFiles),
     });
+    return DETERMINED_REPAIR_RULE_IDS;
   });

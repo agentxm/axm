@@ -106,18 +106,21 @@ export interface LoginScopeOptions {
 export interface MeResponse {
   readonly userHandle: Handle;
   readonly tokenType: string;
-  readonly scopes: ReadonlyArray<string>;
-  readonly resourceRestrictions: { readonly extensions: ReadonlyArray<string> | null };
+  /**
+   * `account` means the credential carries the whole account's authority and
+   * nothing narrows it. `limited` means its holder made it narrower than
+   * themselves, and the limits below say how.
+   */
+  readonly authority: "account" | "limited";
+  readonly scopes: ReadonlyArray<string> | null;
+  readonly resourceRestrictions: { readonly extensions: ReadonlyArray<string> | null } | null;
   readonly expiresAt: DateTime.Utc | null;
 }
 
 export interface TokenPermissionsRequest {
   readonly owners?: ReadonlyArray<string>;
   readonly extensions?: ReadonlyArray<string>;
-  readonly permission?: "read" | "publish" | "admin";
-  readonly org_permission?: "read" | "write" | "admin";
-  readonly cidr?: ReadonlyArray<string>;
-  readonly bypass_mfa?: boolean;
+  readonly permission: "read" | "publish" | "admin";
 }
 
 export interface CreateTokenParams {
@@ -130,7 +133,6 @@ export interface CreatedTokenResponse {
   readonly id: string;
   readonly token: string;
   readonly name: string;
-  readonly scopes: ReadonlyArray<string>;
   readonly permissions: unknown;
   readonly createdAt: DateTime.Utc;
   readonly expiresAt: DateTime.Utc;
@@ -140,7 +142,6 @@ export interface TokenListItem {
   readonly id: string;
   readonly name: string | null;
   readonly type: string;
-  readonly scopes: ReadonlyArray<string>;
   readonly permissions: unknown;
   readonly createdAt: DateTime.Utc;
   readonly expiresAt: DateTime.Utc;
@@ -957,8 +958,9 @@ export const AuthClientLive = Layer.effect(
         return {
           userHandle: normalizeHandle(decoded.user.handle),
           tokenType: decoded.token.type,
-          scopes: decoded.token.scopes,
-          resourceRestrictions: decoded.token.resource_restrictions,
+          authority: decoded.token.authority,
+          scopes: decoded.token.scopes ?? null,
+          resourceRestrictions: decoded.token.resource_restrictions ?? null,
           expiresAt: decoded.token.expires_at,
         } satisfies MeResponse;
       },
@@ -990,7 +992,6 @@ export const AuthClientLive = Layer.effect(
           id: decoded.id,
           token: decoded.token,
           name: decoded.name,
-          scopes: decoded.scopes,
           permissions: decoded.permissions,
           createdAt: decoded.created_at,
           expiresAt: decoded.expires_at,
@@ -1019,7 +1020,6 @@ export const AuthClientLive = Layer.effect(
             id: token.id,
             name: token.name,
             type: token.type,
-            scopes: token.scopes,
             permissions: token.permissions,
             createdAt: token.created_at,
             expiresAt: token.expires_at,

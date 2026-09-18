@@ -93,7 +93,6 @@ export {
 export { logout, type LogoutOutcome } from "./logout.js";
 export { currentIdentity, currentToken, type RegistryIdentity } from "./identity.js";
 export {
-  MAX_TOKEN_LIFETIME_SECONDS,
   MIN_TOKEN_LIFETIME_SECONDS,
   createToken,
   listTokens,
@@ -105,6 +104,16 @@ export {
   type CreatedToken,
   type TokenAuthorityRequest,
 } from "./tokens.js";
+
+export {
+  TOKEN_PERMISSION_LABELS,
+  TOKEN_PERMISSION_LEVELS,
+  TokenPermissionsSchema,
+  describeTokenPermissions,
+  maxTokenLifetimeSeconds,
+  type TokenPermissionLevel,
+  type TokenPermissions,
+} from "./tokens/permissions.js";
 
 export {
   runPublishAuthorization,

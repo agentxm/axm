@@ -1,29 +1,44 @@
 # Authentication
 
-Use this guide when changing CLI login scopes or device authorization. The
-ordinary login must remain useful without granting mutation authority, and the
-machine-readable device flow must remain safely resumable.
+Use this guide when changing CLI sign-in or device authorization. Signing in is
+not a moment for choosing authority: the session it produces is the person
+themselves, bounded only by their permissions. The machine-readable device flow
+must remain safely resumable.
 
-## Command-to-scope matrix
+## Command-to-exception matrix
 
-OIDC scopes (`openid`, `profile`, `email`, and `offline_access`) establish
-identity and refreshable session semantics. They are not Registry authority.
+Signing in has two states and no third. A signed-in user succeeds at every
+command their account and organization permissions allow, on the first attempt,
+without a browser step or a second sign-in. Sign-in requests only the OIDC
+scopes (`openid`, `profile`, `email`, and `offline_access`), which establish
+identity and refreshable session semantics and carry no Registry authority.
 
-| CLI need                                                                    | Minimum Registry scope       | How authority is obtained                                   |
-| --------------------------------------------------------------------------- | ---------------------------- | ----------------------------------------------------------- |
-| Discover, view, install, update, and read public or permitted Registry data | `extensions:read`            | Ordinary login baseline                                     |
-| Read the signed-in account                                                  | `account:read`               | Ordinary login baseline                                     |
-| Publish a new extension                                                     | `extensions:publish:new`     | Exact publication authorization                             |
-| Publish a new version                                                       | `extensions:publish:version` | Exact publication authorization                             |
-| Yank a release                                                              | `extensions:yank`            | Explicit `axm login --scope extensions:yank` when required  |
-| Administer extension visibility                                             | `extensions:admin`           | Explicit `axm login --scope extensions:admin` when required |
-| Create, list, or revoke account tokens                                      | `account:write`              | Explicit scope plus step-up verification where required     |
+An exception is a command that may ask a signed-in user for more. There are
+three, and each asks for recent authentication bound to that exact action:
 
-Default login therefore requests only `extensions:read` and `account:read` in
-addition to the OIDC session scopes. Do not add mutation or administrative
-scope to the baseline. When adding a Registry command, identify its minimum
-scope here and implement exact authorization or explicit scope recovery before
-expanding login authority.
+| CLI command                     | What it asks for | Why                                     |
+| ------------------------------- | ---------------- | --------------------------------------- |
+| `axm token create`              | Step-up          | It creates a credential                 |
+| Broadening extension visibility | Step-up          | It broadens who can reach the extension |
+| Deleting an extension           | Step-up          | It destroys something unrecoverable     |
+
+Every other refusal of a signed-in user is a defect. Do not answer one by
+requesting more authority at sign-in: there is no scoped login, and the Registry
+rejects a sign-in that asks for a Registry scope.
+
+## Limited credentials
+
+A personal access token is the one credential a person deliberately makes
+narrower than themselves. It carries one permission level (`read`, `publish`, or
+`admin`), an optional allowlist of owners and extensions, and an expiry — at most
+90 days for a `publish` or `admin` token, and 365 days for a `read` token.
+
+`axm token create` and `axm token list` speak only that vocabulary. The Registry
+lowers it to internal scopes; no CLI surface asks for one or prints one.
+
+A token refused for its own limits reports `insufficient_scope` or
+`resource_restriction`, which names the level it would have needed. A session
+reaching either is a defect, not a reason to mint a token.
 
 ## Device-flow contract
 

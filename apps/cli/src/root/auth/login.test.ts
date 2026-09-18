@@ -87,8 +87,9 @@ const makeLayers = (opts?: {
   const meData: MeResponse = opts?.meResponse ?? {
     userHandle: ALICE,
     tokenType: "session",
-    scopes: ["extensions:read"],
-    resourceRestrictions: { extensions: null },
+    authority: "account" as const,
+    scopes: null,
+    resourceRestrictions: null,
     expiresAt: null,
   };
 

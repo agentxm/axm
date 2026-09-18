@@ -44,8 +44,9 @@ describe("Identity lookup recovery", () => {
               ? Effect.succeed({
                   userHandle: authHandle,
                   tokenType: "session",
-                  scopes: ["extensions:read"],
-                  resourceRestrictions: { extensions: null },
+                  authority: "account" as const,
+                  scopes: null,
+                  resourceRestrictions: null,
                   expiresAt: authExpiry,
                 })
               : Effect.fail(
@@ -75,7 +76,7 @@ describe("Identity lookup recovery", () => {
       expect(yield* currentIdentity(authRegistry)).toMatchObject({
         user: "@alice",
         registry: authRegistry,
-        scopes: ["extensions:read"],
+        authority: "account",
       });
 
       // Secondary sweep; output redaction itself is owned by

@@ -1613,7 +1613,6 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `packages/supporting/registry-access/src/authentication/tokens.ts`
-- Open questions: Which token-lifetime input forms, omitted-input default, and valid range should the CLI guarantee? Command help and parser tests are witnesses for the current forms and default; this requirement allocates submission of the selected lifetime, not an undecided lifetime-input policy.
 - Source: [`packages/supporting/registry-access/src/authentication/tokens/create-submits-requested-authority.spec.ts`](../packages/supporting/registry-access/src/authentication/tokens/create-submits-requested-authority.spec.ts)
 
 ##### Token listing reports Registry inventory and completeness

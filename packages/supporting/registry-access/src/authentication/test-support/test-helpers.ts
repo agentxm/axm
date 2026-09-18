@@ -119,8 +119,9 @@ export const makeAuthPorts = (options: AuthPortsOptions = {}) => {
       Effect.succeed({
         userHandle: authHandle,
         tokenType: "session",
-        scopes: ["extensions:read"],
-        resourceRestrictions: { extensions: null },
+        authority: "account" as const,
+        scopes: null,
+        resourceRestrictions: null,
         expiresAt: authExpiry,
       }),
     ...options.auth,

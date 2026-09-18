@@ -56,8 +56,9 @@ export const makeLoginSpecContext = (options: LoginSpecContextOptions = {}) => {
   const identity: MeResponse = {
     userHandle: EXISTING_HANDLE,
     tokenType: "session",
-    scopes: ["extensions:read"],
-    resourceRestrictions: { extensions: null },
+    authority: "account" as const,
+    scopes: null,
+    resourceRestrictions: null,
     expiresAt: null,
   };
   const deviceFlowStarts: Array<ReadonlyArray<string>> = [];

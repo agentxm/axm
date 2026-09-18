@@ -56,8 +56,9 @@ const makeAuthClientLayer = () =>
       Effect.succeed({
         userHandle: handle("@alice"),
         tokenType: "session",
-        scopes: ["extensions:read"],
-        resourceRestrictions: { extensions: null },
+        authority: "account" as const,
+        scopes: null,
+        resourceRestrictions: null,
         expiresAt: null,
       }),
   });

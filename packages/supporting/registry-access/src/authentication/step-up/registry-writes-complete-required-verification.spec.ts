@@ -1,6 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { RegistryAccessFailed } from "../errors.js";
@@ -238,10 +237,7 @@ describe("Token administration verification", () => {
                 expires: "7d",
                 owners: [],
                 extensions: [],
-                permission: Option.some("admin"),
-                orgPermission: Option.none(),
-                cidr: [],
-                bypassMfa: false,
+                permission: "admin",
                 verification,
               },
               authRegistry,

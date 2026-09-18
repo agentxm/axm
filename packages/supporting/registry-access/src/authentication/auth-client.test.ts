@@ -136,9 +136,9 @@ const makeMeResponse = () => ({
     type: "session",
     name: null,
     permissions: null,
-    scopes: ["extensions:read", "account:read"],
-    resource_restrictions: { extensions: null },
+    authority: "account",
     expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
+    approved_at: new Date(Date.now() - 60 * 1000).toISOString(),
   },
 });
 
@@ -1150,10 +1150,14 @@ describe("AuthClient.getMe", () => {
       expect(capturedAuth).toBe("Bearer axm_ses_test");
       expect(result.userHandle).toBe("@alice");
       expect(result.tokenType).toBe("session");
-      expect(result.scopes).toEqual(["extensions:read", "account:read"]);
-      expect(result.resourceRestrictions).toEqual({ extensions: null });
+      // A session carries the account's whole authority, so it reports no
+      // scope list and no restrictions — there is nothing narrower to report.
+      expect(result.authority).toBe("account");
+      expect(result.scopes).toBeNull();
+      expect(result.resourceRestrictions).toBeNull();
       expect(result.expiresAt).not.toBeNull();
       expect(Object.keys(result).sort()).toEqual([
+        "authority",
         "expiresAt",
         "resourceRestrictions",
         "scopes",

@@ -8151,35 +8151,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "choice",
-            "required": false
-          }
-        },
-        {
-          "name": "org-permission",
-          "rawHelp": {
-            "aliases": [],
-            "type": "choice",
-            "required": false
-          }
-        },
-        {
-          "name": "cidr",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
             "required": true
-          },
-          "occurrences": {
-            "minimumOccurrences": 0,
-            "repeatable": true
-          }
-        },
-        {
-          "name": "bypass-mfa",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
           }
         }
       ],
@@ -8208,15 +8180,7 @@
           ]
         },
         {
-          "parameters": [
-            "flag:name",
-            "flag:owner",
-            "flag:extension",
-            "flag:permission",
-            "flag:org-permission",
-            "flag:cidr",
-            "flag:bypass-mfa"
-          ],
+          "parameters": ["flag:name", "flag:owner", "flag:extension", "flag:permission"],
           "requirements": ["cli/token/create/submits-requested-authority"]
         },
         {

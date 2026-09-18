@@ -21,8 +21,9 @@ const ALICE = normalizeHandle("@alice");
 const defaultWhoami = {
   userHandle: ALICE,
   tokenType: "session",
-  scopes: ["extensions:read"],
-  resourceRestrictions: { extensions: null },
+  authority: "account" as const,
+  scopes: null,
+  resourceRestrictions: null,
   expiresAt: null,
 };
 
@@ -120,7 +121,7 @@ describe("auth whoami handler", () => {
 
         expect(rendererState.logs).toContainEqual({
           _tag: "message",
-          message: `Authenticated as ${ALICE}\nRegistry  ${REGISTRY_URL}\nCredential  session\nScopes  extensions:read\nExtensions  unrestricted\nExpires  unavailable\n`,
+          message: `Authenticated as ${ALICE}\nRegistry  ${REGISTRY_URL}\nCredential  session\nAuthority  everything your permissions allow\nExpires  unavailable\n`,
         });
       }),
     );

@@ -40,9 +40,13 @@ describe("Token inventory", () => {
       const item = {
         id: "token-fixture",
         name: "automation",
-        type: "granular",
-        scopes: ["extensions:read"],
-        permissions: null,
+        type: "pat",
+        permissions: {
+          model: "gat",
+          owners: ["@alice"],
+          extensions: [],
+          permission: "read",
+        },
         createdAt: expiry,
         expiresAt: expiry,
         lastUsedAt: null,
@@ -91,7 +95,14 @@ describe("Token inventory", () => {
         expect(Schema.encodeUnknownSync(TokenListDocumentSchema)(output[0]?.data)).toMatchObject({
           items: empty
             ? []
-            : [{ id: item.id, name: item.name, scopes: item.scopes, lastUsedAt: null }],
+            : [
+                {
+                  id: item.id,
+                  name: item.name,
+                  permissions: item.permissions,
+                  lastUsedAt: null,
+                },
+              ],
           count: empty ? 0 : 1,
           hasMore: !empty,
           cursor: empty ? null : "next-page",

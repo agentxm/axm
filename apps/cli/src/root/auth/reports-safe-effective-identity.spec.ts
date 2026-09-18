@@ -44,9 +44,12 @@ describe("Safe effective identity", () => {
               getMe: (presented) =>
                 Effect.sync(() => {
                   expect(presented).toBe(credential);
+                  // A limited credential, so the limits themselves are part of
+                  // the answer; everything else the Registry knows is not.
                   return {
                     userHandle: normalizeHandle("@alice"),
-                    tokenType: "session",
+                    tokenType: "pat",
+                    authority: "limited" as const,
                     scopes: ["extensions:read", "extensions:publish:version"],
                     resourceRestrictions: { extensions: ["@alice/skills/review"] },
                     expiresAt: expiresAt === null ? null : DateTime.makeUnsafe(expiresAt),
@@ -54,7 +57,7 @@ describe("Safe effective identity", () => {
                     userId: "user_01h455vb4pexka56gq5w2r7cpc",
                     credentialId: "tok_01h455vb4pexka56gq5w2r7cpc",
                     name: "private-credential-name",
-                    permissions: { bypass_mfa: true, cidr: ["192.0.2.0/24"] },
+                    permissions: { owners: ["@alice"], extensions: [], permission: "publish" },
                   };
                 }),
             });
@@ -89,8 +92,6 @@ describe("Safe effective identity", () => {
               credential,
               "axm_ref_private_fixture",
               "permissions",
-              "bypass_mfa",
-              "192.0.2.0/24",
             ]) {
               expect(output).not.toContain(secret);
             }
@@ -102,7 +103,8 @@ describe("Safe effective identity", () => {
                 data: {
                   user: "@alice",
                   registry,
-                  credentialType: "session",
+                  credentialType: "pat",
+                  authority: "limited",
                   scopes: ["extensions:read", "extensions:publish:version"],
                   resourceRestrictions: { extensions: ["@alice/skills/review"] },
                   expiresAt,
@@ -112,7 +114,7 @@ describe("Safe effective identity", () => {
               for (const text of [
                 "@alice",
                 registry,
-                "session",
+                "pat",
                 "extensions:read",
                 "extensions:publish:version",
                 "@alice/skills/review",

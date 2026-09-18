@@ -17,8 +17,11 @@ export const WhoamiDataSchema = Schema.Struct({
   user: Schema.String,
   registry: Schema.String,
   credentialType: Schema.String,
-  scopes: Schema.Array(Schema.String),
-  resourceRestrictions: Schema.Struct({ extensions: Schema.NullOr(Schema.Array(Schema.String)) }),
+  authority: Schema.Literals(["account", "limited"]),
+  scopes: Schema.NullOr(Schema.Array(Schema.String)),
+  resourceRestrictions: Schema.NullOr(
+    Schema.Struct({ extensions: Schema.NullOr(Schema.Array(Schema.String)) }),
+  ),
   expiresAt: Schema.NullOr(DateTimeUtcSchema),
 });
 const WhoamiDocumentFields = {
@@ -42,15 +45,24 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(
 
     if (yield* screen.document({ data: identity }, WhoamiDocumentSchema)) return;
 
-    const restrictions = identity.resourceRestrictions.extensions;
+    // A signed-in person is limited only by their permissions, so there is no
+    // scope list to show them. Only a credential they narrowed has one.
+    const restrictions = identity.resourceRestrictions?.extensions ?? null;
+    const limits =
+      identity.authority === "account"
+        ? [`Authority  everything your permissions allow`]
+        : [
+            `Authority  limited`,
+            `Can do  ${identity.scopes === null || identity.scopes.length === 0 ? "nothing" : identity.scopes.join(", ")}`,
+            `Extensions  ${restrictions === null ? "unrestricted" : restrictions.length === 0 ? "none" : restrictions.join(", ")}`,
+          ];
     yield* screen.result(
       rawDoc(
         [
           `Authenticated as ${identity.user}`,
           `Registry  ${identity.registry}`,
           `Credential  ${identity.credentialType}`,
-          `Scopes  ${identity.scopes.length === 0 ? "none" : identity.scopes.join(", ")}`,
-          `Extensions  ${restrictions === null ? "unrestricted" : restrictions.length === 0 ? "none" : restrictions.join(", ")}`,
+          ...limits,
           `Expires  ${identity.expiresAt === null ? "unavailable" : DateTime.formatIso(identity.expiresAt)}`,
           "",
         ].join("\n"),

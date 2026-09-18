@@ -23,8 +23,10 @@ export interface RegistryIdentity {
   readonly user: Handle;
   readonly registry: string;
   readonly credentialType: string;
-  readonly scopes: ReadonlyArray<string>;
-  readonly resourceRestrictions: { readonly extensions: ReadonlyArray<string> | null };
+  /** `account` carries the whole account's authority; `limited` is narrowed. */
+  readonly authority: "account" | "limited";
+  readonly scopes: ReadonlyArray<string> | null;
+  readonly resourceRestrictions: { readonly extensions: ReadonlyArray<string> | null } | null;
   readonly expiresAt: DateTime.Utc | null;
 }
 
@@ -61,6 +63,7 @@ export const currentIdentity = Effect.fn("Identity.current")(function* (registry
     user: identity.userHandle,
     registry: registryUrl,
     credentialType: identity.tokenType,
+    authority: identity.authority,
     scopes: identity.scopes,
     resourceRestrictions: identity.resourceRestrictions,
     expiresAt: identity.expiresAt,

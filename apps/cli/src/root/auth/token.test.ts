@@ -6,7 +6,6 @@ import { describe, expect, it } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
 import {
@@ -204,8 +203,12 @@ describe("auth token handler", () => {
             id: "token_123",
             token: "axmt_created",
             name: params.name,
-            scopes: ["extensions:read", "extensions:publish:new"],
-            permissions: { kind: "gat" },
+            permissions: {
+              model: "gat",
+              owners: ["@foo"],
+              extensions: [],
+              permission: "publish",
+            },
             createdAt: DateTime.makeUnsafe("2026-05-15T00:00:00.000Z"),
             expiresAt: DateTime.makeUnsafe("2026-06-14T00:00:00.000Z"),
           });
@@ -220,10 +223,7 @@ describe("auth token handler", () => {
           expires: "30d",
           owners: ["@foo"],
           extensions: [],
-          permission: Option.some("publish"),
-          orgPermission: Option.none(),
-          cidr: ["203.0.113.0/24"],
-          bypassMfa: true,
+          permission: "publish",
         });
 
         expect(rendererState.details[0]?.item).toMatchObject({
@@ -272,8 +272,12 @@ describe("auth token handler", () => {
             id: "token_123",
             token: "axmt_created",
             name: params.name,
-            scopes: ["extensions:admin"],
-            permissions: { kind: "gat" },
+            permissions: {
+              model: "gat",
+              owners: [],
+              extensions: [],
+              permission: "admin",
+            },
             createdAt: DateTime.makeUnsafe("2026-05-15T00:00:00.000Z"),
             expiresAt: DateTime.makeUnsafe("2026-06-14T00:00:00.000Z"),
           });
@@ -289,10 +293,7 @@ describe("auth token handler", () => {
           expires: "30d",
           owners: [],
           extensions: [],
-          permission: Option.some("admin"),
-          orgPermission: Option.none(),
-          cidr: [],
-          bypassMfa: false,
+          permission: "admin",
         });
 
         expect(interactionState.openBrowserCalls).toEqual([
@@ -320,8 +321,12 @@ describe("auth token handler", () => {
             id: "token_123",
             token: "axmt_created",
             name: params.name,
-            scopes: ["extensions:read"],
-            permissions: { kind: "gat" },
+            permissions: {
+              model: "gat",
+              owners: [],
+              extensions: [],
+              permission: "read",
+            },
             createdAt: DateTime.makeUnsafe("2026-05-15T00:00:00.000Z"),
             expiresAt: DateTime.makeUnsafe("2026-06-14T00:00:00.000Z"),
           }),
@@ -335,10 +340,7 @@ describe("auth token handler", () => {
           expires: "30d",
           owners: [],
           extensions: [],
-          permission: Option.some("read"),
-          orgPermission: Option.none(),
-          cidr: [],
-          bypassMfa: false,
+          permission: "read",
         });
 
         const result = expectRecord(
@@ -375,8 +377,12 @@ describe("auth token handler", () => {
                 id: "token_123",
                 name: "ci",
                 type: "pat",
-                scopes: ["extensions:read"],
-                permissions: null,
+                permissions: {
+                  model: "gat",
+                  owners: ["@foo"],
+                  extensions: [],
+                  permission: "read",
+                },
                 createdAt: DateTime.makeUnsafe("2026-05-15T00:00:00.000Z"),
                 expiresAt: DateTime.makeUnsafe("2026-06-15T00:00:00.000Z"),
                 lastUsedAt: null,
@@ -395,6 +401,7 @@ describe("auth token handler", () => {
           {
             id: "token_123",
             name: "ci",
+            canDo: "Read extensions — @foo",
             lastUsedAt: "never",
           },
         ]);
@@ -414,8 +421,12 @@ describe("auth token handler", () => {
                 id: "token_123",
                 name: "ci",
                 type: "pat",
-                scopes: ["extensions:read"],
-                permissions: null,
+                permissions: {
+                  model: "gat",
+                  owners: ["@foo"],
+                  extensions: [],
+                  permission: "read",
+                },
                 createdAt: DateTime.makeUnsafe("2026-05-15T00:00:00.000Z"),
                 expiresAt: DateTime.makeUnsafe("2026-06-15T00:00:00.000Z"),
                 lastUsedAt: null,
@@ -502,7 +513,7 @@ describe("auth token handler", () => {
         });
         expect(rendererState.logs).toContainEqual({
           _tag: "success",
-          message: "Revoked token token_123.",
+          message: "Revoked token token_123. It is refused on its next request.",
         });
         expect(rendererState.suggestions).toEqual([
           { description: "List remaining tokens", cmd: "axm token list" },
@@ -605,7 +616,7 @@ describe("auth token handler", () => {
         });
         expect(rendererState.logs).toContainEqual({
           _tag: "success",
-          message: "Revoked token token_123.",
+          message: "Revoked token token_123. It is refused on its next request.",
         });
         expect(rendererState.suggestions).toEqual([
           { description: "List remaining tokens", cmd: "axm token list" },

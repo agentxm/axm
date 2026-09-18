@@ -87,8 +87,9 @@ describe("Truthful browser sign-in completion", () => {
               Effect.succeed({
                 userHandle: normalizeHandle("@alice"),
                 tokenType: "session",
-                scopes: [],
-                resourceRestrictions: { extensions: null },
+                authority: "account" as const,
+                scopes: null,
+                resourceRestrictions: null,
                 expiresAt: null,
               }),
           }),

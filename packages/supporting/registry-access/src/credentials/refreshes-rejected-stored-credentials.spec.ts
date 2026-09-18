@@ -64,8 +64,9 @@ describe("Stored session recovery", () => {
                 return Effect.succeed({
                   userHandle: handle,
                   tokenType: "session",
-                  scopes: ["account:read"],
-                  resourceRestrictions: { extensions: null },
+                  authority: "account" as const,
+                  scopes: null,
+                  resourceRestrictions: null,
                   expiresAt: expiry,
                 });
               }
@@ -95,7 +96,7 @@ describe("Stored session recovery", () => {
           expect(yield* currentIdentity(registry)).toMatchObject({
             user: "@alice",
             registry,
-            scopes: ["account:read"],
+            authority: "account",
           });
           // The replacement was persisted, so the next read presents it directly.
           expect(Option.getOrThrow(yield* store.load(registry))).toMatchObject({
@@ -155,8 +156,9 @@ describe("Stored session recovery", () => {
                 ? Effect.succeed({
                     userHandle: handle,
                     tokenType: "session",
-                    scopes: ["account:read"],
-                    resourceRestrictions: { extensions: null },
+                    authority: "account" as const,
+                    scopes: null,
+                    resourceRestrictions: null,
                     expiresAt: expiry,
                   })
                 : Effect.fail(

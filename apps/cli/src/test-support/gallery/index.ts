@@ -20,6 +20,8 @@ import { widthKeepLongNames } from "./width-keep--long-names.js";
 import { widthKeepNeverCut } from "./width-keep--never-cut.js";
 import { widthLiveHeightCap } from "./width-live--height-cap.js";
 import { widthPromptsConfirm } from "./width-prompts--confirm.js";
+import { waitOpen, waitStatic } from "./wait-open.js";
+import { waitSettledFixture } from "./wait-settled.js";
 
 /**
  * The terminal design gallery: one typed document or live scene per key use
@@ -52,6 +54,9 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
   },
   { _tag: "document", name: "blocked-waiting", doc: blockedWaiting },
   { _tag: "document", name: "prompts--confirm-answered", doc: promptsConfirmAnswered },
+  { _tag: "document", name: "wait-open", doc: waitOpen },
+  { _tag: "document", name: "wait-static", doc: waitStatic },
+  { _tag: "document", name: "wait-settled", doc: waitSettledFixture },
   { _tag: "document", name: "every-node", doc: everyNode },
   {
     _tag: "document",

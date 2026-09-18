@@ -1,11 +1,13 @@
 import type {
   AuthLoginProgress,
   DeviceLoginPendingResult,
+  HumanHandoff,
 } from "@agentxm/registry-access/authentication";
+import { handoffUrl } from "@agentxm/registry-access/authentication";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
-import type { Doc } from "../../screen/index.js";
-import { headlineDoc, paragraphDoc, successDoc, suggestionsDoc } from "../../screen/index.js";
+import type { Doc, Span, WaitView } from "../../screen/index.js";
+import { headlineDoc, paragraphDoc, successDoc } from "../../screen/index.js";
 
 export interface AuthViewEntry {
   readonly doc: Doc;
@@ -17,12 +19,8 @@ export const authProgressLabel = (progress: AuthLoginProgress): string => {
   switch (progress._tag) {
     case "StartingDeviceAuthorization":
       return `device authorization on ${progress.registryHost}`;
-    case "WaitingForDeviceAuthorization":
-      return `authorization on ${progress.registryHost}`;
     case "SavingCredentials":
       return `credentials for ${progress.registryHost}`;
-    case "WaitingForLoopbackAuthorization":
-      return `browser authorization on ${progress.registryHost} (expires in ${String(progress.timeoutMinutes)} minutes)`;
     case "CompletingSignIn":
       return `sign-in to ${progress.registryHost}`;
     case "CheckingRegistrySession":
@@ -32,7 +30,6 @@ export const authProgressLabel = (progress: AuthLoginProgress): string => {
       return "registry tokens";
     case "RunningVerifiedWrite":
     case "RetryingVerifiedWrite":
-    case "WaitingForHumanVerification":
       return progress.operation;
   }
 };
@@ -53,30 +50,10 @@ export const authProgressUnitId = (progress: AuthLoginProgress): string => {
       return "operation";
     case "RetryingVerifiedWrite":
       return "operation-retry";
-    case "WaitingForHumanVerification":
-      return "step-up-verification";
     default:
       return progress._tag;
   }
 };
-
-/** The guidance a person needs while one step-up verification is pending. */
-export const stepUpChallengeView = (challenge: {
-  readonly action: string;
-  readonly target: string;
-  readonly verificationUrl: string;
-  readonly expiresAt: string;
-  readonly browserOpened: boolean;
-}): ReadonlyArray<AuthViewEntry> =>
-  [
-    `Action: ${challenge.action}`,
-    `Target: ${challenge.target}`,
-    `Verify at: ${challenge.verificationUrl}`,
-    `Verification expires at: ${challenge.expiresAt}`,
-    challenge.browserOpened
-      ? "A browser was opened. This command will retry once after verification."
-      : "Open the verification URL in a browser. This command will retry once after verification.",
-  ].map((instruction) => ({ doc: paragraphDoc(instruction), persistent: true }));
 
 /** The one question a session that is still valid raises. */
 export const existingSessionNote = (handle: string): AuthViewEntry => ({
@@ -98,11 +75,27 @@ export const deviceCodeFallbackNote = (
   persistent: true,
 });
 
+/**
+ * The two pages a device sign-in offers: the one that carries the code
+ * already, and the clean one for entering it by hand. Machine output emits
+ * them as suggestions, so an agent reaches the same two places a person does.
+ */
+const deviceHandoffActions = (handoff: {
+  readonly verificationUriComplete: string;
+  readonly verificationUri: string;
+}): ReadonlyArray<SuggestedAction> => [
+  {
+    description: "Open the AXM device authorization page",
+    url: handoff.verificationUriComplete,
+  },
+  { description: "Open the clean fallback page and enter the code", url: handoff.verificationUri },
+];
+
+/** The pages of a pending sign-in, and the command that resumes waiting on it. */
 export const pendingDeviceSuggestions = (
   result: DeviceLoginPendingResult,
 ): ReadonlyArray<SuggestedAction> => [
-  { description: "Open the AXM device authorization page", url: result.verificationUriComplete },
-  { description: "Open the clean fallback page and enter the code", url: result.verificationUri },
+  ...deviceHandoffActions(result),
   { description: "Resume after approval", cmd: result.resume },
 ];
 
@@ -111,50 +104,173 @@ export const loginSuccessSuggestions = [
   { description: "Create an API token", cmd: "axm token create --name <name>" },
 ] satisfies ReadonlyArray<SuggestedAction>;
 
-export const deviceFlowView = (presentation: {
-  readonly browserOpened: boolean;
-  readonly expiresInSeconds: number;
-  readonly verificationUriComplete: string;
-  readonly verificationUri: string;
-  readonly copiedToClipboard: boolean;
-  readonly userCode: string;
-}): ReadonlyArray<AuthViewEntry> => {
-  const expiry =
-    presentation.expiresInSeconds % 60 === 0
-      ? `${presentation.expiresInSeconds / 60} ${presentation.expiresInSeconds === 60 ? "minute" : "minutes"}`
-      : `${presentation.expiresInSeconds} seconds`;
-  return [
-    ...(presentation.browserOpened
-      ? [{ doc: headlineDoc("info", "Opening your browser to complete device authorization.") }]
-      : []),
-    { doc: paragraphDoc("Sign in to AgentXM.ai with a one-time code"), persistent: true },
-    {
-      doc: suggestionsDoc([
+/**
+ * The security wording a one-time code always carries. A person who did not
+ * start this sign-in is the case it exists for, so it is never abbreviated
+ * and never left to a link.
+ */
+const DEVICE_CODE_WARNINGS = [
+  "Only continue if you started this sign-in with AXM.",
+  "Never enter a code that another person or website gave you. If that happened, cancel.",
+] as const;
+
+/** A value a person copies out of the terminal: never wrapped, split, or cut. */
+const copyable = (label: string, value: string): ReadonlyArray<Span> => [
+  { text: `${label}: ` },
+  { text: value, copyable: true },
+];
+
+/**
+ * The block one handoff prints to the transcript when its wait opens: what a
+ * person has to do, and the values they copy to do it. It is printed once,
+ * never repainted, so nothing here is subject to the live region's width.
+ */
+const handoffBrief = (handoff: HumanHandoff): Doc => {
+  switch (handoff._tag) {
+    case "DeviceLogin":
+      return [
+        { _tag: "paragraph", text: "Sign in to AgentXM.ai with a one-time code." },
+        { _tag: "paragraph", text: copyable("One-time code", handoff.userCode) },
+        ...(handoff.copiedToClipboard
+          ? [
+              {
+                _tag: "paragraph",
+                tone: "dim",
+                text: "The code was copied to your clipboard.",
+              } as const,
+            ]
+          : []),
+        { _tag: "next", actions: deviceHandoffActions(handoff) },
+        ...DEVICE_CODE_WARNINGS.map(
+          (warning) => ({ _tag: "paragraph", tone: "warn", text: warning }) as const,
+        ),
+      ];
+    case "LoopbackLogin":
+      return [
         {
-          description: "Open the AXM device authorization page",
-          url: presentation.verificationUriComplete,
+          _tag: "paragraph",
+          text: handoff.browserOpened
+            ? "Authorize AXM in the browser that just opened."
+            : "Authorize AXM in a browser.",
         },
         {
-          description: "Open the clean fallback page and enter the code",
-          url: presentation.verificationUri,
+          _tag: "next",
+          actions: [{ description: "Authorize AXM", url: handoff.authorizeUrl }],
         },
-      ]),
-    },
-    ...(presentation.copiedToClipboard
-      ? [{ doc: headlineDoc("info", "The one-time code was copied to your clipboard.") }]
-      : []),
-    ...[
-      `One-time code:\n\n   ${presentation.userCode}`,
-      `This code expires in ${expiry}.`,
-      "Only continue if you started this sign-in with AXM.",
-      "Never enter a code that another person or website gave you. If that happened, cancel.",
-    ].map((instruction) => ({ doc: paragraphDoc(instruction), persistent: true })),
-  ];
+        {
+          _tag: "paragraph",
+          tone: "dim",
+          text: `Sign-in returns to ${handoff.redirectUri}. On a remote or headless machine, run \`axm login --device-code\`.`,
+        },
+      ];
+    case "StepUp":
+      return [
+        {
+          _tag: "paragraph",
+          text: `Verify ${handoff.action} on ${handoff.target} to continue.`,
+        },
+        {
+          _tag: "next",
+          actions: [{ description: `Verify ${handoff.action}`, url: handoff.verificationUrl }],
+        },
+        {
+          _tag: "paragraph",
+          tone: "dim",
+          text: "This command retries once, by itself, after verification.",
+        },
+      ];
+  }
 };
 
+/** What the live line says the terminal is parked on. */
+const handoffStatus = (handoff: HumanHandoff): string => {
+  switch (handoff._tag) {
+    case "DeviceLogin":
+      return `Waiting for approval on ${handoff.registryHost}`;
+    case "LoopbackLogin":
+      return `Waiting for browser sign-in on ${handoff.registryHost}`;
+    case "StepUp":
+      return `Waiting for verification of ${handoff.action}`;
+  }
+};
+
+/** The label the settled ✔ line carries, and the lifecycle unit the wait parks. */
+const handoffLabel = (handoff: HumanHandoff): string => {
+  switch (handoff._tag) {
+    case "DeviceLogin":
+      return "Device sign-in";
+    case "LoopbackLogin":
+      return "Browser sign-in";
+    case "StepUp":
+      return `Verification of ${handoff.action}`;
+  }
+};
+
+/**
+ * What the person has to do, for the observers that see the wait rather than
+ * the terminal: the paused ledger row, the transition line a terminal without
+ * animation prints, and machine progress events.
+ */
+const handoffDetail = (handoff: HumanHandoff): string => {
+  switch (handoff._tag) {
+    case "DeviceLogin":
+      return "approve the sign-in in a browser";
+    case "LoopbackLogin":
+      return "finish the sign-in in a browser";
+    case "StepUp":
+      return `verify ${handoff.action} in a browser`;
+  }
+};
+
+/** The lifecycle unit one handoff's wait parks, stable across its repaints. */
+const handoffSubject = (handoff: HumanHandoff): string => {
+  switch (handoff._tag) {
+    case "DeviceLogin":
+      return "device-authorization";
+    case "LoopbackLogin":
+      return "browser-authorization";
+    case "StepUp":
+      return "step-up-verification";
+  }
+};
+
+/** One handoff as the `Screen` runs it: the brief, the live line, the settled line. */
+export const handoffWaitView = (handoff: HumanHandoff): WaitView => ({
+  subject: handoffSubject(handoff),
+  detail: handoffDetail(handoff),
+  label: handoffLabel(handoff),
+  status: handoffStatus(handoff),
+  brief: handoffBrief(handoff),
+  expiresAtMs: handoff.expiresAtMs,
+});
+
+/** What `c` copies while one handoff's wait stands open. */
+export const handoffCopyValue = (handoff: HumanHandoff): string =>
+  handoff._tag === "DeviceLogin" ? handoff.userCode : handoffUrl(handoff);
+
+/**
+ * The guidance a sign-in nothing will wait on still owes a person: the same
+ * code, links, and warnings the wait would have shown.
+ */
+export const pendingHandoffBrief = (result: DeviceLoginPendingResult): Doc =>
+  handoffBrief({
+    _tag: "DeviceLogin",
+    registryHost: result.registryHost,
+    verificationUriComplete: result.verificationUriComplete,
+    verificationUri: result.verificationUri,
+    userCode: result.userCode,
+    expiresAtMs: Date.parse(result.expiresAt),
+    browserOpened: false,
+    copiedToClipboard: false,
+  });
+
+/**
+ * The outcome that sign-in settled on, and the command that resumes it. The
+ * pages to open came with the guidance above it, so only the resume is left.
+ */
 export const pendingApprovalDoc = (result: DeviceLoginPendingResult): Doc =>
   successDoc("Device sign-in is waiting for approval.", {
-    suggestions: pendingDeviceSuggestions(result),
+    suggestions: [{ description: "Resume after approval", cmd: result.resume }],
   });
 
 export const loginSuccessDoc = (result: {
@@ -167,32 +283,6 @@ export const loginSuccessDoc = (result: {
       : `Logged in to ${result.registryHost} as ${result.handle}.`,
     { suggestions: loginSuccessSuggestions },
   );
-
-export const loopbackStartView = (start: {
-  readonly redirectUri: string;
-  readonly authorizeUrl: string;
-}): ReadonlyArray<AuthViewEntry> => [
-  {
-    doc: paragraphDoc(`Starting local sign-in server on ${start.redirectUri}.`),
-    persistent: true,
-  },
-  {
-    doc: paragraphDoc(
-      `If the browser does not open, visit:\n\n${start.authorizeUrl}\n\nOn a remote or headless machine, run \`axm login --device-code\`.`,
-    ),
-    persistent: true,
-  },
-];
-
-export const loopbackBrowserOutcomeView = (opened: boolean): AuthViewEntry =>
-  opened
-    ? { doc: headlineDoc("info", "Opening your browser to authorize AXM.") }
-    : {
-        doc: paragraphDoc(
-          "Could not open the system browser. Use the authorization URL above to continue.",
-        ),
-        persistent: true,
-      };
 
 export const publishReviewDoc = (review: {
   readonly browserOpened: boolean;

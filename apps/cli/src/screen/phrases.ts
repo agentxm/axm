@@ -51,6 +51,32 @@ export const duration = (elapsedMs: number): string =>
     ? `${Math.max(0, Math.round(elapsedMs))}ms`
     : `${Math.round(elapsedMs / 100) / 10}s`;
 
+/**
+ * How long is left before a handoff expires, as an open wait says it. A wait
+ * that has run out says so rather than counting past zero.
+ */
+export const remainingTime = (remainingMs: number): string => {
+  if (remainingMs <= 0) return "expired";
+  const seconds = Math.ceil(remainingMs / 1_000);
+  if (seconds < 60) return `${String(seconds)}s left`;
+  const minutes = Math.floor(seconds / 60);
+  return `${String(minutes)}m ${String(seconds % 60)}s left`;
+};
+
+/** The word one of an open wait's keys carries. */
+export const waitKeyWord = (action: "open" | "copy" | "stop"): string => {
+  switch (action) {
+    case "open":
+      return "open";
+    case "copy":
+      return "copy";
+    case "stop":
+      return "stop";
+    default:
+      return unreachable(action);
+  }
+};
+
 export const unitState = (state: UnitState): string => {
   switch (state) {
     case "planned":
@@ -174,6 +200,8 @@ export const blockingClass = (value: BlockingClass): string => {
       return "another operation holds the workspace";
     case "external-blocked":
       return "an external service blocked the operation";
+    case "human-required":
+      return "a person must act";
     case "operation-aborted":
       return "the operation was stopped";
     default:
@@ -201,6 +229,8 @@ export const blockingHeadline = (value: BlockingClass): string => {
       return "Workspace is busy";
     case "external-blocked":
       return "External service blocked the operation";
+    case "human-required":
+      return "Waiting on a person";
     case "operation-aborted":
       return "Operation stopped";
     default:

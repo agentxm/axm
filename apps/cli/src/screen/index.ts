@@ -34,6 +34,7 @@ export type {
   Tone,
   TreeItem,
   TreeNode,
+  WaitNode,
 } from "./doc.js";
 export { plain, text } from "./doc.js";
 export {
@@ -61,6 +62,17 @@ export {
   type InteractiveGuard,
 } from "./ask/ask.js";
 export { PromptCancelled } from "./ask/prompt-cancelled.js";
+export { WaitAbandoned } from "./wait/wait-abandoned.js";
+export {
+  reduceWaitKey,
+  waitKeys,
+  type WaitActions,
+  type WaitKeyAction,
+  type WaitKeys,
+  type WaitView,
+} from "./wait/wait.js";
+export { waitChips, waitDoc, waitSettled } from "./wait/view.js";
+export { parkedOnWait, runStaticWait, runWait, type WaitSurface } from "./wait/run.js";
 export { Frame, FrameLive, type FrameOptions } from "./frame.js";
 export {
   liveColumns,
@@ -148,6 +160,7 @@ export {
   outcomeHeadline,
   phaseLabel,
   progressMeasure,
+  remainingTime,
   publishDisposition,
   publishParticipation,
   publishReason,
@@ -155,6 +168,7 @@ export {
   severityTone,
   unitState,
   unitStateChange,
+  waitKeyWord,
   type VerbForms,
   type PublishDisposition,
   type PublishParticipation,

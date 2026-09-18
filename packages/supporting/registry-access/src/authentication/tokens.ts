@@ -109,7 +109,6 @@ export const createToken = Effect.fn("Tokens.create")(function* (
       ),
     {
       operationLabel: `Create registry token "${request.name}"`,
-      waitingLabel: `verification to create registry token "${request.name}"`,
     },
     request.verification,
     registryUrl,
@@ -133,7 +132,6 @@ export const revokeToken = Effect.fn("Tokens.revoke")(function* (
       ),
     {
       operationLabel: `Revoke registry token ${tokenId}`,
-      waitingLabel: `verification to revoke token ${tokenId}`,
     },
     verification,
     registryUrl,

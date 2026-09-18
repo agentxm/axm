@@ -13,29 +13,34 @@ import { observeUnit } from "@agentxm/workspace/transitions/planning";
 import {
   AuthInteractionAbandoned,
   AuthLoginPresenter,
+  DeviceLoginInteraction,
   DeviceLoginPendingDocumentSchema,
   LoginDocumentSchema,
+  handoffUrl,
   type AuthLoginPresenterService,
   type AuthLoginProgress,
+  type HumanHandoff,
   type SessionReplacementDecision,
 } from "@agentxm/registry-access/authentication";
-import { Screen, type ConfirmAsk } from "./screen/index.js";
+import { Screen, WaitAbandoned, type ConfirmAsk } from "./screen/index.js";
 import {
   authProgressLabel,
   authProgressUnitId,
   deviceCodeFallbackNote,
-  deviceFlowView,
   existingSessionNote,
+  handoffCopyValue,
+  handoffWaitView,
   loginSuccessDoc,
   loginSuccessSuggestions,
-  loopbackBrowserOutcomeView,
-  loopbackStartView,
   pendingApprovalDoc,
   pendingDeviceSuggestions,
+  pendingHandoffBrief,
   publishReviewDoc,
   rejectedStoredCredentialsNote,
-  stepUpChallengeView,
 } from "./root/auth/view.js";
+
+/** The one failure a wait adds to whatever the awaited effect can already fail with. */
+const isWaitAbandoned = (error: unknown): error is WaitAbandoned => error instanceof WaitAbandoned;
 
 /** Replacing a live session is the risk here, so the default is to keep it. */
 const sessionReplacementAsk = (message: string): ConfirmAsk<SessionReplacementDecision> => ({
@@ -64,13 +69,34 @@ export const AuthLoginPresenterLive = Layer.effect(
             suggestions: pendingDeviceSuggestions(result),
           });
         }),
-      presentDeviceFlow: (presentation) =>
+      awaitHuman: <A, E, R>(
+        handoff: HumanHandoff,
+        awaited: Effect.Effect<A, E, R>,
+      ): Effect.Effect<A, E | AuthInteractionAbandoned, R | DeviceLoginInteraction> =>
         Effect.gen(function* () {
-          for (const entry of deviceFlowView(presentation)) {
-            yield* screen.note(entry.doc, { persistent: entry.persistent === true });
-          }
+          const interaction = yield* DeviceLoginInteraction;
+          const view = handoffWaitView(handoff);
+          // The wait is the unit: the ledger row it names reads as paused for
+          // as long as a person has not finished elsewhere.
+          return yield* screen
+            .wait(view, observeUnit({ id: view.subject, label: view.label }, awaited), {
+              open: interaction.openBrowser(handoffUrl(handoff)),
+              copy: interaction.copyToClipboard(handoffCopyValue(handoff)),
+            })
+            .pipe(
+              // Stopping a wait is the capability's own abandonment, so nothing
+              // below this port ever sees a terminal concept.
+              Effect.catchIf(isWaitAbandoned, (stopped) =>
+                Effect.fail(new AuthInteractionAbandoned({ message: stopped.message })),
+              ),
+            );
         }),
-      notePendingApproval: (result) => screen.result(pendingApprovalDoc(result)),
+      // The guidance is an aside on stderr; the outcome is the result, so a
+      // pipe carries the one and a person reads both.
+      notePendingApproval: (result) =>
+        screen
+          .note(pendingHandoffBrief(result), { persistent: true })
+          .pipe(Effect.andThen(screen.result(pendingApprovalDoc(result)))),
       emitLoginSuccess: (result) =>
         Effect.gen(function* () {
           if (
@@ -82,16 +108,6 @@ export const AuthLoginPresenterLive = Layer.effect(
           }
           yield* screen.result(loginSuccessDoc(result));
         }),
-      presentLoopbackStart: (start) =>
-        Effect.forEach(
-          loopbackStartView(start),
-          (entry) => screen.note(entry.doc, { persistent: entry.persistent === true }),
-          { discard: true },
-        ),
-      noteLoopbackBrowserOutcome: (opened) => {
-        const entry = loopbackBrowserOutcomeView(opened);
-        return screen.note(entry.doc, { persistent: entry.persistent === true });
-      },
       notePublishReview: (review) => screen.note(publishReviewDoc(review)),
       noteExistingSession: (handle) => screen.note(existingSessionNote(handle).doc),
       noteRejectedStoredCredentials: screen.note(rejectedStoredCredentialsNote.doc),
@@ -107,12 +123,6 @@ export const AuthLoginPresenterLive = Layer.effect(
           Effect.catchTag("AppError", (error) =>
             Effect.fail(new AuthInteractionAbandoned({ message: error.detail })),
           ),
-        ),
-      presentStepUpChallenge: (challenge) =>
-        Effect.forEach(
-          stepUpChallengeView(challenge),
-          (entry) => screen.note(entry.doc, { persistent: entry.persistent === true }),
-          { discard: true },
         ),
     } satisfies AuthLoginPresenterService;
   }),

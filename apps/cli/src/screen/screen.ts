@@ -19,6 +19,9 @@ import { makeJsonSuccessEnvelope } from "../cli-runtime/json-envelope.js";
 import { promptRequired, type Ask, type InteractiveGuard } from "./ask/ask.js";
 import type { PromptCancelled } from "./ask/prompt-cancelled.js";
 import { runAsk } from "./ask/run.js";
+import { WaitAbandoned } from "./wait/wait-abandoned.js";
+import { parkedOnWait, runStaticWait, runWait, type WaitSurface } from "./wait/run.js";
+import type { WaitActions, WaitView } from "./wait/wait.js";
 import type { Doc, DocNode } from "./doc.js";
 import { plain } from "./doc.js";
 import { Frame } from "./frame.js";
@@ -88,6 +91,19 @@ export class Screen extends ServiceMap.Service<
       ask: Ask<A>,
       guard: InteractiveGuard,
     ) => Effect.Effect<A, PromptCancelled | AppError>;
+    /**
+     * Park the terminal while a person acts somewhere else, and answer with
+     * what the awaited effect settled on. The wait's brief prints once, its
+     * countdown is the only live line, and stopping it fails with
+     * `WaitAbandoned` so the caller can end with its own pending outcome. A
+     * screen that cannot animate — or is quiet — prints the brief and simply
+     * waits.
+     */
+    readonly wait: <A, E, R>(
+      view: WaitView,
+      awaited: Effect.Effect<A, E, R>,
+      actions?: WaitActions,
+    ) => Effect.Effect<A, E | WaitAbandoned, R>;
     readonly prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
     readonly facts: Effect.Effect<ScreenFacts>;
     readonly settle: Effect.Effect<void>;
@@ -110,6 +126,8 @@ export interface ScreenLiveOptions {
   /** ANSI styling per stream: only a stream that is itself a terminal is styled. */
   readonly colors: { readonly stdout: boolean; readonly stderr: boolean };
   readonly animate: boolean;
+  /** Quiet keeps a wait static: its brief prints once and nothing counts down. */
+  readonly quiet?: boolean;
   /** Symbol set for every painted document; defaults to the Unicode glyphs. */
   readonly glyphs?: Glyphs;
 }
@@ -186,6 +204,24 @@ export const ScreenLive = (
                 }),
             });
           }),
+        wait: <A, E, R>(view: WaitView, awaited: Effect.Effect<A, E, R>, actions?: WaitActions) => {
+          const surface: WaitSurface = {
+            showInteraction: frame.showInteraction,
+            transcript: note,
+          };
+          // A terminal that cannot animate, and a quiet invocation, get the
+          // static block: the same brief, no countdown, and no keys to press.
+          const service =
+            Option.isSome(terminal) && options.animate && options.quiet !== true
+              ? terminal.value
+              : undefined;
+          return parkedOnWait(
+            view,
+            service === undefined
+              ? runStaticWait(view, awaited, surface)
+              : runWait(view, awaited, actions ?? {}, service, surface),
+          );
+        },
         prompt: frame.prompt,
         facts: Effect.map(streams.facts, (facts) => ({
           columns: facts.columns,
@@ -282,6 +318,24 @@ export const ScreenMachine = (options?: {
         return Effect.void;
       };
 
+      const note = (
+        doc: Doc,
+        noteOptions?: { readonly persistent?: boolean },
+      ): Effect.Effect<void> => {
+        const literal = doc
+          .filter((node) => node._tag === "raw" || node._tag === "markdown")
+          .map((node) => node.content)
+          .join("");
+        if (literal.length > 0) return streams.stderr(literal);
+        return noteOptions?.persistent === true
+          ? emit(
+              instructionEvent(
+                doc.map((node) => ("text" in node ? plain(node.text) : "")).join("\n"),
+              ),
+            ).pipe(Effect.andThen(Effect.forEach(doc, nodeEvents, { discard: true })))
+          : Effect.forEach(doc, nodeEvents, { discard: true });
+      };
+
       return {
         result: (doc) => {
           const literal = doc
@@ -290,20 +344,7 @@ export const ScreenMachine = (options?: {
             .join("");
           return literal.length === 0 ? Effect.void : writeResult(literal);
         },
-        note: (doc, noteOptions) => {
-          const literal = doc
-            .filter((node) => node._tag === "raw" || node._tag === "markdown")
-            .map((node) => node.content)
-            .join("");
-          if (literal.length > 0) return streams.stderr(literal);
-          return noteOptions?.persistent === true
-            ? emit(
-                instructionEvent(
-                  doc.map((node) => ("text" in node ? plain(node.text) : "")).join("\n"),
-                ),
-              )
-            : Effect.forEach(doc, nodeEvents, { discard: true });
-        },
+        note,
         document: <S extends Schema.Top>(
           data: Schema.Schema.Type<S>,
           schema: S,
@@ -342,6 +383,11 @@ export const ScreenMachine = (options?: {
         // Machine output never prompts: asking is the usage error by
         // construction, whatever the terminal on the other end can do.
         ask: (_ask, guard) => Effect.fail(promptRequired(guard)),
+        // Machine output has no terminal to park and no keys to offer, but the
+        // brief is what a person or an agent needs to finish elsewhere, so it
+        // crosses as instructions and suggestions exactly as it always has.
+        wait: (view, awaited) =>
+          parkedOnWait(view, note(view.brief, { persistent: true }).pipe(Effect.andThen(awaited))),
         prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect,
         facts: Effect.succeed({ columns: 80, colors: false, animate: false }),
         settle: Effect.void,

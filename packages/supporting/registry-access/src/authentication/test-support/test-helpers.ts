@@ -179,6 +179,12 @@ export const machineOutputPresenter = {
   tryEmitPendingDeviceLogin: () => Effect.succeed(true),
 } as const satisfies Parameters<typeof AuthLoginPresenterTest>[0];
 
+/** A presenter whose every wait is stopped, as a person pressing the stop key does. */
+export const abandoningPresenter = {
+  tryEmitPendingDeviceLogin: () => Effect.succeed(true),
+  abandonWaits: true,
+} as const satisfies Parameters<typeof AuthLoginPresenterTest>[0];
+
 /** An unattended device sign-in request reporting through machine output. */
 export const deviceLoginRequest = (overrides: Partial<LoginRequest> = {}): LoginRequest => ({
   yes: false,

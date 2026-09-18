@@ -127,7 +127,7 @@ describe("registry-access envelope conversions", () => {
       new DeviceAuthorizationPending({
         registryUrl: "https://registry.example.test",
         intervalSeconds: 2,
-        timeoutSeconds: 30,
+        waitEnded: { _tag: "Elapsed", seconds: 30 },
         verificationUri: "https://auth.agentxm.ai/device",
         verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
         userCode: "ABCD-1234",

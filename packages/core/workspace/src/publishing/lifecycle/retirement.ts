@@ -119,7 +119,6 @@ export const yank = Effect.fn("RetirePublishedVersion.yank")(function* (request:
         ),
       {
         operationLabel: `Yank ${request.ref}`,
-        waitingLabel: `verification to update ${request.ref}`,
       },
       request.verification,
       registryUrl,
@@ -145,7 +144,6 @@ export const yank = Effect.fn("RetirePublishedVersion.yank")(function* (request:
       ),
     {
       operationLabel: `Yank ${request.ref}`,
-      waitingLabel: `verification to update ${request.ref}`,
     },
     request.verification,
     registryUrl,
@@ -174,7 +172,6 @@ export const unyank = Effect.fn("RetirePublishedVersion.unyank")(function* (
       ),
     {
       operationLabel: `Un-yank ${ref}`,
-      waitingLabel: `verification to update ${ref}`,
     },
     verification,
     registryUrl,

@@ -9,6 +9,8 @@ import type { Doc } from "../screen/doc.js";
 import type { LivePlan } from "../screen/live-ledger.js";
 import { paintText, type PaintStyle } from "../screen/paint-text.js";
 import { Screen, type ResultOptions, type ScreenLogRecord } from "../screen/screen.js";
+import { parkedOnWait } from "../screen/wait/run.js";
+import type { WaitView } from "../screen/wait/wait.js";
 import { emptyAskScript, scriptedAsk, type AskScript } from "./scripted-ask.js";
 
 export interface TestScreenState {
@@ -82,6 +84,16 @@ export const makeTestScreen = (
     ask: scriptedAsk(state.script, (doc) =>
       state.docs.push({ channel: "stderr", doc, persistent: false }),
     ),
+    // A test screen cannot be stopped, so a wait is its brief and the effect
+    // it was parked on, in the order a terminal would have shown them.
+    wait: <A, E, R>(view: WaitView, awaited: Effect.Effect<A, E, R>) =>
+      parkedOnWait(
+        view,
+        Effect.suspend((): Effect.Effect<A, E, R> => {
+          state.docs.push({ channel: "stderr", doc: view.brief, persistent: true });
+          return awaited;
+        }),
+      ),
     prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect,
     facts: Effect.succeed({ columns: 80, colors: false, animate: false }),
     settle: Effect.void,

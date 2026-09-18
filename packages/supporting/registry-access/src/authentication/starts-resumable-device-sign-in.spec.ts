@@ -45,7 +45,7 @@ describe("Unattended device sign-in", () => {
       expect(ports.deviceInteractionState.openBrowserCalls).toEqual([]);
       expect(ports.deviceInteractionState.copyToClipboardCalls).toEqual([]);
       // Machine output consumed the document, so nothing was presented to a person.
-      expect(ports.presenterState.deviceFlowPresentations).toEqual([]);
+      expect(ports.presenterState.handoffs).toEqual([]);
       expect(ports.presenterState.pendingApprovals).toEqual([]);
 
       expect(ports.presenterState.pendingEmissions).toHaveLength(1);

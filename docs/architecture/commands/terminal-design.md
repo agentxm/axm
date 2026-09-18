@@ -64,7 +64,8 @@ shape happens to fit the terminal.
 | Say something in prose                                       | `paragraph`; a tone only when the prose is itself a warning, error, or aside                          |
 | Point to the next command or link                            | `next` with suggested actions; machine mode emits them as suggestion events                           |
 | Ask a question                                               | `prompt`, built by the `Screen` from an `Ask` while one is open; views never build it                 |
-| Record an answered prompt                                    | `answer`, appended by the `Screen` when a prompt settles; views never build it                        |
+| Park the terminal while a person acts elsewhere              | `wait`, built by the `Screen` while one is open; views never build it                                 |
+| Record an answered prompt                                    | `answer`, appended by the `Screen` when a prompt or a wait settles; views never build it              |
 | Group related nodes under a dim title                        | `section`                                                                                             |
 | Pass text through untouched                                  | `raw` or `markdown`; the painter never wraps, truncates, or restyles them                             |
 
@@ -251,8 +252,9 @@ the moment it empties. How quiet mode treats the transition lines belongs to
 The gallery under `apps/cli/src/test-support/gallery/` is the acceptance
 surface for design. Each fixture is one document or scene for one scenario —
 an inventory list, an inspection, a plan, progress, and result ledger, a
-failure with recovery, a waiting operation, each prompt kind in its initial,
-filtered, error, narrow, and answered states, and every node kind — and its
+failure with recovery, a waiting operation, a wait in its open, static, and
+settled forms, each prompt kind in its initial, filtered, error, narrow, and
+answered states, and every node kind — and its
 file snapshots record the painted output at 40, 80, 120, and 200 columns, and
 at 16 and 24 rows where a scene must fit. A scene fixture is a pure function
 of the terminal size, painted one column short of the width and held within the

@@ -52,6 +52,7 @@ export const BlockingClassSchema = Schema.Literals([
   "policy-excluded",
   "resource-conflict",
   "external-blocked",
+  "human-required",
   "operation-aborted",
 ] as const).annotate({
   identifier: "BlockingClass",

@@ -324,7 +324,10 @@ export const deviceAuthorizationPendingToAppError = (error: DeviceAuthorizationP
       expiresAt: error.expiresAt,
       resume: error.resume,
     },
-    detail: `Device sign-in did not complete within ${error.timeoutSeconds} seconds. The pending flow is still available.`,
+    detail:
+      error.waitEnded._tag === "Stopped"
+        ? "Waiting for device sign-in was stopped. The pending flow is still available."
+        : `Device sign-in did not complete within ${String(error.waitEnded.seconds)} seconds. The pending flow is still available.`,
     suggestions: [
       { description: "Resume waiting after approval.", cmd: "axm login --wait --json" },
     ],

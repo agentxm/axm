@@ -1,11 +1,12 @@
 import * as fs from "node:fs";
+import * as http from "node:http";
 import * as path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 
 import { Keys, ptyIsSupported, runCliUnderPty, runUnderPty } from "./pty.js";
 import { writeAuthoredSkill } from "./test-support/protected-state.js";
 import { writeLocalSkillPackage } from "./test-support/spec-file-store.js";
-import { createTempDir } from "./utils.js";
+import { createTempDir, runCli } from "./utils.js";
 
 const shell = { runtime: "binary", path: "/bin/sh" } as const;
 // `stty`, `tput`, and `printf` are found on PATH, and `tput` reads TERM.
@@ -237,5 +238,111 @@ describe.skipIf(!ptyIsSupported)("axm prompts under a pseudo-terminal", () => {
     expect(result.exitCode, result.transcript).toBe(0);
     expect(result.rawModeRestored, "raw mode was not handed back").toBe(true);
     expect(result.cursorRestored, "the cursor was left hidden").toBe(true);
+  });
+});
+
+/**
+ * A Registry whose device authorization never completes, so a wait on it
+ * stands open until the person watching it does something. Nothing here opens
+ * a browser or touches the clipboard: the sign-in is started by a separate
+ * machine-mode invocation, and `axm login --wait` only resumes it.
+ */
+const startPendingDeviceAuthServer = async () => {
+  const sendJson = (response: http.ServerResponse, status: number, body: unknown) => {
+    response.writeHead(status, { "content-type": "application/json" });
+    response.end(JSON.stringify(body));
+  };
+  const server = http.createServer((request, response) => {
+    const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
+    const address = server.address();
+    if (address === null || typeof address === "string") {
+      sendJson(response, 500, { error: "server_address_unavailable" });
+      return;
+    }
+    if (request.method === "POST" && pathname === "/v1/auth/device/code") {
+      const verificationUri = `http://127.0.0.1:${String(address.port)}/device`;
+      sendJson(response, 200, {
+        device_code: "device-secret",
+        user_code: "ABCD-1234",
+        verification_uri: verificationUri,
+        verification_uri_complete: `${verificationUri}?user_code=ABCD-1234`,
+        interval: 1,
+        expires_in: 600,
+      });
+      return;
+    }
+    if (request.method === "POST" && pathname === "/v1/auth/token") {
+      sendJson(response, 400, {
+        kind: "TokenOAuthError",
+        error: "authorization_pending",
+        error_description: "authorization_pending",
+      });
+      return;
+    }
+    sendJson(response, 404, { error: "not_found" });
+  });
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  if (address === null || typeof address === "string") throw new Error("Expected TCP address");
+  return {
+    url: `http://127.0.0.1:${String(address.port)}`,
+    close: () =>
+      new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      ),
+  };
+};
+
+describe.skipIf(!ptyIsSupported)("a wait under a pseudo-terminal", () => {
+  it("shows the countdown and its keys, and hands the terminal back when it is stopped", async () => {
+    const auth = await startPendingDeviceAuthServer();
+    const home = tempDir("axm-pty-home-");
+    const cwd = tempDir("axm-pty-workspace-");
+    const env = {
+      AXM_NO_UPDATE_CHECK: "1",
+      AXM_REGISTRY_URL: auth.url,
+      AXM_REGISTRY_LOCATION: auth.url,
+      // A wait only counts down and takes keys where the region animates, and
+      // this suite otherwise keeps NO_COLOR for a stable transcript.
+      NO_COLOR: "",
+    };
+
+    try {
+      const started = await runCli(["login", "--device-code", "--json", "--non-interactive"], {
+        env: { HOME: home, AXM_USER_HOME: home, ...env, NO_COLOR: "1" },
+      });
+      expect(started.exitCode, started.stdout + started.stderr).toBe(0);
+
+      const result = await runCliUnderPty(["login", "--wait"], {
+        home,
+        cwd,
+        columns: 100,
+        rows: 30,
+        env,
+        actions: [{ awaiting: "Waiting for approval" }, { send: Keys.escape }],
+      });
+
+      const [opened] = result.actions;
+      expect(opened?.matched, result.transcript).toBe(true);
+      // The brief printed the code and the page once; only the countdown and
+      // its keys repaint beneath it.
+      expect(result.transcript).toContain("One-time code: ABCD-1234");
+      expect(result.transcript).toContain(`${auth.url}/device?user_code=ABCD-1234`);
+      expect(opened?.emitted).toContain("left");
+      expect(opened?.emitted).toContain("o  open");
+      expect(opened?.emitted).toContain("c  copy");
+      expect(opened?.emitted).toContain("esc  stop");
+
+      // Stopping the wait leaves the sign-in itself untouched and names the
+      // command that resumes it.
+      expect(result.timedOut, result.transcript).toBe(false);
+      expect(result.exitCode, result.transcript).toBe(16);
+      expect(result.transcript).toContain("axm login --wait");
+      expect(result.rawModeRestored, "raw mode was not handed back").toBe(true);
+      expect(result.cursorRestored, "the cursor was left hidden").toBe(true);
+    } finally {
+      await auth.close();
+    }
   });
 });

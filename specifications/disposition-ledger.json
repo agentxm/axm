@@ -54,6 +54,12 @@
     "basis": "Removing means one thing for every extension type: the declaration is withdrawn, the projections it implied are unrendered, and the acquired package is deleted unless something else still requires it. The successor states that rule once and demonstrates it across a seven-type example table over the extension-lifecycle removal use case, so the per-type files restated a rule rather than adding one. Per-type flag grammar stays an ordinary apps/cli test beside the command adapter."
   },
   {
+    "requirement": "cli/login/wait-timeout-preserves-authorization",
+    "disposition": "superseded-by",
+    "successor": "cli/login/ended-wait-preserves-authorization",
+    "basis": "A terminal now shows the device handoff as a wait a person can stop, so a bounded timeout is one of two ways the same wait ends without approval. The successor states the obligation once over both endings, because what it guarantees \u2014 the pending outcome, its resume instructions, and untouched credentials \u2014 never depended on which one happened."
+  },
+  {
     "requirement": "cli/mcps/disable/preview-is-pure",
     "disposition": "superseded-by",
     "successor": "cli/disable/preview-is-pure",

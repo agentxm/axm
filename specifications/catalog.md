@@ -1451,6 +1451,19 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Limitation: The refusal is the typed explicit-token policy failure; that the boundary renders it as `auth_required` naming AXM_TOKEN_FILE is a rendering decision this capability cannot observe, witnessed by apps/cli/src/feature-errors.test.ts. Retires when: An apps/cli specification owns the rendered explicit-token guidance, or the guidance becomes a carried field of the typed failure.
 - Source: [`packages/supporting/registry-access/src/credentials/disabled-credential-persistence-requires-explicit-token.spec.ts`](../packages/supporting/registry-access/src/credentials/disabled-credential-persistence-requires-explicit-token.spec.ts)
 
+##### A wait that ends without approval leaves sign-in resumable
+
+- Requirement: `cli/login/ended-wait-preserves-authorization`
+- Owner: `registry-access`
+- Statement: When a device sign-in wait ends before authorization completes — because the requested timeout elapsed or because a person stopped waiting — AXM shall report pending human approval with resume instructions and preserve the pending authorization and existing credentials.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/supporting/registry-access/src/authentication/device-login.ts`
+- Source: [`packages/supporting/registry-access/src/authentication/ended-wait-preserves-authorization.spec.ts`](../packages/supporting/registry-access/src/authentication/ended-wait-preserves-authorization.spec.ts)
+
 ##### Login preapproval starts a new sign-in over a valid session in every mode
 
 - Requirement: `cli/login/preapproval-requests-new-sign-in`
@@ -1560,19 +1573,6 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Derived from: `packages/supporting/registry-access/src/authentication/device-login.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../apps/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
 - Source: [`packages/supporting/registry-access/src/authentication/terminal-authorization-failures-preserve-credentials.spec.ts`](../packages/supporting/registry-access/src/authentication/terminal-authorization-failures-preserve-credentials.spec.ts)
-
-##### A bounded wait leaves sign-in resumable
-
-- Requirement: `cli/login/wait-timeout-preserves-authorization`
-- Owner: `registry-access`
-- Statement: When login --wait reaches the requested timeout before authorization completes, AXM shall report pending human approval with resume instructions and preserve the pending authorization and existing credentials.
-- Class: functional
-- Role: experience
-- Product goals: `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
-- Methods: example
-- Derived from: `packages/supporting/registry-access/src/authentication/device-login.ts`
-- Source: [`packages/supporting/registry-access/src/authentication/wait-timeout-preserves-authorization.spec.ts`](../packages/supporting/registry-access/src/authentication/wait-timeout-preserves-authorization.spec.ts)
 
 ##### Sign-out removes only the selected Registry session
 

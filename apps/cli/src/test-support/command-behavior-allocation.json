@@ -3575,7 +3575,7 @@
         {
           "parameters": ["flag:timeout"],
           "requirements": [
-            "cli/login/wait-timeout-preserves-authorization",
+            "cli/login/ended-wait-preserves-authorization",
             "cli/login/rejects-inconsistent-flow-options"
           ],
           "when": "--wait is supplied; timeout denotes the wait duration, not authorization lifetime."

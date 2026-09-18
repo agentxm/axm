@@ -6,7 +6,14 @@ import type * as Schema from "effect/Schema";
 import { type BoxOptions, type LogMessage, type ResultOptions } from "../screen/output.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { subscribeLossless, type OperationEvent } from "@agentxm/workspace/transitions/planning";
-import { Screen, plain, type Doc, type DocNode } from "../screen/index.js";
+import {
+  Screen,
+  parkedOnWait,
+  plain,
+  type Doc,
+  type DocNode,
+  type WaitView,
+} from "../screen/index.js";
 import { emptyAskScript, scriptedAsk, type AskScript } from "./scripted-ask.js";
 
 // ---------------------------------------------------------------------------
@@ -84,6 +91,8 @@ const nodeText = (node: DocNode): string => {
       return node.rows.map((row) => row.cells.map(plain).join("   ")).join("\n");
     case "prompt":
       return plain(node.question);
+    case "wait":
+      return plain(node.status);
     case "answer":
       return `${plain(node.label)}: ${plain(node.value)}`;
     case "collapsed":
@@ -299,6 +308,16 @@ const makeTestScreenService = (
       });
     }),
   ask: scriptedAsk(state.script, (doc) => captureDoc(state, doc, "stderr")),
+  // A test screen cannot be stopped, so a wait is its brief and the effect it
+  // was parked on, in the order a terminal would have shown them.
+  wait: <A, E, R>(view: WaitView, awaited: Effect.Effect<A, E, R>) =>
+    parkedOnWait(
+      view,
+      Effect.suspend((): Effect.Effect<A, E, R> => {
+        captureDoc(state, view.brief, "stderr", true);
+        return awaited;
+      }),
+    ),
   prompt: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect,
   facts: Effect.succeed({ columns: 80, colors: false, animate: false }),
   settle: Effect.void,

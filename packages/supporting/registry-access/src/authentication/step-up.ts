@@ -30,15 +30,18 @@ import {
   type StepUpRequest,
 } from "./errors.js";
 import { AuthLoginInteraction } from "../adapters/login-interaction.js";
+import { DeviceLoginInteraction } from "./device-login.js";
 import { AuthLoginPresenter } from "./login-presenter.js";
 import { resolveRequiredToken } from "../credentials/token-resolution.js";
 
-/** How one challenged write names itself to a person watching the terminal. */
+/**
+ * How one challenged write names itself to a person watching the terminal.
+ * The wait on verification names itself from the challenge the Registry
+ * returned, so nothing here describes it.
+ */
 export interface StepUpPresentation {
   /** Lifecycle label for the challenged write itself. */
   readonly operationLabel: string;
-  /** Lifecycle label for the bounded wait on human verification. */
-  readonly waitingLabel: string;
 }
 
 /** The invocation's verification inputs, parsed from the command line. */
@@ -50,6 +53,14 @@ export interface StepUpOptions {
   /** No terminal is available to guide a person through verification. */
   readonly unattended: boolean;
 }
+
+/**
+ * How one bounded wait on human verification ended: verified, the wait
+ * elapsed, or the person stopped waiting. Only the first lets the challenged
+ * write be retried.
+ */
+type StepUpWaitOutcome =
+  { readonly _tag: "Verified" } | { readonly _tag: "Elapsed" } | { readonly _tag: "Stopped" };
 
 /** A challenged write that completed, and whether verification was needed. */
 export interface VerifiedWrite<A> {
@@ -129,7 +140,12 @@ export const runWithStepUp = <A, E, R>(
 ): Effect.Effect<
   VerifiedWrite<A>,
   E | AuthError | StepUpVerificationPending,
-  R | AuthClient | AuthLoginInteraction | AuthLoginPresenter | CredentialStore
+  | R
+  | AuthClient
+  | AuthLoginInteraction
+  | AuthLoginPresenter
+  | CredentialStore
+  | DeviceLoginInteraction
 > =>
   Effect.gen(function* () {
     const authClient = yield* AuthClient;
@@ -219,16 +235,16 @@ export const runWithStepUp = <A, E, R>(
       const opened = options.unattended
         ? false
         : yield* interaction.openBrowser(stepUp.verificationUrl);
-      yield* presenter.presentStepUpChallenge({
-        action: stepUp.action,
-        target: stepUp.target,
-        verificationUrl: stepUp.verificationUrl,
-        expiresAt: stepUp.expiresAt,
-        browserOpened: opened,
-      });
-      const waited = yield* presenter.withProgress(
-        { _tag: "WaitingForHumanVerification", operation: presentation.waitingLabel },
-        () =>
+      const waited = yield* presenter
+        .awaitHuman(
+          {
+            _tag: "StepUp",
+            action: stepUp.action,
+            target: stepUp.target,
+            verificationUrl: stepUp.verificationUrl,
+            expiresAtMs: Date.parse(stepUp.expiresAt),
+            browserOpened: opened,
+          },
           authClient
             .waitForStepUpRequest(token.token, stepUp.statusUrl, stepUp.intervalSeconds)
             .pipe(
@@ -237,16 +253,31 @@ export const runWithStepUp = <A, E, R>(
                   Math.min(remaining, waitSeconds === undefined ? remaining : waitSeconds * 1000),
                 ),
               ),
+            )
+            .pipe(
+              Effect.map((verified): StepUpWaitOutcome =>
+                Option.isNone(verified) ? { _tag: "Elapsed" } : { _tag: "Verified" },
+              ),
             ),
-      );
-      if (Option.isNone(waited)) {
-        if ((yield* Clock.currentTimeMillis) >= Date.parse(stepUp.expiresAt)) {
+        )
+        // Stopping the wait leaves the request pending exactly as an elapsed
+        // wait does; only what the result says about it differs.
+        .pipe(
+          Effect.catchTag("AuthInteractionAbandoned", () =>
+            Effect.succeed<StepUpWaitOutcome>({ _tag: "Stopped" }),
+          ),
+        );
+      if (waited._tag !== "Verified") {
+        if (
+          waited._tag === "Elapsed" &&
+          (yield* Clock.currentTimeMillis) >= Date.parse(stepUp.expiresAt)
+        ) {
           return yield* new RegistryAccessFailed({
             category: "auth_expired",
             detail: "The step-up request has expired.",
           });
         }
-        return yield* pendingVerification(stepUp, registryUrl, true);
+        return yield* pendingVerification(stepUp, registryUrl, waited._tag === "Elapsed");
       }
     }
     const value = yield* presenter.withProgress(

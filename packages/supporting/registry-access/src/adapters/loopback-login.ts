@@ -5,6 +5,7 @@
  */
 
 import { createHash, randomBytes } from "node:crypto";
+import * as Clock from "effect/Clock";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -20,6 +21,7 @@ import {
 import { DeviceLoginInteraction } from "../authentication/device-login.js";
 import { emitLoginSuccess } from "../authentication/login-output.js";
 import { AuthLoginPresenter } from "../authentication/login-presenter.js";
+import { RegistryAccessFailed } from "../authentication/errors.js";
 import { LoopbackCallbackRejected, startLoopbackServer } from "./loopback-server.js";
 import type { NormalizedTokenResponse } from "../authentication/oauth-contract.js";
 
@@ -87,21 +89,39 @@ export const runLoopbackLogin = (registryUrl: string, options: RunLoopbackLoginO
         ...(options.scopes === undefined ? {} : { scopes: options.scopes }),
       });
 
-      yield* presenter.presentLoopbackStart({
-        redirectUri: server.redirectUri,
-        authorizeUrl,
-      });
-      const openedBrowser = yield* interaction.openBrowser(authorizeUrl);
-      yield* presenter.noteLoopbackBrowserOutcome(openedBrowser);
+      const browserOpened = yield* interaction.openBrowser(authorizeUrl);
 
-      const callback = yield* presenter.withProgress(
-        {
-          _tag: "WaitingForLoopbackAuthorization",
-          registryHost,
-          timeoutMinutes: LOOPBACK_TIMEOUT_MINUTES,
-        },
-        () => server.awaitCallback(Duration.toMillis(LOOPBACK_TIMEOUT)),
-      );
+      const callback = yield* presenter
+        .awaitHuman(
+          {
+            _tag: "LoopbackLogin",
+            registryHost,
+            authorizeUrl,
+            redirectUri: server.redirectUri,
+            expiresAtMs: (yield* Clock.currentTimeMillis) + Duration.toMillis(LOOPBACK_TIMEOUT),
+            browserOpened,
+          },
+          server.awaitCallback(Duration.toMillis(LOOPBACK_TIMEOUT)),
+        )
+        // Browser sign-in has nothing to resume: the local server closes with
+        // this scope, so stopping the wait ends the attempt and changes nothing.
+        .pipe(
+          Effect.catchTag("AuthInteractionAbandoned", () =>
+            Effect.fail(
+              new RegistryAccessFailed({
+                category: "auth",
+                detail: "Browser sign-in was stopped. No credentials were changed.",
+                suggestions: [
+                  { description: "Try browser sign-in again.", cmd: "axm login" },
+                  {
+                    description: "Use device-code sign-in on a remote or headless machine.",
+                    cmd: "axm login --device-code",
+                  },
+                ],
+              }),
+            ),
+          ),
+        );
       const expectedIssuer = authClient.getAuthorizationIssuer();
       if (callback.iss !== expectedIssuer) {
         return yield* new LoopbackCallbackRejected({

@@ -15,6 +15,8 @@
  =   3 unchanged  --verbose to list
  ?   Apply 4 changes?    N  no    y  yes    d  details
      Nothing has been written yet.
+ ◒   Waiting for approval on registry.agentxm.ai   4m 32s left
+      o  open    c  copy    esc  stop
  ✔   Instructions source           AGENTS.md
      Agents                        claude-code, codex
  =   2 unchanged  --verbose to list

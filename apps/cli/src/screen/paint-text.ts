@@ -18,6 +18,7 @@ import type {
   Text,
   Tone,
   TreeItem,
+  WaitNode,
 } from "./doc.js";
 import { joinGridLine, layoutTable, type LayoutColumn, type TableLayout } from "./table-layout.js";
 import { displayWidth, padDisplay } from "./width.js";
@@ -807,6 +808,28 @@ const paintPrompt = (
       ];
 };
 
+/**
+ * A wait standing open: the running mark, what is being waited on, how long is
+ * left at the value column, and the keys beneath it. The line never carries a
+ * value a person copies — the wait printed those to the transcript once — so
+ * it is safe to repaint and truncate.
+ */
+const paintWait = (node: WaitNode, style: ResolvedStyle, indent: number): ReadonlyArray<string> => {
+  const contentStart = indent + GUTTER_WIDTH;
+  const status = paintPrefixed(node.status, style, {
+    indent,
+    first: gutter(markGlyph("working", style)),
+  });
+  const lines = node.remaining === undefined ? status : withAside(status, node.remaining, style);
+  if (node.chips.length === 0) return lines;
+  const worded = chipsSpans(node.chips, true);
+  const chips =
+    style.width === "unbounded" || contentStart + spansWidth(worded) <= style.width
+      ? worded
+      : chipsSpans(node.chips, false);
+  return [...lines, `${spaces(contentStart)}${paintSpans(chips, style)}`];
+};
+
 /** Nodes that carry marked rows; a headline after one is their verdict. */
 const isMarkedRows = (node: DocNode): boolean =>
   node._tag === "row" ||
@@ -877,6 +900,8 @@ const paintNode = (
       return paintLedger(node, style, indent);
     case "prompt":
       return paintPrompt(node, style, indent);
+    case "wait":
+      return paintWait(node, style, indent);
     case "answer": {
       // A settled prompt reads as one record line: the question behind a mark,
       // its answer at the value column, and the answer below when it cannot fit.

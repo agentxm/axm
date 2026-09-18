@@ -608,6 +608,12 @@ describe("auth token handler", () => {
           message: "Revoked token token_123.",
         });
         expect(rendererState.suggestions).toEqual([
+          // The wait on verification offers the page it parked on, then the
+          // revoke's own next step follows it.
+          {
+            description: "Verify Revoke access token",
+            url: "https://agentxm.ai/step-up/step_01h455vb4pexka56gq5w2r7cpc",
+          },
           { description: "List remaining tokens", cmd: "axm token list" },
         ]);
       }),

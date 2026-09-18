@@ -322,6 +322,18 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
         indent,
         `${style.glyphs.marks.prompt} `,
       ).concat(node.note === undefined ? [] : block(node.note, style, indent + 2, "", "dim"));
+    case "wait":
+      // A second shape for the same wait: the keys as plain text after it.
+      return block(
+        [
+          ...(typeof node.status === "string" ? [{ text: node.status }] : node.status),
+          ...(node.remaining === undefined ? [] : [{ text: ` (${visibleText(node.remaining)})` }]),
+          { text: ` [${node.chips.map((chip) => `${chip.key}=${chip.word}`).join(" ")}]` },
+        ],
+        style,
+        indent,
+        `${style.glyphs.spinner[0] ?? ""} `,
+      );
     case "answer":
       return block(
         node.value,

@@ -132,6 +132,20 @@ export interface PromptNode {
 }
 
 /**
+ * A wait standing open: the running mark in the gutter, what is being waited
+ * on, how long is left at the value column, and the key chips that act on it.
+ * The `Screen` builds one while a wait is open; views never build it.
+ */
+export interface WaitNode {
+  readonly _tag: "wait";
+  /** What the terminal is parked on, in one line that never carries a value to copy. */
+  readonly status: Text;
+  /** How long is left, at the value column; absent when nothing expires. */
+  readonly remaining?: Text;
+  readonly chips: ReadonlyArray<PromptChip>;
+}
+
+/**
  * A settled prompt: one gutter line whose answer sits at the value column.
  * The `Screen` appends it when a prompt settles; views never build it.
  */
@@ -248,6 +262,7 @@ export type DocNode =
   | RowsNode
   | LedgerNode
   | PromptNode
+  | WaitNode
   | AnswerNode
   | CollapsedNode
   | CalloutNode

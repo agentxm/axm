@@ -14,27 +14,19 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ServiceMap from "effect/Context";
 
-import type { DeviceLoginPendingResult } from "./device-login.js";
-import type { AuthInteractionAbandoned } from "./errors.js";
+import type { DeviceLoginInteraction, DeviceLoginPendingResult } from "./device-login.js";
+import { AuthInteractionAbandoned } from "./errors.js";
 import type { LoginResult } from "./login-output.js";
 
 export type AuthLoginProgress =
   | { readonly _tag: "StartingDeviceAuthorization"; readonly registryHost: string }
-  | { readonly _tag: "WaitingForDeviceAuthorization"; readonly registryHost: string }
   | { readonly _tag: "SavingCredentials"; readonly registryHost: string }
-  | {
-      readonly _tag: "WaitingForLoopbackAuthorization";
-      readonly registryHost: string;
-      readonly timeoutMinutes: number;
-    }
   | { readonly _tag: "CompletingSignIn"; readonly registryHost: string }
   | { readonly _tag: "CheckingRegistrySession"; readonly registryHost: string }
   | { readonly _tag: "RevokingRegistrySession"; readonly registryHost: string }
   | { readonly _tag: "ListingRegistryTokens" }
   /** A Registry write that the Registry may challenge for human verification. */
   | { readonly _tag: "RunningVerifiedWrite"; readonly operation: string }
-  /** The bounded wait while a person completes verification. */
-  | { readonly _tag: "WaitingForHumanVerification"; readonly operation: string }
   /** The one retry of the challenged write, after verification. */
   | { readonly _tag: "RetryingVerifiedWrite"; readonly operation: string };
 
@@ -44,23 +36,56 @@ export type SessionReplacementDecision = "replace" | "keep";
 /** Why sign-in fell back to the device-code flow. */
 export type DeviceCodeFallbackReason = "remote-or-headless" | "loopback-bind-failed";
 
-/** One step-up challenge, as a person needs to see it. */
-export interface StepUpChallengePresentation {
-  readonly action: string;
-  readonly target: string;
-  readonly verificationUrl: string;
-  readonly expiresAt: string;
-  readonly browserOpened: boolean;
-}
+/**
+ * One handoff to a person, as the terminal must show it while the command is
+ * parked. Every form carries the same four facts — where the person acts, what
+ * they act on, when it expires, and whether a browser was already opened — so
+ * one wait renders all of them and no flow invents its own presentation.
+ */
+export type HumanHandoff =
+  /** Device-code sign-in: a one-time code entered on a verification page. */
+  | {
+      readonly _tag: "DeviceLogin";
+      readonly registryHost: string;
+      /** The page that carries the code already; what `o` opens and `c` copies. */
+      readonly verificationUriComplete: string;
+      /** The clean page a person enters the code on by hand. */
+      readonly verificationUri: string;
+      readonly userCode: string;
+      readonly expiresAtMs: number;
+      readonly browserOpened: boolean;
+      readonly copiedToClipboard: boolean;
+    }
+  /** Browser sign-in through a loopback redirect. */
+  | {
+      readonly _tag: "LoopbackLogin";
+      readonly registryHost: string;
+      readonly authorizeUrl: string;
+      readonly redirectUri: string;
+      readonly expiresAtMs: number;
+      readonly browserOpened: boolean;
+    }
+  /** Human verification of one challenged Registry write. */
+  | {
+      readonly _tag: "StepUp";
+      readonly action: string;
+      readonly target: string;
+      readonly verificationUrl: string;
+      readonly expiresAtMs: number;
+      readonly browserOpened: boolean;
+    };
 
-export interface DeviceFlowPresentation {
-  readonly verificationUri: string;
-  readonly verificationUriComplete: string;
-  readonly userCode: string;
-  readonly expiresInSeconds: number;
-  readonly browserOpened: boolean;
-  readonly copiedToClipboard: boolean;
-}
+/** The link a handoff parks on: what its reopen key opens and its copy key copies. */
+export const handoffUrl = (handoff: HumanHandoff): string => {
+  switch (handoff._tag) {
+    case "DeviceLogin":
+      return handoff.verificationUriComplete;
+    case "LoopbackLogin":
+      return handoff.authorizeUrl;
+    case "StepUp":
+      return handoff.verificationUrl;
+  }
+};
 
 export interface AuthLoginPresenterService {
   /** Progress envelope for one login phase. */
@@ -74,17 +99,21 @@ export interface AuthLoginPresenterService {
    * effects and human presentation.
    */
   readonly tryEmitPendingDeviceLogin: (result: DeviceLoginPendingResult) => Effect.Effect<boolean>;
-  /** Human presentation of the device flow after side effects have settled. */
-  readonly presentDeviceFlow: (presentation: DeviceFlowPresentation) => Effect.Effect<void>;
+  /**
+   * Park the terminal while a person completes the handoff elsewhere, and
+   * answer with what `awaited` settled on. The application owns how the wait
+   * reads and which keys it offers; abandoning it fails with
+   * `AuthInteractionAbandoned`, and the caller ends with its own pending
+   * outcome rather than a failure of the request it parked on.
+   */
+  readonly awaitHuman: <A, E, R>(
+    handoff: HumanHandoff,
+    awaited: Effect.Effect<A, E, R>,
+  ) => Effect.Effect<A, E | AuthInteractionAbandoned, R | DeviceLoginInteraction>;
   /** Human-path tail: sign-in is waiting for approval, with resume guidance. */
   readonly notePendingApproval: (result: DeviceLoginPendingResult) => Effect.Effect<void>;
   /** Machine login-document emission with human success fallback. */
   readonly emitLoginSuccess: (result: LoginResult) => Effect.Effect<void>;
-  readonly presentLoopbackStart: (start: {
-    readonly redirectUri: string;
-    readonly authorizeUrl: string;
-  }) => Effect.Effect<void>;
-  readonly noteLoopbackBrowserOutcome: (opened: boolean) => Effect.Effect<void>;
   readonly notePublishReview: (review: {
     readonly browserOpened: boolean;
     readonly candidateCount: number;
@@ -103,8 +132,6 @@ export interface AuthLoginPresenterService {
   readonly confirmSessionReplacement: (
     message: string,
   ) => Effect.Effect<SessionReplacementDecision, AuthInteractionAbandoned>;
-  /** Guidance for one pending step-up verification. */
-  readonly presentStepUpChallenge: (challenge: StepUpChallengePresentation) => Effect.Effect<void>;
 }
 
 export class AuthLoginPresenter extends ServiceMap.Service<
@@ -115,11 +142,10 @@ export class AuthLoginPresenter extends ServiceMap.Service<
 export interface AuthLoginPresenterTestState {
   readonly progress: Array<AuthLoginProgress>;
   readonly pendingEmissions: Array<DeviceLoginPendingResult>;
-  readonly deviceFlowPresentations: Array<DeviceFlowPresentation>;
+  /** Every handoff a person was shown, in the order the flows reached them. */
+  readonly handoffs: Array<HumanHandoff>;
   readonly pendingApprovals: Array<DeviceLoginPendingResult>;
   readonly loginSuccesses: Array<LoginResult>;
-  readonly loopbackStarts: Array<{ readonly redirectUri: string; readonly authorizeUrl: string }>;
-  readonly loopbackBrowserOutcomes: Array<boolean>;
   readonly publishReviews: Array<{
     readonly browserOpened: boolean;
     readonly candidateCount: number;
@@ -129,7 +155,6 @@ export interface AuthLoginPresenterTestState {
   readonly rejectedStoredCredentials: Array<true>;
   readonly deviceCodeFallbacks: Array<DeviceCodeFallbackReason>;
   readonly sessionReplacementPrompts: Array<string>;
-  readonly stepUpChallenges: Array<StepUpChallengePresentation>;
 }
 
 export const AuthLoginPresenterTest = (overrides?: {
@@ -137,21 +162,20 @@ export const AuthLoginPresenterTest = (overrides?: {
   readonly confirmSessionReplacement?: (
     message: string,
   ) => Effect.Effect<SessionReplacementDecision, AuthInteractionAbandoned>;
+  /** Stop every wait, as a person pressing the stop key would. */
+  readonly abandonWaits?: boolean;
 }) => {
   const state: AuthLoginPresenterTestState = {
     progress: [],
     pendingEmissions: [],
-    deviceFlowPresentations: [],
+    handoffs: [],
     pendingApprovals: [],
     loginSuccesses: [],
-    loopbackStarts: [],
-    loopbackBrowserOutcomes: [],
     publishReviews: [],
     existingSessions: [],
     rejectedStoredCredentials: [],
     deviceCodeFallbacks: [],
     sessionReplacementPrompts: [],
-    stepUpChallenges: [],
   };
 
   const layer = Layer.succeed(AuthLoginPresenter, {
@@ -165,9 +189,12 @@ export const AuthLoginPresenterTest = (overrides?: {
         state.pendingEmissions.push(result);
         return yield* overrides?.tryEmitPendingDeviceLogin?.(result) ?? Effect.succeed(false);
       }),
-    presentDeviceFlow: (presentation) =>
-      Effect.sync(() => {
-        state.deviceFlowPresentations.push(presentation);
+    awaitHuman: <A, E, R>(handoff: HumanHandoff, awaited: Effect.Effect<A, E, R>) =>
+      Effect.suspend((): Effect.Effect<A, E | AuthInteractionAbandoned, R> => {
+        state.handoffs.push(handoff);
+        return overrides?.abandonWaits === true
+          ? Effect.fail(new AuthInteractionAbandoned({ message: "Stopped waiting." }))
+          : awaited;
       }),
     notePendingApproval: (result) =>
       Effect.sync(() => {
@@ -176,14 +203,6 @@ export const AuthLoginPresenterTest = (overrides?: {
     emitLoginSuccess: (result) =>
       Effect.sync(() => {
         state.loginSuccesses.push(result);
-      }),
-    presentLoopbackStart: (start) =>
-      Effect.sync(() => {
-        state.loopbackStarts.push(start);
-      }),
-    noteLoopbackBrowserOutcome: (opened) =>
-      Effect.sync(() => {
-        state.loopbackBrowserOutcomes.push(opened);
       }),
     notePublishReview: (review) =>
       Effect.sync(() => {
@@ -205,10 +224,6 @@ export const AuthLoginPresenterTest = (overrides?: {
         state.sessionReplacementPrompts.push(message);
         return yield* overrides?.confirmSessionReplacement?.(message) ??
           Effect.succeed<SessionReplacementDecision>("replace");
-      }),
-    presentStepUpChallenge: (challenge) =>
-      Effect.sync(() => {
-        state.stepUpChallenges.push(challenge);
       }),
   } satisfies AuthLoginPresenterService);
 

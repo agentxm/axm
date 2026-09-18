@@ -551,7 +551,7 @@
         "cli/login/reuses-pending-authorization",
         "cli/login/resumes-approved-authorization",
         "cli/login/terminal-authorization-failures-preserve-credentials",
-        "cli/login/wait-timeout-preserves-authorization",
+        "cli/login/ended-wait-preserves-authorization",
         "cli/login/retains-issued-session-when-identity-unavailable"
       ],
       "when": "Device authorization, wait deadline and identity lookup availability are separate state dimensions. Issued credentials survive temporary identity lookup failure."
@@ -1059,6 +1059,7 @@
             "policy-excluded",
             "resource-conflict",
             "external-blocked",
+            "human-required",
             "operation-aborted"
           ],
           "bindings": ["block-interface"]

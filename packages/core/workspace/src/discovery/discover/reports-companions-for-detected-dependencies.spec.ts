@@ -32,8 +32,14 @@ export const specification = defineSpecification({
 
 const companion = {
   ref: "@acme/skills/react-review",
+  source: { type: "registry", url: "https://extensions.example.test" },
   resolved: true,
-  extension: { owner: "@acme", type: "skill", name: "react-review", installVersion: "1.2.3" },
+  extension: {
+    owner: "@acme",
+    type: "skill",
+    name: "react-review",
+    resolution: { type: "registry", version: "1.2.3" },
+  },
   attestedBy: ["package", "extension"],
   official: true,
   packageVersionInRange: true,
@@ -86,7 +92,7 @@ describe("Dependency-backed companion discovery", () => {
             extensions: [
               {
                 ref: companion.ref,
-                extension: { installVersion: "1.2.3" },
+                extension: { resolution: { type: "registry", version: "1.2.3" } },
                 attestedBy: ["package", "extension"],
                 official: true,
               },
@@ -103,7 +109,12 @@ describe("Dependency-backed companion discovery", () => {
             {
               purl: "pkg:npm/react",
               version: "18.2.0",
-              declaredExtensions: [{ ref: "@acme/skills/react-review" }],
+              declaredExtensions: [
+                {
+                  ref: "@acme/skills/react-review",
+                  source: { type: "registry", url: "https://extensions.example.test/" },
+                },
+              ],
             },
           ]),
         },
@@ -137,8 +148,14 @@ describe("Dependency-backed companion discovery", () => {
     const before = snapshotDirectory(project.root);
     const viteCompanion = {
       ref: "@acme/skills/vite-review",
+      source: { type: "registry", url: "https://registry.agentxm.ai" },
       resolved: true,
-      extension: { owner: "@acme", type: "skill", name: "vite-review", installVersion: "1.0.0" },
+      extension: {
+        owner: "@acme",
+        type: "skill",
+        name: "vite-review",
+        resolution: { type: "registry", version: "1.0.0" },
+      },
       attestedBy: ["extension"],
       official: false,
       packageVersionInRange: true,
@@ -182,7 +199,12 @@ describe("Dependency-backed companion discovery", () => {
             {
               purl: "pkg:npm/vite",
               version: "5.0.0",
-              declaredExtensions: [{ ref: "@acme/skills/vite-review" }],
+              declaredExtensions: [
+                {
+                  ref: "@acme/skills/vite-review",
+                  source: { type: "registry", url: "https://registry.agentxm.ai/" },
+                },
+              ],
             },
           ],
         },

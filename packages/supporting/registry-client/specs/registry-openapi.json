@@ -4833,6 +4833,39 @@
                                 "resolved": {
                                   "type": "boolean"
                                 },
+                                "source": {
+                                  "anyOf": [
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "type": { "type": "string", "enum": ["registry"] },
+                                        "url": { "type": "string", "format": "uri" }
+                                      },
+                                      "required": ["type", "url"],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "type": { "type": "string", "enum": ["git"] },
+                                        "url": { "type": "string", "format": "uri" },
+                                        "path": { "type": "string" },
+                                        "revision": { "type": "string" }
+                                      },
+                                      "required": ["type", "url"],
+                                      "additionalProperties": false
+                                    },
+                                    {
+                                      "type": "object",
+                                      "properties": {
+                                        "type": { "type": "string", "enum": ["path"] },
+                                        "path": { "type": "string" }
+                                      },
+                                      "required": ["type", "path"],
+                                      "additionalProperties": false
+                                    }
+                                  ]
+                                },
                                 "extension": {
                                   "anyOf": [
                                     {
@@ -4847,11 +4880,44 @@
                                         "name": {
                                           "type": "string"
                                         },
-                                        "installVersion": {
-                                          "type": "string"
+                                        "resolution": {
+                                          "anyOf": [
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "type": {
+                                                  "type": "string",
+                                                  "enum": ["registry"]
+                                                },
+                                                "version": { "type": "string" }
+                                              },
+                                              "required": ["type", "version"],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "type": { "type": "string", "enum": ["git"] },
+                                                "url": { "type": "string", "format": "uri" },
+                                                "path": { "type": "string" },
+                                                "revision": { "type": "string" }
+                                              },
+                                              "required": ["type", "url"],
+                                              "additionalProperties": false
+                                            },
+                                            {
+                                              "type": "object",
+                                              "properties": {
+                                                "type": { "type": "string", "enum": ["path"] },
+                                                "path": { "type": "string" }
+                                              },
+                                              "required": ["type", "path"],
+                                              "additionalProperties": false
+                                            }
+                                          ]
                                         }
                                       },
-                                      "required": ["owner", "type", "name", "installVersion"],
+                                      "required": ["owner", "type", "name", "resolution"],
                                       "additionalProperties": false
                                     },
                                     {
@@ -4876,6 +4942,7 @@
                               "required": [
                                 "ref",
                                 "resolved",
+                                "source",
                                 "attestedBy",
                                 "official",
                                 "packageVersionInRange"
@@ -4970,6 +5037,39 @@
                               "ref": {
                                 "$ref": "#/components/schemas/ExtensionFqn"
                               },
+                              "source": {
+                                "anyOf": [
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "type": { "type": "string", "enum": ["registry"] },
+                                      "url": { "type": "string", "format": "uri" }
+                                    },
+                                    "required": ["type", "url"],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "type": { "type": "string", "enum": ["git"] },
+                                      "url": { "type": "string", "format": "uri" },
+                                      "path": { "type": "string" },
+                                      "revision": { "type": "string" }
+                                    },
+                                    "required": ["type", "url"],
+                                    "additionalProperties": false
+                                  },
+                                  {
+                                    "type": "object",
+                                    "properties": {
+                                      "type": { "type": "string", "enum": ["path"] },
+                                      "path": { "type": "string" }
+                                    },
+                                    "required": ["type", "path"],
+                                    "additionalProperties": false
+                                  }
+                                ]
+                              },
                               "versionRange": {
                                 "anyOf": [
                                   {
@@ -4981,7 +5081,7 @@
                                 ]
                               }
                             },
-                            "required": ["ref"],
+                            "required": ["ref", "source"],
                             "additionalProperties": false
                           }
                         }

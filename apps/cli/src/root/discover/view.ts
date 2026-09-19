@@ -16,7 +16,7 @@ interface DiscoverTableRow {
   readonly type: string | undefined;
   readonly attestedBy: ReadonlyArray<string>;
   readonly official: boolean;
-  readonly installVersion: string;
+  readonly resolution: string;
   readonly source: string;
 }
 
@@ -33,6 +33,29 @@ const sourceText = (
     }
     case "path":
       return source.path;
+  }
+};
+
+const resolutionText = (
+  resolution:
+    | NonNullable<
+        DiscoverExtensionsResult["packages"][number]["extensions"][number]["extension"]
+      >["resolution"]
+    | undefined,
+): string => {
+  if (resolution === undefined) {
+    return NOT_REPORTED;
+  }
+  switch (resolution.type) {
+    case "registry":
+      return resolution.version;
+    case "git": {
+      const revision = resolution.revision === undefined ? "" : `#${resolution.revision}`;
+      const path = resolution.path === undefined ? "" : `:${resolution.path}`;
+      return `${resolution.url.href}${revision}${path}`;
+    }
+    case "path":
+      return resolution.path;
   }
 };
 
@@ -62,7 +85,7 @@ const DiscoverColumns = [
       row.type === undefined ? NOT_REPORTED : extensionTypeText(row.type),
   },
   { header: "Trust", value: trustText },
-  { header: "Install", value: (row: DiscoverTableRow) => row.installVersion },
+  { header: "Resolution", value: (row: DiscoverTableRow) => row.resolution },
   { header: "Source", priority: "optional", value: (row: DiscoverTableRow) => row.source },
   { header: "For package", priority: "optional", value: (row: DiscoverTableRow) => row.package },
 ] satisfies ReadonlyArray<ViewColumn<DiscoverTableRow>>;
@@ -79,7 +102,7 @@ const toDiscoverTableRows = (result: DiscoverExtensionsResult): ReadonlyArray<Di
       type: singularType(entry.extension?.type),
       attestedBy: entry.attestedBy,
       official: entry.official,
-      installVersion: entry.extension?.installVersion ?? NOT_REPORTED,
+      resolution: resolutionText(entry.extension?.resolution),
       source: sourceText(entry.source),
     })),
   );

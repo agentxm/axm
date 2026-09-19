@@ -22,8 +22,14 @@ import { handleDiscover } from "./handler.js";
 
 const companion = (name: string, official: boolean, attestedBy: ReadonlyArray<string>) => ({
   ref: `@acme/skills/${name}`,
+  source: { type: "registry", url: new URL("https://registry.agentxm.ai") },
   resolved: true,
-  extension: { owner: "@acme", type: "skill", name, installVersion: "1.0.0" },
+  extension: {
+    owner: "@acme",
+    type: "skill",
+    name,
+    resolution: { type: "registry", version: "1.0.0" },
+  },
   attestedBy,
   official,
   packageVersionInRange: true,
@@ -247,6 +253,7 @@ describe("discover handler", () => {
                     expect.objectContaining({
                       name: "react-testing",
                       source: { type: "registry", url: "https://registry.agentxm.ai/" },
+                      resolution: { type: "registry", version: "1.0.0" },
                     }),
                   ]),
                 }),

@@ -155,13 +155,17 @@ describe("Local-only discovery", () => {
                 ref: "@acme/skills/git-review",
                 source: { type: "git", url: new URL(pathToFileURL(gitRoot).href) },
                 resolved: true,
-                extension: { installVersion: "2.3.4" },
+                extension: {
+                  resolution: { type: "git", url: new URL(pathToFileURL(gitRoot).href) },
+                },
               },
               {
                 ref: "@acme/skills/path-review",
                 source: { type: "path", path: "extensions/path-review" },
                 resolved: true,
-                extension: { installVersion: "1.4.0" },
+                extension: {
+                  resolution: { type: "path", path: "extensions/path-review" },
+                },
               },
             ],
           },

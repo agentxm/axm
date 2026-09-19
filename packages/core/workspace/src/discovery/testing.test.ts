@@ -32,12 +32,13 @@ describe("./testing.js", () => {
             extensions: [
               {
                 ref: "@acme/skills/review",
+                source: { type: "registry", url: "https://registry.agentxm.ai" },
                 resolved: true,
                 extension: {
                   owner: "@acme",
                   type: "skill",
                   name: "review",
-                  installVersion: "1.0.0",
+                  resolution: { type: "registry", version: "1.0.0" },
                 },
                 attestedBy: ["package"],
                 official: false,

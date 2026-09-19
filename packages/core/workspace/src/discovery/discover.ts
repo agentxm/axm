@@ -18,7 +18,10 @@ import {
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import type { RegistryClientFactoryService } from "@agentxm/registry-client";
-import type { DiscoveryExtensionResult } from "@agentxm/registry-protocol/unstable/registry/discover-schema";
+import type {
+  DiscoveryExtensionResult,
+  DiscoveryResolvedExtension,
+} from "@agentxm/registry-protocol/unstable/registry/discover-schema";
 import { detectPackages } from "./packaging/detect.js";
 import { packageDetectors, packageReaders } from "./packaging/index.js";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
@@ -97,6 +100,38 @@ const unresolvedEntry = (recommendation: DeclaredRecommendation): DiscoverResult
   official: false,
   packageVersionInRange: true,
 });
+
+const resolvedLocalEntry = (input: {
+  readonly recommendation: DeclaredRecommendation;
+  readonly source: Exclude<AgentExtensionSource, { readonly type: "registry" }>;
+  readonly identity: {
+    readonly owner: DiscoveryResolvedExtension["owner"];
+    readonly type: DiscoveryResolvedExtension["type"];
+    readonly name: DiscoveryResolvedExtension["name"];
+  };
+}): DiscoverResultEntry => {
+  const common = {
+    ref: input.recommendation.ref,
+    resolved: true,
+    attestedBy: ["package"],
+    official: false,
+    packageVersionInRange: true,
+  } satisfies Omit<DiscoverResultEntry, "source" | "extension">;
+  switch (input.source.type) {
+    case "git":
+      return {
+        ...common,
+        source: input.source,
+        extension: { ...input.identity, resolution: input.source },
+      };
+    case "path":
+      return {
+        ...common,
+        source: input.source,
+        extension: { ...input.identity, resolution: input.source },
+      };
+  }
+};
 
 const toResolutionSource = (
   source: Exclude<AgentExtensionSource, { readonly type: "registry" }>,
@@ -244,13 +279,14 @@ export const discover = (projectDir: string, registryFactory: RegistryClientFact
               if (recommendation.source.type === "registry") {
                 return Effect.succeed(resolveRegistryRecommendation(pkg, recommendation));
               }
+              const source = recommendation.source;
               const parts = parseExtensionFqnParts(recommendation.ref);
               if (parts === undefined) {
                 return Effect.succeed(unresolvedEntry(recommendation));
               }
-              const source = toResolutionSource(recommendation.source, projectDir, path);
+              const resolutionSource = toResolutionSource(source, projectDir, path);
               return Effect.result(
-                findLocalOrGitExtensionPackagesFromSource(source, {
+                findLocalOrGitExtensionPackagesFromSource(resolutionSource, {
                   names: [parts.name],
                   owner: Option.some(parts.owner),
                   type: parts.type,
@@ -263,20 +299,15 @@ export const discover = (projectDir: string, registryFactory: RegistryClientFact
                   const candidate = resolution.success[0];
                   return candidate === undefined
                     ? unresolvedEntry(recommendation)
-                    : ({
-                        ref: recommendation.ref,
-                        source: recommendation.source,
-                        resolved: true,
-                        extension: {
+                    : resolvedLocalEntry({
+                        recommendation,
+                        source,
+                        identity: {
                           owner: candidate.identity.owner,
                           type: candidate.identity.type,
                           name: candidate.identity.name,
-                          installVersion: candidate.identity.version,
                         },
-                        attestedBy: ["package"],
-                        official: false,
-                        packageVersionInRange: true,
-                      } satisfies DiscoverResultEntry);
+                      });
                 }),
               );
             },

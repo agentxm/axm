@@ -5,12 +5,24 @@
  */
 
 export {
+  type DiscoverPackageInput,
+  DiscoverPackageInputSchema,
+  type DiscoverPackagesRequest,
+  DiscoverPackagesRequestSchema,
   type DiscoverPackagesResponse,
   DiscoverPackagesResponseSchema,
+  type DiscoveryDeclaredExtension,
+  DiscoveryDeclaredExtensionSchema,
   type DiscoveryExtensionResult,
   DiscoveryExtensionResultSchema,
+  DiscoveryGitResolutionSchema,
+  DiscoveryGitResolvedExtensionSchema,
   type DiscoveryPackageResult,
   DiscoveryPackageResultSchema,
+  DiscoveryPathResolutionSchema,
+  DiscoveryPathResolvedExtensionSchema,
+  DiscoveryRegistryResolutionSchema,
+  DiscoveryRegistryResolvedExtensionSchema,
   type DiscoveryResolvedExtension,
   DiscoveryResolvedExtensionSchema,
 } from "./discover-schema.js";

@@ -41,7 +41,10 @@ import {
   PackageUrlSchema,
   type PackageUrlParts,
 } from "@agentxm/extension-model/unstable/packaging/package-url";
-import type { AgentExtensionRecommendation } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
+import {
+  AGENTXM_REGISTRY_URL,
+  type AgentExtensionRecommendation,
+} from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 import {
   packagesToPackageUrlParts,
   ExtensionIndexSchema,
@@ -306,8 +309,16 @@ const extensionDeclarationToDiscoveryRef = (value: AgentExtensionRecommendation)
     return undefined;
   }
 
+  const source = value.source ?? { type: "registry" as const, url: new URL(AGENTXM_REGISTRY_URL) };
   return {
     ref: `${parts.owner}/${toExtensionTypePlural(parts.type)}/${parts.name}`,
+    source:
+      source.type === "path"
+        ? source
+        : {
+            ...source,
+            url: source.url.href,
+          },
     ...(value.versionRange === undefined ? {} : { versionRange: value.versionRange }),
   };
 };

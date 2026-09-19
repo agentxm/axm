@@ -1526,7 +1526,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
           expect(entry.extension?.type).toBe("skill");
           expect(entry.extension?.name).toBe("my-skill");
           expect(entry.extension?.owner).toBe("@test");
-          expect(entry.extension?.installVersion).toBe("1.0.0");
+          expect(entry.extension?.resolution).toEqual({ type: "registry", version: "1.0.0" });
         }).pipe(
           Effect.ensuring(
             Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),

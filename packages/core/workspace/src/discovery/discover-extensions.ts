@@ -39,7 +39,18 @@ const DiscoveredExtensionSchema = Schema.Struct({
   owner: Schema.optional(Schema.String),
   type: Schema.optional(Schema.String),
   name: Schema.optional(Schema.String),
-  installVersion: Schema.optional(Schema.String),
+  resolution: Schema.optional(
+    Schema.Union([
+      Schema.Struct({ type: Schema.Literal("registry"), version: Schema.String }),
+      Schema.Struct({
+        type: Schema.Literal("git"),
+        url: Schema.String,
+        path: Schema.optionalKey(Schema.String),
+        revision: Schema.optionalKey(Schema.String),
+      }),
+      Schema.Struct({ type: Schema.Literal("path"), path: Schema.String }),
+    ]),
+  ),
   attestedBy: Schema.Array(Schema.String),
   official: Schema.Boolean,
   packageVersionInRange: Schema.Boolean,
@@ -86,6 +97,24 @@ const sourceDocument = (source: DiscoverPackageResult["extensions"][number]["sou
   }
 };
 
+const resolutionDocument = (
+  resolution: NonNullable<DiscoverPackageResult["extensions"][number]["extension"]>["resolution"],
+) => {
+  switch (resolution.type) {
+    case "registry":
+      return resolution;
+    case "git":
+      return {
+        type: resolution.type,
+        url: resolution.url.href,
+        ...(resolution.path === undefined ? {} : { path: resolution.path }),
+        ...(resolution.revision === undefined ? {} : { revision: resolution.revision }),
+      };
+    case "path":
+      return resolution;
+  }
+};
+
 const toDocument = (result: DiscoverResult): DiscoverOutput => ({
   items: result.packages.map((pkg) => ({
     package: encodePurl(pkg.detectedPackage),
@@ -96,9 +125,9 @@ const toDocument = (result: DiscoverResult): DiscoverOutput => ({
       ...(entry.extension?.owner === undefined ? {} : { owner: entry.extension.owner }),
       ...(entry.extension?.type === undefined ? {} : { type: entry.extension.type }),
       ...(entry.extension?.name === undefined ? {} : { name: entry.extension.name }),
-      ...(entry.extension?.installVersion === undefined
+      ...(entry.extension?.resolution === undefined
         ? {}
-        : { installVersion: entry.extension.installVersion }),
+        : { resolution: resolutionDocument(entry.extension.resolution) }),
       attestedBy: [...entry.attestedBy],
       official: entry.official,
       packageVersionInRange: entry.packageVersionInRange,

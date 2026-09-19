@@ -1,6 +1,7 @@
 import * as Schema from "effect/Schema";
 
 import { PackageUrlSchema } from "@agentxm/extension-model/unstable/packaging/package-url";
+import { AgentExtensionSourceSchema } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 import { DiscoveryResolvedExtensionSchema } from "@agentxm/registry-protocol/unstable/registry/discover-schema";
 import type { DiscoverExtensionsResult } from "@agentxm/workspace/discovery";
 
@@ -11,7 +12,7 @@ const companion = (
   owner: string,
   type: string,
   name: string,
-  installVersion: string,
+  version: string,
   trust: {
     readonly attestedBy: ReadonlyArray<"package" | "extension">;
     readonly official: boolean;
@@ -24,11 +25,29 @@ const companion = (
     owner,
     type,
     name,
-    installVersion,
+    resolution: { type: "registry", version },
   }),
   packageVersionInRange: true,
   ...trust,
 });
+
+const locatorCompanion = (name: string, sourceInput: unknown) => {
+  const source = Schema.decodeUnknownSync(AgentExtensionSourceSchema)(sourceInput);
+  return {
+    ref: `@acme/skills/${name}`,
+    source,
+    resolved: true,
+    extension: Schema.decodeUnknownSync(DiscoveryResolvedExtensionSchema)({
+      owner: "@acme",
+      type: "skill",
+      name,
+      resolution: sourceInput,
+    }),
+    attestedBy: ["package"],
+    official: false,
+    packageVersionInRange: true,
+  } satisfies DiscoverExtensionsResult["packages"][number]["extensions"][number];
+};
 
 const found = {
   document: { items: [], count: 2, totalDetected: 14, registryAvailable: true },
@@ -45,6 +64,12 @@ const found = {
           attestedBy: ["package", "extension"],
           official: false,
         }),
+        locatorCompanion("git-review", {
+          type: "git",
+          url: "https://github.com/acme/review-tools.git",
+          path: "skills/git-review",
+          revision: "v2.1.0",
+        }),
       ],
     },
     {
@@ -53,6 +78,10 @@ const found = {
         companion("@sam", "skill", "review-notes", "0.2.1", {
           attestedBy: ["extension"],
           official: false,
+        }),
+        locatorCompanion("local-review", {
+          type: "path",
+          path: "extensions/local-review",
         }),
       ],
     },

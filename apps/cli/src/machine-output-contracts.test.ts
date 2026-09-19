@@ -57,6 +57,7 @@ import { LifecycleTransitionOutputSchema } from "./root/lifecycle/command.js";
 
 import { InstructionsStatusOutputSchema } from "./root/instructions.js";
 import { SetupDocumentSchema } from "./root/setup.js";
+import { ShareWorkspaceDocumentSchema } from "@agentxm/workspace/sharing";
 import {
   ExtensionListDocumentSchema,
   ExtensionShowResultSchema,
@@ -103,6 +104,7 @@ const NAMED_MACHINE_OUTPUT_SCHEMAS: Readonly<Record<string, Schema.Top>> = {
   PlanResolutionDocumentSchema,
   PublishResultSchema,
   RevokeTokenDocumentSchema,
+  ShareWorkspaceDocumentSchema,
   SetupDocumentSchema,
   TokenDocumentSchema,
   TokenListDocumentSchema,

@@ -506,6 +506,23 @@ const setupFamily = defineResultFamily({
   commandCoverage: ["apps/cli/src/root/setup.test.ts"],
 });
 
+const shareFamily = defineResultFamily({
+  id: "workspace-share",
+  schemaNames: ["ShareWorkspaceDocumentSchema"],
+  requiredTopLevelKeys: [
+    "command",
+    "origin",
+    "locator",
+    "availability",
+    "extensions",
+    "installCommand",
+  ],
+  scenarios: ["available origin", "unavailable origin", "missing origin", "empty selection"],
+  rationale:
+    "Share is a read-only repository query that reports the live origin and exact typed install selection.",
+  commandCoverage: ["packages/core/workspace/src/sharing/share-workspace.spec.ts"],
+});
+
 const upgradeFamily = defineResultFamily({
   id: "upgrade",
   schemaNames: ["UpgradeDocumentSchema"],
@@ -714,6 +731,7 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
   ...rowsFor(extensionListFamily, ["axm list"]),
   ...rowsFor(instructionsFamily, ["axm instructions"]),
   ...rowsFor(setupFamily, ["axm setup"]),
+  ...rowsFor(shareFamily, ["axm share"]),
   ...rowsFor(upgradeFamily, ["axm upgrade"]),
   ...rowsFor(viewFamily, ["axm view"]),
   ...rowsFor(visibilityEvaluationFamily, ["axm visibility status"]),

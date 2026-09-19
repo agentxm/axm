@@ -108,7 +108,9 @@ export { findGitRoot, isGitManaged } from "./git/detect.js";
 export {
   compareDirectoryToHead,
   getCommitSha,
+  getRemoteUrl,
   getTreeSha,
+  listRemoteRefs,
   shallowClone,
   type GitDirectoryComparisonResult,
   type GitDirectoryDifference,

@@ -11,6 +11,7 @@ import type {
 import type { WorkspaceRuleContext } from "../../../../workspace-context.js";
 import { configuredButNotInstalledRule } from "../../configured-but-not-installed.js";
 import { packsDependenciesResolvedRule } from "../../packs-dependencies-resolved.js";
+import { packsSharedMembersDistributableRule } from "../../packs-shared-members-distributable.js";
 import { skillsLockfileAlignedRule } from "../../skills-lockfile-aligned.js";
 import { skillsIntegrityValidRule } from "../../skills-integrity-valid.js";
 import { skillsArtifactsCorrectRule } from "../../skills-artifacts-correct.js";
@@ -291,6 +292,43 @@ const packDependencyContext = (accepted: boolean) =>
         }) satisfies WorkspaceRuleContext,
     ),
   );
+
+const sharedPackDistributionContext = (distribute: boolean) =>
+  contextFor({
+    settings: validSettings({
+      skills: { reviewer: { source: "workspace", distribute } },
+      packs: { quality: "workspace" },
+    }),
+    lockfile: validLockfile,
+  }).pipe(
+    Effect.map(
+      (context) =>
+        ({
+          ...context,
+          health: {
+            desiredState: Effect.succeed({
+              complete: true,
+              nodes: [packDeclaredReviewer],
+              mcpSourceClosures: [],
+              problems: [],
+            }),
+          },
+        }) satisfies WorkspaceRuleContext,
+    ),
+  );
+
+export const packsSharedMembersDistributableConformance: WorkspaceRuleConformanceCase = {
+  rule: packsSharedMembersDistributableRule,
+  satisfied: () => sharedPackDistributionContext(true),
+  violated: () => sharedPackDistributionContext(false),
+  expectedFindings: [
+    {
+      message: "Shared pack '@acme/packs/quality' names opted-out skill 'reviewer'.",
+      location: { file: "agent_extensions/registry/@acme/packs/quality/pack.json" },
+    },
+  ],
+  inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
+};
 
 export const packsDependenciesResolvedConformance: WorkspaceRuleConformanceCase = {
   rule: packsDependenciesResolvedRule,

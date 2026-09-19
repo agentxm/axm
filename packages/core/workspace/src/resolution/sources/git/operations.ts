@@ -212,6 +212,18 @@ export const listRemoteRefs = (url: string) =>
     }).pipe(Effect.map(parseRemoteRefs));
   }).pipe(Effect.withSpan("Git.listRemoteRefs"));
 
+/** Read one configured remote URL from a local repository. */
+export const getRemoteUrl = (repoPath: string, remoteName: string) =>
+  Effect.tryPromise({
+    try: async (signal) => {
+      const remotes = await createGit(repoPath, signal).getRemotes(true);
+      const remote = remotes.find((candidate) => candidate.name === remoteName);
+      const url = remote?.refs.fetch.trim();
+      return url === undefined || url.length === 0 ? Option.none<string>() : Option.some(url);
+    },
+    catch: mapGitError("get-remote-url", `Failed to read Git remote '${remoteName}'`),
+  }).pipe(Effect.withSpan("Git.getRemoteUrl"));
+
 /** Get the immutable commit checked out at HEAD. */
 export const getCommitSha = (repoPath: string) =>
   Effect.tryPromise({

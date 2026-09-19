@@ -242,6 +242,13 @@ const workspaceLintEntries: ReadonlyArray<RecoveryConformanceEntry> = [
     field: "authoredIntent",
     evidence: workspaceEvidence,
   }),
+  makeEntry("workspace/packs-shared-members-distributable", {
+    owner: "direct-correction",
+    field: "authoredIntent",
+    evidence: [
+      "packages/core/workspace/src/linting/catalog/workspace/workspace-rule-conformance.test.ts",
+    ],
+  }),
   makeEntry("workspace/configured-but-not-installed", {
     owner: "sync",
     field: "canonicalContent",

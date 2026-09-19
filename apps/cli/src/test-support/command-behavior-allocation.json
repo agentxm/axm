@@ -6399,6 +6399,12 @@
         }
       ]
     },
+    "share": {
+      "flags": [],
+      "arguments": [],
+      "relatedRequirements": ["cli/share-prints-live-install-command"],
+      "parameterBindings": []
+    },
     "skills": {
       "flags": [],
       "arguments": [],

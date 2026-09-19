@@ -17,6 +17,7 @@ import {
   PacksMapSchema,
   SETTINGS_KNOWN_KEYS,
   SettingsSchema,
+  SkillEntrySchema,
   SkillsMapSchema,
   SourceHostConfigSchema,
 } from "./schema.js";
@@ -26,6 +27,18 @@ const getSourceLocation = (source: Schema.Schema.Type<typeof SourceHostConfigSch
 
 describe("Settings schema", () => {
   describe("valid settings", () => {
+    it("defaults distribution intent to true and preserves an explicit opt-out", () => {
+      const decode = Schema.decodeUnknownSync(SkillEntrySchema);
+      const encode = Schema.encodeSync(SkillEntrySchema);
+
+      expect(decode("workspace").distribute ?? true).toBe(true);
+      expect(encode(decode("workspace"))).toBe("workspace");
+      expect(encode(decode({ source: "workspace", distribute: false }))).toEqual({
+        source: "workspace",
+        distribute: false,
+      });
+    });
+
     it("accepts empty settings", () => {
       const result = Schema.decodeUnknownSync(SettingsSchema)({});
 

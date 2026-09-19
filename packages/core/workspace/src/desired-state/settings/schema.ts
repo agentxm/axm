@@ -124,10 +124,12 @@ type SourceEntry = {
 
 type EnabledEntryObject = SourceEntryObject & {
   readonly enabled?: boolean | undefined;
+  readonly distribute?: boolean | undefined;
 };
 
 type EnabledEntry = SourceEntry & {
   readonly enabled: boolean;
+  readonly distribute?: boolean;
 };
 
 type KnowledgeEntryObject = EnabledEntryObject & {
@@ -141,6 +143,7 @@ type CanonicalKnowledgeEntry = EnabledEntry & {
 type SkillEntryObject = {
   readonly source: string;
   readonly enabled?: boolean;
+  readonly distribute?: boolean;
   readonly origin?: "bundled";
 };
 
@@ -157,6 +160,7 @@ type McpServerVerboseEntryObject = {
   readonly url?: string | undefined;
   readonly headers?: Readonly<Record<string, string>> | undefined;
   readonly enabled?: boolean | undefined;
+  readonly distribute?: boolean;
   readonly env?: McpServerEnvInput | undefined;
 };
 
@@ -168,6 +172,7 @@ type CanonicalSourcedMcpServerEntry = {
   readonly url?: string | undefined;
   readonly headers?: Readonly<Record<string, string>> | undefined;
   readonly enabled: boolean;
+  readonly distribute?: boolean;
   readonly env: Readonly<Record<string, string>>;
 };
 
@@ -179,6 +184,7 @@ type CanonicalInlineMcpServerEntry = {
   readonly url?: string | undefined;
   readonly headers?: Readonly<Record<string, string>> | undefined;
   readonly enabled: boolean;
+  readonly distribute?: boolean | undefined;
   readonly env: Readonly<Record<string, string>>;
 };
 
@@ -195,6 +201,14 @@ const enabledFieldSchema = Schema.optionalKey(
   Schema.Boolean.annotate({
     description:
       "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
+    default: true,
+  }),
+);
+
+const distributeFieldSchema = Schema.optionalKey(
+  Schema.Boolean.annotate({
+    description:
+      "Set to false to omit this authored extension from repository discovery, bulk publication, and share output. This is distribution intent, not a confidentiality control.",
     default: true,
   }),
 );
@@ -384,6 +398,7 @@ const compactOrVerboseEntry = <
 const EnabledEntryCanonicalSchema = Schema.Struct({
   source: Schema.String,
   enabled: Schema.Boolean,
+  distribute: Schema.optionalKey(Schema.Boolean),
 });
 
 const decodeEnabledEntry = (entry: string | EnabledEntryObject): EnabledEntry =>
@@ -392,14 +407,16 @@ const decodeEnabledEntry = (entry: string | EnabledEntryObject): EnabledEntry =>
     : {
         source: entry.source,
         enabled: entry.enabled ?? true,
+        ...(entry.distribute === false ? { distribute: false } : {}),
       };
 
 const encodeEnabledEntry = (entry: EnabledEntry): string | EnabledEntryObject => {
-  if (entry.enabled) return entry.source;
-  const obj: { source: string; enabled?: boolean } = {
+  if (entry.enabled && entry.distribute !== false) return entry.source;
+  const obj: { source: string; enabled?: boolean; distribute?: boolean } = {
     source: entry.source,
   };
   if (!entry.enabled) obj.enabled = false;
+  if (entry.distribute === false) obj.distribute = false;
   return obj;
 };
 
@@ -432,6 +449,7 @@ const compactEnabledEntry = (
 export const SkillEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("skill", "skills"),
   enabled: enabledFieldSchema,
+  distribute: distributeFieldSchema,
   origin: Schema.optionalKey(
     Schema.Literal("bundled").annotate({
       description:
@@ -440,12 +458,14 @@ export const SkillEntryObjectSchema = Schema.Struct({
   ),
 }).annotate({
   title: "Skill Entry Object",
-  description: "A skill entry with source, optional enabled state, and bundled origin marker.",
+  description:
+    "A skill entry with source, optional enabled and distribution state, and bundled origin marker.",
 });
 
 const SkillEntryCanonicalSchema = Schema.Struct({
   source: Schema.String,
   enabled: Schema.Boolean,
+  distribute: Schema.optionalKey(Schema.Boolean),
   origin: Schema.optionalKey(Schema.Literal("bundled")),
 });
 
@@ -455,14 +475,17 @@ const decodeSkillEntry = (entry: string | SkillEntryObject): CanonicalSkillEntry
     : {
         source: entry.source,
         enabled: entry.enabled ?? true,
+        ...(entry.distribute === false ? { distribute: false } : {}),
         ...(entry.origin === undefined ? {} : { origin: entry.origin }),
       };
 
 const encodeSkillEntry = (entry: CanonicalSkillEntry): string | SkillEntryObject => {
-  if (entry.enabled && entry.origin === undefined) return entry.source;
+  if (entry.enabled && entry.distribute !== false && entry.origin === undefined)
+    return entry.source;
   return {
     source: entry.source,
     ...(!entry.enabled ? { enabled: false } : {}),
+    ...(entry.distribute === false ? { distribute: false } : {}),
     ...(entry.origin === undefined ? {} : { origin: entry.origin }),
   };
 };
@@ -544,9 +567,10 @@ export type SkillsMap = Schema.Schema.Type<typeof SkillsMapSchema>;
 export const RuleEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("rule", "rules"),
   enabled: enabledFieldSchema,
+  distribute: distributeFieldSchema,
 }).annotate({
   title: "Rule Entry Object",
-  description: "A rule entry with source and an optional enabled flag.",
+  description: "A rule entry with source and optional enabled and distribution state.",
 });
 
 /**
@@ -597,9 +621,10 @@ export type RulesMap = Schema.Schema.Type<typeof RulesMapSchema>;
 export const HookEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("hook", "hooks"),
   enabled: enabledFieldSchema,
+  distribute: distributeFieldSchema,
 }).annotate({
   title: "Hook Entry Object",
-  description: "A hook entry with source and an optional enabled flag.",
+  description: "A hook entry with source and optional enabled and distribution state.",
 });
 
 /**
@@ -645,6 +670,7 @@ export type HooksMap = Schema.Schema.Type<typeof HooksMapSchema>;
 export const KnowledgeEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("knowledge bundle", "knowledge"),
   enabled: enabledFieldSchema,
+  distribute: distributeFieldSchema,
   instructionEntry: Schema.optionalKey(
     Schema.Boolean.annotate({
       description:
@@ -654,12 +680,13 @@ export const KnowledgeEntryObjectSchema = Schema.Struct({
 }).annotate({
   title: "Knowledge Entry Object",
   description:
-    "A knowledge bundle entry with source, optional enabled state, and an optional instruction-entry override.",
+    "A knowledge bundle entry with source, optional enabled and distribution state, and an optional instruction-entry override.",
 });
 
 const KnowledgeEntryCanonicalSchema = Schema.Struct({
   source: Schema.String,
   enabled: Schema.Boolean,
+  distribute: Schema.optionalKey(Schema.Boolean),
   instructionEntry: Schema.optionalKey(Schema.Boolean),
 });
 
@@ -669,16 +696,19 @@ const decodeKnowledgeEntry = (entry: string | KnowledgeEntryObject): CanonicalKn
     : {
         source: entry.source,
         enabled: entry.enabled ?? true,
+        ...(entry.distribute === false ? { distribute: false } : {}),
         ...(entry.instructionEntry === undefined
           ? {}
           : { instructionEntry: entry.instructionEntry }),
       };
 
 const encodeKnowledgeEntry = (entry: CanonicalKnowledgeEntry): string | KnowledgeEntryObject => {
-  if (entry.enabled && entry.instructionEntry === undefined) return entry.source;
+  if (entry.enabled && entry.distribute !== false && entry.instructionEntry === undefined)
+    return entry.source;
   return {
     source: entry.source,
     ...(!entry.enabled ? { enabled: false } : {}),
+    ...(entry.distribute === false ? { distribute: false } : {}),
     ...(entry.instructionEntry === undefined ? {} : { instructionEntry: entry.instructionEntry }),
   };
 };
@@ -726,10 +756,12 @@ export type KnowledgeMap = Schema.Schema.Type<typeof KnowledgeMapSchema>;
 export const McpServerEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("MCP server", "mcps"),
   enabled: enabledFieldSchema,
+  distribute: distributeFieldSchema,
   env: Schema.optionalKey(McpServerEnvSchema),
 }).annotate({
   title: "MCP Server Entry Object",
-  description: "An MCP server entry with source and optional enabled/env fields.",
+  description:
+    "An MCP server entry with source and optional enabled, distribution, and env fields.",
 });
 
 const McpServerVerboseEntryObjectSchema = Schema.Struct({
@@ -762,6 +794,7 @@ const McpServerVerboseEntryObjectSchema = Schema.Struct({
     }),
   ),
   enabled: enabledFieldSchema,
+  distribute: distributeFieldSchema,
   env: Schema.optionalKey(McpServerEnvSchema),
 }).pipe(
   Schema.check(
@@ -790,6 +823,7 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
       url: Schema.optional(Schema.String),
       headers: Schema.optional(Schema.Record(Schema.String, Schema.String)),
       enabled: Schema.Boolean,
+      distribute: Schema.optionalKey(Schema.Boolean),
       env: Schema.Record(Schema.String, Schema.String),
     }),
     Schema.Struct({
@@ -800,6 +834,7 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
       url: Schema.optional(Schema.String),
       headers: Schema.optional(Schema.Record(Schema.String, Schema.String)),
       enabled: Schema.Boolean,
+      distribute: Schema.optionalKey(Schema.Boolean),
       env: Schema.Record(Schema.String, Schema.String),
     }),
   ]),
@@ -812,6 +847,7 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
               kind: "sourced",
               source: entry.source,
               enabled: entry.enabled ?? true,
+              ...(entry.distribute === false ? { distribute: false } : {}),
               env: decodeMcpEnv(entry.env),
             }
           : {
@@ -821,10 +857,16 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
               ...(entry.url === undefined ? {} : { url: entry.url }),
               ...(entry.headers === undefined ? {} : { headers: entry.headers }),
               enabled: entry.enabled ?? true,
+              ...(entry.distribute === false ? { distribute: false } : {}),
               env: decodeMcpEnv(entry.env),
             },
     encode: (entry: CanonicalMcpServerEntry): string | McpServerVerboseEntryObject => {
-      if (entry.kind !== "inline" && entry.enabled && Object.keys(entry.env).length === 0) {
+      if (
+        entry.kind !== "inline" &&
+        entry.enabled &&
+        entry.distribute !== false &&
+        Object.keys(entry.env).length === 0
+      ) {
         return entry.source;
       }
       const obj: {
@@ -834,6 +876,7 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
         url?: string;
         headers?: Readonly<Record<string, string>>;
         enabled?: boolean;
+        distribute?: boolean;
         env?: Readonly<Record<string, string>>;
       } = {};
       if (entry.kind !== "inline") obj.source = entry.source;
@@ -849,11 +892,13 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
         obj.headers = entry.headers;
       }
       if (!entry.enabled) obj.enabled = false;
+      if (entry.distribute === false) obj.distribute = false;
       if (Object.keys(entry.env).length > 0) obj.env = entry.env;
       if (entry.kind !== "inline") {
         return {
           source: entry.source,
           ...(obj.enabled === undefined ? {} : { enabled: obj.enabled }),
+          ...(obj.distribute === undefined ? {} : { distribute: obj.distribute }),
           ...(obj.env === undefined ? {} : { env: obj.env }),
         };
       }
@@ -862,6 +907,7 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
           command: entry.command,
           ...(obj.args === undefined ? {} : { args: obj.args }),
           ...(obj.enabled === undefined ? {} : { enabled: obj.enabled }),
+          ...(obj.distribute === undefined ? {} : { distribute: obj.distribute }),
           ...(obj.env === undefined ? {} : { env: obj.env }),
         };
       }
@@ -869,6 +915,7 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
         url: entry.url ?? "",
         ...(obj.headers === undefined ? {} : { headers: obj.headers }),
         ...(obj.enabled === undefined ? {} : { enabled: obj.enabled }),
+        ...(obj.distribute === undefined ? {} : { distribute: obj.distribute }),
         ...(obj.env === undefined ? {} : { env: obj.env }),
       };
     },
@@ -941,9 +988,10 @@ export type McpServersMap = Schema.Schema.Type<typeof McpServersMapSchema>;
 export const SubagentEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("subagent", "subagents"),
   enabled: enabledFieldSchema,
+  distribute: distributeFieldSchema,
 }).annotate({
   title: "Subagent Entry Object",
-  description: "A subagent entry with source and an optional enabled flag.",
+  description: "A subagent entry with source and optional enabled and distribution state.",
 });
 
 /**
@@ -1012,9 +1060,10 @@ export type SubagentsMap = Schema.Schema.Type<typeof SubagentsMapSchema>;
 export const PackEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("pack", "packs"),
   enabled: enabledFieldSchema,
+  distribute: distributeFieldSchema,
 }).annotate({
   title: "Pack Entry Object",
-  description: "A pack entry with a source and an optional enabled flag.",
+  description: "A pack entry with source and optional enabled and distribution state.",
 });
 
 /**
@@ -1315,21 +1364,21 @@ const SettingsBaseSchema = Schema.Struct({
   skills: Schema.optionalKey(
     Schema.Union([SkillsMapSchema]).annotate({
       description:
-        "Desired skills, keyed by workspace skill name. Prefer plain source strings; use the object form only to set `enabled: false`.",
+        "Desired skills, keyed by workspace skill name. Prefer plain source strings; use the object form to set non-default entry metadata such as `enabled: false` or `distribute: false`.",
     }),
   ),
   skillsConfig: Schema.optionalKey(SkillsConfigSchema),
   rules: Schema.optionalKey(
     Schema.Union([RulesMapSchema]).annotate({
       description:
-        "Desired rules, keyed by workspace rule name. Prefer plain source strings; use the object form only to set `enabled: false`.",
+        "Desired rules, keyed by workspace rule name. Prefer plain source strings; use the object form to set non-default entry metadata such as `enabled: false` or `distribute: false`.",
     }),
   ),
   rulesConfig: Schema.optionalKey(RulesConfigSchema),
   hooks: Schema.optionalKey(
     Schema.Union([HooksMapSchema]).annotate({
       description:
-        "Desired hooks, keyed by workspace hook name. Prefer plain source strings; use the object form only to set `enabled: false`.",
+        "Desired hooks, keyed by workspace hook name. Prefer plain source strings; use the object form to set non-default entry metadata such as `enabled: false` or `distribute: false`.",
     }),
   ),
   hooksConfig: Schema.optionalKey(HooksConfigSchema),
@@ -1346,21 +1395,21 @@ const SettingsBaseSchema = Schema.Struct({
   subagents: Schema.optionalKey(
     Schema.Union([SubagentsMapSchema]).annotate({
       description:
-        "Desired subagents, keyed by workspace subagent name. Prefer plain source strings; use the object form only to set `enabled: false`.",
+        "Desired subagents, keyed by workspace subagent name. Prefer plain source strings; use the object form to set non-default entry metadata such as `enabled: false` or `distribute: false`.",
     }),
   ),
   subagentsConfig: Schema.optionalKey(SubagentsConfigSchema),
   packs: Schema.optionalKey(
     Schema.Union([PacksMapSchema]).annotate({
       description:
-        "Desired packs, keyed by workspace pack name. Pack entries do not support `enabled`.",
+        "Desired packs, keyed by workspace pack name. Prefer plain source strings; use the object form to set non-default entry metadata such as `enabled: false` or `distribute: false`.",
     }),
   ),
   packsConfig: Schema.optionalKey(PacksConfigSchema),
   mcpServers: Schema.optionalKey(
     Schema.Union([McpServersMapSchema]).annotate({
       description:
-        "Desired MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form to set enabled state, persisted env values, or an agent target subset.",
+        "Desired MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form to set enabled or distribution state and persisted env values.",
     }),
   ),
   mcpServersConfig: Schema.optionalKey(McpServersConfigSchema),

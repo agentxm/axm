@@ -106,6 +106,11 @@ User scope does not accept user-authored `workspace` sources or
 authoring-directory settings. The bundled AXM skill is a reserved internal
 static package.
 
+Set `distribute: false` on an authored extension's object-form entry to omit it
+from repository discovery, bulk publication, and `axm share`. This is
+distribution intent, not confidentiality: files committed to public Git remain
+publicly accessible.
+
 ```jsonc
 {
   "skills": {

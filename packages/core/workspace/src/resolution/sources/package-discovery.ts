@@ -55,9 +55,31 @@ export const isManifestExtensionPackage = (
   candidate: DiscoveredExtensionPackage,
 ): candidate is DiscoveredManifestExtensionPackage => candidate.kind === "manifest";
 
-const SourceOwnerSchema = Schema.Struct({
+const DistributionEntrySchema = Schema.Union([
+  Schema.String,
+  Schema.Struct({
+    source: Schema.optionalKey(Schema.String),
+    distribute: Schema.optionalKey(Schema.Boolean),
+  }),
+]);
+
+const DistributionMapSchema = Schema.Record(Schema.String, DistributionEntrySchema);
+
+const SourceSettingsSchema = Schema.Struct({
   owner: Schema.optionalKey(HandleSchema),
+  skills: Schema.optionalKey(DistributionMapSchema),
+  mcpServers: Schema.optionalKey(DistributionMapSchema),
+  subagents: Schema.optionalKey(DistributionMapSchema),
+  rules: Schema.optionalKey(DistributionMapSchema),
+  hooks: Schema.optionalKey(DistributionMapSchema),
+  knowledge: Schema.optionalKey(DistributionMapSchema),
+  packs: Schema.optionalKey(DistributionMapSchema),
 });
+
+interface SourceSettings {
+  readonly owner: Option.Option<Handle>;
+  readonly distributionOptOuts: ReadonlySet<string>;
+}
 
 const typeForManifestFilename = (fileName: string): ExtensionType | undefined =>
   extensionTypes.find((type) => MANIFEST_FILENAME_BY_TYPE[type] === fileName);
@@ -82,9 +104,9 @@ const matchesPortableSkillFilter = (
   (filter.names.length === 0 || filter.names.includes(candidate.name)) &&
   Option.isNone(filter.owner);
 
-const readSourceOwner = (
+const readSourceSettings = (
   root: string,
-): Effect.Effect<Option.Option<Handle>, SourceNotResolvable, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<SourceSettings, SourceNotResolvable, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -99,7 +121,9 @@ const readSourceOwner = (
           }),
       ),
     );
-    if (!exists) return Option.none<Handle>();
+    if (!exists) {
+      return { owner: Option.none<Handle>(), distributionOptOuts: new Set<string>() };
+    }
 
     const text = yield* fs.readFileString(settingsPath).pipe(
       Effect.mapError(
@@ -121,7 +145,7 @@ const readSourceOwner = (
           }),
       ),
     );
-    const settings = yield* Schema.decodeUnknownEffect(SourceOwnerSchema)(raw).pipe(
+    const settings = yield* Schema.decodeUnknownEffect(SourceSettingsSchema)(raw).pipe(
       Effect.mapError(
         (cause) =>
           new SourceNotResolvable({
@@ -131,7 +155,32 @@ const readSourceOwner = (
           }),
       ),
     );
-    return Option.fromUndefinedOr(settings.owner);
+    const distributionOptOuts = new Set<string>();
+    const collect = (
+      type: ExtensionType,
+      entries: Readonly<Record<string, typeof DistributionEntrySchema.Type>> | undefined,
+    ) => {
+      for (const [name, entry] of Object.entries(entries ?? {})) {
+        if (
+          typeof entry !== "string" &&
+          entry.source === "workspace" &&
+          entry.distribute === false
+        ) {
+          distributionOptOuts.add(`${type}:${name}`);
+        }
+      }
+    };
+    collect("skill", settings.skills);
+    collect("mcp-server", settings.mcpServers);
+    collect("subagent", settings.subagents);
+    collect("rule", settings.rules);
+    collect("hook", settings.hooks);
+    collect("knowledge", settings.knowledge);
+    collect("pack", settings.packs);
+    return {
+      owner: Option.fromUndefinedOr(settings.owner),
+      distributionOptOuts,
+    };
   });
 
 const withDefaultOwner = (raw: unknown, defaultOwner: Option.Option<Handle>): unknown => {
@@ -334,7 +383,7 @@ export const discoverExtensionPackages = (
     }
 
     const resolvedRoot = path.resolve(root);
-    const defaultOwner = yield* readSourceOwner(resolvedRoot);
+    const sourceSettings = yield* readSourceSettings(resolvedRoot);
     const scan = (
       directory: string,
       depth: number,
@@ -353,11 +402,15 @@ export const discoverExtensionPackages = (
         );
         const manifests = entries.filter((entry) => typeForManifestFilename(entry) !== undefined);
         if (manifests.length > 0) {
-          const candidate = yield* inspectExtensionPackage(directory, defaultOwner).pipe(
+          const candidate = yield* inspectExtensionPackage(directory, sourceSettings.owner).pipe(
             Effect.provideService(FileSystem.FileSystem, fs),
             Effect.provideService(Path.Path, path),
           );
-          return matchesFilter(candidate.identity, filter) ? [candidate] : [];
+          const distributionKey = `${candidate.identity.type}:${candidate.identity.name}`;
+          return matchesFilter(candidate.identity, filter) &&
+            !sourceSettings.distributionOptOuts.has(distributionKey)
+            ? [candidate]
+            : [];
         }
 
         const portable = entries.includes("SKILL.md")
@@ -367,7 +420,9 @@ export const discoverExtensionPackages = (
             )
           : Option.none<DiscoveredPortableSkillPackage>();
         const current =
-          Option.isSome(portable) && matchesPortableSkillFilter(portable.value, filter)
+          Option.isSome(portable) &&
+          matchesPortableSkillFilter(portable.value, filter) &&
+          !sourceSettings.distributionOptOuts.has(`skill:${portable.value.name}`)
             ? [portable.value]
             : [];
         if (depth === DISCOVERY_MAX_DEPTH) return current;

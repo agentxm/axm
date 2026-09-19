@@ -25,6 +25,7 @@ import {
 } from "@agentxm/workspace/lifecycle";
 import { AuthoringFailed } from "@agentxm/workspace/authoring";
 import { PublishFailed } from "@agentxm/workspace/publishing";
+import { ShareFailed } from "@agentxm/workspace/sharing";
 import type { ExpectedCliError } from "./cli-runtime/index.js";
 import {
   isRegistryAccessFailure,
@@ -138,6 +139,16 @@ export const publishFailedToAppError = (error: PublishFailed): AppError =>
 export const publishFailureToAppError = (failure: unknown): AppError => {
   if (failure instanceof PublishFailed) return publishFailedToAppError(failure);
   if (isRegistryAccessFailure(failure)) return registryAccessFailureToAppError(failure);
+  if (failure instanceof AppError) return failure;
+  if (isKnownFailure(failure)) return toAppError(failure);
+  return makeAppError({ code: "internal", detail: String(failure), cause: failure });
+};
+
+/** Convert sharing refusals and workspace/Git read failures into the CLI envelope. */
+export const shareFailureToAppError = (failure: unknown): AppError => {
+  if (failure instanceof ShareFailed) {
+    return makeAppError({ code: failure.category, detail: failure.detail });
+  }
   if (failure instanceof AppError) return failure;
   if (isKnownFailure(failure)) return toAppError(failure);
   return makeAppError({ code: "internal", detail: String(failure), cause: failure });

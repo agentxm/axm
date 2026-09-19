@@ -85,6 +85,7 @@ export type GitOperation =
   | "clone"
   | "fetch-commit"
   | "list-remote-refs"
+  | "get-remote-url"
   | "get-commit-sha"
   | "get-tree-sha"
   | "compare-directory-to-head";

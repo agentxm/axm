@@ -52,9 +52,7 @@ import { createRegistryClient } from "@agentxm/registry-client";
 import {
   SettingsReader,
   WorkspaceLocation,
-  WorkspaceRecords,
   acceptedCanonicalObservation,
-  configuredRowsByName,
 } from "../../desired-state/index.js";
 
 import { PublishFailed } from "../errors.js";
@@ -134,6 +132,7 @@ export interface CatalogEntry {
   readonly type: PublishableType;
   readonly name: string;
   readonly source: string;
+  readonly distribute: boolean;
 }
 
 export interface SelectedEntry extends CatalogEntry {
@@ -216,19 +215,24 @@ const entrySource = (entry: unknown): string | undefined => {
   return typeof entry.source === "string" ? entry.source : undefined;
 };
 
+const entryDistribution = (entry: unknown): boolean =>
+  typeof entry !== "object" ||
+  entry === null ||
+  !("distribute" in entry) ||
+  entry.distribute !== false;
+
 /** Every configured extension of a publishable type, with its source string. */
 export const catalogEntries = Effect.fn("Publish.catalogEntries")(function* () {
-  const records = yield* WorkspaceRecords;
   const settings = yield* SettingsReader;
   const [skills, mcps, subagents, rules, hooks, knowledge, packs] = yield* Effect.all(
     [
-      records.rows("skill").pipe(Effect.map(configuredRowsByName)),
-      records.rows("mcp-server").pipe(Effect.map(configuredRowsByName)),
-      records.rows("subagent").pipe(Effect.map(configuredRowsByName)),
+      settings.entries("skill"),
+      settings.entries("mcp-server"),
+      settings.entries("subagent"),
       settings.entries("rule"),
       settings.entries("hook"),
       settings.entries("knowledge"),
-      records.rows("pack").pipe(Effect.map(configuredRowsByName)),
+      settings.entries("pack"),
     ],
     { concurrency: "unbounded" },
   );
@@ -236,7 +240,9 @@ export const catalogEntries = Effect.fn("Publish.catalogEntries")(function* () {
   const group = (type: PublishableType, entries: Readonly<Record<string, unknown>>) =>
     Object.entries(entries).flatMap(([name, entry]) => {
       const source = entrySource(entry);
-      return source === undefined ? [] : [{ type, name, source } satisfies CatalogEntry];
+      return source === undefined
+        ? []
+        : [{ type, name, source, distribute: entryDistribution(entry) } satisfies CatalogEntry];
     });
 
   return [
@@ -247,7 +253,10 @@ export const catalogEntries = Effect.fn("Publish.catalogEntries")(function* () {
     ...group("hook", hooks),
     ...group("knowledge", knowledge),
     ...group("pack", packs),
-  ];
+  ].sort((left, right) => {
+    const typeOrder = extensionTypes.indexOf(left.type) - extensionTypes.indexOf(right.type);
+    return typeOrder === 0 ? left.name.localeCompare(right.name) : typeOrder;
+  });
 });
 
 export const sourceType = (source: string): SourceType => {
@@ -441,7 +450,7 @@ export const selectEntries = Effect.fn("Publish.selectEntries")(function* (
       .map((entry) => (entry.authored ? entry : { ...entry, skipReason: "not_authored" }));
     mode = "explicit";
   } else {
-    selected = identities.filter((entry) => entry.authored);
+    selected = identities.filter((entry) => entry.authored && entry.distribute);
     mode = "authored";
     if (args.owners.length > 0) {
       selected = selected.filter((entry) => args.owners.includes(entry.owner));
@@ -493,6 +502,7 @@ export const selectEntries = Effect.fn("Publish.selectEntries")(function* (
               type: parsed.type,
               name: parsed.name,
               source: dependencyFqn,
+              distribute: true,
               owner: parsed.owner,
               fqn: dependencyFqn,
               sourceType: "registry",

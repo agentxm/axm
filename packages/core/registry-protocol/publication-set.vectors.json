@@ -1,0 +1,175 @@
+{
+  "format": "agentxm-publication-set-digest-vectors-v1",
+  "contract": "publication-set-v2",
+  "canonicalization": {
+    "encoding": "Hash the UTF-8 bytes of JSON.stringify over the canonical object described by publication-set-v2.",
+    "objectKeys": "Reconstruct descriptor, target, visibility, intent, pack, and dependency objects in the contract's declared key order before hashing.",
+    "candidateOrder": "Sort candidates by owner, type, name, then version using ascending code-unit order.",
+    "dependencyOrder": "Sort pack dependencies by owner, type, name, then range using ascending code-unit order.",
+    "optionalFields": "Omit archiveSha256Hex and pack when absent. null is invalid for either optional field and must be rejected before hashing.",
+    "evolution": "A future digest algorithm must mint a new publication-set contract identifier and vector format; do not change these vectors in place."
+  },
+  "vectors": [
+    {
+      "name": "optional-fields-omitted",
+      "candidates": [
+        {
+          "descriptor": {
+            "target": {
+              "owner": "@acme",
+              "type": "skill",
+              "name": "existing",
+              "version": "1.0.0"
+            },
+            "participation": "verified-existing",
+            "visibility": {
+              "intent": null,
+              "request": null
+            }
+          },
+          "descriptorDigest": "b7aeb666fa2e467bbbf6e28e9b5299e3d3b5f3f9dce5f7a9dc7222df4aa6316a"
+        }
+      ],
+      "publicationSetDigest": "ef0e42506c66afc3d522df6179b3c6c4c12240f3a57c57f9d64ad2bffb19cef5"
+    },
+    {
+      "name": "visibility-input",
+      "candidates": [
+        {
+          "descriptor": {
+            "target": {
+              "owner": "@acme",
+              "type": "rule",
+              "name": "guard",
+              "version": "2.1.0"
+            },
+            "participation": "publish",
+            "visibility": {
+              "intent": {
+                "value": "private",
+                "source": "workspace",
+                "fingerprint": "2222222222222222222222222222222222222222222222222222222222222222"
+              },
+              "request": "public"
+            },
+            "archiveSha256Hex": "1111111111111111111111111111111111111111111111111111111111111111"
+          },
+          "descriptorDigest": "d6934f76c10be57d7ab7099e880ef28a5dfbecfe4eb706b1199e141901176a2b"
+        }
+      ],
+      "publicationSetDigest": "ad643e51e182bc14772ea42c8b6d3805a27d0657aac98ed45274bfa107581106"
+    },
+    {
+      "name": "pack-dependencies-and-candidate-order",
+      "candidates": [
+        {
+          "descriptor": {
+            "target": {
+              "owner": "@zeta",
+              "type": "pack",
+              "name": "team",
+              "version": "3.0.0"
+            },
+            "participation": "publish",
+            "visibility": {
+              "intent": null,
+              "request": null
+            },
+            "archiveSha256Hex": "3333333333333333333333333333333333333333333333333333333333333333",
+            "pack": {
+              "dependencies": [
+                {
+                  "owner": "@zeta",
+                  "type": "skill",
+                  "name": "last",
+                  "range": "^2.0.0"
+                },
+                {
+                  "owner": "@acme",
+                  "type": "rule",
+                  "name": "guard",
+                  "range": "^2.1.0"
+                }
+              ]
+            }
+          },
+          "descriptorDigest": "34ebd67ef59afc296b921716ca98bbdd48548466896ca636bd16499e333d7273"
+        },
+        {
+          "descriptor": {
+            "target": {
+              "owner": "@acme",
+              "type": "skill",
+              "name": "review",
+              "version": "1.2.0"
+            },
+            "participation": "publish",
+            "visibility": {
+              "intent": null,
+              "request": "public"
+            },
+            "archiveSha256Hex": "4444444444444444444444444444444444444444444444444444444444444444"
+          },
+          "descriptorDigest": "a480ea68a556dc3e00e8b037c43a97a2ea385a45ab0fad28262d555f1393133b"
+        }
+      ],
+      "publicationSetDigest": "2fd0aa0d5e79a03feceb16307aa87e79d0f8056e87a59678ec9675b638f6016e"
+    },
+    {
+      "name": "original-publication-set-v2-pins",
+      "candidates": [
+        {
+          "descriptor": {
+            "target": {
+              "owner": "@acme",
+              "type": "pack",
+              "name": "team",
+              "version": "2.0.0"
+            },
+            "participation": "publish",
+            "visibility": {
+              "intent": null,
+              "request": null
+            },
+            "archiveSha256Hex": "4862f447f2c7f272fa2f4aaf89dadb3b1ac09105bd5864f8d1a0c9452bb0a226",
+            "pack": {
+              "dependencies": [
+                {
+                  "owner": "@zeta",
+                  "type": "skill",
+                  "name": "last",
+                  "range": "^1.0.0"
+                },
+                {
+                  "owner": "@acme",
+                  "type": "skill",
+                  "name": "review",
+                  "range": "^1.2.0"
+                }
+              ]
+            }
+          },
+          "descriptorDigest": "f7ee37ff8488e6b4ef99514496ad85f40153fb6defee0e511f9d5342cb60f50d"
+        },
+        {
+          "descriptor": {
+            "target": {
+              "owner": "@acme",
+              "type": "skill",
+              "name": "review",
+              "version": "1.2.0"
+            },
+            "participation": "publish",
+            "visibility": {
+              "intent": null,
+              "request": "public"
+            },
+            "archiveSha256Hex": "9c53c074d7ac6a2728b638ac1f376c5fa9eb8f71603017c3ea638c2fd40548df"
+          },
+          "descriptorDigest": "7700a3c2b2ff0caffd0d3da12a4c5c13b338b0adb557979ce9cbceb899670c5b"
+        }
+      ],
+      "publicationSetDigest": "a7d28ff4005c1596cd373060c13279a58469573e49685fe17b8d767b4c210c6c"
+    }
+  ]
+}

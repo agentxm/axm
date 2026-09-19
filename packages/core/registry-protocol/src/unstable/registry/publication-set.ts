@@ -71,7 +71,7 @@ export const PublicationVisibilityInputSchema = Schema.Struct({
 
 export type PublicationVisibilityInput = typeof PublicationVisibilityInputSchema.Type;
 
-const PublicationDescriptorSchema = Schema.Struct({
+export const PublicationDescriptorSchema = Schema.Struct({
   target: PublicationTargetSchema,
   participation: Schema.Literals(["publish", "verified-existing"] as const),
   archiveSha256Hex: Schema.optional(Sha256HexSchema),
@@ -305,26 +305,49 @@ const compareDependencies = (
   compareText(left.name, right.name) ||
   compareText(left.range, right.range);
 
-export const normalizePublicationDescriptor = (
-  descriptor: PublicationDescriptor,
-): PublicationDescriptor => ({
-  target: descriptor.target,
-  participation: descriptor.participation,
-  visibility: descriptor.visibility,
-  ...(descriptor.archiveSha256Hex === undefined
-    ? {}
-    : { archiveSha256Hex: descriptor.archiveSha256Hex }),
-  ...(descriptor.pack === undefined
-    ? {}
-    : {
-        pack: {
-          dependencies: [...descriptor.pack.dependencies].sort(compareDependencies),
-        },
-      }),
-});
+export const normalizePublicationDescriptor = (input: unknown): PublicationDescriptor => {
+  const descriptor = Schema.decodeUnknownSync(PublicationDescriptorSchema)(input);
+  return {
+    target: {
+      owner: descriptor.target.owner,
+      type: descriptor.target.type,
+      name: descriptor.target.name,
+      version: descriptor.target.version,
+    },
+    participation: descriptor.participation,
+    visibility: {
+      intent:
+        descriptor.visibility.intent === null
+          ? null
+          : {
+              value: descriptor.visibility.intent.value,
+              source: descriptor.visibility.intent.source,
+              fingerprint: descriptor.visibility.intent.fingerprint,
+            },
+      request: descriptor.visibility.request,
+    },
+    ...(descriptor.archiveSha256Hex === undefined
+      ? {}
+      : { archiveSha256Hex: descriptor.archiveSha256Hex }),
+    ...(descriptor.pack === undefined
+      ? {}
+      : {
+          pack: {
+            dependencies: descriptor.pack.dependencies
+              .map((dependency) => ({
+                owner: dependency.owner,
+                type: dependency.type,
+                name: dependency.name,
+                range: dependency.range,
+              }))
+              .sort(compareDependencies),
+          },
+        }),
+  };
+};
 
 export const normalizePublicationSet = (
-  descriptors: ReadonlyArray<PublicationDescriptor>,
+  descriptors: ReadonlyArray<unknown>,
 ): ReadonlyArray<PublicationDescriptor> =>
   descriptors
     .map(normalizePublicationDescriptor)
@@ -336,7 +359,7 @@ const canonicalBytes = (value: unknown): Uint8Array =>
 const sha256Hex = (bytes: Uint8Array): Sha256Hex =>
   Schema.decodeUnknownSync(Sha256HexSchema)(createHash("sha256").update(bytes).digest("hex"));
 
-export const publicationDescriptorDigest = (descriptor: PublicationDescriptor): Sha256Hex =>
+export const publicationDescriptorDigest = (descriptor: unknown): Sha256Hex =>
   sha256Hex(
     canonicalBytes({
       contract: PUBLICATION_SET_CONTRACT,
@@ -344,9 +367,7 @@ export const publicationDescriptorDigest = (descriptor: PublicationDescriptor): 
     }),
   );
 
-export const publicationSetDigest = (
-  descriptors: ReadonlyArray<PublicationDescriptor>,
-): Sha256Hex =>
+export const publicationSetDigest = (descriptors: ReadonlyArray<unknown>): Sha256Hex =>
   sha256Hex(
     canonicalBytes({
       contract: PUBLICATION_SET_CONTRACT,

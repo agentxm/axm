@@ -4691,6 +4691,20 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Derived from: `apps/cli/help/topics/publish.md`, `apps/cli/src/root/publish/command.test.ts`
 - Source: [`packages/core/workspace/src/publishing/archive/archive-inventory-matches-published-bytes.spec.ts`](../packages/core/workspace/src/publishing/archive/archive-inventory-matches-published-bytes.spec.ts)
 
+#### Constraints
+
+##### Publication-set digests follow versioned conformance vectors
+
+- Requirement: `registry/publication-set-digests-follow-versioned-vectors`
+- Owner: `registry-protocol`
+- Statement: Publication descriptor and set digests shall match the byte-vendorable vectors published by the Registry protocol package regardless of input object-key, candidate, or pack-dependency order; absent optional fields shall be omitted and null optional fields rejected before hashing; and a digest algorithm change shall use a new contract identifier and vector format.
+- Class: constraint
+- Role: interface
+- Product goals: `trustworthy-distribution`, `dependable-change-process`
+- Boundary: memory; selection: per-change
+- Methods: contract, example
+- Source: [`packages/core/registry-protocol/src/unstable/registry/publication-set-digests-follow-versioned-vectors.spec.ts`](../packages/core/registry-protocol/src/unstable/registry/publication-set-digests-follow-versioned-vectors.spec.ts)
+
 #### External conformance
 
 ##### Publishing is a write the publisher makes as themselves

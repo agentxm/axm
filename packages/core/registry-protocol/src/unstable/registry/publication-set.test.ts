@@ -15,7 +15,6 @@ import {
   archiveSha256Hex,
   formatPackDependencyFinding,
   PackDependencyFindingSchema,
-  normalizePublicationSet,
   publicationDescriptorDigest,
   publicationSetDigest,
   validatePublicationDescriptors,
@@ -101,20 +100,6 @@ describe("publication set contract", () => {
 
     for (const shape of shapes) expect(() => decode(shape)).not.toThrow();
     expect(() => decode({ deprecatedAt })).toThrow();
-  });
-
-  it("canonicalizes descriptor and dependency order into stable digests", () => {
-    const forward = normalizePublicationSet([pack, skill]);
-    const reverse = normalizePublicationSet([skill, pack]);
-
-    expect(forward).toEqual(reverse);
-    expect(publicationSetDigest(forward)).toBe(publicationSetDigest(reverse));
-    expect(publicationDescriptorDigest(pack)).toBe(
-      "f7ee37ff8488e6b4ef99514496ad85f40153fb6defee0e511f9d5342cb60f50d",
-    );
-    expect(publicationSetDigest(forward)).toBe(
-      "a7d28ff4005c1596cd373060c13279a58469573e49685fe17b8d767b4c210c6c",
-    );
   });
 
   it("rejects duplicate targets and inconsistent descriptor shapes", () => {

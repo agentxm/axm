@@ -9,6 +9,13 @@ validation (`./unstable/registry/publication-set`), publish visibility
 human-handoff error vocabulary (`./unstable/suggested-action`,
 `./unstable/human-handoff`).
 
+The byte-vendorable
+`./unstable/registry/publication-set.vectors.json` export pins digest
+conformance examples for independent implementations. Its metadata describes
+the canonicalization and optional-field rules; changing the digest algorithm
+requires a new contract identifier and vector format rather than editing the
+meaning of existing vectors.
+
 Content parsing, Knowledge inspection, the lint catalog, and archive and
 manifest validation live in `@agentxm/extension-content`; version selection
 and release-age policy live in `@agentxm/workspace/resolution`.

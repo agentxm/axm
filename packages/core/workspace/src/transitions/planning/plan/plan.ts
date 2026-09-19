@@ -200,6 +200,22 @@ export interface SourceSwitchEndpoint {
   readonly treeIntegrity: string;
 }
 
+export interface PackMemberSourceSwitchEndpoint {
+  readonly family: SourceSwitchFamily | "workspace";
+  readonly locator: string;
+  readonly resolution: string;
+}
+
+export type PackMemberSourceSwitchDisposition =
+  "added" | "removed" | "retained" | "source-changed" | "version-changed" | "unchanged";
+
+export interface PackMemberSourceSwitchEvidence {
+  readonly member: string;
+  readonly disposition: PackMemberSourceSwitchDisposition;
+  readonly before?: PackMemberSourceSwitchEndpoint;
+  readonly after?: PackMemberSourceSwitchEndpoint;
+}
+
 export interface SourceSwitchEvidence {
   readonly before: SourceSwitchEndpoint;
   readonly after: SourceSwitchEndpoint;
@@ -218,6 +234,8 @@ export interface SourceSwitchEvidence {
     readonly gained: ReadonlyArray<string>;
     readonly lost: ReadonlyArray<string>;
   };
+  /** Complete member diff when the switched extension is a Pack. */
+  readonly packMembers?: ReadonlyArray<PackMemberSourceSwitchEvidence>;
 }
 
 export type JobStepResult<Output = never> =

@@ -18,6 +18,8 @@ import { isArchivePathIncluded } from "../publishing/index.js";
 import { SourceHostProviders } from "../resolution/sources/index.js";
 import type {
   JobStepArtifact,
+  PackMemberSourceSwitchEndpoint,
+  PackMemberSourceSwitchEvidence,
   Plan,
   PlanRiskCondition,
   PlannedJobStep,
@@ -92,6 +94,84 @@ const sourceResolution = (ref: ExtensionRef, treeIntegrity: string): string => {
 
 const sourceIdentity = (ref: ExtensionRef): string =>
   `${ref.owner ?? "@portable"}/${toExtensionTypePlural(ref.type)}/${ref.name}`;
+
+const packMemberEndpoint = (ref: ExtensionRef): PackMemberSourceSwitchEndpoint => {
+  switch (ref.refType) {
+    case "registry":
+      return {
+        family: "registry",
+        locator: publicUrl(ref.source.location),
+        resolution: `version ${ref.version}`,
+      };
+    case "git-hosted":
+      return {
+        family: "git",
+        locator: sourceLocator(ref),
+        resolution: `commit ${ref.gitCommitSha}; tree ${ref.gitTreeSha}`,
+      };
+    case "local":
+      return {
+        family: "path",
+        locator: sourceLocator(ref),
+        resolution: `path ${sourceLocator(ref)}`,
+      };
+    case "workspace":
+      return {
+        family: "workspace",
+        locator: `workspace:${ref.scope}`,
+        resolution: `version ${ref.version}; tree ${ref.sourceHash}`,
+      };
+  }
+};
+
+const classifyPackMembers = (
+  previousPack: ExtensionRef,
+  currentMembers: ReadonlyArray<{ readonly ref: ExtensionRef; readonly retained: boolean }>,
+  targetMembers: ReadonlyArray<ExtensionRef>,
+): Effect.Effect<
+  ReadonlyArray<PackMemberSourceSwitchEvidence>,
+  ExtensionLifecycleFailed,
+  PrepareInstallRequirements
+> =>
+  Effect.gen(function* () {
+    if (previousPack.type !== "pack") {
+      return yield* installRefused({
+        category: "internal",
+        detail: `${sourceIdentity(previousPack)} is not a Pack source-switch root`,
+      });
+    }
+    const identities = [
+      ...new Set([
+        ...currentMembers.map(({ ref }) => sourceIdentity(ref)),
+        ...targetMembers.map(sourceIdentity),
+      ]),
+    ].sort();
+
+    return identities.map((member): PackMemberSourceSwitchEvidence => {
+      const current = currentMembers.find(({ ref }) => sourceIdentity(ref) === member);
+      const target = targetMembers.find((ref) => sourceIdentity(ref) === member);
+      const before = current === undefined ? undefined : packMemberEndpoint(current.ref);
+      const after = target === undefined ? undefined : packMemberEndpoint(target);
+      if (current === undefined && after !== undefined) {
+        return { member, disposition: "added", after };
+      }
+      if (target === undefined && before !== undefined) {
+        return current?.retained === true
+          ? { member, disposition: "retained", before, after: before }
+          : { member, disposition: "removed", before };
+      }
+      if (before === undefined || after === undefined) {
+        throw new TypeError(`Pack member ${member} did not have a classifiable source transition`);
+      }
+      if (before.family !== after.family || before.locator !== after.locator) {
+        return { member, disposition: "source-changed", before, after };
+      }
+      if (before.resolution !== after.resolution) {
+        return { member, disposition: "version-changed", before, after };
+      }
+      return { member, disposition: "unchanged", before, after };
+    });
+  });
 
 const parsePublishIgnore = (raw: string): ReadonlyArray<string> => {
   const parsed: unknown = JSON.parse(raw);
@@ -230,13 +310,6 @@ export const withSourceSwitches = <R, O>(
     const jobs: Array<Plan<R, O>["jobs"][number]> = [];
 
     for (const job of plan.jobs) {
-      // A Pack and all of its member steps form one semantic switch closure;
-      // pack-specific classification owns that closure rather than treating
-      // its members as unrelated leaf switches.
-      if (job.steps.some((step) => step.sourceBinding?.extensionType === "pack")) {
-        jobs.push(job);
-        continue;
-      }
       const steps: Array<PlannedJobStep<R, O>> = [];
       for (const step of job.steps) {
         const proposal = step.sourceBinding;
@@ -315,11 +388,39 @@ export const withSourceSwitches = <R, O>(
           sourceFamily(previous.value) === "registry" ? REGISTRY_GUARANTEES : [];
         const afterGuarantees: ReadonlyArray<string> =
           sourceFamily(proposal.ref) === "registry" ? REGISTRY_GUARANTEES : [];
+        const packMembers =
+          proposal.extensionType === "pack" &&
+          proposal.members !== undefined &&
+          proposal.previousMembers !== undefined
+            ? yield* classifyPackMembers(previous.value, proposal.previousMembers, proposal.members)
+            : undefined;
+        const added = packMembers?.flatMap((member) =>
+          member.disposition === "added" ? [member.member] : [],
+        );
+        const removed = packMembers?.flatMap((member) =>
+          member.disposition === "removed" ? [member.member] : [],
+        );
+        const changed = packMembers?.flatMap((member) =>
+          member.disposition === "source-changed" || member.disposition === "version-changed"
+            ? [member.member]
+            : [],
+        );
         const evidence: SourceSwitchEvidence = {
           before: endpoint(previous.value, beforeTree),
           after: endpoint(proposal.ref, afterTree),
           content: beforeTree === afterTree ? "equivalent" : "changed",
-          dependencies: { effect: "not-applicable", added: [], removed: [], changed: [] },
+          dependencies:
+            packMembers === undefined
+              ? { effect: "not-applicable", added: [], removed: [], changed: [] }
+              : {
+                  effect:
+                    (added?.length ?? 0) + (removed?.length ?? 0) + (changed?.length ?? 0) === 0
+                      ? "unchanged"
+                      : "changed",
+                  added: added ?? [],
+                  removed: removed ?? [],
+                  changed: changed ?? [],
+                },
           projections: {
             effect: "reconcile",
             detail: "Reconcile the extension's configured-agent projections from the target source",
@@ -328,6 +429,7 @@ export const withSourceSwitches = <R, O>(
             gained: afterGuarantees.filter((value) => !beforeGuarantees.includes(value)),
             lost: beforeGuarantees.filter((value) => !afterGuarantees.includes(value)),
           },
+          ...(packMembers === undefined ? {} : { packMembers }),
         };
         conditions.push({
           level: "confirmable",

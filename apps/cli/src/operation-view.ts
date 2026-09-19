@@ -154,6 +154,17 @@ const sourceSwitchChildren = (artifact: JobStepArtifact | undefined): Doc => {
     ...sourceSwitch.dependencies.removed.map((member) => `removed ${member}`),
     ...sourceSwitch.dependencies.changed.map((member) => `changed ${member}`),
   ];
+  const packMemberChanges: Doc = (sourceSwitch.packMembers ?? []).map((member) => {
+    const describe = (endpoint: (typeof member)["before"] | (typeof member)["after"]): string =>
+      endpoint === undefined
+        ? "absent"
+        : `${endpoint.family} ${redactCredentialBearingLocator(endpoint.locator)} (${endpoint.resolution})`;
+    return {
+      _tag: "paragraph",
+      tone: "dim",
+      text: `Pack member ${member.disposition}: ${member.member}; prior ${describe(member.before)}; target ${describe(member.after)}`,
+    };
+  });
   return [
     {
       _tag: "paragraph",
@@ -180,6 +191,7 @@ const sourceSwitchChildren = (artifact: JobStepArtifact | undefined): Doc => {
       tone: "dim",
       text: `Guarantees: gained ${sourceSwitch.guarantees.gained.join(", ") || "none"}; lost ${sourceSwitch.guarantees.lost.join(", ") || "none"}`,
     },
+    ...packMemberChanges,
   ];
 };
 

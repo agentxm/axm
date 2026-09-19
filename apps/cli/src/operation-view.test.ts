@@ -95,6 +95,22 @@ describe("source switch output", () => {
       dependencies: { effect: "not-applicable", added: [], removed: [], changed: [] },
       projections: { effect: "reconcile", detail: "Reconcile configured-agent projections" },
       guarantees: { gained: ["publisher epoch", "yank filtering"], lost: [] },
+      packMembers: [
+        {
+          member: "@acme/skills/review",
+          disposition: "source-changed",
+          before: {
+            family: "git",
+            locator: "https://example.com/acme/review.git",
+            resolution: "commit abc; tree def",
+          },
+          after: {
+            family: "registry",
+            locator: "https://registry.example.com/",
+            resolution: "version 1.0.0",
+          },
+        },
+      ],
     },
   };
 
@@ -135,6 +151,10 @@ describe("source switch output", () => {
     expect(text).toContain("Dependencies: not-applicable");
     expect(text).toContain("Projections: Reconcile configured-agent projections");
     expect(text).toContain("Guarantees: gained publisher epoch, yank filtering; lost none");
+    expect(text).toContain(
+      "Pack member source-changed: @acme/skills/review; prior git https://example.com/acme/review.git (commit abc; tree def); target registry",
+    );
+    expect(text).toContain("https://registry.example.com/ (version 1.0.0)");
   });
 });
 

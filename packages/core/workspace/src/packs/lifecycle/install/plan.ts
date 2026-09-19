@@ -16,6 +16,7 @@ import { buildReconciliationClosure } from "../../../reconciliation/index.js";
 import * as DateTime from "effect/DateTime";
 import type * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import {
   DesiredStateReader,
   SettingsReader,
@@ -81,6 +82,7 @@ import {
 } from "../../../transitions/planning/index.js";
 import {
   acceptedLockedCanonicalPath,
+  acceptedLockedResolutionRef,
   isDesiredExtensionActive,
   usableAcceptedCanonical,
   type HookExtensionTarget,
@@ -112,7 +114,7 @@ import { expandPackInstallRefs, expandPackInstallRefsWithReleaseAge } from "../e
 import { validatePackGraphPostcondition } from "../graph-transition.js";
 import { buildPackMemberInstallStep } from "../member-install-step.js";
 import { registrySourceArtifact, registrySourcePath } from "../artifact.js";
-import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
+import { exclusiveMemberRetentionPolicy } from "../../../reconciliation/index.js";
 
 /** A pack install request after grammar parsing, before anything is discovered. */
 export interface ParsedPackInstallRequest {
@@ -243,33 +245,6 @@ const collectResolvedDependencyNames = (
   return names;
 };
 
-/**
- * Members the replaced pack owned that the incoming graph no longer declares
- * and no other origin retains. Removing them is what makes a pack upgrade a
- * graph transition rather than an accumulation.
- */
-const collectDroppedPackDependencyTargets = (args: {
-  readonly graph: DesiredStateGraph;
-  readonly replacingPackIdentity: string;
-  readonly nextDependencies: PackDependencyNameSets;
-}): ReadonlyArray<DroppedPackDependency> => {
-  const droppedTargets: Array<DroppedPackDependency> = [];
-  for (const node of args.graph.nodes) {
-    if (node.type === "pack") continue;
-    const belongedToReplacedPack = node.origins.some(
-      (origin) => origin.type === "pack" && origin.pack === args.replacingPackIdentity,
-    );
-    if (!belongedToReplacedPack || args.nextDependencies[node.type].has(node.name)) continue;
-    const retainedElsewhere = node.origins.some(
-      (origin) =>
-        origin.type === "settings" ||
-        (origin.type === "pack" && origin.pack !== args.replacingPackIdentity),
-    );
-    if (!retainedElsewhere) droppedTargets.push({ target: { type: node.type, name: node.name } });
-  }
-  return droppedTargets;
-};
-
 const formatRegistrySourceLabel = (args: {
   readonly source: RegistrySource;
   readonly registryHosts: ReadonlyArray<{ readonly name: string; readonly location: URL }>;
@@ -295,6 +270,12 @@ const packInstallCoverage = (ref: ExtensionRef | undefined): "eligible" | "ineli
     case undefined:
       return "ineligible";
   }
+};
+
+const failureDetail = (cause: unknown): string | undefined => {
+  if (typeof cause !== "object" || cause === null || !("detail" in cause)) return undefined;
+  const detail = Reflect.get(cause, "detail");
+  return typeof detail === "string" && detail.length > 0 ? detail : undefined;
 };
 
 const resolveMinimumReleaseAge = (
@@ -940,7 +921,7 @@ export const planPackInstall: (
   PackInstallRequirements
 > = Effect.fn("InstallExtensions.planPack")(function* (intent: PackInstallIntent) {
   const location = yield* WorkspaceLocation;
-  const desiredState = yield* DesiredStateReader;
+  const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const sources = yield* SourceHostProviders;
   const packManager = yield* PackManager;
@@ -1036,13 +1017,14 @@ export const planPackInstall: (
             : { dependencyResolver: intent.dependencyResolver }),
         })
   ).pipe(
-    Effect.mapError((cause) =>
-      installRefused({
+    Effect.mapError((cause) => {
+      const memberFailure = failureDetail(cause);
+      return installRefused({
         category: "conflict",
-        detail: `Pack ${packIdentity} could not be expanded`,
+        detail: `Pack ${packIdentity} could not be expanded${memberFailure === undefined ? "" : `: ${memberFailure}`}`,
         cause,
-      }),
-    ),
+      });
+    }),
   );
   const releaseAge =
     intent.releaseAgeEvaluation === undefined
@@ -1142,8 +1124,6 @@ export const planPackInstall: (
   // manifest or accepted resolution is unavailable. Preserve fail-closed
   // cleanup by suppressing dropped-member removal until the pre-install graph
   // is complete.
-  const existingPack = graph.complete ? currentPackNode : undefined;
-  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, lifecycleStepFailure);
 
   const installSteps = yield* Effect.forEach(
     refs,
@@ -1185,15 +1165,102 @@ export const planPackInstall: (
     { concurrency: 1 },
   );
 
+  const acceptedPackPath = yield* acceptedLockedCanonicalPath({
+    type: "pack",
+    name: intent.packToInstall.pack.name,
+  }).pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "internal",
+        detail: `The accepted path for Pack ${packIdentity} could not be read`,
+        cause,
+      }),
+    ),
+  );
+  const previousMemberIdentities = yield* Option.match(acceptedPackPath, {
+    onNone: () => Effect.succeed(new Set<string>()),
+    onSome: (packPath) =>
+      fs.readFileString(path.join(packPath, "pack.json")).pipe(
+        Effect.mapError((cause) =>
+          installRefused({
+            category: "conflict",
+            detail: `The accepted manifest for Pack ${packIdentity} could not be read`,
+            cause,
+          }),
+        ),
+        Effect.flatMap((raw) =>
+          Effect.try({
+            try: () => {
+              const parsed: unknown = JSON.parse(raw);
+              if (
+                typeof parsed !== "object" ||
+                parsed === null ||
+                !("dependencies" in parsed) ||
+                typeof parsed.dependencies !== "object" ||
+                parsed.dependencies === null
+              ) {
+                throw new TypeError("Pack manifest dependencies are unavailable");
+              }
+              return new Set(
+                Object.keys(parsed.dependencies).flatMap((fqn) => {
+                  const member = parseExtensionFqnParts(fqn);
+                  return member === undefined || member.type === "pack"
+                    ? []
+                    : [`${member.type}:${member.name}`];
+                }),
+              );
+            },
+            catch: (cause) =>
+              installRefused({
+                category: "conflict",
+                detail: `The accepted manifest for Pack ${packIdentity} could not be inspected`,
+                cause,
+              }),
+          }),
+        ),
+      ),
+  });
+  const previousMembers = yield* Effect.forEach(
+    graph.nodes.filter(
+      (node) => node.type !== "pack" && previousMemberIdentities.has(`${node.type}:${node.name}`),
+    ),
+    (node) =>
+      acceptedLockedResolutionRef({ type: node.type, name: node.name }).pipe(
+        Effect.mapError((cause) =>
+          installRefused({
+            category: "internal",
+            detail: `The accepted source for pack member ${node.identity} could not be reconstructed`,
+            cause,
+          }),
+        ),
+        Effect.map(
+          Option.match({
+            onNone: () => [],
+            onSome: (ref) => [
+              {
+                ref,
+                retained: node.origins.some(
+                  (origin) =>
+                    origin.type === "settings" ||
+                    (origin.type === "pack" &&
+                      origin.pack.replace(/^workspace:/u, "") !==
+                        packIdentity.replace(/^workspace:/u, "")),
+                ),
+              },
+            ],
+          }),
+        ),
+      ),
+    { concurrency: 1 },
+  ).pipe(Effect.map((members) => members.flat()));
+
   const nextDependencies = collectResolvedDependencyNames(refs);
-  const unresolvedDroppedTargets =
-    existingPack === undefined
-      ? []
-      : collectDroppedPackDependencyTargets({
-          graph,
-          replacingPackIdentity: existingPack.identity,
-          nextDependencies,
-        });
+  const unresolvedDroppedTargets: ReadonlyArray<DroppedPackDependency> = previousMembers.flatMap(
+    ({ ref, retained }) => {
+      if (ref.type === "pack" || retained || nextDependencies[ref.type].has(ref.name)) return [];
+      return [{ target: targetFromRef(ref) }];
+    },
+  );
   const droppedTargets = yield* Effect.forEach(
     unresolvedDroppedTargets,
     (dropped) =>
@@ -1223,34 +1290,34 @@ export const planPackInstall: (
     ({ target }): PlannedJobStep<InstallStepRequirements> => {
       switch (target.type) {
         case "skill":
-          return buildUninstallOperation(skillManager, retentionPolicy, {
+          return buildUninstallOperation(skillManager, exclusiveMemberRetentionPolicy, {
             toStepFailure: lifecycleStepFailure,
             target,
           });
         case "mcp-server":
-          return buildUninstallOperation(mcpServerManager, retentionPolicy, {
+          return buildUninstallOperation(mcpServerManager, exclusiveMemberRetentionPolicy, {
             toStepFailure: lifecycleStepFailure,
             target,
           });
         case "subagent":
-          return buildUninstallOperation(subagentManager, retentionPolicy, {
+          return buildUninstallOperation(subagentManager, exclusiveMemberRetentionPolicy, {
             toStepFailure: lifecycleStepFailure,
             target,
           });
         case "rule":
-          return buildUninstallOperation(ruleManager, retentionPolicy, {
+          return buildUninstallOperation(ruleManager, exclusiveMemberRetentionPolicy, {
             toStepFailure: lifecycleStepFailure,
             target,
             enclosingClosure: { projections: [target.type] },
           });
         case "hook":
-          return buildUninstallOperation(hookManager, retentionPolicy, {
+          return buildUninstallOperation(hookManager, exclusiveMemberRetentionPolicy, {
             toStepFailure: lifecycleStepFailure,
             target,
             enclosingClosure: { projections: [target.type] },
           });
         case "knowledge":
-          return buildUninstallOperation(knowledgeManager, retentionPolicy, {
+          return buildUninstallOperation(knowledgeManager, exclusiveMemberRetentionPolicy, {
             toStepFailure: lifecycleStepFailure,
             target,
             enclosingClosure: { projections: [target.type] },
@@ -1370,7 +1437,23 @@ export const planPackInstall: (
       { imperative: "install", past: "Installed", gerund: "Installing" },
       "pack",
     ),
-    jobs: [{ concurrency: 1, steps: [graphStep] }],
+    jobs: [
+      {
+        concurrency: 1,
+        steps: [
+          {
+            ...graphStep,
+            sourceBinding: {
+              extensionType: "pack",
+              target: intent.packToInstall.pack.name,
+              ref: intent.packToInstall,
+              members: refs.filter((ref) => ref.type !== "pack"),
+              previousMembers,
+            },
+          },
+        ],
+      },
+    ],
     ...(releaseAge === undefined ? {} : { releaseAge }),
   } satisfies Plan<InstallStepRequirements>;
 });

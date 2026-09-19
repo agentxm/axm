@@ -134,6 +134,26 @@ const SourceSwitchEndpointSchema = Schema.Struct({
   treeIntegrity: Schema.String,
 });
 
+const PackMemberSourceSwitchEndpointSchema = Schema.Struct({
+  family: Schema.Literals(["registry", "git", "path", "workspace"] as const),
+  locator: Schema.String,
+  resolution: Schema.String,
+});
+
+const PackMemberSourceSwitchEvidenceSchema = Schema.Struct({
+  member: Schema.String,
+  disposition: Schema.Literals([
+    "added",
+    "removed",
+    "retained",
+    "source-changed",
+    "version-changed",
+    "unchanged",
+  ] as const),
+  before: Schema.optional(PackMemberSourceSwitchEndpointSchema),
+  after: Schema.optional(PackMemberSourceSwitchEndpointSchema),
+});
+
 const SourceSwitchEvidenceSchema = Schema.Struct({
   before: SourceSwitchEndpointSchema,
   after: SourceSwitchEndpointSchema,
@@ -152,6 +172,7 @@ const SourceSwitchEvidenceSchema = Schema.Struct({
     gained: Schema.Array(Schema.String),
     lost: Schema.Array(Schema.String),
   }),
+  packMembers: Schema.optional(Schema.Array(PackMemberSourceSwitchEvidenceSchema)),
 });
 
 const StepArtifactSchema = Schema.Struct({
@@ -475,6 +496,29 @@ const artifactForJson = (
               ...sourceSwitch.after,
               locator: redactCredentialBearingLocator(sourceSwitch.after.locator),
             },
+            ...(sourceSwitch.packMembers === undefined
+              ? {}
+              : {
+                  packMembers: sourceSwitch.packMembers.map((member) => ({
+                    ...member,
+                    ...(member.before === undefined
+                      ? {}
+                      : {
+                          before: {
+                            ...member.before,
+                            locator: redactCredentialBearingLocator(member.before.locator),
+                          },
+                        }),
+                    ...(member.after === undefined
+                      ? {}
+                      : {
+                          after: {
+                            ...member.after,
+                            locator: redactCredentialBearingLocator(member.after.locator),
+                          },
+                        }),
+                  })),
+                }),
           },
         }),
     ...(references === undefined

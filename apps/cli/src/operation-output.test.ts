@@ -111,6 +111,22 @@ describe("toPlanResolutionResult", () => {
       },
       projections: { effect: "reconcile" as const, detail: "Reconcile projections" },
       guarantees: { gained: ["publisher epoch", "yank filtering"], lost: [] },
+      packMembers: [
+        {
+          member: "@acme/skills/review",
+          disposition: "source-changed" as const,
+          before: {
+            family: "git" as const,
+            locator: "https://person:secret@example.com/review.git",
+            resolution: "commit abc; tree def",
+          },
+          after: {
+            family: "registry" as const,
+            locator: "https://person:secret@registry.example.com/",
+            resolution: "version 1.0.0",
+          },
+        },
+      ],
     };
     const value = resolution({
       mode: "preview",
@@ -135,6 +151,12 @@ describe("toPlanResolutionResult", () => {
         locator: "https://person:[REDACTED]@registry.example.com/",
       },
       guarantees: { gained: ["publisher epoch", "yank filtering"], lost: [] },
+      packMembers: [
+        {
+          before: { locator: "https://person:[REDACTED]@example.com/review.git" },
+          after: { locator: "https://person:[REDACTED]@registry.example.com/" },
+        },
+      ],
     });
   });
 

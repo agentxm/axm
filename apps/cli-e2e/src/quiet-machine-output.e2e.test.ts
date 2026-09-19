@@ -38,6 +38,8 @@ describe("Quiet machine output over the built CLI", () => {
         fixture.selected,
         "install",
         source,
+        "--skill",
+        "quiet-process",
         "--json",
         "--non-interactive",
         ...flags,

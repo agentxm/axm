@@ -1,5 +1,6 @@
 /** Root and per-type install commands generated from one grammar definition. */
 
+import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
@@ -21,7 +22,11 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { handleInstall } from "./handler.js";
+import {
+  handleInstall,
+  type InstallHandlerArgs,
+  validateInstallArgsBeforeWorkspace,
+} from "./handler.js";
 
 const sourceArgument = (type?: InstallableExtensionType) =>
   Argument.String("source").pipe(
@@ -136,12 +141,25 @@ interface ParsedTypedInstall {
   readonly ignoreReleaseAge: boolean;
 }
 
+const executeInstall = (
+  args: InstallHandlerArgs,
+  scope: "project" | "user",
+  ignoreReleaseAge: boolean,
+  runtimeName: string,
+) =>
+  validateInstallArgsBeforeWorkspace(args).pipe(
+    Effect.andThen(
+      handleInstall(args).pipe(withReleaseAgePosture(ignoreReleaseAge), withWorkspace(scope)),
+    ),
+    withRuntime(runtimeName),
+  );
+
 const runTypedInstall = (
   type: InstallableExtensionType,
   parsed: ParsedTypedInstall,
   selection: ReadonlyArray<string>,
-) =>
-  handleInstall({
+) => {
+  const args: InstallHandlerArgs = {
     type: Option.some(type),
     source: parsed.source,
     selectors: selectorsFor(type, selection),
@@ -151,11 +169,14 @@ const runTypedInstall = (
     env: [],
     localName: Option.none(),
     bundled: false,
-  }).pipe(
-    withReleaseAgePosture(parsed.ignoreReleaseAge),
-    withWorkspace(parsed.scope),
-    withRuntime(`${extensionTypeToPlural[type]} install`),
+  };
+  return executeInstall(
+    args,
+    parsed.scope,
+    parsed.ignoreReleaseAge,
+    `${extensionTypeToPlural[type]} install`,
   );
+};
 
 export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
   if (type === "mcp-server") {
@@ -171,8 +192,8 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
       ignoreReleaseAge: common.ignoreReleaseAge,
     } as const;
     return finishCommand(
-      Command.make("install", config, (parsed) =>
-        handleInstall({
+      Command.make("install", config, (parsed) => {
+        const args: InstallHandlerArgs = {
           type: Option.some(type),
           source: parsed.source,
           selectors: selectorsFor(type, parsed.mcp),
@@ -182,12 +203,9 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
           env: parsed.env,
           localName: parsed.as,
           bundled: false,
-        }).pipe(
-          withReleaseAgePosture(parsed.ignoreReleaseAge),
-          withWorkspace(parsed.scope),
-          withRuntime("mcps install"),
-        ),
-      ).pipe(withArgvTracking(config)),
+        };
+        return executeInstall(args, parsed.scope, parsed.ignoreReleaseAge, "mcps install");
+      }).pipe(withArgvTracking(config)),
       type,
     );
   }
@@ -207,8 +225,8 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
       ignoreReleaseAge: common.ignoreReleaseAge,
     } as const;
     return finishCommand(
-      Command.make("install", config, (parsed) =>
-        handleInstall({
+      Command.make("install", config, (parsed) => {
+        const args: InstallHandlerArgs = {
           type: Option.some(type),
           source: parsed.source,
           selectors: selectorsFor(type, parsed.skill),
@@ -218,12 +236,9 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
           env: [],
           localName: Option.none(),
           bundled: parsed.bundled,
-        }).pipe(
-          withReleaseAgePosture(parsed.ignoreReleaseAge),
-          withWorkspace(parsed.scope),
-          withRuntime("skills install"),
-        ),
-      ).pipe(withArgvTracking(config)),
+        };
+        return executeInstall(args, parsed.scope, parsed.ignoreReleaseAge, "skills install");
+      }).pipe(withArgvTracking(config)),
       type,
     );
   }
@@ -334,8 +349,8 @@ const installConfig = {
 } as const;
 
 export const installCommand = finishCommand(
-  Command.make("install", installConfig, (parsed) =>
-    handleInstall({
+  Command.make("install", installConfig, (parsed) => {
+    const args: InstallHandlerArgs = {
       type: Option.none(),
       source: parsed.source,
       selectors: {
@@ -353,12 +368,9 @@ export const installCommand = finishCommand(
       env: parsed.env,
       localName: parsed.as,
       bundled: false,
-    }).pipe(
-      withReleaseAgePosture(parsed.ignoreReleaseAge),
-      withWorkspace(parsed.scope),
-      withRuntime("install"),
-    ),
-  ).pipe(withArgvTracking(installConfig)),
+    };
+    return executeInstall(args, parsed.scope, parsed.ignoreReleaseAge, "install");
+  }).pipe(withArgvTracking(installConfig)),
 ).pipe(
   Command.withExamples([
     { command: "axm install", description: "Reinstall all configured extensions" },

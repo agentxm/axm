@@ -319,7 +319,7 @@ describe("axm skills install", () => {
           cwd: temp.path,
         });
         expect(result.exitCode).toBe(2);
-        expect(result.stderr).toContain("restricted to @agentxm/skills/axm");
+        expect(result.stderr).toContain("restricted to `axm skills install @agentxm/skills/axm`");
       } finally {
         temp.cleanup();
       }
@@ -484,7 +484,7 @@ describe("axm skills install", () => {
           { cwd: temp.path },
         );
 
-        expect(result.exitCode).toBe(0);
+        expect(result.exitCode, result.stdout + result.stderr).toBe(0);
         expect(getOutput(result)).toMatch(/already up to date|update|install/i);
       } finally {
         temp.cleanup();
@@ -512,7 +512,7 @@ describe("axm skills install", () => {
           { cwd: temp.path },
         );
 
-        expect(result.exitCode).toBe(0);
+        expect(result.exitCode, result.stdout + result.stderr).toBe(0);
         expect(getOutput(result)).toContain("1 skill already current");
       } finally {
         temp.cleanup();
@@ -629,7 +629,7 @@ describe("axm skills install", () => {
           { cwd: temp.path },
         );
 
-        expect(result.exitCode).toBe(0);
+        expect(result.exitCode, result.stdout + result.stderr).toBe(0);
         const output = getOutput(result);
         expect(output).toContain("my-skill");
         expect(output).toMatch(/\+.*my-skill|to install/);

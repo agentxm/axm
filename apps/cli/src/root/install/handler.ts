@@ -82,6 +82,9 @@ const validateGrammar = (args: InstallHandlerArgs) =>
     }
   });
 
+/** Reject grammar mistakes before workspace acquisition can mask the usage error. */
+export const validateInstallArgsBeforeWorkspace = validateGrammar;
+
 export const handleInstall = (args: InstallHandlerArgs) =>
   Effect.gen(function* () {
     yield* validateGrammar(args);

@@ -254,7 +254,7 @@ describe("installed-state scope consistency", () => {
         { cwd: consumer.path, env },
       );
       expect(installed.exitCode, `${installed.stderr}\n${installed.stdout}`).toBe(0);
-      expect(`${installed.stderr}\n${installed.stdout}`).toContain("axm packs list --scope user");
+      expect(`${installed.stderr}\n${installed.stdout}`).toContain("axm lint --scope user");
       expect(
         fs.readFileSync(
           path.join(

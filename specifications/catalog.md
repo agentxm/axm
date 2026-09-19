@@ -5071,6 +5071,21 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Assumptions: The generated schemas and installer documents in the release commit are the content intended for that release.
 - Source: [`scripts/release-cohort-includes-site-content.spec.ts`](../scripts/release-cohort-includes-site-content.spec.ts)
 
+##### Release automation uses only public distribution boundaries
+
+- Requirement: `system/process/release-path-uses-only-public-hosts-and-credentials`
+- Owner: `axm`
+- Statement: AXM release preparation, production and publication shall reference only the declared public GitHub, npm and Homebrew distribution hosts and only the credentials required to publish through those hosts.
+- Class: process
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The release workflows, their root task definitions and the transitively imported release scripts expose every committed host and repository-secret reference used by release automation.
+- Methods: contract
+- Assumptions: Provider-owned action implementations and package-manager behavior remain outside the repository source boundary.
+- Bound evidence: `test: axm:test (scripts/release-path-uses-only-public-hosts-and-credentials.spec.ts)` — Discovers the committed release workflows and their transitive root-script graph, rejects host and repository-secret references outside explicit allowlists, and proves both rejection paths with a fixture workflow.
+- Source: [`scripts/release-path-uses-only-public-hosts-and-credentials.spec.ts`](../scripts/release-path-uses-only-public-hosts-and-credentials.spec.ts)
+
 ##### Release previews preserve the canonical candidate
 
 - Requirement: `system/process/release-preview-preserves-canonical-candidate`

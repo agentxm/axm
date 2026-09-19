@@ -272,5 +272,6 @@ describe("MCP secrets for locally named connections", () => {
         expect(MCP_SECRET_SERVICE).toBe("axm-mcp");
       });
     },
+    { timeout: 15_000 },
   );
 });

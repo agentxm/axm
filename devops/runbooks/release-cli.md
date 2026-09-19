@@ -15,7 +15,7 @@ sources:
     title: Pre-migration repository guidance
 generated:
   by: codex/gpt-5
-  at: 2026-09-15T01:50:00Z
+  at: 2026-09-19T00:00:00Z
 ---
 
 # Release the AXM CLI
@@ -46,11 +46,11 @@ operation authority. Stop on a failed identity, authentication, integrity, or
 CI gate; the recovery branches above determine the next permitted operation.
 
 Completion is the canonical workflow's required distribution and verification
-gates plus confirmed promotion for the exact candidate. Preserve its workflow
-run, commit, tag, artifact identities, and final summary as evidence. A
-superseded candidate is a separate terminal outcome, not promotion success.
-An incomplete or uncertain publication returns to the release maintainer; do
-not substitute manual writes or infer atomic rollback.
+gates for the exact candidate. Preserve its workflow run, commit, tag, artifact
+identities, and final summary as evidence. A superseded candidate is a separate
+terminal outcome, not successful completion. An incomplete or uncertain
+publication returns to the release maintainer; do not substitute manual writes
+or infer atomic rollback.
 
 ## Release Model
 
@@ -59,7 +59,8 @@ canonical publish workflow, exact reviewable candidate generation, and isolated
 candidate state in the [specification catalog](../../specifications/catalog.md).
 
 - Releases are published from GitHub Actions. Do not publish packages or create
-  GitHub Releases manually.
+  GitHub Releases manually; the rollback procedure below only changes which
+  existing release GitHub marks latest.
 - Release candidates are prepared only by explicitly dispatching
   `prepare-release.yml` with an exact current `main` commit. Do not cut or push
   a release commit from a local checkout.
@@ -211,17 +212,7 @@ to every release asset. The content assets do not change the installers'
    on Windows, clean published npm installations on Linux/macOS/Windows,
    pnpm and Yarn Classic on Linux, and macOS Homebrew installation.
 
-   Only after every required gate succeeds does the final job promote stable.
-   Promotion uses `If-None-Match: *` for first creation and the public strong
-   ETag for replacement, retaining representation preflight and artifact
-   validation. An identical coordinate with identical validated descriptors is
-   confirmed without mutation credentials. A lost submission response gets one
-   bounded public readback and no repeated PUT; unsuccessful readback leaves
-   promotion incomplete/uncertain. Readback does not independently verify an
-   audit event.
-
-   Recovery uses the same workflow with the existing `release_tag`, without a
-   promotion-bypass input:
+   Recovery uses the same workflow with the existing `release_tag`:
 
    ```bash
    gh workflow run publish.yml \
@@ -253,11 +244,23 @@ to every release asset. The content assets do not change the installers'
    successful CI run identify the earlier producer; provenance alone does not
    claim to attest that build step.
 
+   If a published release must be rolled back, first verify the previous GitHub
+   Release and its installation evidence, then mark that release as latest:
+
+   ```bash
+   gh release edit <previous-tag> --repo agentxm/axm --latest
+   ```
+
+   This restores GitHub's stable release selection for installers and native
+   managers. It does not delete immutable release assets or npm packages, and
+   it is not an atomic rollback of npm or Homebrew state.
+
    Canonical releases share one concurrency group without canceling active
    runs. npm latest and the tap are checked before publication and at their
    write boundaries. An older candidate is superseded when newer distribution
-   is observed; it does not repair historical distribution or move channels
-   backward. Concurrent tap changes reject the push and require a fresh run.
+   is observed; it does not repair historical distribution or move those
+   owners backward. Concurrent tap changes reject the push and require a fresh
+   run.
 
    npm, Homebrew, and the draft GitHub Release assets can exist before stable;
    the GitHub Release becomes public only after distribution completes. Default
@@ -265,9 +268,8 @@ to every release asset. The content assets do not change the installers'
    discovery behavior; it is not stable-only. An interrupted release can remain
    partly published until a rerun or superseding release. There is no atomic
    cross-service transaction, automatic rollback, or propagation deadline. The
-   always-run summary distinguishes distribution/verification failure, complete
-   distribution with incomplete promotion, confirmed promotion, and superseded
-   candidates.
+   always-run summary distinguishes completed distribution and verification,
+   incomplete attempts, and superseded candidates.
 
 ---
 
@@ -316,8 +318,8 @@ script:
    ```
 
    The automatic run is a `workflow_run` event. Its source summary must name the
-   exact tag, commit, and CI run; its final summary records distribution,
-   verification, and stable-promotion state.
+   exact tag, commit, and CI run; its final summary records distribution and
+   verification state.
 
 ## Bootstrap prerelease
 
@@ -396,11 +398,6 @@ maintainer. It does not provide a local or placeholder-package publisher.
   permission.
 - Homebrew automation requires the `HOMEBREW_TAP_TOKEN` repository secret in
   `agentxm/axm`.
-- Stable-channel promotion requires `AXM_RELEASE_CONTROL_TOKEN`,
-  `AXM_CONTROL_ACCESS_CLIENT_ID`, and `AXM_CONTROL_ACCESS_CLIENT_SECRET`. The
-  bearer token is a workflow-bound principal with only `releases.promote`; the
-  Cloudflare Access service token admits the workflow to the private Control
-  surface.
 
 ## Accountability, gaps, and maintenance
 

@@ -184,7 +184,6 @@ describe("repository task interface", () => {
       "validate-release-tag",
       "resolve-release-meta",
       "download-ci-artifacts",
-      "promote-release-channel",
     ]) {
       const dependencies = root?.data.targets?.[targetName]?.dependsOn ?? [];
       expect(dependencies, targetName).toContain("^build");
@@ -377,7 +376,6 @@ describe("repository task interface", () => {
       "verify-installed-package",
       "verify-artifacts",
       "update-homebrew-formula",
-      "promote-release-channel",
       "validate-release-tag",
     ]) {
       expect(targetCache(rootTargets, targetName), targetName).toBe(false);

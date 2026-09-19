@@ -248,7 +248,7 @@
   {
     "requirement": "system/process/dependency-installation-defers-cli-bin",
     "disposition": "engineering-policy",
-    "basis": "The deferral is a pnpm bin-linking workaround with no outside standing; the half with standing (the published package exposes the compiled bin) is already owned by system/process/stable-promotion-follows-verified-distribution.",
+    "basis": "The deferral is a pnpm bin-linking workaround with no outside standing; published-package executable exposure remains supporting coverage in the named test.",
     "enforcement": "scripts/release-packages.test.ts"
   },
   {
@@ -274,6 +274,16 @@
     "disposition": "engineering-policy",
     "basis": "Every clause protects the release operator's own checkout, and the only party able to run the entry point is that operator, who is the author.",
     "enforcement": "scripts/release-prepare.test.ts (fake-host orchestration cases); scripts/repository-task-interface.test.ts (entry-point routing)"
+  },
+  {
+    "requirement": "system/process/release-promotion-validates-public-validators",
+    "disposition": "retired",
+    "basis": "The separate stable-channel document and its private Control mutation no longer exist. GitHub Releases now own public stable-release discovery, so there is no conditional promotion representation whose validators need this preflight."
+  },
+  {
+    "requirement": "system/process/stable-promotion-follows-verified-distribution",
+    "disposition": "retired",
+    "basis": "The release workflow no longer has a post-verification promotion stage. Distribution and exact-candidate verification now complete the release, while GitHub's latest release marker owns stable selection."
   },
   {
     "requirement": "system/process/requirement-diffs-separate-evidence-impact",

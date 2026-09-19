@@ -60,22 +60,3 @@ export const readReleaseWorkflowTriggers = (): ReleaseWorkflowTriggers => {
   const entries: Partial<Record<string, unknown>> = { ...document };
   return Schema.decodeUnknownSync(Triggers)(entries["on"] ?? entries["true"]);
 };
-
-/** Evaluate only the conjunction grammar used by the canonical promotion gate. */
-export const promotionPermitted = (
-  condition: string,
-  results: Readonly<Record<string, string>>,
-  distributed = true,
-): boolean =>
-  condition
-    .replace(/^\s*\$\{\{|\}\}\s*$/gu, "")
-    .split("&&")
-    .every((raw) => {
-      const term = raw.trim();
-      if (term === "!cancelled()") return true;
-      if (term === "needs.release.outputs.outcome == 'distributed'") return distributed;
-      const match = /^needs\.([a-z-]+)\.result == 'success'$/u.exec(term);
-      const job = match?.[1];
-      if (job === undefined) throw new Error(`Unexpected promotion readiness expression: ${term}`);
-      return results[job] === "success";
-    });

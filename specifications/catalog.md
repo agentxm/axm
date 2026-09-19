@@ -5084,83 +5084,47 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Derived from: `system/process/release-publication-preserves-newer-versions`
 - Source: [`scripts/release-preview-version-preserves-candidate.spec.ts`](../scripts/release-preview-version-preserves-candidate.spec.ts)
 
-##### Release promotion checks public validators before conditional updates
-
-- Requirement: `system/process/release-promotion-validates-public-validators`
-- Owner: `axm`
-- Statement: Before conditionally updating an existing stable channel, release promotion shall verify that public reads negotiating identity, gzip, Brotli, and Zstandard return the same strong ETag and untransformed document, and shall perform no mutation if any read fails or disagrees.
-- Class: process
-- Role: supporting
-- Product goals: `trustworthy-distribution`, `dependable-change-process`
-- Boundary: repository; selection: per-change
-- Boundary rationale: The committed promotion entry point owns this release gate; bound tooling tests drive its network boundary with controlled responses without publishing a release.
-- Methods: contract
-- Derived from: `system/process/release-promotion-precedes-independent-distribution`
-- Assumptions: A concurrent channel change may invalidate the preflight and requires a new invocation.
-- Bound evidence: `test: axm:test (scripts/release-channel-promotion.test.ts)` — Exercises identity, gzip, Brotli, and Zstandard public reads before the Control PUT, rejects weak or absent validators, transformation, inconsistent validators or documents, and failed reads without mutation, and preserves conditional creation and newer-channel retention.
-- Source: [`scripts/release-promotion-validates-public-validators.spec.ts`](../scripts/release-promotion-validates-public-validators.spec.ts)
-
 ##### Release publication preserves newer distribution versions
 
 - Requirement: `system/process/release-publication-preserves-newer-versions`
 - Owner: `axm`
-- Statement: The canonical release workflow shall serialize active release publications across tags and stop an older candidate as superseded when a newer npm latest, Homebrew formula or stable version is observed, without moving those publications backward or attempting historical distribution repair.
+- Statement: The canonical release workflow shall serialize active release publications across tags and stop an older candidate as superseded when a newer npm latest or Homebrew formula version is observed, without moving those publications backward or attempting historical distribution repair.
 - Class: process
 - Role: supporting
 - Product goals: `trustworthy-distribution`, `dependable-change-process`
 - Boundary: repository; selection: per-change
 - Boundary rationale: Canonical publication adapters and bound failure-injection tooling provide evidence without publishing a real release.
 - Methods: contract
-- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/release-channel-promotion.test.ts, scripts/update-homebrew-formula.test.ts)` — Exercises older candidates before publication and at owner write boundaries, equal-version formula conflicts and newer-channel retention.
+- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/update-homebrew-formula.test.ts)` — Exercises older candidates before publication and at owner write boundaries plus equal-version formula conflicts.
 - Source: [`scripts/release-publication-preserves-newer-versions.spec.ts`](../scripts/release-publication-preserves-newer-versions.spec.ts)
 
 ##### Release reruns reuse only identical published content
 
 - Requirement: `system/process/release-publication-reuses-identical-content`
 - Owner: `axm`
-- Statement: A rerun of one release coordinate shall verify and reuse identical published content, publish missing outputs and reject conflicting bytes or failed existence queries without overwriting published outputs or requiring a promotion bypass.
+- Statement: A rerun of one release coordinate shall verify and reuse identical published content, publish missing outputs and reject conflicting bytes or failed existence queries without overwriting published outputs.
 - Class: process
 - Role: supporting
 - Product goals: `trustworthy-distribution`, `dependable-change-process`
 - Boundary: repository; selection: per-change
 - Boundary rationale: Canonical publication adapters and bound failure-injection tooling provide evidence without publishing a real release.
 - Methods: contract
-- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/release-github-release-api.test.ts, scripts/release-channel-promotion.test.ts, scripts/update-homebrew-formula.test.ts)` — Exercises absent and identical outputs, integrity conflicts, failed existence reads, partial publication reruns, and identical-coordinate promotion without credentials.
+- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/release-github-release-api.test.ts, scripts/update-homebrew-formula.test.ts)` — Exercises absent and identical outputs, integrity conflicts, failed existence reads, and partial publication reruns.
 - Source: [`scripts/release-publication-reuses-identical-content.spec.ts`](../scripts/release-publication-reuses-identical-content.spec.ts)
 
-##### Release results distinguish distribution and promotion state
+##### Release results distinguish distribution and verification state
 
 - Requirement: `system/process/release-workflow-reports-publication-state`
 - Owner: `axm`
-- Statement: The canonical release workflow shall report the exact candidate and every publication and verification result separately from confirmed, incomplete or uncertain promotion and superseded candidates, retaining uncertain submission evidence until bounded readback confirms channel state.
+- Statement: The canonical release workflow shall report the exact candidate and every publication and verification result, distinguishing completed releases, incomplete attempts and superseded candidates.
 - Class: process
 - Role: supporting
 - Product goals: `trustworthy-distribution`, `dependable-change-process`
 - Boundary: repository; selection: per-change
 - Boundary rationale: Canonical publication adapters and bound failure-injection tooling provide evidence without publishing a real release.
 - Methods: contract
-- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/release-channel-promotion.test.ts, scripts/update-homebrew-formula.test.ts)` — Exercises publication boundary outcomes, one readback after a lost promotion response, uncertain readback failures, and no repeated conditional mutation.
+- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/update-homebrew-formula.test.ts)` — Exercises publication boundary outcomes, bounded readback after ambiguous owner responses, and no repeated conditional mutation.
 - Source: [`scripts/release-workflow-reports-publication-state.spec.ts`](../scripts/release-workflow-reports-publication-state.spec.ts)
-
-##### Stable promotion follows verified candidate distribution
-
-- Requirement: `system/process/stable-promotion-follows-verified-distribution`
-- Owner: `axm`
-- Statement: The canonical release workflow shall attempt stable promotion only after publication of the candidate binary/checksum assets, fixed npm cohort and Homebrew formula, and successful exact-candidate script, published-package and Homebrew installation verification; promotion failures shall not prevent that preceding distribution.
-- Class: process
-- Role: supporting
-- Product goals: `trustworthy-distribution`, `dependable-change-process`
-- Boundary: repository; selection: per-change
-- Boundary rationale: The canonical workflow graph defines required release readiness and exact-candidate job inputs.
-- Methods: contract
-- Derived from: `system/process/release-promotion-precedes-independent-distribution`
-- Supersedes: `system/process/release-promotion-precedes-independent-distribution`
-- Assumptions: The release coordinate is immutable and each required verifier reports truthful evidence about its named candidate.
-- Limitation: Repository evidence checks the workflow graph; it does not execute the published installer platform matrix. Retires when: An authorized release supplies successful exact-candidate matrix results and promotion readback.
-- Bound evidence: `test: axm:test (scripts/repository-task-interface.test.ts)` — Inspects the resolved promotion target and requires its workspace build prerequisites to follow the project graph, so a fresh candidate checkout does not depend on artifacts left by another job.
-- Bound evidence: `test: axm:test (scripts/stable-promotion-follows-verified-distribution.spec.ts)` — Parses actual job dependencies and required success conditions, exercises each failed/skipped/canceled gate, and checks exact candidate inputs and the declared installer matrix.
-- Bound evidence: `test: axm:test (scripts/verify-installed-package.test.ts)` — Runs the published-package verifier through a package-manager launcher with sibling entrypoints from an unrelated directory, including paths with spaces, and rejects wrong installed versions and unexpected stderr; Windows CI executes the batch-launcher cases.
-- Source: [`scripts/stable-promotion-follows-verified-distribution.spec.ts`](../scripts/stable-promotion-follows-verified-distribution.spec.ts)
 
 ### Goal: workspace-intent-fidelity
 

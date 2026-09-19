@@ -8,7 +8,7 @@ export const specification = defineSpecification({
   requirement: "system/process/release-publication-preserves-newer-versions",
   title: "Release publication preserves newer distribution versions",
   statement:
-    "The canonical release workflow shall serialize active release publications across tags and stop an older candidate as superseded when a newer npm latest, Homebrew formula or stable version is observed, without moving those publications backward or attempting historical distribution repair.",
+    "The canonical release workflow shall serialize active release publications across tags and stop an older candidate as superseded when a newer npm latest or Homebrew formula version is observed, without moving those publications backward or attempting historical distribution repair.",
   class: "process",
   role: "supporting",
   goals: ["trustworthy-distribution", "dependable-change-process"],
@@ -23,9 +23,9 @@ export const specification = defineSpecification({
 });
 export const boundEvidence = defineBoundEvidence([
   {
-    gate: "test: axm:test (scripts/release-publication.test.ts, scripts/release-channel-promotion.test.ts, scripts/update-homebrew-formula.test.ts)",
+    gate: "test: axm:test (scripts/release-publication.test.ts, scripts/update-homebrew-formula.test.ts)",
     verifies:
-      "Exercises older candidates before publication and at owner write boundaries, equal-version formula conflicts and newer-channel retention.",
+      "Exercises older candidates before publication and at owner write boundaries plus equal-version formula conflicts.",
   },
 ]);
 

@@ -4079,6 +4079,20 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Methods: decision-table
 - Source: [`packages/core/extension-model/src/unstable/extensions/installability-by-source-family-is-total.spec.ts`](../packages/core/extension-model/src/unstable/extensions/installability-by-source-family-is-total.spec.ts)
 
+##### Every extension type records every source-family lifecycle outcome
+
+- Requirement: `extension-lifecycle/type-family-operation-conformance-is-total`
+- Owner: `workspace`
+- Statement: The lifecycle conformance suite shall execute every extension type by source family by operation cell, shall record supported, unsupported by design, or blocked, and every unsupported cell shall name its design decision.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `trustworthy-distribution`
+- Boundary: process; selection: per-change
+- Boundary rationale: The source fixtures are hermetic: Registry is file-backed, Git is a local bare repository, path and workspace are temporary directories, and no network host participates.
+- Methods: decision-table, invariant
+- Derived from: `extension-installability/source-family-policy-is-total`, `extension-discovery/all-manifest-kinds-from-git-and-path`
+- Source: [`packages/core/workspace/src/lifecycle/source-family-conformance.spec.ts`](../packages/core/workspace/src/lifecycle/source-family-conformance.spec.ts)
+
 ##### Pack and MCP installs use the shared source grammar
 
 - Requirement: `install/pack-and-mcp-use-shared-source-resolution`

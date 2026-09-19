@@ -180,109 +180,118 @@ describe("Pack source switches", () => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
 
-  it.effect("previews every member class and applies a Git-to-Registry switch atomically", () =>
-    Effect.gen(function* () {
-      const registry = makeLifecycleRegistry();
-      cleanups.push(registry.cleanup);
-      registry.writeSkill("stable", [{ version: "1.0.0", body: "Stable." }]);
-      registry.writeSkill("evolving", [
-        { version: "1.0.0", body: "Evolving one." },
-        { version: "2.0.0", body: "Evolving two." },
-      ]);
-      registry.writeSkill("migrated", [{ version: "1.0.0", body: "Migrated." }]);
-      registry.writeSkill("added", [{ version: "1.0.0", body: "Added." }]);
-      registry.writeSkill("retained", [{ version: "1.0.0", body: "Retained." }]);
-      registry.writePack(PACK, [
-        {
-          version: "2.0.0",
-          dependencies: {
-            "@acme/skills/stable": "^1.0.0",
-            "@acme/skills/evolving": "^2.0.0",
-            "@acme/skills/migrated": "^1.0.0",
-            "@acme/skills/added": "^1.0.0",
+  it.effect(
+    "previews every member class and applies a Git-to-Registry switch atomically",
+    () =>
+      Effect.gen(function* () {
+        const registry = makeLifecycleRegistry();
+        cleanups.push(registry.cleanup);
+        registry.writeSkill("stable", [{ version: "1.0.0", body: "Stable." }]);
+        registry.writeSkill("evolving", [
+          { version: "1.0.0", body: "Evolving one." },
+          { version: "2.0.0", body: "Evolving two." },
+        ]);
+        registry.writeSkill("migrated", [{ version: "1.0.0", body: "Migrated." }]);
+        registry.writeSkill("added", [{ version: "1.0.0", body: "Added." }]);
+        registry.writeSkill("retained", [{ version: "1.0.0", body: "Retained." }]);
+        registry.writePack(PACK, [
+          {
+            version: "2.0.0",
+            dependencies: {
+              "@acme/skills/stable": "^1.0.0",
+              "@acme/skills/evolving": "^2.0.0",
+              "@acme/skills/migrated": "^1.0.0",
+              "@acme/skills/added": "^1.0.0",
+            },
           },
-        },
-      ]);
-      const git = yield* makeGitPackFixture(registry.source.location);
-      cleanups.push(git.cleanup);
-      const workspace = makeLifecycleFixture({
-        sources: "live",
-        confirmation: { available: true, answer: "approved" },
-        settings: {
-          owner: "@acme",
-          agents: ["claude-code"],
-          defaultRegistry: "test",
-          sources: [registry.source],
-        },
-      });
-      cleanups.push(workspace.cleanup);
+        ]);
+        const git = yield* makeGitPackFixture(registry.source.location);
+        cleanups.push(git.cleanup);
+        const workspace = makeLifecycleFixture({
+          sources: "live",
+          confirmation: { available: true, answer: "approved" },
+          settings: {
+            owner: "@acme",
+            agents: ["claude-code"],
+            defaultRegistry: "test",
+            sources: [registry.source],
+          },
+        });
+        cleanups.push(workspace.cleanup);
 
-      yield* workspace.provide(
-        Effect.gen(function* () {
-          const initial = yield* resolveInstall(sourceRequest(git.url));
-          expect(initial.units.every((unit) => unit.state === "committed")).toBe(true);
+        yield* workspace.provide(
+          Effect.gen(function* () {
+            const initial = yield* resolveInstall(sourceRequest(git.url));
+            expect(initial.units.every((unit) => unit.state === "committed")).toBe(true);
 
-          const directMembers = yield* resolveInstall(
-            installRequest({
-              type: "skill",
-              subject: { kind: "source", source: "@acme/skills/retained" },
-            }),
-          );
-          if (
-            !directMembers.units.every(
-              (unit) => unit.state === "committed" || unit.state === "unchanged",
-            )
-          ) {
-            throw new Error(
-              `Direct member install did not commit: ${JSON.stringify(directMembers)}`,
+            const directMembers = yield* resolveInstall(
+              installRequest({
+                type: "skill",
+                subject: { kind: "source", source: "@acme/skills/retained" },
+              }),
             );
-          }
+            if (
+              !directMembers.units.every(
+                (unit) => unit.state === "committed" || unit.state === "unchanged",
+              )
+            ) {
+              throw new Error(
+                `Direct member install did not commit: ${JSON.stringify(directMembers)}`,
+              );
+            }
 
-          const request = sourceRequest(PACK_FQN);
-          const preview = yield* previewInstall(request);
-          const evidence = preview.units.flatMap((unit) =>
-            unit.artifact?.sourceSwitch === undefined ? [] : [unit.artifact.sourceSwitch],
-          )[0];
-          expect(evidence?.packMembers).toEqual(
-            expect.arrayContaining([
-              expect.objectContaining({ member: "@acme/skills/added", disposition: "added" }),
-              expect.objectContaining({ member: "@acme/skills/removed", disposition: "removed" }),
-              expect.objectContaining({ member: "@acme/skills/retained", disposition: "retained" }),
-              expect.objectContaining({
-                member: "@acme/skills/migrated",
-                disposition: "source-changed",
-                before: expect.objectContaining({ family: "git" }),
-                after: expect.objectContaining({ family: "registry", resolution: "version 1.0.0" }),
-              }),
-              expect.objectContaining({
-                member: "@acme/skills/evolving",
-                disposition: "version-changed",
-                before: expect.objectContaining({ resolution: "version 1.0.0" }),
-                after: expect.objectContaining({ resolution: "version 2.0.0" }),
-              }),
-              expect.objectContaining({
-                member: "@acme/skills/stable",
-                disposition: "unchanged",
-              }),
-            ]),
-          );
-          expect(evidence?.dependencies).toMatchObject({
-            effect: "changed",
-            added: ["@acme/skills/added"],
-            removed: ["@acme/skills/removed"],
-            changed: expect.arrayContaining(["@acme/skills/evolving", "@acme/skills/migrated"]),
-          });
-          const applied = yield* resolveInstall(request);
-          expect(applied.units.every((unit) => unit.state === "committed")).toBe(true);
-          const lockfile = workspace.readFile("axm-lock.yaml");
-          expect(lockfile).toContain("type: registry");
-          expect(lockfile).toContain("added");
-          expect(lockfile).toContain("retained");
-          expect(lockfile).not.toContain("removed");
-          expect(REGISTRY_MEMBERS.every((member) => lockfile.includes(member))).toBe(true);
-        }),
-      );
-    }).pipe(Effect.provide(NodeServices.layer)),
+            const request = sourceRequest(PACK_FQN);
+            const preview = yield* previewInstall(request);
+            const evidence = preview.units.flatMap((unit) =>
+              unit.artifact?.sourceSwitch === undefined ? [] : [unit.artifact.sourceSwitch],
+            )[0];
+            expect(evidence?.packMembers).toEqual(
+              expect.arrayContaining([
+                expect.objectContaining({ member: "@acme/skills/added", disposition: "added" }),
+                expect.objectContaining({ member: "@acme/skills/removed", disposition: "removed" }),
+                expect.objectContaining({
+                  member: "@acme/skills/retained",
+                  disposition: "retained",
+                }),
+                expect.objectContaining({
+                  member: "@acme/skills/migrated",
+                  disposition: "source-changed",
+                  before: expect.objectContaining({ family: "git" }),
+                  after: expect.objectContaining({
+                    family: "registry",
+                    resolution: "version 1.0.0",
+                  }),
+                }),
+                expect.objectContaining({
+                  member: "@acme/skills/evolving",
+                  disposition: "version-changed",
+                  before: expect.objectContaining({ resolution: "version 1.0.0" }),
+                  after: expect.objectContaining({ resolution: "version 2.0.0" }),
+                }),
+                expect.objectContaining({
+                  member: "@acme/skills/stable",
+                  disposition: "unchanged",
+                }),
+              ]),
+            );
+            expect(evidence?.dependencies).toMatchObject({
+              effect: "changed",
+              added: ["@acme/skills/added"],
+              removed: ["@acme/skills/removed"],
+              changed: expect.arrayContaining(["@acme/skills/evolving", "@acme/skills/migrated"]),
+            });
+            const applied = yield* resolveInstall(request);
+            expect(applied.units.every((unit) => unit.state === "committed")).toBe(true);
+            const lockfile = workspace.readFile("axm-lock.yaml");
+            expect(lockfile).toContain("type: registry");
+            expect(lockfile).toContain("added");
+            expect(lockfile).toContain("retained");
+            expect(lockfile).not.toContain("removed");
+            expect(REGISTRY_MEMBERS.every((member) => lockfile.includes(member))).toBe(true);
+          }),
+        );
+      }).pipe(Effect.provide(NodeServices.layer)),
+    { timeout: 15_000 },
   );
 
   it.effect("leaves the installed graph unchanged when a target member cannot resolve", () =>

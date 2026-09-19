@@ -73,7 +73,12 @@ import { SettingsReader } from "../../desired-state/index.js";
 import { FootprintRecorder, makeFootprintRecorder } from "../../transitions/settlement/index.js";
 
 import { PublishFailed } from "../errors.js";
-import { aggregatePublishFailure, publishCause, type PublishFailure } from "../failure.js";
+import {
+  aggregatePublishFailure,
+  publishCause,
+  publishFailureLifecycleReason,
+  type PublishFailure,
+} from "../failure.js";
 import { publishAuthenticationPreconditions } from "../authorization.js";
 import { buildPublishJobs } from "../jobs.js";
 import {
@@ -870,6 +875,8 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
         const unitFailure =
           unit.error === undefined ? undefined : publishStepFailureCause(unit.error);
         const cause = unitFailure === undefined ? undefined : publishCause(unitFailure);
+        const lifecycleReason =
+          unitFailure === undefined ? undefined : publishFailureLifecycleReason(unitFailure);
         return {
           id: result.id,
           owner: result.owner,
@@ -885,9 +892,11 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
           reason:
             cause?.problemCode === "publish/precondition-changed"
               ? "publish_precondition_changed"
-              : cause?.code === "conflict"
-                ? "integrity_conflict"
-                : "upload_failed",
+              : lifecycleReason !== undefined
+                ? lifecycleReason
+                : cause?.code === "conflict"
+                  ? "integrity_conflict"
+                  : "upload_failed",
           status: "failed",
           ...(unit.message === undefined ? {} : { message: unit.message }),
           ...(cause === undefined ? {} : { cause }),

@@ -12,6 +12,7 @@ describe("human vocabulary", () => {
     expect(publishParticipation("verified-existing")).toBe("skip");
     expect(publishDisposition("not-authored")).toBe("not authored here");
     expect(publishReason("unmatched_selector")).toBe("selector did not match");
+    expect(publishReason("archived")).toBe("extension is archived");
     expect(publishReason("settlement_unresolved")).toBe(
       "registry settlement could not be verified",
     );

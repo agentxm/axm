@@ -404,6 +404,9 @@ export type PublishReason =
   | "candidate_invalid"
   | "stale_material"
   | "publish_precondition_changed"
+  | "deleting"
+  | "held"
+  | "archived"
   | "upload_failed"
   | "integrity_conflict"
   | "settlement_unresolved"
@@ -446,6 +449,12 @@ export const publishReason = (value: PublishReason): string => {
       return "source material changed";
     case "publish_precondition_changed":
       return "publish precondition changed";
+    case "deleting":
+      return "extension deletion is in progress";
+    case "held":
+      return "extension name is held";
+    case "archived":
+      return "extension is archived";
     case "upload_failed":
       return "upload failed";
     case "integrity_conflict":

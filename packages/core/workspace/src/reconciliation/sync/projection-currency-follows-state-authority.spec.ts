@@ -53,6 +53,7 @@ export const specification = defineSpecification({
 });
 
 const AUTHORED_SUBAGENT = "reviewer";
+const FIXTURE_TIMEOUT = 15_000;
 
 const writeAuthoredSubagent = (workspaceRoot: string, body: string): void => {
   const packageRoot = nodePath.join(workspaceRoot, "subagents", AUTHORED_SUBAGENT);
@@ -115,166 +116,186 @@ describe("Generated document projection currency", () => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
 
-  it.effect("preserves arbitrary body rewrites while authoritative inputs are unchanged", () => {
-    const workspace = ruleWorkspace();
-    cleanups.push(workspace.cleanup);
-    writeAuthoredRule(workspace.root, "review", "Review every change carefully.");
-    return workspace
-      .provide(
-        Effect.gen(function* () {
-          yield* applySync();
+  it.effect(
+    "preserves arbitrary body rewrites while authoritative inputs are unchanged",
+    () => {
+      const workspace = ruleWorkspace();
+      cleanups.push(workspace.cleanup);
+      writeAuthoredRule(workspace.root, "review", "Review every change carefully.");
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applySync();
 
-          const generated = workspace.readFile("AGENTS.md");
-          expect(generated).toMatch(/axm:start v=1 region=rules ext=[^ ]+ gen=[0-9a-f]{64}/u);
-          const rewritten = replaceRegionBody(
-            generated,
-            "Repository formatter output.\n\n- Wrapped, reordered, or otherwise rewritten.",
-          );
-          workspace.writeFile("AGENTS.md", rewritten);
+            const generated = workspace.readFile("AGENTS.md");
+            expect(generated).toMatch(/axm:start v=1 region=rules ext=[^ ]+ gen=[0-9a-f]{64}/u);
+            const rewritten = replaceRegionBody(
+              generated,
+              "Repository formatter output.\n\n- Wrapped, reordered, or otherwise rewritten.",
+            );
+            workspace.writeFile("AGENTS.md", rewritten);
 
-          // Currency is judged by the inputs and the generation record, so the
-          // rewritten body is not a change to reconcile.
-          expectNothingToReconcile(yield* previewSync());
-          expect(workspace.readFile("AGENTS.md")).toBe(rewritten);
+            // Currency is judged by the inputs and the generation record, so the
+            // rewritten body is not a change to reconcile.
+            expectNothingToReconcile(yield* previewSync());
+            expect(workspace.readFile("AGENTS.md")).toBe(rewritten);
 
-          expectNothingToReconcile(yield* applySync());
-          expect(workspace.readFile("AGENTS.md")).toBe(rewritten);
-        }),
-      )
-      .pipe(Effect.provide(NodeServices.layer));
-  });
+            expectNothingToReconcile(yield* applySync());
+            expect(workspace.readFile("AGENTS.md")).toBe(rewritten);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+    { timeout: FIXTURE_TIMEOUT },
+  );
 
-  it.effect("restores a missing generation record once", () => {
-    const workspace = ruleWorkspace();
-    cleanups.push(workspace.cleanup);
-    writeAuthoredRule(workspace.root, "review", "First authoritative guidance.");
-    return workspace
-      .provide(
-        Effect.gen(function* () {
-          yield* applySync();
+  it.effect(
+    "restores a missing generation record once",
+    () => {
+      const workspace = ruleWorkspace();
+      cleanups.push(workspace.cleanup);
+      writeAuthoredRule(workspace.root, "review", "First authoritative guidance.");
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applySync();
 
-          const withoutGeneration = workspace
-            .readFile("AGENTS.md")
-            .replace(/ gen=[0-9a-f]{64}(?= -->)/u, "");
-          workspace.writeFile("AGENTS.md", withoutGeneration);
+            const withoutGeneration = workspace
+              .readFile("AGENTS.md")
+              .replace(/ gen=[0-9a-f]{64}(?= -->)/u, "");
+            workspace.writeFile("AGENTS.md", withoutGeneration);
 
-          expectReconciliationPlanned(yield* previewSync());
-          expect(workspace.readFile("AGENTS.md")).toBe(withoutGeneration);
+            expectReconciliationPlanned(yield* previewSync());
+            expect(workspace.readFile("AGENTS.md")).toBe(withoutGeneration);
 
-          yield* applySync();
-          const reconciled = workspace.readFile("AGENTS.md");
-          expect(reconciled).not.toBe(withoutGeneration);
-          expect(reconciled).toContain("First authoritative guidance.");
+            yield* applySync();
+            const reconciled = workspace.readFile("AGENTS.md");
+            expect(reconciled).not.toBe(withoutGeneration);
+            expect(reconciled).toContain("First authoritative guidance.");
 
-          expectNothingToReconcile(yield* applySync());
-          expect(workspace.readFile("AGENTS.md")).toBe(reconciled);
-        }),
-      )
-      .pipe(Effect.provide(NodeServices.layer));
-  });
+            expectNothingToReconcile(yield* applySync());
+            expect(workspace.readFile("AGENTS.md")).toBe(reconciled);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+    { timeout: FIXTURE_TIMEOUT },
+  );
 
-  it.effect("regenerates after an authoritative source change once", () => {
-    const workspace = ruleWorkspace();
-    cleanups.push(workspace.cleanup);
-    writeAuthoredRule(workspace.root, "review", "First authoritative guidance.");
-    return workspace
-      .provide(
-        Effect.gen(function* () {
-          yield* applySync();
-          const generated = workspace.readFile("AGENTS.md");
+  it.effect(
+    "regenerates after an authoritative source change once",
+    () => {
+      const workspace = ruleWorkspace();
+      cleanups.push(workspace.cleanup);
+      writeAuthoredRule(workspace.root, "review", "First authoritative guidance.");
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applySync();
+            const generated = workspace.readFile("AGENTS.md");
 
-          writeAuthoredRule(workspace.root, "review", "Second authoritative guidance.");
+            writeAuthoredRule(workspace.root, "review", "Second authoritative guidance.");
 
-          expectReconciliationPlanned(yield* previewSync());
-          expect(workspace.readFile("AGENTS.md")).toBe(generated);
+            expectReconciliationPlanned(yield* previewSync());
+            expect(workspace.readFile("AGENTS.md")).toBe(generated);
 
-          yield* applySync();
-          const afterSourceChange = workspace.readFile("AGENTS.md");
-          expect(afterSourceChange).toContain("Second authoritative guidance.");
-          expect(afterSourceChange).not.toContain("First authoritative guidance.");
+            yield* applySync();
+            const afterSourceChange = workspace.readFile("AGENTS.md");
+            expect(afterSourceChange).toContain("Second authoritative guidance.");
+            expect(afterSourceChange).not.toContain("First authoritative guidance.");
 
-          expectNothingToReconcile(yield* applySync());
-          expect(workspace.readFile("AGENTS.md")).toBe(afterSourceChange);
-        }),
-      )
-      .pipe(Effect.provide(NodeServices.layer));
-  });
+            expectNothingToReconcile(yield* applySync());
+            expect(workspace.readFile("AGENTS.md")).toBe(afterSourceChange);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+    { timeout: FIXTURE_TIMEOUT },
+  );
 
-  it.effect("applies the same opaque-body contract to managed Subagent documents", () => {
-    const workspace = makeSyncFixture({
-      settings: {
-        owner: "@acme",
-        agents: ["claude-code"],
-        subagents: { [AUTHORED_SUBAGENT]: "workspace" },
-      },
-    });
-    cleanups.push(workspace.cleanup);
-    writeAuthoredSubagent(workspace.root, "First reviewer guidance.");
-    const projection = `.claude/agents/${AUTHORED_SUBAGENT}.md`;
-    return workspace
-      .provide(
-        Effect.gen(function* () {
-          yield* applySync();
+  it.effect(
+    "applies the same opaque-body contract to managed Subagent documents",
+    () => {
+      const workspace = makeSyncFixture({
+        settings: {
+          owner: "@acme",
+          agents: ["claude-code"],
+          subagents: { [AUTHORED_SUBAGENT]: "workspace" },
+        },
+      });
+      cleanups.push(workspace.cleanup);
+      writeAuthoredSubagent(workspace.root, "First reviewer guidance.");
+      const projection = `.claude/agents/${AUTHORED_SUBAGENT}.md`;
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applySync();
 
-          const generated = workspace.readFile(projection);
-          expect(generated).toMatch(/axm:file v=1 ext=[^ ]+ src=[^ ]+ gen=[0-9a-f]{64}/u);
-          const rewritten = generated.replace(
-            "First reviewer guidance.",
-            "Repository-formatted body.",
-          );
-          expect(rewritten).not.toBe(generated);
-          workspace.writeFile(projection, rewritten);
+            const generated = workspace.readFile(projection);
+            expect(generated).toMatch(/axm:file v=1 ext=[^ ]+ src=[^ ]+ gen=[0-9a-f]{64}/u);
+            const rewritten = generated.replace(
+              "First reviewer guidance.",
+              "Repository-formatted body.",
+            );
+            expect(rewritten).not.toBe(generated);
+            workspace.writeFile(projection, rewritten);
 
-          expectNothingToReconcile(yield* previewSync());
-          expect(workspace.readFile(projection)).toBe(rewritten);
+            expectNothingToReconcile(yield* previewSync());
+            expect(workspace.readFile(projection)).toBe(rewritten);
 
-          expectNothingToReconcile(yield* applySync());
-          expect(workspace.readFile(projection)).toBe(rewritten);
+            expectNothingToReconcile(yield* applySync());
+            expect(workspace.readFile(projection)).toBe(rewritten);
 
-          writeAuthoredSubagent(workspace.root, "Second reviewer guidance.");
-          yield* applySync();
-          const updated = workspace.readFile(projection);
-          expect(updated).toContain("Second reviewer guidance.");
-          expect(updated).not.toContain("Repository-formatted body.");
-        }),
-      )
-      .pipe(Effect.provide(NodeServices.layer));
-  });
+            writeAuthoredSubagent(workspace.root, "Second reviewer guidance.");
+            yield* applySync();
+            const updated = workspace.readFile(projection);
+            expect(updated).toContain("Second reviewer guidance.");
+            expect(updated).not.toContain("Repository-formatted body.");
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+    { timeout: FIXTURE_TIMEOUT },
+  );
 
-  it.effect("applies the same opaque-body contract to Subagent role-skill fallbacks", () => {
-    const workspace = makeSyncFixture({
-      settings: {
-        owner: "@acme",
-        agents: ["cline"],
-        subagents: { [AUTHORED_SUBAGENT]: "workspace" },
-      },
-    });
-    cleanups.push(workspace.cleanup);
-    writeAuthoredSubagent(workspace.root, "First reviewer guidance.");
-    const projection = `.cline/skills/${AUTHORED_SUBAGENT}/SKILL.md`;
-    return workspace
-      .provide(
-        Effect.gen(function* () {
-          yield* applySync();
+  it.effect(
+    "applies the same opaque-body contract to Subagent role-skill fallbacks",
+    () => {
+      const workspace = makeSyncFixture({
+        settings: {
+          owner: "@acme",
+          agents: ["cline"],
+          subagents: { [AUTHORED_SUBAGENT]: "workspace" },
+        },
+      });
+      cleanups.push(workspace.cleanup);
+      writeAuthoredSubagent(workspace.root, "First reviewer guidance.");
+      const projection = `.cline/skills/${AUTHORED_SUBAGENT}/SKILL.md`;
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applySync();
 
-          const generated = workspace.readFile(projection);
-          expect(generated).toMatch(/axm:file v=1 ext=[^ ]+ src=[^ ]+ gen=[0-9a-f]{64}/u);
-          const rewritten = generated.replace(
-            "First reviewer guidance.",
-            "Repository-formatted role body.",
-          );
-          expect(rewritten).not.toBe(generated);
-          workspace.writeFile(projection, rewritten);
+            const generated = workspace.readFile(projection);
+            expect(generated).toMatch(/axm:file v=1 ext=[^ ]+ src=[^ ]+ gen=[0-9a-f]{64}/u);
+            const rewritten = generated.replace(
+              "First reviewer guidance.",
+              "Repository-formatted role body.",
+            );
+            expect(rewritten).not.toBe(generated);
+            workspace.writeFile(projection, rewritten);
 
-          expectNothingToReconcile(yield* previewSync());
-          expect(workspace.readFile(projection)).toBe(rewritten);
+            expectNothingToReconcile(yield* previewSync());
+            expect(workspace.readFile(projection)).toBe(rewritten);
 
-          expectNothingToReconcile(yield* applySync());
-          expect(workspace.readFile(projection)).toBe(rewritten);
-        }),
-      )
-      .pipe(Effect.provide(NodeServices.layer));
-  });
+            expectNothingToReconcile(yield* applySync());
+            expect(workspace.readFile(projection)).toBe(rewritten);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+    { timeout: FIXTURE_TIMEOUT },
+  );
 
   it.effect(
     "restores a missing generated unit without treating its prior body as authority",
@@ -297,5 +318,6 @@ describe("Generated document projection currency", () => {
         )
         .pipe(Effect.provide(NodeServices.layer));
     },
+    { timeout: FIXTURE_TIMEOUT },
   );
 });

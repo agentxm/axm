@@ -68,6 +68,24 @@ export const isRetryablePublishFailure = (failure: PublishFailure): boolean =>
 export const publishFailureProblemCode = (failure: PublishFailure): string | undefined =>
   failureMetadata(failure)?.response?.problemCode;
 
+/** The Registry lifecycle reason carried by a typed publication refusal. */
+export const publishFailureLifecycleReason = (
+  failure: PublishFailure,
+): "deleting" | "held" | "archived" | undefined => {
+  const response = failureMetadata(failure)?.response;
+  const body = response?.body;
+  if (
+    response?.problemCode !== "lifecycle_blocked" ||
+    typeof body !== "object" ||
+    body === null ||
+    !("reason" in body)
+  )
+    return undefined;
+  return body.reason === "deleting" || body.reason === "held" || body.reason === "archived"
+    ? body.reason
+    : undefined;
+};
+
 /**
  * The redacted cause the publish document reports. Only evidence the Registry
  * or the request policy established is carried; credential shapes in

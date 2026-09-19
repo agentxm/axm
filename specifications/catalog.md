@@ -4781,6 +4781,19 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Derived from: `apps/cli/help/topics/publish.md`, `apps/cli/src/root/publish/command.test.ts`
 - Source: [`packages/core/workspace/src/publishing/archive/archive-inventory-matches-published-bytes.spec.ts`](../packages/core/workspace/src/publishing/archive/archive-inventory-matches-published-bytes.spec.ts)
 
+##### Publication reports the Registry's lifecycle refusal
+
+- Requirement: `cli/publish/reports-lifecycle-refusal-reason`
+- Owner: `workspace`
+- Statement: When the Registry refuses an admitted publication because the extension is deleting, held, or archived, AXM shall report that exact lifecycle reason for the failed candidate rather than classify the refusal as an integrity conflict.
+- Class: functional
+- Role: interface
+- Product goals: `trustworthy-distribution`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/core/workspace/src/publishing/publish/use-case.ts`
+- Source: [`packages/core/workspace/src/publishing/upload/reports-lifecycle-refusal-reason.spec.ts`](../packages/core/workspace/src/publishing/upload/reports-lifecycle-refusal-reason.spec.ts)
+
 #### External conformance
 
 ##### Publishing is a write the publisher makes as themselves

@@ -195,8 +195,8 @@ describe("Windows workspace mutation contract", () => {
         }),
       );
       const lockAfter = YAML.parse(fs.readFileSync(lockPath, "utf8"));
-      expect(lockAfter.skills["my-skill"].contentIdentity).not.toBe(
-        lockBefore.skills["my-skill"].contentIdentity,
+      expect(lockAfter.skills["my-skill"].treeIntegrity).not.toBe(
+        lockBefore.skills["my-skill"].treeIntegrity,
       );
       expect(fs.readFileSync(canonicalSkillMd, "utf8")).toContain("Windows refresh.");
 

@@ -20,7 +20,9 @@ import { shareDoc } from "./view.js";
 
 const ecosystemFlag = (ecosystem: string) =>
   Flag.Boolean(ecosystem).pipe(
-    Flag.withDescription(`Emit portable ${ecosystem} package metadata for the tag at HEAD`),
+    Flag.withDescription(
+      `Emit portable ${ecosystem} package metadata with the Git source locator for the tag at HEAD`,
+    ),
     Flag.withDefault(false),
   );
 
@@ -86,10 +88,13 @@ export const shareCommand = Command.make("share", shareConfig, (config) =>
   withArgvTracking(shareConfig),
   withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription(
-    "Print an install command for distributable authored extensions; opt-out is not confidentiality",
+    "Print a Git locator install command for distributable authored extensions; opt-out is not confidentiality",
   ),
   Command.withExamples([
-    { command: "axm share", description: "Print a live-checked install command for origin" },
+    {
+      command: "axm share",
+      description: "Print a live-checked install command with origin's self-describing locator",
+    },
     {
       command: "axm share --npm",
       description: "Emit package.json metadata for the tag at HEAD",

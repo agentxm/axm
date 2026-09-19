@@ -32,22 +32,15 @@ const captureHelpOutput = (path: ReadonlyArray<string>): Effect.Effect<string, u
     return output;
   });
 
-describe("root install command help", () => {
-  it.effect("documents the no-arg, FQN, and locator install contract", () =>
+describe("root share command help", () => {
+  it.effect("documents the Git locator and ecosystem metadata contract", () =>
     Effect.gen(function* () {
-      const output = stripAnsi(yield* captureHelpOutput(["install"]));
+      const output = stripAnsi(yield* captureHelpOutput(["share"]));
 
-      expect(output).toContain(
-        "Install extensions from Registry, Git, or path sources, or reinstall configured sources",
-      );
-      expect(output).toContain("self-describing Git locator, or path locator");
-      expect(output).toContain("axm install");
-      expect(output).toContain("axm install @acme/skills/code-review");
-      expect(output).toContain("axm install github:acme/agent-extensions//tools@v1.0.0");
-      expect(output).toContain("shorthand revisions cannot contain");
-      expect(output).toContain("--ignore-release-age");
-      expect(output).toContain("Discover and install from a hosted Git locator");
-      expect(output).toContain("How locators and accepted resolutions differ");
+      expect(output).toContain("Print a Git locator install command");
+      expect(output).toContain("origin's self-describing locator");
+      expect(output).toContain("package metadata with the Git source");
+      expect(output).toContain("locator for the tag at HEAD");
     }),
   );
 });

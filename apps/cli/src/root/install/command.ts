@@ -27,7 +27,7 @@ const sourceArgument = (type?: InstallableExtensionType) =>
   Argument.String("source").pipe(
     Argument.withDescription(
       type === undefined
-        ? 'Registry FQN (@owner/<plural-type>/<name>[@version]) or source locator; provider shorthand uses a final @ref, and shorthand refs cannot contain "/"'
+        ? 'Registry FQN (@owner/<plural-type>/<name>[@version]), self-describing Git locator, or path locator; hosted shorthand uses a final @revision, and shorthand revisions cannot contain "/"'
         : installSourceArgumentDescription(type),
     ),
     Argument.optional,
@@ -106,7 +106,7 @@ const finishCommand = <Name extends string, Input, ContextInput, E, R>(
     withCommandCapabilities(installCapabilities),
     Command.withDescription(
       type === undefined
-        ? "Install extensions from a registry FQN or source locator, or reinstall configured extensions"
+        ? "Install extensions from Registry, Git, or path sources, or reinstall configured sources"
         : `Reinstall all configured ${extensionTypeToPlural[type]} from their sources, or install ${extensionTypeToPlural[type]} from a source`,
     ),
     Command.withExamples([
@@ -115,7 +115,7 @@ const finishCommand = <Name extends string, Input, ContextInput, E, R>(
           type === undefined
             ? "axm install ./extensions --skill review --rule safe-shell"
             : `axm ${extensionTypeToPlural[type]} install ./extensions --${type === "mcp-server" ? "mcp" : type} example`,
-        description: "Install an explicit selection from a source",
+        description: "Install an explicit selection from one source locator",
       },
       {
         command:
@@ -368,7 +368,7 @@ export const installCommand = finishCommand(
     },
     {
       command: "axm install github:acme/agent-extensions//tools@v1.0.0",
-      description: "Discover and install skills, subagents, rules, hooks, and knowledge",
+      description: "Discover and install from a hosted Git locator",
     },
     {
       command: "axm install ./extensions --skill review --rule safe-shell",
@@ -384,6 +384,7 @@ export const installCommand = finishCommand(
     formatLearnMore([
       ["axm help getting-started", "How to set up and configure AXM"],
       ["axm help basic-usage", "How to use AXM"],
+      ["axm help workspace-state", "How locators and accepted resolutions differ"],
     ]),
   ),
 );

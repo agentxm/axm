@@ -14,7 +14,9 @@ import { handleUpdate } from "./handler.js";
 
 const updateConfig = {
   source: Argument.String("extension[@version]").pipe(
-    Argument.withDescription("Registry FQN (@owner/<plural-type>/<name>[@version])"),
+    Argument.withDescription(
+      "Installed extension FQN; optional @version constrains Registry sources only",
+    ),
     Argument.optional,
   ),
   scope: scopeFlag.pipe(
@@ -37,7 +39,7 @@ export const updateCommand = Command.make(
 ).pipe(
   withArgvTracking(updateConfig),
   withCommandCapabilities(previewableCapabilities("workspace", { trust: ["publisher-change"] })),
-  Command.withDescription("Update extensions to newer versions"),
+  Command.withDescription("Advance accepted resolutions within each source's selection intent"),
   Command.withExamples([
     {
       command: "axm update",
@@ -45,11 +47,11 @@ export const updateCommand = Command.make(
     },
     {
       command: "axm update @acme/skills/code-review",
-      description: "Update a skill by fully qualified registry name",
+      description: "Update an installed extension by FQN, regardless of source family",
     },
     {
       command: "axm update @acme/hooks/session-audit@^1.2.0",
-      description: "Update a hook with a version constraint",
+      description: "Update a Registry extension within a version constraint",
     },
     {
       command: "axm update @acme/skills/code-review --ignore-release-age",

@@ -42,7 +42,7 @@ The workspace model does not own:
 - configured-agent semantics, which belong to [Coding agents](agents.md);
 - canonical instruction files and aliases, which belong to [Instruction
   files](instruction-files.md);
-- source-host precedence and resolution policy, which belong to [Sources and
+- source selection and resolution policy, which belong to [Sources and
   resolution](sources.md);
 - accepted external source identity, immutable resolution, and lockfile
   persistence, which belong to the [Lockfile](lockfile.md);
@@ -211,7 +211,7 @@ identity blocks reconciliation until an explicit resolution transition.
 Missing canonical content can be reacquired only from that exact identity when
 the source can still reproduce it. Update, not sync, owns advancement.
 
-Registry, Git, and local-path sources use source-appropriate immutable identity.
+Registry, Git, and path sources use source-appropriate immutable identity.
 When a mutable source no longer reproduces the locked identity, sync and
 reinstall block rather than substituting different bytes. Desired capabilities
 without an external source have no fabricated resolution row.

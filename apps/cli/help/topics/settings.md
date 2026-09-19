@@ -268,14 +268,14 @@ represent it.
 ## Authoring
 
 Let AXM edit settings for routine install, remove, enable, disable, agent, and
-source changes. Hand-edit settings when reviewing generated changes, adding
-registries, or adjusting `lint.rules`.
+source changes. Hand-edit settings when reviewing generated changes, naming a
+Registry endpoint, selecting `defaultRegistry`, or adjusting `lint.rules`.
 
 AXM writes new settings files in canonical key order. When editing an existing
 file, it preserves the file's key order and untouched formatting.
 
-Workspace sources are authoritative local packages. AXM protects them across
-their lifecycle:
+Workspace-authored packages are authoritative local sources. AXM protects them
+across their lifecycle:
 
 - **Install and update cannot replace source** — update reports the package unchanged and explicit refresh/constraint flags do not bypass protection.
 - **Enable and sync resolve locally** — AXM validates the canonical package and never fetches the same FQN from a registry.

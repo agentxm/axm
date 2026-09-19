@@ -21,4 +21,4 @@ export const installCommandFor = (type: ExtensionType, source: string): string =
 
 /** Source argument guidance shared by every typed install command. */
 export const installSourceArgumentDescription = (type: ExtensionType): string =>
-  `${extensionTypeSentenceLabels[type]} source (@owner/${extensionTypeToPlural[type]}/name[@version], Git locator, or local path)`;
+  `${extensionTypeSentenceLabels[type]} source (Registry FQN @owner/${extensionTypeToPlural[type]}/name[@version], self-describing Git locator, or path locator)`;

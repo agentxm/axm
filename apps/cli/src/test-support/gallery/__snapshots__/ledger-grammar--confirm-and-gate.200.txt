@@ -1,4 +1,2 @@
  ?   Sync instructions to the selected agents?    Y  yes    n  no
      Updates agent instruction files such as AGENTS.md and CLAUDE.md.
-
- ✔   Sync instructions             yes

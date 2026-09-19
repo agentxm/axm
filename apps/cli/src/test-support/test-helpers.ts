@@ -79,9 +79,9 @@ import {
   SyncStepFailureConversionLive,
 } from "../feature-errors.js";
 export { LifecycleStepFailureConversionLive };
-import { WorkspaceInitializationInteractionTest } from "@agentxm/workspace/configuration/testing";
 import { ExecutionDirectory } from "../execution-directory.js";
 import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
+import { WorkspaceInitializationInteractionLive } from "../workspace-initialization-interaction-live.js";
 
 const testHttpClient = HttpClient.make((request) =>
   Effect.succeed(
@@ -112,21 +112,10 @@ export interface TestPromptConfig {
   readonly confirmResponses?: ReadonlyArray<boolean>;
   /** Observe state at the real confirmation port, before consuming its canned answer. */
   readonly onConfirmApplyChanges?: () => void;
-  readonly multiselectResponses?: ReadonlyArray<ReadonlyArray<string>>;
 }
 
 export interface TestPromptState {
   readonly confirmCalls: Array<{ readonly kind: "resolve-plan" }>;
-  readonly multiselectCalls: Array<{
-    readonly message: string;
-    readonly options: ReadonlyArray<{
-      readonly value: string;
-      readonly label: string;
-      readonly hint?: string;
-    }>;
-    readonly initialValues: ReadonlyArray<string>;
-    readonly required: boolean;
-  }>;
 }
 
 /** One mutating call the recording file system observed. */
@@ -516,10 +505,8 @@ export const makeCliTestContext = (opts?: {
   const rendererState = renderer.state;
   const promptState: TestPromptState = {
     confirmCalls: [],
-    multiselectCalls: [],
   };
   const confirmQueue = Array.from(opts?.prompt?.confirmResponses ?? []);
-  const multiselectQueue = Array.from(opts?.prompt?.multiselectResponses ?? []);
 
   const nextConfirm = () =>
     Effect.gen(function* () {
@@ -545,29 +532,9 @@ export const makeCliTestContext = (opts?: {
     presentPlan: (plan, options) =>
       presentPlan(plan, options).pipe(Effect.provide(Layer.mergeAll(rendererLayer, flagsLayer))),
   });
-  const workspaceInitializationTest = WorkspaceInitializationInteractionTest({
-    selectAgents: ({ allAgents, detectedIds }) =>
-      Effect.gen(function* () {
-        promptState.multiselectCalls.push({
-          message: "Select agents to configure",
-          options: allAgents.map((agent) => ({
-            value: agent.id,
-            label: agent.name,
-            hint:
-              agent.skills === undefined ? "skills: unsupported" : `skills: ${agent.skills.dir}`,
-          })),
-          initialValues: detectedIds,
-          required: false,
-        });
-        const response = multiselectQueue.shift();
-        if (response === undefined) {
-          return yield* Effect.die(
-            new Error("Test prompt: no canned multiselect response for workspace initialization."),
-          );
-        }
-        return response;
-      }),
-  });
+  const workspaceInitializationLayer = WorkspaceInitializationInteractionLive.pipe(
+    Layer.provide(rendererLayer),
+  );
   const authLoginPresenterTest = AuthLoginPresenterTest();
   const fileSystemPlatformLayer =
     opts?.fileSystemLayer === undefined
@@ -595,7 +562,7 @@ export const makeCliTestContext = (opts?: {
     rendererLayer,
     resolvePlanTest.layer,
     authLoginPresenterTest.layer,
-    workspaceInitializationTest.layer,
+    workspaceInitializationLayer,
     flagsLayer,
     Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(process.cwd()) }),
     Layer.succeed(RegistryUrl, "https://registry.example.com"),
@@ -613,7 +580,6 @@ export const makeCliTestContext = (opts?: {
     promptState,
     rendererState,
     resolvePlanState: resolvePlanTest.state,
-    workspaceInitializationState: workspaceInitializationTest.state,
   };
 };
 

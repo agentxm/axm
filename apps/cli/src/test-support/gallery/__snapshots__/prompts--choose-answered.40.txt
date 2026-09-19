@@ -1,7 +1,0 @@
- ?   Instructions source
- ❯   AGENTS.md
-     CLAUDE.md
-     Other…
-
- ✔   Instructions source
-       AGENTS.md

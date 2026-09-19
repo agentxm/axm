@@ -2,7 +2,7 @@ import * as DateTime from "effect/DateTime";
 
 import type { ViewDocument } from "@agentxm/workspace/inspection";
 
-/** One published version, all published the same day; the page shows versions, not dates. */
+/** One published sample version; the page shows versions, not dates. */
 const published = (version: string) => ({
   version,
   published: DateTime.makeUnsafe("2026-08-01T00:00:00Z"),

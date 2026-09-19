@@ -32,15 +32,18 @@ import { initialProgress, reduceProgress, type ProgressState } from "../../scree
 import { liveLedgerDoc } from "../../screen/live-ledger.js";
 import { Screen, ScreenLive } from "../../screen/screen.js";
 import { OutputStreams } from "../../screen/streams.js";
+import { asciiGlyphs } from "../../screen/glyphs.js";
 import { displayWidth } from "../../screen/width.js";
 import { paintBoxed } from "./alternative-painter.js";
 import {
   asciiViolations,
   colorViolations,
+  collectSemanticFacts,
   conformanceWidths,
   determinismViolations,
   nodeKinds,
   nodeKindsOf,
+  semanticFactKinds,
   trailingWhitespaceViolations,
   unboundedViolations,
   widthViolations,
@@ -107,6 +110,14 @@ describe("renderer conformance", () => {
     expect([...covered].sort()).toEqual([...nodeKinds].sort());
   });
 
+  it("the every-node fixture covers every non-text painter fact", () => {
+    const everyNode = gallery.find((fixture) => fixture.name === "every-node");
+    const facts = collectSemanticFacts(everyNode?._tag === "document" ? everyNode.doc : []);
+    expect([...new Set(facts.map((fact) => fact.kind))].sort()).toEqual(
+      [...semanticFactKinds].sort(),
+    );
+  });
+
   it("recorded logs exist for apply, preview, and failure", () => {
     expect(recordedLogs.map((log) => log.name)).toEqual([
       "install-apply",
@@ -162,6 +173,53 @@ describe("renderer conformance", () => {
     it("paints an empty document as no lines", () => {
       const empty: Doc = [];
       expect(painter.paint(empty, { width: 80, colors: false })).toEqual([]);
+    });
+
+    it("paints ledger, table, and settled-answer marks", () => {
+      const marked: Doc = [
+        {
+          _tag: "ledger",
+          columns: [{ header: "Unit", role: "name" }],
+          rows: [{ mark: "create", cells: ["created-unit"] }],
+        },
+        {
+          _tag: "table",
+          columns: [{ header: "Unit" }],
+          rows: [{ mark: "warn", cells: ["warning-unit"] }],
+        },
+        { _tag: "answer", mark: "ok", label: "Choice", value: "yes" },
+      ];
+      const painted = painter.paint(marked, {
+        width: 80,
+        colors: false,
+        glyphs: {
+          ...asciiGlyphs,
+          outcomes: { ...asciiGlyphs.outcomes, create: "CREATE", warn: "WARN", ok: "OK" },
+        },
+      });
+      expect(painted.some((line) => line.includes("CREATE"))).toBe(true);
+      expect(painted.some((line) => line.includes("WARN"))).toBe(true);
+      expect(painted.some((line) => line.includes("OK"))).toBe(true);
+    });
+
+    it("paints tint, inversion, and links rather than dropping span presentation", () => {
+      const styled: Doc = [
+        {
+          _tag: "paragraph",
+          text: [
+            {
+              text: "styled",
+              tint: "magenta",
+              invert: true,
+              link: "https://example.test/styled",
+            },
+          ],
+        },
+      ];
+      const output = painter.paint(styled, { width: 80, colors: true }).join("\n");
+      expect(output).toContain("\u001b[35m");
+      expect(output).toContain("\u001b[7m");
+      expect(output).toContain("\u001b]8;;https://example.test/styled");
     });
   });
 

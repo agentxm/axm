@@ -5,7 +5,7 @@ import {
   reviewKit,
   reviewer,
   triage,
-} from "./publish-results.js";
+} from "./samples/publish-results.js";
 
 /**
  * The plan (*Reference cases*, board `1 · Publish, contract-true`, frame

@@ -1,4 +1,4 @@
-import { admittedSet, publishFrame, triage } from "./publish-results.js";
+import { admittedSet, publishFrame, triage } from "./samples/publish-results.js";
 
 /**
  * Nothing to upload: every selected version is already published and

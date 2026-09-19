@@ -2,7 +2,7 @@ import { initialPickState, pickDoc } from "../../screen/ask/pick.js";
 import { liveLedgerDoc, type LivePlan } from "../../screen/live-ledger.js";
 import { initialProgress, reduceProgress } from "../../screen/progress.js";
 import type { Scene } from "../../screen/scene.js";
-import { toolkitPick } from "./pick-asks.js";
+import { toolkitPick } from "./samples/pick-asks.js";
 
 /** The install as it stands before anything is chosen: started, nothing running. */
 const started = reduceProgress(initialProgress, {

@@ -1,14 +1,14 @@
 Setting up AXM in ~/code/storefront  project scope
  ✔   Scanned repo and machine      found 4 agents
- ?   Which agents should AXM configure?  type to filter
- ❯ ◉ Claude Code                   detected in project · suggested
-   ◉ Codex                         detected in project · suggested
-   ◉ Cursor                        detected on workstation
-   ◯ Gemini CLI                    detected on workstation
-   ◯ Cline
-   ◯ Windsurf
-   ◯ GitHub Copilot
-   ◯ Amp
-   ◯ OpenCode
-     ↓ 3 more
-3 selected · ↑↓ move · space toggle · ^a all · enter confirm
+ ?   Select agents to configure  type to filter
+ ❯ ◯ AdaL                          skills: .adal/skills
+   ◯ AiderDesk                     skills: .aider-desk/skills
+   ◯ Amp                           skills: .agents/skills
+   ◯ Antigravity                   skills: .agents/skills
+   ◯ Antigravity CLI               skills: .agents/skills
+   ◯ Augment                       skills: .augment/skills
+   ◉ Claude Code                   detected in project · suggested · skills: .claude/skills
+   ◯ Cline                         skills: .cline/skills
+   ◯ CodeArts Agent                skills: .codeartsdoer/skills
+     ↓ 54 more
+2 selected · ↑↓ move · space toggle · ^a all · enter confirm

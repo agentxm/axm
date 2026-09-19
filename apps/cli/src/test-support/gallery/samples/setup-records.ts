@@ -1,13 +1,16 @@
 import type { SetupOutcome, SetupPlanRow } from "@agentxm/workspace/configuration";
 
-import type { ConfirmAsk } from "../../screen/ask/ask.js";
-import { confirmAnswer } from "../../screen/ask/confirm.js";
-import { chooseAnswer } from "../../screen/ask/choose.js";
-import { pickAnswer } from "../../screen/ask/pick.js";
-import type { Doc } from "../../screen/doc.js";
-import { setupAgentScanDoc, setupTitleDoc } from "../../root/setup/view.js";
+import { confirmAnswer } from "../../../screen/ask/confirm.js";
+import { chooseAnswer } from "../../../screen/ask/choose.js";
+import { pickAnswer } from "../../../screen/ask/pick.js";
+import type { Doc } from "../../../screen/doc.js";
+import { setupAgentScanDoc, setupTitleDoc } from "../../../root/setup/view.js";
 import { agentsSource, instructionSource } from "./instruction-source-asks.js";
 import { agentsPick } from "./pick-asks.js";
+import {
+  instructionSyncAsk,
+  setupPlanAsk,
+} from "../../../workspace-initialization-interaction-live.js";
 
 /**
  * The storefront the playable setup board runs against (canvas *Direction:
@@ -19,21 +22,10 @@ const WHERE = "~/code/storefront";
 const yes = { key: "y", word: "yes", value: true } as const;
 const no = { key: "n", word: "no", value: false } as const;
 
-export const syncAsk: ConfirmAsk<boolean> = {
-  _tag: "Confirm",
-  question: "Sync instructions to the selected agents?",
-  note: "Updates agent instruction files such as AGENTS.md and CLAUDE.md.",
-  label: "Sync instructions",
-  choices: [yes, no],
-};
+export const syncAsk = instructionSyncAsk(true);
 
 /** The standard apply gate: nothing has been written yet, so it proceeds by default. */
-export const applyAsk: ConfirmAsk<boolean> = {
-  _tag: "Confirm",
-  question: "Apply setup?",
-  label: "Apply setup",
-  choices: [yes, no],
-};
+export const applyAsk = setupPlanAsk;
 
 /** The record as it opens: the title line and what the scan found. */
 export const setupOpening = (preview = false): Doc => [

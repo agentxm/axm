@@ -1,6 +1,6 @@
 import type { Doc } from "../../screen/doc.js";
 import { setupResultDoc } from "../../root/setup/view.js";
-import { cancelledOutcome, setupOpening } from "./setup-records.js";
+import { cancelledOutcome, setupOpening } from "./samples/setup-records.js";
 
 /**
  * A setup the person stopped: the verdict stands alone and says nothing was

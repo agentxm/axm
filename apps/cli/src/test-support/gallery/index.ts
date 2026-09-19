@@ -7,7 +7,6 @@ import { refViewOneField } from "./ref-view--one-field.js";
 import { detail } from "./detail.js";
 import { everyNode } from "./every-node.js";
 import type { GalleryFixture } from "./fixture.js";
-import { asciiGlyphs } from "../../screen/glyphs.js";
 import { inventory } from "./inventory.js";
 import { inventoryAltStacked } from "./inventory-alt-stacked.js";
 import { ledgerSetupPlayAgents } from "./ledger-setup-play--agents.js";
@@ -19,10 +18,10 @@ import { ledgerSetupPlayPlanWithoutSync } from "./ledger-setup-play--plan-withou
 import { ledgerSetupPlaySource } from "./ledger-setup-play--source.js";
 import { ledgerSetupPlaySync } from "./ledger-setup-play--sync.js";
 import { setupPreview } from "./setup-preview.js";
-import { promptsChooseAnswered } from "./prompts--choose-answered.js";
-import { promptsConfirmAnswered } from "./prompts--confirm-answered.js";
-import { promptsInputAnswered } from "./prompts--input-answered.js";
-import { promptsInputError } from "./prompts--input-error.js";
+import { ledgerGrammarChooseOne } from "./ledger-grammar--choose-one.js";
+import { ledgerGrammarConfirmAndGate } from "./ledger-grammar--confirm-and-gate.js";
+import { ledgerGrammarInput } from "./ledger-grammar--input.js";
+import { ledgerGrammarInputError } from "./ledger-grammar--input-error.js";
 import { refLintClean } from "./ref-lint--clean.js";
 import { refMidflightBusyWorkspace } from "./ref-midflight--busy-workspace.js";
 import { refMidflightErrorFamily1 } from "./ref-midflight--error-family-1.js";
@@ -57,15 +56,14 @@ import { widthPromptsChooseHeight } from "./width-prompts--choose-height.js";
 import { widthPromptsConfirm } from "./width-prompts--confirm.js";
 import { widthPromptsPick } from "./width-prompts--pick.js";
 import { widthPromptsPickWithLedger } from "./width-prompts--pick-with-ledger.js";
-import { waitOpen, waitStatic } from "./wait-open.js";
+import { waitOpen } from "./wait-open.js";
+import { waitStatic } from "./wait-static.js";
 import { waitSettledFixture } from "./wait-settled.js";
 
 /**
- * The terminal design gallery: one typed document or live scene per key use
- * case, plus the alternatives considered for each (`*-alt-*`). Every document
- * is painted at each gallery width, and every scene at each gallery width and
- * height, and snapshot-tested; the accepted rendering for each use case is
- * recorded in the terminal design documentation.
+ * The terminal design gallery: one typed document or live scene per retained
+ * scenario. Every document is painted at each gallery width, and every scene
+ * at each gallery width and height, and snapshot-tested.
  *
  * A fixture drawn from the design canvas is named `<board>--<frame>`: the
  * board's file stem and the frame's caption, in kebab case, so its snapshots
@@ -122,15 +120,18 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
   { _tag: "document", name: "ledger-setup-play--done", doc: ledgerSetupPlayDone },
   { _tag: "document", name: "ledger-setup-play--cancelled", doc: ledgerSetupPlayCancelled },
   { _tag: "document", name: "setup-preview", doc: setupPreview },
-  { _tag: "document", name: "prompts--confirm-answered", doc: promptsConfirmAnswered },
-  { _tag: "document", name: "prompts--choose-answered", doc: promptsChooseAnswered },
-  { _tag: "document", name: "prompts--input-answered", doc: promptsInputAnswered },
-  { _tag: "document", name: "prompts--input-error", doc: promptsInputError },
+  {
+    _tag: "document",
+    name: "ledger-grammar--confirm-and-gate",
+    doc: ledgerGrammarConfirmAndGate,
+  },
+  { _tag: "document", name: "ledger-grammar--choose-one", doc: ledgerGrammarChooseOne },
+  { _tag: "document", name: "ledger-grammar--input", doc: ledgerGrammarInput },
+  { _tag: "document", name: "ledger-grammar--input-error", doc: ledgerGrammarInputError },
   { _tag: "document", name: "ref-pick--grouped", doc: refPickGrouped },
   { _tag: "document", name: "ref-pick--filtered", doc: refPickFiltered },
   { _tag: "document", name: "ref-pick--short-terminal", doc: refPickShortTerminal },
   { _tag: "document", name: "ref-pick--answered", doc: refPickAnswered },
-  { _tag: "document", name: "ref-pick--ascii", doc: refPickGrouped, glyphs: asciiGlyphs },
   { _tag: "document", name: "wait-open", doc: waitOpen },
   { _tag: "document", name: "wait-static", doc: waitStatic },
   { _tag: "document", name: "wait-settled", doc: waitSettledFixture },

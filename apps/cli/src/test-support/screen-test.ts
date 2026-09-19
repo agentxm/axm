@@ -29,6 +29,8 @@ export interface TestScreenState {
   /** Every plan handed to the live ledger, in order. */
   readonly plans: Array<LivePlan>;
   readonly logs: Array<ScreenLogRecord>;
+  /** Every raw credential delivered to stdout, in order. */
+  readonly credentials: Array<string>;
   /** Questions this screen was given, and the keys it answers the next ones with. */
   readonly script: AskScript;
   readonly waitScript: WaitScript;
@@ -41,6 +43,7 @@ const emptyState = (): TestScreenState => ({
   events: [],
   plans: [],
   logs: [],
+  credentials: [],
   script: emptyAskScript(),
   waitScript: emptyWaitScript(),
 });
@@ -48,6 +51,7 @@ const emptyState = (): TestScreenState => ({
 export const makeTestScreen = (options?: {
   readonly documentResult?: boolean;
   readonly interactive?: boolean;
+  readonly stdoutIsTTY?: boolean;
 }): {
   readonly layer: Layer.Layer<Screen>;
   readonly state: TestScreenState;
@@ -56,6 +60,7 @@ export const makeTestScreen = (options?: {
   const layer = Layer.succeed(Screen, {
     result: (doc) =>
       Effect.sync(() => void state.docs.push({ channel: "stdout", doc, persistent: false })),
+    credential: (content) => Effect.sync(() => void state.credentials.push(content)),
     note: (doc, options) =>
       Effect.sync(
         () =>
@@ -95,7 +100,12 @@ export const makeTestScreen = (options?: {
     wait: scriptedWait(state.waitScript, (doc, persistent) =>
       state.docs.push({ channel: "stderr", doc, persistent }),
     ),
-    facts: Effect.succeed({ columns: 80, colors: false, animate: false }),
+    facts: Effect.succeed({
+      columns: 80,
+      stdoutIsTTY: options?.stdoutIsTTY ?? false,
+      colors: false,
+      animate: false,
+    }),
     settle: Effect.void,
   });
   return { layer, state };

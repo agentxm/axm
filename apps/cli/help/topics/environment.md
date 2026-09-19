@@ -41,10 +41,57 @@ order:
 Prefer `AXM_TOKEN_FILE` in automation so the secret does not need to live in
 the process environment or command line. Restrict the file to the account that
 runs AXM. Diagnostics redact credential values, and ambient credentials are not
-persisted as login sessions. The explicit `axm token` command returns the
-effective token when requested. Ambient
-credentials are not forwarded to custom registry origins; configure those
-sources explicitly.
+persisted as login sessions. `axm token --output token` writes the effective
+token, and nothing else, to stdout. Ambient credentials are not forwarded to
+custom registry origins; configure those sources explicitly.
+
+## Creating a token for automation
+
+`axm token create --output token` writes exactly the new token followed by one
+newline to stdout; its ID, name, permissions, expiry, approval instructions,
+and any recovery guidance go to stderr. Token commands never return a secret in
+a `--json` document, and without `--output` they refuse to run unless stdout is
+an interactive terminal. Creation requires a signed-in session. When the
+Registry asks for approval, `--wait-for-human 300` waits up to 300 seconds for
+it and then retries the creation once.
+
+Pipe the token straight into the tool that stores it, and refuse empty or
+incomplete input so a failed creation cannot overwrite an existing secret:
+
+```bash
+set -o pipefail
+axm token create \
+  --name ci-publisher \
+  --extension @acme/skills/review \
+  --permission publish \
+  --expires 90d \
+  --wait-for-human 300 \
+  --output token |
+(
+  set +x
+  IFS= read -r token || exit 1
+  [ -n "$token" ] || exit 1
+  printf '%s' "$token" |
+    gh secret set AXM_REGISTRY_TOKEN --repo acme/extensions
+)
+```
+
+A workflow then hands that secret to AXM as `AXM_TOKEN`; the secret's own name
+is yours to choose.
+
+Success means AXM issued the token and stdout accepted it, not that the
+receiving tool stored it, or that anything was still reading: acceptance is the
+runtime taking the bytes. `pipefail` reports a failure on either side. If the
+consumer fails after reading, revoke the token by the ID shown on stderr with
+`axm token revoke <id>`. If stdout fails before accepting the whole token, AXM
+revokes that new token once, within 10 seconds, reports the outcome on stderr,
+and exits nonzero. A forced exit, a lost Registry answer, or an unreachable
+Registry can leave it active, and a creation the Registry did not definitively
+refuse — no answer, an unreadable one, or a gateway or server error — may or
+may not have issued a token: check `axm token list` before creating another,
+and revoke unwanted tokens by ID, since names are not unique. Trust the
+receiving tool not to echo its input; a pipe does not keep a secret from a
+process that can read it.
 
 ## Startup network behavior
 

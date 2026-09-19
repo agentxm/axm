@@ -231,7 +231,7 @@ code for device login and the link for every other wait, and `esc` abandons the
 wait. A failed open or copy remains on the wait line so the person can recover.
 Abandoning is not a failure of the underlying request; the command ends with
 its pending outcome and names the exact route that resumes it, such as `axm
-login --wait` for a pending device sign-in or `axm publish
+login --device-code --wait-for-human 300` for a pending device sign-in or `axm publish
 --authorization-request <url>` for publication. When the wait completes it
 settles into one line. Without animation the same information prints once as a
 static block and the command simply waits.

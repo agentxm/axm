@@ -37,6 +37,7 @@ import { paintText } from "./paint-text.js";
 import type { Glyphs } from "./glyphs.js";
 import { initialProgress, reduceProgress } from "./progress.js";
 import { OutputStreams } from "./streams.js";
+import type { CredentialDeliveryFailed } from "./streams.js";
 import type { ResultOptions } from "./output.js";
 import { ensureNewline, streamPaintWidth } from "./presenter-helpers.js";
 
@@ -49,6 +50,7 @@ export interface ScreenLogRecord {
 
 export interface ScreenFacts {
   readonly columns: number;
+  readonly stdoutIsTTY: boolean;
   /** Whether the primary result stream is styled. */
   readonly colors: boolean;
   readonly animate: boolean;
@@ -70,6 +72,8 @@ export class Screen extends ServiceMap.Service<
   Screen,
   {
     readonly result: (doc: Doc) => Effect.Effect<void>;
+    /** Deliver one credential to stdout and succeed only after the stream acknowledges it. */
+    readonly credential: (content: string) => Effect.Effect<void, CredentialDeliveryFailed>;
     readonly note: (doc: Doc, options?: { readonly persistent?: boolean }) => Effect.Effect<void>;
     readonly document: <S extends Schema.Top>(
       data: Schema.Schema.Type<S>,
@@ -172,6 +176,7 @@ export const ScreenLive = (
             ? Effect.flatMap(render(doc, "stdout"), frame.stdout)
             : frame.stdout(literal);
         },
+        credential: (content) => frame.settle.pipe(Effect.andThen(streams.credential(content))),
         note,
         document: () => Effect.succeed(false),
         // One projector folds the stream into progress state; the frame reads
@@ -234,6 +239,7 @@ export const ScreenLive = (
         },
         facts: Effect.map(streams.facts, (facts) => ({
           columns: facts.columns,
+          stdoutIsTTY: facts.stdoutIsTTY,
           colors: options.colors.stdout,
           animate: options.animate,
         })),
@@ -343,6 +349,7 @@ export const ScreenMachine = (options?: {
             .join("");
           return literal.length === 0 ? Effect.void : writeResult(literal);
         },
+        credential: streams.credential,
         note,
         document: <S extends Schema.Top>(
           data: Schema.Schema.Type<S>,
@@ -387,7 +394,12 @@ export const ScreenMachine = (options?: {
         // crosses as instructions and suggestions exactly as it always has.
         wait: (view, awaited) =>
           parkedOnWait(view, note(view.brief, { persistent: true }).pipe(Effect.andThen(awaited))),
-        facts: Effect.succeed({ columns: 80, colors: false, animate: false }),
+        facts: Effect.succeed({
+          columns: 80,
+          stdoutIsTTY: false,
+          colors: false,
+          animate: false,
+        }),
         settle: Effect.void,
       };
     }),

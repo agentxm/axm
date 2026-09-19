@@ -79,7 +79,6 @@ export {
   classifyLoopbackFailure,
   deviceLoginOptions,
   login,
-  resumeLoginOptions,
   type LoginOutcome,
   type LoginRequest,
 } from "./login.js";

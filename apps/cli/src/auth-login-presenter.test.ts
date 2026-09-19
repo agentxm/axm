@@ -35,7 +35,7 @@ const pendingResult: DeviceLoginPendingResult = {
   userCode: "ABCD-1234",
   expiresAt: "2099-01-01T00:00:00.000Z",
   interval: 5,
-  resume: "axm login --wait --json",
+  resume: "axm login --device-code --wait-for-human 300 --json",
   action: {
     kind: "open-url",
     purpose: "login",
@@ -46,7 +46,7 @@ const pendingResult: DeviceLoginPendingResult = {
     fallbackUrl: "https://auth.agentxm.ai/device",
     code: "ABCD-1234",
     expiresAt: "2099-01-01T00:00:00.000Z",
-    resume: "axm login --wait --json",
+    resume: "axm login --device-code --wait-for-human 300 --json",
   },
 };
 
@@ -59,7 +59,10 @@ const pendingSuggestions = [
     description: "Open the clean fallback page and enter the code",
     url: "https://auth.agentxm.ai/device",
   },
-  { description: "Resume after approval", cmd: "axm login --wait --json" },
+  {
+    description: "Resume after approval",
+    cmd: "axm login --device-code --wait-for-human 300 --json",
+  },
 ];
 
 const deviceHandoff = {

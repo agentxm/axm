@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as Option from "effect/Option";
 import * as TestClock from "effect/testing/TestClock";
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -23,7 +24,7 @@ export const specification = defineSpecification({
   requirement: "cli/login/terminal-authorization-failures-preserve-credentials",
   title: "Denied and expired sign-ins leave saved sessions unchanged",
   statement:
-    "When a pending device authorization is denied or expires, login --wait shall report the corresponding failure, remove that pending authorization, and leave saved credentials unchanged.",
+    "When a pending device authorization is denied or expires, including expiry reached before a requested wait bound, a device sign-in wait shall report the corresponding failure, remove that pending authorization, and leave saved credentials unchanged.",
   class: "functional",
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -35,6 +36,27 @@ export const specification = defineSpecification({
 });
 
 describe("Terminal authorization failure", () => {
+  it.effect("expiry reached before the requested wait bound is terminal", () => {
+    const { layer } = makeAuthPorts({
+      presenter: machineOutputPresenter,
+      auth: { pollDeviceToken: () => Effect.never },
+    });
+    return Effect.gen(function* () {
+      yield* initiateDeviceLogin(authRegistry, { openBrowser: false });
+      // The code lives 60 seconds; the caller asked to wait for 300.
+      const waiting = yield* resumeDeviceLogin(authRegistry, { timeoutSeconds: 300 }).pipe(
+        Effect.flip,
+        Effect.forkChild,
+      );
+      yield* TestClock.adjust("61 seconds");
+      const error = yield* Fiber.join(waiting);
+
+      expect(authFailureCategory(error)).toBe("auth_expired");
+      expect(Option.isNone(yield* (yield* PendingDeviceLoginStore).load())).toBe(true);
+      expect(Option.isNone(yield* (yield* CredentialStore).load(authRegistry))).toBe(true);
+    }).pipe(Effect.provide(layer));
+  });
+
   for (const outcome of ["denied", "expired-at-registry", "expired-locally"] as const) {
     it.effect(outcome, () => {
       const { layer } = makeAuthPorts({

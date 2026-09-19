@@ -17,11 +17,13 @@ const flagNames = (flags: ReadonlyArray<{ readonly name: string }>) =>
   flags.map((flag) => flag.name);
 
 describe("human-verification flags", () => {
-  it.effect("login offers neither the resume reference nor the bounded wait", () =>
+  // Sign-in waits for a person to approve the device code, but it is not a
+  // challenged write, so it has no request reference to resume.
+  it.effect("login offers the bounded wait without the resume reference", () =>
     Effect.gen(function* () {
       const doc = yield* captureHelpDoc(["login"]);
       expect(flagNames(doc.flags)).not.toContain("step-up-request");
-      expect(flagNames(doc.flags)).not.toContain("wait-for-human");
+      expect(flagNames(doc.flags)).toContain("wait-for-human");
     }),
   );
 

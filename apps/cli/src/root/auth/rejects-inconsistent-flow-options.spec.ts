@@ -28,7 +28,7 @@ export const specification = defineSpecification({
   requirement: "cli/login/rejects-inconsistent-flow-options",
   title: "Sign-in rejects inconsistent flow options",
   statement:
-    "When sign-in options combine incompatible start and resume actions or supply a wait timeout without a resume action, AXM shall report usage failure before changing credentials or pending authorization, and shall document the timeout's dependence on resuming.",
+    "When sign-in options request a restart without device-code sign-in or a wait bound that is not a positive number of seconds, AXM shall report usage failure before changing credentials or pending authorization, and shall document the single-invocation bounded device sign-in wait.",
   class: "functional",
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -45,20 +45,20 @@ const expiry = DateTime.makeUnsafe("2099-01-01T00:00:00.000Z");
 
 const inconsistentOptions = [
   {
-    name: "resume combined with a new device sign-in",
-    options: { yes: false, deviceCode: true, wait: true },
-  },
-  {
-    name: "resume combined with restart",
-    options: { yes: false, deviceCode: false, wait: true, restart: true },
-  },
-  {
     name: "restart without device-code",
     options: { yes: false, deviceCode: false, restart: true },
   },
   {
-    name: "timeout without resume",
-    options: { yes: false, deviceCode: true, timeoutSeconds: 5 },
+    name: "zero wait bound",
+    options: { yes: false, deviceCode: true, waitForHumanSeconds: 0 },
+  },
+  {
+    name: "negative wait bound",
+    options: { yes: false, deviceCode: false, waitForHumanSeconds: -5 },
+  },
+  {
+    name: "wait bound beyond a safe integer",
+    options: { yes: false, deviceCode: true, waitForHumanSeconds: Number.MAX_SAFE_INTEGER + 1 },
   },
 ] as const;
 
@@ -125,17 +125,18 @@ describe("Sign-in option validation", () => {
     });
   }
 
-  it.effect("login help explains how to bound a pending device sign-in wait", () =>
+  it.effect("login help explains how to wait for device sign-in in one invocation", () =>
     Effect.gen(function* () {
       const doc = yield* captureHelpDoc(["login"]);
-      const timeout = doc.flags.find((flag) => flag.name === "timeout");
-      expect(timeout).toBeDefined();
-      expect(timeout && Option.getOrElse(timeout.description, () => "")).toContain(
-        "requires --wait",
-      );
+      const flagNames = doc.flags.map((flag) => flag.name);
+      expect(flagNames).toContain("wait-for-human");
+      expect(flagNames).not.toContain("wait");
+      expect(flagNames).not.toContain("timeout");
+      const wait = doc.flags.find((flag) => flag.name === "wait-for-human");
+      expect(wait && Option.getOrElse(wait.description, () => "")).toContain("seconds");
       expect(doc.examples).toContainEqual({
-        command: "axm login --wait --timeout 300",
-        description: "Wait up to 300 seconds for a pending device sign-in",
+        command: "axm login --device-code --wait-for-human 300 --json",
+        description: "Start or resume device sign-in and wait up to 300 seconds",
       });
     }),
   );

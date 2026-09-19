@@ -22,6 +22,16 @@ describe("resolveFormatFromArgv", () => {
   it("ignores other flags when resolving format", () => {
     expect(resolveFormatFromArgv(["--verbose"])).toBe("text");
   });
+
+  it("keeps diagnostics off stdout when raw token output is requested with --json", () => {
+    expect(resolveFormatFromArgv(["token", "--output", "token", "--json"])).toBe("text");
+    expect(resolveFormatFromArgv(["token", "--output=token", "-j"])).toBe("text");
+  });
+
+  it("reads no options after --", () => {
+    expect(resolveFormatFromArgv(["run", "--", "--json"])).toBe("text");
+    expect(resolveFormatFromArgv(["run", "--json", "--", "--output", "token"])).toBe("json");
+  });
 });
 
 // ---------------------------------------------------------------------------

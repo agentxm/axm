@@ -280,7 +280,7 @@ describe("resumable device login", () => {
           verificationUri: "https://auth.agentxm.ai/device",
           verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
           userCode: "ABCD-1234",
-          resume: "axm login --wait --json",
+          resume: "axm login --device-code --wait-for-human 300 --json",
           action: {
             kind: "open-url",
             url: "https://auth.agentxm.ai/device?user_code=ABCD-1234",

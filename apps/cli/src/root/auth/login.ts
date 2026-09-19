@@ -5,7 +5,7 @@ import { Command, Flag } from "effect/unstable/cli";
 
 import { login, selectedRegistry } from "@agentxm/registry-access/authentication";
 import { Screen, successDoc } from "../../screen/index.js";
-import { isNonInteractive, jsonFlag } from "../../cli-flags/index.js";
+import { isNonInteractive, jsonFlag, waitForHumanOption } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   preapprovalCapabilityFlag,
@@ -56,8 +56,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
     readonly yes: boolean;
     readonly deviceCode: boolean;
     readonly restart?: boolean;
-    readonly wait?: boolean;
-    readonly timeoutSeconds?: number;
+    readonly waitForHumanSeconds?: number;
   }) {
     const screen = yield* Screen;
     const registry = yield* selectedRegistry;
@@ -71,10 +70,9 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
           yes: options.yes,
           deviceCode: options.deviceCode,
           restart: options.restart ?? false,
-          wait: options.wait ?? false,
-          ...(options.timeoutSeconds === undefined
+          ...(options.waitForHumanSeconds === undefined
             ? {}
-            : { timeoutSeconds: options.timeoutSeconds }),
+            : { waitForHumanSeconds: options.waitForHumanSeconds }),
           nonInteractive,
           machineOutput,
         },
@@ -117,32 +115,24 @@ const loginConfig = {
     ),
     Flag.withDefault(false),
   ),
-  wait: Flag.Boolean("wait").pipe(
-    Flag.withDescription("Resume and wait for a pending device sign-in"),
-    Flag.withDefault(false),
-  ),
+  waitForHuman: waitForHumanOption,
   restart: Flag.Boolean("restart").pipe(
     Flag.withDescription("Replace an existing pending device sign-in intentionally"),
     Flag.withDefault(false),
-  ),
-  timeout: Flag.Int("timeout").pipe(
-    Flag.withDescription("Maximum seconds to wait for device approval; requires --wait"),
-    Flag.optional,
   ),
 } as const;
 
 export const loginCommand = Command.make(
   "login",
   loginConfig,
-  ({ yes, deviceCode, wait, restart, timeout }) =>
+  ({ yes, deviceCode, waitForHuman, restart }) =>
     handleLogin({
       yes,
       deviceCode,
-      wait,
       restart,
-      ...Option.match(timeout, {
+      ...Option.match(waitForHuman, {
         onNone: () => ({}),
-        onSome: (timeoutSeconds) => ({ timeoutSeconds }),
+        onSome: (waitForHumanSeconds) => ({ waitForHumanSeconds }),
       }),
     }).pipe(withRuntime("auth login")),
 ).pipe(
@@ -152,10 +142,9 @@ export const loginCommand = Command.make(
   Command.withExamples([
     { command: "axm login", description: "Sign in with a local browser" },
     { command: "axm login --device-code", description: "Sign in from SSH or a headless machine" },
-    { command: "axm login --wait", description: "Resume a pending device sign-in" },
     {
-      command: "axm login --wait --timeout 300",
-      description: "Wait up to 300 seconds for a pending device sign-in",
+      command: "axm login --device-code --wait-for-human 300 --json",
+      description: "Start or resume device sign-in and wait up to 300 seconds",
     },
   ]),
 );

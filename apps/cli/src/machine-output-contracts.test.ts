@@ -4,7 +4,11 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 
-import { JsonHelpDocSchema, JsonVersionDocSchema } from "./cli-runtime/index.js";
+import {
+  JsonErrorEnvelopeSchema,
+  JsonHelpDocSchema,
+  JsonVersionDocSchema,
+} from "./cli-runtime/index.js";
 import { LoginDocumentSchema } from "@agentxm/registry-access/authentication";
 import { PublishResultSchema } from "@agentxm/workspace/publishing";
 import {
@@ -28,12 +32,7 @@ import { AgentCapabilitiesOutputSchema } from "./root/agents/capabilities.js";
 import { AgentsListOutputSchema } from "./root/agents/list.js";
 import { LoginNoOpDocumentSchema } from "./root/auth/login.js";
 import { LogoutDocumentSchema } from "./root/auth/logout.js";
-import {
-  CreatedTokenDocumentSchema,
-  RevokeTokenDocumentSchema,
-  TokenDocumentSchema,
-  TokenListDocumentSchema,
-} from "./root/auth/token.js";
+import { RevokeTokenDocumentSchema, TokenListDocumentSchema } from "./root/auth/token.js";
 import { WhoamiDocumentSchema } from "./root/auth/whoami.js";
 import {
   CachePruneOutputSchema,
@@ -79,13 +78,13 @@ const NAMED_MACHINE_OUTPUT_SCHEMAS: Readonly<Record<string, Schema.Top>> = {
   CachePruneOutputSchema,
   CacheStatusOutputSchema,
   CacheVerifyOutputSchema,
-  CreatedTokenDocumentSchema,
   DiscoverOutputSchema,
   ExtensionInventorySchema,
   ExtensionShowResultSchema,
   HelpIndexResultSchema,
   HelpTopicResultSchema,
   InstructionsStatusOutputSchema,
+  JsonErrorEnvelopeSchema,
   JsonHelpDocSchema,
   JsonVersionDocSchema,
   KnowledgeLintQueryResultSchema,
@@ -108,7 +107,6 @@ const NAMED_MACHINE_OUTPUT_SCHEMAS: Readonly<Record<string, Schema.Top>> = {
   PublishResultSchema,
   RevokeTokenDocumentSchema,
   SetupDocumentSchema,
-  TokenDocumentSchema,
   TokenListDocumentSchema,
   UpgradeDocumentSchema,
   ViewDocumentSchema,

@@ -42,9 +42,9 @@ describe("release checksums", () => {
     expect(lines).toHaveLength(5);
     expect(lines.map((line) => line.slice(66))).toEqual([...EXPECTED_BINARY_ASSETS].sort());
     expect(validateReleaseAssets(directory)).toEqual({
-      assetCount: 21,
+      assetCount: 22,
       binaryCount: 5,
-      contentCount: 15,
+      contentCount: 16,
     });
   });
 
@@ -85,6 +85,7 @@ describe("release checksums", () => {
 
     const manifest = readFileSync(join(directory, "SHA256SUMS"), "utf8");
     expect(manifest).not.toContain("install.sh");
+    expect(manifest).not.toContain("agent-catalog.json");
     expect(manifest).not.toContain("cli-reference.json");
     expect(manifest).not.toContain("schema.json");
   });

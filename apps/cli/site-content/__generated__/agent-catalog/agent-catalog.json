@@ -1,0 +1,742 @@
+[
+  {
+    "id": "adal",
+    "name": "AdaL",
+    "vendor": "SylphAI",
+    "homepage": "https://adalagent.ai",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": true,
+      "hook": false
+    }
+  },
+  {
+    "id": "aider-desk",
+    "name": "AiderDesk",
+    "vendor": "HOTOVO",
+    "homepage": "https://github.com/hotovo/aider-desk",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": false,
+      "hook": false
+    }
+  },
+  {
+    "id": "amp",
+    "name": "Amp",
+    "vendor": "Sourcegraph",
+    "homepage": "https://ampcode.com",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": true,
+      "hook": false
+    }
+  },
+  {
+    "id": "antigravity",
+    "name": "Antigravity",
+    "vendor": "Google",
+    "homepage": "https://antigravity.google",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": false, "rule": true, "hook": false }
+  },
+  {
+    "id": "antigravity-cli",
+    "name": "Antigravity CLI",
+    "vendor": "Google",
+    "homepage": "https://antigravity.google/product/antigravity-cli",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": true,
+      "hook": false
+    }
+  },
+  {
+    "id": "augment",
+    "name": "Augment",
+    "vendor": "Augment Code",
+    "homepage": "https://www.augmentcode.com",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": true, "rule": true, "hook": true }
+  },
+  {
+    "id": "chatgpt",
+    "name": "ChatGPT",
+    "vendor": "OpenAI",
+    "homepage": "https://chatgpt.com",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": false,
+      "hook": false
+    }
+  },
+  {
+    "id": "claude-ai",
+    "name": "Claude.ai",
+    "vendor": "Anthropic",
+    "homepage": "https://claude.ai",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": false,
+      "hook": false
+    }
+  },
+  {
+    "id": "claude-code",
+    "name": "Claude Code",
+    "vendor": "Anthropic",
+    "homepage": "https://claude.com/product/claude-code",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": true, "rule": true, "hook": true }
+  },
+  {
+    "id": "cline",
+    "name": "Cline",
+    "vendor": "Cline",
+    "homepage": "https://cline.bot",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": false, "rule": true, "hook": false }
+  },
+  {
+    "id": "codearts-agent",
+    "name": "CodeArts Agent",
+    "vendor": "Huawei Cloud",
+    "homepage": "https://support.huaweicloud.com/usermanual-cli/codeartsagent_cli_0001.html",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": true, "rule": true, "hook": false }
+  },
+  {
+    "id": "codebuddy",
+    "name": "CodeBuddy",
+    "vendor": "Tencent Cloud",
+    "homepage": "https://www.codebuddy.ai/docs",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": true, "rule": true, "hook": true }
+  },
+  {
+    "id": "codemaker",
+    "name": "Codemaker",
+    "vendor": "CodeMaker AI",
+    "homepage": "https://github.com/codemakerai/codemaker-cli",
+    "lifecycle": {
+      "state": "retired",
+      "since": null,
+      "note": "CodeMaker AI's vendor domains no longer resolve, and its vendor-owned CLI repository has not shipped an agent-extension surface.",
+      "supersededBy": null
+    },
+    "support": {
+      "skill": false,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": false,
+      "hook": false
+    }
+  },
+  {
+    "id": "codestudio",
+    "name": "Code Studio",
+    "vendor": "Syncfusion",
+    "homepage": "https://www.syncfusion.com/code-studio/",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": false,
+      "hook": false
+    }
+  },
+  {
+    "id": "codex",
+    "name": "Codex",
+    "vendor": "OpenAI",
+    "homepage": "https://learn.chatgpt.com/docs",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": true, "rule": true, "hook": true }
+  },
+  {
+    "id": "command-code",
+    "name": "Command Code",
+    "vendor": "Command Code",
+    "homepage": "https://commandcode.ai",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": true, "rule": true, "hook": false }
+  },
+  {
+    "id": "continue",
+    "name": "Continue",
+    "vendor": "Continue",
+    "homepage": "https://www.continue.dev",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": true,
+      "hook": false
+    }
+  },
+  {
+    "id": "cortex",
+    "name": "Cortex Code",
+    "vendor": "Snowflake",
+    "homepage": "https://www.snowflake.com/en/product/features/cortex-code",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": false,
+      "hook": false
+    }
+  },
+  {
+    "id": "cowork",
+    "name": "Claude Cowork",
+    "vendor": "Anthropic",
+    "homepage": "https://claude.ai",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": false,
+      "hook": false
+    }
+  },
+  {
+    "id": "crush",
+    "name": "Crush",
+    "vendor": "Charm",
+    "homepage": "https://charm.land/crush",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": false, "rule": true, "hook": false }
+  },
+  {
+    "id": "cursor",
+    "name": "Cursor",
+    "vendor": "Anysphere",
+    "homepage": "https://cursor.com",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": true, "rule": true, "hook": false }
+  },
+  {
+    "id": "deepagents",
+    "name": "Deep Agents",
+    "vendor": "LangChain",
+    "homepage": "https://docs.langchain.com/oss/python/deepagents/overview",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": false, "subagent": true, "rule": true, "hook": false }
+  },
+  {
+    "id": "devin",
+    "name": "Devin CLI",
+    "vendor": "Cognition",
+    "homepage": "https://devin.ai",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": true, "rule": true, "hook": true }
+  },
+  {
+    "id": "dexto",
+    "name": "Dexto",
+    "vendor": "Truffle AI",
+    "homepage": "https://www.dexto.ai",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": false,
+      "hook": false
+    }
+  },
+  {
+    "id": "droid",
+    "name": "Droid",
+    "vendor": "Factory",
+    "homepage": "https://www.factory.ai",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": true,
+      "hook": false
+    }
+  },
+  {
+    "id": "firebender",
+    "name": "Firebender",
+    "vendor": "Firebender",
+    "homepage": "https://firebender.com",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": false,
+      "hook": false
+    }
+  },
+  {
+    "id": "forgecode",
+    "name": "ForgeCode",
+    "vendor": "Tailcall",
+    "homepage": "https://forgecode.dev",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": true,
+      "hook": false
+    }
+  },
+  {
+    "id": "gemini-app",
+    "name": "Gemini app",
+    "vendor": "Google",
+    "homepage": "https://gemini.google.com",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": false,
+      "hook": false
+    }
+  },
+  {
+    "id": "gemini-cli",
+    "name": "Gemini CLI",
+    "vendor": "Google",
+    "homepage": "https://github.com/google-gemini/gemini-cli",
+    "lifecycle": {
+      "state": "retired",
+      "since": "2026-06-18",
+      "note": "On 2026-06-18 Gemini CLI stopped serving requests for individual/free/AI Pro/Ultra tiers, superseded by Antigravity CLI; enterprise and paid API-key access remains available.",
+      "supersededBy": "antigravity"
+    },
+    "support": { "skill": true, "mcp-server": true, "subagent": true, "rule": true, "hook": true }
+  },
+  {
+    "id": "github-copilot-cli",
+    "name": "GitHub Copilot CLI",
+    "vendor": "GitHub",
+    "homepage": "https://docs.github.com/en/copilot/concepts/agents/about-copilot-cli",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": true, "rule": true, "hook": false }
+  },
+  {
+    "id": "goose",
+    "name": "Goose",
+    "vendor": "Agentic AI Foundation (AAIF)",
+    "homepage": "https://goose-docs.ai",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": false,
+      "hook": false
+    }
+  },
+  {
+    "id": "grok-cli",
+    "name": "Grok Build",
+    "vendor": "xAI",
+    "homepage": "https://x.ai/cli",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": false, "subagent": true, "rule": true, "hook": false }
+  },
+  {
+    "id": "hermes",
+    "name": "Hermes Agent",
+    "vendor": "Nous Research",
+    "homepage": "https://hermes-agent.nousresearch.com",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": false, "rule": true, "hook": false }
+  },
+  {
+    "id": "ibm-bob",
+    "name": "IBM Bob",
+    "vendor": "IBM",
+    "homepage": "https://bob.ibm.com",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": true, "rule": true, "hook": false }
+  },
+  {
+    "id": "iflow-cli",
+    "name": "iFlow CLI",
+    "vendor": "XinLiu AI",
+    "homepage": "https://platform.iflow.cn/cli",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": false, "subagent": true, "rule": true, "hook": false }
+  },
+  {
+    "id": "junie",
+    "name": "Junie",
+    "vendor": "JetBrains",
+    "homepage": "https://www.jetbrains.com/junie",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": true, "rule": true, "hook": false }
+  },
+  {
+    "id": "kilo",
+    "name": "Kilo Code",
+    "vendor": "Kilo",
+    "homepage": "https://kilo.ai",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": true, "rule": true, "hook": false }
+  },
+  {
+    "id": "kimi-cli",
+    "name": "Kimi Code CLI",
+    "vendor": "Moonshot AI",
+    "homepage": "https://www.kimi.com/code/docs/en/kimi-code-cli/",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": true, "rule": true, "hook": false }
+  },
+  {
+    "id": "kiro-cli",
+    "name": "Kiro CLI",
+    "vendor": "AWS",
+    "homepage": "https://kiro.dev",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": true, "rule": true, "hook": false }
+  },
+  {
+    "id": "kode",
+    "name": "Kode",
+    "vendor": "shareAI-lab",
+    "homepage": "https://github.com/shareAI-lab/Kode-CLI",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": false, "subagent": true, "rule": true, "hook": false }
+  },
+  {
+    "id": "lingma",
+    "name": "Lingma",
+    "vendor": "Alibaba Cloud",
+    "homepage": "https://help.aliyun.com/zh/lingma",
+    "lifecycle": {
+      "state": "deprecated",
+      "since": "2026-05-20",
+      "note": "Alibaba renamed TONGYI Lingma to Qoder CN.",
+      "supersededBy": "qoder-cn"
+    },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": false,
+      "hook": false
+    }
+  },
+  {
+    "id": "mcpjam",
+    "name": "MCPJam",
+    "vendor": "MCPJam",
+    "homepage": "https://www.mcpjam.com",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": false,
+      "hook": false
+    }
+  },
+  {
+    "id": "minimax-code",
+    "name": "MiniMax Code",
+    "vendor": "MiniMax",
+    "homepage": "https://agent.minimax.io/download",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": false,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": false,
+      "hook": false
+    }
+  },
+  {
+    "id": "mistral-vibe",
+    "name": "Mistral Vibe",
+    "vendor": "Mistral AI",
+    "homepage": "https://docs.mistral.ai/vibe/code/overview",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": false, "subagent": true, "rule": true, "hook": false }
+  },
+  {
+    "id": "mux",
+    "name": "Mux",
+    "vendor": "Coder",
+    "homepage": "https://mux.coder.com",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": false, "subagent": true, "rule": true, "hook": false }
+  },
+  {
+    "id": "neovate",
+    "name": "Neovate",
+    "vendor": "Ant Group",
+    "homepage": "https://github.com/neovateai/neovate-code",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": true,
+      "subagent": false,
+      "rule": false,
+      "hook": false
+    }
+  },
+  {
+    "id": "ona",
+    "name": "Ona",
+    "vendor": "Ona",
+    "homepage": "https://ona.com",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": true,
+      "hook": false
+    }
+  },
+  {
+    "id": "openclaw",
+    "name": "OpenClaw",
+    "vendor": "OpenClaw",
+    "homepage": "https://openclaw.ai",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": false,
+      "hook": false
+    }
+  },
+  {
+    "id": "opencode",
+    "name": "OpenCode",
+    "vendor": "Anomaly",
+    "homepage": "https://opencode.ai",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": false, "subagent": true, "rule": true, "hook": false }
+  },
+  {
+    "id": "openhands",
+    "name": "OpenHands",
+    "vendor": "All Hands AI",
+    "homepage": "https://www.openhands.dev",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": true,
+      "hook": false
+    }
+  },
+  {
+    "id": "pi",
+    "name": "Pi",
+    "vendor": "Earendil Inc",
+    "homepage": "https://github.com/earendil-works/pi",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": true,
+      "hook": false
+    }
+  },
+  {
+    "id": "pochi",
+    "name": "Pochi",
+    "vendor": "TabbyML",
+    "homepage": "https://getpochi.com",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": false, "rule": true, "hook": false }
+  },
+  {
+    "id": "qoder",
+    "name": "Qoder",
+    "vendor": "Alibaba Cloud",
+    "homepage": "https://qoder.com",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": true, "rule": true, "hook": true }
+  },
+  {
+    "id": "qoder-cn",
+    "name": "Qoder CN CLI",
+    "vendor": "Alibaba Cloud",
+    "homepage": "https://help.aliyun.com/zh/lingma/qoder-cn-cli",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": false, "subagent": true, "rule": true, "hook": false }
+  },
+  {
+    "id": "qwen-code",
+    "name": "Qwen Code",
+    "vendor": "Alibaba Cloud",
+    "homepage": "https://qwenlm.github.io/qwen-code-docs/",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": true, "rule": true, "hook": true }
+  },
+  {
+    "id": "replit",
+    "name": "Replit",
+    "vendor": "Replit",
+    "homepage": "https://replit.com",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": false,
+      "hook": false
+    }
+  },
+  {
+    "id": "roo",
+    "name": "Roo Code",
+    "vendor": "Roo Code",
+    "homepage": "https://roocode.com",
+    "lifecycle": {
+      "state": "retired",
+      "since": "2026-05-15",
+      "note": "Roo Code shut down its VS Code extension, Cloud, and Router on 2026-05-15 (final release v3.54.0); the RooCodeInc/Roo-Code repo is archived and read-only. The former team pivoted to a separate cloud-agent product, Roomote.",
+      "supersededBy": null
+    },
+    "support": { "skill": true, "mcp-server": false, "subagent": true, "rule": true, "hook": false }
+  },
+  {
+    "id": "rovodev",
+    "name": "Rovo Dev",
+    "vendor": "Atlassian",
+    "homepage": "https://www.atlassian.com/software/rovo-dev",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": true,
+      "rule": false,
+      "hook": false
+    }
+  },
+  {
+    "id": "tabnine-cli",
+    "name": "Tabnine CLI",
+    "vendor": "Tabnine",
+    "homepage": "https://www.tabnine.com/platform-cli/",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": false,
+      "hook": false
+    }
+  },
+  {
+    "id": "trae",
+    "name": "Trae",
+    "vendor": "ByteDance",
+    "homepage": "https://www.trae.ai",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": false, "rule": true, "hook": false }
+  },
+  {
+    "id": "trae-cn",
+    "name": "Trae CN",
+    "vendor": "ByteDance",
+    "homepage": "https://www.trae.cn",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": false, "rule": true, "hook": false }
+  },
+  {
+    "id": "warp",
+    "name": "Warp",
+    "vendor": "Warp",
+    "homepage": "https://www.warp.dev",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": false,
+      "hook": false
+    }
+  },
+  {
+    "id": "windsurf",
+    "name": "Devin Desktop (Windsurf)",
+    "vendor": "Cognition",
+    "homepage": "https://devin.ai/desktop",
+    "lifecycle": { "state": "active" },
+    "support": { "skill": true, "mcp-server": true, "subagent": false, "rule": true, "hook": false }
+  },
+  {
+    "id": "zed",
+    "name": "Zed",
+    "vendor": "Zed Industries",
+    "homepage": "https://zed.dev",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": true,
+      "hook": false
+    }
+  },
+  {
+    "id": "zencoder",
+    "name": "Zencoder",
+    "vendor": "Zencoder",
+    "homepage": "https://zencoder.ai",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": true,
+      "hook": false
+    }
+  },
+  {
+    "id": "zenflow",
+    "name": "Zenflow",
+    "vendor": "Zencoder",
+    "homepage": "https://zencoder.ai/zenflow",
+    "lifecycle": { "state": "active" },
+    "support": {
+      "skill": true,
+      "mcp-server": false,
+      "subagent": false,
+      "rule": false,
+      "hook": false
+    }
+  }
+]

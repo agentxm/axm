@@ -36,6 +36,11 @@
       "axm-source": "./src/unstable/agent-capabilities/identity.ts",
       "default": "./dist/src/unstable/agent-capabilities/identity.js"
     },
+    "./unstable/agent-capabilities/schema": {
+      "types": "./dist/src/unstable/agent-capabilities/schema.d.ts",
+      "axm-source": "./src/unstable/agent-capabilities/schema.ts",
+      "default": "./dist/src/unstable/agent-capabilities/schema.js"
+    },
     "./unstable/agents/registry": {
       "types": "./dist/src/unstable/agents/registry.d.ts",
       "axm-source": "./src/unstable/agents/registry.ts",

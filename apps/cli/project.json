@@ -49,6 +49,7 @@
         "generate:help-topics",
         "generate:bundled-axm-skill",
         "generate:schemas",
+        "generate:agent-catalog",
         "generate:cli-reference",
         "generate:telemetry-client"
       ]
@@ -170,6 +171,23 @@
       "executor": "nx:run-commands",
       "options": {
         "command": "bun --conditions=axm-source scripts/generate-cli-reference.ts",
+        "cwd": "apps/cli"
+      }
+    },
+    "generate:agent-catalog": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": [
+        "production",
+        "^production",
+        "{projectRoot}/scripts/agent-catalog-reference.ts",
+        "{projectRoot}/scripts/generate-agent-catalog.ts",
+        "{workspaceRoot}/.prettierrc.json"
+      ],
+      "outputs": ["{projectRoot}/site-content/__generated__/agent-catalog"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun --conditions=axm-source scripts/generate-agent-catalog.ts",
         "cwd": "apps/cli"
       }
     },

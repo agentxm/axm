@@ -16,6 +16,7 @@ export const EXPECTED_CONTENT_ASSETS = [
   "install.ps1",
   "install.cmd",
   "install.md",
+  "agent-catalog.json",
   "cli-reference.json",
   "axm-lock.schema.json",
   "axm-package-meta.schema.json",

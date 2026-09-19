@@ -5074,14 +5074,14 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `system/process/release-cohort-includes-site-content`
 - Owner: `axm`
-- Statement: Each stable release shall publish the four installer documents, the generated CLI reference and ten generated JSON Schemas as immutable GitHub Release assets from the exact release commit, in addition to the five native binaries and their binaries-only SHA256SUMS manifest, and shall reject any undeclared release asset.
+- Statement: Each stable release shall publish the four installer documents, the generated agent catalog and CLI reference, and ten generated JSON Schemas as immutable GitHub Release assets from the exact release commit, in addition to the five native binaries and their binaries-only SHA256SUMS manifest, and shall reject any undeclared release asset.
 - Class: process
 - Role: supporting
 - Product goals: `trustworthy-distribution`, `dependable-change-process`
 - Boundary: repository; selection: per-change
 - Boundary rationale: The committed CI and publication workflows define the exact producer, artifact inventory, and immutable GitHub Release publication path.
 - Methods: contract
-- Assumptions: The generated CLI reference and schemas and the installer documents in the release commit are the content intended for that release.
+- Assumptions: The generated agent catalog, CLI reference, schemas, and installer documents in the release commit are the content intended for that release.
 - Source: [`scripts/release-cohort-includes-site-content.spec.ts`](../scripts/release-cohort-includes-site-content.spec.ts)
 
 ##### Release automation uses only public distribution boundaries

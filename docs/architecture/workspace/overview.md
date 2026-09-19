@@ -123,11 +123,12 @@ Canonical extension content has one of three authorities:
 Project workspaces keep those authorities physically distinct. Authored
 packages live in the type-specific roots declared by `axm.json`, defaulting to
 `skills/`, `rules/`, `knowledge/`, `subagents/`, `hooks/`, `mcps/`, and
-`packs/`. Acquired packages live under
-`agent_extensions/<source-name>/<source-full-name>/`. For example, Registry
-packages from the built-in `agentxm` source live under
-`agent_extensions/agentxm/@owner/<type>/<name>/`. The ignored `.axm/` directory is
-runtime state, not project configuration or canonical package inventory.
+`packs/`. Acquired packages use one identity layout:
+`agent_extensions/<source-family>/<owner>/<plural-type>/<name>/`. The source
+family is `registry`, `git`, or `path`, independent of a configured source's
+name. Packages without a declared owner use `@portable`. The ignored `.axm/`
+directory is runtime state, not project configuration or canonical package
+inventory.
 User scope mirrors the project workspace contract under `~/.axm/workspace/`:
 `axm.json`, `axm-lock.yaml`, `agent_extensions/`, and `.axm/` runtime state.
 It has no authored type roots; user-authored `workspace` sources and authoring

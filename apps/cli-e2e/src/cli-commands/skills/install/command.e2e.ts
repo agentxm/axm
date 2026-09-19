@@ -343,7 +343,7 @@ describe("axm skills install", () => {
         // Expected structure:
         // axm.json
         // axm-lock.yaml
-        // agent_extensions/local/<source-full-name>/my-skill/
+        // agent_extensions/path/<owner>/skills/my-skill/
         //     src/SKILL.md
         // .claude/
         //   skills/

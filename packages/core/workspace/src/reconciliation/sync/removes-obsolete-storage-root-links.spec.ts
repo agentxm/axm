@@ -96,7 +96,7 @@ describe("Sync removes obsolete storage-root links", () => {
 
   it.effect("obsolete, target missing: removes the dangling link", () => {
     const workspace = fixture();
-    const obsolete = link(workspace, "gone", "../../agent_extensions/agentxm/@acme/skills/gone");
+    const obsolete = link(workspace, "gone", "../../agent_extensions/registry/@acme/skills/gone");
     return workspace
       .provide(
         Effect.gen(function* () {

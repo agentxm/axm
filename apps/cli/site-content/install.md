@@ -11,7 +11,7 @@ setup) `axm setup` has completed.
 4. Preview setup, summarize its exact agent and file candidate, and get the
    user's approval.
 5. Apply the approved candidate with explicit scope and agent flags.
-6. Read `agent_extensions/agentxm/@agentxm/skills/axm/src/SKILL.md`, then load
+6. Read `agent_extensions/registry/@agentxm/skills/axm/src/SKILL.md`, then load
    `axm help getting-started` and `axm help basic-usage`.
 
 ## Invariants
@@ -197,7 +197,7 @@ flag and apply without prompts. For example:
 
 ```bash
 axm setup --yes --scope project --agent claude-code --non-interactive
-cat agent_extensions/agentxm/@agentxm/skills/axm/src/SKILL.md
+cat agent_extensions/registry/@agentxm/skills/axm/src/SKILL.md
 axm help getting-started
 axm help basic-usage
 ```
@@ -209,7 +209,7 @@ Do not infer approval from a preview. An unattended first setup without
 After setup, read the installed AXM skill and both help topics before doing
 any other AXM work in this session:
 
-- **`agent_extensions/agentxm/@agentxm/skills/axm/src/SKILL.md`** — agent rules for
+- **`agent_extensions/registry/@agentxm/skills/axm/src/SKILL.md`** — agent rules for
   safe AXM CLI use, permissions, output modes, and day-to-day operations.
 
 - **`getting-started`** — first-time workspace setup; explains what `axm

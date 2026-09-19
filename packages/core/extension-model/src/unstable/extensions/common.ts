@@ -196,6 +196,7 @@ interface ExtensionTypeRow {
   readonly pluralLabel: string;
   readonly sentenceLabel: string;
   readonly pluralSentenceLabel: string;
+  readonly sourceDirectory: "src" | null;
   readonly distribution: ExtensionDistribution;
   readonly placement: ExtensionPlacement;
   readonly governs: StandardGoverns | null;
@@ -221,6 +222,7 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "Skills",
     sentenceLabel: "skill",
     pluralSentenceLabel: "skills",
+    sourceDirectory: "src",
     distribution: "registry",
     placement: "per-agent",
     governs: "package-body",
@@ -234,6 +236,7 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "MCP Servers",
     sentenceLabel: "MCP server",
     pluralSentenceLabel: "MCP servers",
+    sourceDirectory: null,
     distribution: "registry",
     placement: "per-agent",
     governs: "runtime-protocol",
@@ -247,6 +250,7 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "Subagents",
     sentenceLabel: "subagent",
     pluralSentenceLabel: "subagents",
+    sourceDirectory: "src",
     distribution: "registry",
     placement: "per-agent",
     governs: null,
@@ -260,6 +264,7 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "Rules",
     sentenceLabel: "rule",
     pluralSentenceLabel: "rules",
+    sourceDirectory: "src",
     distribution: "registry",
     placement: "workspace",
     governs: "host-file",
@@ -273,6 +278,7 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "Hooks",
     sentenceLabel: "hook",
     pluralSentenceLabel: "hooks",
+    sourceDirectory: "src",
     distribution: "registry",
     placement: "per-agent",
     governs: null,
@@ -286,6 +292,7 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "Knowledge",
     sentenceLabel: "knowledge bundle",
     pluralSentenceLabel: "knowledge bundles",
+    sourceDirectory: "src",
     distribution: "registry",
     placement: "workspace",
     governs: "package-body",
@@ -299,6 +306,7 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "Packs",
     sentenceLabel: "pack",
     pluralSentenceLabel: "packs",
+    sourceDirectory: null,
     distribution: "registry",
     placement: "container",
     governs: null,

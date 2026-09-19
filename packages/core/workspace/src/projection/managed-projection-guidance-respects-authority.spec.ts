@@ -46,7 +46,7 @@ describe("Managed projection authoring guidance", () => {
 
   it("an acquired package retains provenance without presenting accepted content as editable", () => {
     const name = "acquired-reviewer";
-    const canonicalPath = `agent_extensions/local/vendor/${name}/src/${name}.md`;
+    const canonicalPath = `agent_extensions/path/@acme/subagents/${name}/src/${name}.md`;
     const projection = insertManagedFileBanner(document(name), {
       ext: `@acme/subagents/${name}`,
       source: { kind: "acquired", path: canonicalPath },

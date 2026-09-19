@@ -154,7 +154,7 @@ const rows: ReadonlyArray<PreviewRow> = [
       }),
     expectUnadvanced: (workspace) => {
       expect(
-        workspace.readFile(`agent_extensions/local/vendor/${COMMIT_STYLE}/rule.json`),
+        workspace.readFile(`agent_extensions/path/@acme/rules/${COMMIT_STYLE}/rule.json`),
       ).toContain('"version": "1.0.0"');
       expect(workspace.readFile("AGENTS.md")).not.toContain("revised");
     },
@@ -174,9 +174,9 @@ const rows: ReadonlyArray<PreviewRow> = [
         });
       }),
     expectUnadvanced: (workspace) => {
-      expect(workspace.readFile(`agent_extensions/local/vendor/${TOOL_AUDIT}/hook.json`)).toContain(
-        '"version": "1.0.0"',
-      );
+      expect(
+        workspace.readFile(`agent_extensions/path/@acme/hooks/${TOOL_AUDIT}/hook.json`),
+      ).toContain('"version": "1.0.0"');
     },
   },
   {

@@ -210,7 +210,7 @@ const writeInstalledPackManifest = ({
   readonly name: string;
   readonly dependencies: Record<string, string>;
 }) => {
-  const dir = path.join(workspaceRoot, ACQUIRED_EXTENSIONS_DIR, "local-reg", owner, "packs", name);
+  const dir = path.join(workspaceRoot, ACQUIRED_EXTENSIONS_DIR, "registry", owner, "packs", name);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(
     path.join(dir, PACK_MANIFEST_FILENAME),

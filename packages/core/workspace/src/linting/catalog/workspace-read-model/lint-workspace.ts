@@ -8,7 +8,7 @@
  * `installedPacks: InstalledPackInfo[]` with per-provenance `displayRoot`s:
  *
  *   Registry-installed native skill: `agent_extensions/<source>/<@owner>/skills/<name>/src/`
- *   Portable acquired skill:         `agent_extensions/<source>/<source-full-name>/`
+ *   Portable acquired skill:         `agent_extensions/<family>/<owner>/skills/<name>/`
  *   Registry pack:                   `agent_extensions/<source>/<@owner>/packs/<name>/`
  *                                    (NO `src/` — matches the on-disk layout.)
  *
@@ -957,7 +957,7 @@ const installedKnowledgeToContext = (
 
 /**
  * Locate an installed package's root the same way for every family whose
- * canonical layout is source-qualified: prefer a scanned `packageRoot`, then
+ * canonical layout is identity-qualified: prefer a scanned `packageRoot`, then
  * reconstruct the exact path from the accepted lock entry.
  *
  * Returns `undefined` when neither applies — the extension is
@@ -1114,13 +1114,13 @@ const acquiredPackageDisplayRoot = (
  */
 export const registryNativeSkillDisplayRoot = (
   scope: "project" | "user",
-  sourceName: string,
+  _sourceName: string,
   owner: string,
   name: string,
-): string => `${canonicalDisplayRoot(scope)}/${sourceName}/${owner}/skills/${name}/src`;
+): string => `${canonicalDisplayRoot(scope)}/registry/${owner}/skills/${name}/src`;
 
 /**
- * Compute the content `displayRoot` for a source-qualified acquired skill.
+ * Compute the content `displayRoot` for an identity-qualified acquired skill.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -1143,10 +1143,10 @@ export const acquiredSkillDisplayRoot = (
  */
 export const registryPackDisplayRoot = (
   scope: "project" | "user",
-  sourceName: string,
+  _sourceName: string,
   owner: string,
   name: string,
-): string => `${canonicalDisplayRoot(scope)}/${sourceName}/${owner}/packs/${name}`;
+): string => `${canonicalDisplayRoot(scope)}/registry/${owner}/packs/${name}`;
 
 // -----------------------------------------------------------------------------
 // Build-a-skill-info helpers (thin wrappers over the skill / pack accessors).
@@ -1179,7 +1179,7 @@ export const buildNativeInstalledSkillInfo = (
 ): InstalledSkillInfo => {
   const packageRoot = args.platform.path.resolve(
     args.workspaceRoot,
-    `${canonicalDisplayRoot(args.scope)}/${args.sourceName}/${args.owner}/skills/${args.name}`,
+    `${canonicalDisplayRoot(args.scope)}/registry/${args.owner}/skills/${args.name}`,
   );
   const contentRoot = args.platform.path.resolve(packageRoot, "src");
   return {
@@ -1207,7 +1207,7 @@ export interface BuildAcquiredInstalledSkillInfoArgs {
 }
 
 /**
- * Build an `InstalledSkillInfo` rooted at its exact accepted source-qualified path.
+ * Build an `InstalledSkillInfo` rooted at its exact accepted identity-qualified path.
  *
  * @experimental This API is unstable and may change without notice.
  */

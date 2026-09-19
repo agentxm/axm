@@ -735,7 +735,7 @@ describe("axm install", () => {
         expect(rootFootprint).toContain("modified axm.json");
         expect(rootFootprint).toContain("modified axm-lock.yaml");
         expect(rootFootprint).toContain(
-          `created agent_extensions/agentxm/${OWNER}/${surface}/${name}`,
+          `created agent_extensions/registry/${OWNER}/${surface}/${name}`,
         );
 
         const settingsKey = settingsKeyForSurface(surface);

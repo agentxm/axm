@@ -169,7 +169,7 @@ describe("enable.handler", () => {
       const skillDir = path.join(
         tempDir,
         "agent_extensions",
-        "agentxm",
+        "registry",
         "@acme",
         "skills",
         "code-review",
@@ -350,7 +350,14 @@ describe("enable.handler", () => {
   describe("plan execution", () => {
     it.effect("builds and resolves enable plan for disabled skill", () => {
       const { provide } = makeLayers();
-      const canonicalDir = path.join(tempDir, "agent_extensions", "local", "installed");
+      const canonicalDir = path.join(
+        tempDir,
+        "agent_extensions",
+        "path",
+        "@acme",
+        "skills",
+        "my-skill",
+      );
       fs.mkdirSync(path.join(canonicalDir, "src"), { recursive: true });
       fs.writeFileSync(
         path.join(canonicalDir, "skill.json"),

@@ -62,6 +62,7 @@ const skillPathSourceFor = (ref: SkillExtensionRef): SkillPathSource => {
     case "git-hosted":
       return {
         refType: "git-hosted",
+        ...(ref.owner === undefined ? {} : { owner: ref.owner }),
         source: ref.source,
         ...(ref.sourcePath === undefined ? {} : { sourcePath: ref.sourcePath }),
         ...(ref.portable === undefined ? {} : { portable: ref.portable }),
@@ -69,6 +70,7 @@ const skillPathSourceFor = (ref: SkillExtensionRef): SkillPathSource => {
     case "local":
       return {
         refType: "local",
+        ...(ref.owner === undefined ? {} : { owner: ref.owner }),
         source: ref.source,
         ...(ref.sourcePath === undefined ? {} : { sourcePath: ref.sourcePath }),
         ...(ref.portable === undefined ? {} : { portable: ref.portable }),

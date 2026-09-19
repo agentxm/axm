@@ -95,7 +95,7 @@ describe("Environment-selected extension resolution", () => {
               expect(result.exitCode, result.stdout + result.stderr).toBe(0);
               const acquired = path.join(
                 fixture.invoking,
-                "agent_extensions/agentxm/@acme/skills/environment-review/src/SKILL.md",
+                "agent_extensions/registry/@acme/skills/environment-review/src/SKILL.md",
               );
               expect(fs.readFileSync(acquired, "utf8")).toContain(selectedBody);
               if (sourceForm === "absolute path" || sourceForm === "file URL")

@@ -81,7 +81,7 @@ const localLock = (baseDir: string, name: string) => ({
   path: decodeRelativePathSync(`sources/${name}`),
   contentIdentity: TEST_CONTENT_IDENTITY,
   treeIntegrity: computeMaterializedTreeIntegritySync(
-    nodePath.join(baseDir, "agent_extensions", "local", "sources", name),
+    nodePath.join(baseDir, "agent_extensions", "path", OWNER, "knowledge", name),
   ),
 });
 
@@ -97,7 +97,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
   });
 
   const writeBundle = (name: string, instructionEntry?: boolean) => {
-    const root = nodePath.join(baseDir, "agent_extensions", "local", "sources", name);
+    const root = nodePath.join(baseDir, "agent_extensions", "path", OWNER, "knowledge", name);
     nodeFs.mkdirSync(nodePath.join(root, "src"), { recursive: true });
     nodeFs.writeFileSync(
       nodePath.join(root, "knowledge.json"),

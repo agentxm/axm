@@ -30,7 +30,7 @@ export const specification = defineSpecification({
 
 type SpecWorkspace = ReturnType<typeof makeSpecWorkspace>;
 
-const canonicalSkillDocument = "agent_extensions/local/vendor/code-review/src/SKILL.md";
+const canonicalSkillDocument = "agent_extensions/path/@acme/skills/code-review/src/SKILL.md";
 const projectedSkillDocument = ".claude/skills/code-review/SKILL.md";
 
 /**

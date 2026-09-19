@@ -28,7 +28,7 @@ describe("AdoptExtension over every extension type", () => {
       Effect.gen(function* () {
         const created = makeAuthoringWorkspace({ owner: "@acme", agents: [] });
         cleanups.push(created.cleanup);
-        const parent = `agent_extensions/agentxm/@acme/${row.plural}`;
+        const parent = `agent_extensions/registry/@acme/${row.plural}`;
         writeAuthoringPackage(created.root, row, "review", { parent });
         const before = created.snapshot(`${parent}/review`);
 

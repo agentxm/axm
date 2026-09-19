@@ -293,10 +293,12 @@ describe("SubagentManager", () => {
         const banner = addSubagentCalls[0]?.input.ownershipBanner;
         expect(banner?.markdown).toContain("ext=@acme/subagents/planner");
         expect(banner?.markdown).toContain(
-          "src=agent_extensions/local/sources/planner/src/planner.md",
+          "src=agent_extensions/path/@acme/subagents/planner/src/planner.md",
         );
         expect(banner?.toml).toContain("ext=@acme/subagents/planner");
-        expect(banner?.toml).toContain("src=agent_extensions/local/sources/planner/src/planner.md");
+        expect(banner?.toml).toContain(
+          "src=agent_extensions/path/@acme/subagents/planner/src/planner.md",
+        );
       }).pipe(
         Effect.provide(
           makeTestLayer({
@@ -510,7 +512,7 @@ describe("SubagentManager", () => {
         tmpDir,
         "project",
         "agent_extensions",
-        "agentxm",
+        "registry",
         "@test",
         "subagents",
         "planner",

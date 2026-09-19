@@ -34,7 +34,7 @@ export const specification = defineSpecification({
 });
 
 const BASE = { owner: "@acme", agents: ["claude-code"] };
-const STALE = "agent_extensions/agentxm/@acme/skills/stale";
+const STALE = "agent_extensions/registry/@acme/skills/stale";
 
 /** A well-formed installed skill package directory, as acquisition writes one. */
 const writeInstalledSkill = (base: string, relativeDir: string, name: string): void => {
@@ -103,7 +103,7 @@ describe("Sync removes leftover installed packages", () => {
   it.effect("plans one removal unit per leftover", () => {
     const workspace = fixture();
     writeInstalledSkill(workspace.root, STALE, "stale");
-    writeInstalledSkill(workspace.root, "agent_extensions/agentxm/@acme/subagents/old", "old");
+    writeInstalledSkill(workspace.root, "agent_extensions/registry/@acme/subagents/old", "old");
     return workspace
       .provide(
         Effect.gen(function* () {
@@ -113,10 +113,10 @@ describe("Sync removes leftover installed packages", () => {
               .filter((id) => id.startsWith("leftover:"))
               .sort(),
           ).toEqual([
-            "leftover:agent_extensions/agentxm/@acme/skills/stale",
-            "leftover:agent_extensions/agentxm/@acme/subagents/old",
+            "leftover:agent_extensions/registry/@acme/skills/stale",
+            "leftover:agent_extensions/registry/@acme/subagents/old",
           ]);
-          expect(workspace.exists("agent_extensions/agentxm/@acme/subagents/old")).toBe(false);
+          expect(workspace.exists("agent_extensions/registry/@acme/subagents/old")).toBe(false);
           expect(workspace.exists(STALE)).toBe(false);
         }),
       )
@@ -162,7 +162,7 @@ describe("Sync removes leftover installed packages", () => {
             }),
       };
       const workspace = fixture(settings);
-      const member = "agent_extensions/agentxm/@acme/skills/member";
+      const member = "agent_extensions/registry/@acme/skills/member";
       return workspace
         .provide(
           Effect.gen(function* () {
@@ -188,7 +188,7 @@ describe("Sync removes leftover installed packages", () => {
         sources: [registry.source],
         skills: { review: "agentxm:@acme/skills/review@^1.0.0" },
       });
-      const desired = "agent_extensions/agentxm/@acme/skills/review";
+      const desired = "agent_extensions/registry/@acme/skills/review";
       const copy = "agent_extensions/elsewhere/@acme/skills/review";
       return workspace
         .provide(
@@ -221,7 +221,7 @@ describe("Sync removes leftover installed packages", () => {
         .provide(
           Effect.gen(function* () {
             yield* applySync();
-            workspace.remove("agent_extensions/agentxm/@acme/skills/review");
+            workspace.remove("agent_extensions/registry/@acme/skills/review");
             workspace.writeSettings(settings);
             const resolution = expectResolved(yield* applySync());
             expect(unitIds(resolution).some((id) => id.startsWith("leftover:"))).toBe(false);
@@ -239,11 +239,11 @@ describe("Sync removes leftover installed packages", () => {
     cleanups.push(() => fs.rmSync(outside, { recursive: true, force: true }));
     writeInstalledSkill(outside, "linked", "linked");
     writeInstalledSkill(workspace.root, STALE, "stale");
-    workspace.writeFile("agent_extensions/agentxm/notes.txt", "Hand-written.\n");
-    workspace.writeFile("agent_extensions/agentxm/loose/SKILL.md", "# Loose\n");
+    workspace.writeFile("agent_extensions/registry/notes.txt", "Hand-written.\n");
+    workspace.writeFile("agent_extensions/registry/loose/SKILL.md", "# Loose\n");
     fs.symlinkSync(
       nodePath.join(outside, "linked"),
-      nodePath.join(workspace.root, "agent_extensions/agentxm/@acme/skills/linked"),
+      nodePath.join(workspace.root, "agent_extensions/registry/@acme/skills/linked"),
     );
     // A link inside a leftover is removed with it, never followed.
     fs.symlinkSync(
@@ -256,12 +256,12 @@ describe("Sync removes leftover installed packages", () => {
         Effect.gen(function* () {
           yield* applySync();
           expect(workspace.exists(STALE)).toBe(false);
-          expect(workspace.readFile("agent_extensions/agentxm/notes.txt")).toBe("Hand-written.\n");
-          expect(workspace.readFile("agent_extensions/agentxm/loose/SKILL.md")).toBe("# Loose\n");
+          expect(workspace.readFile("agent_extensions/registry/notes.txt")).toBe("Hand-written.\n");
+          expect(workspace.readFile("agent_extensions/registry/loose/SKILL.md")).toBe("# Loose\n");
           expect(
             fs
               .lstatSync(
-                nodePath.join(workspace.root, "agent_extensions/agentxm/@acme/skills/linked"),
+                nodePath.join(workspace.root, "agent_extensions/registry/@acme/skills/linked"),
               )
               .isSymbolicLink(),
           ).toBe(true);

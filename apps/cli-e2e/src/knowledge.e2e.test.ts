@@ -706,7 +706,14 @@ describe("axm knowledge lifecycle", () => {
       }).toEqual({ exitCode: 0, output: expect.any(String) });
       expect(install.stdout + install.stderr).not.toContain("No configured extensions");
 
-      const canonical = path.join(temp.path, "agent_extensions", "local", "knowledge-source");
+      const canonical = path.join(
+        temp.path,
+        "agent_extensions",
+        "path",
+        "@acme",
+        "knowledge",
+        "platform",
+      );
       expect(fs.existsSync(path.join(canonical, "src", "architecture.md"))).toBe(true);
       expect(fs.existsSync(path.join(temp.path, ".agents", "knowledge"))).toBe(false);
       expect(fs.readFileSync(path.join(temp.path, "axm-lock.yaml"), "utf8")).toContain("platform:");
@@ -717,7 +724,7 @@ describe("axm knowledge lifecycle", () => {
       );
       expect(installedInstructions).toContain("### @acme");
       expect(installedInstructions).toContain(
-        "[platform](agent_extensions/local/knowledge-source/src/index.md)",
+        "[platform](agent_extensions/path/@acme/knowledge/platform/src/index.md)",
       );
       expect(installedInstructions).toContain("Platform architecture and operational guidance.");
 

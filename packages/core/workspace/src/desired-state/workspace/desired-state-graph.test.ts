@@ -24,7 +24,7 @@ const writePack = (
   name: string,
   dependencies: Readonly<Record<string, string>>,
 ) => {
-  const dir = nodePath.join(root, "agent_extensions", "agentxm", owner, "packs", name);
+  const dir = nodePath.join(root, "agent_extensions", "registry", owner, "packs", name);
   nodeFs.mkdirSync(dir, { recursive: true });
   nodeFs.writeFileSync(
     nodePath.join(dir, "pack.json"),
@@ -530,7 +530,7 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
       const manifestPath = nodePath.join(
         root,
         "agent_extensions",
-        "agentxm",
+        "registry",
         "@acme",
         "packs",
         "expected",

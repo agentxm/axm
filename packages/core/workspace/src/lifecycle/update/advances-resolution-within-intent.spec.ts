@@ -236,7 +236,7 @@ describe.each(["targeted", "selective"] as const)(
             );
             expect(workspace.readFile("axm-lock.yaml")).toContain(unrelatedIdentity ?? "");
             expect(
-              workspace.readFile(`agent_extensions/local/vendor/${UNRELATED}/src/SKILL.md`),
+              workspace.readFile(`agent_extensions/path/@acme/skills/${UNRELATED}/src/SKILL.md`),
             ).toContain(UNRELATED);
           }),
         )

@@ -25,7 +25,7 @@ describe("accepted canonical source transitions", () => {
       const previousPath = nodePath.join(
         root,
         "agent_extensions",
-        "agentxm",
+        "registry",
         "@acme",
         "skills",
         "review",

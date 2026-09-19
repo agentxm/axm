@@ -80,7 +80,7 @@ describe("Root and type-specific install parity", () => {
           const sourceBody = world.workspace.readFile("vendor/code-review/src/SKILL.md");
           expect(sourceBody).toContain("The code-review skill.");
           expect(
-            world.workspace.readFile("agent_extensions/local/vendor/code-review/src/SKILL.md"),
+            world.workspace.readFile("agent_extensions/path/@acme/skills/code-review/src/SKILL.md"),
           ).toBe(sourceBody);
           expect(world.workspace.readFile(".claude/skills/code-review/SKILL.md")).toBe(sourceBody);
         }

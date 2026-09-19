@@ -98,7 +98,7 @@ export const configuredSkillsToDiskRefs = (
         const packageName = decodeExtensionNameSync(settingsName);
         const packageRoot = env.path.join(
           env.layout.acquiredRoot,
-          "agentxm",
+          "registry",
           owner,
           "skills",
           settingsName,

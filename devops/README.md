@@ -7,11 +7,11 @@ status: stable
 
 # AXM DevOps documentation adoption
 
-AXM adopts [DevOps Docs profile 0.5.0](../agent_extensions/agentxm/@craigsmitham/skills/devops-docs/src/references/profile.md) over OKF v0.2 at the
+AXM adopts [DevOps Docs profile 0.5.0](../agent_extensions/registry/@craigsmitham/skills/devops-docs/src/references/profile.md) over OKF v0.2 at the
 repository-relative root `devops/`. The adopted contract is preserved in the
 [versioned profile](https://github.com/agentxm/axm/blob/42ed192e796a413246266f871da31bddfd70de10/agent_extensions/agentxm/@craigsmitham/skills/devops-docs/src/references/profile.md)
 and its linked type contracts. The tracked
-[authoring guidance](../agent_extensions/agentxm/@craigsmitham/skills/devops-docs/src/tasks/author.md)
+[authoring guidance](../agent_extensions/registry/@craigsmitham/skills/devops-docs/src/tasks/author.md)
 is accessible to human readers as well as agents.
 
 Scope: AXM Provider, Repository, Tool, Environment, Playbook, Runbook, and Measure

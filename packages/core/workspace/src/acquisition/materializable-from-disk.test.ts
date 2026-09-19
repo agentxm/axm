@@ -55,9 +55,10 @@ const writeAcquiredSkill = (baseDir: string) => {
   const packageRoot = nodePath.join(
     baseDir,
     "agent_extensions",
-    "github",
-    "qualitymd",
-    "quality.md",
+    "git",
+    "@acme",
+    "skills",
+    "quality",
   );
   writeJson(nodePath.join(packageRoot, "skill.json"), {
     owner: "@acme",

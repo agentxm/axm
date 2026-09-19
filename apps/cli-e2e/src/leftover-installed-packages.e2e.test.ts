@@ -88,7 +88,7 @@ describe("Leftover installed packages", () => {
         `${JSON.stringify({ ...Object(settings), owner: "@acme" }, null, 2)}\n`,
       );
 
-      const installRoot = path.join(workspace, "agent_extensions", "agentxm");
+      const installRoot = path.join(workspace, "agent_extensions", "registry");
       for (const name of LEFTOVERS)
         skillPackage(
           path.join(installRoot, "@craigsmitham", "skills", name),
@@ -101,7 +101,7 @@ describe("Leftover installed packages", () => {
       fs.mkdirSync(skillsDir, { recursive: true });
       const brokenLink = path.join(skillsDir, "vanished");
       fs.symlinkSync(
-        "../../agent_extensions/agentxm/@craigsmitham/skills/vanished/src",
+        "../../agent_extensions/registry/@craigsmitham/skills/vanished/src",
         brokenLink,
       );
       const legacyLink = path.join(skillsDir, "legacy");

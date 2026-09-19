@@ -246,8 +246,8 @@ describe("pack install graph", () => {
           expect(details).toHaveLength(2);
           expect(details.join("\n")).toContain("alpha");
           expect(details.join("\n")).toContain("beta");
-          expect(workspace.exists("agent_extensions/agentxm/@acme/skills/alpha")).toBe(false);
-          expect(workspace.exists("agent_extensions/agentxm/@acme/skills/beta")).toBe(false);
+          expect(workspace.exists("agent_extensions/registry/@acme/skills/alpha")).toBe(false);
+          expect(workspace.exists("agent_extensions/registry/@acme/skills/beta")).toBe(false);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

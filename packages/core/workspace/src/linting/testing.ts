@@ -231,7 +231,7 @@ export const makeLintWorkspace = (
 // -----------------------------------------------------------------------------
 
 /** Where a project workspace keeps the official AXM skill's canonical package. */
-export const OFFICIAL_AXM_SKILL_PACKAGE_ROOT = "agent_extensions/agentxm/@agentxm/skills/axm";
+export const OFFICIAL_AXM_SKILL_PACKAGE_ROOT = "agent_extensions/registry/@agentxm/skills/axm";
 
 /** Where a workspace that authors its own `axm` skill keeps it. */
 export const AUTHORED_AXM_SKILL_PACKAGE_ROOT = "skills/axm";

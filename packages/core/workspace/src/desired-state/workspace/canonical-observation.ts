@@ -116,7 +116,7 @@ export const canonicalPathForAcceptedExtension = (
 ): string | undefined => {
   if (desired.source === undefined) return undefined;
   if (desired.identity.startsWith("bundled:")) {
-    return path.join(layout.acquiredRoot, "agentxm", "@agentxm", "skills", desired.name);
+    return path.join(layout.acquiredRoot, "registry", "@agentxm", "skills", desired.name);
   }
   if (desired.identity.startsWith("workspace:")) {
     if (layout.scope === "project")

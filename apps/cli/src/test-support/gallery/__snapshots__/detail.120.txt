@@ -3,7 +3,7 @@
      Version                       0.4.2
      Source                        registry (https://registry.axm.sh/@craigsmitham/effect-v4)
      Owner                         @craigsmitham
-     Installed at                  agent_extensions/agentxm/@craigsmitham/skills/effect-v4
+     Installed at                  agent_extensions/registry/@craigsmitham/skills/effect-v4
      Description                   Checklists to consult when designing, implementing, maintaining, or reviewing Effect
                                    v4 TypeScript.
      Activation                    enabled

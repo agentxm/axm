@@ -45,7 +45,7 @@ describe("actual cells never fail", () => {
       // while enumerating one owner's skill packages, leaving the other owner
       // readable. The first read lets directory classification succeed; the
       // second exercises the scanner's warning-producing enumeration path.
-      const UNREADABLE_TYPE_DIR = `${SCENARIO_WORKSPACE_ROOT}/agent_extensions/agentxm/@unreadable/skills`;
+      const UNREADABLE_TYPE_DIR = `${SCENARIO_WORKSPACE_ROOT}/agent_extensions/registry/@unreadable/skills`;
 
       const spec: FixtureSpec = {
         workspaceRoot: SCENARIO_WORKSPACE_ROOT,

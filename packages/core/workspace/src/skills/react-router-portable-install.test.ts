@@ -81,10 +81,8 @@ describe("portable React Router skill acquisition", () => {
       const canonical = path.join(
         tempDir,
         "agent_extensions",
-        "github",
-        "remix-run",
-        "react-router",
-        ".agents",
+        "git",
+        "@portable",
         "skills",
         "react-router",
       );

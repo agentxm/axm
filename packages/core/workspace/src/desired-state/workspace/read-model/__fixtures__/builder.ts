@@ -731,13 +731,13 @@ export const sameNameAcrossOrigins = (workspaceRoot: string, userHome: string): 
       },
     },
     axmExtensions: {
-      "agentxm/@owner/skills/some-skill/skill.json": JSON.stringify({
+      "registry/@owner/skills/some-skill/skill.json": JSON.stringify({
         owner: "@owner",
         type: "skill",
         name: "some-skill",
         version: "1.0.0",
       }),
-      "agentxm/@owner/skills/some-skill/src/SKILL.md":
+      "registry/@owner/skills/some-skill/src/SKILL.md":
         "---\nname: some-skill\ndescription: Canonical\n---\n# canonical\n",
     },
   },

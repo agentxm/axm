@@ -451,7 +451,7 @@ const leftoverPackage = {
   name: "review",
   owner: "@acme",
   sourceDirectory: "agentxm",
-  path: "/workspace/agent_extensions/agentxm/@acme/skills/review",
+  path: "/workspace/agent_extensions/registry/@acme/skills/review",
   lockKey: "review",
   reached: false,
 } as const satisfies InstalledPackageEntry;
@@ -469,20 +469,20 @@ export const installedButNotConfiguredConformance: WorkspaceRuleConformanceCase 
           ...leftoverPackage,
           lockKey: undefined,
           name: "draft",
-          path: "/workspace/agent_extensions/agentxm/@acme/skills/draft",
+          path: "/workspace/agent_extensions/registry/@acme/skills/draft",
         },
       ],
     }),
   expectedFindings: [
     {
       message:
-        "Installed skill '@acme/skills/review' is not configured in project scope: canonical path agent_extensions/agentxm/@acme/skills/review, source directory agentxm, lock row present.",
-      location: { file: "agent_extensions/agentxm/@acme/skills/review" },
+        "Installed skill '@acme/skills/review' is not configured in project scope: canonical path agent_extensions/registry/@acme/skills/review, source directory agentxm, lock row present.",
+      location: { file: "agent_extensions/registry/@acme/skills/review" },
     },
     {
       message:
-        "Installed skill '@acme/skills/draft' is not configured in project scope: canonical path agent_extensions/agentxm/@acme/skills/draft, source directory agentxm, no lock row.",
-      location: { file: "agent_extensions/agentxm/@acme/skills/draft" },
+        "Installed skill '@acme/skills/draft' is not configured in project scope: canonical path agent_extensions/registry/@acme/skills/draft, source directory agentxm, no lock row.",
+      location: { file: "agent_extensions/registry/@acme/skills/draft" },
     },
   ],
   inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),

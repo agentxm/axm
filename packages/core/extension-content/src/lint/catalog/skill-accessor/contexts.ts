@@ -25,7 +25,7 @@
  * | ----------------------------------------- | --------------------------------------------- |
  * | Publish                                   | `""`                                          |
  * | Registry-installed native skill           | `agent_extensions/<source>/<@owner>/skills/<name>/src` |
- * | Portable acquired skill                   | `agent_extensions/<source>/<source-full-name>`         |
+ * | Portable acquired skill                   | `agent_extensions/<family>/<owner>/skills/<name>`      |
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation

@@ -45,7 +45,7 @@ const makeLockEntry = (projectRoot: string): McpServerLockEntry => ({
     name: serverName,
   }),
   treeIntegrity: computeMaterializedTreeIntegritySync(
-    path.join(projectRoot, "agent_extensions", "agentxm", "@community", "mcps", serverName),
+    path.join(projectRoot, "agent_extensions", "registry", "@community", "mcps", serverName),
   ),
 });
 
@@ -100,14 +100,14 @@ describe("enableMcpServer and disableMcpServer", () => {
     axmDir = path.join(projectDir, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
     fs.mkdirSync(
-      path.join(projectDir, "agent_extensions", "agentxm", "@community", "mcps", serverName),
+      path.join(projectDir, "agent_extensions", "registry", "@community", "mcps", serverName),
       { recursive: true },
     );
     fs.writeFileSync(
       path.join(
         projectDir,
         "agent_extensions",
-        "agentxm",
+        "registry",
         "@community",
         "mcps",
         serverName,
@@ -197,7 +197,7 @@ describe("enableMcpServer and disableMcpServer", () => {
       }
       expect(result.message).toContain("Enabled my-server");
       expect(result.artifact).toMatchObject({
-        path: "agent_extensions/agentxm/@community/mcps/my-server",
+        path: "agent_extensions/registry/@community/mcps/my-server",
         scope: "project",
         change: "updated",
         targets: [

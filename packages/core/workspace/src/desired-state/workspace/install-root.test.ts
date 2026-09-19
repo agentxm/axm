@@ -73,31 +73,31 @@ layer(NodeServices.layer, { excludeTestServices: true })("install-root inventory
 
   it.effect("classifies packages, leftovers, staging, and unrecognized entries", () =>
     Effect.gen(function* () {
-      write("agent_extensions/agentxm/@acme/skills/review/skill.json", "{}");
-      write("agent_extensions/agentxm/@acme/skills/stale/skill.json", "{}");
-      write("agent_extensions/agentxm/@acme/skills/stale.axm-staging/skill.json", "{}");
-      write("agent_extensions/agentxm/notes.txt", "hand-written");
-      write("agent_extensions/agentxm/loose/SKILL.md", "# loose");
-      nodeFs.symlinkSync("/nowhere", nodePath.join(root, "agent_extensions/agentxm/link"));
+      write("agent_extensions/registry/@acme/skills/review/skill.json", "{}");
+      write("agent_extensions/registry/@acme/skills/stale/skill.json", "{}");
+      write("agent_extensions/registry/@acme/skills/stale.axm-staging/skill.json", "{}");
+      write("agent_extensions/registry/notes.txt", "hand-written");
+      write("agent_extensions/registry/loose/SKILL.md", "# loose");
+      nodeFs.symlinkSync("/nowhere", nodePath.join(root, "agent_extensions/registry/link"));
 
       const observed = yield* observe(graph([node("review")]));
 
       expect(observed.packages).toEqual([
-        ["agent_extensions/agentxm/@acme/skills/review", true],
-        ["agent_extensions/agentxm/@acme/skills/stale", false],
+        ["agent_extensions/registry/@acme/skills/review", true],
+        ["agent_extensions/registry/@acme/skills/stale", false],
       ]);
-      expect(observed.leftovers).toEqual(["agent_extensions/agentxm/@acme/skills/stale"]);
+      expect(observed.leftovers).toEqual(["agent_extensions/registry/@acme/skills/stale"]);
       expect(observed.unrecognized).toEqual([
-        ["agent_extensions/agentxm/link", "symlink"],
-        ["agent_extensions/agentxm/loose", "directory"],
-        ["agent_extensions/agentxm/notes.txt", "file"],
+        ["agent_extensions/registry/link", "symlink"],
+        ["agent_extensions/registry/loose", "directory"],
+        ["agent_extensions/registry/notes.txt", "file"],
       ]);
     }),
   );
 
   it.effect("claims no leftover while desired state is incomplete", () =>
     Effect.gen(function* () {
-      write("agent_extensions/agentxm/@acme/skills/stale/skill.json", "{}");
+      write("agent_extensions/registry/@acme/skills/stale/skill.json", "{}");
       const observed = yield* observe(graph([], false));
       expect(observed.leftovers).toEqual([]);
     }),

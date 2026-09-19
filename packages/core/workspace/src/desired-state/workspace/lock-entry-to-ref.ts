@@ -19,6 +19,7 @@ import {
 import type { SettingsReadError, WorkspaceRootEscape } from "./read-model/errors.js";
 import {
   decodeExtensionNameSync,
+  toExtensionTypePlural,
   type ExtensionName,
 } from "@agentxm/extension-model/unstable/extensions";
 import type {
@@ -43,6 +44,7 @@ import type {
   GitBasedSource,
   RegistrySource,
 } from "@agentxm/extension-model/unstable/sources/types";
+import { acquiredExtensionDisplayPathFromLockEntry } from "./extension-paths.js";
 
 /** Failure of the caller-supplied configured-source lookup. */
 export type LockEntrySourceLookupError = SettingsReadError | WorkspaceRootEscape;
@@ -255,22 +257,14 @@ const lockEntryLocation = (
     deps.scope === "project"
       ? `${deps.baseDir}/agent_extensions`
       : `${deps.baseDir}/.axm/workspace/agent_extensions`;
-  const selected = entry.path === undefined ? "" : `/${entry.path}`;
-  switch (entry.type) {
-    case "github":
-    case "gitlab":
-    case "bitbucket":
-      return fileHref(`${root}/${entry.sourceName}/${entry.owner}/${entry.repo}${selected}`);
-    case "azurerepos":
-      return fileHref(
-        `${root}/${entry.sourceName}/${entry.organization}/${entry.project}/${entry.repo}${selected}`,
-      );
-    case "git": {
-      const url = new URL(entry.url);
-      const repository = url.pathname.replace(/^\/+|\/+$/gu, "").replace(/\.git$/u, "");
-      return fileHref(`${root}/git/${url.hostname}/${repository}${selected}`);
-    }
-  }
+  return fileHref(
+    acquiredExtensionDisplayPathFromLockEntry(
+      root,
+      entry,
+      toExtensionTypePlural(entry.extensionType),
+      entry.workspaceName,
+    ),
+  );
 };
 
 export const skillLockEntryToRef = (

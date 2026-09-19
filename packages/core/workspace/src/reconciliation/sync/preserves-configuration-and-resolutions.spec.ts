@@ -37,7 +37,7 @@ export const specification = defineSpecification({
 
 const SKILL = "code-review";
 const CLAUDE_PROJECTION = `.claude/skills/${SKILL}`;
-const CANONICAL = `agent_extensions/local/vendor/${SKILL}`;
+const CANONICAL = `agent_extensions/path/@acme/skills/${SKILL}`;
 
 describe("Sync preserves configuration and accepted resolutions", () => {
   const cleanups: Array<() => void> = [];

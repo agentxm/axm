@@ -172,7 +172,13 @@ const runInstallPack = (op: InstallPackOperation, adapter: StepFailureConversion
     const packDir = computePackPathsForLayout(
       path.join,
       layout,
-      op.args.sourceName,
+      op.args.ref.refType === "workspace"
+        ? "workspace"
+        : op.args.ref.refType === "registry"
+          ? "registry"
+          : op.args.ref.refType === "local"
+            ? "path"
+            : "git",
       op.args.owner,
       op.args.packName,
     ).canonicalPath;

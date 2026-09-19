@@ -110,7 +110,7 @@ const PLURAL: Partial<Record<InstallableExtensionType, string>> = {
 
 const writeLeftover = (workspace: Workspace, row: Row) =>
   workspace.writeFile(
-    `agent_extensions/agentxm/@acme/${PLURAL[row.type] ?? row.type}/${row.name}/README.md`,
+    `agent_extensions/registry/@acme/${PLURAL[row.type] ?? row.type}/${row.name}/README.md`,
     "Installed earlier, no longer configured.\n",
   );
 

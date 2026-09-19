@@ -118,7 +118,7 @@ const makeSetupTestContext = (opts?: {
       path.join(
         process.cwd(),
         "agent_extensions",
-        "agentxm",
+        "registry",
         "@agentxm",
         "skills",
         "axm",
@@ -322,7 +322,7 @@ describe("setup.handler", () => {
                 label: "@agentxm/skills/axm",
                 status: "applied",
                 artifact: expect.objectContaining({
-                  path: "agent_extensions/agentxm/@agentxm/skills/axm",
+                  path: "agent_extensions/registry/@agentxm/skills/axm",
                   version: AXM_SKILL_VERSION,
                 }),
               }),
@@ -487,7 +487,7 @@ describe("setup.handler", () => {
           const skillJsonPath = path.join(
             tempDir,
             "agent_extensions",
-            "agentxm",
+            "registry",
             "@agentxm",
             "skills",
             "axm",
@@ -496,7 +496,7 @@ describe("setup.handler", () => {
           const skillMdPath = path.join(
             tempDir,
             "agent_extensions",
-            "agentxm",
+            "registry",
             "@agentxm",
             "skills",
             "axm",
@@ -1690,7 +1690,7 @@ describe("setup.handler", () => {
           const canonicalParent = path.join(
             tempDir,
             "agent_extensions",
-            "agentxm",
+            "registry",
             "@agentxm",
             "skills",
           );

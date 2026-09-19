@@ -31,6 +31,7 @@ import type {
 } from "./contracts.js";
 import { SettingsReader, type SettingsReaderService } from "./settings-reader.js";
 import { computeSkillPathsForLayout } from "./skill-paths.js";
+import { extensionPathSourceFromLockEntry } from "./extension-paths.js";
 
 export interface ExtensionPathsService {
   /** Skill directory paths. Without a source, the accepted lock entry decides the layout. */
@@ -93,68 +94,7 @@ export const makeExtensionPaths = (
           return yield* new LockedSkillMissing({ name });
         }
         const entry = lockEntry.value;
-        const entrySource: SkillPathSource = (() => {
-          switch (entry.type) {
-            case "registry":
-              return {
-                refType: "registry",
-                owner: entry.owner,
-                source: {
-                  type: "registry",
-                  name: entry.sourceName,
-                  location: entry.endpoint,
-                  owner: Option.some(entry.owner),
-                },
-              };
-            case "local":
-              return {
-                refType: "local",
-                source: { type: "local", path: entry.path },
-                sourcePath: entry.path,
-              };
-            case "github":
-            case "gitlab":
-            case "bitbucket":
-              return {
-                refType: "git-hosted",
-                source: {
-                  type: entry.type,
-                  name: entry.sourceName,
-                  url: entry.endpoint,
-                  owner: entry.owner,
-                  repo: entry.repo,
-                  ref: Option.fromUndefinedOr(entry.ref),
-                  subPath: Option.fromUndefinedOr(entry.path),
-                },
-                ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
-              };
-            case "azurerepos":
-              return {
-                refType: "git-hosted",
-                source: {
-                  type: "azurerepos",
-                  name: entry.sourceName,
-                  url: entry.endpoint,
-                  organization: entry.organization,
-                  project: entry.project,
-                  repo: entry.repo,
-                  ref: Option.fromUndefinedOr(entry.ref),
-                  subPath: Option.fromUndefinedOr(entry.path),
-                },
-                ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
-              };
-            case "git":
-              return {
-                refType: "git-hosted",
-                source: {
-                  type: "git",
-                  url: new URL(entry.url),
-                  ref: Option.fromUndefinedOr(entry.ref),
-                },
-                ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
-              };
-          }
-        })();
+        const entrySource = extensionPathSourceFromLockEntry(entry);
         const dirName = entry.type === "registry" ? entry.name : entry.packageName;
         return computeSkillPathsForLayout(path.join, layout, entrySource, sanitizeName(dirName));
       }),
@@ -162,7 +102,13 @@ export const makeExtensionPaths = (
       Effect.gen(function* () {
         const path = yield* Path.Path;
         const layout = yield* Ref.get(location.layout);
-        return computePackPathsForLayout(path.join, layout, sourceName, owner, name);
+        return computePackPathsForLayout(
+          path.join,
+          layout,
+          sourceName === "workspace" ? "workspace" : "registry",
+          owner,
+          name,
+        );
       }),
   };
 };

@@ -57,7 +57,7 @@ describe("Relative paths start in the selected directory", () => {
         fs.readFileSync(
           path.join(
             fixture.selected,
-            "agent_extensions/local/vendor/directory-review/src/SKILL.md",
+            "agent_extensions/path/@acme/skills/directory-review/src/SKILL.md",
           ),
           "utf8",
         ),
@@ -105,7 +105,7 @@ describe("Relative paths start in the selected directory", () => {
       const acquired = fs.readFileSync(
         path.join(
           fixture.selected,
-          "agent_extensions/agentxm/@acme/skills/environment-directory/src/SKILL.md",
+          "agent_extensions/registry/@acme/skills/environment-directory/src/SKILL.md",
         ),
         "utf8",
       );

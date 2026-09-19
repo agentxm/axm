@@ -65,7 +65,7 @@ instruction files and agent directories there. A project folder that is the
 user home has no separate user scope, so these checks skip it.
 
 User scope uses `~/.axm/workspace/axm.json`,
-`~/.axm/workspace/axm-lock.yaml`, and the same source-qualified acquired
+`~/.axm/workspace/axm-lock.yaml`, and the same source-family acquired
 package scheme under `~/.axm/workspace/agent_extensions/`; the authority
 relationships are otherwise the same. Its runtime state is the inner
 `~/.axm/workspace/.axm/` directory. User scope has no authored type roots.
@@ -90,13 +90,12 @@ meaning. Changing the endpoint behind an accepted source name is drift: lint
 and sync block until an explicit lifecycle operation accepts the transition.
 
 Acquired canonical packages use
-`agent_extensions/<source-name>/<source-full-name>/` in project scope and
-`~/.axm/workspace/agent_extensions/<source-name>/<source-full-name>/` in user scope. Registry
-full names are `<@owner>/<plural-type>/<name>`; hosted Git full names preserve
-the repository owner or namespace, repository, and selected subpath. Azure
-Repos additionally preserves organization and project, generic Git preserves
-host and repository path, and local sources preserve their workspace-relative
-selected path.
+`agent_extensions/<source-family>/<@owner>/<plural-type>/<name>/` in project
+scope and the same suffix beneath `~/.axm/workspace/agent_extensions/` in user
+scope. The source family is `registry`, `git`, or `path`; portable packages
+without a publisher identity use `@portable`. Registry names, Git hosts and
+repositories, and local selected paths remain accepted source authority in the
+lockfile, but do not determine the canonical directory suffix.
 
 Registry `integrity` is the SRI SHA-512 digest of the published archive. AXM
 verifies downloaded archive bytes before extraction, then records

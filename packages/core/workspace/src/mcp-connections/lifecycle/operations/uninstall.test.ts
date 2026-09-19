@@ -167,7 +167,14 @@ describe("uninstallMcpServer", () => {
     const axmDir = path.join(base, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
 
-    const canonicalPath = path.join(base, "agent_extensions", "agentxm", owner, "mcps", serverName);
+    const canonicalPath = path.join(
+      base,
+      "agent_extensions",
+      "registry",
+      owner,
+      "mcps",
+      serverName,
+    );
     if (opts.createCanonical !== false) {
       fs.mkdirSync(canonicalPath, { recursive: true });
       fs.writeFileSync(path.join(canonicalPath, "server.js"), "module.exports = {}");

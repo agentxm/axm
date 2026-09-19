@@ -166,7 +166,7 @@ describe("Demoting workspace authorship", () => {
                 );
                 const neighborCanonical = nodePath.join(
                   workspace.root,
-                  `agent_extensions/local/vendor/${NEIGHBOR}`,
+                  `agent_extensions/path/@acme/skills/${NEIGHBOR}`,
                 );
                 const neighborContentBefore = snapshotContent(neighborCanonical);
                 const neighborLockBefore = yield* lockfile.entry("skill", NEIGHBOR);
@@ -201,8 +201,8 @@ describe("Demoting workspace authorship", () => {
                 // is gone rather than merged with the replacement.
                 const canonical =
                   registry !== undefined
-                    ? `agent_extensions/agentxm/@acme/${row.plural}/${REVIEW}/${row.manifest}`
-                    : `agent_extensions/local/vendor/${REVIEW}/${row.manifest}`;
+                    ? `agent_extensions/registry/@acme/${row.plural}/${REVIEW}/${row.manifest}`
+                    : `agent_extensions/path/@acme/${row.plural}/${REVIEW}/${row.manifest}`;
                 expect(
                   snapshotContent(nodePath.dirname(nodePath.join(workspace.root, canonical))),
                 ).toEqual(expectedContent);

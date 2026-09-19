@@ -34,7 +34,7 @@ const PACK = "scope-pack";
 const SUBAGENT = "scope-subagent";
 const SKILL = "scope-review";
 const KNOWLEDGE = "scope-policy";
-const CANONICAL_REFERENCE = `agent_extensions/agentxm/${OWNER}/knowledge/${KNOWLEDGE}/src/policies/review.md`;
+const CANONICAL_REFERENCE = `agent_extensions/registry/${OWNER}/knowledge/${KNOWLEDGE}/src/policies/review.md`;
 
 const configureRegistry = (settingsPath: string, registryPath: string) => {
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));

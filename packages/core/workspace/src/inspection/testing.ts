@@ -454,7 +454,11 @@ export const makeAcceptedPackFixture = (
       },
     },
     files: {
-      [`agent_extensions/agentxm/@acme/packs/${name}/pack.json`]: JSON.stringify(manifest, null, 2),
+      [`agent_extensions/registry/@acme/packs/${name}/pack.json`]: JSON.stringify(
+        manifest,
+        null,
+        2,
+      ),
     },
   });
 };

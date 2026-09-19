@@ -84,9 +84,8 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
         const canonical = nodePath.join(
           root,
           "agent_extensions",
-          "github",
-          "acme",
-          "tools",
+          "git",
+          "@acme",
           "skills",
           "review",
         );
@@ -140,7 +139,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
           {
             type: "pack",
             pack: "@acme/packs/platform",
-            manifestPath: `${root}/agent_extensions/agentxm/@acme/packs/platform/pack.json`,
+            manifestPath: `${root}/agent_extensions/registry/@acme/packs/platform/pack.json`,
             source: "@acme/rules/release",
             constraint: "^2.0.0",
             enabled: true,

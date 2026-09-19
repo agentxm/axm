@@ -337,7 +337,7 @@ const UNRELATED: RegistrySubagentVersion = {
   version: "1.0.0",
   body: "Keep this independent research guidance.",
 };
-const SUBAGENT_CANONICAL = `agent_extensions/agentxm/@acme/subagents/${SUBAGENT}`;
+const SUBAGENT_CANONICAL = `agent_extensions/registry/@acme/subagents/${SUBAGENT}`;
 const SUBAGENT_NATIVE = `.claude/agents/${SUBAGENT}.md`;
 
 const expectSubagentContent = (
@@ -345,7 +345,7 @@ const expectSubagentContent = (
   name: string,
   publication: RegistrySubagentVersion,
 ): void => {
-  const canonical = `agent_extensions/agentxm/@acme/subagents/${name}`;
+  const canonical = `agent_extensions/registry/@acme/subagents/${name}`;
   const manifest: unknown = JSON.parse(workspace.readFile(`${canonical}/subagent.json`));
   expect(manifest).toMatchObject({
     owner: "@acme",

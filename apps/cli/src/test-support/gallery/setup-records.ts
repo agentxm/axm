@@ -151,13 +151,13 @@ const skillStep = {
   label: "@agentxm/skills/axm",
   status: "applied",
   artifact: {
-    path: "agent_extensions/agentxm/@agentxm/skills/axm",
+    path: "agent_extensions/registry/@agentxm/skills/axm",
     scope: "project",
     agents: ["claude-code", "codex", "cursor"],
     version: "0.31.1",
     change: "created",
     targets: [
-      { path: "agent_extensions/agentxm/@agentxm/skills/axm", change: "created" },
+      { path: "agent_extensions/registry/@agentxm/skills/axm", change: "created" },
       { path: ".claude/skills/axm", change: "created", agentIds: ["claude-code"] },
       { path: ".agents/skills/axm", change: "created", agentIds: ["codex"] },
       { path: ".cursor/skills/axm", change: "created", agentIds: ["cursor"] },

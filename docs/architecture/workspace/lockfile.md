@@ -36,10 +36,11 @@ The current strict version is version 7. Every acquired package row records
 the exact source type, source name, endpoint or coordinates, requested intent,
 and immutable resolution. It also
 records `treeIntegrity`, the deterministic integrity of the complete installed
-package tree under `agent_extensions/<source-name>/<source-full-name>/`. This package-level
-identity covers every shipped file, including companion files outside the
-extension's primary payload, rather than treating a single manifest or entry
-file as the installed unit.
+package tree under
+`agent_extensions/<source-family>/<owner>/<plural-type>/<name>/`. This
+package-level identity covers every shipped file, including companion files
+outside the extension's primary payload, rather than treating a single manifest
+or entry file as the installed unit.
 
 Most extension maps are keyed by workspace extension name. MCP resolution rows
 are instead keyed by source identity: source authority plus published package

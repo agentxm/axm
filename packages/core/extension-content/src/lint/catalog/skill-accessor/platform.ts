@@ -5,8 +5,8 @@
  * the caller-supplied skill-root directory. Layout conventions per
  * the lint design "Skill accessor root":
  *
- * - **Native acquired package:** the source-qualified package's `src/` directory.
- * - **Portable Agent Skill:** the source-qualified selected package directory.
+ * - **Native acquired package:** the identity-qualified package's `src/` directory.
+ * - **Portable Agent Skill:** the identity-qualified selected package directory.
  *
  * The accessor is provenance-agnostic — rules see one uniform contract and
  * never branch on native-vs-non-native. The caller (`buildSkillRuleContexts`

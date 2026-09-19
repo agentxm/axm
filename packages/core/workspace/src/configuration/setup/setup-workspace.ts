@@ -452,8 +452,8 @@ export const previewAgentDefault = (
 
 const bundledSkillDisplayPath = (scope: WorkspaceScope): string =>
   scope === "project"
-    ? "agent_extensions/agentxm/@agentxm/skills/axm"
-    : ".axm/workspace/agent_extensions/agentxm/@agentxm/skills/axm";
+    ? "agent_extensions/registry/@agentxm/skills/axm"
+    : ".axm/workspace/agent_extensions/registry/@agentxm/skills/axm";
 
 /** Every failure describing the settled setup can surface. */
 export type SetupReportFailure =

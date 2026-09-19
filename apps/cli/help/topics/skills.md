@@ -4,11 +4,11 @@ Before distributing package-root files, read `axm help publish` for the
 Registry-only archive policy and effective preview.
 
 Project-authored skill packages live in `./skills/<skill-name>`; acquired skills
-use the source-qualified canonical scheme. A Registry skill such as
-`@acme/skills/review` lives at
-`./agent_extensions/agentxm/@acme/skills/review`; a portable GitHub skill at
+use the source-family and identity-based canonical scheme. A Registry skill
+such as `@acme/skills/review` lives at
+`./agent_extensions/registry/@acme/skills/review`; a portable GitHub skill at
 `github:remix-run/react-router//.agents/skills/react-router@main` lives at
-`./agent_extensions/github/remix-run/react-router/.agents/skills/react-router`.
+`./agent_extensions/git/@portable/skills/react-router`.
 
 ## skill.json
 

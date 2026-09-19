@@ -68,7 +68,7 @@ describe("Activation follows desired state", () => {
             );
             yield* applyActivation({ type: row.type, name, enabled: false });
             const accepted = workspace.readFile("axm-lock.yaml");
-            const canonical = `agent_extensions/local/vendor/${name}/${row.canonicalFile(name)}`;
+            const canonical = `agent_extensions/path/@acme/${row.plural}/${name}/${row.canonicalFile(name)}`;
             const content = workspace.readFile(canonical);
             workspace.writeFile(
               `vendor/${name}/${row.canonicalFile(name)}`,
@@ -178,7 +178,7 @@ describe("Activation follows desired state", () => {
                 }),
               );
               const packContent = workspace.readFile(
-                "agent_extensions/agentxm/@acme/packs/reviews/pack.json",
+                "agent_extensions/registry/@acme/packs/reviews/pack.json",
               );
               const disabled = yield* applyActivation({
                 type: "pack",
@@ -192,11 +192,11 @@ describe("Activation follows desired state", () => {
               expect(
                 graph.nodes.find((node) => node.type === type && node.name === name),
               ).toBeUndefined();
-              expect(workspace.exists(`agent_extensions/agentxm/@acme/${plural}/${name}`)).toBe(
+              expect(workspace.exists(`agent_extensions/registry/@acme/${plural}/${name}`)).toBe(
                 false,
               );
               expect(
-                workspace.readFile("agent_extensions/agentxm/@acme/packs/reviews/pack.json"),
+                workspace.readFile("agent_extensions/registry/@acme/packs/reviews/pack.json"),
               ).toBe(packContent);
               const enabled = yield* applyActivation({
                 type: "pack",
@@ -204,7 +204,7 @@ describe("Activation follows desired state", () => {
                 enabled: true,
               });
               expect(enabled._tag === "Resolved" ? enabled.outcome : enabled._tag).toBe("applied");
-              expect(workspace.exists(`agent_extensions/agentxm/@acme/${plural}/${name}`)).toBe(
+              expect(workspace.exists(`agent_extensions/registry/@acme/${plural}/${name}`)).toBe(
                 true,
               );
             }),

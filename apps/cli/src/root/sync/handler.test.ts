@@ -382,7 +382,7 @@ const makePackRollbackFixture = (
   const canonicalSkill = path.join(
     baseDir,
     "agent_extensions",
-    "agentxm",
+    "registry",
     "@acme",
     "skills",
     "review",
@@ -390,7 +390,7 @@ const makePackRollbackFixture = (
   const canonicalPack = path.join(
     baseDir,
     "agent_extensions",
-    "agentxm",
+    "registry",
     "@acme",
     "packs",
     "toolkit",
@@ -569,12 +569,12 @@ const makeConstraintMismatchFixture = (
   });
   for (const manifest of manifests) {
     writePackPackage(
-      path.join(baseDir, "agent_extensions", "agentxm", "@acme", "packs", manifest.name),
+      path.join(baseDir, "agent_extensions", "registry", "@acme", "packs", manifest.name),
       manifest,
     );
   }
   writeSkillPackage(
-    path.join(baseDir, "agent_extensions", "agentxm", "@acme", "skills", "review"),
+    path.join(baseDir, "agent_extensions", "registry", "@acme", "skills", "review"),
     "review",
     "1.0.0",
   );
@@ -588,7 +588,7 @@ const makeConstraintMismatchFixture = (
       canonicalSkill: path.join(
         baseDir,
         "agent_extensions",
-        "agentxm",
+        "registry",
         "@acme",
         "skills",
         "review",
@@ -1687,7 +1687,7 @@ describe("root sync handler", { timeout: 15_000 }, () => {
       const skillDir = path.join(
         tempDir,
         "agent_extensions",
-        "agentxm",
+        "registry",
         "@acme",
         "skills",
         "review",
@@ -1949,7 +1949,9 @@ describe("root sync handler", { timeout: 15_000 }, () => {
             );
             expect(failure.detail).toContain("configured source differs from accepted authority");
             expect(
-              fs.existsSync(path.join(tempDir, "agent_extensions", "local", "locked-source")),
+              fs.existsSync(
+                path.join(tempDir, "agent_extensions", "path", "@acme", "knowledge", "handbook"),
+              ),
             ).toBe(false);
             expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
             expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(
@@ -1961,13 +1963,22 @@ describe("root sync handler", { timeout: 15_000 }, () => {
 
           expect(
             fs.readFileSync(
-              path.join(tempDir, "agent_extensions", "local", "locked-source", "src", "concept.md"),
+              path.join(
+                tempDir,
+                "agent_extensions",
+                "path",
+                "@acme",
+                "knowledge",
+                "handbook",
+                "src",
+                "concept.md",
+              ),
               "utf8",
             ),
           ).toContain("# Locked");
           expect(
             fs.existsSync(
-              path.join(tempDir, "agent_extensions", "agentxm", "@acme", "knowledge", "handbook"),
+              path.join(tempDir, "agent_extensions", "registry", "@acme", "knowledge", "handbook"),
             ),
           ).toBe(false);
           expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);

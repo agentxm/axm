@@ -84,7 +84,7 @@ const initWorkspace = (
       const packageDir = path.join(
         projectRoot,
         "agent_extensions",
-        "agentxm",
+        "registry",
         owner,
         plural,
         packageName,
@@ -126,7 +126,7 @@ const initWorkspace = (
         const packageDir = path.join(
           projectRoot,
           "agent_extensions",
-          "agentxm",
+          "registry",
           owner,
           plural,
           packageName,

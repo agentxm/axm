@@ -168,7 +168,14 @@ layer(NodeServices.layer, { excludeTestServices: true })("enableSkill", (it) => 
     const axmDir = path.join(base, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
 
-    const canonicalDir = path.join(base, "agent_extensions", "local", "tmp", "source");
+    const canonicalDir = path.join(
+      base,
+      "agent_extensions",
+      "path",
+      "@community",
+      "skills",
+      skillName,
+    );
     fs.mkdirSync(path.join(canonicalDir, "src"), { recursive: true });
     fs.writeFileSync(
       path.join(canonicalDir, "skill.json"),
@@ -308,7 +315,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("enableSkill", (it) => 
         const registryCanonical = path.join(
           base,
           "agent_extensions",
-          "agentxm",
+          "registry",
           "@community",
           "skills",
           "my-skill",

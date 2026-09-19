@@ -62,7 +62,7 @@ const initializePack = (root: string) => {
 
 const initializePackWithSkill = (root: string) => {
   const { axmDir, packDir, lockPath } = initializePack(root);
-  const skillDir = path.join(root, "agent_extensions", "agentxm", "@acme", "skills", "review");
+  const skillDir = path.join(root, "agent_extensions", "registry", "@acme", "skills", "review");
   fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
   fs.writeFileSync(
     path.join(skillDir, "skill.json"),

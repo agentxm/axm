@@ -36,7 +36,7 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-const CANONICAL_SKILL = "agent_extensions/agentxm/@agentxm/skills/axm/src/SKILL.md";
+const CANONICAL_SKILL = "agent_extensions/registry/@agentxm/skills/axm/src/SKILL.md";
 const PROJECTED_SKILL = ".claude/skills/axm/SKILL.md";
 
 /** The request `axm skills install --bundled` builds. */

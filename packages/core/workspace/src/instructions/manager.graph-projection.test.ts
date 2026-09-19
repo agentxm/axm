@@ -59,7 +59,7 @@ const registryLock = (baseDir: string, name: string, version = "1.0.0") => ({
   sourceName: "agentxm",
   publisherBindingId: "hbnd_test",
   treeIntegrity: computeMaterializedTreeIntegritySync(
-    nodePath.join(baseDir, "agent_extensions", "agentxm", OWNER, "rules", name),
+    nodePath.join(baseDir, "agent_extensions", "registry", OWNER, "rules", name),
   ),
 });
 
@@ -94,7 +94,7 @@ const packRuleNode = (name: string, pack: string): DesiredExtensionNode => ({
     {
       type: "pack",
       pack: `${OWNER}/packs/${pack}`,
-      manifestPath: `/workspace/agent_extensions/agentxm/${OWNER}/packs/${pack}/pack.json`,
+      manifestPath: `/workspace/agent_extensions/registry/${OWNER}/packs/${pack}/pack.json`,
       source: `${OWNER}/rules/${name}`,
       constraint: "^1.0.0",
       enabled: true,
@@ -128,7 +128,7 @@ describe("RuleManager graph-derived region projection", () => {
       readonly body?: string;
     },
   ) => {
-    const root = nodePath.join(baseDir, "agent_extensions", "agentxm", OWNER, "rules", name);
+    const root = nodePath.join(baseDir, "agent_extensions", "registry", OWNER, "rules", name);
     nodeFs.mkdirSync(nodePath.join(root, "src"), { recursive: true });
     nodeFs.writeFileSync(
       nodePath.join(root, "rule.json"),
@@ -372,7 +372,7 @@ describe("RuleManager graph-derived region projection", () => {
           {
             type: "pack-manifest-unavailable",
             pack: `${OWNER}/packs/pack-a`,
-            path: "agent_extensions/agentxm/@acme/packs/pack-a/pack.json",
+            path: "agent_extensions/registry/@acme/packs/pack-a/pack.json",
           },
         ],
       },

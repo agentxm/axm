@@ -161,10 +161,10 @@ export const localLifecycleRows: ReadonlyArray<LocalLifecycleRow> = [
     canonicalFile: () => "src/SKILL.md",
     expectRealized: (workspace, name) => {
       expect(workspace.readFile(`.claude/skills/${name}/SKILL.md`)).toBe(
-        workspace.readFile(`agent_extensions/local/vendor/${name}/src/SKILL.md`),
+        workspace.readFile(`agent_extensions/path/@acme/skills/${name}/src/SKILL.md`),
       );
       expect(workspace.readFile(`.agents/skills/${name}/SKILL.md`)).toBe(
-        workspace.readFile(`agent_extensions/local/vendor/${name}/src/SKILL.md`),
+        workspace.readFile(`agent_extensions/path/@acme/skills/${name}/src/SKILL.md`),
       );
     },
     expectUnrealized: (workspace, name) => {

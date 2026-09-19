@@ -499,7 +499,13 @@ export const buildDesiredStateGraph = ({
       const document = manifests.locate({
         owner: identity.owner,
         name: identity.name,
-        sourceName: workspacePack ? "workspace" : configuredRegistrySource,
+        sourceFamily: workspacePack
+          ? "workspace"
+          : acceptedPack?.type === "local"
+            ? "path"
+            : acceptedPack === undefined || acceptedPack.type === "registry"
+              ? "registry"
+              : "git",
         relativeTo: baseDir,
         workspace: layout === undefined ? { baseDir, settings } : { layout },
       });

@@ -131,7 +131,8 @@ export const validateDesiredPackLock = ({
       const document = manifests.locate({
         owner: identity.owner,
         name: identity.name,
-        sourceName: entry.sourceName,
+        sourceFamily:
+          entry.type === "registry" ? "registry" : entry.type === "local" ? "path" : "git",
         relativeTo: layout.workspaceRoot,
         workspace: { layout },
       });

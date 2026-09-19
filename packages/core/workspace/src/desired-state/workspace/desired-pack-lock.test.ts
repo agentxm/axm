@@ -92,7 +92,7 @@ describe("validateDesiredPackLock", () => {
     const canonical = path.join(
       baseDir,
       "agent_extensions",
-      "agentxm",
+      "registry",
       "@acme",
       "packs",
       "toolkit",

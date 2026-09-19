@@ -37,10 +37,10 @@ const configuredSubagent = (canonicalPresent: boolean): InstalledSubagent => ({
         {
           key: { scope: "project", type: "subagent", name: decodeExtensionNameSync("reviewer") },
           origin: { _tag: "canonical-axm-subagent" },
-          contentRoot: "/workspace/agent_extensions/agentxm/@acme/subagents/reviewer/src",
+          contentRoot: "/workspace/agent_extensions/registry/@acme/subagents/reviewer/src",
           sourcePath:
-            "/workspace/agent_extensions/agentxm/@acme/subagents/reviewer/src/reviewer.md",
-          packageRoot: "/workspace/agent_extensions/agentxm/@acme/subagents/reviewer",
+            "/workspace/agent_extensions/registry/@acme/subagents/reviewer/src/reviewer.md",
+          packageRoot: "/workspace/agent_extensions/registry/@acme/subagents/reviewer",
         },
       ]
     : [],
@@ -158,9 +158,9 @@ export const skillsLockfileAlignedConformance: WorkspaceRuleConformanceCase = {
 const canonicalReviewer: ActualSkill = {
   key: { scope: "project", type: "skill", name: decodeExtensionNameSync("reviewer") },
   origin: { _tag: "canonical-axm-skill" },
-  contentRoot: "/workspace/agent_extensions/agentxm/@acme/skills/reviewer/src",
-  sourcePath: "/workspace/agent_extensions/agentxm/@acme/skills/reviewer/src/SKILL.md",
-  packageRoot: "/workspace/agent_extensions/agentxm/@acme/skills/reviewer",
+  contentRoot: "/workspace/agent_extensions/registry/@acme/skills/reviewer/src",
+  sourcePath: "/workspace/agent_extensions/registry/@acme/skills/reviewer/src/SKILL.md",
+  packageRoot: "/workspace/agent_extensions/registry/@acme/skills/reviewer",
   hasSkillMd: true,
   hasSkillJson: true,
 };
@@ -271,7 +271,7 @@ const packDeclaredReviewer = {
     {
       type: "pack",
       pack: "@acme/packs/quality",
-      manifestPath: "agent_extensions/agentxm/@acme/packs/quality/pack.json",
+      manifestPath: "agent_extensions/registry/@acme/packs/quality/pack.json",
       source: "@acme/skills/reviewer@^1.0.0",
       constraint: "^1.0.0",
       enabled: true,

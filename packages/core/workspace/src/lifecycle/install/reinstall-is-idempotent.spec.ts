@@ -83,7 +83,7 @@ describe("Repeat installs are safe", () => {
             const sourceContent = workspace.readFile("vendor/code-review/src/SKILL.md");
             expect(sourceContent).toContain("# code-review");
             expect(
-              workspace.readFile("agent_extensions/local/vendor/code-review/src/SKILL.md"),
+              workspace.readFile("agent_extensions/path/@acme/skills/code-review/src/SKILL.md"),
             ).toBe(sourceContent);
             expect(workspace.readFile(".claude/skills/code-review/SKILL.md")).toBe(sourceContent);
             expect(workspace.readFile(".agents/skills/code-review/SKILL.md")).toBe(sourceContent);

@@ -154,18 +154,21 @@ const buildExternalSetPackArgs = (args: {
   };
 };
 
-const sourceLayoutName = (ref: Exclude<PackRef, { readonly refType: "workspace" }>): string => {
+const sourceLayoutFamily = (
+  ref: Exclude<PackRef, { readonly refType: "workspace" }>,
+): "git" | "path" | "registry" => {
   switch (ref.source.type) {
     case "local":
-      return "local";
+      return "path";
     case "git":
       return "git";
     case "github":
     case "gitlab":
     case "bitbucket":
     case "azurerepos":
+      return "git";
     case "registry":
-      return ref.source.name;
+      return "registry";
   }
 };
 
@@ -203,7 +206,7 @@ export const PackManagerLive = Layer.effect(
       const packDir = computePackPathsForLayout(
         path.join,
         currentLayout(),
-        ref.refType === "workspace" ? "workspace" : sourceLayoutName(ref),
+        ref.refType === "workspace" ? "workspace" : sourceLayoutFamily(ref),
         ref.owner,
         ref.pack.name,
       ).canonicalPath;
@@ -298,7 +301,7 @@ export const PackManagerLive = Layer.effect(
         const packDir = computePackPathsForLayout(
           path.join,
           currentLayout(),
-          sourceLayoutName(ref),
+          sourceLayoutFamily(ref),
           ref.owner,
           ref.pack.name,
         ).canonicalPath;

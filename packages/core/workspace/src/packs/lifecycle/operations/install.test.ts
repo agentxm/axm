@@ -162,7 +162,7 @@ describe("installPack", () => {
     const packDir = path.join(
       projectDir,
       "agent_extensions",
-      "agentxm",
+      "registry",
       "@acme",
       "packs",
       "frontend-pack",
@@ -216,7 +216,7 @@ describe("installPack", () => {
     const packDir = path.join(
       projectDir,
       "agent_extensions",
-      "agentxm",
+      "registry",
       "@acme",
       "packs",
       "frontend-pack",
@@ -267,7 +267,7 @@ describe("installPack", () => {
     const packDir = path.join(
       projectDir,
       "agent_extensions",
-      "agentxm",
+      "registry",
       "@acme",
       "packs",
       "frontend-pack",

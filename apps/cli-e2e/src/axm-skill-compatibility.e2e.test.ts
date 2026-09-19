@@ -101,7 +101,7 @@ describe("AXM skill compatibility lifecycle", () => {
         ]),
       );
 
-      git(temp.path, ["add", "agent_extensions/agentxm/@agentxm/skills/axm/src/SKILL.md"]);
+      git(temp.path, ["add", "agent_extensions/registry/@agentxm/skills/axm/src/SKILL.md"]);
       fs.writeFileSync(skillPath, compatible);
       const live = await runCli(["lint", "--strict", "--json"], {
         cwd: temp.path,

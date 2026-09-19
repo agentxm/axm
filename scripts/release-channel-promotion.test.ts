@@ -1,4 +1,3 @@
-import { decodeStableChannelDocumentSync } from "@agentxm/extension-model/unstable/release-channel";
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -6,6 +5,7 @@ import {
   promoteStableRelease,
   type ReleaseChannelPromotionInput,
 } from "./release-channel-promotion.js";
+import { decodeStableChannelDocumentSync } from "./release-channel.js";
 
 const document = (version = "1.2.3", revision = 2) => ({
   schema: "axm.release-channel/v1",

@@ -105,7 +105,7 @@ import {
   InstallMethodLive,
   SubprocessLive,
 } from "@agentxm/cli-maintenance/self-update/composition/native";
-import { StableChannelCheckLive } from "@agentxm/cli-maintenance/self-update/composition";
+import { LatestReleaseCheckLive } from "@agentxm/cli-maintenance/self-update/composition";
 
 import { loadVersion } from "./version.js";
 import { suggestionsForScope } from "./root/shared/scoped-command.js";
@@ -126,6 +126,7 @@ export const axmGlobalFlags = [
 
 // -- Runtime layers --
 const DEFAULT_REGISTRY_URL = "https://registry.agentxm.ai";
+const GITHUB_LATEST_RELEASE_URL = "https://github.com/agentxm/axm/releases/latest";
 
 export type RegistryTargetSelection =
   | { readonly ok: true; readonly registryUrl: string }
@@ -203,12 +204,26 @@ export const withAxmUserAgent = (httpClient: HttpClient.HttpClient, version: str
     HttpClient.mapRequest(HttpClientRequest.setHeader("user-agent", `axm-cli/${version}`)),
   );
 
+const fetchInputUrl = (input: string | URL | Request): string =>
+  typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+
+/** Keep redirect policy at the runtime transport boundary that owns fetch. */
+export const withAxmFetchPolicy =
+  (fetchImplementation: typeof globalThis.fetch): typeof globalThis.fetch =>
+  (input, init) =>
+    fetchImplementation(
+      input,
+      fetchInputUrl(input) === GITHUB_LATEST_RELEASE_URL ? { ...init, redirect: "manual" } : init,
+    );
+
+const AxmFetchLayer = Layer.succeed(FetchHttpClient.Fetch, withAxmFetchPolicy(globalThis.fetch));
+
 const AxmHttpClientLayer = Layer.provide(
   Layer.effect(
     HttpClient.HttpClient,
     Effect.map(HttpClient.HttpClient, (httpClient) => withAxmUserAgent(httpClient, loadVersion())),
   ),
-  FetchHttpClient.layer,
+  FetchHttpClient.layer.pipe(Layer.provide(AxmFetchLayer)),
 );
 
 const PlatformLayer = Layer.mergeAll(NodeServices.layer, AxmHttpClientLayer);
@@ -286,12 +301,12 @@ export const baseLayer = Layer.mergeAll(runtimeBaseLayer, PlatformLayer, cliConf
 
 /**
  * The self-update capability's environment-backed services. The startup
- * update check needs the channel cache and conditional release discovery;
+ * update check needs the release cache and latest-release discovery;
  * the `upgrade` command additionally drives an installer through a
  * subprocess and records what it installed.
  */
 export const startupUpdateCheckLayer = Layer.provide(
-  Layer.mergeAll(UpdateCheckCacheLive, StableChannelCheckLive),
+  Layer.mergeAll(UpdateCheckCacheLive, LatestReleaseCheckLive),
   PlatformLayer,
 );
 

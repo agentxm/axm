@@ -1,5 +1,4 @@
 import { describe, expect, it } from "@effect/vitest";
-import { decodeStableChannelDocumentSync } from "@agentxm/extension-model/unstable/release-channel";
 import * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
@@ -9,12 +8,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as TestClock from "effect/testing/TestClock";
-import type { CachedStableChannel } from "../domain/index.js";
-import { stableChannelDocument } from "../testing.js";
+import type { CachedLatestRelease } from "../domain/index.js";
 import { checkStartupUpdate, refreshStartupUpdate } from "./startup-check.js";
-import { StableChannelCheck, UpdateCheckCache, UpdateCheckUnavailable } from "./update-cache.js";
+import { LatestReleaseCheck, UpdateCheckCache, UpdateCheckUnavailable } from "./update-cache.js";
 
-const document = decodeStableChannelDocumentSync(stableChannelDocument("2.0.0"));
 const context = {
   isJsonOutput: false,
   noUpdateCheckEnv: false,
@@ -28,7 +25,7 @@ const unexpected = () => Effect.die("suppressed or fresh checks must not perform
 describe("startup application without a delivery or provider", () => {
   it.effect("unavailable cache reads and writes do not fail the invoking command", () =>
     Effect.gen(function* () {
-      const attemptedWrite = yield* Deferred.make<CachedStableChannel>();
+      const attemptedWrite = yield* Deferred.make<CachedLatestRelease>();
       const result = yield* Effect.scoped(
         Effect.gen(function* () {
           const checked = yield* checkStartupUpdate({ localVersion: "1.0.0", context });
@@ -37,9 +34,7 @@ describe("startup application without a delivery or provider", () => {
             refreshing: true,
             notification: Option.none(),
           });
-          const attempted = yield* Deferred.await(attemptedWrite);
-          expect(attempted.document).toBe(document);
-          expect(attempted.etag).toBe('"new-revision"');
+          expect(yield* Deferred.await(attemptedWrite)).toMatchObject({ version: "2.0.0" });
           return "command completed";
         }),
       ).pipe(
@@ -54,9 +49,7 @@ describe("startup application without a delivery or provider", () => {
                   ),
                 ),
             }),
-            Layer.succeed(StableChannelCheck, {
-              check: () => Effect.succeed({ _tag: "Modified", document, etag: '"new-revision"' }),
-            }),
+            Layer.succeed(LatestReleaseCheck, { check: () => Effect.succeed("2.0.0") }),
           ),
         ),
       );
@@ -64,7 +57,7 @@ describe("startup application without a delivery or provider", () => {
     }),
   );
 
-  it.effect("suppression precedes every cache and channel operation", () =>
+  it.effect("suppression precedes every cache and release operation", () =>
     checkStartupUpdate({
       localVersion: "1.0.0",
       context: { ...context, noUpdateCheckEnv: true },
@@ -74,7 +67,7 @@ describe("startup application without a delivery or provider", () => {
       Effect.provide(
         Layer.mergeAll(
           Layer.succeed(UpdateCheckCache, { read: unexpected, write: unexpected }),
-          Layer.succeed(StableChannelCheck, { check: unexpected }),
+          Layer.succeed(LatestReleaseCheck, { check: unexpected }),
         ),
       ),
     ),
@@ -83,7 +76,7 @@ describe("startup application without a delivery or provider", () => {
   it.effect("reads one fresh snapshot and returns facts without CLI wording", () =>
     Effect.gen(function* () {
       const reads = yield* Ref.make(0);
-      const snapshot = { document, etag: '"revision-3"', validatedAt: yield* DateTime.now };
+      const snapshot = { version: "2.0.0", validatedAt: yield* DateTime.now };
       const result = yield* checkStartupUpdate({ localVersion: "1.0.0", context }).pipe(
         Effect.scoped,
         Effect.provide(
@@ -93,7 +86,7 @@ describe("startup application without a delivery or provider", () => {
                 Ref.update(reads, (count) => count + 1).pipe(Effect.as(Option.some(snapshot))),
               write: unexpected,
             }),
-            Layer.succeed(StableChannelCheck, { check: unexpected }),
+            Layer.succeed(LatestReleaseCheck, { check: unexpected }),
           ),
         ),
       );
@@ -106,16 +99,14 @@ describe("startup application without a delivery or provider", () => {
     }),
   );
 
-  it.effect("revalidates the observed snapshot and stamps the confirmation time", () =>
+  it.effect("refreshes a stale snapshot and stamps the discovery time", () =>
     Effect.gen(function* () {
       const now = yield* DateTime.now;
       const snapshot = {
-        document,
-        etag: '"revision-3"',
+        version: "2.0.0",
         validatedAt: DateTime.subtractDuration(now, Duration.minutes(61)),
       };
-      const written = yield* Deferred.make<CachedStableChannel>();
-      const etag = yield* Ref.make<string | null>(null);
+      const written = yield* Deferred.make<CachedLatestRelease>();
       yield* Effect.scoped(
         Effect.gen(function* () {
           const result = yield* checkStartupUpdate({ localVersion: "1.0.0", context });
@@ -125,10 +116,8 @@ describe("startup application without a delivery or provider", () => {
             notification: Option.none(),
           });
           const cache = yield* Deferred.await(written);
-          expect(cache.document).toBe(document);
-          expect(cache.etag).toBe(snapshot.etag);
+          expect(cache.version).toBe("2.1.0");
           expect(DateTime.toEpochMillis(cache.validatedAt)).toBe(DateTime.toEpochMillis(now));
-          expect(yield* Ref.get(etag)).toBe(snapshot.etag);
         }),
       ).pipe(
         Effect.provide(
@@ -137,10 +126,7 @@ describe("startup application without a delivery or provider", () => {
               read: () => Effect.succeed(Option.some(snapshot)),
               write: (cache) => Deferred.succeed(written, cache).pipe(Effect.asVoid),
             }),
-            Layer.succeed(StableChannelCheck, {
-              check: (value) =>
-                Ref.set(etag, value).pipe(Effect.as({ _tag: "NotModified" as const })),
-            }),
+            Layer.succeed(LatestReleaseCheck, { check: () => Effect.succeed("2.1.0") }),
           ),
         ),
       );
@@ -149,13 +135,13 @@ describe("startup application without a delivery or provider", () => {
 
   it.effect("a refused or malformed refresh preserves existing cache contents", () =>
     Effect.gen(function* () {
-      const snapshot = { document, etag: '"revision-3"', validatedAt: yield* DateTime.now };
-      for (const operation of ["channel-query", "channel-decode"] as const) {
+      const snapshot = { version: "2.0.0", validatedAt: yield* DateTime.now };
+      for (const operation of ["latest-release-query", "latest-release-decode"] as const) {
         yield* refreshStartupUpdate(Option.some(snapshot)).pipe(
           Effect.provide(
             Layer.mergeAll(
               Layer.succeed(UpdateCheckCache, { read: unexpected, write: unexpected }),
-              Layer.succeed(StableChannelCheck, {
+              Layer.succeed(LatestReleaseCheck, {
                 check: () => Effect.fail(new UpdateCheckUnavailable({ operation })),
               }),
             ),
@@ -173,7 +159,7 @@ describe("startup application without a delivery or provider", () => {
         Effect.provide(
           Layer.mergeAll(
             Layer.succeed(UpdateCheckCache, { read: unexpected, write: unexpected }),
-            Layer.succeed(StableChannelCheck, {
+            Layer.succeed(LatestReleaseCheck, {
               check: () =>
                 Deferred.succeed(started, undefined).pipe(
                   Effect.andThen(Effect.never),
@@ -207,7 +193,7 @@ describe("startup application without a delivery or provider", () => {
               read: () => Effect.succeed(Option.none()),
               write: unexpected,
             }),
-            Layer.succeed(StableChannelCheck, {
+            Layer.succeed(LatestReleaseCheck, {
               check: () =>
                 Deferred.succeed(started, undefined).pipe(
                   Effect.andThen(Effect.never),

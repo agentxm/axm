@@ -2895,17 +2895,19 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Derived from: `cli/upgrade/installer-availability-gates-mutation`
 - Source: [`apps/cli/src/root/upgrade/homebrew-checks-availability-once.spec.ts`](../apps/cli/src/root/upgrade/homebrew-checks-availability-once.spec.ts)
 
-##### Latest upgrade uses the promoted stable channel
+##### Latest upgrade uses GitHub's latest release
 
-- Requirement: `cli/upgrade/latest-uses-promoted-stable-channel`
+- Requirement: `cli/upgrade/latest-uses-github-release`
 - Owner: `cli-maintenance`
-- Statement: An upgrade without an exact version shall select only the validated release coordinate in the fixed public stable-channel document using one bounded request, and shall not enumerate GitHub releases or infer stability from package-manager publication state.
+- Statement: An upgrade without an exact version shall resolve the stable release from the Location header of one bounded request to the repository's GitHub latest-release URL, validate its release tag, derive immutable asset URLs from that tag, and shall not use the GitHub REST API or package-manager publication state for release selection.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/releases/latest-uses-promoted-stable-channel.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/releases/latest-uses-promoted-stable-channel.spec.ts)
+- Supersedes: `cli/upgrade/latest-uses-promoted-stable-channel`
+- Assumptions: The release workflow publishes a stable CLI release as GitHub's latest release after all immutable artifacts are attached.
+- Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/releases/latest-uses-github-release.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/releases/latest-uses-github-release.spec.ts)
 
 ##### Unsupported upgrade routes require explicit recovery
 
@@ -2930,7 +2932,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary: memory; selection: per-change
 - Methods: example
 - Assumptions: Filesystem restoration remains available; operating-system or storage failures that also prevent rollback require separate recovery evidence.
-- Limitation: Restoration after an externally terminated replacement is witnessed in process, through the finalizer the interrupt runs, rather than at the process boundary: the release channel and asset URLs are compiled constants with no environment override, so no installed-boundary run can serve a release fixture to the built executable. Retires when: The self-update capability accepts a release-origin override that a controlled run may point at a local fixture, and an installed-boundary example signals the running upgrade and observes the restored executable and exit status.
+- Limitation: Restoration after an externally terminated replacement is witnessed in process, through the finalizer the interrupt runs, rather than at the process boundary: latest-release discovery and asset URLs are compiled constants with no environment override, so no installed-boundary run can serve a release fixture to the built executable. Retires when: The self-update capability accepts a release-origin override that a controlled run may point at a local fixture, and an installed-boundary example signals the running upgrade and observes the restored executable and exit status.
 - Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/restores-original-after-failed-replacement.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/restores-original-after-failed-replacement.spec.ts)
 
 ##### Script upgrade verifies a download before replacing the installed executable
@@ -4611,7 +4613,7 @@ AXM works on every supported operating system, runtime, shell, and filesystem.
 
 - Requirement: `system/installability/native-installers-use-requested-version`
 - Owner: `cli-e2e`
-- Statement: When AXM_INSTALL_VERSION names an exact unprefixed major.minor.patch release without prerelease or build metadata, the public installers shall select that immutable release without stable-channel discovery and shall install only an executable reporting that version.
+- Statement: When AXM_INSTALL_VERSION names an exact unprefixed major.minor.patch release without prerelease or build metadata, the public installers shall select that immutable release without latest-release discovery and shall install only an executable reporting that version.
 - Class: functional
 - Role: interface
 - Product goals: `platform-reach`, `trustworthy-distribution`
@@ -4619,7 +4621,8 @@ AXM works on every supported operating system, runtime, shell, and filesystem.
 - Boundary rationale: The actual public shell installer runs with a controlled downloader; exact and mutable release URLs return different checksum-valid executable bytes, and independent filesystem readback establishes which release was committed.
 - Methods: example
 - Derived from: `apps/cli/help/topics/environment.md`, `apps/cli/help/topics/upgrade.md`, `apps/cli/site-content/install.sh`, `apps/cli/site-content/install.ps1`
-- Open questions: When AXM_INSTALL_VERSION is unset, does latest stable mean GitHub's latest release or the separately promoted AXM stable-channel document? Current public installers use GitHub latest; the accepted upgrade owner requires the promoted channel for axm upgrade.; What observable refusal and recovery must an invalid AXM_INSTALL_VERSION produce? The public source declares the supported value domain but does not state pre-request rejection, exact diagnostics, or preservation timing.; Are prerelease and build-metadata versions supported by the public installers? The stated unprefixed-semver domain is broader than the accepted exact-upgrade stable-version domain; do not import upgrade's restriction without a decision.
+- Assumptions: When AXM_INSTALL_VERSION is unset, public installers select GitHub's latest AXM release.
+- Open questions: What observable refusal and recovery must an invalid AXM_INSTALL_VERSION produce? The public source declares the supported value domain but does not state pre-request rejection, exact diagnostics, or preservation timing.; Are prerelease and build-metadata versions supported by the public installers? The stated unprefixed-semver domain is broader than the accepted exact-upgrade stable-version domain; do not import upgrade's restriction without a decision.
 - Limitation: The direct cases run the shell installer on macOS/Linux. Existing PowerShell/cmd installed-product evidence verifies installation but does not discriminate immutable-version routing from latest routing; that missing URL-and-version control remains explicit. Retires when: Add the same selected-versus-newer transport control to the actual PowerShell installer and its cmd entrypoint on the supported Windows matrix.
 - Source: [`apps/cli-e2e/src/installers/native-installers-use-requested-version.spec.ts`](../apps/cli-e2e/src/installers/native-installers-use-requested-version.spec.ts)
 

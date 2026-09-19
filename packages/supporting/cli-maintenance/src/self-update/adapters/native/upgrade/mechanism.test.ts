@@ -20,8 +20,6 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as semver from "semver";
 
-import { STABLE_CHANNEL_SCHEMA } from "@agentxm/extension-model/unstable/release-channel";
-
 import {
   LOCAL_VERSION,
   TARGET_VERSION,
@@ -78,7 +76,7 @@ describe("delegated upgrades", () => {
       }).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  it.effect("bypasses channel discovery for an exact stable version", () =>
+  it.effect("bypasses latest-release discovery for an exact stable version", () =>
     Effect.gen(function* () {
       const refusing = HttpClient.make((request) =>
         Effect.sync(() =>
@@ -95,7 +93,7 @@ describe("delegated upgrades", () => {
         contract: "axm.upgrade-assessment/v1",
         disposition: "upgraded",
         intent: { mode: "exact", requestedVersion: TARGET_VERSION },
-        canonical: { source: "exact-version", channelRevision: null },
+        canonical: { source: "exact-version" },
       });
     }).pipe(Effect.provide(NodeServices.layer)),
   );
@@ -149,7 +147,7 @@ describe("delegated upgrades", () => {
       const trial = yield* runUpgradeTrial({
         method: new Homebrew({ execPath: "/opt/homebrew/Cellar/axm/1/bin/axm" }),
         reinstall: true,
-        channelVersion: LOCAL_VERSION,
+        latestVersion: LOCAL_VERSION,
         formulaVersion: LOCAL_VERSION,
         reportedVersion: LOCAL_VERSION,
       });
@@ -318,7 +316,7 @@ describe("upgrade preview", () => {
       const trial = yield* runUpgradeTrial({
         method: new Homebrew({ execPath: "/opt/homebrew/bin/axm" }),
         preview: true,
-        channelVersion: LOCAL_VERSION,
+        latestVersion: LOCAL_VERSION,
       });
       expect(trial.assessment).toMatchObject({
         disposition: "already-current",
@@ -355,10 +353,4 @@ describe("transactional script upgrade", () => {
       }
     }).pipe(Effect.provide(NodeServices.layer)),
   );
-});
-
-describe("release channel fixture", () => {
-  it("serves the published stable-channel schema", () => {
-    expect(STABLE_CHANNEL_SCHEMA).toBe("axm.release-channel/v1");
-  });
 });

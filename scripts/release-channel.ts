@@ -1,14 +1,9 @@
 import * as Schema from "effect/Schema";
 import * as semver from "semver";
 
-/** @experimental This API is unstable and may change without notice. */
 export const STABLE_CHANNEL_SCHEMA = "axm.release-channel/v1";
-
-/** @experimental This API is unstable and may change without notice. */
 export const STABLE_CHANNEL_URL = "https://releases.axm.sh/v1/channels/stable.json";
-
-/** @experimental This API is unstable and may change without notice. */
-export const STABLE_CHANNEL_REPOSITORY = "agentxm/axm";
+const STABLE_CHANNEL_REPOSITORY = "agentxm/axm";
 
 const Sha256Schema = Schema.String.pipe(
   Schema.check(
@@ -119,25 +114,12 @@ const validateStableChannelDocument = (
   return issues;
 };
 
-/**
- * Public stable-channel document. Exact-version artifacts remain hosted by the
- * immutable GitHub Release coordinate contained in this validated document.
- *
- * @experimental This API is unstable and may change without notice.
- */
 export const StableChannelDocumentV1Schema = StableChannelDocumentShape.pipe(
   Schema.check(Schema.makeFilter(validateStableChannelDocument)),
 );
 
-/** @experimental This API is unstable and may change without notice. */
 export type StableChannelDocumentV1 = typeof StableChannelDocumentV1Schema.Type;
 
-/** @experimental This API is unstable and may change without notice. */
-export const decodeStableChannelDocument = Schema.decodeUnknownEffect(
-  StableChannelDocumentV1Schema,
-);
-
-/** @experimental This API is unstable and may change without notice. */
 export const decodeStableChannelDocumentSync = Schema.decodeUnknownSync(
   StableChannelDocumentV1Schema,
 );

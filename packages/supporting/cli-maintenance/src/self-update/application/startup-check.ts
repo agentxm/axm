@@ -1,37 +1,30 @@
-import type { StableChannelDocumentV1 } from "@agentxm/extension-model/unstable/release-channel";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import {
   availableStartupUpdate,
-  isChannelCacheStale,
+  isReleaseCacheStale,
   shouldSkipStartupCheck,
   type AvailableUpdate,
-  type CachedStableChannel,
+  type CachedLatestRelease,
   type StartupCheckContext,
 } from "../domain/index.js";
-import { StableChannelCheck, UpdateCheckCache } from "./update-cache.js";
+import { LatestReleaseCheck, UpdateCheckCache } from "./update-cache.js";
 
 const REFRESH_TIMEOUT = "3 seconds";
 
 /** Explicit upgrades may remember discovery, but cache failure cannot change their outcome. */
-export const rememberStableChannel = (document: StableChannelDocumentV1, etag: string | null) =>
+export const rememberLatestRelease = (version: string) =>
   Effect.gen(function* () {
     const cache = yield* UpdateCheckCache;
-    yield* cache.write({ document, etag, validatedAt: yield* DateTime.now });
+    yield* cache.write({ version, validatedAt: yield* DateTime.now });
   }).pipe(Effect.catchTag("UpdateCheckUnavailable", () => Effect.void));
 
-/** Revalidation preserves the old snapshot unless the authority confirms a valid replacement. */
-export const refreshStartupUpdate = (snapshot: Option.Option<CachedStableChannel>) =>
+/** Refresh preserves the old snapshot unless discovery confirms a valid replacement. */
+export const refreshStartupUpdate = (_snapshot: Option.Option<CachedLatestRelease>) =>
   Effect.gen(function* () {
-    const channel = yield* StableChannelCheck;
-    const cached = Option.getOrNull(snapshot);
-    const result = yield* channel.check(cached?.etag ?? null);
-    if (result._tag === "Modified") {
-      yield* rememberStableChannel(result.document, result.etag);
-    } else if (cached !== null && cached.etag !== null) {
-      yield* rememberStableChannel(cached.document, cached.etag);
-    }
+    const latest = yield* LatestReleaseCheck;
+    yield* rememberLatestRelease(yield* latest.check());
   }).pipe(
     Effect.timeout(REFRESH_TIMEOUT),
     Effect.catch(() => Effect.void),
@@ -63,7 +56,7 @@ export const checkStartupUpdate = Effect.fn("StartupUpdateCheck.run")(function* 
     .read()
     .pipe(
       Effect.catchTag("UpdateCheckUnavailable", () =>
-        Effect.succeed(Option.none<CachedStableChannel>()),
+        Effect.succeed(Option.none<CachedLatestRelease>()),
       ),
     );
   const now = yield* DateTime.now;
@@ -71,7 +64,7 @@ export const checkStartupUpdate = Effect.fn("StartupUpdateCheck.run")(function* 
     availableStartupUpdate(options.localVersion, value, now),
   );
   const refreshing =
-    Option.isNone(snapshot) || isChannelCacheStale(snapshot.value.validatedAt, now);
+    Option.isNone(snapshot) || isReleaseCacheStale(snapshot.value.validatedAt, now);
   if (refreshing) yield* Effect.forkScoped(refreshStartupUpdate(snapshot));
 
   return { _tag: "Checked", notification, refreshing } satisfies StartupUpdateCheckOutcome;

@@ -9,12 +9,8 @@ import * as Layer from "effect/Layer";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
-import {
-  STABLE_CHANNEL_SCHEMA,
-  decodeStableChannelDocumentSync,
-} from "@agentxm/extension-model/unstable/release-channel";
-import { rememberStableChannel } from "@agentxm/cli-maintenance/self-update/application";
-import { StableChannelCheckLive } from "@agentxm/cli-maintenance/self-update/composition";
+import { rememberLatestRelease } from "@agentxm/cli-maintenance/self-update/application";
+import { LatestReleaseCheckLive } from "@agentxm/cli-maintenance/self-update/composition";
 import { makeUpdateCheckCacheLayer } from "@agentxm/cli-maintenance/self-update/testing/native";
 
 import { TestRenderer } from "./test-support/presenter-test.js";
@@ -25,42 +21,6 @@ import {
   type NotificationPrinter,
   type UpdateCheckContextInputs,
 } from "./update-check-startup.js";
-
-const digest = "a".repeat(64);
-
-const channelDocument = (version = "1.2.3") => {
-  const tag = `cli-v${version}`;
-  const assetUrl = (name: string) =>
-    `https://github.com/agentxm/axm/releases/download/${tag}/${name}`;
-  return decodeStableChannelDocumentSync({
-    schema: STABLE_CHANNEL_SCHEMA,
-    channel: "stable",
-    revision: 4,
-    version,
-    release: {
-      repository: "agentxm/axm",
-      tag,
-      commit: "b".repeat(40),
-      publishedAt: "2026-09-03T17:00:00Z",
-    },
-    artifacts: {
-      checksumManifest: { name: "SHA256SUMS", url: assetUrl("SHA256SUMS"), sha256: digest },
-      binaries: [
-        ["darwin-arm64", "axm-darwin-arm64"],
-        ["darwin-x64", "axm-darwin-x64"],
-        ["linux-arm64", "axm-linux-arm64"],
-        ["linux-x64", "axm-linux-x64"],
-        ["windows-x64", "axm-windows-x64.exe"],
-      ].map(([target, name]) => ({
-        target: target ?? "",
-        name: name ?? "",
-        url: assetUrl(name ?? ""),
-        sha256: digest,
-      })),
-    },
-    promotedAt: "2026-09-03T17:01:00Z",
-  });
-};
 
 const baseInputs: UpdateCheckContextInputs = {
   args: ["list"],
@@ -125,11 +85,11 @@ describe("startup notification printing", () => {
       const layer = Layer.mergeAll(
         NodeServices.layer,
         updateCheckLayer,
-        StableChannelCheckLive.pipe(Layer.provide(http)),
+        LatestReleaseCheckLive.pipe(Layer.provide(http)),
         rendererLayer,
       );
       return Effect.gen(function* () {
-        yield* rememberStableChannel(channelDocument(), null);
+        yield* rememberLatestRelease("1.2.3");
         yield* withUpdateCheck(
           Effect.sync(() => {
             events.push("command");

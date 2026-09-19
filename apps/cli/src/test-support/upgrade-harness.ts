@@ -57,7 +57,7 @@ export interface UpgradeCommandOptions extends SubprocessTestOptions {
   readonly localVersion?: string | undefined;
   readonly reinstall?: boolean | undefined;
   readonly preview?: boolean | undefined;
-  readonly channelVersion?: string | undefined;
+  readonly latestVersion?: string | undefined;
   /** Render through the human screen instead of the machine screen. */
   readonly human?: boolean | undefined;
   readonly quiet?: boolean | undefined;

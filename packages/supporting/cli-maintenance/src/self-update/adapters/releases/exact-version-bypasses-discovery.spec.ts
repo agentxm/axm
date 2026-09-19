@@ -42,10 +42,10 @@ export const specification = defineSpecification({
 });
 
 describe("Exact upgrade selection", () => {
-  it.effect("derives the immutable coordinate without a channel document", () =>
+  it.effect("derives the immutable coordinate without latest-release discovery", () =>
     Effect.gen(function* () {
       const result = yield* resolve("1.2.3");
-      expect(result.channel).toBeNull();
+      expect(result.source).toBe("exact-version");
       expect(result.release).toEqual({
         tagName: "cli-v1.2.3",
         binaryAssetUrl: "https://github.com/agentxm/axm/releases/download/cli-v1.2.3/axm-linux-x64",

@@ -1,15 +1,19 @@
-import type { StableChannelDocumentV1 } from "@agentxm/extension-model/unstable/release-channel";
 import * as Context from "effect/Context";
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import type { CachedStableChannel } from "../domain/index.js";
+import type { CachedLatestRelease } from "../domain/index.js";
 
 /** Optional update information is unavailable; it must not fail an explicit command. */
 export class UpdateCheckUnavailable extends Schema.TaggedError<UpdateCheckUnavailable>()(
   "UpdateCheckUnavailable",
   {
-    operation: Schema.Literals(["cache-read", "cache-write", "channel-query", "channel-decode"]),
+    operation: Schema.Literals([
+      "cache-read",
+      "cache-write",
+      "latest-release-query",
+      "latest-release-decode",
+    ]),
     cause: Schema.optional(Schema.Unknown),
   },
 ) {}
@@ -17,25 +21,15 @@ export class UpdateCheckUnavailable extends Schema.TaggedError<UpdateCheckUnavai
 export class UpdateCheckCache extends Context.Service<
   UpdateCheckCache,
   {
-    readonly read: () => Effect.Effect<Option.Option<CachedStableChannel>, UpdateCheckUnavailable>;
-    readonly write: (cache: CachedStableChannel) => Effect.Effect<void, UpdateCheckUnavailable>;
+    readonly read: () => Effect.Effect<Option.Option<CachedLatestRelease>, UpdateCheckUnavailable>;
+    readonly write: (cache: CachedLatestRelease) => Effect.Effect<void, UpdateCheckUnavailable>;
   }
 >()("@agentxm/cli-maintenance/self-update/UpdateCheckCache") {}
 
-export type StableChannelCheckResult =
-  | { readonly _tag: "NotModified" }
-  | {
-      readonly _tag: "Modified";
-      readonly document: StableChannelDocumentV1;
-      readonly etag: string | null;
-    };
-
-/** The release authority reports a document or confirms the caller's validator. */
-export class StableChannelCheck extends Context.Service<
-  StableChannelCheck,
+/** The release host reports the current stable version from its latest-release redirect. */
+export class LatestReleaseCheck extends Context.Service<
+  LatestReleaseCheck,
   {
-    readonly check: (
-      etag: string | null,
-    ) => Effect.Effect<StableChannelCheckResult, UpdateCheckUnavailable>;
+    readonly check: () => Effect.Effect<string, UpdateCheckUnavailable>;
   }
->()("@agentxm/cli-maintenance/self-update/StableChannelCheck") {}
+>()("@agentxm/cli-maintenance/self-update/LatestReleaseCheck") {}

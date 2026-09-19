@@ -10,8 +10,7 @@ import {
 const release = (targetVersion: string): SelectedRelease => ({
   targetVersion,
   release: { tagName: `cli-v${targetVersion}`, binaryAssetUrl: null, checksumAssetUrl: null },
-  channel: null,
-  etag: null,
+  source: "exact-version",
   validatedAt: "2026-09-12T00:00:00.000Z",
 });
 

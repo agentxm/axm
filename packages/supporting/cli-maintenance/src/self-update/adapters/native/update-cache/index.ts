@@ -1,6 +1,6 @@
 import { UpdateCheckUnavailable, type UpdateCheckCache } from "../../../application/index.js";
+import { normalizeExactVersion } from "../../../domain/index.js";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
-import { StableChannelDocumentV1Schema } from "@agentxm/extension-model/unstable/release-channel";
 import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -8,13 +8,19 @@ import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { writeFileAtomic } from "../internal/atomic-write.js";
 
-const CACHE_SCHEMA = "axm.update-check-cache/v2";
+const CACHE_SCHEMA = "axm.update-check-cache/v3";
+const StableVersionSchema = Schema.String.pipe(
+  Schema.check(
+    Schema.makeFilter((version) =>
+      normalizeExactVersion(version) === null ? "Expected a stable semantic version" : undefined,
+    ),
+  ),
+);
 const CacheJsonSchema = Schema.fromJsonString(
   Schema.Struct({
     schema: Schema.Literal(CACHE_SCHEMA),
-    channel: Schema.Literal("stable"),
-    document: StableChannelDocumentV1Schema,
-    etag: Schema.NullOr(Schema.String),
+    source: Schema.Literal("github-latest"),
+    version: StableVersionSchema,
     validatedAt: DateTimeUtcSchema,
   }),
 );
@@ -33,16 +39,18 @@ export const makeUpdateCheckCache = (
       const content = yield* fs.readFileString(cachePath);
       return yield* decodeCache(content).pipe(
         Effect.option,
-        Effect.map(
-          Option.map(({ document, etag, validatedAt }) => ({ document, etag, validatedAt })),
-        ),
+        Effect.map(Option.map(({ version, validatedAt }) => ({ version, validatedAt }))),
       );
     }).pipe(
       Effect.mapError((cause) => new UpdateCheckUnavailable({ operation: "cache-read", cause })),
     ),
   write: (cache) =>
     Effect.gen(function* () {
-      const content = yield* encodeCache({ schema: CACHE_SCHEMA, channel: "stable", ...cache });
+      const content = yield* encodeCache({
+        schema: CACHE_SCHEMA,
+        source: "github-latest",
+        ...cache,
+      });
       yield* fs.makeDirectory(path.dirname(cachePath), { recursive: true });
       yield* writeFileAtomic(fs, {
         targetPath: cachePath,

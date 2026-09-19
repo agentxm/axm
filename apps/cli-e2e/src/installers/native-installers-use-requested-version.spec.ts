@@ -10,7 +10,7 @@ export const specification = defineSpecification({
   requirement: "system/installability/native-installers-use-requested-version",
   title: "Public installers install the requested release version",
   statement:
-    "When AXM_INSTALL_VERSION names an exact unprefixed major.minor.patch release without prerelease or build metadata, the public installers shall select that immutable release without stable-channel discovery and shall install only an executable reporting that version.",
+    "When AXM_INSTALL_VERSION names an exact unprefixed major.minor.patch release without prerelease or build metadata, the public installers shall select that immutable release without latest-release discovery and shall install only an executable reporting that version.",
   class: "functional",
   role: "interface",
   goals: ["platform-reach", "trustworthy-distribution"],
@@ -25,9 +25,10 @@ export const specification = defineSpecification({
     "apps/cli/site-content/install.ps1",
   ],
   supersedes: [],
-  assumptions: [],
+  assumptions: [
+    "When AXM_INSTALL_VERSION is unset, public installers select GitHub's latest AXM release.",
+  ],
   openQuestions: [
-    "When AXM_INSTALL_VERSION is unset, does latest stable mean GitHub's latest release or the separately promoted AXM stable-channel document? Current public installers use GitHub latest; the accepted upgrade owner requires the promoted channel for axm upgrade.",
     "What observable refusal and recovery must an invalid AXM_INSTALL_VERSION produce? The public source declares the supported value domain but does not state pre-request rejection, exact diagnostics, or preservation timing.",
     "Are prerelease and build-metadata versions supported by the public installers? The stated unprefixed-semver domain is broader than the accepted exact-upgrade stable-version domain; do not import upgrade's restriction without a decision.",
   ],

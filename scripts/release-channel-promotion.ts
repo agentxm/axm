@@ -2,7 +2,7 @@ import {
   STABLE_CHANNEL_URL,
   decodeStableChannelDocumentSync,
   type StableChannelDocumentV1,
-} from "@agentxm/extension-model/unstable/release-channel";
+} from "./release-channel.js";
 
 export const RELEASE_CHANNEL_CONTROL_URL = "https://control.agentxm.ai/v1/releases/channels/stable";
 

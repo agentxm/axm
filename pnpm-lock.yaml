@@ -181,9 +181,6 @@ importers:
       '@agentxm/extension-content':
         specifier: workspace:*
         version: link:packages/core/extension-content
-      '@agentxm/extension-model':
-        specifier: workspace:*
-        version: link:packages/core/extension-model
       '@agentxm/specification-metadata':
         specifier: workspace:*
         version: link:tools/specification-metadata

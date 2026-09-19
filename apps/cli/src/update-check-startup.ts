@@ -1,7 +1,7 @@
 /**
  * Startup update check integration.
  *
- * The check itself — suppression, the cached channel document, the
+ * The check itself — suppression, the cached latest release, the
  * notification a fresh cache justifies, and the bounded background
  * revalidation — belongs to `@agentxm/cli-maintenance`. This module supplies the
  * two things only the application knows: the runtime signals the skip context
@@ -16,7 +16,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import {
   checkStartupUpdate,
-  type StableChannelCheck,
+  type LatestReleaseCheck,
   type UpdateCheckCache,
 } from "@agentxm/cli-maintenance/self-update/application";
 import type { AvailableUpdate } from "@agentxm/cli-maintenance/self-update/domain";
@@ -101,7 +101,7 @@ export const withUpdateCheck = <A, E, R>(
     readonly inputs: UpdateCheckContextInputs;
     readonly printNotification?: NotificationPrinter | undefined;
   },
-): Effect.Effect<A, E, R | UpdateCheckCache | StableChannelCheck | Screen> =>
+): Effect.Effect<A, E, R | UpdateCheckCache | LatestReleaseCheck | Screen> =>
   Effect.scoped(
     Effect.gen(function* () {
       const context = skipContext(options.inputs);

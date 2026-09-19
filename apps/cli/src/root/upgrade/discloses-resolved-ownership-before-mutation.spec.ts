@@ -36,7 +36,7 @@ describe("Upgrade ownership disclosure", () => {
       // sentence is wording; that the owner and the target are named is the
       // disclosure.
       expect(unitResolvedLabel(events, "detect-install-method")).toContain("Homebrew");
-      expect(unitResolvedLabel(events, "resolve-channel")).toContain(TARGET_VERSION);
+      expect(unitResolvedLabel(events, "resolve-release")).toContain(TARGET_VERSION);
 
       // The unit that stays on screen for the whole delegation names both
       // facts, so they are readable while the mutation runs.
@@ -62,7 +62,7 @@ describe("Upgrade ownership disclosure", () => {
       const { assessment, events } = yield* runUpgradeTrial({ preview: true });
 
       expect(unitResolvedLabel(events, "detect-install-method")).toContain("Homebrew");
-      expect(unitResolvedLabel(events, "resolve-channel")).toContain(TARGET_VERSION);
+      expect(unitResolvedLabel(events, "resolve-release")).toContain(TARGET_VERSION);
       expect(
         events.some((event) => event._tag === "UnitStarted" && event.unitId === "upgrade"),
       ).toBe(false);

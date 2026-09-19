@@ -9,11 +9,9 @@ import * as Layer from "effect/Layer";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { describe, expect, it } from "@effect/vitest";
-import { decodeStableChannelDocumentSync } from "@agentxm/extension-model/unstable/release-channel";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { rememberStableChannel } from "@agentxm/cli-maintenance/self-update/application";
-import { StableChannelCheckLive } from "@agentxm/cli-maintenance/self-update/composition";
-import { stableChannelDocument } from "@agentxm/cli-maintenance/self-update/testing";
+import { rememberLatestRelease } from "@agentxm/cli-maintenance/self-update/application";
+import { LatestReleaseCheckLive } from "@agentxm/cli-maintenance/self-update/composition";
 import { UpdateCheckCacheLive } from "./cli-runtime/update-cache.js";
 import { snapshotDirectory } from "@agentxm/cli-maintenance/self-update/testing/native";
 import { TestRenderer } from "./test-support/presenter-test.js";
@@ -61,7 +59,7 @@ const servicesFor = (home: string, disabled: boolean, http: HttpClient.HttpClien
     platform,
     httpLayer,
     UpdateCheckCacheLive.pipe(Layer.provide(platform)),
-    StableChannelCheckLive.pipe(Layer.provide(httpLayer)),
+    LatestReleaseCheckLive.pipe(Layer.provide(httpLayer)),
     TestRenderer.make().layer,
   );
 };
@@ -86,10 +84,7 @@ describe("Startup update suppression", () => {
                   }),
                 );
                 return Effect.gen(function* () {
-                  yield* rememberStableChannel(
-                    decodeStableChannelDocumentSync(stableChannelDocument("2.0.0")),
-                    null,
-                  );
+                  yield* rememberLatestRelease("2.0.0");
                   const before = snapshotDirectory(home);
                   const command = Effect.gen(function* () {
                     const client = yield* HttpClient.HttpClient;
@@ -149,7 +144,7 @@ describe("Startup update suppression", () => {
           isAgentSession: false,
         },
       }).pipe(Effect.provide(servicesFor(home, false, http)));
-      expect(requests).toEqual(["https://releases.axm.sh/v1/channels/stable.json"]);
+      expect(requests).toEqual(["https://github.com/agentxm/axm/releases/latest"]);
     }).pipe(Effect.ensuring(Effect.sync(() => fs.rmSync(home, { recursive: true, force: true }))));
   });
 });

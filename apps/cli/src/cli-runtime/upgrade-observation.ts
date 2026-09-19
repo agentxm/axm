@@ -48,10 +48,10 @@ export const makeCliUpgradeExecutionObserver = (): Effect.Effect<UpgradeExecutio
       observeUnit(
         version === undefined
           ? {
-              id: "resolve-channel",
-              label: "AXM stable channel",
+              id: "resolve-release",
+              label: "AXM latest release",
               resolvedLabel: (selected: SelectedRelease) =>
-                `AXM stable channel - ${selected.targetVersion}`,
+                `AXM latest release - ${selected.targetVersion}`,
             }
           : { id: "resolve-version", label: `AXM ${version}` },
         selection,

@@ -25,10 +25,10 @@ export {
 } from "./policy.js";
 export {
   availableStartupUpdate,
-  isChannelCacheStale,
+  isReleaseCacheStale,
   shouldSkipStartupCheck,
   type AvailableUpdate,
-  type CachedStableChannel,
+  type CachedLatestRelease,
   type StartupCheckContext,
 } from "./startup-check.js";
 

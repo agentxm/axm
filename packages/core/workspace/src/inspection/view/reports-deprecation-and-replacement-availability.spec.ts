@@ -35,6 +35,7 @@ const publishedIndex = {
   description: "Review guidance",
   publisher_binding_id: "hbnd_read_fixture",
   visibility: "public",
+  archival: null,
   deprecation: null,
   versions: [
     { version: "1.1.0", published: "2026-02-01T00:00:00.000Z", integrity: "sha512-BBBB==" },

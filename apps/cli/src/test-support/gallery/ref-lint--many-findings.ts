@@ -4,7 +4,7 @@ import {
   missingDescription,
   repeated,
   staleLockfile,
-} from "./lint-findings.js";
+} from "./samples/lint-findings.js";
 
 /**
  * Many findings (*Reference cases*, board `3 · Lint`, frame *Many findings — a

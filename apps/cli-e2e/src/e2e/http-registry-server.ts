@@ -107,7 +107,7 @@ export interface HttpRegistryOptions {
   readonly hangArchive?: ReadonlyArray<string>;
   /** Reject a pack until every dependency named by its archive exists. */
   readonly enforcePackDependencies?: boolean;
-  /** Require and complete the durable step-up flow for POST /v1/tokens. */
+  /** Require and complete the durable step-up flow for POST /v1/tokens, and accept revocation. */
   readonly stepUpTokenCreate?: boolean;
   /** Return a deliberately unusable publish-preview contract or HTTP failure. */
   readonly publishPreviewMode?: "unavailable" | "incomplete" | "missing" | "service-unavailable";
@@ -785,6 +785,16 @@ export const startHttpRegistry = async (
         return;
       }
 
+      if (
+        options.stepUpTokenCreate === true &&
+        request.method === "DELETE" &&
+        pathname.startsWith("/v1/tokens/")
+      ) {
+        response.writeHead(204);
+        response.end();
+        return;
+      }
+
       if (request.method !== "GET" && request.method !== "HEAD") {
         sendProblem(response, 405, `Unsupported method ${request.method ?? "unknown"}`);
         return;
@@ -913,6 +923,7 @@ export const startHttpRegistry = async (
           type,
           publisher_binding_id: "hbnd_e2e",
           visibility: extensionVisibilities.get(key(owner, plural, name)) ?? "public",
+          archival: null,
           deprecation: null,
           versions: versions.map((entry) => ({
             version: entry.version,

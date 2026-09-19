@@ -5,7 +5,7 @@ import type { WaitView } from "../../screen/wait/wait.js";
 const EXPIRES_AT_MS = 600_000;
 const NOW_MS = EXPIRES_AT_MS - 272_000;
 
-const deviceSignIn: WaitView = {
+export const deviceSignIn: WaitView = {
   subject: "device-authorization",
   detail: "waiting on you",
   label: "Device sign-in",
@@ -50,9 +50,3 @@ export const waitOpen: Doc = [
   { _tag: "blank" },
   ...waitDoc(deviceSignIn, { open: true, copy: true }, { nowMs: NOW_MS }),
 ];
-
-/**
- * The same handoff where nothing animates — CI, a pipe, or `--quiet`. The
- * brief is the whole of it: no countdown, no keys, and the command waits.
- */
-export const waitStatic: Doc = deviceSignIn.brief;

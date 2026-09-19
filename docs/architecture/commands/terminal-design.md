@@ -308,9 +308,9 @@ at 16 and 24 rows where a scene must fit. A scene fixture is a pure function
 of the terminal size, painted one column short of the width and held within the
 height less two rows. A fixture drawn from the design canvas is named
 `<board>--<frame>`, so its snapshots can be held against the mock they
-implement. Alternatives for a key use case are separate fixtures, so the chosen
-alternative is visible beside the ones it beat. A design change is reviewed by
-its snapshot diff.
+implement. Retained alternatives are separate fixtures only while they remain
+useful review scenarios; superseded or semantically duplicate variants are
+removed. A design change is reviewed by its snapshot diff.
 
 ```bash
 pnpm exec nx run cli:gallery -- --name <fixture> --width <columns> --rows <rows>

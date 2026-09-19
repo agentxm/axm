@@ -1,4 +1,0 @@
- ?   Instructions file name ❯ docs/AGENTS.md
-     Relative to the project root. It will be created if it does not exist.
-
- ✔   Instructions file name        docs/AGENTS.md

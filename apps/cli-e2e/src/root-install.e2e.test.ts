@@ -208,6 +208,7 @@ const publishMcpServerToRegistry = async (registryPath: string, name: string) =>
           name,
           type: "mcp-server",
           publisherBindingId: "hbnd_test",
+          archival: null,
           deprecation: null,
           versions: [
             {

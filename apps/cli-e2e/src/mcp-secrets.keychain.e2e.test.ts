@@ -87,6 +87,7 @@ const writeRegistryMcp = (registryRoot: string, name: string, inputs: ReadonlyAr
       type: "mcp-server",
       name,
       publisherBindingId: "hbnd_native_spec",
+      archival: null,
       deprecation: null,
       versions: [
         {

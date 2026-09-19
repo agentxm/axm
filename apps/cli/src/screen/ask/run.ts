@@ -29,7 +29,7 @@ const cancelled = Effect.fail(new QuestionCancelled({ message: CANCELLED }));
 
 /** One terminal key event as a reducer sees it. */
 /** Hand a question's own kind to `use`, whatever state type that kind keeps. */
-const withKind = <A, R>(ask: Ask<A>, use: <S>(kind: AskKind<S, A>) => R): R => {
+export const withAskKind = <A, R>(ask: Ask<A>, use: <S>(kind: AskKind<S, A>) => R): R => {
   switch (ask._tag) {
     case "Confirm":
       return use(confirmKind(ask));
@@ -78,7 +78,7 @@ export const runAsk = <A>(
   terminal: Terminal.Terminal,
   surface: AskSurface,
 ): Effect.Effect<A, QuestionCancelled> =>
-  withKind(ask, (kind) => runKind(kind, terminal, surface)).pipe(
+  withAskKind(ask, (kind) => runKind(kind, terminal, surface)).pipe(
     // However it ends — answered, cancelled, or interrupted — nothing of the
     // question is left standing in the live region.
     Effect.ensuring(surface.showInteraction(undefined)),

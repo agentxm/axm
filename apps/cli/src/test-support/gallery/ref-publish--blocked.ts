@@ -1,6 +1,12 @@
 import type { PublishResultItem } from "@agentxm/workspace/publishing";
 
-import { admittedSet, codeReview, publishFrame, reviewKit, reviewer } from "./publish-results.js";
+import {
+  admittedSet,
+  codeReview,
+  publishFrame,
+  reviewKit,
+  reviewer,
+} from "./samples/publish-results.js";
 
 const notTried = (item: PublishResultItem): PublishResultItem => ({
   ...item,

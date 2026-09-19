@@ -44,6 +44,7 @@ const writeIndex = (registryRoot: string, deprecation: unknown = null) => {
       name: "code-review",
       publisherBindingId: "hbnd_test",
       description: "Review code",
+      archival: null,
       deprecation,
       versions: [
         {
@@ -150,6 +151,7 @@ describe("view handler", () => {
                 publisher_binding_id: "hbnd_test",
                 description: "Review code",
                 visibility: "public",
+                archival: null,
                 deprecation: null,
                 versions: [
                   {

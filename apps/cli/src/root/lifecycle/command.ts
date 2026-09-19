@@ -11,12 +11,15 @@ import {
 } from "../shared/command-capabilities.js";
 import type { YankCategory } from "@agentxm/registry-client";
 import {
+  ArchivePublishedExtension,
   DeprecatePublishedExtension,
   RegistryTransitionSchema,
   RetirePublishedVersion,
   type RegistryTransition,
 } from "@agentxm/workspace/publishing";
 import {
+  ArchivalTransitionSchema,
+  type ArchivalTransition,
   DeprecationTransitionSchema,
   type DeprecationTransition,
 } from "@agentxm/registry-protocol/unstable/registry";
@@ -28,6 +31,10 @@ const categoryValues = ["broken", "security", "accidental", "other"] as const;
 
 export const LifecycleTransitionOutputSchema = DeprecationTransitionSchema.annotate({
   identifier: "LifecycleTransitionOutput",
+});
+
+export const ArchivalTransitionOutputSchema = ArchivalTransitionSchema.annotate({
+  identifier: "ArchivalTransitionOutput",
 });
 
 /**
@@ -128,6 +135,44 @@ export const handleUndeprecate = Effect.fn("Undeprecate.handle")(
   Effect.asVoid,
 );
 
+const emitArchivalTransition = (transition: ArchivalTransition) =>
+  Effect.gen(function* () {
+    const screen = yield* Screen;
+    if (yield* screen.document(transition, ArchivalTransitionOutputSchema)) return;
+    const verb =
+      transition.disposition === "created"
+        ? "Archived"
+        : transition.disposition === "edited"
+          ? "Updated archive reason for"
+          : transition.disposition === "restored"
+            ? "Unarchived"
+            : transition.after === null
+              ? "Already active"
+              : "Already archived";
+    yield* screen.result(successDoc(`${verb} ${transition.target}.`));
+    if (transition.after?.reason !== undefined) {
+      yield* screen.note(headlineDoc("info", `Reason: ${transition.after.reason}`));
+    }
+  });
+
+export const handleArchive = Effect.fn("Archive.handle")(
+  function* (input: { readonly ref: string; readonly reason: Option.Option<string> }) {
+    const written = yield* ArchivePublishedExtension.archive(input);
+    yield* emitArchivalTransition(written.transition);
+  },
+  Effect.mapError(publishFailureToAppError),
+  Effect.asVoid,
+);
+
+export const handleUnarchive = Effect.fn("Unarchive.handle")(
+  function* (ref: string) {
+    const written = yield* ArchivePublishedExtension.unarchive(ref);
+    yield* emitArchivalTransition(written.transition);
+  },
+  Effect.mapError(publishFailureToAppError),
+  Effect.asVoid,
+);
+
 const yankConfig = {
   ref: Argument.String("extension").pipe(
     Argument.withDescription("Exact version ref, or an extension FQN with --all-versions"),
@@ -171,6 +216,16 @@ const deprecateConfig = {
   clearReplacement: Flag.Boolean("clear-replacement").pipe(
     Flag.withDescription("Remove the current replacement relationship"),
     Flag.withDefault(false),
+  ),
+} as const;
+
+const archiveConfig = {
+  ref: Argument.String("extension").pipe(
+    Argument.withDescription("Extension FQN (@owner/<plural-type>/name)"),
+  ),
+  reason: Flag.String("reason").pipe(
+    Flag.withDescription("Concise public archival reason (maximum 500 characters)"),
+    Flag.optional,
   ),
 } as const;
 
@@ -246,6 +301,34 @@ export const undeprecateCommand = Command.make("undeprecate", extensionRefConfig
     {
       command: "axm undeprecate @acme/skills/code-review",
       description: "Restore the identity to active lifecycle state",
+    },
+  ]),
+);
+
+export const archiveCommand = Command.make("archive", archiveConfig, (input) =>
+  handleArchive(input).pipe(withRuntime("archive")),
+).pipe(
+  withArgvTracking(archiveConfig),
+  withCommandCapabilities(directWriteCapabilities("registry")),
+  Command.withDescription("Block new releases while retaining historical resolution"),
+  Command.withExamples([
+    {
+      command: 'axm archive @acme/skills/code-review --reason "No longer maintained"',
+      description: "Archive an extension identity",
+    },
+  ]),
+);
+
+export const unarchiveCommand = Command.make("unarchive", extensionRefConfig, ({ ref }) =>
+  handleUnarchive(ref).pipe(withRuntime("unarchive")),
+).pipe(
+  withArgvTracking(extensionRefConfig),
+  withCommandCapabilities(directWriteCapabilities("registry")),
+  Command.withDescription("Restore publication for an archived extension identity"),
+  Command.withExamples([
+    {
+      command: "axm unarchive @acme/skills/code-review",
+      description: "Restore an archived extension identity",
     },
   ]),
 );

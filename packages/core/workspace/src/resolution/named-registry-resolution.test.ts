@@ -33,6 +33,7 @@ const makeIndex = (versions: ReadonlyArray<VersionEntry>): ExtensionIndex => ({
   type: "skill",
   name: extensionName("my-skill"),
   publisherBindingId: "hbnd_test",
+  archival: null,
   deprecation: null,
   versions,
 });

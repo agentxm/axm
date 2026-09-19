@@ -51,6 +51,7 @@ const makeIndex = (overrides?: Partial<ExtensionIndex>): ExtensionIndex => ({
   name: extensionName("my-skill"),
   owner: handle("@test"),
   type: "skill",
+  archival: null,
   deprecation: null,
   versions: [makeVersionEntry()],
   ...overrides,

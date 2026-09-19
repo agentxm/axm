@@ -52,6 +52,8 @@ describe("official AXM skill contract", () => {
       "bundle",
       "version",
       "publish",
+      "archive",
+      "unarchive",
       "deprecate",
       "yank",
       "uninstall",
@@ -111,7 +113,7 @@ describe("official AXM skill contract", () => {
 
     const stages = cases.map((item) => requireString(item, "stage"));
     expect(stages.filter((stage) => stage === "routing")).toHaveLength(34);
-    expect(stages.filter((stage) => stage === "execution")).toHaveLength(63);
+    expect(stages.filter((stage) => stage === "execution")).toHaveLength(64);
     expect(skillMd).not.toContain("evaluation-contract.json");
   });
 });

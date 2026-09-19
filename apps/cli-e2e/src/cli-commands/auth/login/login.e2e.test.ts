@@ -102,7 +102,7 @@ export const executionBinding = {
     "cli/login/starts-resumable-device-sign-in",
     "cli/login/resumes-approved-authorization",
     "cli/login/terminal-authorization-failures-preserve-credentials",
-    "cli/login/resume-requires-matching-pending-authorization",
+    "cli/login/device-sign-in-waits-in-one-invocation",
   ],
   boundary: "process",
   rationale:
@@ -120,9 +120,10 @@ describe("axm login", () => {
     expect(output).toContain("Start a new sign-in without prompting when a valid session");
     expect(output).toContain("axm login");
     expect(output).toContain("axm login --device-code");
-    expect(output).toContain("--wait");
+    expect(output).toContain("--wait-for-human");
+    expect(output).toContain("axm login --device-code --wait-for-human 300 --json");
     expect(output).toContain("--restart");
-    expect(output).toContain("--timeout");
+    expect(output).not.toContain("--timeout");
     expect(output).not.toContain("--device-auth");
   });
 
@@ -145,18 +146,51 @@ describe("axm login", () => {
       expect(started.exitCode).toBe(0);
       expect(started.stdout).toContain('"status": "pending-human"');
       expect(started.stdout).toContain('"userCode": "ABCD-1234"');
-      expect(started.stdout).toContain('"resume": "axm login --wait --json"');
+      expect(started.stdout).toContain(
+        '"resume": "axm login --device-code --wait-for-human 300 --json"',
+      );
       expect(started.stdout).toContain('"verificationUri": "' + auth.url + '/device"');
       expect(started.stdout).toContain(auth.url + "/device?user_code=ABCD-1234");
 
       auth.setOutcome("approved");
       const resumed = await runCli(
-        ["login", "--wait", "--timeout", "5", "--json", "--non-interactive"],
+        ["login", "--device-code", "--wait-for-human", "5", "--json", "--non-interactive"],
         { env, timeout: 10_000 },
       );
       expect(resumed.exitCode).toBe(0);
-      expect(resumed.stdout).toContain('"status": "logged-in"');
-      expect(resumed.stdout).toContain('"handle": "@alice"');
+      expect(JSON.parse(resumed.stdout)).toMatchObject({
+        result: { status: "logged-in", handle: "@alice" },
+      });
+    } finally {
+      home.cleanup();
+      await auth.close();
+    }
+  });
+
+  it("starts, waits for, and saves a device sign-in in one invocation", async () => {
+    const auth = await startDeviceAuthServer();
+    const home = createTempDir();
+    try {
+      writeUserDefaultRegistry(home.path, auth.url);
+      const env = { HOME: home.path, AXM_USER_HOME: home.path };
+      auth.setOutcome("approved");
+      // A bounded wait selects device sign-in without --device-code.
+      const signedIn = await runCli(
+        ["login", "--wait-for-human", "5", "--json", "--non-interactive"],
+        { env, timeout: 10_000 },
+      );
+
+      expect(signedIn.exitCode, signedIn.stderr).toBe(0);
+      // One final document: the pending handoff crosses stderr, not stdout.
+      expect(JSON.parse(signedIn.stdout)).toMatchObject({
+        ok: true,
+        result: { status: "logged-in", handle: "@alice" },
+      });
+      expect(signedIn.stderr).toContain("ABCD-1234");
+
+      const whoami = await runCli(["whoami", "--json"], { env });
+      expect(whoami.exitCode).toBe(0);
+      expect(whoami.stdout).toContain("@alice");
     } finally {
       home.cleanup();
       await auth.close();
@@ -177,17 +211,18 @@ describe("axm login", () => {
         ).exitCode,
       ).toBe(0);
       const expired = await runCli(
-        ["login", "--wait", "--timeout", "5", "--json", "--non-interactive"],
+        ["login", "--device-code", "--wait-for-human", "5", "--json", "--non-interactive"],
         { env, timeout: 10_000 },
       );
       expect(expired.exitCode).toBe(14);
       expect(expired.stdout).toContain('"code": "auth_expired"');
 
-      const missing = await runCli(["login", "--wait", "--json", "--non-interactive"], {
+      // The expired flow was cleared, so the next sign-in starts a new one.
+      const restarted = await runCli(["login", "--device-code", "--json", "--non-interactive"], {
         env,
       });
-      expect(missing.exitCode).toBe(3);
-      expect(missing.stdout).toContain('"code": "not_found"');
+      expect(restarted.exitCode).toBe(0);
+      expect(restarted.stdout).toContain('"flow": "started"');
     } finally {
       home.cleanup();
       await auth.close();

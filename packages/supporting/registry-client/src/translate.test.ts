@@ -190,6 +190,48 @@ describe("registryErrorToProblem", () => {
     expect(error.suggestions).toBeUndefined();
   });
 
+  it("suggests the lifecycle command for archived publication", () => {
+    const error = registryErrorToProblem(
+      {
+        kind: "LifecycleBlockedError",
+        type: "about:blank",
+        title: "Lifecycle blocked",
+        status: 409,
+        detail: "Archived extensions do not accept new releases.",
+        code: "lifecycle_blocked",
+        reason: "archived",
+      },
+      responseFor(409),
+    );
+
+    expect(error.suggestions).toContainEqual({
+      description: "Unarchive the extension with axm unarchive, then retry.",
+    });
+  });
+
+  it.each([
+    { code: "lifecycle_blocked", reason: "held", status: 409 },
+    { code: "extension_name_held", status: 410 },
+  ])("points $code refusals to support", ({ code, reason, status }) => {
+    const error = registryErrorToProblem(
+      {
+        kind: "LifecycleRefusal",
+        type: "about:blank",
+        title: "Extension held",
+        status,
+        detail: "This extension identity is held.",
+        code,
+        ...(reason === undefined ? {} : { reason }),
+      },
+      responseFor(status),
+    );
+
+    expect(error.suggestions).toContainEqual({
+      description: "Contact support if access to this held extension is required.",
+      url: "https://agentxm.ai/support",
+    });
+  });
+
   it("adds lint finding suggestions for publish lint responses", () => {
     const error = registryErrorToProblem(
       {

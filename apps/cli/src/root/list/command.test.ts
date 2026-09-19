@@ -168,6 +168,7 @@ describe("root list", () => {
           type: "skill",
           name: "review",
           publisherBindingId: "hbnd_test",
+          archival: null,
           deprecation: null,
           versions: [
             {

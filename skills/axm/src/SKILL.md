@@ -5,11 +5,11 @@ description: >-
   distribution, and lifecycle. Use for
   discover, find, inspect, create, scaffold, import, fork, adopt, install, add,
   configure, edit, update, upgrade, enable, disable, sync, lint, validate,
-  package, bundle, version, publish, deprecate, yank, uninstall, remove, or
+  package, bundle, version, publish, archive, unarchive, deprecate, yank,
+  uninstall, remove, or
   delete of skills or SKILL.md; subagents or agent definitions; MCP
   server configurations or connections; rules or instructions; hooks;
-  Knowledge bundles; or packs—even when AXM is not named. Examples: create a
-  skill; add a subagent. Activate before
+  Knowledge bundles; or packs—even when AXM is not named. Activate before
   changing managed content to resolve source and ownership. Workspace setup
   and projection-only repair are
   AXM state work, not instruction authoring; agent definitions are not Agent
@@ -150,7 +150,7 @@ request and host:
   configure, edit, enable, disable, sync, uninstall, remove, or delete only the
   resolved scope and exact target. Preview when the candidate or ownership is
   uncertain. A vague cleanup request does not authorize guessed deletions.
-- **Registry mutation:** publish, deprecate, yank, or token revocation only
+- **Registry mutation:** publish, archive, unarchive, deprecate, yank, or token revocation only
   when the request explicitly authorizes that operation and target. Never
   expand a selected mutation into bulk publication. Even when local state
   blocks execution, show the bounded future plan: full candidate preflight,

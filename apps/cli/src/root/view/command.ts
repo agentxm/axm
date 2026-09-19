@@ -16,7 +16,7 @@ const viewConfig = {
   ),
   field: Argument.String("field").pipe(
     Argument.withDescription(
-      "Optional field: version, versions, latest, description, owner, type, visibility",
+      "Optional field: version, versions, latest, description, owner, type, visibility, lifecycle-state, archival, deprecation",
     ),
     Argument.optional,
   ),

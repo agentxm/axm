@@ -1,6 +1,8 @@
 import { humanVerificationFlags, withHumanVerificationOptions } from "../../cli-flags/index.js";
 import * as DateTime from "effect/DateTime";
+import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/unstable/cli";
@@ -15,6 +17,7 @@ import {
   selectedRegistry,
   TOKEN_PERMISSION_LEVELS,
   TokenPermissionsSchema,
+  type CreatedToken,
   type CreateTokenRequest,
   type TokenPermissionLevel,
 } from "@agentxm/registry-access/authentication";
@@ -33,42 +36,12 @@ import { withArgvTracking } from "../../cli-runtime/index.js";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { withRuntime } from "../../runtime.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
+import { makeAppError } from "../../app-error/index.js";
 import {
   directWriteCapabilities,
   readOnlyCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-
-export const TokenDataSchema = Schema.Struct({
-  token: Schema.String,
-});
-const TokenDocumentFields = {
-  data: TokenDataSchema,
-} satisfies Schema.Struct.Fields;
-export const TokenDocumentSchema = Schema.Struct(TokenDocumentFields);
-export type TokenDocument = typeof TokenDocumentSchema.Type;
-
-export const CreatedTokenDataSchema = Schema.Struct({
-  id: Schema.String,
-  token: Schema.String,
-  name: Schema.String,
-  permissions: Schema.NullOr(TokenPermissionsSchema),
-  createdAt: DateTimeUtcSchema,
-  expiresAt: DateTimeUtcSchema,
-});
-export const CreatedTokenResultSchema = Schema.Struct({
-  status: Schema.Literal("created"),
-  tokenId: Schema.String,
-  name: Schema.String,
-  expiresAt: DateTimeUtcSchema,
-  stepUpCompleted: Schema.Boolean,
-});
-const CreatedTokenDocumentFields = {
-  result: CreatedTokenResultSchema,
-  data: CreatedTokenDataSchema,
-} satisfies Schema.Struct.Fields;
-export const CreatedTokenDocumentSchema = Schema.Struct(CreatedTokenDocumentFields);
-export type CreatedTokenDocument = typeof CreatedTokenDocumentSchema.Type;
 
 export const TokenListItemSchema = Schema.Struct({
   id: Schema.String,
@@ -147,85 +120,196 @@ export interface CreateTokenHandlerArgs {
   readonly owners: readonly string[];
   readonly extensions: readonly string[];
   readonly permission: TokenPermissionLevel;
+  readonly output?: "token" | "human";
 }
 
+export interface TokenHandlerArgs {
+  readonly output?: "token" | "human";
+}
+
+const outputFlag = Flag.Literals("output", ["token", "human"]).pipe(
+  Flag.withDescription(
+    'Credential destination: "token" writes only the token to stdout; "human" shows the interactive one-time view',
+  ),
+  Flag.optional,
+);
+
+const resolveCredentialOutput = (requested: "token" | "human" | undefined) =>
+  Effect.gen(function* () {
+    const screen = yield* Screen;
+    const facts = yield* screen.facts;
+    const json = Option.getOrElse(yield* jsonFlag, () => false);
+    const nonInteractive = yield* isNonInteractive;
+
+    if (json) {
+      return yield* makeAppError({
+        code: "usage",
+        detail:
+          "Token credentials cannot be returned as JSON. Use --output token to write only the token to stdout.",
+      });
+    }
+    if (requested === "token") return requested;
+    if (nonInteractive || !facts.stdoutIsTTY) {
+      return yield* makeAppError({
+        code: "usage",
+        detail:
+          requested === "human"
+            ? "--output human requires an interactive terminal. Use --output token to write only the token to stdout."
+            : "Non-interactive token access requires an explicit output mode. Use --output token.",
+      });
+    }
+    return "human" as const;
+  });
+
 /** The invocation's human-verification inputs, as the capability reads them. */
-const verificationOptions = Effect.gen(function* () {
-  const { stepUpRequest, waitForHuman } = yield* HumanVerificationOptions;
-  const unattended = (yield* isNonInteractive) || Option.getOrElse(yield* jsonFlag, () => false);
-  return {
-    ...(Option.isNone(stepUpRequest) ? {} : { resumeReference: stepUpRequest.value }),
-    ...(Option.isNone(waitForHuman) ? {} : { waitForHumanSeconds: waitForHuman.value }),
-    unattended,
-  };
-});
+const verificationOptions = (credentialOutput: "token" | "human") =>
+  Effect.gen(function* () {
+    const { stepUpRequest, waitForHuman } = yield* HumanVerificationOptions;
+    // Raw output never opens a browser: stdout belongs to a consumer, so
+    // approval proceeds as an unattended handoff on stderr.
+    const unattended = (yield* isNonInteractive) || credentialOutput === "token";
+    return {
+      ...(Option.isNone(stepUpRequest) ? {} : { resumeReference: stepUpRequest.value }),
+      ...(Option.isNone(waitForHuman) ? {} : { waitForHumanSeconds: waitForHuman.value }),
+      unattended,
+    };
+  });
 
 export const handleToken = Effect.fn("AuthToken.handle")(
-  function* () {
+  function* (args: TokenHandlerArgs) {
+    yield* resolveCredentialOutput(args.output);
     const registry = yield* selectedRegistry;
     const screen = yield* Screen;
-    const json = Option.getOrElse(yield* jsonFlag, () => false);
 
     const token = yield* currentToken(registry.url);
-
-    // Raw token to stdout, unless --json was explicitly requested
-    if (json && (yield* screen.document({ data: { token } }, TokenDocumentSchema))) return;
-
-    yield* screen.result([{ _tag: "raw", content: token + "\n" }]);
+    yield* screen.credential(token + "\n");
   },
+  Effect.catchTag("CredentialDeliveryFailed", (error) =>
+    Effect.fail(
+      makeAppError({
+        code: "unavailable",
+        detail:
+          "The token could not be fully written to stdout; any bytes already written are incomplete.",
+        suggestions: [
+          { description: "Make sure the command reading stdout stays open, then run this again." },
+        ],
+        cause: error.cause,
+      }),
+    ),
+  ),
   Effect.mapError(coerceAuthFailure),
   Effect.asVoid,
 );
 
+type CleanupOutcome = "revoked" | "failed" | "timed-out";
+
+/** Revocation after a failed delivery must not hold the process open indefinitely. */
+const DELIVERY_CLEANUP_BUDGET = Duration.seconds(10);
+
+const reportCleanup = (
+  screen: typeof Screen.Service,
+  tokenId: string,
+  registryUrl: string,
+  outcome: CleanupOutcome,
+) =>
+  screen
+    .note([
+      {
+        _tag: "paragraph",
+        tone: outcome === "revoked" ? "ok" : "warn",
+        text:
+          outcome === "revoked"
+            ? `Revoked token ${tokenId} because it was not delivered to stdout.`
+            : `Token ${tokenId} was not delivered to stdout and may still be active: automatic revocation ${outcome === "failed" ? "failed" : "timed out"}. Run: AXM_REGISTRY_URL=${registryUrl} axm token revoke ${tokenId}`,
+      },
+    ])
+    .pipe(Effect.catchCause(() => Effect.void));
+
+/**
+ * Compensate for a token the Registry issued but stdout never acknowledged:
+ * one bounded revocation of exactly that ID with the session that created it,
+ * reported whatever its outcome.
+ */
+const revokeUndeliveredToken = (
+  screen: typeof Screen.Service,
+  tokenId: string,
+  registryUrl: string,
+) =>
+  Effect.interruptible(revokeToken(tokenId, registryUrl)).pipe(
+    Effect.timeoutOption(DELIVERY_CLEANUP_BUDGET),
+    Effect.exit,
+    Effect.flatMap((exit) =>
+      reportCleanup(
+        screen,
+        tokenId,
+        registryUrl,
+        Exit.isFailure(exit) ? "failed" : Option.isNone(exit.value) ? "timed-out" : "revoked",
+      ),
+    ),
+  );
+
+/**
+ * Issue a token and write only its secret to stdout. Approval and the create
+ * request stay interruptible; once the Registry names the new token, it is
+ * revoked unless stdout acknowledges the whole credential.
+ */
+const createAndDeliverToken = <E, R>(
+  screen: typeof Screen.Service,
+  create: Effect.Effect<CreatedToken, E, R>,
+  registryUrl: string,
+) =>
+  Effect.uninterruptibleMask((restore) =>
+    Effect.gen(function* () {
+      const created = yield* restore(create);
+      const token = created.token;
+      yield* restore(
+        screen
+          .note([
+            {
+              _tag: "paragraph",
+              text: `Created token ${token.id} "${token.name}" (${describeTokenPermissions(readTokenPermissions(token.permissions))}); expires ${DateTime.formatIso(token.expiresAt)}.`,
+            },
+          ])
+          .pipe(Effect.andThen(screen.credential(token.token + "\n"))),
+      ).pipe(
+        Effect.onExit((exit) =>
+          Exit.isSuccess(exit)
+            ? Effect.void
+            : revokeUndeliveredToken(screen, token.id, registryUrl),
+        ),
+      );
+      return created;
+    }),
+  );
+
 export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
   function* (args: CreateTokenHandlerArgs) {
-    const registry = yield* selectedRegistry;
     const screen = yield* Screen;
+    const credentialOutput = yield* resolveCredentialOutput(args.output);
+    const registry = yield* selectedRegistry;
     const request: CreateTokenRequest = {
       name: args.name,
       expires: args.expires,
       owners: args.owners,
       extensions: args.extensions,
       permission: args.permission,
-      verification: yield* verificationOptions,
+      verification: yield* verificationOptions(credentialOutput),
     };
+    const create = createToken(request, registry.url);
+    // The operation settles only after raw delivery, so no observer hears
+    // "completed" for a token stdout has not acknowledged.
     const createResult = yield* withLiveOperation(
       {
         command: "auth.token.create",
         name: `Create registry token "${args.name}"`,
         mode: "apply",
       },
-      createToken(request, registry.url),
+      credentialOutput === "token" ? createAndDeliverToken(screen, create, registry.url) : create,
     );
+    if (credentialOutput === "token") return;
+
     const created = createResult.token;
     const suggestions = createTokenSuggestions(created.id);
-
-    if (
-      yield* screen.document(
-        {
-          result: {
-            status: "created",
-            tokenId: created.id,
-            name: created.name,
-            expiresAt: created.expiresAt,
-            stepUpCompleted: createResult.stepUpCompleted,
-          },
-          data: {
-            id: created.id,
-            token: created.token,
-            name: created.name,
-            permissions: readTokenPermissions(created.permissions),
-            createdAt: created.createdAt,
-            expiresAt: created.expiresAt,
-          },
-        },
-        CreatedTokenDocumentSchema,
-        { suggestions },
-      )
-    ) {
-      return;
-    }
-
     const detail = {
       id: created.id,
       name: created.name,
@@ -239,6 +323,19 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
       { _tag: "next", actions: suggestions },
     ]);
   },
+  Effect.catchTag("CredentialDeliveryFailed", (error) =>
+    Effect.fail(
+      makeAppError({
+        code: "unavailable",
+        detail:
+          "The created token could not be fully written to stdout; any bytes already written are incomplete. See stderr for the token ID and whether it was revoked.",
+        suggestions: [
+          { description: "Review your tokens before creating another", cmd: "axm token list" },
+        ],
+        cause: error.cause,
+      }),
+    ),
+  ),
   Effect.mapError(coerceAuthFailure),
   Effect.asVoid,
 );
@@ -341,10 +438,11 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(
   Effect.asVoid,
 );
 
-const tokenConfig = {} as const;
+const tokenConfig = { output: outputFlag } as const;
 
 const createTokenConfig = {
   ...humanVerificationFlags,
+  output: outputFlag,
   name: Flag.String("name").pipe(Flag.withDescription("Human-readable token name")),
   expires: Flag.String("expires").pipe(
     Flag.withDescription(
@@ -370,13 +468,17 @@ const createTokenConfig = {
 const createTokenCommand = Command.make(
   "create",
   createTokenConfig,
-  ({ name, expires, owner, extension, permission }) =>
+  ({ name, expires, owner, extension, permission, output }) =>
     handleCreateToken({
       name,
       expires,
       owners: owner,
       extensions: extension,
       permission,
+      ...Option.match(output, {
+        onNone: () => ({}),
+        onSome: (value) => ({ output: value }),
+      }),
     }).pipe(withRuntime("auth token create")),
 ).pipe(
   withHumanVerificationOptions,
@@ -386,11 +488,12 @@ const createTokenCommand = Command.make(
   Command.withExamples([
     {
       command: "axm token create --name ci --owner @foo --permission publish",
-      description: "Create a publish token scoped to @foo",
+      description: "Create a publish token scoped to @foo and show it once",
     },
     {
-      command: "axm token create --name read-only --permission read --expires 30d",
-      description: "Create a read-only token",
+      command:
+        "axm token create --name ci --extension @foo/skills/review --permission publish --wait-for-human 300 --output token",
+      description: "Write only the new token to stdout for a pipe, waiting up to 300s for approval",
     },
   ]),
 );
@@ -423,18 +526,23 @@ const revokeTokenCommand = Command.make("revoke", revokeTokenConfig, ({ id }) =>
   ]),
 );
 
-export const tokenCommand = Command.make("token", tokenConfig, () =>
-  handleToken().pipe(withRuntime("auth token")),
+export const tokenCommand = Command.make("token", tokenConfig, ({ output }) =>
+  handleToken(
+    Option.match(output, {
+      onNone: () => ({}),
+      onSome: (value) => ({ output: value }),
+    }),
+  ).pipe(withRuntime("auth token")),
 ).pipe(
   withArgvTracking(tokenConfig),
   withCommandCapabilities(readOnlyCapabilities()),
   Command.withSubcommands([createTokenCommand, listTokenCommand, revokeTokenCommand]),
   Command.withDescription("Output current auth token to stdout"),
   Command.withExamples([
+    { command: "axm token", description: "Show your auth token in a terminal" },
     {
-      command: "axm token",
-      description: "Print your auth token (e.g., for piping to another tool)",
+      command: "axm token --output token",
+      description: "Write only your auth token to stdout for another tool",
     },
-    { command: "axm token --json", description: "Get the token as structured JSON" },
   ]),
 );

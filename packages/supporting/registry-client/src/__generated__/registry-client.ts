@@ -528,6 +528,26 @@ export const PackageIdentityPurl = Schema.String.annotate({
       identifier: "PackageIdentityPurl",
     }),
   );
+export type LifecycleBlockedErrorEncoded = {
+  readonly kind: "LifecycleBlockedError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: "lifecycle_blocked";
+  readonly reason: "deleting" | "held" | "archived";
+};
+export const LifecycleBlockedErrorEncoded = Schema.Struct({
+  kind: Schema.Literal("LifecycleBlockedError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.Literal("lifecycle_blocked"),
+  reason: Schema.Literals(["deleting", "held", "archived"]),
+}).annotate({ identifier: "LifecycleBlockedErrorEncoded" });
 export type DeleteExtensionBody = { readonly confirmation: string };
 export const DeleteExtensionBody = Schema.Struct({
   confirmation: Schema.String.annotate({
@@ -712,6 +732,26 @@ export const DeprecationRevision = Schema.String.annotate({
     identifier: "DeprecationRevision",
   }),
 );
+export type ArchivalRevision = string;
+export const ArchivalRevision = Schema.String.annotate({
+  description: "Opaque extension archival revision used for conditional writes.",
+}).check(
+  Schema.isMinLength(1).annotate({
+    expected: "a value with a length of at least 1",
+    identifier: "ArchivalRevision",
+  }),
+);
+export type PutArchivalBody = { readonly reason: string | null };
+export const PutArchivalBody = Schema.Struct({
+  reason: Schema.Union([
+    Schema.String.annotate({
+      description: "Optional publisher reason for archiving the extension.",
+    }).check(
+      Schema.isMaxLength(500).annotate({ expected: "a value with a length of at most 500" }),
+    ),
+    Schema.Null,
+  ]),
+}).annotate({ identifier: "PutArchivalBody" });
 export type YankVersionBody = {
   readonly category?: "broken" | "security" | "accidental" | "other" | null;
   readonly notice?: string | null;
@@ -847,7 +887,10 @@ export type PreconditionFailedErrorEncoded = {
   readonly detail: string;
   readonly instance?: string;
   readonly code:
-    "publish/precondition-changed" | "visibility/stale-revision" | "deprecation/stale-revision";
+    | "publish/precondition-changed"
+    | "visibility/stale-revision"
+    | "deprecation/stale-revision"
+    | "archival/stale-revision";
   readonly details?: PublishDetails;
 };
 export const PreconditionFailedErrorEncoded = Schema.Struct({
@@ -861,6 +904,7 @@ export const PreconditionFailedErrorEncoded = Schema.Struct({
     "publish/precondition-changed",
     "visibility/stale-revision",
     "deprecation/stale-revision",
+    "archival/stale-revision",
   ]),
   details: Schema.optionalKey(PublishDetails),
 }).annotate({ identifier: "PreconditionFailedErrorEncoded" });
@@ -1166,6 +1210,26 @@ export const StepUpRequiredErrorEncoded = Schema.Struct({
     Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
   ),
 }).annotate({ identifier: "StepUpRequiredErrorEncoded" });
+export type ExtensionNameHeldErrorEncoded = {
+  readonly kind: "ExtensionNameHeldError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: "extension_name_held";
+  readonly reclaimable_at: IsoDateTimeString_1;
+};
+export const ExtensionNameHeldErrorEncoded = Schema.Struct({
+  kind: Schema.Literal("ExtensionNameHeldError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.Literal("extension_name_held"),
+  reclaimable_at: IsoDateTimeString_1,
+}).annotate({ identifier: "ExtensionNameHeldErrorEncoded" });
 export type PublishIdentity = {
   readonly owner: Handle;
   readonly type: ExtensionType;
@@ -1372,6 +1436,55 @@ export const VisibilityFinding = Schema.Struct({
   severity: Schema.Literals(["error", "warning"]),
   message: Schema.String,
 }).annotate({ identifier: "VisibilityFinding" });
+export type ArchivalManagementView = {
+  readonly archival: {
+    readonly archivedAt: IsoDateTimeString;
+    readonly reason?: string | null;
+  } | null;
+  readonly revision: ArchivalRevision;
+};
+export const ArchivalManagementView = Schema.Struct({
+  archival: Schema.Union([
+    Schema.Struct({
+      archivedAt: IsoDateTimeString,
+      reason: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+    }),
+    Schema.Null,
+  ]),
+  revision: ArchivalRevision,
+}).annotate({ identifier: "ArchivalManagementView" });
+export type ArchivalTransition = {
+  readonly target: ExtensionFqn;
+  readonly before: {
+    readonly archivedAt: IsoDateTimeString;
+    readonly reason?: string | null;
+  } | null;
+  readonly after: {
+    readonly archivedAt: IsoDateTimeString;
+    readonly reason?: string | null;
+  } | null;
+  readonly disposition: "created" | "edited" | "restored" | "unchanged";
+  readonly revision: ArchivalRevision;
+};
+export const ArchivalTransition = Schema.Struct({
+  target: ExtensionFqn,
+  before: Schema.Union([
+    Schema.Struct({
+      archivedAt: IsoDateTimeString,
+      reason: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+    }),
+    Schema.Null,
+  ]),
+  after: Schema.Union([
+    Schema.Struct({
+      archivedAt: IsoDateTimeString,
+      reason: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+    }),
+    Schema.Null,
+  ]),
+  disposition: Schema.Literals(["created", "edited", "restored", "unchanged"]),
+  revision: ArchivalRevision,
+}).annotate({ identifier: "ArchivalTransition" });
 export type Library = {
   readonly id: LibraryId;
   readonly owner: Handle;
@@ -1400,6 +1513,10 @@ export type LibraryMember = {
   readonly extensionType: ExtensionType;
   readonly extensionName: ExtensionName;
   readonly addedAt: IsoDateTimeString;
+  readonly archival: {
+    readonly archivedAt: IsoDateTimeString;
+    readonly reason?: string | null;
+  } | null;
 };
 export const LibraryMember = Schema.Struct({
   id: LibraryMemberId,
@@ -1409,6 +1526,13 @@ export const LibraryMember = Schema.Struct({
   extensionType: ExtensionType,
   extensionName: ExtensionName,
   addedAt: IsoDateTimeString,
+  archival: Schema.Union([
+    Schema.Struct({
+      archivedAt: IsoDateTimeString,
+      reason: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+    }),
+    Schema.Null,
+  ]),
 }).annotate({ title: "Library Member", identifier: "LibraryMember" });
 export type AuthMeResponse = { readonly user: AuthMeUser; readonly token: AuthMeToken };
 export const AuthMeResponse = Schema.Struct({ user: AuthMeUser, token: AuthMeToken }).annotate({
@@ -1716,6 +1840,10 @@ export type SearchHit = {
   readonly license?: LicenseExpression | null;
   readonly authors?: ReadonlyArray<Author> | null;
   readonly deprecation: DeprecationView | null;
+  readonly archival: {
+    readonly archivedAt: IsoDateTimeString;
+    readonly reason?: string | null;
+  } | null;
   readonly matched_fields?: ReadonlyArray<string> | null;
   readonly visibility: "public" | "private";
 };
@@ -1729,6 +1857,13 @@ export const SearchHit = Schema.Struct({
   license: Schema.optionalKey(Schema.Union([LicenseExpression, Schema.Null])),
   authors: Schema.optionalKey(Schema.Union([Schema.Array(Author), Schema.Null])),
   deprecation: Schema.Union([DeprecationView, Schema.Null]),
+  archival: Schema.Union([
+    Schema.Struct({
+      archivedAt: IsoDateTimeString,
+      reason: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+    }),
+    Schema.Null,
+  ]),
   matched_fields: Schema.optionalKey(Schema.Union([Schema.Array(Schema.String), Schema.Null])),
   visibility: Schema.Literals(["public", "private"]),
 }).annotate({
@@ -2097,6 +2232,10 @@ export type ExtensionsListByOwner200 = {
     readonly authors?: ReadonlyArray<Author> | null;
     readonly visibility?: string | null;
     readonly deprecation: DeprecationView | null;
+    readonly archival: {
+      readonly archivedAt: IsoDateTimeString;
+      readonly reason?: string | null;
+    } | null;
   }>;
 };
 export const ExtensionsListByOwner200 = Schema.Struct({
@@ -2114,6 +2253,13 @@ export const ExtensionsListByOwner200 = Schema.Struct({
         Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
       ),
       deprecation: Schema.Union([DeprecationView, Schema.Null]),
+      archival: Schema.Union([
+        Schema.Struct({
+          archivedAt: IsoDateTimeString,
+          reason: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+        }),
+        Schema.Null,
+      ]),
     }),
   ),
 });
@@ -2145,6 +2291,10 @@ export type ExtensionsListByType200 = {
     readonly authors?: ReadonlyArray<Author> | null;
     readonly visibility?: string | null;
     readonly deprecation: DeprecationView | null;
+    readonly archival: {
+      readonly archivedAt: IsoDateTimeString;
+      readonly reason?: string | null;
+    } | null;
   }>;
   readonly total: number | "Infinity" | "-Infinity" | "NaN";
 };
@@ -2163,6 +2313,13 @@ export const ExtensionsListByType200 = Schema.Struct({
         Schema.Union([Schema.String.annotate({ readOnly: true }), Schema.Null]),
       ),
       deprecation: Schema.Union([DeprecationView, Schema.Null]),
+      archival: Schema.Union([
+        Schema.Struct({
+          archivedAt: IsoDateTimeString,
+          reason: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+        }),
+        Schema.Null,
+      ]),
     }),
   ),
   total: Schema.Union([
@@ -2200,6 +2357,10 @@ export type ExtensionsGet200 = {
   }>;
   readonly visibility?: "public" | "private" | null;
   readonly deprecation: DeprecationView | null;
+  readonly archival: {
+    readonly archivedAt: IsoDateTimeString;
+    readonly reason?: string | null;
+  } | null;
 };
 export const ExtensionsGet200 = Schema.Struct({
   name: ExtensionName,
@@ -2232,6 +2393,13 @@ export const ExtensionsGet200 = Schema.Struct({
     ]),
   ),
   deprecation: Schema.Union([DeprecationView, Schema.Null]),
+  archival: Schema.Union([
+    Schema.Struct({
+      archivedAt: IsoDateTimeString,
+      reason: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+    }),
+    Schema.Null,
+  ]),
 });
 export type ExtensionsGet400 = DecodeErrorResponseEncoded;
 export const ExtensionsGet400 = DecodeErrorResponseEncoded;
@@ -2239,6 +2407,8 @@ export type ExtensionsGet401 = ProblemDetails;
 export const ExtensionsGet401 = ProblemDetails;
 export type ExtensionsGet404 = ProblemDetails;
 export const ExtensionsGet404 = ProblemDetails;
+export type ExtensionsGet409 = LifecycleBlockedErrorEncoded;
+export const ExtensionsGet409 = LifecycleBlockedErrorEncoded;
 export type ExtensionsGet500 = ProblemDetails;
 export const ExtensionsGet500 = ProblemDetails;
 export type ExtensionsGet503 = ProblemDetails;
@@ -2299,8 +2469,11 @@ export type ExtensionsDeleteExtension403 = ForbiddenErrorEncoded;
 export const ExtensionsDeleteExtension403 = ForbiddenErrorEncoded;
 export type ExtensionsDeleteExtension404 = ProblemDetails;
 export const ExtensionsDeleteExtension404 = ProblemDetails;
-export type ExtensionsDeleteExtension409 = ProblemDetails;
-export const ExtensionsDeleteExtension409 = ProblemDetails;
+export type ExtensionsDeleteExtension409 = ProblemDetails | LifecycleBlockedErrorEncoded;
+export const ExtensionsDeleteExtension409 = Schema.Union([
+  ProblemDetails,
+  LifecycleBlockedErrorEncoded,
+]);
 export type ExtensionsDeleteExtension410 = ProblemDetails;
 export const ExtensionsDeleteExtension410 = ProblemDetails;
 export type ExtensionsDeleteExtension500 = ProblemDetails;
@@ -2333,8 +2506,11 @@ export type ExtensionsUpdateVisibility403 = ForbiddenErrorEncoded;
 export const ExtensionsUpdateVisibility403 = ForbiddenErrorEncoded;
 export type ExtensionsUpdateVisibility404 = ProblemDetails;
 export const ExtensionsUpdateVisibility404 = ProblemDetails;
-export type ExtensionsUpdateVisibility409 = ProblemDetails;
-export const ExtensionsUpdateVisibility409 = ProblemDetails;
+export type ExtensionsUpdateVisibility409 = ProblemDetails | LifecycleBlockedErrorEncoded;
+export const ExtensionsUpdateVisibility409 = Schema.Union([
+  ProblemDetails,
+  LifecycleBlockedErrorEncoded,
+]);
 export type ExtensionsUpdateVisibility410 = ProblemDetails;
 export const ExtensionsUpdateVisibility410 = ProblemDetails;
 export type ExtensionsUpdateVisibility412 = PreconditionFailedErrorEncoded;
@@ -2402,6 +2578,8 @@ export type ExtensionsGetVersion401 = ProblemDetails;
 export const ExtensionsGetVersion401 = ProblemDetails;
 export type ExtensionsGetVersion404 = ProblemDetails;
 export const ExtensionsGetVersion404 = ProblemDetails;
+export type ExtensionsGetVersion409 = LifecycleBlockedErrorEncoded;
+export const ExtensionsGetVersion409 = LifecycleBlockedErrorEncoded;
 export type ExtensionsGetVersion410 = ProblemDetails;
 export const ExtensionsGetVersion410 = ProblemDetails;
 export type ExtensionsGetVersion500 = ProblemDetails;
@@ -2485,8 +2663,13 @@ export type ExtensionsPublishVersion403 = ForbiddenErrorEncoded;
 export const ExtensionsPublishVersion403 = ForbiddenErrorEncoded;
 export type ExtensionsPublishVersion404 = ProblemDetails;
 export const ExtensionsPublishVersion404 = ProblemDetails;
-export type ExtensionsPublishVersion409 = ProblemDetails;
-export const ExtensionsPublishVersion409 = ProblemDetails;
+export type ExtensionsPublishVersion409 =
+  ProblemDetails | LifecycleBlockedErrorEncoded | ExtensionNameHeldErrorEncoded;
+export const ExtensionsPublishVersion409 = Schema.Union([
+  ProblemDetails,
+  LifecycleBlockedErrorEncoded,
+  ExtensionNameHeldErrorEncoded,
+]);
 export type ExtensionsPublishVersion412 = PreconditionFailedErrorEncoded;
 export const ExtensionsPublishVersion412 = PreconditionFailedErrorEncoded;
 export type ExtensionsPublishVersion413 = ProblemDetails;
@@ -2546,6 +2729,8 @@ export type ExtensionsDownloadArchive401 = ProblemDetails;
 export const ExtensionsDownloadArchive401 = ProblemDetails;
 export type ExtensionsDownloadArchive404 = ProblemDetails;
 export const ExtensionsDownloadArchive404 = ProblemDetails;
+export type ExtensionsDownloadArchive409 = LifecycleBlockedErrorEncoded;
+export const ExtensionsDownloadArchive409 = LifecycleBlockedErrorEncoded;
 export type ExtensionsDownloadArchive500 = ProblemDetails;
 export const ExtensionsDownloadArchive500 = ProblemDetails;
 export type ExtensionsDownloadArchive503 = ProblemDetails;
@@ -2610,8 +2795,11 @@ export type ExtensionsPutDeprecation403 = ForbiddenErrorEncoded;
 export const ExtensionsPutDeprecation403 = ForbiddenErrorEncoded;
 export type ExtensionsPutDeprecation404 = ProblemDetails;
 export const ExtensionsPutDeprecation404 = ProblemDetails;
-export type ExtensionsPutDeprecation409 = ProblemDetails;
-export const ExtensionsPutDeprecation409 = ProblemDetails;
+export type ExtensionsPutDeprecation409 = ProblemDetails | LifecycleBlockedErrorEncoded;
+export const ExtensionsPutDeprecation409 = Schema.Union([
+  ProblemDetails,
+  LifecycleBlockedErrorEncoded,
+]);
 export type ExtensionsPutDeprecation412 = PreconditionFailedErrorEncoded;
 export const ExtensionsPutDeprecation412 = PreconditionFailedErrorEncoded;
 export type ExtensionsPutDeprecation500 = ProblemDetails;
@@ -2633,14 +2821,76 @@ export type ExtensionsDeleteDeprecation403 = ForbiddenErrorEncoded;
 export const ExtensionsDeleteDeprecation403 = ForbiddenErrorEncoded;
 export type ExtensionsDeleteDeprecation404 = ProblemDetails;
 export const ExtensionsDeleteDeprecation404 = ProblemDetails;
-export type ExtensionsDeleteDeprecation409 = ProblemDetails;
-export const ExtensionsDeleteDeprecation409 = ProblemDetails;
+export type ExtensionsDeleteDeprecation409 = ProblemDetails | LifecycleBlockedErrorEncoded;
+export const ExtensionsDeleteDeprecation409 = Schema.Union([
+  ProblemDetails,
+  LifecycleBlockedErrorEncoded,
+]);
 export type ExtensionsDeleteDeprecation412 = PreconditionFailedErrorEncoded;
 export const ExtensionsDeleteDeprecation412 = PreconditionFailedErrorEncoded;
 export type ExtensionsDeleteDeprecation500 = ProblemDetails;
 export const ExtensionsDeleteDeprecation500 = ProblemDetails;
 export type ExtensionsDeleteDeprecation503 = ProblemDetails;
 export const ExtensionsDeleteDeprecation503 = ProblemDetails;
+export type ExtensionsGetArchival200 = ArchivalManagementView;
+export const ExtensionsGetArchival200 = ArchivalManagementView;
+export type ExtensionsGetArchival400 = DecodeErrorResponseEncoded;
+export const ExtensionsGetArchival400 = DecodeErrorResponseEncoded;
+export type ExtensionsGetArchival401 = ProblemDetails;
+export const ExtensionsGetArchival401 = ProblemDetails;
+export type ExtensionsGetArchival403 = ForbiddenErrorEncoded;
+export const ExtensionsGetArchival403 = ForbiddenErrorEncoded;
+export type ExtensionsGetArchival404 = ProblemDetails;
+export const ExtensionsGetArchival404 = ProblemDetails;
+export type ExtensionsGetArchival500 = ProblemDetails;
+export const ExtensionsGetArchival500 = ProblemDetails;
+export type ExtensionsGetArchival503 = ProblemDetails;
+export const ExtensionsGetArchival503 = ProblemDetails;
+export type ExtensionsPutArchivalParams = { readonly "if-match": string };
+export const ExtensionsPutArchivalParams = Schema.Struct({ "if-match": Schema.String });
+export type ExtensionsPutArchivalRequestJson = PutArchivalBody;
+export const ExtensionsPutArchivalRequestJson = PutArchivalBody;
+export type ExtensionsPutArchival200 = ArchivalTransition;
+export const ExtensionsPutArchival200 = ArchivalTransition;
+export type ExtensionsPutArchival400 = ProblemDetails | DecodeErrorResponseEncoded;
+export const ExtensionsPutArchival400 = Schema.Union([ProblemDetails, DecodeErrorResponseEncoded]);
+export type ExtensionsPutArchival401 = ProblemDetails;
+export const ExtensionsPutArchival401 = ProblemDetails;
+export type ExtensionsPutArchival403 = ForbiddenErrorEncoded;
+export const ExtensionsPutArchival403 = ForbiddenErrorEncoded;
+export type ExtensionsPutArchival404 = ProblemDetails;
+export const ExtensionsPutArchival404 = ProblemDetails;
+export type ExtensionsPutArchival409 = LifecycleBlockedErrorEncoded;
+export const ExtensionsPutArchival409 = LifecycleBlockedErrorEncoded;
+export type ExtensionsPutArchival412 = PreconditionFailedErrorEncoded;
+export const ExtensionsPutArchival412 = PreconditionFailedErrorEncoded;
+export type ExtensionsPutArchival500 = ProblemDetails;
+export const ExtensionsPutArchival500 = ProblemDetails;
+export type ExtensionsPutArchival503 = ProblemDetails;
+export const ExtensionsPutArchival503 = ProblemDetails;
+export type ExtensionsDeleteArchivalParams = { readonly "if-match": string };
+export const ExtensionsDeleteArchivalParams = Schema.Struct({ "if-match": Schema.String });
+export type ExtensionsDeleteArchival200 = ArchivalTransition;
+export const ExtensionsDeleteArchival200 = ArchivalTransition;
+export type ExtensionsDeleteArchival400 = ProblemDetails | DecodeErrorResponseEncoded;
+export const ExtensionsDeleteArchival400 = Schema.Union([
+  ProblemDetails,
+  DecodeErrorResponseEncoded,
+]);
+export type ExtensionsDeleteArchival401 = ProblemDetails;
+export const ExtensionsDeleteArchival401 = ProblemDetails;
+export type ExtensionsDeleteArchival403 = ForbiddenErrorEncoded;
+export const ExtensionsDeleteArchival403 = ForbiddenErrorEncoded;
+export type ExtensionsDeleteArchival404 = ProblemDetails;
+export const ExtensionsDeleteArchival404 = ProblemDetails;
+export type ExtensionsDeleteArchival409 = LifecycleBlockedErrorEncoded;
+export const ExtensionsDeleteArchival409 = LifecycleBlockedErrorEncoded;
+export type ExtensionsDeleteArchival412 = PreconditionFailedErrorEncoded;
+export const ExtensionsDeleteArchival412 = PreconditionFailedErrorEncoded;
+export type ExtensionsDeleteArchival500 = ProblemDetails;
+export const ExtensionsDeleteArchival500 = ProblemDetails;
+export type ExtensionsDeleteArchival503 = ProblemDetails;
+export const ExtensionsDeleteArchival503 = ProblemDetails;
 export type ExtensionsYankVersionRequestJson = YankVersionBody;
 export const ExtensionsYankVersionRequestJson = YankVersionBody;
 export type ExtensionsYankVersion200 = {
@@ -2679,6 +2929,8 @@ export type ExtensionsYankVersion403 = ForbiddenErrorEncoded;
 export const ExtensionsYankVersion403 = ForbiddenErrorEncoded;
 export type ExtensionsYankVersion404 = ProblemDetails;
 export const ExtensionsYankVersion404 = ProblemDetails;
+export type ExtensionsYankVersion409 = LifecycleBlockedErrorEncoded;
+export const ExtensionsYankVersion409 = LifecycleBlockedErrorEncoded;
 export type ExtensionsYankVersion500 = ProblemDetails;
 export const ExtensionsYankVersion500 = ProblemDetails;
 export type ExtensionsYankVersion503 = ProblemDetails;
@@ -2711,6 +2963,8 @@ export type ExtensionsUnyankVersion403 = ForbiddenErrorEncoded;
 export const ExtensionsUnyankVersion403 = ForbiddenErrorEncoded;
 export type ExtensionsUnyankVersion404 = ProblemDetails;
 export const ExtensionsUnyankVersion404 = ProblemDetails;
+export type ExtensionsUnyankVersion409 = LifecycleBlockedErrorEncoded;
+export const ExtensionsUnyankVersion409 = LifecycleBlockedErrorEncoded;
 export type ExtensionsUnyankVersion500 = ProblemDetails;
 export const ExtensionsUnyankVersion500 = ProblemDetails;
 export type ExtensionsUnyankVersion503 = ProblemDetails;
@@ -2735,6 +2989,8 @@ export type ExtensionsYankAvailableVersions403 = ForbiddenErrorEncoded;
 export const ExtensionsYankAvailableVersions403 = ForbiddenErrorEncoded;
 export type ExtensionsYankAvailableVersions404 = ProblemDetails;
 export const ExtensionsYankAvailableVersions404 = ProblemDetails;
+export type ExtensionsYankAvailableVersions409 = LifecycleBlockedErrorEncoded;
+export const ExtensionsYankAvailableVersions409 = LifecycleBlockedErrorEncoded;
 export type ExtensionsYankAvailableVersions500 = ProblemDetails;
 export const ExtensionsYankAvailableVersions500 = ProblemDetails;
 export type ExtensionsYankAvailableVersions503 = ProblemDetails;
@@ -3566,6 +3822,7 @@ export const make = (
                 "400": decodeError("ExtensionsGet400", ExtensionsGet400),
                 "401": decodeError("ExtensionsGet401", ExtensionsGet401),
                 "404": decodeError("ExtensionsGet404", ExtensionsGet404),
+                "409": decodeError("ExtensionsGet409", ExtensionsGet409),
                 "500": decodeError("ExtensionsGet500", ExtensionsGet500),
                 "503": decodeError("ExtensionsGet503", ExtensionsGet503),
                 "304": () => Effect.void,
@@ -3632,6 +3889,7 @@ export const make = (
                 "400": decodeVoidError("400"),
                 "401": decodeVoidError("401"),
                 "404": decodeVoidError("404"),
+                "409": decodeVoidError("409"),
                 "500": decodeVoidError("500"),
                 "503": decodeVoidError("503"),
                 orElse: unexpectedStatus,
@@ -3701,6 +3959,7 @@ export const make = (
                 "400": decodeError("ExtensionsGetVersion400", ExtensionsGetVersion400),
                 "401": decodeError("ExtensionsGetVersion401", ExtensionsGetVersion401),
                 "404": decodeError("ExtensionsGetVersion404", ExtensionsGetVersion404),
+                "409": decodeError("ExtensionsGetVersion409", ExtensionsGetVersion409),
                 "410": decodeError("ExtensionsGetVersion410", ExtensionsGetVersion410),
                 "500": decodeError("ExtensionsGetVersion500", ExtensionsGetVersion500),
                 "503": decodeError("ExtensionsGetVersion503", ExtensionsGetVersion503),
@@ -3821,6 +4080,7 @@ export const make = (
                 "400": decodeError("ExtensionsDownloadArchive400", ExtensionsDownloadArchive400),
                 "401": decodeError("ExtensionsDownloadArchive401", ExtensionsDownloadArchive401),
                 "404": decodeError("ExtensionsDownloadArchive404", ExtensionsDownloadArchive404),
+                "409": decodeError("ExtensionsDownloadArchive409", ExtensionsDownloadArchive409),
                 "500": decodeError("ExtensionsDownloadArchive500", ExtensionsDownloadArchive500),
                 "503": decodeError("ExtensionsDownloadArchive503", ExtensionsDownloadArchive503),
                 orElse: unexpectedStatus,
@@ -3869,6 +4129,7 @@ export const make = (
                 "400": decodeVoidError("400"),
                 "401": decodeVoidError("401"),
                 "404": decodeVoidError("404"),
+                "409": decodeVoidError("409"),
                 "500": decodeVoidError("500"),
                 "503": decodeVoidError("503"),
                 orElse: unexpectedStatus,
@@ -4033,6 +4294,103 @@ export const make = (
           ),
         ),
       ),
+    ExtensionsGetArchival: (owner, type, name, options) =>
+      __makePathRequest(
+        HttpClientRequest.get,
+        [owner, type, name],
+        () =>
+          "/v1/extensions/" +
+          __encodePathParam(owner) +
+          "/" +
+          __encodePathParam(type) +
+          "/" +
+          __encodePathParam(name) +
+          "/archival",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            withResponse(options?.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(ExtensionsGetArchival200),
+                "400": decodeError("ExtensionsGetArchival400", ExtensionsGetArchival400),
+                "401": decodeError("ExtensionsGetArchival401", ExtensionsGetArchival401),
+                "403": decodeError("ExtensionsGetArchival403", ExtensionsGetArchival403),
+                "404": decodeError("ExtensionsGetArchival404", ExtensionsGetArchival404),
+                "500": decodeError("ExtensionsGetArchival500", ExtensionsGetArchival500),
+                "503": decodeError("ExtensionsGetArchival503", ExtensionsGetArchival503),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
+        ),
+      ),
+    ExtensionsPutArchival: (owner, type, name, options) =>
+      __makePathRequest(
+        HttpClientRequest.put,
+        [owner, type, name],
+        () =>
+          "/v1/extensions/" +
+          __encodePathParam(owner) +
+          "/" +
+          __encodePathParam(type) +
+          "/" +
+          __encodePathParam(name) +
+          "/archival",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            HttpClientRequest.setHeaders({ "if-match": options.params["if-match"] ?? undefined }),
+            HttpClientRequest.bodyJsonUnsafe(options.payload),
+            withResponse(options.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(ExtensionsPutArchival200),
+                "400": decodeError("ExtensionsPutArchival400", ExtensionsPutArchival400),
+                "401": decodeError("ExtensionsPutArchival401", ExtensionsPutArchival401),
+                "403": decodeError("ExtensionsPutArchival403", ExtensionsPutArchival403),
+                "404": decodeError("ExtensionsPutArchival404", ExtensionsPutArchival404),
+                "409": decodeError("ExtensionsPutArchival409", ExtensionsPutArchival409),
+                "412": decodeError("ExtensionsPutArchival412", ExtensionsPutArchival412),
+                "500": decodeError("ExtensionsPutArchival500", ExtensionsPutArchival500),
+                "503": decodeError("ExtensionsPutArchival503", ExtensionsPutArchival503),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
+        ),
+      ),
+    ExtensionsDeleteArchival: (owner, type, name, options) =>
+      __makePathRequest(
+        HttpClientRequest.delete,
+        [owner, type, name],
+        () =>
+          "/v1/extensions/" +
+          __encodePathParam(owner) +
+          "/" +
+          __encodePathParam(type) +
+          "/" +
+          __encodePathParam(name) +
+          "/archival",
+      ).pipe(
+        Effect.flatMap((request) =>
+          request.pipe(
+            HttpClientRequest.setHeaders({ "if-match": options.params["if-match"] ?? undefined }),
+            withResponse(options.config)(
+              HttpClientResponse.matchStatus({
+                "2xx": decodeSuccess(ExtensionsDeleteArchival200),
+                "400": decodeError("ExtensionsDeleteArchival400", ExtensionsDeleteArchival400),
+                "401": decodeError("ExtensionsDeleteArchival401", ExtensionsDeleteArchival401),
+                "403": decodeError("ExtensionsDeleteArchival403", ExtensionsDeleteArchival403),
+                "404": decodeError("ExtensionsDeleteArchival404", ExtensionsDeleteArchival404),
+                "409": decodeError("ExtensionsDeleteArchival409", ExtensionsDeleteArchival409),
+                "412": decodeError("ExtensionsDeleteArchival412", ExtensionsDeleteArchival412),
+                "500": decodeError("ExtensionsDeleteArchival500", ExtensionsDeleteArchival500),
+                "503": decodeError("ExtensionsDeleteArchival503", ExtensionsDeleteArchival503),
+                orElse: unexpectedStatus,
+              }),
+            ),
+          ),
+        ),
+      ),
     ExtensionsYankVersion: (owner, type, name, version, options) =>
       __makePathRequest(
         HttpClientRequest.post,
@@ -4058,6 +4416,7 @@ export const make = (
                 "401": decodeError("ExtensionsYankVersion401", ExtensionsYankVersion401),
                 "403": decodeError("ExtensionsYankVersion403", ExtensionsYankVersion403),
                 "404": decodeError("ExtensionsYankVersion404", ExtensionsYankVersion404),
+                "409": decodeError("ExtensionsYankVersion409", ExtensionsYankVersion409),
                 "500": decodeError("ExtensionsYankVersion500", ExtensionsYankVersion500),
                 "503": decodeError("ExtensionsYankVersion503", ExtensionsYankVersion503),
                 orElse: unexpectedStatus,
@@ -4090,6 +4449,7 @@ export const make = (
                 "401": decodeError("ExtensionsUnyankVersion401", ExtensionsUnyankVersion401),
                 "403": decodeError("ExtensionsUnyankVersion403", ExtensionsUnyankVersion403),
                 "404": decodeError("ExtensionsUnyankVersion404", ExtensionsUnyankVersion404),
+                "409": decodeError("ExtensionsUnyankVersion409", ExtensionsUnyankVersion409),
                 "500": decodeError("ExtensionsUnyankVersion500", ExtensionsUnyankVersion500),
                 "503": decodeError("ExtensionsUnyankVersion503", ExtensionsUnyankVersion503),
                 orElse: unexpectedStatus,
@@ -4132,6 +4492,10 @@ export const make = (
                 "404": decodeError(
                   "ExtensionsYankAvailableVersions404",
                   ExtensionsYankAvailableVersions404,
+                ),
+                "409": decodeError(
+                  "ExtensionsYankAvailableVersions409",
+                  ExtensionsYankAvailableVersions409,
                 ),
                 "500": decodeError(
                   "ExtensionsYankAvailableVersions500",
@@ -4615,6 +4979,7 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsGet400", typeof ExtensionsGet400.Type>
     | RegistryClientError<"ExtensionsGet401", typeof ExtensionsGet401.Type>
     | RegistryClientError<"ExtensionsGet404", typeof ExtensionsGet404.Type>
+    | RegistryClientError<"ExtensionsGet409", typeof ExtensionsGet409.Type>
     | RegistryClientError<"ExtensionsGet500", typeof ExtensionsGet500.Type>
     | RegistryClientError<"ExtensionsGet503", typeof ExtensionsGet503.Type>
   >;
@@ -4658,6 +5023,7 @@ export interface RegistryClient {
     | RegistryClientError<"400", undefined>
     | RegistryClientError<"401", undefined>
     | RegistryClientError<"404", undefined>
+    | RegistryClientError<"409", undefined>
     | RegistryClientError<"500", undefined>
     | RegistryClientError<"503", undefined>
   >;
@@ -4730,6 +5096,7 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsGetVersion400", typeof ExtensionsGetVersion400.Type>
     | RegistryClientError<"ExtensionsGetVersion401", typeof ExtensionsGetVersion401.Type>
     | RegistryClientError<"ExtensionsGetVersion404", typeof ExtensionsGetVersion404.Type>
+    | RegistryClientError<"ExtensionsGetVersion409", typeof ExtensionsGetVersion409.Type>
     | RegistryClientError<"ExtensionsGetVersion410", typeof ExtensionsGetVersion410.Type>
     | RegistryClientError<"ExtensionsGetVersion500", typeof ExtensionsGetVersion500.Type>
     | RegistryClientError<"ExtensionsGetVersion503", typeof ExtensionsGetVersion503.Type>
@@ -4816,6 +5183,7 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsDownloadArchive400", typeof ExtensionsDownloadArchive400.Type>
     | RegistryClientError<"ExtensionsDownloadArchive401", typeof ExtensionsDownloadArchive401.Type>
     | RegistryClientError<"ExtensionsDownloadArchive404", typeof ExtensionsDownloadArchive404.Type>
+    | RegistryClientError<"ExtensionsDownloadArchive409", typeof ExtensionsDownloadArchive409.Type>
     | RegistryClientError<"ExtensionsDownloadArchive500", typeof ExtensionsDownloadArchive500.Type>
     | RegistryClientError<"ExtensionsDownloadArchive503", typeof ExtensionsDownloadArchive503.Type>
   >;
@@ -4844,6 +5212,7 @@ export interface RegistryClient {
     | RegistryClientError<"400", undefined>
     | RegistryClientError<"401", undefined>
     | RegistryClientError<"404", undefined>
+    | RegistryClientError<"409", undefined>
     | RegistryClientError<"500", undefined>
     | RegistryClientError<"503", undefined>
   >;
@@ -4964,6 +5333,74 @@ export interface RegistryClient {
       >
   >;
   /**
+   * Get extension archival
+   */
+  readonly ExtensionsGetArchival: <Config extends OperationConfig>(
+    owner: string,
+    type: string,
+    name: string,
+    options: { readonly config?: Config | undefined } | undefined,
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof ExtensionsGetArchival200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ExtensionsGetArchival400", typeof ExtensionsGetArchival400.Type>
+    | RegistryClientError<"ExtensionsGetArchival401", typeof ExtensionsGetArchival401.Type>
+    | RegistryClientError<"ExtensionsGetArchival403", typeof ExtensionsGetArchival403.Type>
+    | RegistryClientError<"ExtensionsGetArchival404", typeof ExtensionsGetArchival404.Type>
+    | RegistryClientError<"ExtensionsGetArchival500", typeof ExtensionsGetArchival500.Type>
+    | RegistryClientError<"ExtensionsGetArchival503", typeof ExtensionsGetArchival503.Type>
+  >;
+  /**
+   * Archive or edit an archived extension
+   */
+  readonly ExtensionsPutArchival: <Config extends OperationConfig>(
+    owner: string,
+    type: string,
+    name: string,
+    options: {
+      readonly params: typeof ExtensionsPutArchivalParams.Encoded;
+      readonly payload: typeof ExtensionsPutArchivalRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof ExtensionsPutArchival200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ExtensionsPutArchival400", typeof ExtensionsPutArchival400.Type>
+    | RegistryClientError<"ExtensionsPutArchival401", typeof ExtensionsPutArchival401.Type>
+    | RegistryClientError<"ExtensionsPutArchival403", typeof ExtensionsPutArchival403.Type>
+    | RegistryClientError<"ExtensionsPutArchival404", typeof ExtensionsPutArchival404.Type>
+    | RegistryClientError<"ExtensionsPutArchival409", typeof ExtensionsPutArchival409.Type>
+    | RegistryClientError<"ExtensionsPutArchival412", typeof ExtensionsPutArchival412.Type>
+    | RegistryClientError<"ExtensionsPutArchival500", typeof ExtensionsPutArchival500.Type>
+    | RegistryClientError<"ExtensionsPutArchival503", typeof ExtensionsPutArchival503.Type>
+  >;
+  /**
+   * Unarchive an extension
+   */
+  readonly ExtensionsDeleteArchival: <Config extends OperationConfig>(
+    owner: string,
+    type: string,
+    name: string,
+    options: {
+      readonly params: typeof ExtensionsDeleteArchivalParams.Encoded;
+      readonly config?: Config | undefined;
+    },
+  ) => Effect.Effect<
+    WithOptionalResponse<typeof ExtensionsDeleteArchival200.Type, Config>,
+    | HttpClientError.HttpClientError
+    | SchemaError
+    | RegistryClientError<"ExtensionsDeleteArchival400", typeof ExtensionsDeleteArchival400.Type>
+    | RegistryClientError<"ExtensionsDeleteArchival401", typeof ExtensionsDeleteArchival401.Type>
+    | RegistryClientError<"ExtensionsDeleteArchival403", typeof ExtensionsDeleteArchival403.Type>
+    | RegistryClientError<"ExtensionsDeleteArchival404", typeof ExtensionsDeleteArchival404.Type>
+    | RegistryClientError<"ExtensionsDeleteArchival409", typeof ExtensionsDeleteArchival409.Type>
+    | RegistryClientError<"ExtensionsDeleteArchival412", typeof ExtensionsDeleteArchival412.Type>
+    | RegistryClientError<"ExtensionsDeleteArchival500", typeof ExtensionsDeleteArchival500.Type>
+    | RegistryClientError<"ExtensionsDeleteArchival503", typeof ExtensionsDeleteArchival503.Type>
+  >;
+  /**
    * Yank an extension version
    */
   readonly ExtensionsYankVersion: <Config extends OperationConfig>(
@@ -4983,6 +5420,7 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsYankVersion401", typeof ExtensionsYankVersion401.Type>
     | RegistryClientError<"ExtensionsYankVersion403", typeof ExtensionsYankVersion403.Type>
     | RegistryClientError<"ExtensionsYankVersion404", typeof ExtensionsYankVersion404.Type>
+    | RegistryClientError<"ExtensionsYankVersion409", typeof ExtensionsYankVersion409.Type>
     | RegistryClientError<"ExtensionsYankVersion500", typeof ExtensionsYankVersion500.Type>
     | RegistryClientError<"ExtensionsYankVersion503", typeof ExtensionsYankVersion503.Type>
   >;
@@ -5003,6 +5441,7 @@ export interface RegistryClient {
     | RegistryClientError<"ExtensionsUnyankVersion401", typeof ExtensionsUnyankVersion401.Type>
     | RegistryClientError<"ExtensionsUnyankVersion403", typeof ExtensionsUnyankVersion403.Type>
     | RegistryClientError<"ExtensionsUnyankVersion404", typeof ExtensionsUnyankVersion404.Type>
+    | RegistryClientError<"ExtensionsUnyankVersion409", typeof ExtensionsUnyankVersion409.Type>
     | RegistryClientError<"ExtensionsUnyankVersion500", typeof ExtensionsUnyankVersion500.Type>
     | RegistryClientError<"ExtensionsUnyankVersion503", typeof ExtensionsUnyankVersion503.Type>
   >;
@@ -5036,6 +5475,10 @@ export interface RegistryClient {
     | RegistryClientError<
         "ExtensionsYankAvailableVersions404",
         typeof ExtensionsYankAvailableVersions404.Type
+      >
+    | RegistryClientError<
+        "ExtensionsYankAvailableVersions409",
+        typeof ExtensionsYankAvailableVersions409.Type
       >
     | RegistryClientError<
         "ExtensionsYankAvailableVersions500",

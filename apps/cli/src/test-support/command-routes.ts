@@ -63,6 +63,8 @@ export const COMMAND_ROUTE_ALLOCATION: ReadonlyArray<CommandRouteAllocation> = [
   route("unyank"),
   route("deprecate"),
   route("undeprecate"),
+  route("archive"),
+  route("unarchive"),
   // Workspace
   previewable("sync"),
   route("agents"),

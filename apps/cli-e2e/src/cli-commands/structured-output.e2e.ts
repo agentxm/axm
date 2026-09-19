@@ -72,7 +72,7 @@ describe("structured output (--json)", () => {
     }
   });
 
-  it("token --json produces structured stdout", async () => {
+  it("token --json is refused without a secret in any document", async () => {
     const temp = createTempDir();
     try {
       const result = await runCli(["token", "--json"], {
@@ -80,13 +80,11 @@ describe("structured output (--json)", () => {
         env: { AXM_TOKEN: "test-json-token" },
       });
 
-      expect(result.exitCode).toBe(0);
+      expect(result.exitCode).toBe(2);
       const document = parseJson(result.stdout);
-      expect(machineDocumentKind(document)).toBe("result-envelope-v1");
-      expect(document).toEqual({
-        ok: true,
-        result: { data: { token: "test-json-token" } },
-      });
+      expect(machineDocumentKind(document)).toBe("error-envelope-v1");
+      expect(document).toMatchObject({ ok: false, code: "usage" });
+      expect(result.stdout + result.stderr).not.toContain("test-json-token");
     } finally {
       temp.cleanup();
     }
@@ -120,7 +118,7 @@ describe("structured output (--json)", () => {
     it("routes runtime errors as JSON on stdout in json mode", async () => {
       const temp = createTempDir();
       try {
-        const result = await runCli(["token", "--json"], {
+        const result = await runCli(["whoami", "--json"], {
           cwd: temp.path,
           env: { AXM_TOKEN: "" },
         });
@@ -207,11 +205,9 @@ describe("structured output (--json)", () => {
         env: { AXM_TOKEN: "ci-json-token" },
       });
 
-      expect(result.exitCode).toBe(0);
-      expect(parseJson(result.stdout)).toEqual({
-        ok: true,
-        result: { data: { token: "ci-json-token" } },
-      });
+      expect(result.exitCode).toBe(2);
+      expect(parseJson(result.stdout)).toMatchObject({ ok: false, code: "usage" });
+      expect(result.stdout + result.stderr).not.toContain("ci-json-token");
     } finally {
       temp.cleanup();
     }

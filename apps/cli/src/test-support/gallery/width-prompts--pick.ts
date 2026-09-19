@@ -1,6 +1,6 @@
 import type { Doc } from "../../screen/doc.js";
 import { initialPickState, pickDoc } from "../../screen/ask/pick.js";
-import { agentsPick } from "./pick-asks.js";
+import { agentsPick } from "./samples/pick-asks.js";
 
 /** The rows the board's list is drawn in: its page shows four agents. */
 const ROWS = 7;

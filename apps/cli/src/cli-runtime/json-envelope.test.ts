@@ -166,7 +166,7 @@ describe("JsonEnvelopeSchema", () => {
           fallbackUrl: "https://agentxm.ai/device",
           code: "ABCD-1234",
           expiresAt: "2026-08-03T15:10:00.000Z",
-          resume: "axm login --wait --json",
+          resume: "axm login --device-code --wait-for-human 300 --json",
         },
       }),
     );
@@ -182,7 +182,7 @@ describe("JsonEnvelopeSchema", () => {
         url: "https://agentxm.ai/device?user_code=ABCD-1234",
         fallbackUrl: "https://agentxm.ai/device",
         code: "ABCD-1234",
-        resume: "axm login --wait --json",
+        resume: "axm login --device-code --wait-for-human 300 --json",
       },
     });
   });

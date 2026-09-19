@@ -1,6 +1,6 @@
 import type { Doc } from "../../screen/doc.js";
 import { initialPickState, pickDoc } from "../../screen/ask/pick.js";
-import { toolkitPick } from "./pick-asks.js";
+import { toolkitPick } from "./samples/pick-asks.js";
 
 /**
  * A grouped pick as it opens (canvas *Reference cases*, board `Ref-pick`,

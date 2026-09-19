@@ -62,7 +62,7 @@ describe("root authentication commands", () => {
     it("token with AXM_TOKEN works without AXM workspace settings", async () => {
       const temp = createTempDir();
       try {
-        const result = await runCli(["token"], {
+        const result = await runCli(["token", "--output", "token"], {
           cwd: temp.path,
           env: { AXM_TOKEN: "outside-workspace-token" },
         });

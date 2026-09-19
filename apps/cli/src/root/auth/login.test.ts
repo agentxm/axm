@@ -17,7 +17,6 @@ import {
   RegistryAccessFailed,
   classifyLoopbackFailure,
   deviceLoginOptions,
-  resumeLoginOptions,
 } from "@agentxm/registry-access/authentication";
 import { CredentialStore } from "@agentxm/registry-access/credentials";
 import { AuthEnvironment } from "@agentxm/registry-access/adapters";
@@ -184,21 +183,27 @@ const makeLayers = (opts?: {
 };
 
 describe("auth login handler", () => {
-  it.effect("rejects timeout without wait before starting a device sign-in", () => {
+  it.effect("rejects a non-positive wait before starting a device sign-in", () => {
     const { provide } = makeLayers({ nonInteractive: true });
     return provide(
       Effect.gen(function* () {
         const error = yield* Effect.flip(
-          handleLogin({ yes: true, deviceCode: true, timeoutSeconds: 300 }),
+          handleLogin({ yes: true, deviceCode: true, waitForHumanSeconds: 0 }),
         );
-        expect(error).toMatchObject({ code: "usage", detail: "--timeout requires --wait." });
+        expect(error).toMatchObject({
+          code: "usage",
+          detail: "--wait-for-human must be a positive number of seconds.",
+        });
       }),
     );
   });
 
-  it("passes a bounded wait to pending device sign-in resumption", () => {
-    expect(resumeLoginOptions({ timeoutSeconds: 300 })).toEqual({ timeoutSeconds: 300 });
-    expect(resumeLoginOptions({})).toEqual({});
+  it("passes a bounded wait to an attended device sign-in", () => {
+    expect(deviceLoginOptions({ restart: false, waitForHumanSeconds: 300 }, true)).toMatchObject({
+      openBrowser: true,
+      timeoutSeconds: 300,
+    });
+    expect(deviceLoginOptions({ restart: false }, false)).not.toHaveProperty("timeoutSeconds");
   });
 
   it.effect("starts a non-blocking device flow in non-interactive mode", () => {
@@ -218,7 +223,7 @@ describe("auth login handler", () => {
             status: "pending-human",
             verificationUri: "https://auth.agentxm.ai/device",
             userCode: "ABCD-1234",
-            resume: "axm login --wait --json",
+            resume: "axm login --device-code --wait-for-human 300 --json",
           },
         });
       }),
@@ -477,7 +482,7 @@ describe("auth login handler", () => {
         expect(result).toMatchObject({
           status: "pending-human",
           userCode: "ABCD-1234",
-          resume: "axm login --wait --json",
+          resume: "axm login --device-code --wait-for-human 300 --json",
         });
       }),
     );

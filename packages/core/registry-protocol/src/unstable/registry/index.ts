@@ -56,6 +56,11 @@ export {
   validatePublicationSetResponse,
 } from "./publication-set.js";
 export {
+  type ArchivalManagementView,
+  ArchivalManagementViewSchema,
+  ArchivalRevisionSchema,
+  type ArchivalTransition,
+  ArchivalTransitionSchema,
   type DeprecationManagementView,
   DeprecationManagementViewSchema,
   type DeprecationReplacementIntent,

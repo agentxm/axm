@@ -1,6 +1,6 @@
 import type { Doc } from "../../screen/doc.js";
 import { confirmDoc, initialConfirmState } from "../../screen/ask/confirm.js";
-import { agentsAnswered, syncAsk } from "./setup-records.js";
+import { agentsAnswered, syncAsk } from "./samples/setup-records.js";
 
 /**
  * The agents answered as one line, and the sync question beneath it (board

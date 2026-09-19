@@ -12,7 +12,7 @@
  * not use the success envelope.
  */
 
-export type MachineOutputClass = "formatter-help" | "structured-result";
+export type MachineOutputClass = "formatter-help" | "structured-result" | "json-refused";
 export type HumanOutputKind = "orientation" | "query" | "mutation" | "mixed";
 export type LivenessClass = "immediate" | "progress";
 
@@ -199,27 +199,32 @@ const logoutFamily = defineResultFamily({
   commandCoverage: ["apps/cli/src/root/auth/logout.test.ts"],
 });
 
-const tokenFamily = defineResultFamily({
-  id: "token-read",
-  schemaNames: ["TokenDocumentSchema"],
-  requiredTopLevelKeys: ["data"],
-  scenarios: ["authenticated", "auth failure"],
-  rationale:
-    "The token is an explicitly requested secret-bearing result and the sole secret exception.",
-  liveness: "immediate",
-  commandCoverage: ["apps/cli/src/root/auth/token.test.ts"],
-});
-
-const tokenCreateFamily = defineResultFamily({
-  id: "token-create",
-  schemaNames: ["CreatedTokenDocumentSchema"],
-  requiredTopLevelKeys: ["result", "data"],
-  scenarios: ["created", "step-up authentication", "auth failure"],
-  rationale:
-    "Token creation intentionally returns the newly created token once alongside the remote transition.",
-  humanOutputKind: "mutation",
-  commandCoverage: ["apps/cli/src/root/auth/token.test.ts"],
-});
+/**
+ * Credential export writes only a raw token to stdout. `--json` is refused
+ * before any credential is resolved or created, so the only machine document
+ * these paths produce is the usage error.
+ */
+const credentialExportFamily = (id: string, humanOutputKind: HumanOutputKind) =>
+  ({
+    id,
+    outputClass: "json-refused",
+    humanOutputKind,
+    liveness: "immediate",
+    livenessCoverage: ["apps/cli/src/root/auth/token.test.ts"],
+    schemaNames: ["JsonErrorEnvelopeSchema"],
+    requiredEnvelopeKeys: ["ok", "code", "title", "detail"],
+    requiredTopLevelKeys: ["ok", "code", "title", "detail"],
+    optionalTopLevelKeys: ["suggestions"],
+    scenarios: ["--json refused as usage before any credential effect"],
+    rationale:
+      "No JSON success document may carry a secret; `--output token` is the explicit export channel.",
+    centralizedCoverage: ["apps/cli/src/machine-output-contracts.test.ts"],
+    commandCoverage: [
+      "apps/cli/src/root/auth/token.test.ts",
+      "apps/cli-e2e/src/cli-commands/auth/token/token.e2e.ts",
+    ],
+    documentation: ["docs/architecture/commands/output.md"],
+  }) satisfies MachineOutputFamily;
 
 const tokenListFamily = defineResultFamily({
   id: "token-list",
@@ -583,6 +588,20 @@ const lifecycleTransitionFamily = defineResultFamily({
   ],
 });
 
+const archivalTransitionFamily = defineResultFamily({
+  id: "archival-transition",
+  schemaNames: ["ArchivalTransitionOutputSchema"],
+  requiredTopLevelKeys: ["target", "before", "after", "disposition", "revision"],
+  scenarios: ["created", "edited", "restored", "unchanged", "stale revision"],
+  rationale:
+    "Archival administration reports the authoritative conditional Registry transition without a local workspace artifact.",
+  humanOutputKind: "mutation",
+  commandCoverage: [
+    "packages/core/workspace/src/publishing/archival/archives-at-the-observed-revision.spec.ts",
+    "packages/core/workspace/src/publishing/archival/unarchives-at-the-observed-revision.spec.ts",
+  ],
+});
+
 const formatterPaths = [
   "axm",
   "axm agents",
@@ -685,13 +704,14 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
   ...rowsFor(helpFamily, ["axm knowledge concepts"]),
   ...rowsFor(planFamily, planPaths),
   ...rowsFor(lifecycleTransitionFamily, ["axm deprecate", "axm undeprecate"]),
+  ...rowsFor(archivalTransitionFamily, ["axm archive", "axm unarchive"]),
   ...rowsFor(publishFamily, publishPaths),
   ...rowsFor(agentsListFamily, ["axm agents list"]),
   ...rowsFor(agentCapabilitiesFamily, ["axm agents capabilities"]),
   ...rowsFor(loginFamily, ["axm login"]),
   ...rowsFor(logoutFamily, ["axm logout"]),
-  ...rowsFor(tokenFamily, ["axm token"]),
-  ...rowsFor(tokenCreateFamily, ["axm token create"]),
+  ...rowsFor(credentialExportFamily("token-read", "query"), ["axm token"]),
+  ...rowsFor(credentialExportFamily("token-create", "mutation"), ["axm token create"]),
   ...rowsFor(tokenListFamily, ["axm token list"]),
   ...rowsFor(tokenRevokeFamily, ["axm token revoke"]),
   ...rowsFor(whoamiFamily, ["axm whoami"]),

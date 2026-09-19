@@ -147,6 +147,7 @@ const writeRegistrySubagent = ({
         type: "subagent",
         name,
         publisherBindingId,
+        archival: null,
         deprecation: null,
         versions: entries,
       },

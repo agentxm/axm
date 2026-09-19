@@ -408,6 +408,8 @@
       "requirements": [
         "cli/yank/submits-the-requested-version-selection",
         "cli/unyank/requires-an-exact-version",
+        "cli/archive/archives-at-the-observed-revision",
+        "cli/unarchive/restores-at-the-observed-revision",
         "cli/deprecate/updates-guidance-at-the-observed-revision",
         "cli/undeprecate/removes-guidance-at-the-observed-revision",
         "cli/registry-management-preserves-authentication-failures"
@@ -417,7 +419,8 @@
     "deprecation-read": {
       "requirements": [
         "cli/list/ordinary-inventory-identifies-deprecation",
-        "cli/view/reports-deprecation-and-replacement-availability"
+        "cli/view/reports-deprecation-and-replacement-availability",
+        "cli/view/reports-archival-and-effective-lifecycle-state"
       ],
       "when": "Existing deprecation guidance and replacement availability; explicit selected states only."
     },

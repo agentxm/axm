@@ -103,6 +103,7 @@ const makeIndex = (overrides?: TestIndexOverrides): ExtensionIndex => ({
   owner: handle(overrides?.owner ?? "@test"),
   type: "skill",
   publisherBindingId: overrides?.publisherBindingId ?? "hbnd_test",
+  archival: null,
   deprecation: null,
   versions: overrides?.versions ?? [makeVersionEntry()],
   ...(overrides?.type === undefined ? {} : { type: overrides.type }),
@@ -1636,6 +1637,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
                       type: "skill",
                       name: "my-skill",
                       latestVersion: "1.0.0",
+                      archival: null,
                       deprecation: null,
                     },
                   ],
@@ -1657,6 +1659,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
                       type: "skill",
                       name: "my-skill",
                       latestVersion: "1.0.0",
+                      archival: null,
                       deprecation: null,
                     },
                   ],
@@ -1680,6 +1683,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
                   type: "skill",
                   name: "my-skill",
                   publisher_binding_id: "hbnd_test",
+                  archival: null,
                   deprecation: null,
                   versions: [
                     {

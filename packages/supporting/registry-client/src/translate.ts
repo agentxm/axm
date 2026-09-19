@@ -233,6 +233,29 @@ const serverErrorSuggestedAction = (status: number): SuggestedAction | undefined
       }
     : undefined;
 
+/** Lifecycle refusals carry stable problem codes and bounded recovery. */
+const lifecycleSuggestedAction = (problem: ProblemDetails): SuggestedAction | undefined => {
+  if (problem.code === "extension_name_held") {
+    return {
+      description: "Contact support if access to this held extension is required.",
+      url: "https://agentxm.ai/support",
+    };
+  }
+  if (problem.code !== "lifecycle_blocked") return undefined;
+  const reason = getStringField(problem, "reason");
+  if (reason === "archived") {
+    return {
+      description: "Unarchive the extension with axm unarchive, then retry.",
+    };
+  }
+  return reason === "held"
+    ? {
+        description: "Contact support if access to this held extension is required.",
+        url: "https://agentxm.ai/support",
+      }
+    : undefined;
+};
+
 const problemSuggestions = (
   status: number,
   problem: ProblemDetails,
@@ -241,10 +264,12 @@ const problemSuggestions = (
   const body = problem;
   const retry = retryAfterSuggestedAction(status, body, response);
   const forbidden = status === 403 ? forbiddenSuggestedAction(body) : undefined;
+  const lifecycle = lifecycleSuggestedAction(body);
   const serverError = serverErrorSuggestedAction(status);
   return [
     ...(retry === undefined ? [] : [retry]),
     ...(forbidden === undefined ? [] : [forbidden]),
+    ...(lifecycle === undefined ? [] : [lifecycle]),
     ...(serverError === undefined ? [] : [serverError]),
     ...(status === 422 && problem.code === "extension_lint_failed"
       ? lintFailedSuggestions(body)

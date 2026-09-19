@@ -20,7 +20,7 @@ export const specification = defineSpecification({
   requirement: "cli/login/resumes-approved-authorization",
   title: "Approved device sign-in establishes the selected Registry session",
   statement:
-    "When a pending device authorization is approved, login --wait shall save the issued credentials for its Registry, clear the pending authorization, and make that session available to subsequent commands.",
+    "When a pending device authorization is approved, a bounded device sign-in wait (login --wait-for-human) shall save the issued credentials for its Registry, clear the pending authorization, and make that session available to subsequent commands.",
   class: "functional",
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],

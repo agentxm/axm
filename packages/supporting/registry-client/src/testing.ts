@@ -304,6 +304,7 @@ export const makeFileRegistry = (options: { readonly root?: string } = {}): File
           type,
           name,
           publisherBindingId: "hbnd_test",
+          archival: null,
           deprecation: null,
           versions: newestFirst(versions),
         },

@@ -51,7 +51,13 @@ export {
   type MachineOutputDocumentKind,
 } from "./machine-output-document.js";
 export { EffectCliExit, effectCliExit, isEffectCliExit } from "./effect-cli-exit.js";
-export { resolveFormatFromArgv, resolveFormat } from "./resolve-format.js";
+export {
+  hasExplicitJsonFlag,
+  optionArgs,
+  outputSelectorsFromArgv,
+  resolveFormatFromArgv,
+  resolveFormat,
+} from "./resolve-format.js";
 export { handleError, classifyError, type ErrorClassification } from "./handle-error.js";
 export { withGracefulShutdown } from "./graceful-shutdown.js";
 export {

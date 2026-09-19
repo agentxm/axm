@@ -176,6 +176,7 @@ export const makeLifecycleRegistry = (): LifecycleRegistry => {
       type: args.type,
       name: args.name,
       publisherBindingId: "hbnd_test",
+      archival: null,
       deprecation: null,
       versions: newestFirst(entries),
     });

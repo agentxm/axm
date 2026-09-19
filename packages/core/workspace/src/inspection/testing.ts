@@ -238,6 +238,7 @@ export type InspectionFixture = ReturnType<typeof makeInspectionFixture>;
 /** A published skill index, as the Registry returns it. */
 export interface PublishedSkillIndex {
   readonly versions: ReadonlyArray<{ readonly version: string; readonly published: string }>;
+  readonly archival?: unknown;
   readonly deprecation?: unknown;
 }
 
@@ -248,6 +249,7 @@ export const publishedSkillIndex = (index: PublishedSkillIndex): unknown => ({
   description: "Review guidance",
   publisher_binding_id: "hbnd_inspection_fixture",
   visibility: "public",
+  archival: index.archival ?? null,
   deprecation: index.deprecation ?? null,
   versions: index.versions.map((entry) => ({ ...entry, integrity: "sha512-AAAA==" })),
 });

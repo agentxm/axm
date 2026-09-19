@@ -184,7 +184,7 @@
       "Routing description, workflow, authority, or handoff changes",
       "Supported extension-type or lifecycle-command changes",
       "CLI help, output, compatibility, scope, or workspace-state changes",
-      "Registry, credential, publish, deprecate, yank, or upgrade behavior changes",
+      "Registry, credential, publish, archive, unarchive, deprecate, yank, or upgrade behavior changes",
       "MCP configuration or projection behavior changes",
       "Active catalog, host, model, runner, adapter, grader, or case changes",
       "Confirmed routing, execution, safety, or recovery failure"

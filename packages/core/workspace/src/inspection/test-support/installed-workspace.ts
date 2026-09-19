@@ -183,6 +183,7 @@ export const makeFileRegistry = (sourceName = "test"): FileRegistry => {
           type,
           name,
           publisherBindingId: "hbnd_inspection_fixture",
+          archival: null,
           deprecation: null,
           versions: newestFirst(entries),
         },

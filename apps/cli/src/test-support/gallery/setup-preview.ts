@@ -1,6 +1,6 @@
 import type { Doc } from "../../screen/doc.js";
 import { setupPlanDoc, setupResultDoc } from "../../root/setup/view.js";
-import { previewOutcome, setupOpening, syncedPlan } from "./setup-records.js";
+import { previewOutcome, setupOpening, syncedPlan } from "./samples/setup-records.js";
 
 /**
  * `axm setup --preview`: the same title and plan ledger an interactive setup

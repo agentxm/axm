@@ -223,7 +223,7 @@ axm login                   # Sign in to the default registry
 axm login --device-code     # Sign in from SSH or a headless machine
 axm whoami                  # Show the current identity
 axm logout
-axm token                   # Print the current token (for scripting)
+axm token --output token    # Write only the current token to stdout
 ```
 
 `axm login` starts a local loopback PKCE flow, prints a manual authorization
@@ -232,7 +232,13 @@ use device-code sign-in; pass `--device-code` to select that flow explicitly.
 Device-code sign-in opens a complete authorization link when possible and also
 shows the clean fallback page plus the one-time code. Retrying the command
 reuses the same unexpired request; use `--restart` only when you intentionally
-want to replace it. Never enter a code that another person or website gave you.
+want to replace it. `axm login --device-code --wait-for-human 300` starts or
+reuses the request and waits up to 300 seconds in the same command; a bounded
+wait always uses device-code sign-in. Never enter
+a code that another person or website gave you.
+
+`axm token create --output token` writes only a new token to stdout for a
+pipe; `axm help environment` shows a guarded recipe for storing it.
 
 ## Supported agents
 

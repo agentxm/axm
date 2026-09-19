@@ -404,6 +404,7 @@ const indexToManifest = (
     version: ver.version,
     integrity: ver.integrity,
     packages: packagesToPackageUrlParts(ver.packages),
+    ...(index.archival === null ? {} : { archival: index.archival }),
     ...(index.deprecation === null ? {} : { deprecation: index.deprecation }),
     ...(lifecycleWarnings.length === 0 ? {} : { lifecycleWarnings }),
   } satisfies RegistryExtensionManifest);
@@ -1039,6 +1040,7 @@ export const createLocalRegistryClient = (
                 type: args.type,
                 publisherBindingId: `hbnd_local_${globalThis.crypto.randomUUID()}`,
                 visibility: resolvedVisibility.value,
+                archival: null,
                 deprecation: null,
                 versions: [args.metadata],
               } satisfies ExtensionIndex);

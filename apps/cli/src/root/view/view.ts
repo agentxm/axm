@@ -5,6 +5,7 @@ import {
   parseExtensionFqnParts,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
+import type { ArchivalView } from "@agentxm/extension-model/unstable/extensions/archival";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type { ViewDocument } from "@agentxm/workspace/inspection";
 
@@ -35,8 +36,19 @@ const identityAside = (data: ViewDocument): ReadonlyArray<SummaryPart> =>
   factParts([
     extensionTypeText(data.type),
     [dim(data.visibility)],
-    data.deprecation === null ? [dim("active")] : [{ text: "deprecated", tone: "warn" }],
+    data.lifecycleState === "active"
+      ? [dim("active")]
+      : [{ text: data.lifecycleState, tone: "warn" }],
   ]);
+
+const archivedOn = (archival: ArchivalView): string =>
+  `Archived on ${DateTime.format(archival.archivedAt, {
+    locale: "en-GB",
+    timeZone: "UTC",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  })}`;
 
 const deprecatedOn = (deprecation: DeprecationView): string =>
   `Deprecated on ${DateTime.format(deprecation.deprecatedAt, {
@@ -91,6 +103,7 @@ const nextAction = (data: ViewDocument): SuggestedAction => {
  * and the one command worth copying.
  */
 export const viewPageDoc = (data: ViewDocument): Doc => {
+  const archival = data.archival;
   const deprecation = data.deprecation;
   const replacement = deprecation === null ? undefined : replacementText(deprecation);
   const fields: ReadonlyArray<Field> = [
@@ -109,6 +122,18 @@ export const viewPageDoc = (data: ViewDocument): Doc => {
     ...(data.description === undefined || data.description.length === 0
       ? []
       : [{ _tag: "paragraph", text: data.description } as const]),
+    ...(archival === null
+      ? []
+      : [
+          {
+            _tag: "callout",
+            tone: "warn",
+            title: archivedOn(archival),
+            ...(archival.reason === undefined
+              ? {}
+              : { children: [{ _tag: "paragraph", text: archival.reason } as const] }),
+          } as const,
+        ]),
     ...(deprecation === null
       ? []
       : [

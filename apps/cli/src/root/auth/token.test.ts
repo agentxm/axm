@@ -99,7 +99,7 @@ describe("auth token handler", () => {
     const { provide } = makeLayers();
     return provide(
       Effect.gen(function* () {
-        const result = yield* handleToken().pipe(
+        const result = yield* handleToken({ output: "token" }).pipe(
           Effect.catchTag("AppError", (e) =>
             Effect.succeed({
               error: true,
@@ -117,7 +117,7 @@ describe("auth token handler", () => {
     const { provide } = makeLayers({ allowsPersistedCredentials: false });
     return provide(
       Effect.gen(function* () {
-        const result = yield* handleToken().pipe(
+        const result = yield* handleToken({ output: "token" }).pipe(
           Effect.catchTag("AppError", (e) =>
             Effect.succeed({
               error: true,
@@ -136,35 +136,27 @@ describe("auth token handler", () => {
     );
   });
 
-  it.effect("outputs token from credential store to stdout", () => {
-    const { provide, rendererState } = makeLayers({ hasCredentials: true });
+  it.effect("shows the token in an interactive terminal without an output mode", () => {
+    const { provide, rendererState } = makeLayers({ hasCredentials: true, nonInteractive: false });
 
     return provide(
       Effect.gen(function* () {
-        yield* handleToken();
-        expect(rendererState.logs).toContainEqual({
-          _tag: "message",
-          message: "axm_ses_mytoken\n",
-        });
+        yield* handleToken({});
+        expect(rendererState.credentials).toEqual(["axm_ses_mytoken\n"]);
+        expect(rendererState.logs).toEqual([]);
       }),
     );
   });
 
-  it.effect("outputs structured JSON when --json is explicitly requested", () => {
-    const { provide, rendererState } = makeLayers({
-      hasCredentials: true,
-      machine: true,
-      json: true,
-    });
+  it.effect("refuses JSON token output before resolving a credential", () => {
+    const { provide, rendererState } = makeLayers({ machine: true, json: true });
 
     return provide(
       Effect.gen(function* () {
-        yield* handleToken();
-        expect(rendererState.results).toHaveLength(1);
-        expect(rendererState.results[0]?.data).toMatchObject({
-          data: { token: "axm_ses_mytoken" },
-        });
-        expectNoPlanEnvelope(rendererState.results[0]?.data);
+        const failure = yield* handleToken({}).pipe(Effect.flip);
+        expect(failure).toMatchObject({ code: "usage" });
+        expect(rendererState.credentials).toEqual([]);
+        expect(rendererState.results).toEqual([]);
       }),
     );
   });
@@ -175,11 +167,8 @@ describe("auth token handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleToken();
-        expect(rendererState.logs).toContainEqual({
-          _tag: "message",
-          message: "axm_env_test_token\n",
-        });
+        yield* handleToken({ output: "token" });
+        expect(rendererState.credentials).toEqual(["axm_env_test_token\n"]);
       }),
     );
   });
@@ -197,6 +186,7 @@ describe("auth token handler", () => {
   it.effect("shows the issued token with list and revoke guidance", () => {
     const { provide, rendererState } = makeLayers({
       hasCredentials: true,
+      nonInteractive: false,
       authOverrides: {
         createToken: (params) => {
           return Effect.succeed({
@@ -311,7 +301,7 @@ describe("auth token handler", () => {
     );
   });
 
-  it.effect("emits create token suggestions in machine mode", () => {
+  it.effect("writes only the new token to stdout and its metadata to stderr", () => {
     const { provide, rendererState } = makeLayers({
       hasCredentials: true,
       machine: true,
@@ -341,27 +331,20 @@ describe("auth token handler", () => {
           owners: [],
           extensions: [],
           permission: "read",
+          output: "token",
         });
 
-        const result = expectRecord(
-          property(expectRecord(rendererState.results[0]?.data), "result"),
-        );
-        expect(rendererState.results[0]?.data).toMatchObject({
-          data: {
-            id: "token_123",
-            token: "axmt_created",
-          },
-        });
-        expect(result).toMatchObject({
-          status: "created",
-          tokenId: "token_123",
-          name: "ci",
-        });
+        expect(rendererState.credentials).toEqual(["axmt_created\n"]);
+        expect(rendererState.results).toEqual([]);
         expect(rendererState.details).toEqual([]);
-        expect(rendererState.suggestions).toEqual([
-          { description: "List tokens", cmd: "axm token list" },
-          { description: "Revoke this token", cmd: "axm token revoke token_123" },
-        ]);
+        const stderr = rendererState.docs
+          .filter((entry) => entry.channel === "stderr")
+          .map((entry) => JSON.stringify(entry.doc))
+          .join("\n");
+        expect(stderr).toContain("token_123");
+        expect(stderr).toContain('\\"ci\\"');
+        expect(stderr).toContain("2026-06-14");
+        expect(stderr).not.toContain("axmt_created");
       }),
     );
   });

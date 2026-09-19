@@ -3,6 +3,7 @@
 import { appendFileSync } from "node:fs";
 import * as Effect from "effect/Effect";
 
+import { validateRunnerCommandFile } from "./classify-ci-changes.js";
 import { validateReleasePreparationSource } from "./release-preflight.js";
 import { requireInitializedNpmPackages } from "./release-publication.js";
 import {
@@ -19,7 +20,7 @@ const sourceSha =
   process.env["AXM_RELEASE_SOURCE_SHA"] ??
   fail("AXM_RELEASE_SOURCE_SHA must name the exact main commit to prepare.");
 const outputPath =
-  process.env["GITHUB_OUTPUT"] ??
+  validateRunnerCommandFile(process.env["GITHUB_OUTPUT"], process.env["RUNNER_TEMP"]) ??
   fail("GITHUB_OUTPUT is required when resolving a release preparation source.");
 
 requireCleanWorkingTree();

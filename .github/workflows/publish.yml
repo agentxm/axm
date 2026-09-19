@@ -242,7 +242,7 @@ jobs:
           pnpm exec nx run axm:download-ci-artifacts --outputStyle=static -- "${args[@]}"
 
       - name: Generate release checksums
-        run: pnpm exec nx run axm:generate-release-checksums --outputStyle=static -- release-assets
+        run: pnpm exec nx run axm:generate-release-checksums --outputStyle=static
 
       - name: Validate release asset set
         run: pnpm exec nx run axm:validate-release-assets --outputStyle=static -- release-assets

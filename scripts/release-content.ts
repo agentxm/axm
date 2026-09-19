@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { EXPECTED_CONTENT_ASSETS, validateReleaseContentAssets } from "./release-checksums.js";
 
 export const RELEASE_CONTENT_ARTIFACT_PREFIX = "axm-release-content";
+const RELEASE_CONTENT_DIRECTORY = "release-content";
 
 export const RELEASE_CONTENT_SOURCES = {
   "install.sh": "apps/cli/site-content/install.sh",
@@ -39,13 +40,9 @@ export const produceReleaseContent = (sourceRoot: string, outputDirectory: strin
 
 const entryPath = process.argv[1];
 if (entryPath !== undefined && resolve(entryPath) === resolve(fileURLToPath(import.meta.url))) {
-  const outputDirectory = process.argv[2];
-  if (outputDirectory === undefined) {
-    throw new Error("Usage: release-content.ts <output-directory>");
-  }
   const repositoryRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
-  produceReleaseContent(repositoryRoot, resolve(outputDirectory));
+  produceReleaseContent(repositoryRoot, RELEASE_CONTENT_DIRECTORY);
   console.log(
-    `Produced ${String(EXPECTED_CONTENT_ASSETS.length)} release content assets in ${resolve(outputDirectory)}`,
+    `Produced ${String(EXPECTED_CONTENT_ASSETS.length)} release content assets in ${resolve(RELEASE_CONTENT_DIRECTORY)}`,
   );
 }

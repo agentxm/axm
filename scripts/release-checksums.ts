@@ -31,6 +31,7 @@ export const EXPECTED_CONTENT_ASSETS = [
 ] as const;
 
 export const CHECKSUM_MANIFEST = "SHA256SUMS";
+const RELEASE_ASSET_DIRECTORY = "release-assets";
 export const EXPECTED_RELEASE_ASSETS = [
   ...EXPECTED_BINARY_ASSETS,
   ...EXPECTED_CONTENT_ASSETS,
@@ -117,9 +118,9 @@ export const validateReleaseContentAssets = (
   directory: string,
 ): { readonly contentCount: number } => {
   requireAssets(directory, EXPECTED_CONTENT_ASSETS);
-  const actualFiles = readdirSync(directory).filter((name) =>
-    statSync(join(directory, name)).isFile(),
-  );
+  const actualFiles = readdirSync(directory, { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => entry.name);
   const expectedFiles: ReadonlySet<string> = new Set(EXPECTED_CONTENT_ASSETS);
   const unexpected = actualFiles.filter((name) => !expectedFiles.has(name));
   if (unexpected.length > 0) {
@@ -142,9 +143,9 @@ export const validateReleaseAssets = (
 } => {
   const binary = validateBinaryReleaseAssets(directory);
   requireAssets(directory, EXPECTED_CONTENT_ASSETS);
-  const actualFiles = readdirSync(directory).filter((name) =>
-    statSync(join(directory, name)).isFile(),
-  );
+  const actualFiles = readdirSync(directory, { withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => entry.name);
   const expectedFiles: ReadonlySet<string> = new Set(EXPECTED_RELEASE_ASSETS);
   const unexpected = actualFiles.filter((name) => !expectedFiles.has(name));
   if (unexpected.length > 0) {
@@ -164,14 +165,13 @@ export const validateReleaseAssets = (
 
 const main = (): void => {
   const command = process.argv[2];
-  const directory = process.argv[3];
-  if ((command !== "generate" && command !== "validate") || directory === undefined) {
-    throw new Error("Usage: release-checksums.ts <generate|validate> <asset-directory>");
+  if (command !== "generate" && command !== "validate") {
+    throw new Error("Usage: release-checksums.ts <generate|validate>");
   }
-  if (command === "generate") generateReleaseChecksums(directory);
-  const result = validateReleaseAssets(directory);
+  if (command === "generate") generateReleaseChecksums(RELEASE_ASSET_DIRECTORY);
+  const result = validateReleaseAssets(RELEASE_ASSET_DIRECTORY);
   console.log(
-    `Validated ${String(result.binaryCount)} binaries, ${String(result.contentCount)} content assets, and ${CHECKSUM_MANIFEST} in ${directory}`,
+    `Validated ${String(result.binaryCount)} binaries, ${String(result.contentCount)} content assets, and ${CHECKSUM_MANIFEST} in ${RELEASE_ASSET_DIRECTORY}`,
   );
 };
 

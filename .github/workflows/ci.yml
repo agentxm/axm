@@ -644,9 +644,7 @@ jobs:
         uses: ./.github/actions/setup-workspace
 
       - name: Produce exact installers and published schemas
-        run: >-
-          pnpm exec nx run axm:produce-release-content --outputStyle=static --
-          release-content
+        run: pnpm exec nx run axm:produce-release-content --outputStyle=static
 
       - name: Upload exact release content
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

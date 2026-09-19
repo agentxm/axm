@@ -96,7 +96,7 @@ describe("Sync realizes desired workspace state", () => {
             settings: {
               ...settings,
               [settingsKey]: {
-                [name]: { source: `agentxm:@acme/${segment}/${name}@^1.0.0`, enabled },
+                [name]: { source: `test:@acme/${segment}/${name}@^1.0.0`, enabled },
               },
             },
           });
@@ -135,7 +135,7 @@ describe("Sync realizes desired workspace state", () => {
         settings: {
           ...base,
           skills: {
-            retained: "agentxm:@acme/skills/retained@^1.0.0",
+            retained: "test:@acme/skills/retained@^1.0.0",
           },
         },
       });
@@ -150,8 +150,8 @@ describe("Sync realizes desired workspace state", () => {
             workspace.writeSettings({
               ...base,
               skills: {
-                retained: "agentxm:@acme/skills/retained@^2.0.0",
-                ready: "agentxm:@acme/skills/ready@^1.0.0",
+                retained: "test:@acme/skills/retained@^2.0.0",
+                ready: "test:@acme/skills/ready@^1.0.0",
               },
             });
             const settings = workspace.readFile("axm.json");
@@ -270,7 +270,7 @@ describe("Sync realizes desired workspace state", () => {
         owner: "@acme",
         agents: ["claude-code"],
         sources: [registry.source],
-        skills: { [SKILL]: `agentxm:@acme/skills/${SKILL}` },
+        skills: { [SKILL]: `test:@acme/skills/${SKILL}` },
       },
     });
     cleanups.push(workspace.cleanup);

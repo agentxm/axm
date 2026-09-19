@@ -39,7 +39,8 @@ const CANONICAL_REFERENCE = `agent_extensions/registry/${OWNER}/knowledge/${KNOW
 const configureRegistry = (settingsPath: string, registryPath: string) => {
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
   settings.owner = OWNER;
-  settings.sources = [{ name: "agentxm", type: "registry", location: `file://${registryPath}` }];
+  settings.defaultRegistry = "test";
+  settings.sources = [{ name: "test", type: "registry", location: `file://${registryPath}` }];
   fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
 };
 

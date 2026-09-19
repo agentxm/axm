@@ -8,8 +8,11 @@
  */
 
 import { spawn } from "node:child_process";
+import * as fs from "node:fs";
 import * as http from "node:http";
+import * as path from "node:path";
 import { fileURLToPath } from "node:url";
+import { writeDefaultRegistrySettings } from "./utils.js";
 
 const cliPath = fileURLToPath(new URL("../../../cli/dist/src/main.js", import.meta.url));
 
@@ -77,18 +80,24 @@ export const interruptOnFirstRegistryRequest = async (
   if (address === null || typeof address === "string") {
     throw new Error("HTTP interruption fixture did not bind a TCP port");
   }
+  const settingsPath = path.join(options.cwd, "axm.json");
+  const originalSettings = fs.existsSync(settingsPath)
+    ? fs.readFileSync(settingsPath, "utf8")
+    : undefined;
   try {
+    writeDefaultRegistrySettings(settingsPath, `http://127.0.0.1:${address.port}`);
     return await runCliUntil(args, {
       cwd: options.cwd,
       userHome: options.userHome,
-      env: {
-        AXM_REGISTRY_LOCATION: `http://127.0.0.1:${address.port}`,
-        AXM_REGISTRY_URL: `http://127.0.0.1:${address.port}`,
-      },
       signalWhen: registryRequest.promise,
       signal: "SIGINT",
     });
   } finally {
+    if (originalSettings === undefined) {
+      fs.rmSync(settingsPath, { force: true });
+    } else {
+      fs.writeFileSync(settingsPath, originalSettings);
+    }
     server.closeAllConnections();
     await new Promise<void>((resolve, reject) =>
       server.close((error) => (error === undefined ? resolve() : reject(error))),

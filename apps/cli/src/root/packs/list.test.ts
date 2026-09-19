@@ -38,8 +38,8 @@ const initWorkspace = (axmDir: string, lockfilePacks: Record<string, unknown> = 
     const owner = Reflect.get(value, "owner");
     const version = Reflect.get(value, "resolvedVersion");
     if (typeof owner !== "string" || typeof version !== "string") continue;
-    packs[name] = `agentxm:${owner}/packs/${name}`;
-    const packDir = path.join(projectRoot, "agent_extensions", "agentxm", owner, "packs", name);
+    packs[name] = `test:${owner}/packs/${name}`;
+    const packDir = path.join(projectRoot, "agent_extensions", "test", owner, "packs", name);
     fs.mkdirSync(packDir, { recursive: true });
     const manifest = { owner, type: "pack" as const, name, version, dependencies: {} };
     fs.writeFileSync(path.join(packDir, "pack.json"), JSON.stringify(manifest));
@@ -60,7 +60,7 @@ const makePackLockEntry = (overrides: Partial<Record<string, unknown>> = {}) => 
   name: "starter-pack",
   resolvedVersion: "1.0.0",
   integrity: "sha512-AAAA==",
-  sourceName: "agentxm",
+  sourceName: "test",
   publisherBindingId: "hbnd_test",
   ...overrides,
 });
@@ -131,7 +131,7 @@ describe("packs list.handler", () => {
                 "configured",
                 "@acme",
                 "1.0.0",
-                "agentxm:@acme/packs/starter-pack",
+                "test:@acme/packs/starter-pack",
               ]),
             }),
             expect.objectContaining({
@@ -140,7 +140,7 @@ describe("packs list.handler", () => {
                 "configured",
                 "@team",
                 "2.3.1",
-                "agentxm:@team/packs/frontend-tools",
+                "test:@team/packs/frontend-tools",
               ]),
             }),
           ]),
@@ -185,7 +185,7 @@ describe("packs list.handler", () => {
               enabled: true,
               owner: "@acme",
               version: "1.0.0",
-              source: "agentxm:@acme/packs/starter-pack",
+              source: "test:@acme/packs/starter-pack",
               classification: { kind: "lifecycle", lifecycle: "configured" },
             },
           ],

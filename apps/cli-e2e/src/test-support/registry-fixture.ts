@@ -318,7 +318,7 @@ export const makeSpecRegistry = (workspace?: SpecWorkspaceInput): SpecRegistry =
   return {
     root,
     files,
-    source: { name: "agentxm", type: "registry", location: `file://${root}` },
+    source: { name: "test", type: "registry", location: `file://${root}` },
     writeSkill,
     writeMcp,
     writePack,

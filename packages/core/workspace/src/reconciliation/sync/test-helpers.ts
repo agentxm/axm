@@ -59,6 +59,7 @@ import {
   WorkspaceInvariantFactsLive,
 } from "../../projection/live.js";
 import { layer as WorkspaceLayerLive } from "../../desired-state/live.js";
+import { withTestRegistryDefault } from "../../desired-state/testing.js";
 import { makeFileRegistry, type FileRegistry } from "@agentxm/registry-client/testing";
 
 import { SyncStepFailureConversionTest } from "./testing.js";
@@ -133,7 +134,7 @@ export const makeSyncFixture = (options: SyncFixtureOptions = {}) => {
   const writeSettings = (settings: Readonly<Record<string, unknown>>): void => {
     fs.writeFileSync(
       nodePath.join(workspaceRoot, "axm.json"),
-      `${JSON.stringify({ agents: [], ...settings }, null, 2)}\n`,
+      `${JSON.stringify({ agents: [], ...withTestRegistryDefault(settings) }, null, 2)}\n`,
     );
   };
 

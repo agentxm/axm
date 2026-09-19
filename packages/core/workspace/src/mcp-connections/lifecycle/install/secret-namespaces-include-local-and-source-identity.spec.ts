@@ -113,7 +113,12 @@ const resetWorkspaceAuthority = (world: InstallWorld): void => {
   world.workspace.writeFile(
     "axm.json",
     JSON.stringify(
-      { owner: "@acme", agents: ["claude-code"], sources: [world.registry.source] },
+      {
+        owner: "@acme",
+        agents: ["claude-code"],
+        defaultRegistry: "test",
+        sources: [world.registry.source],
+      },
       null,
       2,
     ),

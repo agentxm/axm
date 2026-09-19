@@ -288,12 +288,11 @@
     },
     "registry-target": {
       "requirements": [
-        "cli/environment-selects-built-in-extension-source",
-        "cli/environment-selects-registry-services",
+        "cli/settings-select-default-registry",
         "cli/publication-uses-explicit-registry-target",
         "cli/credentials-stay-with-their-registry"
       ],
-      "when": "Built-in extension source, Registry service target, explicit publication target and credential origin are separate conditional choices; this review adds no combined-selector precedence.",
+      "when": "The effective default Registry governs unqualified resolution and authentication; explicit publication targets and credential-origin isolation remain separate conditional choices.",
       "openTopics": ["command:publish-registry-selection", "command:publish-url-selection"]
     },
     "scope": {

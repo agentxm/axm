@@ -45,6 +45,7 @@ import {
 } from "../projection/live.js";
 import type { WorkspaceStateError } from "../desired-state/index.js";
 import { WorkspaceStateLive } from "../desired-state/live.js";
+import { withTestRegistryDefault } from "../desired-state/testing.js";
 import { ConfiguredAgentOutcomesProviderTest } from "../desired-state/testing.js";
 
 import { allCatalogRuleIds } from "./catalog/index.js";
@@ -167,7 +168,10 @@ export const makeLintWorkspace = (
     fs.writeFileSync(file, contents);
   };
   const writeSettings = (settings: Readonly<Record<string, unknown>>): void => {
-    writeFile("axm.json", `${JSON.stringify({ agents: [], ...settings }, null, 2)}\n`);
+    writeFile(
+      "axm.json",
+      `${JSON.stringify({ agents: [], ...withTestRegistryDefault(settings) }, null, 2)}\n`,
+    );
   };
 
   writeSettings(options.settings ?? {});

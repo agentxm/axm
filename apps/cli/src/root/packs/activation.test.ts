@@ -41,7 +41,7 @@ const initializePack = (root: string) => {
   writeWorkspaceFiles(axmDir, {
     owner: "@acme",
     agents: ["claude-code"],
-    sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/test-registry" }],
+    sources: [{ type: "registry", name: "test", location: "file:///tmp/test-registry" }],
     packs: { toolkit: "workspace" },
   });
   const packDir = path.join(root, "packs", "toolkit");

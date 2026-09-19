@@ -87,10 +87,10 @@ const declaredSource = (
   }
 };
 
-const sourceNameFromLocator = (locator: string): string => {
-  if (locator.startsWith("@")) return "agentxm";
+const sourceNameFromLocator = (locator: string, defaultRegistry: string): string => {
+  if (locator.startsWith("@")) return defaultRegistry;
   const separator = locator.indexOf(":");
-  return separator > 0 ? locator.slice(0, separator) : "agentxm";
+  return separator > 0 ? locator.slice(0, separator) : defaultRegistry;
 };
 
 const acceptedEndpoint = (source: Lockfile["skills"][string]["source"]): URL =>
@@ -113,7 +113,7 @@ const collectFindings = (
     if (lockedSource.type === "path") continue;
     const locator = declaredSource(settings, type, name);
     if (locator === undefined) continue;
-    const sourceName = sourceNameFromLocator(locator);
+    const sourceName = sourceNameFromLocator(locator, settings.defaultRegistry ?? "agentxm");
     const configured = configuredSources.find((source) => source.name === sourceName);
     if (configured === undefined) continue;
     const endpoint = configuredEndpoint(configured);

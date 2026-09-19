@@ -55,11 +55,12 @@ impact against its affected base. Use the in-flight CLI against another
 workspace only through the
 [source CLI runbook](devops/runbooks/run-source-cli.md).
 
-For testing install, lint, and other default-source behavior, set
-`AXM_REGISTRY_LOCATION` to a file path, `file://` URL, or HTTP(S) URL instead
-of checking custom registry sources into `axm.json`. `axm lint`
-reports workspace findings read-only; `axm lint --fix` performs only
-deterministic, meaning-preserving source or configuration normalization.
+For testing install, lint, and other default-source behavior, configure a named
+Registry in `sources` and select it with `defaultRegistry` in the applicable
+project or isolated user-scope `axm.json`; see the
+[source CLI runbook](devops/runbooks/run-source-cli.md). `axm lint` reports
+workspace findings read-only; `axm lint --fix` performs only deterministic,
+meaning-preserving source or configuration normalization.
 
 ### Releasing
 

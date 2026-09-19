@@ -107,7 +107,8 @@ const writeWorkspace = (root: string, registryUrl: string) => {
       owner: OWNER,
       agents: ["claude-code"],
       minimumReleaseAge: "0s",
-      sources: [{ name: "agentxm", type: "registry", location: registryUrl }],
+      defaultRegistry: "test",
+      sources: [{ name: "test", type: "registry", location: registryUrl }],
     }),
   );
 };

@@ -62,20 +62,14 @@ describe("axm setup", () => {
     it("supports an offline sync preview immediately after setup", async () => {
       const temp = createTempDir();
       try {
-        const setup = await runCli(approvedProjectSetup, {
-          cwd: temp.path,
-          env: { AXM_REGISTRY_URL: "http://127.0.0.1:1" },
-        });
+        const setup = await runCli(approvedProjectSetup, { cwd: temp.path });
         expect(setup.exitCode, `${setup.stderr}\n${setup.stdout}`).toBe(0);
         fs.rmSync(path.join(temp.path, ".claude", "skills", "axm"), {
           recursive: true,
           force: true,
         });
 
-        const preview = await runCli(["sync", "--preview", "--json"], {
-          cwd: temp.path,
-          env: { AXM_REGISTRY_URL: "http://127.0.0.1:1" },
-        });
+        const preview = await runCli(["sync", "--preview", "--json"], { cwd: temp.path });
         expect(preview.exitCode, `${preview.stderr}\n${preview.stdout}`).toBe(0);
         expect(JSON.parse(preview.stdout)).toMatchObject({
           result: { units: [expect.objectContaining({ id: "skill:axm", state: "ready" })] },

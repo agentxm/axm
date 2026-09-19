@@ -63,7 +63,7 @@ describe("Bundled official-skill recovery", () => {
   const registryResolvedWorkspace = () =>
     Effect.gen(function* () {
       const world = makeInstallWorld({
-        settings: { skills: { axm: "agentxm:@agentxm/skills/axm" } },
+        settings: { skills: { axm: "test:@agentxm/skills/axm" } },
       });
       cleanups.push(world.cleanup);
       world.registry.writeSkill("review-helper", [{ version: "1.0.0", body: "Review guidance." }]);

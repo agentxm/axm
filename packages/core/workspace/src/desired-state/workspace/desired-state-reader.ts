@@ -57,7 +57,11 @@ export const makeDesiredStateReader = (
 ): DesiredStateReaderService => {
   const graph: DesiredStateReaderService["graph"] = (options) =>
     Effect.gen(function* () {
-      const current = options?.settings ?? (yield* settings.settings);
+      const selected = options?.settings ?? (yield* settings.settings);
+      const current = {
+        ...selected,
+        defaultRegistry: selected.defaultRegistry ?? (yield* settings.defaultRegistry),
+      };
       const configuredSources = yield* settings.configuredSources;
       const layout = yield* Ref.get(location.layout);
       const registryAccessorities = Object.fromEntries(

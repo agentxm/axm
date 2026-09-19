@@ -40,7 +40,7 @@ export const SPEC_REGISTRY_ENDPOINT = "https://registry.example.com/";
  * The accepted resolution remains self-describing through the Registry URL.
  */
 export const SPEC_REGISTRY_SOURCE = {
-  name: "agentxm",
+  name: "test",
   type: "registry",
   location: SPEC_REGISTRY_ENDPOINT,
 } as const;

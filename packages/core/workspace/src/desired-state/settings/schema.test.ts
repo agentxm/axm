@@ -125,13 +125,15 @@ describe("Settings schema", () => {
     it("accepts settings with all fields", () => {
       const input = {
         owner: "@wayne",
-        sources: [{ name: "agentxm", type: "registry", location: "https://registry.agentxm.ai" }],
+        defaultRegistry: "company",
+        sources: [{ name: "company", type: "registry", location: "https://registry.company.test" }],
         agents: ["claude-code", "cursor"],
         skills: { "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0" },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
       expect(result.owner).toBe("@wayne");
+      expect(result.defaultRegistry).toBe("company");
       expect(result.agents).toEqual(["claude-code", "cursor"]);
       expect(result.skills).toEqual({
         "grappling-hook": {
@@ -139,6 +141,16 @@ describe("Settings schema", () => {
           enabled: true,
         },
       });
+    });
+
+    it("rejects configured sources that shadow a built-in source name", () => {
+      expect(() =>
+        Schema.decodeUnknownSync(SettingsSchema)({
+          sources: [
+            { name: "agentxm", type: "registry", location: "https://registry.example.test" },
+          ],
+        }),
+      ).toThrow(/built-in or reserved source name/);
     });
 
     it("rejects a sourced MCP entry whose FQN names another extension type", () => {

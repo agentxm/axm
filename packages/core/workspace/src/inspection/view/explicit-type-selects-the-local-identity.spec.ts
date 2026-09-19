@@ -53,7 +53,8 @@ const publishedIndex = (args: {
  * requested type's configured identity may answer.
  */
 const configuredBothTypes = {
-  sources: [{ type: "registry", name: "agentxm", location: inspectionRegistryUrl }],
+  defaultRegistry: "test",
+  sources: [{ type: "registry", name: "test", location: inspectionRegistryUrl }],
   skills: { review: "@acme/skills/review" },
   knowledge: { review: "@acme/knowledge/review" },
 };
@@ -105,7 +106,8 @@ describe("Typed local-name lookup", () => {
   it.effect("uses the configured identity despite a receipt recorded for another owner", () => {
     const fixture = makeInspectionFixture({
       settings: {
-        sources: [{ type: "registry", name: "agentxm", location: inspectionRegistryUrl }],
+        defaultRegistry: "test",
+        sources: [{ type: "registry", name: "test", location: inspectionRegistryUrl }],
         skills: { review: "@acme/skills/review" },
       },
       lockfile: {

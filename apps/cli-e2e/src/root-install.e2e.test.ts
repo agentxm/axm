@@ -112,7 +112,8 @@ const extensionDirForSurface = (workspacePath: string, surface: InstallSurface, 
 const configureWorkspaceRegistry = (workspacePath: string, registryPath: string) => {
   const settingsPath = path.join(workspacePath, "axm.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.sources = [{ name: "agentxm", type: "registry", location: `file://${registryPath}` }];
+  settings.defaultRegistry = "test";
+  settings.sources = [{ name: "test", type: "registry", location: `file://${registryPath}` }];
   settings.owner = OWNER;
   settings.minimumReleaseAge = "0s";
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
@@ -777,7 +778,7 @@ describe("axm install", () => {
       const result = await runJsonCommand(
         workspace.path,
         ["install"],
-        [`agentxm:${registryFqn("skills", target)}`],
+        [`test:${registryFqn("skills", target)}`],
       );
 
       expect(result.stdout.result.outcome).toBe("applied");

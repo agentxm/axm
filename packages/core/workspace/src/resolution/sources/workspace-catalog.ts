@@ -76,6 +76,7 @@ export interface WorkspaceCatalogService {
     ReadonlyArray<RegistrySourceHost>,
     WorkspaceCatalogUnavailable
   >;
+  readonly defaultRegistry: Effect.Effect<string, WorkspaceCatalogUnavailable>;
   readonly desiredExtensionGraph: Effect.Effect<
     DesiredExtensionGraphView,
     WorkspaceCatalogUnavailable

@@ -20,7 +20,8 @@ const setupWorkspace = async (tempPath: string, registryPath: string, owner: str
   });
   const settingsPath = path.join(tempPath, "axm.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.sources = [{ name: "agentxm", type: "registry", location: `file://${registryPath}` }];
+  settings.defaultRegistry = "test";
+  settings.sources = [{ name: "test", type: "registry", location: `file://${registryPath}` }];
   settings.owner = owner;
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 };

@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeDirectoryFixture, unattendedProjectSetup } from "./test-support/directory-harness.js";
@@ -71,7 +72,7 @@ describe("Relative paths start in the selected directory", () => {
       fixture.cleanup();
     }
   });
-  it("resolves a relative Registry environment location from the selected directory", async () => {
+  it("uses the Registry selected by settings in the selected directory", async () => {
     const fixture = makeEnvironmentProcessFixture();
     const selectedRegistry = makeSpecRegistry();
     const invokingRegistry = makeSpecRegistry();
@@ -88,19 +89,29 @@ describe("Relative paths start in the selected directory", () => {
       fs.cpSync(invokingRegistry.root, path.join(fixture.invoking, "registry"), {
         recursive: true,
       });
-      fs.writeFileSync(path.join(fixture.selected, "axm.json"), JSON.stringify({ agents: [] }));
-      const before = snapshotWorkspaceContent(fixture.invoking);
-      const result = await fixture.run(
-        [
-          "-C",
-          "../selected",
-          "install",
-          "@acme/skills/environment-directory",
-          "--non-interactive",
-          "--json",
-        ],
-        { AXM_REGISTRY_LOCATION: "./registry" },
+      fs.writeFileSync(
+        path.join(fixture.selected, "axm.json"),
+        JSON.stringify({
+          agents: [],
+          defaultRegistry: "test",
+          sources: [
+            {
+              name: "test",
+              type: "registry",
+              location: pathToFileURL(path.join(fixture.selected, "registry")).href,
+            },
+          ],
+        }),
       );
+      const before = snapshotWorkspaceContent(fixture.invoking);
+      const result = await fixture.run([
+        "-C",
+        "../selected",
+        "install",
+        "@acme/skills/environment-directory",
+        "--non-interactive",
+        "--json",
+      ]);
       expect(result.exitCode, result.stdout + result.stderr).toBe(0);
       const acquired = fs.readFileSync(
         path.join(

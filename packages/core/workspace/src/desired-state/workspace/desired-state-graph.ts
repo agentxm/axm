@@ -226,8 +226,9 @@ const packageIdentity = (identity: string): string =>
 
 const registryLocator = (
   source: string,
+  defaultRegistry = "agentxm",
 ): { readonly sourceName: string; readonly ref: string } | undefined => {
-  if (source.startsWith("@")) return { sourceName: "agentxm", ref: source };
+  if (source.startsWith("@")) return { sourceName: defaultRegistry, ref: source };
   const separator = source.indexOf(":");
   if (separator <= 0) return undefined;
   const ref = source.slice(separator + 1);
@@ -256,7 +257,7 @@ const sourceIdentity = (
       : { identity: `workspace:${settings.owner}/${toExtensionTypePlural(type)}/${name}` };
   }
 
-  const locator = registryLocator(source);
+  const locator = registryLocator(source, settings.defaultRegistry);
   const parsed = locator === undefined ? undefined : parseRegistrySourceRef(locator.ref);
   if (parsed !== undefined && parsed.type === toExtensionTypePlural(type)) {
     const registryAccessority =
@@ -293,7 +294,7 @@ const packIdentity = (
     };
   }
 
-  const locator = registryLocator(source);
+  const locator = registryLocator(source, settings.defaultRegistry);
   const parsed = locator === undefined ? undefined : parseRegistrySourceRef(locator.ref);
   if (parsed !== undefined && parsed.type === "packs") {
     return {
@@ -524,7 +525,10 @@ export const buildDesiredStateGraph = ({
         identity.fqn,
         baseDir,
       );
-      const configuredRegistrySource = registryLocator(entry.source)?.sourceName ?? "agentxm";
+      const configuredRegistrySource =
+        registryLocator(entry.source, settings.defaultRegistry)?.sourceName ??
+        settings.defaultRegistry ??
+        "agentxm";
       if (entry.enabled === false) continue;
 
       const document = manifests.locate({

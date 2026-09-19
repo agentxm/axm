@@ -2586,7 +2586,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary rationale: The publish use case resolves the target against the workspace's configured sources; two real file Registries show the admitted publication landing at the selected destination and the other staying empty.
 - Methods: decision-table, example
 - Derived from: `apps/cli/src/root/publish/command.ts`, `apps/cli/src/root/publish/per-type-command.ts`
-- Open questions: What target or rejection is required when both a configured name and an explicit URL are supplied? The current implementation prefers the URL and retains the supplied name as a label; no public precedence promise was identified.; Which Registry should a publication without either target select? The current implementation takes the first resolved Registry source; this requirement does not establish that default or source-order policy.; Which URL schemes are supported publication targets beyond the existing local Registry and HTTP implementations? No new scheme support or normalization guarantee is established here.
+- Open questions: What target or rejection is required when both a configured name and an explicit URL are supplied? The current implementation prefers the URL and retains the supplied name as a label; no public precedence promise was identified.; Which URL schemes are supported publication targets beyond the existing local Registry and HTTP implementations? No new scheme support or normalization guarantee is established here.
 - Limitation: The examples use local file Registry destinations. HTTP publication capability binding and credential-origin isolation remain separately owned; no live Registry, remote authentication, or server-side storage behavior is established here. Retires when: Retain explicit target selection evidence through each supported target transport without duplicating the credential and publication-capability owners.
 - Source: [`packages/core/workspace/src/publishing/target/publication-uses-explicit-registry-target.spec.ts`](../packages/core/workspace/src/publishing/target/publication-uses-explicit-registry-target.spec.ts)
 
@@ -3975,20 +3975,6 @@ People and agents can find, install, update, and remove reusable extensions acro
 
 #### Functional
 
-##### The environment selects the built-in extension source
-
-- Requirement: `cli/environment-selects-built-in-extension-source`
-- Owner: `cli-e2e`
-- Statement: For extension resolution through the built-in AgentXM source, AXM shall use a non-empty AXM_REGISTRY_LOCATION before the selected Registry service URL while preserving a file source independently from HTTP services.
-- Class: functional
-- Role: interface
-- Product goals: `extension-adoption`, `machine-automation`
-- Boundary: process; selection: per-change
-- Boundary rationale: Fresh built CLI invocations resolve and acquire distinct package bytes from real file Registries and a controlled HTTP origin, so an environment value merely parsed but ignored cannot satisfy the cases.
-- Methods: decision-table, example
-- Derived from: `apps/cli/help/topics/environment.md`, `apps/cli/src/runtime.test.ts`
-- Source: [`apps/cli-e2e/src/environment-selects-built-in-extension-source.spec.ts`](../apps/cli-e2e/src/environment-selects-built-in-extension-source.spec.ts)
-
 ##### Product activity events represent usable outcomes
 
 - Requirement: `cli/telemetry/product-activity-events-represent-usable-outcomes`
@@ -4121,18 +4107,17 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Derived from: `extension-discovery/all-manifest-kinds-from-git-and-path`
 - Source: [`packages/core/workspace/src/resolution/packs-inherit-members-from-one-source-view.spec.ts`](../packages/core/workspace/src/resolution/packs-inherit-members-from-one-source-view.spec.ts)
 
-##### Source locators resolve through a stable grammar and configured hosts
+##### Hosted Git syntax expands to self-describing Git locators
 
 - Requirement: `source-resolution/locator-grammar-is-stable`
 - Owner: `workspace`
-- Statement: A source locator shall resolve through the published grammar to exactly the coordinates it names, a project-defined source shall override a built-in host of the same name, and a locator outside the grammar shall be refused with a typed failure that explains the rejection.
+- Statement: Hosted Git shorthand and browser URLs shall expand to one self-describing Git locator; HTTPS, SSH, Git, and SCP clone addresses shall require no host configuration; registry aliases alone shall remain configured sources.
 - Class: functional
 - Role: interface
 - Product goals: `extension-adoption`, `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, property, example
-- Assumptions: The workspace presents its configured sources ahead of the built-in hosts, which is what the workspace settings reader's three-layer merge (project, then user, then built-in) produces.
-- Limitation: The override example shows that resolution selects the configured entry when a project source and the built-in host of the same name are both presented. That the workspace puts the project entry first — the name-based merge of project, user, and built-in sources — is workspace-state's settings reader, which a domain:supporting package may not depend on; its own merge-ordering tests assert it. Retires when: Source resolution can observe a workspace-assembled catalog from this package — for example, workspace-state publishes catalog assembly through a port a supporting package may depend on.
+- Limitation: This grammar specification proves expansion and classification without contacting a Git remote. Retires when: The CLI end-to-end suite exercises each transport against controlled Git remotes.
 - Additional evidence: process via [`apps/cli-e2e/src/http-registry.e2e.test.ts`](../apps/cli-e2e/src/http-registry.e2e.test.ts) — Publishes, installs, and updates over a real HTTP registry transport — bearer-token auth headers, PUT uploads, immutable version and holdback semantics, no upload when the authoritative preview is blocked, and registry-form locator resolution with file:// parity — plus release-age-gated advancement, explicit bypass, unchanged settings, and second-run no-op exit codes that the in-memory file-registry harness cannot observe.
 - Source: [`packages/core/workspace/src/resolution/sources/locator-grammar-is-stable.spec.ts`](../packages/core/workspace/src/resolution/sources/locator-grammar-is-stable.spec.ts)
 
@@ -4267,21 +4252,6 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Open questions: Must agent sessions always skip startup checks when AXM_NO_UPDATE_CHECK is not 1? Earlier environment help said they skip, but the current runtime and its internal test permit agent checks even without a TTY.; Does suppression also prohibit reading an existing update cache, beyond the absence of requests and notifications promised here?
 - Limitation: The primary decision table uses a populated fresh cache and a controlled HTTP port; it establishes notification suppression and command-network independence, but does not by itself establish the absence of a background refresh when a cache is missing or stale. Retires when: Add a scheduler-coordinated missing/stale-cache control that observes the live startup wrapper's detached request and completion without wall-clock sleeps or leaked fibers.
 - Source: [`apps/cli/src/environment-disables-startup-update-check.spec.ts`](../apps/cli/src/environment-disables-startup-update-check.spec.ts)
-
-##### Registry services use the selected environment origin
-
-- Requirement: `cli/environment-selects-registry-services`
-- Owner: `cli`
-- Statement: AXM shall use an HTTP(S) AXM_REGISTRY_LOCATION as its Registry service and authentication target, retain file-source selection independently, and reject an explicitly different AXM_REGISTRY_URL origin before a Registry request.
-- Class: functional
-- Role: interface
-- Product goals: `machine-automation`, `extension-adoption`
-- Boundary: memory; selection: per-change
-- Boundary rationale: The composition root decodes the environment and builds the Registry and authentication targets; composing it over a controlled HTTP transport shows the selected origin reaching the request without contacting a real Registry. The built-CLI rows are bound evidence at apps/cli-e2e/src/registry-service-origin.e2e.test.ts.
-- Methods: example, decision-table
-- Derived from: `apps/cli/help/topics/environment.md`, `apps/cli/src/runtime.ts`, `apps/cli-e2e/src/registry-service-origin.e2e.test.ts`
-- Additional evidence: process via [`apps/cli-e2e/src/registry-service-origin.e2e.test.ts`](../apps/cli-e2e/src/registry-service-origin.e2e.test.ts) — Only a real invocation against a real HTTP origin shows the selected service reaching the wire, and shows a conflicting selector refused before any request leaves the process.
-- Source: [`apps/cli/src/environment-selects-registry-services.spec.ts`](../apps/cli/src/environment-selects-registry-services.spec.ts)
 
 ##### The published exit-code reference matches the runtime exit codes
 
@@ -4476,6 +4446,22 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Derived from: `cli/machine-progress-events-follow-the-lifecycle-schema`, `packages/supporting/registry-client/src/request-policy.test.ts`, `packages/supporting/registry-client/src/remote-client.test.ts`, `packages/core/workspace/src/transitions/planning/plan/operation-events.test.ts`
 - Limitation: Examples drive the published schema, the projector, and the live join over an authored event log. A registry download that a transport failure actually retries is witnessed by ordinary tests in the registry client, not decided here. Retires when: Bind producer evidence here when a retrying producer's own attempt reporting is allocated its own obligation.
 - Source: [`apps/cli/src/screen/retried-work-names-the-attempt-in-flight.spec.ts`](../apps/cli/src/screen/retried-work-names-the-attempt-in-flight.spec.ts)
+
+##### Settings select one default Registry
+
+- Requirement: `cli/settings-select-default-registry`
+- Owner: `cli`
+- Statement: AXM shall select one effective default Registry from project settings, then user settings, then the built-in AgentXM source, and shall use that destination for unqualified resolution, authentication, and publishing without forwarding its credentials to another Registry.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`, `extension-adoption`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The composition root reads real project and user settings through the production workspace layer; built-CLI install, authentication, and publish-preview rows are bound evidence for the process boundary.
+- Methods: example, decision-table
+- Derived from: `apps/cli/help/topics/settings.md`, `apps/cli/src/runtime.ts`, `packages/supporting/registry-access/src/credentials/token-resolution.ts`
+- Supersedes: `cli/environment-selects-built-in-extension-source`, `cli/environment-selects-registry-services`
+- Additional evidence: process via [`apps/cli-e2e/src/registry-service-origin.e2e.test.ts`](../apps/cli-e2e/src/registry-service-origin.e2e.test.ts) — Only a real invocation against a controlled HTTP origin shows the settings-selected default Registry reaching the wire and an invalid selection being refused before any request leaves the process.
+- Source: [`apps/cli/src/settings-select-default-registry.spec.ts`](../apps/cli/src/settings-select-default-registry.spec.ts)
 
 ##### Token output exposes the effective credential on request
 

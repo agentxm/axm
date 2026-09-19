@@ -145,6 +145,7 @@ export const makeTestWorkspaceCatalog = (options: TestWorkspaceCatalogOptions = 
     workspaceRoot: options.workspaceRoot ?? "/tmp/axm",
     configuredSources: Effect.succeed(sources),
     registrySourceHosts: Effect.succeed(registrySources),
+    defaultRegistry: Effect.succeed("agentxm"),
     desiredExtensionGraph: Effect.succeed(
       options.desiredExtensionGraph ?? { complete: true, nodes: [] },
     ),

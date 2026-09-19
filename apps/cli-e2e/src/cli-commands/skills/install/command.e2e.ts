@@ -8,7 +8,12 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
-import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
+import {
+  createTempDir,
+  runCli,
+  SKILLS_REPO_FIXTURE,
+  writeDefaultRegistrySettings,
+} from "../../../e2e/utils.js";
 import { getOutput } from "../../../test-helpers.js";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -236,7 +241,7 @@ describe("axm skills install", () => {
           `${JSON.stringify(
             {
               ...settings,
-              skills: { ...settings["skills"], axm: "agentxm:@agentxm/skills/axm" },
+              skills: { ...settings["skills"], axm: "test:@agentxm/skills/axm" },
             },
             null,
             2,
@@ -267,17 +272,16 @@ describe("axm skills install", () => {
           }),
         );
 
-        const offlineEnv = { AXM_REGISTRY_LOCATION: "http://127.0.0.1:1" };
+        writeDefaultRegistrySettings(path.join(temp.path, "axm.json"), "http://127.0.0.1:1");
         const preview = await runCli(
           ["skills", "install", "@agentxm/skills/axm", "--bundled", "--preview"],
-          { cwd: temp.path, env: offlineEnv },
+          { cwd: temp.path },
         );
         expect(preview.exitCode, preview.stderr).toBe(0);
         expect(fs.readFileSync(manifestPath, "utf8")).toContain("99.0.0");
 
         const applied = await runCli(["skills", "install", "@agentxm/skills/axm", "--bundled"], {
           cwd: temp.path,
-          env: offlineEnv,
         });
         expect(applied.exitCode, applied.stderr).toBe(0);
         expect(fs.readFileSync(manifestPath, "utf8")).not.toContain("99.0.0");
@@ -299,7 +303,7 @@ describe("axm skills install", () => {
         }
         expect(recoveredLock["skills"]["axm"]).toBeUndefined();
 
-        const lint = await runCli(["lint", "--json"], { cwd: temp.path, env: offlineEnv });
+        const lint = await runCli(["lint", "--json"], { cwd: temp.path });
         expect(lint.exitCode, lint.stderr).toBe(0);
         expect(getOutput(lint)).not.toContain("workspace/skills-lockfile-aligned");
         expect(getOutput(lint)).not.toContain("workspace/desired-state-reconcilable");

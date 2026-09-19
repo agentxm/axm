@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from "vitest";
 import { startHttpRegistry } from "../../../e2e/http-registry-server.js";
-import { runCli } from "../../../e2e/utils.js";
+import { createTempDir, runCli, writeUserDefaultRegistry } from "../../../e2e/utils.js";
 
 // Process evidence for this module is bound by the auth.e2e.test.ts Vitest entrypoint.
 
@@ -42,7 +42,9 @@ describe("axm token", () => {
 
   it("completes a durable step-up request and retries token creation", async () => {
     const registry = await startHttpRegistry({ stepUpTokenCreate: true });
+    const home = createTempDir();
     try {
+      writeUserDefaultRegistry(home.path, registry.url);
       const result = await runCli(
         [
           "token",
@@ -57,7 +59,8 @@ describe("axm token", () => {
         ],
         {
           env: {
-            AXM_REGISTRY_URL: registry.url,
+            HOME: home.path,
+            AXM_USER_HOME: home.path,
             AXM_TOKEN: "e2e-test-token",
           },
         },
@@ -89,6 +92,7 @@ describe("axm token", () => {
         ]),
       );
     } finally {
+      home.cleanup();
       await registry.close();
     }
   });

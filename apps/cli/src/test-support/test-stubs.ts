@@ -274,6 +274,7 @@ export interface WriteWorkspaceFilesOptions {
   readonly mcps?: Record<string, unknown> | undefined;
   readonly packs?: Record<string, unknown> | undefined;
   readonly sources?: ReadonlyArray<unknown> | undefined;
+  readonly defaultRegistry?: string | undefined;
   readonly minimumReleaseAge?: string | undefined;
   readonly minimumReleaseAgeExclude?: ReadonlyArray<string> | undefined;
   readonly lint?: Record<string, unknown> | undefined;
@@ -326,6 +327,10 @@ export const makeWorkspaceFileContents = (opts: WriteWorkspaceFilesOptions = {})
           : [];
     }),
   );
+  const hasTestRegistry = (sources ?? []).some(
+    (source) => isRecord(source) && source["type"] === "registry" && source["name"] === "test",
+  );
+  const defaultRegistry = opts.defaultRegistry ?? (hasTestRegistry ? "test" : undefined);
   const settings: Record<string, unknown> = {
     agents: [...(opts.agents ?? ["claude-code"])],
     ...(Object.hasOwn(opts, "owner")
@@ -342,6 +347,7 @@ export const makeWorkspaceFileContents = (opts: WriteWorkspaceFilesOptions = {})
     ...(hasEntries(opts.mcps) && { mcpServers: opts.mcps }),
     ...(hasEntries(opts.packs) && { packs: opts.packs }),
     ...(sources && { sources }),
+    ...(defaultRegistry !== undefined && { defaultRegistry }),
     ...(opts.lint && { lint: opts.lint }),
     ...(opts.minimumReleaseAge && { minimumReleaseAge: opts.minimumReleaseAge }),
     ...(opts.minimumReleaseAgeExclude && {

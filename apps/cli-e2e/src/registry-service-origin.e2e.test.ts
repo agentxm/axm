@@ -1,12 +1,4 @@
-/**
- * Built-CLI evidence for `cli/environment-selects-registry-services`.
- *
- * The specification lives in
- * `apps/cli/src/environment-selects-registry-services.spec.ts`, beside the
- * composition root that decodes the environment. These rows keep its process
- * controls: a real invocation reading from a real HTTP origin, and the
- * refusal of conflicting selectors before either Registry is contacted.
- */
+/** Built-CLI evidence for `cli/settings-select-default-registry`. */
 
 import { describe, expect, it } from "@effect/vitest";
 
@@ -19,14 +11,14 @@ import {
 import { readExtensionIndex } from "./test-support/read-extension-index.js";
 
 export const executionBinding = defineExecutionBinding({
-  requirements: ["cli/environment-selects-registry-services"],
+  requirements: ["cli/settings-select-default-registry"],
   boundary: "process",
   rationale:
-    "Only a real invocation against a real HTTP origin shows the selected service reaching the wire, and shows a conflicting selector refused before any request leaves the process.",
+    "Only a real invocation against a controlled HTTP origin shows the settings-selected default Registry reaching the wire and an invalid selection being refused before any request leaves the process.",
 });
 
-describe("Registry service origin over the built CLI", () => {
-  it("the registered view command reads from the explicit service origin", async () => {
+describe("Settings-selected default Registry over the built CLI", () => {
+  it("the view command reads from the configured default Registry", async () => {
     const fixture = makeEnvironmentProcessFixture();
     try {
       await withEnvironmentRegistry(
@@ -37,9 +29,11 @@ describe("Registry service origin over the built CLI", () => {
           }),
         }),
         async (origin, requests) => {
-          const result = await fixture.run(["view", "@acme/skills/review", "--json"], {
-            AXM_REGISTRY_URL: origin,
+          fixture.writeProjectSettings({
+            defaultRegistry: "company",
+            sources: [{ name: "company", type: "registry", location: origin }],
           });
+          const result = await fixture.run(["view", "@acme/skills/review", "--json"]);
           expect(result.exitCode, result.stdout + result.stderr).toBe(0);
           const document: unknown = JSON.parse(result.stdout);
           expect(document).toMatchObject({
@@ -53,20 +47,23 @@ describe("Registry service origin over the built CLI", () => {
     }
   });
 
-  it("rejects conflicting HTTP selectors before contacting either Registry", async () => {
+  it("rejects an unconfigured default before contacting a Registry", async () => {
     const fixture = makeEnvironmentProcessFixture();
     try {
       await withEnvironmentRegistry(
         () => ({ body: JSON.stringify(readExtensionIndex) }),
-        async (origin, requests) => {
-          const result = await fixture.run(["view", "@acme/skills/review", "--json"], {
-            AXM_REGISTRY_LOCATION: origin,
-            AXM_REGISTRY_URL: "https://different.example.test/private",
+        async (_origin, requests) => {
+          fixture.writeProjectSettings({
+            defaultRegistry: "missing",
+            sources: [],
           });
+          const result = await fixture.run(["view", "@acme/skills/review", "--json"]);
           expect(result.exitCode).not.toBe(0);
-          expect(result.stderr).toContain("AXM_REGISTRY_LOCATION");
-          expect(result.stderr).toContain("AXM_REGISTRY_URL");
-          expect(result.stderr).not.toContain("/private");
+          const document: unknown = JSON.parse(result.stdout);
+          expect(document).toMatchObject({
+            ok: false,
+            detail: 'Default registry source "missing" is not configured.',
+          });
           expect(requests).toEqual([]);
         },
       );

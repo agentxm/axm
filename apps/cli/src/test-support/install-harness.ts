@@ -49,7 +49,10 @@ import { makeWorkspaceFileContents, writeWorkspaceFiles } from "./test-stubs.js"
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 import { ReleaseAgePosture, type ReleaseAgePostureValue } from "@agentxm/workspace/resolution";
 import { makeMemoryTransitionLockWorld } from "@agentxm/workspace/transitions/settlement/testing";
-import { MemoryWorkspaceTransactionScope } from "@agentxm/workspace/desired-state/testing";
+import {
+  MemoryWorkspaceTransactionScope,
+  withTestRegistryDefault,
+} from "@agentxm/workspace/desired-state/testing";
 import { WorkspaceStateLive } from "@agentxm/workspace/desired-state/live";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace/projection/live";
 import { ProjectionParticipantsLive } from "@agentxm/workspace/materialization/live";
@@ -165,7 +168,7 @@ const initializeWorkspace = (
   const scope = options?.scope ?? "project";
   const projectRoot = path.basename(runtimeDir) === ".axm" ? path.dirname(runtimeDir) : runtimeDir;
   const workspaceRoot = scope === "user" ? path.join(runtimeDir, "workspace") : projectRoot;
-  const contents = makeWorkspaceFileContents(options);
+  const contents = makeWorkspaceFileContents(withTestRegistryDefault(options ?? {}));
   files.makeDirectory(path.join(workspaceRoot, ".axm"));
   files.writeFile(path.join(workspaceRoot, "axm.json"), contents.settings);
   files.writeFile(path.join(workspaceRoot, "axm-lock.yaml"), contents.lockfile);
@@ -316,7 +319,11 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
       return Object.fromEntries(Object.entries(parsed));
     },
     writeSettings: (settings: unknown): void => {
-      files.writeFile(path.join(root, "axm.json"), `${JSON.stringify(settings, null, 2)}\n`);
+      const normalized =
+        typeof settings === "object" && settings !== null
+          ? withTestRegistryDefault(settings)
+          : settings;
+      files.writeFile(path.join(root, "axm.json"), `${JSON.stringify(normalized, null, 2)}\n`);
     },
     readLockfileText: (): string => {
       const lockPath = path.join(root, "axm-lock.yaml");

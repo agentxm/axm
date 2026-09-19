@@ -39,6 +39,7 @@ import {
 
 const resolveSkillRegistrySource = (
   pattern: Extract<InputPattern, { readonly pattern: "registry-pattern-input" }>,
+  originalInput: string,
   options: Option.Option<RegistryResolutionOptions>,
 ) =>
   Effect.gen(function* () {
@@ -52,6 +53,7 @@ const resolveSkillRegistrySource = (
 
     return yield* resolveConfiguredRegistrySource({
       sourceName: pattern.sourceName,
+      useDefaultRegistry: originalInput.startsWith("@"),
       owner: pattern.owner,
       extensionType: "skill",
       extensionName: pattern.name,
@@ -75,7 +77,11 @@ export const resolveSkillInstallSource: (
   const pattern = parseResult.pattern;
   switch (pattern.pattern) {
     case "registry-pattern-input":
-      return yield* resolveSkillRegistrySource(pattern, resolutionOptions);
+      return yield* resolveSkillRegistrySource(
+        pattern,
+        parseResult.originalInput,
+        resolutionOptions,
+      );
     case "shorthand-input":
       return yield* resolveShorthandInputSource({
         pattern,

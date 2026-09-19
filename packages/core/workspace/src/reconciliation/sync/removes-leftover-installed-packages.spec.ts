@@ -151,11 +151,11 @@ describe("Sync removes leftover installed packages", () => {
         ...BASE,
         sources: [registry.source],
         ...(route === "through a Pack"
-          ? { packs: { toolkit: "agentxm:@acme/packs/toolkit@^1.0.0" } }
+          ? { packs: { toolkit: "test:@acme/packs/toolkit@^1.0.0" } }
           : {
               skills: {
                 member: {
-                  source: "agentxm:@acme/skills/member@^1.0.0",
+                  source: "test:@acme/skills/member@^1.0.0",
                   enabled: route === "directly",
                 },
               },
@@ -186,7 +186,7 @@ describe("Sync removes leftover installed packages", () => {
       const workspace = fixture({
         ...BASE,
         sources: [registry.source],
-        skills: { review: "agentxm:@acme/skills/review@^1.0.0" },
+        skills: { review: "test:@acme/skills/review@^1.0.0" },
       });
       const desired = "agent_extensions/registry/@acme/skills/review";
       const copy = "agent_extensions/elsewhere/@acme/skills/review";
@@ -215,7 +215,7 @@ describe("Sync removes leftover installed packages", () => {
       const settings = { ...BASE, sources: [registry.source] };
       const workspace = fixture({
         ...settings,
-        skills: { review: "agentxm:@acme/skills/review@^1.0.0" },
+        skills: { review: "test:@acme/skills/review@^1.0.0" },
       });
       return workspace
         .provide(

@@ -3,7 +3,6 @@ import * as Option from "effect/Option";
 
 import { observeUnit } from "@agentxm/workspace/transitions/planning";
 import {
-  defaultViewRegistry,
   resolveViewHandle,
   resolveViewRegistry,
   ViewDocumentSchema,
@@ -24,6 +23,7 @@ import { Screen, rawDoc } from "../../screen/index.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import { publishedMetadataUnavailableToAppError } from "../inspection-errors.js";
 import { viewPageDoc } from "./view.js";
+import { DefaultRegistryTarget } from "../../default-registry-target.js";
 
 export interface ViewHandlerArgs {
   readonly handle: string;
@@ -102,18 +102,17 @@ export const handleView = Effect.fn("View.handle")(function* (args: ViewHandlerA
   yield* readAndEmit({ handle: args.handle, field: args.field, targetRegistry, parts });
 });
 
-/**
- * A fully qualified handle with no registry or type flag reads published
- * metadata straight from the configured default registry, before any
- * workspace exists.
- */
+/** Read a fully qualified handle from the invocation's effective default Registry. */
 export const handleDefaultRegistryFqnView = Effect.fn("View.handleDefaultRegistryFqn")(
   function* (args: {
     readonly handle: string;
     readonly field: Option.Option<string>;
     readonly parts: ExtensionFqnParts;
   }) {
-    const targetRegistry = yield* defaultViewRegistry;
-    yield* readAndEmit({ ...args, targetRegistry });
+    const target = yield* DefaultRegistryTarget;
+    yield* readAndEmit({
+      ...args,
+      targetRegistry: { registryName: target.name, registryUrl: target.url },
+    });
   },
 );

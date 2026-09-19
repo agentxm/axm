@@ -249,7 +249,7 @@ const makePackRollbackFixture = (
   const withMemberDependency = options.withMemberDependency !== false;
   const registrySource = {
     type: "registry",
-    name: "agentxm",
+    name: "test",
     location: new URL("file:///tmp/test-registry"),
     owner: Option.none(),
   } satisfies PackRef["source"];
@@ -350,8 +350,8 @@ const makePackRollbackFixture = (
   const axmDir = path.join(baseDir, ".axm");
   writeWorkspaceFiles(axmDir, {
     agents: ["claude-code"],
-    packs: { toolkit: "agentxm:@acme/packs/toolkit" },
-    sources: [{ type: "registry", name: "agentxm", location: registrySource.location.href }],
+    packs: { toolkit: "test:@acme/packs/toolkit" },
+    sources: [{ type: "registry", name: "test", location: registrySource.location.href }],
     lockfilePacks: {
       toolkit: {
         type: "registry",
@@ -359,7 +359,7 @@ const makePackRollbackFixture = (
         name: "toolkit",
         resolvedVersion: "1.0.0",
         integrity: "",
-        sourceName: "agentxm",
+        sourceName: "test",
         publisherBindingId: "hbnd_test",
         manifestContentIdentity: computePackManifestContentIdentity(acceptedPackManifest),
         treeIntegrity: computeMaterializedTreeIntegritySync(acceptedPackSource),
@@ -372,7 +372,7 @@ const makePackRollbackFixture = (
         name: "review",
         resolvedVersion: "1.0.0",
         integrity: "",
-        sourceName: "agentxm",
+        sourceName: "test",
         publisherBindingId: "hbnd_test",
         treeIntegrity: computeMaterializedTreeIntegritySync(acceptedSkillSource),
       },
@@ -463,7 +463,7 @@ const makeConstraintMismatchFixture = (
   const registryRoot = path.join(baseDir, "registry");
   const registrySource = {
     type: "registry",
-    name: "agentxm",
+    name: "test",
     location: new URL(`file://${registryRoot}`),
     owner: Option.none(),
   } satisfies SkillExtensionRef["source"];
@@ -532,7 +532,7 @@ const makeConstraintMismatchFixture = (
       alpha: "@acme/packs/alpha",
       beta: "@acme/packs/beta",
     },
-    sources: [{ type: "registry", name: "agentxm", location: registrySource.location.href }],
+    sources: [{ type: "registry", name: "test", location: registrySource.location.href }],
     lockfilePacks: {
       alpha: {
         type: "registry",
@@ -540,7 +540,7 @@ const makeConstraintMismatchFixture = (
         name: "alpha",
         resolvedVersion: "1.0.0",
         integrity: "",
-        sourceName: "agentxm",
+        sourceName: "test",
         publisherBindingId: "hbnd_test",
         manifestContentIdentity: computePackManifestContentIdentity(manifests[0]),
       },
@@ -550,7 +550,7 @@ const makeConstraintMismatchFixture = (
         name: "beta",
         resolvedVersion: "1.0.0",
         integrity: "",
-        sourceName: "agentxm",
+        sourceName: "test",
         publisherBindingId: "hbnd_test",
         manifestContentIdentity: computePackManifestContentIdentity(manifests[1]),
       },
@@ -562,7 +562,7 @@ const makeConstraintMismatchFixture = (
         name: "review",
         resolvedVersion: "1.0.0",
         integrity: "",
-        sourceName: "agentxm",
+        sourceName: "test",
         publisherBindingId: "hbnd_test",
       },
     },
@@ -741,7 +741,8 @@ describe("root sync handler", { timeout: 15_000 }, () => {
       writeSettings(tempDir, {
         agents: [],
         minimumReleaseAge: "24h",
-        sources: [{ type: "registry", name: "agentxm", location: `file://${registryDir}` }],
+        defaultRegistry: "test",
+        sources: [{ type: "registry", name: "test", location: `file://${registryDir}` }],
         skills: { review: "@acme/skills/review" },
       });
 
@@ -776,7 +777,7 @@ describe("root sync handler", { timeout: 15_000 }, () => {
             name: "review",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
-            sourceName: "agentxm",
+            sourceName: "test",
             publisherBindingId: "hbnd_test",
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
@@ -801,7 +802,7 @@ describe("root sync handler", { timeout: 15_000 }, () => {
             name: "review",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
-            sourceName: "agentxm",
+            sourceName: "test",
             publisherBindingId: "hbnd_test",
             installedAt: "2025-01-01T00:00:00.000Z",
             updatedAt: "2025-01-01T00:00:00.000Z",
@@ -1702,7 +1703,7 @@ describe("root sync handler", { timeout: 15_000 }, () => {
         },
         sources: [
           {
-            name: "agentxm",
+            name: "test",
             type: "registry",
             location: "file:///tmp/registry-version-does-not-exist",
           },
@@ -1714,7 +1715,7 @@ describe("root sync handler", { timeout: 15_000 }, () => {
             name: "review",
             resolvedVersion: "1.0.0",
             integrity: "sha512-AAAA==",
-            sourceName: "agentxm",
+            sourceName: "test",
             publisherBindingId: "hbnd_test",
             installedAt: "2026-08-01T00:00:00.000Z",
             updatedAt: "2026-08-01T00:00:00.000Z",

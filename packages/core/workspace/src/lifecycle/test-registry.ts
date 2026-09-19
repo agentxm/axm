@@ -184,7 +184,7 @@ export const makeLifecycleRegistry = (): LifecycleRegistry => {
 
   return {
     root,
-    source: { name: "agentxm", type: "registry", location: `file://${root}` },
+    source: { name: "test", type: "registry", location: `file://${root}` },
     writeSkill: (name, versions) =>
       publish({
         plural: "skills",

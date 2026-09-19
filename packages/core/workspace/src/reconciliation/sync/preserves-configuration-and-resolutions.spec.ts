@@ -93,7 +93,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
     const workspace = fixture({
       agents: ["claude-code"],
       sources: [published.source],
-      packs: { toolkit: "agentxm:@acme/packs/toolkit@^1.0.0" },
+      packs: { toolkit: "test:@acme/packs/toolkit@^1.0.0" },
     });
     return workspace
       .provide(

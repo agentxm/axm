@@ -372,7 +372,12 @@ export const resolveSource = (
       case "file-path-pattern":
         return { type: "local" as const, path: pattern.path };
       case "registry-pattern-input":
-        return yield* routeRegistryInput(pattern, parsed.originalInput);
+        return yield* routeRegistryInput(
+          trimmed.startsWith("@")
+            ? { ...pattern, sourceName: yield* (yield* WorkspaceCatalog).defaultRegistry }
+            : pattern,
+          parsed.originalInput,
+        );
       case "slash-pattern":
         return yield* resolveSlashInputSource(pattern, parsed.originalInput);
       case "glob-input":

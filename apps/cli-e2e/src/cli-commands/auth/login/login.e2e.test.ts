@@ -6,7 +6,7 @@
 
 import * as http from "node:http";
 import { describe, expect, it } from "vitest";
-import { createTempDir, runCli } from "../../../e2e/utils.js";
+import { createTempDir, runCli, writeUserDefaultRegistry } from "../../../e2e/utils.js";
 
 type DeviceOutcome = "approved" | "denied" | "expired" | "pending";
 
@@ -137,7 +137,8 @@ describe("axm login", () => {
     const auth = await startDeviceAuthServer();
     const home = createTempDir();
     try {
-      const env = { HOME: home.path, AXM_USER_HOME: home.path, AXM_REGISTRY_URL: auth.url };
+      writeUserDefaultRegistry(home.path, auth.url);
+      const env = { HOME: home.path, AXM_USER_HOME: home.path };
       const started = await runCli(["login", "--device-code", "--json", "--non-interactive"], {
         env,
       });
@@ -166,7 +167,8 @@ describe("axm login", () => {
     const auth = await startDeviceAuthServer("expired");
     const home = createTempDir();
     try {
-      const env = { HOME: home.path, AXM_USER_HOME: home.path, AXM_REGISTRY_URL: auth.url };
+      writeUserDefaultRegistry(home.path, auth.url);
+      const env = { HOME: home.path, AXM_USER_HOME: home.path };
       expect(
         (
           await runCli(["login", "--device-code", "--json", "--non-interactive"], {

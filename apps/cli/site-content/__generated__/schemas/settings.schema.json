@@ -9,6 +9,13 @@
       "description": "A unique username or organization name starting with @, like @my-org.",
       "examples": ["@my-org", "@username"]
     },
+    "RegistryName": {
+      "type": "string",
+      "pattern": "^(?!(?:azurerepos|bitbucket|git|github|gitlab|local|registry|workspace)$)[a-z0-9][a-z0-9.-]*$",
+      "title": "Registry Name",
+      "description": "Registry source used by unqualified references, authentication, and publishing. Project settings override user settings; agentxm is the built-in default.",
+      "examples": ["agentxm", "company"]
+    },
     "ExtensionVisibility": {
       "type": "string",
       "enum": ["public", "private"],
@@ -130,7 +137,7 @@
     },
     "SourceName": {
       "type": "string",
-      "pattern": "^(?!(?:azurerepos|bitbucket|git|github|gitlab|local|registry|workspace)$)[a-z0-9][a-z0-9.-]*$",
+      "pattern": "^(?!(?:agentxm|azurerepos|bitbucket|git|github|gitlab|local|registry|workspace)$)[a-z0-9][a-z0-9.-]*$",
       "title": "Source Name",
       "description": "Alias used in entry source strings for this source host.",
       "examples": ["company", "my-registry.dev"]
@@ -734,6 +741,7 @@
           "anyOf": [{ "$ref": "#/definitions/Handle" }],
           "description": "Default owner handle used when AXM scaffolds or resolves workspace extensions."
         },
+        "defaultRegistry": { "$ref": "#/definitions/RegistryName" },
         "publish": {
           "anyOf": [{ "$ref": "#/definitions/WorkspacePublishOptions" }],
           "description": "Workspace-level publication defaults."

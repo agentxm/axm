@@ -16,7 +16,13 @@ const catalog = WorkspaceCatalogTest({
       name: "agentxm",
       location: new URL("https://registry.example.com"),
     },
+    {
+      type: "registry",
+      name: "company",
+      location: new URL("https://registry.company.test"),
+    },
   ],
+  defaultRegistry: "company",
   desiredExtensionGraph: {
     complete: true,
     nodes: [
@@ -43,6 +49,17 @@ const resolve = (input: string, expectedType?: "skill" | "mcp-server") =>
   );
 
 describe("resolveSource", () => {
+  it.effect("resolves an unqualified Registry reference through the configured default", () =>
+    Effect.gen(function* () {
+      const source = yield* resolve("@acme/skills/review");
+      expect(source).toMatchObject({
+        type: "registry",
+        name: "company",
+        location: new URL("https://registry.company.test"),
+      });
+    }),
+  );
+
   it.effect("resolves a configured entry name through the same Git expansion", () =>
     Effect.gen(function* () {
       const source = yield* resolve("server", "mcp-server");

@@ -184,8 +184,8 @@ describe("Uninstall a directly desired extension", () => {
               }),
             );
             expect(readSettings(workspace)).toMatchObject({
-              skills: { "review-helper": "agentxm:@acme/skills/review-helper" },
-              packs: { "review-pack": "agentxm:@acme/packs/review-pack" },
+              skills: { "review-helper": "test:@acme/skills/review-helper" },
+              packs: { "review-pack": "test:@acme/packs/review-pack" },
             });
             const canonicalBefore = contentUnder(workspace, canonical);
             const projectedBefore = contentUnder(workspace, projection);

@@ -217,7 +217,7 @@ describe("enable.handler", () => {
             name: "code-review",
             resolvedVersion: "1.2.0",
             integrity: "sha512-AAAA==",
-            sourceName: "agentxm",
+            sourceName: "test",
             publisherBindingId: "hbnd_test",
             sourceHash: computePackageContentHashSync(path.dirname(skillDir)),
             treeIntegrity: computeMaterializedTreeIntegritySync(path.dirname(skillDir)),

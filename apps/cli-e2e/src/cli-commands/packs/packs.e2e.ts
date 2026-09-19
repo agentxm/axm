@@ -47,7 +47,8 @@ function setupWorkspaceWithRegistry() {
  */
 function configureRegistrySource(settingsPath: string, registryUrl: string, owner = "@test") {
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.sources = [{ name: "agentxm", type: "registry", location: registryUrl }];
+  settings.defaultRegistry = "test";
+  settings.sources = [{ name: "test", type: "registry", location: registryUrl }];
   settings.owner = owner;
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 }
@@ -337,10 +338,7 @@ describe("axm packs add/remove", () => {
 
       const addWorkspace = await runCli(
         ["packs", "add", "mixed-pack", "@test/skills/workspace-member"],
-        {
-          cwd: temp.path,
-          env: { AXM_REGISTRY_URL: "http://127.0.0.1:1" },
-        },
+        { cwd: temp.path },
       );
       expect(addWorkspace.exitCode, addWorkspace.stderr).toBe(0);
 

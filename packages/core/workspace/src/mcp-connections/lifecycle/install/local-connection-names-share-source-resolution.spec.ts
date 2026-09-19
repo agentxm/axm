@@ -62,8 +62,8 @@ describe("Install locally named MCP connections", () => {
 
           expect(readSettings(workspace)).toMatchObject({
             mcpServers: {
-              "work-context": "agentxm:@acme/mcps/context",
-              "personal-context": "agentxm:@acme/mcps/context",
+              "work-context": "test:@acme/mcps/context",
+              "personal-context": "test:@acme/mcps/context",
             },
           });
           const lockfile: unknown = YAML.parse(workspace.readFile("axm-lock.yaml"));

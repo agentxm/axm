@@ -55,7 +55,7 @@ describe("Uninstall a locally named MCP connection", () => {
           yield* applyUninstall(uninstallRequest({ type: "mcp-server", selector: "work-context" }));
 
           expect(readSettings(workspace)).toMatchObject({
-            mcpServers: { "personal-context": "agentxm:@acme/mcps/context" },
+            mcpServers: { "personal-context": "test:@acme/mcps/context" },
           });
           expect(JSON.stringify(readSettings(workspace))).not.toContain("work-context");
           expect(workspace.readFile(".mcp.json")).not.toContain("work-context");

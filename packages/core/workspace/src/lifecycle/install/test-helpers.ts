@@ -97,6 +97,7 @@ export const makeInstallWorld = (
     settings: {
       owner: "@acme",
       agents: ["claude-code"],
+      defaultRegistry: "test",
       sources: [registry.source],
       ...options.settings,
     },

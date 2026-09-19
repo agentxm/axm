@@ -20,6 +20,8 @@ export const makeEnvironmentProcessFixture = () => {
     applicationHome,
     invoking,
     selected,
+    writeProjectSettings: (settings: unknown) =>
+      fs.writeFileSync(path.join(invoking, "axm.json"), JSON.stringify(settings)),
     run: (args: ReadonlyArray<string>, environment: Readonly<Record<string, string>> = {}) =>
       runBuiltCli(args, {
         cwd: invoking,
@@ -31,8 +33,6 @@ export const makeEnvironmentProcessFixture = () => {
           AXM_TOKEN: "",
           AXM_TOKEN_FILE: "",
           AXM_NO_UPDATE_CHECK: "1",
-          AXM_REGISTRY_LOCATION: "",
-          AXM_REGISTRY_URL: "https://registry.invalid",
           // Force the supported file backend even if this process is later run
           // through a native executable. Every home above is disposable.
           SSH_CLIENT: "environment-spec",

@@ -650,17 +650,20 @@ export const resolveTargetRegistry = Effect.fn("Publish.resolveTargetRegistry")(
     });
     return { name: Option.getOrElse(requested, () => "override"), url } satisfies TargetRegistry;
   }
-  const registries = yield* settings.registrySourceHosts;
-  const [defaultRegistry] = registries;
   if (Option.isNone(requested)) {
-    if (defaultRegistry === undefined) {
+    const defaultRegistryName = yield* settings.defaultRegistry;
+    const defaultRegistry = yield* settings.sourceByName(defaultRegistryName);
+    if (Option.isNone(defaultRegistry) || defaultRegistry.value.type !== "registry") {
       return yield* Effect.fail(
-        new PublishFailed({ category: "usage", detail: "No registry sources configured" }),
+        new PublishFailed({
+          category: "usage",
+          detail: `Default registry source "${defaultRegistryName}" not found`,
+        }),
       );
     }
     return {
-      name: defaultRegistry.name,
-      url: defaultRegistry.location.href,
+      name: defaultRegistryName,
+      url: defaultRegistry.value.location.href,
     } satisfies TargetRegistry;
   }
   const source = yield* settings.sourceByName(requested.value);

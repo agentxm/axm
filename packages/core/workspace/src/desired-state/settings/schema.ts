@@ -33,8 +33,24 @@ import { decodeVersionRangeSync } from "@agentxm/extension-model/unstable/versio
  *
  * @experimental This API is unstable and may change without notice.
  */
-const SOURCE_NAME_PATTERN =
+const REGISTRY_NAME_PATTERN =
   /^(?!(?:azurerepos|bitbucket|git|github|gitlab|local|registry|workspace)$)[a-z0-9][a-z0-9.-]*$/;
+
+const SOURCE_NAME_PATTERN =
+  /^(?!(?:agentxm|azurerepos|bitbucket|git|github|gitlab|local|registry|workspace)$)[a-z0-9][a-z0-9.-]*$/;
+
+const RegistryNameSchema = Schema.String.check(
+  Schema.isPattern(REGISTRY_NAME_PATTERN, {
+    message:
+      "registry name must start with a letter or digit, contain only lowercase alphanumeric characters, hyphens, and dots, and must not be an intrinsic source name",
+  }),
+).annotate({
+  identifier: "RegistryName",
+  title: "Registry Name",
+  description:
+    "The name of a configured Registry source, or the immutable built-in agentxm Registry.",
+  examples: ["agentxm", "company"],
+});
 
 const SourceNameSchema = Schema.String.check(
   Schema.isPattern(SOURCE_NAME_PATTERN, {
@@ -1187,6 +1203,7 @@ export const SETTINGS_CONFIG_SCHEMA_BY_TYPE = {
 export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "$schema",
   "owner",
+  "defaultRegistry",
   "publish",
   "minimumReleaseAge",
   "minimumReleaseAgeExclude",
@@ -1215,6 +1232,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  *
  * Settings define workspace configuration for AXM including:
  * - owner: Workspace owner handle used for new/scaffold and reconciliation of non-registry sources
+ * - defaultRegistry: Registry source used by unqualified references, authentication, and publishing
  * - minimumReleaseAge: Minimum published age for registry versions during unattended resolution
  * - minimumReleaseAgeExclude: Registry extension identities exempt from minimum release age
  * - sources: Source provider configurations
@@ -1242,6 +1260,12 @@ const SettingsBaseSchema = Schema.Struct({
   owner: Schema.optionalKey(
     Schema.Union([HandleSchema]).annotate({
       description: "Default owner handle used when AXM scaffolds or resolves workspace extensions.",
+    }),
+  ),
+  defaultRegistry: Schema.optionalKey(
+    RegistryNameSchema.annotate({
+      description:
+        "Registry source used by unqualified references, authentication, and publishing. Project settings override user settings; agentxm is the built-in default.",
     }),
   ),
   publish: Schema.optionalKey(

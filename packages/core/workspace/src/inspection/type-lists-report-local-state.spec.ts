@@ -106,7 +106,7 @@ describe("Type-specific inventory", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          yield* installRegistryPack({ name: "toolkit", source: "agentxm:@acme/packs/toolkit" });
+          yield* installRegistryPack({ name: "toolkit", source: "test:@acme/packs/toolkit" });
           const { inventory, rows: packRows } = yield* listPacks();
           expect(inventory.count).toBe(1);
           expect(packRows).toEqual([
@@ -114,7 +114,7 @@ describe("Type-specific inventory", () => {
               name: "toolkit",
               owner: "@acme",
               version: "2.3.4",
-              source: "agentxm:@acme/packs/toolkit",
+              source: "test:@acme/packs/toolkit",
             }),
           ]);
           expect(inventory.items[0]?.installed).toBe(true);

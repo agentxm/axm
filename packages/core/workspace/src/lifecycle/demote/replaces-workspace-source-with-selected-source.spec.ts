@@ -186,7 +186,7 @@ describe("Demoting workspace authorship", () => {
                 // package no longer exists.
                 const expectedSource =
                   registry !== undefined
-                    ? `agentxm:@acme/${row.plural}/${REVIEW}`
+                    ? `test:@acme/${row.plural}/${REVIEW}`
                     : `./vendor/${REVIEW}`;
                 expect(readSettings(workspace)).toMatchObject({
                   [row.settingsKey]: {

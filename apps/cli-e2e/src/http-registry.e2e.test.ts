@@ -40,26 +40,9 @@ export const executionBinding = {
 const OWNER = "@test";
 const TOKEN = "e2e-test-token";
 
-/**
- * `AXM_TOKEN` is only honored for the origin AXM treats as its default
- * registry, so pointing `AXM_REGISTRY_URL` at the harness is what lets publish
- * carry the token. Without it the invocation is signed out and publish refuses
- * before uploading. This mirrors how a self-hosted registry is configured.
- */
-const registryTargetEnv = (location: string): Record<string, string> =>
-  location.startsWith("file:")
-    ? { AXM_REGISTRY_LOCATION: location }
-    : { AXM_REGISTRY_URL: location };
+const registryEnv = (_location: string): Record<string, string> => ({ AXM_TOKEN: TOKEN });
 
-const registryEnv = (location: string): Record<string, string> => ({
-  ...registryTargetEnv(location),
-  AXM_TOKEN: TOKEN,
-});
-
-const anonymousRegistryEnv = (location: string): Record<string, string> => ({
-  ...registryTargetEnv(location),
-  AXM_TOKEN: "",
-});
+const anonymousRegistryEnv = (_location: string): Record<string, string> => ({ AXM_TOKEN: "" });
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -148,7 +131,8 @@ const settingsPathIn = (workspacePath: string) => path.join(workspacePath, "axm.
 const configureRegistry = (workspacePath: string, location: string) => {
   const settingsPath = settingsPathIn(workspacePath);
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.sources = [{ name: "agentxm", type: "registry", location }];
+  settings.defaultRegistry = "test";
+  settings.sources = [{ name: "test", type: "registry", location }];
   settings.owner = OWNER;
   settings.minimumReleaseAge = "0s";
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
@@ -428,7 +412,7 @@ describe("HTTP registry transport", () => {
         fs.readFileSync(settingsPathIn(consumer.path), "utf-8"),
       );
       expect(settingsAfterUpdate).toMatchObject({
-        skills: { review: `agentxm:${OWNER}/skills/review` },
+        skills: { review: `test:${OWNER}/skills/review` },
       });
 
       const secondRun = await runCli(
@@ -441,7 +425,7 @@ describe("HTTP registry transport", () => {
         fs.readFileSync(settingsPathIn(consumer.path), "utf-8"),
       );
       expect(settingsAfterSecondRun).toMatchObject({
-        skills: { review: `agentxm:${OWNER}/skills/review` },
+        skills: { review: `test:${OWNER}/skills/review` },
       });
     } finally {
       publisher.cleanup();
@@ -994,7 +978,7 @@ describe("HTTP registry transport", () => {
       });
       const nonOwner = await runCli(["install", fqn, "--json"], {
         cwd: nonOwnerConsumer.path,
-        env: { AXM_REGISTRY_URL: registry.url, AXM_TOKEN: "other-token" },
+        env: { AXM_TOKEN: "other-token" },
       });
       expect(anonymous.exitCode).not.toBe(0);
       expect(nonOwner.exitCode).toBe(anonymous.exitCode);
@@ -1020,7 +1004,7 @@ describe("HTTP registry transport", () => {
         ["rules", "install", `${OWNER}/rules/finalize-missing`, "--json"],
         {
           cwd: nonOwnerConsumer.path,
-          env: { AXM_REGISTRY_URL: registry.url, AXM_TOKEN: "other-token" },
+          env: { AXM_TOKEN: "other-token" },
         },
       );
       const anonymousFinalizeError: unknown = JSON.parse(anonymousFinalize.stdout);

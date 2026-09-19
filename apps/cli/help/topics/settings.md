@@ -31,6 +31,30 @@ Run `axm help settings-schema` to print the raw JSON Schema.
 
 `owner` is the default handle AXM uses when creating or resolving workspace-owned extensions.
 
+`defaultRegistry` names the Registry source used for unqualified extension
+references, `axm login` and other authentication commands, and publishing when
+no explicit destination is supplied. Project settings take precedence over
+user settings; when neither scope sets it, the immutable built-in `agentxm`
+source at `https://registry.agentxm.ai` is used.
+
+```jsonc
+{
+  "defaultRegistry": "company",
+  "sources": [
+    {
+      "name": "company",
+      "type": "registry",
+      "location": "https://registry.example.com",
+    },
+  ],
+}
+```
+
+The selected name must identify a configured Registry source. Built-in and
+intrinsic source names are reserved and cannot be redefined in `sources`;
+notably, a configured source cannot shadow `agentxm`. Credentials selected for
+the default Registry are never sent to another configured Registry.
+
 `minimumReleaseAge` controls unattended Registry resolution wherever AXM
 selects a release without an explicit version request — bare `axm install`,
 `axm sync`, every update command, activation, materialization, and `axm

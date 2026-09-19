@@ -246,7 +246,7 @@ describe("disable.handler", () => {
             name: "code-review",
             resolvedVersion: "1.2.0",
             integrity: "sha512-AAAA==",
-            sourceName: "agentxm",
+            sourceName: "test",
             publisherBindingId: "hbnd_test",
             sourceHash: computeSourceHash("SKILL.md\n# code-review"),
             agents: ["claude-code"],

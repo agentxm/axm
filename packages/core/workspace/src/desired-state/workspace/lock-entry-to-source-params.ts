@@ -67,6 +67,14 @@ const knownGitHostPrefix = (url: URL): string | undefined => {
   }
 };
 
+const trimSlashes = (value: string): string => {
+  let start = 0;
+  let end = value.length;
+  while (start < end && value[start] === "/") start += 1;
+  while (end > start && value[end - 1] === "/") end -= 1;
+  return value.slice(start, end);
+};
+
 /** Whether a declaration locator denotes the self-described accepted source. */
 export const lockEntryMatchesSourceLocator = (entry: SourceLockEntry, locator: string): boolean => {
   if (printSourceParams(lockEntryToSourceParams(entry)) === locator) return true;
@@ -74,7 +82,7 @@ export const lockEntryMatchesSourceLocator = (entry: SourceLockEntry, locator: s
 
   const prefix = knownGitHostPrefix(entry.source.url);
   if (prefix === undefined) return false;
-  const repository = entry.source.url.pathname.replace(/^\/+|\/+$/g, "").replace(/\.git$/, "");
+  const repository = trimSlashes(entry.source.url.pathname).replace(/\.git$/, "");
   if (repository.length === 0) return false;
   const path = entry.source.path === undefined ? "" : `//${entry.source.path}`;
   const revision = entry.source.revision === undefined ? "" : `@${entry.source.revision}`;

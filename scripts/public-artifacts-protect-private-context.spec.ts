@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -66,6 +66,15 @@ const COMMIT_MESSAGE_BASELINES = [
   "681db72976f8f42e22788431c7ee1ec667c46c58",
   "b88897b04b58c2c91a7e91fa4f72f06413815937",
 ];
+
+const availableCommitMessageBaselines = (): readonly string[] =>
+  COMMIT_MESSAGE_BASELINES.filter(
+    (baseline) =>
+      spawnSync("git", ["cat-file", "-e", `${baseline}^{commit}`], {
+        cwd: repoRoot,
+        stdio: "ignore",
+      }).status === 0,
+  );
 
 /**
  * The one tracked subtree outside the obligation: installed extension content
@@ -135,7 +144,7 @@ describe("Private context stays out of public artifacts", () => {
     Effect.sync(() => {
       const messages = execFileSync(
         "git",
-        ["log", "--format=%H%x09%B%x00", "HEAD", "--not", ...COMMIT_MESSAGE_BASELINES],
+        ["log", "--format=%H%x09%B%x00", "HEAD", "--not", ...availableCommitMessageBaselines()],
         { cwd: repoRoot, encoding: "utf8" },
       );
       const findings = messages

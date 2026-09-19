@@ -6,6 +6,7 @@ import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/sour
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import {
   lockEntryToSourceParams,
+  lockEntryMatchesSourceLocator,
   printSkillLockSourceLocator,
 } from "./lock-entry-to-source-params.js";
 
@@ -57,5 +58,24 @@ describe("lock entry printers", () => {
         treeIntegrity,
       }),
     ).toBe("registry:https://registry.agentxm.ai/:@acme/skills/review@1.2.3");
+  });
+
+  it("matches hosted Git shorthand after trimming URL path separators", () => {
+    expect(
+      lockEntryMatchesSourceLocator(
+        {
+          source: {
+            type: "git",
+            url: new URL("https://github.com/acme/extensions.git/"),
+            revision: "main",
+            path: "skills/review",
+          },
+          identity: { owner: handle("@acme"), name: extensionName("review") },
+          resolved: { commit: "commit-1", tree: "tree-1" },
+          treeIntegrity,
+        },
+        "github:acme/extensions//skills/review@main",
+      ),
+    ).toBe(true);
   });
 });

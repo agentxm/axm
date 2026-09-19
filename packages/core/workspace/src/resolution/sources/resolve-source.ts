@@ -294,6 +294,7 @@ export const resolveSlashInputSource = (
     readonly first: string;
     readonly second: string;
     readonly third: Option.Option<string>;
+    readonly ref: Option.Option<string>;
   },
   _input: string,
 ) => {
@@ -301,10 +302,14 @@ export const resolveSlashInputSource = (
     onNone: () => `${pattern.first}/${pattern.second}`,
     onSome: (subPath) => `${pattern.first}/${pattern.second}//${subPath}`,
   });
+  const withRef = Option.match(pattern.ref, {
+    onNone: () => shorthandBody,
+    onSome: (ref) => `${shorthandBody}@${ref}`,
+  });
   return parseShorthandForSource({
     pattern: "shorthand-input",
     prefix: "github",
-    remainingInput: shorthandBody,
+    remainingInput: withRef,
   });
 };
 

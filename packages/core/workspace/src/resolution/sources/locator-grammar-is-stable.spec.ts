@@ -117,6 +117,16 @@ const cases: ReadonlyArray<{
     },
   },
   {
+    label: "bare owner and repository accept a Git revision",
+    input: "acme/widget@v3",
+    expected: {
+      family: "git",
+      url: "https://github.com/acme/widget.git",
+      revision: "v3",
+      path: null,
+    },
+  },
+  {
     label: "GitHub shorthand keeps a subpath and revision",
     input: "github:acme/widget//skills/review@v3",
     expected: {

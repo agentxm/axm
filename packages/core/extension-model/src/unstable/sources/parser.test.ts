@@ -159,6 +159,7 @@ describe("parseInputPattern", () => {
         first: "owner",
         second: "repo",
         third: Option.none(),
+        ref: Option.none(),
       });
     });
 
@@ -168,6 +169,7 @@ describe("parseInputPattern", () => {
         first: "owner",
         second: "repo",
         third: Option.some("path"),
+        ref: Option.none(),
       });
     });
 
@@ -177,6 +179,27 @@ describe("parseInputPattern", () => {
         first: "owner",
         second: "repo",
         third: Option.some("sub/path"),
+        ref: Option.none(),
+      });
+    });
+
+    it("classifies owner/repo@ref as SlashPattern", () => {
+      expectSome("owner/repo@v1.2.3", {
+        pattern: "slash-pattern",
+        first: "owner",
+        second: "repo",
+        third: Option.none(),
+        ref: Option.some("v1.2.3"),
+      });
+    });
+
+    it("classifies owner/repo//path@ref as SlashPattern", () => {
+      expectSome("owner/repo//skills/review@v1.2.3", {
+        pattern: "slash-pattern",
+        first: "owner",
+        second: "repo",
+        third: Option.some("skills/review"),
+        ref: Option.some("v1.2.3"),
       });
     });
 

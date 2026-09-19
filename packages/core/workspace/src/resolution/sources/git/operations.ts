@@ -153,6 +153,9 @@ export interface GitDirectoryComparisonResult {
  */
 export const shallowClone = (url: string, destination: string, ref?: string) =>
   Effect.gen(function* () {
+    if (ref !== undefined && /^[a-f0-9]{40}$/iu.test(ref)) {
+      return yield* shallowFetchCommit(url, destination, ref);
+    }
     const path = yield* Path.Path;
     return yield* Effect.tryPromise({
       try: (signal) =>
@@ -165,6 +168,49 @@ export const shallowClone = (url: string, destination: string, ref?: string) =>
       catch: mapGitError("clone", `Failed to shallow clone ${url}`),
     });
   }).pipe(Effect.withSpan("Git.shallowClone"));
+
+/** Initialize a shallow checkout at one immutable, remote-reachable commit. */
+export const shallowFetchCommit = (url: string, destination: string, commit: string) =>
+  Effect.tryPromise({
+    try: async (signal) => {
+      const git = createGit(destination, signal);
+      await git.init();
+      await git.addRemote("origin", url);
+      await git.raw(["fetch", "--depth", "1", "origin", commit]);
+      await git.raw(["checkout", "--detach", "FETCH_HEAD"]);
+    },
+    catch: mapGitError("fetch-commit", `Failed to fetch recorded commit ${commit} from ${url}`),
+  }).pipe(Effect.withSpan("Git.shallowFetchCommit"));
+
+/** Remote branch and tag names advertised by a Git repository. */
+export interface GitRemoteRefs {
+  readonly branches: ReadonlyArray<string>;
+  readonly tags: ReadonlyArray<string>;
+}
+
+const parseRemoteRefs = (output: string): GitRemoteRefs => {
+  const branches = new Set<string>();
+  const tags = new Set<string>();
+  for (const line of output.split("\n")) {
+    const ref = line.trim().split(/\s+/u).at(1);
+    if (ref?.startsWith("refs/heads/")) branches.add(ref.slice("refs/heads/".length));
+    if (ref?.startsWith("refs/tags/")) {
+      tags.add(ref.slice("refs/tags/".length).replace(/\^\{\}$/u, ""));
+    }
+  }
+  return { branches: [...branches], tags: [...tags] };
+};
+
+/** List the remote's advertised branches and tags without cloning it. */
+export const listRemoteRefs = (url: string) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    return yield* Effect.tryPromise({
+      try: (signal) =>
+        createGit(path.resolve("."), signal).raw(["ls-remote", "--heads", "--tags", url]),
+      catch: mapGitError("list-remote-refs", `Failed to list remote Git refs from ${url}`),
+    }).pipe(Effect.map(parseRemoteRefs));
+  }).pipe(Effect.withSpan("Git.listRemoteRefs"));
 
 /** Get the immutable commit checked out at HEAD. */
 export const getCommitSha = (repoPath: string) =>

@@ -36,6 +36,8 @@ import {
   type InstallableExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
+import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   ReleaseAgePosture,
   acceptedPackDependencyResolver,
@@ -53,6 +55,7 @@ import {
   type ReleaseAgeBypassRecord,
   type ReleaseAgeHoldbackRecord,
 } from "../../resolution/index.js";
+import { resolveSource } from "../../resolution/sources/index.js";
 import {
   operationPresentation,
   type ConfiguredAgentOperation,
@@ -88,6 +91,7 @@ import {
   type PackInstallIntent,
   type ResolveInstallRequirements,
 } from "./vocabulary.js";
+import { findGitReinstallRefs, pinGitReinstallRef } from "./git-reinstall.js";
 
 /** Which extension types a configured-entry sweep covers. */
 export type ConfiguredInstallableType = InstallableExtensionType;
@@ -417,6 +421,7 @@ const collectSimpleTypePlans = (
   type: Exclude<ConfiguredInstallableType, "pack">,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
   nonInteractive: boolean,
+  force: boolean,
 ): Effect.Effect<
   CollectedConfiguredPlans,
   ConfiguredInstallFailure,
@@ -431,6 +436,46 @@ const collectSimpleTypePlans = (
         cause,
       });
 
+    const resolveConfiguredOrAccepted = <
+      A extends {
+        readonly ref: ExtensionRef;
+        readonly versionRange: Option.Option<VersionRange>;
+      },
+      E,
+      R,
+    >(
+      expectedType: Exclude<ConfiguredInstallableType, "pack">,
+      name: string,
+      source: string,
+      fallback: Effect.Effect<A, E, R>,
+    ) =>
+      Effect.gen(function* () {
+        if (force) {
+          const resolvedSource = yield* resolveSource(source).pipe(
+            Effect.mapError(resolutionFailed(name)),
+          );
+          if (resolvedSource.type === "git") {
+            const accepted = yield* findGitReinstallRefs(resolvedSource, expectedType, [name]);
+            const ref = accepted.at(0);
+            if (ref !== undefined) {
+              return {
+                ref,
+                versionRange: Option.none<VersionRange>(),
+                releaseAge: { holdbacks: [], bypasses: [] },
+              } satisfies {
+                readonly ref: ExtensionRef;
+                readonly versionRange: Option.Option<VersionRange>;
+                readonly releaseAge: {
+                  readonly holdbacks: ReadonlyArray<ReleaseAgeHoldbackRecord>;
+                  readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
+                };
+              };
+            }
+          }
+        }
+        return yield* fallback;
+      });
+
     const planFor = (
       name: string,
       source: string,
@@ -441,12 +486,28 @@ const collectSimpleTypePlans = (
     > => {
       switch (type) {
         case "skill":
-          return resolveConfiguredSkill(name, source, releaseAgeEvaluation).pipe(
+          return resolveConfiguredOrAccepted(
+            "skill",
+            name,
+            source,
+            resolveConfiguredSkill(name, source, releaseAgeEvaluation),
+          ).pipe(
             Effect.mapError(resolutionFailed(name)),
             Effect.flatMap((resolved) =>
-              planSkillInstall({
-                skillsToInstall: [{ ref: resolved.ref, versionRange: resolved.versionRange }],
-              }).pipe(
+              (force ? pinGitReinstallRef(resolved.ref, name) : Effect.succeed(resolved.ref)).pipe(
+                Effect.flatMap((ref) =>
+                  ref.type === "skill"
+                    ? planSkillInstall({
+                        skillsToInstall: [{ ref, versionRange: resolved.versionRange }],
+                        ...(force ? { force: true } : {}),
+                      })
+                    : Effect.fail(
+                        installRefused({
+                          category: "internal",
+                          detail: `Configured skill "${name}" changed extension type`,
+                        }),
+                      ),
+                ),
                 Effect.map((plan) =>
                   attachConfiguredReleaseAge(
                     plan,
@@ -458,12 +519,27 @@ const collectSimpleTypePlans = (
             ),
           );
         case "subagent":
-          return resolveConfiguredSubagent(name, source, releaseAgeEvaluation).pipe(
+          return resolveConfiguredOrAccepted(
+            "subagent",
+            name,
+            source,
+            resolveConfiguredSubagent(name, source, releaseAgeEvaluation),
+          ).pipe(
             Effect.mapError(resolutionFailed(name)),
             Effect.flatMap((resolved) =>
-              planSubagentInstall({
-                subagentsToInstall: [{ ref: resolved.ref, versionRange: resolved.versionRange }],
-              }).pipe(
+              (force ? pinGitReinstallRef(resolved.ref, name) : Effect.succeed(resolved.ref)).pipe(
+                Effect.flatMap((ref) =>
+                  ref.type === "subagent"
+                    ? planSubagentInstall({
+                        subagentsToInstall: [{ ref, versionRange: resolved.versionRange }],
+                      })
+                    : Effect.fail(
+                        installRefused({
+                          category: "internal",
+                          detail: `Configured subagent "${name}" changed extension type`,
+                        }),
+                      ),
+                ),
                 Effect.map((plan) =>
                   attachConfiguredReleaseAge(
                     plan,
@@ -475,13 +551,28 @@ const collectSimpleTypePlans = (
             ),
           );
         case "rule":
-          return resolveConfiguredRule(name, source, releaseAgeEvaluation).pipe(
+          return resolveConfiguredOrAccepted(
+            "rule",
+            name,
+            source,
+            resolveConfiguredRule(name, source, releaseAgeEvaluation),
+          ).pipe(
             Effect.mapError(resolutionFailed(name)),
             Effect.flatMap((resolved) =>
-              planRuleInstall({
-                refs: [{ ref: resolved.ref, versionRange: resolved.versionRange }],
-                deferProjections: true,
-              }).pipe(
+              (force ? pinGitReinstallRef(resolved.ref, name) : Effect.succeed(resolved.ref)).pipe(
+                Effect.flatMap((ref) =>
+                  ref.type === "rule"
+                    ? planRuleInstall({
+                        refs: [{ ref, versionRange: resolved.versionRange }],
+                        deferProjections: true,
+                      })
+                    : Effect.fail(
+                        installRefused({
+                          category: "internal",
+                          detail: `Configured rule "${name}" changed extension type`,
+                        }),
+                      ),
+                ),
                 Effect.map((plan) =>
                   attachConfiguredReleaseAge(
                     plan,
@@ -493,13 +584,28 @@ const collectSimpleTypePlans = (
             ),
           );
         case "hook":
-          return resolveConfiguredHook(name, source, releaseAgeEvaluation).pipe(
+          return resolveConfiguredOrAccepted(
+            "hook",
+            name,
+            source,
+            resolveConfiguredHook(name, source, releaseAgeEvaluation),
+          ).pipe(
             Effect.mapError(resolutionFailed(name)),
             Effect.flatMap((resolved) =>
-              planHookInstall({
-                refs: [{ ref: resolved.ref, versionRange: resolved.versionRange }],
-                deferProjections: true,
-              }).pipe(
+              (force ? pinGitReinstallRef(resolved.ref, name) : Effect.succeed(resolved.ref)).pipe(
+                Effect.flatMap((ref) =>
+                  ref.type === "hook"
+                    ? planHookInstall({
+                        refs: [{ ref, versionRange: resolved.versionRange }],
+                        deferProjections: true,
+                      })
+                    : Effect.fail(
+                        installRefused({
+                          category: "internal",
+                          detail: `Configured hook "${name}" changed extension type`,
+                        }),
+                      ),
+                ),
                 Effect.map((plan) =>
                   attachConfiguredReleaseAge(
                     plan,
@@ -511,13 +617,28 @@ const collectSimpleTypePlans = (
             ),
           );
         case "knowledge":
-          return resolveConfiguredKnowledge(name, source, releaseAgeEvaluation).pipe(
+          return resolveConfiguredOrAccepted(
+            "knowledge",
+            name,
+            source,
+            resolveConfiguredKnowledge(name, source, releaseAgeEvaluation),
+          ).pipe(
             Effect.mapError(resolutionFailed(name)),
             Effect.flatMap((resolved) =>
-              planKnowledgeInstall({
-                refs: [{ ref: resolved.ref, versionRange: resolved.versionRange }],
-                deferProjections: true,
-              }).pipe(
+              (force ? pinGitReinstallRef(resolved.ref, name) : Effect.succeed(resolved.ref)).pipe(
+                Effect.flatMap((ref) =>
+                  ref.type === "knowledge"
+                    ? planKnowledgeInstall({
+                        refs: [{ ref, versionRange: resolved.versionRange }],
+                        deferProjections: true,
+                      })
+                    : Effect.fail(
+                        installRefused({
+                          category: "internal",
+                          detail: `Configured Knowledge bundle "${name}" changed extension type`,
+                        }),
+                      ),
+                ),
                 Effect.map((plan) =>
                   attachConfiguredReleaseAge(
                     plan,
@@ -529,16 +650,31 @@ const collectSimpleTypePlans = (
             ),
           );
         case "mcp-server":
-          return resolveConfiguredMcpServer(name, source, releaseAgeEvaluation).pipe(
+          return resolveConfiguredOrAccepted(
+            "mcp-server",
+            name,
+            source,
+            resolveConfiguredMcpServer(name, source, releaseAgeEvaluation),
+          ).pipe(
             Effect.mapError(resolutionFailed(name)),
             Effect.flatMap((resolved) =>
-              planMcpServerInstall({
-                ref: resolved.ref,
-                localName: decodeExtensionNameSync(name),
-                versionRange: resolved.versionRange,
-                force: false,
-                nonInteractive,
-              }).pipe(
+              (force ? pinGitReinstallRef(resolved.ref, name) : Effect.succeed(resolved.ref)).pipe(
+                Effect.flatMap((ref) =>
+                  ref.type === "mcp-server"
+                    ? planMcpServerInstall({
+                        ref,
+                        localName: decodeExtensionNameSync(name),
+                        versionRange: resolved.versionRange,
+                        force,
+                        nonInteractive,
+                      })
+                    : Effect.fail(
+                        installRefused({
+                          category: "internal",
+                          detail: `Configured MCP server "${name}" changed extension type`,
+                        }),
+                      ),
+                ),
                 Effect.map((plan) =>
                   attachConfiguredReleaseAge(
                     plan,
@@ -709,6 +845,7 @@ export interface ConfiguredInstallRequest {
   readonly planName: string;
   readonly planDescription: Option.Option<string>;
   readonly nonInteractive: boolean;
+  readonly force: boolean;
 }
 
 export const buildConfiguredInstallPlan: (
@@ -740,8 +877,9 @@ export const buildConfiguredInstallPlan: (
             releaseAgeEvaluation,
             nonInteractive: args.nonInteractive,
             deferProjections: true,
+            forceCanonical: args.force,
           })
-        : collectSimpleTypePlans(type, releaseAgeEvaluation, args.nonInteractive)
+        : collectSimpleTypePlans(type, releaseAgeEvaluation, args.nonInteractive, args.force)
       ).pipe(Effect.map((collection) => ({ type, collection }))),
     { concurrency: "unbounded" },
   );

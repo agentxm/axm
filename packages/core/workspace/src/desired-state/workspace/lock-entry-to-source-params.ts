@@ -78,7 +78,10 @@ export const lockEntryMatchesSourceLocator = (entry: SourceLockEntry, locator: s
   if (repository.length === 0) return false;
   const path = entry.source.path === undefined ? "" : `//${entry.source.path}`;
   const revision = entry.source.revision === undefined ? "" : `@${entry.source.revision}`;
-  return locator === `${prefix}:${repository}${path}${revision}`;
+  return (
+    locator === `${prefix}:${repository}${path}${revision}` ||
+    (prefix === "github" && locator === `${repository}${path}${revision}`)
+  );
 };
 
 /**

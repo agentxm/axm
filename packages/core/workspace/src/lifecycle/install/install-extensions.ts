@@ -106,6 +106,7 @@ import {
   type InstallStepRequirements,
   type PrepareInstallRequirements,
 } from "./vocabulary.js";
+import { findGitReinstallRefs, pinGitReinstallRef } from "./git-reinstall.js";
 
 // -----------------------------------------------------------------------------
 // Request
@@ -241,11 +242,37 @@ const planForType = (
                 }),
           ),
         );
-        const discovered = yield* discoverSkillRefs(parsed);
+        const accepted =
+          request.reinstall && parsed.source.type === "git"
+            ? yield* findGitReinstallRefs(parsed.source, "skill", parsed.requestedSkills)
+            : [];
+        const acceptedSkills = accepted.filter((ref) => ref.type === "skill");
+        const discovered =
+          acceptedSkills.length > 0 ? acceptedSkills : yield* discoverSkillRefs(parsed);
         const intent = yield* finalizeSkillInstallIntent(parsed, discovered);
-        const plan = yield* planSkillInstall(intent);
+        const settledIntent =
+          request.reinstall && acceptedSkills.length === 0
+            ? {
+                ...intent,
+                skillsToInstall: yield* Effect.forEach(intent.skillsToInstall, (entry) =>
+                  pinGitReinstallRef(entry.ref).pipe(
+                    Effect.flatMap((ref) =>
+                      ref.type === "skill"
+                        ? Effect.succeed({ ...entry, ref })
+                        : Effect.fail(
+                            installRefused({
+                              category: "internal",
+                              detail: "Accepted Git skill resolution changed extension type",
+                            }),
+                          ),
+                    ),
+                  ),
+                ),
+              }
+            : intent;
+        const plan = yield* planSkillInstall(settledIntent);
         const companions = buildCompanionPackagesSection(
-          intent.skillsToInstall.map((entry) => entry.ref),
+          settledIntent.skillsToInstall.map((entry) => entry.ref),
         );
         return {
           plan,
@@ -278,10 +305,36 @@ const planForType = (
                 }),
           ),
         );
-        const discovered = yield* discoverSubagentRefs(parsed);
+        const accepted =
+          request.reinstall && parsed.source.type === "git"
+            ? yield* findGitReinstallRefs(parsed.source, "subagent", parsed.requestedSubagents)
+            : [];
+        const acceptedSubagents = accepted.filter((ref) => ref.type === "subagent");
+        const discovered =
+          acceptedSubagents.length > 0 ? acceptedSubagents : yield* discoverSubagentRefs(parsed);
         const intent = yield* finalizeSubagentInstallIntent(parsed, discovered);
+        const settledIntent =
+          request.reinstall && acceptedSubagents.length === 0
+            ? {
+                ...intent,
+                subagentsToInstall: yield* Effect.forEach(intent.subagentsToInstall, (entry) =>
+                  pinGitReinstallRef(entry.ref).pipe(
+                    Effect.flatMap((ref) =>
+                      ref.type === "subagent"
+                        ? Effect.succeed({ ...entry, ref })
+                        : Effect.fail(
+                            installRefused({
+                              category: "internal",
+                              detail: "Accepted Git subagent resolution changed extension type",
+                            }),
+                          ),
+                    ),
+                  ),
+                ),
+              }
+            : intent;
         return {
-          plan: yield* planSubagentInstall(intent),
+          plan: yield* planSubagentInstall(settledIntent),
           diagnostics: {
             resolutionLines: [
               ...(parsed.resolutionProbes.length > 0
@@ -296,23 +349,104 @@ const planForType = (
     case "rule":
       return Effect.gen(function* () {
         const parsed = yield* parseRuleInstallRequest(source);
-        const intent = yield* finalizeRuleInstallIntent(parsed, yield* discoverRuleRefs(parsed));
-        return { plan: yield* planRuleInstall(intent), diagnostics: EMPTY_DIAGNOSTICS };
+        const accepted =
+          request.reinstall && parsed.source.type === "git"
+            ? yield* findGitReinstallRefs(parsed.source, "rule", parsed.names)
+            : [];
+        const acceptedRules = accepted.filter((ref) => ref.type === "rule");
+        const intent = yield* finalizeRuleInstallIntent(
+          parsed,
+          acceptedRules.length > 0 ? acceptedRules : yield* discoverRuleRefs(parsed),
+        );
+        const refs =
+          request.reinstall && acceptedRules.length === 0
+            ? yield* Effect.forEach(intent.refs, (entry) =>
+                pinGitReinstallRef(entry.ref).pipe(
+                  Effect.flatMap((ref) =>
+                    ref.type === "rule"
+                      ? Effect.succeed({ ...entry, ref })
+                      : Effect.fail(
+                          installRefused({
+                            category: "internal",
+                            detail: "Accepted Git rule resolution changed extension type",
+                          }),
+                        ),
+                  ),
+                ),
+              )
+            : intent.refs;
+        return {
+          plan: yield* planRuleInstall({ ...intent, refs }),
+          diagnostics: EMPTY_DIAGNOSTICS,
+        };
       });
     case "hook":
       return Effect.gen(function* () {
         const parsed = yield* parseHookInstallRequest(source);
-        const intent = yield* finalizeHookInstallIntent(parsed, yield* discoverHookRefs(parsed));
-        return { plan: yield* planHookInstall(intent), diagnostics: EMPTY_DIAGNOSTICS };
+        const accepted =
+          request.reinstall && parsed.source.type === "git"
+            ? yield* findGitReinstallRefs(parsed.source, "hook", parsed.names)
+            : [];
+        const acceptedHooks = accepted.filter((ref) => ref.type === "hook");
+        const intent = yield* finalizeHookInstallIntent(
+          parsed,
+          acceptedHooks.length > 0 ? acceptedHooks : yield* discoverHookRefs(parsed),
+        );
+        const refs =
+          request.reinstall && acceptedHooks.length === 0
+            ? yield* Effect.forEach(intent.refs, (entry) =>
+                pinGitReinstallRef(entry.ref).pipe(
+                  Effect.flatMap((ref) =>
+                    ref.type === "hook"
+                      ? Effect.succeed({ ...entry, ref })
+                      : Effect.fail(
+                          installRefused({
+                            category: "internal",
+                            detail: "Accepted Git hook resolution changed extension type",
+                          }),
+                        ),
+                  ),
+                ),
+              )
+            : intent.refs;
+        return {
+          plan: yield* planHookInstall({ ...intent, refs }),
+          diagnostics: EMPTY_DIAGNOSTICS,
+        };
       });
     case "knowledge":
       return Effect.gen(function* () {
         const parsed = yield* parseKnowledgeInstallRequest(source);
+        const accepted =
+          request.reinstall && parsed.source.type === "git"
+            ? yield* findGitReinstallRefs(parsed.source, "knowledge", parsed.names)
+            : [];
+        const acceptedKnowledge = accepted.filter((ref) => ref.type === "knowledge");
         const intent = yield* finalizeKnowledgeInstallIntent(
           parsed,
-          yield* discoverKnowledgeRefs(parsed),
+          acceptedKnowledge.length > 0 ? acceptedKnowledge : yield* discoverKnowledgeRefs(parsed),
         );
-        return { plan: yield* planKnowledgeInstall(intent), diagnostics: EMPTY_DIAGNOSTICS };
+        const refs =
+          request.reinstall && acceptedKnowledge.length === 0
+            ? yield* Effect.forEach(intent.refs, (entry) =>
+                pinGitReinstallRef(entry.ref).pipe(
+                  Effect.flatMap((ref) =>
+                    ref.type === "knowledge"
+                      ? Effect.succeed({ ...entry, ref })
+                      : Effect.fail(
+                          installRefused({
+                            category: "internal",
+                            detail: "Accepted Git Knowledge resolution changed extension type",
+                          }),
+                        ),
+                  ),
+                ),
+              )
+            : intent.refs;
+        return {
+          plan: yield* planKnowledgeInstall({ ...intent, refs }),
+          diagnostics: EMPTY_DIAGNOSTICS,
+        };
       });
     case "mcp-server":
       return Effect.gen(function* () {
@@ -324,12 +458,36 @@ const planForType = (
           nonInteractive: request.nonInteractive,
         });
         const sourceRequest = yield* resolveMcpServerSourceRequest(parsed);
+        const selectedNames = Option.toArray(
+          Option.orElse(parsed.localName, () => parsed.serverName),
+        );
+        const accepted =
+          request.reinstall && sourceRequest.source.type === "git"
+            ? yield* findGitReinstallRefs(sourceRequest.source, "mcp-server", selectedNames)
+            : [];
+        const acceptedMcpServers = accepted.filter((ref) => ref.type === "mcp-server");
         const intent = yield* finalizeMcpServerInstallIntent(
           parsed,
           sourceRequest,
-          yield* discoverMcpServerRefs(sourceRequest),
+          acceptedMcpServers.length > 0
+            ? acceptedMcpServers
+            : yield* discoverMcpServerRefs(sourceRequest),
         );
-        return { plan: yield* planMcpServerInstall(intent), diagnostics: EMPTY_DIAGNOSTICS };
+        const configuredName = Option.getOrElse(request.localName, () => intent.ref.server.name);
+        const ref =
+          request.reinstall && acceptedMcpServers.length === 0
+            ? yield* pinGitReinstallRef(intent.ref, configuredName)
+            : intent.ref;
+        if (ref.type !== "mcp-server") {
+          return yield* installRefused({
+            category: "internal",
+            detail: "Accepted Git MCP resolution changed extension type",
+          });
+        }
+        return {
+          plan: yield* planMcpServerInstall({ ...intent, ref }),
+          diagnostics: EMPTY_DIAGNOSTICS,
+        };
       });
     case "pack":
       return Effect.gen(function* () {
@@ -338,10 +496,36 @@ const planForType = (
           nonInteractive: request.nonInteractive,
         });
         const sourceRequest = yield* resolvePackSourceRequest(parsed);
-        const discovery = yield* discoverPackRef(sourceRequest);
+        const accepted =
+          request.reinstall && sourceRequest.source.type === "git"
+            ? yield* findGitReinstallRefs(
+                sourceRequest.source,
+                "pack",
+                Option.toArray(sourceRequest.packName),
+              )
+            : [];
+        const acceptedPack = accepted.find((ref) => ref.type === "pack");
+        const discovery =
+          acceptedPack === undefined
+            ? yield* discoverPackRef(sourceRequest)
+            : { ref: acceptedPack, probes: [], sourceLabel: source };
         const intent = finalizePackInstallIntent(parsed, discovery);
+        const ref =
+          request.reinstall && acceptedPack === undefined
+            ? yield* pinGitReinstallRef(intent.packToInstall)
+            : intent.packToInstall;
+        if (ref.type !== "pack") {
+          return yield* installRefused({
+            category: "internal",
+            detail: "Accepted Git Pack resolution changed extension type",
+          });
+        }
         return {
-          plan: yield* planPackInstall(intent),
+          plan: yield* planPackInstall({
+            ...intent,
+            packToInstall: ref,
+            ...(request.reinstall ? { forceCanonical: true } : {}),
+          }),
           diagnostics: {
             resolutionLines: packDiscoveryDiagnostics(sourceRequest, discovery),
             companionPackages: [],
@@ -458,6 +642,7 @@ const planRequest = (
         planName: request.planName,
         planDescription: request.planDescription,
         nonInteractive: request.nonInteractive,
+        force: request.reinstall,
       });
       if (result._tag === "NoConfiguredExtensions") {
         return {

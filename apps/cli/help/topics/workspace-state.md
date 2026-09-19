@@ -89,6 +89,32 @@ URL directly. If a named Registry now resolves to a different URL than the
 accepted row, lint and sync block until an explicit lifecycle operation accepts
 the transition.
 
+### Git acquisition and revision behavior
+
+Git locators may be a bare GitHub coordinate such as `owner/repo@v1.2.0`, a
+`github:`, `gitlab:`, or `bitbucket:` shorthand, or a full `https`, `ssh`, or
+`git` clone URL. `//path` selects a package directory within the repository.
+AXM resolves the selected revision to a commit when it first installs the
+package and records both that commit and the selected package tree.
+
+AXM uses the Git credentials already available to the `git` process, including
+configured credential helpers and SSH agents. Terminal credential prompts are
+disabled. AXM does not manage, persist, forward, or print Git credentials.
+
+`--reinstall` reacquires the commit recorded in the lockfile; it does not
+resolve the branch or tag again. If the remote no longer makes that commit
+reachable, reinstall fails and names both the locator and recorded commit.
+`axm update` advances a branch selector. Tag and commit selectors remain pinned;
+for a semantic-version tag, update reports a newer remote tag when one exists
+without changing the installation. Installing the same repository with a new
+tag, such as `owner/repo@v1.3.0`, is an explicit selector change and appears in
+preview before AXM updates the existing desired entry.
+
+Git submodules, Git LFS object hydration, and symlink materialization are not
+supported. LFS smudging is disabled, submodules are not initialized, and a
+symlink in selected package content fails materialization. Store ordinary files
+for every package byte AXM must install.
+
 Acquired canonical packages use
 `agent_extensions/<source-family>/<@owner>/<plural-type>/<name>/` in project
 scope and the same suffix beneath `~/.axm/workspace/agent_extensions/` in user

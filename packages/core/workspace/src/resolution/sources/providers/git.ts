@@ -12,8 +12,7 @@ import * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 
 import { SourceNetworkFailure, type SourceError } from "../errors.js";
-import { shallowClone } from "../git/operations.js";
-import { fileUrlToPath } from "../file-url.js";
+import { shallowClone, shallowFetchCommit } from "../git/operations.js";
 import type { SourceHostProvider } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import type { GitSource } from "@agentxm/extension-model/unstable/sources/types";
 import { discoverConventionRefs } from "./convention-discovery.js";
@@ -58,7 +57,7 @@ export const createGitSourceHostProvider = (): SourceHostProvider<
       return yield* discoverConventionRefs(source, tempDir, options);
     }),
 
-  fetch: (_source, ref) => {
+  fetch: (source, ref) => {
     if (ref.refType !== "git-hosted") {
       return Effect.fail(
         new SourceNetworkFailure({
@@ -66,8 +65,24 @@ export const createGitSourceHostProvider = (): SourceHostProvider<
         }),
       );
     }
-    return Effect.succeed({
-      directory: fileUrlToPath(ref.location),
+    return Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const tempDir = yield* Effect.acquireRelease(
+        fs.makeTempDirectory({ prefix: "axm-source-commit-" }).pipe(
+          Effect.mapError(
+            (cause) =>
+              new SourceNetworkFailure({
+                detail: `Temporary directory for ${source.url.href} at ${ref.gitCommitSha} could not be created`,
+                cause,
+              }),
+          ),
+        ),
+        (directory) => fs.remove(directory, { recursive: true }).pipe(Effect.ignore),
+      );
+      yield* shallowFetchCommit(source.url.href, tempDir, ref.gitCommitSha);
+      const sourcePath = ref.sourcePath ?? ".";
+      return { directory: sourcePath === "." ? tempDir : path.join(tempDir, sourcePath) };
     });
   },
 });

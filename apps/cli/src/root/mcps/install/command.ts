@@ -10,10 +10,11 @@ import {
 import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import { handleInstallMcpServer } from "./handler.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
+import { installSourceArgumentDescription } from "@agentxm/workspace/lifecycle";
 
 const installConfig = {
   source: Argument.String("source").pipe(
-    Argument.withDescription("Registry MCP server reference (@owner/mcps/name or bare name)"),
+    Argument.withDescription(installSourceArgumentDescription("mcp-server")),
     Argument.optional,
   ),
   scope: scopeFlag.pipe(
@@ -43,7 +44,7 @@ export const installCommand = Command.make(
   withArgvTracking(installConfig),
   withCommandCapabilities(previewableCapabilities("workspace", { trust: ["publisher-change"] })),
   Command.withDescription(
-    "Reinstall configured MCP servers from their sources, or install an MCP server from a registry",
+    "Reinstall configured MCP servers from their sources, or install an MCP server from a source",
   ),
   Command.withExamples([
     {
@@ -52,7 +53,7 @@ export const installCommand = Command.make(
     },
     {
       command: "axm mcps install @acme/mcps/my-server",
-      description: "Add an MCP server from the registry",
+      description: "Add an MCP server from a registry source",
     },
     {
       command: "axm mcps install @acme/mcps/my-server --as work-server",
@@ -61,6 +62,10 @@ export const installCommand = Command.make(
     {
       command: "axm mcps install my-server",
       description: "Install using your default owner",
+    },
+    {
+      command: "axm mcps install ./local/server",
+      description: "Install an MCP server from a local package",
     },
     {
       command: "axm mcps install @acme/mcps/my-server --preview",

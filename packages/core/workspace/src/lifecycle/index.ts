@@ -72,7 +72,11 @@ export {
   type RootInstallableType,
   type RootInstallableTypeSegment,
 } from "./install/root-intent.js";
-export { installCommandFor, perTypeInstallPluralSegments } from "./install/per-type-install.js";
+export {
+  installCommandFor,
+  installSourceArgumentDescription,
+  perTypeInstallPluralSegments,
+} from "./install/per-type-install.js";
 export {
   buildConfiguredInstallPlan,
   buildConfiguredPackInstallPlan,

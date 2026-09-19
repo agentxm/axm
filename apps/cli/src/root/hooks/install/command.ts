@@ -11,12 +11,11 @@ import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
 import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";
 import { handleInstallHook } from "./handler.js";
+import { installSourceArgumentDescription } from "@agentxm/workspace/lifecycle";
 
 const installConfig = {
   source: Argument.String("source").pipe(
-    Argument.withDescription(
-      "hooks package source (@owner/hooks/name, path, URL, or git shorthand)",
-    ),
+    Argument.withDescription(installSourceArgumentDescription("hook")),
     Argument.optional,
   ),
   scope: scopeFlag.pipe(

@@ -16,6 +16,7 @@ import type { Settings } from "../settings/index.js";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { isDesiredExtensionActive } from "./desired-state-enabled.js";
 import type { WorkspaceLayout } from "./layout.js";
+import type { PackLockEntry } from "../lockfile/schema.js";
 import type { PackManifestsPort } from "./pack-manifests.js";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { intersectVersionConstraints } from "@agentxm/extension-model/unstable/version-constraints";
@@ -158,6 +159,8 @@ interface DesiredStateGraphArgs {
   readonly prospectivePacks?: ReadonlyArray<ProspectivePackRef>;
   /** Registry source aliases mapped to their stable authority endpoints. */
   readonly registryAccessorities?: Readonly<Record<string, URL | string>>;
+  /** Accepted external pack identities keyed by settings name. */
+  readonly acceptedPacks?: Readonly<Record<string, PackLockEntry>>;
 }
 
 interface CandidateCommon {
@@ -248,6 +251,8 @@ const packIdentity = (
   settingsName: string,
   source: string,
   settings: Settings,
+  accepted: PackLockEntry | undefined,
+  prospective: ProspectivePackRef | undefined,
 ): PackIdentity | undefined => {
   if (isWorkspaceSourceLocator(source)) {
     if (settings.owner === undefined) return undefined;
@@ -275,6 +280,16 @@ const packIdentity = (
       name: settingsName,
       fqn: `${settings.owner}/packs/${settingsName}`,
     };
+  }
+
+  const owner =
+    accepted?.type === "registry" ? accepted.owner : (accepted?.packageOwner ?? prospective?.owner);
+  const name =
+    accepted?.type === "registry"
+      ? accepted.name
+      : (accepted?.packageName ?? prospective?.pack.name);
+  if (owner !== undefined && name !== undefined) {
+    return { owner, name, fqn: `${owner}/packs/${name}` };
   }
 
   return undefined;
@@ -331,6 +346,7 @@ export const buildDesiredStateGraph = ({
   layout,
   prospectivePacks = [],
   registryAccessorities = {},
+  acceptedPacks = {},
 }: DesiredStateGraphArgs): Effect.Effect<DesiredStateGraph, never> =>
   Effect.gen(function* () {
     const candidates: Candidate[] = [];
@@ -434,7 +450,17 @@ export const buildDesiredStateGraph = ({
     addSettingsEntries("knowledge", settings.knowledge);
 
     for (const [settingsName, entry] of Object.entries(settings.packs ?? {})) {
-      const identity = packIdentity(settingsName, entry.source, settings);
+      const acceptedPack = acceptedPacks[settingsName];
+      const prospectivePack = prospectivePacks.find(
+        (candidate) => candidate.pack.name === settingsName,
+      );
+      const identity = packIdentity(
+        settingsName,
+        entry.source,
+        settings,
+        acceptedPack,
+        prospectivePack,
+      );
       if (identity === undefined) {
         problems.push({
           type: "pack-identity-mismatch",
@@ -466,7 +492,8 @@ export const buildDesiredStateGraph = ({
       });
 
       const workspacePack = isWorkspaceSourceLocator(entry.source);
-      const configuredRegistrySource = registryLocator(entry.source)?.sourceName ?? "agentxm";
+      const configuredRegistrySource =
+        registryLocator(entry.source)?.sourceName ?? acceptedPack?.sourceName ?? "agentxm";
       if (entry.enabled === false) continue;
 
       const document = manifests.locate({

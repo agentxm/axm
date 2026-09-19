@@ -29,8 +29,12 @@ import {
 import type { McpServerSyncOutcome } from "../../projection/agent-adapters/index.js";
 import { CodingAgentRepository } from "../../projection/index.js";
 import { mcpRegistryResolutionKey } from "../../desired-state/index.js";
-import { isPathSafe } from "@agentxm/extension-model/unstable/path-types";
+import {
+  isPathSafe,
+  makeWorkspaceRelativeSourcePath,
+} from "@agentxm/extension-model/unstable/path-types";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
+import { stripFileProtocol } from "@agentxm/registry-client";
 import {
   acceptedRegistryVersionForRef,
   validateExactResolvedVersion,
@@ -48,6 +52,8 @@ import {
 } from "../../desired-state/index.js";
 import { canReuseInstalledPackage } from "../../materialization/index.js";
 import { materializeRegistryPackage } from "../../materialization/index.js";
+import { copyExtensionDirectory } from "../../acquisition/copy-directory.js";
+import { replaceCanonicalDirectoryWithInspection } from "../../acquisition/canonical-directory.js";
 import { computeExtensionPathsForLayout } from "../../desired-state/index.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import type {
@@ -55,7 +61,14 @@ import type {
   RegistryMcpServerRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { McpServerLockEntry } from "../../desired-state/index.js";
-import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "../../desired-state/index.js";
+import {
+  computeMaterializedTreeIntegrity,
+  type MaterializedTreeInvalid,
+  type TreeIntegrity,
+} from "../../desired-state/index.js";
+import { computePackageContentHash } from "../../desired-state/index.js";
+import { mcpResolutionKey } from "../../desired-state/index.js";
+import { buildExternalMcpServerLockEntry } from "../../mcp-connections/lock-entry-builder.js";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   MCP_SERVER_MANIFEST_FILENAME,
@@ -77,7 +90,6 @@ import {
   McpAgentSyncRefused,
   McpCanonicalPathUnsafe,
   McpLocalNameConflict,
-  McpRegistryOnlyInstall,
   McpRequiredInputsMissing,
   McpWorkspacePackageInvalid,
 } from "../../materialization/index.js";
@@ -616,13 +628,6 @@ export const installMcpServer: (
     const { ref } = op.args;
     const localName = op.args.declaration?.name ?? op.args.localName ?? ref.server.name;
 
-    if (ref.refType !== "registry" && ref.refType !== "workspace") {
-      return yield* new McpRegistryOnlyInstall({
-        serverName: ref.server.name,
-        refType: ref.refType,
-      });
-    }
-
     const strictAgentSync = Option.getOrElse(op.args.strictAgentSync ?? Option.none(), () => false);
     const env = Option.getOrElse(op.args.env ?? Option.none(), () => ({}));
     const resolutionKey =
@@ -633,11 +638,31 @@ export const installMcpServer: (
             name: ref.server.name,
           })
         : undefined;
-    const sourceIdentity = resolutionKey ?? `workspace:${ref.owner}/mcps/${ref.server.name}`;
+    const requestedSourceIdentity =
+      resolutionKey ??
+      (ref.refType === "workspace"
+        ? `workspace:${ref.owner}/mcps/${ref.server.name}`
+        : ref.refType === "local"
+          ? Option.getOrElse(
+              makeWorkspaceRelativeSourcePath(
+                path,
+                location.baseDir,
+                stripFileProtocol(ref.location),
+              ),
+              () => ref.source.path,
+            )
+          : printSourceParams(ref.source));
     const desiredGraph = yield* desiredStateReader.graph();
     const existingLocalNode = desiredGraph.nodes.find(
       (node) => node.type === "mcp-server" && node.name === localName,
     );
+    const sourceIdentity =
+      ref.refType === "local" &&
+      existingLocalNode !== undefined &&
+      path.resolve(location.baseDir, existingLocalNode.identity) ===
+        path.resolve(stripFileProtocol(ref.location))
+        ? existingLocalNode.identity
+        : requestedSourceIdentity;
     if (
       existingLocalNode !== undefined &&
       (existingLocalNode.authority === "inline" || existingLocalNode.identity !== sourceIdentity)
@@ -662,46 +687,84 @@ export const installMcpServer: (
     const canonicalPath =
       ref.refType === "registry"
         ? yield* installFromRegistry(ref, { force: op.args.force, lockedVersion })
-        : yield* Effect.gen(function* () {
-            const fs = yield* FileSystem.FileSystem;
-            const path = yield* Path.Path;
-            const expectedPath = path.join(
-              layout.scope === "project"
-                ? layout.authoredRoot("mcp-server")
-                : path.join(layout.acquiredRoot, ref.owner, "mcps"),
-              ref.name,
+        : ref.refType === "workspace"
+          ? yield* Effect.gen(function* () {
+              const fs = yield* FileSystem.FileSystem;
+              const path = yield* Path.Path;
+              const expectedPath = path.join(
+                layout.scope === "project"
+                  ? layout.authoredRoot("mcp-server")
+                  : path.join(layout.acquiredRoot, ref.owner, "mcps"),
+                ref.name,
+              );
+              if (
+                ref.scope !== location.scope ||
+                path.resolve(ref.location) !== path.resolve(expectedPath)
+              ) {
+                return yield* new McpWorkspacePackageInvalid({
+                  serverName: ref.server.name,
+                  location: ref.location,
+                  fault: "outside-workspace",
+                });
+              }
+              const exists = yield* fs.exists(ref.location).pipe(
+                Effect.mapError(
+                  (error) =>
+                    new McpWorkspacePackageInvalid({
+                      serverName: ref.server.name,
+                      location: ref.location,
+                      fault: "unreadable",
+                      cause: error,
+                    }),
+                ),
+              );
+              if (!exists) {
+                return yield* new McpWorkspacePackageInvalid({
+                  serverName: ref.server.name,
+                  location: ref.location,
+                  fault: "missing",
+                });
+              }
+              return ref.location;
+            })
+          : yield* Effect.scoped(
+              Effect.gen(function* () {
+                const destination = computeExtensionPathsForLayout(
+                  path.join,
+                  layout,
+                  ref,
+                  "mcps",
+                  ref.name,
+                ).canonicalPath;
+                yield* replaceCanonicalDirectoryWithInspection<
+                  TreeIntegrity,
+                  McpWorkspacePackageInvalid | MaterializedTreeInvalid,
+                  FileSystem.FileSystem | Path.Path
+                >({
+                  baseDir: location.baseDir,
+                  canonicalPath: destination,
+                  populate: (stagingPath) =>
+                    copyExtensionDirectory(stripFileProtocol(ref.location), stagingPath).pipe(
+                      Effect.mapError(
+                        (cause) =>
+                          new McpWorkspacePackageInvalid({
+                            serverName: ref.server.name,
+                            location: ref.location,
+                            fault: "unreadable",
+                            cause,
+                          }),
+                      ),
+                    ),
+                  inspect: computeMaterializedTreeIntegrity,
+                });
+                return destination;
+              }),
             );
-            if (
-              ref.scope !== location.scope ||
-              path.resolve(ref.location) !== path.resolve(expectedPath)
-            ) {
-              return yield* new McpWorkspacePackageInvalid({
-                serverName: ref.server.name,
-                location: ref.location,
-                fault: "outside-workspace",
-              });
-            }
-            const exists = yield* fs.exists(ref.location).pipe(
-              Effect.mapError(
-                (error) =>
-                  new McpWorkspacePackageInvalid({
-                    serverName: ref.server.name,
-                    location: ref.location,
-                    fault: "unreadable",
-                    cause: error,
-                  }),
-              ),
-            );
-            if (!exists) {
-              return yield* new McpWorkspacePackageInvalid({
-                serverName: ref.server.name,
-                location: ref.location,
-                fault: "missing",
-              });
-            }
-            return ref.location;
-          });
     const manifest = yield* readMcpServerManifest(canonicalPath);
+    const resolvedVersion =
+      ref.refType === "registry" || ref.refType === "workspace"
+        ? ref.version
+        : Option.match(manifest, { onNone: () => "0.0.0", onSome: (value) => value.version });
     const nothingRunnable = isNothingRunnableManifest(manifest);
     const secretNames = Option.match(manifest, {
       onNone: () => new Set<string>(),
@@ -715,10 +778,25 @@ export const installMcpServer: (
       );
     }
 
+    const treeIntegrity = yield* computeMaterializedTreeIntegrity(canonicalPath);
     const lockEntry =
       ref.refType === "registry"
-        ? buildLockEntry(ref, yield* computeMaterializedTreeIntegrity(canonicalPath))
-        : undefined;
+        ? buildLockEntry(ref, treeIntegrity)
+        : ref.refType === "workspace"
+          ? undefined
+          : buildExternalMcpServerLockEntry({
+              ref,
+              treeIntegrity,
+              contentIdentity: yield* computePackageContentHash(canonicalPath),
+              localPath:
+                ref.refType === "local"
+                  ? makeWorkspaceRelativeSourcePath(
+                      path,
+                      location.baseDir,
+                      stripFileProtocol(ref.location),
+                    )
+                  : Option.none(),
+            });
     const currentMcpServers = yield* settings.entries("mcp-server");
     const currentEntry = currentMcpServers[localName];
     const secretIdentity = {
@@ -761,7 +839,7 @@ export const installMcpServer: (
             })
           : desiredStateWriter.declare("mcp-server", {
               name: localName,
-              resolutionKey: resolutionKey ?? localName,
+              resolutionKey: resolutionKey ?? mcpResolutionKey(lockEntry),
               lockEntry,
               versionRange: op.args.declaration.versionRange,
               env: persistedEnv,
@@ -802,7 +880,7 @@ export const installMcpServer: (
             serverName: projectionName,
             canonicalPath,
             owner: ref.owner,
-            resolvedVersion: ref.version,
+            resolvedVersion,
             nothingRunnable,
             enabled: projectionEntry.enabled,
             configValues: preserveSecretReferences(projectionEnv, secretNames),

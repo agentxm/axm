@@ -141,6 +141,20 @@ describe("Settings schema", () => {
       });
     });
 
+    it("rejects a sourced MCP entry whose FQN names another extension type", () => {
+      expect(() =>
+        Schema.decodeUnknownSync(SettingsSchema)({
+          mcpServers: { browser: "@acme/skills/browser" },
+        }),
+      ).toThrow(/MCP server registry source must use \/mcps\//);
+    });
+
+    it("rejects a pack source glob at settings parse time", () => {
+      expect(() =>
+        Schema.decodeUnknownSync(SettingsSchema)({ packs: { tools: "@acme/packs/*" } }),
+      ).toThrow(/pack source uses unsupported source syntax/);
+    });
+
     it("defaults omitted enabled flags to enabled entries", () => {
       const entry = Schema.decodeUnknownSync(McpServerEntrySchema)({
         source: "@wayne/mcps/bat-computer",

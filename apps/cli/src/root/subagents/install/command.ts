@@ -10,12 +10,11 @@ import {
 } from "../../shared/command-capabilities.js";
 import { handleInstall } from "./handler.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
+import { installSourceArgumentDescription } from "@agentxm/workspace/lifecycle";
 
 const installConfig = {
   source: Argument.String("source").pipe(
-    Argument.withDescription(
-      "Registry reference (@owner/subagents/name), GitHub shorthand (owner/repo), local path, or URL",
-    ),
+    Argument.withDescription(installSourceArgumentDescription("subagent")),
     Argument.optional,
   ),
   scope: scopeFlag.pipe(

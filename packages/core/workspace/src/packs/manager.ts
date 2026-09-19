@@ -304,11 +304,7 @@ export const PackManagerLive = Layer.effect(
         ).canonicalPath;
         const workspaceRelativeLocalSourcePath =
           ref.refType === "local"
-            ? makeWorkspaceRelativeSourcePath(
-                path,
-                baseDir,
-                ref.sourcePath ?? stripFileProtocol(ref.location),
-              )
+            ? makeWorkspaceRelativeSourcePath(path, baseDir, stripFileProtocol(ref.location))
             : Option.none<string>();
         if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
           return yield* new PackDefinitionInvalid({

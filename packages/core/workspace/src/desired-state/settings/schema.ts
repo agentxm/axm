@@ -7,6 +7,7 @@
  */
 
 import * as Duration from "effect/Duration";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
 import {
@@ -19,6 +20,8 @@ import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/ext
 import { HandleSchema } from "@agentxm/extension-model/unstable/extensions/handle";
 import { LintConfigSchema } from "@agentxm/extension-content/lint";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
+import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
+import { decodeVersionRangeSync } from "@agentxm/extension-model/unstable/version-constraints";
 
 // -----------------------------------------------------------------------------
 // Source Host Config (array-based, discriminated on `type` field)
@@ -265,6 +268,40 @@ const enabledFieldSchema = Schema.optionalKey(
   }),
 );
 
+const sourceGrammarIssue = (label: string, fqnType: string, source: string) => {
+  if (source === "workspace") return undefined;
+  const parsed = parseInputPattern(source);
+  if (Option.isNone(parsed)) {
+    try {
+      decodeVersionRangeSync(source);
+      return undefined;
+    } catch {
+      return `${label} source uses unsupported source syntax`;
+    }
+  }
+  switch (parsed.value.pattern.pattern) {
+    case "glob-input":
+      return `${label} source cannot use a glob because source resolution does not support globs`;
+    case "registry-pattern-input": {
+      const type = Option.getOrUndefined(parsed.value.pattern.type);
+      return type === undefined || type === fqnType
+        ? undefined
+        : `${label} registry source must use /${fqnType}/, not /${type}/`;
+    }
+    case "workspace-pattern-input":
+      return parsed.value.pattern.type === fqnType
+        ? undefined
+        : `${label} workspace source must use /${fqnType}/, not /${parsed.value.pattern.type}/`;
+    case "name-input":
+    case "url-input":
+    case "git-scp-address":
+    case "shorthand-input":
+    case "slash-pattern":
+    case "file-path-pattern":
+      return undefined;
+  }
+};
+
 const entrySourceFieldSchema = (label: string, fqnType: string) =>
   Schema.NonEmptyString.pipe(
     Schema.annotateKey({ messageMissingKey: `${label} source is required` }),
@@ -290,10 +327,21 @@ const workspaceEntriesMatch = (pluralType: string) =>
     return undefined;
   });
 
+const entrySourcesMatch = (label: string, pluralType: string) =>
+  Schema.makeFilter((entries: Readonly<Record<string, { readonly source: string }>>) => {
+    for (const entry of Object.values(entries)) {
+      const issue = sourceGrammarIssue(label, pluralType, entry.source);
+      if (issue !== undefined) return issue;
+    }
+    return undefined;
+  });
+
 const mcpWorkspaceEntriesMatch = Schema.makeFilter(
   (entries: Readonly<Record<string, CanonicalMcpServerEntry>>) => {
     for (const [entryName, entry] of Object.entries(entries)) {
       if (entry.kind !== "sourced") continue;
+      const issue = sourceGrammarIssue("MCP server", "mcps", entry.source);
+      if (issue !== undefined) return issue;
       if (entry.source.startsWith("workspace:") || entry.source === "authored") {
         return `Workspace package "${entryName}" must use the compact source "workspace" in mcps`;
       }
@@ -538,6 +586,7 @@ export type SkillEntry = Schema.Schema.Type<typeof SkillEntrySchema>;
  */
 export const SkillsMapSchema = Schema.Record(Schema.String, SkillEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .check(entrySourcesMatch("skill", "skills"))
   .check(workspaceEntriesMatch("skills"))
   .annotate({
     identifier: "SkillsMap",
@@ -594,6 +643,7 @@ export type RuleEntry = Schema.Schema.Type<typeof RuleEntrySchema>;
  */
 export const RulesMapSchema = Schema.Record(Schema.String, RuleEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .check(entrySourcesMatch("rule", "rules"))
   .check(workspaceEntriesMatch("rules"))
   .annotate({
     identifier: "RulesMap",
@@ -646,6 +696,7 @@ export type HookEntry = Schema.Schema.Type<typeof HookEntrySchema>;
  */
 export const HooksMapSchema = Schema.Record(Schema.String, HookEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .check(entrySourcesMatch("hook", "hooks"))
   .check(workspaceEntriesMatch("hooks"))
   .annotate({
     identifier: "HooksMap",
@@ -722,6 +773,7 @@ export type KnowledgeEntry = Schema.Schema.Type<typeof KnowledgeEntrySchema>;
 
 export const KnowledgeMapSchema = Schema.Record(Schema.String, KnowledgeEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .check(entrySourcesMatch("knowledge bundle", "knowledge"))
   .check(workspaceEntriesMatch("knowledge"))
   .annotate({
     identifier: "KnowledgeMap",
@@ -1002,6 +1054,7 @@ export type SubagentEntry = Schema.Schema.Type<typeof SubagentEntrySchema>;
  */
 export const SubagentsMapSchema = Schema.Record(Schema.String, SubagentEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .check(entrySourcesMatch("subagent", "subagents"))
   .check(workspaceEntriesMatch("subagents"))
   .annotate({
     identifier: "SubagentsMap",
@@ -1071,6 +1124,7 @@ export type PackEntry = Schema.Schema.Type<typeof PackEntrySchema>;
  */
 export const PacksMapSchema = Schema.Record(Schema.String, PackEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .check(entrySourcesMatch("pack", "packs"))
   .check(workspaceEntriesMatch("packs"))
   .annotate({
     identifier: "PacksMap",

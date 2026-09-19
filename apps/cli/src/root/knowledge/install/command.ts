@@ -16,6 +16,7 @@ import {
 } from "../../shared/command-capabilities.js";
 import { runInstallCommand } from "../../shared/install-command.js";
 import { mutationFlags, scopeConfig } from "../flags.js";
+import { installSourceArgumentDescription } from "@agentxm/workspace/lifecycle";
 
 export interface KnowledgeInstallHandlerArgs {
   readonly source: Option.Option<string>;
@@ -59,7 +60,7 @@ export const handleKnowledgeInstall = (args: KnowledgeInstallHandlerArgs) =>
 
 const installConfig = {
   source: Argument.String("source").pipe(
-    Argument.withDescription("Knowledge source (@owner/knowledge/name, path, URL, or git locator)"),
+    Argument.withDescription(installSourceArgumentDescription("knowledge")),
     Argument.optional,
   ),
   ...scopeConfig,

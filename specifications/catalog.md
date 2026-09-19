@@ -4079,6 +4079,20 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Methods: decision-table
 - Source: [`packages/core/extension-model/src/unstable/extensions/installability-by-source-family-is-total.spec.ts`](../packages/core/extension-model/src/unstable/extensions/installability-by-source-family-is-total.spec.ts)
 
+##### Pack and MCP installs use the shared source grammar
+
+- Requirement: `install/pack-and-mcp-use-shared-source-resolution`
+- Owner: `workspace`
+- Statement: Pack and MCP server install shall resolve Registry, Git, and path locators through the shared source resolver, shall persist accepted external source authority, and shall reject unsupported per-type settings sources during schema parsing.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `trustworthy-distribution`
+- Boundary: process; selection: per-change
+- Boundary rationale: The examples execute real local package discovery, planning, materialization, settings writes, lock writes, postconditions, and repeated MCP source admission through the public install use case.
+- Methods: example, invariant
+- Derived from: `extension-installability/source-family-policy-is-total`, `extension-discovery/all-manifest-kinds-from-git-and-path`
+- Source: [`packages/core/workspace/src/lifecycle/install/pack-and-mcp-install-use-shared-source-resolution.spec.ts`](../packages/core/workspace/src/lifecycle/install/pack-and-mcp-install-use-shared-source-resolution.spec.ts)
+
 ##### Git and path Packs inherit members from one source view
 
 - Requirement: `packs/source-inherited-members-share-one-source-view`

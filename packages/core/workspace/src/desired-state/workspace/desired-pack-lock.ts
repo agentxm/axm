@@ -102,9 +102,12 @@ export const validateDesiredPackLock = ({
 
       const identity = parseExtensionFqnParts(node.identity);
       const entry = lockfile.packs?.[node.name];
-      const configuredSourceName = node.source.startsWith("@")
-        ? "agentxm"
-        : node.source.slice(0, node.source.indexOf(":"));
+      const configuredSourceName =
+        entry?.type === "registry"
+          ? node.source.startsWith("@")
+            ? "agentxm"
+            : node.source.slice(0, node.source.indexOf(":"))
+          : entry?.sourceName;
       const lockedOwner = entry?.type === "registry" ? entry.owner : entry?.packageOwner;
       const lockedName = entry?.type === "registry" ? entry.name : entry?.packageName;
       if (

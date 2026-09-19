@@ -326,6 +326,7 @@ const planForType = (
         const sourceRequest = yield* resolveMcpServerSourceRequest(parsed);
         const intent = yield* finalizeMcpServerInstallIntent(
           parsed,
+          sourceRequest,
           yield* discoverMcpServerRefs(sourceRequest),
         );
         return { plan: yield* planMcpServerInstall(intent), diagnostics: EMPTY_DIAGNOSTICS };

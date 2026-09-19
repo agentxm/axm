@@ -1,8 +1,8 @@
 /**
  * The pack source grammar.
  *
- * `packs install` accepts a registry pattern or a bare name resolved against
- * the configured owner, and refuses every other locator shape. Reading the
+ * `packs install` accepts the shared source grammar, including a registry
+ * pattern or a bare name resolved against the configured owner. Reading the
  * grammar is a decision the settled request carries, so these examples parse
  * the request and read the parsed fields — or the refusal — back.
  */
@@ -53,20 +53,11 @@ describe("pack install source grammar", () => {
       )
       .pipe(Effect.provide(NodeServices.layer));
 
-  const refusal = (owner: string, source: string) =>
-    workspaceOwnedBy(owner)
-      .provide(
-        Effect.scoped(parsePackInstallRequest({ source, nonInteractive: true }))
-          .pipe(Effect.provide(NodeServices.layer))
-          .pipe(Effect.flip),
-      )
-      .pipe(Effect.provide(NodeServices.layer));
-
   it.effect("accepts @owner/packs/pack-name format", () =>
     Effect.gen(function* () {
       const parsed = yield* parse("@acme", "@acme/packs/my-pack");
-      expect(parsed.owner).toBe("@acme");
-      expect(parsed.packName).toBe("my-pack");
+      expect(parsed.owner).toEqual(Option.some("@acme"));
+      expect(parsed.packName).toEqual(Option.some("my-pack"));
       expect(parsed.versionRange).toEqual(Option.none());
       expect(parsed.inputKind).toBe("registry-pattern-input");
     }),
@@ -75,8 +66,8 @@ describe("pack install source grammar", () => {
   it.effect("accepts @owner/packs/pack-name@^2.0.0 with version constraint", () =>
     Effect.gen(function* () {
       const parsed = yield* parse("@acme", "@acme/packs/my-pack@^2.0.0");
-      expect(parsed.owner).toBe("@acme");
-      expect(parsed.packName).toBe("my-pack");
+      expect(parsed.owner).toEqual(Option.some("@acme"));
+      expect(parsed.packName).toEqual(Option.some("my-pack"));
       expect(parsed.versionRange).toEqual(Option.some("^2.0.0"));
     }),
   );
@@ -84,8 +75,8 @@ describe("pack install source grammar", () => {
   it.effect("resolves bare pack-name to @defaultScope/packs/pack-name", () =>
     Effect.gen(function* () {
       const parsed = yield* parse("@myorg", "my-pack");
-      expect(parsed.owner).toBe("@myorg");
-      expect(parsed.packName).toBe("my-pack");
+      expect(parsed.owner).toEqual(Option.some("@myorg"));
+      expect(parsed.packName).toEqual(Option.some("my-pack"));
       expect(parsed.resolvedInput).toBe("@myorg/packs/my-pack");
     }),
   );
@@ -93,34 +84,33 @@ describe("pack install source grammar", () => {
   it.effect("resolves bare pack-name@version with default owner", () =>
     Effect.gen(function* () {
       const parsed = yield* parse("@myorg", "my-pack@^2.0.0");
-      expect(parsed.owner).toBe("@myorg");
-      expect(parsed.packName).toBe("my-pack");
+      expect(parsed.owner).toEqual(Option.some("@myorg"));
+      expect(parsed.packName).toEqual(Option.some("my-pack"));
       expect(parsed.versionRange).toEqual(Option.some("^2.0.0"));
       expect(parsed.resolvedInput).toBe("@myorg/packs/my-pack@^2.0.0");
     }),
   );
 
-  it.effect("rejects @owner/pack-name without a /packs/ segment", () =>
+  it.effect("routes non-FQN slash input through source resolution", () =>
     Effect.gen(function* () {
-      const error = yield* refusal("@acme", "@acme/my-pack");
-      expect(error.category).toBe("usage");
-      expect(`${error.detail}`).toContain("registry");
+      const parsed = yield* parse("@acme", "@acme/my-pack");
+      expect(parsed.inputKind).toBe("source-locator-input");
     }),
   );
 
-  it.effect("rejects local path sources", () =>
+  it.effect("accepts local path sources", () =>
     Effect.gen(function* () {
-      const error = yield* refusal("@acme", "./local-path");
-      expect(error.category).toBe("usage");
-      expect(`${error.detail}`).toContain("registry");
+      const parsed = yield* parse("@acme", "./local-path");
+      expect(parsed.inputKind).toBe("source-locator-input");
+      expect(parsed.resolvedInput).toBe("./local-path");
     }),
   );
 
-  it.effect("rejects github shorthand sources", () =>
+  it.effect("accepts github shorthand sources", () =>
     Effect.gen(function* () {
-      const error = yield* refusal("@acme", "github:owner/repo");
-      expect(error.category).toBe("usage");
-      expect(`${error.detail}`).toContain("registry");
+      const parsed = yield* parse("@acme", "github:owner/repo");
+      expect(parsed.inputKind).toBe("source-locator-input");
+      expect(parsed.resolvedInput).toBe("github:owner/repo");
     }),
   );
 });
@@ -171,6 +161,36 @@ describe("pack install graph", () => {
       )}\n`,
     );
   };
+
+  const writeLocalPack = (directory: string, name: string): void => {
+    fs.mkdirSync(directory, { recursive: true });
+    fs.writeFileSync(
+      nodePath.join(directory, "pack.json"),
+      `${JSON.stringify({
+        owner: "@acme",
+        type: "pack",
+        name,
+        version: "1.0.0",
+        description: `The ${name} pack.`,
+        dependencies: {},
+      })}\n`,
+    );
+  };
+
+  it.effect("installs a pack from a local source", () => {
+    const created = world();
+    const source = nodePath.join(created.workspace.root, "fixtures", "local-pack");
+    writeLocalPack(source, "local-pack");
+    return created.workspace
+      .provide(
+        Effect.gen(function* () {
+          const resolution = yield* applyInstall(packRequest(source));
+          expect(deriveOperationOutcome(resolution)).toBe("applied");
+          expect(JSON.stringify(readSettings(created.workspace))).toContain("local-pack");
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
 
   it.effect("hard-blocks a Registry install over workspace pack authority", () => {
     const created = world({ packs: { toolkit: { source: "workspace", enabled: true } } });

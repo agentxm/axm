@@ -50,7 +50,8 @@ import {
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
-import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
+import type { RegistrySource, Source } from "@agentxm/extension-model/unstable/sources/types";
+import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import {
   versionSatisfiesRange,
@@ -113,11 +114,12 @@ import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
 
 /** A pack install request after grammar parsing, before anything is discovered. */
 export interface ParsedPackInstallRequest {
-  readonly owner: Handle;
-  readonly packName: ExtensionName;
+  readonly owner: Option.Option<Handle>;
+  readonly packName: Option.Option<ExtensionName>;
   readonly versionRange: Option.Option<VersionRange>;
   readonly resolvedInput: string;
-  readonly inputKind: "name-input" | "name-input-with-version" | "registry-pattern-input";
+  readonly inputKind:
+    "name-input" | "name-input-with-version" | "registry-pattern-input" | "source-locator-input";
   readonly sourceResolution?: string;
   readonly unattended: boolean;
   readonly nonInteractive: boolean;
@@ -125,11 +127,11 @@ export interface ParsedPackInstallRequest {
   readonly releaseAgeHoldbackBehavior?: "continue" | "preserve-or-block";
 }
 
-/** One pack registry lookup. */
+/** One pack source lookup. */
 export interface PackSourceRequest {
-  readonly source: RegistrySource;
-  readonly owner: Handle;
-  readonly packName: ExtensionName;
+  readonly source: Source;
+  readonly owner: Option.Option<Handle>;
+  readonly packName: Option.Option<ExtensionName>;
   readonly versionRange: Option.Option<VersionRange>;
   readonly sourceResolution?: string;
 }
@@ -138,7 +140,7 @@ export interface PackSourceRequest {
 export interface PackDiscovery {
   readonly ref: PackRef;
   readonly probes: ReadonlyArray<RegistryLookupProbe>;
-  readonly registrySourceLabel: string;
+  readonly sourceLabel: string;
 }
 
 const isRemoteReadNotImplemented = (error: SourceResolutionFailure): boolean => {
@@ -464,6 +466,16 @@ export const parsePackInstallRequest: (
   Effect.fn("InstallExtensions.parsePackRequest")(function* (args: PackInstallArgs) {
     const settings = yield* SettingsReader;
     const trimmed = args.source.trim();
+    const policy = {
+      unattended: args.unattended ?? false,
+      nonInteractive: args.nonInteractive,
+      ...(args.releaseAgeEvaluation === undefined
+        ? {}
+        : { releaseAgeEvaluation: args.releaseAgeEvaluation }),
+      ...(args.releaseAgeHoldbackBehavior === undefined
+        ? {}
+        : { releaseAgeHoldbackBehavior: args.releaseAgeHoldbackBehavior }),
+    } as const;
     const parsed = parseRegistryInstallTarget(trimmed, {
       expectedType: "pack",
       allowBareName: true,
@@ -490,35 +502,22 @@ export const parsePackInstallRequest: (
             suggestions: [{ description: "Use @owner/packs/pack-name format." }],
           });
         default:
-          return yield* installRefused({
-            category: "usage",
-            detail: "Packs can only be installed from a registry",
-            suggestions: [
-              {
-                description:
-                  "Use @owner/packs/pack-name or just pack-name (resolved to default owner).",
-              },
-            ],
-          });
+          return {
+            inputKind: "source-locator-input" as const,
+            owner: Option.none<Handle>(),
+            packName: Option.none<ExtensionName>(),
+            versionRange: Option.none<VersionRange>(),
+            resolvedInput: trimmed,
+            ...policy,
+          };
       }
     }
-
-    const policy = {
-      unattended: args.unattended ?? false,
-      nonInteractive: args.nonInteractive,
-      ...(args.releaseAgeEvaluation === undefined
-        ? {}
-        : { releaseAgeEvaluation: args.releaseAgeEvaluation }),
-      ...(args.releaseAgeHoldbackBehavior === undefined
-        ? {}
-        : { releaseAgeHoldbackBehavior: args.releaseAgeHoldbackBehavior }),
-    } as const;
 
     if (parsed.success.kind === "registry") {
       return {
         inputKind: "registry-pattern-input" as const,
-        owner: parsed.success.owner,
-        packName: parsed.success.name,
+        owner: Option.some(parsed.success.owner),
+        packName: Option.some(parsed.success.name),
         versionRange: Option.fromUndefinedOr(parsed.success.versionRange),
         resolvedInput: trimmed,
         ...policy,
@@ -564,8 +563,8 @@ export const parsePackInstallRequest: (
         parsed.success.versionRange === undefined
           ? ("name-input" as const)
           : ("name-input-with-version" as const),
-      owner,
-      packName: parsed.success.name,
+      owner: Option.some(owner),
+      packName: Option.some(parsed.success.name),
       versionRange,
       resolvedInput,
       sourceResolution: `${trimmed} -> ${resolvedInput}`,
@@ -573,7 +572,7 @@ export const parsePackInstallRequest: (
     };
   });
 
-/** Resolve the registry the parsed pack request names. */
+/** Resolve the source the parsed pack request names. */
 export const resolvePackSourceRequest: (
   request: ParsedPackInstallRequest,
 ) => Effect.Effect<PackSourceRequest, ExtensionLifecycleFailed, ResolveInstallRequirements> =
@@ -588,13 +587,6 @@ export const resolvePackSourceRequest: (
         }),
       ),
     );
-    if (source.type !== "registry") {
-      return yield* installRefused({
-        category: "usage",
-        detail: "Packs can only be installed from a registry",
-        suggestions: [{ description: "Use a registry source: @owner/packs/pack-name" }],
-      });
-    }
     return {
       source,
       owner: request.owner,
@@ -618,11 +610,60 @@ export const discoverPackRef: (
 )(function* (request: PackSourceRequest) {
   const settings = yield* SettingsReader;
   const sources = yield* SourceHostProviders;
+  if (request.source.type !== "registry") {
+    const refs = yield* sources
+      .find(request.source, {
+        names: Option.toArray(request.packName),
+        type: "pack",
+        owner: request.owner,
+        versionRange: request.versionRange,
+      })
+      .pipe(
+        Effect.mapError((cause) =>
+          installRefused({
+            category:
+              sourceResolutionFailureCategory(cause) === "not_found" ? "not_found" : "network",
+            detail: "Pack source could not be read",
+            cause,
+          }),
+        ),
+      );
+    const packs = refs.filter((ref): ref is PackRef => ref.type === "pack");
+    if (packs.length === 0) {
+      return yield* installRefused({
+        category: "not_found",
+        detail: "No pack was found in the source",
+      });
+    }
+    if (packs.length > 1) {
+      return yield* installRefused({
+        category: "usage",
+        detail: `Pack source contains multiple packs: ${packs.map((ref) => ref.pack.name).join(", ")}`,
+        suggestions: [{ description: "Use a source locator that selects one pack package." }],
+      });
+    }
+    const [ref] = packs;
+    if (ref === undefined) {
+      return yield* installRefused({
+        category: "not_found",
+        detail: "No pack was found in the source",
+      });
+    }
+    return { ref, probes: [], sourceLabel: printSourceParams(request.source) };
+  }
+  if (Option.isNone(request.owner) || Option.isNone(request.packName)) {
+    return yield* installRefused({
+      category: "validation",
+      detail: "Registry pack source must identify an owner and pack name",
+    });
+  }
+  const owner = request.owner.value;
+  const packName = request.packName.value;
   const findWith = (candidate: RegistrySource) =>
     sources.find(candidate, {
-      names: [request.packName],
+      names: [packName],
       type: "pack",
-      owner: Option.some(request.owner),
+      owner: Option.some(owner),
       versionRange: request.versionRange,
     });
   const probes: Array<RegistryLookupProbe> = [];
@@ -668,7 +709,7 @@ export const discoverPackRef: (
             type: "registry" as const,
             name: host.name,
             location: host.location,
-            owner: Option.some(request.owner),
+            owner: Option.some(owner),
           }) satisfies RegistrySource,
       );
 
@@ -731,7 +772,7 @@ export const discoverPackRef: (
     const loginSuggestions = yield* registryLoginSuggestions(probes.map((probe) => probe.location));
     return yield* installRefused({
       category: "not_found",
-      detail: `Pack "${request.packName}" not found in registry`,
+      detail: `Pack "${packName}" not found in registry`,
       suggestions: [
         { description: "Verify the pack name and check available packs." },
         ...loginSuggestions,
@@ -742,7 +783,7 @@ export const discoverPackRef: (
   return {
     ref,
     probes,
-    registrySourceLabel: formatRegistrySourceLabel({ source: resolvedSource, registryHosts }),
+    sourceLabel: formatRegistrySourceLabel({ source: resolvedSource, registryHosts }),
   };
 });
 
@@ -751,14 +792,14 @@ export const packDiscoveryDiagnostics = (
   request: PackSourceRequest,
   discovery: PackDiscovery,
 ): ReadonlyArray<string> => [
-  `Pack: ${request.owner}/packs/${request.packName}`,
+  `Pack: ${discovery.ref.owner}/packs/${discovery.ref.pack.name}`,
   ...(request.sourceResolution === undefined
     ? []
     : [`Source resolution: ${request.sourceResolution}`]),
   ...(discovery.probes.length > 0
     ? [`Host resolution: ${discovery.probes.map(formatRegistryProbe).join("; ")}`]
     : []),
-  `Registry source: ${discovery.registrySourceLabel}`,
+  `Source: ${discovery.sourceLabel}`,
   "Found pack",
 ];
 

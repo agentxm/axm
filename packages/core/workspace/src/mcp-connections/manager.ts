@@ -24,7 +24,7 @@ import {
 
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { McpInstallStateMissing, McpRegistryOnlyInstall } from "./errors.js";
+import { McpInstallStateMissing } from "./errors.js";
 import {
   applyProjectionPlans,
   inspectMcpServerAcrossAgents,
@@ -64,7 +64,19 @@ import {
   removableAcceptedCanonicalPath,
 } from "../desired-state/index.js";
 import { protectWorkspacePath } from "../transitions/settlement/index.js";
-import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "../desired-state/index.js";
+import {
+  computeMaterializedTreeIntegrity,
+  type MaterializedTreeInvalid,
+  type TreeIntegrity,
+} from "../desired-state/index.js";
+import { SourceHostProviders } from "../resolution/sources/index.js";
+import { copyExtensionDirectory } from "../acquisition/copy-directory.js";
+import { replaceCanonicalDirectoryWithInspection } from "../acquisition/canonical-directory.js";
+import { stripFileProtocol } from "@agentxm/registry-client";
+import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
+import { computePackageContentHash, mcpResolutionKey } from "../desired-state/index.js";
+import { buildExternalMcpServerLockEntry } from "./lock-entry-builder.js";
+import { McpWorkspacePackageInvalid } from "./errors.js";
 
 // Build lock entry from registry ref
 const buildMcpServerLockEntry = (
@@ -101,6 +113,7 @@ export const McpServerManagerLive = Layer.effect(
     const currentLayout = () => Ref.getUnsafe(location.layout);
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const sources = yield* SourceHostProviders;
     const baseDir = location.baseDir;
 
     const acquired = (
@@ -114,11 +127,82 @@ export const McpServerManagerLive = Layer.effect(
     const materializeInstall: McpServerManagerService["materializeInstall"] = Effect.fn(
       "McpServerManager.materializeInstall",
     )(function* ({ ref, force }) {
+      if (ref.refType === "workspace") {
+        const expected = computeExtensionPathsForLayout(
+          path.join,
+          currentLayout(),
+          ref,
+          "mcps",
+          ref.name,
+        ).canonicalPath;
+        if (
+          ref.scope !== location.scope ||
+          path.resolve(ref.location) !== path.resolve(expected) ||
+          !(yield* fs.exists(ref.location).pipe(Effect.orElseSucceed(() => false)))
+        ) {
+          return yield* new McpWorkspacePackageInvalid({
+            serverName: ref.server.name,
+            location: ref.location,
+            fault: "outside-workspace",
+          });
+        }
+        return acquired(Option.none());
+      }
       if (ref.refType !== "registry") {
-        return yield* new McpRegistryOnlyInstall({
-          serverName: ref.server.name,
-          refType: ref.refType,
-        });
+        return yield* Effect.scoped(
+          Effect.gen(function* () {
+            const canonicalPath = computeExtensionPathsForLayout(
+              path.join,
+              currentLayout(),
+              ref,
+              "mcps",
+              ref.name,
+            ).canonicalPath;
+            const fetched = yield* sources.fetch(ref).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new McpWorkspacePackageInvalid({
+                    serverName: ref.server.name,
+                    location: ref.location,
+                    fault: "unreadable",
+                    cause,
+                  }),
+              ),
+            );
+            const materialized = yield* replaceCanonicalDirectoryWithInspection<
+              TreeIntegrity,
+              McpWorkspacePackageInvalid | MaterializedTreeInvalid,
+              FileSystem.FileSystem | Path.Path
+            >({
+              baseDir,
+              canonicalPath,
+              populate: (stagingPath) =>
+                copyExtensionDirectory(fetched.directory, stagingPath).pipe(
+                  Effect.mapError(
+                    (cause) =>
+                      new McpWorkspacePackageInvalid({
+                        serverName: ref.server.name,
+                        location: fetched.directory,
+                        fault: "unreadable",
+                        cause,
+                      }),
+                  ),
+                ),
+              inspect: computeMaterializedTreeIntegrity,
+            }).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new McpWorkspacePackageInvalid({
+                    serverName: ref.server.name,
+                    location: fetched.directory,
+                    fault: "unreadable",
+                    cause,
+                  }),
+              ),
+            );
+            return acquired(Option.some(materialized.inspection));
+          }),
+        );
       }
 
       const registryRef = ref;
@@ -375,41 +459,51 @@ export const McpServerManagerLive = Layer.effect(
       configuredAgentOutcomes,
       configuredAgentOutcomesForEntry,
 
-      acceptedResolution: ({
+      acceptedResolution: Effect.fn("McpServerManager.acceptedResolution")(function* ({
         ref,
         materialization,
       }: {
         readonly ref: McpServerExtensionRef;
         readonly materialization: Option.Option<McpServerMaterializationFacts>;
-      }) => {
-        if (ref.refType !== "registry") return Effect.succeed(Option.none());
-        const registryRef = ref;
-        return validateExactResolvedVersion(
-          `mcpServers.${ref.server.name}.resolvedVersion`,
-          registryRef.version,
-        ).pipe(
-          Effect.flatMap(() => {
-            const treeIntegrity = materialization.pipe(
-              Option.flatMap((facts) => facts.treeIntegrity),
-            );
-            if (Option.isNone(treeIntegrity)) {
-              return Effect.fail(new McpInstallStateMissing({ name: registryRef.server.name }));
-            }
-            const lockEntry = buildMcpServerLockEntry(registryRef, treeIntegrity.value);
-            return Effect.succeed(
-              Option.some({
-                key: mcpRegistryResolutionKey({
-                  authority: registryRef.source.location,
-                  owner: registryRef.owner,
-                  name: registryRef.server.name,
-                }),
-                entry: lockEntry,
-              }),
-            );
-          }),
-          Effect.withSpan("McpServerManager.acceptedResolution"),
-        );
-      },
+      }) {
+        if (ref.refType === "workspace") return Option.none();
+        const treeIntegrity = materialization.pipe(Option.flatMap((facts) => facts.treeIntegrity));
+        if (Option.isNone(treeIntegrity)) {
+          return yield* new McpInstallStateMissing({ name: ref.server.name });
+        }
+        if (ref.refType === "registry") {
+          yield* validateExactResolvedVersion(
+            `mcpServers.${ref.server.name}.resolvedVersion`,
+            ref.version,
+          );
+          const entry = buildMcpServerLockEntry(ref, treeIntegrity.value);
+          return Option.some({
+            key: mcpRegistryResolutionKey({
+              authority: ref.source.location,
+              owner: ref.owner,
+              name: ref.server.name,
+            }),
+            entry,
+          });
+        }
+        const canonicalPath = computeExtensionPathsForLayout(
+          path.join,
+          currentLayout(),
+          ref,
+          "mcps",
+          ref.name,
+        ).canonicalPath;
+        const entry = buildExternalMcpServerLockEntry({
+          ref,
+          treeIntegrity: treeIntegrity.value,
+          contentIdentity: yield* computePackageContentHash(canonicalPath),
+          localPath:
+            ref.refType === "local"
+              ? makeWorkspaceRelativeSourcePath(path, baseDir, stripFileProtocol(ref.location))
+              : Option.none(),
+        });
+        return Option.some({ key: mcpResolutionKey(entry), entry });
+      }),
 
       withdrawnResolutionKeys: ({
         materialization,

@@ -10,12 +10,11 @@ import {
 } from "../../shared/command-capabilities.js";
 import { handleInstallPack } from "./handler.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
+import { installSourceArgumentDescription } from "@agentxm/workspace/lifecycle";
 
 const installConfig = {
   source: Argument.String("source").pipe(
-    Argument.withDescription(
-      "Registry pack reference (@owner/packs/name, @owner/packs/name@version, or bare pack-name)",
-    ),
+    Argument.withDescription(installSourceArgumentDescription("pack")),
     Argument.optional,
   ),
   scope: scopeFlag.pipe(
@@ -39,7 +38,7 @@ export const installCommand = Command.make(
   withArgvTracking(installConfig),
   withCommandCapabilities(previewableCapabilities("workspace", { trust: ["publisher-change"] })),
   Command.withDescription(
-    "Reinstall configured packs from their sources, or install a pack and its extensions from a registry",
+    "Reinstall configured packs from their sources, or install a pack and its extensions from a source",
   ),
   Command.withExamples([
     {
@@ -57,6 +56,10 @@ export const installCommand = Command.make(
     {
       command: "axm packs install frontend-tools",
       description: "Install using your default owner",
+    },
+    {
+      command: "axm packs install github:acme/packs",
+      description: "Install a pack from a Git repository",
     },
     {
       command: "axm packs install @acme/packs/frontend-tools --preview",

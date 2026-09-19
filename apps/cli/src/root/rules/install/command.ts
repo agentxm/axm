@@ -11,10 +11,11 @@ import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
 import { handleWorkspaceInstall } from "../../install/workspace-install-handler.js";
 import { handleInstallRule } from "./handler.js";
+import { installSourceArgumentDescription } from "@agentxm/workspace/lifecycle";
 
 const installConfig = {
   source: Argument.String("source").pipe(
-    Argument.withDescription("rule source (@owner/rules/name, path, URL, or git shorthand)"),
+    Argument.withDescription(installSourceArgumentDescription("rule")),
     Argument.optional,
   ),
   scope: scopeFlag.pipe(

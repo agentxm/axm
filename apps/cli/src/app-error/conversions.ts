@@ -119,7 +119,6 @@ import {
   McpCanonicalPathUnsafe,
   McpInstallStateMissing,
   McpLocalNameConflict,
-  McpRegistryOnlyInstall,
   McpRequiredInputsMissing,
   McpWorkspacePackageInvalid,
   SubagentContentUnreadable,
@@ -280,7 +279,6 @@ import {
   mcpCanonicalPathUnsafeToAppError,
   mcpInstallStateMissingToAppError,
   mcpLocalNameConflictToAppError,
-  mcpRegistryOnlyInstallToAppError,
   mcpRequiredInputsMissingToAppError,
   mcpWorkspacePackageInvalidToAppError,
   packArchiveFetchFailedToAppError,
@@ -1148,7 +1146,6 @@ export type KnownFailure =
   | McpEntryUnmanaged
   | McpOwnershipMarkerInvalid
   | McpDefinitionInvalid
-  | McpRegistryOnlyInstall
   | McpInstallStateMissing
   | McpLocalNameConflict
   | McpCanonicalPathUnsafe
@@ -1306,7 +1303,6 @@ export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof McpEntryUnmanaged ||
   error instanceof McpOwnershipMarkerInvalid ||
   error instanceof McpDefinitionInvalid ||
-  error instanceof McpRegistryOnlyInstall ||
   error instanceof McpInstallStateMissing ||
   error instanceof McpLocalNameConflict ||
   error instanceof McpCanonicalPathUnsafe ||
@@ -1577,8 +1573,6 @@ export const toAppError = (error: KnownFailure | AppError): AppError => {
       return mcpOwnershipMarkerInvalidToAppError(error);
     case "McpDefinitionInvalid":
       return mcpDefinitionInvalidToAppError(error);
-    case "McpRegistryOnlyInstall":
-      return mcpRegistryOnlyInstallToAppError(error);
     case "McpInstallStateMissing":
       return mcpInstallStateMissingToAppError(error);
     case "McpLocalNameConflict":

@@ -33,7 +33,7 @@ export interface RootInstallIntent {
 
 const rootInstallFqnGrammar = "@<handle>/<plural-type>/<name>[@<version>]";
 const supportedRootInstallTypes = rootInstallableTypeSegments.join(", ");
-const locatorDiscoveryTypes = "skills, subagents, rules, hooks, and knowledge";
+const locatorDiscoveryTypes = "skills, MCP servers, subagents, rules, hooks, knowledge, and packs";
 
 const rootInstallRegistryOnlyHowToFix = (source: string): string => {
   const parsed = parseInputPattern(source);
@@ -48,7 +48,7 @@ const rootInstallRegistryOnlyHowToFix = (source: string): string => {
     case "git-scp-address":
     case "shorthand-input":
     case "slash-pattern":
-      return `Use \`axm install ${source}\` to discover and install ${locatorDiscoveryTypes} from the source. MCP servers and packs require a registry FQN.`;
+      return `Use \`axm install ${source}\` to discover and install ${locatorDiscoveryTypes} from the source.`;
     case "name-input":
     case "glob-input":
       return `Root install needs a registry FQN or source locator. For bare names, use the matching per-type command — for example \`axm skills install ${source}\`. Per-type install exists for ${perTypeInstallPluralSegments.join(", ")}.`;

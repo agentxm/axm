@@ -65,17 +65,18 @@ export const makeDesiredStateReader = (
           source.type === "registry" ? [[source.name, source.location] as const] : [],
         ),
       );
+      const lockfile = options?.acceptedResolutions ?? (yield* documents.acceptedResolutions);
       const built = yield* buildDesiredStateGraph({
         manifests,
         baseDir: location.baseDir,
         settings: current,
         layout,
         registryAccessorities,
+        acceptedPacks: lockfile.packs ?? {},
         ...(options?.prospectivePacks === undefined
           ? {}
           : { prospectivePacks: options.prospectivePacks }),
       });
-      const lockfile = options?.acceptedResolutions ?? (yield* documents.acceptedResolutions);
       return yield* validateDesiredPackLock({
         manifests,
         graph: built,

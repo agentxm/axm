@@ -11,12 +11,11 @@ import {
 } from "../../shared/command-capabilities.js";
 import { handleInstall, validateInstallArgsBeforeWorkspace } from "./handler.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../../runtime.js";
+import { installSourceArgumentDescription } from "@agentxm/workspace/lifecycle";
 
 const installConfig = {
   source: Argument.String("source").pipe(
-    Argument.withDescription(
-      "Registry reference (@owner/skills/name), GitHub shorthand (owner/repo), local path, or URL",
-    ),
+    Argument.withDescription(installSourceArgumentDescription("skill")),
     Argument.optional,
   ),
   scope: scopeFlag.pipe(

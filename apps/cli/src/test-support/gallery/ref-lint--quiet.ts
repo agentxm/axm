@@ -1,4 +1,9 @@
-import { floatingMember, lintFrame, missingDescription, staleLockfile } from "./lint-findings.js";
+import {
+  floatingMember,
+  lintFrame,
+  missingDescription,
+  staleLockfile,
+} from "./samples/lint-findings.js";
 
 /**
  * `axm lint --quiet` (*Reference cases*, board `3 · Lint`, frame *Clean,

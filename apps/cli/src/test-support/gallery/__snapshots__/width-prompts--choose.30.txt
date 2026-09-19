@@ -1,4 +1,8 @@
  ?   Instructions source
+     AXM will sync its
+     contents to the selected
+     agents' instruction
+     files.
  ❯   AGENTS.md
      CLAUDE.md
      Other…

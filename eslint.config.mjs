@@ -118,13 +118,27 @@ const axmPolicyPlugin = {
       create(context) {
         const CLI = "effect/unstable/cli";
         const namespaces = new Set();
+        const isPromptModule = (source) => source?.value === `${CLI}/Prompt`;
+        const isCliModule = (source) => source?.value === CLI;
+        const isPromptKey = (node) =>
+          (node.type === "Identifier" && node.name === "Prompt") ||
+          (node.type === "Literal" && node.value === "Prompt");
+        const dynamicSource = (node) => {
+          const value = node?.type === "AwaitExpression" ? node.argument : node;
+          return value?.type === "ImportExpression" ? value.source : undefined;
+        };
+        const destructuresPrompt = (pattern) =>
+          pattern.type === "ObjectPattern" &&
+          pattern.properties.some(
+            (property) => property.type === "Property" && isPromptKey(property.key),
+          );
         return {
           ImportDeclaration(node) {
-            if (node.source.value === `${CLI}/Prompt`) {
+            if (isPromptModule(node.source)) {
               context.report({ node, messageId: "screen" });
               return;
             }
-            if (node.source.value !== CLI) return;
+            if (!isCliModule(node.source)) return;
             for (const specifier of node.specifiers) {
               if (specifier.type === "ImportNamespaceSpecifier") {
                 namespaces.add(specifier.local.name);
@@ -138,14 +152,80 @@ const axmPolicyPlugin = {
             }
           },
           MemberExpression(node) {
+            if (!isPromptKey(node.property)) return;
+            const source = dynamicSource(node.object);
             if (
-              !node.computed &&
-              node.object.type === "Identifier" &&
-              namespaces.has(node.object.name) &&
-              node.property.type === "Identifier" &&
-              node.property.name === "Prompt"
+              (node.object.type === "Identifier" && namespaces.has(node.object.name)) ||
+              isCliModule(source)
             ) {
               context.report({ node, messageId: "screen" });
+            }
+          },
+          ExportNamedDeclaration(node) {
+            if (isPromptModule(node.source)) {
+              context.report({ node, messageId: "screen" });
+              return;
+            }
+            if (
+              isCliModule(node.source) &&
+              node.specifiers.some((specifier) => isPromptKey(specifier.local))
+            ) {
+              context.report({ node, messageId: "screen" });
+            }
+          },
+          ExportAllDeclaration(node) {
+            if (isPromptModule(node.source)) context.report({ node, messageId: "screen" });
+          },
+          ImportExpression(node) {
+            if (isPromptModule(node.source)) context.report({ node, messageId: "screen" });
+          },
+          VariableDeclarator(node) {
+            const source = dynamicSource(node.init);
+            if (node.id.type === "Identifier" && isCliModule(source)) {
+              namespaces.add(node.id.name);
+              return;
+            }
+            if (!destructuresPrompt(node.id)) return;
+            if (
+              (node.init?.type === "Identifier" && namespaces.has(node.init.name)) ||
+              isCliModule(source)
+            ) {
+              context.report({ node, messageId: "screen" });
+            }
+          },
+          AssignmentExpression(node) {
+            if (node.left.type === "Identifier" && isCliModule(dynamicSource(node.right))) {
+              namespaces.add(node.left.name);
+            }
+          },
+        };
+      },
+    },
+    "no-terminal-read-input": {
+      meta: {
+        type: "problem",
+        schema: [],
+        messages: {
+          owner:
+            "Acquire Terminal.readInput only in screen/interaction.ts so each interaction has one scoped input owner.",
+        },
+      },
+      create(context) {
+        const isReadInput = (node) =>
+          (node.type === "Identifier" && node.name === "readInput") ||
+          (node.type === "Literal" && node.value === "readInput");
+        return {
+          MemberExpression(node) {
+            if (isReadInput(node.property)) context.report({ node, messageId: "owner" });
+          },
+          VariableDeclarator(node) {
+            if (
+              node.id.type === "ObjectPattern" &&
+              node.id.properties.some(
+                (property) => property.type === "Property" && isReadInput(property.key),
+              )
+            ) {
+              context.report({ node, messageId: "owner" });
             }
           },
         };
@@ -501,6 +581,14 @@ export default [
       "axm-policy/no-direct-process-output": "error",
       "axm-policy/no-result-stream": "error",
       "axm-policy/no-effect-prompt": "error",
+      "axm-policy/no-terminal-read-input": "error",
+    },
+  },
+  {
+    // One scoped acquisition owns every question and wait input queue.
+    files: ["apps/cli/src/screen/interaction.ts"],
+    rules: {
+      "axm-policy/no-terminal-read-input": "off",
     },
   },
   {

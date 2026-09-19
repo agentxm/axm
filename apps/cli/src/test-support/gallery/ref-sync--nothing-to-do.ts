@@ -1,4 +1,5 @@
-import type { Doc } from "../../screen/doc.js";
+import { operationDoc } from "../../operation-view.js";
+import { syncNoOp, updateNoOp } from "./samples/sync-records.js";
 
 /**
  * Two outcomes that changed nothing (*Reference cases*, board `2 · Sync,
@@ -15,18 +16,7 @@ import type { Doc } from "../../screen/doc.js";
  * its own glyph, and because a reader should recognize a no-op as a success at
  * the same glance as every other one.
  */
-export const refSyncNothingToDo: Doc = [
-  {
-    _tag: "headline",
-    tone: "ok",
-    text: [{ text: "Already up to date", bold: true }],
-    aside: [{ text: "12 skills already current" }],
-  },
-  { _tag: "blank" },
-  {
-    _tag: "headline",
-    tone: "ok",
-    text: [{ text: "Nothing to sync", bold: true }],
-    aside: [{ text: "16 extensions match axm.json and the lockfile" }],
-  },
+export const refSyncNothingToDo = [
+  ...operationDoc(updateNoOp, { verbosity: "normal" }),
+  ...operationDoc(syncNoOp, { verbosity: "normal" }),
 ];

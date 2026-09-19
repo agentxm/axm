@@ -1,11 +1,11 @@
  ✔   Ready                         every node
-部署 package is ready for review after the wide-character check
+部署 package is ready for review  after the wide-character check
 
      Extension                     Version   Status      Detail
- ✔   @acme/packs/review-kit        2.1.0     installed   2 members
+ ✔   @acme/packs/review-kit          2.1.0   installed   2 members
      claude-code: projected
- +     @acme/skills/code-review    1.4.0     installed   42 files
- ✖   @acme/skills/triage           2.0.1     failed      the registry refused
+ +     @acme/skills/code-review      1.4.0   installed   42 files
+ ✖   @acme/skills/triage             2.0.1   failed      the registry refused
                                                          the request
  =   3 unchanged  --verbose to list
 
@@ -13,8 +13,9 @@
      Nothing has been written yet.
 
  ?   Instructions source
- ❯   AGENTS.md                     recommended · existing
-     CLAUDE.md                     existing
+ ❯ ◉ AGENTS.md                     recommended · existing
+     ↑ 2 more
+   ◯   CLAUDE.md                   existing
      ↓ 1 more
 
  ?   Instructions file name ❯ docs/AGENTS.md
@@ -53,4 +54,6 @@ Details
      Untitled subsection
 # Heading
 pre-sanitized
+
+Complete
 

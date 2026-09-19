@@ -1,4 +1,4 @@
-import { lintFrame } from "./lint-findings.js";
+import { lintFrame } from "./samples/lint-findings.js";
 
 /**
  * A drift banner with nothing else to report (*Reference cases*, board `3 ·

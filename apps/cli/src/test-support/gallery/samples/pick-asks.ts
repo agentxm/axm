@@ -1,5 +1,7 @@
-import { pickAsk, type AskKey, type PickOption } from "../../screen/ask/ask.js";
-import { initialPickState, reducePick, type PickState } from "../../screen/ask/pick.js";
+import { pickAsk, type AskKey, type PickOption } from "../../../screen/ask/ask.js";
+import { initialPickState, reducePick, type PickState } from "../../../screen/ask/pick.js";
+import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
+import { selectAgentsAsk } from "../../../workspace-initialization-interaction-live.js";
 
 const skill = (title: string, description: string, selected?: true): PickOption<string> => ({
   title,
@@ -31,28 +33,14 @@ export const toolkitPick = pickAsk({
   ],
 });
 
-const agent = (title: string, details: ReadonlyArray<string>, selected?: true) => ({
-  title,
-  details,
-  value: title,
-  ...(selected === undefined ? {} : { selected }),
-});
-
 /** Setup's agents as the canvas draws them: three found and picked, the rest offered. */
-export const agentsPick = pickAsk({
-  question: "Which agents should AXM configure?",
-  label: "Agents",
-  noun: { one: "agent", other: "agents" },
-  min: 1,
-  options: [
-    agent("Claude Code", ["detected in project", "suggested"], true),
-    agent("Codex", ["detected in project", "suggested"], true),
-    agent("Cursor", ["detected on workstation"], true),
-    agent("Gemini CLI", ["detected on workstation"]),
-    ...["Cline", "Windsurf", "GitHub Copilot", "Amp", "OpenCode", "Goose", "Roo Code", "Kiro"].map(
-      (title) => agent(title, []),
-    ),
-  ],
+export const agentsPick = selectAgentsAsk({
+  allAgents: Object.values(AGENTS),
+  detectedIds: ["claude-code", "codex", "cursor", "gemini-cli"],
+  projectDetectedIds: ["claude-code", "codex"],
+  userDetectedIds: ["cursor", "gemini-cli"],
+  suggestedIds: ["claude-code", "codex"],
+  configuredIds: [],
 });
 
 const press = (name: string): AskKey => ({

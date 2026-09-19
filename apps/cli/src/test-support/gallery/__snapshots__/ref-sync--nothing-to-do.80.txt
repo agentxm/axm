@@ -1,3 +1,2 @@
- ✔   Already up to date            12 skills already current
-
- ✔   Nothing to sync               16 extensions match axm.json and the lockfile
+ ✔   Nothing to update
+ ✔   Nothing to sync

@@ -6,12 +6,25 @@ import type { Doc } from "../../screen/doc.js";
  */
 export const everyNode: Doc = [
   { _tag: "headline", tone: "ok", text: "Ready", aside: [{ text: "every node" }] },
-  { _tag: "paragraph", text: "部署 package is ready for review after the wide-character check" },
+  {
+    _tag: "paragraph",
+    text: [
+      { text: "部署 package", tone: "info" },
+      { text: " is ready", tint: "magenta" },
+      { text: " for review", bold: true },
+      {
+        text: " after the wide-character check",
+        link: "https://example.test/review",
+        copyable: true,
+        invert: true,
+      },
+    ],
+  },
   {
     _tag: "ledger",
     columns: [
       { header: "Extension", role: "name" },
-      { header: "Version", role: "fixed", priority: "preferred" },
+      { header: "Version", role: "fixed", priority: "preferred", align: "right" },
       { header: "Status", role: "fixed", priority: "required" },
       { header: "Detail", role: "elastic", priority: "optional" },
     ],
@@ -51,8 +64,13 @@ export const everyNode: Doc = [
     question: "Instructions source",
     chips: [],
     options: [
-      { title: "AGENTS.md", details: ["recommended", "existing"], current: true },
-      { title: "CLAUDE.md", details: ["existing"] },
+      {
+        title: "AGENTS.md",
+        details: ["recommended", "existing"],
+        current: true,
+        picked: "all",
+      },
+      { title: "CLAUDE.md", details: ["existing"], picked: "none", depth: 1, before: 2 },
     ],
     more: 1,
   },
@@ -85,7 +103,7 @@ export const everyNode: Doc = [
     _tag: "table",
     caption: "Inventory",
     columns: [
-      { header: "Name", priority: "required" },
+      { header: "Name", priority: "required", width: 16, minWidth: 8 },
       { header: "State" },
       { header: "Count", align: "right" },
     ],
@@ -141,5 +159,6 @@ export const everyNode: Doc = [
   },
   { _tag: "markdown", content: "# Heading" },
   { _tag: "raw", content: "pre-sanitized" },
+  { _tag: "headline", tone: "ok", text: "Complete", verdict: true },
   { _tag: "blank" },
 ];

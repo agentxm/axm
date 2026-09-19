@@ -1,6 +1,5 @@
  ?   Instructions source
+     AXM will sync its contents to the selected agents' instruction files.
  ❯   AGENTS.md                     recommended · existing · 128 lines
      CLAUDE.md                     existing · 64 lines
      Other…                        type a file name
-
- ✔   Instructions source           AGENTS.md

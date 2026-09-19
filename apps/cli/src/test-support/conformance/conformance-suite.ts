@@ -146,6 +146,231 @@ export const collectTexts = (doc: Doc): ReadonlyArray<string> => {
   return texts;
 };
 
+/** Non-text facts a replaceable painter must preserve behind the `Doc` seam. */
+export type SemanticFactKind =
+  | "span.tone"
+  | "span.tint"
+  | "span.bold"
+  | "span.link"
+  | "span.copyable"
+  | "span.invert"
+  | "headline.tone"
+  | "headline.verdict"
+  | "paragraph.tone"
+  | "ledger.column.role"
+  | "ledger.column.priority"
+  | "ledger.column.align"
+  | "ledger.row.id"
+  | "ledger.row.mark"
+  | "ledger.row.depth"
+  | "ledger.fold.mark"
+  | "prompt.chip.current"
+  | "prompt.option.current"
+  | "prompt.option.picked"
+  | "prompt.option.depth"
+  | "prompt.option.before"
+  | "answer.mark"
+  | "callout.tone"
+  | "table.column.align"
+  | "table.column.width"
+  | "table.column.minWidth"
+  | "table.column.priority"
+  | "table.row.mark"
+  | "next.action.target";
+
+export interface SemanticFact {
+  readonly kind: SemanticFactKind;
+  readonly path: string;
+  readonly value: string | number | boolean;
+}
+
+export const semanticFactKinds: ReadonlyArray<SemanticFactKind> = [
+  "span.tone",
+  "span.tint",
+  "span.bold",
+  "span.link",
+  "span.copyable",
+  "span.invert",
+  "headline.tone",
+  "headline.verdict",
+  "paragraph.tone",
+  "ledger.column.role",
+  "ledger.column.priority",
+  "ledger.column.align",
+  "ledger.row.id",
+  "ledger.row.mark",
+  "ledger.row.depth",
+  "ledger.fold.mark",
+  "prompt.chip.current",
+  "prompt.option.current",
+  "prompt.option.picked",
+  "prompt.option.depth",
+  "prompt.option.before",
+  "answer.mark",
+  "callout.tone",
+  "table.column.align",
+  "table.column.width",
+  "table.column.minWidth",
+  "table.column.priority",
+  "table.row.mark",
+  "next.action.target",
+];
+
+/** Collect painter-relevant semantics without consulting any painted text. */
+export const collectSemanticFacts = (doc: Doc): ReadonlyArray<SemanticFact> => {
+  const facts: Array<SemanticFact> = [];
+  const add = (
+    kind: SemanticFactKind,
+    path: string,
+    value: string | number | boolean | undefined,
+  ): void => {
+    if (value !== undefined) facts.push({ kind, path, value });
+  };
+  const spans = (value: Text | undefined, path: string): void => {
+    if (value === undefined || typeof value === "string") return;
+    value.forEach((span, index) => {
+      const at = `${path}.span[${String(index)}]`;
+      add("span.tone", at, span.tone);
+      add("span.tint", at, span.tint);
+      add("span.bold", at, span.bold);
+      add("span.link", at, span.link);
+      add("span.copyable", at, span.copyable);
+      add("span.invert", at, span.invert);
+    });
+  };
+  const walkTree = (items: ReadonlyArray<TreeItem>, path: string): void => {
+    items.forEach((item, index) => {
+      const at = `${path}[${String(index)}]`;
+      spans(item.text, `${at}.text`);
+      spans(item.detail, `${at}.detail`);
+      if (item.children !== undefined) walkTree(item.children, `${at}.children`);
+    });
+  };
+  const walk = (node: DocNode, path: string): void => {
+    switch (node._tag) {
+      case "headline":
+        add("headline.tone", path, node.tone);
+        add("headline.verdict", path, node.verdict);
+        spans(node.text, `${path}.text`);
+        node.aside?.forEach((part, index) => spans(part.text, `${path}.aside[${String(index)}]`));
+        return;
+      case "paragraph":
+        add("paragraph.tone", path, node.tone);
+        spans(node.text, `${path}.text`);
+        return;
+      case "ledger":
+        node.columns.forEach((column, index) => {
+          const at = `${path}.columns[${String(index)}]`;
+          add("ledger.column.role", at, column.role);
+          add("ledger.column.priority", at, column.priority);
+          add("ledger.column.align", at, column.align);
+          spans(column.header, `${at}.header`);
+        });
+        node.rows.forEach((row, index) => {
+          const at = `${path}.rows[${String(index)}]`;
+          add("ledger.row.id", at, row.id);
+          add("ledger.row.mark", at, row.mark);
+          add("ledger.row.depth", at, row.depth);
+          row.cells.forEach((cell, cellIndex) => spans(cell, `${at}.cells[${String(cellIndex)}]`));
+          row.children?.forEach((child, childIndex) =>
+            walk(child, `${at}.children[${String(childIndex)}]`),
+          );
+        });
+        node.folds?.forEach((fold, index) => {
+          add("ledger.fold.mark", `${path}.folds[${String(index)}]`, fold.mark);
+          spans(fold.hint, `${path}.folds[${String(index)}].hint`);
+        });
+        return;
+      case "prompt":
+        spans(node.question, `${path}.question`);
+        spans(node.note, `${path}.note`);
+        spans(node.entry, `${path}.entry`);
+        node.chips.forEach((chip, index) =>
+          add("prompt.chip.current", `${path}.chips[${String(index)}]`, chip.current),
+        );
+        node.options?.forEach((option, index) => {
+          const at = `${path}.options[${String(index)}]`;
+          add("prompt.option.current", at, option.current);
+          add("prompt.option.picked", at, option.picked);
+          add("prompt.option.depth", at, option.depth);
+          add("prompt.option.before", at, option.before);
+          spans(option.title, `${at}.title`);
+          option.details?.forEach((detail, detailIndex) =>
+            spans(detail, `${at}.details[${String(detailIndex)}]`),
+          );
+        });
+        return;
+      case "wait":
+        spans(node.status, `${path}.status`);
+        spans(node.clock, `${path}.clock`);
+        spans(node.detail, `${path}.detail`);
+        node.chips.forEach((chip, index) =>
+          add("prompt.chip.current", `${path}.chips[${String(index)}]`, chip.current),
+        );
+        return;
+      case "answer":
+        add("answer.mark", path, node.mark);
+        spans(node.label, `${path}.label`);
+        spans(node.value, `${path}.value`);
+        return;
+      case "callout":
+        add("callout.tone", path, node.tone);
+        spans(node.title, `${path}.title`);
+        spans(node.aside, `${path}.aside`);
+        node.children?.forEach((child, index) => walk(child, `${path}.children[${String(index)}]`));
+        return;
+      case "table":
+        spans(node.caption, `${path}.caption`);
+        node.columns.forEach((column, index) => {
+          const at = `${path}.columns[${String(index)}]`;
+          add("table.column.align", at, column.align);
+          add("table.column.width", at, column.width);
+          add("table.column.minWidth", at, column.minWidth);
+          add("table.column.priority", at, column.priority);
+          spans(column.header, `${at}.header`);
+        });
+        node.rows.forEach((row, index) => {
+          const at = `${path}.rows[${String(index)}]`;
+          add("table.row.mark", at, row.mark);
+          row.cells.forEach((cell, cellIndex) => spans(cell, `${at}.cells[${String(cellIndex)}]`));
+        });
+        return;
+      case "fields":
+        node.fields.forEach((field, index) => {
+          spans(field.label, `${path}.fields[${String(index)}].label`);
+          spans(field.value, `${path}.fields[${String(index)}].value`);
+        });
+        return;
+      case "tree":
+        walkTree(node.roots, `${path}.roots`);
+        return;
+      case "next":
+        node.actions.forEach((action, index) => {
+          add(
+            "next.action.target",
+            `${path}.actions[${String(index)}]`,
+            action.cmd === undefined ? "url" : "cmd",
+          );
+          spans(action.description, `${path}.actions[${String(index)}].description`);
+        });
+        return;
+      case "summary":
+        node.parts.forEach((part, index) => spans(part.text, `${path}.parts[${String(index)}]`));
+        return;
+      case "section":
+        spans(node.title, `${path}.title`);
+        node.children.forEach((child, index) => walk(child, `${path}.children[${String(index)}]`));
+        return;
+      case "markdown":
+      case "raw":
+      case "blank":
+        return;
+    }
+  };
+  doc.forEach((node, index) => walk(node, `doc[${String(index)}]`));
+  return facts;
+};
+
 /**
  * The values a document promises to show whole: URLs, commands, one-time codes
  * and request identifiers. A value cut to fit cannot be copied and used, so

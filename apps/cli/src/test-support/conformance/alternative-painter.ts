@@ -17,7 +17,9 @@ import type {
   Mark,
   Span,
   TableColumn,
+  TableRow,
   Text,
+  Tint,
   Tone,
   TreeItem,
 } from "../../screen/doc.js";
@@ -29,6 +31,7 @@ import { longestWordWidth, wrapText } from "../../screen/wrap-text.js";
 
 const ESC = "\u001b[";
 const RESET = `${ESC}0m`;
+const INVERT = `${ESC}7m`;
 const GAP = 3;
 
 interface Style {
@@ -47,11 +50,31 @@ const toneCodes: Readonly<Record<Tone, string>> = {
   dim: `${ESC}2m`,
 };
 
+const tintCodes: Readonly<Record<Tint, string>> = {
+  green: `${ESC}32m`,
+  yellow: `${ESC}33m`,
+  blue: `${ESC}34m`,
+  magenta: `${ESC}35m`,
+  cyan: `${ESC}36m`,
+};
+
 const paintSpans = (spans: ReadonlyArray<Span>, style: Style, tone?: Tone): string =>
   spans
     .map((span) => {
-      const code = `${span.bold === true ? `${ESC}1m` : ""}${toneCodes[span.tone ?? tone ?? "neutral"]}`;
-      return style.colors && code.length > 0 ? `${code}${span.text}${RESET}` : span.text;
+      if (!style.colors) return span.text;
+      const inherited = span.tone ?? (span.tint === undefined ? tone : undefined);
+      const color =
+        inherited === undefined
+          ? span.tint === undefined
+            ? ""
+            : tintCodes[span.tint]
+          : toneCodes[inherited];
+      const code = `${span.bold === true ? `${ESC}1m` : ""}${span.invert === true ? INVERT : ""}${color}`;
+      const linked =
+        span.link === undefined
+          ? span.text
+          : `\u001b]8;;${span.link}\u001b\\${span.text}\u001b]8;;\u001b\\`;
+      return code.length > 0 ? `${code}${linked}${RESET}` : linked;
     })
     .join("");
 
@@ -131,7 +154,7 @@ const gridRow = (
 
 const paintTable = (
   columns: ReadonlyArray<TableColumn>,
-  rows: ReadonlyArray<ReadonlyArray<Text>>,
+  rows: ReadonlyArray<TableRow>,
   style: Style,
   indent: number,
 ): ReadonlyArray<string> => {
@@ -140,11 +163,11 @@ const paintTable = (
     columns: columns.map((spec, index) =>
       column(
         spec.header,
-        rows.map((row) => row[index] ?? ""),
+        rows.map((row) => row.cells[index] ?? ""),
         spec,
       ),
     ),
-    available: room(style.width, indent),
+    available: room(style.width, indent + 2),
     gap: GAP,
   });
   if (layout._tag === "stacked") {
@@ -152,10 +175,10 @@ const paintTable = (
       ...(rowIndex === 0 ? [] : [rule(style, indent, 8)]),
       ...columns.flatMap((spec, index) =>
         block(
-          row[index] ?? "",
+          row.cells[index] ?? "",
           style,
           indent,
-          `${paintSpans([{ text: `${plain(spec.header)}: ` }], style, "dim")}`,
+          `${index === 0 && row.mark !== undefined ? `${statusGlyph(row.mark, style.glyphs)} ` : ""}${paintSpans([{ text: `${plain(spec.header)}: ` }], style, "dim")}`,
         ),
       ),
     ]);
@@ -164,9 +187,17 @@ const paintTable = (
     layout.columns.reduce((sum, entry) => sum + entry.width, 0) + GAP * (layout.columns.length - 1);
   const hidden = layout.hidden.map((index) => plain(headers[index] ?? "")).join(", ");
   return [
-    ...gridRow(layout, headers, style, indent, "", "dim"),
+    ...gridRow(layout, headers, style, indent, "  ", "dim"),
     rule(style, indent, width),
-    ...rows.flatMap((row) => gridRow(layout, row, style, indent, "")),
+    ...rows.flatMap((row) =>
+      gridRow(
+        layout,
+        row.cells,
+        style,
+        indent,
+        row.mark === undefined ? "  " : `${statusGlyph(row.mark, style.glyphs)} `,
+      ),
+    ),
     ...(hidden.length === 0 ? [] : block(`Hidden: ${hidden}`, style, indent, "", "dim")),
   ];
 };
@@ -217,13 +248,12 @@ const markGlyph = (mark: Mark, glyphs: Glyphs): string => {
 const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<string> => {
   switch (node._tag) {
     case "headline": {
-      const lines = block(
-        node.text,
-        style,
-        indent,
-        `${statusGlyph(node.tone, style.glyphs)} `,
-        node.tone,
-      );
+      const headlineMark = node.verdict === true ? " " : statusGlyph(node.tone, style.glyphs);
+      const headlineText =
+        node.verdict === true && typeof node.text === "string"
+          ? [{ text: node.text, bold: true }]
+          : node.text;
+      const lines = block(headlineText, style, indent, `${headlineMark} `, node.tone);
       const aside =
         node.aside === undefined
           ? []
@@ -253,7 +283,14 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
             node.rows.map((row) => row.cells[index] ?? ""),
             {
               header: spec.header,
-              ...(spec.priority === undefined ? {} : { priority: spec.priority }),
+              priority:
+                spec.priority ??
+                (spec.role === "name"
+                  ? "required"
+                  : spec.role === "elastic"
+                    ? "optional"
+                    : "preferred"),
+              ...(spec.align === undefined ? {} : { align: spec.align }),
             },
           ),
         ),
@@ -264,7 +301,8 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
       return [
         ...(layout._tag === "grid" ? gridRow(layout, headers, style, indent, "  ", "dim") : []),
         ...node.rows.flatMap((row) => {
-          const prefix = `${markGlyph(row.mark, style.glyphs)} `;
+          const depth = spaces(2 * (row.depth ?? 0));
+          const prefix = `${markGlyph(row.mark, style.glyphs)} ${depth}`;
           return [
             ...(layout._tag === "grid"
               ? gridRow(layout, row.cells, style, indent, prefix)
@@ -274,7 +312,9 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
                     ? []
                     : block(cell, style, indent, index === 0 ? prefix : "  "),
                 )),
-            ...(row.children === undefined ? [] : paintNodes(row.children, style, indent + 4)),
+            ...(row.children === undefined
+              ? []
+              : paintNodes(row.children, style, indent + 4 + 2 * (row.depth ?? 0))),
           ];
         }),
         ...(node.folds ?? []).flatMap((fold) =>
@@ -294,9 +334,14 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
         ...block(
           [
             ...(typeof node.question === "string" ? [{ text: node.question }] : node.question),
-            {
-              text: ` [${node.chips.map((chip) => `${chip.key}=${chip.word}`).join(" ")}]`,
-            },
+            ...node.chips.flatMap((chip, index) => [
+              { text: index === 0 ? " [" : " " },
+              {
+                text: `${chip.key}=${chip.word}`,
+                ...(chip.current === true ? { bold: true, invert: true } : {}),
+              } satisfies Span,
+              ...(index === node.chips.length - 1 ? [{ text: "]" }] : []),
+            ]),
             ...(node.entry === undefined ? [] : [{ text: ` = ${plain(node.entry)}` }]),
             ...(node.filter === undefined || node.filter.length === 0
               ? []
@@ -307,17 +352,37 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
           `${style.glyphs.marks.prompt} `,
         ),
         ...(node.note === undefined ? [] : block(node.note, style, indent + 2, "", "dim")),
-        ...(node.options ?? []).flatMap((option) =>
-          block(
-            [
-              ...(typeof option.title === "string" ? [{ text: option.title }] : option.title),
-              ...(option.details ?? []).map((detail) => ({ text: ` (${plain(detail)})` })),
-            ],
-            style,
-            indent + 2,
-            option.current === true ? `${style.glyphs.marks.caret} ` : "  ",
-          ),
-        ),
+        ...(node.options ?? []).flatMap((option) => {
+          const picked =
+            option.picked === undefined
+              ? ""
+              : option.picked === "all"
+                ? `${style.glyphs.marks.selected} `
+                : option.picked === "some"
+                  ? `${style.glyphs.marks.partial} `
+                  : `${style.glyphs.marks.unselected} `;
+          const depth = spaces(2 * (option.depth ?? 0));
+          return [
+            ...(option.before === undefined || option.before <= 0
+              ? []
+              : block(
+                  `${style.glyphs.arrows.up} ${String(option.before)} above`,
+                  style,
+                  indent + 2,
+                  "",
+                  "dim",
+                )),
+            ...block(
+              [
+                ...(typeof option.title === "string" ? [{ text: option.title }] : option.title),
+                ...(option.details ?? []).map((detail) => ({ text: ` (${plain(detail)})` })),
+              ],
+              style,
+              indent + 2,
+              `${option.current === true ? style.glyphs.marks.caret : " "} ${picked}${depth}`,
+            ),
+          ];
+        }),
         ...(node.more === undefined || node.more <= 0
           ? []
           : block(`${String(node.more)} more`, style, indent + 2, "", "dim")),
@@ -358,7 +423,8 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
         node.value,
         style,
         indent,
-        paintSpans([{ text: `${plain(node.label)}: ` }], style, "dim"),
+        `${node.mark === "ok" ? `${statusGlyph("ok", style.glyphs)} ` : "  "}${paintSpans([{ text: `${plain(node.label)}: ` }], style, node.mark === "dim" ? "dim" : undefined)}`,
+        node.mark === "dim" ? "dim" : undefined,
       );
     case "callout": {
       const bar = `${style.box.bar} `;
@@ -383,12 +449,7 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
     case "table":
       return [
         ...(node.caption === undefined ? [] : block(node.caption, style, indent, "", "dim")),
-        ...paintTable(
-          node.columns,
-          node.rows.map((row) => row.cells),
-          style,
-          indent,
-        ),
+        ...paintTable(node.columns, node.rows, style, indent),
       ];
     case "fields":
       return node.fields.flatMap((field) =>

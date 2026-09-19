@@ -1,9 +1,9 @@
 Updating  in this project · agents: claude-code, codex, cursor
 
-     Skill                         Version   Status    Detail
- ~   @acme/skills/triage           2.0.1     updated   from 1.9.4, 8 files
-     claude-code: projected at .claude/skills/triage
-     codex: projected at .agents/skills/triage
-     cursor: not supported by this agent, skills are unavailable at project scope
+     Extension                     Version   Status    Detail
+ ~   @acme/skills/triage           2.0.1     updated   from 1.9.4, 8 files, agent_extensions/triage
+     claude-code: projected at .claude/skills/triage, Projected successfully.
+     codex: projected at .agents/skills/triage, Projected successfully.
+     cursor: blocked, skills are unavailable at project scope
 
- ✔   Updated 1 skill               1 applied
+Updated 1 extension  1 applied

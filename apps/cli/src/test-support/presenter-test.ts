@@ -6,16 +6,9 @@ import type * as Schema from "effect/Schema";
 import { type BoxOptions, type LogMessage, type ResultOptions } from "../screen/output.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { subscribeLossless, type OperationEvent } from "@agentxm/workspace/transitions/planning";
-import {
-  Screen,
-  parkedOnWait,
-  plain,
-  promptRequired,
-  type Doc,
-  type DocNode,
-  type WaitView,
-} from "../screen/index.js";
+import { Screen, plain, promptRequired, type Doc, type DocNode } from "../screen/index.js";
 import { emptyAskScript, scriptedAsk, type AskScript } from "./scripted-ask.js";
+import { emptyWaitScript, scriptedWait, type WaitScript } from "./scripted-wait.js";
 
 // ---------------------------------------------------------------------------
 // TestRendererState — mutable state object capturing all ScreenPresenter calls
@@ -56,6 +49,7 @@ export interface TestRendererState {
   readonly docs: Array<{ readonly channel: "stdout" | "stderr"; readonly doc: Doc }>;
   /** Questions this screen was given, and the keys it answers the next ones with. */
   readonly script: AskScript;
+  readonly waitScript: WaitScript;
 }
 
 // ---------------------------------------------------------------------------
@@ -79,6 +73,7 @@ const makeEmptyState = (): TestRendererState => ({
   summaries: [],
   docs: [],
   script: emptyAskScript(),
+  waitScript: emptyWaitScript(),
 });
 
 const nodeText = (node: DocNode): string => {
@@ -295,16 +290,9 @@ const makeTestScreenService = (
   ask: resultReturnValue
     ? (ask, guard) => Effect.fail(promptRequired(plain(ask.question), guard))
     : scriptedAsk(state.script, (doc) => captureDoc(state, doc, "stderr")),
-  // A test screen cannot be stopped, so a wait is its brief and the effect it
-  // was parked on, in the order a terminal would have shown them.
-  wait: <A, E, R>(view: WaitView, awaited: Effect.Effect<A, E, R>) =>
-    parkedOnWait(
-      view,
-      Effect.suspend((): Effect.Effect<A, E, R> => {
-        captureDoc(state, view.brief, "stderr", true);
-        return awaited;
-      }),
-    ),
+  wait: scriptedWait(state.waitScript, (doc, persistent) =>
+    captureDoc(state, doc, "stderr", persistent),
+  ),
   facts: Effect.succeed({ columns: 80, colors: false, animate: false }),
   settle: Effect.void,
 });

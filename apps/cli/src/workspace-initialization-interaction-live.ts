@@ -49,7 +49,7 @@ type AgentFacts = Parameters<WorkspaceInitializationInteractionService["selectAg
  * Every supported agent, each with what the scan knows about it. Agents that
  * are configured, found in the project, or suggested open picked.
  */
-const selectAgentsAsk = (facts: AgentFacts): PickAsk<ReadonlyArray<string>> =>
+export const selectAgentsAsk = (facts: AgentFacts): PickAsk<ReadonlyArray<string>> =>
   pickAsk({
     question: selectAgentsMessage,
     label: "Agents",
@@ -73,14 +73,14 @@ const selectAgentsAsk = (facts: AgentFacts): PickAsk<ReadonlyArray<string>> =>
   });
 
 /** The setup gate: nothing has been written yet, so the default is to proceed. */
-const setupPlanAsk: ConfirmAsk<boolean> = {
+export const setupPlanAsk: ConfirmAsk<boolean> = {
   _tag: "Confirm",
   question: confirmSetupPlanMessage,
   label: "Apply setup",
   choices: yesNo(true),
 };
 
-const instructionSyncAsk = (enabled: boolean): ConfirmAsk<boolean> => ({
+export const instructionSyncAsk = (enabled: boolean): ConfirmAsk<boolean> => ({
   _tag: "Confirm",
   question: confirmInstructionSyncMessage,
   note: instructionSyncNote,
@@ -89,7 +89,7 @@ const instructionSyncAsk = (enabled: boolean): ConfirmAsk<boolean> => ({
 });
 
 /** What the source list answers: a file it offered, or a name still to be typed. */
-type InstructionSource =
+export type InstructionSource =
   { readonly _tag: "File"; readonly fileName: string } | { readonly _tag: "Other" };
 
 const withOtherChoice = (
@@ -104,7 +104,7 @@ const withOtherChoice = (
   return first === undefined ? [other] : [first, ...rest, other];
 };
 
-const instructionSourceAsk = (
+export const instructionSourceAsk = (
   defaultFileName: string,
   choices: ReadonlyArray<InstructionSourceChoice>,
 ): ChooseAsk<InstructionSource> => ({
@@ -137,7 +137,7 @@ const validateSourceFileName = (raw: string): Result.Result<string, string> => {
     : Result.succeed(fileName);
 };
 
-const customSourceAsk: InputAsk<string> = {
+export const customSourceAsk: InputAsk<string> = {
   _tag: "Input",
   question: customInstructionSourceMessage,
   note: customInstructionSourceNote,

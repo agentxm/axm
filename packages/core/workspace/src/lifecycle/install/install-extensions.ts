@@ -59,7 +59,7 @@ import {
   resolveMcpServerSourceRequest,
 } from "../../mcp-connections/lifecycle/install/plan.js";
 import {
-  discoverPackRef,
+  discoverPackRefs,
   finalizePackInstallIntent,
   packDiscoveryDiagnostics,
   parsePackInstallRequest,
@@ -107,6 +107,11 @@ import {
   type PrepareInstallRequirements,
 } from "./vocabulary.js";
 import { findGitReinstallRefs, pinGitReinstallRef } from "./git-reinstall.js";
+import {
+  InstallSelectionInteraction,
+  selectInstallRefs,
+  type InstallSelectionFailure,
+} from "./selection.js";
 
 // -----------------------------------------------------------------------------
 // Request
@@ -121,6 +126,17 @@ export type InstallSubject =
   | { readonly kind: "source"; readonly source: string }
   | { readonly kind: "bundled" };
 
+/** Selectors grouped by the type whose source contents they name. */
+export type InstallExtensionSelectors = Partial<
+  Readonly<Record<InstallableExtensionType, ReadonlyArray<string>>>
+>;
+
+/** Read one type's selectors without leaking optionality into planners. */
+export const installSelectorsFor = (
+  selectors: InstallExtensionSelectors,
+  type: InstallableExtensionType,
+): ReadonlyArray<string> => selectors[type] ?? [];
+
 /** One install request, whatever command spelling produced it. */
 export interface InstallExtensionsRequest {
   /**
@@ -129,8 +145,8 @@ export interface InstallExtensionsRequest {
    */
   readonly type: Option.Option<InstallableExtensionType>;
   readonly subject: InstallSubject;
-  /** Names or glob patterns the request named inside the source. */
-  readonly names: ReadonlyArray<string>;
+  /** Names or glob patterns, kept separate for each installable type. */
+  readonly selectors: InstallExtensionSelectors;
   /** Take everything the source offers without asking. */
   readonly all: boolean;
   /** Re-materialize even when the canonical tree already matches the lockfile. */
@@ -186,6 +202,7 @@ export type InstallExtensionsFailure =
   | ExtensionResolutionFailed
   | SkillSelectionFailure
   | SubagentSelectionFailure
+  | InstallSelectionFailure
   | InstallExecutionFailure;
 
 const EMPTY_DIAGNOSTICS: InstallDiagnostics = { resolutionLines: [], companionPackages: [] };
@@ -209,6 +226,33 @@ interface PlannedInstall {
   readonly emptyMessage: Option.Option<string>;
 }
 
+const combineTypePlans = (
+  type: InstallableExtensionType,
+  plans: ReadonlyArray<Plan<InstallStepRequirements>>,
+): Plan<InstallStepRequirements> => {
+  const [only] = plans;
+  if (plans.length === 1 && only !== undefined) return only;
+  const riskConditions = plans.flatMap((plan) => plan.riskConditions ?? []);
+  const failureSuggestions = plans.flatMap((plan) => plan.failureSuggestions ?? []);
+  return {
+    _tag: "Plan",
+    name: only?.name ?? `Install ${type}`,
+    description: only?.description ?? Option.none(),
+    presentation: operationPresentation(
+      { imperative: "install", past: "Installed", gerund: "Installing" },
+      type,
+    ),
+    jobs: [
+      {
+        concurrency: 1,
+        steps: plans.flatMap((plan) => plan.jobs.flatMap((job) => job.steps)),
+      },
+    ],
+    ...(riskConditions.length === 0 ? {} : { riskConditions }),
+    ...(failureSuggestions.length === 0 ? {} : { failureSuggestions }),
+  };
+};
+
 const planForType = (
   type: InstallableExtensionType,
   source: string,
@@ -220,14 +264,16 @@ const planForType = (
   | ConfiguredInstallRequirements
   | SkillSelectionInteraction
   | SubagentSelectionInteraction
+  | InstallSelectionInteraction
   | BundledAxmSkillAsset
 > => {
+  const selectors = installSelectorsFor(request.selectors, type);
   switch (type) {
     case "skill":
       return Effect.gen(function* () {
         const parsed = yield* parseSkillInstallRequest({
           source,
-          skills: request.names,
+          skills: selectors,
           all: request.all,
           force: request.reinstall,
           nonInteractive: request.nonInteractive,
@@ -291,7 +337,7 @@ const planForType = (
       return Effect.gen(function* () {
         const parsed = yield* parseSubagentInstallRequest({
           source,
-          subagents: request.names,
+          subagents: selectors,
           all: request.all,
           nonInteractive: request.nonInteractive,
         }).pipe(
@@ -348,16 +394,26 @@ const planForType = (
       });
     case "rule":
       return Effect.gen(function* () {
-        const parsed = yield* parseRuleInstallRequest(source);
+        const parsedSource = yield* parseRuleInstallRequest(source);
+        const effectiveSelectors = selectors.length > 0 ? selectors : parsedSource.names;
+        const parsed = {
+          ...parsedSource,
+          names: selectors.length > 0 ? selectors : parsedSource.names,
+        };
         const accepted =
           request.reinstall && parsed.source.type === "git"
             ? yield* findGitReinstallRefs(parsed.source, "rule", parsed.names)
             : [];
         const acceptedRules = accepted.filter((ref) => ref.type === "rule");
-        const intent = yield* finalizeRuleInstallIntent(
-          parsed,
-          acceptedRules.length > 0 ? acceptedRules : yield* discoverRuleRefs(parsed),
-        );
+        const discovered =
+          acceptedRules.length > 0 ? acceptedRules : yield* discoverRuleRefs(parsed);
+        const selected = yield* selectInstallRefs(discovered, {
+          type,
+          selectors: effectiveSelectors,
+          all: request.all,
+          nonInteractive: request.nonInteractive,
+        });
+        const intent = yield* finalizeRuleInstallIntent(parsed, selected);
         const refs =
           request.reinstall && acceptedRules.length === 0
             ? yield* Effect.forEach(intent.refs, (entry) =>
@@ -382,16 +438,26 @@ const planForType = (
       });
     case "hook":
       return Effect.gen(function* () {
-        const parsed = yield* parseHookInstallRequest(source);
+        const parsedSource = yield* parseHookInstallRequest(source);
+        const effectiveSelectors = selectors.length > 0 ? selectors : parsedSource.names;
+        const parsed = {
+          ...parsedSource,
+          names: selectors.length > 0 ? selectors : parsedSource.names,
+        };
         const accepted =
           request.reinstall && parsed.source.type === "git"
             ? yield* findGitReinstallRefs(parsed.source, "hook", parsed.names)
             : [];
         const acceptedHooks = accepted.filter((ref) => ref.type === "hook");
-        const intent = yield* finalizeHookInstallIntent(
-          parsed,
-          acceptedHooks.length > 0 ? acceptedHooks : yield* discoverHookRefs(parsed),
-        );
+        const discovered =
+          acceptedHooks.length > 0 ? acceptedHooks : yield* discoverHookRefs(parsed);
+        const selected = yield* selectInstallRefs(discovered, {
+          type,
+          selectors: effectiveSelectors,
+          all: request.all,
+          nonInteractive: request.nonInteractive,
+        });
+        const intent = yield* finalizeHookInstallIntent(parsed, selected);
         const refs =
           request.reinstall && acceptedHooks.length === 0
             ? yield* Effect.forEach(intent.refs, (entry) =>
@@ -416,16 +482,26 @@ const planForType = (
       });
     case "knowledge":
       return Effect.gen(function* () {
-        const parsed = yield* parseKnowledgeInstallRequest(source);
+        const parsedSource = yield* parseKnowledgeInstallRequest(source);
+        const effectiveSelectors = selectors.length > 0 ? selectors : parsedSource.names;
+        const parsed = {
+          ...parsedSource,
+          names: selectors.length > 0 ? selectors : parsedSource.names,
+        };
         const accepted =
           request.reinstall && parsed.source.type === "git"
             ? yield* findGitReinstallRefs(parsed.source, "knowledge", parsed.names)
             : [];
         const acceptedKnowledge = accepted.filter((ref) => ref.type === "knowledge");
-        const intent = yield* finalizeKnowledgeInstallIntent(
-          parsed,
-          acceptedKnowledge.length > 0 ? acceptedKnowledge : yield* discoverKnowledgeRefs(parsed),
-        );
+        const discovered =
+          acceptedKnowledge.length > 0 ? acceptedKnowledge : yield* discoverKnowledgeRefs(parsed);
+        const selected = yield* selectInstallRefs(discovered, {
+          type,
+          selectors: effectiveSelectors,
+          all: request.all,
+          nonInteractive: request.nonInteractive,
+        });
+        const intent = yield* finalizeKnowledgeInstallIntent(parsed, selected);
         const refs =
           request.reinstall && acceptedKnowledge.length === 0
             ? yield* Effect.forEach(intent.refs, (entry) =>
@@ -458,34 +534,71 @@ const planForType = (
           nonInteractive: request.nonInteractive,
         });
         const sourceRequest = yield* resolveMcpServerSourceRequest(parsed);
-        const selectedNames = Option.toArray(
-          Option.orElse(parsed.localName, () => parsed.serverName),
-        );
+        const implicitSelectors = Option.toArray(parsed.serverName);
+        const effectiveSelectors = selectors.length > 0 ? selectors : implicitSelectors;
+        const selectedNames =
+          effectiveSelectors.length > 0
+            ? effectiveSelectors
+            : Option.toArray(Option.orElse(parsed.localName, () => parsed.serverName));
         const accepted =
           request.reinstall && sourceRequest.source.type === "git"
             ? yield* findGitReinstallRefs(sourceRequest.source, "mcp-server", selectedNames)
             : [];
         const acceptedMcpServers = accepted.filter((ref) => ref.type === "mcp-server");
-        const intent = yield* finalizeMcpServerInstallIntent(
-          parsed,
-          sourceRequest,
+        const discovered =
           acceptedMcpServers.length > 0
             ? acceptedMcpServers
-            : yield* discoverMcpServerRefs(sourceRequest),
-        );
-        const configuredName = Option.getOrElse(request.localName, () => intent.ref.server.name);
-        const ref =
-          request.reinstall && acceptedMcpServers.length === 0
-            ? yield* pinGitReinstallRef(intent.ref, configuredName)
-            : intent.ref;
-        if (ref.type !== "mcp-server") {
+            : yield* discoverMcpServerRefs(sourceRequest);
+        if (discovered.length === 0) {
+          yield* finalizeMcpServerInstallIntent(parsed, sourceRequest, discovered);
+        }
+        const selected = yield* selectInstallRefs(discovered, {
+          type,
+          selectors: effectiveSelectors,
+          all: request.all,
+          nonInteractive: request.nonInteractive,
+        });
+        if (Option.isSome(request.localName) && selected.length > 1) {
           return yield* installRefused({
-            category: "internal",
-            detail: "Accepted Git MCP resolution changed extension type",
+            category: "usage",
+            detail: "--as can only be used when installing one MCP server",
           });
         }
+        const plans = yield* Effect.forEach(selected, (selectedRef) =>
+          Effect.gen(function* () {
+            const localName = Option.orElse(parsed.localName, () =>
+              Option.some(selectedRef.server.name),
+            );
+            const selectedParsed = {
+              ...parsed,
+              serverName: Option.some(selectedRef.server.name),
+              localName,
+            };
+            const selectedSourceRequest = {
+              ...sourceRequest,
+              serverName: Option.some(selectedRef.server.name),
+            };
+            const intent = yield* finalizeMcpServerInstallIntent(
+              selectedParsed,
+              selectedSourceRequest,
+              [selectedRef],
+            );
+            const configuredName = Option.getOrElse(localName, () => intent.ref.server.name);
+            const ref =
+              request.reinstall && acceptedMcpServers.length === 0
+                ? yield* pinGitReinstallRef(intent.ref, configuredName)
+                : intent.ref;
+            if (ref.type !== "mcp-server") {
+              return yield* installRefused({
+                category: "internal",
+                detail: "Accepted Git MCP resolution changed extension type",
+              });
+            }
+            return yield* planMcpServerInstall({ ...intent, ref });
+          }),
+        );
         return {
-          plan: yield* planMcpServerInstall({ ...intent, ref }),
+          plan: combineTypePlans(type, plans),
           diagnostics: EMPTY_DIAGNOSTICS,
         };
       });
@@ -504,30 +617,50 @@ const planForType = (
                 Option.toArray(sourceRequest.packName),
               )
             : [];
-        const acceptedPack = accepted.find((ref) => ref.type === "pack");
-        const discovery =
-          acceptedPack === undefined
-            ? yield* discoverPackRef(sourceRequest)
-            : { ref: acceptedPack, probes: [], sourceLabel: source };
-        const intent = finalizePackInstallIntent(parsed, discovery);
-        const ref =
-          request.reinstall && acceptedPack === undefined
-            ? yield* pinGitReinstallRef(intent.packToInstall)
-            : intent.packToInstall;
-        if (ref.type !== "pack") {
+        const acceptedPacks = accepted.filter((ref) => ref.type === "pack");
+        const implicitSelectors = Option.toArray(sourceRequest.packName);
+        const effectiveSelectors = selectors.length > 0 ? selectors : implicitSelectors;
+        const discovered =
+          acceptedPacks.length > 0 ? acceptedPacks : yield* discoverPackRefs(sourceRequest);
+        if (discovered.length === 0) {
           return yield* installRefused({
-            category: "internal",
-            detail: "Accepted Git Pack resolution changed extension type",
+            category: "not_found",
+            detail: "No pack was found in the source",
           });
         }
-        return {
-          plan: yield* planPackInstall({
-            ...intent,
-            packToInstall: ref,
-            ...(request.reinstall ? { forceCanonical: true } : {}),
+        const selected = yield* selectInstallRefs(discovered, {
+          type,
+          selectors: effectiveSelectors,
+          all: request.all,
+          nonInteractive: request.nonInteractive,
+        });
+        const plans = yield* Effect.forEach(selected, (selectedRef) =>
+          Effect.gen(function* () {
+            const discovery = { ref: selectedRef, probes: [], sourceLabel: source };
+            const intent = finalizePackInstallIntent(parsed, discovery);
+            const ref =
+              request.reinstall && acceptedPacks.length === 0
+                ? yield* pinGitReinstallRef(intent.packToInstall)
+                : intent.packToInstall;
+            if (ref.type !== "pack") {
+              return yield* installRefused({
+                category: "internal",
+                detail: "Accepted Git Pack resolution changed extension type",
+              });
+            }
+            return yield* planPackInstall({
+              ...intent,
+              packToInstall: ref,
+              ...(request.reinstall ? { forceCanonical: true } : {}),
+            });
           }),
+        );
+        return {
+          plan: combineTypePlans(type, plans),
           diagnostics: {
-            resolutionLines: packDiscoveryDiagnostics(sourceRequest, discovery),
+            resolutionLines: selected.flatMap((ref) =>
+              packDiscoveryDiagnostics(sourceRequest, { ref, probes: [], sourceLabel: source }),
+            ),
             companionPackages: [],
           },
         };
@@ -554,11 +687,25 @@ const planLocatorInstall = (
   | ConfiguredInstallRequirements
   | SkillSelectionInteraction
   | SubagentSelectionInteraction
+  | InstallSelectionInteraction
   | BundledAxmSkillAsset
 > =>
   Effect.gen(function* () {
+    const explicitlySelectedTypes = installableExtensionTypes.filter(
+      (type) => installSelectorsFor(request.selectors, type).length > 0,
+    );
+    if (request.nonInteractive && !request.all && explicitlySelectedTypes.length === 0) {
+      return yield* installRefused({
+        category: "usage",
+        detail: "A per-type selector or --all is required in non-interactive mode",
+        recover:
+          "Repeat --skill, --subagent, --rule, --hook, --knowledge, --mcp, or --pack for selected names, or pass --all",
+      });
+    }
+    const candidateTypes =
+      explicitlySelectedTypes.length > 0 ? explicitlySelectedTypes : installableExtensionTypes;
     const attempts = yield* Effect.forEach(
-      installableExtensionTypes,
+      candidateTypes,
       (type) =>
         planForType(type, source, request).pipe(
           Effect.map((planned) => Option.some({ type, ...planned })),
@@ -623,6 +770,7 @@ const planRequest = (
   | ConfiguredInstallRequirements
   | SkillSelectionInteraction
   | SubagentSelectionInteraction
+  | InstallSelectionInteraction
   | BundledAxmSkillAsset
 > =>
   Effect.gen(function* () {
@@ -668,6 +816,26 @@ const planRequest = (
       onNone: () => resolveRootInstallIntent(source).pipe(Effect.map((intent) => intent.type)),
     });
 
+    const hasMcpOnlyInput = Option.isSome(request.localName) || request.env.length > 0;
+    const locatorSelectsOnlyMcp =
+      installSelectorsFor(request.selectors, "mcp-server").length > 0 &&
+      installableExtensionTypes.every(
+        (candidate) =>
+          candidate === "mcp-server" ||
+          installSelectorsFor(request.selectors, candidate).length === 0,
+      );
+    if (
+      hasMcpOnlyInput &&
+      type !== "mcp-server" &&
+      !(type === "locator" && locatorSelectsOnlyMcp)
+    ) {
+      return yield* installRefused({
+        category: "usage",
+        detail: "--as and --env are only valid when installing MCP servers",
+        recover: "Select MCP servers with --mcp, or use an @owner/mcps/name source",
+      });
+    }
+
     if (type === "locator") return yield* planLocatorInstall(source, request);
 
     const { plan, diagnostics } = yield* planForType(type, source, request);
@@ -694,6 +862,7 @@ export const prepareInstallExtensions: (
   | ConfiguredInstallRequirements
   | SkillSelectionInteraction
   | SubagentSelectionInteraction
+  | InstallSelectionInteraction
   | BundledAxmSkillAsset
 > = Effect.fn("InstallExtensions.prepare")(function* (request: InstallExtensionsRequest) {
   const planned = yield* planRequest(request);

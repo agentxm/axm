@@ -18,6 +18,7 @@ import {
   SubagentSelectionNotFound,
   SubagentSelectionUnavailable,
 } from "@agentxm/workspace/subagents/lifecycle/application";
+import { InstallSelectionUnavailable } from "@agentxm/workspace/lifecycle";
 import {
   skillSelectionNotFoundToAppError,
   subagentSelectionNotFoundToAppError,
@@ -1131,6 +1132,7 @@ export type KnownFailure =
   | SkillSelectionUnavailable
   | SubagentSelectionNotFound
   | SubagentSelectionUnavailable
+  | InstallSelectionUnavailable
   | AxmSkillCompatibilityUnavailable
   | AxmSkillIncompatible
   | PackDefinitionInvalid
@@ -1285,6 +1287,7 @@ export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof SkillSelectionUnavailable ||
   error instanceof SubagentSelectionNotFound ||
   error instanceof SubagentSelectionUnavailable ||
+  error instanceof InstallSelectionUnavailable ||
   error instanceof AxmSkillCompatibilityUnavailable ||
   error instanceof AxmSkillIncompatible ||
   error instanceof PackDefinitionInvalid ||
@@ -1561,6 +1564,7 @@ export const toAppError = (error: KnownFailure | AppError): AppError => {
       return subagentSelectionNotFoundToAppError(error);
     case "SkillSelectionUnavailable":
     case "SubagentSelectionUnavailable":
+    case "InstallSelectionUnavailable":
       return selectionUnavailableToAppError(error);
     case "AxmSkillCompatibilityUnavailable":
       return axmSkillCompatibilityUnavailableToAppError(error);

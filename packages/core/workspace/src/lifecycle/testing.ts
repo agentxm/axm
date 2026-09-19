@@ -61,6 +61,7 @@ import { layer as WorkspaceLayerLive } from "../desired-state/live.js";
 import { withTestRegistryDefault } from "../desired-state/testing.js";
 
 import { ExtensionLifecycleFailed } from "./errors.js";
+import { InstallSelectionInteraction } from "./install/selection.js";
 import { SkillSelectionInteraction } from "../skills/lifecycle/application/index.js";
 import { SubagentSelectionInteraction } from "../subagents/lifecycle/application/index.js";
 import { BundledAxmSkillAsset } from "../skills/lifecycle/install/bundled.js";
@@ -264,6 +265,9 @@ export const makeLifecycleFixture = (options: LifecycleFixtureOptions = {}) => {
     readonly offered: ReadonlyArray<string>;
   }> = [];
   const selection = Layer.mergeAll(
+    Layer.succeed(InstallSelectionInteraction, {
+      select: (candidates) => Effect.succeed(options.select === "none" ? [] : candidates),
+    }),
     Layer.succeed(SkillSelectionInteraction, {
       select: (candidates) => {
         selectionCalls.push({ type: "skill", offered: candidates.map((ref) => ref.skill.name) });

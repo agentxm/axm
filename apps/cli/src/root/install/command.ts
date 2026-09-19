@@ -1,9 +1,19 @@
+/** Root and per-type install commands generated from one grammar definition. */
+
+import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { ignoreReleaseAgeFlag, reinstallFlag } from "../../cli-flags/index.js";
-import { withArgvTracking } from "../../cli-runtime/index.js";
+import {
+  extensionTypeSentenceLabels,
+  extensionTypeToPlural,
+} from "@agentxm/extension-model/unstable/extensions";
+import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
+import type { InstallExtensionSelectors } from "@agentxm/workspace/lifecycle";
+import { installSourceArgumentDescription } from "@agentxm/workspace/lifecycle";
 
+import { ignoreReleaseAgeFlag, reinstallFlag } from "../../cli-flags/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
+import { withArgvTracking } from "../../cli-runtime/index.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import {
@@ -13,57 +23,360 @@ import {
 } from "../shared/command-capabilities.js";
 import { handleInstall } from "./handler.js";
 
-const installConfig = {
-  source: Argument.String("source").pipe(
+const sourceArgument = (type?: InstallableExtensionType) =>
+  Argument.String("source").pipe(
     Argument.withDescription(
-      'Registry FQN (@owner/<plural-type>/<name>[@version]) or source locator; provider shorthand uses a final @ref, and shorthand refs cannot contain "/"',
+      type === undefined
+        ? 'Registry FQN (@owner/<plural-type>/<name>[@version]) or source locator; provider shorthand uses a final @ref, and shorthand refs cannot contain "/"'
+        : installSourceArgumentDescription(type),
     ),
     Argument.optional,
-  ),
+  );
+
+const selectorFlag = (type: InstallableExtensionType) => {
+  const flag = type === "mcp-server" ? "mcp" : type;
+  return Flag.String(flag).pipe(
+    Flag.withDescription(
+      `Select a ${extensionTypeSentenceLabels[type].toLowerCase()} by name or glob; repeatable`,
+    ),
+    Flag.atLeast(0),
+  );
+};
+
+const allFlag = Flag.Boolean("all").pipe(
+  Flag.withDescription("Install every matching extension without prompting"),
+  Flag.withDefault(false),
+);
+
+const commonConfig = (type?: InstallableExtensionType) => ({
+  source: sourceArgument(type),
   scope: scopeFlag.pipe(
     Flag.withDescription("Install to project (default) or user-level configuration"),
   ),
-  force: reinstallFlag.pipe(Flag.withDescription("Reinstall an extension that already exists")),
+  all: allFlag,
+  force: reinstallFlag.pipe(Flag.withDescription("Reinstall extensions that already exist")),
   preview: previewCapabilityFlag("Show what would be installed without making changes"),
   ignoreReleaseAge: ignoreReleaseAgeFlag,
+});
+
+const mcpConfig = {
+  env: Flag.String("env").pipe(
+    Flag.withAlias("e"),
+    Flag.withDescription("Provide an MCP input value as KEY=VALUE; repeatable"),
+    Flag.atLeast(0),
+  ),
+  as: Flag.String("as").pipe(
+    Flag.withDescription("Install one MCP server using this local name"),
+    Flag.optional,
+  ),
+};
+
+const selectorsFor = (
+  type: InstallableExtensionType,
+  selection: ReadonlyArray<string>,
+): InstallExtensionSelectors => {
+  switch (type) {
+    case "skill":
+      return { skill: selection };
+    case "mcp-server":
+      return { "mcp-server": selection };
+    case "subagent":
+      return { subagent: selection };
+    case "rule":
+      return { rule: selection };
+    case "hook":
+      return { hook: selection };
+    case "knowledge":
+      return { knowledge: selection };
+    case "pack":
+      return { pack: selection };
+  }
+};
+
+const installCapabilities = previewableCapabilities("workspace", {
+  inputs: "explicit-or-interactive-selection",
+  trust: ["publisher-change"],
+});
+
+const finishCommand = <Name extends string, Input, ContextInput, E, R>(
+  command: Command.Command<Name, Input, ContextInput, E, R>,
+  type?: InstallableExtensionType,
+) =>
+  command.pipe(
+    withCommandCapabilities(installCapabilities),
+    Command.withDescription(
+      type === undefined
+        ? "Install extensions from a registry FQN or source locator, or reinstall configured extensions"
+        : `Reinstall all configured ${extensionTypeToPlural[type]} from their sources, or install ${extensionTypeToPlural[type]} from a source`,
+    ),
+    Command.withExamples([
+      {
+        command:
+          type === undefined
+            ? "axm install ./extensions --skill review --rule safe-shell"
+            : `axm ${extensionTypeToPlural[type]} install ./extensions --${type === "mcp-server" ? "mcp" : type} example`,
+        description: "Install an explicit selection from a source",
+      },
+      {
+        command:
+          type === undefined
+            ? "axm install ./extensions --all"
+            : `axm ${extensionTypeToPlural[type]} install ./extensions --all`,
+        description: "Install every matching extension without prompting",
+      },
+    ]),
+  );
+
+interface ParsedTypedInstall {
+  readonly source: Option.Option<string>;
+  readonly scope: "project" | "user";
+  readonly all: boolean;
+  readonly force: boolean;
+  readonly preview: boolean;
+  readonly ignoreReleaseAge: boolean;
+}
+
+const runTypedInstall = (
+  type: InstallableExtensionType,
+  parsed: ParsedTypedInstall,
+  selection: ReadonlyArray<string>,
+) =>
+  handleInstall({
+    type: Option.some(type),
+    source: parsed.source,
+    selectors: selectorsFor(type, selection),
+    all: parsed.all,
+    force: parsed.force,
+    preview: parsed.preview,
+    env: [],
+    localName: Option.none(),
+    bundled: false,
+  }).pipe(
+    withReleaseAgePosture(parsed.ignoreReleaseAge),
+    withWorkspace(parsed.scope),
+    withRuntime(`${extensionTypeToPlural[type]} install`),
+  );
+
+export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
+  if (type === "mcp-server") {
+    const common = commonConfig(type);
+    const config = {
+      source: common.source,
+      scope: common.scope,
+      mcp: selectorFlag(type),
+      all: common.all,
+      force: common.force,
+      preview: common.preview,
+      ...mcpConfig,
+      ignoreReleaseAge: common.ignoreReleaseAge,
+    } as const;
+    return finishCommand(
+      Command.make("install", config, (parsed) =>
+        handleInstall({
+          type: Option.some(type),
+          source: parsed.source,
+          selectors: selectorsFor(type, parsed.mcp),
+          all: parsed.all,
+          force: parsed.force,
+          preview: parsed.preview,
+          env: parsed.env,
+          localName: parsed.as,
+          bundled: false,
+        }).pipe(
+          withReleaseAgePosture(parsed.ignoreReleaseAge),
+          withWorkspace(parsed.scope),
+          withRuntime("mcps install"),
+        ),
+      ).pipe(withArgvTracking(config)),
+      type,
+    );
+  }
+  if (type === "skill") {
+    const common = commonConfig(type);
+    const config = {
+      source: common.source,
+      scope: common.scope,
+      skill: selectorFlag(type),
+      all: common.all,
+      force: common.force,
+      preview: common.preview,
+      bundled: Flag.Boolean("bundled").pipe(
+        Flag.withDescription("Install the embedded official AXM skill without Registry access"),
+        Flag.withDefault(false),
+      ),
+      ignoreReleaseAge: common.ignoreReleaseAge,
+    } as const;
+    return finishCommand(
+      Command.make("install", config, (parsed) =>
+        handleInstall({
+          type: Option.some(type),
+          source: parsed.source,
+          selectors: selectorsFor(type, parsed.skill),
+          all: parsed.all,
+          force: parsed.force,
+          preview: parsed.preview,
+          env: [],
+          localName: Option.none(),
+          bundled: parsed.bundled,
+        }).pipe(
+          withReleaseAgePosture(parsed.ignoreReleaseAge),
+          withWorkspace(parsed.scope),
+          withRuntime("skills install"),
+        ),
+      ).pipe(withArgvTracking(config)),
+      type,
+    );
+  }
+  switch (type) {
+    case "subagent": {
+      const common = commonConfig(type);
+      const config = {
+        source: common.source,
+        scope: common.scope,
+        subagent: selectorFlag(type),
+        all: common.all,
+        force: common.force,
+        preview: common.preview,
+        ignoreReleaseAge: common.ignoreReleaseAge,
+      } as const;
+      return finishCommand(
+        Command.make("install", config, (parsed) =>
+          runTypedInstall(type, parsed, parsed.subagent),
+        ).pipe(withArgvTracking(config)),
+        type,
+      );
+    }
+    case "rule": {
+      const common = commonConfig(type);
+      const config = {
+        source: common.source,
+        scope: common.scope,
+        rule: selectorFlag(type),
+        all: common.all,
+        force: common.force,
+        preview: common.preview,
+        ignoreReleaseAge: common.ignoreReleaseAge,
+      } as const;
+      return finishCommand(
+        Command.make("install", config, (parsed) =>
+          runTypedInstall(type, parsed, parsed.rule),
+        ).pipe(withArgvTracking(config)),
+        type,
+      );
+    }
+    case "hook": {
+      const common = commonConfig(type);
+      const config = {
+        source: common.source,
+        scope: common.scope,
+        hook: selectorFlag(type),
+        all: common.all,
+        force: common.force,
+        preview: common.preview,
+        ignoreReleaseAge: common.ignoreReleaseAge,
+      } as const;
+      return finishCommand(
+        Command.make("install", config, (parsed) =>
+          runTypedInstall(type, parsed, parsed.hook),
+        ).pipe(withArgvTracking(config)),
+        type,
+      );
+    }
+    case "knowledge": {
+      const common = commonConfig(type);
+      const config = {
+        source: common.source,
+        scope: common.scope,
+        knowledge: selectorFlag(type),
+        all: common.all,
+        force: common.force,
+        preview: common.preview,
+        ignoreReleaseAge: common.ignoreReleaseAge,
+      } as const;
+      return finishCommand(
+        Command.make("install", config, (parsed) =>
+          runTypedInstall(type, parsed, parsed.knowledge),
+        ).pipe(withArgvTracking(config)),
+        type,
+      );
+    }
+    case "pack": {
+      const common = commonConfig(type);
+      const config = {
+        source: common.source,
+        scope: common.scope,
+        pack: selectorFlag(type),
+        all: common.all,
+        force: common.force,
+        preview: common.preview,
+        ignoreReleaseAge: common.ignoreReleaseAge,
+      } as const;
+      return finishCommand(
+        Command.make("install", config, (parsed) =>
+          runTypedInstall(type, parsed, parsed.pack),
+        ).pipe(withArgvTracking(config)),
+        type,
+      );
+    }
+  }
+};
+
+const installConfig = {
+  ...commonConfig(),
+  skill: selectorFlag("skill"),
+  subagent: selectorFlag("subagent"),
+  rule: selectorFlag("rule"),
+  hook: selectorFlag("hook"),
+  knowledge: selectorFlag("knowledge"),
+  mcp: selectorFlag("mcp-server"),
+  pack: selectorFlag("pack"),
+  ...mcpConfig,
 } as const;
 
-export const installCommand = Command.make(
-  "install",
-  installConfig,
-  ({ source, scope, force, preview, ignoreReleaseAge }) =>
-    handleInstall({ source, force, preview }).pipe(
-      withReleaseAgePosture(ignoreReleaseAge),
-      withWorkspace(scope),
+export const installCommand = finishCommand(
+  Command.make("install", installConfig, (parsed) =>
+    handleInstall({
+      type: Option.none(),
+      source: parsed.source,
+      selectors: {
+        skill: parsed.skill,
+        subagent: parsed.subagent,
+        rule: parsed.rule,
+        hook: parsed.hook,
+        knowledge: parsed.knowledge,
+        "mcp-server": parsed.mcp,
+        pack: parsed.pack,
+      },
+      all: parsed.all,
+      force: parsed.force,
+      preview: parsed.preview,
+      env: parsed.env,
+      localName: parsed.as,
+      bundled: false,
+    }).pipe(
+      withReleaseAgePosture(parsed.ignoreReleaseAge),
+      withWorkspace(parsed.scope),
       withRuntime("install"),
     ),
+  ).pipe(withArgvTracking(installConfig)),
 ).pipe(
-  withArgvTracking(installConfig),
-  withCommandCapabilities(previewableCapabilities("workspace", { trust: ["publisher-change"] })),
-  Command.withDescription(
-    "Install extensions from a registry FQN or source locator, or reinstall configured extensions",
-  ),
   Command.withExamples([
-    {
-      command: "axm install",
-      description: "Reinstall all configured extensions from their sources",
-    },
+    { command: "axm install", description: "Reinstall all configured extensions" },
     {
       command: "axm install @acme/skills/code-review",
       description: "Install a skill by fully qualified registry name",
     },
     {
-      command: "axm install @acme/hooks/session-audit@^1.2.0",
-      description: "Install a hook with a version constraint",
-    },
-    {
       command: "axm install github:acme/agent-extensions//tools@v1.0.0",
-      description:
-        "Discover and install skills, subagents, rules, hooks, and knowledge from a locator",
+      description: "Discover and install skills, subagents, rules, hooks, and knowledge",
     },
     {
-      command: "axm install @acme/packs/frontend-tools --preview",
-      description: "Preview a pack install from the registry",
+      command: "axm install ./extensions --skill review --rule safe-shell",
+      description: "Install explicit per-type selections from a source",
+    },
+    {
+      command: "axm install ./extensions --all",
+      description: "Install every extension in a source without prompting",
     },
   ]),
   Command.annotate(
@@ -74,3 +387,11 @@ export const installCommand = Command.make(
     ]),
   ),
 );
+
+export const skillsInstallCommand = makePerTypeInstallCommand("skill");
+export const mcpsInstallCommand = makePerTypeInstallCommand("mcp-server");
+export const subagentsInstallCommand = makePerTypeInstallCommand("subagent");
+export const rulesInstallCommand = makePerTypeInstallCommand("rule");
+export const hooksInstallCommand = makePerTypeInstallCommand("hook");
+export const knowledgeInstallCommand = makePerTypeInstallCommand("knowledge");
+export const packsInstallCommand = makePerTypeInstallCommand("pack");

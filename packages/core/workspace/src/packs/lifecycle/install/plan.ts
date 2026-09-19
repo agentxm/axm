@@ -145,6 +145,35 @@ export interface PackDiscovery {
   readonly sourceLabel: string;
 }
 
+/** Discover every pack a locator exposes so the shared install selector can decide among them. */
+export const discoverPackRefs: (
+  request: PackSourceRequest,
+) => Effect.Effect<ReadonlyArray<PackRef>, ExtensionLifecycleFailed, ResolveInstallRequirements> =
+  Effect.fn("InstallExtensions.discoverPackRefs")(function* (request: PackSourceRequest) {
+    if (request.source.type === "registry") {
+      return [(yield* discoverPackRef(request)).ref];
+    }
+    const sources = yield* SourceHostProviders;
+    const refs = yield* sources
+      .find(request.source, {
+        names: Option.toArray(request.packName),
+        type: "pack",
+        owner: request.owner,
+        versionRange: request.versionRange,
+      })
+      .pipe(
+        Effect.mapError((cause) =>
+          installRefused({
+            category:
+              sourceResolutionFailureCategory(cause) === "not_found" ? "not_found" : "network",
+            detail: "Pack source could not be read",
+            cause,
+          }),
+        ),
+      );
+    return refs.filter((ref): ref is PackRef => ref.type === "pack");
+  });
+
 const isRemoteReadNotImplemented = (error: SourceResolutionFailure): boolean => {
   const detail = sourceFailureDetail(error);
   return detail.includes("not implemented") || detail.includes("not yet supported");

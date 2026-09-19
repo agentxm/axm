@@ -6,6 +6,7 @@ import type {
   SubagentSelectionNotFound,
   SubagentSelectionUnavailable,
 } from "@agentxm/workspace/subagents/lifecycle/application";
+import type { InstallSelectionUnavailable } from "@agentxm/workspace/lifecycle";
 import { AppError, makeAppError } from "../app-error.js";
 
 export const skillSelectionNotFoundToAppError = (error: SkillSelectionNotFound): AppError =>
@@ -27,15 +28,24 @@ export const subagentSelectionNotFoundToAppError = (error: SubagentSelectionNotF
   });
 
 export const selectionUnavailableToAppError = (
-  error: SkillSelectionUnavailable | SubagentSelectionUnavailable,
+  error: SkillSelectionUnavailable | SubagentSelectionUnavailable | InstallSelectionUnavailable,
 ): AppError => {
   // Terminal guidance remains here; another interface may supply a different cause.
   if (error.cause instanceof AppError) return error.cause;
-  const skill = error._tag === "SkillSelectionUnavailable";
+  const selection =
+    error._tag === "SkillSelectionUnavailable"
+      ? { article: "a", noun: "skill", flags: "skills with --skill" }
+      : error._tag === "SubagentSelectionUnavailable"
+        ? { article: "a", noun: "subagent", flags: "subagents with --subagent" }
+        : {
+            article: "an",
+            noun: "extension",
+            flags: "extensions with their per-type flags",
+          };
   return makeAppError({
     code: "usage",
-    detail: `Unable to obtain a ${skill ? "skill" : "subagent"} selection`,
-    recover: `Name the ${skill ? "skills with --skill" : "subagents with --subagent"}, take them all with --all, or use an interactive terminal.`,
+    detail: `Unable to obtain ${selection.article} ${selection.noun} selection`,
+    recover: `Name the ${selection.flags}, take them all with --all, or use an interactive terminal.`,
     ...(error.cause === undefined ? {} : { cause: error.cause }),
   });
 };

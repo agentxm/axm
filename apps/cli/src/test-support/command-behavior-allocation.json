@@ -1214,6 +1214,19 @@
           }
         },
         {
+          "name": "hook",
+          "rawHelp": { "aliases": [], "type": "string", "required": true },
+          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+        },
+        {
+          "name": "all",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
           "name": "reinstall",
           "rawHelp": {
             "aliases": [],
@@ -1253,6 +1266,11 @@
         {
           "parameters": ["flag:scope"],
           "requirements": ["cli/installed-state-stays-in-selected-scope"]
+        },
+        {
+          "parameters": ["flag:hook", "flag:all"],
+          "requirements": ["cli/install-forms-express-same-intent"],
+          "when": "A source contains one or more hook packages."
         },
         {
           "parameters": ["flag:reinstall"],
@@ -1769,6 +1787,10 @@
           }
         },
         {
+          "name": "all",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
           "name": "reinstall",
           "rawHelp": {
             "aliases": [],
@@ -1791,6 +1813,50 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "skill",
+          "rawHelp": { "aliases": [], "type": "string", "required": true },
+          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+        },
+        {
+          "name": "subagent",
+          "rawHelp": { "aliases": [], "type": "string", "required": true },
+          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+        },
+        {
+          "name": "rule",
+          "rawHelp": { "aliases": [], "type": "string", "required": true },
+          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+        },
+        {
+          "name": "hook",
+          "rawHelp": { "aliases": [], "type": "string", "required": true },
+          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+        },
+        {
+          "name": "knowledge",
+          "rawHelp": { "aliases": [], "type": "string", "required": true },
+          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+        },
+        {
+          "name": "mcp",
+          "rawHelp": { "aliases": [], "type": "string", "required": true },
+          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+        },
+        {
+          "name": "pack",
+          "rawHelp": { "aliases": [], "type": "string", "required": true },
+          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+        },
+        {
+          "name": "env",
+          "rawHelp": { "aliases": ["-e"], "type": "string", "required": true },
+          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+        },
+        {
+          "name": "as",
+          "rawHelp": { "aliases": [], "type": "string", "required": false }
         }
       ],
       "arguments": [
@@ -1811,7 +1877,8 @@
         "cli/install/preserves-unrelated-and-unowned-state",
         "cli/install/realizes-for-every-configured-agent",
         "cli/install/records-accepted-resolution",
-        "cli/install/reinstall-is-idempotent"
+        "cli/install/reinstall-is-idempotent",
+        "cli/install-forms-express-same-intent"
       ],
       "conditionalLinks": [
         {
@@ -1838,6 +1905,33 @@
         {
           "parameters": ["flag:scope"],
           "requirements": ["cli/installed-state-stays-in-selected-scope"]
+        },
+        {
+          "parameters": [
+            "flag:skill",
+            "flag:subagent",
+            "flag:rule",
+            "flag:hook",
+            "flag:knowledge",
+            "flag:mcp",
+            "flag:pack",
+            "flag:all"
+          ],
+          "requirements": ["cli/install-forms-express-same-intent"],
+          "when": "A source is supplied and selection is explicit or interactive."
+        },
+        {
+          "parameters": ["flag:env"],
+          "requirements": ["cli/mcps/secret-namespaces-include-local-and-source-identity"],
+          "when": "The selected extension is an MCP server."
+        },
+        {
+          "parameters": ["flag:as"],
+          "requirements": [
+            "cli/mcps/install/local-connection-names-share-source-resolution",
+            "cli/mcps/install/local-name-requests-are-validated-before-any-change"
+          ],
+          "when": "Exactly one MCP server is selected."
         },
         {
           "parameters": ["flag:reinstall"],
@@ -2715,6 +2809,19 @@
           }
         },
         {
+          "name": "knowledge",
+          "rawHelp": { "aliases": [], "type": "string", "required": true },
+          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+        },
+        {
+          "name": "all",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "reinstall",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
           "name": "preview",
           "rawHelp": {
             "aliases": [],
@@ -2746,6 +2853,15 @@
         {
           "parameters": ["flag:scope"],
           "requirements": ["cli/installed-state-stays-in-selected-scope"]
+        },
+        {
+          "parameters": ["flag:knowledge", "flag:all"],
+          "requirements": ["cli/install-forms-express-same-intent"]
+        },
+        {
+          "parameters": ["flag:reinstall"],
+          "requirements": ["cli/force-bypasses-only-named-policies"],
+          "when": "A sourced install reaches the reinstall policy."
         },
         {
           "parameters": ["flag:preview"],
@@ -3915,6 +4031,15 @@
           }
         },
         {
+          "name": "mcp",
+          "rawHelp": { "aliases": [], "type": "string", "required": true },
+          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+        },
+        {
+          "name": "all",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
           "name": "reinstall",
           "rawHelp": {
             "aliases": [],
@@ -3974,6 +4099,10 @@
         {
           "parameters": ["flag:scope"],
           "requirements": ["cli/installed-state-stays-in-selected-scope"]
+        },
+        {
+          "parameters": ["flag:mcp", "flag:all"],
+          "requirements": ["cli/install-forms-express-same-intent"]
         },
         {
           "parameters": ["flag:reinstall"],
@@ -4705,6 +4834,15 @@
           }
         },
         {
+          "name": "pack",
+          "rawHelp": { "aliases": [], "type": "string", "required": true },
+          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+        },
+        {
+          "name": "all",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
           "name": "reinstall",
           "rawHelp": {
             "aliases": [],
@@ -4744,6 +4882,10 @@
         {
           "parameters": ["flag:scope"],
           "requirements": ["cli/installed-state-stays-in-selected-scope"]
+        },
+        {
+          "parameters": ["flag:pack", "flag:all"],
+          "requirements": ["cli/install-forms-express-same-intent"]
         },
         {
           "parameters": ["flag:reinstall"],
@@ -5658,6 +5800,15 @@
           }
         },
         {
+          "name": "rule",
+          "rawHelp": { "aliases": [], "type": "string", "required": true },
+          "occurrences": { "minimumOccurrences": 0, "repeatable": true }
+        },
+        {
+          "name": "all",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
           "name": "reinstall",
           "rawHelp": {
             "aliases": [],
@@ -5697,6 +5848,10 @@
         {
           "parameters": ["flag:scope"],
           "requirements": ["cli/installed-state-stays-in-selected-scope"]
+        },
+        {
+          "parameters": ["flag:rule", "flag:all"],
+          "requirements": ["cli/install-forms-express-same-intent"]
         },
         {
           "parameters": ["flag:reinstall"],

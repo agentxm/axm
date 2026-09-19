@@ -60,8 +60,19 @@ export {
   type InstallExtensionsCandidate,
   type InstallExtensionsFailure,
   type InstallExtensionsRequest,
+  type InstallExtensionSelectors,
   type InstallSubject,
+  installSelectorsFor,
 } from "./install/install-extensions.js";
+export {
+  InstallSelectionInteraction,
+  InstallSelectionCancelled,
+  InstallSelectionUnavailable,
+  extensionRefName,
+  selectInstallRefs,
+  type InstallSelectionCandidate,
+  type InstallSelectionFailure,
+} from "./install/selection.js";
 export {
   installRefused,
   type HookInstallIntent,

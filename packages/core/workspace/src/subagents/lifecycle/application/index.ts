@@ -58,6 +58,8 @@ export const determineSubagentsToInstall = Effect.fn("Subagents.determineSelecti
         requested: request.requestedSubagents,
         available: names,
       });
+    case "explicit-selection-required":
+      return yield* new SubagentSelectionUnavailable({});
     case "choice-required": {
       const interaction = yield* SubagentSelectionInteraction;
       return yield* interaction.select(candidates);

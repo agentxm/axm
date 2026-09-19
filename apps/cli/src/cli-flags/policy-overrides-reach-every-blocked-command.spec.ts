@@ -127,9 +127,15 @@ const heldNewerRelease = (
   Effect.gen(function* () {
     const { registry, workspace } = makeUnagedWorkspace(cleanups, posture, [{ version: "1.0.0" }]);
     yield* handleInstall({
+      type: Option.none(),
       source: Option.none(),
+      selectors: {},
+      all: false,
       force: false,
       preview: false,
+      env: [],
+      localName: Option.none(),
+      bundled: false,
     }).pipe(Effect.provide(workspace.layer), Effect.orDie);
     expect(workspace.readLockfileText()).toContain("version: 1.0.0");
     registry.writeSkill(SKILL, [
@@ -173,9 +179,17 @@ const blockedForms: ReadonlyArray<{
     form: "root install",
     fixture: heldNewerRelease,
     run: (workspace) =>
-      handleInstall({ source: Option.none(), force: false, preview: false }).pipe(
-        Effect.provide(workspace.layer),
-      ),
+      handleInstall({
+        type: Option.none(),
+        source: Option.none(),
+        selectors: {},
+        all: false,
+        force: false,
+        preview: false,
+        env: [],
+        localName: Option.none(),
+        bundled: false,
+      }).pipe(Effect.provide(workspace.layer)),
   },
   {
     form: "root update",

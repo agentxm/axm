@@ -37,6 +37,7 @@ export const installRequest = (args: {
   readonly type?: InstallableExtensionType;
   readonly subject: InstallSubject;
   readonly names?: ReadonlyArray<string>;
+  readonly selectors?: InstallExtensionsRequest["selectors"];
   readonly all?: boolean;
   readonly reinstall?: boolean;
   readonly localName?: string;
@@ -46,7 +47,7 @@ export const installRequest = (args: {
 }): InstallExtensionsRequest => ({
   type: Option.fromUndefinedOr(args.type),
   subject: args.subject,
-  names: args.names ?? [],
+  selectors: args.selectors ?? (args.type === undefined ? {} : { [args.type]: args.names ?? [] }),
   all: args.all ?? true,
   reinstall: args.reinstall ?? false,
   localName: Option.fromUndefinedOr(args.localName),

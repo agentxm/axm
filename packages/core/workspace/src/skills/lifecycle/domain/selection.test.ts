@@ -5,11 +5,10 @@ const names = ["inspect-patch", "draft-release", "inspect-tests"] as const;
 const request = { requestedSkills: [], all: false, nonInteractive: false };
 
 describe("skill selection policy", () => {
-  it("needs a choice only when multiple candidates remain unselected", () => {
+  it("needs a choice whenever candidates remain unselected", () => {
     expect(decideSkillSelection(names, request)).toEqual({ kind: "choice-required" });
     expect(decideSkillSelection(["inspect-patch"], request)).toEqual({
-      kind: "selected",
-      names: ["inspect-patch"],
+      kind: "choice-required",
     });
   });
   it("preserves candidate order and deduplicates overlapping requested patterns", () => {
@@ -45,10 +44,15 @@ describe("skill selection policy", () => {
       }),
     ).toEqual({ kind: "selected", names: ["draft-release"] });
   });
-  it.each([
-    { ...request, all: true },
-    { ...request, nonInteractive: true },
-  ])("selects every candidate when the invocation supplies this decision: %j", (input) => {
-    expect(decideSkillSelection(names, input)).toEqual({ kind: "selected", names });
+  it("selects every candidate only when --all supplies that decision", () => {
+    expect(decideSkillSelection(names, { ...request, all: true })).toEqual({
+      kind: "selected",
+      names,
+    });
+  });
+  it("requires an explicit decision in non-interactive mode", () => {
+    expect(decideSkillSelection(names, { ...request, nonInteractive: true })).toEqual({
+      kind: "explicit-selection-required",
+    });
   });
 });

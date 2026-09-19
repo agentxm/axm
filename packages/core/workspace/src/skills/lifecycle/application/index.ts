@@ -58,6 +58,8 @@ export const determineSkillsToInstall = Effect.fn("Skills.determineSelection")(f
         requested: request.requestedSkills,
         available: names,
       });
+    case "explicit-selection-required":
+      return yield* new SkillSelectionUnavailable({});
     case "choice-required": {
       const interaction = yield* SkillSelectionInteraction;
       return yield* interaction.select(candidates);

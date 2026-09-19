@@ -57,6 +57,7 @@ import {
   type Tone,
 } from "./screen/index.js";
 import { operationExitCode } from "./operation-exit-code.js";
+import { redactCredentialBearingLocator } from "./app-error/index.js";
 
 /**
  * Separates the parts of one cell or aside. The painter owns the separator
@@ -145,6 +146,43 @@ const membershipChildren = (artifact: JobStepArtifact | undefined): Doc => {
   ];
 };
 
+const sourceSwitchChildren = (artifact: JobStepArtifact | undefined): Doc => {
+  const sourceSwitch = artifact?.sourceSwitch;
+  if (sourceSwitch === undefined) return [];
+  const dependencyChanges = [
+    ...sourceSwitch.dependencies.added.map((member) => `added ${member}`),
+    ...sourceSwitch.dependencies.removed.map((member) => `removed ${member}`),
+    ...sourceSwitch.dependencies.changed.map((member) => `changed ${member}`),
+  ];
+  return [
+    {
+      _tag: "paragraph",
+      tone: "dim",
+      text: `Source: ${sourceSwitch.before.family} ${redactCredentialBearingLocator(sourceSwitch.before.locator)} to ${sourceSwitch.after.family} ${redactCredentialBearingLocator(sourceSwitch.after.locator)}`,
+    },
+    {
+      _tag: "paragraph",
+      tone: "dim",
+      text: `Content: ${sourceSwitch.content} (${sourceSwitch.before.treeIntegrity} to ${sourceSwitch.after.treeIntegrity})`,
+    },
+    {
+      _tag: "paragraph",
+      tone: "dim",
+      text: `Dependencies: ${sourceSwitch.dependencies.effect}${dependencyChanges.length === 0 ? "" : ` (${dependencyChanges.join(", ")})`}`,
+    },
+    {
+      _tag: "paragraph",
+      tone: "dim",
+      text: `Projections: ${sourceSwitch.projections.detail}`,
+    },
+    {
+      _tag: "paragraph",
+      tone: "dim",
+      text: `Guarantees: gained ${sourceSwitch.guarantees.gained.join(", ") || "none"}; lost ${sourceSwitch.guarantees.lost.join(", ") || "none"}`,
+    },
+  ];
+};
+
 /**
  * Per-agent outcomes and pack membership beneath the row they belong to. A
  * pack's members are the substance of its change, so they always show;
@@ -162,6 +200,7 @@ const rowChildren = (
     (outcome) => detailed || outcome.outcome === "failed" || outcome.outcome === "blocked",
   );
   return [
+    ...sourceSwitchChildren(unit.artifact),
     ...membershipChildren(unit.artifact),
     ...outcomes.map(
       (outcome) =>

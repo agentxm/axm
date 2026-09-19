@@ -23,6 +23,8 @@ export interface RegistrySkillVersion {
   readonly version: string;
   /** Body text of the skill document, so versions are observably distinct. */
   readonly body: string;
+  /** Publish-time exclusions retained in the distributed manifest. */
+  readonly publishIgnore?: ReadonlyArray<string>;
   /**
    * Publication instant. Defaults to one that predates the minimum release
    * age; pass a recent instant to model a release the age policy still holds.
@@ -191,13 +193,14 @@ export const makeLifecycleRegistry = (): LifecycleRegistry => {
         type: "skill",
         name,
         versions,
-        archive: ({ version, body }) => ({
+        archive: ({ version, body, publishIgnore }) => ({
           "skill.json": manifest({
             owner: OWNER,
             type: "skill",
             name,
             version,
             description: `The ${name} skill.`,
+            ...(publishIgnore === undefined ? {} : { publish: { ignore: publishIgnore } }),
           }),
           "src/SKILL.md": `---\nname: "${name}"\ndescription: "The ${name} skill."\n---\n\n# ${name}\n\n${body}\n`,
         }),

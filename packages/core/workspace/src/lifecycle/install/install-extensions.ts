@@ -39,6 +39,7 @@ import type { ExtensionResolutionFailed } from "../../resolution/index.js";
 
 import type { ExtensionLifecycleFailed } from "../errors.js";
 import { withPublisherTrust } from "../publisher-binding.js";
+import { withSourceSwitches } from "../source-switch.js";
 import { planHookInstall } from "../../hooks/lifecycle/install/plan.js";
 import {
   discoverHookRefs,
@@ -870,7 +871,8 @@ export const prepareInstallExtensions: (
   // resolution here, so the root, per-type, locator, and configured routes
   // share one publisher-trust rule instead of restating it five times.
   const trusted = yield* withPublisherTrust(planned.plan);
-  const execution = yield* prepareExecutionCandidate(trusted, {
+  const sourceAware = yield* withSourceSwitches(trusted);
+  const execution = yield* prepareExecutionCandidate(sourceAware, {
     configuredAgentOperations: planned.configuredAgentOperations,
   });
   return {
@@ -878,7 +880,7 @@ export const prepareInstallExtensions: (
     empty: Option.isSome(planned.emptyMessage),
     emptyMessage: planned.emptyMessage,
     diagnostics: planned.diagnostics,
-    planName: trusted.name,
+    planName: sourceAware.name,
     execution,
   } satisfies InstallExtensionsCandidate;
 });

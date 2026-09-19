@@ -70,6 +70,7 @@ export {
   computeMaterializedTreeIntegrity,
   MaterializedTreeInvalid,
   TreeIntegritySchema,
+  type MaterializedTreeIntegrityOptions,
   type TreeIntegrity,
 } from "./workspace/materialized-tree.js";
 export { sanitizeName, normalizeExtensionName } from "./workspace/extension-name.js";

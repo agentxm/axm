@@ -40,6 +40,7 @@ import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/ex
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { SourceHostProviders, resolveSource } from "../../../resolution/sources/index.js";
+import type { RegistryBindingProposal, SourceBindingProposal } from "../../../resolution/index.js";
 import { operationPresentation, type Plan } from "../../../transitions/planning/index.js";
 import { mcpRegistryResolutionKey } from "../../../desired-state/index.js";
 
@@ -603,6 +604,23 @@ export const planMcpServerInstall: (
     ),
   );
 
+  const sourceBinding = {
+    extensionType: "mcp-server",
+    target: intent.localName,
+    ref: intent.ref,
+  } satisfies SourceBindingProposal;
+  const registryBinding: RegistryBindingProposal | undefined =
+    intent.ref.refType === "registry"
+      ? {
+          extensionType: "mcp-server",
+          target: intent.localName,
+          owner: intent.ref.owner,
+          packageName: intent.ref.name,
+          version: intent.ref.version,
+          publisherBindingId: intent.ref.publisherBindingId,
+        }
+      : undefined;
+
   return {
     _tag: "Plan",
     name: "Install MCP server",
@@ -619,6 +637,8 @@ export const planMcpServerInstall: (
             key: `mcp-server:${intent.localName}`,
             label: intent.localName,
             readiness: "ready",
+            sourceBinding,
+            ...(registryBinding === undefined ? {} : { registryBinding }),
             run: installMcpServer({
               name: "install-mcp-server",
               args: {

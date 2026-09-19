@@ -365,8 +365,8 @@ describe("repository task interface", () => {
       "lint-bundled-skill",
       "parity-ledger-check",
       "resolve-release-preparation-source",
-      // A cached result would skip the production Registry preflight or the
-      // exact candidate preview.
+      // Candidate generation mutates versioned source and must always execute
+      // against the exact checked-out preparation revision.
       "release-prepare-candidate",
       "reconcile-github-release",
       "publish-bootstrap-prerelease",

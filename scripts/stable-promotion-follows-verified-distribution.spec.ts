@@ -6,7 +6,7 @@ export const specification = defineSpecification({
   requirement: "system/process/stable-promotion-follows-verified-distribution",
   title: "Stable promotion follows verified candidate distribution",
   statement:
-    "The canonical release workflow shall attempt stable promotion only after publication of the candidate binary/checksum assets, fixed npm cohort, Homebrew formula and official skill, and successful exact-candidate script, published-package, Homebrew and official-skill installation verification; promotion failures shall not prevent that preceding distribution.",
+    "The canonical release workflow shall attempt stable promotion only after publication of the candidate binary/checksum assets, fixed npm cohort and Homebrew formula, and successful exact-candidate script, published-package and Homebrew installation verification; promotion failures shall not prevent that preceding distribution.",
   class: "process",
   role: "supporting",
   goals: ["trustworthy-distribution", "dependable-change-process"],
@@ -47,18 +47,13 @@ export const boundEvidence = defineBoundEvidence([
   },
 ]);
 
-const required = [
-  "release",
-  "install-verify",
-  "package-verify",
-  "brew-verify",
-  "skill-publish",
-  "skill-verify",
-];
+const required = ["release", "install-verify", "package-verify", "brew-verify"];
 
 describe("Stable readiness", () => {
   it("requires every distribution and verification job before promotion", () => {
     const workflow = readReleaseWorkflow();
+    expect(workflow.jobs).not.toHaveProperty(["skill", "publish"].join("-"));
+    expect(workflow.jobs).not.toHaveProperty(["skill", "verify"].join("-"));
     const promotion = workflow.jobs["promote"];
     expect(promotion?.needs).toEqual(required);
     const condition = promotion?.if ?? "";
@@ -88,7 +83,7 @@ describe("Stable readiness", () => {
       { os: "ubuntu-latest", manager: "pnpm" },
       { os: "ubuntu-latest", manager: "yarn" },
     ]);
-    for (const name of ["install-verify", "package-verify", "skill-publish", "promote"]) {
+    for (const name of ["install-verify", "package-verify", "promote"]) {
       const checkout = jobs[name]?.steps.find((step) => step.uses?.startsWith("actions/checkout@"));
       expect(checkout?.with?.["ref"]).toBe("${{ needs.release.outputs.sha }}");
     }

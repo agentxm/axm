@@ -4941,21 +4941,23 @@ Changes and releases land through the governed repository process with required 
 - Assumptions: Installed extension content under agent_extensions/ is published extension content that AXM manages and the Registry governs, not a repository-authored artifact; the obligation and its scan cover repository-authored content only.
 - Source: [`scripts/public-artifacts-protect-private-context.spec.ts`](../scripts/public-artifacts-protect-private-context.spec.ts)
 
-##### Release preparation validates production Registry gates without distribution
+##### Release preparation produces an exact reviewable candidate
 
-- Requirement: `system/process/release-preparation-validates-production-gates`
+- Requirement: `system/process/release-preparation-produces-reviewable-candidate`
 - Owner: `axm`
-- Statement: An explicitly dispatched GitHub Actions preparation shall bind an exact current main revision, preflight the production Registry from the latest reachable released CLI at or before the current version before generating candidate state, validate the exact generated candidate in preview-only mode, and open a reviewable candidate pull request whose exact commit receives Required CI without applying a publication.
+- Statement: An explicitly dispatched GitHub Actions preparation shall bind an exact current main revision, generate and validate the release candidate without contacting a private service, and open a reviewable candidate pull request whose exact commit receives Required CI without applying a publication.
 - Class: process
 - Role: supporting
 - Product goals: `dependable-change-process`, `trustworthy-distribution`
 - Boundary: repository; selection: per-change
-- Boundary rationale: The committed preparation workflow, source resolver, candidate orchestration, and approved PR workflow declare the ordering, provenance, credentials, and verification path without requiring a developer checkout.
+- Boundary rationale: The committed preparation workflow, source resolver, candidate orchestration, and approved PR workflow declare the ordering, provenance, and verification path without requiring a developer checkout.
 - Methods: example, contract
-- Assumptions: A preview publication against the production Registry reports the same gate outcomes a real publication would enforce.; Repository Actions policy permits the preparation job's contents and pull-request permissions, and a release maintainer can approve the prepared PR workflow.; Release tags are created only by the canonical GitHub Release workflow.
-- Bound evidence: `test: axm:test (scripts/release-preparation-validates-production-gates.spec.ts)` — Checks explicit preparation dispatch, exact-source and stale-main guards, released-skill and exact-candidate Registry previews, reviewable pull-request creation, and the declared PR verification path for the candidate commit.
+- Derived from: `system/process/release-preparation-validates-production-gates`
+- Supersedes: `system/process/release-preparation-validates-production-gates`
+- Assumptions: Repository Actions policy permits the preparation job's contents and pull-request permissions, and a release maintainer can approve the prepared PR workflow.
+- Bound evidence: `test: axm:test (scripts/release-preparation-produces-reviewable-candidate.spec.ts)` — Checks explicit preparation dispatch, exact-source and stale-main guards, private-service independence, candidate phase ordering, reviewable pull-request creation, and the declared PR verification path for the candidate commit.
 - Bound evidence: `test: axm:test (scripts/repository-task-interface.test.ts)` — Checks that local release-preparation orchestration has no root alias and that source resolution and candidate generation are fresh internal targets owned by the Actions workflow.
-- Source: [`scripts/release-preparation-validates-production-gates.spec.ts`](../scripts/release-preparation-validates-production-gates.spec.ts)
+- Source: [`scripts/release-preparation-produces-reviewable-candidate.spec.ts`](../scripts/release-preparation-produces-reviewable-candidate.spec.ts)
 
 ##### One automated workflow publishes releases
 
@@ -5113,7 +5115,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `system/process/stable-promotion-follows-verified-distribution`
 - Owner: `axm`
-- Statement: The canonical release workflow shall attempt stable promotion only after publication of the candidate binary/checksum assets, fixed npm cohort, Homebrew formula and official skill, and successful exact-candidate script, published-package, Homebrew and official-skill installation verification; promotion failures shall not prevent that preceding distribution.
+- Statement: The canonical release workflow shall attempt stable promotion only after publication of the candidate binary/checksum assets, fixed npm cohort and Homebrew formula, and successful exact-candidate script, published-package and Homebrew installation verification; promotion failures shall not prevent that preceding distribution.
 - Class: process
 - Role: supporting
 - Product goals: `trustworthy-distribution`, `dependable-change-process`

@@ -72,25 +72,6 @@ const isRecord = (value: unknown): value is Record<PropertyKey, unknown> =>
 
 export const RELEASE_REPO = readEnvWithDefault(process.env, "GITHUB_REPOSITORY", "agentxm/axm");
 
-export const AXM_SKILL_HANDLE = "@agentxm/skills/axm";
-export const PRODUCTION_REGISTRY_URL = "https://registry.agentxm.ai";
-export const productionRegistryPreviewArgs = (directory?: string): readonly string[] => [
-  "axm:local",
-  ...(directory === undefined ? [] : ["-C", directory]),
-  "skills",
-  "publish",
-  AXM_SKILL_HANDLE,
-  "--registry-url",
-  PRODUCTION_REGISTRY_URL,
-  "--on-existing",
-  "verify",
-  "--preview",
-  "--json",
-  "--non-interactive",
-];
-
-export const PRODUCTION_REGISTRY_PREVIEW_ARGS = productionRegistryPreviewArgs();
-
 export const fail = (message: string): never => {
   console.error(message);
   process.exit(1);

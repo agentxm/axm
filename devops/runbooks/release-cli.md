@@ -39,7 +39,7 @@ prepared release is ready to publish.
 ## Applicability, authority, and completion evidence
 
 This procedure is for an authorized release maintainer with the required GitHub,
-Registry, npm, and tap permissions. It documents operations that commit, push,
+npm, and tap permissions. It documents operations that commit, push,
 publish, and change channels; a documentation task does not authorize them.
 Use the exact release commit/tag as input and the canonical workflow as the
 operation authority. Stop on a failed identity, authentication, integrity, or
@@ -55,8 +55,8 @@ not substitute manual writes or infer atomic rollback.
 ## Release Model
 
 The binding obligations are the executable process specifications for the
-canonical publish workflow, production-gate validation, and isolated candidate
-state in the [specification catalog](../../specifications/catalog.md).
+canonical publish workflow, exact reviewable candidate generation, and isolated
+candidate state in the [specification catalog](../../specifications/catalog.md).
 
 - Releases are published from GitHub Actions. Do not publish packages or create
   GitHub Releases manually.
@@ -114,26 +114,17 @@ state in the [specification catalog](../../specifications/catalog.md).
    update a generated release branch with a generic branch update.
 
    Source preparation checks that every npm cohort package already exists,
-   before candidate generation or production previews. A new version of an
+   before candidate generation. A new version of an
    existing package passes this check; a new package name requires first
    publication and canonical trusted-publisher setup. npm requires a package
    to exist before configuring its [trusted publisher](https://docs.npmjs.com/cli/v11/commands/npm-trust/#prerequisites).
    Public package metadata establishes existence, not publisher permissions.
-   Failed registry reads stop preparation rather than being treated as absence.
+   Failed npm reads stop preparation rather than being treated as absence.
 
-   The workflow installs the locked workspace in its ephemeral checkout. Before
-   candidate state exists, it uses the committed source CLI and the skill source
-   from the latest reachable release tag at or before the current version to
-   verify production Registry authentication, immutable archive integrity, and
-   the authoritative publish-preview contract. If a failed candidate was merged
-   but never published, preparation uses the preceding released tag instead of
-   inventing a tag for the failed candidate. The preflight checkout exposes only
-   that released skill as workspace-authored content; it does not consume the
-   historic accepted resolution lockfile.
-
-   After preflight, Nx Release versions the fixed cohort and changelog, stamps
-   and regenerates the bundled skill, and previews the exact candidate against
-   the production Registry. The workflow commits and pushes
+   The workflow installs the locked workspace in its ephemeral checkout. Nx
+   Release versions the fixed cohort and changelog, stamps and regenerates the
+   bundled skill, then validates the exact cohort without contacting a private
+   service. The workflow commits and pushes
    `release/cli-v{VERSION}`, opens the release pull request, records source and
    candidate provenance in its summary. GitHub creates the candidate's PR
    workflow in an approval-required state. No preparation step publishes a
@@ -195,8 +186,7 @@ state in the [specification catalog](../../specifications/catalog.md).
    Required evidence
    includes exact-version bash installations on Linux/macOS, PowerShell and cmd
    on Windows, clean published npm installations on Linux/macOS/Windows,
-   pnpm and Yarn Classic on Linux, macOS Homebrew installation, and publication
-   and installation of the matching official skill.
+   pnpm and Yarn Classic on Linux, and macOS Homebrew installation.
 
    Only after every required gate succeeds does the final job promote stable.
    Promotion uses `If-None-Match: *` for first creation and the public strong
@@ -377,10 +367,10 @@ maintainer. It does not provide a local or placeholder-package publisher.
   later step fails, keep and inspect the named remote branch as the recoverable
   outcome; do not delete shared remote state as rollback or blindly retry over
   it.
-- Preparation requires the `AXM_REGISTRY_TOKEN` repository secret. Candidate
-  branch and pull-request authority comes from the job-scoped workflow token.
-  A maintainer approves the prepared PR workflow using their existing GitHub
-  access; preparation needs no additional credential or Actions write permission.
+- Candidate branch and pull-request authority comes from the job-scoped workflow
+  token. A maintainer approves the prepared PR workflow using their existing
+  GitHub access; preparation needs no additional credential or Actions write
+  permission.
 - Homebrew automation requires the `HOMEBREW_TAP_TOKEN` repository secret in
   `agentxm/axm`.
 - Stable-channel promotion requires `AXM_RELEASE_CONTROL_TOKEN`,

@@ -103,9 +103,10 @@ describe("Publication summary evidence", () => {
       const command = readReleaseWorkflow().jobs["summary"]?.steps[0]?.run;
       if (command === undefined) throw new Error("Missing canonical release summary.");
       const results = Object.fromEntries(
-        ["install-verify", "package-verify", "brew-verify", "skill-publish", "skill-verify"].map(
-          (name) => [name, { result: scenario.verification, outputs: {} }],
-        ),
+        ["install-verify", "package-verify", "brew-verify"].map((name) => [
+          name,
+          { result: scenario.verification, outputs: {} },
+        ]),
       );
       const run = spawnSync("bash", ["-euo", "pipefail", "-c", command], {
         encoding: "utf8",

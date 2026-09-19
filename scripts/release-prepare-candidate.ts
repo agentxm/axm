@@ -17,7 +17,6 @@ import {
   runReleaseCandidatePreparation,
 } from "./release-prepare-candidate-orchestration.js";
 import {
-  PRODUCTION_REGISTRY_PREVIEW_ARGS,
   RELEASE_PROCESS_ENV,
   fail,
   releaseTagFromVersion,
@@ -76,12 +75,8 @@ const candidateHost: ReleaseCandidateHost<NxReleaseContext> = {
       RELEASE_PROCESS_ENV,
     ),
 
-  previewRegistry: () => {
-    console.log("\n==> Candidate phase 4: Preview the exact candidate with production Registry");
-    run("pnpm", PRODUCTION_REGISTRY_PREVIEW_ARGS, RELEASE_PROCESS_ENV);
-  },
-
   validateCohort: (version) => {
+    console.log("\n==> Candidate phase 4: Validate the exact release cohort");
     const appliedVersion = requireMatchingReleasePackageVersions();
     if (appliedVersion !== version) {
       fail(`Nx Release reported ${version}, but package versions on disk are ${appliedVersion}.`);

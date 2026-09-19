@@ -12,40 +12,33 @@ import {
   type ReleaseCandidateHost,
   runReleaseCandidatePreparation,
 } from "./release-prepare-candidate-orchestration.js";
-import { selectReleasedSkillTag, validateReleasePreparationSource } from "./release-preflight.js";
-import {
-  AXM_SKILL_HANDLE,
-  PRODUCTION_REGISTRY_URL,
-  productionRegistryPreviewArgs,
-} from "./release-shared.js";
+import { validateReleasePreparationSource } from "./release-preflight.js";
 
 export const specification = defineSpecification({
-  requirement: "system/process/release-preparation-validates-production-gates",
-  title: "Release preparation validates production Registry gates without distribution",
+  requirement: "system/process/release-preparation-produces-reviewable-candidate",
+  title: "Release preparation produces an exact reviewable candidate",
   statement:
-    "An explicitly dispatched GitHub Actions preparation shall bind an exact current main revision, preflight the production Registry from the latest reachable released CLI at or before the current version before generating candidate state, validate the exact generated candidate in preview-only mode, and open a reviewable candidate pull request whose exact commit receives Required CI without applying a publication.",
+    "An explicitly dispatched GitHub Actions preparation shall bind an exact current main revision, generate and validate the release candidate without contacting a private service, and open a reviewable candidate pull request whose exact commit receives Required CI without applying a publication.",
   class: "process",
   role: "supporting",
   goals: ["dependable-change-process", "trustworthy-distribution"],
   boundary: "repository",
   boundaryRationale:
-    "The committed preparation workflow, source resolver, candidate orchestration, and approved PR workflow declare the ordering, provenance, credentials, and verification path without requiring a developer checkout.",
+    "The committed preparation workflow, source resolver, candidate orchestration, and approved PR workflow declare the ordering, provenance, and verification path without requiring a developer checkout.",
   methods: ["example", "contract"],
-  derivedFrom: [],
-  supersedes: [],
+  derivedFrom: ["system/process/release-preparation-validates-production-gates"],
+  supersedes: ["system/process/release-preparation-validates-production-gates"],
   assumptions: [
-    "A preview publication against the production Registry reports the same gate outcomes a real publication would enforce.",
     "Repository Actions policy permits the preparation job's contents and pull-request permissions, and a release maintainer can approve the prepared PR workflow.",
-    "Release tags are created only by the canonical GitHub Release workflow.",
   ],
   openQuestions: [],
 });
 
 export const boundEvidence = defineBoundEvidence([
   {
-    gate: "test: axm:test (scripts/release-preparation-validates-production-gates.spec.ts)",
+    gate: "test: axm:test (scripts/release-preparation-produces-reviewable-candidate.spec.ts)",
     verifies:
-      "Checks explicit preparation dispatch, exact-source and stale-main guards, released-skill and exact-candidate Registry previews, reviewable pull-request creation, and the declared PR verification path for the candidate commit.",
+      "Checks explicit preparation dispatch, exact-source and stale-main guards, private-service independence, candidate phase ordering, reviewable pull-request creation, and the declared PR verification path for the candidate commit.",
   },
   {
     gate: "test: axm:test (scripts/repository-task-interface.test.ts)",
@@ -96,7 +89,6 @@ const recordingCandidateHost = () => {
     },
     stampSkill: () => events.push("stamp"),
     generateSkill: () => events.push("generate"),
-    previewRegistry: () => events.push("exact-preview"),
     validateCohort: () => events.push("validate"),
   };
   return { events, host };
@@ -128,21 +120,21 @@ describe("Release preparation workflow", () => {
     }),
   );
 
-  it.effect("preflights the released skill before generating the exact candidate", () =>
+  it.effect("generates and validates the candidate without private-service dependencies", () =>
     Effect.sync(() => {
-      const names = readWorkflow().steps.map((step) => Reflect.get(step, "name"));
-      const releasedPreview = names.indexOf("Preflight production Registry from released skill");
+      const workflow = readWorkflow();
+      const names = workflow.steps.map((step) => Reflect.get(step, "name"));
+      const source = names.indexOf("Resolve and validate preparation source");
       const candidate = names.indexOf("Generate and validate exact candidate");
       const refresh = names.indexOf("Refresh installed workspace after versioning");
       const commit = names.indexOf("Commit candidate");
-      expect(releasedPreview).toBeGreaterThan(-1);
-      expect(candidate).toBeGreaterThan(releasedPreview);
-      expect(names.indexOf("Remove released skill preflight checkout")).toBeGreaterThan(
-        releasedPreview,
-      );
-      expect(names.indexOf("Remove released skill preflight checkout")).toBeLessThan(candidate);
+      expect(source).toBeGreaterThan(-1);
+      expect(candidate).toBeGreaterThan(source);
       expect(refresh).toBeGreaterThan(candidate);
       expect(commit).toBeGreaterThan(refresh);
+      const serialized = JSON.stringify(workflow.steps);
+      expect(serialized).not.toContain("secrets.");
+      expect(serialized).not.toContain(["registry", "agentxm", "ai"].join("."));
       expect(
         JSON.stringify(
           namedStep(readWorkflow().steps, "Refresh installed workspace after versioning"),
@@ -151,7 +143,7 @@ describe("Release preparation workflow", () => {
     }),
   );
 
-  it.effect("opens a candidate for PR verification without Actions write authority", () =>
+  it.effect("opens a candidate for PR verification with repository-scoped authority", () =>
     Effect.sync(() => {
       const workflow = readWorkflow();
       expect(workflow.permissions).toEqual({
@@ -168,46 +160,11 @@ describe("Release preparation workflow", () => {
       expect(ci["on"]).toHaveProperty("pull_request");
     }),
   );
-});
-
-describe("Release preparation Registry gates", () => {
-  it.effect("falls back to the prior release when the current candidate was not published", () =>
-    Effect.sync(() => {
-      expect(selectReleasedSkillTag("0.29.3", ["cli-v0.29.1", "cli-v0.29.2"])).toBe("cli-v0.29.2");
-    }),
-  );
-
-  it.effect("previews the exact candidate only after it has been generated", () =>
+  it.effect("validates the exact cohort only after it has been generated", () =>
     Effect.promise(async () => {
       const { events, host } = recordingCandidateHost();
       await runReleaseCandidatePreparation(host);
-      expect(events).toEqual([
-        "version",
-        "changelog",
-        "stamp",
-        "generate",
-        "exact-preview",
-        "validate",
-      ]);
-    }),
-  );
-
-  it.effect("the preview targets production and can never apply publication", () =>
-    Effect.sync(() => {
-      for (const preview of [
-        productionRegistryPreviewArgs(),
-        productionRegistryPreviewArgs("/tmp/axm-released"),
-      ]) {
-        expect(preview).toContain(AXM_SKILL_HANDLE);
-        expect(preview[preview.indexOf("--registry-url") + 1]).toBe(PRODUCTION_REGISTRY_URL);
-        expect(preview).toContain("--preview");
-        expect(
-          preview.slice(preview.indexOf("--on-existing"), preview.indexOf("--on-existing") + 2),
-        ).toEqual(["--on-existing", "verify"]);
-        for (const applying of ["--yes", "-y", "--force", "--backfill"]) {
-          expect(preview).not.toContain(applying);
-        }
-      }
+      expect(events).toEqual(["version", "changelog", "stamp", "generate", "validate"]);
     }),
   );
 });

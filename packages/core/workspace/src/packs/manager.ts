@@ -24,6 +24,7 @@ import {
 
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { stripFileProtocol } from "@agentxm/registry-client";
 import {
   PackArchiveFetchFailed,
   PackDefinitionInvalid,
@@ -59,6 +60,10 @@ import {
   removableAcceptedCanonicalPath,
 } from "../desired-state/index.js";
 import { computePackManifestContentIdentity } from "../desired-state/index.js";
+import { computePackageContentHash } from "../desired-state/index.js";
+import { gitSourceLockFields } from "../desired-state/lockfile/entry-fields.js";
+import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
+import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
   computeMaterializedTreeIntegrity,
   type MaterializedTreeInvalid,
@@ -84,6 +89,7 @@ const buildSetPackArgs = (
   sourceName: ref.source.name,
   publisherBindingId: ref.publisherBindingId,
   treeIntegrity,
+  manifestVersion: ref.version,
   manifestContentIdentity: computePackManifestContentIdentity({
     owner: ref.owner,
     type: "pack",
@@ -91,8 +97,77 @@ const buildSetPackArgs = (
     version: ref.version,
     dependencies: ref.pack.dependencies,
   }),
+  members: Object.keys(ref.pack.dependencies),
   versionRange,
 });
+
+const buildExternalSetPackArgs = (args: {
+  readonly ref: Exclude<PackRef, { readonly refType: "registry" | "workspace" }>;
+  readonly versionRange: Option.Option<string>;
+  readonly treeIntegrity: TreeIntegrity;
+  readonly contentIdentity: SourceHash;
+  readonly workspaceRelativeLocalSourcePath: Option.Option<string>;
+}): SetPackArgs => {
+  const shared = {
+    manifestVersion: args.ref.version,
+    manifestContentIdentity: computePackManifestContentIdentity({
+      owner: args.ref.owner,
+      type: "pack",
+      name: args.ref.pack.name,
+      version: args.ref.version,
+      dependencies: args.ref.pack.dependencies,
+    }),
+    members: Object.keys(args.ref.pack.dependencies),
+    versionRange: args.versionRange,
+  };
+  if (args.ref.refType === "local") {
+    const localSourcePath = args.ref.source.path;
+    return {
+      type: "local",
+      sourceType: "local",
+      sourceName: "local",
+      extensionType: "pack",
+      workspaceName: args.ref.pack.name,
+      packageFormat: "agentxm",
+      packageOwner: args.ref.owner,
+      packageName: args.ref.name,
+      path: Option.getOrElse(args.workspaceRelativeLocalSourcePath, () => localSourcePath),
+      contentIdentity: args.contentIdentity,
+      treeIntegrity: args.treeIntegrity,
+      ...shared,
+    };
+  }
+  return {
+    ...gitSourceLockFields(
+      args.ref.source,
+      "pack",
+      args.ref.pack.name,
+      Option.fromUndefinedOr(args.ref.sourcePath),
+      args.ref.gitCommitSha,
+      args.ref.gitTreeSha,
+      args.contentIdentity,
+      args.ref.owner,
+      args.ref.name,
+      args.treeIntegrity,
+    ),
+    ...shared,
+  };
+};
+
+const sourceLayoutName = (ref: Exclude<PackRef, { readonly refType: "workspace" }>): string => {
+  switch (ref.source.type) {
+    case "local":
+      return "local";
+    case "git":
+      return "git";
+    case "github":
+    case "gitlab":
+    case "bitbucket":
+    case "azurerepos":
+    case "registry":
+      return ref.source.name;
+  }
+};
 
 // -----------------------------------------------------------------------------
 // Live Layer
@@ -128,7 +203,7 @@ export const PackManagerLive = Layer.effect(
       const packDir = computePackPathsForLayout(
         path.join,
         currentLayout(),
-        ref.refType === "workspace" ? "workspace" : ref.source.name,
+        ref.refType === "workspace" ? "workspace" : sourceLayoutName(ref),
         ref.owner,
         ref.pack.name,
       ).canonicalPath;
@@ -147,13 +222,14 @@ export const PackManagerLive = Layer.effect(
         return noContent;
       }
       const lockedEntry = yield* lockfile.entry("pack", ref.pack.name);
-      const lockedVersion = acceptedRegistryVersionForRef(lockedEntry, ref);
+      const lockedVersion =
+        ref.refType === "registry" ? acceptedRegistryVersionForRef(lockedEntry, ref) : undefined;
       if (
         yield* canReuseInstalledPackage({
           installedPath: packDir,
           force: force === true,
           refVersion: ref.version,
-          hasIntegrity: Option.isSome(ref.integrity),
+          hasIntegrity: ref.refType === "registry" && Option.isSome(ref.integrity),
           ...(lockedVersion === undefined ? {} : { lockedVersion }),
           existsFailureDetail: (target) =>
             `Failed to check if canonical pack path exists: ${target}`,
@@ -209,14 +285,45 @@ export const PackManagerLive = Layer.effect(
       ref: PackRef,
       versionRange: Option.Option<string>,
       materialization: Option.Option<PackMaterializationFacts>,
-    ): Effect.Effect<Option.Option<SetPackArgs>, PackInstallStateMissing> =>
+    ) =>
       Effect.gen(function* () {
-        if (ref.refType !== "registry") return Option.none();
+        if (ref.refType === "workspace") return Option.none();
         const treeIntegrity = materialization.pipe(Option.flatMap((facts) => facts.treeIntegrity));
         if (Option.isNone(treeIntegrity)) {
           return yield* new PackInstallStateMissing({ name: ref.pack.name });
         }
-        return Option.some(buildSetPackArgs(ref, versionRange, treeIntegrity.value));
+        if (ref.refType === "registry") {
+          return Option.some(buildSetPackArgs(ref, versionRange, treeIntegrity.value));
+        }
+        const packDir = computePackPathsForLayout(
+          path.join,
+          currentLayout(),
+          sourceLayoutName(ref),
+          ref.owner,
+          ref.pack.name,
+        ).canonicalPath;
+        const workspaceRelativeLocalSourcePath =
+          ref.refType === "local"
+            ? makeWorkspaceRelativeSourcePath(
+                path,
+                baseDir,
+                ref.sourcePath ?? stripFileProtocol(ref.location),
+              )
+            : Option.none<string>();
+        if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
+          return yield* new PackDefinitionInvalid({
+            detail: `Local Pack source path must stay within the workspace root: ${ref.source.path}`,
+          });
+        }
+        return Option.some(
+          buildExternalSetPackArgs({
+            ref,
+            versionRange,
+            treeIntegrity: treeIntegrity.value,
+            contentIdentity: yield* computePackageContentHash(packDir),
+            workspaceRelativeLocalSourcePath,
+          }),
+        );
       });
 
     return {

@@ -210,8 +210,12 @@ export const listPacks = Effect.fn("Inspection.listPacks")(function* () {
     );
     return {
       ...baseRow(row),
-      owner: entry?.owner ?? registrySource?.owner ?? workspaceSource?.owner ?? "n/a",
-      version: entry?.resolvedVersion ?? "n/a",
+      owner:
+        (entry?.type === "registry" ? entry.owner : entry?.packageOwner) ??
+        registrySource?.owner ??
+        workspaceSource?.owner ??
+        "n/a",
+      version: entry?.manifestVersion ?? "n/a",
       source: configuredSource.startsWith("workspace:")
         ? "workspace"
         : (entry?.sourceName ?? configuredSource),

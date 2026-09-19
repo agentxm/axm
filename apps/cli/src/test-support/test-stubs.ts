@@ -179,10 +179,12 @@ const normalizeTestLockMap = (
               treeIntegrity: value["treeIntegrity"] ?? TEST_TREE_INTEGRITY,
               ...(extensionType === "pack"
                 ? {
+                    manifestVersion: value["manifestVersion"] ?? value["resolvedVersion"],
                     manifestContentIdentity:
                       value["manifestContentIdentity"] ??
                       value["sourceHash"] ??
                       TEST_CONTENT_IDENTITY,
+                    members: value["members"] ?? [],
                   }
                 : {}),
             },
@@ -575,8 +577,10 @@ export const makeRegistryPackLockEntry = (opts: {
     sourceName: opts.sourceName ?? "agentxm",
     publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
     treeIntegrity: TEST_TREE_INTEGRITY,
+    manifestVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
     manifestContentIdentity:
       opts.sourceHash === undefined
         ? TEST_CONTENT_IDENTITY
         : Schema.decodeUnknownSync(SourceHashSchema)(opts.sourceHash),
+    members: [],
   });

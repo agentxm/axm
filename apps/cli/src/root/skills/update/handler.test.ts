@@ -127,6 +127,7 @@ const makePackLockEntry = (
   integrity: "sha512-pack",
   sourceName: "local-reg",
   publisherBindingId: "hbnd_test",
+  manifestVersion: "1.0.0",
   manifestContentIdentity: computePackManifestContentIdentity({
     owner,
     type: "pack",
@@ -134,6 +135,7 @@ const makePackLockEntry = (
     version: "1.0.0",
     dependencies,
   }),
+  members: Object.keys(dependencies),
 });
 
 const writeRegistrySkill = ({

@@ -277,6 +277,8 @@ const refExtensionName = (ref: GitHostedExtensionRef): string => {
       return ref.hook.name;
     case "knowledge":
       return ref.knowledge.name;
+    case "pack":
+      return ref.pack.name;
   }
 };
 

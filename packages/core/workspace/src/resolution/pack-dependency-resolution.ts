@@ -29,7 +29,7 @@ import type {
   ReleaseAgeEvaluation,
   ReleaseAgeEvidence,
 } from "@agentxm/extension-model/unstable/extensions/release-age";
-import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
+import type { RegistrySource, Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import type { SourceHostProvidersService, SourceResolutionFailure } from "./sources/index.js";
 
@@ -54,7 +54,7 @@ type PackDependencyResolutionError =
 /** Every extension type a pack can depend on — packs cannot nest. */
 type SupportedPackDependencyType = Exclude<ExtensionType, "pack">;
 
-type PackDependencyRef = Extract<ExtensionRef, { readonly refType: "registry" | "workspace" }>;
+type PackDependencyRef = Extract<ExtensionRef, { readonly type: SupportedPackDependencyType }>;
 
 type ResolvedDependency = {
   readonly owner: Handle;
@@ -94,7 +94,6 @@ const validateSelectedDependency = (
 ): Effect.Effect<ResolvedDependency, PackDependencyResolutionError> => {
   if (
     candidate.type !== expectedType ||
-    (candidate.refType !== "registry" && candidate.refType !== "workspace") ||
     candidate.owner !== parsed.owner ||
     candidate.name !== parsed.name
   ) {
@@ -102,7 +101,10 @@ const validateSelectedDependency = (
       detail: `Authorized dependency resolution does not match pack dependency ${fqn}`,
     });
   }
-  if (!semver.satisfies(candidate.version, constraint)) {
+  if (
+    (candidate.refType === "registry" || candidate.refType === "workspace") &&
+    !semver.satisfies(candidate.version, constraint)
+  ) {
     return new PackDependencyConflict({
       detail: `Authorized dependency ${fqn}@${candidate.version} does not satisfy ${constraint}`,
     });
@@ -138,24 +140,23 @@ export type ReleaseAgeAwarePackDependencyResolution =
       readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
     };
 
-const registrySourceForDependency = (
+const sourceForDependency = (
   pack: PackRef,
   owner: Handle,
   sourceOverride?: RegistrySource,
-): Effect.Effect<RegistrySource, PackDependencyResolutionError> => {
-  const source = sourceOverride ?? (pack.source.type === "registry" ? pack.source : undefined);
+): Effect.Effect<Source, PackDependencyResolutionError> => {
+  const source = sourceOverride ?? (pack.source.type === "workspace" ? undefined : pack.source);
   if (source === undefined) {
     return Effect.fail(
       new PackDependencyInvalid({
-        detail: `Cannot resolve pack dependencies from non-registry source`,
+        detail: `Cannot inherit a source for workspace Pack dependencies`,
       }),
     );
   }
 
-  return Effect.succeed({
-    ...source,
-    owner: Option.some(owner),
-  });
+  return Effect.succeed(
+    source.type === "registry" ? { ...source, owner: Option.some(owner) } : source,
+  );
 };
 
 const workspaceConstraintConflict = (
@@ -165,7 +166,8 @@ const workspaceConstraintConflict = (
   constraint: VersionRange,
 ): PackConstraintShadowed =>
   new PackConstraintShadowed({
-    packSource: pack.source.type === "workspace" ? "workspace" : "registry",
+    packSource:
+      pack.refType === "git-hosted" ? "git" : pack.refType === "local" ? "local" : pack.refType,
     packFqn: formatFqn({ owner: pack.owner, type: "pack", name: pack.pack.name }),
     memberFqn,
     constraint,
@@ -240,21 +242,42 @@ const resolveDependencyRef = <E = never, R = never>(
       return yield* validateSelectedDependency(candidate, expectedType, parsed, fqn, constraint);
     }
 
-    const source = yield* registrySourceForDependency(pack, parsed.owner, sourceOverride);
+    if (pack.refType === "git-hosted" || pack.refType === "local") {
+      const matches = pack.sourceMembers.filter(
+        (candidate) =>
+          candidate.type === expectedType &&
+          candidate.owner === parsed.owner &&
+          candidate.name === parsed.name,
+      );
+      const candidate = matches[0];
+      if (candidate === undefined || matches.length !== 1) {
+        return yield* new PackDependencyInvalid({
+          detail:
+            matches.length === 0
+              ? `Unable to resolve source-inherited pack dependency ${fqn}`
+              : `Pack dependency ${fqn} is ambiguous in the Pack source`,
+        });
+      }
+      return yield* validateSelectedDependency(candidate, expectedType, parsed, fqn, constraint);
+    }
+
+    const source = yield* sourceForDependency(pack, parsed.owner, sourceOverride);
     const matches = yield* Effect.scoped(
       sources.find(source, {
         names: [parsed.name],
         type: expectedType,
         owner: Option.some(parsed.owner),
-        versionRange: Option.some<string>(constraint),
-        ...(minimumReleaseAge === undefined ? {} : { minimumReleaseAge }),
+        versionRange:
+          source.type === "registry" ? Option.some<string>(constraint) : Option.none<string>(),
+        ...(source.type === "registry" && minimumReleaseAge !== undefined
+          ? { minimumReleaseAge }
+          : {}),
       }),
     );
 
     const matchingRef = matches.find(
-      (candidate): candidate is Extract<ExtensionRef, { readonly refType: "registry" }> =>
+      (candidate): candidate is PackDependencyRef =>
         candidate.type === expectedType &&
-        candidate.refType === "registry" &&
         candidate.owner === parsed.owner &&
         candidate.name === parsed.name,
     );
@@ -383,7 +406,26 @@ const resolveDependencyRefWithReleaseAge = <E = never, R = never>(
       };
     }
 
-    const source = yield* registrySourceForDependency(pack, parsed.owner, sourceOverride);
+    const source = yield* sourceForDependency(pack, parsed.owner, sourceOverride);
+    if (source.type !== "registry") {
+      const dependency = yield* resolveDependencyRef(
+        pack,
+        expectedType,
+        fqn,
+        constraint,
+        sources,
+        undefined,
+        sourceOverride,
+        undefined,
+        undefined,
+      );
+      return {
+        kind: "selected",
+        dependency,
+        holdbacks: [],
+        bypasses: [],
+      };
+    }
     const resolution = yield* Effect.scoped(
       sources.resolveNamedRegistry(source, {
         name: parsed.name,
@@ -413,14 +455,16 @@ const resolveDependencyRefWithReleaseAge = <E = never, R = never>(
       };
     }
     const ref = resolution.ref;
+    const dependency = yield* validateSelectedDependency(
+      ref,
+      expectedType,
+      parsed,
+      fqn,
+      constraint,
+    );
     return {
       kind: "selected",
-      dependency: {
-        owner: parsed.owner,
-        type: expectedType,
-        name: parsed.name,
-        ref,
-      },
+      dependency,
       holdbacks:
         resolution.kind === "exempted" || resolution.newerHeld === undefined
           ? []
@@ -459,19 +503,32 @@ const toResolvedMap = (
       const ref = dependency.ref;
       return [
         formatFqn(dependency),
-        ref.refType === "registry"
-          ? {
-              source: "registry" as const,
-              version: ref.version,
-              publisherBindingId: ref.publisherBindingId,
-              integrity: Option.getOrElse(ref.integrity, () => ""),
-            }
-          : {
-              source: "workspace" as const,
-              version: ref.version,
-              sourceIdentity: `workspace:${ref.owner}/${toExtensionTypePlural(ref.type)}/${ref.name}`,
-              contentIdentity: ref.sourceHash,
-            },
+        (() => {
+          switch (ref.refType) {
+            case "registry":
+              return {
+                source: "registry" as const,
+                version: ref.version,
+                publisherBindingId: ref.publisherBindingId,
+                integrity: Option.getOrElse(ref.integrity, () => ""),
+              };
+            case "workspace":
+              return {
+                source: "workspace" as const,
+                version: ref.version,
+                sourceIdentity: `workspace:${ref.owner}/${toExtensionTypePlural(ref.type)}/${ref.name}`,
+                contentIdentity: ref.sourceHash,
+              };
+            case "git-hosted":
+              return {
+                source: "git" as const,
+                commit: ref.gitCommitSha,
+                tree: ref.gitTreeSha,
+              };
+            case "local":
+              return { source: "local" as const };
+          }
+        })(),
       ];
     }),
   );

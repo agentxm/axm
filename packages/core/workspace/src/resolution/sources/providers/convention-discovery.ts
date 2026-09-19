@@ -7,6 +7,7 @@ import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/
 import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
 import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
+import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
@@ -112,7 +113,7 @@ const refForCandidate = (
   Effect.gen(function* () {
     const details = yield* sourceRefDetails(source, basePath, candidate.directory);
     if (candidate.kind === "portable-skill") {
-      return Option.some({
+      return Option.some<ExtensionRef>({
         type: "skill",
         ...details,
         name: candidate.name,
@@ -124,7 +125,7 @@ const refForCandidate = (
     const { identity, manifest } = candidate;
     switch (manifest.type) {
       case "skill":
-        return Option.some({
+        return Option.some<ExtensionRef>({
           type: "skill",
           ...details,
           owner: identity.owner,
@@ -136,7 +137,7 @@ const refForCandidate = (
           },
         } satisfies SkillExtensionRef);
       case "mcp-server":
-        return Option.some({
+        return Option.some<ExtensionRef>({
           type: "mcp-server",
           ...details,
           owner: identity.owner,
@@ -144,7 +145,7 @@ const refForCandidate = (
           server: { name: identity.name },
         } satisfies McpServerExtensionRef);
       case "subagent":
-        return Option.some({
+        return Option.some<ExtensionRef>({
           type: "subagent",
           ...details,
           owner: identity.owner,
@@ -155,7 +156,7 @@ const refForCandidate = (
           },
         } satisfies SubagentExtensionRef);
       case "rule":
-        return Option.some({
+        return Option.some<ExtensionRef>({
           type: "rule",
           ...details,
           owner: identity.owner,
@@ -163,7 +164,7 @@ const refForCandidate = (
           rule: { name: identity.name },
         } satisfies RuleExtensionRef);
       case "hook":
-        return Option.some({
+        return Option.some<ExtensionRef>({
           type: "hook",
           ...details,
           owner: identity.owner,
@@ -171,7 +172,7 @@ const refForCandidate = (
           hook: { name: identity.name },
         } satisfies HookExtensionRef);
       case "knowledge":
-        return Option.some({
+        return Option.some<ExtensionRef>({
           type: "knowledge",
           ...details,
           owner: identity.owner,
@@ -179,7 +180,18 @@ const refForCandidate = (
           knowledge: { name: identity.name },
         } satisfies KnowledgeExtensionRef);
       case "pack":
-        return Option.none<ExtensionRef>();
+        return Option.some<ExtensionRef>({
+          type: "pack",
+          ...details,
+          owner: identity.owner,
+          name: identity.name,
+          version: manifest.version,
+          pack: {
+            name: identity.name,
+            dependencies: manifest.dependencies,
+          },
+          sourceMembers: [],
+        } satisfies PackRef);
     }
   });
 
@@ -190,11 +202,28 @@ export const discoverConventionRefs = (
 ): Effect.Effect<ReadonlyArray<ExtensionRef>, SourceError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const root = yield* searchRootFor(source, basePath);
-    const candidates = yield* discoverExtensionPackages(root, options);
+    const candidates = yield* discoverExtensionPackages(
+      root,
+      options.type === "pack"
+        ? {
+            type: "*",
+            names: [],
+            owner: Option.none(),
+          }
+        : options,
+    );
     const refs = yield* Effect.forEach(
       candidates,
       (candidate) => refForCandidate(source, basePath, candidate),
       { concurrency: GIT_METADATA_CONCURRENCY },
     );
-    return refs.flatMap((ref) => (Option.isSome(ref) ? [ref.value] : []));
+    const discovered = refs.flatMap((ref) => (Option.isSome(ref) ? [ref.value] : []));
+    if (options.type !== "pack") return discovered;
+    const sourceMembers = discovered.filter((ref) => ref.type !== "pack");
+    return discovered.flatMap((ref) => {
+      if (ref.type !== "pack") return [];
+      if (options.names.length > 0 && !options.names.includes(ref.pack.name)) return [];
+      if (Option.isSome(options.owner) && options.owner.value !== ref.owner) return [];
+      return [{ ...ref, sourceMembers }];
+    });
   });

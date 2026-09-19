@@ -158,7 +158,9 @@ describe("authoritative external-resolution lockfile", () => {
       name: "toolkit",
       resolvedVersion: "2.0.0",
       integrity: "sha512-pack-archive",
+      manifestVersion: "2.0.0",
       manifestContentIdentity: "sha256-pack-manifest",
+      members: ["@acme/skills/review"],
       sourceName: "agentxm",
       publisherBindingId: "hbnd_acme",
       treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
@@ -175,6 +177,31 @@ describe("authoritative external-resolution lockfile", () => {
         { onExcessProperty: "error" },
       ),
     ).toThrow();
+  });
+
+  it("round-trips local Pack authority with its declared member list", () => {
+    const pack = {
+      type: "local",
+      sourceType: "local",
+      sourceName: "local",
+      extensionType: "pack",
+      workspaceName: "toolkit",
+      packageFormat: "agentxm",
+      packageOwner: "@acme",
+      packageName: "toolkit",
+      path: "catalog/packs/toolkit",
+      contentIdentity: "sha256-pack-content",
+      treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+      manifestVersion: "2.0.0",
+      manifestContentIdentity: "sha256-pack-manifest",
+      members: ["@acme/skills/review", "@acme/rules/house-style"],
+    };
+
+    expect(
+      Schema.decodeUnknownSync(PackLockEntrySchema)(pack, {
+        onExcessProperty: "error",
+      }),
+    ).toEqual(pack);
   });
 
   it("rejects non-canonical lock versions and unknown top-level state", () => {

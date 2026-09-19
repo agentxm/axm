@@ -123,7 +123,9 @@ export const seedAcceptedRegistryResolution = Effect.fn("seedAcceptedRegistryRes
         return yield* accepted.setAccepted("pack", resolution.name, {
           ...shared,
           extensionType: "pack",
+          manifestVersion: shared.resolvedVersion,
           manifestContentIdentity: decodeSourceHash(`sha256-${resolution.name}-manifest`),
+          members: [],
         });
       case "mcp-server":
         return yield* accepted.setAccepted(

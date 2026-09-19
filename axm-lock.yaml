@@ -336,8 +336,13 @@ packs:
     owner: "@craigsmitham"
     name: field-notes
     resolvedVersion: 0.2.1
+    manifestVersion: 0.2.1
     integrity: sha512-Pq53QqjYhO9xjxzhqkTx/GuTuZEWa4ATy1x8Hy3fGJIkMyCm9LrkECT2i9qiYMaJ+wZYL5J4ca7LHENBxiOFqg==
     manifestContentIdentity: 45a5af73594785f263f7ddfc2e711c0a0bb97de6cf9b6c6fd785e2f51c8d19d9
+    members:
+      - "@craigsmitham/knowledge/field-notes"
+      - "@craigsmitham/rules/field-notes"
+      - "@craigsmitham/skills/field-notes"
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
     treeIntegrity: sha256-tree-v1:b81cc4dbe8d49d2aa3d75c1ff6a082fa8566a38ecc88bbbf7c345f8d9129996b
@@ -351,8 +356,12 @@ packs:
     owner: "@craigsmitham"
     name: effect-v4
     resolvedVersion: 1.0.0
+    manifestVersion: 1.0.0
     integrity: sha512-mkRcmpRKL3FlFXqhGtZXYdGc9aJ8MwGLsHLJS2PHjCOxEh7gB98NDn2eK2dabG26lLYn0zkG6zTRFjMYMd3UMg==
     manifestContentIdentity: f8de3e0ce5cfaf323413d7171bbe21c8e951a3c5da0ef6d0fcfd411ce7d160f8
+    members:
+      - "@craigsmitham/knowledge/effect-v4"
+      - "@craigsmitham/rules/use-effect-v4"
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
     treeIntegrity: sha256-tree-v1:0480620a548e18620a485d2cb3e9b78860f3cd7a2f7a6b0191fcc67794bdf369
@@ -366,8 +375,17 @@ packs:
     owner: "@agentxm"
     name: agent-engineering
     resolvedVersion: 0.11.1
+    manifestVersion: 0.11.1
     integrity: sha512-OZKGBmogmn7+yFzM6xs+vJkoexzh8Rd9SQHpD7yNlgN3D3hgwoVknslE4K168dZuumPLCD8pgsIoN5TyXc+qxg==
     manifestContentIdentity: 9bfb59d8a319433af6a0b6ffcb7a76cf7a8189a1305dcc642166db7d3a583594
+    members:
+      - "@agentxm/knowledge/agent-engineering"
+      - "@agentxm/skills/author-agent-instructions"
+      - "@agentxm/skills/audit-agent-instructions"
+      - "@agentxm/skills/author-agent-skill"
+      - "@agentxm/skills/audit-agent-skill"
+      - "@agentxm/skills/evaluate-agent-skill"
+      - "@agentxm/skills/agent-skill-evaluator"
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
     treeIntegrity: sha256-tree-v1:e0d6b59e1b08ca490bcdcdbb6262367b3f28a5e5eabb1090c967ff80d8e3cce8
@@ -381,8 +399,12 @@ packs:
     owner: "@craigsmitham"
     name: docs
     resolvedVersion: 0.7.0
+    manifestVersion: 0.7.0
     integrity: sha512-uCGjlqRo3v3Z7eJyiCscU2AWpbAYzXbPTckAUI7jOlhJquWpm0axtX/q1ClrSXX/Sx0HVvUIInsY4QvNheGoEg==
     manifestContentIdentity: ba5f182af16a2190ba3e4c09ca8d94c1eed279b381cd30ac78fd1349a91236ac
+    members:
+      - "@craigsmitham/knowledge/docs"
+      - "@craigsmitham/skills/docs"
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
     treeIntegrity: sha256-tree-v1:870642af5e1a1f20425332899b29f5e74deadae2ad9d3a2f7ece99fcbf8f0399
@@ -396,8 +418,12 @@ packs:
     owner: "@craigsmitham"
     name: research
     resolvedVersion: 0.1.1
+    manifestVersion: 0.1.1
     integrity: sha512-0VzJ2lnyrwv67lh5rBaPTeWivaT7yheT2PeKpsrBhYK3pbRj1EPsUrhkMxybsgWjgOMP65DxL/hNsj2fx59l9A==
     manifestContentIdentity: adb77ac9c14fa74dfc8b7aceed95ee6e63bf115774d423032a220f994826a907
+    members:
+      - "@craigsmitham/skills/research"
+      - "@craigsmitham/subagents/researcher"
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
     treeIntegrity: sha256-tree-v1:95b680e03705f6f61f33d1c7556ab362d00dc8387a1bfce3c2d7210e8c42a43f
@@ -411,8 +437,12 @@ packs:
     owner: "@craigsmitham"
     name: work-management
     resolvedVersion: 1.0.0
+    manifestVersion: 1.0.0
     integrity: sha512-eJS3i+g+dJixkMluitWSH3yfy/hTrlTrzcoQj0gM4Bs5yxyT/AZd5L4mu7UnmUwjs02WNioNK6Twjoo7eEaspA==
     manifestContentIdentity: 5608181578fae6e0534c51d9f027db009d07c0fac61197f4aafd8a7796feec31
+    members:
+      - "@craigsmitham/knowledge/product-engineering"
+      - "@craigsmitham/skills/manage-work-items"
     sourceName: agentxm
     publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
     treeIntegrity: sha256-tree-v1:e93c751eaf52ce5a0ce2aec7e6cdc7a3e70bbc65204b93eab4c6fb0452aed563

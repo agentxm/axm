@@ -408,7 +408,14 @@ describe("generated schemas", () => {
 
     const lockSchema = readGeneratedSchema("axm-lock.schema.json");
     const packLockEntry = getDefinition(lockSchema, "PackLockEntry");
-    expect(getRecord(packLockEntry, "properties")).toHaveProperty("manifestContentIdentity");
-    expect(getRecord(packLockEntry, "properties")).not.toHaveProperty("resolvedSkills");
+    const variants = packLockEntry["anyOf"];
+    if (!Array.isArray(variants) || !variants.every(isRecord)) {
+      throw new Error("Expected PackLockEntry to contain source-family variants.");
+    }
+    for (const variant of variants) {
+      expect(getRecord(variant, "properties")).toHaveProperty("manifestContentIdentity");
+      expect(getRecord(variant, "properties")).toHaveProperty("members");
+      expect(getRecord(variant, "properties")).not.toHaveProperty("resolvedSkills");
+    }
   });
 });

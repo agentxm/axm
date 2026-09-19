@@ -4079,6 +4079,20 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Methods: decision-table
 - Source: [`packages/core/extension-model/src/unstable/extensions/installability-by-source-family-is-total.spec.ts`](../packages/core/extension-model/src/unstable/extensions/installability-by-source-family-is-total.spec.ts)
 
+##### Git and path Packs inherit members from one source view
+
+- Requirement: `packs/source-inherited-members-share-one-source-view`
+- Owner: `workspace`
+- Statement: A Git or path Pack shall resolve sourceless members by declared identity from the same source view as the Pack, shall refuse ambiguous identities, and shall record the Pack's immutable resolution and member identities in accepted lock authority.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `trustworthy-distribution`
+- Boundary: process; selection: per-change
+- Boundary rationale: The Git example clones one committed fixture through the production provider and compares the accepted commit on the Pack with its captured member candidate; the path example expands that captured source view without reacquisition.
+- Methods: example, invariant
+- Derived from: `extension-discovery/all-manifest-kinds-from-git-and-path`
+- Source: [`packages/core/workspace/src/resolution/packs-inherit-members-from-one-source-view.spec.ts`](../packages/core/workspace/src/resolution/packs-inherit-members-from-one-source-view.spec.ts)
+
 ##### Source locators resolve through a stable grammar and configured hosts
 
 - Requirement: `source-resolution/locator-grammar-is-stable`

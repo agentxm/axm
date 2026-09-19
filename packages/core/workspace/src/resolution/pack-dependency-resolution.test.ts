@@ -8,7 +8,10 @@ import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/
 import { evaluateSourceAuthority } from "./source-authority.js";
 import { computeSourceHash } from "../desired-state/index.js";
 import { ReleaseAgeExcludePatternSchema } from "@agentxm/extension-model/unstable/extensions";
-import type { RegistrySkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import type {
+  LocalSkillRef,
+  RegistrySkillRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SourceHostProvidersService } from "./sources/index.js";
 import {
   describeTestFailure,
@@ -18,6 +21,7 @@ import {
   versionRange,
 } from "./test-helpers.js";
 import type {
+  LocalPackRef,
   RegistryPackRef,
   WorkspacePackRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/pack";
@@ -25,6 +29,41 @@ import {
   resolvePackDependencies,
   resolvePackDependenciesWithReleaseAge,
 } from "./pack-dependency-resolution.js";
+
+const localPackRef = (dependencies: Readonly<Record<string, string>>): LocalPackRef => {
+  const name = extensionName("toolkit");
+  return {
+    type: "pack",
+    refType: "local",
+    owner: handle("@acme"),
+    name,
+    version: exactVersion("1.0.0"),
+    source: { type: "local", path: "/workspace/catalog" },
+    sourcePath: "packs/toolkit",
+    location: "file:///workspace/catalog/packs/toolkit",
+    sourceMembers: [localSkill()],
+    pack: {
+      name,
+      dependencies: Object.fromEntries(
+        Object.entries(dependencies).map(([fqn, constraint]) => [fqn, versionRange(constraint)]),
+      ),
+    },
+  };
+};
+
+const localSkill = (): LocalSkillRef => {
+  const name = extensionName("review");
+  return {
+    type: "skill",
+    refType: "local",
+    owner: handle("@acme"),
+    name,
+    source: { type: "local", path: "/workspace/catalog" },
+    sourcePath: "skills/review",
+    location: "file:///workspace/catalog/skills/review",
+    skill: { name, description: Option.none(), metadata: Option.none() },
+  };
+};
 
 const registrySource = {
   type: "registry" as const,
@@ -125,6 +164,20 @@ const providers = (find: SourceHostProvidersService["find"]): SourceHostProvider
 });
 
 describe("resolvePackDependencies", () => {
+  it.effect("resolves sourceless members from the Pack's local repository", () =>
+    Effect.gen(function* () {
+      const find = vi.fn(() => Effect.die("The Pack source must not be reacquired"));
+      const resolved = yield* resolvePackDependencies(
+        localPackRef({ "@acme/skills/review": "^1.0.0" }),
+        providers(find),
+      );
+
+      expect(resolved.resolvedSkills["@acme/skills/review"]).toEqual({ source: "local" });
+      expect(resolved.dependencyRefs).toEqual([localSkill()]);
+      expect(find).not.toHaveBeenCalled();
+    }),
+  );
+
   it.effect(
     "resolves a mixed workspace and Registry pack without replacing workspace authority",
     () =>

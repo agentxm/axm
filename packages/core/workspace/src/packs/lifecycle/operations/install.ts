@@ -281,7 +281,9 @@ const runInstallPack = (op: InstallPackOperation, adapter: StepFailureConversion
         integrity: op.args.integrity,
         sourceName: op.args.sourceName,
         publisherBindingId: op.args.publisherBindingId,
+        manifestVersion: op.args.resolvedVersion,
         manifestContentIdentity,
+        members: Object.keys(op.args.ref.pack.dependencies),
         treeIntegrity,
         versionRange: op.args.versionRange,
       })

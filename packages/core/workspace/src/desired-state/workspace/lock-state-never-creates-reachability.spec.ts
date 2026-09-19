@@ -52,7 +52,9 @@ const acceptedRegistryRow = (
   integrity: "sha512-AAAA==",
   publisherBindingId: "hbnd_test",
   treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
-  ...(extensionType === "pack" ? { manifestContentIdentity: "test-content" } : {}),
+  ...(extensionType === "pack"
+    ? { manifestVersion: "1.0.0", manifestContentIdentity: "test-content", members: [] }
+    : {}),
 });
 
 /**

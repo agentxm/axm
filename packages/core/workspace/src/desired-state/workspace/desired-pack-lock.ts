@@ -105,14 +105,16 @@ export const validateDesiredPackLock = ({
       const configuredSourceName = node.source.startsWith("@")
         ? "agentxm"
         : node.source.slice(0, node.source.indexOf(":"));
+      const lockedOwner = entry?.type === "registry" ? entry.owner : entry?.packageOwner;
+      const lockedName = entry?.type === "registry" ? entry.name : entry?.packageName;
       if (
         identity === undefined ||
         identity.type !== "pack" ||
         entry === undefined ||
         entry.sourceName !== configuredSourceName ||
-        entry.owner !== identity.owner ||
-        entry.name !== identity.name ||
-        !node.constraints.every((constraint) => semver.satisfies(entry.resolvedVersion, constraint))
+        lockedOwner !== identity.owner ||
+        lockedName !== identity.name ||
+        !node.constraints.every((constraint) => semver.satisfies(entry.manifestVersion, constraint))
       ) {
         problems.push({
           type: "pack-resolution-unavailable",
@@ -165,7 +167,7 @@ export const validateDesiredPackLock = ({
           pack: node.identity,
           path: manifestPath,
           status: observedManifest === undefined ? "missing" : "changed",
-          acceptedVersion: entry.resolvedVersion,
+          acceptedVersion: entry.manifestVersion,
           acceptedContentIdentity: entry.manifestContentIdentity,
           ...(observedManifest === undefined || observedContentIdentity === undefined
             ? {}

@@ -154,6 +154,7 @@ export type PackRefBase<TRefType extends RefType, TSource extends Source> = Exte
   TSource
 > & {
   readonly owner: Handle;
+  readonly version: Version;
   readonly pack: {
     readonly name: ExtensionName;
     readonly dependencies: ExtensionDependencyConstraintMap;

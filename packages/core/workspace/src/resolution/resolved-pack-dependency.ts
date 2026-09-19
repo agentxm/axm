@@ -24,9 +24,21 @@ const ResolvedWorkspaceDependencySchema = Schema.Struct({
   contentIdentity: SourceHashSchema,
 });
 
+const ResolvedGitDependencySchema = Schema.Struct({
+  source: Schema.Literal("git"),
+  commit: Schema.NonEmptyString,
+  tree: Schema.NonEmptyString,
+});
+
+const ResolvedLocalDependencySchema = Schema.Struct({
+  source: Schema.Literal("local"),
+});
+
 export const ResolvedPackDependencySchema = Schema.Union([
   ResolvedRegistryDependencySchema,
   ResolvedWorkspaceDependencySchema,
+  ResolvedGitDependencySchema,
+  ResolvedLocalDependencySchema,
 ]);
 
 export type ResolvedPackDependency = typeof ResolvedPackDependencySchema.Type;

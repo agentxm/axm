@@ -408,9 +408,11 @@ export const makeRegistryPackLockEntry = (opts: {
     integrity: opts.integrity ?? "sha512-AAAA==",
     sourceName: opts.sourceName ?? "agentxm",
     publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
+    manifestVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
     manifestContentIdentity:
       opts.sourceHash === undefined
         ? TEST_CONTENT_IDENTITY
         : Schema.decodeUnknownSync(SourceHashSchema)(opts.sourceHash),
+    members: [],
     treeIntegrity: TEST_TREE_INTEGRITY,
   });

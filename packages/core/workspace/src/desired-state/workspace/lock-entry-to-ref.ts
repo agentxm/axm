@@ -172,7 +172,10 @@ function findSourceConfig(
 }
 
 const gitBasedSourceFromEntry = (
-  entry: Exclude<SourceLockEntry, { readonly type: "registry" | "local" | "inline" | "workspace" }>,
+  entry: Exclude<
+    SourceLockEntry | PackLockEntry,
+    { readonly type: "registry" | "local" | "inline" | "workspace" }
+  >,
   getSourceByName: LockEntryToRefDeps["getConfiguredSourceByName"],
 ): Effect.Effect<GitBasedSource, LockEntryToRefError> => {
   switch (entry.type) {
@@ -246,7 +249,7 @@ const gitBasedSourceFromEntry = (
 
 const lockEntryLocation = (
   deps: LockEntryToRefDeps,
-  entry: Exclude<SourceLockEntry, { readonly type: "registry" | "local" }>,
+  entry: Exclude<SourceLockEntry | PackLockEntry, { readonly type: "registry" | "local" }>,
 ): string => {
   const root =
     deps.scope === "project"
@@ -649,20 +652,63 @@ export const packLockEntryToRef = (
   entry: PackLockEntry,
   deps: LockEntryToRefDeps,
 ): Effect.Effect<PackRef, LockEntryToRefError> =>
-  Effect.flatMap(decodeLockEntryName(name), (extensionName) => {
-    return Effect.map(
-      registrySourceFromEntry(entry, deps.getConfiguredSourceByName),
-      (source): PackRef => ({
-        type: "pack" as const,
-        refType: "registry" as const,
-        source,
-        owner: entry.owner,
-        publisherBindingId: entry.publisherBindingId,
-        name: entry.name,
-        version: entry.resolvedVersion,
-        integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
-        packages: [],
-        pack: { name: extensionName, dependencies: {} },
-      }),
-    );
-  });
+  Effect.flatMap(
+    decodeLockEntryName(name),
+    (extensionName): Effect.Effect<PackRef, LockEntryToRefError> => {
+      switch (entry.type) {
+        case "registry":
+          return Effect.map(
+            registrySourceFromEntry(entry, deps.getConfiguredSourceByName),
+            (source) => ({
+              type: "pack" as const,
+              refType: "registry" as const,
+              source,
+              owner: entry.owner,
+              publisherBindingId: entry.publisherBindingId,
+              name: entry.name,
+              version: entry.resolvedVersion,
+              integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
+              packages: [],
+              pack: { name: extensionName, dependencies: {} },
+            }),
+          );
+        case "local": {
+          const sourcePath = localLockEntryPath(deps, entry.path);
+          return Effect.succeed({
+            type: "pack" as const,
+            refType: "local" as const,
+            owner: entry.packageOwner,
+            name: entry.packageName,
+            version: entry.manifestVersion,
+            source: { type: "local" as const, path: sourcePath },
+            location: fileHref(sourcePath),
+            sourcePath: entry.path,
+            sourceMembers: [],
+            pack: { name: extensionName, dependencies: {} },
+          });
+        }
+        case "github":
+        case "gitlab":
+        case "bitbucket":
+        case "azurerepos":
+        case "git":
+          return Effect.map(
+            gitBasedSourceFromEntry(entry, deps.getConfiguredSourceByName),
+            (source) => ({
+              type: "pack" as const,
+              refType: "git-hosted" as const,
+              owner: entry.packageOwner,
+              name: entry.packageName,
+              version: entry.manifestVersion,
+              source,
+              ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
+              location: lockEntryLocation(deps, entry),
+              gitTreeSha: entry.resolvedTree,
+              gitCommitSha: entry.resolvedCommit,
+              sourceMembers: [],
+              pack: { name: extensionName, dependencies: {} },
+            }),
+          );
+      }
+    },
+  );

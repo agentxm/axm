@@ -226,12 +226,15 @@ export const makeDesiredStateWriter = (
   const declarePack = (args: SetPackArgs): Write =>
     Effect.gen(function* () {
       const { versionRange, ...lockEntry } = args;
-      const name = lockEntry.name;
-      const source = registryLocator(
-        lockEntry.sourceName,
-        formatFqn({ owner: args.owner, type: "pack", name: decodeExtensionNameSync(name) }),
-        versionRange,
-      );
+      const name = lockEntry.workspaceName;
+      const source =
+        lockEntry.type === "registry"
+          ? registryLocator(
+              lockEntry.sourceName,
+              formatFqn({ owner: lockEntry.owner, type: "pack", name: lockEntry.name }),
+              versionRange,
+            )
+          : printSourceParams(lockEntryToSourceParams(lockEntry));
       const current = yield* settings;
       const enabled = settingsEntries.pack.entries(current)[name]?.enabled ?? true;
       yield* writeSettings(settingsEntries.pack.set(current, name, { source, enabled }));

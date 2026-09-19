@@ -11,7 +11,7 @@
  */
 
 import * as Schema from "effect/Schema";
-import { HandleSchema } from "@agentxm/extension-model/unstable/extensions";
+import { ExtensionFqnSchema, HandleSchema } from "@agentxm/extension-model/unstable/extensions";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { TreeIntegritySchema } from "../workspace/materialized-tree.js";
 import { ExtensionNameSchema } from "@agentxm/extension-model/unstable/extensions/common";
@@ -435,11 +435,23 @@ export type KnowledgeLockMap = Schema.Schema.Type<typeof KnowledgeLockMapSchema>
 // Pack Lock Entry
 // =============================================================================
 
-/**
- * Registry pack lock entry - pack from a registry.
- *
- * @experimental This API is unstable and may change without notice.
- */
+/** Lock entry for a Pack from any external source family. @experimental */
+export const PackLockEntrySchema = makeSourceLockUnion(
+  "pack",
+  HandleSchema,
+  Schema.Literal("agentxm"),
+  {
+    manifestVersion: VersionSchema,
+    manifestContentIdentity: SourceHashSchema,
+    members: Schema.Array(ExtensionFqnSchema),
+  },
+).annotate({
+  identifier: "PackLockEntry",
+  title: "Pack Lock Entry",
+  description: "Accepted immutable resolution and declared members for a Pack.",
+});
+
+/** Registry variant of the Pack lock entry. @experimental */
 export const RegistryPackLockEntrySchema = Schema.Struct({
   type: Schema.Literal("registry"),
   sourceType: Schema.Literal("registry"),
@@ -451,14 +463,16 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
   name: ExtensionNameSchema,
   resolvedVersion: VersionSchema,
   integrity: Schema.String,
-  manifestContentIdentity: SourceHashSchema,
   sourceName: Schema.String,
   publisherBindingId: Schema.NonEmptyString,
   treeIntegrity: TreeIntegritySchema,
+  manifestVersion: VersionSchema,
+  manifestContentIdentity: SourceHashSchema,
+  members: Schema.Array(ExtensionFqnSchema),
 }).annotate({
   identifier: "RegistryPackLockEntry",
   title: "Registry Pack Lock Entry",
-  description: "Pinned version info for a pack installed from a registry.",
+  description: "Accepted immutable resolution for a Registry Pack.",
 });
 
 /**
@@ -466,7 +480,10 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type RegistryPackLockEntry = Schema.Schema.Type<typeof RegistryPackLockEntrySchema>;
+export type PackLockEntry = Schema.Schema.Type<typeof PackLockEntrySchema>;
+
+/** @experimental */
+export type RegistryPackLockEntry = Extract<PackLockEntry, { readonly type: "registry" }>;
 
 /**
  * Constructor args for a registry pack lock entry.
@@ -486,24 +503,6 @@ export const makeRegistryPackLockEntry = (
   type: "registry",
   ...args,
 });
-
-/**
- * Lock entry for a single installed pack.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const PackLockEntrySchema = RegistryPackLockEntrySchema.annotate({
-  identifier: "PackLockEntry",
-  title: "Pack Lock Entry",
-  description: "Accepted immutable resolution for a Registry Pack.",
-});
-
-/**
- * Inferred type for PackLockEntry schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type PackLockEntry = Schema.Schema.Type<typeof PackLockEntrySchema>;
 
 // =============================================================================
 // Packs Lock Map

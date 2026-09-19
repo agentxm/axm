@@ -45,7 +45,9 @@ const initWorkspace = (axmDir: string, lockfilePacks: Record<string, unknown> = 
     fs.writeFileSync(path.join(packDir, "pack.json"), JSON.stringify(manifest));
     lockedPacks[name] = {
       ...value,
+      manifestVersion: version,
       manifestContentIdentity: computePackManifestContentIdentity(manifest),
+      members: [],
       treeIntegrity: computeMaterializedTreeIntegritySync(packDir),
     };
   }

@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
-import { discoverExtensionPackages } from "./package-discovery.js";
+import { discoverExtensionPackages, isManifestExtensionPackage } from "./package-discovery.js";
 
 const writeManifest = (dir: string, fileName: string, manifest: unknown) => {
   fs.mkdirSync(dir, { recursive: true });
@@ -87,15 +87,12 @@ describe("discoverExtensionPackages", () => {
         type: "*",
       }).pipe(Effect.provide(NodeServices.layer));
 
-      expect(discovered.map((candidate) => candidate.identity.type).sort()).toStrictEqual([
-        "hook",
-        "knowledge",
-        "mcp-server",
-        "pack",
-        "rule",
-        "skill",
-        "subagent",
-      ]);
+      expect(
+        discovered
+          .filter(isManifestExtensionPackage)
+          .map((candidate) => candidate.identity.type)
+          .sort(),
+      ).toStrictEqual(["hook", "knowledge", "mcp-server", "pack", "rule", "skill", "subagent"]);
     }),
   );
 
@@ -121,11 +118,15 @@ describe("discoverExtensionPackages", () => {
       }).pipe(Effect.provide(NodeServices.layer));
 
       expect(discovered).toHaveLength(1);
-      expect(discovered[0]?.identity.owner).toBe("@acme");
+      const candidate = discovered[0];
+      expect(candidate?.kind).toBe("manifest");
+      if (candidate?.kind === "manifest") {
+        expect(candidate.identity.owner).toBe("@acme");
+      }
     }),
   );
 
-  it.effect("does not classify native content as an AXM package", () =>
+  it.effect("discovers a portable skill without a package manifest", () =>
     Effect.gen(function* () {
       const nativeSkill = path.join(tempDir, "native-skill");
       fs.mkdirSync(nativeSkill, { recursive: true });
@@ -140,7 +141,62 @@ describe("discoverExtensionPackages", () => {
         type: "*",
       }).pipe(Effect.provide(NodeServices.layer));
 
-      expect(discovered).toStrictEqual([]);
+      expect(discovered).toHaveLength(1);
+      expect(discovered[0]).toMatchObject({
+        kind: "portable-skill",
+        name: "native-skill",
+      });
+    }),
+  );
+
+  it.effect("uses only the source settings owner as a missing manifest owner default", () =>
+    Effect.gen(function* () {
+      fs.writeFileSync(
+        path.join(tempDir, "axm.json"),
+        JSON.stringify({ owner: "@source-owner", skills: { ignored: "./elsewhere" } }),
+      );
+      writeManifest(path.join(tempDir, "one"), "skill.json", {
+        type: "skill",
+        name: "review",
+        version: "1.0.0",
+      });
+
+      const discovered = yield* discoverExtensionPackages(tempDir, {
+        names: [],
+        owner: Option.none(),
+        type: "*",
+      }).pipe(Effect.provide(NodeServices.layer));
+
+      const candidate = discovered[0];
+      expect(candidate?.kind).toBe("manifest");
+      if (candidate?.kind === "manifest") {
+        expect(candidate.identity.owner).toBe("@source-owner");
+      }
+      expect(discovered).toHaveLength(1);
+    }),
+  );
+
+  it.effect("refuses duplicate manifest identities in one source", () =>
+    Effect.gen(function* () {
+      for (const directory of ["one", "two"]) {
+        writeManifest(path.join(tempDir, directory), "skill.json", {
+          owner: "@acme",
+          type: "skill",
+          name: "review",
+          version: "1.0.0",
+        });
+      }
+
+      const error = yield* Effect.flip(
+        discoverExtensionPackages(tempDir, {
+          names: [],
+          owner: Option.none(),
+          type: "*",
+        }).pipe(Effect.provide(NodeServices.layer)),
+      );
+
+      expect(error.category).toBe("validation");
+      expect(error.detail).toContain("@acme:skill:review");
     }),
   );
 

@@ -51,6 +51,24 @@ const writeKnowledge = (dir: string, name: string) => {
   );
 };
 
+const writeMcpServer = (dir: string, name: string) => {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, "mcp.json"),
+    JSON.stringify({
+      owner: "@acme",
+      type: "mcp-server",
+      name,
+      version: "1.0.0",
+      server: {
+        name: `io.acme/${name}`,
+        description: "An MCP server",
+        version: "1.0.0",
+      },
+    }),
+  );
+};
+
 describe("discoverConventionRefs", () => {
   let tempDir: string;
 
@@ -126,18 +144,23 @@ describe("discoverConventionRefs", () => {
     }),
   );
 
-  it.effect("ignores skills whose names do not conform to Agent Skills", () =>
+  it.effect("refuses manifests whose names do not conform to Agent Skills", () =>
     Effect.gen(function* () {
       writeSkill(path.join(tempDir, "pretty-skill"), "Pretty Skill");
 
-      const refs = yield* discoverConventionRefs(localSource(tempDir), tempDir, {
-        type: "skill",
-        names: [],
-        owner: Option.none(),
-        versionRange: Option.none(),
-      }).pipe(Effect.provide(NodeServices.layer));
+      const error = yield* Effect.flip(
+        discoverConventionRefs(localSource(tempDir), tempDir, {
+          type: "skill",
+          names: [],
+          owner: Option.none(),
+          versionRange: Option.none(),
+        }).pipe(Effect.provide(NodeServices.layer)),
+      );
 
-      expect(refs).toStrictEqual([]);
+      expect(error).toMatchObject({
+        category: "validation",
+      });
+      expect(error.detail).toContain("skill.json");
     }),
   );
 
@@ -158,6 +181,27 @@ describe("discoverConventionRefs", () => {
       if (ref?.type === "knowledge" && ref.refType === "local") {
         expect(ref.knowledge.name).toBe("platform");
         expect(ref.location).toContain("directory-alias");
+      }
+    }),
+  );
+
+  it.effect("discovers MCP server packages through the shared manifest finder", () =>
+    Effect.gen(function* () {
+      writeMcpServer(path.join(tempDir, "servers", "browser"), "browser");
+
+      const refs = yield* discoverConventionRefs(localSource(tempDir), tempDir, {
+        type: "mcp-server",
+        names: ["browser"],
+        owner: Option.some(decodeHandleSync("@acme")),
+        versionRange: Option.none(),
+      }).pipe(Effect.provide(NodeServices.layer));
+
+      expect(refs).toHaveLength(1);
+      const ref = refs[0];
+      expect(ref?.type).toBe("mcp-server");
+      if (ref?.type === "mcp-server" && ref.refType === "local") {
+        expect(ref.server.name).toBe("browser");
+        expect(ref.location).toContain("servers/browser");
       }
     }),
   );

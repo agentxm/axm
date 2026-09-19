@@ -16,11 +16,12 @@ import { SourceHostProviders } from "./service.js";
 import {
   discoverExtensionPackages,
   inspectExtensionPackage,
-  type DiscoveredExtensionPackage,
+  isManifestExtensionPackage,
+  type DiscoveredManifestExtensionPackage,
   type ExtensionPackageFilter,
 } from "./package-discovery.js";
 
-export interface ResolvedExtensionPackage extends DiscoveredExtensionPackage {
+export interface ResolvedExtensionPackage extends DiscoveredManifestExtensionPackage {
   readonly origin: string;
 }
 
@@ -115,12 +116,16 @@ export const findExtensionPackagesFromSource = (
     switch (source.type) {
       case "local": {
         const packages = yield* discoverExtensionPackages(source.path, filter);
-        return packages.map((candidate) => ({ ...candidate, origin }));
+        return packages
+          .filter(isManifestExtensionPackage)
+          .map((candidate) => ({ ...candidate, origin }));
       }
       case "git": {
         const cloneRoot = yield* acquireClone(source.url.href, source.ref);
         const packages = yield* discoverExtensionPackages(cloneRoot, filter);
-        return packages.map((candidate) => ({ ...candidate, origin }));
+        return packages
+          .filter(isManifestExtensionPackage)
+          .map((candidate) => ({ ...candidate, origin }));
       }
       case "github":
       case "gitlab":
@@ -132,7 +137,9 @@ export const findExtensionPackagesFromSource = (
           onSome: (subPath) => path.join(cloneRoot, subPath),
         });
         const packages = yield* discoverExtensionPackages(discoveryRoot, filter);
-        return packages.map((candidate) => ({ ...candidate, origin }));
+        return packages
+          .filter(isManifestExtensionPackage)
+          .map((candidate) => ({ ...candidate, origin }));
       }
       case "registry": {
         const refs = yield* providers.find(source, {

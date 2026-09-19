@@ -82,7 +82,7 @@ export const ManifestIdentitySchema = Schema.Struct({
 
 export type ManifestIdentity = Schema.Schema.Type<typeof ManifestIdentitySchema>;
 
-const MANIFEST_SCHEMA_BY_TYPE = {
+export const MANIFEST_SCHEMA_BY_TYPE = {
   skill: SkillManifestSchema,
   "mcp-server": McpServerManifestSchema,
   subagent: SubagentManifestSchema,
@@ -91,6 +91,8 @@ const MANIFEST_SCHEMA_BY_TYPE = {
   hook: HookManifestSchema,
   knowledge: KnowledgeManifestSchema,
 } satisfies Record<ExtensionType, Schema.Top>;
+
+export type ExtensionManifest = Schema.Schema.Type<(typeof MANIFEST_SCHEMA_BY_TYPE)[ExtensionType]>;
 
 export const manifestSchemaForType = (type: ExtensionType) => MANIFEST_SCHEMA_BY_TYPE[type];
 

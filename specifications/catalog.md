@@ -4015,6 +4015,20 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Derived from: `apps/cli/src/root/view/handler.ts`, `cli/view/reports-missing-targets-and-fields`
 - Source: [`apps/cli/src/root/view/returns-the-selected-field.spec.ts`](../apps/cli/src/root/view/returns-the-selected-field.spec.ts)
 
+##### Git and path discovery recognize every extension manifest
+
+- Requirement: `extension-discovery/all-manifest-kinds-from-git-and-path`
+- Owner: `workspace`
+- Statement: Git and path source discovery shall find every extension type defined by the manifest policy, shall keep portable SKILL.md as the only manifest-free convention, and shall refuse duplicate declared identities.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `trustworthy-distribution`
+- Boundary: process; selection: per-change
+- Boundary rationale: The Git case clones a real committed repository through the production acquisition boundary, while the path case reads the same fixture directly; both then use the shared manifest finder.
+- Methods: decision-table, example
+- Derived from: `extension-installability/source-family-policy-is-total`
+- Source: [`packages/core/workspace/src/resolution/sources/discovers-all-manifest-kinds-from-git-and-path.spec.ts`](../packages/core/workspace/src/resolution/sources/discovers-all-manifest-kinds-from-git-and-path.spec.ts)
+
 ##### A canonical extension name always parses back to the identity that produced it
 
 - Requirement: `extension-identity/canonical-names-round-trip`

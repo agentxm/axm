@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import * as Data from "effect/Data";
 import * as Layer from "effect/Layer";
 import * as Queue from "effect/Queue";
 import * as ServiceMap from "effect/Context";
@@ -8,6 +9,10 @@ import type { TerminalSize } from "./scene.js";
 
 const DEFAULT_COLUMNS = 80;
 const DEFAULT_ROWS = 24;
+
+export class CredentialDeliveryFailed extends Data.TaggedError("CredentialDeliveryFailed")<{
+  readonly cause: unknown;
+}> {}
 
 const write = (stream: NodeJS.WriteStream, content: string): Effect.Effect<void> =>
   Effect.callback<void>((resume) => {
@@ -21,6 +26,46 @@ const write = (stream: NodeJS.WriteStream, content: string): Effect.Effect<void>
     if (accepted) complete();
   });
 
+/**
+ * Write a credential and succeed only when the stream reports it written.
+ *
+ * `write()` returning true is backpressure advice, not delivery, so only the
+ * callback settles. A synchronous throw, an `error` event, or a callback error
+ * fails typed; the error value never carries the content.
+ *
+ * Node reports a failed write to the callback first and emits `error` a tick
+ * later, so a failed write keeps its listener: releasing it would turn that
+ * event into an uncaught exception before the caller can compensate.
+ */
+const writeCredential = (
+  stream: NodeJS.WriteStream,
+  content: string,
+): Effect.Effect<void, CredentialDeliveryFailed> =>
+  Effect.callback<void, CredentialDeliveryFailed>((resume) => {
+    let settled = false;
+    const settle = (cause?: unknown) => {
+      if (settled) return;
+      settled = true;
+      if (cause === undefined || cause === null) {
+        stream.off("error", settle);
+        resume(Effect.void);
+        return;
+      }
+      resume(Effect.fail(new CredentialDeliveryFailed({ cause })));
+    };
+    stream.on("error", settle);
+    if (stream.destroyed || stream.writableEnded) {
+      settle(new Error("stdout is closed"));
+      return;
+    }
+    try {
+      stream.write(content, (error) => settle(error ?? undefined));
+    } catch (cause) {
+      settle(cause);
+    }
+    return Effect.sync(() => stream.off("error", settle));
+  });
+
 export interface OutputStreamFacts extends TerminalSize {
   readonly stdoutIsTTY: boolean;
   readonly stderrIsTTY: boolean;
@@ -31,6 +76,8 @@ export class OutputStreams extends ServiceMap.Service<
   {
     readonly stdout: (content: string) => Effect.Effect<void>;
     readonly stderr: (content: string) => Effect.Effect<void>;
+    /** Write a credential and acknowledge the stream callback before succeeding. */
+    readonly credential: (content: string) => Effect.Effect<void, CredentialDeliveryFailed>;
     readonly facts: Effect.Effect<OutputStreamFacts>;
     readonly resize: Stream.Stream<number>;
   }
@@ -62,6 +109,7 @@ const resizeStream = Stream.callback<number>((queue) =>
 export const OutputStreamsLive: Layer.Layer<OutputStreams> = Layer.succeed(OutputStreams, {
   stdout: (content) => write(process.stdout, content),
   stderr: (content) => write(process.stderr, content),
+  credential: (content) => writeCredential(process.stdout, content),
   facts: Effect.sync(() => ({
     stdoutIsTTY: process.stdout.isTTY === true,
     stderrIsTTY: process.stderr.isTTY === true,
@@ -98,6 +146,7 @@ export const makeTestOutputStreams = (options?: {
     layer: Layer.succeed(OutputStreams, {
       stdout: (content) => Effect.sync(() => void state.stdout.push(content)),
       stderr: (content) => Effect.sync(() => void state.stderr.push(content)),
+      credential: (content) => Effect.sync(() => void state.stdout.push(content)),
       facts: Effect.sync(() => ({
         stdoutIsTTY: options?.stdoutIsTTY ?? false,
         stderrIsTTY: options?.stderrIsTTY ?? false,

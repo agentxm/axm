@@ -23,20 +23,29 @@ export const runCommand = async (
   args: ReadonlyArray<string>,
   options: RunCliOptions,
 ): Promise<CliResult> => {
-  const { cwd = process.cwd(), env = {}, timeout = DEFAULT_TIMEOUT } = options;
+  const {
+    cwd = process.cwd(),
+    env = {},
+    timeout = DEFAULT_TIMEOUT,
+    exactOutput = false,
+    closedStdout = false,
+  } = options;
   // Bun warns when FORCE_COLOR and NO_COLOR are both present. The e2e runner
   // intentionally sets NO_COLOR so stderr channel-contract tests stay stable.
   // eslint-disable-next-line no-restricted-properties -- E2E runner needs parent env for child process
   const { FORCE_COLOR: _forceColor, ...parentEnvWithGitContext } = process.env;
   const parentEnv = withoutLocalGitEnvironment(parentEnvWithGitContext);
 
-  const result = await execa(command, [...args], {
+  const subprocess = execa(command, [...args], {
     cwd,
     env: { ...parentEnv, CI: "", ...env, NO_COLOR: "1", AXM_TELEMETRY: "0" },
     extendEnv: false,
     timeout,
     reject: false,
+    stripFinalNewline: !exactOutput,
   });
+  if (closedStdout) subprocess.stdout?.destroy();
+  const result = await subprocess;
 
   return {
     exitCode: result.exitCode ?? 1,

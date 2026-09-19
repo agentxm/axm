@@ -58,7 +58,7 @@ describe("Unattended device sign-in", () => {
         verificationUriComplete: "https://identity.example.test/device?user_code=ABCD-1234",
         userCode: "ABCD-1234",
         expiresAt: "1970-01-01T00:01:00.000Z",
-        resume: "axm login --wait --json",
+        resume: "axm login --device-code --wait-for-human 300 --json",
       });
       expect(JSON.stringify(ports.presenterState.pendingEmissions)).not.toContain(
         "fixture-device-secret",

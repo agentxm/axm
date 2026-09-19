@@ -16,6 +16,7 @@ import * as Layer from "effect/Layer";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
   DeviceAuthorizationPending,
+  DeviceLoginCodeExpired,
   RegistryAccessFailed,
   type DeviceWaitEnded,
 } from "./errors.js";
@@ -110,6 +111,7 @@ export interface RunDeviceLoginOptions {
   readonly emitPendingResult?: boolean;
   readonly openBrowser?: boolean;
   readonly restart?: boolean;
+  readonly timeoutSeconds?: number;
 }
 
 export interface ResumeDeviceLoginOptions {
@@ -180,7 +182,7 @@ const makePendingResult = (
 ): DeviceLoginPendingResult => {
   const registryHost = new URL(pending.registryUrl).host;
   const expiresAt = DateTime.formatIso(pending.expiresAt);
-  const resume = "axm login --wait --json";
+  const resume = "axm login --device-code --wait-for-human 300 --json";
   return {
     status: "pending-human",
     blockedOn: "human",
@@ -261,7 +263,7 @@ export const initiateDeviceLogin = (registryUrl: string, options: RunDeviceLogin
           suggestions: [
             {
               description: "Finish the pending sign-in before starting another.",
-              cmd: "axm login --wait --json",
+              cmd: `AXM_REGISTRY_URL=${existing.value.registryUrl} axm login --device-code --wait-for-human 300 --json`,
             },
             {
               description: "Replace the pending sign-in intentionally.",
@@ -328,7 +330,7 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
         suggestions: [
           {
             description: "Resume with the registry that started the sign-in.",
-            cmd: "axm login --wait --registry <url> --json",
+            cmd: `AXM_REGISTRY_URL=${pending.registryUrl} axm login --device-code --wait-for-human 300 --json`,
           },
         ],
       });
@@ -364,16 +366,26 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
         resume: action.resume,
       });
     };
+    // The wait ends at whichever comes first: the requested bound or the
+    // code's own expiry. Reaching the expiry is terminal, not a pending wait.
+    const remainingSeconds = Math.max(
+      0,
+      Math.ceil(Duration.toSeconds(DateTime.distance(yield* DateTime.now, pending.expiresAt))),
+    );
+    const waitSeconds = options.timeoutSeconds;
     const boundedPolling =
-      options.timeoutSeconds === undefined
+      waitSeconds === undefined
         ? polling
         : polling.pipe(
             Effect.timeoutOrElse({
-              duration: Duration.seconds(options.timeoutSeconds),
-              orElse: () =>
-                Effect.fail(
-                  stillPending({ _tag: "Elapsed", seconds: options.timeoutSeconds ?? 0 }),
-                ),
+              duration: Duration.seconds(Math.min(waitSeconds, remainingSeconds)),
+              orElse: (): Effect.Effect<
+                never,
+                DeviceAuthorizationPending | DeviceLoginCodeExpired
+              > =>
+                waitSeconds < remainingSeconds
+                  ? Effect.fail(stillPending({ _tag: "Elapsed", seconds: waitSeconds }))
+                  : Effect.fail(new DeviceLoginCodeExpired()),
             }),
           );
 
@@ -452,5 +464,8 @@ export const runDeviceLogin = (registryUrl: string, options: RunDeviceLoginOptio
       emitPendingResult: false,
     });
     const sideEffects = yield* openDeviceHandoff(pending, options);
-    yield* resumeDeviceLogin(registryUrl, { sideEffects });
+    yield* resumeDeviceLogin(registryUrl, {
+      sideEffects,
+      ...(options.timeoutSeconds === undefined ? {} : { timeoutSeconds: options.timeoutSeconds }),
+    });
   });

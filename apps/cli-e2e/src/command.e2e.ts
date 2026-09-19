@@ -167,7 +167,7 @@ describe("global text-output policy", () => {
       "--verbose",
       "--debug",
     ]);
-    const auth = await runCli(["token", "--quiet", "--verbose", "--debug"], {
+    const auth = await runCli(["token", "--output", "token", "--quiet", "--verbose", "--debug"], {
       env: { AXM_TOKEN: "", AXM_TOKEN_FILE: "" },
     });
 

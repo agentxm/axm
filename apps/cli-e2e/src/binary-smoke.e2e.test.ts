@@ -188,7 +188,7 @@ describe("compiled binary smoke", () => {
     const temp = createTempDir();
 
     try {
-      const result = await runBinary(["token"], {
+      const result = await runBinary(["token", "--output", "token"], {
         env: {
           AXM_TOKEN: "",
           AXM_TOKEN_FILE: "",

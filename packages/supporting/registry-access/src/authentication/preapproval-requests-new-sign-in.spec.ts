@@ -127,7 +127,7 @@ describe("Login preapproval over a valid session", () => {
         expect(context.presenterState.pendingEmissions.at(-1)).toMatchObject({
           status: "pending-human",
           userCode: "ABCD-1234",
-          resume: "axm login --wait --json",
+          resume: "axm login --device-code --wait-for-human 300 --json",
         });
         // The existing session stays until the pending sign-in is approved.
         expect(yield* storedAccessToken).toEqual(Option.some("fixture-stored-access"));

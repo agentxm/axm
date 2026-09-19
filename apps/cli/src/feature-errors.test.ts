@@ -131,7 +131,7 @@ describe("registry-access envelope conversions", () => {
         verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
         userCode: "ABCD-1234",
         expiresAt: "2026-08-10T16:05:00.000Z",
-        resume: "axm login --wait --json",
+        resume: "axm login --device-code --wait-for-human 300 --json",
       }),
     );
     expect(error.code).toBe("timeout");
@@ -148,13 +148,16 @@ describe("registry-access envelope conversions", () => {
       fallbackUrl: "https://auth.agentxm.ai/device",
       code: "ABCD-1234",
       expiresAt: "2026-08-10T16:05:00.000Z",
-      resume: "axm login --wait --json",
+      resume: "axm login --device-code --wait-for-human 300 --json",
     });
     expect(error.detail).toBe(
       "Device sign-in did not complete within 30 seconds. The pending flow is still available.",
     );
     expect(error.suggestions).toEqual([
-      { description: "Resume waiting after approval.", cmd: "axm login --wait --json" },
+      {
+        description: "Resume waiting after approval.",
+        cmd: "axm login --device-code --wait-for-human 300 --json",
+      },
     ]);
   });
 

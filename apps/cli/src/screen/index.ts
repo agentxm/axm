@@ -107,6 +107,7 @@ export {
 export {
   OutputStreams,
   OutputStreamsLive,
+  CredentialDeliveryFailed,
   makeTestOutputStreams,
   stderrIsTTY,
   type OutputStreamFacts,

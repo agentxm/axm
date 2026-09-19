@@ -40,9 +40,8 @@ export interface LoginRequest {
   readonly yes: boolean;
   readonly deviceCode: boolean;
   readonly restart: boolean;
-  /** Resume and wait for a pending device sign-in instead of starting one. */
-  readonly wait: boolean;
-  readonly timeoutSeconds?: number;
+  /** Start or resume device sign-in and wait this many seconds for approval. */
+  readonly waitForHumanSeconds?: number;
   /** No terminal is available to run a sign-in flow interactively. */
   readonly nonInteractive: boolean;
   /** The invocation reports through a machine document rather than prose. */
@@ -58,9 +57,7 @@ export type LoginOutcome =
       readonly handle: string;
     }
   /** A sign-in flow ran; the presenter reported its result. */
-  | { readonly _tag: "SignInAttempted" }
-  /** A pending device sign-in was resumed. */
-  | { readonly _tag: "PendingSignInResumed" };
+  | { readonly _tag: "SignInAttempted" };
 
 const usage = (detail: string) => new RegistryAccessFailed({ category: "usage", detail });
 
@@ -69,18 +66,15 @@ const usage = (detail: string) => new RegistryAccessFailed({ category: "usage", 
  * shaping is provable without substituting the flow it is handed to.
  */
 export const deviceLoginOptions = (
-  request: Pick<LoginRequest, "restart">,
+  request: Pick<LoginRequest, "restart" | "waitForHumanSeconds">,
   openBrowser: boolean,
 ): RunDeviceLoginOptions => ({
   openBrowser,
   restart: request.restart,
+  ...(request.waitForHumanSeconds === undefined
+    ? {}
+    : { timeoutSeconds: request.waitForHumanSeconds }),
 });
-
-/** The resume options one `--wait` request means. */
-export const resumeLoginOptions = (
-  request: Pick<LoginRequest, "timeoutSeconds">,
-): { readonly timeoutSeconds?: number } =>
-  request.timeoutSeconds === undefined ? {} : { timeoutSeconds: request.timeoutSeconds };
 
 /**
  * How a loopback sign-in that could not complete is classified.
@@ -116,23 +110,12 @@ export const classifyLoopbackFailure = (
       });
 
 const rejectIncoherentFlags = (request: LoginRequest) =>
-  request.wait && request.deviceCode
-    ? Option.some(
-        usage(
-          "--wait resumes an existing device sign-in and cannot be combined with --device-code.",
-        ),
-      )
-    : request.wait && request.restart
-      ? Option.some(
-          usage(
-            "--restart starts a replacement device sign-in and cannot be combined with --wait.",
-          ),
-        )
-      : request.restart && !request.deviceCode
-        ? Option.some(usage("--restart requires --device-code."))
-        : !request.wait && request.timeoutSeconds !== undefined
-          ? Option.some(usage("--timeout requires --wait."))
-          : Option.none();
+  request.restart && !request.deviceCode
+    ? Option.some(usage("--restart requires --device-code."))
+    : request.waitForHumanSeconds !== undefined &&
+        (!Number.isSafeInteger(request.waitForHumanSeconds) || request.waitForHumanSeconds <= 0)
+      ? Option.some(usage("--wait-for-human must be a positive number of seconds."))
+      : Option.none();
 
 /**
  * Decide whether a session that is still valid should be replaced.
@@ -166,11 +149,6 @@ export const login = Effect.fn("Login.run")(function* (request: LoginRequest, re
     return yield* makePersistedCredentialsUnsupportedError();
   }
 
-  if (request.wait) {
-    yield* resumeDeviceLogin(registryUrl, resumeLoginOptions(request));
-    return { _tag: "PendingSignInResumed" } as const satisfies LoginOutcome;
-  }
-
   const existing = yield* credentials.load(registryUrl);
   if (Option.isSome(existing)) {
     const authClient = yield* AuthClient;
@@ -200,15 +178,31 @@ export const login = Effect.fn("Login.run")(function* (request: LoginRequest, re
     }
   }
 
-  const strategy = selectLoginStrategy(
-    { deviceCode: request.deviceCode, nonInteractive: request.nonInteractive },
-    yield* loginStrategyEnvironment,
-  );
+  const strategy =
+    request.waitForHumanSeconds === undefined
+      ? selectLoginStrategy(
+          { deviceCode: request.deviceCode, nonInteractive: request.nonInteractive },
+          yield* loginStrategyEnvironment,
+        )
+      : "device-code";
   const deviceOptions = (openBrowser: boolean) => deviceLoginOptions(request, openBrowser);
+  const unattended = request.nonInteractive || request.machineOutput;
 
   if (strategy === "device-code") {
-    if (!request.deviceCode) yield* presenter.noteDeviceCodeFallback("remote-or-headless");
-    if (request.nonInteractive) {
+    if (!request.deviceCode && request.waitForHumanSeconds === undefined) {
+      yield* presenter.noteDeviceCodeFallback("remote-or-headless");
+    }
+    if (request.waitForHumanSeconds !== undefined && unattended) {
+      // No person is at this process, so it neither copies the code nor opens
+      // a browser: it starts or reuses the sign-in and waits on it.
+      yield* initiateDeviceLogin(registryUrl, {
+        restart: request.restart,
+        emitPendingResult: false,
+      });
+      yield* resumeDeviceLogin(registryUrl, { timeoutSeconds: request.waitForHumanSeconds });
+    } else if (request.waitForHumanSeconds !== undefined) {
+      yield* runDeviceLogin(registryUrl, deviceOptions(!request.deviceCode));
+    } else if (request.nonInteractive) {
       yield* initiateDeviceLogin(registryUrl, deviceOptions(false));
     } else {
       yield* runDeviceLogin(registryUrl, deviceOptions(false));

@@ -67,6 +67,7 @@ export const makeRecordingStreams = (options?: RecordingStreamOptions): Recordin
     layer: Layer.succeed(OutputStreams, {
       stdout: record("stdout"),
       stderr: record("stderr"),
+      credential: record("stdout"),
       facts: Effect.succeed(facts),
       resize: Stream.empty,
     }),

@@ -201,7 +201,6 @@ export const deviceLoginRequest = (overrides: Partial<LoginRequest> = {}): Login
   yes: false,
   deviceCode: true,
   restart: false,
-  wait: false,
   nonInteractive: true,
   machineOutput: true,
   ...overrides,
@@ -209,7 +208,7 @@ export const deviceLoginRequest = (overrides: Partial<LoginRequest> = {}): Login
 
 /** A request that resumes a pending device sign-in instead of starting one. */
 export const resumeLoginRequest = (overrides: Partial<LoginRequest> = {}): LoginRequest =>
-  deviceLoginRequest({ deviceCode: false, wait: true, ...overrides });
+  deviceLoginRequest({ waitForHumanSeconds: 300, ...overrides });
 
 // -----------------------------------------------------------------------------
 // Step-up verification fixtures

@@ -1478,6 +1478,20 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Limitation: The refusal is the typed explicit-token policy failure; that the boundary renders it as `auth_required` naming AXM_TOKEN_FILE is a rendering decision this capability cannot observe, witnessed by apps/cli/src/feature-errors.test.ts. Retires when: An apps/cli specification owns the rendered explicit-token guidance, or the guidance becomes a carried field of the typed failure.
 - Source: [`packages/supporting/registry-access/src/credentials/disabled-credential-persistence-requires-explicit-token.spec.ts`](../packages/supporting/registry-access/src/credentials/disabled-credential-persistence-requires-explicit-token.spec.ts)
 
+##### Device sign-in can start and finish in one bounded invocation
+
+- Requirement: `cli/login/device-sign-in-waits-in-one-invocation`
+- Owner: `registry-access`
+- Statement: When sign-in requests a wait of N seconds, AXM shall use device-code sign-in whether or not it was named, start or reuse the selected Registry's device authorization, wait no longer than N seconds or the code's remaining lifetime, save approved credentials before reporting one final result, leave a still-valid authorization resumable when the bound elapses, and shall not open a browser or copy the code in unattended mode.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/supporting/registry-access/src/authentication/login.ts`, `packages/supporting/registry-access/src/authentication/device-login.ts`
+- Additional evidence: process via [`apps/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../apps/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
+- Source: [`packages/supporting/registry-access/src/authentication/device-sign-in-waits-in-one-invocation.spec.ts`](../packages/supporting/registry-access/src/authentication/device-sign-in-waits-in-one-invocation.spec.ts)
+
 ##### A wait that ends without approval leaves sign-in resumable
 
 - Requirement: `cli/login/ended-wait-preserves-authorization`
@@ -1509,7 +1523,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/login/rejects-inconsistent-flow-options`
 - Owner: `cli`
-- Statement: When sign-in options combine incompatible start and resume actions or supply a wait timeout without a resume action, AXM shall report usage failure before changing credentials or pending authorization, and shall document the timeout's dependence on resuming.
+- Statement: When sign-in options request a restart without device-code sign-in or a wait bound that is not a positive number of seconds, AXM shall report usage failure before changing credentials or pending authorization, and shall document the single-invocation bounded device sign-in wait.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -1522,21 +1536,20 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/login/resume-requires-matching-pending-authorization`
 - Owner: `registry-access`
-- Statement: When login --wait has no pending authorization for the selected Registry, AXM shall report the missing or mismatched authorization without changing saved credentials or another Registry authorization.
+- Statement: When a device sign-in wait finds a pending authorization that belongs to another Registry, AXM shall report the mismatch without polling, replacing that authorization, or changing saved credentials.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `packages/supporting/registry-access/src/authentication/device-login.ts`
-- Additional evidence: process via [`apps/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts`](../apps/cli-e2e/src/cli-commands/auth/login/login.e2e.test.ts) — Exercises persisted device authorization and credential storage across separate CLI processes against a controlled HTTP Registry.
 - Source: [`packages/supporting/registry-access/src/authentication/resume-requires-matching-pending-authorization.spec.ts`](../packages/supporting/registry-access/src/authentication/resume-requires-matching-pending-authorization.spec.ts)
 
 ##### Approved device sign-in establishes the selected Registry session
 
 - Requirement: `cli/login/resumes-approved-authorization`
 - Owner: `registry-access`
-- Statement: When a pending device authorization is approved, login --wait shall save the issued credentials for its Registry, clear the pending authorization, and make that session available to subsequent commands.
+- Statement: When a pending device authorization is approved, a bounded device sign-in wait (login --wait-for-human) shall save the issued credentials for its Registry, clear the pending authorization, and make that session available to subsequent commands.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -1591,7 +1604,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/login/terminal-authorization-failures-preserve-credentials`
 - Owner: `registry-access`
-- Statement: When a pending device authorization is denied or expires, login --wait shall report the corresponding failure, remove that pending authorization, and leave saved credentials unchanged.
+- Statement: When a pending device authorization is denied or expires, including expiry reached before a requested wait bound, a device sign-in wait shall report the corresponding failure, remove that pending authorization, and leave saved credentials unchanged.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -1613,6 +1626,33 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Methods: example
 - Derived from: `packages/supporting/registry-access/src/authentication/logout.ts`
 - Source: [`packages/supporting/registry-access/src/credentials/erases-selected-registry-credentials.spec.ts`](../packages/supporting/registry-access/src/credentials/erases-selected-registry-credentials.spec.ts)
+
+##### A creation the Registry did not refuse is reported as possibly issued
+
+- Requirement: `cli/token/create/reports-uncertain-issuance`
+- Owner: `registry-access`
+- Statement: When a token creation request ends without a definitive Registry refusal — no answer, an unreadable answer, or a gateway or server error — AXM shall report that the token may have been created, direct review of the token inventory and revocation by ID, and shall not resubmit the creation or start another approval; a client-error refusal shall keep the Registry's own explanation.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/supporting/registry-access/src/authentication/tokens.ts`
+- Source: [`packages/supporting/registry-access/src/authentication/tokens/create-reports-uncertain-issuance.spec.ts`](../packages/supporting/registry-access/src/authentication/tokens/create-reports-uncertain-issuance.spec.ts)
+
+##### A new token stdout did not accept is revoked
+
+- Requirement: `cli/token/create/revokes-undelivered-token`
+- Owner: `cli`
+- Statement: When axm token create issues a token that stdout does not acknowledge, AXM shall make one bounded attempt to revoke exactly that token with the creating session, report its ID and whether revocation succeeded on stderr with the revoke command when it did not, and exit unsuccessfully; AXM shall not revoke an existing credential that axm token failed to write.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `apps/cli/src/root/auth/token.ts`
+- Limitation: Hard termination, a forced second signal, or an unreachable Registry can leave an undelivered token active; the stderr report is then the only recovery evidence. Retires when: The Registry offers idempotent creation or escrow that makes delivery recoverable.
+- Source: [`apps/cli/src/root/auth/token-create-revokes-undelivered-token.spec.ts`](../apps/cli/src/root/auth/token-create-revokes-undelivered-token.spec.ts)
 
 ##### Token creation requests the chosen lifetime and permissions
 
@@ -4448,11 +4488,24 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Limitation: Examples drive the published schema, the projector, and the live join over an authored event log. A registry download that a transport failure actually retries is witnessed by ordinary tests in the registry client, not decided here. Retires when: Bind producer evidence here when a retrying producer's own attempt reporting is allocated its own obligation.
 - Source: [`apps/cli/src/screen/retried-work-names-the-attempt-in-flight.spec.ts`](../apps/cli/src/screen/retried-work-names-the-attempt-in-flight.spec.ts)
 
+##### Raw token creation hands a pipe only the new secret
+
+- Requirement: `cli/token/create/raw-output-writes-only-new-token`
+- Owner: `cli`
+- Statement: When axm token create is run with raw token output, AXM shall write only the new token followed by one newline to stdout, once, and shall report the token's ID, name, permissions, and expiry on stderr without the secret.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `apps/cli/src/root/auth/token.ts`
+- Source: [`apps/cli/src/root/auth/token-create-writes-only-new-token.spec.ts`](../apps/cli/src/root/auth/token-create-writes-only-new-token.spec.ts)
+
 ##### Token output exposes the effective credential on request
 
 - Requirement: `cli/token/returns-effective-token`
 - Owner: `cli`
-- Statement: When a credential is available, axm token shall return that credential alone as text by default or as a structured token value when JSON output is requested.
+- Statement: When a credential is available and raw token output is requested or stdout is an interactive terminal, axm token shall write that credential alone, followed by one newline, to stdout and nothing else there.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -4532,6 +4585,21 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Supersedes: `settings-contract/published-schemas-agree-with-accepted-input`
 - Assumptions: The schema documents shipped as package site content are the same documents published at the public schema URLs that editors and automation fetch.
 - Source: [`apps/cli/src/published-schemas/published-settings-schema-agrees-with-accepted-input.spec.ts`](../apps/cli/src/published-schemas/published-settings-schema-agrees-with-accepted-input.spec.ts)
+
+#### Constraints
+
+##### Credential export needs an explicit, secret-safe output mode
+
+- Requirement: `cli/token/credential-output-requires-explicit-mode`
+- Owner: `cli`
+- Statement: When axm token or axm token create is asked for JSON output, for human output outside an interactive terminal, or for no output mode while stdout is not an interactive terminal, AXM shall report a usage failure before resolving, refreshing, or creating any credential, and shall write no credential.
+- Class: constraint (security)
+- Role: interface
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `apps/cli/src/root/auth/token.ts`
+- Source: [`apps/cli/src/root/auth/credential-output-requires-explicit-mode.spec.ts`](../apps/cli/src/root/auth/credential-output-requires-explicit-mode.spec.ts)
 
 ### Goal: platform-reach
 

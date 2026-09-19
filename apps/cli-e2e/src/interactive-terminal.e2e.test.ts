@@ -329,7 +329,7 @@ describe.skipIf(!ptyIsSupported)("setup's instructions source under a pseudo-ter
  * A Registry whose device authorization never completes, so a wait on it
  * stands open until the person watching it does something. Nothing here opens
  * a browser or touches the clipboard: the sign-in is started by a separate
- * machine-mode invocation, and `axm login --wait` only resumes it.
+ * machine-mode invocation, and the bounded wait only resumes it.
  */
 const startPendingDeviceAuthServer = async () => {
   const sendJson = (response: http.ServerResponse, status: number, body: unknown) => {
@@ -398,7 +398,7 @@ describe.skipIf(!ptyIsSupported)("a wait under a pseudo-terminal", () => {
       });
       expect(started.exitCode, started.stdout + started.stderr).toBe(0);
 
-      const result = await runCliUnderPty(["login", "--wait"], {
+      const result = await runCliUnderPty(["login", "--device-code", "--wait-for-human", "300"], {
         home,
         cwd,
         columns: 100,
@@ -422,7 +422,7 @@ describe.skipIf(!ptyIsSupported)("a wait under a pseudo-terminal", () => {
       // command that resumes it.
       expect(result.timedOut, result.transcript).toBe(false);
       expect(result.exitCode, result.transcript).toBe(16);
-      expect(result.transcript).toContain("axm login --wait");
+      expect(result.transcript).toContain("axm login --device-code --wait-for-human 300");
       expect(result.rawModeRestored, "raw mode was not handed back").toBe(true);
       expect(result.cursorRestored, "the cursor was left hidden").toBe(true);
     } finally {

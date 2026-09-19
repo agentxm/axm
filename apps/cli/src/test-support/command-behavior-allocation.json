@@ -3510,10 +3510,10 @@
           }
         },
         {
-          "name": "wait",
+          "name": "wait-for-human",
           "rawHelp": {
             "aliases": [],
-            "type": "boolean",
+            "type": "integer",
             "required": false
           }
         },
@@ -3522,14 +3522,6 @@
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "timeout",
-          "rawHelp": {
-            "aliases": [],
-            "type": "integer",
             "required": false
           }
         }
@@ -3560,20 +3552,15 @@
           ]
         },
         {
-          "parameters": ["flag:wait"],
+          "parameters": ["flag:wait-for-human"],
           "requirements": [
+            "cli/login/device-sign-in-waits-in-one-invocation",
             "cli/login/resume-requires-matching-pending-authorization",
             "cli/login/resumes-approved-authorization",
-            "cli/login/terminal-authorization-failures-preserve-credentials"
-          ]
-        },
-        {
-          "parameters": ["flag:timeout"],
-          "requirements": [
+            "cli/login/terminal-authorization-failures-preserve-credentials",
             "cli/login/ended-wait-preserves-authorization",
             "cli/login/rejects-inconsistent-flow-options"
-          ],
-          "when": "--wait is supplied; timeout denotes the wait duration, not authorization lifetime."
+          ]
         }
       ]
     },
@@ -8053,14 +8040,32 @@
       ]
     },
     "token": {
-      "flags": [],
+      "flags": [
+        {
+          "name": "output",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
+        }
+      ],
       "arguments": [],
       "relatedRequirements": [
         "cli/credentials-follow-explicit-source-precedence",
         "cli/disabled-credential-persistence-requires-explicit-token",
         "cli/token/returns-effective-token"
       ],
-      "parameterBindings": []
+      "parameterBindings": [
+        {
+          "parameters": ["flag:output"],
+          "requirements": [
+            "cli/token/returns-effective-token",
+            "cli/token/credential-output-requires-explicit-mode",
+            "cli/token/create/revokes-undelivered-token"
+          ]
+        }
+      ]
     },
     "token create": {
       "flags": [
@@ -8077,6 +8082,14 @@
           "rawHelp": {
             "aliases": [],
             "type": "integer",
+            "required": false
+          }
+        },
+        {
+          "name": "output",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
             "required": false
           }
         },
@@ -8133,7 +8146,8 @@
       "relatedRequirements": [
         "cli/credentials-follow-explicit-source-precedence",
         "cli/registry-writes-complete-required-verification",
-        "cli/unattended-verification-is-resumable"
+        "cli/unattended-verification-is-resumable",
+        "cli/token/create/reports-uncertain-issuance"
       ],
       "conditionalLinks": [
         {
@@ -8151,6 +8165,14 @@
           "requirements": [
             "cli/registry-writes-complete-required-verification",
             "cli/unattended-verification-is-resumable"
+          ]
+        },
+        {
+          "parameters": ["flag:output"],
+          "requirements": [
+            "cli/token/create/raw-output-writes-only-new-token",
+            "cli/token/create/revokes-undelivered-token",
+            "cli/token/credential-output-requires-explicit-mode"
           ]
         },
         {

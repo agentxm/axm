@@ -15,6 +15,7 @@ import { emptyWaitScript, scriptedWait, type WaitScript } from "./scripted-wait.
 // ---------------------------------------------------------------------------
 
 export interface TestRendererState {
+  readonly credentials: Array<string>;
   readonly logs: Array<LogMessage>;
   readonly diagnostics: Array<string>;
   readonly tables: Array<{
@@ -57,6 +58,7 @@ export interface TestRendererState {
 // ---------------------------------------------------------------------------
 
 const makeEmptyState = (): TestRendererState => ({
+  credentials: [],
   logs: [],
   diagnostics: [],
   tables: [],
@@ -244,6 +246,10 @@ const makeTestScreenService = (
       state.docs.push({ channel: "stdout", doc });
       captureDoc(state, doc, "stdout");
     }),
+  credential: (content) =>
+    Effect.sync(() => {
+      state.credentials.push(content);
+    }),
   note: (doc, options) =>
     Effect.sync(() => {
       state.docs.push({ channel: "stderr", doc });
@@ -293,7 +299,12 @@ const makeTestScreenService = (
   wait: scriptedWait(state.waitScript, (doc, persistent) =>
     captureDoc(state, doc, "stderr", persistent),
   ),
-  facts: Effect.succeed({ columns: 80, colors: false, animate: false }),
+  facts: Effect.succeed({
+    columns: 80,
+    stdoutIsTTY: !resultReturnValue,
+    colors: false,
+    animate: false,
+  }),
   settle: Effect.void,
 });
 

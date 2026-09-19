@@ -47,8 +47,9 @@ result and exit 0. Planning or validation failures retain their normal error
 or failed-plan contract.
 
 `axm view <extension> <field> --json` places the selected scalar or array directly
-under `result`. Token commands also place their command payload under `result`;
-do not log or forward token result documents.
+under `result`. `axm token` and `axm token create` never return a secret in a
+JSON document: `--json` is a usage error before any credential is read or
+created. Use `--output token` to write only the token to stdout.
 
 Publish results are discriminated by `result.contract: "publish-result-v3"`.
 They separate `selection.decisions`, the authoritative `publicationSet`, and
@@ -210,8 +211,13 @@ Existing login credentials remain in place throughout this handoff.
 Device sign-in uses `axm login --device-code --json` to start or re-emit the
 matching pending request. Its successful initiation returns `ok: true`, exit 0,
 and `result.status: "pending-human"`; this means the handoff is available,
-not that credentials were stored. Resume it with `axm login --wait --json`,
-optionally adding `--timeout 60`. The `action` uses `purpose: "login"` and
+not that credentials were stored. `axm login --device-code --wait-for-human 300
+--json` starts or reuses that request, shows the handoff on stderr, waits up to
+300 seconds (never past the code's expiry), saves the credentials, and returns
+one final document. A wait that ends first returns the pending action with
+`code: "timeout"` and exit 16, and the request stays resumable; expiry and
+denial are terminal. A bounded wait always uses device-code sign-in, with or
+without `--device-code`. The `action` uses `purpose: "login"` and
 includes both the complete browser link and the clean fallback URL and code.
 Keep the same Registry. `--restart` explicitly replaces a pending sign-in;
 repeating initiation does not.

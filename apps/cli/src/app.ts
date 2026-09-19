@@ -19,7 +19,13 @@ import {
   stderrIsTTY,
 } from "./screen/index.js";
 import { resolveVerbosityFromArgv } from "./cli-flags/index.js";
-import { runCliMain } from "./cli-runtime/index.js";
+import {
+  hasExplicitJsonFlag,
+  optionArgs,
+  outputSelectorsFromArgv,
+  resolveFormatFromArgv,
+  runCliMain,
+} from "./cli-runtime/index.js";
 
 import { LearnMore, formatLearnMore, makeAxmFormatter } from "./formatter.js";
 import { withUpdateCheck, resolveNonInteractiveFromArgv } from "./update-check-startup.js";
@@ -161,10 +167,27 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   ),
 );
 
-const hasExplicitJsonFlag = (args: ReadonlyArray<string>): boolean =>
-  args.includes("--json") || args.includes("-j");
-
 const usesRetiredAuthCommand = (args: ReadonlyArray<string>): boolean => args[0] === "auth";
+
+/**
+ * Raw credential output is decided before the parser runs, so nothing that
+ * would share stdout with the credential — JSON, help, version, or a second
+ * output mode — can reach the command.
+ */
+const rejectsTokenOutputAtStartup = (args: ReadonlyArray<string>): AppError | undefined => {
+  const selectors = outputSelectorsFromArgv(args);
+  if (!selectors.includes("token")) return undefined;
+  const options = optionArgs(args);
+  const detail =
+    new Set(selectors).size > 1
+      ? "--output accepts one value; choose token or human."
+      : hasExplicitJsonFlag(args)
+        ? "--output token and --json are mutually exclusive."
+        : options.some((arg) => arg === "--help" || arg === "-h" || arg === "--version")
+          ? "--output token cannot be combined with help or version output."
+          : undefined;
+  return detail === undefined ? undefined : makeAppError({ code: "usage", detail });
+};
 
 const runCommand = (argv: ReadonlyArray<string>, isJson: boolean) =>
   Effect.gen(function* () {
@@ -218,22 +241,28 @@ const runCommand = (argv: ReadonlyArray<string>, isJson: boolean) =>
 export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): Promise<void> => {
   await runCliMain(
     (argv) => {
-      const isJson = hasExplicitJsonFlag(argv);
-      const commandProgram = usesRetiredAuthCommand(argv)
-        ? Effect.fail<CommandProgramError>(
-            makeAppError({
-              code: "usage",
-              detail: "Unrecognized command: auth",
-            }),
-          )
-        : argv.includes("-vv")
-          ? Effect.fail<CommandProgramError>(
-              makeAppError({
-                code: "usage",
-                detail: "Unrecognized flag: -vv. Use --debug for full debug diagnostics.",
-              }),
-            )
-          : runCommand(argv, isJson).pipe(Effect.mapError((error): CommandProgramError => error));
+      const isJson = resolveFormatFromArgv(argv) === "json";
+      const startupRejection = rejectsTokenOutputAtStartup(argv);
+      const commandProgram =
+        startupRejection !== undefined
+          ? Effect.fail<CommandProgramError>(startupRejection)
+          : usesRetiredAuthCommand(argv)
+            ? Effect.fail<CommandProgramError>(
+                makeAppError({
+                  code: "usage",
+                  detail: "Unrecognized command: auth",
+                }),
+              )
+            : argv.includes("-vv")
+              ? Effect.fail<CommandProgramError>(
+                  makeAppError({
+                    code: "usage",
+                    detail: "Unrecognized flag: -vv. Use --debug for full debug diagnostics.",
+                  }),
+                )
+              : runCommand(argv, isJson).pipe(
+                  Effect.mapError((error): CommandProgramError => error),
+                );
       const outputPolicy = resolveCliOutputPolicy({
         quiet: resolveVerbosityFromArgv(argv) === "quiet",
         stderrIsTTY: stderrIsTTY(),

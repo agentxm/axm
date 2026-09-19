@@ -16,12 +16,18 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import {
+  isRegistryClientFailure,
+  withRegistrySemantics,
+  type RegistryClientFailure,
+} from "@agentxm/registry-client";
+
+import {
   AuthClient,
   type CreatedTokenResponse,
   type TokenPermissionsRequest,
 } from "./auth-client.js";
 import { CredentialStore } from "../credentials/credential-store.js";
-import { RegistryAccessFailed } from "./errors.js";
+import { RegistryAccessFailed, type AuthError } from "./errors.js";
 import { AuthLoginPresenter } from "./login-presenter.js";
 import { requireSignedIn } from "./identity.js";
 import { runWithStepUp, type StepUpOptions } from "./step-up.js";
@@ -101,6 +107,38 @@ export const tokenPermissions = (request: TokenAuthorityRequest): TokenPermissio
   permission: request.permission,
 });
 
+/**
+ * Whether the Registry definitively refused a creation. Only a client-error
+ * answer, or input that never left this process, proves no token was minted;
+ * 408 is a timeout in either direction and proves nothing.
+ */
+const registryRefusedCreation = (error: RegistryClientFailure): boolean => {
+  const status = error.metadata?.response?.status;
+  return (
+    error.category === "validation" ||
+    (status !== undefined && status >= 400 && status < 500 && status !== 408)
+  );
+};
+
+/**
+ * A creation the Registry did not definitively refuse may still have minted a
+ * token — a lost connection, an unreadable answer, or a gateway or server
+ * error all leave that open — and a name does not identify one. The failure
+ * keeps its evidence but says so, and never invites a blind retry.
+ */
+const reportUncertainIssuance =
+  (name: string) =>
+  (error: AuthError): AuthError =>
+    isRegistryClientFailure(error) && !registryRefusedCreation(error)
+      ? withRegistrySemantics(error, {
+          detail: `AXM did not receive a definitive answer from the Registry to creating token "${name}", so it may or may not exist. Review your tokens before creating another, and revoke an unwanted one by its ID.`,
+          suggestions: [
+            { description: "Review existing tokens", cmd: "axm token list" },
+            { description: "Revoke an unwanted token by ID", cmd: "axm token revoke <id>" },
+          ],
+        })
+      : error;
+
 export const createToken = Effect.fn("Tokens.create")(function* (
   request: CreateTokenRequest,
   registryUrl: string,
@@ -112,10 +150,12 @@ export const createToken = Effect.fn("Tokens.create")(function* (
   );
   const created = yield* runWithStepUp(
     (stepUpRequestId) =>
-      authClient.createToken(
-        { name: request.name, expiresIn, permissions: tokenPermissions(request) },
-        stepUpRequestId === undefined ? undefined : { stepUpRequestId },
-      ),
+      authClient
+        .createToken(
+          { name: request.name, expiresIn, permissions: tokenPermissions(request) },
+          stepUpRequestId === undefined ? undefined : { stepUpRequestId },
+        )
+        .pipe(Effect.mapError(reportUncertainIssuance(request.name))),
     {
       operationLabel: `Create registry token "${request.name}"`,
     },

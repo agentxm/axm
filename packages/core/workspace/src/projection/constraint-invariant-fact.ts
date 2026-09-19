@@ -56,7 +56,16 @@ export interface ProspectiveExtensionConstraintCandidate {
   readonly fqn: string;
   readonly type: ExtensionType;
   readonly version: string;
-  readonly dependencies?: Readonly<Record<string, string>>;
+  readonly dependencies?: Readonly<
+    Record<
+      string,
+      | string
+      | {
+          readonly source: { readonly type: "registry"; readonly url: URL };
+          readonly versionRange: string;
+        }
+    >
+  >;
 }
 
 const constraintContributorOrder = (
@@ -97,11 +106,12 @@ export const makeProspectiveExtensionConstraintFacts = (args: {
       const constraints = (recordsByMember.get(candidate.fqn) ?? [])
         .flatMap((record): ReadonlyArray<ExtensionConstraintFactContributor> => {
           const selectedPack = selectedPacks.get(record.packFqn);
-          const range =
+          const declaration =
             selectedPack === undefined
               ? record.constraint
               : selectedPack.dependencies?.[candidate.fqn];
-          if (range === undefined) return [];
+          if (declaration === undefined) return [];
+          const range = typeof declaration === "string" ? declaration : declaration.versionRange;
           return [
             {
               source: "pack",

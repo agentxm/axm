@@ -149,7 +149,26 @@ const encodePublicationSetRequest = (args: PreviewExtensionPublishesArgs) => ({
       ? {}
       : { archiveSha256Hex: descriptor.archiveSha256Hex }),
     visibility: descriptor.visibility,
-    ...(descriptor.pack === undefined ? {} : { pack: descriptor.pack }),
+    ...(descriptor.pack === undefined
+      ? {}
+      : {
+          pack: {
+            dependencies: descriptor.pack.dependencies.map((dependency) => ({
+              owner: dependency.owner,
+              type: dependency.type,
+              name: dependency.name,
+              range: dependency.range,
+              ...(dependency.source === undefined
+                ? {}
+                : {
+                    source: {
+                      type: dependency.source.type,
+                      url: dependency.source.url.href,
+                    },
+                  }),
+            })),
+          },
+        }),
   })),
 });
 

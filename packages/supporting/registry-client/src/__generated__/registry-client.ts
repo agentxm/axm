@@ -1221,12 +1221,22 @@ export type PackDependencyDescriptor = {
   readonly type: "hook" | "knowledge" | "mcp-server" | "rule" | "skill" | "subagent";
   readonly name: ExtensionName;
   readonly range: VersionRange;
+  readonly source?: { readonly type: "registry"; readonly url: string } | null;
 };
 export const PackDependencyDescriptor = Schema.Struct({
   owner: Handle,
   type: Schema.Literals(["hook", "knowledge", "mcp-server", "rule", "skill", "subagent"]),
   name: ExtensionName,
   range: VersionRange,
+  source: Schema.optionalKey(
+    Schema.Union([
+      Schema.Struct({
+        type: Schema.Literal("registry"),
+        url: Schema.String.annotate({ format: "uri" }),
+      }),
+      Schema.Null,
+    ]),
+  ),
 }).annotate({ identifier: "PackDependencyDescriptor" });
 export type CompanionPackage = {
   readonly purl: PackageIdentityPurl;

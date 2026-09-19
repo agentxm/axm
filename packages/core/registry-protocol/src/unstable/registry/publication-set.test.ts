@@ -78,6 +78,28 @@ const evaluation = (
 });
 
 describe("publication set contract", () => {
+  it("carries an explicit Registry Pack member locator through the protocol", () => {
+    const descriptor: PublicationDescriptor = {
+      ...pack,
+      pack: {
+        dependencies: [
+          {
+            owner: decodeHandleSync("@agentxm"),
+            type: "skill",
+            name: decodeExtensionNameSync("axm"),
+            range: decodeVersionRangeSync("^0.30.0"),
+            source: {
+              type: "registry",
+              url: new URL("https://registry.agentxm.ai"),
+            },
+          },
+        ],
+      },
+    };
+
+    expect(validatePublicationDescriptors([descriptor])).toEqual([descriptor]);
+  });
+
   it("decodes every canonical deprecation guidance shape", () => {
     const deprecatedAt = "2026-08-15T20:00:00.000Z";
     const decode = Schema.decodeUnknownSync(DeprecationViewSchema);

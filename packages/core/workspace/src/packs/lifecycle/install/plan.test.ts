@@ -162,7 +162,11 @@ describe("pack install graph", () => {
     );
   };
 
-  const writeLocalPack = (directory: string, name: string): void => {
+  const writeLocalPack = (
+    directory: string,
+    name: string,
+    dependencies: Readonly<Record<string, unknown>> = {},
+  ): void => {
     fs.mkdirSync(directory, { recursive: true });
     fs.writeFileSync(
       nodePath.join(directory, "pack.json"),
@@ -172,8 +176,26 @@ describe("pack install graph", () => {
         name,
         version: "1.0.0",
         description: `The ${name} pack.`,
-        dependencies: {},
+        dependencies,
       })}\n`,
+    );
+  };
+
+  const writeLocalSkill = (directory: string, name: string): void => {
+    fs.mkdirSync(nodePath.join(directory, "src"), { recursive: true });
+    fs.writeFileSync(
+      nodePath.join(directory, "skill.json"),
+      `${JSON.stringify({
+        owner: "@acme",
+        type: "skill",
+        name,
+        version: "1.0.0",
+        description: `The ${name} skill.`,
+      })}\n`,
+    );
+    fs.writeFileSync(
+      nodePath.join(directory, "src", "SKILL.md"),
+      `---\nname: "${name}"\ndescription: "The ${name} skill."\n---\n`,
     );
   };
 
@@ -187,6 +209,79 @@ describe("pack install graph", () => {
           const resolution = yield* applyInstall(packRequest(source));
           expect(deriveOperationOutcome(resolution)).toBe("applied");
           expect(JSON.stringify(readSettings(created.workspace))).toContain("local-pack");
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect("installs an explicit Registry member declared by a local pack", () => {
+    const created = world();
+    const { workspace, registry } = created;
+    const source = nodePath.join(workspace.root, "fixtures", "mixed-pack");
+    registry.writeSkill("official", [{ version: "1.2.0", body: "Official guidance." }]);
+    writeLocalPack(source, "mixed-pack", {
+      "@acme/skills/official": {
+        source: { type: "registry", url: registry.source.location },
+        versionRange: "^1.0.0",
+      },
+    });
+
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          const resolution = yield* applyInstall(packRequest(source));
+
+          expect(deriveOperationOutcome(resolution)).toBe("applied");
+          expect(workspace.exists("agent_extensions/path/@acme/packs/mixed-pack/pack.json")).toBe(
+            true,
+          );
+          expect(
+            workspace.exists("agent_extensions/registry/@acme/skills/official/src/SKILL.md"),
+          ).toBe(true);
+          const lockfile = workspace.readFile("axm-lock.yaml");
+          expect(lockfile).toContain("mixed-pack");
+          expect(lockfile).toContain("official");
+          expect(lockfile).toContain("1.2.0");
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect("refuses conflicting pack authorities and names every declaration", () => {
+    const created = world();
+    const { workspace, registry } = created;
+    const inheritedSource = nodePath.join(workspace.root, "fixtures", "inherited");
+    const registrySource = nodePath.join(workspace.root, "fixtures", "registry");
+    writeLocalPack(nodePath.join(inheritedSource, "packs", "inherited-pack"), "inherited-pack", {
+      "@acme/skills/shared": "^1.0.0",
+    });
+    writeLocalSkill(nodePath.join(inheritedSource, "skills", "shared"), "shared");
+    writeLocalPack(nodePath.join(registrySource, "packs", "registry-pack"), "registry-pack", {
+      "@acme/skills/shared": {
+        source: { type: "registry", url: registry.source.location },
+        versionRange: "^1.0.0",
+      },
+    });
+    registry.writeSkill("shared", [{ version: "1.0.0", body: "Registry guidance." }]);
+
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          const installed = yield* applyInstall(packRequest(inheritedSource));
+          expect(deriveOperationOutcome(installed)).toBe("applied");
+          const before = workspace.snapshot();
+
+          const resolution = yield* applyInstall(packRequest(registrySource));
+
+          expect(deriveOperationOutcome(resolution)).toBe("blocked");
+          const details = (resolution.riskConditions ?? []).map((condition) => condition.detail);
+          expect(details).toHaveLength(1);
+          expect(details[0]).toContain("@acme/packs/inherited-pack");
+          expect(details[0]).toContain("@acme/packs/registry-pack");
+          expect(details[0]).toContain(`path:${inheritedSource}`);
+          expect(details[0]).toContain(`registry:${registry.source.location}`);
+          expect(resolution.units.filter((unit) => unit.state === "committed")).toEqual([]);
+          expect(workspace.snapshot()).toEqual(before);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

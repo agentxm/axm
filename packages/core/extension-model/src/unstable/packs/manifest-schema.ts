@@ -8,7 +8,7 @@ import * as Schema from "effect/Schema";
 import {
   CommonManifestBaseFields,
   ExtensionNameSchema,
-  NonPackExtensionDependencyConstraintMapSchema,
+  PackMemberConstraintMapSchema,
 } from "../extensions/common.js";
 
 export const PACK_MANIFEST_FILENAME = "pack.json";
@@ -35,11 +35,11 @@ export const PackManifestSchema = Schema.Struct({
         "Short name for this pack within its owner namespace. Combined with owner, forms the FQN @owner/packs/<name>.",
     }),
   ),
-  dependencies: NonPackExtensionDependencyConstraintMapSchema.pipe(
+  dependencies: PackMemberConstraintMapSchema.pipe(
     Schema.annotateKey({ messageMissingKey: "pack dependencies are required" }),
     Schema.annotate({
       description:
-        "Install-time extension constraints. AXM resolves and installs a member version satisfying each range; `axm packs add` writes a `>=` lower bound rooted at the current resolved version, so members track their latest release without republishing the pack. Narrow a range by hand only to exclude a known-breaking member release, and note that a caret below 1.0 pins to the current patch or minor and goes stale on every later release. These constraints select installed extension versions, unlike companion-package recommendation ranges in `packages`, which are metadata only.",
+        "Install-time extension constraints. A range inherits the Pack's source; an object may name an explicit Registry URL and versionRange. AXM resolves and installs a member version satisfying each range; `axm packs add` writes a `>=` lower bound rooted at the current resolved version, so members track their latest release without republishing the pack. Narrow a range by hand only to exclude a known-breaking member release. These constraints select installed extension versions, unlike companion-package recommendation ranges in `packages`, which are metadata only.",
     }),
   ),
 }).annotate({

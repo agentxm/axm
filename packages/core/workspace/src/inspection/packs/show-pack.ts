@@ -16,6 +16,7 @@ import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 
 import {
+  packMemberVersionRange,
   formatFqn,
   parseExtensionFqnParts,
   parseSourceQualifiedRegistrySourcePatternParts,
@@ -177,7 +178,8 @@ export const ShowPack = {
     const graph = yield* desiredState.graph();
     const sourceAuthority = isWorkspaceSourceLocator(source) ? "workspace" : "registry";
     const normalizedPackFqn = packFqn.replace(/^workspace:/u, "");
-    const desiredDependencies = Object.entries(manifest.dependencies).map(([fqn, constraint]) => {
+    const desiredDependencies = Object.entries(manifest.dependencies).map(([fqn, declaration]) => {
+      const constraint = packMemberVersionRange(declaration);
       const node = graph.nodes.find(
         (candidate) =>
           stripLocatorPrefix(candidate.identity) === fqn &&

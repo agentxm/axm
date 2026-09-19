@@ -45,6 +45,8 @@ import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import {
   parseExtensionFqnParts,
+  packMemberRegistrySource,
+  packMemberVersionRange,
   toExtensionTypePlural,
   type ExtensionName,
   type Handle,
@@ -316,6 +318,25 @@ export interface WorkspaceAuthorityScan {
   readonly fingerprint: string;
 }
 
+const sourceAuthorityIdentity = (source: Source): string => {
+  switch (source.type) {
+    case "registry":
+      return `registry:${source.location.href}`;
+    case "local":
+      return `path:${source.path}`;
+    case "git":
+      return `git:${source.url.href}#${Option.getOrElse(source.ref, () => "HEAD")}`;
+    case "github":
+    case "gitlab":
+    case "bitbucket":
+      return `${source.type}:${source.url.href}:${source.owner}/${source.repo}#${Option.getOrElse(source.ref, () => "HEAD")}`;
+    case "azurerepos":
+      return `${source.type}:${source.url.href}:${source.organization}/${source.project}/${source.repo}#${Option.getOrElse(source.ref, () => "HEAD")}`;
+    case "workspace":
+      return `workspace:${source.owner}/${toExtensionTypePlural(source.extensionType)}/${source.name}`;
+  }
+};
+
 const scanWorkspaceAuthority: (
   pack: PackRef,
 ) => Effect.Effect<WorkspaceAuthorityScan, ExtensionLifecycleFailed, InstallStepRequirements> =
@@ -355,9 +376,56 @@ const scanWorkspaceAuthority: (
     const dependencies = Object.entries(pack.pack.dependencies).sort(([left], [right]) =>
       left.localeCompare(right),
     );
-    for (const [fqn, constraint] of dependencies) {
+    for (const [fqn, declaration] of dependencies) {
       const parsed = parseExtensionFqnParts(fqn);
       if (parsed === undefined || parsed.type === "pack") continue;
+      const constraint = packMemberVersionRange(declaration);
+      const declaredSource = packMemberRegistrySource(declaration);
+      const existing = graph.nodes.find(
+        (node) => node.type === parsed.type && node.name === parsed.name,
+      );
+      const existingPackOrigins = (existing?.origins ?? []).flatMap((origin) =>
+        origin.type === "pack" && origin.pack.replace(/^workspace:/u, "") !== packIdentity
+          ? [origin]
+          : [],
+      );
+      const requestedAuthority =
+        declaredSource === undefined
+          ? sourceAuthorityIdentity(pack.source)
+          : `registry:${declaredSource.url.href}`;
+      const existingPackDeclarations = existingPackOrigins.map(
+        (origin) =>
+          `${origin.pack} declares ${fqn} from ${origin.sourceAuthority ?? origin.source}`,
+      );
+      if (existingPackDeclarations.length > 0) {
+        const heldAuthorities = [
+          ...new Set(existingPackOrigins.map((origin) => origin.sourceAuthority ?? origin.source)),
+        ];
+        if (heldAuthorities.some((authority) => authority !== requestedAuthority)) {
+          const declarations = [
+            ...existingPackDeclarations,
+            `${packIdentity} declares ${fqn} from ${requestedAuthority}`,
+          ];
+          blockers.push({
+            id: `pack-authority:member:${fqn}:source-conflict`,
+            target: { type: parsed.type, name: parsed.name, identity: fqn },
+            relationship: { kind: "member", root: packIdentity },
+            requestedSource: requestedAuthority,
+            configuredSource: heldAuthorities.join(", "),
+            cause: "pack-source-conflict",
+            detail: `Pack member ${fqn} is held by ${heldAuthorities.join(", ")}; conflicting declarations: ${declarations.join(", ")}`,
+            requiredVersionRange: constraint,
+            recovery: [
+              {
+                description:
+                  "Remove or transition the conflicting Pack declaration before installing this Pack; Pack member authority has no override flag.",
+              },
+            ],
+          });
+          continue;
+        }
+      }
+
       const desired = graph.nodes.find(
         (node) =>
           node.type === parsed.type &&
@@ -398,7 +466,13 @@ const scanWorkspaceAuthority: (
       const input: SourceAuthorityInput = {
         target: { type: parsed.type, name: parsed.name, identity: targetIdentity },
         relationship: { kind: "member" as const, root: packIdentity },
-        requested: { identity: `registry:${targetIdentity}`, workspace: false },
+        requested: {
+          identity:
+            declaredSource === undefined
+              ? `registry:${targetIdentity}`
+              : `registry:${declaredSource.url.href}:${targetIdentity}`,
+          workspace: false,
+        },
         configured,
         requiredVersionRange: constraint,
       };

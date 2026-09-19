@@ -37,6 +37,51 @@ describe("PackManifestSchema", () => {
     });
   });
 
+  it("accepts an explicit Registry locator for one member", () => {
+    const result = decode({
+      owner: "@wayne",
+      type: "pack",
+      name: "utility-belt",
+      version: "1.0.0",
+      dependencies: {
+        "@agentxm/skills/axm": {
+          source: { type: "registry", url: "https://registry.agentxm.ai" },
+          versionRange: "^0.30.0",
+        },
+      },
+    });
+
+    expect(result.dependencies["@agentxm/skills/axm"]).toEqual({
+      source: { type: "registry", url: new URL("https://registry.agentxm.ai") },
+      versionRange: "^0.30.0",
+    });
+  });
+
+  it.each([
+    {
+      source: { type: "git", url: "https://example.com/acme/extensions.git" },
+      versionRange: "^1.0.0",
+    },
+    {
+      source: { type: "registry", url: "not a URL" },
+      versionRange: "^1.0.0",
+    },
+    {
+      source: { type: "registry", url: "https://registry.agentxm.ai" },
+      versionRange: "latest",
+    },
+  ])("rejects invalid explicit member declaration %#", (declaration) => {
+    expect(() =>
+      decode({
+        owner: "@wayne",
+        type: "pack",
+        name: "utility-belt",
+        version: "1.0.0",
+        dependencies: { "@agentxm/skills/axm": declaration },
+      }),
+    ).toThrow();
+  });
+
   it("accepts valid manifest with all extension types", () => {
     const input = {
       owner: "@wayne",

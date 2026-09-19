@@ -7,7 +7,10 @@ import * as Schema from "effect/Schema";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { evaluateSourceAuthority } from "./source-authority.js";
 import { computeSourceHash } from "../desired-state/index.js";
-import { ReleaseAgeExcludePatternSchema } from "@agentxm/extension-model/unstable/extensions";
+import {
+  ReleaseAgeExcludePatternSchema,
+  type PackMemberConstraintMap,
+} from "@agentxm/extension-model/unstable/extensions";
 import type {
   LocalSkillRef,
   RegistrySkillRef,
@@ -30,7 +33,7 @@ import {
   resolvePackDependenciesWithReleaseAge,
 } from "./pack-dependency-resolution.js";
 
-const localPackRef = (dependencies: Readonly<Record<string, string>>): LocalPackRef => {
+const localPackRefFromConstraints = (dependencies: PackMemberConstraintMap): LocalPackRef => {
   const name = extensionName("toolkit");
   return {
     type: "pack",
@@ -44,12 +47,17 @@ const localPackRef = (dependencies: Readonly<Record<string, string>>): LocalPack
     sourceMembers: [localSkill()],
     pack: {
       name,
-      dependencies: Object.fromEntries(
-        Object.entries(dependencies).map(([fqn, constraint]) => [fqn, versionRange(constraint)]),
-      ),
+      dependencies,
     },
   };
 };
+
+const localPackRef = (dependencies: Readonly<Record<string, string>>): LocalPackRef =>
+  localPackRefFromConstraints(
+    Object.fromEntries(
+      Object.entries(dependencies).map(([fqn, constraint]) => [fqn, versionRange(constraint)]),
+    ),
+  );
 
 const localSkill = (): LocalSkillRef => {
   const name = extensionName("review");
@@ -175,6 +183,38 @@ describe("resolvePackDependencies", () => {
       expect(resolved.resolvedSkills["@acme/skills/review"]).toEqual({ source: "local" });
       expect(resolved.dependencyRefs).toEqual([localSkill()]);
       expect(find).not.toHaveBeenCalled();
+    }),
+  );
+
+  it.effect("resolves an explicit Registry member outside the Pack's local repository", () =>
+    Effect.gen(function* () {
+      const registryMember = registrySkill(handle("@agentxm"), extensionName("axm"));
+      const find = vi.fn(() => Effect.succeed([registryMember]));
+      const resolved = yield* resolvePackDependencies(
+        localPackRefFromConstraints({
+          "@agentxm/skills/axm": {
+            source: {
+              type: "registry",
+              url: new URL("https://registry.agentxm.ai"),
+            },
+            versionRange: versionRange("^2.0.0"),
+          },
+        }),
+        providers(find),
+      );
+
+      expect(resolved.dependencyRefs).toEqual([registryMember]);
+      expect(resolved.resolvedSkills["@agentxm/skills/axm"]).toMatchObject({
+        source: "registry",
+        version: "2.1.0",
+      });
+      expect(find).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "registry",
+          location: new URL("https://registry.agentxm.ai"),
+        }),
+        expect.objectContaining({ names: ["axm"], type: "skill" }),
+      );
     }),
   );
 

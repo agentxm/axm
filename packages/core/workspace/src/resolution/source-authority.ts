@@ -41,7 +41,8 @@ export type SourceAuthorityBlockedCause =
   | "workspace-source-replacement"
   | "workspace-identity-mismatch"
   | "workspace-version-incompatible"
-  | "workspace-unusable";
+  | "workspace-unusable"
+  | "pack-source-conflict";
 
 export interface SourceAuthorityBlockedFact {
   readonly id: string;

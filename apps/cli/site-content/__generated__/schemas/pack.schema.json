@@ -206,6 +206,32 @@
       "description": "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use \"*\" to always resolve to the latest available version.",
       "examples": ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"]
     },
+    "PackMemberRegistrySource": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["registry"] },
+        "url": { "type": "string" }
+      },
+      "required": ["type", "url"],
+      "additionalProperties": false,
+      "description": "A self-describing Registry locator for one Pack member."
+    },
+    "ExplicitRegistryPackMemberConstraint": {
+      "type": "object",
+      "properties": {
+        "source": { "$ref": "#/definitions/PackMemberRegistrySource" },
+        "versionRange": { "$ref": "#/definitions/VersionRange" }
+      },
+      "required": ["source", "versionRange"],
+      "additionalProperties": false
+    },
+    "PackMemberConstraint": {
+      "anyOf": [
+        { "$ref": "#/definitions/VersionRange" },
+        { "$ref": "#/definitions/ExplicitRegistryPackMemberConstraint" }
+      ],
+      "description": "A version range that inherits the Pack source, or an explicit Registry locator and range."
+    },
     "PackManifest": {
       "type": "object",
       "properties": {
@@ -282,9 +308,9 @@
         "name": { "$ref": "#/definitions/ExtensionName" },
         "dependencies": {
           "type": "object",
-          "additionalProperties": { "$ref": "#/definitions/VersionRange" },
+          "additionalProperties": { "$ref": "#/definitions/PackMemberConstraint" },
           "propertyNames": { "$ref": "#/definitions/NonPackExtensionFqn" },
-          "description": "Install-time extension constraints. AXM resolves and installs a member version satisfying each range; `axm packs add` writes a `>=` lower bound rooted at the current resolved version, so members track their latest release without republishing the pack. Narrow a range by hand only to exclude a known-breaking member release, and note that a caret below 1.0 pins to the current patch or minor and goes stale on every later release. These constraints select installed extension versions, unlike companion-package recommendation ranges in `packages`, which are metadata only."
+          "description": "Install-time extension constraints. A range inherits the Pack's source; an object may name an explicit Registry URL and versionRange. AXM resolves and installs a member version satisfying each range; `axm packs add` writes a `>=` lower bound rooted at the current resolved version, so members track their latest release without republishing the pack. Narrow a range by hand only to exclude a known-breaking member release. These constraints select installed extension versions, unlike companion-package recommendation ranges in `packages`, which are metadata only."
         }
       },
       "required": ["owner", "version", "type", "name", "dependencies"],

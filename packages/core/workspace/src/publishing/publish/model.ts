@@ -16,11 +16,11 @@ import * as Schema from "effect/Schema";
 import * as semver from "semver";
 
 import {
-  ExtensionDependencyConstraintMapSchema,
   ExtensionMetadataSchema,
   ExtensionNameSchema,
   ExtensionTypeSchema,
   HandleSchema,
+  PackMemberConstraintMapSchema,
   PublishOptionsSchema,
   decodeExtensionNameSync,
   extensionTypeToPlural,
@@ -28,6 +28,7 @@ import {
   formatFqn,
   parseFqn,
   parseSourceQualifiedRegistrySourcePatternParts,
+  type PackMemberConstraintMap,
   type ExtensionName,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
@@ -124,7 +125,7 @@ export const CandidateManifestSchema = Schema.Struct({
   name: ExtensionNameSchema,
   version: VersionSchema,
   packages: Schema.optional(Schema.Array(CompanionPackageSchema)),
-  dependencies: Schema.optional(ExtensionDependencyConstraintMapSchema),
+  dependencies: Schema.optional(PackMemberConstraintMapSchema),
   publish: Schema.optional(PublishOptionsSchema),
   metadata: Schema.optional(ExtensionMetadataSchema),
 });
@@ -146,7 +147,7 @@ export interface SelectedEntry extends CatalogEntry {
   /** Manifest version, when the identity came from a manifest on disk. */
   readonly declaredVersion?: string;
   /** Pack dependency map, when the identity came from a pack manifest on disk. */
-  readonly declaredDependencies?: Readonly<Record<string, string>>;
+  readonly declaredDependencies?: PackMemberConstraintMap;
   readonly skipReason?: "not_authored" | "not_publishable";
 }
 
@@ -157,7 +158,7 @@ export interface PublishCandidate extends SelectedEntry {
   readonly manifestJson: unknown;
   readonly version: Version;
   readonly packages?: ReadonlyArray<Schema.Schema.Type<typeof CompanionPackageSchema>>;
-  readonly dependencies?: Schema.Schema.Type<typeof ExtensionDependencyConstraintMapSchema>;
+  readonly dependencies?: PackMemberConstraintMap;
   readonly publishVisibility?: ExtensionVisibility;
   readonly publishIgnore?: ReadonlyArray<string>;
   readonly archive: Uint8Array;

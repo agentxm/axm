@@ -13,7 +13,11 @@ import { HANDLE_PATTERN_SOURCE, HandleSchema } from "./handle.js";
 import { parseLicenseExpression } from "./license.js";
 import { CompanionPackageSchema } from "../package-urls/index.js";
 import { ExtensionMetadataSchema } from "./manifest-metadata.js";
-import { VersionSchema, VersionRangeSchema } from "../version-constraints/version-constraints.js";
+import {
+  VersionSchema,
+  VersionRangeSchema,
+  type VersionRange,
+} from "../version-constraints/version-constraints.js";
 
 /**
  * Author information for a manifest.
@@ -905,6 +909,74 @@ export const NonPackExtensionDependencyConstraintMapSchema = Schema.Record(
 export type NonPackExtensionDependencyConstraintMap = Schema.Schema.Type<
   typeof NonPackExtensionDependencyConstraintMapSchema
 >;
+
+/**
+ * An explicit Registry source for one Pack member.
+ *
+ * Pack manifests intentionally carry the Registry URL rather than a configured
+ * source name so the declaration remains self-describing when shared.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const PackMemberRegistrySourceSchema = Schema.Struct({
+  type: Schema.Literal("registry"),
+  url: Schema.URLFromString,
+}).annotate({
+  identifier: "PackMemberRegistrySource",
+  description: "A self-describing Registry locator for one Pack member.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type PackMemberRegistrySource = Schema.Schema.Type<typeof PackMemberRegistrySourceSchema>;
+
+/**
+ * A Pack member constraint either inherits the Pack's source or names an
+ * explicit Registry source. Other locator families are deliberately absent.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const PackMemberConstraintSchema = Schema.Union([
+  VersionRangeSchema,
+  Schema.Struct({
+    source: PackMemberRegistrySourceSchema,
+    versionRange: VersionRangeSchema,
+  }).annotate({ identifier: "ExplicitRegistryPackMemberConstraint" }),
+]).annotate({
+  identifier: "PackMemberConstraint",
+  description:
+    "A version range that inherits the Pack source, or an explicit Registry locator and range.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type PackMemberConstraint = Schema.Schema.Type<typeof PackMemberConstraintSchema>;
+
+/** The semver range carried by either Pack member declaration form. */
+export const packMemberVersionRange = (constraint: PackMemberConstraint): VersionRange =>
+  typeof constraint === "string" ? constraint : constraint.versionRange;
+
+/** The explicit Registry locator, when the member does not inherit the Pack source. */
+export const packMemberRegistrySource = (
+  constraint: PackMemberConstraint,
+): PackMemberRegistrySource | undefined =>
+  typeof constraint === "string" ? undefined : constraint.source;
+
+/**
+ * Map of non-Pack extension identities to source-aware Pack member constraints.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const PackMemberConstraintMapSchema = Schema.Record(
+  Schema.String,
+  PackMemberConstraintSchema,
+)
+  .check(Schema.isPropertyNames(NonPackExtensionFqnSchema))
+  .annotate({
+    description:
+      "Map of fully-qualified non-Pack extension names to inherited ranges or explicit Registry locators. Packs cannot depend on other Packs.",
+  });
+
+/** @experimental This API is unstable and may change without notice. */
+export type PackMemberConstraintMap = Schema.Schema.Type<typeof PackMemberConstraintMapSchema>;
 
 /**
  * Publish-time packaging options.

@@ -14,10 +14,11 @@ import * as semver from "semver";
 
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type {
-  ExtensionDependencyConstraintMap,
   ExtensionName,
   ExtensionType,
   Handle,
+  PackMemberConstraintMap,
+  PackMemberRegistrySource,
 } from "@agentxm/extension-model/unstable/extensions";
 import {
   formatFqn,
@@ -62,6 +63,22 @@ type ResolvedDependency = {
   readonly name: ExtensionName;
   readonly ref: PackDependencyRef;
 };
+
+type PartitionedDependency = readonly [
+  fqn: string,
+  constraint: VersionRange,
+  source: PackMemberRegistrySource | undefined,
+];
+
+const explicitRegistrySource = (
+  source: PackMemberRegistrySource,
+  owner: Handle,
+): RegistrySource => ({
+  type: "registry",
+  name: source.url.href,
+  location: source.url,
+  owner: Option.some(owner),
+});
 
 export type WorkspacePackDependencyResolution =
   | { readonly kind: "absent" }
@@ -242,7 +259,10 @@ const resolveDependencyRef = <E = never, R = never>(
       return yield* validateSelectedDependency(candidate, expectedType, parsed, fqn, constraint);
     }
 
-    if (pack.refType === "git-hosted" || pack.refType === "local") {
+    if (
+      sourceOverride === undefined &&
+      (pack.refType === "git-hosted" || pack.refType === "local")
+    ) {
       const matches = pack.sourceMembers.filter(
         (candidate) =>
           candidate.type === expectedType &&
@@ -535,7 +555,7 @@ const toResolvedMap = (
 
 const resolveDependencyGroup = <E = never, R = never>(
   pack: PackRef,
-  dependencies: ReadonlyArray<readonly [string, VersionRange]>,
+  dependencies: ReadonlyArray<PartitionedDependency>,
   expectedType: SupportedPackDependencyType,
   sources: SourceHostProvidersService,
   minimumReleaseAge?: Option.Option<Duration.Duration>,
@@ -545,7 +565,7 @@ const resolveDependencyGroup = <E = never, R = never>(
 ): Effect.Effect<ReadonlyArray<ResolvedDependency>, PackDependencyResolutionError | E, R> =>
   Effect.forEach(
     dependencies,
-    ([fqn, constraint]) =>
+    ([fqn, constraint, declaredSource]) =>
       resolveDependencyRef(
         pack,
         expectedType,
@@ -553,7 +573,9 @@ const resolveDependencyGroup = <E = never, R = never>(
         constraint,
         sources,
         minimumReleaseAge,
-        sourceOverride,
+        declaredSource === undefined
+          ? sourceOverride
+          : explicitRegistrySource(declaredSource, parseFqnOrThrow(fqn).owner),
         workspaceResolver,
         dependencyResolver,
       ),
@@ -566,8 +588,8 @@ const resolveDependencyGroup = <E = never, R = never>(
  * The `groups` record is keyed by every non-pack extension type, so a new type
  * fails compile here rather than being silently dropped from pack membership.
  */
-const partitionDependencies = (dependencies: ExtensionDependencyConstraintMap) => {
-  const groups: Record<SupportedPackDependencyType, Array<readonly [string, VersionRange]>> = {
+const partitionDependencies = (dependencies: PackMemberConstraintMap) => {
+  const groups: Record<SupportedPackDependencyType, Array<PartitionedDependency>> = {
     skill: [],
     "mcp-server": [],
     subagent: [],
@@ -577,13 +599,17 @@ const partitionDependencies = (dependencies: ExtensionDependencyConstraintMap) =
   };
   const unsupported: string[] = [];
 
-  for (const [fqn, constraint] of Object.entries(dependencies)) {
+  for (const [fqn, declaration] of Object.entries(dependencies)) {
     const parsed = parseFqnOrThrow(fqn);
     if (parsed.type === "pack") {
       unsupported.push(fqn);
       continue;
     }
-    groups[parsed.type].push([fqn, constraint]);
+    groups[parsed.type].push([
+      fqn,
+      typeof declaration === "string" ? declaration : declaration.versionRange,
+      typeof declaration === "string" ? undefined : declaration.source,
+    ]);
   }
 
   return { groups, unsupported };
@@ -670,48 +696,56 @@ export const resolvePackDependenciesWithReleaseAge = <E = never, R = never>(
       });
     }
     const entries = [
-      ...dependencies.groups.skill.map(([fqn, constraint]) => ({
+      ...dependencies.groups.skill.map(([fqn, constraint, source]) => ({
         type: "skill" as const,
         fqn,
         constraint,
+        source,
       })),
-      ...dependencies.groups["mcp-server"].map(([fqn, constraint]) => ({
+      ...dependencies.groups["mcp-server"].map(([fqn, constraint, source]) => ({
         type: "mcp-server" as const,
         fqn,
         constraint,
+        source,
       })),
-      ...dependencies.groups.subagent.map(([fqn, constraint]) => ({
+      ...dependencies.groups.subagent.map(([fqn, constraint, source]) => ({
         type: "subagent" as const,
         fqn,
         constraint,
+        source,
       })),
-      ...dependencies.groups.rule.map(([fqn, constraint]) => ({
+      ...dependencies.groups.rule.map(([fqn, constraint, source]) => ({
         type: "rule" as const,
         fqn,
         constraint,
+        source,
       })),
-      ...dependencies.groups.hook.map(([fqn, constraint]) => ({
+      ...dependencies.groups.hook.map(([fqn, constraint, source]) => ({
         type: "hook" as const,
         fqn,
         constraint,
+        source,
       })),
-      ...dependencies.groups.knowledge.map(([fqn, constraint]) => ({
+      ...dependencies.groups.knowledge.map(([fqn, constraint, source]) => ({
         type: "knowledge" as const,
         fqn,
         constraint,
+        source,
       })),
     ];
     const resolutions = yield* Effect.forEach(
       entries,
-      ({ type, fqn, constraint }) =>
+      (entry) =>
         resolveDependencyRefWithReleaseAge(
           pack,
-          type,
-          fqn,
-          constraint,
+          entry.type,
+          entry.fqn,
+          entry.constraint,
           sources,
           dependencyEvaluation,
-          sourceOverride,
+          entry.source === undefined
+            ? sourceOverride
+            : explicitRegistrySource(entry.source, parseFqnOrThrow(entry.fqn).owner),
           workspaceResolver,
           dependencyResolver,
         ),

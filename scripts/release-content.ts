@@ -11,6 +11,7 @@ export const RELEASE_CONTENT_SOURCES = {
   "install.ps1": "apps/cli/site-content/install.ps1",
   "install.cmd": "apps/cli/site-content/install.cmd",
   "install.md": "apps/cli/site-content/install.md",
+  "cli-reference.json": "apps/cli/site-content/__generated__/cli-reference/cli-reference.json",
   "axm-lock.schema.json": "apps/cli/site-content/__generated__/schemas/axm-lock.schema.json",
   "axm-package-meta.schema.json":
     "apps/cli/site-content/__generated__/schemas/axm-package-meta.schema.json",

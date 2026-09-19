@@ -238,7 +238,7 @@
     "produce-release-content": {
       "executor": "nx:run-commands",
       "cache": false,
-      "dependsOn": ["cli:generate:schemas"],
+      "dependsOn": ["cli:generate:schemas", "cli:generate:cli-reference"],
       "options": {
         "command": "bun scripts/release-content.ts",
         "cwd": "."

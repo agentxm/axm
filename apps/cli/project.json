@@ -49,6 +49,7 @@
         "generate:help-topics",
         "generate:bundled-axm-skill",
         "generate:schemas",
+        "generate:cli-reference",
         "generate:telemetry-client"
       ]
     },
@@ -152,6 +153,23 @@
       "executor": "nx:run-commands",
       "options": {
         "command": "bun --conditions=axm-source scripts/generate-schemas.ts",
+        "cwd": "apps/cli"
+      }
+    },
+    "generate:cli-reference": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": [
+        "production",
+        "^production",
+        "{projectRoot}/scripts/generate-cli-reference.ts",
+        "{projectRoot}/package.json",
+        "{workspaceRoot}/.prettierrc.json"
+      ],
+      "outputs": ["{projectRoot}/site-content/__generated__/cli-reference"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun --conditions=axm-source scripts/generate-cli-reference.ts",
         "cwd": "apps/cli"
       }
     },

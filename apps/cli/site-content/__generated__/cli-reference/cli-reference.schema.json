@@ -1,0 +1,132 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "schemaVersion": { "type": "number", "enum": [1] },
+    "cliVersion": { "type": "string" },
+    "command": { "$ref": "#/definitions/CliCommandReference" }
+  },
+  "required": ["schemaVersion", "cliVersion", "command"],
+  "additionalProperties": false,
+  "definitions": {
+    "CliCommandReference": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "aliases": { "type": "array", "items": { "type": "string" } },
+        "description": { "type": "string" },
+        "arguments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "aliases": { "type": "array", "items": { "type": "string" } },
+              "type": { "type": "string" },
+              "required": { "type": "boolean" },
+              "description": { "type": "string" },
+              "valueName": { "type": "string" },
+              "variadic": {
+                "type": "object",
+                "properties": { "min": { "type": "integer" }, "max": { "type": "integer" } },
+                "additionalProperties": false
+              },
+              "choices": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": { "value": { "type": "string" } },
+                  "required": ["value"],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": ["name", "aliases", "type", "required"],
+            "additionalProperties": false
+          }
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "aliases": { "type": "array", "items": { "type": "string" } },
+              "type": { "type": "string" },
+              "required": { "type": "boolean" },
+              "description": { "type": "string" },
+              "valueName": { "type": "string" },
+              "variadic": {
+                "type": "object",
+                "properties": { "min": { "type": "integer" }, "max": { "type": "integer" } },
+                "additionalProperties": false
+              },
+              "choices": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": { "value": { "type": "string" } },
+                  "required": ["value"],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": ["name", "aliases", "type", "required"],
+            "additionalProperties": false
+          }
+        },
+        "globalOptions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "aliases": { "type": "array", "items": { "type": "string" } },
+              "type": { "type": "string" },
+              "required": { "type": "boolean" },
+              "description": { "type": "string" },
+              "valueName": { "type": "string" },
+              "variadic": {
+                "type": "object",
+                "properties": { "min": { "type": "integer" }, "max": { "type": "integer" } },
+                "additionalProperties": false
+              },
+              "choices": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": { "value": { "type": "string" } },
+                  "required": ["value"],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": ["name", "aliases", "type", "required"],
+            "additionalProperties": false
+          }
+        },
+        "examples": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": { "command": { "type": "string" }, "description": { "type": "string" } },
+            "required": ["command"],
+            "additionalProperties": false
+          }
+        },
+        "subcommands": { "type": "array", "items": { "$ref": "#/definitions/CliCommandReference" } }
+      },
+      "required": [
+        "name",
+        "aliases",
+        "description",
+        "arguments",
+        "options",
+        "globalOptions",
+        "examples",
+        "subcommands"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

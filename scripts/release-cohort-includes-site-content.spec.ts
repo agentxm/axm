@@ -21,9 +21,9 @@ import { readReleaseWorkflow } from "./release-workflow-graph.js";
 
 export const specification = defineSpecification({
   requirement: "system/process/release-cohort-includes-site-content",
-  title: "Release cohort includes installers and schemas",
+  title: "Release cohort includes public site content",
   statement:
-    "Each stable release shall publish the four installer documents and ten generated JSON Schemas as immutable GitHub Release assets from the exact release commit, in addition to the five native binaries and their binaries-only SHA256SUMS manifest, and shall reject any undeclared release asset.",
+    "Each stable release shall publish the four installer documents, the generated CLI reference and ten generated JSON Schemas as immutable GitHub Release assets from the exact release commit, in addition to the five native binaries and their binaries-only SHA256SUMS manifest, and shall reject any undeclared release asset.",
   class: "process",
   role: "supporting",
   goals: ["trustworthy-distribution", "dependable-change-process"],
@@ -34,7 +34,7 @@ export const specification = defineSpecification({
   derivedFrom: [],
   supersedes: [],
   assumptions: [
-    "The generated schemas and installer documents in the release commit are the content intended for that release.",
+    "The generated CLI reference and schemas and the installer documents in the release commit are the content intended for that release.",
   ],
   openQuestions: [],
 });
@@ -42,7 +42,7 @@ export const specification = defineSpecification({
 const repositoryRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
 describe("Release site-content cohort", () => {
-  it.effect("stages exactly fourteen content assets from the release checkout", () =>
+  it.effect("stages exactly fifteen content assets from the release checkout", () =>
     Effect.acquireUseRelease(
       Effect.sync(() => mkdtempSync(join(tmpdir(), "axm-release-site-content-"))),
       (directory) =>
@@ -59,12 +59,12 @@ describe("Release site-content cohort", () => {
             .join("\n");
           writeFileSync(join(directory, CHECKSUM_MANIFEST), `${checksums}\n`, "utf8");
 
-          expect(EXPECTED_CONTENT_ASSETS).toHaveLength(14);
-          expect(EXPECTED_RELEASE_ASSETS).toHaveLength(20);
+          expect(EXPECTED_CONTENT_ASSETS).toHaveLength(15);
+          expect(EXPECTED_RELEASE_ASSETS).toHaveLength(21);
           expect(validateReleaseAssets(directory)).toEqual({
-            assetCount: 20,
+            assetCount: 21,
             binaryCount: 5,
-            contentCount: 14,
+            contentCount: 15,
           });
           expect(readFileSync(join(directory, CHECKSUM_MANIFEST), "utf8")).not.toContain(
             "schema.json",

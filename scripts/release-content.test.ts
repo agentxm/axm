@@ -16,7 +16,7 @@ afterEach(() => {
 });
 
 describe("release content", () => {
-  it("flattens exactly the installers and generated schemas into one immutable cohort", () => {
+  it("flattens exactly the installers, reference, and schemas into one immutable cohort", () => {
     const root = mkdtempSync(join(tmpdir(), "axm-release-content-"));
     temporaryDirectories.push(root);
     const source = join(root, "source");
@@ -29,7 +29,7 @@ describe("release content", () => {
 
     produceReleaseContent(source, output);
 
-    expect(validateReleaseContentAssets(output)).toEqual({ contentCount: 14 });
+    expect(validateReleaseContentAssets(output)).toEqual({ contentCount: 15 });
     for (const name of EXPECTED_CONTENT_ASSETS) {
       expect(readFileSync(join(output, name), "utf8")).toBe(`content:${name}`);
     }

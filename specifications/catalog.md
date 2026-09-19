@@ -4246,6 +4246,19 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
 - Source: [`packages/core/workspace/src/knowledge/query/capabilities/publishes-discovery-capabilities.spec.ts`](../packages/core/workspace/src/knowledge/query/capabilities/publishes-discovery-capabilities.spec.ts)
 
+##### The command reference reflects the released CLI
+
+- Requirement: `cli/reference-asset-reflects-command-tree`
+- Owner: `cli`
+- Statement: Each AXM release shall provide a deterministic, schema-versioned command-reference document containing every registered command and its CLI-owned names, aliases, descriptions, examples, arguments, options and choices, and generation shall fail when required command metadata is missing.
+- Class: functional
+- Role: interface
+- Product goals: `knowledge-access`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: contract, example
+- Derived from: `cli/command-help-is-complete`
+- Source: [`apps/cli/src/cli-reference-asset-reflects-command-tree.spec.ts`](../apps/cli/src/cli-reference-asset-reflects-command-tree.spec.ts)
+
 ### Goal: machine-automation
 
 Machine consumers can drive AgentXM surfaces non-interactively with complete, schema-backed results separated from diagnostics.
@@ -5057,18 +5070,18 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 #### Process
 
-##### Release cohort includes installers and schemas
+##### Release cohort includes public site content
 
 - Requirement: `system/process/release-cohort-includes-site-content`
 - Owner: `axm`
-- Statement: Each stable release shall publish the four installer documents and ten generated JSON Schemas as immutable GitHub Release assets from the exact release commit, in addition to the five native binaries and their binaries-only SHA256SUMS manifest, and shall reject any undeclared release asset.
+- Statement: Each stable release shall publish the four installer documents, the generated CLI reference and ten generated JSON Schemas as immutable GitHub Release assets from the exact release commit, in addition to the five native binaries and their binaries-only SHA256SUMS manifest, and shall reject any undeclared release asset.
 - Class: process
 - Role: supporting
 - Product goals: `trustworthy-distribution`, `dependable-change-process`
 - Boundary: repository; selection: per-change
 - Boundary rationale: The committed CI and publication workflows define the exact producer, artifact inventory, and immutable GitHub Release publication path.
 - Methods: contract
-- Assumptions: The generated schemas and installer documents in the release commit are the content intended for that release.
+- Assumptions: The generated CLI reference and schemas and the installer documents in the release commit are the content intended for that release.
 - Source: [`scripts/release-cohort-includes-site-content.spec.ts`](../scripts/release-cohort-includes-site-content.spec.ts)
 
 ##### Release automation uses only public distribution boundaries

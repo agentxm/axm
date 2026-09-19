@@ -42,9 +42,9 @@ describe("release checksums", () => {
     expect(lines).toHaveLength(5);
     expect(lines.map((line) => line.slice(66))).toEqual([...EXPECTED_BINARY_ASSETS].sort());
     expect(validateReleaseAssets(directory)).toEqual({
-      assetCount: 20,
+      assetCount: 21,
       binaryCount: 5,
-      contentCount: 14,
+      contentCount: 15,
     });
   });
 
@@ -77,7 +77,7 @@ describe("release checksums", () => {
     expect(() => validateReleaseAssets(mismatched)).toThrow(/checksum mismatch/u);
   });
 
-  it("requires every installer and published schema without adding them to SHA256SUMS", () => {
+  it("requires every installer, reference, and schema without adding them to SHA256SUMS", () => {
     const directory = fixtureDirectory();
     generateReleaseChecksums(directory);
     rmSync(join(directory, EXPECTED_CONTENT_ASSETS[0]));
@@ -85,6 +85,7 @@ describe("release checksums", () => {
 
     const manifest = readFileSync(join(directory, "SHA256SUMS"), "utf8");
     expect(manifest).not.toContain("install.sh");
+    expect(manifest).not.toContain("cli-reference.json");
     expect(manifest).not.toContain("schema.json");
   });
 });

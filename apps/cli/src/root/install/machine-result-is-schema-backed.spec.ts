@@ -45,9 +45,15 @@ describe("Machine install result contract", () => {
       cleanups.push(workspace.cleanup);
       const skillPackage = writeLocalSkillPackage(workspace.root, { name: "code-review" });
       yield* handleInstall({
+        type: Option.none(),
         source: Option.some(skillPackage),
+        selectors: {},
+        all: true,
         force: false,
         preview: options?.preview === true,
+        env: [],
+        localName: Option.none(),
+        bundled: false,
       }).pipe(Effect.provide(workspace.layer));
       const stdout = (workspace.streams?.lines("stdout") ?? []).join("\n");
       // Parsing the complete stream rejects a second document, progress text,

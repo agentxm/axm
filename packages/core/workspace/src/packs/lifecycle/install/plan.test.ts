@@ -1,8 +1,8 @@
 /**
  * The pack source grammar.
  *
- * `packs install` accepts a registry pattern or a bare name resolved against
- * the configured owner, and refuses every other locator shape. Reading the
+ * `packs install` accepts the shared source grammar, including a registry
+ * pattern or a bare name resolved against the configured owner. Reading the
  * grammar is a decision the settled request carries, so these examples parse
  * the request and read the parsed fields — or the refusal — back.
  */
@@ -53,20 +53,11 @@ describe("pack install source grammar", () => {
       )
       .pipe(Effect.provide(NodeServices.layer));
 
-  const refusal = (owner: string, source: string) =>
-    workspaceOwnedBy(owner)
-      .provide(
-        Effect.scoped(parsePackInstallRequest({ source, nonInteractive: true }))
-          .pipe(Effect.provide(NodeServices.layer))
-          .pipe(Effect.flip),
-      )
-      .pipe(Effect.provide(NodeServices.layer));
-
   it.effect("accepts @owner/packs/pack-name format", () =>
     Effect.gen(function* () {
       const parsed = yield* parse("@acme", "@acme/packs/my-pack");
-      expect(parsed.owner).toBe("@acme");
-      expect(parsed.packName).toBe("my-pack");
+      expect(parsed.owner).toEqual(Option.some("@acme"));
+      expect(parsed.packName).toEqual(Option.some("my-pack"));
       expect(parsed.versionRange).toEqual(Option.none());
       expect(parsed.inputKind).toBe("registry-pattern-input");
     }),
@@ -75,8 +66,8 @@ describe("pack install source grammar", () => {
   it.effect("accepts @owner/packs/pack-name@^2.0.0 with version constraint", () =>
     Effect.gen(function* () {
       const parsed = yield* parse("@acme", "@acme/packs/my-pack@^2.0.0");
-      expect(parsed.owner).toBe("@acme");
-      expect(parsed.packName).toBe("my-pack");
+      expect(parsed.owner).toEqual(Option.some("@acme"));
+      expect(parsed.packName).toEqual(Option.some("my-pack"));
       expect(parsed.versionRange).toEqual(Option.some("^2.0.0"));
     }),
   );
@@ -84,8 +75,8 @@ describe("pack install source grammar", () => {
   it.effect("resolves bare pack-name to @defaultScope/packs/pack-name", () =>
     Effect.gen(function* () {
       const parsed = yield* parse("@myorg", "my-pack");
-      expect(parsed.owner).toBe("@myorg");
-      expect(parsed.packName).toBe("my-pack");
+      expect(parsed.owner).toEqual(Option.some("@myorg"));
+      expect(parsed.packName).toEqual(Option.some("my-pack"));
       expect(parsed.resolvedInput).toBe("@myorg/packs/my-pack");
     }),
   );
@@ -93,34 +84,33 @@ describe("pack install source grammar", () => {
   it.effect("resolves bare pack-name@version with default owner", () =>
     Effect.gen(function* () {
       const parsed = yield* parse("@myorg", "my-pack@^2.0.0");
-      expect(parsed.owner).toBe("@myorg");
-      expect(parsed.packName).toBe("my-pack");
+      expect(parsed.owner).toEqual(Option.some("@myorg"));
+      expect(parsed.packName).toEqual(Option.some("my-pack"));
       expect(parsed.versionRange).toEqual(Option.some("^2.0.0"));
       expect(parsed.resolvedInput).toBe("@myorg/packs/my-pack@^2.0.0");
     }),
   );
 
-  it.effect("rejects @owner/pack-name without a /packs/ segment", () =>
+  it.effect("routes non-FQN slash input through source resolution", () =>
     Effect.gen(function* () {
-      const error = yield* refusal("@acme", "@acme/my-pack");
-      expect(error.category).toBe("usage");
-      expect(`${error.detail}`).toContain("registry");
+      const parsed = yield* parse("@acme", "@acme/my-pack");
+      expect(parsed.inputKind).toBe("source-locator-input");
     }),
   );
 
-  it.effect("rejects local path sources", () =>
+  it.effect("accepts local path sources", () =>
     Effect.gen(function* () {
-      const error = yield* refusal("@acme", "./local-path");
-      expect(error.category).toBe("usage");
-      expect(`${error.detail}`).toContain("registry");
+      const parsed = yield* parse("@acme", "./local-path");
+      expect(parsed.inputKind).toBe("source-locator-input");
+      expect(parsed.resolvedInput).toBe("./local-path");
     }),
   );
 
-  it.effect("rejects github shorthand sources", () =>
+  it.effect("accepts github shorthand sources", () =>
     Effect.gen(function* () {
-      const error = yield* refusal("@acme", "github:owner/repo");
-      expect(error.category).toBe("usage");
-      expect(`${error.detail}`).toContain("registry");
+      const parsed = yield* parse("@acme", "github:owner/repo");
+      expect(parsed.inputKind).toBe("source-locator-input");
+      expect(parsed.resolvedInput).toBe("github:owner/repo");
     }),
   );
 });
@@ -171,6 +161,131 @@ describe("pack install graph", () => {
       )}\n`,
     );
   };
+
+  const writeLocalPack = (
+    directory: string,
+    name: string,
+    dependencies: Readonly<Record<string, unknown>> = {},
+  ): void => {
+    fs.mkdirSync(directory, { recursive: true });
+    fs.writeFileSync(
+      nodePath.join(directory, "pack.json"),
+      `${JSON.stringify({
+        owner: "@acme",
+        type: "pack",
+        name,
+        version: "1.0.0",
+        description: `The ${name} pack.`,
+        dependencies,
+      })}\n`,
+    );
+  };
+
+  const writeLocalSkill = (directory: string, name: string): void => {
+    fs.mkdirSync(nodePath.join(directory, "src"), { recursive: true });
+    fs.writeFileSync(
+      nodePath.join(directory, "skill.json"),
+      `${JSON.stringify({
+        owner: "@acme",
+        type: "skill",
+        name,
+        version: "1.0.0",
+        description: `The ${name} skill.`,
+      })}\n`,
+    );
+    fs.writeFileSync(
+      nodePath.join(directory, "src", "SKILL.md"),
+      `---\nname: "${name}"\ndescription: "The ${name} skill."\n---\n`,
+    );
+  };
+
+  it.effect("installs a pack from a local source", () => {
+    const created = world();
+    const source = nodePath.join(created.workspace.root, "fixtures", "local-pack");
+    writeLocalPack(source, "local-pack");
+    return created.workspace
+      .provide(
+        Effect.gen(function* () {
+          const resolution = yield* applyInstall(packRequest(source));
+          expect(deriveOperationOutcome(resolution)).toBe("applied");
+          expect(JSON.stringify(readSettings(created.workspace))).toContain("local-pack");
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect("installs an explicit Registry member declared by a local pack", () => {
+    const created = world();
+    const { workspace, registry } = created;
+    const source = nodePath.join(workspace.root, "fixtures", "mixed-pack");
+    registry.writeSkill("official", [{ version: "1.2.0", body: "Official guidance." }]);
+    writeLocalPack(source, "mixed-pack", {
+      "@acme/skills/official": {
+        source: { type: "registry", url: registry.source.location },
+        versionRange: "^1.0.0",
+      },
+    });
+
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          const resolution = yield* applyInstall(packRequest(source));
+
+          expect(deriveOperationOutcome(resolution)).toBe("applied");
+          expect(workspace.exists("agent_extensions/path/@acme/packs/mixed-pack/pack.json")).toBe(
+            true,
+          );
+          expect(
+            workspace.exists("agent_extensions/registry/@acme/skills/official/src/SKILL.md"),
+          ).toBe(true);
+          const lockfile = workspace.readFile("axm-lock.yaml");
+          expect(lockfile).toContain("mixed-pack");
+          expect(lockfile).toContain("official");
+          expect(lockfile).toContain("1.2.0");
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect("refuses conflicting pack authorities and names every declaration", () => {
+    const created = world();
+    const { workspace, registry } = created;
+    const inheritedSource = nodePath.join(workspace.root, "fixtures", "inherited");
+    const registrySource = nodePath.join(workspace.root, "fixtures", "registry");
+    writeLocalPack(nodePath.join(inheritedSource, "packs", "inherited-pack"), "inherited-pack", {
+      "@acme/skills/shared": "^1.0.0",
+    });
+    writeLocalSkill(nodePath.join(inheritedSource, "skills", "shared"), "shared");
+    writeLocalPack(nodePath.join(registrySource, "packs", "registry-pack"), "registry-pack", {
+      "@acme/skills/shared": {
+        source: { type: "registry", url: registry.source.location },
+        versionRange: "^1.0.0",
+      },
+    });
+    registry.writeSkill("shared", [{ version: "1.0.0", body: "Registry guidance." }]);
+
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          const installed = yield* applyInstall(packRequest(inheritedSource));
+          expect(deriveOperationOutcome(installed)).toBe("applied");
+          const before = workspace.snapshot();
+
+          const resolution = yield* applyInstall(packRequest(registrySource));
+
+          expect(deriveOperationOutcome(resolution)).toBe("blocked");
+          const details = (resolution.riskConditions ?? []).map((condition) => condition.detail);
+          expect(details).toHaveLength(1);
+          expect(details[0]).toContain("@acme/packs/inherited-pack");
+          expect(details[0]).toContain("@acme/packs/registry-pack");
+          expect(details[0]).toContain(`path:${inheritedSource}`);
+          expect(details[0]).toContain(`registry:${registry.source.location}`);
+          expect(resolution.units.filter((unit) => unit.state === "committed")).toEqual([]);
+          expect(workspace.snapshot()).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
 
   it.effect("hard-blocks a Registry install over workspace pack authority", () => {
     const created = world({ packs: { toolkit: { source: "workspace", enabled: true } } });
@@ -226,8 +341,8 @@ describe("pack install graph", () => {
           expect(details).toHaveLength(2);
           expect(details.join("\n")).toContain("alpha");
           expect(details.join("\n")).toContain("beta");
-          expect(workspace.exists("agent_extensions/agentxm/@acme/skills/alpha")).toBe(false);
-          expect(workspace.exists("agent_extensions/agentxm/@acme/skills/beta")).toBe(false);
+          expect(workspace.exists("agent_extensions/registry/@acme/skills/alpha")).toBe(false);
+          expect(workspace.exists("agent_extensions/registry/@acme/skills/beta")).toBe(false);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

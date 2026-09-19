@@ -51,6 +51,38 @@ const writeKnowledge = (dir: string, name: string) => {
   );
 };
 
+const writeMcpServer = (dir: string, name: string) => {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, "mcp.json"),
+    JSON.stringify({
+      owner: "@acme",
+      type: "mcp-server",
+      name,
+      version: "1.0.0",
+      server: {
+        name: `io.acme/${name}`,
+        description: "An MCP server",
+        version: "1.0.0",
+      },
+    }),
+  );
+};
+
+const writePack = (dir: string, name: string) => {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, "pack.json"),
+    JSON.stringify({
+      owner: "@acme",
+      type: "pack",
+      name,
+      version: "1.0.0",
+      dependencies: { "@acme/skills/review": "^1.0.0" },
+    }),
+  );
+};
+
 describe("discoverConventionRefs", () => {
   let tempDir: string;
 
@@ -126,18 +158,23 @@ describe("discoverConventionRefs", () => {
     }),
   );
 
-  it.effect("ignores skills whose names do not conform to Agent Skills", () =>
+  it.effect("refuses manifests whose names do not conform to Agent Skills", () =>
     Effect.gen(function* () {
       writeSkill(path.join(tempDir, "pretty-skill"), "Pretty Skill");
 
-      const refs = yield* discoverConventionRefs(localSource(tempDir), tempDir, {
-        type: "skill",
-        names: [],
-        owner: Option.none(),
-        versionRange: Option.none(),
-      }).pipe(Effect.provide(NodeServices.layer));
+      const error = yield* Effect.flip(
+        discoverConventionRefs(localSource(tempDir), tempDir, {
+          type: "skill",
+          names: [],
+          owner: Option.none(),
+          versionRange: Option.none(),
+        }).pipe(Effect.provide(NodeServices.layer)),
+      );
 
-      expect(refs).toStrictEqual([]);
+      expect(error).toMatchObject({
+        category: "validation",
+      });
+      expect(error.detail).toContain("skill.json");
     }),
   );
 
@@ -159,6 +196,75 @@ describe("discoverConventionRefs", () => {
         expect(ref.knowledge.name).toBe("platform");
         expect(ref.location).toContain("directory-alias");
       }
+    }),
+  );
+
+  it.effect("discovers MCP server packages through the shared manifest finder", () =>
+    Effect.gen(function* () {
+      writeMcpServer(path.join(tempDir, "servers", "browser"), "browser");
+
+      const refs = yield* discoverConventionRefs(localSource(tempDir), tempDir, {
+        type: "mcp-server",
+        names: ["browser"],
+        owner: Option.some(decodeHandleSync("@acme")),
+        versionRange: Option.none(),
+      }).pipe(Effect.provide(NodeServices.layer));
+
+      expect(refs).toHaveLength(1);
+      const ref = refs[0];
+      expect(ref?.type).toBe("mcp-server");
+      if (ref?.type === "mcp-server" && ref.refType === "local") {
+        expect(ref.server.name).toBe("browser");
+        expect(ref.location).toContain("servers/browser");
+      }
+    }),
+  );
+
+  it.effect("discovers packs with their source-inherited member declarations", () =>
+    Effect.gen(function* () {
+      writePack(path.join(tempDir, "packs", "starter"), "starter");
+      writeSkill(path.join(tempDir, "skills", "review"), "review");
+
+      const refs = yield* discoverConventionRefs(localSource(tempDir), tempDir, {
+        type: "pack",
+        names: ["starter"],
+        owner: Option.some(decodeHandleSync("@acme")),
+        versionRange: Option.none(),
+      }).pipe(Effect.provide(NodeServices.layer));
+
+      expect(refs).toHaveLength(1);
+      const ref = refs[0];
+      expect(ref?.type).toBe("pack");
+      if (ref?.type === "pack" && ref.refType === "local") {
+        expect(ref.owner).toBe("@acme");
+        expect(ref.pack.name).toBe("starter");
+        expect(ref.pack.dependencies).toEqual({ "@acme/skills/review": "^1.0.0" });
+        expect(ref.sourceMembers).toHaveLength(1);
+        expect(ref.sourceMembers[0]).toMatchObject({
+          type: "skill",
+          owner: "@acme",
+          name: "review",
+        });
+        expect(ref.location).toContain("packs/starter");
+      }
+    }),
+  );
+
+  it.effect("refuses an ambiguous source-inherited Pack member identity", () =>
+    Effect.gen(function* () {
+      writePack(path.join(tempDir, "packs", "starter"), "starter");
+      writeSkill(path.join(tempDir, "skills", "review-a"), "review");
+      writeSkill(path.join(tempDir, "skills", "review-b"), "review");
+
+      const error = yield* discoverConventionRefs(localSource(tempDir), tempDir, {
+        type: "pack",
+        names: ["starter"],
+        owner: Option.some(decodeHandleSync("@acme")),
+        versionRange: Option.none(),
+      }).pipe(Effect.provide(NodeServices.layer), Effect.flip);
+
+      expect(error).toMatchObject({ category: "validation" });
+      expect(error.detail).toContain("same identity");
     }),
   );
 });

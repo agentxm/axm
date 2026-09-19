@@ -39,20 +39,17 @@ const acceptedRegistryRow = (
   name: string,
   extensionType: "skill" | "pack",
 ): Readonly<Record<string, unknown>> => ({
-  type: "registry",
-  sourceType: "registry",
-  sourceName: "agentxm",
-  endpoint: "https://registry.agentxm.ai",
-  extensionType,
-  workspaceName: name,
-  packageFormat: "agentxm",
-  owner: "@acme",
-  name,
-  resolvedVersion: "1.0.0",
-  integrity: "sha512-AAAA==",
-  publisherBindingId: "hbnd_test",
+  source: { type: "registry", url: "https://registry.agentxm.ai" },
+  identity: { owner: "@acme", name },
+  resolved: {
+    version: "1.0.0",
+    integrity: "sha512-AAAA==",
+    publisherBindingId: "hbnd_test",
+  },
   treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
-  ...(extensionType === "pack" ? { manifestContentIdentity: "test-content" } : {}),
+  ...(extensionType === "pack"
+    ? { manifestVersion: "1.0.0", manifestContentIdentity: "test-content", members: [] }
+    : {}),
 });
 
 /**
@@ -85,7 +82,7 @@ const makeWorkspace = (lockfile: Readonly<Record<string, unknown>>) => {
   // JSON is valid YAML, so the lockfile fixture needs no emitter.
   fs.writeFileSync(
     nodePath.join(root, "axm-lock.yaml"),
-    JSON.stringify({ lockfileVersion: 7, skills: {}, ...lockfile }),
+    JSON.stringify({ lockfileVersion: 8, skills: {}, ...lockfile }),
   );
   return {
     root,

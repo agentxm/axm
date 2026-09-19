@@ -54,9 +54,15 @@ describe("Non-terminal human output", () => {
       for (const name of longNames) {
         const skillPackage = writeLocalSkillPackage(workspace.root, { name });
         yield* handleInstall({
+          type: Option.none(),
           source: Option.some(skillPackage),
+          selectors: {},
+          all: true,
           force: false,
           preview: false,
+          env: [],
+          localName: Option.none(),
+          bundled: false,
         }).pipe(Effect.provide(workspace.layer));
       }
       workspace.streams?.log.splice(0);

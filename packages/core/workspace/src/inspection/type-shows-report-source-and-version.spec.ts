@@ -81,11 +81,11 @@ describe("Installed extension detail", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          yield* installRegistrySkill({ name: "review", source: "agentxm:@acme/skills/review" });
+          yield* installRegistrySkill({ name: "review", source: "test:@acme/skills/review" });
           const result = yield* ShowExtension.query({ type: "skill", name: "review" });
           expect(result.item).toMatchObject({
             name: "review",
-            source: "agentxm:@acme/skills/review",
+            source: "test:@acme/skills/review",
             version: "1.2.3",
             locked: true,
           });

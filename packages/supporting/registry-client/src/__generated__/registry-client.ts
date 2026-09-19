@@ -1285,12 +1285,22 @@ export type PackDependencyDescriptor = {
   readonly type: "hook" | "knowledge" | "mcp-server" | "rule" | "skill" | "subagent";
   readonly name: ExtensionName;
   readonly range: VersionRange;
+  readonly source?: { readonly type: "registry"; readonly url: string } | null;
 };
 export const PackDependencyDescriptor = Schema.Struct({
   owner: Handle,
   type: Schema.Literals(["hook", "knowledge", "mcp-server", "rule", "skill", "subagent"]),
   name: ExtensionName,
   range: VersionRange,
+  source: Schema.optionalKey(
+    Schema.Union([
+      Schema.Struct({
+        type: Schema.Literal("registry"),
+        url: Schema.String.annotate({ format: "uri" }),
+      }),
+      Schema.Null,
+    ]),
+  ),
 }).annotate({ identifier: "PackDependencyDescriptor" });
 export type CompanionPackage = {
   readonly purl: PackageIdentityPurl;
@@ -3130,6 +3140,15 @@ export type DiscoveryPostDiscoveryRequestJson = {
     readonly version: string;
     readonly declaredExtensions: ReadonlyArray<{
       readonly ref: ExtensionFqn;
+      readonly source:
+        | { readonly type: "registry"; readonly url: string }
+        | {
+            readonly type: "git";
+            readonly url: string;
+            readonly path?: string;
+            readonly revision?: string;
+          }
+        | { readonly type: "path"; readonly path: string };
       readonly versionRange?: string | null;
     }>;
   }>;
@@ -3143,6 +3162,19 @@ export const DiscoveryPostDiscoveryRequestJson = Schema.Struct({
       declaredExtensions: Schema.Array(
         Schema.Struct({
           ref: ExtensionFqn,
+          source: Schema.Union([
+            Schema.Struct({
+              type: Schema.Literal("registry"),
+              url: Schema.String.annotate({ format: "uri" }),
+            }),
+            Schema.Struct({
+              type: Schema.Literal("git"),
+              url: Schema.String.annotate({ format: "uri" }),
+              path: Schema.optionalKey(Schema.String),
+              revision: Schema.optionalKey(Schema.String),
+            }),
+            Schema.Struct({ type: Schema.Literal("path"), path: Schema.String }),
+          ]),
           versionRange: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
         }),
       ),
@@ -3157,11 +3189,28 @@ export type DiscoveryPostDiscovery200 = {
     readonly extensions: ReadonlyArray<{
       readonly ref: string;
       readonly resolved: boolean;
+      readonly source:
+        | { readonly type: "registry"; readonly url: string }
+        | {
+            readonly type: "git";
+            readonly url: string;
+            readonly path?: string;
+            readonly revision?: string;
+          }
+        | { readonly type: "path"; readonly path: string };
       readonly extension?: {
         readonly owner: string;
         readonly type: string;
         readonly name: string;
-        readonly installVersion: string;
+        readonly resolution:
+          | { readonly type: "registry"; readonly version: string }
+          | {
+              readonly type: "git";
+              readonly url: string;
+              readonly path?: string;
+              readonly revision?: string;
+            }
+          | { readonly type: "path"; readonly path: string };
       } | null;
       readonly attestedBy: ReadonlyArray<"package" | "extension">;
       readonly official: boolean;
@@ -3179,13 +3228,35 @@ export const DiscoveryPostDiscovery200 = Schema.Struct({
         Schema.Struct({
           ref: Schema.String,
           resolved: Schema.Boolean,
+          source: Schema.Union([
+            Schema.Struct({
+              type: Schema.Literal("registry"),
+              url: Schema.String.annotate({ format: "uri" }),
+            }),
+            Schema.Struct({
+              type: Schema.Literal("git"),
+              url: Schema.String.annotate({ format: "uri" }),
+              path: Schema.optionalKey(Schema.String),
+              revision: Schema.optionalKey(Schema.String),
+            }),
+            Schema.Struct({ type: Schema.Literal("path"), path: Schema.String }),
+          ]),
           extension: Schema.optionalKey(
             Schema.Union([
               Schema.Struct({
                 owner: Schema.String,
                 type: Schema.String,
                 name: Schema.String,
-                installVersion: Schema.String,
+                resolution: Schema.Union([
+                  Schema.Struct({ type: Schema.Literal("registry"), version: Schema.String }),
+                  Schema.Struct({
+                    type: Schema.Literal("git"),
+                    url: Schema.String.annotate({ format: "uri" }),
+                    path: Schema.optionalKey(Schema.String),
+                    revision: Schema.optionalKey(Schema.String),
+                  }),
+                  Schema.Struct({ type: Schema.Literal("path"), path: Schema.String }),
+                ]),
               }),
               Schema.Null,
             ]),

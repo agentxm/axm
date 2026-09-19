@@ -65,38 +65,63 @@ instruction files and agent directories there. A project folder that is the
 user home has no separate user scope, so these checks skip it.
 
 User scope uses `~/.axm/workspace/axm.json`,
-`~/.axm/workspace/axm-lock.yaml`, and the same source-qualified acquired
+`~/.axm/workspace/axm-lock.yaml`, and the same source-family acquired
 package scheme under `~/.axm/workspace/agent_extensions/`; the authority
 relationships are otherwise the same. Its runtime state is the inner
 `~/.axm/workspace/.axm/` directory. User scope has no authored type roots.
 
 ## Accepted external resolution
 
-Lockfile v7 contains only external resolutions. Every row records the source
-type and exact source name, accepted endpoint or local coordinate, original
-intent, immutable resolution, package format, workspace name, extension type,
-and strict integrity of the complete materialized package tree. Registry rows
-also pin version, archive integrity, and publisher binding. Git-hosted rows pin
-their host coordinates, selected subpath, commit, and tree; local rows pin a
-workspace-relative path. Workspace-authored, bundled, inline, projected, and
-command-history state does not belong in the lockfile.
+Lockfile v8 contains only external resolutions. Every row has four authorities:
+a self-describing `source` locator, package `identity`, immutable `resolved`
+identity, and `treeIntegrity` for the complete materialized package tree.
+Registry rows pin the Registry URL, version, archive integrity, and publisher
+binding. Git rows pin the repository URL, optional selected path and revision,
+commit, and tree. Path rows pin a workspace-relative path and tree identity.
+Workspace-authored, bundled, inline, projected, and command-history state does
+not belong in the lockfile.
 
-Source names are durable identity. The built-in names are `agentxm` for the
-AgentXM Registry and `github`, `gitlab`, and `bitbucket` for those hosts.
-Unqualified Registry identifiers resolve through `agentxm`; alternate
-registries must use their configured source name. `git`, `local`, and
-`workspace` are reserved coordinate kinds, and `default` has no special
-meaning. Changing the endpoint behind an accepted source name is drift: lint
-and sync block until an explicit lifecycle operation accepts the transition.
+Configured source names remain locator shorthand in `axm.json`; they are not
+lockfile identity. Unqualified Registry identifiers resolve through the
+configured `agentxm` source, while alternate registries use their configured
+source name. Once accepted, the lock row carries the resolved Registry or Git
+URL directly. If a named Registry now resolves to a different URL than the
+accepted row, lint and sync block until an explicit lifecycle operation accepts
+the transition.
+
+### Git acquisition and revision behavior
+
+Git locators may be a bare GitHub coordinate such as `owner/repo@v1.2.0`, a
+`github:`, `gitlab:`, or `bitbucket:` shorthand, or a full `https`, `ssh`, or
+`git` clone URL. `//path` selects a package directory within the repository.
+AXM resolves the selected revision to a commit when it first installs the
+package and records both that commit and the selected package tree.
+
+AXM uses the Git credentials already available to the `git` process, including
+configured credential helpers and SSH agents. Terminal credential prompts are
+disabled. AXM does not manage, persist, forward, or print Git credentials.
+
+`--reinstall` reacquires the commit recorded in the lockfile; it does not
+resolve the branch or tag again. If the remote no longer makes that commit
+reachable, reinstall fails and names both the locator and recorded commit.
+`axm update` advances a branch selector. Tag and commit selectors remain pinned;
+for a semantic-version tag, update reports a newer remote tag when one exists
+without changing the installation. Installing the same repository with a new
+tag, such as `owner/repo@v1.3.0`, is an explicit selector change and appears in
+preview before AXM updates the existing desired entry.
+
+Git submodules, Git LFS object hydration, and symlink materialization are not
+supported. LFS smudging is disabled, submodules are not initialized, and a
+symlink in selected package content fails materialization. Store ordinary files
+for every package byte AXM must install.
 
 Acquired canonical packages use
-`agent_extensions/<source-name>/<source-full-name>/` in project scope and
-`~/.axm/workspace/agent_extensions/<source-name>/<source-full-name>/` in user scope. Registry
-full names are `<@owner>/<plural-type>/<name>`; hosted Git full names preserve
-the repository owner or namespace, repository, and selected subpath. Azure
-Repos additionally preserves organization and project, generic Git preserves
-host and repository path, and local sources preserve their workspace-relative
-selected path.
+`agent_extensions/<source-family>/<@owner>/<plural-type>/<name>/` in project
+scope and the same suffix beneath `~/.axm/workspace/agent_extensions/` in user
+scope. The source family is `registry`, `git`, or `path`; portable packages
+without a publisher identity use `@portable`. Registry names, Git hosts and
+repositories, and local selected paths remain accepted source authority in the
+lockfile, but do not determine the canonical directory suffix.
 
 Registry `integrity` is the SRI SHA-512 digest of the published archive. AXM
 verifies downloaded archive bytes before extraction, then records
@@ -126,7 +151,7 @@ blocks that affected work instead of substituting current bytes.
 
 ## Unsupported lockfile versions
 
-AXM reads only lockfile v7. Every ordinary workspace-loading command checks a
+AXM reads only lockfile v8. Every ordinary workspace-loading command checks a
 present lockfile before command-specific work, and `--force` does not bypass
 that check. The error names the lockfile path plus its observed and supported
 versions.

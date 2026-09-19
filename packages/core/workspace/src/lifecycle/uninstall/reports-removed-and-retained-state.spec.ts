@@ -174,7 +174,7 @@ describe("Uninstall effect reporting", () => {
             candidate,
             previewPlanExecution,
           );
-          const canonical = "agent_extensions/agentxm/@acme/mcps/context";
+          const canonical = "agent_extensions/registry/@acme/mcps/context";
           const references = preview.units.flatMap((unit) => unit.artifact?.references ?? []);
           expect(references).toContainEqual({
             path: canonical,
@@ -244,8 +244,8 @@ describe("Uninstall effect reporting", () => {
                 .filter((target) => target.change === "removed")
                 .map((target) => target.path);
               const prefix = scope === "project" ? "" : ".axm/workspace/";
-              expect(paths).toContain(`${prefix}agent_extensions/mirror/@acme/packs/reviews`);
-              expect(paths).toContain(`${prefix}agent_extensions/mirror/@acme/skills/review`);
+              expect(paths).toContain(`${prefix}agent_extensions/registry/@acme/packs/reviews`);
+              expect(paths).toContain(`${prefix}agent_extensions/registry/@acme/skills/review`);
               const applied = yield* UninstallExtensions.previewOrApply(
                 candidate,
                 preapprovedPlanExecution,

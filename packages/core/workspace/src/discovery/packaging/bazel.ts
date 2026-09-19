@@ -13,7 +13,12 @@ import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
 import { readEnv } from "../internal/environment.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, decodePurl, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import {
+  decodeAgentExtensions,
+  decodePurl,
+  parseJsonOptional,
+  readFileOptional,
+} from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const bazelType = Schema.decodeUnknownSync(PackageTypeSchema)("bazel");
@@ -102,7 +107,7 @@ export const bazelDetector: PackageDetector = {
 /**
  * Bazel package reader.
  *
- * Reads `axm.json` from the Bazel external repository directory under
+ * Reads `agent-extensions.json` from the Bazel external repository directory under
  * the output base (`external/<repo>/`). The output base is checked via
  * the BAZEL_OUTPUT_BASE environment variable or a default location.
  *
@@ -122,22 +127,24 @@ export const bazelReader: PackageReader = {
       // Try to find output base from environment or common location
       const outputBase = readEnv("BAZEL_OUTPUT_BASE");
 
-      // Candidate paths for axm.json
+      // Candidate paths for agent-extensions.json
       const candidatePaths: Array<string> = [];
 
       if (outputBase !== undefined) {
-        candidatePaths.push(path.join(outputBase, "external", pkgName, "axm.json"));
+        candidatePaths.push(path.join(outputBase, "external", pkgName, "agent-extensions.json"));
       }
 
       // Also try project-local bazel-out external directory
-      candidatePaths.push(path.join(projectDir, "bazel-out", "external", pkgName, "axm.json"));
+      candidatePaths.push(
+        path.join(projectDir, "bazel-out", "external", pkgName, "agent-extensions.json"),
+      );
       candidatePaths.push(
         path.join(
           projectDir,
           "bazel-" + path.basename(projectDir),
           "external",
           pkgName,
-          "axm.json",
+          "agent-extensions.json",
         ),
       );
 
@@ -145,16 +152,18 @@ export const bazelReader: PackageReader = {
         const content = yield* readFileOptional(candidatePath);
         if (Option.isNone(content)) continue;
 
-        const parsed = yield* parseJsonOptional(content.value, `${pkgName}/axm.json`);
+        const parsed = yield* parseJsonOptional(content.value, `${pkgName}/agent-extensions.json`);
         if (Option.isNone(parsed)) return Option.none();
 
-        const metaResult = decodeAxmMeta(parsed.value);
+        const metaResult = yield* decodeAgentExtensions(parsed.value);
         if (Result.isFailure(metaResult)) {
-          yield* Effect.logWarning(`Invalid axm metadata in ${pkgName}: schema validation failed`);
+          yield* Effect.logWarning(
+            `Invalid agentExtensions metadata in ${pkgName}: schema validation failed`,
+          );
           return Option.none();
         }
 
-        return Option.some(metaResult.success.extensions);
+        return Option.some(metaResult.success.agentExtensions);
       }
 
       return Option.none();

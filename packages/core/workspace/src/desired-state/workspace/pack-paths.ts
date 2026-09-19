@@ -2,8 +2,8 @@
  * Centralized pack path computation.
  *
  * Provides types and a pure function for computing pack directory paths.
- * Packs are either workspace-authored or Registry-sourced. Acquired packs
- * retain the exact Registry source name in their canonical path.
+ * Packs use the same identity-based canonical layout as every other extension
+ * type.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -18,7 +18,7 @@ import type { WorkspaceLayout } from "./layout.js";
 /**
  * Computed path for an installed pack directory.
  *
- * `canonicalPath` = `<base>/agent_extensions/<source-name>/<owner>/packs/<name>/`
+ * `canonicalPath` = `<base>/agent_extensions/<family>/<owner>/packs/<name>/`
  *
  * No `src/` subdirectory for packs.
  */
@@ -29,12 +29,15 @@ export interface PackDirPath {
 export const computePackPathsForLayout = (
   join: (...paths: string[]) => string,
   layout: WorkspaceLayout,
-  sourceName: "workspace" | string,
+  sourceFamily: "git" | "path" | "registry" | "workspace",
   owner: Handle,
   name: string,
 ): PackDirPath => ({
-  canonicalPath:
-    layout.scope === "project" && sourceName === "workspace"
-      ? decodeAbsolutePathSync(join(layout.authoredRoot("pack"), name))
-      : decodeAbsolutePathSync(join(layout.acquiredRoot, sourceName, owner, "packs", name)),
+  canonicalPath: decodeAbsolutePathSync(
+    sourceFamily === "workspace"
+      ? layout.scope === "project"
+        ? join(layout.authoredRoot("pack"), name)
+        : join(layout.acquiredRoot, owner, "packs", name)
+      : join(layout.acquiredRoot, sourceFamily, owner, "packs", name),
+  ),
 });

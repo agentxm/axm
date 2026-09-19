@@ -33,7 +33,6 @@ import type { ExtensionInventoryLifecycle, ReadModelRecordRow } from "../../desi
 import {
   LockfileReader,
   type LockfileReaderService,
-  SettingsReader,
   WorkspaceRecords,
   type WorkspaceStateReadFailure,
 } from "../../desired-state/index.js";
@@ -74,7 +73,6 @@ export interface ExtensionListItem {
   readonly enabled: boolean | null;
   readonly version?: string;
   readonly source?: string;
-  readonly sourceName?: string;
   readonly assessment: ExtensionAssessment;
 }
 
@@ -86,6 +84,17 @@ type AcceptedEntry =
   | HookLockEntry
   | KnowledgeLockEntry
   | PackLockEntry;
+
+type RegistryAcceptedEntry = Extract<
+  AcceptedEntry,
+  { readonly source: { readonly type: "registry" } }
+>;
+type GitAcceptedEntry = Extract<AcceptedEntry, { readonly source: { readonly type: "git" } }>;
+
+const isRegistryAcceptedEntry = (entry: AcceptedEntry): entry is RegistryAcceptedEntry =>
+  entry.source.type === "registry";
+const isGitAcceptedEntry = (entry: AcceptedEntry): entry is GitAcceptedEntry =>
+  entry.source.type === "git";
 
 const getAcceptedEntry = (
   lockfile: LockfileReaderService,
@@ -189,8 +198,8 @@ export const collectExtensionListItems = Effect.fn("Workspace.collectExtensionLi
         locked === undefined ? undefined : printSourceParams(lockEntryToSourceParams(locked));
       const source = configuredSource ?? lockedSource;
       const identitySource =
-        locked?.type === "registry"
-          ? `${locked.owner}/${extensionTypeToPlural[row.type]}/${locked.name}`
+        locked !== undefined && isRegistryAcceptedEntry(locked)
+          ? `${locked.identity.owner}/${extensionTypeToPlural[row.type]}/${locked.identity.name}`
           : (configuredSource ?? lockedSource);
       const fqnSource =
         identitySource !== undefined && isWorkspaceSourceLocator(identitySource)
@@ -208,9 +217,10 @@ export const collectExtensionListItems = Effect.fn("Workspace.collectExtensionLi
         management: row.classification.lifecycle,
         installed: row.installed,
         enabled: row.enabled,
-        ...(locked?.type === "registry" ? { version: locked.resolvedVersion } : {}),
+        ...(locked !== undefined && isRegistryAcceptedEntry(locked)
+          ? { version: locked.resolved.version }
+          : {}),
         ...(source === undefined ? {} : { source }),
-        ...(locked?.type === "registry" ? { sourceName: locked.sourceName } : {}),
         assessment: { state: "not-checked" },
       };
     });
@@ -237,26 +247,11 @@ const constraintFromSource = (source: string | undefined) => {
 const registryAssessment = Effect.fn("Workspace.registryExtensionAssessment")(function* (
   item: ExtensionListItem,
   filter: Exclude<ExtensionListFilter, "all">,
-  record: AcceptedEntry,
+  record: RegistryAcceptedEntry,
 ) {
-  const settings = yield* SettingsReader;
-  if (record.type !== "registry") {
-    return {
-      state: "unknown",
-      reason: "Missing accepted Registry identity",
-    } satisfies ExtensionAssessment;
-  }
-  const identity = { owner: record.owner, type: item.type, name: record.name };
-  const sourceName = record.sourceName;
-  const source = yield* settings.sourceByName(sourceName);
-  if (Option.isNone(source) || source.value.type !== "registry") {
-    return {
-      state: "unknown",
-      reason: `Supplying Registry source "${sourceName}" is not configured`,
-    } satisfies ExtensionAssessment;
-  }
+  const identity = { owner: record.identity.owner, type: item.type, name: record.identity.name };
   const factory = yield* RegistryClientFactory;
-  const client = yield* factory.forLocation(source.value.location.href);
+  const client = yield* factory.forLocation(record.source.url.href);
   const index = yield* client.getExtensionIndex({
     owner: identity.owner,
     type: identity.type,
@@ -276,7 +271,7 @@ const registryAssessment = Effect.fn("Workspace.registryExtensionAssessment")(fu
           deprecation: index.value.deprecation,
         } satisfies ExtensionAssessment);
   }
-  const installedVersion = yield* decodeInstalledVersion(record.resolvedVersion, item.ref);
+  const installedVersion = yield* decodeInstalledVersion(record.resolved.version, item.ref);
   const constraint = constraintFromSource(item.source);
   const currency = checkCurrency(installedVersion, constraint, index.value);
   const updateAvailable = Option.exists(currency.latestMatching, (latestMatching) =>
@@ -299,15 +294,9 @@ const registryAssessment = Effect.fn("Workspace.registryExtensionAssessment")(fu
 
 const gitAssessment = Effect.fn("Workspace.gitExtensionAssessment")(function* (
   item: ExtensionListItem,
-  record: AcceptedEntry,
+  record: GitAcceptedEntry,
 ) {
   const providers = yield* SourceHostProviders;
-  if (record.type === "registry" || record.type === "local") {
-    return {
-      state: "unknown",
-      reason: "Accepted immutable resolution is missing",
-    } satisfies ExtensionAssessment;
-  }
   const source = yield* resolveSource(printSourceParams(lockEntryToSourceParams(record))).pipe(
     Effect.result,
   );
@@ -340,15 +329,13 @@ const gitAssessment = Effect.fn("Workspace.gitExtensionAssessment")(function* (
   }
   return {
     state:
-      match.gitTreeSha === record.resolvedTree && match.gitCommitSha === record.resolvedCommit
+      match.gitTreeSha === record.resolved.tree && match.gitCommitSha === record.resolved.commit
         ? "current"
         : "changed",
-    installedRevision: `${record.resolvedCommit}:${record.resolvedTree}`,
+    installedRevision: `${record.resolved.commit}:${record.resolved.tree}`,
     currentRevision: `${match.gitCommitSha}:${match.gitTreeSha}`,
   } satisfies ExtensionAssessment;
 });
-
-const gitAuthorities = new Set(["github", "gitlab", "bitbucket", "azurerepos", "git"]);
 
 const assessItem = (
   item: ExtensionListItem,
@@ -376,8 +363,8 @@ const assessItem = (
         reason: "Installed extension has no accepted external resolution",
       } satisfies ExtensionAssessment;
     }
-    if (record.type === "registry") return yield* registryAssessment(item, filter, record);
-    if (filter === "outdated" && gitAuthorities.has(record.type)) {
+    if (isRegistryAcceptedEntry(record)) return yield* registryAssessment(item, filter, record);
+    if (filter === "outdated" && isGitAcceptedEntry(record)) {
       return yield* gitAssessment(item, record);
     }
     return { state: "not-applicable" } satisfies ExtensionAssessment;

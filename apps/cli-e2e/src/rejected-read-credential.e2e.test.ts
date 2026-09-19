@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 import { defineExecutionBinding } from "@agentxm/specification-metadata";
 
 import { startHttpRegistry } from "./e2e/http-registry-server.js";
-import { createTempDir, runCli } from "./utils.js";
+import { createTempDir, runCli, writeUserDefaultRegistry } from "./utils.js";
 
 export const executionBinding = defineExecutionBinding({
   requirements: ["cli/reads-carry-the-invocations-credential"],
@@ -60,12 +60,12 @@ describe("A read the Registry rejects for its credential", () => {
         }),
         { mode: 0o600 },
       );
+      writeUserDefaultRegistry(home.path, registry.url);
 
       const result = await runCli(READ, {
         env: {
           HOME: home.path,
           AXM_USER_HOME: home.path,
-          AXM_REGISTRY_URL: registry.url,
           AXM_TOKEN: "",
           AXM_TOKEN_FILE: "",
           SSH_TTY: "/dev/ttys000",
@@ -74,7 +74,10 @@ describe("A read the Registry rejects for its credential", () => {
 
       // The retried read is answered on its merits: the extension is absent,
       // and a signed-in reader is not told to sign in.
-      expect(JSON.parse(result.stdout)).toMatchObject({ ok: false, code: "not_found" });
+      expect(JSON.parse(result.stdout), result.stdout + result.stderr).toMatchObject({
+        ok: false,
+        code: "not_found",
+      });
       expect(result.stdout).not.toContain("axm login");
       expect(registry.presentedRefreshTokens).toEqual(["axm_ref_stored"]);
       const reads = registry.requests.filter((request) => request.method === "GET");
@@ -90,16 +93,19 @@ describe("A read the Registry rejects for its credential", () => {
 
   it("reports a token file it cannot read instead of reading anonymously", async () => {
     const registry = await startHttpRegistry();
+    const home = createTempDir();
     try {
+      writeUserDefaultRegistry(home.path, registry.url);
       const result = await runCli(READ, {
         env: {
-          AXM_REGISTRY_URL: registry.url,
+          HOME: home.path,
+          AXM_USER_HOME: home.path,
           AXM_TOKEN: "",
           AXM_TOKEN_FILE: "/nonexistent/axm-token-file",
         },
       });
 
-      expect(result.exitCode).toBe(4);
+      expect(result.exitCode, result.stdout + result.stderr).toBe(4);
       expect(JSON.parse(result.stdout)).toMatchObject({
         ok: false,
         code: "auth",
@@ -108,23 +114,31 @@ describe("A read the Registry rejects for its credential", () => {
       // Nothing was asked of the Registry as if the person were nobody.
       expect(registry.requests).toEqual([]);
     } finally {
+      home.cleanup();
       await registry.close();
     }
   });
 
   it("reports a rejected ambient credential instead of reading anonymously", async () => {
     const registry = await startHttpRegistry();
+    const home = createTempDir();
     try {
+      writeUserDefaultRegistry(home.path, registry.url);
       const result = await runCli(READ, {
-        env: { AXM_REGISTRY_URL: registry.url, AXM_TOKEN: "unresolvable-token" },
+        env: {
+          HOME: home.path,
+          AXM_USER_HOME: home.path,
+          AXM_TOKEN: "unresolvable-token",
+        },
       });
 
-      expect(result.exitCode).toBe(4);
+      expect(result.exitCode, result.stdout + result.stderr).toBe(4);
       expect(JSON.parse(result.stdout)).toMatchObject({ ok: false, code: "auth" });
       expect(
         registry.requests.every((request) => request.authorization === "Bearer unresolvable-token"),
       ).toBe(true);
     } finally {
+      home.cleanup();
       await registry.close();
     }
   });

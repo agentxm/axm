@@ -12,8 +12,9 @@ Navigation for AXM workspace state, artifacts, and safe execution.
   agent-specific aliases, and contributed regions
 - [Managed-file ownership](managed-file-ownership.md) — The versioned ownership
   grammar and reconciliation rules for AXM-managed workspace output.
-- [Sources and resolution](sources.md) — source-host precedence and policies
-  that constrain external resolution
+- [Sources and resolution](sources.md) — How AXM turns source locators into
+  accepted external resolutions without confusing acquisition, identity, or
+  local names.
 - [Lockfile](lockfile.md) — accepted external resolutions, immutable content
   identity, and provenance
 - [Invariants](invariants.md) — shared workspace validity facts and recovery

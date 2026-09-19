@@ -13,7 +13,11 @@ import { HANDLE_PATTERN_SOURCE, HandleSchema } from "./handle.js";
 import { parseLicenseExpression } from "./license.js";
 import { CompanionPackageSchema } from "../package-urls/index.js";
 import { ExtensionMetadataSchema } from "./manifest-metadata.js";
-import { VersionSchema, VersionRangeSchema } from "../version-constraints/version-constraints.js";
+import {
+  VersionSchema,
+  VersionRangeSchema,
+  type VersionRange,
+} from "../version-constraints/version-constraints.js";
 
 /**
  * Author information for a manifest.
@@ -177,6 +181,15 @@ export type StandardGoverns = "package-body" | "runtime-protocol" | "host-file";
 /** Workspace-level capability a type participates in. */
 export type WorkspaceCapabilityKey = "instructions";
 
+/** Authority families an extension may be installed from. */
+export const extensionSourceFamilies = ["git", "registry", "path", "workspace"] as const;
+
+export type ExtensionSourceFamily = (typeof extensionSourceFamilies)[number];
+
+type ExtensionInstallability = {
+  readonly [Family in ExtensionSourceFamily]: boolean;
+};
+
 /**
  * One extension type's naming and capability-axis row. Every CONDITIONAL
  * parity obligation is a predicate over the five axis columns.
@@ -187,10 +200,12 @@ interface ExtensionTypeRow {
   readonly pluralLabel: string;
   readonly sentenceLabel: string;
   readonly pluralSentenceLabel: string;
+  readonly sourceDirectory: "src" | null;
   readonly distribution: ExtensionDistribution;
   readonly placement: ExtensionPlacement;
   readonly governs: StandardGoverns | null;
   readonly installInputs: boolean;
+  readonly installableFrom: ExtensionInstallability;
   readonly workspaceCapability: WorkspaceCapabilityKey | null;
 }
 
@@ -211,10 +226,12 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "Skills",
     sentenceLabel: "skill",
     pluralSentenceLabel: "skills",
+    sourceDirectory: "src",
     distribution: "registry",
     placement: "per-agent",
     governs: "package-body",
     installInputs: false,
+    installableFrom: { git: true, registry: true, path: true, workspace: true },
     workspaceCapability: null,
   },
   "mcp-server": {
@@ -223,10 +240,12 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "MCP Servers",
     sentenceLabel: "MCP server",
     pluralSentenceLabel: "MCP servers",
+    sourceDirectory: null,
     distribution: "registry",
     placement: "per-agent",
     governs: "runtime-protocol",
     installInputs: true,
+    installableFrom: { git: true, registry: true, path: true, workspace: true },
     workspaceCapability: null,
   },
   subagent: {
@@ -235,10 +254,12 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "Subagents",
     sentenceLabel: "subagent",
     pluralSentenceLabel: "subagents",
+    sourceDirectory: "src",
     distribution: "registry",
     placement: "per-agent",
     governs: null,
     installInputs: false,
+    installableFrom: { git: true, registry: true, path: true, workspace: true },
     workspaceCapability: null,
   },
   rule: {
@@ -247,10 +268,12 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "Rules",
     sentenceLabel: "rule",
     pluralSentenceLabel: "rules",
+    sourceDirectory: "src",
     distribution: "registry",
     placement: "workspace",
     governs: "host-file",
     installInputs: false,
+    installableFrom: { git: true, registry: true, path: true, workspace: true },
     workspaceCapability: "instructions",
   },
   hook: {
@@ -259,10 +282,12 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "Hooks",
     sentenceLabel: "hook",
     pluralSentenceLabel: "hooks",
+    sourceDirectory: "src",
     distribution: "registry",
     placement: "per-agent",
     governs: null,
     installInputs: false,
+    installableFrom: { git: true, registry: true, path: true, workspace: true },
     workspaceCapability: null,
   },
   knowledge: {
@@ -271,10 +296,12 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "Knowledge",
     sentenceLabel: "knowledge bundle",
     pluralSentenceLabel: "knowledge bundles",
+    sourceDirectory: "src",
     distribution: "registry",
     placement: "workspace",
     governs: "package-body",
     installInputs: false,
+    installableFrom: { git: true, registry: true, path: true, workspace: true },
     workspaceCapability: null,
   },
   pack: {
@@ -283,10 +310,12 @@ export const EXTENSION_TYPE_TABLE = {
     pluralLabel: "Packs",
     sentenceLabel: "pack",
     pluralSentenceLabel: "packs",
+    sourceDirectory: null,
     distribution: "registry",
     placement: "container",
     governs: null,
     installInputs: false,
+    installableFrom: { git: true, registry: true, path: true, workspace: true },
     workspaceCapability: null,
   },
 } as const satisfies { readonly [key: string]: ExtensionTypeRow };
@@ -400,6 +429,13 @@ export type RegistryType = PerAgentType | WorkspaceType;
 /** Extension types whose installs accept user-provided inputs. */
 export type InputType = TypesWhere<"installInputs", true>;
 
+/** Extension types installable from one source family. */
+export type InstallableFrom<Family extends ExtensionSourceFamily> = {
+  [Type in ExtensionType]: ExtensionTypeRows[Type]["installableFrom"][Family] extends true
+    ? Type
+    : never;
+}[ExtensionType];
+
 /** Extension types whose governing standard covers the package body. */
 export type BodyGovernedType = TypesWhere<"governs", "package-body">;
 
@@ -436,6 +472,24 @@ export const REGISTRY_EXTENSION_TYPES: ReadonlyArray<RegistryType> = extensionTy
 export const INPUT_EXTENSION_TYPES: ReadonlyArray<InputType> = extensionTypes.filter(
   (type): type is InputType => EXTENSION_TYPE_TABLE[type].installInputs,
 );
+
+/** Installability policy, total over every extension type and source family. */
+export const INSTALLABLE_FROM_BY_TYPE = EffectRecord.map(
+  EXTENSION_TYPE_TABLE,
+  (row) => row.installableFrom,
+);
+
+export const extensionTypesInstallableFrom = <Family extends ExtensionSourceFamily>(
+  family: Family,
+): ReadonlyArray<InstallableFrom<Family>> =>
+  extensionTypes.filter(
+    (type): type is InstallableFrom<Family> => INSTALLABLE_FROM_BY_TYPE[type][family],
+  );
+
+export const isInstallableFrom = <Family extends ExtensionSourceFamily>(
+  type: ExtensionType,
+  family: Family,
+): type is InstallableFrom<Family> => INSTALLABLE_FROM_BY_TYPE[type][family];
 
 export const BODY_GOVERNED_EXTENSION_TYPES: ReadonlyArray<BodyGovernedType> = extensionTypes.filter(
   (type): type is BodyGovernedType => EXTENSION_TYPE_TABLE[type].governs === "package-body",
@@ -855,6 +909,74 @@ export const NonPackExtensionDependencyConstraintMapSchema = Schema.Record(
 export type NonPackExtensionDependencyConstraintMap = Schema.Schema.Type<
   typeof NonPackExtensionDependencyConstraintMapSchema
 >;
+
+/**
+ * An explicit Registry source for one Pack member.
+ *
+ * Pack manifests intentionally carry the Registry URL rather than a configured
+ * source name so the declaration remains self-describing when shared.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const PackMemberRegistrySourceSchema = Schema.Struct({
+  type: Schema.Literal("registry"),
+  url: Schema.URLFromString,
+}).annotate({
+  identifier: "PackMemberRegistrySource",
+  description: "A self-describing Registry locator for one Pack member.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type PackMemberRegistrySource = Schema.Schema.Type<typeof PackMemberRegistrySourceSchema>;
+
+/**
+ * A Pack member constraint either inherits the Pack's source or names an
+ * explicit Registry source. Other locator families are deliberately absent.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const PackMemberConstraintSchema = Schema.Union([
+  VersionRangeSchema,
+  Schema.Struct({
+    source: PackMemberRegistrySourceSchema,
+    versionRange: VersionRangeSchema,
+  }).annotate({ identifier: "ExplicitRegistryPackMemberConstraint" }),
+]).annotate({
+  identifier: "PackMemberConstraint",
+  description:
+    "A version range that inherits the Pack source, or an explicit Registry locator and range.",
+});
+
+/** @experimental This API is unstable and may change without notice. */
+export type PackMemberConstraint = Schema.Schema.Type<typeof PackMemberConstraintSchema>;
+
+/** The semver range carried by either Pack member declaration form. */
+export const packMemberVersionRange = (constraint: PackMemberConstraint): VersionRange =>
+  typeof constraint === "string" ? constraint : constraint.versionRange;
+
+/** The explicit Registry locator, when the member does not inherit the Pack source. */
+export const packMemberRegistrySource = (
+  constraint: PackMemberConstraint,
+): PackMemberRegistrySource | undefined =>
+  typeof constraint === "string" ? undefined : constraint.source;
+
+/**
+ * Map of non-Pack extension identities to source-aware Pack member constraints.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export const PackMemberConstraintMapSchema = Schema.Record(
+  Schema.String,
+  PackMemberConstraintSchema,
+)
+  .check(Schema.isPropertyNames(NonPackExtensionFqnSchema))
+  .annotate({
+    description:
+      "Map of fully-qualified non-Pack extension names to inherited ranges or explicit Registry locators. Packs cannot depend on other Packs.",
+  });
+
+/** @experimental This API is unstable and may change without notice. */
+export type PackMemberConstraintMap = Schema.Schema.Type<typeof PackMemberConstraintMapSchema>;
 
 /**
  * Publish-time packaging options.

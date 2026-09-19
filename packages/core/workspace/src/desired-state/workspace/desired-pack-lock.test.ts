@@ -54,23 +54,20 @@ const externalPackGraph = {
 
 const lockfile = (manifestContentIdentity = computePackManifestContentIdentity(manifest)) =>
   ({
-    lockfileVersion: 7,
+    lockfileVersion: 8,
     skills: {},
     packs: {
       toolkit: {
-        type: "registry",
-        sourceType: "registry",
-        endpoint: new URL("https://registry.agentxm.ai"),
-        extensionType: "pack",
-        workspaceName: name,
-        packageFormat: "agentxm",
-        owner,
-        name,
-        resolvedVersion: version,
-        integrity: "sha512-test",
-        sourceName: "agentxm",
-        publisherBindingId: "hbnd_test",
+        source: { type: "registry", url: new URL("https://registry.agentxm.ai") },
+        identity: { owner, name },
+        resolved: {
+          version,
+          integrity: "sha512-test",
+          publisherBindingId: "hbnd_test",
+        },
+        manifestVersion: version,
         manifestContentIdentity,
+        members: [],
         treeIntegrity,
       },
     },
@@ -90,7 +87,7 @@ describe("validateDesiredPackLock", () => {
     const canonical = path.join(
       baseDir,
       "agent_extensions",
-      "agentxm",
+      "registry",
       "@acme",
       "packs",
       "toolkit",
@@ -108,7 +105,7 @@ describe("validateDesiredPackLock", () => {
         manifests: yield* PackManifests,
         layout,
         graph: externalPackGraph,
-        lockfile: { lockfileVersion: 7, skills: {} },
+        lockfile: { lockfileVersion: 8, skills: {} },
       });
 
       expect(validated.complete).toBe(false);
@@ -189,7 +186,7 @@ describe("validateDesiredPackLock", () => {
         manifests: yield* PackManifests,
         layout,
         graph,
-        lockfile: { lockfileVersion: 7, skills: {} },
+        lockfile: { lockfileVersion: 8, skills: {} },
       });
       expect(validated.complete).toBe(true);
     }).pipe(Effect.provide(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer))),

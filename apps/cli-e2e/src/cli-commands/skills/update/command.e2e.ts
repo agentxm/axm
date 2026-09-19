@@ -83,11 +83,10 @@ describe("axm skills update", () => {
 
         const lockAfter = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
         expect(lockAfter.skills["my-skill"]).toMatchObject({
-          type: lockBefore.skills["my-skill"].type,
-          path: lockBefore.skills["my-skill"].path,
+          source: lockBefore.skills["my-skill"].source,
         });
-        expect(lockAfter.skills["my-skill"].contentIdentity).not.toBe(
-          lockBefore.skills["my-skill"].contentIdentity,
+        expect(lockAfter.skills["my-skill"].resolved.tree).not.toBe(
+          lockBefore.skills["my-skill"].resolved.tree,
         );
         expect(lockAfter.skills["another-skill"]).toMatchObject(lockBefore.skills["another-skill"]);
         expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);
@@ -185,8 +184,8 @@ describe("axm skills update", () => {
 
         const lockAfter = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
         expect(lockAfter.skills["my-skill"]).toEqual(lockBefore.skills["my-skill"]);
-        expect(lockAfter.skills["another-skill"].contentIdentity).not.toBe(
-          lockBefore.skills["another-skill"].contentIdentity,
+        expect(lockAfter.skills["another-skill"].resolved.tree).not.toBe(
+          lockBefore.skills["another-skill"].resolved.tree,
         );
         expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);
         expect(fs.readFileSync(disabledSkillContentPath, "utf-8")).not.toContain(
@@ -230,8 +229,8 @@ describe("axm skills update", () => {
         expect(result.exitCode).toBe(0);
 
         const lockAfter = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
-        expect(lockAfter.skills["my-skill"].contentIdentity).not.toBe(
-          lockBefore.skills["my-skill"].contentIdentity,
+        expect(lockAfter.skills["my-skill"].resolved.tree).not.toBe(
+          lockBefore.skills["my-skill"].resolved.tree,
         );
         expect(lockAfter.skills["another-skill"]).toEqual(lockBefore.skills["another-skill"]);
         expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);

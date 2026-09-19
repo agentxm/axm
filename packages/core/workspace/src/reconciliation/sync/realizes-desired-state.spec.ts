@@ -1,3 +1,5 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -34,7 +36,7 @@ export const specification = defineSpecification({
 });
 
 const SKILL = "code-review";
-const CANONICAL = `agent_extensions/local/vendor/${SKILL}/src/SKILL.md`;
+const CANONICAL = `agent_extensions/path/@acme/skills/${SKILL}/src/SKILL.md`;
 const CLAUDE_PROJECTION = `.claude/skills/${SKILL}`;
 const UNIVERSAL_PROJECTION = `.agents/skills/${SKILL}`;
 
@@ -94,7 +96,7 @@ describe("Sync realizes desired workspace state", () => {
             settings: {
               ...settings,
               [settingsKey]: {
-                [name]: { source: `agentxm:@acme/${segment}/${name}@^1.0.0`, enabled },
+                [name]: { source: `test:@acme/${segment}/${name}@^1.0.0`, enabled },
               },
             },
           });
@@ -104,7 +106,7 @@ describe("Sync realizes desired workspace state", () => {
               Effect.gen(function* () {
                 const first = expectResolved(yield* applySync());
                 expect(deriveOperationOutcome(first)).toBe("applied");
-                const canonical = `agent_extensions/agentxm/@acme/${segment}/${name}`;
+                const canonical = `agent_extensions/registry/@acme/${segment}/${name}`;
                 expect(workspace.exists(canonical)).toBe(true);
                 if (!enabled) expect(workspace.exists(`.claude/skills/${name}`)).toBe(false);
                 workspace.writeSettings(settings);
@@ -133,7 +135,7 @@ describe("Sync realizes desired workspace state", () => {
         settings: {
           ...base,
           skills: {
-            retained: "agentxm:@acme/skills/retained@^1.0.0",
+            retained: "test:@acme/skills/retained@^1.0.0",
           },
         },
       });
@@ -143,13 +145,13 @@ describe("Sync realizes desired workspace state", () => {
           Effect.gen(function* () {
             yield* applySync();
             const retained = workspace.readFile(
-              "agent_extensions/agentxm/@acme/skills/retained/src/SKILL.md",
+              "agent_extensions/registry/@acme/skills/retained/src/SKILL.md",
             );
             workspace.writeSettings({
               ...base,
               skills: {
-                retained: "agentxm:@acme/skills/retained@^2.0.0",
-                ready: "agentxm:@acme/skills/ready@^1.0.0",
+                retained: "test:@acme/skills/retained@^2.0.0",
+                ready: "test:@acme/skills/ready@^1.0.0",
               },
             });
             const settings = workspace.readFile("axm.json");
@@ -157,10 +159,10 @@ describe("Sync realizes desired workspace state", () => {
             expect(deriveOperationOutcome(result)).not.toBe("applied");
             expect(JSON.stringify(result)).toContain("accepted-resolution-incompatible");
             expect(
-              workspace.exists("agent_extensions/agentxm/@acme/skills/ready/src/SKILL.md"),
+              workspace.exists("agent_extensions/registry/@acme/skills/ready/src/SKILL.md"),
             ).toBe(true);
             expect(
-              workspace.readFile("agent_extensions/agentxm/@acme/skills/retained/src/SKILL.md"),
+              workspace.readFile("agent_extensions/registry/@acme/skills/retained/src/SKILL.md"),
             ).toBe(retained);
             expect(workspace.readFile("axm.json")).toBe(settings);
             expect((yield* applySync())._tag).not.toBe("AlreadyReconciled");
@@ -204,7 +206,7 @@ describe("Sync realizes desired workspace state", () => {
             yield* applySync();
 
             const accepted = yield* lockfile.entry("skill", SKILL);
-            expect(Option.getOrUndefined(accepted)).toMatchObject({ type: "local" });
+            expect(Option.getOrUndefined(accepted)).toMatchObject({ source: { type: "path" } });
             expect(JSON.stringify(workspace.readSettings())).toBe(settingsBefore);
             expect(workspace.exists(CANONICAL)).toBe(true);
             expect(workspace.exists(CLAUDE_PROJECTION)).toBe(true);
@@ -254,6 +256,39 @@ describe("Sync realizes desired workspace state", () => {
           expect(workspace.readFile(CANONICAL)).toBe(sourceContent);
           expect(workspace.exists(CLAUDE_PROJECTION)).toBe(true);
           expect(yield* lockfile.entry("skill", SKILL)).toEqual(acceptedBefore);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect("repairs a package materialized under the former source-named layout", () => {
+    const registry = makeFileRegistry();
+    cleanups.push(registry.cleanup);
+    registry.writeSkill(SKILL, [{ version: "1.0.0", body: "Review." }]);
+    const workspace = makeSyncFixture({
+      settings: {
+        owner: "@acme",
+        agents: ["claude-code"],
+        sources: [registry.source],
+        skills: { [SKILL]: `test:@acme/skills/${SKILL}` },
+      },
+    });
+    cleanups.push(workspace.cleanup);
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applySync();
+          const canonical = `agent_extensions/registry/@acme/skills/${SKILL}`;
+          const former = `agent_extensions/agentxm/@acme/skills/${SKILL}`;
+          fs.mkdirSync(path.dirname(path.join(workspace.root, former)), { recursive: true });
+          fs.renameSync(path.join(workspace.root, canonical), path.join(workspace.root, former));
+
+          const repaired = expectResolved(yield* applySync());
+
+          expect(deriveOperationOutcome(repaired)).toBe("applied");
+          expect(workspace.exists(canonical)).toBe(true);
+          expect(workspace.exists(former)).toBe(false);
+          expect((yield* applySync())._tag).toBe("AlreadyReconciled");
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

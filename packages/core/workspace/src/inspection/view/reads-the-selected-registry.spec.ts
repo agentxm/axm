@@ -44,10 +44,7 @@ const publishedIndex = {
 const companyRegistry = "https://company-registry.example.test";
 const handle = "@acme/skills/review";
 
-const configuredSources = [
-  { name: "company", type: "registry", location: companyRegistry },
-  { name: "code", type: "github", url: "https://github.com" },
-];
+const configuredSources = [{ name: "company", type: "registry", location: companyRegistry }];
 
 describe("Registry-selected extension view", () => {
   for (const named of [false, true])
@@ -83,7 +80,7 @@ describe("Registry-selected extension view", () => {
         .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
     });
 
-  for (const registry of ["absent", "code"])
+  for (const registry of ["absent"])
     it.effect(`does not substitute a Registry for unavailable named source ${registry}`, () => {
       const fixture = makeInspectionFixture({
         settings: { sources: configuredSources },

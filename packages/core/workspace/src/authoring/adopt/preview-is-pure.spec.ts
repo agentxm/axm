@@ -43,7 +43,7 @@ describe("Adopt preview purity", () => {
     const created = makeAuthoringWorkspace({ owner: "@acme", agents: [] });
     cleanups.push(created.cleanup);
     writeAuthoringPackage(created.root, authoringTypeFor("skill"), "review", {
-      parent: "agent_extensions/agentxm/@acme/skills",
+      parent: "agent_extensions/registry/@acme/skills",
     });
     return { created, before: created.snapshot() };
   };
@@ -72,7 +72,7 @@ describe("Adopt preview purity", () => {
       ]);
       expect(created.snapshot()).toEqual(before);
       expect(created.exists("skills/review")).toBe(false);
-      expect(created.exists("agent_extensions/agentxm/@acme/skills/review/skill.json")).toBe(true);
+      expect(created.exists("agent_extensions/registry/@acme/skills/review/skill.json")).toBe(true);
       expect(environment.interaction.confirmApplyChangesCalls).toEqual([]);
     }),
   );

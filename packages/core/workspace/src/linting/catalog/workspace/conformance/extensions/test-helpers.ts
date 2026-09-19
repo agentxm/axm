@@ -11,6 +11,7 @@ import type {
 import type { WorkspaceRuleContext } from "../../../../workspace-context.js";
 import { configuredButNotInstalledRule } from "../../configured-but-not-installed.js";
 import { packsDependenciesResolvedRule } from "../../packs-dependencies-resolved.js";
+import { packsSharedMembersDistributableRule } from "../../packs-shared-members-distributable.js";
 import { skillsLockfileAlignedRule } from "../../skills-lockfile-aligned.js";
 import { skillsIntegrityValidRule } from "../../skills-integrity-valid.js";
 import { skillsArtifactsCorrectRule } from "../../skills-artifacts-correct.js";
@@ -37,10 +38,10 @@ const configuredSubagent = (canonicalPresent: boolean): InstalledSubagent => ({
         {
           key: { scope: "project", type: "subagent", name: decodeExtensionNameSync("reviewer") },
           origin: { _tag: "canonical-axm-subagent" },
-          contentRoot: "/workspace/agent_extensions/agentxm/@acme/subagents/reviewer/src",
+          contentRoot: "/workspace/agent_extensions/registry/@acme/subagents/reviewer/src",
           sourcePath:
-            "/workspace/agent_extensions/agentxm/@acme/subagents/reviewer/src/reviewer.md",
-          packageRoot: "/workspace/agent_extensions/agentxm/@acme/subagents/reviewer",
+            "/workspace/agent_extensions/registry/@acme/subagents/reviewer/src/reviewer.md",
+          packageRoot: "/workspace/agent_extensions/registry/@acme/subagents/reviewer",
         },
       ]
     : [],
@@ -103,22 +104,17 @@ const skillLockContext = (accepted: boolean) =>
     lockfile: {
       _tag: "valid",
       contents: {
-        lockfileVersion: 7,
+        lockfileVersion: 8,
         skills: accepted
           ? {
               reviewer: {
-                type: "registry",
-                sourceType: "registry",
-                sourceName: "agentxm",
-                endpoint: "https://registry.agentxm.ai",
-                extensionType: "skill",
-                workspaceName: "reviewer",
-                packageFormat: "agentxm",
-                owner: "@acme",
-                name: "reviewer",
-                resolvedVersion: "1.2.0",
-                integrity: "sha512-stub",
-                publisherBindingId: "hbnd_test",
+                source: { type: "registry", url: "https://registry.agentxm.ai" },
+                identity: { owner: "@acme", name: "reviewer" },
+                resolved: {
+                  version: "1.2.0",
+                  integrity: "sha512-stub",
+                  publisherBindingId: "hbnd_test",
+                },
                 treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
               },
             }
@@ -158,9 +154,9 @@ export const skillsLockfileAlignedConformance: WorkspaceRuleConformanceCase = {
 const canonicalReviewer: ActualSkill = {
   key: { scope: "project", type: "skill", name: decodeExtensionNameSync("reviewer") },
   origin: { _tag: "canonical-axm-skill" },
-  contentRoot: "/workspace/agent_extensions/agentxm/@acme/skills/reviewer/src",
-  sourcePath: "/workspace/agent_extensions/agentxm/@acme/skills/reviewer/src/SKILL.md",
-  packageRoot: "/workspace/agent_extensions/agentxm/@acme/skills/reviewer",
+  contentRoot: "/workspace/agent_extensions/registry/@acme/skills/reviewer/src",
+  sourcePath: "/workspace/agent_extensions/registry/@acme/skills/reviewer/src/SKILL.md",
+  packageRoot: "/workspace/agent_extensions/registry/@acme/skills/reviewer",
   hasSkillMd: true,
   hasSkillJson: true,
 };
@@ -271,7 +267,7 @@ const packDeclaredReviewer = {
     {
       type: "pack",
       pack: "@acme/packs/quality",
-      manifestPath: "agent_extensions/agentxm/@acme/packs/quality/pack.json",
+      manifestPath: "agent_extensions/registry/@acme/packs/quality/pack.json",
       source: "@acme/skills/reviewer@^1.0.0",
       constraint: "^1.0.0",
       enabled: true,
@@ -296,6 +292,43 @@ const packDependencyContext = (accepted: boolean) =>
         }) satisfies WorkspaceRuleContext,
     ),
   );
+
+const sharedPackDistributionContext = (distribute: boolean) =>
+  contextFor({
+    settings: validSettings({
+      skills: { reviewer: { source: "workspace", distribute } },
+      packs: { quality: "workspace" },
+    }),
+    lockfile: validLockfile,
+  }).pipe(
+    Effect.map(
+      (context) =>
+        ({
+          ...context,
+          health: {
+            desiredState: Effect.succeed({
+              complete: true,
+              nodes: [packDeclaredReviewer],
+              mcpSourceClosures: [],
+              problems: [],
+            }),
+          },
+        }) satisfies WorkspaceRuleContext,
+    ),
+  );
+
+export const packsSharedMembersDistributableConformance: WorkspaceRuleConformanceCase = {
+  rule: packsSharedMembersDistributableRule,
+  satisfied: () => sharedPackDistributionContext(true),
+  violated: () => sharedPackDistributionContext(false),
+  expectedFindings: [
+    {
+      message: "Shared pack '@acme/packs/quality' names opted-out skill 'reviewer'.",
+      location: { file: "agent_extensions/registry/@acme/packs/quality/pack.json" },
+    },
+  ],
+  inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
+};
 
 export const packsDependenciesResolvedConformance: WorkspaceRuleConformanceCase = {
   rule: packsDependenciesResolvedRule,

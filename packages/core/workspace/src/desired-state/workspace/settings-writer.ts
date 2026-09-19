@@ -1,6 +1,6 @@
 /**
  * Settings writer: every settings-only mutation of the selected scope —
- * owner, source hosts, instruction-file configuration, agent membership, and
+ * owner, registries, instruction-file configuration, agent membership, and
  * one configured entry at a time. Each write protects the settings file with
  * the active transaction, publishes atomically, and is serialized by the
  * workspace's mutation mutex.

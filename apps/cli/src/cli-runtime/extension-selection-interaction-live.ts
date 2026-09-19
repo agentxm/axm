@@ -13,6 +13,12 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import {
+  InstallSelectionCancelled,
+  InstallSelectionInteraction,
+  InstallSelectionUnavailable,
+  type InstallSelectionCandidate,
+} from "@agentxm/workspace/lifecycle";
+import {
   SkillSelectionCancelled,
   SkillSelectionInteraction,
   SkillSelectionUnavailable,
@@ -37,6 +43,41 @@ const candidateOption = <T>(
   value,
   ...(Option.isSome(description) ? { details: [description.value] } : {}),
 });
+
+/** The terminal interaction shared by rule, hook, Knowledge, MCP, and Pack installs. */
+export const InstallSelectionLive = Layer.effect(InstallSelectionInteraction)(
+  Effect.gen(function* () {
+    const screen = yield* Screen;
+    return {
+      select: (candidates: ReadonlyArray<InstallSelectionCandidate>) =>
+        screen
+          .ask(
+            pickAsk({
+              question: "Select extensions to install",
+              label: "Extensions",
+              noun: { one: "extension", other: "extensions" },
+              min: 1,
+              options: candidates.map((candidate) =>
+                candidateOption(candidate.name, candidate.description, candidate),
+              ),
+            }),
+            {
+              message: "Select extensions to install",
+              guidance:
+                "Name extensions with their per-type flags, take all with --all, or rerun without --json.",
+            },
+          )
+          .pipe(
+            Effect.catchTag("QuestionCancelled", (error) =>
+              Effect.fail(new InstallSelectionCancelled({ message: error.message })),
+            ),
+            Effect.catchTag("AppError", (cause) =>
+              Effect.fail(new InstallSelectionUnavailable({ cause })),
+            ),
+          ),
+    };
+  }),
+);
 
 /** The terminal implements only the skill interaction contract. */
 export const SkillSelectionLive = Layer.effect(SkillSelectionInteraction)(
@@ -109,4 +150,8 @@ export const SubagentSelectionLive = Layer.effect(SubagentSelectionInteraction)(
 );
 
 /** Root installation composes the two independently usable interfaces. */
-export const ExtensionSelectionLive = Layer.mergeAll(SkillSelectionLive, SubagentSelectionLive);
+export const ExtensionSelectionLive = Layer.mergeAll(
+  SkillSelectionLive,
+  SubagentSelectionLive,
+  InstallSelectionLive,
+);

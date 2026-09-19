@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -31,6 +32,27 @@ export const runCli = (args: ReadonlyArray<string>, options: RunCliOptions = {})
   });
 
 export { createTempDir };
+
+/** Select a controlled Registry through the same durable settings contract as production. */
+export const writeDefaultRegistrySettings = (settingsPath: string, location: string): void => {
+  const existing: unknown = fs.existsSync(settingsPath)
+    ? JSON.parse(fs.readFileSync(settingsPath, "utf8"))
+    : {};
+  const settings =
+    typeof existing === "object" && existing !== null && !Array.isArray(existing) ? existing : {};
+  fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+  fs.writeFileSync(
+    settingsPath,
+    `${JSON.stringify({
+      ...settings,
+      defaultRegistry: "test",
+      sources: [{ name: "test", type: "registry", location }],
+    })}\n`,
+  );
+};
+
+export const writeUserDefaultRegistry = (home: string, location: string): void =>
+  writeDefaultRegistrySettings(path.join(home, ".axm", "workspace", "axm.json"), location);
 
 export const FIXTURES_PATH = fileURLToPath(new URL("./fixtures/", import.meta.url));
 const skillsRepoFixtureSource = path.join(FIXTURES_PATH, "skills-repo");

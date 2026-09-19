@@ -847,7 +847,7 @@
     {
       "id": 80,
       "stage": "execution",
-      "prompt": "Treat this as supplied evidence: lint is compatible except `workspace/installed-but-not-configured` for `@craigsmitham/skills/author-docs` at `agent_extensions/agentxm/@craigsmitham/skills/author-docs`; `axm sync --preview --fail-on-change --json` plans one removal unit for it; the CLI is current; nothing is outdated or deprecated; `git status` shows that root tracked with no changes. Run `/axm doctor` without modifying files.",
+      "prompt": "Treat this as supplied evidence: lint is compatible except `workspace/installed-but-not-configured` for `@craigsmitham/skills/author-docs` at `agent_extensions/registry/@craigsmitham/skills/author-docs`; `axm sync --preview --fail-on-change --json` plans one removal unit for it; the CLI is current; nothing is outdated or deprecated; `git status` shows that root tracked with no changes. Run `/axm doctor` without modifying files.",
       "expected_output": "A leftover installed package finding fixed only by `axm sync`, with full cleanup first naming the sync; nothing is applied.",
       "assertions": [
         "The finding cites `workspace/installed-but-not-configured`, fixes it with `axm sync`, and verifies with `axm sync --preview --fail-on-change --json` returning `no-op`.",
@@ -909,7 +909,7 @@
     {
       "id": 86,
       "stage": "execution",
-      "prompt": "Treat this as supplied evidence: a doctor report offered D1 (undeclared authored package `skills/notes`: D1a adopt in place recommended, D1c remove) and D2 (`workspace/install-root-entries-recognized` for `agent_extensions/agentxm/notes.txt`, tracked and clean: D2a remove recommended, D2b keep). The user replied: clean up whatever you can. Plan the repair without modifying files.",
+      "prompt": "Treat this as supplied evidence: a doctor report offered D1 (undeclared authored package `skills/notes`: D1a adopt in place recommended, D1c remove) and D2 (`workspace/install-root-entries-recognized` for `agent_extensions/registry/notes.txt`, tracked and clean: D2a remove recommended, D2b keep). The user replied: clean up whatever you can. Plan the repair without modifying files.",
       "expected_output": "A custom plan rendered as a review gate that deletes no authored or unowned content without an explicit option selection.",
       "assertions": [
         "The free-text request is treated as a plan to approve, and nothing is applied.",
@@ -919,7 +919,7 @@
     {
       "id": 87,
       "stage": "execution",
-      "prompt": "Treat this as supplied evidence: lint is compatible except `workspace/install-root-entries-recognized` for file `agent_extensions/agentxm/notes.txt`; sync preview is `no-op`; the CLI is current; `git status` shows it untracked. Run `/axm doctor` without modifying files.",
+      "prompt": "Treat this as supplied evidence: lint is compatible except `workspace/install-root-entries-recognized` for file `agent_extensions/registry/notes.txt`; sync preview is `no-op`; the CLI is current; `git status` shows it untracked. Run `/axm doctor` without modifying files.",
       "expected_output": "A finding that offers removal but recommends keeping the unrecognized entry, noting sync never removes it; nothing is applied.",
       "assertions": [
         "Removal via `git rm -r` is offered but keep is recommended because the entry is untracked.",

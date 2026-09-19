@@ -1,7 +1,7 @@
 /**
  * Canonical-extensions scanner: covers canonical AXM
  * (`agent_extensions/<owner>/<type-plural>/<name>/src/`) and external AXM
- * (`agent_extensions/<source>/<source-full-name>/`) materializations across
+ * (`agent_extensions/<family>/<owner>/<plural-type>/<name>/`) materializations across
  * all extension types.
  *
  * Each occurrence carries the scanner-tier origin (`canonical-axm` |
@@ -71,27 +71,27 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
     }),
   );
 
-  it.effect("emits native occurrences beneath a source-qualified Registry root", () =>
+  it.effect("emits native occurrences beneath an identity-qualified Registry root", () =>
     Effect.gen(function* () {
       const { occurrences } = yield* runScanner({
         workspaceRoot: WORKSPACE_ROOT,
         userHome: USER_HOME,
         project: {
           axmExtensions: {
-            "agentxm/@owner/skills/some-skill/skill.json": JSON.stringify({
+            "registry/@owner/skills/some-skill/skill.json": JSON.stringify({
               owner: "@owner",
               type: "skill",
               name: "some-skill",
               version: "1.0.0",
             }),
-            "agentxm/@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
-            "agentxm/@owner/hooks/some-hook/hook.json": JSON.stringify({
+            "registry/@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
+            "registry/@owner/hooks/some-hook/hook.json": JSON.stringify({
               owner: "@owner",
               type: "hook",
               name: "some-hook",
               version: "1.0.0",
             }),
-            "agentxm/@owner/hooks/some-hook/src/hook.sh": "#!/bin/sh\n",
+            "registry/@owner/hooks/some-hook/src/hook.sh": "#!/bin/sh\n",
           },
         },
       });
@@ -107,7 +107,7 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
         origin: "canonical-axm",
         name: "some-hook",
         owner: "@owner",
-        contentLocation: "/ws/agent_extensions/agentxm/@owner/hooks/some-hook/src",
+        contentLocation: "/ws/agent_extensions/registry/@owner/hooks/some-hook/src",
       });
       expect(sorted[1]).toMatchObject({
         _tag: "canonical-extension",
@@ -116,7 +116,7 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
         origin: "canonical-axm",
         name: "some-skill",
         owner: "@owner",
-        contentLocation: "/ws/agent_extensions/agentxm/@owner/skills/some-skill/src",
+        contentLocation: "/ws/agent_extensions/registry/@owner/skills/some-skill/src",
       });
     }),
   );
@@ -128,7 +128,7 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
         userHome: USER_HOME,
         project: {
           axmExtensions: {
-            "agentxm/@owner/mcps/tools/mcp.json": JSON.stringify({
+            "registry/@owner/mcps/tools/mcp.json": JSON.stringify({
               owner: "@owner",
               type: "mcp-server",
               name: "tools",
@@ -142,7 +142,7 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
       expect(occurrences[0]).toMatchObject({
         type: "mcp-server",
         name: "tools",
-        contentLocation: "/ws/agent_extensions/agentxm/@owner/mcps/tools",
+        contentLocation: "/ws/agent_extensions/registry/@owner/mcps/tools",
       });
     }),
   );

@@ -33,6 +33,7 @@ import { skillsIntegrityValidRule } from "./workspace/skills-integrity-valid.js"
 import { skillsArtifactsCorrectRule } from "./workspace/skills-artifacts-correct.js";
 import { packsDeclarationsValidRule } from "./workspace/packs-declarations-valid.js";
 import { packsDependenciesResolvedRule } from "./workspace/packs-dependencies-resolved.js";
+import { packsSharedMembersDistributableRule } from "./workspace/packs-shared-members-distributable.js";
 import { configuredButNotInstalledRule } from "./workspace/configured-but-not-installed.js";
 import { mcpServerNoSecretLiteralRule } from "./workspace/mcps-no-secret-literal.js";
 import { mcpServerTransportExclusivityRule } from "./workspace/mcps-transport-exclusivity.js";
@@ -76,6 +77,7 @@ export const repositoryWorkspaceRules: ReadonlyArray<LintRule<WorkspaceRuleConte
   // Declaration valid (configured).
   skillsDeclarationsValidRule,
   packsDeclarationsValidRule,
+  packsSharedMembersDistributableRule,
   configuredButNotInstalledRule,
   knowledgeStateValidRule,
   mcpServerTransportExclusivityRule,
@@ -143,6 +145,7 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext>> = [
   agentContentHasSettingsRule,
   skillsDeclarationsValidRule,
   packsDeclarationsValidRule,
+  packsSharedMembersDistributableRule,
   configuredButNotInstalledRule,
   knowledgeStateValidRule,
   mcpServerTransportExclusivityRule,

@@ -15,7 +15,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { makeDetectedPackage } from "./detected-package.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import { isTomlTable, parseTomlDocument, tomlStringEntries, tomlTable } from "./toml.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
@@ -466,7 +466,7 @@ export const mavenDetector: PackageDetector = {
 /**
  * Maven package reader.
  *
- * Reads `META-INF/axm.json` from local JAR files in `~/.m2/repository/`
+ * Reads `META-INF/agent-extensions.json` from local JAR files in `~/.m2/repository/`
  * or Gradle cache `~/.gradle/caches/modules-2/files-2.1/`.
  *
  * @experimental This API is unstable and may change without notice.
@@ -491,21 +491,24 @@ export const mavenReader: PackageReader = {
       const m2Jars = yield* findJarsInDir(m2Dir);
       for (const jarName of m2Jars) {
         const jarPath = path.join(m2Dir, jarName);
-        const axmContent = yield* readZipEntry(jarPath, "META-INF/axm.json");
-        if (Option.isSome(axmContent)) {
+        const agentExtensionsContent = yield* readZipEntry(
+          jarPath,
+          "META-INF/agent-extensions.json",
+        );
+        if (Option.isSome(agentExtensionsContent)) {
           const parsed = yield* parseJsonOptional(
-            axmContent.value,
-            `${groupId}:${artifactId}@${version}/META-INF/axm.json`,
+            agentExtensionsContent.value,
+            `${groupId}:${artifactId}@${version}/META-INF/agent-extensions.json`,
           );
           if (Option.isSome(parsed)) {
-            const metaResult = decodeAxmMeta(parsed.value);
+            const metaResult = yield* decodeAgentExtensions(parsed.value);
             if (Result.isFailure(metaResult)) {
               yield* Effect.logWarning(
-                `Invalid axm metadata in ${groupId}:${artifactId}@${version}: schema validation failed`,
+                `Invalid agentExtensions metadata in ${groupId}:${artifactId}@${version}: schema validation failed`,
               );
               return Option.none();
             }
-            return Option.some(metaResult.success.extensions);
+            return Option.some(metaResult.success.agentExtensions);
           }
         }
       }
@@ -530,21 +533,24 @@ export const mavenReader: PackageReader = {
           const jars = yield* findJarsInDir(hashDirPath);
           for (const jarName of jars) {
             const jarPath = path.join(hashDirPath, jarName);
-            const axmContent = yield* readZipEntry(jarPath, "META-INF/axm.json");
-            if (Option.isSome(axmContent)) {
+            const agentExtensionsContent = yield* readZipEntry(
+              jarPath,
+              "META-INF/agent-extensions.json",
+            );
+            if (Option.isSome(agentExtensionsContent)) {
               const parsed = yield* parseJsonOptional(
-                axmContent.value,
-                `${groupId}:${artifactId}@${version}/META-INF/axm.json`,
+                agentExtensionsContent.value,
+                `${groupId}:${artifactId}@${version}/META-INF/agent-extensions.json`,
               );
               if (Option.isSome(parsed)) {
-                const metaResult = decodeAxmMeta(parsed.value);
+                const metaResult = yield* decodeAgentExtensions(parsed.value);
                 if (Result.isFailure(metaResult)) {
                   yield* Effect.logWarning(
-                    `Invalid axm metadata in ${groupId}:${artifactId}@${version}: schema validation failed`,
+                    `Invalid agentExtensions metadata in ${groupId}:${artifactId}@${version}: schema validation failed`,
                   );
                   return Option.none();
                 }
-                return Option.some(metaResult.success.extensions);
+                return Option.some(metaResult.success.agentExtensions);
               }
             }
           }

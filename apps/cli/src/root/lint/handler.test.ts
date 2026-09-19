@@ -79,7 +79,7 @@ describe("axm lint handler", () => {
     fs.mkdirSync(path.join(tempDir, ".axm"), { recursive: true });
     fs.writeFileSync(
       path.join(tempDir, "axm-lock.yaml"),
-      "lockfileVersion: 7\nskills: {}\nmcpServers: {}\n",
+      "lockfileVersion: 8\nskills: {}\nmcpServers: {}\n",
     );
   };
 

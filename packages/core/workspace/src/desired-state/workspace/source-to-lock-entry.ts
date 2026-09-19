@@ -21,9 +21,7 @@ import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extens
 
 export interface SourceToLockEntryInput {
   readonly ref: SkillExtensionRef;
-  /** Required for registry sources — which named registry config was used. */
-  readonly sourceName: Option.Option<string>;
-  /** Canonical package identity required by Git and local-path resolutions. */
+  /** Canonical package identity required by path resolutions. */
   readonly contentIdentity: SourceHash;
   readonly treeIntegrity: TreeIntegrity;
   /** Workspace-root-relative local source path for lockfile persistence. */
@@ -56,22 +54,17 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
         ...(ref.owner === undefined
           ? portableGitSourceLockFields(
               ref.source,
-              ref.skill.name,
               Option.fromUndefinedOr(ref.sourcePath),
               ref.gitCommitSha,
               ref.gitTreeSha,
-              input.contentIdentity,
               ref.name,
               input.treeIntegrity,
             )
           : gitSourceLockFields(
               ref.source,
-              "skill",
-              ref.skill.name,
               Option.fromUndefinedOr(ref.sourcePath),
               ref.gitCommitSha,
               ref.gitTreeSha,
-              input.contentIdentity,
               ref.owner,
               ref.name,
               input.treeIntegrity,
@@ -80,33 +73,21 @@ export const sourceToLockEntry = (input: SourceToLockEntryInput): SkillLockEntry
 
     case "local":
       return {
-        type: "local",
-        sourceType: "local",
-        sourceName: "local",
-        extensionType: "skill",
-        workspaceName: ref.skill.name,
-        packageFormat: ref.portable === true ? "agent-skill" : "agentxm",
-        ...(ref.owner === undefined ? {} : { packageOwner: ref.owner }),
-        packageName: ref.name,
-        path: localSourceLockPath(input, ref.source.path),
-        contentIdentity: input.contentIdentity,
+        source: { type: "path", path: localSourceLockPath(input, ref.source.path) },
+        identity: { ...(ref.owner === undefined ? {} : { owner: ref.owner }), name: ref.name },
+        resolved: { tree: input.contentIdentity },
         treeIntegrity: input.treeIntegrity,
       };
 
     case "registry":
       return {
-        type: "registry",
-        sourceType: "registry",
-        packageFormat: "agentxm",
-        endpoint: ref.source.location,
-        extensionType: "skill",
-        workspaceName: ref.skill.name,
-        owner: ref.owner,
-        name: ref.skill.name,
-        resolvedVersion: ref.version,
-        integrity: Option.getOrElse(ref.integrity, () => ""),
-        sourceName: ref.source.name,
-        publisherBindingId: ref.publisherBindingId,
+        source: { type: "registry", url: ref.source.location },
+        identity: { owner: ref.owner, name: ref.name },
+        resolved: {
+          version: ref.version,
+          integrity: Option.getOrElse(ref.integrity, () => ""),
+          publisherBindingId: ref.publisherBindingId,
+        },
         treeIntegrity: input.treeIntegrity,
       };
     case "workspace":

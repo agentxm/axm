@@ -494,6 +494,14 @@ export const buildInstallOperation = <
           publisherBindingId: args.ref.publisherBindingId,
         }
       : undefined;
+  const sourceBinding =
+    args.ref.refType === "workspace"
+      ? undefined
+      : {
+          extensionType: args.ref.type,
+          target: target.name,
+          ref: args.ref,
+        };
   const base = {
     key: toStepKey(target),
     label: toLabelWithCompanions(target, companionPkgs),
@@ -501,6 +509,7 @@ export const buildInstallOperation = <
     run: runInstallOperation(manager, args),
     ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
     ...(registryBinding === undefined ? {} : { registryBinding }),
+    ...(sourceBinding === undefined ? {} : { sourceBinding }),
   };
   return lifecycleWarnings.length === 0
     ? ({ ...base, readiness: "ready" } satisfies PlannedJobStep<R | RecipeRequirements>)

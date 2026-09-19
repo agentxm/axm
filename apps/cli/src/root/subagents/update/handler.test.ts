@@ -598,9 +598,10 @@ describe("subagents-update.handler", () => {
         "Expected lockfile object",
       );
       const lockedSubagents = expectRecord(lockfile["subagents"], "Expected lockfile.subagents");
+      const entry = expectRecord(lockedSubagents["researcher"], "Expected researcher lock entry");
       return stringProperty(
-        expectRecord(lockedSubagents["researcher"], "Expected researcher lock entry"),
-        "resolvedVersion",
+        expectRecord(entry["resolved"], "Expected accepted resolution"),
+        "version",
       );
     };
 

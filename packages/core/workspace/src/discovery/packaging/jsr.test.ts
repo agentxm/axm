@@ -211,7 +211,7 @@ describe("jsrDetector", () => {
 // Deno Reader tests
 // ──────────────────────────────────────────────────────────────────
 
-/** Helper to set up a temp Deno cache with axm metadata for reader tests. */
+/** Helper to set up a temp Deno cache with agentExtensions metadata for reader tests. */
 const readInTempDenoCache = (
   pkgPurl: Schema.Schema.Type<typeof PackageUrlPartsSchema>,
   denoJsonContent?: string,
@@ -272,8 +272,8 @@ describe("denoReader", () => {
     expect(denoReader.type).toBe(jsrType);
   });
 
-  describe("valid axm metadata in cache", () => {
-    it.effect("extracts extensions from axm field", () =>
+  describe("valid agentExtensions metadata in cache", () => {
+    it.effect("extracts extensions from agentExtensions field", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -286,9 +286,7 @@ describe("denoReader", () => {
             purl,
             JSON.stringify({
               name: "@std/fs",
-              axm: {
-                extensions: [{ ref: "@deno/skills/fs", versionRange: "^1.0.0" }],
-              },
+              agentExtensions: [{ ref: "@deno/skills/fs", versionRange: "^1.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
@@ -300,8 +298,8 @@ describe("denoReader", () => {
     );
   });
 
-  describe("missing axm field", () => {
-    it.effect("returns Option.none when no axm field", () =>
+  describe("missing agentExtensions field", () => {
+    it.effect("returns Option.none when no agentExtensions field", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -320,7 +318,7 @@ describe("denoReader", () => {
     );
   });
 
-  describe("malformed axm metadata", () => {
+  describe("malformed agentExtensions metadata", () => {
     it.effect("returns Option.none on malformed metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
@@ -334,7 +332,7 @@ describe("denoReader", () => {
             purl,
             JSON.stringify({
               name: "@std/fs",
-              axm: { extensions: 42 },
+              agentExtensions: 42,
             }),
           );
           expect(Option.isNone(result)).toBe(true);
@@ -344,7 +342,7 @@ describe("denoReader", () => {
   });
 
   describe("extra fields tolerated", () => {
-    it.effect("ignores extra fields in axm metadata", () =>
+    it.effect("ignores extra fields in agentExtensions metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -357,10 +355,8 @@ describe("denoReader", () => {
             purl,
             JSON.stringify({
               name: "@std/fs",
-              axm: {
-                extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
-                futureField: true,
-              },
+              agentExtensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
+              futureField: true,
             }),
           );
           expect(Option.isSome(result)).toBe(true);

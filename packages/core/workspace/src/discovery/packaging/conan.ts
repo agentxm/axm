@@ -2,7 +2,7 @@
  * Conan (C++) package detector and reader for package-compatibility discovery.
  *
  * Parses `conanfile.txt` `[requires]` sections and `conanfile.py` `requires`
- * attributes. Reads axm metadata from Conan cache `conandata.yml` or
+ * attributes. Reads agentExtensions metadata from Conan cache `conandata.yml` or
  * `extension_properties`.
  *
  * @experimental This API is unstable and may change without notice.
@@ -19,7 +19,7 @@ import * as Schema from "effect/Schema";
 import YAML from "yaml";
 import { readEnv } from "../internal/environment.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, readFileOptional } from "./reader-io.js";
+import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const conanType = Schema.decodeUnknownSync(PackageTypeSchema)("conan");
@@ -221,11 +221,11 @@ const parseYamlOptional = (content: string, context: string) =>
     return Option.some(result.value);
   });
 
-/** Schema for extracting the axm field from conandata.yml */
-const ConanDataAxmSchema = Schema.Struct({
-  axm: Schema.optional(Schema.Unknown),
+/** Schema for extracting the portable field from conandata.yml. */
+const ConanDataAgentExtensionsSchema = Schema.Struct({
+  agentExtensions: Schema.optional(Schema.Unknown),
 });
-const decodeConanDataAxm = Schema.decodeUnknownResult(ConanDataAxmSchema);
+const decodeConanDataAgentExtensions = Schema.decodeUnknownResult(ConanDataAgentExtensionsSchema);
 
 /**
  * Resolve the Conan cache directory.
@@ -237,7 +237,7 @@ const resolveConanCache = () =>
 /**
  * Conan package reader.
  *
- * Reads axm metadata from `conandata.yml` in the Conan cache or
+ * Reads agentExtensions metadata from `conandata.yml` in the Conan cache or
  * `extension_properties` for each detected Conan package.
  *
  * @experimental This API is unstable and may change without notice.
@@ -266,22 +266,22 @@ export const conanReader: PackageReader = {
       const parsed = yield* parseYamlOptional(content.value, `${pkg.purl.name}/conandata.yml`);
       if (Option.isNone(parsed)) return Option.none();
 
-      // Extract axm metadata from conandata.yml
-      const containerResult = decodeConanDataAxm(parsed.value);
+      // Extract agentExtensions metadata from conandata.yml
+      const containerResult = decodeConanDataAgentExtensions(parsed.value);
       if (Result.isFailure(containerResult)) return Option.none();
 
-      const axmRaw = containerResult.success.axm;
-      if (axmRaw === undefined) return Option.none();
+      const agentExtensions = containerResult.success.agentExtensions;
+      if (agentExtensions === undefined) return Option.none();
 
-      const metaResult = decodeAxmMeta(axmRaw);
+      const metaResult = yield* decodeAgentExtensions({ agentExtensions });
       if (Result.isFailure(metaResult)) {
         yield* Effect.logWarning(
-          `Invalid axm metadata in ${pkg.purl.name}: schema validation failed`,
+          `Invalid agentExtensions metadata in ${pkg.purl.name}: schema validation failed`,
         );
         return Option.none();
       }
 
-      return Option.some(metaResult.success.extensions);
+      return Option.some(metaResult.success.agentExtensions);
     },
     Effect.annotateLogs({ reader: "conan" }),
     Effect.withSpan("read.conan"),

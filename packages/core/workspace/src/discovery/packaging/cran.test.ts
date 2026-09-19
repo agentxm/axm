@@ -244,15 +244,15 @@ describe("cranReader", () => {
     expect(cranReader.type).toBe(cranType);
   });
 
-  describe("valid Config/axm field", () => {
-    it.effect("extracts extensions from Config/axm", () =>
+  describe("valid Config/agentExtensions field", () => {
+    it.effect("extracts extensions from Config/agentExtensions", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cran", name: "dplyr" });
           const desc = [
             "Package: dplyr",
             "Version: 1.1.4",
-            'Config/axm: {"extensions": [{"ref":"@tidyverse/skills/dplyr","versionRange":"^1.0.0"}]}',
+            'Config/agentExtensions: [{"ref":"@tidyverse/skills/dplyr","versionRange":"^1.0.0"}]',
           ].join("\n");
           const result = yield* readInTempLib(purl, desc);
           expect(Option.isSome(result)).toBe(true);
@@ -266,8 +266,8 @@ describe("cranReader", () => {
     );
   });
 
-  describe("missing Config/axm field", () => {
-    it.effect("returns Option.none when no Config/axm field", () =>
+  describe("missing Config/agentExtensions field", () => {
+    it.effect("returns Option.none when no Config/agentExtensions field", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cran", name: "dplyr" });
@@ -291,12 +291,12 @@ describe("cranReader", () => {
     );
   });
 
-  describe("malformed Config/axm JSON", () => {
+  describe("malformed Config/agentExtensions JSON", () => {
     it.effect("returns Option.none on malformed JSON", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cran", name: "dplyr" });
-          const desc = "Package: dplyr\nConfig/axm: {not valid json}\n";
+          const desc = "Package: dplyr\nConfig/agentExtensions: {not valid json}\n";
           const result = yield* readInTempLib(purl, desc);
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -304,12 +304,12 @@ describe("cranReader", () => {
     );
   });
 
-  describe("invalid axm metadata structure", () => {
-    it.effect("returns Option.none when axm metadata fails schema validation", () =>
+  describe("invalid agentExtensions metadata structure", () => {
+    it.effect("returns Option.none when agentExtensions metadata fails schema validation", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cran", name: "dplyr" });
-          const desc = 'Package: dplyr\nConfig/axm: {"extensions": "not-an-array"}\n';
+          const desc = 'Package: dplyr\nConfig/agentExtensions: "not-an-array"\n';
           const result = yield* readInTempLib(purl, desc);
           expect(Option.isNone(result)).toBe(true);
         }),

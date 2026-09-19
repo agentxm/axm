@@ -50,9 +50,15 @@ const heldNewerRelease = (cleanups: Array<() => void>) =>
     });
     cleanups.push(workspace.cleanup);
     yield* handleInstall({
+      type: Option.none(),
       source: Option.none(),
+      selectors: {},
+      all: false,
       force: false,
       preview: false,
+      env: [],
+      localName: Option.none(),
+      bundled: false,
     }).pipe(Effect.provide(workspace.layer), Effect.orDie);
     registry.writeSkill(SKILL, [
       { version: "1.0.0", body: "First guidance." },
@@ -113,9 +119,17 @@ const refusingCommands: ReadonlyArray<{
   {
     command: "axm install",
     run: (workspace) =>
-      handleInstall({ source: Option.none(), force: false, preview: false }).pipe(
-        Effect.provide(workspace.layer),
-      ),
+      handleInstall({
+        type: Option.none(),
+        source: Option.none(),
+        selectors: {},
+        all: false,
+        force: false,
+        preview: false,
+        env: [],
+        localName: Option.none(),
+        bundled: false,
+      }).pipe(Effect.provide(workspace.layer)),
   },
   {
     command: "axm sync",

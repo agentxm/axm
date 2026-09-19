@@ -17,7 +17,7 @@ import { describe, expect, it } from "vitest";
 import { defineExecutionBinding } from "@agentxm/specification-metadata";
 
 import { startHttpRegistry } from "./e2e/http-registry-server.js";
-import { createTempDir, runCli } from "./utils.js";
+import { createTempDir, runCli, writeUserDefaultRegistry } from "./utils.js";
 
 export const executionBinding = defineExecutionBinding({
   requirements: ["cli/session/concurrent-renewal-spends-one-refresh-token"],
@@ -65,10 +65,10 @@ describe("Concurrent session renewal across processes", () => {
     const home = createTempDir();
     try {
       writeLapsedSession(home.path, registry.url);
+      writeUserDefaultRegistry(home.path, registry.url);
       const env = {
         HOME: home.path,
         AXM_USER_HOME: home.path,
-        AXM_REGISTRY_URL: registry.url,
         AXM_TOKEN: "",
         AXM_TOKEN_FILE: "",
         // The restricted-file tier: the credential home is the directory

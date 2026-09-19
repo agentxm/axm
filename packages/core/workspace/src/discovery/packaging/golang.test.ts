@@ -242,7 +242,7 @@ describe("golangDetector", () => {
 /** Helper to set up a temp GOPATH with module cache for reader tests. */
 const readInTempGopath = (
   pkgPurl: Schema.Schema.Type<typeof PackageUrlPartsSchema>,
-  axmJsonContent?: string,
+  agentExtensionsJsonContent?: string,
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -252,13 +252,16 @@ const readInTempGopath = (
     // Set up a fake GOPATH structure
     const gopath = path.join(tmpDir, "gopath");
 
-    if (axmJsonContent !== undefined) {
+    if (agentExtensionsJsonContent !== undefined) {
       // Reconstruct the module path from purl
       const modulePath = pkgPurl.namespace ? `${pkgPurl.namespace}/${pkgPurl.name}` : pkgPurl.name;
       const version = pkgPurl.version ?? "v0.0.0";
       const modDir = path.join(gopath, "pkg", "mod", `${modulePath}@${version}`);
       yield* fs.makeDirectory(modDir, { recursive: true });
-      yield* fs.writeFileString(path.join(modDir, "axm.json"), axmJsonContent);
+      yield* fs.writeFileString(
+        path.join(modDir, "agent-extensions.json"),
+        agentExtensionsJsonContent,
+      );
     }
 
     // Create a source file so the detector source path exists
@@ -293,8 +296,8 @@ describe("golangReader", () => {
     expect(golangReader.type).toBe(golangType);
   });
 
-  describe("valid axm.json sidecar", () => {
-    it.effect("extracts extensions from axm.json", () =>
+  describe("valid agent-extensions.json sidecar", () => {
+    it.effect("extracts extensions from agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -306,7 +309,7 @@ describe("golangReader", () => {
           const result = yield* readInTempGopath(
             purl,
             JSON.stringify({
-              extensions: [{ ref: "@gorilla/skills/mux", versionRange: "^1.0.0" }],
+              agentExtensions: [{ ref: "@gorilla/skills/mux", versionRange: "^1.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
@@ -326,7 +329,7 @@ describe("golangReader", () => {
             name: "lib",
             version: "v0.5.0",
           });
-          const result = yield* readInTempGopath(purl, JSON.stringify({ extensions: [] }));
+          const result = yield* readInTempGopath(purl, JSON.stringify({ agentExtensions: [] }));
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
             expect(result.value).toEqual([]);
@@ -336,8 +339,8 @@ describe("golangReader", () => {
     );
   });
 
-  describe("missing axm.json", () => {
-    it.effect("returns Option.none when axm.json does not exist", () =>
+  describe("missing agent-extensions.json", () => {
+    it.effect("returns Option.none when agent-extensions.json does not exist", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -353,7 +356,7 @@ describe("golangReader", () => {
     );
   });
 
-  describe("malformed axm.json", () => {
+  describe("malformed agent-extensions.json", () => {
     it.effect("returns Option.none and warns on malformed metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
@@ -363,7 +366,7 @@ describe("golangReader", () => {
             name: "lib",
             version: "v1.0.0",
           });
-          const result = yield* readInTempGopath(purl, JSON.stringify({ extensions: 42 }));
+          const result = yield* readInTempGopath(purl, JSON.stringify({ agentExtensions: 42 }));
           expect(Option.isNone(result)).toBe(true);
         }),
       ),
@@ -371,7 +374,7 @@ describe("golangReader", () => {
   });
 
   describe("extra fields tolerated", () => {
-    it.effect("ignores extra fields in axm.json", () =>
+    it.effect("ignores extra fields in agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -383,7 +386,7 @@ describe("golangReader", () => {
           const result = yield* readInTempGopath(
             purl,
             JSON.stringify({
-              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
+              agentExtensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
               futureField: true,
             }),
           );
@@ -409,7 +412,7 @@ describe("golangReader", () => {
           const result = yield* readInTempGopath(
             purl,
             JSON.stringify({
-              extensions: [{ ref: "@gorilla/skills/mux", versionRange: "^1.0.0" }],
+              agentExtensions: [{ ref: "@gorilla/skills/mux", versionRange: "^1.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
@@ -435,7 +438,7 @@ describe("golangReader", () => {
     );
   });
 
-  describe("malformed JSON in axm.json", () => {
+  describe("malformed JSON in agent-extensions.json", () => {
     it.effect("returns Option.none on invalid JSON", () =>
       withNodeContext(
         Effect.gen(function* () {

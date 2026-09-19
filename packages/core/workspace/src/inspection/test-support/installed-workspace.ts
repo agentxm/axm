@@ -135,7 +135,7 @@ const newestFirst = <T extends { readonly version: string }>(
  * A Registry on disk in the layout the production local client reads: a
  * per-extension index beside version archives with real integrity hashes.
  */
-export const makeFileRegistry = (sourceName = "agentxm"): FileRegistry => {
+export const makeFileRegistry = (sourceName = "test"): FileRegistry => {
   const root = fs.realpathSync(fs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-inspection-reg-")));
   const writeArchive = (
     directory: string,

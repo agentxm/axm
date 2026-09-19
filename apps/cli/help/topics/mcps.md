@@ -16,8 +16,8 @@ server software behind that connection.
 
 MCP server packages live in
 `./mcps/<name>/mcp.json`; acquired packages live under
-`./agent_extensions/agentxm/<@owner>/mcps/<name>`. This is the Registry case of
-the source-qualified acquired package scheme. Unlike skills and
+`./agent_extensions/registry/<@owner>/mcps/<name>`. This is the Registry case of
+the source-family and identity-based acquired package scheme. Unlike skills and
 subagents, an MCP server has no `src/` body — the whole definition lives in the
 manifest.
 

@@ -2,7 +2,7 @@
  * pypi package detector and reader for package-compatibility discovery.
  *
  * Parses Python dependency files (pyproject.toml, requirements.txt,
- * setup.cfg, Pipfile) and reads axm metadata from installed packages.
+ * setup.cfg, Pipfile) and reads agentExtensions metadata from installed packages.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -16,7 +16,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { readEnv } from "../internal/environment.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import { parseTomlDocument, tomlTable } from "./toml.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
@@ -361,12 +361,11 @@ export const pypiDetector: PackageDetector = {
 const normalizeDistInfoName = (name: string): string => name.toLowerCase().replace(/[-_.]+/g, "-");
 
 /**
- * Parse an INI-style entry_points.txt and check for [axm] group.
- * Returns the first value from the [axm] group if present.
+ * Parse an INI-style entry_points.txt and check for [agentExtensions].
  */
 const parseEntryPoints = (content: string): Option.Option<string> => {
   const lines = content.split("\n");
-  let inAxmGroup = false;
+  let inAgentExtensionsGroup = false;
 
   for (const line of lines) {
     const trimmed = line.trim();
@@ -374,11 +373,11 @@ const parseEntryPoints = (content: string): Option.Option<string> => {
     // Section header
     const sectionMatch = /^\[(.+)\]$/.exec(trimmed);
     if (sectionMatch) {
-      inAxmGroup = sectionMatch[1] === "axm";
+      inAgentExtensionsGroup = sectionMatch[1] === "agentExtensions";
       continue;
     }
 
-    if (inAxmGroup && trimmed !== "" && !trimmed.startsWith("#")) {
+    if (inAgentExtensionsGroup && trimmed !== "" && !trimmed.startsWith("#")) {
       // key = value format
       const kvMatch = /^(\S+)\s*=\s*(.+)$/.exec(trimmed);
       if (kvMatch) {
@@ -464,7 +463,7 @@ const findDistInfo = (sitePackages: string, packageName: string) =>
 // ---------------------------------------------------------------------------
 
 /**
- * pypi package reader. Reads axm metadata from installed Python packages.
+ * pypi package reader. Reads agentExtensions metadata from installed Python packages.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -491,34 +490,36 @@ export const pypiReader: PackageReader = {
       const entryPointsContent = yield* readFileOptional(entryPointsPath);
       if (Option.isNone(entryPointsContent)) return Option.none();
 
-      // 4. Check for [axm] group
-      const axmEntry = parseEntryPoints(entryPointsContent.value);
-      if (Option.isNone(axmEntry)) return Option.none();
+      const metadataEntry = parseEntryPoints(entryPointsContent.value);
+      if (Option.isNone(metadataEntry)) return Option.none();
 
-      // 5. Locate axm.json from the entry point value
-      // Entry format: "package_module:axm.json" -> look for axm.json in the package dir
-      const entryValue = axmEntry.value;
+      // 5. Locate agent-extensions.json from the entry point value
+      // Entry format: "package_module:agent-extensions.json" -> look for agent-extensions.json in the package dir
+      const entryValue = metadataEntry.value;
       const colonIdx = entryValue.indexOf(":");
       const modulePart = colonIdx >= 0 ? entryValue.substring(0, colonIdx) : entryValue;
-      const filePart = colonIdx >= 0 ? entryValue.substring(colonIdx + 1) : "axm.json";
+      const filePart = colonIdx >= 0 ? entryValue.substring(colonIdx + 1) : "agent-extensions.json";
 
-      const axmJsonPath = path.join(sitePackages, modulePart, filePart);
-      const axmJsonContent = yield* readFileOptional(axmJsonPath);
-      if (Option.isNone(axmJsonContent)) return Option.none();
+      const agentExtensionsJsonPath = path.join(sitePackages, modulePart, filePart);
+      const agentExtensionsJsonContent = yield* readFileOptional(agentExtensionsJsonPath);
+      if (Option.isNone(agentExtensionsJsonContent)) return Option.none();
 
-      // 6. Parse and validate axm.json
-      const parsed = yield* parseJsonOptional(axmJsonContent.value, `${pkg.purl.name}/axm.json`);
+      // 6. Parse and validate agent-extensions.json
+      const parsed = yield* parseJsonOptional(
+        agentExtensionsJsonContent.value,
+        `${pkg.purl.name}/agent-extensions.json`,
+      );
       if (Option.isNone(parsed)) return Option.none();
 
-      const metaResult = decodeAxmMeta(parsed.value);
+      const metaResult = yield* decodeAgentExtensions(parsed.value);
       if (Result.isFailure(metaResult)) {
         yield* Effect.logWarning(
-          `Invalid axm metadata in ${pkg.purl.name}: schema validation failed`,
+          `Invalid agentExtensions metadata in ${pkg.purl.name}: schema validation failed`,
         );
         return Option.none();
       }
 
-      return Option.some(metaResult.success.extensions);
+      return Option.some(metaResult.success.agentExtensions);
     },
     Effect.annotateLogs({ reader: "pypi" }),
   ),

@@ -133,7 +133,7 @@ export const planMcpServerUninstall: (
                   : [],
               );
         const sourceTarget =
-          lockEntry?.type === "registry"
+          lockEntry?.source.type === "registry"
             ? mcpSourceTarget(location.scope, lockEntry, "removed")
             : undefined;
         return {

@@ -12,8 +12,10 @@
 
 import type {
   BodyGovernedType,
+  ExtensionSourceFamily,
   ExtensionType,
   InputType,
+  InstallableFrom,
   PerAgentType,
   RegistryType,
   SpecTrackedType,
@@ -54,6 +56,21 @@ type _InputNoExtra = [Exclude<InputType, _InputExpected>] extends [never] ? true
 const _inputNoExtra = true as const satisfies _InputNoExtra;
 type _InputNoMissing = [Exclude<_InputExpected, InputType>] extends [never] ? true : false;
 const _inputNoMissing = true as const satisfies _InputNoMissing;
+
+type _MissingInstallabilityDecision = {
+  [Family in ExtensionSourceFamily]: Exclude<ExtensionType, InstallableFrom<Family>>;
+}[ExtensionSourceFamily];
+type _InstallableFromEveryFamily = [_MissingInstallabilityDecision] extends [never] ? true : false;
+const _installableFromEveryFamily = true as const satisfies _InstallableFromEveryFamily;
+
+type _ExtraInstallabilityDecision = {
+  [Family in ExtensionSourceFamily]: Exclude<InstallableFrom<Family>, ExtensionType>;
+}[ExtensionSourceFamily];
+type _EveryFamilyHasNoExtraInstallableType = [_ExtraInstallabilityDecision] extends [never]
+  ? true
+  : false;
+const _everyFamilyHasNoExtraInstallableType =
+  true as const satisfies _EveryFamilyHasNoExtraInstallableType;
 
 type _BodyGovernedExpected = "skill" | "knowledge";
 type _BodyGovernedNoExtra = [Exclude<BodyGovernedType, _BodyGovernedExpected>] extends [never]
@@ -166,6 +183,8 @@ export type _Refs = [
   typeof _registryNoMissing,
   typeof _inputNoExtra,
   typeof _inputNoMissing,
+  typeof _installableFromEveryFamily,
+  typeof _everyFamilyHasNoExtraInstallableType,
   typeof _bodyGovernedNoExtra,
   typeof _bodyGovernedNoMissing,
   typeof _workspaceCapabilityNoExtra,

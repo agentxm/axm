@@ -25,7 +25,7 @@ import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/mani
 import { RuleManifestSchema } from "@agentxm/extension-model/unstable/rules/manifest-schema";
 import { HookManifestSchema } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { KnowledgeManifestSchema } from "@agentxm/extension-model/unstable/knowledge";
-import { AxmPackageMetaSchema } from "@agentxm/registry-client";
+import { AgentExtensionsMetadataSchema } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 import { allLintCatalogRuleIds } from "@agentxm/extension-content/lint";
 import { LockfileSchema, SettingsSchema } from "@agentxm/workspace/desired-state";
 
@@ -85,8 +85,8 @@ const schemas: SchemaConfig[] = [
     outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
   {
-    name: "axm-package-meta.schema.json",
-    schema: AxmPackageMetaSchema,
+    name: "agent-extensions.schema.json",
+    schema: AgentExtensionsMetadataSchema,
     outputDir: SITE_CONTENT_SCHEMAS_DIR,
   },
 ];

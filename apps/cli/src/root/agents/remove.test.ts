@@ -115,7 +115,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers();
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 7\nskills: {}\n",
+      lockfile: "lockfileVersion: 8\nskills: {}\n",
     });
 
     return provide(
@@ -139,7 +139,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 7\nskills: {}\n",
+      lockfile: "lockfileVersion: 8\nskills: {}\n",
     });
 
     return provide(
@@ -168,7 +168,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 7\nskills: {}\n",
+      lockfile: "lockfileVersion: 8\nskills: {}\n",
     });
 
     return provide(
@@ -220,7 +220,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["opencode"],
-      lockfile: "lockfileVersion: 7\nskills: {}\n",
+      lockfile: "lockfileVersion: 8\nskills: {}\n",
     });
     const sourceDir = path.join(
       tempDir,
@@ -274,7 +274,7 @@ describe("agents remove.handler", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspace(path.join(tempDir, ".axm"), {
       agents: ["claude-code"],
-      lockfile: "lockfileVersion: 7\nskills: {}\n",
+      lockfile: "lockfileVersion: 8\nskills: {}\n",
     });
 
     return provide(

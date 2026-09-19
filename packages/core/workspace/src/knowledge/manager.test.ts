@@ -113,22 +113,22 @@ const desiredHandbookReadFacts = (
 ): Omit<WorkspaceReadTestFacts, "baseDir" | "runtimeDir"> => ({
   settings: { knowledge: { handbook: { source: "./source", enabled: true } } },
   acceptedResolutions: Effect.sync(() => ({
-    lockfileVersion: 7 as const,
+    lockfileVersion: 8 as const,
     skills: {},
     knowledge: {
       handbook: {
-        type: "local" as const,
-        sourceType: "local" as const,
-        sourceName: "local" as const,
-        extensionType: "knowledge" as const,
-        workspaceName: extensionName("handbook"),
-        packageFormat: "agentxm" as const,
-        packageOwner: handle("@acme"),
-        packageName: extensionName("handbook"),
-        path: decodeRelativePathSync("source"),
-        contentIdentity: TEST_CONTENT_IDENTITY,
+        source: { type: "path" as const, path: decodeRelativePathSync("source") },
+        identity: { owner: handle("@acme"), name: extensionName("handbook") },
+        resolved: { tree: TEST_CONTENT_IDENTITY },
         treeIntegrity: computeMaterializedTreeIntegritySync(
-          nodePath.join(workspaceRoot, "agent_extensions", "local", "source"),
+          nodePath.join(
+            workspaceRoot,
+            "agent_extensions",
+            "path",
+            "@acme",
+            "knowledge",
+            "handbook",
+          ),
         ),
       },
     },
@@ -301,7 +301,14 @@ describe("KnowledgeManager", () => {
           "---\ntype: concept\n---\n# Replacement concept\n",
         );
 
-        const canonicalRoot = nodePath.join(workspaceRoot, "agent_extensions", "local", "source");
+        const canonicalRoot = nodePath.join(
+          workspaceRoot,
+          "agent_extensions",
+          "path",
+          "@acme",
+          "knowledge",
+          "handbook",
+        );
         writeKnowledgePackage(canonicalRoot, "handbook", true);
         const canonicalConcept = nodePath.join(canonicalRoot, "src", "concept.md");
         writeFileSync(canonicalConcept, "---\ntype: concept\n---\n# Original concept\n");
@@ -353,8 +360,10 @@ describe("KnowledgeManager", () => {
             nodePath.join(
               workspaceRoot,
               "agent_extensions",
-              "local",
-              "source",
+              "path",
+              "@acme",
+              "knowledge",
+              "handbook",
               "src",
               "concept.md",
             ),
@@ -367,7 +376,9 @@ describe("KnowledgeManager", () => {
         expect(instructions).toContain(
           "Use `axm knowledge concepts --help` to search, read, and explore these bundles.",
         );
-        expect(instructions).toContain("agent_extensions/local/source/src/index.md");
+        expect(instructions).toContain(
+          "agent_extensions/path/@acme/knowledge/handbook/src/index.md",
+        );
       } finally {
         rmSync(workspaceRoot, { recursive: true, force: true });
       }
@@ -416,8 +427,10 @@ describe("KnowledgeManager", () => {
               nodePath.join(
                 workspaceRoot,
                 "agent_extensions",
-                "local",
-                "source",
+                "path",
+                "@acme",
+                "knowledge",
+                "handbook",
                 "src",
                 "concept.md",
               ),
@@ -496,8 +509,10 @@ describe("KnowledgeManager", () => {
               nodePath.join(
                 workspaceRoot,
                 "agent_extensions",
-                "local",
-                "source",
+                "path",
+                "@acme",
+                "knowledge",
+                "handbook",
                 "src",
                 "concept.md",
               ),
@@ -524,7 +539,16 @@ describe("KnowledgeManager", () => {
 
         expect(describeTestFailure(error)).toContain("requires a non-empty frontmatter type");
         expect(
-          existsSync(nodePath.join(workspaceRoot, "agent_extensions", "local", "source")),
+          existsSync(
+            nodePath.join(
+              workspaceRoot,
+              "agent_extensions",
+              "path",
+              "@acme",
+              "knowledge",
+              "handbook",
+            ),
+          ),
         ).toBe(false);
       } finally {
         rmSync(workspaceRoot, { recursive: true, force: true });
@@ -572,8 +596,10 @@ describe("KnowledgeManager", () => {
             nodePath.join(
               workspaceRoot,
               "agent_extensions",
-              "local",
-              "warning-source",
+              "path",
+              "@acme",
+              "knowledge",
+              "warning-handbook",
               "src",
               "concept.md",
             ),
@@ -619,15 +645,19 @@ describe("KnowledgeManager", () => {
           const canonicalConcept = nodePath.join(
             workspaceRoot,
             "agent_extensions",
-            "local",
-            "source",
+            "path",
+            "@acme",
+            "knowledge",
+            "handbook",
             "src",
             "concept.md",
           );
           expect(readFileSync(canonicalConcept, "utf8")).toContain("type: concept");
           const instructions = readFileSync(nodePath.join(workspaceRoot, "AGENTS.md"), "utf8");
           expect(instructions).toContain("### @acme");
-          expect(instructions).toContain("[handbook](agent_extensions/local/source/src/index.md)");
+          expect(instructions).toContain(
+            "[handbook](agent_extensions/path/@acme/knowledge/handbook/src/index.md)",
+          );
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }
@@ -645,15 +675,17 @@ describe("KnowledgeManager", () => {
           const healthyCanonical = nodePath.join(
             workspaceRoot,
             "agent_extensions",
-            "local",
-            "sources",
+            "path",
+            "@acme",
+            "knowledge",
             "healthy",
           );
           const unavailableCanonical = nodePath.join(
             workspaceRoot,
             "agent_extensions",
-            "local",
-            "sources",
+            "path",
+            "@acme",
+            "knowledge",
             "unavailable",
           );
           writeKnowledgePackage(healthySource, "healthy", true);
@@ -663,29 +695,15 @@ describe("KnowledgeManager", () => {
 
           const locked = {
             healthy: {
-              type: "local",
-              sourceType: "local",
-              sourceName: "local",
-              extensionType: "knowledge",
-              workspaceName: extensionName("healthy"),
-              packageFormat: "agentxm",
-              packageOwner: handle("@acme"),
-              packageName: extensionName("healthy"),
-              path: "sources/healthy",
-              contentIdentity: TEST_CONTENT_IDENTITY,
+              source: { type: "path", path: "sources/healthy" },
+              identity: { owner: handle("@acme"), name: extensionName("healthy") },
+              resolved: { tree: TEST_CONTENT_IDENTITY },
               treeIntegrity: computeMaterializedTreeIntegritySync(healthyCanonical),
             },
             unavailable: {
-              type: "local",
-              sourceType: "local",
-              sourceName: "local",
-              extensionType: "knowledge",
-              workspaceName: extensionName("unavailable"),
-              packageFormat: "agentxm",
-              packageOwner: handle("@acme"),
-              packageName: extensionName("unavailable"),
-              path: "sources/unavailable",
-              contentIdentity: TEST_CONTENT_IDENTITY,
+              source: { type: "path", path: "sources/unavailable" },
+              identity: { owner: handle("@acme"), name: extensionName("unavailable") },
+              resolved: { tree: TEST_CONTENT_IDENTITY },
               treeIntegrity: computeMaterializedTreeIntegritySync(unavailableCanonical),
             },
           } satisfies Readonly<Record<string, KnowledgeLockEntry>>;
@@ -700,7 +718,7 @@ describe("KnowledgeManager", () => {
                   },
                 },
               },
-              lockfile: { lockfileVersion: 7, skills: {}, knowledge: locked },
+              lockfile: { lockfileVersion: 8, skills: {}, knowledge: locked },
               graph: {
                 complete: true,
                 nodes: ["healthy", "unavailable"].map((name) => ({

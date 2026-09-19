@@ -635,6 +635,12 @@ export const lintCatalogRuleMetadata = defineLintCatalog([
     views: bothViews,
   },
   {
+    id: "workspace/packs-shared-members-distributable",
+    defaultSeverity: "error",
+    group: "workspace",
+    views: bothViews,
+  },
+  {
     id: "workspace/configured-but-not-installed",
     defaultSeverity: "error",
     group: "workspace",

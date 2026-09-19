@@ -10,9 +10,9 @@ a specification runs in its owner's own test target — `test` for a library or
 `apps/cli`, `e2e` for `apps/cli-e2e`.
 
 Use the
-[requirements-engineering guidance](../../agent_extensions/agentxm/@craigsmitham/knowledge/product-engineering/src/solution/requirements/index.md)
+[requirements-engineering guidance](../../agent_extensions/registry/@craigsmitham/knowledge/product-engineering/src/solution/requirements/index.md)
 and
-[designing executable specifications](../../agent_extensions/agentxm/@craigsmitham/knowledge/product-engineering/src/engineering/designing-executable-specifications.md)
+[designing executable specifications](../../agent_extensions/registry/@craigsmitham/knowledge/product-engineering/src/engineering/designing-executable-specifications.md)
 for elicitation, review, impact analysis, and requirement changes. The
 acceptance policy for this repository is the one below: the maintainer is the
 acceptance authority, and a decision the maintainer records in the session or on

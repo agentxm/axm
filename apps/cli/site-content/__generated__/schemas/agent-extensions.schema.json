@@ -1,0 +1,107 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$ref": "#/definitions/AgentExtensionsMetadata",
+  "definitions": {
+    "ExtensionFqn": {
+      "type": "string",
+      "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+      "title": "Extension FQN",
+      "description": "Canonical extension identifier in @owner/<type>s/<name> form.",
+      "examples": ["@acme/skills/code-review", "@my-org/rules/typescript"]
+    },
+    "AgentExtensionRegistrySource": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["registry"] },
+        "url": { "type": "string" }
+      },
+      "required": ["type", "url"],
+      "additionalProperties": false,
+      "title": "Registry recommendation source",
+      "description": "A self-describing Registry locator for a recommended extension."
+    },
+    "VersionRange": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[~^<>=*xXvV0-9A-Za-z+| .-]+$",
+      "title": "Version Range",
+      "description": "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use \"*\" to always resolve to the latest available version.",
+      "examples": ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"]
+    },
+    "SourceSubPath": { "type": "string", "minLength": 1 },
+    "AgentExtensionGitSource": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["git"] },
+        "url": { "type": "string" },
+        "path": { "$ref": "#/definitions/SourceSubPath" },
+        "revision": { "type": "string", "minLength": 1 }
+      },
+      "required": ["type", "url"],
+      "additionalProperties": false,
+      "title": "Git recommendation source",
+      "description": "A self-describing Git locator for a recommended extension."
+    },
+    "AgentExtensionPathSource": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["path"] },
+        "path": { "type": "string", "minLength": 1 }
+      },
+      "required": ["type", "path"],
+      "additionalProperties": false,
+      "title": "Path recommendation source",
+      "description": "A self-describing filesystem locator for a recommended extension."
+    },
+    "AgentExtensionRecommendation": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "ref": { "$ref": "#/definitions/ExtensionFqn" },
+            "source": { "$ref": "#/definitions/AgentExtensionRegistrySource" },
+            "versionRange": { "$ref": "#/definitions/VersionRange" }
+          },
+          "required": ["ref"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "ref": { "$ref": "#/definitions/ExtensionFqn" },
+            "source": { "$ref": "#/definitions/AgentExtensionGitSource" },
+            "versionRange": { "not": {} }
+          },
+          "required": ["ref", "source"],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "ref": { "$ref": "#/definitions/ExtensionFqn" },
+            "source": { "$ref": "#/definitions/AgentExtensionPathSource" },
+            "versionRange": { "not": {} }
+          },
+          "required": ["ref", "source"],
+          "additionalProperties": false
+        }
+      ],
+      "title": "Agent extension recommendation",
+      "description": "A qualified extension reference with an optional self-describing source. Sourceless entries use the fixed AgentXM Registry; versionRange is valid only for Registry sources."
+    },
+    "AgentExtensionsMetadata": {
+      "type": "object",
+      "properties": {
+        "$schema": { "type": "string" },
+        "agentExtensions": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/AgentExtensionRecommendation" }
+        }
+      },
+      "required": ["agentExtensions"],
+      "additionalProperties": false,
+      "title": "Agent Extensions Metadata",
+      "description": "Version 1 of the portable package metadata contract for recommended agent extensions."
+    }
+  }
+}

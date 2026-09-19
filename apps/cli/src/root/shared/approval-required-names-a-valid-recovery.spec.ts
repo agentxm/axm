@@ -152,9 +152,17 @@ describe("Approval-required recovery", () => {
           settings: { sources: [registry.source] },
         });
         cleanups.push(workspace.cleanup);
-        yield* handleInstall({ source: Option.some(FQN), force: false, preview: false }).pipe(
-          Effect.provide(workspace.layer),
-        );
+        yield* handleInstall({
+          type: Option.none(),
+          source: Option.some(FQN),
+          selectors: {},
+          all: false,
+          force: false,
+          preview: false,
+          env: [],
+          localName: Option.none(),
+          bundled: false,
+        }).pipe(Effect.provide(workspace.layer));
         registry.writeSkill(SKILL, [
           { version: "2.0.0", body: "Second guidance." },
           { version: "1.0.0", body: "First guidance." },

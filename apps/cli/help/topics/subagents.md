@@ -4,9 +4,9 @@ Before distributing package-root files, read `axm help publish` for the
 Registry-only archive policy and effective preview.
 
 Project-authored subagent packages live in `./subagents/<subagent-name>`;
-acquired packages use the source-qualified canonical scheme. For example, an
-AgentXM Registry subagent lives under
-`./agent_extensions/agentxm/<@owner>/subagents/<subagent-name>`.
+acquired packages use the source-family and identity-based canonical scheme.
+For example, a Registry subagent lives under
+`./agent_extensions/registry/<@owner>/subagents/<subagent-name>`.
 
 A subagent is two coordinated files: a portable manifest plus a content file that holds the system prompt and any agent-facing frontmatter.
 

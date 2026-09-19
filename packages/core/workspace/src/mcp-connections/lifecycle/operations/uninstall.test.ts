@@ -91,7 +91,7 @@ const makeServices = (
         baseDir: path.dirname(axmDir),
         runtimeDir: axmDir,
         settings: { agents: [] },
-        lockfile: { lockfileVersion: 7, skills: {}, mcpServers: acceptedMcpServers },
+        lockfile: { lockfileVersion: 8, skills: {}, mcpServers: acceptedMcpServers },
         graph: {
           complete: true,
           nodes: desiredNodes,
@@ -167,7 +167,14 @@ describe("uninstallMcpServer", () => {
     const axmDir = path.join(base, ".axm");
     fs.mkdirSync(axmDir, { recursive: true });
 
-    const canonicalPath = path.join(base, "agent_extensions", "agentxm", owner, "mcps", serverName);
+    const canonicalPath = path.join(
+      base,
+      "agent_extensions",
+      "registry",
+      owner,
+      "mcps",
+      serverName,
+    );
     if (opts.createCanonical !== false) {
       fs.mkdirSync(canonicalPath, { recursive: true });
       fs.writeFileSync(path.join(canonicalPath, "server.js"), "module.exports = {}");

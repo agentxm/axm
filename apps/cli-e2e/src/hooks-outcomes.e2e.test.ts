@@ -88,7 +88,7 @@ describe("hook configured-agent outcomes", () => {
 
       const beforePreview = snapshotTree(temp.path);
       const humanPreview = await runCli(
-        ["hooks", "install", observational, "--preview", "--non-interactive"],
+        ["hooks", "install", observational, "--hook", "audit", "--preview", "--non-interactive"],
         { cwd: temp.path },
       );
       expect(humanPreview.exitCode, humanPreview.stdout + humanPreview.stderr).toBe(0);
@@ -99,7 +99,16 @@ describe("hook configured-agent outcomes", () => {
       expect(humanPreview.stdout + humanPreview.stderr).toContain("--verbose for details");
       expect(snapshotTree(temp.path)).toEqual(beforePreview);
       const verbosePreview = await runCli(
-        ["hooks", "install", observational, "--preview", "--non-interactive", "--verbose"],
+        [
+          "hooks",
+          "install",
+          observational,
+          "--hook",
+          "audit",
+          "--preview",
+          "--non-interactive",
+          "--verbose",
+        ],
         { cwd: temp.path },
       );
       expect(verbosePreview.exitCode, verbosePreview.stdout + verbosePreview.stderr).toBe(0);
@@ -111,7 +120,16 @@ describe("hook configured-agent outcomes", () => {
       );
       expect(snapshotTree(temp.path)).toEqual(beforePreview);
       const preview = await runCli(
-        ["hooks", "install", observational, "--preview", "--json", "--non-interactive"],
+        [
+          "hooks",
+          "install",
+          observational,
+          "--hook",
+          "audit",
+          "--preview",
+          "--json",
+          "--non-interactive",
+        ],
         { cwd: temp.path },
       );
       expect(preview.exitCode, preview.stdout + preview.stderr).toBe(0);
@@ -131,7 +149,7 @@ describe("hook configured-agent outcomes", () => {
       ]);
 
       const applied = await runCli(
-        ["hooks", "install", observational, "--json", "--non-interactive"],
+        ["hooks", "install", observational, "--hook", "audit", "--json", "--non-interactive"],
         { cwd: temp.path },
       );
       expect(applied.exitCode, applied.stdout + applied.stderr).toBe(0);
@@ -217,7 +235,7 @@ describe("hook configured-agent outcomes", () => {
       ]);
       const beforeBlocked = snapshotTree(temp.path);
       const blockedApply = await runCli(
-        ["hooks", "install", blocked, "--json", "--non-interactive"],
+        ["hooks", "install", blocked, "--hook", "enforce", "--json", "--non-interactive"],
         { cwd: temp.path },
       );
       expect(blockedApply.exitCode, blockedApply.stdout + blockedApply.stderr).toBe(6);

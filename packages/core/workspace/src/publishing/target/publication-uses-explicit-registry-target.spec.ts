@@ -36,7 +36,6 @@ export const specification = defineSpecification({
   assumptions: [],
   openQuestions: [
     "What target or rejection is required when both a configured name and an explicit URL are supplied? The current implementation prefers the URL and retains the supplied name as a label; no public precedence promise was identified.",
-    "Which Registry should a publication without either target select? The current implementation takes the first resolved Registry source; this requirement does not establish that default or source-order policy.",
     "Which URL schemes are supported publication targets beyond the existing local Registry and HTTP implementations? No new scheme support or normalization guarantee is established here.",
   ],
   limitations: [
@@ -74,6 +73,7 @@ const makeTwoRegistryWorld = (type: (typeof publicationTypes)[number]) => {
   world.writeSettings({
     owner: "@acme",
     agents: [],
+    defaultRegistry: "selected",
     sources: [
       { name: "distractor", type: "registry", location: distractor.url },
       { name: "selected", type: "registry", location: selected.url },
@@ -123,6 +123,26 @@ describe("Explicit publication Registry target", () => {
   afterEach(() => {
     for (const world of worlds.splice(0)) world.cleanup();
   });
+
+  it.effect("publish preview reports the settings-selected default destination", () =>
+    Effect.gen(function* () {
+      const fixture = makeTwoRegistryWorld(publicationTypes[0]);
+      worlds.push(fixture.world);
+
+      const outcome = yield* fixture.world.provide(
+        runPublish(
+          targetedRequest({
+            selectors: ["@acme/skills/review"],
+            preview: true,
+          }),
+        ),
+      );
+
+      expect(publishDocument(outcome).selection.registry).toBe("selected");
+      expect(fixture.selected.storedFiles()).toEqual([]);
+      expect(fixture.distractor.storedFiles()).toEqual([]);
+    }),
+  );
 
   for (const type of publicationTypes) {
     for (const targetForm of ["configured name", "explicit URL"] as const) {

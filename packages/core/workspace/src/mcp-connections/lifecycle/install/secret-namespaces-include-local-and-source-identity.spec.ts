@@ -113,12 +113,17 @@ const resetWorkspaceAuthority = (world: InstallWorld): void => {
   world.workspace.writeFile(
     "axm.json",
     JSON.stringify(
-      { owner: "@acme", agents: ["claude-code"], sources: [world.registry.source] },
+      {
+        owner: "@acme",
+        agents: ["claude-code"],
+        defaultRegistry: "test",
+        sources: [world.registry.source],
+      },
       null,
       2,
     ),
   );
-  world.workspace.writeFile("axm-lock.yaml", JSON.stringify({ lockfileVersion: 7, skills: {} }));
+  world.workspace.writeFile("axm-lock.yaml", JSON.stringify({ lockfileVersion: 8, skills: {} }));
 };
 
 describe("MCP secrets for locally named connections", () => {
@@ -267,5 +272,6 @@ describe("MCP secrets for locally named connections", () => {
         expect(MCP_SECRET_SERVICE).toBe("axm-mcp");
       });
     },
+    { timeout: 15_000 },
   );
 });

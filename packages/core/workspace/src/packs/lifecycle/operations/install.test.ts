@@ -162,7 +162,7 @@ describe("installPack", () => {
     const packDir = path.join(
       projectDir,
       "agent_extensions",
-      "agentxm",
+      "registry",
       "@acme",
       "packs",
       "frontend-pack",
@@ -216,7 +216,7 @@ describe("installPack", () => {
     const packDir = path.join(
       projectDir,
       "agent_extensions",
-      "agentxm",
+      "registry",
       "@acme",
       "packs",
       "frontend-pack",
@@ -249,7 +249,9 @@ describe("installPack", () => {
 
       expect(result.result).toBe("success");
       expect(fs.existsSync(path.join(packDir, "pack.json"))).toBe(true);
-      expect(writtenPack).toMatchObject({ manifestContentIdentity: expectedIdentity });
+      expect(writtenPack).toMatchObject({
+        lockEntry: { manifestContentIdentity: expectedIdentity },
+      });
     }).pipe(
       Effect.provide(
         withServices(projectDir, packSourceDir, (_type, args) =>
@@ -267,7 +269,7 @@ describe("installPack", () => {
     const packDir = path.join(
       projectDir,
       "agent_extensions",
-      "agentxm",
+      "registry",
       "@acme",
       "packs",
       "frontend-pack",

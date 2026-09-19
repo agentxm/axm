@@ -41,7 +41,10 @@ import {
   PackageUrlSchema,
   type PackageUrlParts,
 } from "@agentxm/extension-model/unstable/packaging/package-url";
-import type { PackageExtensionDeclaration } from "./axm-package-meta.js";
+import {
+  AGENTXM_REGISTRY_URL,
+  type AgentExtensionRecommendation,
+} from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 import {
   packagesToPackageUrlParts,
   ExtensionIndexSchema,
@@ -149,7 +152,26 @@ const encodePublicationSetRequest = (args: PreviewExtensionPublishesArgs) => ({
       ? {}
       : { archiveSha256Hex: descriptor.archiveSha256Hex }),
     visibility: descriptor.visibility,
-    ...(descriptor.pack === undefined ? {} : { pack: descriptor.pack }),
+    ...(descriptor.pack === undefined
+      ? {}
+      : {
+          pack: {
+            dependencies: descriptor.pack.dependencies.map((dependency) => ({
+              owner: dependency.owner,
+              type: dependency.type,
+              name: dependency.name,
+              range: dependency.range,
+              ...(dependency.source === undefined
+                ? {}
+                : {
+                    source: {
+                      type: dependency.source.type,
+                      url: dependency.source.url.href,
+                    },
+                  }),
+            })),
+          },
+        }),
   })),
 });
 
@@ -291,17 +313,23 @@ const packageIdentity = (parts: PackageUrlParts): PackageUrlParts => ({
   ...(parts.subpath === undefined ? {} : { subpath: parts.subpath }),
 });
 
-const extensionDeclarationToDiscoveryRef = (value: PackageExtensionDeclaration) => {
+const extensionDeclarationToDiscoveryRef = (value: AgentExtensionRecommendation) => {
   const parts = parseExtensionFqnParts(value.ref);
   if (parts === undefined) {
     return undefined;
   }
 
+  const source = value.source ?? { type: "registry" as const, url: new URL(AGENTXM_REGISTRY_URL) };
   return {
     ref: `${parts.owner}/${toExtensionTypePlural(parts.type)}/${parts.name}`,
-    ...(value.versionRange === undefined || value.versionRange === null
-      ? {}
-      : { versionRange: value.versionRange }),
+    source:
+      source.type === "path"
+        ? source
+        : {
+            ...source,
+            url: source.url.href,
+          },
+    ...(value.versionRange === undefined ? {} : { versionRange: value.versionRange }),
   };
 };
 

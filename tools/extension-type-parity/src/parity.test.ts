@@ -31,24 +31,15 @@ const TIER = "core-test";
  * isolates that field.
  */
 const REGISTRY_LOCK_ENTRY = {
-  type: "registry",
-  sourceType: "registry",
-  endpoint: "https://registry.agentxm.ai",
-  workspaceName: "example",
-  packageFormat: "agentxm",
-  owner: "@acme",
-  name: "example",
-  resolvedVersion: "1.0.0",
-  integrity: "sha512-abc123",
-  sourceName: "agentxm",
-  publisherBindingId: "hbnd_test",
+  source: { type: "registry", url: "https://registry.agentxm.ai" },
+  identity: { owner: "@acme", name: "example" },
+  resolved: {
+    version: "1.0.0",
+    integrity: "sha512-abc123",
+    publisherBindingId: "hbnd_test",
+  },
   treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
 } as const;
-
-const registryLockEntry = (type: CatalogExtensionType) => ({
-  ...REGISTRY_LOCK_ENTRY,
-  extensionType: type,
-});
 
 type LockEntrySchema = (typeof LOCK_ENTRY_SCHEMA_BY_TYPE)[CatalogExtensionType];
 
@@ -66,22 +57,15 @@ const decodes = (schema: LockEntrySchema, input: unknown): boolean => {
 
 const CHECKS: Record<ObligationIdForTier<typeof TIER>, (type: CatalogExtensionType) => boolean> = {
   "2.6-accepted-resolution": (type) =>
-    decodes(LOCK_ENTRY_SCHEMA_BY_TYPE[type], registryLockEntry(type)) &&
+    decodes(LOCK_ENTRY_SCHEMA_BY_TYPE[type], REGISTRY_LOCK_ENTRY) &&
     decodes(LOCK_ENTRY_SCHEMA_BY_TYPE[type], {
-      type: "github",
-      sourceType: "github",
-      sourceName: "github",
-      endpoint: "https://github.com",
-      extensionType: type,
-      workspaceName: "example",
-      packageFormat: "agentxm",
-      packageOwner: "@acme",
-      packageName: "example",
-      owner: "acme",
-      repo: "example",
-      resolvedCommit: "commit-1",
-      resolvedTree: "tree-1",
-      contentIdentity: "content-1",
+      source: {
+        type: "git",
+        url: "https://github.com/acme/example.git",
+        revision: "main",
+      },
+      identity: { owner: "@acme", name: "example" },
+      resolved: { commit: "commit-1", tree: "tree-1" },
       treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
     }),
 };

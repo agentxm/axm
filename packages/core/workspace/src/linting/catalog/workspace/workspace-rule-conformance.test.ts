@@ -4,6 +4,7 @@ import * as Effect from "effect/Effect";
 import {
   configuredButNotInstalledConformance,
   packsDependenciesResolvedConformance,
+  packsSharedMembersDistributableConformance,
   skillsArtifactsCorrectConformance,
   skillsIntegrityValidConformance,
   skillsLockfileAlignedConformance,
@@ -88,6 +89,7 @@ const cases: ReadonlyArray<WorkspaceRuleConformanceCase> = [
   agentContentHasSettingsConformance,
   skillsDeclarationsValidConformance,
   packsDeclarationsValidConformance,
+  packsSharedMembersDistributableConformance,
   configuredButNotInstalledConformance,
   knowledgeStateValidConformance,
   mcpTransportExclusivityConformance,

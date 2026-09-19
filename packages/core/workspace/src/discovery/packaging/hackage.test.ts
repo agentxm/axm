@@ -318,15 +318,15 @@ describe("hackageReader", () => {
     expect(hackageReader.type).toBe(hackageType);
   });
 
-  describe("valid x-axm fields", () => {
-    it.effect("extracts extensions from x-axm fields", () =>
+  describe("valid x-agentExtensions fields", () => {
+    it.effect("extracts extensions from x-agentExtensions fields", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hackage", name: "aeson", version: "2.2.1.0" });
           const cabalContent = [
             "name: aeson",
             "version: 2.2.1.0",
-            'x-axm-extensions: [{"ref":"@hackage/skills/aeson","versionRange":"^1.0.0"}]',
+            'x-agent-extensions: [{"ref":"@hackage/skills/aeson","versionRange":"^1.0.0"}]',
           ].join("\n");
           const result = yield* readInTempCabalStore(purl, cabalContent);
           expect(Option.isSome(result)).toBe(true);
@@ -340,8 +340,8 @@ describe("hackageReader", () => {
     );
   });
 
-  describe("missing x-axm fields", () => {
-    it.effect("returns Option.none when no x-axm fields", () =>
+  describe("missing x-agentExtensions fields", () => {
+    it.effect("returns Option.none when no x-agentExtensions fields", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hackage", name: "text", version: "2.0.1" });
@@ -353,12 +353,12 @@ describe("hackageReader", () => {
     );
   });
 
-  describe("malformed x-axm metadata", () => {
+  describe("malformed x-agent-extensions metadata", () => {
     it.effect("returns Option.none on invalid metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hackage", name: "aeson", version: "2.2.1.0" });
-          const cabalContent = ["name: aeson", "x-axm-extensions: not-valid-json"].join("\n");
+          const cabalContent = ["name: aeson", "x-agent-extensions: not-valid-json"].join("\n");
           const result = yield* readInTempCabalStore(purl, cabalContent);
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -366,15 +366,15 @@ describe("hackageReader", () => {
     );
   });
 
-  describe("extra x-axm fields tolerated", () => {
-    it.effect("ignores unknown x-axm fields", () =>
+  describe("extra x-agentExtensions fields tolerated", () => {
+    it.effect("ignores unknown x-agentExtensions fields", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hackage", name: "aeson", version: "2.2.1.0" });
           const cabalContent = [
             "name: aeson",
-            'x-axm-extensions: [{"ref":"@hackage/skills/aeson","versionRange":"^1.0.0"}]',
-            "x-axm-futureField: true",
+            'x-agent-extensions: [{"ref":"@hackage/skills/aeson","versionRange":"^1.0.0"}]',
+            "x-agent-extensions-futureField: true",
           ].join("\n");
           const result = yield* readInTempCabalStore(purl, cabalContent);
           expect(Option.isSome(result)).toBe(true);
@@ -395,7 +395,7 @@ describe("hackageReader", () => {
           const purl = makePurl({ type: "hackage", name: "aeson", version: "2.2.1.0" });
           const cabalContent = [
             "name: aeson",
-            'x-axm-extensions: [{"ref":"@hackage/skills/aeson","versionRange":"^1.0.0"}]',
+            'x-agent-extensions: [{"ref":"@hackage/skills/aeson","versionRange":"^1.0.0"}]',
           ].join("\n");
           const result = yield* readInTempCabalStore(purl, cabalContent, "dist-newstyle");
           expect(Option.isSome(result)).toBe(true);

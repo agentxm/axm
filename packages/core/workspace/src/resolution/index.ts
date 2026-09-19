@@ -69,6 +69,8 @@ export {
   type WorkspaceAuthorityStatus,
 } from "./source-authority.js";
 
+export { type SourceBindingProposal } from "./source-switch.js";
+
 // Configured-entry vocabulary and resolution.
 export {
   type ConfiguredEntryFailureReason,

@@ -15,7 +15,7 @@ import {
   PackageUrlPartsSchema,
   type PackageUrlParts,
 } from "@agentxm/extension-model/unstable/packaging/package-url";
-import { decodeAxmMeta, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const swiftType = Schema.decodeUnknownSync(PackageTypeSchema)("swift");
@@ -142,7 +142,7 @@ export const swiftDetector: PackageDetector = {
 /**
  * Swift package reader.
  *
- * Reads `.build/checkouts/<package-name>/axm.json` for each detected SwiftPM
+ * Reads `.build/checkouts/<package-name>/agent-extensions.json` for each detected SwiftPM
  * package and extracts recommendation metadata.
  *
  * @experimental This API is unstable and may change without notice.
@@ -156,24 +156,33 @@ export const swiftReader: PackageReader = {
       // Derive project directory from the source manifest path
       const projectDir = path.dirname(pkg.source);
 
-      const axmJsonPath = path.join(projectDir, ".build", "checkouts", pkg.purl.name, "axm.json");
+      const agentExtensionsJsonPath = path.join(
+        projectDir,
+        ".build",
+        "checkouts",
+        pkg.purl.name,
+        "agent-extensions.json",
+      );
 
-      const content = yield* readFileOptional(axmJsonPath);
+      const content = yield* readFileOptional(agentExtensionsJsonPath);
       if (Option.isNone(content)) return Option.none();
 
-      const parsed = yield* parseJsonOptional(content.value, `${pkg.purl.name}/axm.json`);
+      const parsed = yield* parseJsonOptional(
+        content.value,
+        `${pkg.purl.name}/agent-extensions.json`,
+      );
       if (Option.isNone(parsed)) return Option.none();
 
-      // Validate axm metadata structure
-      const metaResult = decodeAxmMeta(parsed.value);
+      // Validate agentExtensions metadata structure
+      const metaResult = yield* decodeAgentExtensions(parsed.value);
       if (Result.isFailure(metaResult)) {
         yield* Effect.logWarning(
-          `Invalid axm metadata in ${pkg.purl.name}: schema validation failed`,
+          `Invalid agentExtensions metadata in ${pkg.purl.name}: schema validation failed`,
         );
         return Option.none();
       }
 
-      return Option.some(metaResult.success.extensions);
+      return Option.some(metaResult.success.agentExtensions);
     },
     Effect.annotateLogs({ reader: "swift" }),
     Effect.withSpan("read.swift"),

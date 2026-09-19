@@ -75,7 +75,11 @@ import {
 } from "../desired-state/index.js";
 import type { HookLockEntry } from "../desired-state/index.js";
 import { MaterializedFileTargetSchema } from "../desired-state/index.js";
-import { gitSourceLockFields } from "../desired-state/index.js";
+import {
+  gitSourceLockFields,
+  pathSourceLockFields,
+  registrySourceLockFields,
+} from "../desired-state/index.js";
 import { SourceHostProviders, WorkspaceCatalog } from "../resolution/sources/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import {
@@ -115,24 +119,16 @@ const HOOK_FALLBACKS_REGION = "hook-fallbacks";
 const decodeHookManifest = Schema.decodeUnknownEffect(HookManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
-const registryHookLockEntry = (
-  ref: RegistryHookRef,
-  treeIntegrity: TreeIntegrity,
-): HookLockEntry => ({
-  type: "registry",
-  sourceType: "registry",
-  packageFormat: "agentxm",
-  endpoint: ref.source.location,
-  extensionType: "hook",
-  workspaceName: ref.hook.name,
-  owner: ref.owner,
-  name: ref.name,
-  resolvedVersion: decodeVersionSync(ref.version),
-  integrity: Option.getOrElse(ref.integrity, () => ""),
-  sourceName: ref.source.name,
-  publisherBindingId: ref.publisherBindingId,
-  treeIntegrity,
-});
+const registryHookLockEntry = (ref: RegistryHookRef, treeIntegrity: TreeIntegrity): HookLockEntry =>
+  registrySourceLockFields(
+    ref.source,
+    ref.owner,
+    ref.name,
+    decodeVersionSync(ref.version),
+    Option.getOrElse(ref.integrity, () => ""),
+    ref.publisherBindingId,
+    treeIntegrity,
+  );
 
 const gitHookLockEntry = (
   ref: GitHostedHookRef,
@@ -141,12 +137,9 @@ const gitHookLockEntry = (
 ): HookLockEntry => ({
   ...gitSourceLockFields(
     ref.source,
-    "hook",
-    ref.hook.name,
     Option.fromUndefinedOr(ref.sourcePath),
     ref.gitCommitSha,
     ref.gitTreeSha,
-    contentIdentity,
     ref.owner,
     ref.name,
     treeIntegrity,
@@ -158,19 +151,14 @@ const localHookLockEntry = (
   workspaceRelativeLocalSourcePath: Option.Option<string>,
   contentIdentity: SourceHash,
   treeIntegrity: TreeIntegrity,
-): HookLockEntry => ({
-  type: "local",
-  sourceType: "local",
-  sourceName: "local",
-  extensionType: "hook",
-  workspaceName: ref.hook.name,
-  packageFormat: "agentxm",
-  packageOwner: ref.owner,
-  packageName: ref.name,
-  path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
-  contentIdentity,
-  treeIntegrity,
-});
+): HookLockEntry =>
+  pathSourceLockFields(
+    Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
+    contentIdentity,
+    ref.name,
+    treeIntegrity,
+    ref.owner,
+  );
 
 interface HookWriterTarget {
   readonly agent: CapabilityAgent;

@@ -16,6 +16,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
+import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
   extensionTypeToPlural,
   parseExtensionFqnParts,
@@ -106,8 +107,13 @@ export const defaultViewRegistry: Effect.Effect<ViewTargetRegistry, never, Regis
 export const resolveViewRegistry = Effect.fn("ViewExtension.resolveRegistry")(function* (
   registry: Option.Option<string>,
 ) {
-  if (Option.isNone(registry)) return yield* defaultViewRegistry;
   const settings = yield* SettingsReader;
+  if (Option.isNone(registry)) {
+    return {
+      registryName: yield* settings.defaultRegistry,
+      registryUrl: yield* RegistryUrl,
+    } satisfies ViewTargetRegistry;
+  }
   const registrySources = yield* settings.registrySourceHosts;
   if (registrySources.length === 0) {
     return yield* new PublishedMetadataUnavailable({
@@ -134,15 +140,17 @@ export const resolveViewRegistry = Effect.fn("ViewExtension.resolveRegistry")(fu
  * caller has to settle, not a choice this query may make.
  */
 const resolveBareHandle = Effect.fn("ViewExtension.resolveBareHandle")(function* (handle: string) {
+  const settings = yield* SettingsReader;
+  const defaultRegistry = yield* settings.defaultRegistry;
   const attempts = yield* Effect.forEach(
-    ["skill", "subagent"] as const,
+    installableExtensionTypes,
     (resourceType) =>
       Effect.scoped(
         resolveIdentifier({
           input: handle,
           resourceType,
           scope: "both",
-          registrySourceName: "agentxm",
+          registrySourceName: defaultRegistry,
         }),
       ).pipe(Effect.result),
     { concurrency: "unbounded" },
@@ -174,6 +182,8 @@ export const resolveViewHandle = Effect.fn("ViewExtension.resolveHandle")(functi
 }) {
   const parts = parseExtensionFqnParts(request.handle);
   if (parts !== undefined) return parts;
+  const settings = yield* SettingsReader;
+  const defaultRegistry = yield* settings.defaultRegistry;
 
   const resolved = Option.isSome(request.type)
     ? yield* Effect.scoped(
@@ -181,7 +191,7 @@ export const resolveViewHandle = Effect.fn("ViewExtension.resolveHandle")(functi
           input: request.handle,
           resourceType: request.type.value,
           scope: "both",
-          registrySourceName: "agentxm",
+          registrySourceName: defaultRegistry,
         }),
       )
     : yield* resolveBareHandle(request.handle);

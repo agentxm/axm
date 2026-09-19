@@ -8,7 +8,12 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
-import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
+import {
+  createTempDir,
+  runCli,
+  SKILLS_REPO_FIXTURE,
+  writeDefaultRegistrySettings,
+} from "../../../e2e/utils.js";
 import { getOutput } from "../../../test-helpers.js";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -57,7 +62,7 @@ describe("axm skills install", () => {
         const stat = fs.lstatSync(claudeSkillsDir);
         expect(stat.isSymbolicLink()).toBe(true);
         const localRoot =
-          path.join(fs.realpathSync(temp.path), "agent_extensions", "local") + path.sep;
+          path.join(fs.realpathSync(temp.path), "agent_extensions", "path") + path.sep;
         expect(fs.realpathSync(claudeSkillsDir).startsWith(localRoot)).toBe(true);
         expect(fs.realpathSync(anotherClaudeSkillsDir).startsWith(localRoot)).toBe(true);
       } finally {
@@ -83,17 +88,16 @@ describe("axm skills install", () => {
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         // Verify lockfile structure
-        expect(lock.lockfileVersion).toBe(7);
+        expect(lock.lockfileVersion).toBe(8);
         expect(lock.skills).toBeDefined();
 
-        // Each skill entry should have required fields per flat schema
+        // Each skill entry should carry a self-describing source and immutable resolution.
         for (const skillName of ["my-skill", "another-skill"]) {
           const entry = lock.skills[skillName];
           expect(entry).toBeDefined();
-          // Flat schema: type is a string discriminator, not nested object
-          expect(entry.type).toBe("local");
-          expect(entry.path).toBeDefined();
-          expect(entry.contentIdentity).toMatch(/^[a-f0-9]{64}$/);
+          expect(entry.source).toMatchObject({ type: "path" });
+          expect(entry.source.path).toBeDefined();
+          expect(entry.resolved.tree).toMatch(/^[a-f0-9]{64}$/);
           expect(entry).not.toHaveProperty("agents");
           expect(entry).not.toHaveProperty("installedAt");
           expect(entry).not.toHaveProperty("updatedAt");
@@ -201,7 +205,7 @@ describe("axm skills install", () => {
         const packageRoot = path.join(
           temp.path,
           "agent_extensions",
-          "agentxm",
+          "registry",
           "@agentxm",
           "skills",
           "axm",
@@ -237,7 +241,7 @@ describe("axm skills install", () => {
           `${JSON.stringify(
             {
               ...settings,
-              skills: { ...settings["skills"], axm: "agentxm:@agentxm/skills/axm" },
+              skills: { ...settings["skills"], axm: "test:@agentxm/skills/axm" },
             },
             null,
             2,
@@ -255,35 +259,29 @@ describe("axm skills install", () => {
             skills: {
               ...lock["skills"],
               axm: {
-                type: "registry",
-                sourceType: "registry",
-                endpoint: "https://registry.agentxm.ai",
-                extensionType: "skill",
-                workspaceName: "axm",
-                packageFormat: "agentxm",
-                owner: "@agentxm",
-                name: "axm",
-                resolvedVersion: "99.0.0",
-                integrity: `sha512-${Buffer.alloc(64).toString("base64")}`,
-                sourceName: "agentxm",
-                publisherBindingId: "hbnd_test",
+                source: { type: "registry", url: "https://registry.agentxm.ai" },
+                identity: { owner: "@agentxm", name: "axm" },
+                resolved: {
+                  version: "99.0.0",
+                  integrity: `sha512-${Buffer.alloc(64).toString("base64")}`,
+                  publisherBindingId: "hbnd_test",
+                },
                 treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
               },
             },
           }),
         );
 
-        const offlineEnv = { AXM_REGISTRY_LOCATION: "http://127.0.0.1:1" };
+        writeDefaultRegistrySettings(path.join(temp.path, "axm.json"), "http://127.0.0.1:1");
         const preview = await runCli(
           ["skills", "install", "@agentxm/skills/axm", "--bundled", "--preview"],
-          { cwd: temp.path, env: offlineEnv },
+          { cwd: temp.path },
         );
         expect(preview.exitCode, preview.stderr).toBe(0);
         expect(fs.readFileSync(manifestPath, "utf8")).toContain("99.0.0");
 
         const applied = await runCli(["skills", "install", "@agentxm/skills/axm", "--bundled"], {
           cwd: temp.path,
-          env: offlineEnv,
         });
         expect(applied.exitCode, applied.stderr).toBe(0);
         expect(fs.readFileSync(manifestPath, "utf8")).not.toContain("99.0.0");
@@ -305,7 +303,7 @@ describe("axm skills install", () => {
         }
         expect(recoveredLock["skills"]["axm"]).toBeUndefined();
 
-        const lint = await runCli(["lint", "--json"], { cwd: temp.path, env: offlineEnv });
+        const lint = await runCli(["lint", "--json"], { cwd: temp.path });
         expect(lint.exitCode, lint.stderr).toBe(0);
         expect(getOutput(lint)).not.toContain("workspace/skills-lockfile-aligned");
         expect(getOutput(lint)).not.toContain("workspace/desired-state-reconcilable");
@@ -321,7 +319,7 @@ describe("axm skills install", () => {
           cwd: temp.path,
         });
         expect(result.exitCode).toBe(2);
-        expect(result.stderr).toContain("restricted to @agentxm/skills/axm");
+        expect(result.stderr).toContain("restricted to `axm skills install @agentxm/skills/axm`");
       } finally {
         temp.cleanup();
       }
@@ -343,7 +341,7 @@ describe("axm skills install", () => {
         // Expected structure:
         // axm.json
         // axm-lock.yaml
-        // agent_extensions/local/<source-full-name>/my-skill/
+        // agent_extensions/path/<owner>/skills/my-skill/
         //     src/SKILL.md
         // .claude/
         //   skills/
@@ -413,15 +411,14 @@ describe("axm skills install", () => {
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         // Verify new lockfile structure
-        expect(lock.lockfileVersion).toBe(7);
+        expect(lock.lockfileVersion).toBe(8);
         expect(lock.skills).toBeDefined();
         expect(lock.skills["my-skill"]).toBeDefined();
 
         const entry = lock.skills["my-skill"];
-        // Flat schema: source is a string discriminator, path is at top level
-        expect(entry.type).toBe("local");
-        expect(entry.path).toBeDefined();
-        expect(entry.contentIdentity).toMatch(/^[a-f0-9]{64}$/);
+        expect(entry.source).toMatchObject({ type: "path" });
+        expect(entry.source.path).toBeDefined();
+        expect(entry.resolved.tree).toMatch(/^[a-f0-9]{64}$/);
         expect(entry.agents).toBeUndefined();
         expect(entry.installedAt).toBeUndefined();
         expect(entry.updatedAt).toBeUndefined();
@@ -455,7 +452,7 @@ describe("axm skills install", () => {
             fs
               .realpathSync(resolvedLink)
               .startsWith(
-                path.join(fs.realpathSync(temp.path), "agent_extensions", "local") + path.sep,
+                path.join(fs.realpathSync(temp.path), "agent_extensions", "path") + path.sep,
               ),
           ).toBe(true);
         }
@@ -487,7 +484,7 @@ describe("axm skills install", () => {
           { cwd: temp.path },
         );
 
-        expect(result.exitCode).toBe(0);
+        expect(result.exitCode, result.stdout + result.stderr).toBe(0);
         expect(getOutput(result)).toMatch(/already up to date|update|install/i);
       } finally {
         temp.cleanup();
@@ -515,7 +512,7 @@ describe("axm skills install", () => {
           { cwd: temp.path },
         );
 
-        expect(result.exitCode).toBe(0);
+        expect(result.exitCode, result.stdout + result.stderr).toBe(0);
         expect(getOutput(result)).toContain("1 skill already current");
       } finally {
         temp.cleanup();
@@ -565,7 +562,7 @@ describe("axm skills install", () => {
         expect(output).toContain("Would install");
 
         // Verify no files were created
-        const localExtensionsRoot = path.join(temp.path, "agent_extensions", "local");
+        const localExtensionsRoot = path.join(temp.path, "agent_extensions", "path");
         expect(fs.existsSync(localExtensionsRoot)).toBe(false);
       } finally {
         temp.cleanup();
@@ -632,7 +629,7 @@ describe("axm skills install", () => {
           { cwd: temp.path },
         );
 
-        expect(result.exitCode).toBe(0);
+        expect(result.exitCode, result.stdout + result.stderr).toBe(0);
         const output = getOutput(result);
         expect(output).toContain("my-skill");
         expect(output).toMatch(/\+.*my-skill|to install/);

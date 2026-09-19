@@ -33,11 +33,24 @@ export const specification = defineSpecification({
 
 /** The root form names a locator and lets the use case detect the type. */
 const rootForm = (source: string) =>
-  applyInstall(installRequest({ subject: { kind: "source", source } }));
+  applyInstall(
+    installRequest({
+      subject: { kind: "source", source },
+      selectors: { skill: ["code-review"] },
+      all: false,
+    }),
+  );
 
 /** The type form fixes the type the command already knows. */
 const typeForm = (source: string) =>
-  applyInstall(installRequest({ type: "skill", subject: { kind: "source", source } }));
+  applyInstall(
+    installRequest({
+      type: "skill",
+      subject: { kind: "source", source },
+      names: ["code-review"],
+      all: false,
+    }),
+  );
 
 describe("Root and type-specific install parity", () => {
   const cleanups: Array<() => void> = [];
@@ -80,7 +93,7 @@ describe("Root and type-specific install parity", () => {
           const sourceBody = world.workspace.readFile("vendor/code-review/src/SKILL.md");
           expect(sourceBody).toContain("The code-review skill.");
           expect(
-            world.workspace.readFile("agent_extensions/local/vendor/code-review/src/SKILL.md"),
+            world.workspace.readFile("agent_extensions/path/@acme/skills/code-review/src/SKILL.md"),
           ).toBe(sourceBody);
           expect(world.workspace.readFile(".claude/skills/code-review/SKILL.md")).toBe(sourceBody);
         }

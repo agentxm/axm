@@ -16,11 +16,11 @@ import * as Schema from "effect/Schema";
 import * as semver from "semver";
 
 import {
-  ExtensionDependencyConstraintMapSchema,
   ExtensionMetadataSchema,
   ExtensionNameSchema,
   ExtensionTypeSchema,
   HandleSchema,
+  PackMemberConstraintMapSchema,
   PublishOptionsSchema,
   decodeExtensionNameSync,
   extensionTypeToPlural,
@@ -28,6 +28,7 @@ import {
   formatFqn,
   parseFqn,
   parseSourceQualifiedRegistrySourcePatternParts,
+  type PackMemberConstraintMap,
   type ExtensionName,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
@@ -51,9 +52,7 @@ import { createRegistryClient } from "@agentxm/registry-client";
 import {
   SettingsReader,
   WorkspaceLocation,
-  WorkspaceRecords,
   acceptedCanonicalObservation,
-  configuredRowsByName,
 } from "../../desired-state/index.js";
 
 import { PublishFailed } from "../errors.js";
@@ -124,7 +123,7 @@ export const CandidateManifestSchema = Schema.Struct({
   name: ExtensionNameSchema,
   version: VersionSchema,
   packages: Schema.optional(Schema.Array(CompanionPackageSchema)),
-  dependencies: Schema.optional(ExtensionDependencyConstraintMapSchema),
+  dependencies: Schema.optional(PackMemberConstraintMapSchema),
   publish: Schema.optional(PublishOptionsSchema),
   metadata: Schema.optional(ExtensionMetadataSchema),
 });
@@ -133,6 +132,7 @@ export interface CatalogEntry {
   readonly type: PublishableType;
   readonly name: string;
   readonly source: string;
+  readonly distribute: boolean;
 }
 
 export interface SelectedEntry extends CatalogEntry {
@@ -146,7 +146,7 @@ export interface SelectedEntry extends CatalogEntry {
   /** Manifest version, when the identity came from a manifest on disk. */
   readonly declaredVersion?: string;
   /** Pack dependency map, when the identity came from a pack manifest on disk. */
-  readonly declaredDependencies?: Readonly<Record<string, string>>;
+  readonly declaredDependencies?: PackMemberConstraintMap;
   readonly skipReason?: "not_authored" | "not_publishable";
 }
 
@@ -157,7 +157,7 @@ export interface PublishCandidate extends SelectedEntry {
   readonly manifestJson: unknown;
   readonly version: Version;
   readonly packages?: ReadonlyArray<Schema.Schema.Type<typeof CompanionPackageSchema>>;
-  readonly dependencies?: Schema.Schema.Type<typeof ExtensionDependencyConstraintMapSchema>;
+  readonly dependencies?: PackMemberConstraintMap;
   readonly publishVisibility?: ExtensionVisibility;
   readonly publishIgnore?: ReadonlyArray<string>;
   readonly archive: Uint8Array;
@@ -215,19 +215,24 @@ const entrySource = (entry: unknown): string | undefined => {
   return typeof entry.source === "string" ? entry.source : undefined;
 };
 
+const entryDistribution = (entry: unknown): boolean =>
+  typeof entry !== "object" ||
+  entry === null ||
+  !("distribute" in entry) ||
+  entry.distribute !== false;
+
 /** Every configured extension of a publishable type, with its source string. */
 export const catalogEntries = Effect.fn("Publish.catalogEntries")(function* () {
-  const records = yield* WorkspaceRecords;
   const settings = yield* SettingsReader;
   const [skills, mcps, subagents, rules, hooks, knowledge, packs] = yield* Effect.all(
     [
-      records.rows("skill").pipe(Effect.map(configuredRowsByName)),
-      records.rows("mcp-server").pipe(Effect.map(configuredRowsByName)),
-      records.rows("subagent").pipe(Effect.map(configuredRowsByName)),
+      settings.entries("skill"),
+      settings.entries("mcp-server"),
+      settings.entries("subagent"),
       settings.entries("rule"),
       settings.entries("hook"),
       settings.entries("knowledge"),
-      records.rows("pack").pipe(Effect.map(configuredRowsByName)),
+      settings.entries("pack"),
     ],
     { concurrency: "unbounded" },
   );
@@ -235,7 +240,9 @@ export const catalogEntries = Effect.fn("Publish.catalogEntries")(function* () {
   const group = (type: PublishableType, entries: Readonly<Record<string, unknown>>) =>
     Object.entries(entries).flatMap(([name, entry]) => {
       const source = entrySource(entry);
-      return source === undefined ? [] : [{ type, name, source } satisfies CatalogEntry];
+      return source === undefined
+        ? []
+        : [{ type, name, source, distribute: entryDistribution(entry) } satisfies CatalogEntry];
     });
 
   return [
@@ -246,15 +253,22 @@ export const catalogEntries = Effect.fn("Publish.catalogEntries")(function* () {
     ...group("hook", hooks),
     ...group("knowledge", knowledge),
     ...group("pack", packs),
-  ];
+  ].sort((left, right) => {
+    const typeOrder = extensionTypes.indexOf(left.type) - extensionTypes.indexOf(right.type);
+    return typeOrder === 0 ? left.name.localeCompare(right.name) : typeOrder;
+  });
 });
 
 export const sourceType = (source: string): SourceType => {
   if (isWorkspaceSourceLocator(source)) return "workspace";
-  if (source.startsWith("github:")) return "github";
-  if (source.startsWith("gitlab:")) return "gitlab";
-  if (source.startsWith("bitbucket:")) return "bitbucket";
-  if (source.startsWith("azurerepos:")) return "azurerepos";
+  if (
+    source.startsWith("github:") ||
+    source.startsWith("gitlab:") ||
+    source.startsWith("bitbucket:") ||
+    source.startsWith("azurerepos:")
+  ) {
+    return "git";
+  }
   if (source.startsWith("git:")) return "git";
   if (source.startsWith("file:") || source.startsWith("./") || source.startsWith("../")) {
     return "local";
@@ -436,7 +450,7 @@ export const selectEntries = Effect.fn("Publish.selectEntries")(function* (
       .map((entry) => (entry.authored ? entry : { ...entry, skipReason: "not_authored" }));
     mode = "explicit";
   } else {
-    selected = identities.filter((entry) => entry.authored);
+    selected = identities.filter((entry) => entry.authored && entry.distribute);
     mode = "authored";
     if (args.owners.length > 0) {
       selected = selected.filter((entry) => args.owners.includes(entry.owner));
@@ -488,6 +502,7 @@ export const selectEntries = Effect.fn("Publish.selectEntries")(function* (
               type: parsed.type,
               name: parsed.name,
               source: dependencyFqn,
+              distribute: true,
               owner: parsed.owner,
               fqn: dependencyFqn,
               sourceType: "registry",
@@ -645,17 +660,20 @@ export const resolveTargetRegistry = Effect.fn("Publish.resolveTargetRegistry")(
     });
     return { name: Option.getOrElse(requested, () => "override"), url } satisfies TargetRegistry;
   }
-  const registries = yield* settings.registrySourceHosts;
-  const [defaultRegistry] = registries;
   if (Option.isNone(requested)) {
-    if (defaultRegistry === undefined) {
+    const defaultRegistryName = yield* settings.defaultRegistry;
+    const defaultRegistry = yield* settings.sourceByName(defaultRegistryName);
+    if (Option.isNone(defaultRegistry) || defaultRegistry.value.type !== "registry") {
       return yield* Effect.fail(
-        new PublishFailed({ category: "usage", detail: "No registry sources configured" }),
+        new PublishFailed({
+          category: "usage",
+          detail: `Default registry source "${defaultRegistryName}" not found`,
+        }),
       );
     }
     return {
-      name: defaultRegistry.name,
-      url: defaultRegistry.location.href,
+      name: defaultRegistryName,
+      url: defaultRegistry.value.location.href,
     } satisfies TargetRegistry;
   }
   const source = yield* settings.sourceByName(requested.value);

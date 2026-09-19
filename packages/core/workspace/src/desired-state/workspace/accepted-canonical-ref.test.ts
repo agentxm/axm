@@ -25,7 +25,7 @@ describe("accepted canonical source transitions", () => {
       const previousPath = nodePath.join(
         root,
         "agent_extensions",
-        "agentxm",
+        "registry",
         "@acme",
         "skills",
         "review",
@@ -43,18 +43,13 @@ describe("accepted canonical source transitions", () => {
       nodeFs.mkdirSync(unrelatedPath, { recursive: true });
 
       const accepted = {
-        type: "registry",
-        sourceType: "registry",
-        sourceName: "agentxm",
-        endpoint: new URL("https://registry.agentxm.ai"),
-        extensionType: "skill",
-        workspaceName: extensionName("review"),
-        packageFormat: "agentxm",
-        owner: handle("@acme"),
-        name: extensionName("review"),
-        resolvedVersion: exactVersion("1.0.0"),
-        integrity: "sha512-review",
-        publisherBindingId: "hbnd_review",
+        source: { type: "registry", url: new URL("https://registry.agentxm.ai") },
+        identity: { owner: handle("@acme"), name: extensionName("review") },
+        resolved: {
+          version: exactVersion("1.0.0"),
+          integrity: "sha512-review",
+          publisherBindingId: "hbnd_review",
+        },
         treeIntegrity: TEST_TREE_INTEGRITY,
       } satisfies SkillLockEntry;
       nodeFs.writeFileSync(nodePath.join(root, "axm.json"), "{}\n");
@@ -68,11 +63,8 @@ describe("accepted canonical source transitions", () => {
         type: "skill",
         refType: "git-hosted",
         source: {
-          type: "github",
-          name: "github",
-          url: new URL("https://github.com"),
-          owner: "acme",
-          repo: "extensions",
+          type: "git",
+          url: new URL("https://github.com/acme/extensions.git"),
           ref: Option.some("main"),
           subPath: Option.some(sourcePath),
         },

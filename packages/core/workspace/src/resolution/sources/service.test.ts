@@ -10,6 +10,7 @@ import { execSync, type ExecSyncOptions } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
+import { pathToFileURL } from "node:url";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -345,7 +346,12 @@ describe("SourceHostProviders dispatch", () => {
         const svc = yield* SourceHostProviders;
         const result = yield* svc
           .find(
-            { type: "git", url: new URL("https://example.com/repo.git"), ref: Option.none() },
+            {
+              type: "git",
+              url: new URL("https://example.com/repo.git"),
+              ref: Option.none(),
+              subPath: Option.none(),
+            },
             defaultFindOptions,
           )
           .pipe(Effect.result);
@@ -359,32 +365,60 @@ describe("SourceHostProviders dispatch", () => {
     ),
   );
 
-  it.effect("dispatches to azurerepos stub", () =>
-    runWithService(
+  it.effect("fetches the discovered commit after the remote branch advances", () => {
+    const root = mkdtempSync(nodePath.join(tmpdir(), "axm-git-recorded-commit-"));
+    const sourceRoot = nodePath.join(root, "source");
+    const bareRoot = nodePath.join(root, "source.git");
+    mkdirSync(nodePath.join(sourceRoot, "src"), { recursive: true });
+    writeFileSync(
+      nodePath.join(sourceRoot, "skill.json"),
+      JSON.stringify({ owner: "@test", type: "skill", name: "review", version: "1.0.0" }),
+    );
+    writeFileSync(
+      nodePath.join(sourceRoot, "src", "SKILL.md"),
+      "---\nname: review\ndescription: Review code\n---\n# Recorded\n",
+    );
+    const gitOptions: ExecSyncOptions = { cwd: sourceRoot, stdio: "pipe" };
+    execSync("git init --initial-branch=main", gitOptions);
+    execSync("git config user.email test@example.com", gitOptions);
+    execSync("git config user.name Test", gitOptions);
+    execSync("git add . && git commit -m recorded", gitOptions);
+    execSync(`git clone --bare "${sourceRoot}" "${bareRoot}"`, {
+      cwd: root,
+      stdio: "pipe",
+    });
+
+    return runWithService(
       [],
       Effect.gen(function* () {
         const svc = yield* SourceHostProviders;
-        const result = yield* svc
-          .find(
-            {
-              type: "azurerepos",
-              name: "azurerepos",
-              organization: "org",
-              project: "proj",
-              repo: "repo",
-              ref: Option.none(),
-              subPath: Option.none(),
-              // Use an unreachable local URL to avoid credential prompts against live hosts.
-              url: new URL("https://127.0.0.1:1/org/proj/_git/repo"),
-            },
-            defaultFindOptions,
-          )
-          .pipe(Effect.result);
+        const source = {
+          type: "git" as const,
+          url: pathToFileURL(bareRoot),
+          ref: Option.none<string>(),
+          subPath: Option.none<string>(),
+        };
+        const refs = yield* svc.find(source, { ...defaultFindOptions, names: ["review"] });
+        const ref = refs.at(0);
+        expect(ref?.refType).toBe("git-hosted");
+        if (ref?.refType !== "git-hosted") return;
 
-        expect(result._tag).toBe("Failure");
-      }),
-    ),
-  );
+        writeFileSync(
+          nodePath.join(sourceRoot, "src", "SKILL.md"),
+          "---\nname: review\ndescription: Review code\n---\n# Advanced\n",
+        );
+        execSync("git add . && git commit -m advanced", gitOptions);
+        execSync(`git push "${bareRoot}" HEAD:main`, gitOptions);
+
+        const fetched = yield* svc.fetch(ref);
+        expect(readFileSync(nodePath.join(fetched.directory, "src", "SKILL.md"), "utf8")).toContain(
+          "# Recorded",
+        );
+      }).pipe(
+        Effect.ensuring(Effect.sync(() => rmSync(root, { recursive: true })).pipe(Effect.ignore)),
+      ),
+    );
+  });
 
   it.effect("dispatches to registry for registry source", () => {
     const registryRoot = makeRegistryDir();

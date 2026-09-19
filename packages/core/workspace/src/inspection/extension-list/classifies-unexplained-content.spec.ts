@@ -39,8 +39,8 @@ describe("Unexplained content classification", () => {
     const fixture = makeInspectionFixture({
       settings: { owner: "@acme" },
       files: {
-        "agent_extensions/agentxm/@acme/skills/stale/skill.json": skillManifest("stale"),
-        "agent_extensions/agentxm/@acme/skills/stale/src/SKILL.md": skillMd("stale"),
+        "agent_extensions/registry/@acme/skills/stale/skill.json": skillManifest("stale"),
+        "agent_extensions/registry/@acme/skills/stale/src/SKILL.md": skillMd("stale"),
         "skills/drafted/skill.json": skillManifest("drafted"),
         "skills/drafted/src/SKILL.md": skillMd("drafted"),
         ".agents/skills/native/SKILL.md": skillMd("native"),
@@ -91,8 +91,8 @@ describe("Unexplained content classification", () => {
       fs.mkdirSync(nodePath.dirname(file), { recursive: true });
       fs.writeFileSync(file, contents);
     };
-    write("agent_extensions/agentxm/@acme/skills/stale/skill.json", skillManifest("stale"));
-    write("agent_extensions/agentxm/@acme/skills/stale/src/SKILL.md", skillMd("stale"));
+    write("agent_extensions/registry/@acme/skills/stale/skill.json", skillManifest("stale"));
+    write("agent_extensions/registry/@acme/skills/stale/src/SKILL.md", skillMd("stale"));
     return fixture
       .provide(
         Effect.gen(function* () {

@@ -10,16 +10,9 @@ const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
 );
 
 const localEntry = {
-  type: "local",
-  sourceType: "local",
-  sourceName: "local",
-  extensionType: "subagent",
-  workspaceName: "planner",
-  packageFormat: "agentxm",
-  packageOwner: "@acme",
-  packageName: "planner",
-  path: "../subagents/planner",
-  contentIdentity,
+  source: { type: "path", path: "../subagents/planner" },
+  identity: { owner: "@acme", name: "planner" },
+  resolved: { tree: contentIdentity },
   treeIntegrity,
 } as const;
 
@@ -28,33 +21,23 @@ describe("Subagent accepted resolutions", () => {
     expect(Schema.decodeUnknownSync(SubagentLockEntrySchema)(localEntry)).toEqual(localEntry);
     expect(
       Schema.decodeUnknownSync(SubagentLockEntrySchema)({
-        type: "github",
-        sourceType: "github",
-        sourceName: "github",
-        endpoint: "https://github.com",
-        extensionType: "subagent",
-        workspaceName: "planner",
-        packageFormat: "agentxm",
-        packageOwner: "@acme",
-        packageName: "planner",
-        owner: "acme",
-        repo: "subagents",
-        path: "planner",
-        resolvedCommit: "commit-1",
-        resolvedTree: "tree-1",
-        contentIdentity,
+        source: {
+          type: "git",
+          url: "https://github.com/acme/subagents.git",
+          path: "planner",
+        },
+        identity: { owner: "@acme", name: "planner" },
+        resolved: { commit: "commit-1", tree: "tree-1" },
         treeIntegrity,
       }),
-    ).toMatchObject({ resolvedCommit: "commit-1", resolvedTree: "tree-1" });
+    ).toMatchObject({ resolved: { commit: "commit-1", tree: "tree-1" } });
   });
 
   it("rejects agent projections and receipt history", () => {
     expect(() =>
       Schema.decodeUnknownSync(SubagentLockEntrySchema)(
         {
-          type: "local",
-          path: "../subagents/planner",
-          contentIdentity,
+          ...localEntry,
           agents: ["claude-code"],
           installedAt: "2026-08-14T00:00:00Z",
         },
@@ -66,7 +49,7 @@ describe("Subagent accepted resolutions", () => {
   it("decodes a current lockfile with Subagent external resolution state", () => {
     expect(
       Schema.decodeUnknownSync(LockfileSchema)({
-        lockfileVersion: 7,
+        lockfileVersion: 8,
         skills: {},
         subagents: {
           planner: localEntry,

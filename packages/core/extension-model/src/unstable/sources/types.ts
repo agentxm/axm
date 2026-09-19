@@ -17,10 +17,6 @@ import type { Handle } from "../extensions/handle.js";
 /**
  * Source type discriminator for extension origins.
  *
- * - `"github"` - GitHub repository source
- * - `"gitlab"` - GitLab repository source
- * - `"bitbucket"` - Bitbucket repository source
- * - `"azurerepos"` - Azure Repos repository source
  * - `"git"` - Generic git repository source
  * - `"registry"` - Package registry source
  * - `"local"` - Local filesystem path source
@@ -30,10 +26,6 @@ import type { Handle } from "../extensions/handle.js";
  * @experimental
  */
 export const SourceTypeSchema = Schema.Literals([
-  "github",
-  "gitlab",
-  "bitbucket",
-  "azurerepos",
   "git",
   "registry",
   "local",
@@ -42,8 +34,7 @@ export const SourceTypeSchema = Schema.Literals([
 ]).annotate({
   identifier: "SourceType",
   title: "Source Type",
-  description:
-    "Source type discriminator: github, gitlab, bitbucket, azurerepos, git, registry, local, inline, or workspace.",
+  description: "Source type discriminator: git, registry, local, inline, or workspace.",
 });
 
 /**
@@ -197,33 +188,6 @@ export const AzureReposSourceParamsSchema = Schema.Struct({
 // -----------------------------------------------------------------------------
 
 /** @experimental */
-export interface GitHubSourceHost {
-  readonly type: "github";
-  readonly name: string;
-  readonly url: URL;
-}
-
-/** @experimental */
-export interface GitLabSourceHost {
-  readonly type: "gitlab";
-  readonly name: string;
-  readonly url: URL;
-}
-
-/** @experimental */
-export interface BitbucketSourceHost {
-  readonly type: "bitbucket";
-  readonly name: string;
-  readonly url: URL;
-}
-
-/** @experimental */
-export interface AzureReposSourceHost {
-  readonly type: "azurerepos";
-  readonly name: string;
-  readonly url: URL;
-}
-
 /** Self-describing — the git URL lives in SourceParams. @experimental */
 export interface GitSourceHost {
   readonly type: "git";
@@ -256,15 +220,7 @@ export interface WorkspaceSourceHost {
 
 /** @experimental */
 export type SourceHost =
-  | GitHubSourceHost
-  | GitLabSourceHost
-  | BitbucketSourceHost
-  | AzureReposSourceHost
-  | GitSourceHost
-  | RegistrySourceHost
-  | LocalSourceHost
-  | InlineSourceHost
-  | WorkspaceSourceHost;
+  GitSourceHost | RegistrySourceHost | LocalSourceHost | InlineSourceHost | WorkspaceSourceHost;
 
 // -----------------------------------------------------------------------------
 // SourceParams — coordinates within a source
@@ -320,6 +276,7 @@ export interface GitSourceParams {
   readonly type: "git";
   readonly url: URL;
   readonly ref: Option.Option<string>;
+  readonly subPath: Option.Option<string>;
 }
 
 /** @experimental */
@@ -354,10 +311,6 @@ export interface WorkspaceSourceParams {
 
 /** @experimental */
 export type SourceParams =
-  | GitHubSourceParams
-  | GitLabSourceParams
-  | BitbucketSourceParams
-  | AzureReposSourceParams
   | GitSourceParams
   | RegistrySourceParams
   | LocalSourceParams
@@ -369,14 +322,6 @@ export type SourceParams =
 // -----------------------------------------------------------------------------
 
 /** @experimental */
-export type GitHubSource = GitHubSourceHost & GitHubSourceParams;
-/** @experimental */
-export type GitLabSource = GitLabSourceHost & GitLabSourceParams;
-/** @experimental */
-export type BitbucketSource = BitbucketSourceHost & BitbucketSourceParams;
-/** @experimental */
-export type AzureReposSource = AzureReposSourceHost & AzureReposSourceParams;
-/** @experimental */
 export type InlineSource = InlineSourceHost & InlineSourceParams;
 /** @experimental */
 export type GitSource = GitSourceHost & GitSourceParams;
@@ -387,36 +332,17 @@ export type LocalSource = LocalSourceHost & LocalSourceParams;
 /** @experimental */
 export type WorkspaceSource = WorkspaceSourceHost & WorkspaceSourceParams;
 /** @experimental */
-export type Source =
-  | GitHubSource
-  | GitLabSource
-  | BitbucketSource
-  | AzureReposSource
-  | GitSource
-  | RegistrySource
-  | LocalSource
-  | WorkspaceSource;
+export type Source = GitSource | RegistrySource | LocalSource | WorkspaceSource;
 
 // -----------------------------------------------------------------------------
 // Convenience Unions
 // -----------------------------------------------------------------------------
 
-/** Git hosting providers that require a configured URL. @experimental */
-export type GitHostingSourceHost =
-  GitHubSourceHost | GitLabSourceHost | BitbucketSourceHost | AzureReposSourceHost;
-
-/** @experimental */
-export type GitHostingSourceParams =
-  GitHubSourceParams | GitLabSourceParams | BitbucketSourceParams | AzureReposSourceParams;
-
-/** @experimental */
-export type GitHostingSource = GitHubSource | GitLabSource | BitbucketSource | AzureReposSource;
-
-/** All git-based sources (hosting providers + generic git). @experimental */
-export type GitBasedSource = GitHostingSource | GitSource;
+/** All git-based sources. Hosted-provider syntax expands to this source. @experimental */
+export type GitBasedSource = GitSource;
 
 /** Sources that require host configuration from settings. @experimental */
-export type ConfiguredSourceHost = GitHostingSourceHost | RegistrySourceHost;
+export type ConfiguredSourceHost = RegistrySourceHost;
 
 /** Sources that are self-describing (no settings config needed). @experimental */
 export type SelfDescribingSourceHost = GitSourceHost | LocalSourceHost;

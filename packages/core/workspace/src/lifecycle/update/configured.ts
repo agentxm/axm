@@ -53,6 +53,7 @@ import {
   DesiredStateReader,
   SettingsReader,
   WorkspaceLocation,
+  acceptedResolutionRef,
   enabledConfiguredEntries,
   isSourcedDesiredExtension,
   type WorkspaceSettingsReadFailure,
@@ -74,7 +75,12 @@ import {
   SkillManager,
   SubagentManager,
 } from "../../materialization/index.js";
-import { SourceHostProviders, WorkspaceCatalog } from "../../resolution/sources/index.js";
+import {
+  SourceHostProviders,
+  WorkspaceCatalog,
+  resolveSource,
+} from "../../resolution/sources/index.js";
+import { listRemoteRefs } from "../../resolution/sources/git/operations.js";
 import { extensionTypePluralSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { JobStepResult } from "../../transitions/planning/index.js";
@@ -110,6 +116,7 @@ import {
   prospectivePackConstraintProblems,
 } from "../../packs/lifecycle/constraint-gate.js";
 import { WORKSPACE_UPDATE_EXECUTION_CAPABILITIES } from "./atomicity.js";
+import { assessGitSelector } from "./git-selector.js";
 
 export type WorkspaceUpdatableType = InstallableExtensionType;
 
@@ -311,7 +318,8 @@ type ConfiguredUpdateResolution<TIntent> =
       readonly holdbacks: ReadonlyArray<ReleaseAgeRecord>;
       readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
     }
-  | { readonly kind: "policy_held"; readonly holdbacks: ReadonlyArray<ReleaseAgeRecord> };
+  | { readonly kind: "policy_held"; readonly holdbacks: ReadonlyArray<ReleaseAgeRecord> }
+  | { readonly kind: "selector_held"; readonly message: string };
 
 type CollectedPackResolution =
   | {
@@ -376,6 +384,36 @@ const mergeFragments = (
   return [...byKey.values()];
 };
 
+const selectorHeldPlan = (label: string, message: string): Plan<InstallStepRequirements> => ({
+  _tag: "Plan",
+  name: "Hold Git selector",
+  description: Option.some(message),
+  jobs: [
+    {
+      concurrency: 1,
+      steps: [
+        {
+          readiness: "ready",
+          label,
+          run: Effect.succeed({
+            result: "success",
+            disposition: "unchanged",
+            message,
+          } satisfies JobStepResult),
+        },
+      ],
+    },
+  ],
+});
+
+const sameGitSource = (
+  left: Extract<ExtensionRef, { readonly refType: "git-hosted" }>["source"],
+  right: Extract<ExtensionRef, { readonly refType: "git-hosted" }>["source"],
+): boolean =>
+  left.url.href === right.url.href &&
+  Option.getOrUndefined(left.ref) === Option.getOrUndefined(right.ref) &&
+  Option.getOrUndefined(left.subPath) === Option.getOrUndefined(right.subPath);
+
 const resolveUpdateIntent = <TIntent, R>(args: {
   readonly type: InstallableExtensionType;
   readonly name: string;
@@ -403,6 +441,34 @@ const resolveUpdateIntent = <TIntent, R>(args: {
   R | WorkspaceUpdateCollectorContext
 > =>
   Effect.gen(function* () {
+    const declaredSource = yield* Effect.option(resolveSource(args.source));
+    if (Option.isSome(declaredSource) && declaredSource.value.type === "git") {
+      const gitSource = declaredSource.value;
+      const selector = Option.getOrUndefined(gitSource.ref);
+      if (selector !== undefined) {
+        const remote = yield* listRemoteRefs(gitSource.url.href);
+        const assessment = assessGitSelector(selector, remote);
+        if (assessment.kind === "tag" || assessment.kind === "commit") {
+          const accepted = yield* acceptedResolutionRef({ type: args.type, name: args.name });
+          if (
+            Option.isSome(accepted) &&
+            accepted.value.refType === "git-hosted" &&
+            accepted.value.type === args.type &&
+            sameGitSource(accepted.value.source, gitSource)
+          ) {
+            const newer = assessment.kind === "tag" ? assessment.newerTag : undefined;
+            return {
+              kind: "selector_held",
+              message:
+                newer === undefined
+                  ? `${args.name} is pinned to Git ${assessment.kind} ${selector} and is unchanged`
+                  : `${args.name} is pinned to Git tag ${selector}; newer tag ${newer} is available`,
+            } as const;
+          }
+        }
+      }
+    }
+
     const registryResolution = yield* resolveConfiguredRegistryEntry(
       args.name,
       args.source,
@@ -643,6 +709,7 @@ const collectResolvedPlan = <TIntent, RResolution, RPlan>(
     intent: TIntent,
   ) => Effect.Effect<Plan<InstallStepRequirements>, ConfiguredUpdateFailure, RPlan>,
   onError: (error: ConfiguredUpdateFailure) => Plan<InstallStepRequirements>,
+  heldLabel: string,
 ) =>
   resolution.pipe(
     Effect.flatMap((resolved) =>
@@ -652,13 +719,19 @@ const collectResolvedPlan = <TIntent, RResolution, RPlan>(
             holdbacks: resolved.holdbacks,
             bypasses: [],
           })
-        : buildPlan(resolved.intent).pipe(
-            Effect.map((plan): ResolvedPlanCollection => ({
-              plans: [plan],
-              holdbacks: [...resolved.holdbacks, ...(plan.releaseAge?.holdbacks ?? [])],
-              bypasses: [...resolved.bypasses, ...(plan.releaseAge?.bypasses ?? [])],
-            })),
-          ),
+        : resolved.kind === "selector_held"
+          ? Effect.succeed<ResolvedPlanCollection>({
+              plans: [selectorHeldPlan(heldLabel, resolved.message)],
+              holdbacks: [],
+              bypasses: [],
+            })
+          : buildPlan(resolved.intent).pipe(
+              Effect.map((plan): ResolvedPlanCollection => ({
+                plans: [plan],
+                holdbacks: [...resolved.holdbacks, ...(plan.releaseAge?.holdbacks ?? [])],
+                bypasses: [...resolved.bypasses, ...(plan.releaseAge?.bypasses ?? [])],
+              })),
+            ),
     ),
     // One entry that cannot be planned is a blocked unit, not a failed sweep:
     // the other configured entries still have an advance to report.
@@ -701,6 +774,7 @@ const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest) =>
               resolveSkillIntent(name, entry.source, selection.releaseAgeEvaluation),
               (intent) => planSkillInstall(intent),
               (error) => workspacePlanningErrorPlan("skill", name, error),
+              name,
             ),
       { concurrency: "unbounded" },
     );
@@ -732,6 +806,7 @@ const collectRulePlans = (selection: WorkspaceUpdateCollectionRequest) =>
               resolveRuleIntent(name, entry.source, selection.releaseAgeEvaluation),
               (intent) => planRuleInstall(intent),
               (error) => workspacePlanningErrorPlan("rule", name, error),
+              name,
             ),
       { concurrency: "unbounded" },
     );
@@ -763,6 +838,7 @@ const collectHookPlans = (selection: WorkspaceUpdateCollectionRequest) =>
               resolveHookIntent(name, entry.source, selection.releaseAgeEvaluation),
               (intent) => planHookInstall(intent),
               (error) => workspacePlanningErrorPlan("hook", name, error),
+              name,
             ),
       { concurrency: "unbounded" },
     );
@@ -794,6 +870,7 @@ const collectKnowledgePlans = (selection: WorkspaceUpdateCollectionRequest) =>
               resolveKnowledgeIntent(name, entry.source, selection.releaseAgeEvaluation),
               (intent) => planKnowledgeInstall(intent),
               (error) => workspacePlanningErrorPlan("knowledge", name, error),
+              name,
             ),
       { concurrency: "unbounded" },
     );
@@ -827,6 +904,7 @@ const collectSubagentPlans = (selection: WorkspaceUpdateCollectionRequest) =>
               resolveSubagentIntent(name, entry.source, selection.releaseAgeEvaluation),
               (intent) => planSubagentInstall(intent),
               (error) => workspacePlanningErrorPlan("subagent", name, error),
+              name,
             ),
       { concurrency: "unbounded" },
     );
@@ -887,6 +965,7 @@ const collectMcpServerPlans = (selection: WorkspaceUpdateCollectionRequest) =>
                 ),
                 (intent) => planMcpServerInstall(intent),
                 (error) => workspacePlanningErrorPlan("mcp-server", name, error),
+                name,
               ),
       { concurrency: "unbounded" },
     );
@@ -927,12 +1006,18 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
               selection.releaseAgeEvaluation,
               selection.nonInteractive,
             ).pipe(
-              Effect.map(
-                (resolution) =>
-                  ({
-                    kind: "resolved",
-                    resolution,
-                  }) satisfies CollectedPackResolution,
+              Effect.map((resolution) =>
+                resolution.kind === "selector_held"
+                  ? ({
+                      kind: "planned",
+                      collection: toCollectedWorkspaceUpdatePlans({
+                        plans: [selectorHeldPlan(name, resolution.message)],
+                      }),
+                    } satisfies CollectedPackResolution)
+                  : ({
+                      kind: "resolved",
+                      resolution,
+                    } satisfies CollectedPackResolution),
               ),
               Effect.catch((error) =>
                 Effect.succeed({
@@ -955,7 +1040,11 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
       ...(selection.names === undefined ? {} : { selectedNames: selection.names }),
     });
     const resolvedHoldbacks = resolved.flatMap((item) =>
-      item.kind === "resolved" ? item.resolution.holdbacks : item.collection.holdbacks,
+      item.kind === "resolved" && item.resolution.kind !== "selector_held"
+        ? item.resolution.holdbacks
+        : item.kind === "planned"
+          ? item.collection.holdbacks
+          : [],
     );
     const resolvedBypasses = resolved.flatMap((item) =>
       item.kind === "resolved" && item.resolution.kind === "selected"

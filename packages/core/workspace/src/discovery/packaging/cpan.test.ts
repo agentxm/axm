@@ -272,17 +272,15 @@ describe("cpanReader", () => {
     expect(cpanReader.type).toBe(cpanType);
   });
 
-  describe("valid x_axm in MYMETA.json", () => {
-    it.effect("extracts extensions from x_axm", () =>
+  describe("valid x_agent_extensions in MYMETA.json", () => {
+    it.effect("extracts extensions from x_agent_extensions", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cpan", name: "Moose", version: "2.2014" });
           const mymeta = JSON.stringify({
             name: "Moose",
             version: "2.2014",
-            x_axm: {
-              extensions: [{ ref: "@perl/skills/moose", versionRange: "^1.0.0" }],
-            },
+            x_agent_extensions: [{ ref: "@perl/skills/moose", versionRange: "^1.0.0" }],
           });
           const result = yield* readInTempLib(purl, mymeta);
           expect(Option.isSome(result)).toBe(true);
@@ -299,7 +297,7 @@ describe("cpanReader", () => {
           const purl = makePurl({ type: "cpan", name: "DBI", version: "1.643" });
           const mymeta = JSON.stringify({
             name: "DBI",
-            x_axm: { extensions: [] },
+            x_agent_extensions: [],
           });
           const result = yield* readInTempLib(purl, mymeta);
           expect(Option.isSome(result)).toBe(true);
@@ -311,8 +309,8 @@ describe("cpanReader", () => {
     );
   });
 
-  describe("missing x_axm field", () => {
-    it.effect("returns Option.none when no x_axm field", () =>
+  describe("missing x_agent_extensions field", () => {
+    it.effect("returns Option.none when no x_agent_extensions field", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cpan", name: "Moose", version: "2.2014" });
@@ -348,14 +346,14 @@ describe("cpanReader", () => {
     );
   });
 
-  describe("invalid x_axm metadata", () => {
-    it.effect("returns Option.none when x_axm fails schema validation", () =>
+  describe("invalid x_agent_extensions metadata", () => {
+    it.effect("returns Option.none when x_agent_extensions fails schema validation", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cpan", name: "Moose", version: "2.2014" });
           const mymeta = JSON.stringify({
             name: "Moose",
-            x_axm: { extensions: "not-an-array" },
+            x_agent_extensions: "not-an-array",
           });
           const result = yield* readInTempLib(purl, mymeta);
           expect(Option.isNone(result)).toBe(true);
@@ -365,16 +363,13 @@ describe("cpanReader", () => {
   });
 
   describe("extra fields tolerated", () => {
-    it.effect("ignores extra fields in x_axm", () =>
+    it.effect("ignores extra fields in x_agent_extensions", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cpan", name: "Moose", version: "2.2014" });
           const mymeta = JSON.stringify({
             name: "Moose",
-            x_axm: {
-              extensions: [{ ref: "@perl/skills/moose", versionRange: "^1.0.0" }],
-              futureField: true,
-            },
+            x_agent_extensions: [{ ref: "@perl/skills/moose", versionRange: "^1.0.0" }],
           });
           const result = yield* readInTempLib(purl, mymeta);
           expect(Option.isSome(result)).toBe(true);

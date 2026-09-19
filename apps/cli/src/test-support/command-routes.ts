@@ -92,6 +92,7 @@ export const COMMAND_ROUTE_ALLOCATION: ReadonlyArray<CommandRouteAllocation> = [
   // Getting started
   route("setup", { preview: true, preapproval: true }),
   route("discover"),
+  route("share"),
   route("help"),
   // Type command groups
   ...typeLifecycle("skills"),

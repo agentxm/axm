@@ -73,11 +73,8 @@ describe("SkillExtensionRef", () => {
         metadata: Option.none(),
       },
       source: {
-        type: "github",
-        name: "github",
-        url: new URL("https://github.com"),
-        owner: "o",
-        repo: "r",
+        type: "git",
+        url: new URL("https://github.com/o/r.git"),
         ref: Option.none(),
         subPath: Option.none(),
       },
@@ -88,8 +85,8 @@ describe("SkillExtensionRef", () => {
     if (ref.refType === "git-hosted") {
       expect(ref.location).toBe("file:///tmp/clone");
       expect(ref.gitTreeSha).toBe("sha1");
-      if (ref.source.type === "github") {
-        expect(ref.source.owner).toBe("o");
+      if (ref.source.type === "git") {
+        expect(ref.source.url.href).toBe("https://github.com/o/r.git");
       }
     }
   });
@@ -181,11 +178,8 @@ describe("McpServerExtensionRef", () => {
       name: extensionName("my-server"),
       server: { name: extensionName("my-server") },
       source: {
-        type: "github",
-        name: "github",
-        url: new URL("https://github.com"),
-        owner: "o",
-        repo: "r",
+        type: "git",
+        url: new URL("https://github.com/o/r.git"),
         ref: Option.none(),
         subPath: Option.none(),
       },

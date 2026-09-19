@@ -19,7 +19,6 @@ import {
   makeRegistrySkillLockEntry,
   makeRegistryMcpServerLockEntry,
   makeRegistryPackLockEntry,
-  TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
   WorkspaceReadTest,
 } from "../../desired-state/testing.js";
@@ -187,7 +186,7 @@ const workspaceWithCatalogLayer = (facts: WorkspaceCurrencyFacts) => {
       rules: facts.acceptedRules?.() ?? Effect.succeed({}),
       hooks: facts.acceptedHooks?.() ?? Effect.succeed({}),
       knowledge: facts.acceptedKnowledge?.() ?? Effect.succeed({}),
-    }).pipe(Effect.map((accepted) => ({ lockfileVersion: 7, ...accepted }))),
+    }).pipe(Effect.map((accepted) => ({ lockfileVersion: 8, ...accepted }))),
     ...(facts.rows === undefined ? {} : { records: { rows: facts.rows } }),
     graphDocument,
   });
@@ -232,18 +231,13 @@ const makeRegistryLockFields = <const TType extends "rule" | "hook" | "knowledge
   readonly name: string;
   readonly resolvedVersion?: Version;
 }) => ({
-  type: "registry" as const,
-  sourceType: "registry" as const,
-  endpoint: new URL("https://registry.agentxm.ai"),
-  extensionType: opts.extensionType,
-  workspaceName: decodeExtensionNameSync(opts.name),
-  packageFormat: "agentxm" as const,
-  owner,
-  name: decodeExtensionNameSync(opts.name),
-  resolvedVersion: opts.resolvedVersion ?? v("1.0.0"),
-  integrity: "sha512-AAAA==",
-  sourceName: "agentxm",
-  publisherBindingId: "hbnd_test",
+  source: { type: "registry" as const, url: new URL("https://registry.agentxm.ai") },
+  identity: { owner, name: decodeExtensionNameSync(opts.name) },
+  resolved: {
+    version: opts.resolvedVersion ?? v("1.0.0"),
+    integrity: "sha512-AAAA==",
+    publisherBindingId: "hbnd_test",
+  },
   treeIntegrity: TEST_TREE_INTEGRITY,
 });
 
@@ -334,20 +328,12 @@ describe("collectSkillCurrency", () => {
         acceptedSkills: () =>
           Effect.succeed({
             "local-skill": {
-              type: "github" as const,
-              sourceType: "github" as const,
-              sourceName: "github",
-              endpoint: new URL("https://github.com"),
-              extensionType: "skill" as const,
-              workspaceName: decodeExtensionNameSync("local-skill"),
-              packageFormat: "agentxm" as const,
-              packageOwner: handle("@local"),
-              packageName: decodeExtensionNameSync("local-skill"),
-              owner: "user",
-              repo: "repo",
-              resolvedCommit: "commit-1",
-              resolvedTree: "tree-1",
-              contentIdentity: TEST_CONTENT_IDENTITY,
+              source: { type: "git" as const, url: new URL("https://github.com/user/repo.git") },
+              identity: {
+                owner: handle("@local"),
+                name: decodeExtensionNameSync("local-skill"),
+              },
+              resolved: { commit: "commit-1", tree: "tree-1" },
               treeIntegrity: TEST_TREE_INTEGRITY,
             },
           }),
@@ -366,10 +352,7 @@ describe("collectSkillSourceFreshness", () => {
   it.effect("returns changed freshness entries for Git-hosted skills with new tree hash", () =>
     Effect.gen(function* () {
       const ws = workspaceFacts({
-        configuredSources: () =>
-          Effect.succeed([
-            { name: "github", type: "github" as const, url: new URL("https://github.com") },
-          ]),
+        configuredSources: () => Effect.succeed([]),
         rows: rowsFor({
           skill: [
             configuredRow({
@@ -383,21 +366,16 @@ describe("collectSkillSourceFreshness", () => {
         acceptedSkills: () =>
           Effect.succeed({
             "find-skills": {
-              type: "github" as const,
-              sourceType: "github" as const,
-              sourceName: "github",
-              endpoint: new URL("https://github.com"),
-              extensionType: "skill" as const,
-              workspaceName: decodeExtensionNameSync("find-skills"),
-              packageFormat: "agentxm" as const,
-              packageOwner: handle("@vercel-labs"),
-              packageName: decodeExtensionNameSync("find-skills"),
-              owner: "vercel-labs",
-              repo: "skills",
-              path: "skills/find-skills",
-              resolvedCommit: "commit-1",
-              resolvedTree: "old-tree",
-              contentIdentity: TEST_CONTENT_IDENTITY,
+              source: {
+                type: "git" as const,
+                url: new URL("https://github.com/vercel-labs/skills.git"),
+                path: "skills/find-skills",
+              },
+              identity: {
+                owner: handle("@vercel-labs"),
+                name: decodeExtensionNameSync("find-skills"),
+              },
+              resolved: { commit: "commit-1", tree: "old-tree" },
               treeIntegrity: TEST_TREE_INTEGRITY,
             },
           }),
@@ -418,11 +396,8 @@ describe("collectSkillSourceFreshness", () => {
                 metadata: Option.none(),
               },
               source: {
-                type: "github",
-                name: "github",
-                url: new URL("https://github.com"),
-                owner: "vercel-labs",
-                repo: "skills",
+                type: "git",
+                url: new URL("https://github.com/vercel-labs/skills.git"),
                 ref: Option.none(),
                 subPath: Option.some("skills/find-skills"),
               },
@@ -455,24 +430,13 @@ describe("collectSkillSourceFreshness", () => {
 
 describe("git-source freshness beyond skills", () => {
   const gitLockEntry = <const TType extends "hook" | "knowledge">(
-    extensionType: TType,
+    _extensionType: TType,
     repo: string,
     resolvedTree: string,
   ) => ({
-    type: "github" as const,
-    sourceType: "github" as const,
-    sourceName: "github",
-    endpoint: new URL("https://github.com"),
-    extensionType,
-    workspaceName: decodeExtensionNameSync(repo),
-    packageFormat: "agentxm" as const,
-    packageOwner: handle("@acme"),
-    packageName: decodeExtensionNameSync(repo),
-    owner: "acme",
-    repo,
-    resolvedCommit: "commit-1",
-    resolvedTree,
-    contentIdentity: TEST_CONTENT_IDENTITY,
+    source: { type: "git" as const, url: new URL(`https://github.com/acme/${repo}.git`) },
+    identity: { owner: handle("@acme"), name: decodeExtensionNameSync(repo) },
+    resolved: { commit: "commit-1", tree: resolvedTree },
     treeIntegrity: TEST_TREE_INTEGRITY,
   });
 
@@ -485,11 +449,8 @@ describe("git-source freshness beyond skills", () => {
   });
 
   const gitSource = (repo: string) => ({
-    type: "github" as const,
-    name: "github",
-    url: new URL("https://github.com"),
-    owner: "acme",
-    repo,
+    type: "git" as const,
+    url: new URL(`https://github.com/acme/${repo}.git`),
     ref: Option.none(),
     subPath: Option.none(),
   });
@@ -500,10 +461,7 @@ describe("git-source freshness beyond skills", () => {
     metadata: Option.none(),
   });
 
-  const configuredSources = () =>
-    Effect.succeed([
-      { name: "github", type: "github" as const, url: new URL("https://github.com") },
-    ]);
+  const configuredSources = () => Effect.succeed([]);
 
   it.effect("reports a current hook whose upstream tree hash matches", () =>
     Effect.gen(function* () {
@@ -652,19 +610,16 @@ describe("collectSubagentCurrency", () => {
         acceptedSubagents: () =>
           Effect.succeed({
             "my-agent": {
-              type: "registry" as const,
-              sourceType: "registry" as const,
-              endpoint: new URL("https://registry.agentxm.ai"),
-              extensionType: "subagent" as const,
-              workspaceName: decodeExtensionNameSync("my-agent"),
-              packageFormat: "agentxm" as const,
-              owner,
-              name: decodeExtensionNameSync("my-agent"),
-              resolvedVersion: v("1.0.0"),
-              integrity: "sha512-AAAA==",
-              sourceName: "agentxm",
-
-              publisherBindingId: "hbnd_test",
+              source: {
+                type: "registry" as const,
+                url: new URL("https://registry.agentxm.ai"),
+              },
+              identity: { owner, name: decodeExtensionNameSync("my-agent") },
+              resolved: {
+                version: v("1.0.0"),
+                integrity: "sha512-AAAA==",
+                publisherBindingId: "hbnd_test",
+              },
               treeIntegrity: TEST_TREE_INTEGRITY,
             },
           }),
@@ -792,20 +747,12 @@ describe("collectRuleCurrency", () => {
         acceptedRules: () =>
           Effect.succeed({
             "local-rule": {
-              type: "github" as const,
-              sourceType: "github" as const,
-              sourceName: "github",
-              endpoint: new URL("https://github.com"),
-              extensionType: "rule" as const,
-              workspaceName: decodeExtensionNameSync("local-rule"),
-              packageFormat: "agentxm" as const,
-              packageOwner: handle("@local"),
-              packageName: decodeExtensionNameSync("local-rule"),
-              owner: "user",
-              repo: "repo",
-              resolvedCommit: "commit-1",
-              resolvedTree: "tree-1",
-              contentIdentity: TEST_CONTENT_IDENTITY,
+              source: { type: "git" as const, url: new URL("https://github.com/user/repo.git") },
+              identity: {
+                owner: handle("@local"),
+                name: decodeExtensionNameSync("local-rule"),
+              },
+              resolved: { commit: "commit-1", tree: "tree-1" },
               treeIntegrity: TEST_TREE_INTEGRITY,
             },
           }),

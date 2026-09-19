@@ -272,7 +272,7 @@ describe("condaDetector", () => {
 const readInTempCondaPrefix = (
   pkgPurl: Schema.Schema.Type<typeof PackageUrlPartsSchema>,
   options?: {
-    readonly axmJsonContent?: string;
+    readonly agentExtensionsJsonContent?: string;
     readonly aboutJsonContent?: string;
     readonly aboutJsonPkgDirPrefix?: string;
   },
@@ -284,10 +284,13 @@ const readInTempCondaPrefix = (
 
     const condaPrefix = path.join(tmpDir, "conda-env");
 
-    if (options?.axmJsonContent !== undefined) {
-      const axmDir = path.join(condaPrefix, "share", "axm", pkgPurl.name);
-      yield* fs.makeDirectory(axmDir, { recursive: true });
-      yield* fs.writeFileString(path.join(axmDir, "axm.json"), options.axmJsonContent);
+    if (options?.agentExtensionsJsonContent !== undefined) {
+      const agentExtensionsDir = path.join(condaPrefix, "share", "agent-extensions", pkgPurl.name);
+      yield* fs.makeDirectory(agentExtensionsDir, { recursive: true });
+      yield* fs.writeFileString(
+        path.join(agentExtensionsDir, "agent-extensions.json"),
+        options.agentExtensionsJsonContent,
+      );
     }
 
     if (options?.aboutJsonContent !== undefined) {
@@ -329,14 +332,14 @@ describe("condaReader", () => {
     expect(condaReader.type).toBe(condaType);
   });
 
-  describe("valid axm.json in shared data", () => {
-    it.effect("extracts extensions from axm.json", () =>
+  describe("valid agent-extensions.json in shared data", () => {
+    it.effect("extracts extensions from agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "conda", name: "numpy" });
           const result = yield* readInTempCondaPrefix(purl, {
-            axmJsonContent: JSON.stringify({
-              extensions: [{ ref: "@numpy/skills/numpy", versionRange: "^1.0.0" }],
+            agentExtensionsJsonContent: JSON.stringify({
+              agentExtensions: [{ ref: "@numpy/skills/numpy", versionRange: "^1.0.0" }],
             }),
           });
           expect(Option.isSome(result)).toBe(true);
@@ -352,7 +355,7 @@ describe("condaReader", () => {
         Effect.gen(function* () {
           const purl = makePurl({ type: "conda", name: "scipy" });
           const result = yield* readInTempCondaPrefix(purl, {
-            axmJsonContent: JSON.stringify({ extensions: [] }),
+            agentExtensionsJsonContent: JSON.stringify({ agentExtensions: [] }),
           });
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
@@ -371,9 +374,7 @@ describe("condaReader", () => {
           const result = yield* readInTempCondaPrefix(purl, {
             aboutJsonContent: JSON.stringify({
               extra: {
-                axm: {
-                  extensions: [{ ref: "@sklearn/skills/sklearn", versionRange: "^1.0.0" }],
-                },
+                agentExtensions: [{ ref: "@sklearn/skills/sklearn", versionRange: "^1.0.0" }],
               },
             }),
             aboutJsonPkgDirPrefix: "scikit-learn-1.0.0-py311_0",
@@ -403,12 +404,12 @@ describe("condaReader", () => {
   });
 
   describe("malformed metadata", () => {
-    it.effect("returns Option.none and warns on malformed axm.json", () =>
+    it.effect("returns Option.none and warns on malformed agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "conda", name: "some_pkg" });
           const result = yield* readInTempCondaPrefix(purl, {
-            axmJsonContent: JSON.stringify({ extensions: null }),
+            agentExtensionsJsonContent: JSON.stringify({ agentExtensions: null }),
           });
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -417,13 +418,13 @@ describe("condaReader", () => {
   });
 
   describe("extra fields tolerated", () => {
-    it.effect("ignores extra fields in axm.json", () =>
+    it.effect("ignores extra fields in agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "conda", name: "some_pkg" });
           const result = yield* readInTempCondaPrefix(purl, {
-            axmJsonContent: JSON.stringify({
-              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
+            agentExtensionsJsonContent: JSON.stringify({
+              agentExtensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
               futureField: true,
             }),
           });
@@ -473,13 +474,11 @@ describe("condaReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "conda", name: "numpy" });
-          // No axmJsonContent → shared data doesn't exist, should fall through to about.json
+          // No agentExtensionsJsonContent → shared data doesn't exist, should fall through to about.json
           const result = yield* readInTempCondaPrefix(purl, {
             aboutJsonContent: JSON.stringify({
               extra: {
-                axm: {
-                  extensions: [{ ref: "@numpy/skills/numpy", versionRange: "^1.0.0" }],
-                },
+                agentExtensions: [{ ref: "@numpy/skills/numpy", versionRange: "^1.0.0" }],
               },
             }),
             aboutJsonPkgDirPrefix: "numpy-1.24.0-py311_0",

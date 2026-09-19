@@ -5,11 +5,10 @@ const names = ["inspect-patch", "draft-release", "inspect-tests"] as const;
 const request = { requestedSubagents: [], all: false, nonInteractive: false };
 
 describe("subagent selection policy", () => {
-  it("needs a choice only when multiple candidates remain unselected", () => {
+  it("needs a choice whenever candidates remain unselected", () => {
     expect(decideSubagentSelection(names, request)).toEqual({ kind: "choice-required" });
     expect(decideSubagentSelection(["inspect-patch"], request)).toEqual({
-      kind: "selected",
-      names: ["inspect-patch"],
+      kind: "choice-required",
     });
   });
   it("preserves candidate order and deduplicates overlapping requested patterns", () => {
@@ -45,10 +44,15 @@ describe("subagent selection policy", () => {
       }),
     ).toEqual({ kind: "selected", names: ["draft-release"] });
   });
-  it.each([
-    { ...request, all: true },
-    { ...request, nonInteractive: true },
-  ])("selects every candidate when the invocation supplies this decision: %j", (input) => {
-    expect(decideSubagentSelection(names, input)).toEqual({ kind: "selected", names });
+  it("selects every candidate only when --all supplies that decision", () => {
+    expect(decideSubagentSelection(names, { ...request, all: true })).toEqual({
+      kind: "selected",
+      names,
+    });
+  });
+  it("requires an explicit decision in non-interactive mode", () => {
+    expect(decideSubagentSelection(names, { ...request, nonInteractive: true })).toEqual({
+      kind: "explicit-selection-required",
+    });
   });
 });

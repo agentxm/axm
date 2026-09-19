@@ -15,18 +15,18 @@ describe("desiredStateProblemText", () => {
             source: "pack",
             dependingPack: "@acme/packs/one",
             range: "^1.0.0",
-            location: "agent_extensions/agentxm/@acme/packs/one/pack.json",
+            location: "agent_extensions/registry/@acme/packs/one/pack.json",
           },
           {
             source: "pack",
             dependingPack: "@acme/packs/two",
             range: "^2.0.0",
-            location: "agent_extensions/agentxm/@acme/packs/two/pack.json",
+            location: "agent_extensions/registry/@acme/packs/two/pack.json",
           },
         ],
       }),
     ).toBe(
-      "skill review: incompatible constraints @acme/packs/one range=^1.0.0 location=agent_extensions/agentxm/@acme/packs/one/pack.json, @acme/packs/two range=^2.0.0 location=agent_extensions/agentxm/@acme/packs/two/pack.json; decision=blocked; reason=no-satisfying-version",
+      "skill review: incompatible constraints @acme/packs/one range=^1.0.0 location=agent_extensions/registry/@acme/packs/one/pack.json, @acme/packs/two range=^2.0.0 location=agent_extensions/registry/@acme/packs/two/pack.json; decision=blocked; reason=no-satisfying-version",
     );
   });
 
@@ -34,7 +34,7 @@ describe("desiredStateProblemText", () => {
     const text = desiredStateProblemText({
       type: "pack-manifest-unavailable",
       pack: "@acme/packs/missing",
-      path: "/secret/workspace/agent_extensions/agentxm/@acme/packs/missing/pack.json",
+      path: "/secret/workspace/agent_extensions/registry/@acme/packs/missing/pack.json",
     });
     expect(text).toBe("@acme/packs/missing: installed pack manifest is unavailable");
     expect(text).not.toContain("/secret/workspace");

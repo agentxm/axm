@@ -346,8 +346,8 @@ describe("npmReader", () => {
     expect(npmReader.type).toBe(npmType);
   });
 
-  describe("valid axm metadata", () => {
-    it.effect("extracts extensions from axm field", () =>
+  describe("valid agentExtensions metadata", () => {
+    it.effect("extracts extensions from agentExtensions field", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "npm", name: "next" });
@@ -355,9 +355,7 @@ describe("npmReader", () => {
             purl,
             JSON.stringify({
               name: "next",
-              axm: {
-                extensions: [{ ref: "@vercel/skills/nextjs", versionRange: "^1.0.0" }],
-              },
+              agentExtensions: [{ ref: "@vercel/skills/nextjs", versionRange: "^1.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
@@ -378,7 +376,7 @@ describe("npmReader", () => {
             purl,
             JSON.stringify({
               name: "some-lib",
-              axm: { extensions: [] },
+              agentExtensions: [],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
@@ -388,10 +386,49 @@ describe("npmReader", () => {
         }),
       ),
     );
+
+    it.effect("keeps valid siblings when one recommendation is malformed", () =>
+      withNodeContext(
+        Effect.gen(function* () {
+          const purl = makePurl({ type: "npm", name: "mixed-lib" });
+          const result = yield* readInTempDir(
+            purl,
+            JSON.stringify({
+              name: "mixed-lib",
+              agentExtensions: [
+                { ref: "not-qualified" },
+                {
+                  ref: "@acme/skills/review",
+                  source: {
+                    type: "git",
+                    url: "https://github.com/acme/review.git",
+                    revision: "v1.0.0",
+                  },
+                },
+              ],
+            }),
+          );
+
+          expect(Option.isSome(result)).toBe(true);
+          if (Option.isSome(result)) {
+            expect(result.value).toEqual([
+              {
+                ref: "@acme/skills/review",
+                source: {
+                  type: "git",
+                  url: new URL("https://github.com/acme/review.git"),
+                  revision: "v1.0.0",
+                },
+              },
+            ]);
+          }
+        }),
+      ),
+    );
   });
 
-  describe("missing axm field", () => {
-    it.effect("returns Option.none when no axm field", () =>
+  describe("missing agentExtensions field", () => {
+    it.effect("returns Option.none when no agentExtensions field", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "npm", name: "react" });
@@ -406,7 +443,7 @@ describe("npmReader", () => {
   });
 
   describe("malformed metadata", () => {
-    it.effect("returns Option.none and warns on malformed axm metadata", () =>
+    it.effect("returns Option.none and warns on malformed agentExtensions metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "npm", name: "some-lib" });
@@ -414,7 +451,7 @@ describe("npmReader", () => {
             purl,
             JSON.stringify({
               name: "some-lib",
-              axm: { extensions: "not-an-array" },
+              agentExtensions: "not-an-array",
             }),
           );
           expect(Option.isNone(result)).toBe(true);
@@ -424,7 +461,7 @@ describe("npmReader", () => {
   });
 
   describe("extra fields tolerated", () => {
-    it.effect("ignores extra fields in axm metadata", () =>
+    it.effect("ignores extra fields in agentExtensions metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "npm", name: "some-lib" });
@@ -432,10 +469,8 @@ describe("npmReader", () => {
             purl,
             JSON.stringify({
               name: "some-lib",
-              axm: {
-                extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
-                futureField: true,
-              },
+              agentExtensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
+              futureField: true,
             }),
           );
           expect(Option.isSome(result)).toBe(true);
@@ -456,9 +491,7 @@ describe("npmReader", () => {
             purl,
             JSON.stringify({
               name: "@angular/core",
-              axm: {
-                extensions: [{ ref: "@angular/skills/angular", versionRange: "^1.0.0" }],
-              },
+              agentExtensions: [{ ref: "@angular/skills/angular", versionRange: "^1.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);

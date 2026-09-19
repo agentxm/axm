@@ -2,7 +2,7 @@
  * CPAN (Perl) package detector and reader for package-compatibility discovery.
  *
  * Parses `cpanfile` (`requires 'Name'` lines) and `Makefile.PL` (`PREREQ_PM`).
- * Reads `x_axm` from `<lib-path>/.meta/<dist>/MYMETA.json`.
+ * Reads `x_agent_extensions` from `<lib-path>/.meta/<dist>/MYMETA.json`.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -15,7 +15,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { readEnv } from "../internal/environment.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const cpanType = Schema.decodeUnknownSync(PackageTypeSchema)("cpan");
@@ -172,16 +172,16 @@ export const cpanDetector: PackageDetector = {
 // Reader
 // ---------------------------------------------------------------------------
 
-/** Schema for extracting the x_axm field from MYMETA.json. */
-const MymetaAxmSchema = Schema.Struct({
-  x_axm: Schema.optional(Schema.Unknown),
+/** Schema for extracting the portable custom field from MYMETA.json. */
+const MymetaAgentExtensionsSchema = Schema.Struct({
+  x_agent_extensions: Schema.optional(Schema.Unknown),
 });
-const decodeMymetaAxm = Schema.decodeUnknownResult(MymetaAxmSchema);
+const decodeMymetaAgentExtensions = Schema.decodeUnknownResult(MymetaAgentExtensionsSchema);
 
 /**
  * CPAN package reader.
  *
- * Reads `x_axm` from `<lib-path>/.meta/<dist>/MYMETA.json` for each
+ * Reads `x_agent_extensions` from `<lib-path>/.meta/<dist>/MYMETA.json` for each
  * detected CPAN package and extracts recommendation metadata.
  *
  * @experimental This API is unstable and may change without notice.
@@ -208,20 +208,22 @@ export const cpanReader: PackageReader = {
       const parsed = yield* parseJsonOptional(content.value, `${distName}/MYMETA.json`);
       if (Option.isNone(parsed)) return Option.none();
 
-      // Extract x_axm metadata
-      const containerResult = decodeMymetaAxm(parsed.value);
+      // Extract x_agentExtensions metadata
+      const containerResult = decodeMymetaAgentExtensions(parsed.value);
       if (Result.isFailure(containerResult)) return Option.none();
 
-      const axmRaw = containerResult.success.x_axm;
-      if (axmRaw === undefined) return Option.none();
+      const agentExtensions = containerResult.success.x_agent_extensions;
+      if (agentExtensions === undefined) return Option.none();
 
-      const metaResult = decodeAxmMeta(axmRaw);
+      const metaResult = yield* decodeAgentExtensions({ agentExtensions });
       if (Result.isFailure(metaResult)) {
-        yield* Effect.logWarning(`Invalid axm metadata in ${distName}: schema validation failed`);
+        yield* Effect.logWarning(
+          `Invalid agentExtensions metadata in ${distName}: schema validation failed`,
+        );
         return Option.none();
       }
 
-      return Option.some(metaResult.success.extensions);
+      return Option.some(metaResult.success.agentExtensions);
     },
     Effect.annotateLogs({ reader: "cpan" }),
     Effect.withSpan("read.cpan"),

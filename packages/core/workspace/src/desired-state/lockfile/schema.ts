@@ -4,30 +4,28 @@
  * The lockfile (axm-lock.yaml) records accepted immutable resolutions for
  * externally sourced extensions.
  *
- * Lockfile v7 is authority, not receipt history. It contains no authored,
+ * Lockfile v8 is authority, not receipt history. It contains no authored,
  * bundled, inline, projection, completion-time, or command-history state.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as Schema from "effect/Schema";
-import { HandleSchema } from "@agentxm/extension-model/unstable/extensions";
+import { ExtensionFqnSchema, HandleSchema } from "@agentxm/extension-model/unstable/extensions";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { TreeIntegritySchema } from "../workspace/materialized-tree.js";
 import { ExtensionNameSchema } from "@agentxm/extension-model/unstable/extensions/common";
-import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";
+import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 import {
-  SourceNamespaceSchema,
   SourceRefSchema,
-  SourceSegmentSchema,
   SourceSubPathSchema,
 } from "@agentxm/extension-model/unstable/sources/types";
 
-export const LOCKFILE_VERSION = 7;
+export const LOCKFILE_VERSION = 8;
 
 // =============================================================================
-// Flat Source Schemas (discriminated by type field)
+// Self-describing source locators and accepted resolutions
 // =============================================================================
 
 const looksAbsolutePath = (value: string): boolean =>
@@ -41,6 +39,46 @@ const LocalSourceLockPathSchema = Schema.String.pipe(
   ),
 );
 
+const GitSourceLocatorSchema = Schema.Struct({
+  type: Schema.Literal("git"),
+  url: Schema.URLFromString,
+  path: Schema.optional(SourceSubPathSchema),
+  revision: Schema.optional(SourceRefSchema),
+});
+
+const RegistrySourceLocatorSchema = Schema.Struct({
+  type: Schema.Literal("registry"),
+  url: Schema.URLFromString,
+});
+
+const PathSourceLocatorSchema = Schema.Struct({
+  type: Schema.Literal("path"),
+  path: LocalSourceLockPathSchema,
+});
+
+const makeExtensionIdentitySchema = <TOwner extends Schema.Top>(owner: TOwner) =>
+  Schema.Struct({ owner, name: ExtensionNameSchema });
+
+const GitAcceptedResolutionSchema = Schema.Struct({
+  commit: Schema.NonEmptyString,
+  tree: Schema.NonEmptyString,
+});
+
+const RegistryAcceptedResolutionSchema = Schema.Struct({
+  version: VersionSchema,
+  integrity: Schema.String.annotate({
+    description:
+      "SRI sha512 of the published archive, verified against downloaded bytes before " +
+      "extraction. The supply-chain guarantee for registry installs; never compared " +
+      "against installed files on disk.",
+  }),
+  publisherBindingId: Schema.NonEmptyString,
+});
+
+const PathAcceptedResolutionSchema = Schema.Struct({
+  tree: SourceHashSchema,
+});
+
 // =============================================================================
 // Source Lock Entry Factory
 // =============================================================================
@@ -50,149 +88,29 @@ const LocalSourceLockPathSchema = Schema.String.pipe(
  *
  * Used to produce lock-entry schemas with feature-specific shared fields.
  */
-const makeSourceLockUnion = <
-  TExtensionType extends CatalogExtensionType,
-  TPackageOwner extends Schema.Top,
-  TPackageFormat extends Schema.Top,
-  F extends Schema.Struct.Fields,
->(
-  extensionType: TExtensionType,
-  packageOwner: TPackageOwner,
-  packageFormat: TPackageFormat,
+const makeSourceLockUnion = <TOwner extends Schema.Top, F extends Schema.Struct.Fields>(
+  owner: TOwner,
   extraFields: F,
 ) =>
   Schema.Union([
     Schema.Struct({
-      type: Schema.Literal("github"),
-      sourceType: Schema.Literal("github"),
-      sourceName: Schema.String,
-      endpoint: Schema.URLFromString,
-      extensionType: Schema.Literal(extensionType),
-      workspaceName: ExtensionNameSchema,
-      packageFormat,
-      packageOwner,
-      packageName: ExtensionNameSchema,
-      owner: SourceNamespaceSchema,
-      repo: SourceSegmentSchema,
-      ref: Schema.optional(SourceRefSchema),
-      path: Schema.optional(SourceSubPathSchema),
-      resolvedCommit: Schema.NonEmptyString,
-      resolvedTree: Schema.NonEmptyString,
-      contentIdentity: SourceHashSchema,
+      source: GitSourceLocatorSchema,
+      identity: makeExtensionIdentitySchema(owner),
+      resolved: GitAcceptedResolutionSchema,
       treeIntegrity: TreeIntegritySchema,
       ...extraFields,
     }),
     Schema.Struct({
-      type: Schema.Literal("gitlab"),
-      sourceType: Schema.Literal("gitlab"),
-      sourceName: Schema.String,
-      endpoint: Schema.URLFromString,
-      extensionType: Schema.Literal(extensionType),
-      workspaceName: ExtensionNameSchema,
-      packageFormat,
-      packageOwner,
-      packageName: ExtensionNameSchema,
-      owner: SourceNamespaceSchema,
-      repo: SourceSegmentSchema,
-      ref: Schema.optional(SourceRefSchema),
-      path: Schema.optional(SourceSubPathSchema),
-      resolvedCommit: Schema.NonEmptyString,
-      resolvedTree: Schema.NonEmptyString,
-      contentIdentity: SourceHashSchema,
+      source: RegistrySourceLocatorSchema,
+      identity: makeExtensionIdentitySchema(HandleSchema),
+      resolved: RegistryAcceptedResolutionSchema,
       treeIntegrity: TreeIntegritySchema,
       ...extraFields,
     }),
     Schema.Struct({
-      type: Schema.Literal("bitbucket"),
-      sourceType: Schema.Literal("bitbucket"),
-      sourceName: Schema.String,
-      endpoint: Schema.URLFromString,
-      extensionType: Schema.Literal(extensionType),
-      workspaceName: ExtensionNameSchema,
-      packageFormat,
-      packageOwner,
-      packageName: ExtensionNameSchema,
-      owner: SourceNamespaceSchema,
-      repo: SourceSegmentSchema,
-      ref: Schema.optional(SourceRefSchema),
-      path: Schema.optional(SourceSubPathSchema),
-      resolvedCommit: Schema.NonEmptyString,
-      resolvedTree: Schema.NonEmptyString,
-      contentIdentity: SourceHashSchema,
-      treeIntegrity: TreeIntegritySchema,
-      ...extraFields,
-    }),
-    Schema.Struct({
-      type: Schema.Literal("azurerepos"),
-      sourceType: Schema.Literal("azurerepos"),
-      sourceName: Schema.String,
-      endpoint: Schema.URLFromString,
-      extensionType: Schema.Literal(extensionType),
-      workspaceName: ExtensionNameSchema,
-      packageFormat,
-      packageOwner,
-      packageName: ExtensionNameSchema,
-      organization: SourceSegmentSchema,
-      project: SourceSegmentSchema,
-      repo: SourceSegmentSchema,
-      ref: Schema.optional(SourceRefSchema),
-      path: Schema.optional(SourceSubPathSchema),
-      resolvedCommit: Schema.NonEmptyString,
-      resolvedTree: Schema.NonEmptyString,
-      contentIdentity: SourceHashSchema,
-      treeIntegrity: TreeIntegritySchema,
-      ...extraFields,
-    }),
-    Schema.Struct({
-      type: Schema.Literal("git"),
-      sourceType: Schema.Literal("git"),
-      sourceName: Schema.Literal("git"),
-      extensionType: Schema.Literal(extensionType),
-      workspaceName: ExtensionNameSchema,
-      packageFormat,
-      packageOwner,
-      packageName: ExtensionNameSchema,
-      url: Schema.String,
-      ref: Schema.optional(SourceRefSchema),
-      path: Schema.optional(SourceSubPathSchema),
-      resolvedCommit: Schema.NonEmptyString,
-      resolvedTree: Schema.NonEmptyString,
-      contentIdentity: SourceHashSchema,
-      treeIntegrity: TreeIntegritySchema,
-      ...extraFields,
-    }),
-    Schema.Struct({
-      type: Schema.Literal("local"),
-      sourceType: Schema.Literal("local"),
-      sourceName: Schema.Literal("local"),
-      extensionType: Schema.Literal(extensionType),
-      workspaceName: ExtensionNameSchema,
-      packageFormat,
-      packageOwner,
-      packageName: ExtensionNameSchema,
-      path: LocalSourceLockPathSchema,
-      contentIdentity: SourceHashSchema,
-      treeIntegrity: TreeIntegritySchema,
-      ...extraFields,
-    }),
-    Schema.Struct({
-      type: Schema.Literal("registry"),
-      sourceType: Schema.Literal("registry"),
-      endpoint: Schema.URLFromString,
-      extensionType: Schema.Literal(extensionType),
-      workspaceName: ExtensionNameSchema,
-      packageFormat: Schema.Literal("agentxm"),
-      owner: HandleSchema,
-      name: ExtensionNameSchema,
-      resolvedVersion: VersionSchema,
-      integrity: Schema.String.annotate({
-        description:
-          "SRI sha512 of the published archive, verified against downloaded bytes before " +
-          "extraction. The supply-chain guarantee for registry installs; never compared " +
-          "against installed files on disk.",
-      }),
-      sourceName: Schema.String,
-      publisherBindingId: Schema.NonEmptyString,
+      source: PathSourceLocatorSchema,
+      identity: makeExtensionIdentitySchema(owner),
+      resolved: PathAcceptedResolutionSchema,
       treeIntegrity: TreeIntegritySchema,
       ...extraFields,
     }),
@@ -204,22 +122,16 @@ const makeSourceLockUnion = <
 
 /**
  * Lock entry for a single installed skill.
- * Discriminated union by the `type` field.
+ * Discriminated union by the nested `source.type` field.
  *
  * Every external source carries immutable accepted-resolution identity:
- * registry version/integrity/publisher binding, Git commit/tree/content identity,
- * or local-path content identity.
- *
- * Source-specific fields are at the top level based on source type.
+ * registry version/integrity/publisher binding, Git commit/tree, or local-path
+ * tree identity. Source, extension identity, and accepted resolution remain
+ * distinct nested records.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillLockEntrySchema = makeSourceLockUnion(
-  "skill",
-  Schema.optional(HandleSchema),
-  Schema.Literals(["agentxm", "agent-skill"]),
-  {},
-);
+export const SkillLockEntrySchema = makeSourceLockUnion(Schema.optional(HandleSchema), {});
 
 /**
  * Inferred type for SkillLockEntry schema.
@@ -256,18 +168,13 @@ export type SkillsLockMap = Schema.Schema.Type<typeof SkillsLockMapSchema>;
  */
 /**
  * Lock entry for a single installed subagent.
- * Discriminated union by the `type` field.
+ * Discriminated union by the nested `source.type` field.
  *
  * External source entries carry immutable accepted-resolution identity.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SubagentLockEntrySchema = makeSourceLockUnion(
-  "subagent",
-  HandleSchema,
-  Schema.Literal("agentxm"),
-  {},
-);
+export const SubagentLockEntrySchema = makeSourceLockUnion(HandleSchema, {});
 
 /**
  * Inferred type for SubagentLockEntry schema.
@@ -300,21 +207,14 @@ export type SubagentsLockMap = Schema.Schema.Type<typeof SubagentsLockMapSchema>
 
 /**
  * Lock entry for a single installed MCP server.
- * Discriminated union by the `type` field.
- *
- * Same structure as SkillLockEntry but without the `agents` field.
+ * Discriminated union by the nested `source.type` field.
  *
  * External source entries carry immutable accepted-resolution identity. Inline
  * servers are authored settings and therefore have no lock row.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const McpServerLockEntrySchema = makeSourceLockUnion(
-  "mcp-server",
-  HandleSchema,
-  Schema.Literal("agentxm"),
-  {},
-);
+export const McpServerLockEntrySchema = makeSourceLockUnion(HandleSchema, {});
 
 /**
  * Inferred type for McpServerLockEntry schema.
@@ -358,12 +258,7 @@ export type McpServersLockMap = Schema.Schema.Type<typeof McpServersLockMapSchem
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const RuleLockEntrySchema = makeSourceLockUnion(
-  "rule",
-  HandleSchema,
-  Schema.Literal("agentxm"),
-  {},
-);
+export const RuleLockEntrySchema = makeSourceLockUnion(HandleSchema, {});
 
 /** @experimental */
 export type RuleLockEntry = Schema.Schema.Type<typeof RuleLockEntrySchema>;
@@ -389,12 +284,7 @@ export type RulesLockMap = Schema.Schema.Type<typeof RulesLockMapSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const HookLockEntrySchema = makeSourceLockUnion(
-  "hook",
-  HandleSchema,
-  Schema.Literal("agentxm"),
-  {},
-);
+export const HookLockEntrySchema = makeSourceLockUnion(HandleSchema, {});
 
 /** @experimental */
 export type HookLockEntry = Schema.Schema.Type<typeof HookLockEntrySchema>;
@@ -420,12 +310,7 @@ export type HooksLockMap = Schema.Schema.Type<typeof HooksLockMapSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const KnowledgeLockEntrySchema = makeSourceLockUnion(
-  "knowledge",
-  HandleSchema,
-  Schema.Literal("agentxm"),
-  {},
-);
+export const KnowledgeLockEntrySchema = makeSourceLockUnion(HandleSchema, {});
 
 export type KnowledgeLockEntry = Schema.Schema.Type<typeof KnowledgeLockEntrySchema>;
 export const KnowledgeLockMapSchema = Schema.Record(Schema.String, KnowledgeLockEntrySchema);
@@ -435,30 +320,30 @@ export type KnowledgeLockMap = Schema.Schema.Type<typeof KnowledgeLockMapSchema>
 // Pack Lock Entry
 // =============================================================================
 
-/**
- * Registry pack lock entry - pack from a registry.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const RegistryPackLockEntrySchema = Schema.Struct({
-  type: Schema.Literal("registry"),
-  sourceType: Schema.Literal("registry"),
-  endpoint: Schema.URLFromString,
-  extensionType: Schema.Literal("pack"),
-  workspaceName: ExtensionNameSchema,
-  packageFormat: Schema.Literal("agentxm"),
-  owner: HandleSchema,
-  name: ExtensionNameSchema,
-  resolvedVersion: VersionSchema,
-  integrity: Schema.String,
+/** Lock entry for a Pack from any external source family. @experimental */
+export const PackLockEntrySchema = makeSourceLockUnion(HandleSchema, {
+  manifestVersion: VersionSchema,
   manifestContentIdentity: SourceHashSchema,
-  sourceName: Schema.String,
-  publisherBindingId: Schema.NonEmptyString,
+  members: Schema.Array(ExtensionFqnSchema),
+}).annotate({
+  identifier: "PackLockEntry",
+  title: "Pack Lock Entry",
+  description: "Accepted immutable resolution and declared members for a Pack.",
+});
+
+/** Registry variant of the Pack lock entry. @experimental */
+export const RegistryPackLockEntrySchema = Schema.Struct({
+  source: RegistrySourceLocatorSchema,
+  identity: Schema.Struct({ owner: HandleSchema, name: ExtensionNameSchema }),
+  resolved: RegistryAcceptedResolutionSchema,
   treeIntegrity: TreeIntegritySchema,
+  manifestVersion: VersionSchema,
+  manifestContentIdentity: SourceHashSchema,
+  members: Schema.Array(ExtensionFqnSchema),
 }).annotate({
   identifier: "RegistryPackLockEntry",
   title: "Registry Pack Lock Entry",
-  description: "Pinned version info for a pack installed from a registry.",
+  description: "Accepted immutable resolution for a Registry Pack.",
 });
 
 /**
@@ -466,44 +351,28 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type RegistryPackLockEntry = Schema.Schema.Type<typeof RegistryPackLockEntrySchema>;
+export type PackLockEntry = Schema.Schema.Type<typeof PackLockEntrySchema>;
+
+/** @experimental */
+export type RegistryPackLockEntry = Extract<
+  PackLockEntry,
+  { readonly source: { readonly type: "registry" } }
+>;
 
 /**
  * Constructor args for a registry pack lock entry.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export type RegistryPackLockEntryArgs = Omit<RegistryPackLockEntry, "type">;
+export type RegistryPackLockEntryArgs = RegistryPackLockEntry;
 
 /**
  * Build a registry pack lock entry from typed args.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const makeRegistryPackLockEntry = (
-  args: RegistryPackLockEntryArgs,
-): RegistryPackLockEntry => ({
-  type: "registry",
-  ...args,
-});
-
-/**
- * Lock entry for a single installed pack.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const PackLockEntrySchema = RegistryPackLockEntrySchema.annotate({
-  identifier: "PackLockEntry",
-  title: "Pack Lock Entry",
-  description: "Accepted immutable resolution for a Registry Pack.",
-});
-
-/**
- * Inferred type for PackLockEntry schema.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export type PackLockEntry = Schema.Schema.Type<typeof PackLockEntrySchema>;
+export const makeRegistryPackLockEntry = (args: RegistryPackLockEntryArgs): RegistryPackLockEntry =>
+  args;
 
 // =============================================================================
 // Packs Lock Map
@@ -528,7 +397,7 @@ export type PacksLockMap = Schema.Schema.Type<typeof PacksLockMapSchema>;
 // =============================================================================
 
 /**
- * Every catalog extension type's lock-entry schema, keyed by type.
+ * Every installable extension type's lock-entry schema, keyed by type.
  *
  * Total by construction: a new extension type fails compile here until its lock
  * entry exists. The parity conformance suite decodes a synthetic entry through
@@ -546,7 +415,8 @@ export const LOCK_ENTRY_SCHEMA_BY_TYPE = {
   rule: RuleLockEntrySchema,
   hook: HookLockEntrySchema,
   knowledge: KnowledgeLockEntrySchema,
-} as const satisfies Record<CatalogExtensionType, Schema.Top>;
+  pack: PackLockEntrySchema,
+} as const satisfies Record<InstallableExtensionType, Schema.Top>;
 
 // =============================================================================
 // Lockfile
@@ -559,7 +429,7 @@ export const LOCK_ENTRY_SCHEMA_BY_TYPE = {
  * enabling reproducible installations across environments.
  *
  * Structure:
- * - lockfileVersion: Schema version (currently 7)
+ * - lockfileVersion: Schema version (currently 8)
  * - skills: Map of skill names to their lock entries
  * - packs: Map of pack names to their lock entries (optional)
  *

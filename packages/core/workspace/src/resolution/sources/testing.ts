@@ -40,6 +40,7 @@ export interface WorkspaceCatalogTestOptions {
   readonly workspaceRoot?: string;
   readonly sources?: ReadonlyArray<ConfiguredSourceHost>;
   readonly registrySources?: ReadonlyArray<RegistrySourceHost>;
+  readonly defaultRegistry?: string;
   readonly desiredExtensionGraph?: DesiredExtensionGraphView;
   readonly skillCandidates?: SkillCandidates;
 }
@@ -61,6 +62,7 @@ export const WorkspaceCatalogTest = (
     workspaceRoot: options.workspaceRoot ?? "/tmp/axm",
     configuredSources: Effect.succeed(sources),
     registrySourceHosts: Effect.succeed(registrySources),
+    defaultRegistry: Effect.succeed(options.defaultRegistry ?? "agentxm"),
     desiredExtensionGraph: Effect.succeed(
       options.desiredExtensionGraph ?? { complete: true, nodes: [] },
     ),

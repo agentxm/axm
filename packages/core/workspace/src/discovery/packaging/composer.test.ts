@@ -241,8 +241,8 @@ describe("composerReader", () => {
     expect(composerReader.type).toBe(composerType);
   });
 
-  describe("valid axm metadata in extra field", () => {
-    it.effect("extracts extensions from extra.axm field", () =>
+  describe("valid agentExtensions metadata in extra field", () => {
+    it.effect("extracts extensions from extra.agentExtensions field", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "composer", namespace: "laravel", name: "framework" });
@@ -251,9 +251,7 @@ describe("composerReader", () => {
             JSON.stringify({
               name: "laravel/framework",
               extra: {
-                axm: {
-                  extensions: [{ ref: "@laravel/skills/framework", versionRange: "^1.0.0" }],
-                },
+                agentExtensions: [{ ref: "@laravel/skills/framework", versionRange: "^1.0.0" }],
               },
             }),
           );
@@ -275,7 +273,7 @@ describe("composerReader", () => {
             purl,
             JSON.stringify({
               name: "phpstan/phpstan",
-              extra: { axm: { extensions: [] } },
+              extra: { agentExtensions: [] },
             }),
           );
           expect(Option.isSome(result)).toBe(true);
@@ -287,7 +285,7 @@ describe("composerReader", () => {
     );
   });
 
-  describe("missing extra.axm field", () => {
+  describe("missing extra.agentExtensions field", () => {
     it.effect("returns Option.none when no extra field", () =>
       withNodeContext(
         Effect.gen(function* () {
@@ -301,7 +299,7 @@ describe("composerReader", () => {
       ),
     );
 
-    it.effect("returns Option.none when extra exists but no axm", () =>
+    it.effect("returns Option.none when extra exists but no agentExtensions", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "composer", namespace: "monolog", name: "monolog" });
@@ -319,7 +317,7 @@ describe("composerReader", () => {
   });
 
   describe("malformed metadata", () => {
-    it.effect("returns Option.none and warns on malformed axm metadata", () =>
+    it.effect("returns Option.none and warns on malformed agentExtensions metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "composer", namespace: "some", name: "lib" });
@@ -327,7 +325,7 @@ describe("composerReader", () => {
             purl,
             JSON.stringify({
               name: "some/lib",
-              extra: { axm: { extensions: "not-an-array" } },
+              extra: { agentExtensions: "not-an-array" },
             }),
           );
           expect(Option.isNone(result)).toBe(true);
@@ -337,7 +335,7 @@ describe("composerReader", () => {
   });
 
   describe("extra fields tolerated", () => {
-    it.effect("ignores extra fields in axm metadata", () =>
+    it.effect("ignores extra fields in agentExtensions metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "composer", namespace: "some", name: "lib" });
@@ -346,10 +344,8 @@ describe("composerReader", () => {
             JSON.stringify({
               name: "some/lib",
               extra: {
-                axm: {
-                  extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
-                  futureField: true,
-                },
+                agentExtensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
+                futureField: true,
               },
             }),
           );

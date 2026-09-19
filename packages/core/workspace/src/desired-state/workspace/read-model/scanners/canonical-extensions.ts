@@ -1,6 +1,6 @@
 /**
  * Canonical-extensions scanner: enumerates authored project type roots and
- * source-qualified acquired packages beneath `agent_extensions/` or the
+ * identity-qualified acquired packages beneath `agent_extensions/` or the
  * corresponding user-scope `agent_extensions/` root.
  *
  * Per Decision 5 of the workspace read-model design, scanner output is

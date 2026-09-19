@@ -14,12 +14,6 @@ import * as Data from "effect/Data";
 import type { AgentId } from "@agentxm/extension-model/unstable/agents/types";
 import type { McpInspectionError } from "../projection/index.js";
 
-/** MCP servers install only from registry packages. */
-export class McpRegistryOnlyInstall extends Data.TaggedError("McpRegistryOnlyInstall")<{
-  readonly serverName: string;
-  readonly refType: string;
-}> {}
-
 /** A lock entry was requested before install recorded the package state. */
 export class McpInstallStateMissing extends Data.TaggedError("McpInstallStateMissing")<{
   readonly name: string;
@@ -86,7 +80,6 @@ export class McpAgentSyncRefused extends Data.TaggedError("McpAgentSyncRefused")
 /** Every failure the MCP module surfaces. */
 export type McpManagerError =
   | McpInspectionError
-  | McpRegistryOnlyInstall
   | McpInstallStateMissing
   | McpLocalNameConflict
   | McpCanonicalPathUnsafe

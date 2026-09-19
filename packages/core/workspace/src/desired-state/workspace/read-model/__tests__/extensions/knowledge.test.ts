@@ -32,24 +32,19 @@ const settingsWithKnowledge = (
 
 const lockfileWithKnowledge = (names: ReadonlyArray<string>): Effect.Effect<Lockfile, never> =>
   decodedLockfile({
-    lockfileVersion: 7,
+    lockfileVersion: 8,
     skills: {},
     knowledge: Object.fromEntries(
       names.map((name) => [
         name,
         {
-          type: "registry",
-          sourceType: "registry",
-          endpoint: "https://registry.agentxm.ai",
-          extensionType: "knowledge",
-          workspaceName: name,
-          packageFormat: "agentxm",
-          owner: "@acme",
-          name,
-          resolvedVersion: "1.0.0",
-          integrity: "sha512-abc",
-          sourceName: "agentxm",
-          publisherBindingId: "hbnd_test",
+          source: { type: "registry", url: "https://registry.agentxm.ai" },
+          identity: { owner: "@acme", name },
+          resolved: {
+            version: "1.0.0",
+            integrity: "sha512-abc",
+            publisherBindingId: "hbnd_test",
+          },
           treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
         },
       ]),
@@ -130,7 +125,7 @@ describe("makeKnowledgeExtensionsApi", () => {
       const { api } = yield* harness({ settings, lockfile });
       const resolved = Option.getOrElse(yield* api.resolved, () => []);
       expect(resolved).toHaveLength(1);
-      expect(resolved[0]?.lockEntry.type).toBe("registry");
+      expect(resolved[0]?.lockEntry.source.type).toBe("registry");
     }),
   );
 

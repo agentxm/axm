@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import * as HashMap from "effect/HashMap";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { PackageExtensionDeclarationSchema } from "@agentxm/registry-client";
+import { AgentExtensionRecommendationSchema } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import {
   PackageUrlPartsSchema,
@@ -16,7 +16,7 @@ import type { DetectedPackage, PackageReader } from "./types.js";
 const npmType = Schema.decodeUnknownSync(PackageTypeSchema)("npm");
 const pypiType = Schema.decodeUnknownSync(PackageTypeSchema)("pypi");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-const makeDeclaration = Schema.decodeUnknownSync(PackageExtensionDeclarationSchema);
+const makeDeclaration = Schema.decodeUnknownSync(AgentExtensionRecommendationSchema);
 const encodePurl = Schema.encodeSync(PackageUrlSchema);
 
 const withNodeContext = <A, E>(

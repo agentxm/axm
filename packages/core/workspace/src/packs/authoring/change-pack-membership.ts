@@ -24,9 +24,11 @@ import {
 import {
   decodeExtensionNameSync,
   formatFqn,
+  packMemberVersionRange,
   parseExtensionFqnParts,
   type ExtensionName,
   type Handle,
+  type PackMemberConstraintMap,
 } from "@agentxm/extension-model/unstable/extensions";
 import {
   PACK_MANIFEST_FILENAME,
@@ -253,15 +255,17 @@ export const preparePackMembership = Effect.fn("ChangePackMembership.prepare")(f
   const packMembership: PackMembershipDelta = {
     pack: formatFqn({ owner: packOwner, type: "pack", name: decodeExtensionNameSync(pack) }),
     members: members
-      .map((member) =>
-        request.change === "add"
-          ? {
-              member: member.fqn,
-              before: manifest.dependencies[member.fqn] ?? null,
-              after: member.range,
-            }
-          : { member: member.fqn, before: member.range, after: null },
-      )
+      .map((member) => {
+        if (request.change === "add") {
+          const before = manifest.dependencies[member.fqn];
+          return {
+            member: member.fqn,
+            before: before === undefined ? null : packMemberVersionRange(before),
+            after: member.range,
+          };
+        }
+        return { member: member.fqn, before: member.range, after: null };
+      })
       .sort((a, b) => (a.member < b.member ? -1 : a.member > b.member ? 1 : 0)),
   };
   const run =
@@ -345,7 +349,7 @@ const additions = Effect.fn("ChangePackMembership.additions")(function* (args: {
   readonly packOwner: Handle;
   readonly request: PackMembershipRequest;
   readonly pattern: boolean;
-  readonly manifest: { readonly dependencies: Readonly<Record<string, string>> };
+  readonly manifest: { readonly dependencies: PackMemberConstraintMap };
 }) {
   const { candidates, graph } = yield* memberCandidates();
   const packFqn = formatFqn({
@@ -398,14 +402,20 @@ const additions = Effect.fn("ChangePackMembership.additions")(function* (args: {
 
   const resolved: Array<ResolvedMember> = [];
   for (const candidate of matched) {
-    if (args.manifest.dependencies[candidate.fqn] === candidate.versionRange) continue;
+    const declaration = args.manifest.dependencies[candidate.fqn];
+    if (
+      declaration !== undefined &&
+      packMemberVersionRange(declaration) === candidate.versionRange
+    ) {
+      continue;
+    }
     resolved.push({ fqn: candidate.fqn, range: candidate.versionRange });
   }
   return resolved;
 });
 
 const removals = Effect.fn("ChangePackMembership.removals")(function* (args: {
-  readonly manifest: { readonly dependencies: Readonly<Record<string, string>> };
+  readonly manifest: { readonly dependencies: PackMemberConstraintMap };
   readonly request: PackMembershipRequest;
   readonly pattern: boolean;
 }) {
@@ -418,7 +428,10 @@ const removals = Effect.fn("ChangePackMembership.removals")(function* (args: {
       pattern: args.pattern,
     });
   }
-  return matched.map(([fqn, range]) => ({ fqn, range }) satisfies ResolvedMember);
+  return matched.map(
+    ([fqn, declaration]) =>
+      ({ fqn, range: packMemberVersionRange(declaration) }) satisfies ResolvedMember,
+  );
 });
 
 /** The plan a membership change of this direction resolves. */

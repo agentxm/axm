@@ -19,6 +19,7 @@ import {
 import { isKnownFailure, toAppError, type KnownFailure } from "../app-error/conversions.js";
 import type { SkillSelectionCancelled } from "@agentxm/workspace/skills/lifecycle/application";
 import type { SubagentSelectionCancelled } from "@agentxm/workspace/subagents/lifecycle/application";
+import type { InstallSelectionCancelled } from "@agentxm/workspace/lifecycle";
 
 /**
  * Structural shape of the workspace configuration feature's typed
@@ -128,7 +129,8 @@ export type ExpectedCliError =
   | QuestionCancelled
   | WorkspaceInitializationCancelled
   | SkillSelectionCancelled
-  | SubagentSelectionCancelled;
+  | SubagentSelectionCancelled
+  | InstallSelectionCancelled;
 export type CliRuntimeFoundation = Screen | Verbosity;
 
 /**

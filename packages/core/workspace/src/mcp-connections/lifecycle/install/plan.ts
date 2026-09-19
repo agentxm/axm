@@ -1,5 +1,5 @@
 /**
- * Installing an MCP connection from the registry.
+ * Installing an MCP connection from a resolved source.
  *
  * An MCP server is acquired once and referenced by a local connection name, so
  * this decides who owns that name, which version constraint every origin
@@ -24,6 +24,8 @@ import * as Schema from "effect/Schema";
 
 import { installMcpServer, readMcpServerManifest } from "../../../reconciliation/index.js";
 import { materializeRegistryPackage } from "../../../materialization/index.js";
+import { stripFileProtocol } from "@agentxm/registry-client";
+import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { validateManifestMcpServerTargets } from "../../../projection/agent-adapters/index.js";
 import {
   CONFIGURABLE_AGENTS_BY_ID,
@@ -35,8 +37,10 @@ import {
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
-import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
+import type { Source } from "@agentxm/extension-model/unstable/sources/types";
+import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { SourceHostProviders, resolveSource } from "../../../resolution/sources/index.js";
+import type { RegistryBindingProposal, SourceBindingProposal } from "../../../resolution/index.js";
 import { operationPresentation, type Plan } from "../../../transitions/planning/index.js";
 import { mcpRegistryResolutionKey } from "../../../desired-state/index.js";
 
@@ -55,13 +59,13 @@ import {
 const LOCAL_NAME_RULE =
   "Local MCP names must be max 64 chars, use lowercase letters, numbers, and hyphens, and cannot start or end with a hyphen.";
 
-const REGISTRY_ONLY = "Use @owner/mcps/server-name or just server-name.";
+const SOURCE_GUIDANCE = "Use @owner/mcps/server-name, a Git locator, or a local package path.";
 
 /** An MCP install request after grammar parsing, before anything is discovered. */
 export interface ParsedMcpServerInstallRequest {
-  readonly owner: Handle;
-  readonly serverName: ExtensionName;
-  readonly localName: ExtensionName;
+  readonly owner: Option.Option<Handle>;
+  readonly serverName: Option.Option<ExtensionName>;
+  readonly localName: Option.Option<ExtensionName>;
   readonly versionRange: Option.Option<string>;
   readonly resolvedInput: string;
   readonly force: boolean;
@@ -69,11 +73,11 @@ export interface ParsedMcpServerInstallRequest {
   readonly env: Readonly<Record<string, string>>;
 }
 
-/** One MCP registry lookup, with the constraint every origin agrees on. */
+/** One MCP source lookup, with the constraint every origin agrees on. */
 export interface McpServerInstallSourceRequest {
-  readonly source: RegistrySource;
-  readonly owner: Handle;
-  readonly serverName: ExtensionName;
+  readonly source: Source;
+  readonly owner: Option.Option<Handle>;
+  readonly serverName: Option.Option<ExtensionName>;
   readonly versionRange: Option.Option<string>;
 }
 
@@ -131,6 +135,10 @@ export const parseMcpServerInstallRequest: (
   const settings = yield* SettingsReader;
   const trimmed = args.source.trim();
   const env = yield* parseMcpEnvInputs(args.env);
+  const explicitLocalName = yield* Option.match(args.localName, {
+    onNone: () => Effect.succeed(Option.none<ExtensionName>()),
+    onSome: (name) => decodeLocalName(name).pipe(Effect.map(Option.some)),
+  });
   const parsed = parseRegistryInstallTarget(trimmed, {
     expectedType: "mcp-server",
     allowBareName: true,
@@ -151,21 +159,24 @@ export const parseMcpServerInstallRequest: (
           suggestions: [{ description: "Use @owner/mcps/server-name format." }],
         });
       default:
-        return yield* installRefused({
-          category: "usage",
-          detail: "MCP servers can only be installed from a registry",
-          suggestions: [{ description: REGISTRY_ONLY }],
-        });
+        return {
+          owner: Option.none<Handle>(),
+          serverName: Option.none<ExtensionName>(),
+          localName: explicitLocalName,
+          versionRange: Option.none<string>(),
+          resolvedInput: trimmed,
+          force: args.force,
+          nonInteractive: args.nonInteractive,
+          env,
+        };
     }
   }
 
-  const requestedLocalName = Option.getOrElse(args.localName, () => parsed.success.name);
-
   if (parsed.success.kind === "registry") {
     return {
-      owner: parsed.success.owner,
-      serverName: parsed.success.name,
-      localName: yield* decodeLocalName(requestedLocalName),
+      owner: Option.some(parsed.success.owner),
+      serverName: Option.some(parsed.success.name),
+      localName: Option.orElse(explicitLocalName, () => Option.some(parsed.success.name)),
       versionRange: Option.fromUndefinedOr(parsed.success.versionRange),
       resolvedInput: trimmed,
       force: args.force,
@@ -204,9 +215,9 @@ export const parseMcpServerInstallRequest: (
   );
 
   return {
-    owner,
-    serverName: parsed.success.name,
-    localName: yield* decodeLocalName(requestedLocalName),
+    owner: Option.some(owner),
+    serverName: Option.some(parsed.success.name),
+    localName: Option.orElse(explicitLocalName, () => Option.some(parsed.success.name)),
     versionRange: Option.none<string>(),
     resolvedInput: `${owner}/mcps/${parsed.success.name}`,
     force: args.force,
@@ -215,10 +226,7 @@ export const parseMcpServerInstallRequest: (
   };
 });
 
-/**
- * Decide which local name may own the connection and which version constraint
- * every origin referencing the same registry server can agree on.
- */
+/** Resolve the source named by the parsed request. */
 export const resolveMcpServerSourceRequest: (
   request: ParsedMcpServerInstallRequest,
 ) => Effect.Effect<
@@ -228,77 +236,101 @@ export const resolveMcpServerSourceRequest: (
 > = Effect.fn("InstallExtensions.resolveMcpSource")(function* (
   request: ParsedMcpServerInstallRequest,
 ) {
-  const desiredState = yield* DesiredStateReader;
-  const source = yield* resolveSource(request.resolvedInput).pipe(
+  const source = yield* resolveSource(request.resolvedInput, { expectedType: "mcp-server" }).pipe(
     Effect.mapError((cause) =>
       installRefused({
         category: "validation",
         detail: `Invalid source: ${cause.message}`,
-        suggestions: [{ description: REGISTRY_ONLY }],
+        suggestions: [{ description: SOURCE_GUIDANCE }],
         cause,
       }),
     ),
   );
 
-  if (source.type !== "registry") {
-    return yield* installRefused({
-      category: "usage",
-      detail: "MCP servers can only be installed from a registry",
-      suggestions: [{ description: "Use a registry source: @owner/mcps/server-name" }],
+  if (source.type === "registry") {
+    const owner = yield* Option.match(request.owner, {
+      onNone: () =>
+        installRefused({
+          category: "internal",
+          detail: "Registry MCP source has no owner after parsing",
+        }),
+      onSome: Effect.succeed,
     });
-  }
-
-  const identity = mcpRegistryResolutionKey({
-    authority: source.location,
-    owner: request.owner,
-    name: request.serverName,
-  });
-  const graph = yield* desiredState.graph().pipe(
-    Effect.mapError((cause) =>
-      installRefused({
-        category: "internal",
-        detail: "Desired MCP state could not be read",
-        cause,
-      }),
-    ),
-  );
-  const existingLocalNode = graph.nodes.find(
-    (node) => node.type === "mcp-server" && node.name === request.localName,
-  );
-  const closure = graph.mcpSourceClosures.find((candidate) => candidate.identity === identity);
-  const versionRange = yield* selectMcpSourceConstraint(
-    {
+    const serverName = yield* Option.match(request.serverName, {
+      onNone: () =>
+        installRefused({
+          category: "internal",
+          detail: "Registry MCP source has no server name after parsing",
+        }),
+      onSome: Effect.succeed,
+    });
+    const localName = yield* Option.match(request.localName, {
+      onNone: () =>
+        installRefused({
+          category: "internal",
+          detail: "Registry MCP source has no local name after parsing",
+        }),
+      onSome: Effect.succeed,
+    });
+    const identity = mcpRegistryResolutionKey({
+      authority: source.location,
+      owner,
+      name: serverName,
+    });
+    const graph = yield* DesiredStateReader.pipe(
+      Effect.flatMap((desiredState) => desiredState.graph()),
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "internal",
+          detail: "Desired MCP state could not be read",
+          cause,
+        }),
+      ),
+    );
+    const existingLocalNode = graph.nodes.find(
+      (node) => node.type === "mcp-server" && node.name === localName,
+    );
+    const closure = graph.mcpSourceClosures.find((candidate) => candidate.identity === identity);
+    const versionRange = yield* selectMcpSourceConstraint(
+      {
+        owner,
+        serverName,
+        localName,
+        sourceIdentity: identity,
+        versionRange: request.versionRange,
+      },
+      {
+        localConnection:
+          existingLocalNode === undefined
+            ? undefined
+            : {
+                sourceIdentity:
+                  existingLocalNode.authority === "inline" ? null : existingLocalNode.identity,
+              },
+        origins: (closure?.origins ?? []).map((origin) =>
+          origin.type === "settings"
+            ? { kind: "connection", name: origin.localName, constraint: origin.constraint }
+            : { kind: "pack", name: origin.pack, constraint: origin.constraint },
+        ),
+      },
+    ).pipe(
+      Effect.mapError((cause) =>
+        installRefused({ category: "conflict", detail: cause.reason, cause }),
+      ),
+    );
+    return {
+      source,
       owner: request.owner,
       serverName: request.serverName,
-      localName: request.localName,
-      sourceIdentity: identity,
-      versionRange: request.versionRange,
-    },
-    {
-      localConnection:
-        existingLocalNode === undefined
-          ? undefined
-          : {
-              sourceIdentity:
-                existingLocalNode.authority === "inline" ? null : existingLocalNode.identity,
-            },
-      origins: (closure?.origins ?? []).map((origin) =>
-        origin.type === "settings"
-          ? { kind: "connection", name: origin.localName, constraint: origin.constraint }
-          : { kind: "pack", name: origin.pack, constraint: origin.constraint },
-      ),
-    },
-  ).pipe(
-    Effect.mapError((cause) =>
-      installRefused({ category: "conflict", detail: cause.reason, cause }),
-    ),
-  );
+      versionRange,
+    };
+  }
 
   return {
     source,
     owner: request.owner,
     serverName: request.serverName,
-    versionRange,
+    versionRange: request.versionRange,
   };
 });
 
@@ -315,17 +347,17 @@ export const discoverMcpServerRefs: (
   const sources = yield* SourceHostProviders;
   const refs = yield* sources
     .find(request.source, {
-      names: [request.serverName],
+      names: Option.toArray(request.serverName),
       type: "mcp-server",
-      owner: Option.some(request.owner),
+      owner: request.owner,
       versionRange: request.versionRange,
     })
     .pipe(
       Effect.mapError((cause) =>
         installRefused({
           category: "network",
-          detail: "MCP server could not be fetched from registry",
-          suggestions: [{ description: "Verify the server name and registry configuration." }],
+          detail: "MCP server source could not be read",
+          suggestions: [{ description: SOURCE_GUIDANCE }],
           cause,
         }),
       ),
@@ -336,39 +368,128 @@ export const discoverMcpServerRefs: (
 /** Settle the connection this request installs, or refuse when nothing matched. */
 export const finalizeMcpServerInstallIntent: (
   request: ParsedMcpServerInstallRequest,
+  sourceRequest: McpServerInstallSourceRequest,
   refs: ReadonlyArray<McpServerExtensionRef>,
 ) => Effect.Effect<McpServerInstallIntent, ExtensionLifecycleFailed, ResolveInstallRequirements> =
   Effect.fn("InstallExtensions.finalizeMcpIntent")(function* (
     request: ParsedMcpServerInstallRequest,
+    sourceRequest: McpServerInstallSourceRequest,
     refs: ReadonlyArray<McpServerExtensionRef>,
   ) {
-    const settings = yield* SettingsReader;
     const [ref] = refs;
     if (ref === undefined) {
-      const hosts = yield* settings.registrySourceHosts.pipe(
-        Effect.mapError((cause) =>
-          installRefused({
-            category: "internal",
-            detail: "Configured registry hosts could not be read",
-            cause,
-          }),
-        ),
-      );
-      const loginSuggestions = yield* registryLoginSuggestions(
-        hosts.map((host) => host.location.href),
-      );
+      const loginSuggestions =
+        sourceRequest.source.type === "registry"
+          ? yield* SettingsReader.pipe(
+              Effect.flatMap((settings) => settings.registrySourceHosts),
+              Effect.mapError((cause) =>
+                installRefused({
+                  category: "internal",
+                  detail: "Configured registry hosts could not be read",
+                  cause,
+                }),
+              ),
+              Effect.flatMap((hosts) =>
+                registryLoginSuggestions(hosts.map((host) => host.location.href)),
+              ),
+            )
+          : [];
       return yield* installRefused({
         category: "not_found",
-        detail: `MCP server "${request.serverName}" not found in registry`,
+        detail: "No MCP server was found in the source",
         suggestions: [
-          { description: "Verify the server name and check available MCP servers." },
+          { description: "Verify the source and check its MCP server manifest." },
           ...loginSuggestions,
         ],
       });
     }
+    if (refs.length > 1) {
+      return yield* installRefused({
+        category: "usage",
+        detail: `MCP source contains multiple servers: ${refs.map((candidate) => candidate.server.name).join(", ")}`,
+        suggestions: [{ description: "Use a source locator that selects one MCP server package." }],
+      });
+    }
+    const localName = Option.getOrElse(request.localName, () => ref.server.name);
+    const requestedIdentity = yield* Effect.gen(function* () {
+      if (sourceRequest.source.type === "registry") {
+        return mcpRegistryResolutionKey({
+          authority: sourceRequest.source.location,
+          owner: ref.owner,
+          name: ref.server.name,
+        });
+      }
+      if (sourceRequest.source.type !== "local") return printSourceParams(sourceRequest.source);
+      if (ref.refType !== "local") {
+        return yield* installRefused({
+          category: "internal",
+          detail: "Local MCP source resolved to a non-local package reference",
+        });
+      }
+      const location = yield* WorkspaceLocation;
+      const path = yield* Path.Path;
+      const localPath = sourceRequest.source.path;
+      return Option.getOrElse(
+        makeWorkspaceRelativeSourcePath(path, location.baseDir, stripFileProtocol(ref.location)),
+        () => localPath,
+      );
+    });
+    const desiredState = yield* DesiredStateReader;
+    const graph = yield* desiredState.graph().pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "internal",
+          detail: "Desired MCP state could not be read",
+          cause,
+        }),
+      ),
+    );
+    const existingLocalNode = graph.nodes.find(
+      (node) => node.type === "mcp-server" && node.name === localName,
+    );
+    const identity = yield* sourceRequest.source.type === "local" &&
+    ref.refType === "local" &&
+    existingLocalNode !== undefined
+      ? Effect.gen(function* () {
+          const location = yield* WorkspaceLocation;
+          const path = yield* Path.Path;
+          return path.resolve(location.baseDir, existingLocalNode.identity) ===
+            path.resolve(stripFileProtocol(ref.location))
+            ? existingLocalNode.identity
+            : requestedIdentity;
+        })
+      : Effect.succeed(requestedIdentity);
+    const closure = graph.mcpSourceClosures.find((candidate) => candidate.identity === identity);
+    yield* selectMcpSourceConstraint(
+      {
+        owner: ref.owner,
+        serverName: ref.server.name,
+        localName,
+        sourceIdentity: identity,
+        versionRange: request.versionRange,
+      },
+      {
+        localConnection:
+          existingLocalNode === undefined
+            ? undefined
+            : {
+                sourceIdentity:
+                  existingLocalNode.authority === "inline" ? null : existingLocalNode.identity,
+              },
+        origins: (closure?.origins ?? []).map((origin) =>
+          origin.type === "settings"
+            ? { kind: "connection", name: origin.localName, constraint: origin.constraint }
+            : { kind: "pack", name: origin.pack, constraint: origin.constraint },
+        ),
+      },
+    ).pipe(
+      Effect.mapError((cause) =>
+        installRefused({ category: "conflict", detail: cause.reason, cause }),
+      ),
+    );
     return {
       ref,
-      localName: request.localName,
+      localName,
       versionRange: request.versionRange,
       force: request.force,
       nonInteractive: request.nonInteractive,
@@ -443,7 +564,7 @@ export const planMcpServerInstall: (
                 },
               });
             })
-          : ref.location;
+          : stripFileProtocol(ref.location);
       const manifest = yield* readMcpServerManifest(manifestPath);
       if (Option.isNone(manifest)) {
         return yield* installRefused({
@@ -483,6 +604,23 @@ export const planMcpServerInstall: (
     ),
   );
 
+  const sourceBinding = {
+    extensionType: "mcp-server",
+    target: intent.localName,
+    ref: intent.ref,
+  } satisfies SourceBindingProposal;
+  const registryBinding: RegistryBindingProposal | undefined =
+    intent.ref.refType === "registry"
+      ? {
+          extensionType: "mcp-server",
+          target: intent.localName,
+          owner: intent.ref.owner,
+          packageName: intent.ref.name,
+          version: intent.ref.version,
+          publisherBindingId: intent.ref.publisherBindingId,
+        }
+      : undefined;
+
   return {
     _tag: "Plan",
     name: "Install MCP server",
@@ -499,6 +637,8 @@ export const planMcpServerInstall: (
             key: `mcp-server:${intent.localName}`,
             label: intent.localName,
             readiness: "ready",
+            sourceBinding,
+            ...(registryBinding === undefined ? {} : { registryBinding }),
             run: installMcpServer({
               name: "install-mcp-server",
               args: {

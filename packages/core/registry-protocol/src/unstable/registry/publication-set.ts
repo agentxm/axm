@@ -9,8 +9,10 @@ import {
   ExtensionNameSchema,
   ExtensionTypeSchema,
   ExtensionVisibilitySchema,
+  PackMemberRegistrySourceSchema,
   type ExtensionName,
   type ExtensionType,
+  type PackMemberRegistrySource,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions/fqn";
 import { HandleSchema, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
@@ -55,6 +57,7 @@ const PackDependencyDescriptorSchema = Schema.Struct({
   type: Schema.Literals(["hook", "knowledge", "mcp-server", "rule", "skill", "subagent"] as const),
   name: ExtensionNameSchema,
   range: VersionRangeSchema,
+  source: Schema.optional(PackMemberRegistrySourceSchema),
 }).annotate({ identifier: "PackDependencyDescriptor" });
 
 export interface PackDependencyDescriptor {
@@ -62,6 +65,7 @@ export interface PackDependencyDescriptor {
   readonly type: Exclude<ExtensionType, "pack">;
   readonly name: ExtensionName;
   readonly range: VersionRange;
+  readonly source?: PackMemberRegistrySource | undefined;
 }
 
 export const PublicationVisibilityInputSchema = Schema.Struct({
@@ -303,7 +307,8 @@ const compareDependencies = (
   compareText(left.owner, right.owner) ||
   compareText(left.type, right.type) ||
   compareText(left.name, right.name) ||
-  compareText(left.range, right.range);
+  compareText(left.range, right.range) ||
+  compareText(left.source?.url.href ?? "", right.source?.url.href ?? "");
 
 export const normalizePublicationDescriptor = (
   descriptor: PublicationDescriptor,
@@ -370,7 +375,7 @@ export const validatePublicationDescriptors = (
       `Publication sets accept at most ${MAX_PUBLICATION_SET_CANDIDATES} candidates.`,
     );
   }
-  Schema.decodeUnknownSync(PreviewPublicationSetRequestSchema)({
+  Schema.decodeUnknownSync(Schema.toType(PreviewPublicationSetRequestSchema))({
     contract: PUBLICATION_SET_CONTRACT,
     candidates: descriptors,
   });

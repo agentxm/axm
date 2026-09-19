@@ -48,12 +48,13 @@ type GitScpAddress = {
   readonly path: string;
 };
 
-/** An `owner/repo[/path]` style pattern containing `/` (not a URL or file path). */
+/** An `owner/repo[//path][@ref]` style pattern containing `/` (not a URL or file path). */
 type SlashPattern = {
   readonly pattern: "slash-pattern";
   readonly first: string;
   readonly second: string;
   readonly third: Option.Option<string>;
+  readonly ref: Option.Option<string>;
 };
 
 /** A local filesystem path matching `LOCAL_PATH_PATTERN`. */
@@ -99,7 +100,7 @@ export type InputParseResult<T = InputPattern> = {
 const SCP_PATTERN = /^([^@]+)@([^:]+):(.+)$/;
 
 /** Known shorthand prefixes. */
-const SHORTHAND_PREFIXES = new Set(["github", "gitlab", "bitbucket"]);
+const SHORTHAND_PREFIXES = new Set(["github", "gitlab", "bitbucket", "azurerepos"]);
 
 /** Simple name: alphanumeric with hyphens, no leading/trailing hyphen. */
 const NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/;
@@ -184,26 +185,36 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
     // Not a URL
   }
 
-  // 7. Slash pattern (`owner/repo` or `owner/repo/path`)
+  // 7. Slash pattern (`owner/repo[//path][@ref]`)
   if (input.includes("/")) {
-    const segments = input.split("/");
+    const refIndex = input.lastIndexOf("@");
+    const hasRef = refIndex > 0 && refIndex < input.length - 1;
+    const coordinate = hasRef ? input.slice(0, refIndex) : input;
+    const ref = hasRef ? input.slice(refIndex + 1) : undefined;
+    const subPathIndex = coordinate.indexOf("//");
+    const repositoryCoordinate = subPathIndex < 0 ? coordinate : coordinate.slice(0, subPathIndex);
+    const subPath = subPathIndex < 0 ? undefined : coordinate.slice(subPathIndex + 2);
+    const segments = repositoryCoordinate.split("/");
     const first = segments.at(0);
     const second = segments.at(1);
     if (
       first !== undefined &&
       second !== undefined &&
-      segments.length >= 2 &&
+      segments.length === 2 &&
       NAME_PATTERN.test(first) &&
       NAME_PATTERN.test(second) &&
-      segments.slice(2).every((s) => s.length > 0 && s !== "..")
+      (ref === undefined || (ref.length > 0 && !ref.includes("/"))) &&
+      (subPath === undefined ||
+        (subPath.length > 0 &&
+          subPath.split("/").every((segment) => segment.length > 0 && segment !== "..")))
     ) {
-      const remaining = segments.slice(2).join("/");
       return Option.some(
         wrap({
           pattern: "slash-pattern",
           first,
           second,
-          third: remaining.length === 0 ? Option.none() : Option.some(remaining),
+          third: Option.fromUndefinedOr(subPath),
+          ref: Option.fromUndefinedOr(ref),
         }),
       );
     }

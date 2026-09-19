@@ -69,7 +69,7 @@ export const handleWorkspaceInstall = (args: WorkspaceInstallHandlerArgs) =>
       request: {
         type: args.type,
         subject: { kind: "configured" },
-        names: [],
+        selectors: {},
         all: false,
         reinstall: args.flags.force === true,
         localName: Option.none(),

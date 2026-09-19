@@ -25,8 +25,6 @@ export const makeDirectoryFixture = () => {
         // background fiber that races process exit. Its own specification owns
         // that behavior; here it would only make observed state nondeterministic.
         AXM_NO_UPDATE_CHECK: "1",
-        AXM_REGISTRY_LOCATION: "https://registry.invalid",
-        AXM_REGISTRY_URL: "https://registry.invalid",
       },
     });
   return { root, invoking, selected, home, run, cleanup: temporary.cleanup };

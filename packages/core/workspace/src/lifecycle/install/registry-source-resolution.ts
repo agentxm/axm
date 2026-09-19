@@ -110,6 +110,7 @@ export const formatRegistryProbe = (probe: RegistryLookupProbe): string => {
 /** Which configured registry to probe, for which extension. */
 export interface ConfiguredRegistryLookup {
   readonly sourceName: string;
+  readonly useDefaultRegistry: boolean;
   readonly owner: Handle;
   readonly extensionType: InstallableRegistryType;
   readonly extensionName: Option.Option<ExtensionName>;
@@ -124,6 +125,17 @@ export const resolveConfiguredRegistrySource: (
     args: ConfiguredRegistryLookup,
   ) {
     const settings = yield* SettingsReader;
+    const sourceName = args.useDefaultRegistry
+      ? yield* settings.defaultRegistry.pipe(
+          Effect.mapError((cause) =>
+            installRefused({
+              category: "internal",
+              detail: "The default registry could not be read",
+              cause,
+            }),
+          ),
+        )
+      : args.sourceName;
     const registrySources = (yield* settings.registrySourceHosts.pipe(
       Effect.mapError((cause) =>
         installRefused({
@@ -133,7 +145,7 @@ export const resolveConfiguredRegistrySource: (
           cause,
         }),
       ),
-    )).filter((source) => source.name === args.sourceName);
+    )).filter((source) => source.name === sourceName);
 
     if (registrySources.length === 0) {
       return yield* installRefused({
@@ -231,13 +243,22 @@ type ConfiguredDefaultRegistrySourceByNameResolver = (
   DefaultRegistrySourceResolutionRequirements
 >;
 
-/** Resolve a bare name against the default `agentxm` registry and configured owner. */
+/** Resolve a bare name against the effective default registry and configured owner. */
 export const resolveDefaultRegistrySourceByName: ConfiguredDefaultRegistrySourceByNameResolver =
   Effect.fn("InstallExtensions.resolveDefaultRegistrySourceByName")(function* (
     args: DefaultRegistryLookup,
   ) {
     const settings = yield* SettingsReader;
     const label = extensionLabel(args.extensionType);
+    const defaultRegistryName = yield* settings.defaultRegistry.pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "internal",
+          detail: "The default registry could not be read",
+          cause,
+        }),
+      ),
+    );
     const registryHosts = (yield* settings.registrySourceHosts.pipe(
       Effect.mapError((cause) =>
         installRefused({
@@ -246,7 +267,7 @@ export const resolveDefaultRegistrySourceByName: ConfiguredDefaultRegistrySource
           cause,
         }),
       ),
-    )).filter((source) => source.name === "agentxm");
+    )).filter((source) => source.name === defaultRegistryName);
 
     if (registryHosts.length === 0) {
       return yield* installRefused({
@@ -273,7 +294,7 @@ export const resolveDefaultRegistrySourceByName: ConfiguredDefaultRegistrySource
         input: args.name,
         resourceType: args.extensionType,
         scope: "registry",
-        registrySourceName: "agentxm",
+        registrySourceName: defaultRegistryName,
       }),
     ).pipe(
       Effect.mapError((failure) => {

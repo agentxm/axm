@@ -80,7 +80,6 @@ const buildSkillLockEntry = (
 ) =>
   sourceToLockEntry({
     ref,
-    sourceName: Option.none(),
     contentIdentity,
     treeIntegrity,
     workspaceRelativeLocalSourcePath,
@@ -454,10 +453,10 @@ export const SkillManagerLive = Layer.effect(
             kind: "external-resolution",
           });
         }
-        if (lockEntry.type === "registry") {
+        if (lockEntry.source.type === "registry" && "version" in lockEntry.resolved) {
           yield* validateExactResolvedVersion(
             `skills.${ref.skill.name}.resolvedVersion`,
-            lockEntry.resolvedVersion,
+            lockEntry.resolved.version,
           );
         }
         return Option.some({ key: ref.skill.name, entry: lockEntry });

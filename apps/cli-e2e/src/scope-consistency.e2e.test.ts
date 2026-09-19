@@ -34,12 +34,13 @@ const PACK = "scope-pack";
 const SUBAGENT = "scope-subagent";
 const SKILL = "scope-review";
 const KNOWLEDGE = "scope-policy";
-const CANONICAL_REFERENCE = `agent_extensions/agentxm/${OWNER}/knowledge/${KNOWLEDGE}/src/policies/review.md`;
+const CANONICAL_REFERENCE = `agent_extensions/registry/${OWNER}/knowledge/${KNOWLEDGE}/src/policies/review.md`;
 
 const configureRegistry = (settingsPath: string, registryPath: string) => {
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
   settings.owner = OWNER;
-  settings.sources = [{ name: "agentxm", type: "registry", location: `file://${registryPath}` }];
+  settings.defaultRegistry = "test";
+  settings.sources = [{ name: "test", type: "registry", location: `file://${registryPath}` }];
   fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
 };
 
@@ -190,7 +191,7 @@ describe("installed-state scope consistency", () => {
           path.join(
             consumer.path,
             "agent_extensions",
-            "agentxm",
+            "registry",
             OWNER,
             "skills",
             SKILL,
@@ -235,7 +236,7 @@ describe("installed-state scope consistency", () => {
             ".axm",
             "workspace",
             "agent_extensions",
-            "agentxm",
+            "registry",
             OWNER,
             "subagents",
             SUBAGENT,
@@ -253,7 +254,7 @@ describe("installed-state scope consistency", () => {
         { cwd: consumer.path, env },
       );
       expect(installed.exitCode, `${installed.stderr}\n${installed.stdout}`).toBe(0);
-      expect(`${installed.stderr}\n${installed.stdout}`).toContain("axm packs list --scope user");
+      expect(`${installed.stderr}\n${installed.stdout}`).toContain("axm lint --scope user");
       expect(
         fs.readFileSync(
           path.join(
@@ -261,7 +262,7 @@ describe("installed-state scope consistency", () => {
             ".axm",
             "workspace",
             "agent_extensions",
-            "agentxm",
+            "registry",
             OWNER,
             "skills",
             SKILL,
@@ -278,7 +279,7 @@ describe("installed-state scope consistency", () => {
             ".axm",
             "workspace",
             "agent_extensions",
-            "agentxm",
+            "registry",
             OWNER,
             "knowledge",
             KNOWLEDGE,
@@ -322,7 +323,7 @@ describe("installed-state scope consistency", () => {
             ".axm",
             "workspace",
             "agent_extensions",
-            "agentxm",
+            "registry",
             OWNER,
             "knowledge",
             KNOWLEDGE,

@@ -54,7 +54,7 @@ describe("Install apply realizes the previewed closure", () => {
           expect(applied.units.every((unit) => unit.state === "committed")).toBe(true);
 
           expect(workspace.exists(".claude/skills/code-review")).toBe(true);
-          expect(workspace.exists("agent_extensions/local/vendor/code-review")).toBe(true);
+          expect(workspace.exists("agent_extensions/path/@acme/skills/code-review")).toBe(true);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

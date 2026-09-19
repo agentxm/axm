@@ -239,7 +239,7 @@ end`;
 const readInTempDir = (
   pkgPurl: Schema.Schema.Type<typeof PackageUrlPartsSchema>,
   opts?: {
-    readonly axmJson?: string;
+    readonly agentExtensionsJson?: string;
     readonly hexMetadataConfig?: string;
   },
 ) =>
@@ -254,12 +254,15 @@ const readInTempDir = (
     const pkgName = pkgPurl.name;
     const pkgDir = path.join(tmpDir, "deps", pkgName);
 
-    if (opts?.axmJson !== undefined || opts?.hexMetadataConfig !== undefined) {
+    if (opts?.agentExtensionsJson !== undefined || opts?.hexMetadataConfig !== undefined) {
       yield* fs.makeDirectory(pkgDir, { recursive: true });
     }
 
-    if (opts?.axmJson !== undefined) {
-      yield* fs.writeFileString(path.join(pkgDir, "axm.json"), opts.axmJson);
+    if (opts?.agentExtensionsJson !== undefined) {
+      yield* fs.writeFileString(
+        path.join(pkgDir, "agent-extensions.json"),
+        opts.agentExtensionsJson,
+      );
     }
 
     if (opts?.hexMetadataConfig !== undefined) {
@@ -279,14 +282,16 @@ describe("hexReader", () => {
     expect(hexReader.type).toBe(hexType);
   });
 
-  describe("valid axm.json sidecar", () => {
-    it.effect("extracts extensions from axm.json", () =>
+  describe("valid agent-extensions.json sidecar", () => {
+    it.effect("extracts extensions from agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hex", name: "phoenix" });
           const result = yield* readInTempDir(purl, {
-            axmJson: JSON.stringify({
-              extensions: [{ ref: "@phoenixframework/skills/phoenix", versionRange: "^1.0.0" }],
+            agentExtensionsJson: JSON.stringify({
+              agentExtensions: [
+                { ref: "@phoenixframework/skills/phoenix", versionRange: "^1.0.0" },
+              ],
             }),
           });
           expect(Option.isSome(result)).toBe(true);
@@ -304,7 +309,7 @@ describe("hexReader", () => {
         Effect.gen(function* () {
           const purl = makePurl({ type: "hex", name: "plug" });
           const result = yield* readInTempDir(purl, {
-            axmJson: JSON.stringify({ extensions: [] }),
+            agentExtensionsJson: JSON.stringify({ agentExtensions: [] }),
           });
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
@@ -316,11 +321,11 @@ describe("hexReader", () => {
   });
 
   describe("fallback to hex_metadata.config", () => {
-    it.effect("reads from hex_metadata.config extra field when no axm.json", () =>
+    it.effect("reads from hex_metadata.config extra field when no agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hex", name: "jason" });
-          const hexMeta = `{<<"name">>,<<"jason">>}.\n{<<"extra">>, [{<<"axm">>, <<"{\\"extensions\\": [{\\"ref\\":\\"@hex/skills/jason\\",\\"versionRange\\":\\"^1.0.0\\"}]}">>}]}.`;
+          const hexMeta = `{<<"name">>,<<"jason">>}.\n{<<"extra">>, [{<<"agentExtensions">>, <<"[{\\"ref\\":\\"@hex/skills/jason\\",\\"versionRange\\":\\"^1.0.0\\"}]">>}]}.`;
           const result = yield* readInTempDir(purl, { hexMetadataConfig: hexMeta });
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
@@ -332,20 +337,22 @@ describe("hexReader", () => {
   });
 
   describe("no metadata in either location", () => {
-    it.effect("returns Option.none when neither axm.json nor hex_metadata has axm", () =>
-      withNodeContext(
-        Effect.gen(function* () {
-          const purl = makePurl({ type: "hex", name: "telemetry" });
-          const hexMeta = `{<<"name">>,<<"telemetry">>}.`;
-          const result = yield* readInTempDir(purl, { hexMetadataConfig: hexMeta });
-          expect(Option.isNone(result)).toBe(true);
-        }),
-      ),
+    it.effect(
+      "returns Option.none when neither agent-extensions.json nor hex_metadata has axm",
+      () =>
+        withNodeContext(
+          Effect.gen(function* () {
+            const purl = makePurl({ type: "hex", name: "telemetry" });
+            const hexMeta = `{<<"name">>,<<"telemetry">>}.`;
+            const result = yield* readInTempDir(purl, { hexMetadataConfig: hexMeta });
+            expect(Option.isNone(result)).toBe(true);
+          }),
+        ),
     );
   });
 
-  describe("missing axm.json sidecar", () => {
-    it.effect("returns Option.none when no axm.json and no hex_metadata", () =>
+  describe("missing agent-extensions.json sidecar", () => {
+    it.effect("returns Option.none when no agent-extensions.json and no hex_metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hex", name: "ecto" });
@@ -356,13 +363,13 @@ describe("hexReader", () => {
     );
   });
 
-  describe("malformed axm.json", () => {
+  describe("malformed agent-extensions.json", () => {
     it.effect("returns Option.none and warns on malformed metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hex", name: "some_lib" });
           const result = yield* readInTempDir(purl, {
-            axmJson: JSON.stringify({ extensions: "not-an-array" }),
+            agentExtensionsJson: JSON.stringify({ agentExtensions: "not-an-array" }),
           });
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -371,13 +378,13 @@ describe("hexReader", () => {
   });
 
   describe("extra fields tolerated", () => {
-    it.effect("ignores extra fields in axm.json", () =>
+    it.effect("ignores extra fields in agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hex", name: "some_lib" });
           const result = yield* readInTempDir(purl, {
-            axmJson: JSON.stringify({
-              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
+            agentExtensionsJson: JSON.stringify({
+              agentExtensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
               futureField: true,
             }),
           });
@@ -402,13 +409,13 @@ describe("hexReader", () => {
     );
   });
 
-  describe("malformed JSON in axm.json", () => {
+  describe("malformed JSON in agent-extensions.json", () => {
     it.effect("returns Option.none on invalid JSON", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hex", name: "some_lib" });
           const result = yield* readInTempDir(purl, {
-            axmJson: "{ not valid json }",
+            agentExtensionsJson: "{ not valid json }",
           });
           expect(Option.isNone(result)).toBe(true);
         }),

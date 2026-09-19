@@ -35,7 +35,7 @@ const shadowingSpec: FixtureSpec = {
     settings: {
       _tag: "valid",
       contents: {
-        sources: [{ name: "shared", type: "github", url: "https://github.com/team" }],
+        sources: [{ name: "shared", type: "registry", location: "https://registry.example/team" }],
         skills: { "shadow-tool": "github:team/shadow-tool" },
       },
     },
@@ -44,7 +44,7 @@ const shadowingSpec: FixtureSpec = {
     settings: {
       _tag: "valid",
       contents: {
-        sources: [{ name: "shared", type: "github", url: "https://github.com/user" }],
+        sources: [{ name: "shared", type: "registry", location: "https://registry.example/user" }],
         skills: { "shadow-tool": "github:user/shadow-tool" },
       },
     },
@@ -109,13 +109,8 @@ describe("cross-scope shadowing — independent reads", () => {
           expect(projectShared).toBeDefined();
           expect(userShared).toBeDefined();
           if (projectShared === undefined || userShared === undefined) return;
-          // Each scope's host has the URL declared in its own settings.
-          if (projectShared.type === "github") {
-            expect(projectShared.url.toString()).toContain("team");
-          }
-          if (userShared.type === "github") {
-            expect(userShared.url.toString()).toContain("user");
-          }
+          expect(projectShared.location.toString()).toContain("team");
+          expect(userShared.location.toString()).toContain("user");
         }),
       ),
   );

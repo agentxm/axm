@@ -42,7 +42,7 @@ The workspace model does not own:
 - configured-agent semantics, which belong to [Coding agents](agents.md);
 - canonical instruction files and aliases, which belong to [Instruction
   files](instruction-files.md);
-- source-host precedence and resolution policy, which belong to [Sources and
+- source selection and resolution policy, which belong to [Sources and
   resolution](sources.md);
 - accepted external source identity, immutable resolution, and lockfile
   persistence, which belong to the [Lockfile](lockfile.md);
@@ -123,11 +123,12 @@ Canonical extension content has one of three authorities:
 Project workspaces keep those authorities physically distinct. Authored
 packages live in the type-specific roots declared by `axm.json`, defaulting to
 `skills/`, `rules/`, `knowledge/`, `subagents/`, `hooks/`, `mcps/`, and
-`packs/`. Acquired packages live under
-`agent_extensions/<source-name>/<source-full-name>/`. For example, Registry
-packages from the built-in `agentxm` source live under
-`agent_extensions/agentxm/@owner/<type>/<name>/`. The ignored `.axm/` directory is
-runtime state, not project configuration or canonical package inventory.
+`packs/`. Acquired packages use one identity layout:
+`agent_extensions/<source-family>/<owner>/<plural-type>/<name>/`. The source
+family is `registry`, `git`, or `path`, independent of a configured source's
+name. Packages without a declared owner use `@portable`. The ignored `.axm/`
+directory is runtime state, not project configuration or canonical package
+inventory.
 User scope mirrors the project workspace contract under `~/.axm/workspace/`:
 `axm.json`, `axm-lock.yaml`, `agent_extensions/`, and `.axm/` runtime state.
 It has no authored type roots; user-authored `workspace` sources and authoring
@@ -210,7 +211,7 @@ identity blocks reconciliation until an explicit resolution transition.
 Missing canonical content can be reacquired only from that exact identity when
 the source can still reproduce it. Update, not sync, owns advancement.
 
-Registry, Git, and local-path sources use source-appropriate immutable identity.
+Registry, Git, and path sources use source-appropriate immutable identity.
 When a mutable source no longer reproduces the locked identity, sync and
 reinstall block rather than substituting different bytes. Desired capabilities
 without an external source have no fabricated resolution row.

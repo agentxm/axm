@@ -51,6 +51,12 @@ export type {
   PlannedJobStep,
   ReadyJobStep,
   RegistryLifecycleEvidence,
+  SourceSwitchEndpoint,
+  SourceSwitchEvidence,
+  SourceSwitchFamily,
+  PackMemberSourceSwitchDisposition,
+  PackMemberSourceSwitchEndpoint,
+  PackMemberSourceSwitchEvidence,
   UnitBlocking,
   WarnJobStep,
 } from "./plan/plan.js";

@@ -1,7 +1,6 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { pathToFileURL } from "node:url";
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -9,19 +8,10 @@ import * as Layer from "effect/Layer";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
-import * as ConfigProvider from "effect/ConfigProvider";
-import { afterEach, beforeEach, vi } from "vitest";
-
-import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-
-import { ExecutionDirectory } from "./execution-directory.js";
+import { afterEach, beforeEach } from "vitest";
 import {
   getBuiltInSources,
   makeCliLoggerLayer,
-  resolveBuiltInRegistryLocation,
-  resolveBuiltInSources,
-  resolveRegistryTargetSelection,
-  runtimeBaseLayer,
   withAxmUserAgent,
   withWorkspace,
 } from "./runtime.js";
@@ -29,111 +19,14 @@ import { makeWorkspaceHandlerTestContext } from "./test-support/test-helpers.js"
 import { makeTestScreen } from "./test-support/screen-test.js";
 
 describe("getBuiltInSources", () => {
-  it("defines exactly the four accepted built-in source names and types", () => {
-    expect(getBuiltInSources("https://registry.agentxm.ai")).toEqual([
+  it("defines only the built-in registry because Git locators are self-describing", () => {
+    expect(getBuiltInSources()).toEqual([
       {
         name: "agentxm",
         type: "registry",
         location: new URL("https://registry.agentxm.ai"),
       },
-      { name: "github", type: "github", url: new URL("https://github.com") },
-      { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
-      { name: "bitbucket", type: "bitbucket", url: new URL("https://bitbucket.org") },
     ]);
-  });
-});
-
-describe("resolveBuiltInRegistryLocation", () => {
-  it("prefers AXM_REGISTRY_LOCATION when set to a remote URL", () => {
-    const location = resolveBuiltInRegistryLocation(
-      { AXM_REGISTRY_LOCATION: "https://registry.example.test" },
-      "https://registry.agentxm.ai",
-      process.cwd(),
-    );
-
-    expect(location).toBe("https://registry.example.test/");
-  });
-
-  it("normalizes filesystem paths to file URLs", () => {
-    const registryPath = path.join(process.cwd(), "tmp", "registry");
-    const location = resolveBuiltInRegistryLocation(
-      { AXM_REGISTRY_LOCATION: registryPath },
-      "https://registry.agentxm.ai",
-      process.cwd(),
-    );
-
-    expect(location).toBe(pathToFileURL(registryPath).href);
-  });
-
-  it("falls back to AXM_REGISTRY_URL when AXM_REGISTRY_LOCATION is unset", () => {
-    const location = resolveBuiltInRegistryLocation(
-      {},
-      "https://registry.example.test",
-      process.cwd(),
-    );
-
-    expect(location).toBe("https://registry.example.test/");
-  });
-
-  it("treats an empty AXM_REGISTRY_LOCATION as unset", () => {
-    const location = resolveBuiltInRegistryLocation(
-      { AXM_REGISTRY_LOCATION: "" },
-      "https://registry.example.test",
-      process.cwd(),
-    );
-
-    expect(location).toBe("https://registry.example.test/");
-  });
-});
-
-describe("resolveRegistryTargetSelection", () => {
-  it.each([
-    {
-      name: "defaults both source and services",
-      input: {},
-      expected: { ok: true, registryUrl: "https://registry.agentxm.ai" },
-    },
-    {
-      name: "uses an explicit service URL",
-      input: { registryUrl: "https://service.example.test" },
-      expected: { ok: true, registryUrl: "https://service.example.test" },
-    },
-    {
-      name: "uses an HTTP source for services when no separate URL is selected",
-      input: { registryLocation: "https://custom.example.test" },
-      expected: { ok: true, registryUrl: "https://custom.example.test" },
-    },
-    {
-      name: "allows a file source with a separate HTTP service",
-      input: {
-        registryLocation: "file:///tmp/registry",
-        registryUrl: "https://service.example.test",
-      },
-      expected: { ok: true, registryUrl: "https://service.example.test" },
-    },
-    {
-      name: "allows matching HTTP origins",
-      input: {
-        registryLocation: "https://custom.example.test/source",
-        registryUrl: "https://custom.example.test/service",
-      },
-      expected: { ok: true, registryUrl: "https://custom.example.test/source" },
-    },
-  ])("$name", ({ input, expected }) => {
-    expect(resolveRegistryTargetSelection(input)).toEqual(expected);
-  });
-
-  it("rejects conflicting HTTP origins without echoing either value", () => {
-    const result = resolveRegistryTargetSelection({
-      registryLocation: "https://source.example.test/private-path",
-      registryUrl: "https://service.example.test/secret-path",
-    });
-
-    expect(result).toEqual({
-      ok: false,
-      message:
-        "AXM_REGISTRY_LOCATION and AXM_REGISTRY_URL select different HTTP origins. Align them, or use a file source with the intended service URL.",
-    });
   });
 });
 
@@ -208,7 +101,7 @@ describe("withWorkspace settings gate", () => {
     fs.mkdirSync(path.join(projectDir, ".axm"), { recursive: true });
     fs.mkdirSync(path.join(userHome, ".axm"), { recursive: true });
     fs.writeFileSync(path.join(projectDir, "axm.json"), JSON.stringify({ agents: [] }));
-    fs.writeFileSync(path.join(projectDir, "axm-lock.yaml"), "lockfileVersion: 7\nskills: {}\n");
+    fs.writeFileSync(path.join(projectDir, "axm-lock.yaml"), "lockfileVersion: 8\nskills: {}\n");
     process.chdir(projectDir);
     process.env["HOME"] = userHome;
   });
@@ -246,52 +139,4 @@ describe("withWorkspace settings gate", () => {
       }),
     );
   }
-});
-
-/**
- * Composition-root mechanics behind `cli/environment-selects-built-in-extension-source`.
- *
- * The specification lives in `apps/cli-e2e/src/environment-selects-built-in-extension-source.spec.ts`
- * and states the rule over the built CLI; an end-to-end project may not import
- * `apps/cli`, so the six default-URL fallback rows it used to carry are kept
- * here, beside the composition root that decides them. Every row that ran in
- * the specification still runs.
- */
-describe("resolveBuiltInSources default Registry service URL", () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
-
-  for (const location of [undefined, ""])
-    for (const configuredUrl of [undefined, "", "https://selected-service.example.test"])
-      it.effect(
-        `location=${location === undefined ? "unset" : "empty"}, service=${configuredUrl === undefined ? "unset" : configuredUrl || "empty"}`,
-        () => {
-          vi.stubEnv("AXM_REGISTRY_LOCATION", location);
-          const env: Readonly<Record<string, string>> =
-            configuredUrl === undefined ? {} : { AXM_REGISTRY_URL: configuredUrl };
-          const expected =
-            configuredUrl === undefined || configuredUrl === ""
-              ? "https://registry.agentxm.ai"
-              : configuredUrl;
-          return Effect.gen(function* () {
-            const sources = yield* resolveBuiltInSources;
-            const selected = sources.find((source) => source.name === "agentxm");
-            expect(selected).toEqual({
-              name: "agentxm",
-              type: "registry",
-              location: new URL(expected),
-            });
-          }).pipe(
-            Effect.provideService(ExecutionDirectory, {
-              path: decodeAbsolutePathSync(process.cwd()),
-            }),
-            Effect.provide(
-              runtimeBaseLayer.pipe(
-                Layer.provide(ConfigProvider.layer(ConfigProvider.fromEnv({ env }))),
-              ),
-            ),
-          );
-        },
-      );
 });

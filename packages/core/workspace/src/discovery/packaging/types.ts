@@ -9,7 +9,7 @@ import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
-import type { PackageExtensionDeclaration } from "@agentxm/registry-client";
+import type { AgentExtensionRecommendation } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 import type { PackageType } from "@agentxm/extension-model/unstable/packaging/package-type";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
 
@@ -47,7 +47,7 @@ export interface PackageReader {
   readonly read: (
     pkg: DetectedPackage,
   ) => Effect.Effect<
-    Option.Option<ReadonlyArray<PackageExtensionDeclaration>>,
+    Option.Option<ReadonlyArray<AgentExtensionRecommendation>>,
     never,
     FileSystem.FileSystem | Path.Path
   >;

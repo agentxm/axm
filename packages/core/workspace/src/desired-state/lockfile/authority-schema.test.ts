@@ -1,6 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
+import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
+  LOCK_ENTRY_SCHEMA_BY_TYPE,
   LOCKFILE_VERSION,
   LockfileSchema,
   McpServerLockEntrySchema,
@@ -9,13 +11,21 @@ import {
 } from "./schema.js";
 
 const decodeLockfile = Schema.decodeUnknownSync(LockfileSchema);
+const encodeLockfile = Schema.encodeSync(LockfileSchema);
 
 describe("authoritative external-resolution lockfile", () => {
+  it("defines a lock-entry schema for every installable extension type", () => {
+    expect(Object.keys(LOCK_ENTRY_SCHEMA_BY_TYPE)).toEqual(installableExtensionTypes);
+  });
+
   it("uses a clean-cut schema version", () => {
-    expect(LOCKFILE_VERSION).toBe(7);
+    expect(LOCKFILE_VERSION).toBe(8);
     expect(
+      decodeLockfile({ lockfileVersion: 8, skills: {} }, { onExcessProperty: "error" }),
+    ).toEqual({ lockfileVersion: 8, skills: {} });
+    expect(() =>
       decodeLockfile({ lockfileVersion: 7, skills: {} }, { onExcessProperty: "error" }),
-    ).toEqual({ lockfileVersion: 7, skills: {} });
+    ).toThrow();
   });
 
   it("rejects workspace-authored and inline entries", () => {
@@ -50,34 +60,22 @@ describe("authoritative external-resolution lockfile", () => {
 
   it("requires immutable identities for Git and local-path resolutions", () => {
     const git = {
-      type: "github",
-      sourceType: "github",
-      sourceName: "github",
-      endpoint: "https://github.com",
-      extensionType: "skill",
-      workspaceName: "review",
-      packageFormat: "agentxm",
-      packageOwner: "@acme",
-      packageName: "review",
-      owner: "acme",
-      repo: "extensions",
-      path: "skills/review",
-      resolvedCommit: "8d7f9e94a9c6db2b886560179252de77739c0b32",
-      resolvedTree: "5a21b5d70e623dcf6af0885eb595d9d8bfb3a148",
-      contentIdentity: "sha256-git-tree",
+      source: {
+        type: "git",
+        url: "https://github.com/acme/extensions.git",
+        path: "skills/review",
+      },
+      identity: { owner: "@acme", name: "review" },
+      resolved: {
+        commit: "8d7f9e94a9c6db2b886560179252de77739c0b32",
+        tree: "5a21b5d70e623dcf6af0885eb595d9d8bfb3a148",
+      },
       treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
     };
     const local = {
-      type: "local",
-      sourceType: "local",
-      sourceName: "local",
-      extensionType: "skill",
-      workspaceName: "review",
-      packageFormat: "agentxm",
-      packageOwner: "@acme",
-      packageName: "review",
-      path: "../extension-sources/review",
-      contentIdentity: "sha256-local-tree",
+      source: { type: "path", path: "../extension-sources/review" },
+      identity: { owner: "@acme", name: "review" },
+      resolved: { tree: "sha256-local-tree" },
       treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
     };
 
@@ -85,7 +83,7 @@ describe("authoritative external-resolution lockfile", () => {
       Schema.decodeUnknownSync(SkillLockEntrySchema)(git, {
         onExcessProperty: "error",
       }),
-    ).toEqual({ ...git, endpoint: new URL(git.endpoint) });
+    ).toEqual({ ...git, source: { ...git.source, url: new URL(git.source.url) } });
     expect(
       Schema.decodeUnknownSync(SkillLockEntrySchema)(local, {
         onExcessProperty: "error",
@@ -93,32 +91,67 @@ describe("authoritative external-resolution lockfile", () => {
     ).toEqual(local);
     expect(() =>
       Schema.decodeUnknownSync(SkillLockEntrySchema)(
-        { type: "github", owner: "acme", repo: "extensions" },
+        { source: { type: "git", url: "https://github.com/acme/extensions.git" } },
         { onExcessProperty: "error" },
       ),
     ).toThrow();
     expect(() =>
       Schema.decodeUnknownSync(SkillLockEntrySchema)(
-        { type: "local", path: "../extension-sources/review" },
+        { source: { type: "path", path: "../extension-sources/review" } },
         { onExcessProperty: "error" },
       ),
     ).toThrow();
   });
 
+  it("round-trips every self-describing source locator", () => {
+    const treeIntegrity = `sha256-tree-v1:${"0".repeat(64)}`;
+    const lockfile = {
+      lockfileVersion: 8,
+      skills: {
+        git: {
+          source: {
+            type: "git",
+            url: "ssh://git@example.com/acme/extensions.git",
+            path: "skills/review",
+            revision: "release",
+          },
+          identity: { owner: "@acme", name: "review" },
+          resolved: { commit: "commit-id", tree: "tree-id" },
+          treeIntegrity,
+        },
+        registry: {
+          source: { type: "registry", url: "https://registry.example.com/" },
+          identity: { owner: "@acme", name: "published" },
+          resolved: {
+            version: "1.2.3",
+            integrity: "sha512-archive",
+            publisherBindingId: "hbnd_acme",
+          },
+          treeIntegrity,
+        },
+        path: {
+          source: { type: "path", path: "../extension-sources/local" },
+          identity: { owner: "@acme", name: "local" },
+          resolved: { tree: "sha256-local-tree" },
+          treeIntegrity,
+        },
+      },
+    };
+
+    expect(encodeLockfile(decodeLockfile(lockfile, { onExcessProperty: "error" }))).toEqual(
+      lockfile,
+    );
+  });
+
   it("keeps registry identity and provenance without receipt fields", () => {
     const registry = {
-      type: "registry",
-      sourceType: "registry",
-      endpoint: "https://registry.agentxm.ai",
-      extensionType: "skill",
-      workspaceName: "review",
-      packageFormat: "agentxm",
-      owner: "@acme",
-      name: "review",
-      resolvedVersion: "1.2.3",
-      integrity: "sha512-archive",
-      sourceName: "agentxm",
-      publisherBindingId: "hbnd_acme",
+      source: { type: "registry", url: "https://registry.agentxm.ai" },
+      identity: { owner: "@acme", name: "review" },
+      resolved: {
+        version: "1.2.3",
+        integrity: "sha512-archive",
+        publisherBindingId: "hbnd_acme",
+      },
       treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
     };
 
@@ -126,7 +159,10 @@ describe("authoritative external-resolution lockfile", () => {
       Schema.decodeUnknownSync(SkillLockEntrySchema)(registry, {
         onExcessProperty: "error",
       }),
-    ).toEqual({ ...registry, endpoint: new URL(registry.endpoint) });
+    ).toEqual({
+      ...registry,
+      source: { ...registry.source, url: new URL(registry.source.url) },
+    });
     expect(() =>
       Schema.decodeUnknownSync(SkillLockEntrySchema)(
         {
@@ -142,19 +178,16 @@ describe("authoritative external-resolution lockfile", () => {
 
   it("stores Registry Pack manifest identity without receipt-derived member maps", () => {
     const pack = {
-      type: "registry",
-      sourceType: "registry",
-      endpoint: "https://registry.agentxm.ai",
-      extensionType: "pack",
-      workspaceName: "toolkit",
-      packageFormat: "agentxm",
-      owner: "@acme",
-      name: "toolkit",
-      resolvedVersion: "2.0.0",
-      integrity: "sha512-pack-archive",
+      source: { type: "registry", url: "https://registry.agentxm.ai" },
+      identity: { owner: "@acme", name: "toolkit" },
+      resolved: {
+        version: "2.0.0",
+        integrity: "sha512-pack-archive",
+        publisherBindingId: "hbnd_acme",
+      },
+      manifestVersion: "2.0.0",
       manifestContentIdentity: "sha256-pack-manifest",
-      sourceName: "agentxm",
-      publisherBindingId: "hbnd_acme",
+      members: ["@acme/skills/review"],
       treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
     };
 
@@ -162,7 +195,7 @@ describe("authoritative external-resolution lockfile", () => {
       Schema.decodeUnknownSync(PackLockEntrySchema)(pack, {
         onExcessProperty: "error",
       }),
-    ).toEqual({ ...pack, endpoint: new URL(pack.endpoint) });
+    ).toEqual({ ...pack, source: { ...pack.source, url: new URL(pack.source.url) } });
     expect(() =>
       Schema.decodeUnknownSync(PackLockEntrySchema)(
         { ...pack, resolvedSkills: {} },
@@ -171,13 +204,31 @@ describe("authoritative external-resolution lockfile", () => {
     ).toThrow();
   });
 
+  it("round-trips local Pack authority with its declared member list", () => {
+    const pack = {
+      source: { type: "path", path: "catalog/packs/toolkit" },
+      identity: { owner: "@acme", name: "toolkit" },
+      resolved: { tree: "sha256-pack-content" },
+      treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+      manifestVersion: "2.0.0",
+      manifestContentIdentity: "sha256-pack-manifest",
+      members: ["@acme/skills/review", "@acme/rules/house-style"],
+    };
+
+    expect(
+      Schema.decodeUnknownSync(PackLockEntrySchema)(pack, {
+        onExcessProperty: "error",
+      }),
+    ).toEqual(pack);
+  });
+
   it("rejects non-canonical lock versions and unknown top-level state", () => {
     expect(() =>
       decodeLockfile({ lockfileVersion: 4, skills: {} }, { onExcessProperty: "error" }),
     ).toThrow();
     expect(() =>
       decodeLockfile(
-        { lockfileVersion: 7, skills: {}, receiptHistory: {} },
+        { lockfileVersion: 8, skills: {}, receiptHistory: {} },
         { onExcessProperty: "error" },
       ),
     ).toThrow();

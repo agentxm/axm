@@ -61,7 +61,7 @@ const TOPIC_ORDER: ReadonlyArray<HelpTopicName> = [
   "settings-schema",
   "mcp-schema",
   "axm-lock-schema",
-  "axm-package-meta-schema",
+  "agent-extensions-schema",
   "exit-codes",
 ];
 

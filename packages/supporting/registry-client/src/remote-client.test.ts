@@ -13,6 +13,7 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 
 import { createRemoteRegistryClient as createRemoteRegistryClientWithPolicy } from "./remote-client.js";
@@ -23,6 +24,7 @@ import {
   publicationDescriptorDigest,
   publicationSetDigest,
 } from "@agentxm/registry-protocol/unstable/registry/publication-set";
+import { DiscoverPackagesRequestSchema } from "@agentxm/registry-protocol/unstable/registry/discover-schema";
 import type { ArchiveCache } from "./archive-cache.js";
 import type { ArchiveDownloadProgress } from "./client.js";
 import type { RegistryClientFailure } from "./errors.js";
@@ -30,7 +32,7 @@ import {
   extensionName,
   exactVersion,
   handle,
-  packageExtensionDeclaration,
+  agentExtensionRecommendation,
   packageUrl,
 } from "./test-helpers.js";
 
@@ -839,11 +841,15 @@ describe("extensionExists", () => {
 describe("discoverPackages", () => {
   it.effect("posts package metadata and decodes attestation results", () =>
     Effect.gen(function* () {
+      let capturedPayload: unknown;
       const httpClient = makeMockHttpClient((request) => {
         const url = new URL(request.url);
         const path = decodeURIComponent(url.pathname);
 
         if (path === "/v1/discovery") {
+          if (request.body._tag === "Uint8Array") {
+            capturedPayload = JSON.parse(new TextDecoder().decode(request.body.body));
+          }
           return new Response(
             JSON.stringify({
               results: [
@@ -854,12 +860,16 @@ describe("discoverPackages", () => {
                   extensions: [
                     {
                       ref: "@acme/skills/react",
+                      source: {
+                        type: "registry",
+                        url: "https://registry.agentxm.ai",
+                      },
                       resolved: true,
                       extension: {
                         owner: "@acme",
                         type: "skill",
                         name: "react",
-                        installVersion: "1.0.0",
+                        resolution: { type: "registry", version: "1.0.0" },
                       },
                       attestedBy: ["package", "extension"],
                       official: true,
@@ -883,7 +893,7 @@ describe("discoverPackages", () => {
             purl: packageUrl("pkg:npm/react@18.2.0"),
             version: "18.2.0",
             declaredExtensions: [
-              packageExtensionDeclaration({
+              agentExtensionRecommendation({
                 ref: "@acme/skills/react",
                 versionRange: "^1.0.0",
               }),
@@ -895,6 +905,16 @@ describe("discoverPackages", () => {
       expect(result.results).toHaveLength(1);
       expect(result.results[0]?.purl).toBe("pkg:npm/react");
       expect(result.results[0]?.extensions[0]?.official).toBe(true);
+      expect(result.results[0]?.extensions[0]?.extension?.resolution).toEqual({
+        type: "registry",
+        version: "1.0.0",
+      });
+      const request = Schema.decodeUnknownSync(DiscoverPackagesRequestSchema)(capturedPayload);
+      expect(request.packages[0]?.declaredExtensions[0]).toMatchObject({
+        ref: "@acme/skills/react",
+        source: { type: "registry", url: new URL("https://registry.agentxm.ai") },
+        versionRange: "^1.0.0",
+      });
     }),
   );
 

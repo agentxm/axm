@@ -107,7 +107,7 @@ const hasAggregateProjection = (surface: InstallSurface): boolean =>
 const registryFqn = (surface: InstallSurface, name: string) => `${OWNER}/${surface}/${name}`;
 
 const extensionDirForSurface = (workspacePath: string, surface: InstallSurface, name: string) =>
-  path.join(workspacePath, "agent_extensions", "agentxm", OWNER, surface, name);
+  path.join(workspacePath, "agent_extensions", "registry", OWNER, surface, name);
 
 const configureWorkspaceRegistry = (workspacePath: string, registryPath: string) => {
   const settingsPath = path.join(workspacePath, "axm.json");
@@ -355,8 +355,11 @@ const lockEntryForSurface = (
     (entry) =>
       typeof entry === "object" &&
       entry !== null &&
-      "workspaceName" in entry &&
-      entry.workspaceName === name,
+      "identity" in entry &&
+      typeof entry.identity === "object" &&
+      entry.identity !== null &&
+      "name" in entry.identity &&
+      entry.identity.name === name,
   );
 };
 
@@ -882,7 +885,7 @@ describe("axm install", () => {
       const lockfile = readLockfile(workspace.path);
       expect(settings.mcpServers?.["pack-mcp"]).toBeUndefined();
       expect(Object.values(lockfile.mcpServers ?? {})).toContainEqual(
-        expect.objectContaining({ workspaceName: "pack-mcp" }),
+        expect.objectContaining({ identity: expect.objectContaining({ name: "pack-mcp" }) }),
       );
       expect(fs.existsSync(extensionDirForSurface(workspace.path, "mcps", "pack-mcp"))).toBe(true);
     } finally {

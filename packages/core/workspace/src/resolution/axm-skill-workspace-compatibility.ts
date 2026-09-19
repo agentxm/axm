@@ -42,10 +42,9 @@ const isOfficialSource = (source: string): boolean => {
 };
 
 const resolvesToOfficialAxmSkill = (installed: InstalledSkill): boolean =>
-  Option.exists(installed.resolved, ({ lockEntry }) =>
-    lockEntry.type === "registry"
-      ? lockEntry.owner === "@agentxm" && lockEntry.name === "axm"
-      : lockEntry.packageOwner === "@agentxm" && lockEntry.packageName === "axm",
+  Option.exists(
+    installed.resolved,
+    ({ lockEntry }) => lockEntry.identity.owner === "@agentxm" && lockEntry.identity.name === "axm",
   );
 
 /** Whether desired workspace state directly or transitively declares the official AXM skill. */

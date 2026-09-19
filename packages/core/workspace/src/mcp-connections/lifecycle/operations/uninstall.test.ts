@@ -91,7 +91,7 @@ const makeServices = (
         baseDir: path.dirname(axmDir),
         runtimeDir: axmDir,
         settings: { agents: [] },
-        lockfile: { lockfileVersion: 7, skills: {}, mcpServers: acceptedMcpServers },
+        lockfile: { lockfileVersion: 8, skills: {}, mcpServers: acceptedMcpServers },
         graph: {
           complete: true,
           nodes: desiredNodes,

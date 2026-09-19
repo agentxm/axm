@@ -83,7 +83,7 @@ export const makeVisibilityWorld = (
   );
   fs.writeFileSync(
     nodePath.join(root, "axm-lock.yaml"),
-    JSON.stringify({ lockfileVersion: 7, skills: {} }),
+    JSON.stringify({ lockfileVersion: 8, skills: {} }),
   );
   writeAuthoredExtension(root, "skill", { name: "review" });
   if (options.manifest !== undefined) {

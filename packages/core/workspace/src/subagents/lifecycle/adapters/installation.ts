@@ -13,15 +13,22 @@ import type { SubagentInstallationFacts } from "../application/installation.js";
 
 const previousResolvedVersion = (entry: unknown): string | undefined => {
   if (typeof entry !== "object" || entry === null) return undefined;
-  if (!("type" in entry) || entry.type !== "registry") return undefined;
-  if (!("resolvedVersion" in entry) || typeof entry.resolvedVersion !== "string") return undefined;
-  return entry.resolvedVersion;
+  if (!("source" in entry) || typeof entry.source !== "object" || entry.source === null)
+    return undefined;
+  if (!("type" in entry.source) || entry.source.type !== "registry") return undefined;
+  if (!("resolved" in entry) || typeof entry.resolved !== "object" || entry.resolved === null)
+    return undefined;
+  if (!("version" in entry.resolved) || typeof entry.resolved.version !== "string")
+    return undefined;
+  return entry.resolved.version;
 };
 
 const previousContentIdentity = (entry: unknown): string | undefined => {
   if (typeof entry !== "object" || entry === null) return undefined;
-  if (!("contentIdentity" in entry) || typeof entry.contentIdentity !== "string") return undefined;
-  return entry.contentIdentity;
+  if (!("resolved" in entry) || typeof entry.resolved !== "object" || entry.resolved === null)
+    return undefined;
+  if (!("tree" in entry.resolved) || typeof entry.resolved.tree !== "string") return undefined;
+  return entry.resolved.tree;
 };
 
 export const makeSubagentInstallationFacts: Effect.Effect<

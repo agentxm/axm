@@ -516,24 +516,16 @@ const validSettingsContents = {
 };
 
 const validLockfileContents = {
-  lockfileVersion: 7,
+  lockfileVersion: 8,
   skills: {
     "managed-tool": {
-      type: "github",
-      sourceType: "github",
-      sourceName: "github",
-      endpoint: "https://github.com",
-      extensionType: "skill",
-      workspaceName: "managed-tool",
-      packageFormat: "agentxm",
-      packageOwner: "@owner",
-      packageName: "managed-tool",
-      owner: "owner",
-      repo: "repo",
-      ref: "main",
-      resolvedCommit: "commit-1",
-      resolvedTree: "tree-1",
-      contentIdentity: "content-1",
+      source: {
+        type: "git",
+        url: "https://github.com/owner/repo.git",
+        revision: "main",
+      },
+      identity: { owner: "@owner", name: "managed-tool" },
+      resolved: { commit: "commit-1", tree: "tree-1" },
       treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
     },
   },

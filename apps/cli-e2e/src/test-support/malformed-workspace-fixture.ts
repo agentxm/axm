@@ -19,7 +19,7 @@ export const writeMalformedWorkspaceState = (projectRoot: string, userHome: stri
     );
     fs.writeFileSync(
       path.join(root, "axm-lock.yaml"),
-      "lockfileVersion: 7\nskills: [unterminated\n",
+      "lockfileVersion: 8\nskills: [unterminated\n",
     );
   }
   for (const [label, root] of [

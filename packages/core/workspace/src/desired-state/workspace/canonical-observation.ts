@@ -28,7 +28,10 @@ import type {
   SubagentLockEntry,
 } from "../lockfile/index.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
-import { lockEntryToSourceParams } from "./lock-entry-to-source-params.js";
+import {
+  lockEntryMatchesSourceLocator,
+  lockEntryToSourceParams,
+} from "./lock-entry-to-source-params.js";
 import {
   collectDesiredConstraintContributors,
   type DesiredConstraintContributor,
@@ -95,6 +98,13 @@ export type AcceptedExtensionResolution =
   | KnowledgeLockEntry
   | PackLockEntry;
 
+const isRegistryResolution = (
+  entry: AcceptedExtensionResolution,
+): entry is Extract<
+  AcceptedExtensionResolution,
+  { readonly source: { readonly type: "registry" } }
+> => entry.source.type === "registry";
+
 const MANIFEST_CONTRACTS = {
   skill: { filename: "skill.json", schema: SkillManifestSchema },
   "mcp-server": { filename: "mcp.json", schema: McpServerManifestSchema },
@@ -130,7 +140,7 @@ export const canonicalPathForAcceptedExtension = (
     layout,
     source,
     toExtensionTypePlural(desired.type),
-    accepted.workspaceName,
+    accepted.identity.name,
   ).canonicalPath;
 };
 
@@ -216,10 +226,10 @@ export const observeCanonicalExtension = ({
       };
     }
     const acceptedIdentity =
-      accepted?.extensionType === "mcp-server"
+      desired.type === "mcp-server" && accepted !== undefined
         ? mcpResolutionKey(accepted)
-        : accepted?.type === "registry"
-          ? `${accepted.owner}/${toExtensionTypePlural(desired.type)}/${accepted.name}`
+        : accepted !== undefined && isRegistryResolution(accepted)
+          ? `${accepted.identity.owner}/${toExtensionTypePlural(desired.type)}/${accepted.identity.name}`
           : accepted === undefined
             ? undefined
             : printSourceParams(lockEntryToSourceParams(accepted));
@@ -227,7 +237,8 @@ export const observeCanonicalExtension = ({
       !workspaceAuthored &&
       !bundled &&
       acceptedIdentity !== desired.identity &&
-      acceptedIdentity !== desired.source
+      acceptedIdentity !== desired.source &&
+      (accepted === undefined || !lockEntryMatchesSourceLocator(accepted, desired.source))
     ) {
       return {
         type: desired.type,
@@ -238,11 +249,15 @@ export const observeCanonicalExtension = ({
     const acceptedConstraintMismatch =
       !workspaceAuthored &&
       desired.constraints.length > 0 &&
-      (accepted?.type !== "registry" ||
+      (accepted === undefined ||
+        !isRegistryResolution(accepted) ||
         desired.constraints.some(
-          (constraint) => !semver.satisfies(accepted.resolvedVersion, constraint),
+          (constraint) => !semver.satisfies(accepted.resolved.version, constraint),
         ));
-    const acceptedVersion = accepted?.type === "registry" ? accepted.resolvedVersion : undefined;
+    const acceptedVersion =
+      accepted !== undefined && isRegistryResolution(accepted)
+        ? accepted.resolved.version
+        : undefined;
 
     const root = canonicalPathForAcceptedExtension(path, layout, desired, accepted);
     if (root === undefined) {
@@ -272,7 +287,11 @@ export const observeCanonicalExtension = ({
       return { type: desired.type, name: desired.name, status: "missing", path: root };
     }
 
-    if (accepted?.packageFormat === "agent-skill") {
+    if (
+      desired.type === "skill" &&
+      accepted !== undefined &&
+      accepted.identity.owner === undefined
+    ) {
       if (acceptedConstraintMismatch) {
         return constraintMismatchObservation({
           path,
@@ -292,7 +311,7 @@ export const observeCanonicalExtension = ({
       if (Result.isFailure(raw)) {
         return { type: desired.type, name: desired.name, status: "corrupt", path: root };
       }
-      if (Option.isNone(parseSkillMd(raw.success, accepted.packageName))) {
+      if (Option.isNone(parseSkillMd(raw.success, accepted.identity.name))) {
         return { type: desired.type, name: desired.name, status: "corrupt", path: root };
       }
 
@@ -373,16 +392,12 @@ export const observeCanonicalExtension = ({
         ? "@agentxm"
         : workspaceAuthored
           ? layout.owner
-          : accepted?.type === "registry"
-            ? accepted.owner
-            : accepted?.packageOwner;
+          : accepted?.identity.owner;
       const expectedName = bundled
         ? desired.name
         : workspaceAuthored
           ? desired.name
-          : accepted?.type === "registry"
-            ? accepted.name
-            : accepted?.packageName;
+          : accepted?.identity.name;
       if (
         typeof parsed !== "object" ||
         parsed === null ||

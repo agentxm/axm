@@ -200,18 +200,13 @@ describe("skill installation application", () => {
             );
             const writer = yield* AcceptedResolutionWriter;
             yield* writer.setAccepted("skill", "axm", {
-              type: "registry",
-              sourceType: "registry",
-              sourceName: registry.source.name,
-              endpoint: new URL(registry.source.location),
-              extensionType: "skill",
-              workspaceName: extensionName("axm"),
-              packageFormat: "agentxm",
-              owner: handle("@agentxm"),
-              name: extensionName("axm"),
-              resolvedVersion: exactVersion("1.0.0"),
-              integrity: "sha512-fixture",
-              publisherBindingId: "hbnd_test",
+              source: { type: "registry", url: new URL(registry.source.location) },
+              identity: { owner: handle("@agentxm"), name: extensionName("axm") },
+              resolved: {
+                version: exactVersion("1.0.0"),
+                integrity: "sha512-fixture",
+                publisherBindingId: "hbnd_test",
+              },
               treeIntegrity,
             });
             const before = workspace.snapshot();
@@ -355,7 +350,7 @@ describe("skill installation application", () => {
             expect(result.version).toBe("1.2.3");
             expect(workspace.readFile("axm.json")).toContain(`@acme/skills/${NAME}${suffix}`);
             const lock = workspace.readFile("axm-lock.yaml");
-            expect(lock).toContain("resolvedVersion: 1.2.3");
+            expect(lock).toContain("version: 1.2.3");
             expect(lock).toContain("publisherBindingId:");
             expect(
               workspace.readFile(`agent_extensions/registry/@acme/skills/${NAME}/src/SKILL.md`),

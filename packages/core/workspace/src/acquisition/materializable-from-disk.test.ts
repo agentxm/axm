@@ -8,7 +8,6 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { TEST_CONTENT_IDENTITY } from "../desired-state/testing.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import {
   computeMaterializedTreeIntegritySync,
@@ -183,20 +182,12 @@ layer(NodeServices.layer, { excludeTestServices: true })(
             {
               lockEntries: {
                 quality: {
-                  type: "github",
-                  sourceType: "github",
-                  sourceName: "github",
-                  endpoint: new URL("https://github.com"),
-                  extensionType: "skill",
-                  workspaceName: extensionName("quality"),
-                  packageFormat: "agentxm",
-                  packageOwner: handle("@acme"),
-                  packageName: extensionName("quality"),
-                  owner: "qualitymd",
-                  repo: "quality.md",
-                  resolvedCommit: "commit-1",
-                  resolvedTree: "tree-1",
-                  contentIdentity: TEST_CONTENT_IDENTITY,
+                  source: {
+                    type: "git",
+                    url: new URL("https://github.com/qualitymd/quality.md.git"),
+                  },
+                  identity: { owner: handle("@acme"), name: extensionName("quality") },
+                  resolved: { commit: "commit-1", tree: "tree-1" },
                   treeIntegrity: computeMaterializedTreeIntegritySync(packageRoot),
                 },
               },
@@ -239,20 +230,12 @@ layer(NodeServices.layer, { excludeTestServices: true })(
             {
               lockEntries: {
                 quality: {
-                  type: "github",
-                  sourceType: "github",
-                  sourceName: "github",
-                  endpoint: new URL("https://github.com"),
-                  extensionType: "skill",
-                  workspaceName: extensionName("quality"),
-                  packageFormat: "agentxm",
-                  packageOwner: handle("@acme"),
-                  packageName: extensionName("quality"),
-                  owner: "qualitymd",
-                  repo: "quality.md",
-                  resolvedCommit: "commit-1",
-                  resolvedTree: "tree-1",
-                  contentIdentity: TEST_CONTENT_IDENTITY,
+                  source: {
+                    type: "git",
+                    url: new URL("https://github.com/qualitymd/quality.md.git"),
+                  },
+                  identity: { owner: handle("@acme"), name: extensionName("quality") },
+                  resolved: { commit: "commit-1", tree: "tree-1" },
                   treeIntegrity: computeMaterializedTreeIntegritySync(packageRoot),
                 },
               },

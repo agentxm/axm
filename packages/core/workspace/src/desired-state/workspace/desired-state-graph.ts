@@ -200,12 +200,12 @@ const packAuthorityIdentity = (
 ): string => {
   if (isWorkspaceSourceLocator(configuredSource)) return `workspace:${workspaceIdentity}`;
   if (accepted === undefined) return configuredSource;
-  switch (accepted.type) {
+  switch (accepted.source.type) {
     case "registry":
-      return `registry:${accepted.endpoint.href}`;
-    case "local": {
+      return `registry:${accepted.source.url.href}`;
+    case "path": {
       const normalized = configuredSource.replaceAll("\\", "/").replace(/\/$/u, "");
-      const packageSuffix = `/packs/${accepted.packageName}`;
+      const packageSuffix = `/packs/${accepted.identity.name}`;
       const sourceRoot = normalized.endsWith(packageSuffix)
         ? normalized.slice(0, -packageSuffix.length)
         : normalized;
@@ -215,13 +215,7 @@ const packAuthorityIdentity = (
       return `path:${absoluteSourceRoot}`;
     }
     case "git":
-      return `git:${accepted.url}#${accepted.ref ?? "HEAD"}`;
-    case "github":
-    case "gitlab":
-    case "bitbucket":
-      return `${accepted.type}:${accepted.endpoint.href}:${accepted.owner}/${accepted.repo}#${accepted.ref ?? "HEAD"}`;
-    case "azurerepos":
-      return `${accepted.type}:${accepted.endpoint.href}:${accepted.organization}/${accepted.project}/${accepted.repo}#${accepted.ref ?? "HEAD"}`;
+      return `git:${accepted.source.url.href}#${accepted.source.revision ?? "HEAD"}`;
   }
 };
 
@@ -318,12 +312,8 @@ const packIdentity = (
     };
   }
 
-  const owner =
-    accepted?.type === "registry" ? accepted.owner : (accepted?.packageOwner ?? prospective?.owner);
-  const name =
-    accepted?.type === "registry"
-      ? accepted.name
-      : (accepted?.packageName ?? prospective?.pack.name);
+  const owner = accepted?.identity.owner ?? prospective?.owner;
+  const name = accepted?.identity.name ?? prospective?.pack.name;
   if (owner !== undefined && name !== undefined) {
     return { owner, name, fqn: `${owner}/packs/${name}` };
   }
@@ -534,8 +524,7 @@ export const buildDesiredStateGraph = ({
         identity.fqn,
         baseDir,
       );
-      const configuredRegistrySource =
-        registryLocator(entry.source)?.sourceName ?? acceptedPack?.sourceName ?? "agentxm";
+      const configuredRegistrySource = registryLocator(entry.source)?.sourceName ?? "agentxm";
       if (entry.enabled === false) continue;
 
       const document = manifests.locate({
@@ -543,9 +532,9 @@ export const buildDesiredStateGraph = ({
         name: identity.name,
         sourceFamily: workspacePack
           ? "workspace"
-          : acceptedPack?.type === "local"
+          : acceptedPack?.source.type === "path"
             ? "path"
-            : acceptedPack === undefined || acceptedPack.type === "registry"
+            : acceptedPack === undefined || acceptedPack.source.type === "registry"
               ? "registry"
               : "git",
         relativeTo: baseDir,

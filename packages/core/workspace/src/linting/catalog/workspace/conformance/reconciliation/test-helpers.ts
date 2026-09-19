@@ -23,24 +23,17 @@ const sourceEndpointContext = (configuredEndpoint: string) =>
     lockfile: {
       _tag: "valid",
       contents: {
-        lockfileVersion: 7,
+        lockfileVersion: 8,
         skills: {
           "react-router": {
-            type: "github",
-            sourceType: "github",
-            sourceName: "github",
-            endpoint: "https://github.com",
-            extensionType: "skill",
-            workspaceName: "react-router",
-            packageFormat: "agent-skill",
-            packageName: "react-router",
-            owner: "remix-run",
-            repo: "react-router",
-            path: ".agents/skills/react-router",
-            ref: "main",
-            resolvedCommit: "commit",
-            resolvedTree: "tree",
-            contentIdentity: "content",
+            source: {
+              type: "git",
+              url: "https://github.com/remix-run/react-router.git",
+              path: ".agents/skills/react-router",
+              revision: "main",
+            },
+            identity: { name: "react-router" },
+            resolved: { commit: "commit", tree: "tree" },
             treeIntegrity,
           },
         },

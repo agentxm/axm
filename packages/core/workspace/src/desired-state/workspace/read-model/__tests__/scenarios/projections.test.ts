@@ -74,24 +74,16 @@ const authoredPackFiles = (
 });
 
 const lockfileWithSkill = (skillName: string): object => ({
-  lockfileVersion: 7,
+  lockfileVersion: 8,
   skills: {
     [skillName]: {
-      type: "github",
-      sourceType: "github",
-      sourceName: "github",
-      endpoint: "https://github.com",
-      extensionType: "skill",
-      workspaceName: skillName,
-      packageFormat: "agentxm",
-      packageOwner: "@owner",
-      packageName: skillName,
-      owner: "owner",
-      repo: "repo",
-      ref: "main",
-      resolvedCommit: "commit-main",
-      resolvedTree: "tree-main",
-      contentIdentity: "content-main",
+      source: {
+        type: "git",
+        url: "https://github.com/owner/repo.git",
+        revision: "main",
+      },
+      identity: { owner: "@owner", name: skillName },
+      resolved: { commit: "commit-main", tree: "tree-main" },
       treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
     },
   },
@@ -395,24 +387,19 @@ describe("projection: packs are not installed as pack members", () => {
           lockfile: {
             _tag: "valid",
             contents: {
-              lockfileVersion: 7,
+              lockfileVersion: 8,
               skills: {},
               packs: {
                 // nested-pack is in the lockfile but not declared in settings;
                 // it must not appear in `packs.installed` as a pack member.
                 "nested-pack": {
-                  type: "registry",
-                  sourceType: "registry",
-                  sourceName: "agentxm",
-                  endpoint: "https://registry.agentxm.ai",
-                  extensionType: "pack",
-                  workspaceName: "nested-pack",
-                  packageFormat: "agentxm",
-                  owner: "@team",
-                  name: "nested-pack",
-                  resolvedVersion: "1.0.0",
-                  integrity: "sha256-nested",
-                  publisherBindingId: "hbnd_test",
+                  source: { type: "registry", url: "https://registry.agentxm.ai" },
+                  identity: { owner: "@team", name: "nested-pack" },
+                  resolved: {
+                    version: "1.0.0",
+                    integrity: "sha256-nested",
+                    publisherBindingId: "hbnd_test",
+                  },
                   manifestVersion: "1.0.0",
                   manifestContentIdentity: "nested-content",
                   members: [],

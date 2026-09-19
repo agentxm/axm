@@ -215,7 +215,7 @@ describe("An interrupted workspace change", () => {
       const canonical = path.join(
         workspace.path,
         "agent_extensions",
-        "agentxm",
+        "registry",
         OWNER,
         "skills",
         "alpha",
@@ -275,7 +275,7 @@ describe("An interrupted workspace change", () => {
       expect(proceeded.exitCode, proceeded.stdout + proceeded.stderr).toBe(0);
       expect(
         fs.existsSync(
-          path.join(workspace.path, "agent_extensions", "agentxm", OWNER, "skills", "alpha"),
+          path.join(workspace.path, "agent_extensions", "registry", OWNER, "skills", "alpha"),
         ),
       ).toBe(true);
     } finally {

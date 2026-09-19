@@ -103,22 +103,17 @@ const skillLockContext = (accepted: boolean) =>
     lockfile: {
       _tag: "valid",
       contents: {
-        lockfileVersion: 7,
+        lockfileVersion: 8,
         skills: accepted
           ? {
               reviewer: {
-                type: "registry",
-                sourceType: "registry",
-                sourceName: "agentxm",
-                endpoint: "https://registry.agentxm.ai",
-                extensionType: "skill",
-                workspaceName: "reviewer",
-                packageFormat: "agentxm",
-                owner: "@acme",
-                name: "reviewer",
-                resolvedVersion: "1.2.0",
-                integrity: "sha512-stub",
-                publisherBindingId: "hbnd_test",
+                source: { type: "registry", url: "https://registry.agentxm.ai" },
+                identity: { owner: "@acme", name: "reviewer" },
+                resolved: {
+                  version: "1.2.0",
+                  integrity: "sha512-stub",
+                  publisherBindingId: "hbnd_test",
+                },
                 treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
               },
             }

@@ -60,7 +60,9 @@ export interface ParsedHookInstallRequest {
 }
 
 const hookLockEntryVersion = (entry: HookLockEntry): string | undefined =>
-  entry.type === "registry" ? entry.resolvedVersion : undefined;
+  entry.source.type === "registry" && "version" in entry.resolved
+    ? entry.resolved.version
+    : undefined;
 
 const acquiredRoot = (scope: JobStepArtifact["scope"]): string =>
   scope === "project" ? ACQUIRED_EXTENSIONS_DIR : ".axm/workspace/agent_extensions";
@@ -75,7 +77,7 @@ const hookInstallArtifactPath = (entry: HookLockEntry, scope: JobStepArtifact["s
     acquiredRoot(scope),
     entry,
     HOOK_EXTENSION_DIR,
-    entry.workspaceName,
+    entry.identity.name,
   );
 
 /** The artifact an applied hook install reports, from its accepted lock entry. */

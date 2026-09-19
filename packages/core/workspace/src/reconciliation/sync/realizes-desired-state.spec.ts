@@ -206,7 +206,7 @@ describe("Sync realizes desired workspace state", () => {
             yield* applySync();
 
             const accepted = yield* lockfile.entry("skill", SKILL);
-            expect(Option.getOrUndefined(accepted)).toMatchObject({ type: "local" });
+            expect(Option.getOrUndefined(accepted)).toMatchObject({ source: { type: "path" } });
             expect(JSON.stringify(workspace.readSettings())).toBe(settingsBefore);
             expect(workspace.exists(CANONICAL)).toBe(true);
             expect(workspace.exists(CLAUDE_PROJECTION)).toBe(true);

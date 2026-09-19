@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
+import { formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import {
@@ -32,8 +32,8 @@ export const declareMaterialization = <TRef extends ExtensionRef>(args: {
     const source = Option.match(args.resolution, {
       onNone: () => "workspace",
       onSome: ({ entry }) =>
-        entry.type === "registry"
-          ? `${entry.sourceName}:${formatFqn({ owner: entry.owner, type: ref.type, name: decodeExtensionNameSync(name) })}${Option.isSome(args.versionRange) ? `@${args.versionRange.value}` : ""}`
+        entry.source.type === "registry" && ref.refType === "registry"
+          ? `${ref.source.name}:${formatFqn({ owner: ref.owner, type: ref.type, name: ref.name })}${Option.isSome(args.versionRange) ? `@${args.versionRange.value}` : ""}`
           : printSourceParams(lockEntryToSourceParams(entry)),
     });
     if (ref.type === "mcp-server") {

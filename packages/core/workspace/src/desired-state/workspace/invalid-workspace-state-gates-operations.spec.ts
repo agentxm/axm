@@ -169,7 +169,7 @@ const makeWorkspace = () => {
   fs.mkdirSync(nodePath.join(root, ".axm"), { recursive: true });
   fs.mkdirSync(userWorkspace, { recursive: true });
   const settings = `${JSON.stringify({ owner: "@acme", agents: ["claude-code"] }, null, 2)}\n`;
-  const lockfile = "lockfileVersion: 7\nskills: {}\n";
+  const lockfile = "lockfileVersion: 8\nskills: {}\n";
   fs.writeFileSync(nodePath.join(root, "axm.json"), settings);
   fs.writeFileSync(nodePath.join(root, "axm-lock.yaml"), lockfile);
   fs.writeFileSync(nodePath.join(userWorkspace, "axm.json"), settings);

@@ -219,7 +219,7 @@ describe("readAxmSkillWorkspaceCompatibility", () => {
       });
       expect(Option.map(result, ({ status }) => status)).toEqual(Option.some("compatible"));
       expect(Option.map(result, ({ source }) => source)).toEqual(
-        Option.some(`agentxm:@agentxm/skills/axm@${VERSION}`),
+        Option.some(`registry:https://registry.agentxm.ai/:@agentxm/skills/axm@${VERSION}`),
       );
     }).pipe(Effect.provide(testLayer)),
   );

@@ -119,36 +119,20 @@ const skillUnit = (
 });
 
 const githubLock = (name: string, tree: string): SkillLockEntry => ({
-  type: "github",
-  sourceType: "github",
-  sourceName: "github",
-  endpoint: new URL("https://github.com"),
-  extensionType: "skill",
-  workspaceName: extensionName(name),
-  packageFormat: "agentxm",
-  packageOwner: AXM,
-  packageName: extensionName(name),
-  owner: "owner",
-  repo: "repo",
-  resolvedCommit: "commit",
-  resolvedTree: tree,
-  contentIdentity: CONTENT_IDENTITY,
+  source: { type: "git", url: new URL("https://github.com/owner/repo.git") },
+  identity: { owner: AXM, name: extensionName(name) },
+  resolved: { commit: "commit", tree },
   treeIntegrity: TREE_INTEGRITY,
 });
 
 const registryLock = (version: Version): SkillLockEntry => ({
-  type: "registry",
-  sourceType: "registry",
-  endpoint: new URL("http://localhost:3000"),
-  extensionType: "skill",
-  workspaceName: extensionName("skill"),
-  packageFormat: "agentxm",
-  owner: AXM,
-  name: extensionName("skill"),
-  resolvedVersion: version,
-  integrity: "sha512-AAAA==",
-  sourceName: "agentxm",
-  publisherBindingId: "hbnd_test",
+  source: { type: "registry", url: new URL("http://localhost:3000") },
+  identity: { owner: AXM, name: extensionName("skill") },
+  resolved: {
+    version,
+    integrity: "sha512-AAAA==",
+    publisherBindingId: "hbnd_test",
+  },
   treeIntegrity: TREE_INTEGRITY,
 });
 
@@ -257,16 +241,9 @@ describe("buildSelectiveUpdatePlan — skills", () => {
         skillUnit("local", { type: "local" }),
         {
           local: {
-            type: "local",
-            sourceType: "local",
-            sourceName: "local",
-            extensionType: "skill",
-            workspaceName: extensionName("local"),
-            packageFormat: "agentxm",
-            packageOwner: AXM,
-            packageName: extensionName("local"),
-            path: "source",
-            contentIdentity: CONTENT_IDENTITY,
+            source: { type: "path", path: "source" },
+            identity: { owner: AXM, name: extensionName("local") },
+            resolved: { tree: CONTENT_IDENTITY },
             treeIntegrity: TREE_INTEGRITY,
           },
         },
@@ -330,18 +307,13 @@ const makeSubagentRef = (name: string, version: string): RegistrySubagentRef => 
 
 const acceptedSubagent = (version: string): SubagentsLockMap => ({
   researcher: {
-    type: "registry",
-    sourceType: "registry",
-    endpoint: new URL("file:///test-registry"),
-    extensionType: "subagent",
-    workspaceName: extensionName("researcher"),
-    packageFormat: "agentxm",
-    owner: handle("@test"),
-    name: extensionName("researcher"),
-    resolvedVersion: exactVersion(version),
-    integrity: "sha512-AAAA==",
-    sourceName: "agentxm",
-    publisherBindingId: "hbnd_test",
+    source: { type: "registry", url: new URL("file:///test-registry") },
+    identity: { owner: handle("@test"), name: extensionName("researcher") },
+    resolved: {
+      version: exactVersion(version),
+      integrity: "sha512-AAAA==",
+      publisherBindingId: "hbnd_test",
+    },
     treeIntegrity: TREE_INTEGRITY,
   },
 });

@@ -46,18 +46,13 @@ const providersStub: SourceHostProvidersService = {
 const decodeLockMap = Schema.decodeUnknownSync(HooksLockMapSchema);
 
 const registryLock = (baseDir: string, name: string) => ({
-  type: "registry",
-  sourceType: "registry",
-  endpoint: "https://registry.agentxm.ai",
-  extensionType: "hook",
-  workspaceName: name,
-  packageFormat: "agentxm",
-  owner: OWNER,
-  name,
-  resolvedVersion: "1.0.0",
-  integrity: "sha512-stub",
-  sourceName: "agentxm",
-  publisherBindingId: "hbnd_test",
+  source: { type: "registry", url: "https://registry.agentxm.ai" },
+  identity: { owner: OWNER, name },
+  resolved: {
+    version: "1.0.0",
+    integrity: "sha512-stub",
+    publisherBindingId: "hbnd_test",
+  },
   treeIntegrity: computeMaterializedTreeIntegritySync(
     nodePath.join(baseDir, "agent_extensions", "registry", OWNER, "hooks", name),
   ),
@@ -132,7 +127,7 @@ describe("HookManager graph-derived unit projection", () => {
           baseDir,
           runtimeDir: axmDir,
           settings: { agents: [...args.configuredAgents], instructionFiles: {} },
-          lockfile: { lockfileVersion: 7, skills: {}, hooks: args.locked },
+          lockfile: { lockfileVersion: 8, skills: {}, hooks: args.locked },
           graph: args.graph,
         }),
       ),

@@ -29,7 +29,11 @@ export { safeChildPath, validatePathSafety, PathTraversalDetected } from "./util
 
 // Additional settings and lockfile vocabulary consumed beyond the barrels
 export { SETTINGS_KNOWN_KEYS } from "./settings/schema.js";
-export { gitSourceLockFields } from "./lockfile/entry-fields.js";
+export {
+  gitSourceLockFields,
+  pathSourceLockFields,
+  registrySourceLockFields,
+} from "./lockfile/entry-fields.js";
 export { LOCK_ENTRY_SCHEMA_BY_TYPE } from "./lockfile/schema.js";
 
 // Extension path and identity vocabulary
@@ -227,6 +231,7 @@ export {
   type LockEntryToRefError,
 } from "./workspace/lock-entry-to-ref.js";
 export {
+  lockEntryMatchesSourceLocator,
   lockEntryToSourceParams,
   printSkillLockSourceLocator,
 } from "./workspace/lock-entry-to-source-params.js";
@@ -391,9 +396,6 @@ export {
   LockedSkillMissing,
   LockEntryEndpointConflict,
   LockEntryNameInvalid,
-  LockEntrySourceMissing,
-  LockEntrySourceTypeConflict,
-  LockEntryUrlInvalid,
   PackageContentHashFailed,
   SettingsEntryMissing,
   SupersededCanonicalRemovalFailed,

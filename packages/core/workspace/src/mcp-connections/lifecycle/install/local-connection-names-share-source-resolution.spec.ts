@@ -67,7 +67,7 @@ describe("Install locally named MCP connections", () => {
             },
           });
           const lockfile: unknown = YAML.parse(workspace.readFile("axm-lock.yaml"));
-          expect(lockfile).toMatchObject({ lockfileVersion: 7 });
+          expect(lockfile).toMatchObject({ lockfileVersion: 8 });
           if (typeof lockfile !== "object" || lockfile === null || !("mcpServers" in lockfile)) {
             throw new Error("Expected an MCP resolution map");
           }

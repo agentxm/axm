@@ -379,7 +379,7 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
     for (const item of resolved) {
       const proposed = registryBindingProposal(item.ref);
       const accepted = lockedSubagents[item.ref.subagent.name];
-      if (proposed === undefined || accepted?.type !== "registry") continue;
+      if (proposed === undefined || accepted?.source.type !== "registry") continue;
       const transition = classifyPublisherBindingTransition({
         accepted: yield* acceptedResolutionRef({
           type: "subagent",

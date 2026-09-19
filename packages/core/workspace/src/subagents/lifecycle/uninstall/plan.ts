@@ -49,7 +49,9 @@ import {
 } from "../../../lifecycle/workspace-paths.js";
 
 const resolvedVersion = (entry: SubagentLockEntry | undefined): string | undefined =>
-  entry !== undefined && entry.type === "registry" ? entry.resolvedVersion : undefined;
+  entry !== undefined && entry.source.type === "registry" && "version" in entry.resolved
+    ? entry.resolved.version
+    : undefined;
 
 const subagentSourceTarget = (args: {
   readonly name: string;
@@ -64,7 +66,7 @@ const subagentSourceTarget = (args: {
           workspaceCanonicalRoot(args.scope),
           args.lockEntry,
           "subagents",
-          args.lockEntry.workspaceName,
+          args.name,
         ),
         change: args.change,
       };

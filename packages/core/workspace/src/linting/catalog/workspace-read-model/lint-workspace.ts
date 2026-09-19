@@ -493,9 +493,6 @@ const buildLintWorkspaceView = (
     };
   });
 
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 const MemberIdentitySchema = Schema.Struct({
   owner: CommonManifestBaseFields.owner,
   version: CommonManifestBaseFields.version,
@@ -539,26 +536,15 @@ const memberObservation = (
       },
     ];
   }
-  const resolved: Option.Option<{ readonly lockEntry: unknown }> = installed.resolved;
-  if (Option.isNone(resolved) || !isRecord(resolved.value.lockEntry)) return [];
+  const resolved = installed.resolved;
+  if (Option.isNone(resolved)) return [];
   const entry = resolved.value.lockEntry;
-  const authority = entry["type"];
-  const owner = entry["owner"];
-  const name = entry["name"];
-  const version = entry["resolvedVersion"];
-  if (
-    authority !== "registry" ||
-    typeof owner !== "string" ||
-    typeof name !== "string" ||
-    typeof version !== "string"
-  ) {
-    return [];
-  }
+  if (entry.source.type !== "registry" || !("version" in entry.resolved)) return [];
   return [
     {
-      fqn: `${owner}/${toExtensionTypePlural(extensionType)}/${name}`,
-      version,
-      authority,
+      fqn: `${entry.identity.owner}/${toExtensionTypePlural(extensionType)}/${entry.identity.name}`,
+      version: entry.resolved.version,
+      authority: "registry",
     },
   ];
 };
@@ -831,13 +817,13 @@ const installedPackToInfo = (
   }
 
   const resolved = pack.resolved;
-  if (Option.isSome(resolved) && resolved.value.lockEntry.type === "registry") {
+  if (Option.isSome(resolved) && resolved.value.lockEntry.source.type === "registry") {
     return buildInstalledPackInfo({
       platform: args.platform,
       workspaceRoot: args.workspaceRoot,
       scope: args.scope,
-      sourceName: resolved.value.lockEntry.sourceName,
-      owner: resolved.value.lockEntry.owner,
+      sourceName: "registry",
+      owner: resolved.value.lockEntry.identity.owner,
       name: pack.key.name,
       packJson: undefined,
     });
@@ -1078,7 +1064,7 @@ const mcpServerPackageRoot = (
 const isNativeSkill = (skill: InstalledSkill, actual: ActualSkill): boolean => {
   const resolved = skill.resolved;
   if (Option.isSome(resolved)) {
-    return resolved.value.lockEntry.packageFormat === "agentxm";
+    return resolved.value.lockEntry.identity.owner !== undefined;
   }
   if (actual.origin._tag === "canonical-axm-skill") {
     return true;
@@ -1130,7 +1116,7 @@ export const acquiredSkillDisplayRoot = (
   name: string,
 ): string => {
   const packageRoot = acquiredPackageDisplayRoot(scope, entry, "skills", name);
-  return entry.packageFormat === "agent-skill" ? packageRoot : `${packageRoot}/src`;
+  return entry.identity.owner === undefined ? packageRoot : `${packageRoot}/src`;
 };
 
 /**
@@ -1219,11 +1205,11 @@ export const buildAcquiredInstalledSkillInfo = (
     acquiredPackageDisplayRoot(args.scope, args.lockEntry, "skills", args.name),
   );
   const contentRoot =
-    args.lockEntry.packageFormat === "agent-skill"
+    args.lockEntry.identity.owner === undefined
       ? packageRoot
       : args.platform.path.resolve(packageRoot, "src");
   return {
-    isNative: args.lockEntry.packageFormat === "agentxm",
+    isNative: args.lockEntry.identity.owner !== undefined,
     skillJson: undefined,
     expectedName: args.name,
     displayRoot: acquiredSkillDisplayRoot(args.scope, args.lockEntry, args.name),

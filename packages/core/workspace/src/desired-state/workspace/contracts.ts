@@ -191,10 +191,12 @@ export interface SetSkillArgs {
 /**
  * Arguments for `setPack` plus an optional version constraint for settings persistence.
  */
-export type SetPackArgs = PackLockEntry & {
+export interface SetPackArgs {
+  readonly name: string;
+  readonly lockEntry: PackLockEntry;
   /** Version constraint from the original source (e.g. "^2.0.0"). Preserved in settings, not in lockfile. */
   readonly versionRange: Option.Option<string>;
-};
+}
 
 /**
  * Arguments for `setSubagent` -- bundles the subagent name with the lock entry.

@@ -17,6 +17,8 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
 import type { Lockfile, McpServerLockEntry } from "../../../lockfile/schema.js";
+import { lockEntryToSourceParams } from "../../lock-entry-to-source-params.js";
+import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import type { McpServerEntry, Settings } from "../../../settings/schema.js";
 import type { Diagnostics, Warning } from "../diagnostics.js";
 import type { LockfileReadError, SettingsReadError } from "../errors.js";
@@ -120,20 +122,27 @@ const resolvedFromState = (
   for (const [localName, entry] of Object.entries(settings.mcpServers ?? {})) {
     if (entry.kind === "inline") continue;
     const parsed = parseSourceQualifiedRegistrySourcePatternParts(entry.source);
-    const lockEntry = locked.find((candidate) =>
-      parsed !== undefined && candidate.type === "registry"
-        ? candidate.sourceName === parsed.sourceName &&
-          candidate.owner === parsed.owner &&
-          candidate.name === parsed.name
-        : candidate.workspaceName === localName,
+    const configuredRegistry = settings.sources?.find(
+      (source) => source.type === "registry" && source.name === parsed?.sourceName,
     );
+    const lockEntry = locked.find((candidate) => {
+      if (parsed !== undefined && candidate.source.type === "registry") {
+        return (
+          candidate.identity.owner === parsed.owner &&
+          candidate.identity.name === parsed.name &&
+          (configuredRegistry?.type !== "registry" ||
+            configuredRegistry.location.href === candidate.source.url.href)
+        );
+      }
+      return printSourceParams(lockEntryToSourceParams(candidate)) === entry.source;
+    });
     if (lockEntry === undefined) continue;
     names.add(localName);
     resolved.push({ name: decodeExtensionNameSync(localName), lockEntry });
   }
   for (const member of packs.flatMap((pack) => pack.mcpServers)) {
     if (names.has(member.name)) continue;
-    const lockEntry = locked.find((candidate) => candidate.workspaceName === member.name);
+    const lockEntry = locked.find((candidate) => candidate.identity.name === member.name);
     if (lockEntry === undefined) continue;
     names.add(member.name);
     resolved.push({ name: member.name, lockEntry });
@@ -304,7 +313,9 @@ export const makeMcpServerExtensionsApi = (
         (occ) => {
           const matchingNames = resolvedEntries
             .filter(
-              (entry) => entry.lockEntry.type === "registry" && entry.lockEntry.name === occ.name,
+              (entry) =>
+                entry.lockEntry.source.type === "registry" &&
+                entry.lockEntry.identity.name === occ.name,
             )
             .map((entry) => entry.name);
           return matchingNames.length === 0

@@ -16,10 +16,19 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type * as Semaphore from "effect/Semaphore";
 
-import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
+import { formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
-import type { HookLockEntry, Lockfile, RuleLockEntry } from "../lockfile/schema.js";
+import type {
+  HookLockEntry,
+  KnowledgeLockEntry,
+  Lockfile,
+  McpServerLockEntry,
+  PackLockEntry,
+  RuleLockEntry,
+  SkillLockEntry,
+  SubagentLockEntry,
+} from "../lockfile/schema.js";
 import type {
   HookEntry,
   RuleEntry,
@@ -83,6 +92,43 @@ const registryLocator = (
   versionRange: Option.Option<string>,
 ): string => `${sourceName}:${Option.isSome(versionRange) ? `${fqn}@${versionRange.value}` : fqn}`;
 
+type ExternalLockEntry =
+  | SkillLockEntry
+  | PackLockEntry
+  | McpServerLockEntry
+  | SubagentLockEntry
+  | RuleLockEntry
+  | HookLockEntry
+  | KnowledgeLockEntry;
+
+const isRegistryLockEntry = (
+  entry: ExternalLockEntry,
+): entry is Extract<ExternalLockEntry, { readonly source: { readonly type: "registry" } }> =>
+  entry.source.type === "registry";
+
+const configuredRegistryName = (settings: Settings, url: URL): string =>
+  settings.sources?.find(
+    (source) => source.type === "registry" && source.location.href === url.href,
+  )?.name ?? "agentxm";
+
+const declarationSource = (
+  settings: Settings,
+  type: InstallableExtensionType,
+  lockEntry: ExternalLockEntry,
+  versionRange: Option.Option<string>,
+): string =>
+  isRegistryLockEntry(lockEntry)
+    ? registryLocator(
+        configuredRegistryName(settings, lockEntry.source.url),
+        formatFqn({
+          owner: lockEntry.identity.owner,
+          type,
+          name: lockEntry.identity.name,
+        }),
+        versionRange,
+      )
+    : printSourceParams(lockEntryToSourceParams(lockEntry));
+
 export const makeDesiredStateWriter = (
   documents: WorkspaceDocumentsService,
   desiredState: DesiredStateReaderService,
@@ -105,15 +151,9 @@ export const makeDesiredStateWriter = (
     versionRange: Option.Option<string>,
   ): Write =>
     Effect.gen(function* () {
-      const source =
-        lockEntry.type === "registry"
-          ? registryLocator(
-              lockEntry.sourceName,
-              formatFqn({ owner: lockEntry.owner, type, name: decodeExtensionNameSync(name) }),
-              versionRange,
-            )
-          : printSourceParams(lockEntryToSourceParams(lockEntry));
-      yield* writeSettings(configured.set(yield* settings, name, makeEntry(source)));
+      const currentSettings = yield* settings;
+      const source = declarationSource(currentSettings, type, lockEntry, versionRange);
+      yield* writeSettings(configured.set(currentSettings, name, makeEntry(source)));
       const current = yield* lockfile;
       const previous = accepted.entries(current)[name];
       yield* commit(
@@ -124,19 +164,8 @@ export const makeDesiredStateWriter = (
 
   const declareSkill = ({ name, lockEntry, versionRange }: SetSkillArgs): Write =>
     Effect.gen(function* () {
-      const source =
-        lockEntry.type === "registry"
-          ? registryLocator(
-              lockEntry.sourceName,
-              formatFqn({
-                owner: lockEntry.owner,
-                type: "skill",
-                name: decodeExtensionNameSync(name),
-              }),
-              versionRange,
-            )
-          : printSourceParams(lockEntryToSourceParams(lockEntry));
       const current = yield* settings;
+      const source = declarationSource(current, "skill", lockEntry, versionRange);
       const nextEntry: SkillEntry = { source, enabled: true };
       const currentLockfile = yield* lockfile;
       const currentLockEntry = currentLockfile.skills[name];
@@ -156,19 +185,8 @@ export const makeDesiredStateWriter = (
 
   const declareSubagent = ({ name, lockEntry, versionRange }: SetSubagentArgs): Write =>
     Effect.gen(function* () {
-      const source =
-        lockEntry.type === "registry"
-          ? registryLocator(
-              lockEntry.sourceName,
-              formatFqn({
-                owner: lockEntry.owner,
-                type: "subagent",
-                name: decodeExtensionNameSync(name),
-              }),
-              versionRange,
-            )
-          : printSourceParams(lockEntryToSourceParams(lockEntry));
       const current = yield* settings;
+      const source = declarationSource(current, "subagent", lockEntry, versionRange);
       const nextEntry: SubagentEntry = { source, enabled: true };
       const currentLockfile = yield* lockfile;
       const currentLockEntry = lockEntries.subagent.entries(currentLockfile)[name];
@@ -188,19 +206,8 @@ export const makeDesiredStateWriter = (
 
   const declareKnowledge = ({ name, lockEntry, versionRange }: SetKnowledgeArgs): Write =>
     Effect.gen(function* () {
-      const source =
-        lockEntry.type === "registry"
-          ? registryLocator(
-              lockEntry.sourceName,
-              formatFqn({
-                owner: lockEntry.owner,
-                type: "knowledge",
-                name: decodeExtensionNameSync(name),
-              }),
-              versionRange,
-            )
-          : printSourceParams(lockEntryToSourceParams(lockEntry));
       const current = yield* settings;
+      const source = declarationSource(current, "knowledge", lockEntry, versionRange);
       const currentEntry = settingsEntries.knowledge.entries(current)[name];
       yield* writeSettings(
         settingsEntries.knowledge.set(current, name, {
@@ -223,19 +230,10 @@ export const makeDesiredStateWriter = (
       );
     });
 
-  const declarePack = (args: SetPackArgs): Write =>
+  const declarePack = ({ name, lockEntry, versionRange }: SetPackArgs): Write =>
     Effect.gen(function* () {
-      const { versionRange, ...lockEntry } = args;
-      const name = lockEntry.workspaceName;
-      const source =
-        lockEntry.type === "registry"
-          ? registryLocator(
-              lockEntry.sourceName,
-              formatFqn({ owner: lockEntry.owner, type: "pack", name: lockEntry.name }),
-              versionRange,
-            )
-          : printSourceParams(lockEntryToSourceParams(lockEntry));
       const current = yield* settings;
+      const source = declarationSource(current, "pack", lockEntry, versionRange);
       const enabled = settingsEntries.pack.entries(current)[name]?.enabled ?? true;
       yield* writeSettings(settingsEntries.pack.set(current, name, { source, enabled }));
       const currentLockfile = yield* lockfile;
@@ -264,14 +262,7 @@ export const makeDesiredStateWriter = (
       yield* writeSettings(
         settingsEntries["mcp-server"].set(current, name, {
           kind: "sourced" as const,
-          source:
-            lockEntry.type === "registry"
-              ? registryLocator(
-                  lockEntry.sourceName,
-                  formatFqn({ owner: lockEntry.owner, type: "mcp-server", name: lockEntry.name }),
-                  versionRange,
-                )
-              : printSourceParams(lockEntryToSourceParams(lockEntry)),
+          source: declarationSource(current, "mcp-server", lockEntry, versionRange),
           enabled: enabled ?? existing?.enabled ?? true,
           env: env ?? existing?.env ?? {},
         }),

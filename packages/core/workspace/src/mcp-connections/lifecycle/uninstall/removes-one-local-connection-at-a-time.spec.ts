@@ -63,14 +63,14 @@ describe("Uninstall a locally named MCP connection", () => {
           expect(workspace.exists("agent_extensions/registry/@acme/mcps/context/mcp.json")).toBe(
             true,
           );
-          expect(workspace.readFile("axm-lock.yaml")).toContain("resolvedVersion: 1.0.0");
+          expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.0.0");
 
           yield* applyUninstall(
             uninstallRequest({ type: "mcp-server", selector: "personal-context" }),
           );
 
           expect(workspace.exists("agent_extensions/registry/@acme/mcps/context")).toBe(false);
-          expect(workspace.readFile("axm-lock.yaml")).not.toContain("resolvedVersion: 1.0.0");
+          expect(workspace.readFile("axm-lock.yaml")).not.toContain("version: 1.0.0");
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

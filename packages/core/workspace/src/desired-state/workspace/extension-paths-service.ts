@@ -68,8 +68,8 @@ export const makeExtensionPaths = (
   const resolveRegistryDirName = (name: string) =>
     Effect.gen(function* () {
       const lockEntry = yield* lockfile.entry("skill", name);
-      if (Option.isSome(lockEntry) && lockEntry.value.type === "registry") {
-        return lockEntry.value.name;
+      if (Option.isSome(lockEntry) && lockEntry.value.source.type === "registry") {
+        return lockEntry.value.identity.name;
       }
       const entry = (yield* settings.entries("skill"))[name];
       if (entry !== undefined) {
@@ -95,7 +95,7 @@ export const makeExtensionPaths = (
         }
         const entry = lockEntry.value;
         const entrySource = extensionPathSourceFromLockEntry(entry);
-        const dirName = entry.type === "registry" ? entry.name : entry.packageName;
+        const dirName = entry.identity.name;
         return computeSkillPathsForLayout(path.join, layout, entrySource, sanitizeName(dirName));
       }),
     packDir: (name, owner, sourceName) =>

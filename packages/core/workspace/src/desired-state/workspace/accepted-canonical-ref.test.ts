@@ -43,18 +43,13 @@ describe("accepted canonical source transitions", () => {
       nodeFs.mkdirSync(unrelatedPath, { recursive: true });
 
       const accepted = {
-        type: "registry",
-        sourceType: "registry",
-        sourceName: "agentxm",
-        endpoint: new URL("https://registry.agentxm.ai"),
-        extensionType: "skill",
-        workspaceName: extensionName("review"),
-        packageFormat: "agentxm",
-        owner: handle("@acme"),
-        name: extensionName("review"),
-        resolvedVersion: exactVersion("1.0.0"),
-        integrity: "sha512-review",
-        publisherBindingId: "hbnd_review",
+        source: { type: "registry", url: new URL("https://registry.agentxm.ai") },
+        identity: { owner: handle("@acme"), name: extensionName("review") },
+        resolved: {
+          version: exactVersion("1.0.0"),
+          integrity: "sha512-review",
+          publisherBindingId: "hbnd_review",
+        },
         treeIntegrity: TEST_TREE_INTEGRITY,
       } satisfies SkillLockEntry;
       nodeFs.writeFileSync(nodePath.join(root, "axm.json"), "{}\n");

@@ -7,7 +7,6 @@ import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { afterEach, beforeEach } from "vitest";
-import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { computeMaterializedTreeIntegrity, TreeIntegritySchema } from "./materialized-tree.js";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
@@ -15,7 +14,6 @@ import { observeCanonicalExtension } from "./canonical-observation.js";
 import type { DesiredExtensionNode } from "./desired-state-graph.js";
 import { resolveProjectWorkspaceLayout } from "./layout.js";
 
-const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");
 const desiredSkill = (source = "github:acme/tools//skills/review@main"): DesiredExtensionNode => ({
   type: "skill",
   name: "review",
@@ -29,22 +27,14 @@ const placeholderTreeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
   `sha256-tree-v1:${"0".repeat(64)}`,
 );
 const acceptedGit = (treeIntegrity = placeholderTreeIntegrity) => ({
-  type: "github" as const,
-  sourceType: "github" as const,
-  sourceName: "github",
-  endpoint: new URL("https://github.com"),
-  extensionType: "skill" as const,
-  workspaceName: extensionName("review"),
-  packageFormat: "agentxm" as const,
-  packageOwner: handle("@acme"),
-  packageName: extensionName("review"),
-  owner: "acme",
-  repo: "tools",
-  ref: "main",
-  path: "skills/review",
-  resolvedCommit: "commit-1",
-  resolvedTree: "tree-1",
-  contentIdentity,
+  source: {
+    type: "git" as const,
+    url: new URL("https://github.com/acme/tools.git"),
+    revision: "main",
+    path: "skills/review",
+  },
+  identity: { owner: handle("@acme"), name: extensionName("review") },
+  resolved: { commit: "commit-1", tree: "tree-1" },
   treeIntegrity,
 });
 
@@ -150,18 +140,13 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
         layout,
         desired,
         accepted: {
-          type: "registry",
-          sourceType: "registry",
-          endpoint: new URL("https://registry.agentxm.ai"),
-          extensionType: "rule",
-          workspaceName: extensionName("release"),
-          packageFormat: "agentxm",
-          owner: handle("@acme"),
-          name: extensionName("release"),
-          resolvedVersion: exactVersion("1.9.0"),
-          integrity: "sha512-archive",
-          sourceName: "agentxm",
-          publisherBindingId: "binding-1",
+          source: { type: "registry", url: new URL("https://registry.agentxm.ai") },
+          identity: { owner: handle("@acme"), name: extensionName("release") },
+          resolved: {
+            version: exactVersion("1.9.0"),
+            integrity: "sha512-archive",
+            publisherBindingId: "binding-1",
+          },
           treeIntegrity: placeholderTreeIntegrity,
         },
       });

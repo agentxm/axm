@@ -160,7 +160,7 @@ describe("Advance approval", () => {
           result: { outcome: "applied", counts: { committed: 1 } },
         });
         expect(workspace.readSettings()).toMatchObject({ skills: { [SKILL]: `agentxm:${FQN}` } });
-        expect(workspace.readLockfileText()).toContain("resolvedVersion: 1.0.0");
+        expect(workspace.readLockfileText()).toContain("version: 1.0.0");
         expect(workspace.exists(`skills/${SKILL}`)).toBe(false);
       }),
     );

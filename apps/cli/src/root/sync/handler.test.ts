@@ -446,8 +446,8 @@ const expectPackRollbackPreimages = (
   expect(lockfile).toBe(before.lockfile);
   expect(YAML.parse(lockfile)).toEqual(YAML.parse(before.lockfile));
   expect(YAML.parse(lockfile)).toMatchObject({
-    packs: { toolkit: { resolvedVersion: "1.0.0" } },
-    skills: { review: { resolvedVersion: "1.0.0" } },
+    packs: { toolkit: { resolved: { version: "1.0.0" } } },
+    skills: { review: { resolved: { version: "1.0.0" } } },
   });
   expect(fs.readFileSync(paths.settings, "utf8")).toBe(before.settings);
   expect(fs.existsSync(paths.canonicalPack)).toBe(false);
@@ -1005,8 +1005,8 @@ describe("root sync handler", { timeout: 15_000 }, () => {
         });
         expect(property(planResultUnits(applied)[0], "label")).toBe(previewLabel);
         expect(YAML.parse(fs.readFileSync(fixture.paths.lockfile, "utf8"))).toMatchObject({
-          packs: { toolkit: { resolvedVersion: "1.0.0" } },
-          skills: { review: { resolvedVersion: "1.0.0" } },
+          packs: { toolkit: { resolved: { version: "1.0.0" } } },
+          skills: { review: { resolved: { version: "1.0.0" } } },
         });
         expect(JSON.parse(fs.readFileSync(fixture.paths.settings, "utf8"))).toEqual(
           JSON.parse(before.settings),

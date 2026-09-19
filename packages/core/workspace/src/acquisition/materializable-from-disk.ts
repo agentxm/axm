@@ -14,8 +14,7 @@ import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/ex
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import type { SourceHostConfig } from "../desired-state/index.js";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
-import { lockEntryToSourceParams } from "../desired-state/index.js";
+import { lockEntryMatchesSourceLocator } from "../desired-state/index.js";
 import { skillLockEntryToRef } from "../desired-state/index.js";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
@@ -54,19 +53,8 @@ interface SkillDiskAcceptedResolutionContext {
 
 const isGitHostedLockEntry = (
   entry: SkillLockEntry,
-): entry is Exclude<SkillLockEntry, { readonly type: "registry" | "local" }> => {
-  switch (entry.type) {
-    case "github":
-    case "gitlab":
-    case "bitbucket":
-    case "azurerepos":
-    case "git":
-      return true;
-    case "registry":
-    case "local":
-      return false;
-  }
-};
+): entry is Extract<SkillLockEntry, { readonly source: { readonly type: "git" } }> =>
+  entry.source.type === "git";
 
 const resolveWorkspaceFromDisk = (
   env: DiskRefEnv,
@@ -133,9 +121,10 @@ export const configuredSkillsToDiskRefs = (
 
       const lockEntry = accepted.lockEntries[settingsName];
       if (
+        entry.source === undefined ||
         lockEntry === undefined ||
         !isGitHostedLockEntry(lockEntry) ||
-        printSourceParams(lockEntryToSourceParams(lockEntry)) !== entry.source
+        !lockEntryMatchesSourceLocator(lockEntry, entry.source)
       ) {
         return Effect.succeed(Option.none<SkillExtensionRef>());
       }

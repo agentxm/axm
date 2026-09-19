@@ -90,18 +90,13 @@ const initializePackWithSkill = (root: string) => {
       ...lock,
       skills: {
         review: {
-          type: "registry",
-          sourceType: "registry",
-          endpoint: "file:///tmp/test-registry",
-          extensionType: "skill",
-          workspaceName: "review",
-          packageFormat: "agentxm",
-          owner: "@acme",
-          name: "review",
-          resolvedVersion: "1.0.0",
-          integrity: "sha512-AAAA==",
-          sourceName: "agentxm",
-          publisherBindingId: "hbnd_test",
+          source: { type: "registry", url: "file:///tmp/test-registry" },
+          identity: { owner: "@acme", name: "review" },
+          resolved: {
+            version: "1.0.0",
+            integrity: "sha512-AAAA==",
+            publisherBindingId: "hbnd_test",
+          },
           treeIntegrity: computeMaterializedTreeIntegritySync(skillDir),
         },
       },
@@ -303,7 +298,8 @@ describe("packs activation", () => {
       });
       expect(fs.existsSync(renderedSkill)).toBe(false);
       expect(fs.existsSync(skillDir)).toBe(false);
-      expect(fs.readFileSync(lockPath, "utf8")).not.toContain("workspaceName: review");
+      const lock = expectRecord(YAML.parse(fs.readFileSync(lockPath, "utf8")));
+      expect(lock["skills"]).not.toHaveProperty("review");
       expect(fs.existsSync(path.join(root, "packs", "toolkit", "pack.json"))).toBe(true);
     }),
   );

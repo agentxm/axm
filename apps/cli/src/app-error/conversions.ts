@@ -66,9 +66,6 @@ import {
   LockedSkillMissing,
   LockEntryEndpointConflict,
   LockEntryNameInvalid,
-  LockEntrySourceMissing,
-  LockEntrySourceTypeConflict,
-  LockEntryUrlInvalid,
   PackageContentHashFailed,
   SettingsEntryMissing,
   SupersededCanonicalRemovalFailed,
@@ -858,20 +855,6 @@ export const symlinkCreationErrorToAppError = (error: SymlinkCreationError): App
   return makeAppError({ code: "internal", detail: detail(), cause: error.cause });
 };
 
-/** Translate a lock entry referencing an unconfigured source name. */
-export const lockEntrySourceMissingToAppError = (error: LockEntrySourceMissing): AppError =>
-  makeAppError({
-    code: "internal",
-    detail: `Lockfile ${error.entryType} entry references source "${error.sourceName}", but that source is not configured`,
-  });
-
-/** Translate an unparseable lockfile source URL. */
-export const lockEntryUrlInvalidToAppError = (error: LockEntryUrlInvalid): AppError =>
-  makeAppError({
-    code: "validation",
-    detail: `Lockfile source URL is invalid: ${error.value}`,
-  });
-
 /** Translate an undecodable lockfile extension name. */
 export const lockEntryNameInvalidToAppError = (error: LockEntryNameInvalid): AppError =>
   makeAppError({
@@ -884,15 +867,6 @@ export const lockEntryEndpointConflictToAppError = (error: LockEntryEndpointConf
   makeAppError({
     code: "conflict",
     detail: `Lockfile ${error.sourceKind} source "${error.sourceName}" accepts endpoint ${error.acceptedEndpoint}, but configuration resolves it to ${error.resolvedEndpoint}`,
-  });
-
-/** Translate a lock entry whose source name resolves to a different source type. */
-export const lockEntrySourceTypeConflictToAppError = (
-  error: LockEntrySourceTypeConflict,
-): AppError =>
-  makeAppError({
-    code: "conflict",
-    detail: `Lockfile ${error.sourceKind} entry references source "${error.sourceName}", but configuration does not resolve that name to ${error.sourceKind}`,
   });
 
 /** Translate a missing accepted resolution for a desired extension. */
@@ -1061,11 +1035,8 @@ export type KnownFailure =
   | DesiredPackGraphIncomplete
   | CanonicalPathRemovalError
   | SymlinkCreationError
-  | LockEntrySourceMissing
-  | LockEntryUrlInvalid
   | LockEntryNameInvalid
   | LockEntryEndpointConflict
-  | LockEntrySourceTypeConflict
   | AcceptedResolutionMissing
   | InlineExtensionSourceMissing
   | SupersededCanonicalRemovalFailed
@@ -1218,11 +1189,8 @@ export const isKnownFailure = (error: unknown): error is KnownFailure =>
   error instanceof DesiredPackGraphIncomplete ||
   error instanceof CanonicalPathRemovalError ||
   error instanceof SymlinkCreationError ||
-  error instanceof LockEntrySourceMissing ||
-  error instanceof LockEntryUrlInvalid ||
   error instanceof LockEntryNameInvalid ||
   error instanceof LockEntryEndpointConflict ||
-  error instanceof LockEntrySourceTypeConflict ||
   error instanceof AcceptedResolutionMissing ||
   error instanceof InlineExtensionSourceMissing ||
   error instanceof SupersededCanonicalRemovalFailed ||
@@ -1405,16 +1373,10 @@ export const toAppError = (error: KnownFailure | AppError): AppError => {
       return canonicalPathRemovalErrorToAppError(error);
     case "SymlinkCreationError":
       return symlinkCreationErrorToAppError(error);
-    case "LockEntrySourceMissing":
-      return lockEntrySourceMissingToAppError(error);
-    case "LockEntryUrlInvalid":
-      return lockEntryUrlInvalidToAppError(error);
     case "LockEntryNameInvalid":
       return lockEntryNameInvalidToAppError(error);
     case "LockEntryEndpointConflict":
       return lockEntryEndpointConflictToAppError(error);
-    case "LockEntrySourceTypeConflict":
-      return lockEntrySourceTypeConflictToAppError(error);
     case "AcceptedResolutionMissing":
       return acceptedResolutionMissingToAppError(error);
     case "InlineExtensionSourceMissing":

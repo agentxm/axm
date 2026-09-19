@@ -64,7 +64,11 @@ import {
   acceptedRegistryVersionForRef,
   validateExactResolvedVersion,
 } from "../desired-state/index.js";
-import { gitSourceLockFields } from "../desired-state/index.js";
+import {
+  gitSourceLockFields,
+  pathSourceLockFields,
+  registrySourceLockFields,
+} from "../desired-state/index.js";
 import { SourceHostProviders, WorkspaceCatalog } from "../resolution/sources/index.js";
 import type { KnowledgeMap } from "../desired-state/index.js";
 import { knowledgeLockEntryToRef } from "../desired-state/index.js";
@@ -125,21 +129,16 @@ const decodeManifest = Schema.decodeUnknownEffect(KnowledgeManifestSchema);
 const registryLockEntry = (
   ref: RegistryKnowledgeRef,
   treeIntegrity: TreeIntegrity,
-): KnowledgeLockEntry => ({
-  type: "registry",
-  sourceType: "registry",
-  packageFormat: "agentxm",
-  endpoint: ref.source.location,
-  extensionType: "knowledge",
-  workspaceName: ref.knowledge.name,
-  owner: ref.owner,
-  name: ref.name,
-  resolvedVersion: decodeVersionSync(ref.version),
-  integrity: Option.getOrElse(ref.integrity, () => ""),
-  sourceName: ref.source.name,
-  publisherBindingId: ref.publisherBindingId,
-  treeIntegrity,
-});
+): KnowledgeLockEntry =>
+  registrySourceLockFields(
+    ref.source,
+    ref.owner,
+    ref.name,
+    decodeVersionSync(ref.version),
+    Option.getOrElse(ref.integrity, () => ""),
+    ref.publisherBindingId,
+    treeIntegrity,
+  );
 
 const gitLockEntry = (
   ref: GitHostedKnowledgeRef,
@@ -148,12 +147,9 @@ const gitLockEntry = (
 ): KnowledgeLockEntry => ({
   ...gitSourceLockFields(
     ref.source,
-    "knowledge",
-    ref.knowledge.name,
     Option.fromUndefinedOr(ref.sourcePath),
     ref.gitCommitSha,
     ref.gitTreeSha,
-    contentIdentity,
     ref.owner,
     ref.name,
     treeIntegrity,
@@ -165,19 +161,14 @@ const localLockEntry = (
   relativePath: Option.Option<string>,
   contentIdentity: SourceHash,
   treeIntegrity: TreeIntegrity,
-): KnowledgeLockEntry => ({
-  type: "local",
-  sourceType: "local",
-  sourceName: "local",
-  extensionType: "knowledge",
-  workspaceName: ref.knowledge.name,
-  packageFormat: "agentxm",
-  packageOwner: ref.owner,
-  packageName: ref.name,
-  path: Option.getOrElse(relativePath, () => ref.source.path),
-  contentIdentity,
-  treeIntegrity,
-});
+): KnowledgeLockEntry =>
+  pathSourceLockFields(
+    Option.getOrElse(relativePath, () => ref.source.path),
+    contentIdentity,
+    ref.name,
+    treeIntegrity,
+    ref.owner,
+  );
 
 /**
  * Name the failure that stopped a restore in the operator's sentence: the
@@ -525,13 +516,13 @@ export const KnowledgeManagerLive = Layer.effect(
         };
       });
 
-    const canonicalRoot = (_name: string, locked: KnowledgeLockEntry): string =>
+    const canonicalRoot = (name: string, locked: KnowledgeLockEntry): string =>
       computeExtensionPathsForLayout(
         path.join,
         currentLayout(),
         extensionPathSourceFromLockEntry(locked),
         KNOWLEDGE_EXTENSION_DIR,
-        locked.workspaceName,
+        name,
       ).canonicalPath;
 
     const desiredCanonicalRoot = (
@@ -1141,10 +1132,10 @@ export const KnowledgeManagerLive = Layer.effect(
           Effect.flatMap((lockEntry) => {
             if (Option.isNone(lockEntry)) return Effect.succeed(Option.none());
             const validate =
-              lockEntry.value.type === "registry"
+              lockEntry.value.source.type === "registry" && "version" in lockEntry.value.resolved
                 ? validateExactResolvedVersion(
                     `knowledge.${ref.knowledge.name}.resolvedVersion`,
-                    lockEntry.value.resolvedVersion,
+                    lockEntry.value.resolved.version,
                   )
                 : Effect.void;
             return validate.pipe(

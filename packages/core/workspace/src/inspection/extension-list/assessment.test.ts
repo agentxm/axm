@@ -6,7 +6,6 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
-import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { TreeIntegritySchema } from "../../desired-state/index.js";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
@@ -49,7 +48,6 @@ const workspaceWithCatalogLayer = (
   );
 };
 
-const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");
 const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
   `sha256-tree-v1:${"0".repeat(64)}`,
 );
@@ -58,21 +56,13 @@ describe("extension list assessment", () => {
   it.effect("compares current Git commit and tree to accepted lock authority", () =>
     Effect.gen(function* () {
       const accepted = {
-        type: "github" as const,
-        sourceType: "github" as const,
-        sourceName: "github",
-        endpoint: new URL("https://github.com"),
-        extensionType: "skill" as const,
-        workspaceName: decodeExtensionNameSync("review"),
-        packageFormat: "agentxm" as const,
-        packageOwner: handle("@acme"),
-        packageName: decodeExtensionNameSync("review"),
-        owner: "acme",
-        repo: "extensions",
-        path: "skills/review",
-        resolvedCommit: "commit-1",
-        resolvedTree: "tree-1",
-        contentIdentity,
+        source: {
+          type: "git" as const,
+          url: new URL("https://github.com/acme/extensions.git"),
+          path: "skills/review",
+        },
+        identity: { owner: handle("@acme"), name: decodeExtensionNameSync("review") },
+        resolved: { commit: "commit-1", tree: "tree-1" },
         treeIntegrity,
       };
       const layer = workspaceWithCatalogLayer({

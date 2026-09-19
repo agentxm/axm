@@ -60,13 +60,21 @@ export const collectUnreachableRetirement = (
           ),
         ),
     )).flat();
+    const scopedMcpEntries =
+      scope === undefined
+        ? []
+        : yield* Effect.forEach(
+            scope.subjects.filter((subject) => subject.type === "mcp-server"),
+            (subject) =>
+              locks.mcpServerForConnection(subject.name).pipe(Effect.map(Option.getOrUndefined)),
+          );
     const canonicalPath = ({ type, entry }: (typeof accepted)[number]) =>
       computeExtensionPathsForLayout(
         path.join,
         layout,
         extensionPathSourceFromLockEntry(entry),
         toExtensionTypePlural(type),
-        entry.workspaceName,
+        entry.identity.name,
       ).canonicalPath;
     const retainedPaths = new Set(
       accepted.filter(({ type, key }) => reachable(type, key)).map(canonicalPath),
@@ -77,8 +85,10 @@ export const collectUnreachableRetirement = (
           !reachable(type, key) &&
           (scope === undefined ||
             scope.subjects.some(
-              (subject) => subject.type === type && subject.name === entry.workspaceName,
-            )),
+              (subject) => subject.type === type && subject.name === entry.identity.name,
+            ) ||
+            (type === "mcp-server" &&
+              scopedMcpEntries.some((scoped) => lockEntrySemanticallyEqual(scoped, entry)))),
       ),
       (row) =>
         Effect.gen(function* () {
@@ -281,7 +291,7 @@ export const collectLeftoverRetirement = (
                   layout,
                   extensionPathSourceFromLockEntry(entry),
                   toExtensionTypePlural(type),
-                  entry.workspaceName,
+                  entry.identity.name,
                 ).canonicalPath,
             ),
           ),

@@ -76,21 +76,14 @@ const createPackManifest = (
     const skillName = match[2];
     if (owner === undefined || skillName === undefined) continue;
     updatedSkills[skillName] = {
-      type: "registry",
-      sourceType: "registry",
-      endpoint: "https://registry.agentxm.ai",
-      extensionType: "skill",
-      workspaceName: skillName,
-      packageFormat: "agentxm",
-      owner,
-      name: skillName,
-      resolvedVersion: version,
-      integrity: `sha512-${skillName}`,
-      sourceName: "agentxm",
-      publisherBindingId: `hbnd_${skillName}`,
+      source: { type: "registry", url: "https://registry.agentxm.ai" },
+      identity: { owner, name: skillName },
+      resolved: {
+        version,
+        integrity: `sha512-${skillName}`,
+        publisherBindingId: `hbnd_${skillName}`,
+      },
       treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
-      installedAt: "2025-01-01T00:00:00.000Z",
-      updatedAt: "2025-01-01T00:00:00.000Z",
     };
   }
   fs.writeFileSync(lockfilePath, YAML.stringify({ ...lockfile, skills: updatedSkills }));

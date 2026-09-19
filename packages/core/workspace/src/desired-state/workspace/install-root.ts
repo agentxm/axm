@@ -156,7 +156,7 @@ export const observeInstallRoot = ({ layout, graph, locks }: ObserveInstallRootA
           layout,
           extensionPathSourceFromLockEntry(row.entry),
           toExtensionTypePlural(row.type),
-          row.entry.workspaceName,
+          row.entry.identity.name,
         ).canonicalPath,
         { ...row, reached: nodeReaches(row.type, row.key) },
       ]),
@@ -210,7 +210,7 @@ export const observeInstallRoot = ({ layout, graph, locks }: ObserveInstallRootA
           const locked = lockedPaths.get(absolute);
           const identity = identityOf(childSegments);
           const type = locked?.type ?? identity?.type;
-          const packageName = locked?.entry.workspaceName ?? identity?.name;
+          const packageName = locked?.entry.identity.name ?? identity?.name;
           if (type !== undefined && packageName !== undefined) {
             // A path without a source directory is authored content, which is
             // never inferred to be undesired.

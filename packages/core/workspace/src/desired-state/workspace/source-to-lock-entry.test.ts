@@ -45,25 +45,15 @@ describe("sourceToLockEntry", () => {
       gitTreeSha: "tree-456",
     };
 
-    expect(
-      sourceToLockEntry({ ref, sourceName: Option.none(), contentIdentity, treeIntegrity }),
-    ).toEqual({
-      type: "github",
-      sourceType: "github",
-      sourceName: "github",
-      endpoint: new URL("https://github.com"),
-      extensionType: "skill",
-      workspaceName: extensionName("review"),
-      packageFormat: "agentxm",
-      packageOwner: handle("@acme"),
-      packageName: extensionName("review"),
-      owner: "acme",
-      repo: "extensions",
-      ref: "main",
-      path: "skills/review",
-      resolvedCommit: "commit-123",
-      resolvedTree: "tree-456",
-      contentIdentity,
+    expect(sourceToLockEntry({ ref, contentIdentity, treeIntegrity })).toEqual({
+      source: {
+        type: "git",
+        url: new URL("https://github.com/acme/extensions.git"),
+        revision: "main",
+        path: "skills/review",
+      },
+      identity: { owner: handle("@acme"), name: extensionName("review") },
+      resolved: { commit: "commit-123", tree: "tree-456" },
       treeIntegrity,
     });
   });
@@ -82,22 +72,14 @@ describe("sourceToLockEntry", () => {
     expect(
       sourceToLockEntry({
         ref,
-        sourceName: Option.none(),
         contentIdentity,
         treeIntegrity,
         workspaceRelativeLocalSourcePath: Option.some("../sources/review"),
       }),
     ).toEqual({
-      type: "local",
-      sourceType: "local",
-      sourceName: "local",
-      extensionType: "skill",
-      workspaceName: extensionName("review"),
-      packageFormat: "agentxm",
-      packageOwner: handle("@acme"),
-      packageName: extensionName("review"),
-      path: "../sources/review",
-      contentIdentity,
+      source: { type: "path", path: "../sources/review" },
+      identity: { owner: handle("@acme"), name: extensionName("review") },
+      resolved: { tree: contentIdentity },
       treeIntegrity,
     });
   });
@@ -124,23 +106,17 @@ describe("sourceToLockEntry", () => {
     expect(
       sourceToLockEntry({
         ref,
-        sourceName: Option.some("enterprise"),
         contentIdentity,
         treeIntegrity,
       }),
     ).toEqual({
-      type: "registry",
-      sourceType: "registry",
-      endpoint: new URL("https://registry.example"),
-      extensionType: "skill",
-      workspaceName: extensionName("review"),
-      packageFormat: "agentxm",
-      owner: handle("@acme"),
-      name: extensionName("review"),
-      resolvedVersion: exactVersion("1.2.3"),
-      integrity: "sha512-archive",
-      sourceName: "enterprise",
-      publisherBindingId: "binding-1",
+      source: { type: "registry", url: new URL("https://registry.example") },
+      identity: { owner: handle("@acme"), name: extensionName("review") },
+      resolved: {
+        version: exactVersion("1.2.3"),
+        integrity: "sha512-archive",
+        publisherBindingId: "binding-1",
+      },
       treeIntegrity,
     });
   });
@@ -164,8 +140,6 @@ describe("sourceToLockEntry", () => {
       sourceHash: contentIdentity,
     };
 
-    expect(
-      sourceToLockEntry({ ref, sourceName: Option.none(), contentIdentity, treeIntegrity }),
-    ).toBeUndefined();
+    expect(sourceToLockEntry({ ref, contentIdentity, treeIntegrity })).toBeUndefined();
   });
 });

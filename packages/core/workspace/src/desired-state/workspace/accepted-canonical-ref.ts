@@ -141,7 +141,7 @@ export const acceptedLockedCanonicalPath = (
           layout,
           extensionPathSourceFromLockEntry(entry),
           toExtensionTypePlural(args.type),
-          entry.workspaceName,
+          entry.identity.name,
         ).canonicalPath,
     );
   });

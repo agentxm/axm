@@ -64,7 +64,7 @@ const bundleSourceRoot = (
       layout,
       extensionPathSourceFromLockEntry(entry),
       KNOWLEDGE_EXTENSION_DIR,
-      entry.workspaceName,
+      node.name,
     ).canonicalPath,
     KNOWLEDGE_SOURCE_DIR,
   );

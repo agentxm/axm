@@ -102,19 +102,12 @@ export const validateDesiredPackLock = ({
 
       const identity = parseExtensionFqnParts(node.identity);
       const entry = lockfile.packs?.[node.name];
-      const configuredSourceName =
-        entry?.type === "registry"
-          ? node.source.startsWith("@")
-            ? "agentxm"
-            : node.source.slice(0, node.source.indexOf(":"))
-          : entry?.sourceName;
-      const lockedOwner = entry?.type === "registry" ? entry.owner : entry?.packageOwner;
-      const lockedName = entry?.type === "registry" ? entry.name : entry?.packageName;
+      const lockedOwner = entry?.identity.owner;
+      const lockedName = entry?.identity.name;
       if (
         identity === undefined ||
         identity.type !== "pack" ||
         entry === undefined ||
-        entry.sourceName !== configuredSourceName ||
         lockedOwner !== identity.owner ||
         lockedName !== identity.name ||
         !node.constraints.every((constraint) => semver.satisfies(entry.manifestVersion, constraint))
@@ -132,7 +125,11 @@ export const validateDesiredPackLock = ({
         owner: identity.owner,
         name: identity.name,
         sourceFamily:
-          entry.type === "registry" ? "registry" : entry.type === "local" ? "path" : "git",
+          entry.source.type === "registry"
+            ? "registry"
+            : entry.source.type === "path"
+              ? "path"
+              : "git",
         relativeTo: layout.workspaceRoot,
         workspace: { layout },
       });

@@ -9,13 +9,7 @@ import { pathToFileURL } from "node:url";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
-import {
-  LockEntryEndpointConflict,
-  LockEntryNameInvalid,
-  LockEntrySourceMissing,
-  LockEntrySourceTypeConflict,
-  LockEntryUrlInvalid,
-} from "./errors.js";
+import { LockEntryEndpointConflict, LockEntryNameInvalid } from "./errors.js";
 import type { SettingsReadError, WorkspaceRootEscape } from "./read-model/errors.js";
 import {
   decodeExtensionNameSync,
@@ -31,7 +25,6 @@ import type {
   SkillLockEntry,
   SubagentLockEntry,
 } from "../lockfile/index.js";
-import type { SourceHostConfig } from "../settings/index.js";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
@@ -51,12 +44,7 @@ export type LockEntrySourceLookupError = SettingsReadError | WorkspaceRootEscape
 
 /** Every failure a lock-entry-to-ref translation can produce. */
 export type LockEntryToRefError =
-  | LockEntrySourceMissing
-  | LockEntryUrlInvalid
-  | LockEntryNameInvalid
-  | LockEntryEndpointConflict
-  | LockEntrySourceTypeConflict
-  | LockEntrySourceLookupError;
+  LockEntryNameInvalid | LockEntryEndpointConflict | LockEntrySourceLookupError;
 
 type SourceLockEntry =
   | SkillLockEntry
@@ -66,24 +54,35 @@ type SourceLockEntry =
   | RuleLockEntry
   | HookLockEntry;
 
+type AnyLockEntry = SourceLockEntry | PackLockEntry;
+type RegistryLockEntry = Extract<AnyLockEntry, { readonly source: { readonly type: "registry" } }>;
+type GitLockEntry = Extract<AnyLockEntry, { readonly source: { readonly type: "git" } }>;
+type PathLockEntry = Extract<AnyLockEntry, { readonly source: { readonly type: "path" } }>;
+
+const isRegistryLockEntry = (entry: AnyLockEntry): entry is RegistryLockEntry =>
+  entry.source.type === "registry";
+const isGitLockEntry = (entry: AnyLockEntry): entry is GitLockEntry => entry.source.type === "git";
+const isPathLockEntry = (entry: AnyLockEntry): entry is PathLockEntry =>
+  entry.source.type === "path";
+
 interface LockEntryToRefDeps {
   readonly baseDir: string;
   readonly path: Path.Path;
   readonly scope: WorkspaceScope;
+  /** Registry name explicitly used by the desired declaration, when one exists. */
+  readonly registrySourceName?: string;
   readonly getConfiguredSourceByName: (
     name: string,
-  ) => Effect.Effect<Option.Option<SourceHostConfig>, LockEntrySourceLookupError>;
+  ) => Effect.Effect<
+    Option.Option<import("../settings/index.js").SourceHostConfig>,
+    LockEntrySourceLookupError
+  >;
 }
 
 const fileHref = (path: string): string => pathToFileURL(path).href;
 
 const localLockEntryPath = (deps: LockEntryToRefDeps, entryPath: string): string =>
   deps.path.resolve(deps.baseDir, entryPath);
-
-const missingSource = (entryType: string, sourceName: string) =>
-  new LockEntrySourceMissing({ entryType, sourceName });
-
-const invalidUrl = (value: string) => new LockEntryUrlInvalid({ value });
 
 const invalidName = (name: string) => new LockEntryNameInvalid({ name });
 
@@ -93,165 +92,50 @@ const decodeLockEntryName = (name: string): Effect.Effect<ExtensionName, LockEnt
     catch: () => invalidName(name),
   });
 
-const hasSourceType =
-  <TType extends "github" | "gitlab" | "bitbucket" | "azurerepos">(sourceType: TType) =>
-  (source: SourceHostConfig): source is Extract<SourceHostConfig, { readonly type: TType }> =>
-    source.type === sourceType;
-
 const registrySourceFromEntry = (
-  entry: Extract<SourceLockEntry | PackLockEntry, { readonly type: "registry" }>,
-  getSourceByName: LockEntryToRefDeps["getConfiguredSourceByName"],
+  entry: Extract<
+    SourceLockEntry | PackLockEntry,
+    { readonly source: { readonly type: "registry" } }
+  >,
+  deps: LockEntryToRefDeps,
 ): Effect.Effect<RegistrySource, LockEntryToRefError> =>
   Effect.gen(function* () {
-    const configured = yield* getSourceByName(entry.sourceName);
-    if (Option.isNone(configured) || configured.value.type !== "registry") {
-      return yield* missingSource("registry", entry.sourceName);
-    }
-    if (configured.value.location.href !== entry.endpoint.href) {
-      return yield* new LockEntryEndpointConflict({
-        sourceKind: "Registry",
-        sourceName: entry.sourceName,
-        acceptedEndpoint: entry.endpoint.href,
-        resolvedEndpoint: configured.value.location.href,
-      });
+    if (deps.registrySourceName !== undefined) {
+      const configured = yield* deps.getConfiguredSourceByName(deps.registrySourceName);
+      if (
+        Option.isSome(configured) &&
+        configured.value.type === "registry" &&
+        configured.value.location.href !== entry.source.url.href
+      ) {
+        return yield* new LockEntryEndpointConflict({
+          sourceKind: "Registry",
+          sourceName: deps.registrySourceName,
+          acceptedEndpoint: entry.source.url.href,
+          resolvedEndpoint: configured.value.location.href,
+        });
+      }
     }
     return {
       type: "registry" as const,
-      name: configured.value.name,
-      location: entry.endpoint,
-      owner: Option.some(entry.owner),
+      name: deps.registrySourceName ?? "registry",
+      location: entry.source.url,
+      owner: Option.some(entry.identity.owner),
     };
   });
 
-function findSourceConfig(
-  sourceType: "github",
-  sourceName: string,
-  endpoint: URL,
-  getSourceByName: LockEntryToRefDeps["getConfiguredSourceByName"],
-): Effect.Effect<Extract<SourceHostConfig, { readonly type: "github" }>, LockEntryToRefError>;
-function findSourceConfig(
-  sourceType: "gitlab",
-  sourceName: string,
-  endpoint: URL,
-  getSourceByName: LockEntryToRefDeps["getConfiguredSourceByName"],
-): Effect.Effect<Extract<SourceHostConfig, { readonly type: "gitlab" }>, LockEntryToRefError>;
-function findSourceConfig(
-  sourceType: "bitbucket",
-  sourceName: string,
-  endpoint: URL,
-  getSourceByName: LockEntryToRefDeps["getConfiguredSourceByName"],
-): Effect.Effect<Extract<SourceHostConfig, { readonly type: "bitbucket" }>, LockEntryToRefError>;
-function findSourceConfig(
-  sourceType: "azurerepos",
-  sourceName: string,
-  endpoint: URL,
-  getSourceByName: LockEntryToRefDeps["getConfiguredSourceByName"],
-): Effect.Effect<Extract<SourceHostConfig, { readonly type: "azurerepos" }>, LockEntryToRefError>;
-function findSourceConfig(
-  sourceType: "github" | "gitlab" | "bitbucket" | "azurerepos",
-  sourceName: string,
-  endpoint: URL,
-  getSourceByName: LockEntryToRefDeps["getConfiguredSourceByName"],
-): Effect.Effect<SourceHostConfig, LockEntryToRefError> {
-  return Effect.gen(function* () {
-    const configured = yield* getSourceByName(sourceName);
-    if (Option.isNone(configured) || !hasSourceType(sourceType)(configured.value)) {
-      return yield* new LockEntrySourceTypeConflict({
-        sourceKind: sourceType,
-        sourceName,
-      });
-    }
-    if (configured.value.url.href !== endpoint.href) {
-      return yield* new LockEntryEndpointConflict({
-        sourceKind: sourceType,
-        sourceName,
-        acceptedEndpoint: endpoint.href,
-        resolvedEndpoint: configured.value.url.href,
-      });
-    }
-    return configured.value;
-  });
-}
-
 const gitBasedSourceFromEntry = (
-  entry: Exclude<
-    SourceLockEntry | PackLockEntry,
-    { readonly type: "registry" | "local" | "inline" | "workspace" }
-  >,
-  getSourceByName: LockEntryToRefDeps["getConfiguredSourceByName"],
-): Effect.Effect<GitBasedSource, LockEntryToRefError> => {
-  switch (entry.type) {
-    case "github":
-      return Effect.map(
-        findSourceConfig("github", entry.sourceName, entry.endpoint, getSourceByName),
-        (source) => ({
-          type: "github" as const,
-          name: source.name,
-          url: source.url,
-          owner: entry.owner,
-          repo: entry.repo,
-          ref: Option.fromUndefinedOr(entry.ref),
-          subPath: Option.fromUndefinedOr(entry.path),
-        }),
-      );
-    case "gitlab":
-      return Effect.map(
-        findSourceConfig("gitlab", entry.sourceName, entry.endpoint, getSourceByName),
-        (source) => ({
-          type: "gitlab" as const,
-          name: source.name,
-          url: source.url,
-          owner: entry.owner,
-          repo: entry.repo,
-          ref: Option.fromUndefinedOr(entry.ref),
-          subPath: Option.fromUndefinedOr(entry.path),
-        }),
-      );
-    case "bitbucket":
-      return Effect.map(
-        findSourceConfig("bitbucket", entry.sourceName, entry.endpoint, getSourceByName),
-        (source) => ({
-          type: "bitbucket" as const,
-          name: source.name,
-          url: source.url,
-          owner: entry.owner,
-          repo: entry.repo,
-          ref: Option.fromUndefinedOr(entry.ref),
-          subPath: Option.fromUndefinedOr(entry.path),
-        }),
-      );
-    case "azurerepos":
-      return Effect.map(
-        findSourceConfig("azurerepos", entry.sourceName, entry.endpoint, getSourceByName),
-        (source) => ({
-          type: "azurerepos" as const,
-          name: source.name,
-          url: source.url,
-          organization: entry.organization,
-          project: entry.project,
-          repo: entry.repo,
-          ref: Option.fromUndefinedOr(entry.ref),
-          subPath: Option.fromUndefinedOr(entry.path),
-        }),
-      );
-    case "git":
-      return Effect.map(
-        Effect.try({
-          try: () => new URL(entry.url),
-          catch: () => invalidUrl(entry.url),
-        }),
-        (url) => ({
-          type: "git" as const,
-          url,
-          ref: Option.fromUndefinedOr(entry.ref),
-        }),
-      );
-  }
-};
+  entry: Extract<SourceLockEntry | PackLockEntry, { readonly source: { readonly type: "git" } }>,
+): GitBasedSource => ({
+  type: "git",
+  url: entry.source.url,
+  ref: Option.fromUndefinedOr(entry.source.revision),
+});
 
 const lockEntryLocation = (
   deps: LockEntryToRefDeps,
-  entry: Exclude<SourceLockEntry | PackLockEntry, { readonly type: "registry" | "local" }>,
+  entry: SourceLockEntry | PackLockEntry,
+  extensionType: Parameters<typeof toExtensionTypePlural>[0],
+  workspaceName: string,
 ): string => {
   const root =
     deps.scope === "project"
@@ -261,8 +145,8 @@ const lockEntryLocation = (
     acquiredExtensionDisplayPathFromLockEntry(
       root,
       entry,
-      toExtensionTypePlural(entry.extensionType),
-      entry.workspaceName,
+      toExtensionTypePlural(extensionType),
+      workspaceName,
     ),
   );
 };
@@ -275,59 +159,53 @@ export const skillLockEntryToRef = (
   Effect.flatMap(
     decodeLockEntryName(name),
     (extensionName): Effect.Effect<SkillExtensionRef, LockEntryToRefError> => {
-      switch (entry.type) {
-        case "registry":
-          return Effect.map(
-            registrySourceFromEntry(entry, deps.getConfiguredSourceByName),
-            (source) => ({
-              type: "skill" as const,
-              refType: "registry" as const,
-              source,
-              owner: entry.owner,
-              publisherBindingId: entry.publisherBindingId,
-              name: entry.name,
-              version: entry.resolvedVersion,
-              integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
-              packages: [],
-              skill: { name: extensionName, description: Option.none(), metadata: Option.none() },
-            }),
-          );
-        case "local": {
-          const skillSourcePath = localLockEntryPath(deps, entry.path);
-          return Effect.succeed({
-            type: "skill" as const,
-            refType: "local" as const,
-            ...(entry.packageOwner === undefined ? {} : { owner: entry.packageOwner }),
-            name: entry.packageName,
-            source: { type: "local" as const, path: skillSourcePath },
-            location: fileHref(skillSourcePath),
-            sourcePath: entry.path,
-            portable: entry.packageFormat === "agent-skill",
-            skill: { name: extensionName, description: Option.none(), metadata: Option.none() },
-          });
-        }
-        case "github":
-        case "gitlab":
-        case "bitbucket":
-        case "azurerepos":
-        case "git":
-          return Effect.map(
-            gitBasedSourceFromEntry(entry, deps.getConfiguredSourceByName),
-            (source) => ({
-              type: "skill" as const,
-              refType: "git-hosted" as const,
-              ...(entry.packageOwner === undefined ? {} : { owner: entry.packageOwner }),
-              name: entry.packageName,
-              source,
-              ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
-              portable: entry.packageFormat === "agent-skill",
-              location: lockEntryLocation(deps, entry),
-              gitTreeSha: entry.resolvedTree,
-              gitCommitSha: entry.resolvedCommit,
-              skill: { name: extensionName, description: Option.none(), metadata: Option.none() },
-            }),
-          );
+      if (isRegistryLockEntry(entry)) {
+        return Effect.map(registrySourceFromEntry(entry, deps), (source) => ({
+          type: "skill" as const,
+          refType: "registry" as const,
+          source,
+          owner: entry.identity.owner,
+          publisherBindingId: entry.resolved.publisherBindingId,
+          name: entry.identity.name,
+          version: entry.resolved.version,
+          integrity:
+            entry.resolved.integrity.length > 0
+              ? Option.some(entry.resolved.integrity)
+              : Option.none(),
+          packages: [],
+          skill: { name: extensionName, description: Option.none(), metadata: Option.none() },
+        }));
       }
+      if (isPathLockEntry(entry)) {
+        const skillSourcePath = localLockEntryPath(deps, entry.source.path);
+        return Effect.succeed({
+          type: "skill" as const,
+          refType: "local" as const,
+          ...(entry.identity.owner === undefined ? {} : { owner: entry.identity.owner }),
+          name: entry.identity.name,
+          source: { type: "local" as const, path: skillSourcePath },
+          location: fileHref(skillSourcePath),
+          sourcePath: entry.source.path,
+          portable: entry.identity.owner === undefined,
+          skill: { name: extensionName, description: Option.none(), metadata: Option.none() },
+        });
+      }
+      if (isGitLockEntry(entry)) {
+        return Effect.map(Effect.succeed(gitBasedSourceFromEntry(entry)), (source) => ({
+          type: "skill" as const,
+          refType: "git-hosted" as const,
+          ...(entry.identity.owner === undefined ? {} : { owner: entry.identity.owner }),
+          name: entry.identity.name,
+          source,
+          ...(entry.source.path === undefined ? {} : { sourcePath: entry.source.path }),
+          portable: entry.identity.owner === undefined,
+          location: lockEntryLocation(deps, entry, "skill", extensionName),
+          gitTreeSha: entry.resolved.tree,
+          gitCommitSha: entry.resolved.commit,
+          skill: { name: extensionName, description: Option.none(), metadata: Option.none() },
+        }));
+      }
+      return Effect.die("Unrecognized lock entry source family");
     },
   );
 
@@ -339,57 +217,51 @@ export const mcpServerLockEntryToRef = (
   Effect.flatMap(
     decodeLockEntryName(name),
     (extensionName): Effect.Effect<McpServerExtensionRef, LockEntryToRefError> => {
-      switch (entry.type) {
-        case "registry":
-          return Effect.map(
-            registrySourceFromEntry(entry, deps.getConfiguredSourceByName),
-            (source) => ({
-              type: "mcp-server" as const,
-              refType: "registry" as const,
-              source,
-              owner: entry.owner,
-              publisherBindingId: entry.publisherBindingId,
-              name: entry.name,
-              version: entry.resolvedVersion,
-              integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
-              packages: [],
-              server: { name: extensionName },
-            }),
-          );
-        case "local": {
-          const mcpServerSourcePath = localLockEntryPath(deps, entry.path);
-          return Effect.succeed({
-            type: "mcp-server" as const,
-            refType: "local" as const,
-            owner: entry.packageOwner,
-            name: entry.packageName,
-            source: { type: "local" as const, path: mcpServerSourcePath },
-            location: fileHref(mcpServerSourcePath),
-            sourcePath: entry.path,
-            server: { name: extensionName },
-          });
-        }
-        case "github":
-        case "gitlab":
-        case "bitbucket":
-        case "azurerepos":
-        case "git":
-          return Effect.map(
-            gitBasedSourceFromEntry(entry, deps.getConfiguredSourceByName),
-            (source) => ({
-              type: "mcp-server" as const,
-              refType: "git-hosted" as const,
-              owner: entry.packageOwner,
-              name: entry.packageName,
-              source,
-              ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
-              location: lockEntryLocation(deps, entry),
-              gitTreeSha: entry.resolvedTree,
-              gitCommitSha: entry.resolvedCommit,
-              server: { name: extensionName },
-            }),
-          );
+      if (isRegistryLockEntry(entry)) {
+        return Effect.map(registrySourceFromEntry(entry, deps), (source) => ({
+          type: "mcp-server" as const,
+          refType: "registry" as const,
+          source,
+          owner: entry.identity.owner,
+          publisherBindingId: entry.resolved.publisherBindingId,
+          name: entry.identity.name,
+          version: entry.resolved.version,
+          integrity:
+            entry.resolved.integrity.length > 0
+              ? Option.some(entry.resolved.integrity)
+              : Option.none(),
+          packages: [],
+          server: { name: extensionName },
+        }));
       }
+      if (isPathLockEntry(entry)) {
+        const mcpServerSourcePath = localLockEntryPath(deps, entry.source.path);
+        return Effect.succeed({
+          type: "mcp-server" as const,
+          refType: "local" as const,
+          owner: entry.identity.owner,
+          name: entry.identity.name,
+          source: { type: "local" as const, path: mcpServerSourcePath },
+          location: fileHref(mcpServerSourcePath),
+          sourcePath: entry.source.path,
+          server: { name: extensionName },
+        });
+      }
+      if (isGitLockEntry(entry)) {
+        return Effect.map(Effect.succeed(gitBasedSourceFromEntry(entry)), (source) => ({
+          type: "mcp-server" as const,
+          refType: "git-hosted" as const,
+          owner: entry.identity.owner,
+          name: entry.identity.name,
+          source,
+          ...(entry.source.path === undefined ? {} : { sourcePath: entry.source.path }),
+          location: lockEntryLocation(deps, entry, "mcp-server", extensionName),
+          gitTreeSha: entry.resolved.tree,
+          gitCommitSha: entry.resolved.commit,
+          server: { name: extensionName },
+        }));
+      }
+      return Effect.die("Unrecognized lock entry source family");
     },
   );
 
@@ -401,57 +273,51 @@ export const subagentLockEntryToRef = (
   Effect.flatMap(
     decodeLockEntryName(name),
     (extensionName): Effect.Effect<SubagentExtensionRef, LockEntryToRefError> => {
-      switch (entry.type) {
-        case "registry":
-          return Effect.map(
-            registrySourceFromEntry(entry, deps.getConfiguredSourceByName),
-            (source) => ({
-              type: "subagent" as const,
-              refType: "registry" as const,
-              source,
-              owner: entry.owner,
-              publisherBindingId: entry.publisherBindingId,
-              name: entry.name,
-              version: entry.resolvedVersion,
-              integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
-              packages: [],
-              subagent: { name: extensionName, description: Option.none() },
-            }),
-          );
-        case "local": {
-          const subagentSourcePath = localLockEntryPath(deps, entry.path);
-          return Effect.succeed({
-            type: "subagent" as const,
-            refType: "local" as const,
-            owner: entry.packageOwner,
-            name: entry.packageName,
-            source: { type: "local" as const, path: subagentSourcePath },
-            location: fileHref(subagentSourcePath),
-            sourcePath: entry.path,
-            subagent: { name: extensionName, description: Option.none() },
-          });
-        }
-        case "github":
-        case "gitlab":
-        case "bitbucket":
-        case "azurerepos":
-        case "git":
-          return Effect.map(
-            gitBasedSourceFromEntry(entry, deps.getConfiguredSourceByName),
-            (source) => ({
-              type: "subagent" as const,
-              refType: "git-hosted" as const,
-              owner: entry.packageOwner,
-              name: entry.packageName,
-              source,
-              ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
-              location: lockEntryLocation(deps, entry),
-              gitTreeSha: entry.resolvedTree,
-              gitCommitSha: entry.resolvedCommit,
-              subagent: { name: extensionName, description: Option.none() },
-            }),
-          );
+      if (isRegistryLockEntry(entry)) {
+        return Effect.map(registrySourceFromEntry(entry, deps), (source) => ({
+          type: "subagent" as const,
+          refType: "registry" as const,
+          source,
+          owner: entry.identity.owner,
+          publisherBindingId: entry.resolved.publisherBindingId,
+          name: entry.identity.name,
+          version: entry.resolved.version,
+          integrity:
+            entry.resolved.integrity.length > 0
+              ? Option.some(entry.resolved.integrity)
+              : Option.none(),
+          packages: [],
+          subagent: { name: extensionName, description: Option.none() },
+        }));
       }
+      if (isPathLockEntry(entry)) {
+        const subagentSourcePath = localLockEntryPath(deps, entry.source.path);
+        return Effect.succeed({
+          type: "subagent" as const,
+          refType: "local" as const,
+          owner: entry.identity.owner,
+          name: entry.identity.name,
+          source: { type: "local" as const, path: subagentSourcePath },
+          location: fileHref(subagentSourcePath),
+          sourcePath: entry.source.path,
+          subagent: { name: extensionName, description: Option.none() },
+        });
+      }
+      if (isGitLockEntry(entry)) {
+        return Effect.map(Effect.succeed(gitBasedSourceFromEntry(entry)), (source) => ({
+          type: "subagent" as const,
+          refType: "git-hosted" as const,
+          owner: entry.identity.owner,
+          name: entry.identity.name,
+          source,
+          ...(entry.source.path === undefined ? {} : { sourcePath: entry.source.path }),
+          location: lockEntryLocation(deps, entry, "subagent", extensionName),
+          gitTreeSha: entry.resolved.tree,
+          gitCommitSha: entry.resolved.commit,
+          subagent: { name: extensionName, description: Option.none() },
+        }));
+      }
+      return Effect.die("Unrecognized lock entry source family");
     },
   );
 
@@ -463,57 +329,51 @@ export const ruleLockEntryToRef = (
   Effect.flatMap(
     decodeLockEntryName(name),
     (extensionName): Effect.Effect<RuleExtensionRef, LockEntryToRefError> => {
-      switch (entry.type) {
-        case "registry":
-          return Effect.map(
-            registrySourceFromEntry(entry, deps.getConfiguredSourceByName),
-            (source) => ({
-              type: "rule" as const,
-              refType: "registry" as const,
-              source,
-              owner: entry.owner,
-              publisherBindingId: entry.publisherBindingId,
-              name: entry.name,
-              version: entry.resolvedVersion,
-              integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
-              packages: [],
-              rule: { name: extensionName },
-            }),
-          );
-        case "local": {
-          const sourcePath = localLockEntryPath(deps, entry.path);
-          return Effect.succeed({
-            type: "rule" as const,
-            refType: "local" as const,
-            owner: entry.packageOwner,
-            name: entry.packageName,
-            source: { type: "local" as const, path: sourcePath },
-            location: fileHref(sourcePath),
-            sourcePath: entry.path,
-            rule: { name: extensionName },
-          });
-        }
-        case "github":
-        case "gitlab":
-        case "bitbucket":
-        case "azurerepos":
-        case "git":
-          return Effect.map(
-            gitBasedSourceFromEntry(entry, deps.getConfiguredSourceByName),
-            (source) => ({
-              type: "rule" as const,
-              refType: "git-hosted" as const,
-              owner: entry.packageOwner,
-              name: entry.packageName,
-              source,
-              ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
-              location: lockEntryLocation(deps, entry),
-              gitTreeSha: entry.resolvedTree,
-              gitCommitSha: entry.resolvedCommit,
-              rule: { name: extensionName },
-            }),
-          );
+      if (isRegistryLockEntry(entry)) {
+        return Effect.map(registrySourceFromEntry(entry, deps), (source) => ({
+          type: "rule" as const,
+          refType: "registry" as const,
+          source,
+          owner: entry.identity.owner,
+          publisherBindingId: entry.resolved.publisherBindingId,
+          name: entry.identity.name,
+          version: entry.resolved.version,
+          integrity:
+            entry.resolved.integrity.length > 0
+              ? Option.some(entry.resolved.integrity)
+              : Option.none(),
+          packages: [],
+          rule: { name: extensionName },
+        }));
       }
+      if (isPathLockEntry(entry)) {
+        const sourcePath = localLockEntryPath(deps, entry.source.path);
+        return Effect.succeed({
+          type: "rule" as const,
+          refType: "local" as const,
+          owner: entry.identity.owner,
+          name: entry.identity.name,
+          source: { type: "local" as const, path: sourcePath },
+          location: fileHref(sourcePath),
+          sourcePath: entry.source.path,
+          rule: { name: extensionName },
+        });
+      }
+      if (isGitLockEntry(entry)) {
+        return Effect.map(Effect.succeed(gitBasedSourceFromEntry(entry)), (source) => ({
+          type: "rule" as const,
+          refType: "git-hosted" as const,
+          owner: entry.identity.owner,
+          name: entry.identity.name,
+          source,
+          ...(entry.source.path === undefined ? {} : { sourcePath: entry.source.path }),
+          location: lockEntryLocation(deps, entry, "rule", extensionName),
+          gitTreeSha: entry.resolved.tree,
+          gitCommitSha: entry.resolved.commit,
+          rule: { name: extensionName },
+        }));
+      }
+      return Effect.die("Unrecognized lock entry source family");
     },
   );
 
@@ -525,57 +385,51 @@ export const hookLockEntryToRef = (
   Effect.flatMap(
     decodeLockEntryName(name),
     (extensionName): Effect.Effect<HookExtensionRef, LockEntryToRefError> => {
-      switch (entry.type) {
-        case "registry":
-          return Effect.map(
-            registrySourceFromEntry(entry, deps.getConfiguredSourceByName),
-            (source) => ({
-              type: "hook" as const,
-              refType: "registry" as const,
-              source,
-              owner: entry.owner,
-              publisherBindingId: entry.publisherBindingId,
-              name: entry.name,
-              version: entry.resolvedVersion,
-              integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
-              packages: [],
-              hook: { name: extensionName },
-            }),
-          );
-        case "local": {
-          const sourcePath = localLockEntryPath(deps, entry.path);
-          return Effect.succeed({
-            type: "hook" as const,
-            refType: "local" as const,
-            owner: entry.packageOwner,
-            name: entry.packageName,
-            source: { type: "local" as const, path: sourcePath },
-            location: fileHref(sourcePath),
-            sourcePath: entry.path,
-            hook: { name: extensionName },
-          });
-        }
-        case "github":
-        case "gitlab":
-        case "bitbucket":
-        case "azurerepos":
-        case "git":
-          return Effect.map(
-            gitBasedSourceFromEntry(entry, deps.getConfiguredSourceByName),
-            (source) => ({
-              type: "hook" as const,
-              refType: "git-hosted" as const,
-              owner: entry.packageOwner,
-              name: entry.packageName,
-              source,
-              ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
-              location: lockEntryLocation(deps, entry),
-              gitTreeSha: entry.resolvedTree,
-              gitCommitSha: entry.resolvedCommit,
-              hook: { name: extensionName },
-            }),
-          );
+      if (isRegistryLockEntry(entry)) {
+        return Effect.map(registrySourceFromEntry(entry, deps), (source) => ({
+          type: "hook" as const,
+          refType: "registry" as const,
+          source,
+          owner: entry.identity.owner,
+          publisherBindingId: entry.resolved.publisherBindingId,
+          name: entry.identity.name,
+          version: entry.resolved.version,
+          integrity:
+            entry.resolved.integrity.length > 0
+              ? Option.some(entry.resolved.integrity)
+              : Option.none(),
+          packages: [],
+          hook: { name: extensionName },
+        }));
       }
+      if (isPathLockEntry(entry)) {
+        const sourcePath = localLockEntryPath(deps, entry.source.path);
+        return Effect.succeed({
+          type: "hook" as const,
+          refType: "local" as const,
+          owner: entry.identity.owner,
+          name: entry.identity.name,
+          source: { type: "local" as const, path: sourcePath },
+          location: fileHref(sourcePath),
+          sourcePath: entry.source.path,
+          hook: { name: extensionName },
+        });
+      }
+      if (isGitLockEntry(entry)) {
+        return Effect.map(Effect.succeed(gitBasedSourceFromEntry(entry)), (source) => ({
+          type: "hook" as const,
+          refType: "git-hosted" as const,
+          owner: entry.identity.owner,
+          name: entry.identity.name,
+          source,
+          ...(entry.source.path === undefined ? {} : { sourcePath: entry.source.path }),
+          location: lockEntryLocation(deps, entry, "hook", extensionName),
+          gitTreeSha: entry.resolved.tree,
+          gitCommitSha: entry.resolved.commit,
+          hook: { name: extensionName },
+        }));
+      }
+      return Effect.die("Unrecognized lock entry source family");
     },
   );
 
@@ -587,57 +441,51 @@ export const knowledgeLockEntryToRef = (
   Effect.flatMap(
     decodeLockEntryName(name),
     (extensionName): Effect.Effect<KnowledgeExtensionRef, LockEntryToRefError> => {
-      switch (entry.type) {
-        case "registry":
-          return Effect.map(
-            registrySourceFromEntry(entry, deps.getConfiguredSourceByName),
-            (source) => ({
-              type: "knowledge" as const,
-              refType: "registry" as const,
-              source,
-              owner: entry.owner,
-              publisherBindingId: entry.publisherBindingId,
-              name: entry.name,
-              version: entry.resolvedVersion,
-              integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
-              packages: [],
-              knowledge: { name: extensionName },
-            }),
-          );
-        case "local": {
-          const sourcePath = localLockEntryPath(deps, entry.path);
-          return Effect.succeed({
-            type: "knowledge" as const,
-            refType: "local" as const,
-            owner: entry.packageOwner,
-            name: entry.packageName,
-            source: { type: "local" as const, path: sourcePath },
-            location: fileHref(sourcePath),
-            sourcePath: entry.path,
-            knowledge: { name: extensionName },
-          });
-        }
-        case "github":
-        case "gitlab":
-        case "bitbucket":
-        case "azurerepos":
-        case "git":
-          return Effect.map(
-            gitBasedSourceFromEntry(entry, deps.getConfiguredSourceByName),
-            (source) => ({
-              type: "knowledge" as const,
-              refType: "git-hosted" as const,
-              owner: entry.packageOwner,
-              name: entry.packageName,
-              source,
-              ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
-              location: lockEntryLocation(deps, entry),
-              gitTreeSha: entry.resolvedTree,
-              gitCommitSha: entry.resolvedCommit,
-              knowledge: { name: extensionName },
-            }),
-          );
+      if (isRegistryLockEntry(entry)) {
+        return Effect.map(registrySourceFromEntry(entry, deps), (source) => ({
+          type: "knowledge" as const,
+          refType: "registry" as const,
+          source,
+          owner: entry.identity.owner,
+          publisherBindingId: entry.resolved.publisherBindingId,
+          name: entry.identity.name,
+          version: entry.resolved.version,
+          integrity:
+            entry.resolved.integrity.length > 0
+              ? Option.some(entry.resolved.integrity)
+              : Option.none(),
+          packages: [],
+          knowledge: { name: extensionName },
+        }));
       }
+      if (isPathLockEntry(entry)) {
+        const sourcePath = localLockEntryPath(deps, entry.source.path);
+        return Effect.succeed({
+          type: "knowledge" as const,
+          refType: "local" as const,
+          owner: entry.identity.owner,
+          name: entry.identity.name,
+          source: { type: "local" as const, path: sourcePath },
+          location: fileHref(sourcePath),
+          sourcePath: entry.source.path,
+          knowledge: { name: extensionName },
+        });
+      }
+      if (isGitLockEntry(entry)) {
+        return Effect.map(Effect.succeed(gitBasedSourceFromEntry(entry)), (source) => ({
+          type: "knowledge" as const,
+          refType: "git-hosted" as const,
+          owner: entry.identity.owner,
+          name: entry.identity.name,
+          source,
+          ...(entry.source.path === undefined ? {} : { sourcePath: entry.source.path }),
+          location: lockEntryLocation(deps, entry, "knowledge", extensionName),
+          gitTreeSha: entry.resolved.tree,
+          gitCommitSha: entry.resolved.commit,
+          knowledge: { name: extensionName },
+        }));
+      }
+      return Effect.die("Unrecognized lock entry source family");
     },
   );
 
@@ -649,60 +497,54 @@ export const packLockEntryToRef = (
   Effect.flatMap(
     decodeLockEntryName(name),
     (extensionName): Effect.Effect<PackRef, LockEntryToRefError> => {
-      switch (entry.type) {
-        case "registry":
-          return Effect.map(
-            registrySourceFromEntry(entry, deps.getConfiguredSourceByName),
-            (source) => ({
-              type: "pack" as const,
-              refType: "registry" as const,
-              source,
-              owner: entry.owner,
-              publisherBindingId: entry.publisherBindingId,
-              name: entry.name,
-              version: entry.resolvedVersion,
-              integrity: entry.integrity.length > 0 ? Option.some(entry.integrity) : Option.none(),
-              packages: [],
-              pack: { name: extensionName, dependencies: {} },
-            }),
-          );
-        case "local": {
-          const sourcePath = localLockEntryPath(deps, entry.path);
-          return Effect.succeed({
-            type: "pack" as const,
-            refType: "local" as const,
-            owner: entry.packageOwner,
-            name: entry.packageName,
-            version: entry.manifestVersion,
-            source: { type: "local" as const, path: sourcePath },
-            location: fileHref(sourcePath),
-            sourcePath: entry.path,
-            sourceMembers: [],
-            pack: { name: extensionName, dependencies: {} },
-          });
-        }
-        case "github":
-        case "gitlab":
-        case "bitbucket":
-        case "azurerepos":
-        case "git":
-          return Effect.map(
-            gitBasedSourceFromEntry(entry, deps.getConfiguredSourceByName),
-            (source) => ({
-              type: "pack" as const,
-              refType: "git-hosted" as const,
-              owner: entry.packageOwner,
-              name: entry.packageName,
-              version: entry.manifestVersion,
-              source,
-              ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
-              location: lockEntryLocation(deps, entry),
-              gitTreeSha: entry.resolvedTree,
-              gitCommitSha: entry.resolvedCommit,
-              sourceMembers: [],
-              pack: { name: extensionName, dependencies: {} },
-            }),
-          );
+      if (isRegistryLockEntry(entry)) {
+        return Effect.map(registrySourceFromEntry(entry, deps), (source) => ({
+          type: "pack" as const,
+          refType: "registry" as const,
+          source,
+          owner: entry.identity.owner,
+          publisherBindingId: entry.resolved.publisherBindingId,
+          name: entry.identity.name,
+          version: entry.resolved.version,
+          integrity:
+            entry.resolved.integrity.length > 0
+              ? Option.some(entry.resolved.integrity)
+              : Option.none(),
+          packages: [],
+          pack: { name: extensionName, dependencies: {} },
+        }));
       }
+      if (isPathLockEntry(entry)) {
+        const sourcePath = localLockEntryPath(deps, entry.source.path);
+        return Effect.succeed({
+          type: "pack" as const,
+          refType: "local" as const,
+          owner: entry.identity.owner,
+          name: entry.identity.name,
+          version: entry.manifestVersion,
+          source: { type: "local" as const, path: sourcePath },
+          location: fileHref(sourcePath),
+          sourcePath: entry.source.path,
+          sourceMembers: [],
+          pack: { name: extensionName, dependencies: {} },
+        });
+      }
+      if (isGitLockEntry(entry)) {
+        return Effect.map(Effect.succeed(gitBasedSourceFromEntry(entry)), (source) => ({
+          type: "pack" as const,
+          refType: "git-hosted" as const,
+          owner: entry.identity.owner,
+          name: entry.identity.name,
+          version: entry.manifestVersion,
+          source,
+          ...(entry.source.path === undefined ? {} : { sourcePath: entry.source.path }),
+          location: lockEntryLocation(deps, entry, "pack", extensionName),
+          gitTreeSha: entry.resolved.tree,
+          gitCommitSha: entry.resolved.commit,
+          sourceMembers: [],
+          pack: { name: extensionName, dependencies: {} },
+        }));
+      }
+      return Effect.die("Unrecognized lock entry source family");
     },
   );

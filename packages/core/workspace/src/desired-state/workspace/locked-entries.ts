@@ -55,6 +55,8 @@ export const getKnowledgeLockEntries = (
 
 /** Resolved version for a lock entry, when its source arm carries one. */
 export const lockEntryVersion = (entry: AnyLockEntry): string | null => {
-  if (entry.type === "registry") return entry.resolvedVersion;
+  if (entry.source.type === "registry" && "version" in entry.resolved) {
+    return entry.resolved.version;
+  }
   return null;
 };

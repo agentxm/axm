@@ -102,24 +102,19 @@ describe("portable React Router skill acquisition", () => {
       }
       const lockEntry = sourceToLockEntry({
         ref,
-        sourceName: Option.none(),
         contentIdentity: computeSourceHash("react-router-content"),
         treeIntegrity: materialized.treeIntegrity,
       });
       expect(lockEntry).toMatchObject({
-        type: "github",
-        sourceType: "github",
-        sourceName: "github",
-        endpoint: new URL("https://github.com"),
-        extensionType: "skill",
-        workspaceName: "react-router",
-        packageFormat: "agent-skill",
-        owner: "remix-run",
-        repo: "react-router",
-        path: sourcePath,
-        ref: "main",
+        source: {
+          type: "git",
+          url: new URL("https://github.com/remix-run/react-router.git"),
+          path: sourcePath,
+          revision: "main",
+        },
+        identity: { name: "react-router" },
       });
-      expect(lockEntry).not.toHaveProperty("packageOwner");
+      expect(lockEntry?.identity).not.toHaveProperty("owner");
 
       const observed = yield* observeCanonicalExtension({
         layout,

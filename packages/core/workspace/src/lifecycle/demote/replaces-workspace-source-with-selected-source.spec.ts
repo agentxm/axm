@@ -217,7 +217,7 @@ describe("Demoting workspace authorship", () => {
                 expect(neighborDeclaration(workspace)).toEqual(neighborSettingsBefore);
 
                 expect(workspace.readFile("axm-lock.yaml")).toContain(
-                  registry !== undefined ? "resolvedVersion: 2.0.0" : `${REVIEW}:`,
+                  registry !== undefined ? "version: 2.0.0" : `${REVIEW}:`,
                 );
               }),
             )

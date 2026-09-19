@@ -67,7 +67,7 @@ const makeInlineWorkspace = () => {
     path.join(root, "axm.json"),
     `${JSON.stringify({ agents: [], mcpServers: { ...authoredInlineEntries } }, null, 2)}\n`,
   );
-  fs.writeFileSync(path.join(root, "axm-lock.yaml"), "lockfileVersion: 7\nskills: {}\n");
+  fs.writeFileSync(path.join(root, "axm-lock.yaml"), "lockfileVersion: 8\nskills: {}\n");
   return {
     root,
     readSettings: (): unknown => JSON.parse(fs.readFileSync(path.join(root, "axm.json"), "utf8")),

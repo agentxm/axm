@@ -61,17 +61,6 @@ export class SymlinkCreationError extends Data.TaggedError("SymlinkCreationError
   readonly cause: unknown;
 }> {}
 
-/** A lockfile entry references a source name that is not configured. */
-export class LockEntrySourceMissing extends Data.TaggedError("LockEntrySourceMissing")<{
-  readonly entryType: string;
-  readonly sourceName: string;
-}> {}
-
-/** A lockfile source URL failed to parse. */
-export class LockEntryUrlInvalid extends Data.TaggedError("LockEntryUrlInvalid")<{
-  readonly value: string;
-}> {}
-
 /** A lockfile extension name failed to decode. */
 export class LockEntryNameInvalid extends Data.TaggedError("LockEntryNameInvalid")<{
   readonly name: string;
@@ -87,12 +76,6 @@ export class LockEntryEndpointConflict extends Data.TaggedError("LockEntryEndpoi
   readonly sourceName: string;
   readonly acceptedEndpoint: string;
   readonly resolvedEndpoint: string;
-}> {}
-
-/** Configuration does not resolve a lockfile entry's source name to its type. */
-export class LockEntrySourceTypeConflict extends Data.TaggedError("LockEntrySourceTypeConflict")<{
-  readonly sourceKind: string;
-  readonly sourceName: string;
 }> {}
 
 /** The accepted lock authority holds no resolution for the requested extension. */

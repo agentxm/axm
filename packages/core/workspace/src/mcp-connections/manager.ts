@@ -75,6 +75,7 @@ import { replaceCanonicalDirectoryWithInspection } from "../acquisition/canonica
 import { stripFileProtocol } from "@agentxm/registry-client";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { computePackageContentHash, mcpResolutionKey } from "../desired-state/index.js";
+import { registrySourceLockFields } from "../desired-state/index.js";
 import { buildExternalMcpServerLockEntry } from "./lock-entry-builder.js";
 import { McpWorkspacePackageInvalid } from "./errors.js";
 
@@ -82,21 +83,16 @@ import { McpWorkspacePackageInvalid } from "./errors.js";
 const buildMcpServerLockEntry = (
   ref: RegistryMcpServerRef,
   treeIntegrity: TreeIntegrity,
-): McpServerLockEntry => ({
-  type: "registry",
-  sourceType: "registry",
-  packageFormat: "agentxm",
-  endpoint: ref.source.location,
-  extensionType: "mcp-server",
-  workspaceName: ref.server.name,
-  owner: ref.owner,
-  name: ref.name,
-  resolvedVersion: decodeVersionSync(ref.version),
-  integrity: Option.getOrElse(ref.integrity, () => ""),
-  sourceName: ref.source.name,
-  publisherBindingId: ref.publisherBindingId,
-  treeIntegrity,
-});
+): McpServerLockEntry =>
+  registrySourceLockFields(
+    ref.source,
+    ref.owner,
+    ref.name,
+    decodeVersionSync(ref.version),
+    Option.getOrElse(ref.integrity, () => ""),
+    ref.publisherBindingId,
+    treeIntegrity,
+  );
 
 // -----------------------------------------------------------------------------
 // Live Layer

@@ -268,7 +268,14 @@ describe("axm knowledge lifecycle", () => {
       });
       expect(install.exitCode, install.stdout + install.stderr).toBe(0);
 
-      const installedRoot = path.join(temp.path, "agent_extensions", "local", "knowledge-source");
+      const installedRoot = path.join(
+        temp.path,
+        "agent_extensions",
+        "path",
+        "@acme",
+        "knowledge",
+        "platform",
+      );
       const installedConceptPath = path.join(installedRoot, "src", "architecture.md");
       const installedConcept = fs.readFileSync(installedConceptPath, "utf8");
       const sourceConceptPath = path.join(sourceRoot, "src", "architecture.md");

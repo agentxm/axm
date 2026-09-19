@@ -107,16 +107,9 @@ const makeHookManagerLayer = (
         hookNames.map((name) => [
           name,
           {
-            type: "local" as const,
-            sourceType: "local" as const,
-            sourceName: "local" as const,
-            extensionType: "hook" as const,
-            workspaceName: extensionName(name),
-            packageFormat: "agentxm" as const,
-            packageOwner: handle("@acme"),
-            packageName: extensionName(name),
-            path: decodeRelativePathSync("source-hook"),
-            contentIdentity: TEST_CONTENT_IDENTITY,
+            source: { type: "path" as const, path: decodeRelativePathSync("source-hook") },
+            identity: { owner: handle("@acme"), name: extensionName(name) },
+            resolved: { tree: TEST_CONTENT_IDENTITY },
             treeIntegrity: computeMaterializedTreeIntegritySync(
               nodePath.join(workspaceRoot, "agent_extensions", "path", "@acme", "hooks", name),
             ),
@@ -136,7 +129,7 @@ const makeHookManagerLayer = (
           hooks: entries,
         },
         acceptedResolutions: readLockedHooks().pipe(
-          Effect.map((hooks) => ({ lockfileVersion: 7, skills: {}, hooks })),
+          Effect.map((hooks) => ({ lockfileVersion: 8, skills: {}, hooks })),
         ),
         graph: {
           complete: true,

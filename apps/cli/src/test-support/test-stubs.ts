@@ -18,7 +18,6 @@ import {
   normalizeHandle,
 } from "@agentxm/extension-model/unstable/extensions";
 import {
-  makeRegistryPackLockEntry as buildRegistryPackLockEntry,
   type RegistryPackLockEntry,
   type SkillLockEntry,
   type WorkspaceLayout,
@@ -30,10 +29,7 @@ import {
   type Version,
   type VersionRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
-import {
-  decodeAbsolutePathSync,
-  decodeRelativePathSync,
-} from "@agentxm/extension-model/unstable/path-types";
+import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 
 /**
  * What a stub manager reports from a materialization: nothing acquired and
@@ -139,7 +135,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 /**
  * Accept concise fixture shapes useful to command tests, but publish only
- * valid v7 accepted resolutions to the workspace under test.
+ * valid v8 accepted resolutions to the workspace under test.
  * Authored workspace packages deliberately have no lock row.
  */
 const normalizeTestLockMap = (
@@ -158,24 +154,25 @@ const normalizeTestLockMap = (
           [
             name,
             {
-              type,
-              sourceType: "registry",
-              endpoint:
-                value["endpoint"] ??
-                sourceEndpoints.get(sourceName) ??
-                "https://registry.agentxm.ai",
-              extensionType,
-              workspaceName:
-                value["workspaceName"] ??
-                (extensionType === "mcp-server" ? value["name"] : undefined) ??
-                name,
-              packageFormat: "agentxm",
-              owner: value["owner"],
-              name: value["name"],
-              resolvedVersion: value["resolvedVersion"],
-              integrity: value["integrity"],
-              sourceName,
-              publisherBindingId: value["publisherBindingId"],
+              source: {
+                type: "registry",
+                url:
+                  value["endpoint"] ??
+                  sourceEndpoints.get(sourceName) ??
+                  "https://registry.agentxm.ai",
+              },
+              identity: {
+                owner: value["owner"],
+                name:
+                  value["workspaceName"] ??
+                  (extensionType === "mcp-server" ? value["name"] : undefined) ??
+                  name,
+              },
+              resolved: {
+                version: value["resolvedVersion"],
+                integrity: value["integrity"],
+                publisherBindingId: value["publisherBindingId"],
+              },
               treeIntegrity: value["treeIntegrity"] ?? TEST_TREE_INTEGRITY,
               ...(extensionType === "pack"
                 ? {
@@ -196,17 +193,14 @@ const normalizeTestLockMap = (
           [
             name,
             {
-              type,
-              sourceType: "local",
-              sourceName: "local",
-              extensionType,
-              workspaceName: value["workspaceName"] ?? name,
-              packageFormat: value["packageFormat"] ?? "agentxm",
-              packageOwner: value["packageOwner"] ?? value["owner"] ?? "@acme",
-              packageName: value["packageName"] ?? name,
-              path: value["path"],
-              contentIdentity:
-                value["contentIdentity"] ?? value["sourceHash"] ?? TEST_CONTENT_IDENTITY,
+              source: { type: "path", path: value["path"] },
+              identity: {
+                owner: value["packageOwner"] ?? value["owner"] ?? "@acme",
+                name: value["packageName"] ?? value["workspaceName"] ?? name,
+              },
+              resolved: {
+                tree: value["contentIdentity"] ?? value["sourceHash"] ?? TEST_CONTENT_IDENTITY,
+              },
               treeIntegrity: value["treeIntegrity"] ?? TEST_TREE_INTEGRITY,
             },
           ],
@@ -221,41 +215,32 @@ const normalizeTestLockMap = (
       ) {
         const immutableRevision = value["gitTreeHash"] ?? "test-revision";
         const sourceName = type === "git" ? "git" : (value["sourceName"] ?? type);
+        const endpoint =
+          value["endpoint"] ?? sourceEndpoints.get(String(sourceName)) ?? `https://${type}.com`;
+        const url =
+          type === "git"
+            ? value["url"]
+            : type === "azurerepos"
+              ? `${String(endpoint).replace(/\/$/, "")}/${String(value["organization"])}/${String(value["project"])}/_git/${String(value["repo"])}`
+              : `${String(endpoint).replace(/\/$/, "")}/${String(value["owner"])}/${String(value["repo"])}.git`;
         return [
           [
             name,
             {
-              type,
-              sourceType: type,
-              sourceName,
-              ...(type === "git"
-                ? {}
-                : {
-                    endpoint:
-                      value["endpoint"] ??
-                      sourceEndpoints.get(String(sourceName)) ??
-                      `https://${type}.com`,
-                  }),
-              extensionType,
-              workspaceName: value["workspaceName"] ?? name,
-              packageFormat: value["packageFormat"] ?? "agentxm",
-              packageOwner: value["packageOwner"] ?? value["owner"] ?? "@acme",
-              packageName: value["packageName"] ?? name,
-              ...(type === "azurerepos"
-                ? {
-                    organization: value["organization"],
-                    project: value["project"],
-                    repo: value["repo"],
-                  }
-                : type === "git"
-                  ? { url: value["url"] }
-                  : { owner: value["owner"], repo: value["repo"] }),
-              ...(value["ref"] === undefined ? {} : { ref: value["ref"] }),
-              ...(value["path"] === undefined ? {} : { path: value["path"] }),
-              resolvedCommit: value["resolvedCommit"] ?? immutableRevision,
-              resolvedTree: value["resolvedTree"] ?? immutableRevision,
-              contentIdentity:
-                value["contentIdentity"] ?? value["sourceHash"] ?? TEST_CONTENT_IDENTITY,
+              source: {
+                type: "git",
+                url,
+                ...(value["path"] === undefined ? {} : { path: value["path"] }),
+                ...(value["ref"] === undefined ? {} : { revision: value["ref"] }),
+              },
+              identity: {
+                owner: value["packageOwner"] ?? value["owner"] ?? "@acme",
+                name: value["packageName"] ?? value["workspaceName"] ?? name,
+              },
+              resolved: {
+                commit: value["resolvedCommit"] ?? immutableRevision,
+                tree: value["resolvedTree"] ?? immutableRevision,
+              },
               treeIntegrity: value["treeIntegrity"] ?? TEST_TREE_INTEGRITY,
             },
           ],
@@ -365,7 +350,7 @@ export const makeWorkspaceFileContents = (opts: WriteWorkspaceFilesOptions = {})
   };
 
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 7,
+    lockfileVersion: 8,
     skills: normalizeTestLockMap(opts.lockfileSkills, "skill", sourceEndpoints),
     ...(hasEntries(opts.lockfileRules) && {
       rules: normalizeTestLockMap(opts.lockfileRules, "rule", sourceEndpoints),
@@ -509,16 +494,12 @@ export const makeLocalSkillLockEntry = (opts?: {
   readonly installedAt?: unknown;
   readonly updatedAt?: unknown;
 }): SkillLockEntry => ({
-  type: "local",
-  sourceType: "local",
-  sourceName: "local",
-  extensionType: "skill",
-  workspaceName: extensionName(opts?.name ?? "test"),
-  packageFormat: "agentxm",
-  packageOwner: normalizeHandle(opts?.owner ?? "@acme"),
-  packageName: extensionName(opts?.name ?? "test"),
-  path: decodeRelativePathSync(opts?.path ?? "installed"),
-  contentIdentity: TEST_CONTENT_IDENTITY,
+  source: { type: "path", path: opts?.path ?? "installed" },
+  identity: {
+    owner: normalizeHandle(opts?.owner ?? "@acme"),
+    name: extensionName(opts?.name ?? "test"),
+  },
+  resolved: { tree: TEST_CONTENT_IDENTITY },
   treeIntegrity: TEST_TREE_INTEGRITY,
 });
 
@@ -534,18 +515,16 @@ export const makeRegistrySkillLockEntry = (opts: {
   readonly installedAt?: unknown;
   readonly updatedAt?: unknown;
 }): SkillLockEntry => ({
-  type: "registry",
-  sourceType: "registry",
-  endpoint: opts.endpoint ?? new URL("https://registry.agentxm.ai"),
-  extensionType: "skill",
-  workspaceName: extensionName(opts.name),
-  packageFormat: "agentxm",
-  owner: normalizeHandle(opts.owner),
-  name: extensionName(opts.name),
-  resolvedVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
-  integrity: opts.integrity ?? "sha512-AAAA==",
-  sourceName: opts.sourceName ?? "agentxm",
-  publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
+  source: {
+    type: "registry",
+    url: opts.endpoint ?? new URL("https://registry.agentxm.ai"),
+  },
+  identity: { owner: normalizeHandle(opts.owner), name: extensionName(opts.name) },
+  resolved: {
+    version: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
+    integrity: opts.integrity ?? "sha512-AAAA==",
+    publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
+  },
   treeIntegrity: TEST_TREE_INTEGRITY,
 });
 
@@ -563,24 +542,22 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly resolvedSubagents?: Readonly<Record<string, unknown>>;
   readonly installedAt?: unknown;
   readonly updatedAt?: unknown;
-}): RegistryPackLockEntry =>
-  buildRegistryPackLockEntry({
-    sourceType: "registry",
-    endpoint: opts.endpoint ?? new URL("https://registry.agentxm.ai"),
-    extensionType: "pack",
-    workspaceName: extensionName(opts.name),
-    packageFormat: "agentxm",
-    owner: normalizeHandle(opts.owner),
-    name: extensionName(opts.name),
-    resolvedVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
+}): RegistryPackLockEntry => ({
+  source: {
+    type: "registry",
+    url: opts.endpoint ?? new URL("https://registry.agentxm.ai"),
+  },
+  identity: { owner: normalizeHandle(opts.owner), name: extensionName(opts.name) },
+  resolved: {
+    version: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
     integrity: opts.integrity ?? "sha512-AAAA==",
-    sourceName: opts.sourceName ?? "agentxm",
     publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
-    treeIntegrity: TEST_TREE_INTEGRITY,
-    manifestVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
-    manifestContentIdentity:
-      opts.sourceHash === undefined
-        ? TEST_CONTENT_IDENTITY
-        : Schema.decodeUnknownSync(SourceHashSchema)(opts.sourceHash),
-    members: [],
-  });
+  },
+  treeIntegrity: TEST_TREE_INTEGRITY,
+  manifestVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
+  manifestContentIdentity:
+    opts.sourceHash === undefined
+      ? TEST_CONTENT_IDENTITY
+      : Schema.decodeUnknownSync(SourceHashSchema)(opts.sourceHash),
+  members: [],
+});

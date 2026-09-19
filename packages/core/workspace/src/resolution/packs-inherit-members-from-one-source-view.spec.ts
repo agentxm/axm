@@ -133,25 +133,16 @@ describe("source-inherited Pack members", () => {
           }
 
           const lock = Schema.decodeUnknownSync(PackLockEntrySchema)({
-            type: "git",
-            sourceType: "git",
-            sourceName: "git",
-            extensionType: "pack",
-            workspaceName: "starter",
-            packageFormat: "agentxm",
-            packageOwner: "@acme",
-            packageName: "starter",
-            url: gitSource.url.href,
-            resolvedCommit: gitPack.gitCommitSha,
-            resolvedTree: gitPack.gitTreeSha,
-            contentIdentity: "sha256-pack-content",
+            source: { type: "git", url: gitSource.url.href },
+            identity: { owner: "@acme", name: "starter" },
+            resolved: { commit: gitPack.gitCommitSha, tree: gitPack.gitTreeSha },
             treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
             manifestVersion: "1.0.0",
             manifestContentIdentity: "sha256-pack-manifest",
             members: ["@acme/skills/review"],
           });
           expect(lock).toMatchObject({
-            resolvedCommit: gitPack.gitCommitSha,
+            resolved: { commit: gitPack.gitCommitSha },
             members: ["@acme/skills/review"],
           });
         }

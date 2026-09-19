@@ -64,7 +64,7 @@ const extensionDirForSurface = (
     workspacePath,
     ...(scope === "user" ? [".axm", "workspace"] : []),
     "agent_extensions",
-    "agentxm",
+    "registry",
     OWNER,
     surface,
     name,

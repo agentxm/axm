@@ -162,7 +162,7 @@ const makeTestLayer = (overrides?: {
           subagents: configuredSubagents,
         },
         lockfile: {
-          lockfileVersion: 7,
+          lockfileVersion: 8,
           skills: {},
           subagents: overrides?.lockedSubagents ?? {},
         },
@@ -203,16 +203,9 @@ describe("SubagentManager", () => {
           makeTestLayer({
             lockedSubagents: {
               planner: {
-                type: "local",
-                sourceType: "local",
-                sourceName: "local",
-                extensionType: "subagent",
-                workspaceName: extensionName("planner"),
-                packageFormat: "agentxm",
-                packageOwner: handle("@acme"),
-                packageName: extensionName("planner"),
-                path: decodeRelativePathSync("test"),
-                contentIdentity: TEST_CONTENT_IDENTITY,
+                source: { type: "path", path: decodeRelativePathSync("test") },
+                identity: { owner: handle("@acme"), name: extensionName("planner") },
+                resolved: { tree: TEST_CONTENT_IDENTITY },
                 treeIntegrity: TEST_TREE_INTEGRITY,
               },
             },
@@ -341,16 +334,9 @@ describe("SubagentManager", () => {
             agents: [agentWithSpy],
             lockedSubagents: {
               planner: {
-                type: "local",
-                sourceType: "local",
-                sourceName: "local",
-                extensionType: "subagent",
-                workspaceName: extensionName("planner"),
-                packageFormat: "agentxm",
-                packageOwner: handle("@acme"),
-                packageName: extensionName("planner"),
-                path: decodeRelativePathSync("sources/planner"),
-                contentIdentity: TEST_CONTENT_IDENTITY,
+                source: { type: "path", path: decodeRelativePathSync("sources/planner") },
+                identity: { owner: handle("@acme"), name: extensionName("planner") },
+                resolved: { tree: TEST_CONTENT_IDENTITY },
                 treeIntegrity: TEST_TREE_INTEGRITY,
               },
             },
@@ -402,7 +388,7 @@ describe("SubagentManager", () => {
         expect(content).toContain("Use `axm fork`");
         expect(content).not.toContain("Edit:");
         expect(content).toContain("advisory role-skill fallback");
-        expect(captured).toHaveProperty("contentIdentity");
+        expect(captured).toHaveProperty("resolved.tree");
         expect(captured).not.toHaveProperty("renderedFiles");
         yield* manager.materializeDeactivate({
           target: { type: "subagent", name: "planner" },
@@ -487,16 +473,9 @@ describe("SubagentManager", () => {
             agents: [agentWithSpy],
             lockedSubagents: {
               planner: {
-                type: "local",
-                sourceType: "local",
-                sourceName: "local",
-                extensionType: "subagent",
-                workspaceName: extensionName("planner"),
-                packageFormat: "agentxm",
-                packageOwner: handle("@acme"),
-                packageName: extensionName("planner"),
-                path: decodeRelativePathSync("tmp/source/planner"),
-                contentIdentity: TEST_CONTENT_IDENTITY,
+                source: { type: "path", path: decodeRelativePathSync("tmp/source/planner") },
+                identity: { owner: handle("@acme"), name: extensionName("planner") },
+                resolved: { tree: TEST_CONTENT_IDENTITY },
                 treeIntegrity: TEST_TREE_INTEGRITY,
               },
             },
@@ -547,18 +526,16 @@ describe("SubagentManager", () => {
             },
             lockedSubagents: {
               planner: {
-                type: "registry",
-                sourceType: "registry",
-                packageFormat: "agentxm",
-                endpoint: new URL("https://registry.agentxm.ai"),
-                extensionType: "subagent",
-                workspaceName: extensionName("planner"),
-                owner: handle("@test"),
-                name: extensionName("planner"),
-                resolvedVersion: exactVersion("1.0.0"),
-                integrity: "sha512-test",
-                sourceName: "agentxm",
-                publisherBindingId: "hbnd_test",
+                source: {
+                  type: "registry",
+                  url: new URL("https://registry.agentxm.ai"),
+                },
+                identity: { owner: handle("@test"), name: extensionName("planner") },
+                resolved: {
+                  version: exactVersion("1.0.0"),
+                  integrity: "sha512-test",
+                  publisherBindingId: "hbnd_test",
+                },
                 treeIntegrity: TEST_TREE_INTEGRITY,
               },
             },

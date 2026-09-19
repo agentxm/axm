@@ -114,7 +114,7 @@ describe("Type-specific inventory", () => {
               name: "toolkit",
               owner: "@acme",
               version: "2.3.4",
-              source: "agentxm",
+              source: "agentxm:@acme/packs/toolkit",
             }),
           ]);
           expect(inventory.items[0]?.installed).toBe(true);

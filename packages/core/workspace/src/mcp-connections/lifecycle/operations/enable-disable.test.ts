@@ -182,7 +182,7 @@ describe("enableMcpServer and disableMcpServer", () => {
         problems: [],
       };
       const services = makeServices(axmDir, { entry }, makeAgentRepo(agent), {
-        lockfile: { lockfileVersion: 7, skills: {}, mcpServers: { [identity]: lockEntry } },
+        lockfile: { lockfileVersion: 8, skills: {}, mcpServers: { [identity]: lockEntry } },
         graph,
       });
 

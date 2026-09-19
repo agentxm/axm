@@ -131,7 +131,7 @@ const heldNewerRelease = (
       force: false,
       preview: false,
     }).pipe(Effect.provide(workspace.layer), Effect.orDie);
-    expect(workspace.readLockfileText()).toContain("resolvedVersion: 1.0.0");
+    expect(workspace.readLockfileText()).toContain("version: 1.0.0");
     registry.writeSkill(SKILL, [
       { version: "1.0.0", body: "Guidance 1.0.0." },
       { version: "2.0.0", body: "Guidance 2.0.0.", published: new Date().toISOString() },
@@ -295,9 +295,9 @@ describe("The one-shot release-age override", () => {
       // The machine record names the reason `minimum-release-age`; a refusal
       // renders the same policy in prose.
       expect(reported).toMatch(/minimum[ -]release[ -]age/iu);
-      expect(workspace.readLockfileText()).not.toContain(`resolvedVersion: ${heldVersion}`);
+      expect(workspace.readLockfileText()).not.toContain(`version: ${heldVersion}`);
       if (keptVersion !== undefined) {
-        expect(workspace.readLockfileText()).toContain(`resolvedVersion: ${keptVersion}`);
+        expect(workspace.readLockfileText()).toContain(`version: ${keptVersion}`);
       }
     }),
   );
@@ -309,7 +309,7 @@ describe("The one-shot release-age override", () => {
       yield* row.run(workspace);
 
       expect(JSON.stringify(workspace.rendererState.results)).toContain("ignore-flag");
-      expect(workspace.readLockfileText()).toContain(`resolvedVersion: ${heldVersion}`);
+      expect(workspace.readLockfileText()).toContain(`version: ${heldVersion}`);
     }),
   );
 });

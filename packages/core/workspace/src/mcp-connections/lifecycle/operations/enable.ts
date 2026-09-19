@@ -27,7 +27,7 @@ import type {
 } from "../../../transitions/planning/index.js";
 import {
   type DesiredStateReader,
-  type LockfileReader,
+  LockfileReader,
   SettingsReader,
   SettingsWriter,
   WorkspaceLocation,
@@ -89,6 +89,7 @@ export const enableMcpServer = (
     const location = yield* WorkspaceLocation;
     const settings = yield* SettingsReader;
     const settingsWriter = yield* SettingsWriter;
+    const lockfile = yield* LockfileReader;
     const agentRepo = yield* CodingAgentRepository;
 
     const configured = yield* settings.entries("mcp-server");
@@ -169,17 +170,19 @@ export const enableMcpServer = (
       });
     }
     const canonicalPath = canonical.value.observation.path;
-    const accepted =
-      canonical.value.accepted?.extensionType === "mcp-server"
-        ? canonical.value.accepted
-        : undefined;
+    const accepted = Option.getOrUndefined(
+      yield* lockfile.mcpServerForConnection(op.args.serverName),
+    );
     const identity = canonical.value.desired.identity.startsWith("workspace:")
       ? canonical.value.desired.identity.slice("workspace:".length)
       : canonical.value.desired.identity;
     const trustedIdentity = parseExtensionFqnParts(identity);
     const owner =
       trustedIdentity?.type === "mcp-server" ? trustedIdentity.owner : normalizeHandle("@local");
-    const resolvedVersion = accepted?.type === "registry" ? accepted.resolvedVersion : "0.0.0";
+    const resolvedVersion =
+      accepted?.source.type === "registry" && "version" in accepted.resolved
+        ? accepted.resolved.version
+        : "0.0.0";
 
     const agents = yield* agentRepo.getConfiguredAgents();
     const agentIds = agents.map(({ id }) => id);

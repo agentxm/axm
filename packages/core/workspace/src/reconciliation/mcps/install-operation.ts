@@ -142,18 +142,13 @@ const buildLockEntry = (
   ref: RegistryMcpServerRef,
   treeIntegrity: TreeIntegrity,
 ): McpServerLockEntry => ({
-  type: "registry",
-  sourceType: "registry",
-  packageFormat: "agentxm",
-  endpoint: ref.source.location,
-  extensionType: "mcp-server",
-  workspaceName: ref.server.name,
-  owner: ref.owner,
-  name: ref.name,
-  resolvedVersion: decodeVersionSync(ref.version),
-  integrity: Option.getOrElse(ref.integrity, () => ""),
-  sourceName: ref.source.name,
-  publisherBindingId: ref.publisherBindingId,
+  source: { type: "registry", url: ref.source.location },
+  identity: { owner: ref.owner, name: ref.name },
+  resolved: {
+    version: decodeVersionSync(ref.version),
+    integrity: Option.getOrElse(ref.integrity, () => ""),
+    publisherBindingId: ref.publisherBindingId,
+  },
   treeIntegrity,
 });
 

@@ -138,14 +138,21 @@ const getAcceptedResolution = (
   }
 };
 
-type GitAcceptedResolution = Exclude<AcceptedResolution, { readonly type: "registry" | "local" }>;
+type GitAcceptedResolution = Extract<
+  AcceptedResolution,
+  { readonly source: { readonly type: "git" } }
+>;
+type RegistryAcceptedResolution = Extract<
+  AcceptedResolution,
+  { readonly source: { readonly type: "registry" } }
+>;
 
 const isGitAcceptedResolution = (entry: AcceptedResolution): entry is GitAcceptedResolution =>
-  entry.type === "github" ||
-  entry.type === "gitlab" ||
-  entry.type === "bitbucket" ||
-  entry.type === "azurerepos" ||
-  entry.type === "git";
+  entry.source.type === "git";
+
+const isRegistryAcceptedResolution = (
+  entry: AcceptedResolution,
+): entry is RegistryAcceptedResolution => entry.source.type === "registry";
 
 // ---------------------------------------------------------------------------
 // Generic collector
@@ -175,7 +182,7 @@ const collectCurrency = (extensionType: ExtensionType, client: RegistryClient) =
         ),
     );
     const eligible = accepted.flatMap(({ node, resolution }) =>
-      Option.isSome(resolution) && resolution.value.type === "registry"
+      Option.isSome(resolution) && isRegistryAcceptedResolution(resolution.value)
         ? [{ node, resolution: resolution.value }]
         : [],
     );
@@ -185,7 +192,7 @@ const collectCurrency = (extensionType: ExtensionType, client: RegistryClient) =
       ({ node, resolution }) =>
         Effect.gen(function* () {
           const installedVersion = yield* Schema.decodeUnknownEffect(VersionSchema)(
-            resolution.resolvedVersion,
+            resolution.resolved.version,
           ).pipe(
             Effect.mapError(
               () =>
@@ -197,15 +204,15 @@ const collectCurrency = (extensionType: ExtensionType, client: RegistryClient) =
           );
           const constraint = parseConstraintFromSource(node.source);
           const indexOption = yield* client.getExtensionIndex({
-            owner: resolution.owner,
+            owner: resolution.identity.owner,
             type: extensionType,
-            name: resolution.name,
+            name: resolution.identity.name,
           });
           if (Option.isNone(indexOption)) return Option.none();
           const currency = checkCurrency(installedVersion, constraint, indexOption.value);
           return Option.some({
             kind: "registry-version",
-            ref: buildFqn(resolution.owner, extensionType, resolution.name),
+            ref: buildFqn(resolution.identity.owner, extensionType, resolution.identity.name),
             type: extensionType,
             installedVersion,
             constraint,
@@ -331,7 +338,7 @@ const collectSourceFreshness = (args: { readonly extensionType: ExtensionType })
       eligible,
       ({ node, resolution }) =>
         Effect.gen(function* () {
-          const installedTreeHash = Option.some(resolution.resolvedTree);
+          const installedTreeHash = Option.some(resolution.resolved.tree);
           const unresolved = (reason: string): ExtensionSourceFreshnessEntry =>
             freshnessEntry({
               localName: node.name,

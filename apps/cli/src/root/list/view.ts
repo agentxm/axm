@@ -86,7 +86,7 @@ const toRow = (item: ExtensionListItem, filter: ExtensionListFilter): ListTableR
   installed: item.installed,
   enabled: item.enabled === true,
   version: item.version ?? "-",
-  source: item.sourceName ?? item.source ?? "-",
+  source: item.source ?? "-",
   state: item.assessment.state,
   guidance: guidanceFor(item, filter),
 });

@@ -15,7 +15,7 @@ const item = (
   installed: true,
   enabled: true,
   version: "1.0.0",
-  sourceName: "agentxm",
+  source: "agentxm:@acme/skills/example@1.0.0",
   assessment: { state: "not-checked" },
   ...facts,
 });
@@ -35,7 +35,7 @@ export const aReadInventoryTable: Doc = listDoc({
     item("@acme/skills/triage", "skill", { version: "2.0.1" }),
     item("@acme/subagents/reviewer", "subagent", { version: "0.9.0" }),
     item("@acme/packs/review-kit", "pack", { version: "2.1.0", enabled: null }),
-    item("github", "mcp-server", { enabled: false, sourceName: "local" }),
+    item("github", "mcp-server", { enabled: false, source: "./github" }),
     item("@legacy/skills/changelog", "skill", {
       version: "0.3.0",
       management: "leftover",

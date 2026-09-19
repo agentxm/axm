@@ -70,16 +70,9 @@ const completeGraph = (nodes: ReadonlyArray<DesiredExtensionNode>): DesiredState
 });
 
 const localLock = (baseDir: string, name: string) => ({
-  type: "local" as const,
-  sourceType: "local" as const,
-  sourceName: "local" as const,
-  extensionType: "knowledge" as const,
-  workspaceName: extensionName(name),
-  packageFormat: "agentxm" as const,
-  packageOwner: handle(OWNER),
-  packageName: extensionName(name),
-  path: decodeRelativePathSync(`sources/${name}`),
-  contentIdentity: TEST_CONTENT_IDENTITY,
+  source: { type: "path" as const, path: decodeRelativePathSync(`sources/${name}`) },
+  identity: { owner: handle(OWNER), name: extensionName(name) },
+  resolved: { tree: TEST_CONTENT_IDENTITY },
   treeIntegrity: computeMaterializedTreeIntegritySync(
     nodePath.join(baseDir, "agent_extensions", "path", OWNER, "knowledge", name),
   ),
@@ -140,7 +133,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
                 : {}),
               ...(args.instructionFiles === false ? {} : { instructionFiles: {} }),
             },
-            lockfile: { lockfileVersion: 7, skills: {}, knowledge: args.locked },
+            lockfile: { lockfileVersion: 8, skills: {}, knowledge: args.locked },
             graph: args.graph,
           }),
           Layer.mock(SettingsWriter, {}),

@@ -295,7 +295,7 @@ export const writeWorkspaceFiles = (runtimeDir: string, opts: WriteWorkspaceFile
   };
 
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 7,
+    lockfileVersion: 8,
     skills: opts.lockfileSkills ?? {},
     ...(hasEntries(opts.lockfileMcpServers) && { mcps: opts.lockfileMcpServers }),
     ...(hasEntries(opts.lockfileSubagents) && { subagents: opts.lockfileSubagents }),
@@ -315,16 +315,12 @@ export const makeLocalSkillLockEntry = (opts?: {
   readonly installedAt?: unknown;
   readonly updatedAt?: unknown;
 }): SkillLockEntry => ({
-  type: "local",
-  sourceType: "local",
-  sourceName: "local",
-  packageFormat: "agentxm",
-  extensionType: "skill",
-  workspaceName: decodeExtensionNameSync("installed"),
-  packageOwner: decodeHandleSync("@test"),
-  packageName: decodeExtensionNameSync("installed"),
-  path: decodeRelativePathSync(opts?.path ?? "installed"),
-  contentIdentity: TEST_CONTENT_IDENTITY,
+  source: { type: "path", path: decodeRelativePathSync(opts?.path ?? "installed") },
+  identity: {
+    owner: decodeHandleSync("@test"),
+    name: decodeExtensionNameSync("installed"),
+  },
+  resolved: { tree: TEST_CONTENT_IDENTITY },
   treeIntegrity: TEST_TREE_INTEGRITY,
 });
 
@@ -340,18 +336,16 @@ export const makeRegistrySkillLockEntry = (opts: {
   readonly installedAt?: unknown;
   readonly updatedAt?: unknown;
 }): SkillLockEntry => ({
-  type: "registry",
-  sourceType: "registry",
-  packageFormat: "agentxm",
-  endpoint: opts.endpoint ?? new URL("https://registry.agentxm.ai"),
-  extensionType: "skill",
-  workspaceName: decodeExtensionNameSync(opts.name),
-  owner: opts.owner,
-  name: decodeExtensionNameSync(opts.name),
-  resolvedVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
-  integrity: opts.integrity ?? "sha512-AAAA==",
-  sourceName: opts.sourceName ?? "agentxm",
-  publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
+  source: {
+    type: "registry",
+    url: opts.endpoint ?? new URL("https://registry.agentxm.ai"),
+  },
+  identity: { owner: opts.owner, name: decodeExtensionNameSync(opts.name) },
+  resolved: {
+    version: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
+    integrity: opts.integrity ?? "sha512-AAAA==",
+    publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
+  },
   treeIntegrity: TEST_TREE_INTEGRITY,
 });
 
@@ -366,18 +360,16 @@ export const makeRegistryMcpServerLockEntry = (opts: {
   readonly installedAt?: unknown;
   readonly updatedAt?: unknown;
 }): McpServerLockEntry => ({
-  type: "registry",
-  sourceType: "registry",
-  packageFormat: "agentxm",
-  endpoint: opts.endpoint ?? new URL("https://registry.agentxm.ai"),
-  extensionType: "mcp-server",
-  workspaceName: decodeExtensionNameSync(opts.name),
-  owner: opts.owner,
-  name: decodeExtensionNameSync(opts.name),
-  resolvedVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
-  integrity: opts.integrity ?? "sha512-AAAA==",
-  sourceName: opts.sourceName ?? "agentxm",
-  publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
+  source: {
+    type: "registry",
+    url: opts.endpoint ?? new URL("https://registry.agentxm.ai"),
+  },
+  identity: { owner: opts.owner, name: decodeExtensionNameSync(opts.name) },
+  resolved: {
+    version: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
+    integrity: opts.integrity ?? "sha512-AAAA==",
+    publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
+  },
   treeIntegrity: TEST_TREE_INTEGRITY,
 });
 
@@ -397,17 +389,16 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly updatedAt?: unknown;
 }): RegistryPackLockEntry =>
   buildRegistryPackLockEntry({
-    sourceType: "registry",
-    packageFormat: "agentxm",
-    endpoint: opts.endpoint ?? new URL("https://registry.agentxm.ai"),
-    extensionType: "pack",
-    workspaceName: decodeExtensionNameSync(opts.name),
-    owner: opts.owner,
-    name: decodeExtensionNameSync(opts.name),
-    resolvedVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
-    integrity: opts.integrity ?? "sha512-AAAA==",
-    sourceName: opts.sourceName ?? "agentxm",
-    publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
+    source: {
+      type: "registry",
+      url: opts.endpoint ?? new URL("https://registry.agentxm.ai"),
+    },
+    identity: { owner: opts.owner, name: decodeExtensionNameSync(opts.name) },
+    resolved: {
+      version: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
+      integrity: opts.integrity ?? "sha512-AAAA==",
+      publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
+    },
     manifestVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
     manifestContentIdentity:
       opts.sourceHash === undefined

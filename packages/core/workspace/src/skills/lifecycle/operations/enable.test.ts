@@ -89,7 +89,7 @@ const withServices = (axmDir: string, facts: EnableSkillTestFacts = {}) => {
       baseDir: path.dirname(axmDir),
       runtimeDir: axmDir,
       settings: { agents: configuredAgents, skills: normalizedSettingsSkills },
-      lockfile: { lockfileVersion: 7, skills: facts.lockfileSkills ?? {} },
+      lockfile: { lockfileVersion: 8, skills: facts.lockfileSkills ?? {} },
       graph,
     }),
     Layer.mock(SettingsWriter, {
@@ -113,16 +113,9 @@ const makeLocalLockEntry = (
   sourcePath = "tmp/source",
   contentIdentity: SourceHash = TEST_CONTENT_IDENTITY,
 ): SkillLockEntry => ({
-  type: "local" as const,
-  sourceType: "local",
-  sourceName: "local",
-  extensionType: "skill",
-  workspaceName: extensionName("my-skill"),
-  packageFormat: "agentxm",
-  packageOwner: handle("@community"),
-  packageName: extensionName("my-skill"),
-  path: decodeRelativePathSync(sourcePath),
-  contentIdentity,
+  source: { type: "path", path: decodeRelativePathSync(sourcePath) },
+  identity: { owner: handle("@community"), name: extensionName("my-skill") },
+  resolved: { tree: contentIdentity },
   treeIntegrity:
     packageRoot === undefined
       ? TEST_TREE_INTEGRITY

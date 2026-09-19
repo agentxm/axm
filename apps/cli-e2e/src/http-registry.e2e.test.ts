@@ -913,7 +913,7 @@ describe("HTTP registry transport", () => {
       expect(fileInstall.exitCode).toBe(httpInstall.exitCode);
 
       const extensionDir = (workspacePath: string) =>
-        path.join(workspacePath, "agent_extensions", "agentxm", OWNER, "skills", name);
+        path.join(workspacePath, "agent_extensions", "registry", OWNER, "skills", name);
 
       expect(snapshotDir(extensionDir(httpWorkspace.path))).toEqual(
         snapshotDir(extensionDir(fileWorkspace.path)),

@@ -113,20 +113,13 @@ const desiredHandbookReadFacts = (
 ): Omit<WorkspaceReadTestFacts, "baseDir" | "runtimeDir"> => ({
   settings: { knowledge: { handbook: { source: "./source", enabled: true } } },
   acceptedResolutions: Effect.sync(() => ({
-    lockfileVersion: 7 as const,
+    lockfileVersion: 8 as const,
     skills: {},
     knowledge: {
       handbook: {
-        type: "local" as const,
-        sourceType: "local" as const,
-        sourceName: "local" as const,
-        extensionType: "knowledge" as const,
-        workspaceName: extensionName("handbook"),
-        packageFormat: "agentxm" as const,
-        packageOwner: handle("@acme"),
-        packageName: extensionName("handbook"),
-        path: decodeRelativePathSync("source"),
-        contentIdentity: TEST_CONTENT_IDENTITY,
+        source: { type: "path" as const, path: decodeRelativePathSync("source") },
+        identity: { owner: handle("@acme"), name: extensionName("handbook") },
+        resolved: { tree: TEST_CONTENT_IDENTITY },
         treeIntegrity: computeMaterializedTreeIntegritySync(
           nodePath.join(
             workspaceRoot,
@@ -702,29 +695,15 @@ describe("KnowledgeManager", () => {
 
           const locked = {
             healthy: {
-              type: "local",
-              sourceType: "local",
-              sourceName: "local",
-              extensionType: "knowledge",
-              workspaceName: extensionName("healthy"),
-              packageFormat: "agentxm",
-              packageOwner: handle("@acme"),
-              packageName: extensionName("healthy"),
-              path: "sources/healthy",
-              contentIdentity: TEST_CONTENT_IDENTITY,
+              source: { type: "path", path: "sources/healthy" },
+              identity: { owner: handle("@acme"), name: extensionName("healthy") },
+              resolved: { tree: TEST_CONTENT_IDENTITY },
               treeIntegrity: computeMaterializedTreeIntegritySync(healthyCanonical),
             },
             unavailable: {
-              type: "local",
-              sourceType: "local",
-              sourceName: "local",
-              extensionType: "knowledge",
-              workspaceName: extensionName("unavailable"),
-              packageFormat: "agentxm",
-              packageOwner: handle("@acme"),
-              packageName: extensionName("unavailable"),
-              path: "sources/unavailable",
-              contentIdentity: TEST_CONTENT_IDENTITY,
+              source: { type: "path", path: "sources/unavailable" },
+              identity: { owner: handle("@acme"), name: extensionName("unavailable") },
+              resolved: { tree: TEST_CONTENT_IDENTITY },
               treeIntegrity: computeMaterializedTreeIntegritySync(unavailableCanonical),
             },
           } satisfies Readonly<Record<string, KnowledgeLockEntry>>;
@@ -739,7 +718,7 @@ describe("KnowledgeManager", () => {
                   },
                 },
               },
-              lockfile: { lockfileVersion: 7, skills: {}, knowledge: locked },
+              lockfile: { lockfileVersion: 8, skills: {}, knowledge: locked },
               graph: {
                 complete: true,
                 nodes: ["healthy", "unavailable"].map((name) => ({

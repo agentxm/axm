@@ -292,7 +292,7 @@ describe("Publisher changes", () => {
       expect(deriveOperationOutcome(resolution)).toBe("applied");
       expect(countUnitStates(resolution.units).committed).toBe(1);
       expect(JSON.stringify(resolution.riskConditions ?? [])).not.toContain(CONDITION);
-      expect(workspace.readFile("axm-lock.yaml")).toContain("resolvedVersion: 2.0.0");
+      expect(workspace.readFile("axm-lock.yaml")).toContain("version: 2.0.0");
       expect(workspace.readFile("axm-lock.yaml")).toContain(
         `publisherBindingId: ${ACCEPTED_BINDING}`,
       );
@@ -424,16 +424,14 @@ describe("Publisher changes through typed Subagent update", () => {
       expectSubagentContent(workspace, UNRELATED_SUBAGENT, UNRELATED);
       const lockBefore = yield* decodeLockfile(YAML.parse(workspace.readFile("axm-lock.yaml")));
       expect(lockBefore.subagents?.[SUBAGENT]).toMatchObject({
-        type: "registry",
-        owner: "@acme",
-        name: SUBAGENT,
-        resolvedVersion: FIRST.version,
-        publisherBindingId: ACCEPTED_BINDING,
+        source: { type: "registry" },
+        identity: { owner: "@acme", name: SUBAGENT },
+        resolved: { version: FIRST.version, publisherBindingId: ACCEPTED_BINDING },
       });
       expect(lockBefore.subagents?.[UNRELATED_SUBAGENT]).toMatchObject({
-        type: "registry",
-        name: UNRELATED_SUBAGENT,
-        publisherBindingId: UNRELATED_BINDING,
+        source: { type: "registry" },
+        identity: { name: UNRELATED_SUBAGENT },
+        resolved: { publisherBindingId: UNRELATED_BINDING },
       });
       workspace.writeFile(
         ".claude/agents/personal-notes.md",
@@ -446,7 +444,7 @@ describe("Publisher changes through typed Subagent update", () => {
         expectSubagentContent(workspace, SUBAGENT, FIRST);
         const currentLock: unknown = YAML.parse(workspace.readFile("axm-lock.yaml"));
         expect(currentLock).toMatchObject({
-          subagents: { [SUBAGENT]: { publisherBindingId: ACCEPTED_BINDING } },
+          subagents: { [SUBAGENT]: { resolved: { publisherBindingId: ACCEPTED_BINDING } } },
         });
         expect(workspace.snapshot()).toEqual(before);
       };
@@ -497,11 +495,9 @@ describe("Publisher changes through typed Subagent update", () => {
         expect(deriveOperationOutcome(resolution)).toBe("applied");
         const lockAfter = yield* decodeLockfile(YAML.parse(workspace.readFile("axm-lock.yaml")));
         expect(lockAfter.subagents?.[SUBAGENT]).toMatchObject({
-          type: "registry",
-          owner: "@acme",
-          name: SUBAGENT,
-          resolvedVersion: SECOND.version,
-          publisherBindingId: REPUBLISHED_BINDING,
+          source: { type: "registry" },
+          identity: { owner: "@acme", name: SUBAGENT },
+          resolved: { version: SECOND.version, publisherBindingId: REPUBLISHED_BINDING },
         });
         expectSubagentContent(workspace, SUBAGENT, SECOND);
         expect(workspace.readFile(SUBAGENT_NATIVE)).not.toContain(FIRST.body);

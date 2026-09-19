@@ -119,7 +119,7 @@ export const makeKnowledgeFixtureWorkspace = (
   // JSON is valid YAML, so the lockfile fixture needs no emitter.
   fs.writeFileSync(
     nodePath.join(root, "axm-lock.yaml"),
-    JSON.stringify({ lockfileVersion: 7, skills: {} }),
+    JSON.stringify({ lockfileVersion: 8, skills: {} }),
   );
 
   for (const bundle of bundles) {

@@ -51,120 +51,68 @@ export type ExtensionPathSource =
 
 export type ExtensionPathLockEntry =
   | {
-      readonly type: "registry";
-      readonly sourceName: string;
-      readonly endpoint: URL;
-      readonly owner: Handle;
+      readonly source: { readonly type: "registry"; readonly url: URL };
+      readonly identity: { readonly owner: Handle; readonly name: string };
     }
   | {
-      readonly type: "local";
-      readonly path: string;
-      readonly packageOwner?: Handle | undefined;
-      readonly packageFormat: "agentxm" | "agent-skill";
+      readonly source: { readonly type: "path"; readonly path: string };
+      readonly identity: { readonly owner?: Handle | undefined; readonly name: string };
     }
   | {
-      readonly type: "github" | "gitlab" | "bitbucket";
-      readonly sourceName: string;
-      readonly endpoint: URL;
-      readonly owner: string;
-      readonly repo: string;
-      readonly path?: string | undefined;
-      readonly ref?: string | undefined;
-      readonly packageOwner?: Handle | undefined;
-      readonly packageFormat: "agentxm" | "agent-skill";
-    }
-  | {
-      readonly type: "azurerepos";
-      readonly sourceName: string;
-      readonly endpoint: URL;
-      readonly organization: string;
-      readonly project: string;
-      readonly repo: string;
-      readonly path?: string | undefined;
-      readonly ref?: string | undefined;
-      readonly packageOwner?: Handle | undefined;
-      readonly packageFormat: "agentxm" | "agent-skill";
-    }
-  | {
-      readonly type: "git";
-      readonly url: string;
-      readonly path?: string | undefined;
-      readonly ref?: string | undefined;
-      readonly packageOwner?: Handle | undefined;
-      readonly packageFormat: "agentxm" | "agent-skill";
+      readonly source: {
+        readonly type: "git";
+        readonly url: URL;
+        readonly path?: string | undefined;
+        readonly revision?: string | undefined;
+      };
+      readonly identity: { readonly owner?: Handle | undefined; readonly name: string };
     };
+
+const isRegistryPathLockEntry = (
+  entry: ExtensionPathLockEntry,
+): entry is Extract<ExtensionPathLockEntry, { readonly source: { readonly type: "registry" } }> =>
+  entry.source.type === "registry";
+
+const isPathPathLockEntry = (
+  entry: ExtensionPathLockEntry,
+): entry is Extract<ExtensionPathLockEntry, { readonly source: { readonly type: "path" } }> =>
+  entry.source.type === "path";
 
 export const extensionPathSourceFromLockEntry = (
   entry: ExtensionPathLockEntry,
 ): Exclude<ExtensionPathSource, { readonly refType: "workspace" }> => {
-  switch (entry.type) {
-    case "registry":
-      return {
-        refType: "registry",
-        owner: entry.owner,
-        source: {
-          type: "registry",
-          name: entry.sourceName,
-          location: entry.endpoint,
-          owner: Option.some(entry.owner),
-        },
-      };
-    case "local":
-      return {
-        refType: "local",
-        ...(entry.packageOwner === undefined ? {} : { owner: entry.packageOwner }),
-        source: { type: "local", path: entry.path },
-        sourcePath: entry.path,
-        portable: entry.packageFormat === "agent-skill",
-      };
-    case "github":
-    case "gitlab":
-    case "bitbucket":
-      return {
-        refType: "git-hosted",
-        ...(entry.packageOwner === undefined ? {} : { owner: entry.packageOwner }),
-        source: {
-          type: entry.type,
-          name: entry.sourceName,
-          url: entry.endpoint,
-          owner: entry.owner,
-          repo: entry.repo,
-          ref: Option.fromUndefinedOr(entry.ref),
-          subPath: Option.fromUndefinedOr(entry.path),
-        },
-        ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
-        portable: entry.packageFormat === "agent-skill",
-      };
-    case "azurerepos":
-      return {
-        refType: "git-hosted",
-        ...(entry.packageOwner === undefined ? {} : { owner: entry.packageOwner }),
-        source: {
-          type: "azurerepos",
-          name: entry.sourceName,
-          url: entry.endpoint,
-          organization: entry.organization,
-          project: entry.project,
-          repo: entry.repo,
-          ref: Option.fromUndefinedOr(entry.ref),
-          subPath: Option.fromUndefinedOr(entry.path),
-        },
-        ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
-        portable: entry.packageFormat === "agent-skill",
-      };
-    case "git":
-      return {
-        refType: "git-hosted",
-        ...(entry.packageOwner === undefined ? {} : { owner: entry.packageOwner }),
-        source: {
-          type: "git",
-          url: new URL(entry.url),
-          ref: Option.fromUndefinedOr(entry.ref),
-        },
-        ...(entry.path === undefined ? {} : { sourcePath: entry.path }),
-        portable: entry.packageFormat === "agent-skill",
-      };
+  if (isRegistryPathLockEntry(entry)) {
+    return {
+      refType: "registry",
+      owner: entry.identity.owner,
+      source: {
+        type: "registry",
+        name: "registry",
+        location: entry.source.url,
+        owner: Option.some(entry.identity.owner),
+      },
+    };
   }
+  if (isPathPathLockEntry(entry)) {
+    return {
+      refType: "local",
+      ...(entry.identity.owner === undefined ? {} : { owner: entry.identity.owner }),
+      source: { type: "local", path: entry.source.path },
+      sourcePath: entry.source.path,
+      portable: entry.identity.owner === undefined,
+    };
+  }
+  return {
+    refType: "git-hosted",
+    ...(entry.identity.owner === undefined ? {} : { owner: entry.identity.owner }),
+    source: {
+      type: "git",
+      url: entry.source.url,
+      ref: Option.fromUndefinedOr(entry.source.revision),
+    },
+    ...(entry.source.path === undefined ? {} : { sourcePath: entry.source.path }),
+    portable: entry.identity.owner === undefined,
+  };
 };
 
 export interface ExtensionDirPaths {

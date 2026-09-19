@@ -183,7 +183,7 @@ describe("buildFixture: lockfile cell variants", () => {
         project: {
           lockfile: {
             _tag: "valid",
-            contents: { lockfileVersion: 7, skills: {} },
+            contents: { lockfileVersion: 8, skills: {} },
           },
         },
       };
@@ -193,7 +193,7 @@ describe("buildFixture: lockfile cell variants", () => {
       const parsed = YAML.parse(raw);
       const decoded = yield* Schema.decodeUnknownEffect(LockfileSchema)(parsed);
 
-      expect(decoded.lockfileVersion).toBe(7);
+      expect(decoded.lockfileVersion).toBe(8);
     }),
   );
 
@@ -577,7 +577,7 @@ describe("buildFixture: serialize round trip", () => {
         userHome: USER_HOME,
         project: {
           settings: { _tag: "valid", contents: { owner: "@team" } },
-          lockfile: { _tag: "valid", contents: { lockfileVersion: 7, skills: {} } },
+          lockfile: { _tag: "valid", contents: { lockfileVersion: 8, skills: {} } },
           axmExtensions: {
             "git/@owner/skills/legacy/SKILL.md": "# acquired\n",
           },

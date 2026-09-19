@@ -61,7 +61,11 @@ import {
 } from "../desired-state/index.js";
 import { computePackManifestContentIdentity } from "../desired-state/index.js";
 import { computePackageContentHash } from "../desired-state/index.js";
-import { gitSourceLockFields } from "../desired-state/lockfile/entry-fields.js";
+import {
+  gitSourceLockFields,
+  pathSourceLockFields,
+  registrySourceLockFields,
+} from "../desired-state/lockfile/entry-fields.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
@@ -76,28 +80,27 @@ const buildSetPackArgs = (
   versionRange: Option.Option<string>,
   treeIntegrity: TreeIntegrity,
 ): SetPackArgs => ({
-  type: "registry",
-  sourceType: "registry",
-  packageFormat: "agentxm",
-  endpoint: ref.source.location,
-  extensionType: "pack",
-  workspaceName: ref.pack.name,
-  owner: ref.owner,
   name: ref.pack.name,
-  resolvedVersion: decodeVersionSync(ref.version),
-  integrity: Option.getOrElse(ref.integrity, () => ""),
-  sourceName: ref.source.name,
-  publisherBindingId: ref.publisherBindingId,
-  treeIntegrity,
-  manifestVersion: ref.version,
-  manifestContentIdentity: computePackManifestContentIdentity({
-    owner: ref.owner,
-    type: "pack",
-    name: ref.pack.name,
-    version: ref.version,
-    dependencies: ref.pack.dependencies,
-  }),
-  members: Object.keys(ref.pack.dependencies),
+  lockEntry: {
+    ...registrySourceLockFields(
+      ref.source,
+      ref.owner,
+      ref.name,
+      decodeVersionSync(ref.version),
+      Option.getOrElse(ref.integrity, () => ""),
+      ref.publisherBindingId,
+      treeIntegrity,
+    ),
+    manifestVersion: ref.version,
+    manifestContentIdentity: computePackManifestContentIdentity({
+      owner: ref.owner,
+      type: "pack",
+      name: ref.pack.name,
+      version: ref.version,
+      dependencies: ref.pack.dependencies,
+    }),
+    members: Object.keys(ref.pack.dependencies),
+  },
   versionRange,
 });
 
@@ -118,39 +121,39 @@ const buildExternalSetPackArgs = (args: {
       dependencies: args.ref.pack.dependencies,
     }),
     members: Object.keys(args.ref.pack.dependencies),
-    versionRange: args.versionRange,
   };
   if (args.ref.refType === "local") {
     const localSourcePath = args.ref.source.path;
     return {
-      type: "local",
-      sourceType: "local",
-      sourceName: "local",
-      extensionType: "pack",
-      workspaceName: args.ref.pack.name,
-      packageFormat: "agentxm",
-      packageOwner: args.ref.owner,
-      packageName: args.ref.name,
-      path: Option.getOrElse(args.workspaceRelativeLocalSourcePath, () => localSourcePath),
-      contentIdentity: args.contentIdentity,
-      treeIntegrity: args.treeIntegrity,
-      ...shared,
+      name: args.ref.pack.name,
+      lockEntry: {
+        ...pathSourceLockFields(
+          Option.getOrElse(args.workspaceRelativeLocalSourcePath, () => localSourcePath),
+          args.contentIdentity,
+          args.ref.name,
+          args.treeIntegrity,
+          args.ref.owner,
+        ),
+        ...shared,
+      },
+      versionRange: args.versionRange,
     };
   }
   return {
-    ...gitSourceLockFields(
-      args.ref.source,
-      "pack",
-      args.ref.pack.name,
-      Option.fromUndefinedOr(args.ref.sourcePath),
-      args.ref.gitCommitSha,
-      args.ref.gitTreeSha,
-      args.contentIdentity,
-      args.ref.owner,
-      args.ref.name,
-      args.treeIntegrity,
-    ),
-    ...shared,
+    name: args.ref.pack.name,
+    lockEntry: {
+      ...gitSourceLockFields(
+        args.ref.source,
+        Option.fromUndefinedOr(args.ref.sourcePath),
+        args.ref.gitCommitSha,
+        args.ref.gitTreeSha,
+        args.ref.owner,
+        args.ref.name,
+        args.treeIntegrity,
+      ),
+      ...shared,
+    },
+    versionRange: args.versionRange,
   };
 };
 
@@ -374,7 +377,7 @@ export const PackManagerLive = Layer.effect(
         materialization,
       }) {
         const args = yield* buildCurrentPackArgs(ref, Option.none(), materialization);
-        return Option.map(args, ({ versionRange: _versionRange, ...entry }) => ({
+        return Option.map(args, ({ lockEntry: entry }) => ({
           key: ref.pack.name,
           entry,
         }));

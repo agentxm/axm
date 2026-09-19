@@ -91,6 +91,11 @@
       "axm-source": "./src/unstable/extensions/common.ts",
       "default": "./dist/src/unstable/extensions/common.js"
     },
+    "./unstable/extensions/archival": {
+      "types": "./dist/src/unstable/extensions/archival.d.ts",
+      "axm-source": "./src/unstable/extensions/archival.ts",
+      "default": "./dist/src/unstable/extensions/archival.js"
+    },
     "./unstable/extensions/deprecation": {
       "types": "./dist/src/unstable/extensions/deprecation.d.ts",
       "axm-source": "./src/unstable/extensions/deprecation.ts",

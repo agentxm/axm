@@ -9,11 +9,14 @@ import { captureRegistryErrorResponseBodies, mapRegistryFailure } from "./failur
 import { executeRegistryRequest, type RegistryRequestReplaySafety } from "./request-policy.js";
 import * as GeneratedRegistryClient from "./__generated__/registry-client.js";
 import type {
+  ArchivalManagementView,
+  ArchivalTransition,
   DeprecationManagementView,
   DeprecationReplacementIntent,
   DeprecationTransition,
 } from "@agentxm/registry-protocol/unstable/registry/schema";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
+import type { ArchivalView } from "@agentxm/extension-model/unstable/extensions/archival";
 
 export interface RegistryExtensionReference {
   readonly owner: string;
@@ -32,6 +35,38 @@ export interface PutExtensionDeprecationInput {
   readonly message: string | null;
   readonly replacement: DeprecationReplacementIntent;
 }
+
+export interface PutExtensionArchivalInput {
+  readonly revision: string;
+  readonly reason: string | null;
+}
+
+const normalizeRegistryArchival = (
+  value: GeneratedRegistryClient.ArchivalManagementView["archival"],
+): ArchivalView | null =>
+  value === null
+    ? null
+    : {
+        archivedAt: value.archivedAt,
+        ...(value.reason === undefined || value.reason === null ? {} : { reason: value.reason }),
+      };
+
+const normalizeArchivalManagementView = (
+  value: GeneratedRegistryClient.ArchivalManagementView,
+): ArchivalManagementView => ({
+  archival: normalizeRegistryArchival(value.archival),
+  revision: value.revision,
+});
+
+const normalizeArchivalTransition = (
+  value: GeneratedRegistryClient.ArchivalTransition,
+): ArchivalTransition => ({
+  target: value.target,
+  before: normalizeRegistryArchival(value.before),
+  after: normalizeRegistryArchival(value.after),
+  disposition: value.disposition,
+  revision: value.revision,
+});
 
 export const normalizeRegistryDeprecation = (
   value: GeneratedRegistryClient.DeprecationView | null,
@@ -214,6 +249,62 @@ export const getExtensionDeprecation = (ref: RegistryExtensionReference) =>
       },
     );
     return yield* normalizeManagementView(result);
+  });
+
+export const getExtensionArchival = (ref: RegistryExtensionReference) =>
+  Effect.gen(function* () {
+    const { client, registryUrl } = yield* makeLifecycleClient();
+    const result = yield* runAdminCall(
+      registryUrl,
+      client.ExtensionsGetArchival(ref.owner, ref.type, ref.name, undefined),
+      {
+        operation: "get extension archival",
+        method: "GET",
+        path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/archival`,
+        replaySafety: safe,
+      },
+    );
+    return normalizeArchivalManagementView(result);
+  });
+
+export const archiveExtension = (
+  ref: RegistryExtensionReference,
+  input: PutExtensionArchivalInput,
+) =>
+  Effect.gen(function* () {
+    const { client, registryUrl } = yield* makeLifecycleClient();
+    const result = yield* runAdminCall(
+      registryUrl,
+      client.ExtensionsPutArchival(ref.owner, ref.type, ref.name, {
+        params: { "if-match": input.revision },
+        payload: { reason: input.reason },
+      }),
+      {
+        operation: "archive extension",
+        method: "PUT",
+        path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/archival`,
+        replaySafety: mutation,
+      },
+    );
+    return normalizeArchivalTransition(result);
+  });
+
+export const unarchiveExtension = (ref: RegistryExtensionReference, revision: string) =>
+  Effect.gen(function* () {
+    const { client, registryUrl } = yield* makeLifecycleClient();
+    const result = yield* runAdminCall(
+      registryUrl,
+      client.ExtensionsDeleteArchival(ref.owner, ref.type, ref.name, {
+        params: { "if-match": revision },
+      }),
+      {
+        operation: "unarchive extension",
+        method: "DELETE",
+        path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/archival`,
+        replaySafety: mutation,
+      },
+    );
+    return normalizeArchivalTransition(result);
   });
 
 export const deprecateExtension = (

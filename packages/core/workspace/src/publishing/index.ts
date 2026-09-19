@@ -142,6 +142,7 @@ export {
   yank,
   type YankRequest,
 } from "./lifecycle/retirement.js";
+export { ArchivePublishedExtension, archive, unarchive } from "./lifecycle/archival.js";
 export {
   DeprecatePublishedExtension,
   deprecate,

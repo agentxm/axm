@@ -27,6 +27,28 @@ import {
 } from "@agentxm/extension-model/unstable/packaging/package-url";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
+import { ArchivalViewSchema } from "@agentxm/extension-model/unstable/extensions/archival";
+
+export const ArchivalRevisionSchema = Schema.NonEmptyString.annotate({
+  identifier: "ArchivalRevision",
+  description: "Opaque publisher lifecycle revision used for conditional archival writes.",
+});
+
+export const ArchivalManagementViewSchema = Schema.Struct({
+  archival: Schema.NullOr(ArchivalViewSchema),
+  revision: ArchivalRevisionSchema,
+}).annotate({ identifier: "ArchivalManagementView" });
+
+export const ArchivalTransitionSchema = Schema.Struct({
+  target: ExtensionFqnSchema,
+  before: Schema.NullOr(ArchivalViewSchema),
+  after: Schema.NullOr(ArchivalViewSchema),
+  disposition: Schema.Literals(["created", "edited", "restored", "unchanged"] as const),
+  revision: ArchivalRevisionSchema,
+}).annotate({ identifier: "ArchivalTransition" });
+
+export type ArchivalManagementView = typeof ArchivalManagementViewSchema.Type;
+export type ArchivalTransition = typeof ArchivalTransitionSchema.Type;
 
 export const DeprecationRevisionSchema = Schema.NonEmptyString.annotate({
   identifier: "DeprecationRevision",
@@ -145,6 +167,7 @@ export const ExtensionIndexSchema = Schema.Struct({
   license: Schema.optional(Schema.String),
   authors: Schema.optional(Schema.Array(AuthorSchema)),
   visibility: Schema.optional(Schema.Literals(["public", "private"] as const)),
+  archival: Schema.NullOr(ArchivalViewSchema),
   deprecation: Schema.NullOr(DeprecationViewSchema),
   versions: Schema.Array(VersionEntrySchema),
 }).annotate({

@@ -35,6 +35,7 @@ import type {
   VersionEntry,
 } from "@agentxm/registry-protocol/unstable/registry/schema";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
+import type { ArchivalView } from "@agentxm/extension-model/unstable/extensions/archival";
 import type { Bugs, Repository } from "@agentxm/extension-model/unstable/extensions/common";
 import type { DiscoverPackagesResponse } from "@agentxm/registry-protocol/unstable/registry/discover-schema";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
@@ -342,6 +343,7 @@ export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionTy
   readonly integrity: string;
   /** Package URLs this extension is compatible with. Empty when absent in registry metadata. */
   readonly packages: ReadonlyArray<PackageUrlParts>;
+  readonly archival?: ArchivalView;
   readonly deprecation?: DeprecationView;
   readonly lifecycleWarnings?: ReadonlyArray<string>;
 }

@@ -162,6 +162,7 @@ const manifestForVersion = (
     version: version.version,
     integrity: version.integrity,
     packages: packagesToPackageUrlParts(version.packages),
+    ...(index.archival === null ? {} : { archival: index.archival }),
     ...(index.deprecation === null ? {} : { deprecation: index.deprecation }),
     ...(lifecycleWarnings.length === 0 ? {} : { lifecycleWarnings }),
   };
@@ -530,6 +531,7 @@ const toExtensionRef = (
     version: entry.version,
     integrity: Option.fromUndefinedOr(entry.integrity || undefined),
     packages: entry.packages,
+    ...(entry.archival === undefined ? {} : { archival: entry.archival }),
     ...(entry.deprecation === undefined ? {} : { deprecation: entry.deprecation }),
     ...(entry.lifecycleWarnings === undefined
       ? {}

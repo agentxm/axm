@@ -27,6 +27,7 @@ import {
 import type { ArtifactChange } from "../../../desired-state/index.js";
 import type { ConfiguredAgentOutcome } from "../../../desired-state/index.js";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
+import type { ArchivalView } from "@agentxm/extension-model/unstable/extensions/archival";
 import type {
   RegistryBindingProposal,
   ReleaseAgeOperationEvidence,
@@ -150,7 +151,7 @@ export interface JobStepArtifact {
   readonly managedRegions?: ReadonlyArray<JobStepManagedRegion>;
   readonly packMembership?: PackMembershipDelta;
   /** Registry lifecycle evidence captured when the candidate was resolved. */
-  readonly registryLifecycle?: { readonly deprecation: DeprecationView };
+  readonly registryLifecycle?: RegistryLifecycleEvidence;
 }
 
 export interface JobStepManagedRegion {
@@ -185,7 +186,8 @@ export interface JobStepArtifactSource {
 }
 
 export interface RegistryLifecycleEvidence {
-  readonly deprecation: DeprecationView;
+  readonly archival?: ArchivalView;
+  readonly deprecation?: DeprecationView;
 }
 
 export type JobStepResult<Output = never> =

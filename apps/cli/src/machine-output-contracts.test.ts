@@ -53,7 +53,10 @@ import {
   KnowledgeLintQueryResultSchema,
 } from "@agentxm/workspace/knowledge/query";
 import { LintResultDocumentSchema } from "./root/lint/handler.js";
-import { LifecycleTransitionOutputSchema } from "./root/lifecycle/command.js";
+import {
+  ArchivalTransitionOutputSchema,
+  LifecycleTransitionOutputSchema,
+} from "./root/lifecycle/command.js";
 
 import { InstructionsStatusOutputSchema } from "./root/instructions.js";
 import { SetupDocumentSchema } from "./root/setup.js";
@@ -70,6 +73,7 @@ import { UpgradeDocumentSchema } from "./root/upgrade/handler.js";
 const sorted = (values: Iterable<string>): ReadonlyArray<string> => [...values].sort();
 
 const NAMED_MACHINE_OUTPUT_SCHEMAS: Readonly<Record<string, Schema.Top>> = {
+  ArchivalTransitionOutputSchema,
   AgentCapabilitiesOutputSchema,
   AgentsListOutputSchema,
   CachePruneOutputSchema,

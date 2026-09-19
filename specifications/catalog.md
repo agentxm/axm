@@ -1668,6 +1668,19 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Limitation: That machine output or a missing terminal each make an invocation unattended, and that the pending handoff renders as exit 13 (or 16 when the wait elapses) in the JSON error envelope, are boundary decisions this capability cannot observe; the envelope and exit codes are pinned by apps/cli/src/auth-pending-envelopes.test.ts, and that login does not offer the resume flag by apps/cli/src/cli-flags/human-verification.test.ts. Retires when: cli/exit-codes-match-published-reference adopts the pending-verification exit codes, and one owner states the unattended-invocation rule the write commands each derive today.
 - Source: [`packages/supporting/registry-access/src/authentication/step-up/unattended-verification-is-resumable.spec.ts`](../packages/supporting/registry-access/src/authentication/step-up/unattended-verification-is-resumable.spec.ts)
 
+##### View reports archival and the effective lifecycle state
+
+- Requirement: `cli/view/reports-archival-and-effective-lifecycle-state`
+- Owner: `workspace`
+- Statement: When viewing an archived extension, AXM shall report its archival timestamp and optional reason, retain independent deprecation guidance, and identify archived as the effective lifecycle state in human and machine-readable data.
+- Class: functional
+- Role: experience
+- Product goals: `machine-automation`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `apps/cli/src/root/view/view.ts`, `packages/core/workspace/src/inspection/view/view-extension.ts`
+- Source: [`packages/core/workspace/src/inspection/view/reports-archival-and-effective-lifecycle-state.spec.ts`](../packages/core/workspace/src/inspection/view/reports-archival-and-effective-lifecycle-state.spec.ts)
+
 ### Goal: platform-reach
 
 AXM works on every supported operating system, runtime, shell, and filesystem.
@@ -1830,6 +1843,19 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Methods: example
 - Derived from: `cli/agents/remove/removes-membership-and-owned-outputs`
 - Source: [`packages/core/workspace/src/configuration/membership/remove-preview-is-pure.spec.ts`](../packages/core/workspace/src/configuration/membership/remove-preview-is-pure.spec.ts)
+
+##### Archival uses the observed revision
+
+- Requirement: `cli/archive/archives-at-the-observed-revision`
+- Owner: `workspace`
+- Statement: The archive command shall read the selected extension's archival revision, condition its write on that exact revision, normalize optional public reasoning, and report the Registry's acknowledged transition.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `apps/cli/src/root/lifecycle/command.ts`, `packages/core/workspace/src/publishing/lifecycle/archival.ts`
+- Source: [`packages/core/workspace/src/publishing/archival/archives-at-the-observed-revision.spec.ts`](../packages/core/workspace/src/publishing/archival/archives-at-the-observed-revision.spec.ts)
 
 ##### The archive cache reports its limits and enforces exactly those
 
@@ -2402,6 +2428,19 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Methods: example
 - Derived from: `cli/sync/preserves-configuration-and-resolutions`
 - Source: [`packages/core/workspace/src/reconciliation/sync/realizes-desired-state.spec.ts`](../packages/core/workspace/src/reconciliation/sync/realizes-desired-state.spec.ts)
+
+##### Unarchive uses the observed revision
+
+- Requirement: `cli/unarchive/restores-at-the-observed-revision`
+- Owner: `workspace`
+- Statement: The unarchive command shall read the selected extension's archival revision, use that exact revision as the removal precondition, and report either the acknowledged restoration or the Registry's rejected precondition without replaying the write.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `apps/cli/src/root/lifecycle/command.ts`, `packages/core/workspace/src/publishing/lifecycle/archival.ts`
+- Source: [`packages/core/workspace/src/publishing/archival/unarchives-at-the-observed-revision.spec.ts`](../packages/core/workspace/src/publishing/archival/unarchives-at-the-observed-revision.spec.ts)
 
 ##### Deprecation removal uses the observed revision
 

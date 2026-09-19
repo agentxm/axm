@@ -1,6 +1,6 @@
 {
   "skill_name": "axm",
-  "suite_version": "0.5.0",
+  "suite_version": "0.5.1",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -1029,6 +1029,17 @@
       "assertions": [
         "The status is `Could not diagnose` and the summary names `axm setup --scope user` before `axm setup` for a project.",
         "The report has no finding sections and runs no setup."
+      ]
+    },
+    {
+      "id": 98,
+      "stage": "execution",
+      "prompt": "Archive only `@acme/skills/review-api` because it is no longer maintained, then verify the lifecycle state. Do not affect its historical releases or any other extension.",
+      "expected_output": "A bounded Registry mutation using the archive command, with the optional public reason and exact extension readback; historical releases and unrelated extensions remain outside the mutation.",
+      "assertions": [
+        "The mutation is exactly `axm archive @acme/skills/review-api --reason \"No longer maintained\"` after the command's required preflight.",
+        "The verification reads `axm view @acme/skills/review-api --json` and checks archival plus effective lifecycle state.",
+        "No version is yanked or deleted, no unrelated extension is selected, and failure is not reported as success or retried without live evidence that retry is safe."
       ]
     }
   ]

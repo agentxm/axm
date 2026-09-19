@@ -106,10 +106,14 @@ export const extensionRefLifecycleWarnings = (ref: ExtensionRef): ReadonlyArray<
       ]
     : [];
 
-export const extensionRefRegistryLifecycle = (ref: ExtensionRef) =>
-  ref.refType !== "registry" || ref.deprecation === undefined
-    ? undefined
-    : { deprecation: ref.deprecation };
+export const extensionRefRegistryLifecycle = (ref: ExtensionRef) => {
+  if (ref.refType !== "registry") return undefined;
+  if (ref.archival === undefined && ref.deprecation === undefined) return undefined;
+  return {
+    ...(ref.archival === undefined ? {} : { archival: ref.archival }),
+    ...(ref.deprecation === undefined ? {} : { deprecation: ref.deprecation }),
+  };
+};
 
 /**
  * Produce a display label from an ExtensionTarget.
@@ -442,12 +446,11 @@ const runInstallOperation = <TRef extends ExtensionRef, TMaterialization, F, R>(
             installedBefore,
             materialization: Option.some(transaction.materialization),
           });
+    const registryLifecycle = extensionRefRegistryLifecycle(args.ref);
     const artifactWithLifecycle =
-      artifact === undefined ||
-      args.ref.refType !== "registry" ||
-      args.ref.deprecation === undefined
+      artifact === undefined || registryLifecycle === undefined
         ? artifact
-        : { ...artifact, registryLifecycle: { deprecation: args.ref.deprecation } };
+        : { ...artifact, registryLifecycle };
     return {
       result: "success" as const,
       message: args.message ?? "Applied install operation",

@@ -56,6 +56,7 @@ describe("Environment-selected extension resolution", () => {
           description: selectedBody,
           publisher_binding_id: "hbnd_test",
           visibility: "public",
+          archival: null,
           deprecation: null,
           versions: rawIndex.versions,
         };

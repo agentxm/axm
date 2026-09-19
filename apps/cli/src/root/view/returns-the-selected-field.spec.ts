@@ -45,6 +45,8 @@ const selections = [
   { field: "owner", value: "@acme" },
   { field: "type", value: "skill" },
   { field: "visibility", value: "public" },
+  { field: "lifecycle-state", value: "active" },
+  { field: "archival", value: null },
   { field: "deprecation", value: null },
 ] as const;
 

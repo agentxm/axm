@@ -52,6 +52,7 @@ const archive = new Uint8Array([1, 2, 3]);
 const index: ExtensionIndex = {
   ...target,
   publisherBindingId: "hbnd_test",
+  archival: null,
   deprecation: null,
   visibility: "private",
   versions: [

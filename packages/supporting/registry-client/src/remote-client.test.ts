@@ -110,6 +110,7 @@ const extensionIndexResponse = {
   repository: { url: "https://github.com/acme/test-skill" },
   license: "MIT",
   authors: [{ name: "Test Author", email: "test@acme.com" }],
+  archival: null,
   deprecation: null,
   versions: [
     {

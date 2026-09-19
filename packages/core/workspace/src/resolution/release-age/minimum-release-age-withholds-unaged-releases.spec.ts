@@ -121,6 +121,7 @@ const indexPublished = (published: DateTime.Utc): ExtensionIndex => ({
   type: "skill",
   name: extensionName(SKILL),
   publisherBindingId: "hbnd_acme",
+  archival: null,
   deprecation: null,
   versions: [
     {

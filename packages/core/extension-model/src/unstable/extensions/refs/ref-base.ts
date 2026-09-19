@@ -20,6 +20,7 @@ import type { PackageUrlParts } from "../../packaging/package-url.js";
 import type { WorkspaceScope } from "../../workspace-scope.js";
 import type { SourceHash } from "../../sources/source-hash.js";
 import type { DeprecationView } from "../deprecation.js";
+import type { ArchivalView } from "../archival.js";
 
 // -----------------------------------------------------------------------------
 // Ref Detail Interfaces
@@ -61,6 +62,8 @@ export interface RegistryRefDetails {
   readonly packages: ReadonlyArray<PackageUrlParts>;
   /** Structured Registry lifecycle evidence captured at resolution time. */
   readonly deprecation?: DeprecationView;
+  /** Registry archival state captured at resolution time. */
+  readonly archival?: ArchivalView;
   /** Lifecycle notices that must be shown before an exact historical install. */
   readonly lifecycleWarnings?: ReadonlyArray<string>;
 }

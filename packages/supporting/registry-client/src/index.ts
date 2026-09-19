@@ -76,9 +76,13 @@ export type {
   RegistryExtensionReference,
   RegistryExtensionVersionReference,
   PutExtensionDeprecationInput,
+  PutExtensionArchivalInput,
   YankCategory,
 } from "./admin-client.js";
 export {
+  archiveExtension,
+  getExtensionArchival,
+  unarchiveExtension,
   yankExtensionVersion,
   yankAvailableExtensionVersions,
   unyankExtensionVersion,

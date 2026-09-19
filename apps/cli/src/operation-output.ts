@@ -60,6 +60,7 @@ import {
 } from "./app-error/index.js";
 import { formatMinimumReleaseAgeSeconds } from "@agentxm/workspace/resolution";
 import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
+import { ArchivalViewSchema } from "@agentxm/extension-model/unstable/extensions/archival";
 import { CatalogExtensionTypeSchema } from "@agentxm/extension-model/unstable/extension-types";
 
 import { operationDoc, resolutionAgentCoverage } from "./operation-view.js";
@@ -143,7 +144,8 @@ const StepArtifactSchema = Schema.Struct({
   packMembership: Schema.optional(PackMembershipDeltaSchema),
   registryLifecycle: Schema.optional(
     Schema.Struct({
-      deprecation: DeprecationViewSchema,
+      archival: Schema.optional(ArchivalViewSchema),
+      deprecation: Schema.optional(DeprecationViewSchema),
     }),
   ),
 }).annotate({
@@ -203,7 +205,8 @@ const UnitSchema = Schema.Struct({
   agentOutcomes: Schema.optional(Schema.Array(ConfiguredAgentOutcomeSchema)),
   registryLifecycle: Schema.optional(
     Schema.Struct({
-      deprecation: DeprecationViewSchema,
+      archival: Schema.optional(ArchivalViewSchema),
+      deprecation: Schema.optional(DeprecationViewSchema),
     }),
   ),
   links: Schema.optional(

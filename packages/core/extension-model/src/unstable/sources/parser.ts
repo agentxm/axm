@@ -48,7 +48,7 @@ type GitScpAddress = {
   readonly path: string;
 };
 
-/** An `owner/repo[/path]` style pattern containing `/` (not a URL or file path). */
+/** An `owner/repo[//path]` style pattern containing `/` (not a URL or file path). */
 type SlashPattern = {
   readonly pattern: "slash-pattern";
   readonly first: string;
@@ -99,7 +99,7 @@ export type InputParseResult<T = InputPattern> = {
 const SCP_PATTERN = /^([^@]+)@([^:]+):(.+)$/;
 
 /** Known shorthand prefixes. */
-const SHORTHAND_PREFIXES = new Set(["github", "gitlab", "bitbucket"]);
+const SHORTHAND_PREFIXES = new Set(["github", "gitlab", "bitbucket", "azurerepos"]);
 
 /** Simple name: alphanumeric with hyphens, no leading/trailing hyphen. */
 const NAME_PATTERN = /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$/;
@@ -184,26 +184,30 @@ export const parseInputPattern = (input: string): Option.Option<InputParseResult
     // Not a URL
   }
 
-  // 7. Slash pattern (`owner/repo` or `owner/repo/path`)
+  // 7. Slash pattern (`owner/repo` or `owner/repo//path`)
   if (input.includes("/")) {
-    const segments = input.split("/");
+    const subPathIndex = input.indexOf("//");
+    const repositoryCoordinate = subPathIndex < 0 ? input : input.slice(0, subPathIndex);
+    const subPath = subPathIndex < 0 ? undefined : input.slice(subPathIndex + 2);
+    const segments = repositoryCoordinate.split("/");
     const first = segments.at(0);
     const second = segments.at(1);
     if (
       first !== undefined &&
       second !== undefined &&
-      segments.length >= 2 &&
+      segments.length === 2 &&
       NAME_PATTERN.test(first) &&
       NAME_PATTERN.test(second) &&
-      segments.slice(2).every((s) => s.length > 0 && s !== "..")
+      (subPath === undefined ||
+        (subPath.length > 0 &&
+          subPath.split("/").every((segment) => segment.length > 0 && segment !== "..")))
     ) {
-      const remaining = segments.slice(2).join("/");
       return Option.some(
         wrap({
           pattern: "slash-pattern",
           first,
           second,
-          third: remaining.length === 0 ? Option.none() : Option.some(remaining),
+          third: Option.fromUndefinedOr(subPath),
         }),
       );
     }

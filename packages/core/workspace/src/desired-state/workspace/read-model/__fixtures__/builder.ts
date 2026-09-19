@@ -631,7 +631,7 @@ export const projectUserShadowing = (workspaceRoot: string, userHome: string): F
       _tag: "valid",
       contents: {
         owner: "@team",
-        sources: [{ name: "shared", type: "github", url: "https://github.com/team" }],
+        sources: [{ name: "shared", type: "registry", location: "https://registry.example/team" }],
       },
     },
   },
@@ -640,7 +640,7 @@ export const projectUserShadowing = (workspaceRoot: string, userHome: string): F
       _tag: "valid",
       contents: {
         owner: "@user",
-        sources: [{ name: "shared", type: "github", url: "https://github.com/user" }],
+        sources: [{ name: "shared", type: "registry", location: "https://registry.example/user" }],
       },
     },
   },

@@ -68,8 +68,7 @@ stay exempt, and `minimumReleaseAge` only to change the window itself.
 `agents` lists the coding agents AXM syncs into. Use `axm agents list`,
 `axm agents add <id>`, and `axm agents remove <id>` instead of hand-editing
 this array; the commands also reconcile per-agent managed artifacts for
-installed extensions. `sources` names registries and source hosts that entries
-can reference.
+installed extensions. `sources` names registries that entries can reference.
 
 Extension entries live under `skills`, `mcpServers`, `subagents`, `rules`,
 `hooks`, `knowledge`, and `packs`. Each entry can be a source
@@ -241,7 +240,7 @@ represent it.
 
 Let AXM edit settings for routine install, remove, enable, disable, agent, and
 source changes. Hand-edit settings when reviewing generated changes, adding
-source hosts, or adjusting `lint.rules`.
+registries, or adjusting `lint.rules`.
 
 AXM writes new settings files in canonical key order. When editing an existing
 file, it preserves the file's key order and untouched formatting.

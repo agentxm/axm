@@ -44,12 +44,6 @@ const makeEnv = (fs: FileSystem.FileSystem, path: Path.Path, baseDir: string) =>
   },
 });
 
-const githubHost = {
-  name: "github",
-  type: "github" as const,
-  url: new URL("https://github.com"),
-};
-
 const writeAcquiredSkill = (baseDir: string) => {
   const packageRoot = nodePath.join(
     baseDir,
@@ -191,9 +185,8 @@ layer(NodeServices.layer, { excludeTestServices: true })(
                   treeIntegrity: computeMaterializedTreeIntegritySync(packageRoot),
                 },
               },
-              getConfiguredSources: () => Effect.succeed([githubHost]),
-              getConfiguredSourceByName: (name) =>
-                Effect.succeed(name === "github" ? Option.some(githubHost) : Option.none()),
+              getConfiguredSources: () => Effect.succeed([]),
+              getConfiguredSourceByName: () => Effect.succeed(Option.none()),
             },
           );
 
@@ -239,9 +232,8 @@ layer(NodeServices.layer, { excludeTestServices: true })(
                   treeIntegrity: computeMaterializedTreeIntegritySync(packageRoot),
                 },
               },
-              getConfiguredSources: () => Effect.succeed([githubHost]),
-              getConfiguredSourceByName: (name) =>
-                Effect.succeed(name === "github" ? Option.some(githubHost) : Option.none()),
+              getConfiguredSources: () => Effect.succeed([]),
+              getConfiguredSourceByName: () => Effect.succeed(Option.none()),
             },
           );
 

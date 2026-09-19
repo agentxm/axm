@@ -130,60 +130,12 @@
     },
     "SourceName": {
       "type": "string",
-      "pattern": "^(?!(?:git|local|workspace)$)[a-z0-9][a-z0-9.-]*$",
+      "pattern": "^(?!(?:azurerepos|bitbucket|git|github|gitlab|local|registry|workspace)$)[a-z0-9][a-z0-9.-]*$",
       "title": "Source Name",
       "description": "Alias used in entry source strings for this source host.",
-      "examples": ["github", "my-registry.dev"]
+      "examples": ["company", "my-registry.dev"]
     },
-    "GitHubSourceHostConfig": {
-      "type": "object",
-      "properties": {
-        "name": { "$ref": "#/definitions/SourceName" },
-        "type": { "type": "string", "enum": ["github"] },
-        "url": { "type": "string" }
-      },
-      "required": ["name", "type", "url"],
-      "additionalProperties": false,
-      "title": "GitHub Source Host",
-      "description": "A GitHub source host."
-    },
-    "GitLabSourceHostConfig": {
-      "type": "object",
-      "properties": {
-        "name": { "$ref": "#/definitions/SourceName" },
-        "type": { "type": "string", "enum": ["gitlab"] },
-        "url": { "type": "string" }
-      },
-      "required": ["name", "type", "url"],
-      "additionalProperties": false,
-      "title": "GitLab Source Host",
-      "description": "A GitLab source host."
-    },
-    "BitbucketSourceHostConfig": {
-      "type": "object",
-      "properties": {
-        "name": { "$ref": "#/definitions/SourceName" },
-        "type": { "type": "string", "enum": ["bitbucket"] },
-        "url": { "type": "string" }
-      },
-      "required": ["name", "type", "url"],
-      "additionalProperties": false,
-      "title": "Bitbucket Source Host",
-      "description": "A Bitbucket source host."
-    },
-    "AzureReposSourceHostConfig": {
-      "type": "object",
-      "properties": {
-        "name": { "$ref": "#/definitions/SourceName" },
-        "type": { "type": "string", "enum": ["azurerepos"] },
-        "url": { "type": "string" }
-      },
-      "required": ["name", "type", "url"],
-      "additionalProperties": false,
-      "title": "Azure Repos Source Host",
-      "description": "An Azure Repos source host."
-    },
-    "RegistrySourceHostConfig": {
+    "SourceHostConfig": {
       "type": "object",
       "properties": {
         "name": { "$ref": "#/definitions/SourceName" },
@@ -192,19 +144,8 @@
       },
       "required": ["name", "type", "location"],
       "additionalProperties": false,
-      "title": "Registry Source Host",
-      "description": "A package registry source host."
-    },
-    "SourceHostConfig": {
-      "anyOf": [
-        { "$ref": "#/definitions/GitHubSourceHostConfig" },
-        { "$ref": "#/definitions/GitLabSourceHostConfig" },
-        { "$ref": "#/definitions/BitbucketSourceHostConfig" },
-        { "$ref": "#/definitions/AzureReposSourceHostConfig" },
-        { "$ref": "#/definitions/RegistrySourceHostConfig" }
-      ],
       "title": "Source Host Config",
-      "description": "A source host configuration: GitHub, GitLab, Bitbucket, Azure Repos, or a package registry."
+      "description": "A named package registry source. Git clone URLs need no configuration."
     },
     "SkillEntry": {
       "anyOf": [

@@ -52,22 +52,19 @@ const skillBase = (name: string) => ({
 const makeSkillRef = (
   name: string,
   source:
-    | { readonly type: "github"; readonly tree: string }
+    | { readonly type: "git"; readonly tree: string }
     | { readonly type: "registry"; readonly version: Version }
     | { readonly type: "local" },
 ): SkillExtensionRef => {
-  if (source.type === "github") {
+  if (source.type === "git") {
     return {
       ...skillBase(name),
       refType: "git-hosted",
       owner: AXM,
       name: extensionName(name),
       source: {
-        type: "github",
-        name: "github",
-        url: new URL("https://github.com"),
-        owner: "owner",
-        repo: "repo",
+        type: "git",
+        url: new URL("https://github.com/owner/repo.git"),
         ref: Option.none(),
         subPath: Option.none(),
       },
@@ -107,7 +104,7 @@ const makeSkillRef = (
 const skillUnit = (
   name: string,
   source:
-    | { readonly type: "github"; readonly tree: string }
+    | { readonly type: "git"; readonly tree: string }
     | { readonly type: "registry"; readonly version: Version }
     | { readonly type: "local" },
   force = false,
@@ -199,7 +196,7 @@ describe("buildSelectiveUpdatePlan — skills", () => {
   it.effect("skips a Git resolution with the same accepted tree", () =>
     Effect.gen(function* () {
       const message = yield* firstMessage(
-        skillUnit("commit", { type: "github", tree: "same-tree" }),
+        skillUnit("commit", { type: "git", tree: "same-tree" }),
         { commit: githubLock("commit", "same-tree") },
         dispatched,
       );
@@ -210,7 +207,7 @@ describe("buildSelectiveUpdatePlan — skills", () => {
   it.effect("dispatches a Git resolution whose accepted tree changed", () =>
     Effect.gen(function* () {
       const message = yield* firstMessage(
-        skillUnit("commit", { type: "github", tree: "new-tree" }),
+        skillUnit("commit", { type: "git", tree: "new-tree" }),
         { commit: githubLock("commit", "old-tree") },
         dispatched,
       );
@@ -250,12 +247,12 @@ describe("buildSelectiveUpdatePlan — skills", () => {
         dispatched,
       );
       const missing = yield* firstMessage(
-        skillUnit("missing", { type: "github", tree: "tree" }),
+        skillUnit("missing", { type: "git", tree: "tree" }),
         {},
         dispatched,
       );
       const forced = yield* firstMessage(
-        skillUnit("forced", { type: "github", tree: "tree" }, true),
+        skillUnit("forced", { type: "git", tree: "tree" }, true),
         { forced: githubLock("forced", "tree") },
         dispatched,
       );

@@ -247,7 +247,7 @@
     },
     "locator": {
       "requirements": ["source-resolution/locator-grammar-is-stable"],
-      "when": "Exact authored locator and selected configured host; grammar acceptance does not itself establish network acquisition.",
+      "when": "Exact authored locator, self-describing Git clone address, or selected configured registry; grammar acceptance does not itself establish network acquisition.",
       "interface": "source-kinds",
       "openTopics": ["command:source-defaults"]
     },
@@ -256,7 +256,7 @@
         "cli/install/records-accepted-resolution",
         "cli/type-shows-report-source-and-version"
       ],
-      "when": "Accepted immutable source resolution and downloaded-byte integrity; provider failures/defaults beyond accepted cases remain unresolved."
+      "when": "Accepted immutable source resolution and downloaded-byte integrity; remote failures beyond accepted cases remain unresolved."
     },
     "relative-path": {
       "requirements": ["cli/relative-paths-start-in-selected-directory"],
@@ -612,7 +612,7 @@
       "family": "source-kinds",
       "groups": [
         {
-          "members": ["github", "gitlab", "bitbucket", "azurerepos", "git"],
+          "members": ["git"],
           "bindings": ["locator", "acquisition"]
         },
         {
@@ -650,7 +650,7 @@
         {
           "members": [
             "exact-configured-name",
-            "URL-host-coordinate",
+            "self-describing-clone-URL",
             "project-overrides-same-name-built-in"
           ],
           "bindings": ["locator"]

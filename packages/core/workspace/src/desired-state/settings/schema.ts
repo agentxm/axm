@@ -33,19 +33,20 @@ import { decodeVersionRangeSync } from "@agentxm/extension-model/unstable/versio
  *
  * @experimental This API is unstable and may change without notice.
  */
-const SOURCE_NAME_PATTERN = /^(?!(?:git|local|workspace)$)[a-z0-9][a-z0-9.-]*$/;
+const SOURCE_NAME_PATTERN =
+  /^(?!(?:azurerepos|bitbucket|git|github|gitlab|local|registry|workspace)$)[a-z0-9][a-z0-9.-]*$/;
 
 const SourceNameSchema = Schema.String.check(
   Schema.isPattern(SOURCE_NAME_PATTERN, {
     message:
-      'source name must start with a letter or digit, contain only lowercase alphanumeric characters, hyphens, and dots, and must not be a reserved name: "git", "local", or "workspace"',
+      "source name must start with a letter or digit, contain only lowercase alphanumeric characters, hyphens, and dots, and must not be a built-in or reserved source name",
   }),
 ).annotate({
   identifier: "SourceName",
   title: "Source Name",
   description:
-    'A source host alias: lowercase letters, numbers, hyphens, and dots. The names "git", "local", and "workspace" are reserved.',
-  examples: ["github", "my-registry.dev"],
+    "A registry source alias: lowercase letters, numbers, hyphens, and dots. Built-in and intrinsic source names are reserved.",
+  examples: ["company", "my-registry.dev"],
 });
 
 const sourceNameFieldSchema = SourceNameSchema.pipe(
@@ -54,73 +55,6 @@ const sourceNameFieldSchema = SourceNameSchema.pipe(
     description: "Alias used in entry source strings for this source host.",
   }),
 );
-
-const sourceUrlFieldSchema = Schema.URLFromString.pipe(
-  Schema.annotateKey({ messageMissingKey: "source url is required" }),
-  Schema.annotate({
-    description: "Base URL for this source host endpoint.",
-  }),
-);
-
-/**
- * GitHub source host configuration.
- *
- * @experimental This API is unstable and may change without notice.
- */
-const GitHubSourceHostConfigSchema = Schema.Struct({
-  name: sourceNameFieldSchema,
-  type: Schema.Literal("github"),
-  url: sourceUrlFieldSchema,
-}).annotate({
-  identifier: "GitHubSourceHostConfig",
-  title: "GitHub Source Host",
-  description: "A GitHub source host.",
-});
-
-/**
- * GitLab source host configuration.
- *
- * @experimental This API is unstable and may change without notice.
- */
-const GitLabSourceHostConfigSchema = Schema.Struct({
-  name: sourceNameFieldSchema,
-  type: Schema.Literal("gitlab"),
-  url: sourceUrlFieldSchema,
-}).annotate({
-  identifier: "GitLabSourceHostConfig",
-  title: "GitLab Source Host",
-  description: "A GitLab source host.",
-});
-
-/**
- * Bitbucket source host configuration.
- *
- * @experimental This API is unstable and may change without notice.
- */
-const BitbucketSourceHostConfigSchema = Schema.Struct({
-  name: sourceNameFieldSchema,
-  type: Schema.Literal("bitbucket"),
-  url: sourceUrlFieldSchema,
-}).annotate({
-  identifier: "BitbucketSourceHostConfig",
-  title: "Bitbucket Source Host",
-  description: "A Bitbucket source host.",
-});
-
-/**
- * Azure Repos source host configuration.
- *
- * @experimental This API is unstable and may change without notice.
- */
-const AzureReposSourceHostConfigSchema = Schema.Struct({
-  name: sourceNameFieldSchema,
-  type: Schema.Literal("azurerepos"),
-  url: sourceUrlFieldSchema,
-}).annotate({
-  identifier: "AzureReposSourceHostConfig",
-  title: "Azure Repos Source Host",
-  description: "An Azure Repos source host.",
-});
 
 /**
  * Registry source host configuration.
@@ -144,23 +78,14 @@ const RegistrySourceHostConfigSchema = Schema.Struct({
 });
 
 /**
- * Discriminated union of source host configurations on the `type` field.
- *
- * Variants: github, gitlab, bitbucket, azurerepos, registry.
+ * Registry source host configuration.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SourceHostConfigSchema = Schema.Union([
-  GitHubSourceHostConfigSchema,
-  GitLabSourceHostConfigSchema,
-  BitbucketSourceHostConfigSchema,
-  AzureReposSourceHostConfigSchema,
-  RegistrySourceHostConfigSchema,
-]).annotate({
+export const SourceHostConfigSchema = RegistrySourceHostConfigSchema.annotate({
   identifier: "SourceHostConfig",
   title: "Source Host Config",
-  description:
-    "A source host configuration: GitHub, GitLab, Bitbucket, Azure Repos, or a package registry.",
+  description: "A named package registry source. Git clone URLs need no configuration.",
 });
 
 /**
@@ -170,16 +95,6 @@ export const SourceHostConfigSchema = Schema.Union([
  */
 export type SourceHostConfig = Schema.Schema.Type<typeof SourceHostConfigSchema>;
 
-/** @experimental */
-export type GitHubSourceHostConfig = Schema.Schema.Type<typeof GitHubSourceHostConfigSchema>;
-/** @experimental */
-export type GitLabSourceHostConfig = Schema.Schema.Type<typeof GitLabSourceHostConfigSchema>;
-/** @experimental */
-export type BitbucketSourceHostConfig = Schema.Schema.Type<typeof BitbucketSourceHostConfigSchema>;
-/** @experimental */
-export type AzureReposSourceHostConfig = Schema.Schema.Type<
-  typeof AzureReposSourceHostConfigSchema
->;
 /** @experimental */
 export type RegistrySourceHostConfig = Schema.Schema.Type<typeof RegistrySourceHostConfigSchema>;
 

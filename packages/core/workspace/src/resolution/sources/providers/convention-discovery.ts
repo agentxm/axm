@@ -56,12 +56,8 @@ const gitTreeShaFor = (
 
 const subPathForSource = (source: ExternalSource): Option.Option<string> => {
   switch (source.type) {
-    case "github":
-    case "gitlab":
-    case "bitbucket":
-    case "azurerepos":
-      return source.subPath;
     case "git":
+      return source.subPath;
     case "local":
       return Option.none();
   }
@@ -89,10 +85,6 @@ const sourceRefDetails = (source: ExternalSource, basePath: string, directory: s
           sourcePath,
           location,
         } satisfies LocalSourceRefDetails;
-      case "github":
-      case "gitlab":
-      case "bitbucket":
-      case "azurerepos":
       case "git":
         return {
           refType: "git-hosted",

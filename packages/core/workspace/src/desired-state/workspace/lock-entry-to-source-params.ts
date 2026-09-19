@@ -41,6 +41,7 @@ export const lockEntryToSourceParams = (entry: SourceLockEntry): SourceParams =>
         type: "git",
         url: entry.source.url,
         ref: Option.fromUndefinedOr(entry.source.revision),
+        subPath: Option.fromUndefinedOr(entry.source.path),
       };
     case "path":
       return { type: "local", path: entry.source.path };

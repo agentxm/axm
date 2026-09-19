@@ -29,16 +29,13 @@ import { makeWorkspaceHandlerTestContext } from "./test-support/test-helpers.js"
 import { makeTestScreen } from "./test-support/screen-test.js";
 
 describe("getBuiltInSources", () => {
-  it("defines exactly the four accepted built-in source names and types", () => {
+  it("defines only the built-in registry because Git locators are self-describing", () => {
     expect(getBuiltInSources("https://registry.agentxm.ai")).toEqual([
       {
         name: "agentxm",
         type: "registry",
         location: new URL("https://registry.agentxm.ai"),
       },
-      { name: "github", type: "github", url: new URL("https://github.com") },
-      { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
-      { name: "bitbucket", type: "bitbucket", url: new URL("https://bitbucket.org") },
     ]);
   });
 });

@@ -325,13 +325,7 @@ const sourceAuthorityIdentity = (source: Source): string => {
     case "local":
       return `path:${source.path}`;
     case "git":
-      return `git:${source.url.href}#${Option.getOrElse(source.ref, () => "HEAD")}`;
-    case "github":
-    case "gitlab":
-    case "bitbucket":
-      return `${source.type}:${source.url.href}:${source.owner}/${source.repo}#${Option.getOrElse(source.ref, () => "HEAD")}`;
-    case "azurerepos":
-      return `${source.type}:${source.url.href}:${source.organization}/${source.project}/${source.repo}#${Option.getOrElse(source.ref, () => "HEAD")}`;
+      return `git:${source.url.href}#${Option.getOrElse(source.ref, () => "HEAD")}${Option.match(source.subPath, { onNone: () => "", onSome: (subPath) => `//${subPath}` })}`;
     case "workspace":
       return `workspace:${source.owner}/${toExtensionTypePlural(source.extensionType)}/${source.name}`;
   }

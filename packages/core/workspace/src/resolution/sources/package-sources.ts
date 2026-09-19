@@ -11,7 +11,6 @@ import {
 } from "./errors.js";
 import { shallowClone } from "./git/operations.js";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
-import { buildCloneUrlForSource } from "./providers/git-hosting.js";
 import { SourceHostProviders } from "./service.js";
 import {
   discoverExtensionPackages,
@@ -71,13 +70,8 @@ export const acquireExternalSource = (
     switch (source.type) {
       case "local":
         return { directory: source.path, origin };
-      case "git":
-        return { directory: yield* acquireClone(source.url.href, source.ref), origin };
-      case "github":
-      case "gitlab":
-      case "bitbucket":
-      case "azurerepos": {
-        const cloneRoot = yield* acquireClone(buildCloneUrlForSource(source), source.ref);
+      case "git": {
+        const cloneRoot = yield* acquireClone(source.url.href, source.ref);
         return {
           directory: Option.match(source.subPath, {
             onNone: () => cloneRoot,
@@ -122,16 +116,6 @@ export const findExtensionPackagesFromSource = (
       }
       case "git": {
         const cloneRoot = yield* acquireClone(source.url.href, source.ref);
-        const packages = yield* discoverExtensionPackages(cloneRoot, filter);
-        return packages
-          .filter(isManifestExtensionPackage)
-          .map((candidate) => ({ ...candidate, origin }));
-      }
-      case "github":
-      case "gitlab":
-      case "bitbucket":
-      case "azurerepos": {
-        const cloneRoot = yield* acquireClone(buildCloneUrlForSource(source), source.ref);
         const discoveryRoot = Option.match(source.subPath, {
           onNone: () => cloneRoot,
           onSome: (subPath) => path.join(cloneRoot, subPath),

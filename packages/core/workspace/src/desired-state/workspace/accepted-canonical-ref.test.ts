@@ -63,11 +63,8 @@ describe("accepted canonical source transitions", () => {
         type: "skill",
         refType: "git-hosted",
         source: {
-          type: "github",
-          name: "github",
-          url: new URL("https://github.com"),
-          owner: "acme",
-          repo: "extensions",
+          type: "git",
+          url: new URL("https://github.com/acme/extensions.git"),
           ref: Option.some("main"),
           subPath: Option.some(sourcePath),
         },

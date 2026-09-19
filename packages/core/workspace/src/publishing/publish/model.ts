@@ -252,10 +252,14 @@ export const catalogEntries = Effect.fn("Publish.catalogEntries")(function* () {
 
 export const sourceType = (source: string): SourceType => {
   if (isWorkspaceSourceLocator(source)) return "workspace";
-  if (source.startsWith("github:")) return "github";
-  if (source.startsWith("gitlab:")) return "gitlab";
-  if (source.startsWith("bitbucket:")) return "bitbucket";
-  if (source.startsWith("azurerepos:")) return "azurerepos";
+  if (
+    source.startsWith("github:") ||
+    source.startsWith("gitlab:") ||
+    source.startsWith("bitbucket:") ||
+    source.startsWith("azurerepos:")
+  ) {
+    return "git";
+  }
   if (source.startsWith("git:")) return "git";
   if (source.startsWith("file:") || source.startsWith("./") || source.startsWith("../")) {
     return "local";

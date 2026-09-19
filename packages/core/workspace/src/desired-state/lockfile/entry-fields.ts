@@ -27,16 +27,7 @@ export const optionalField = <K extends string, V>(
 };
 
 const cloneUrl = (source: GitBasedSource): URL => {
-  if (source.type === "git") return source.url;
-
-  const explicit = Option.getOrUndefined(source.cloneUrl ?? Option.none());
-  if (explicit !== undefined) return new URL(explicit);
-
-  const repositoryPath =
-    source.type === "azurerepos"
-      ? `${source.organization}/${source.project}/_git/${source.repo}`
-      : `${source.owner}/${source.repo}.git`;
-  return new URL(repositoryPath, `${source.url.origin}/`);
+  return source.url;
 };
 
 const gitSourceLockFieldsBase = (
@@ -47,9 +38,7 @@ const gitSourceLockFieldsBase = (
   packageName: ExtensionName,
   treeIntegrity: TreeIntegrity,
 ) => {
-  const path = Option.orElse(selectedPath, () =>
-    source.type === "git" ? Option.none() : source.subPath,
-  );
+  const path = Option.orElse(selectedPath, () => source.subPath);
   return {
     source: {
       type: "git" as const,

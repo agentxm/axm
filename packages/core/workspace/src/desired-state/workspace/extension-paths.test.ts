@@ -94,11 +94,8 @@ describe("extension path helpers", () => {
       {
         refType: "git-hosted",
         source: {
-          type: "github",
-          name: "github",
-          url: new URL("https://github.com"),
-          owner: "remix-run",
-          repo: "react-router",
+          type: "git",
+          url: new URL("https://github.com/remix-run/react-router.git"),
           ref: Option.some("main"),
           subPath: Option.some(".agents/skills/react-router"),
         },
@@ -120,11 +117,8 @@ describe("extension path helpers", () => {
       refType: "git-hosted" as const,
       owner: handle("@acme"),
       source: {
-        type: "github" as const,
-        name: "github",
-        url: new URL("https://github.com"),
-        owner: "acme",
-        repo: "extensions",
+        type: "git" as const,
+        url: new URL("https://github.com/acme/extensions.git"),
         ref: Option.some("main"),
         subPath: Option.some("packages/shared"),
       },

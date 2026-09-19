@@ -10,7 +10,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import type { GitHostedSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import type { GitHubSource, RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
+import type { GitSource, RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import type {
   SourceHostProvider,
   FindOptions,
@@ -34,9 +34,9 @@ type RegistryProviderWithPublish = SourceHostProvider<RegistrySource> & {
 // Mock Providers
 // -----------------------------------------------------------------------------
 
-const makeGitHubProvider = (): SourceHostProvider<GitHubSource> => ({
-  type: "github",
-  match: (url: URL) => Effect.succeed(url.hostname === "github.com"),
+const makeGitProvider = (): SourceHostProvider<GitSource> => ({
+  type: "git",
+  match: (url: URL) => Effect.succeed(["https:", "ssh:", "git:"].includes(url.protocol)),
   find: (_source, _options) => Effect.succeed([]),
   fetch: (_source, _ref) => Effect.succeed({ directory: "/tmp/clone" }),
 });
@@ -62,13 +62,13 @@ const makeRegistryProvider = (): RegistryProviderWithPublish => ({
 
 describe("SourceHostProvider", () => {
   it("has type discriminator matching the Source variant", () => {
-    const provider = makeGitHubProvider();
-    expect(provider.type).toBe("github");
+    const provider = makeGitProvider();
+    expect(provider.type).toBe("git");
   });
 
   it.effect("has match method that returns Effect<boolean>", () =>
     Effect.gen(function* () {
-      const provider = makeGitHubProvider();
+      const provider = makeGitProvider();
       const result = yield* provider.match(new URL("https://github.com/owner/repo"));
       expect(result).toBe(true);
     }),
@@ -76,21 +76,18 @@ describe("SourceHostProvider", () => {
 
   it.effect("match returns false for non-matching URLs", () =>
     Effect.gen(function* () {
-      const provider = makeGitHubProvider();
-      const result = yield* provider.match(new URL("https://gitlab.com/owner/repo"));
+      const provider = makeGitProvider();
+      const result = yield* provider.match(new URL("file:///tmp/repo"));
       expect(result).toBe(false);
     }),
   );
 
   it.effect("has find method that returns Effect<ReadonlyArray<ExtensionRef>>", () =>
     Effect.gen(function* () {
-      const provider = makeGitHubProvider();
-      const source: GitHubSource = {
-        type: "github",
-        name: "github",
-        url: new URL("https://github.com"),
-        owner: "test",
-        repo: "repo",
+      const provider = makeGitProvider();
+      const source: GitSource = {
+        type: "git",
+        url: new URL("https://github.com/test/repo.git"),
         ref: Option.none(),
         subPath: Option.none(),
       };
@@ -107,13 +104,10 @@ describe("SourceHostProvider", () => {
 
   it.effect("has fetch method that returns Effect<ExtensionFiles>", () =>
     Effect.gen(function* () {
-      const provider = makeGitHubProvider();
-      const source: GitHubSource = {
-        type: "github",
-        name: "github",
-        url: new URL("https://github.com"),
-        owner: "test",
-        repo: "repo",
+      const provider = makeGitProvider();
+      const source: GitSource = {
+        type: "git",
+        url: new URL("https://github.com/test/repo.git"),
         ref: Option.none(),
         subPath: Option.none(),
       };

@@ -1,6 +1,6 @@
 /**
  * Settings reader: the selected scope's desired-state document and the
- * settings-derived facts commands consult — merged source hosts, owner,
+ * settings-derived facts commands consult — merged registries, owner,
  * publication default, release-age policy, configured agents, instruction
  * and Knowledge discovery configuration, and the per-type entry maps.
  *

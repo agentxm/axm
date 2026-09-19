@@ -69,7 +69,6 @@ describe("extension list assessment", () => {
         lockfile: { lockfileVersion: LOCKFILE_VERSION, skills: { review: accepted } },
         settings: {
           agents: ["claude-code"],
-          sources: [{ name: "github", type: "github", url: new URL("https://github.com") }],
         },
       });
       const ref: ExtensionRef = {
@@ -83,11 +82,8 @@ describe("extension list assessment", () => {
           metadata: Option.none(),
         },
         source: {
-          type: "github",
-          name: "github",
-          url: new URL("https://github.com"),
-          owner: "acme",
-          repo: "extensions",
+          type: "git",
+          url: new URL("https://github.com/acme/extensions.git"),
           ref: Option.none(),
           subPath: Option.some("skills/review"),
         },

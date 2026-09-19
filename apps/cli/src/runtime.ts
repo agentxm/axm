@@ -353,9 +353,6 @@ export const resolveBuiltInSources = Effect.gen(function* () {
 
 export const getBuiltInSources = (registryLocation: string): ReadonlyArray<SourceHostConfig> => [
   { name: "agentxm", type: "registry", location: new URL(registryLocation) },
-  { name: "github", type: "github", url: new URL("https://github.com") },
-  { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
-  { name: "bitbucket", type: "bitbucket", url: new URL("https://bitbucket.org") },
 ];
 
 const readRuntimeEnvConfig = (executionDirectory: string) =>

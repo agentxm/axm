@@ -130,7 +130,7 @@ describe("Git and path manifest discovery", () => {
 
       const sources: ReadonlyArray<Source> = [
         { type: "local", path: root },
-        { type: "git", url: pathToFileURL(root), ref: Option.none() },
+        { type: "git", url: pathToFileURL(root), ref: Option.none(), subPath: Option.none() },
       ];
       const discovered = yield* Effect.forEach(
         sources,

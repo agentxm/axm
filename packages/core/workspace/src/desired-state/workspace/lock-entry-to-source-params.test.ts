@@ -32,6 +32,7 @@ describe("lock entry printers", () => {
       type: "git",
       url: new URL("https://github.com/acme/extensions.git"),
       ref: Option.some("main"),
+      subPath: Option.some("skills/review"),
     });
     expect(
       lockEntryToSourceParams({

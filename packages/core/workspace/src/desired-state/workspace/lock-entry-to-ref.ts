@@ -129,6 +129,7 @@ const gitBasedSourceFromEntry = (
   type: "git",
   url: entry.source.url,
   ref: Option.fromUndefinedOr(entry.source.revision),
+  subPath: Option.fromUndefinedOr(entry.source.path),
 });
 
 const lockEntryLocation = (

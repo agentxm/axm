@@ -15,9 +15,9 @@ const sourceEndpointContext = (configuredEndpoint: string) =>
   contextFor({
     settings: validSettings({
       agents: ["claude-code"],
-      sources: [{ name: "github", type: "github", url: configuredEndpoint }],
+      sources: [{ name: "company", type: "registry", location: configuredEndpoint }],
       skills: {
-        "react-router": "github:remix-run/react-router//.agents/skills/react-router@main",
+        "react-router": "company:@remix-run/skills/react-router",
       },
     }),
     lockfile: {
@@ -27,13 +27,15 @@ const sourceEndpointContext = (configuredEndpoint: string) =>
         skills: {
           "react-router": {
             source: {
-              type: "git",
-              url: "https://github.com/remix-run/react-router.git",
-              path: ".agents/skills/react-router",
-              revision: "main",
+              type: "registry",
+              url: "https://registry.example.test",
             },
-            identity: { name: "react-router" },
-            resolved: { commit: "commit", tree: "tree" },
+            identity: { owner: "@remix-run", name: "react-router" },
+            resolved: {
+              version: "1.0.0",
+              integrity: "sha512-review",
+              publisherBindingId: "hbnd_review",
+            },
             treeIntegrity,
           },
         },
@@ -43,12 +45,12 @@ const sourceEndpointContext = (configuredEndpoint: string) =>
 
 export const sourceEndpointsAlignedConformance: WorkspaceRuleConformanceCase = {
   rule: sourceEndpointsAlignedRule,
-  satisfied: () => sourceEndpointContext("https://github.com"),
-  violated: () => sourceEndpointContext("https://github.example.test"),
+  satisfied: () => sourceEndpointContext("https://registry.example.test"),
+  violated: () => sourceEndpointContext("https://registry.changed.test"),
   expectedFindings: [
     {
       message:
-        "Accepted resolution 'skill:react-router' binds source 'github' to github https://github.com/, but the configured source now resolves to github https://github.example.test/. Use an explicit source transition before syncing.",
+        "Accepted resolution 'skill:react-router' binds source 'company' to registry https://registry.example.test/, but the configured source now resolves to registry https://registry.changed.test/. Use an explicit source transition before syncing.",
       location: { file: "axm.json" },
     },
   ],

@@ -109,6 +109,7 @@ export const extensionPathSourceFromLockEntry = (
       type: "git",
       url: entry.source.url,
       ref: Option.fromUndefinedOr(entry.source.revision),
+      subPath: Option.fromUndefinedOr(entry.source.path),
     },
     ...(entry.source.path === undefined ? {} : { sourcePath: entry.source.path }),
     portable: entry.identity.owner === undefined,

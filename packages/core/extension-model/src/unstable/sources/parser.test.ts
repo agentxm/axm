@@ -162,8 +162,8 @@ describe("parseInputPattern", () => {
       });
     });
 
-    it("classifies slash pattern with three segments as source path", () => {
-      expectSome("owner/repo/path", {
+    it("classifies a double-slash suffix as a source subpath", () => {
+      expectSome("owner/repo//path", {
         pattern: "slash-pattern",
         first: "owner",
         second: "repo",
@@ -171,13 +171,17 @@ describe("parseInputPattern", () => {
       });
     });
 
-    it("classifies slash pattern with more than three segments as source path", () => {
-      expectSome("owner/repo/sub/path", {
+    it("preserves nested source subpaths after the double slash", () => {
+      expectSome("owner/repo//sub/path", {
         pattern: "slash-pattern",
         first: "owner",
         second: "repo",
         third: Option.some("sub/path"),
       });
+    });
+
+    it("does not interpret ordinary three-segment paths as GitHub coordinates", () => {
+      expectNone("owner/repo/path");
     });
 
     it("returns None for slash pattern with invalid segment", () => {

@@ -258,7 +258,7 @@ export interface WorkspaceStateOptions {
   readonly nonInteractive?: boolean;
   /** Compute the setup plan without writing files. */
   readonly preview?: boolean;
-  /** Built-in source host configs (defaults to git forges only when not provided). */
+  /** Built-in registry source configs. */
   readonly builtInSources?: ReadonlyArray<SourceHostConfig>;
   /** Allow read-only inspection when settings are absent. */
   readonly allowUninitialized?: boolean;

@@ -11,8 +11,7 @@ import { settingsDisplayPath } from "./display-paths.js";
 
 const RULE_ID = "workspace/source-endpoints-aligned";
 
-const configuredEndpoint = (source: SourceHostConfig): URL =>
-  source.type === "registry" ? source.location : source.url;
+const configuredEndpoint = (source: SourceHostConfig): URL => source.location;
 
 const lockedEntries = (lockfile: Lockfile) => [
   ...Object.entries(lockfile.skills).map(([name, entry]) => ({

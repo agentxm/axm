@@ -118,6 +118,7 @@ describe("source-inherited Pack members", () => {
           type: "git",
           url: pathToFileURL(root),
           ref: Option.none(),
+          subPath: Option.none(),
         } satisfies GitSource;
         const gitRefs = yield* gitProvider
           .find(gitSource, findOptions)

@@ -352,10 +352,7 @@ describe("collectSkillSourceFreshness", () => {
   it.effect("returns changed freshness entries for Git-hosted skills with new tree hash", () =>
     Effect.gen(function* () {
       const ws = workspaceFacts({
-        configuredSources: () =>
-          Effect.succeed([
-            { name: "github", type: "github" as const, url: new URL("https://github.com") },
-          ]),
+        configuredSources: () => Effect.succeed([]),
         rows: rowsFor({
           skill: [
             configuredRow({
@@ -399,11 +396,8 @@ describe("collectSkillSourceFreshness", () => {
                 metadata: Option.none(),
               },
               source: {
-                type: "github",
-                name: "github",
-                url: new URL("https://github.com"),
-                owner: "vercel-labs",
-                repo: "skills",
+                type: "git",
+                url: new URL("https://github.com/vercel-labs/skills.git"),
                 ref: Option.none(),
                 subPath: Option.some("skills/find-skills"),
               },
@@ -455,11 +449,8 @@ describe("git-source freshness beyond skills", () => {
   });
 
   const gitSource = (repo: string) => ({
-    type: "github" as const,
-    name: "github",
-    url: new URL("https://github.com"),
-    owner: "acme",
-    repo,
+    type: "git" as const,
+    url: new URL(`https://github.com/acme/${repo}.git`),
     ref: Option.none(),
     subPath: Option.none(),
   });
@@ -470,10 +461,7 @@ describe("git-source freshness beyond skills", () => {
     metadata: Option.none(),
   });
 
-  const configuredSources = () =>
-    Effect.succeed([
-      { name: "github", type: "github" as const, url: new URL("https://github.com") },
-    ]);
+  const configuredSources = () => Effect.succeed([]);
 
   it.effect("reports a current hook whose upstream tree hash matches", () =>
     Effect.gen(function* () {

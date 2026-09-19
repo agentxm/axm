@@ -344,7 +344,12 @@ describe("SourceHostProviders dispatch", () => {
         const svc = yield* SourceHostProviders;
         const result = yield* svc
           .find(
-            { type: "git", url: new URL("https://example.com/repo.git"), ref: Option.none() },
+            {
+              type: "git",
+              url: new URL("https://example.com/repo.git"),
+              ref: Option.none(),
+              subPath: Option.none(),
+            },
             defaultFindOptions,
           )
           .pipe(Effect.result);
@@ -354,33 +359,6 @@ describe("SourceHostProviders dispatch", () => {
         if (result._tag === "Failure") {
           expect(result.failure.detail).toContain("Failed to shallow clone");
         }
-      }),
-    ),
-  );
-
-  it.effect("dispatches to azurerepos stub", () =>
-    runWithService(
-      [],
-      Effect.gen(function* () {
-        const svc = yield* SourceHostProviders;
-        const result = yield* svc
-          .find(
-            {
-              type: "azurerepos",
-              name: "azurerepos",
-              organization: "org",
-              project: "proj",
-              repo: "repo",
-              ref: Option.none(),
-              subPath: Option.none(),
-              // Use an unreachable local URL to avoid credential prompts against live hosts.
-              url: new URL("https://127.0.0.1:1/org/proj/_git/repo"),
-            },
-            defaultFindOptions,
-          )
-          .pipe(Effect.result);
-
-        expect(result._tag).toBe("Failure");
       }),
     ),
   );

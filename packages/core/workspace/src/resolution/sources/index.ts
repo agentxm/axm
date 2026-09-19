@@ -30,7 +30,6 @@ export type { CarriedFailureCategory } from "./failure-category.js";
 
 // Provider implementations
 export { createGitSourceHostProvider } from "./providers/git.js";
-export { createGitHostingSourceHostProvider } from "./providers/git-hosting.js";
 export { createLocalSourceHostProvider } from "./providers/local.js";
 export {
   createLocalRegistrySourceHostProvider,

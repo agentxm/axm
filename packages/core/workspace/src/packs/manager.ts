@@ -165,11 +165,6 @@ const sourceLayoutFamily = (
       return "path";
     case "git":
       return "git";
-    case "github":
-    case "gitlab":
-    case "bitbucket":
-    case "azurerepos":
-      return "git";
     case "registry":
       return "registry";
   }

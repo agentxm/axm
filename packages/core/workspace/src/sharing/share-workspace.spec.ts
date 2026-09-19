@@ -15,13 +15,13 @@ import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-t
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { WorkspaceStateLive } from "../desired-state/live.js";
 import { discoverExtensionPackages } from "../resolution/sources/index.js";
-import { ShareFailed, ShareWorkspace } from "./share-workspace.js";
+import { packageMetadataEcosystems, ShareFailed, ShareWorkspace } from "./share-workspace.js";
 
 export const specification = defineSpecification({
   requirement: "cli/share-prints-live-install-command",
-  title: "Share prints the live origin install command without writing",
+  title: "Share prints live install and package recommendation output without writing",
   statement:
-    "Share shall refuse a checkout without an origin remote and otherwise shall report origin availability and print one install command whose typed selectors exactly name the distributable authored extensions found from that repository, without writing workspace state.",
+    "Share shall refuse a checkout without an origin remote and otherwise shall report origin availability and print one install command whose typed selectors exactly name the distributable authored extensions found from that repository; when one package ecosystem flag is selected, it shall emit that ecosystem's portable agent extension recommendations with their Git source pinned to the sole tag at HEAD, without writing workspace state.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution", "workspace-intent-fidelity"],
@@ -84,6 +84,7 @@ const makeWorkspace = (withOrigin: boolean) => {
   git(root, ["config", "user.name", "Test"]);
   git(root, ["add", "."]);
   git(root, ["commit", "--quiet", "-m", "fixture"]);
+  git(root, ["tag", "v1.2.3"]);
   if (withOrigin) git(root, ["remote", "add", "origin", pathToFileURL(root).href]);
   return root;
 };
@@ -151,6 +152,57 @@ describe("Share workspace", () => {
         });
       }
       expect(snapshot(root)).toEqual(before);
+    }),
+  );
+
+  it.effect("emits portable npm metadata for the exact checkout tag", () =>
+    Effect.gen(function* () {
+      const root = makeWorkspace(true);
+      roots.push(root);
+      const layer = Layer.provideMerge(
+        WorkspaceStateLive({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
+        NodeServices.layer,
+      );
+      const result = yield* ShareWorkspace.query({ ecosystem: "npm" }).pipe(Effect.provide(layer));
+
+      expect(result.packageMetadata).toMatchObject({
+        ecosystem: "npm",
+        location: "package.json",
+        tag: "v1.2.3",
+      });
+      expect(JSON.parse(result.packageMetadata?.content ?? "{}")).toEqual({
+        agentExtensions: [
+          {
+            ref: "@acme/skills/shared",
+            source: { type: "git", url: pathToFileURL(root).href, revision: "v1.2.3" },
+          },
+          {
+            ref: "@acme/skills/undeclared",
+            source: { type: "git", url: pathToFileURL(root).href, revision: "v1.2.3" },
+          },
+        ],
+      });
+    }),
+  );
+
+  it.effect("emits tagged package-native metadata for every supported ecosystem", () =>
+    Effect.gen(function* () {
+      const root = makeWorkspace(true);
+      roots.push(root);
+      const layer = Layer.provideMerge(
+        WorkspaceStateLive({ scope: "project", projectRoot: decodeAbsolutePathSync(root) }),
+        NodeServices.layer,
+      );
+
+      for (const ecosystem of packageMetadataEcosystems) {
+        const result = yield* ShareWorkspace.query({ ecosystem }).pipe(Effect.provide(layer));
+
+        expect(result.packageMetadata?.ecosystem).toBe(ecosystem);
+        expect(result.packageMetadata?.tag).toBe("v1.2.3");
+        expect(result.packageMetadata?.location.length).toBeGreaterThan(0);
+        expect(result.packageMetadata?.content).toContain("@acme/skills/shared");
+        expect(result.packageMetadata?.content).toContain("v1.2.3");
+      }
     }),
   );
 });

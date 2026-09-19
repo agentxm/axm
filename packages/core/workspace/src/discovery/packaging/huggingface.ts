@@ -18,7 +18,7 @@ import * as Schema from "effect/Schema";
 import YAML from "yaml";
 import { readEnv } from "../internal/environment.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, readFileOptional } from "./reader-io.js";
+import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageReader } from "./types.js";
 
 const huggingfaceType = Schema.decodeUnknownSync(PackageTypeSchema)("huggingface");
@@ -40,11 +40,11 @@ const extractYamlFrontmatter = (content: string): string | undefined => {
   return content.slice(3, endIdx).trim();
 };
 
-/** Schema for extracting the axm field from model card frontmatter. */
-const ModelCardAxmSchema = Schema.Struct({
-  axm: Schema.optional(Schema.Unknown),
+/** Schema for detecting the portable field in model card frontmatter. */
+const ModelCardAgentExtensionsSchema = Schema.Struct({
+  agentExtensions: Schema.optional(Schema.Unknown),
 });
-const decodeModelCardAxm = Schema.decodeUnknownResult(ModelCardAxmSchema);
+const decodeModelCardAgentExtensions = Schema.decodeUnknownResult(ModelCardAgentExtensionsSchema);
 
 /**
  * Resolve the Hugging Face cache directory.
@@ -65,7 +65,7 @@ const resolveHfCache = () =>
  * Hugging Face model reader.
  *
  * Reads YAML frontmatter from model cards in
- * `~/.cache/huggingface/hub/models--<id>/` and extracts axm metadata.
+ * `~/.cache/huggingface/hub/models--<id>/` and extracts agentExtensions metadata.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -115,22 +115,21 @@ export const huggingfaceReader: PackageReader = {
         return Option.none();
       }
 
-      // Extract axm metadata
-      const containerResult = decodeModelCardAxm(parsed.value);
+      // Extract agentExtensions metadata
+      const containerResult = decodeModelCardAgentExtensions(parsed.value);
       if (Result.isFailure(containerResult)) return Option.none();
 
-      const axmRaw = containerResult.success.axm;
-      if (axmRaw === undefined) return Option.none();
+      if (containerResult.success.agentExtensions === undefined) return Option.none();
 
-      const metaResult = decodeAxmMeta(axmRaw);
+      const metaResult = yield* decodeAgentExtensions(parsed.value);
       if (Result.isFailure(metaResult)) {
         yield* Effect.logWarning(
-          `Invalid axm metadata in ${pkg.purl.name}: schema validation failed`,
+          `Invalid agentExtensions metadata in ${pkg.purl.name}: schema validation failed`,
         );
         return Option.none();
       }
 
-      return Option.some(metaResult.success.extensions);
+      return Option.some(metaResult.success.agentExtensions);
     },
     Effect.annotateLogs({ reader: "huggingface" }),
     Effect.withSpan("read.huggingface"),

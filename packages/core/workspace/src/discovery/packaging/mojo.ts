@@ -2,7 +2,7 @@
  * Mojo package detector and reader for package-compatibility discovery.
  *
  * Parses `pixi.toml` for dependencies and reads
- * axm metadata from pixi environment cache at `.pixi/envs/`.
+ * agentExtensions metadata from pixi environment cache at `.pixi/envs/`.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -16,7 +16,12 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, decodePurl, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import {
+  decodeAgentExtensions,
+  decodePurl,
+  parseJsonOptional,
+  readFileOptional,
+} from "./reader-io.js";
 import { parseTomlDocument, tomlStringEntries, tomlTable } from "./toml.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
@@ -111,7 +116,7 @@ export const mojoDetector: PackageDetector = {
 /**
  * Mojo package reader.
  *
- * Reads `axm.json` sidecar files from `.pixi/envs/<env>/conda-meta/`
+ * Reads `agent-extensions.json` sidecar files from `.pixi/envs/<env>/conda-meta/`
  * in the project directory for each detected Mojo/conda package.
  *
  * @experimental This API is unstable and may change without notice.
@@ -149,22 +154,25 @@ export const mojoReader: PackageReader = {
           // Match entries that start with the package name
           if (!entry.startsWith(pkg.purl.name)) continue;
 
-          const axmJsonPath = path.join(condaMetaDir, entry, "axm.json");
-          const content = yield* readFileOptional(axmJsonPath);
+          const agentExtensionsJsonPath = path.join(condaMetaDir, entry, "agent-extensions.json");
+          const content = yield* readFileOptional(agentExtensionsJsonPath);
           if (Option.isNone(content)) continue;
 
-          const parsed = yield* parseJsonOptional(content.value, `${pkg.purl.name}/axm.json`);
+          const parsed = yield* parseJsonOptional(
+            content.value,
+            `${pkg.purl.name}/agent-extensions.json`,
+          );
           if (Option.isNone(parsed)) continue;
 
-          const metaResult = decodeAxmMeta(parsed.value);
+          const metaResult = yield* decodeAgentExtensions(parsed.value);
           if (Result.isFailure(metaResult)) {
             yield* Effect.logWarning(
-              `Invalid axm metadata in pixi cache for ${pkg.purl.name}: schema validation failed`,
+              `Invalid agentExtensions metadata in pixi cache for ${pkg.purl.name}: schema validation failed`,
             );
             continue;
           }
 
-          return Option.some(metaResult.success.extensions);
+          return Option.some(metaResult.success.agentExtensions);
         }
       }
 

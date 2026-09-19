@@ -169,14 +169,14 @@ name = "my-project"
 /** Helper to set up a temp pixi environment cache for reader tests. */
 const readInTempPixiCache = (
   pkgPurl: Schema.Schema.Type<typeof PackageUrlPartsSchema>,
-  axmJsonContent?: string,
+  agentExtensionsJsonContent?: string,
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const tmpDir = yield* fs.makeTempDirectoryScoped();
 
-    if (axmJsonContent !== undefined) {
+    if (agentExtensionsJsonContent !== undefined) {
       // Set up pixi environment cache structure
       const condaMetaDir = path.join(
         tmpDir,
@@ -187,7 +187,10 @@ const readInTempPixiCache = (
         `${pkgPurl.name}-${pkgPurl.version ?? "24.6.0"}`,
       );
       yield* fs.makeDirectory(condaMetaDir, { recursive: true });
-      yield* fs.writeFileString(path.join(condaMetaDir, "axm.json"), axmJsonContent);
+      yield* fs.writeFileString(
+        path.join(condaMetaDir, "agent-extensions.json"),
+        agentExtensionsJsonContent,
+      );
     }
 
     // Write a source manifest in the project dir
@@ -210,8 +213,8 @@ describe("mojoReader", () => {
     expect(mojoReader.type).toBe(mojoType);
   });
 
-  describe("valid axm.json in pixi environment", () => {
-    it.effect("extracts extensions from axm.json", () =>
+  describe("valid agent-extensions.json in pixi environment", () => {
+    it.effect("extracts extensions from agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -222,7 +225,7 @@ describe("mojoReader", () => {
           const result = yield* readInTempPixiCache(
             purl,
             JSON.stringify({
-              extensions: [{ ref: "@modular/skills/max", versionRange: "^1.0.0" }],
+              agentExtensions: [{ ref: "@modular/skills/max", versionRange: "^1.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
@@ -234,8 +237,8 @@ describe("mojoReader", () => {
     );
   });
 
-  describe("missing axm.json", () => {
-    it.effect("returns Option.none when no axm.json exists", () =>
+  describe("missing agent-extensions.json", () => {
+    it.effect("returns Option.none when no agent-extensions.json exists", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -249,7 +252,7 @@ describe("mojoReader", () => {
     );
   });
 
-  describe("malformed axm.json", () => {
+  describe("malformed agent-extensions.json", () => {
     it.effect("returns Option.none on malformed metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
@@ -260,7 +263,7 @@ describe("mojoReader", () => {
           });
           const result = yield* readInTempPixiCache(
             purl,
-            JSON.stringify({ extensions: "not-an-array" }),
+            JSON.stringify({ agentExtensions: "not-an-array" }),
           );
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -269,7 +272,7 @@ describe("mojoReader", () => {
   });
 
   describe("extra fields tolerated", () => {
-    it.effect("ignores extra fields in axm.json", () =>
+    it.effect("ignores extra fields in agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -280,7 +283,7 @@ describe("mojoReader", () => {
           const result = yield* readInTempPixiCache(
             purl,
             JSON.stringify({
-              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
+              agentExtensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
               futureField: true,
             }),
           );
@@ -308,7 +311,7 @@ describe("mojoReader", () => {
     );
   });
 
-  describe("malformed JSON in axm.json", () => {
+  describe("malformed JSON in agent-extensions.json", () => {
     it.effect("returns Option.none on invalid JSON", () =>
       withNodeContext(
         Effect.gen(function* () {

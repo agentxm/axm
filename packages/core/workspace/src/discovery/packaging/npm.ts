@@ -12,16 +12,16 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { makeDetectedPackage } from "./detected-package.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const npmType = Schema.decodeUnknownSync(PackageTypeSchema)("npm");
 
-/** Schema to extract the optional "axm" field from a package.json object. */
-const AxmContainerSchema = Schema.Struct({
-  axm: Schema.optional(Schema.Unknown),
+/** Schema to detect the portable field in a package.json object. */
+const AgentExtensionsContainerSchema = Schema.Struct({
+  agentExtensions: Schema.optional(Schema.Unknown),
 });
-const decodeAxmContainer = Schema.decodeUnknownResult(AxmContainerSchema);
+const decodeAgentExtensionsContainer = Schema.decodeUnknownResult(AgentExtensionsContainerSchema);
 
 /** Prefixes that indicate non-registry specifiers to skip. */
 const SKIP_PREFIXES = ["file:", "link:", "workspace:", "git+", "git:", "github:"] as const;
@@ -180,7 +180,7 @@ export const npmDetector: PackageDetector = {
  * npm package reader.
  *
  * Reads `node_modules/<name>/package.json` for each detected npm package
- * and extracts the `"axm"` field containing recommendation metadata.
+ * and extracts the top-level `"agentExtensions"` array.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -204,24 +204,22 @@ export const npmReader: PackageReader = {
       const parsed = yield* parseJsonOptional(content.value, pkgName);
       if (Option.isNone(parsed)) return Option.none();
 
-      // Extract and validate the "axm" field using schema
-      const axmContainerResult = decodeAxmContainer(parsed.value);
-      if (Result.isFailure(axmContainerResult)) {
-        // No valid axm field present (or missing entirely)
+      const containerResult = decodeAgentExtensionsContainer(parsed.value);
+      if (Result.isFailure(containerResult)) {
         return Option.none();
       }
 
-      const axmRaw = axmContainerResult.success.axm;
-      if (axmRaw === undefined) return Option.none();
+      if (containerResult.success.agentExtensions === undefined) return Option.none();
 
-      // Validate axm metadata structure
-      const metaResult = decodeAxmMeta(axmRaw);
+      const metaResult = yield* decodeAgentExtensions(parsed.value);
       if (Result.isFailure(metaResult)) {
-        yield* Effect.logWarning(`Invalid axm metadata in ${pkgName}: schema validation failed`);
+        yield* Effect.logWarning(
+          `Invalid agentExtensions metadata in ${pkgName}: schema validation failed`,
+        );
         return Option.none();
       }
 
-      return Option.some(metaResult.success.extensions);
+      return Option.some(metaResult.success.agentExtensions);
     },
     Effect.annotateLogs({ reader: "npm" }),
     Effect.withSpan("read.npm"),

@@ -446,7 +446,7 @@ describe("pypiReader", () => {
     ),
   );
 
-  it.effect("reads axm.json via entry_points.txt [axm] group", () =>
+  it.effect("reads agent-extensions.json via entry_points.txt [agentExtensions] group", () =>
     withTestLayer(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -461,24 +461,24 @@ describe("pypiReader", () => {
         yield* fs.makeDirectory(distInfo, { recursive: true });
         yield* fs.makeDirectory(pkgData, { recursive: true });
 
-        // Write entry_points.txt with [axm] group
+        // Write entry_points.txt with [agentExtensions] group
         yield* fs.writeFileString(
           path.join(distInfo, "entry_points.txt"),
-          "[axm]\nmetadata = django:axm.json\n",
+          "[agentExtensions]\nmetadata = django:agent-extensions.json\n",
         );
 
-        // Write axm.json in the package data dir
+        // Write agent-extensions.json in the package data dir
         yield* fs.writeFileString(
-          path.join(pkgData, "axm.json"),
+          path.join(pkgData, "agent-extensions.json"),
           JSON.stringify({
-            extensions: [{ ref: "@django/skills/django", versionRange: "^1.0.0" }],
+            agentExtensions: [{ ref: "@django/skills/django", versionRange: "^1.0.0" }],
           }),
         );
 
         // Write RECORD so we can find the package
         yield* fs.writeFileString(
           path.join(distInfo, "RECORD"),
-          "django/axm.json,sha256=abc,123\n",
+          "django/agent-extensions.json,sha256=abc,123\n",
         );
 
         const pkg = {
@@ -508,7 +508,7 @@ describe("pypiReader", () => {
     ),
   );
 
-  it.effect("returns recommendations from .dist-info with [axm] entry point", () =>
+  it.effect("returns recommendations from .dist-info with [agentExtensions] entry point", () =>
     withTestLayer(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -525,19 +525,19 @@ describe("pypiReader", () => {
 
         yield* fs.writeFileString(
           path.join(distInfo, "entry_points.txt"),
-          "[axm]\nmetadata = django:axm.json\n",
+          "[agentExtensions]\nmetadata = django:agent-extensions.json\n",
         );
 
         yield* fs.writeFileString(
-          path.join(pkgData, "axm.json"),
+          path.join(pkgData, "agent-extensions.json"),
           JSON.stringify({
-            extensions: [{ ref: "@django/skills/django", versionRange: "^1.0.0" }],
+            agentExtensions: [{ ref: "@django/skills/django", versionRange: "^1.0.0" }],
           }),
         );
 
         yield* fs.writeFileString(
           path.join(distInfo, "RECORD"),
-          "django/axm.json,sha256=abc,123\n",
+          "django/agent-extensions.json,sha256=abc,123\n",
         );
 
         const pkg = {
@@ -568,7 +568,7 @@ describe("pypiReader", () => {
     ),
   );
 
-  it.effect("returns Option.none when entry_points.txt has no [axm] group", () =>
+  it.effect("returns Option.none when entry_points.txt has no [agentExtensions] group", () =>
     withTestLayer(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -611,7 +611,7 @@ describe("pypiReader", () => {
     ),
   );
 
-  it.effect("returns Option.none when axm.json is malformed", () =>
+  it.effect("returns Option.none when agent-extensions.json is malformed", () =>
     withTestLayer(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -627,14 +627,17 @@ describe("pypiReader", () => {
 
         yield* fs.writeFileString(
           path.join(distInfo, "entry_points.txt"),
-          "[axm]\nmetadata = badpkg:axm.json\n",
+          "[agentExtensions]\nmetadata = badpkg:agent-extensions.json\n",
         );
 
-        yield* fs.writeFileString(path.join(pkgData, "axm.json"), "{ invalid json }}}");
+        yield* fs.writeFileString(
+          path.join(pkgData, "agent-extensions.json"),
+          "{ invalid json }}}",
+        );
 
         yield* fs.writeFileString(
           path.join(distInfo, "RECORD"),
-          "badpkg/axm.json,sha256=abc,123\n",
+          "badpkg/agent-extensions.json,sha256=abc,123\n",
         );
 
         const pkg = {
@@ -676,19 +679,19 @@ describe("pypiReader", () => {
 
         yield* fs.writeFileString(
           path.join(distInfo, "entry_points.txt"),
-          "[axm]\nmetadata = flask_restful:axm.json\n",
+          "[agentExtensions]\nmetadata = flask_restful:agent-extensions.json\n",
         );
 
         yield* fs.writeFileString(
-          path.join(pkgData, "axm.json"),
+          path.join(pkgData, "agent-extensions.json"),
           JSON.stringify({
-            extensions: [{ ref: "@acme/skills/flask-rest", versionRange: "^1.0.0" }],
+            agentExtensions: [{ ref: "@acme/skills/flask-rest", versionRange: "^1.0.0" }],
           }),
         );
 
         yield* fs.writeFileString(
           path.join(distInfo, "RECORD"),
-          "flask_restful/axm.json,sha256=abc,123\n",
+          "flask_restful/agent-extensions.json,sha256=abc,123\n",
         );
 
         const pkg = {

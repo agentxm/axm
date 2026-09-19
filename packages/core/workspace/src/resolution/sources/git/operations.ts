@@ -231,6 +231,20 @@ export const getCommitSha = (repoPath: string) =>
     catch: mapGitError("get-commit-sha", "Failed to get checked-out commit SHA"),
   }).pipe(Effect.withSpan("Git.getCommitSha"));
 
+/** Read the single tag that points at the checked-out commit. */
+export const getExactTag = (repoPath: string) =>
+  Effect.tryPromise({
+    try: async (signal) => {
+      const tags = (await createGit(repoPath, signal).raw(["tag", "--points-at", "HEAD"]))
+        .split("\n")
+        .map((tag) => tag.trim())
+        .filter((tag) => tag.length > 0)
+        .sort();
+      return tags.length === 1 ? Option.some(tags[0] ?? "") : Option.none<string>();
+    },
+    catch: mapGitError("get-commit-sha", "Failed to read the tag at the checked-out commit"),
+  }).pipe(Effect.withSpan("Git.getExactTag"));
+
 /**
  * Get the git tree SHA for a path within a repository.
  *

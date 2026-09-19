@@ -16,7 +16,7 @@ import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
 import { envWithDefault } from "../internal/environment.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, decodePurl, readFileOptional } from "./reader-io.js";
+import { decodeAgentExtensions, decodePurl, readFileOptional } from "./reader-io.js";
 import { isTomlTable, parseTomlDocument, tomlTable, type TomlTable } from "./toml.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
@@ -144,26 +144,29 @@ export const cargoDetector: PackageDetector = {
 const resolveCargoHome = () => envWithDefault("CARGO_HOME", `${os.homedir()}/.cargo`);
 
 /**
- * Read the `[package.metadata.axm]` table from a Cargo.toml string.
+ * Read `package.metadata.agentExtensions` from a Cargo.toml string.
  *
  * Returns `undefined` when the file does not parse or the table is absent.
  * `[package.metadata.*]` is Cargo's standard extensibility mechanism for
  * third-party tools. Supported forms:
  *
- *   [package.metadata.axm]
- *   extensions = [{ ref = "@owner/packs/example", versionRange = "^1.0.0" }]
+ *   [package.metadata]
+ *   agentExtensions = [{ ref = "@owner/packs/example", versionRange = "^1.0.0" }]
  *
- *   [[package.metadata.axm.extensions]]
+ *   [[package.metadata.agentExtensions]]
  *   ref = "@owner/packs/example"
  *   versionRange = "^1.0.0"
  */
-const parsePackageMetadataAxm = (content: string): TomlTable | undefined =>
-  tomlTable(tomlTable(tomlTable(parseTomlDocument(content), "package"), "metadata"), "axm");
+const parsePackageMetadataAgentExtensions = (content: string): TomlTable | undefined => {
+  const metadata = tomlTable(tomlTable(parseTomlDocument(content), "package"), "metadata");
+  const agentExtensions = metadata?.["agentExtensions"];
+  return agentExtensions === undefined ? undefined : { agentExtensions };
+};
 
 /**
  * Cargo package reader.
  *
- * Reads `[package.metadata.axm]` from
+ * Reads `package.metadata.agentExtensions` from
  * `$CARGO_HOME/registry/src/<index>/<crate>-<version>/Cargo.toml` for each
  * detected cargo crate. `[package.metadata.*]` is Cargo's standard
  * extensibility mechanism for third-party tools (used by docs.rs, cargo-deb,
@@ -206,21 +209,21 @@ export const cargoReader: PackageReader = {
           continue;
         }
 
-        const axmFields = parsePackageMetadataAxm(content.value);
-        if (axmFields === undefined) {
+        const metadata = parsePackageMetadataAgentExtensions(content.value);
+        if (metadata === undefined) {
           if (version !== undefined) return Option.none();
           continue;
         }
 
-        const metaResult = decodeAxmMeta(axmFields);
+        const metaResult = yield* decodeAgentExtensions(metadata);
         if (Result.isFailure(metaResult)) {
           yield* Effect.logWarning(
-            `Invalid axm metadata in ${crateDir}/Cargo.toml: schema validation failed`,
+            `Invalid agentExtensions metadata in ${crateDir}/Cargo.toml: schema validation failed`,
           );
           return Option.none();
         }
 
-        return Option.some(metaResult.success.extensions);
+        return Option.some(metaResult.success.agentExtensions);
       }
 
       return Option.none();

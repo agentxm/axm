@@ -41,7 +41,7 @@ import {
   PackageUrlSchema,
   type PackageUrlParts,
 } from "@agentxm/extension-model/unstable/packaging/package-url";
-import type { PackageExtensionDeclaration } from "./axm-package-meta.js";
+import type { AgentExtensionRecommendation } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 import {
   packagesToPackageUrlParts,
   ExtensionIndexSchema,
@@ -300,7 +300,7 @@ const packageIdentity = (parts: PackageUrlParts): PackageUrlParts => ({
   ...(parts.subpath === undefined ? {} : { subpath: parts.subpath }),
 });
 
-const extensionDeclarationToDiscoveryRef = (value: PackageExtensionDeclaration) => {
+const extensionDeclarationToDiscoveryRef = (value: AgentExtensionRecommendation) => {
   const parts = parseExtensionFqnParts(value.ref);
   if (parts === undefined) {
     return undefined;
@@ -308,9 +308,7 @@ const extensionDeclarationToDiscoveryRef = (value: PackageExtensionDeclaration) 
 
   return {
     ref: `${parts.owner}/${toExtensionTypePlural(parts.type)}/${parts.name}`,
-    ...(value.versionRange === undefined || value.versionRange === null
-      ? {}
-      : { versionRange: value.versionRange }),
+    ...(value.versionRange === undefined ? {} : { versionRange: value.versionRange }),
   };
 };
 

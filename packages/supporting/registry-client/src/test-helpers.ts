@@ -22,9 +22,9 @@ import {
   type PackageUrlParts,
 } from "@agentxm/extension-model/unstable/packaging/package-url";
 import {
-  PackageExtensionDeclarationSchema,
-  type PackageExtensionDeclaration,
-} from "./axm-package-meta.js";
+  AgentExtensionRecommendationSchema,
+  type AgentExtensionRecommendation,
+} from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 
 export const handle = (value: string): Handle => decodeHandleSync(value);
 
@@ -40,10 +40,10 @@ export const packageType = (value: string): PackageType =>
 export const packageUrl = (value: string): PackageUrlParts =>
   Schema.decodeUnknownSync(PackageUrlSchema)(value);
 
-export const packageExtensionDeclaration = (
-  value: typeof PackageExtensionDeclarationSchema.Encoded,
-): PackageExtensionDeclaration =>
-  Schema.decodeUnknownSync(PackageExtensionDeclarationSchema)(value);
+export const agentExtensionRecommendation = (
+  value: typeof AgentExtensionRecommendationSchema.Encoded,
+): AgentExtensionRecommendation =>
+  Schema.decodeUnknownSync(AgentExtensionRecommendationSchema)(value);
 
 export const dependencyConstraints = (
   value: Record<string, string>,

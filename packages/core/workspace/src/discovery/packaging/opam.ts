@@ -15,7 +15,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, decodePurl, readFileOptional } from "./reader-io.js";
+import { decodeAgentExtensions, decodePurl, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const opamType = Schema.decodeUnknownSync(PackageTypeSchema)("opam");
@@ -249,34 +249,22 @@ export const opamDetector: PackageDetector = {
 };
 
 /**
- * Parse x-axm custom fields from opam file content.
- * Returns a record mapping field names (without x-axm- prefix) to values.
+ * Parse the portable custom field from an opam file.
  */
-const parseXAxmFields = (content: string): Record<string, unknown> => {
-  const fields: Record<string, unknown> = {};
-  const regex = /^x-axm-(\S+)\s*:\s*(.+)$/gim;
-  let match: RegExpExecArray | null;
-
-  while ((match = regex.exec(content)) !== null) {
-    const fieldName = match[1];
-    const rawValue = match[2]?.trim();
-    if (fieldName === undefined || rawValue === undefined) continue;
-
-    // Try to parse as JSON value (for arrays, etc.)
-    try {
-      fields[fieldName] = JSON.parse(rawValue);
-    } catch {
-      fields[fieldName] = rawValue;
-    }
+const parseAgentExtensionsField = (content: string): Record<string, unknown> | undefined => {
+  const rawValue = /^x-agent-extensions\s*:\s*(.+)$/im.exec(content)?.[1]?.trim();
+  if (rawValue === undefined) return undefined;
+  try {
+    return { agentExtensions: JSON.parse(rawValue) };
+  } catch {
+    return { agentExtensions: rawValue };
   }
-
-  return fields;
 };
 
 /**
  * opam package reader.
  *
- * Reads `x-axm` prefixed custom fields from `.opam` files in the
+ * Reads `x-agent-extensions` from `.opam` files in the
  * opam switch at `~/.opam/<switch>/lib/<pkg>/opam`.
  *
  * @experimental This API is unstable and may change without notice.
@@ -303,16 +291,18 @@ export const opamReader: PackageReader = {
         const content = yield* readFileOptional(opamFilePath);
         if (Option.isNone(content)) continue;
 
-        const xAxmFields = parseXAxmFields(content.value);
-        if (Object.keys(xAxmFields).length === 0) continue;
+        const metadata = parseAgentExtensionsField(content.value);
+        if (metadata === undefined) continue;
 
-        const metaResult = decodeAxmMeta(xAxmFields);
+        const metaResult = yield* decodeAgentExtensions(metadata);
         if (Result.isFailure(metaResult)) {
-          yield* Effect.logWarning(`Invalid axm metadata in ${pkgName}: schema validation failed`);
+          yield* Effect.logWarning(
+            `Invalid agentExtensions metadata in ${pkgName}: schema validation failed`,
+          );
           return Option.none();
         }
 
-        return Option.some(metaResult.success.extensions);
+        return Option.some(metaResult.success.agentExtensions);
       }
 
       return Option.none();

@@ -45,7 +45,7 @@ import {
   exactVersion,
   extensionName,
   handle,
-  packageExtensionDeclaration,
+  agentExtensionRecommendation,
   packageType,
   versionRange,
 } from "./test-helpers.js";
@@ -1266,7 +1266,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
                 purl: makeDetectedPackage("npm", "next"),
                 version: "14.0.0",
                 declaredExtensions: [
-                  packageExtensionDeclaration({
+                  agentExtensionRecommendation({
                     ref: "@vercel/skills/nextjs",
                     versionRange: "^1.0.0",
                   }),
@@ -1412,7 +1412,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
                 purl: makeDetectedPackage("npm", "next"),
                 version: "14.0.0",
                 declaredExtensions: [
-                  packageExtensionDeclaration({
+                  agentExtensionRecommendation({
                     ref: "@vercel/skills/nextjs",
                     versionRange: "^1.0.0",
                   }),
@@ -1447,7 +1447,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
                 purl: makeDetectedPackage("npm", "unknown"),
                 version: "1.0.0",
                 declaredExtensions: [
-                  packageExtensionDeclaration({
+                  agentExtensionRecommendation({
                     ref: "@unknown/skills/nonexistent",
                     versionRange: "^1.0.0",
                   }),

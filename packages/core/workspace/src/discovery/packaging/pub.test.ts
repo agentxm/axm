@@ -283,8 +283,8 @@ describe("pubReader", () => {
     expect(pubReader.type).toBe(pubType);
   });
 
-  describe("valid axm metadata", () => {
-    it.effect("extracts extensions from axm field", () =>
+  describe("valid agentExtensions metadata", () => {
+    it.effect("extracts extensions from agentExtensions field", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "pub", name: "riverpod" });
@@ -301,9 +301,8 @@ describe("pubReader", () => {
             "name: riverpod",
             "version: 2.0.0",
             "",
-            "axm:",
-            "  extensions:",
-            '    - { ref: "@riverpod/skills/riverpod", versionRange: "^2.0.0" }',
+            "agentExtensions:",
+            '  - { ref: "@riverpod/skills/riverpod", versionRange: "^2.0.0" }',
           ].join("\n");
 
           const result = yield* readInTempDir(purl, packageConfig, targetPubspec);
@@ -327,7 +326,7 @@ describe("pubReader", () => {
               { name: "some_lib", rootUri: "../.pub-cache/hosted/pub.dev/some_lib-1.0.0" },
             ],
           });
-          const targetPubspec = ["name: some_lib", "", "axm:", "  extensions: []"].join("\n");
+          const targetPubspec = ["name: some_lib", "", "agentExtensions: []"].join("\n");
 
           const result = yield* readInTempDir(purl, packageConfig, targetPubspec);
           expect(Option.isSome(result)).toBe(true);
@@ -361,9 +360,8 @@ describe("pubReader", () => {
             "name: riverpod",
             "version: 2.0.0",
             "",
-            "axm:",
-            "  extensions:",
-            '    - { ref: "@riverpod/skills/riverpod", versionRange: "^2.0.0" }',
+            "agentExtensions:",
+            '  - { ref: "@riverpod/skills/riverpod", versionRange: "^2.0.0" }',
           ].join("\n");
 
           const result = yield* readInTempDir(purl, packageConfig, targetPubspec);
@@ -393,8 +391,8 @@ describe("pubReader", () => {
     );
   });
 
-  describe("missing axm field", () => {
-    it.effect("returns Option.none when no axm field", () =>
+  describe("missing agentExtensions field", () => {
+    it.effect("returns Option.none when no agentExtensions field", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "pub", name: "http" });
@@ -411,7 +409,7 @@ describe("pubReader", () => {
     );
   });
 
-  describe("malformed axm metadata", () => {
+  describe("malformed agentExtensions metadata", () => {
     it.effect("returns Option.none and warns on malformed metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
@@ -420,7 +418,7 @@ describe("pubReader", () => {
             configVersion: 2,
             packages: [{ name: "bad_lib", rootUri: "../.pub-cache/hosted/pub.dev/bad_lib-1.0.0" }],
           });
-          const targetPubspec = ["name: bad_lib", "", "axm:", "  extensions: 123"].join("\n");
+          const targetPubspec = ["name: bad_lib", "", "agentExtensions: 123"].join("\n");
 
           const result = yield* readInTempDir(purl, packageConfig, targetPubspec);
           expect(Option.isNone(result)).toBe(true);
@@ -461,7 +459,7 @@ describe("pubReader", () => {
   });
 
   describe("extra fields tolerated", () => {
-    it.effect("ignores extra fields in axm metadata", () =>
+    it.effect("ignores extra fields in agentExtensions metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "pub", name: "some_lib" });
@@ -474,10 +472,9 @@ describe("pubReader", () => {
           const targetPubspec = [
             "name: some_lib",
             "",
-            "axm:",
-            "  extensions:",
-            '    - { ref: "@acme/skills/foo", versionRange: "^1.0.0" }',
-            "  futureField: true",
+            "agentExtensions:",
+            '  - { ref: "@acme/skills/foo", versionRange: "^1.0.0" }',
+            "futureField: true",
           ].join("\n");
 
           const result = yield* readInTempDir(purl, packageConfig, targetPubspec);

@@ -6400,10 +6400,147 @@
       ]
     },
     "share": {
-      "flags": [],
+      "flags": [
+        {
+          "name": "bazel",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "cargo",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "cocoapods",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "composer",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "conan",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "conda",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "cpan",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "cran",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "docker",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "gem",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "golang",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "hackage",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "hex",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "huggingface",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "jsr",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "julia",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "luarocks",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "maven",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "mojo",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "npm",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "nuget",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "opam",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "pub",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "pypi",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "swift",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        },
+        {
+          "name": "zig",
+          "rawHelp": { "aliases": [], "type": "boolean", "required": false }
+        }
+      ],
       "arguments": [],
       "relatedRequirements": ["cli/share-prints-live-install-command"],
-      "parameterBindings": []
+      "parameterBindings": [
+        {
+          "parameters": [
+            "flag:bazel",
+            "flag:cargo",
+            "flag:cocoapods",
+            "flag:composer",
+            "flag:conan",
+            "flag:conda",
+            "flag:cpan",
+            "flag:cran",
+            "flag:docker",
+            "flag:gem",
+            "flag:golang",
+            "flag:hackage",
+            "flag:hex",
+            "flag:huggingface",
+            "flag:jsr",
+            "flag:julia",
+            "flag:luarocks",
+            "flag:maven",
+            "flag:mojo",
+            "flag:npm",
+            "flag:nuget",
+            "flag:opam",
+            "flag:pub",
+            "flag:pypi",
+            "flag:swift",
+            "flag:zig"
+          ],
+          "requirements": ["cli/share-prints-live-install-command"]
+        }
+      ]
     },
     "skills": {
       "flags": [],

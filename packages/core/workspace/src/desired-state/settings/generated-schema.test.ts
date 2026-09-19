@@ -36,7 +36,7 @@ const generatedSchemaNames = [
   "rule.schema.json",
   "hook.schema.json",
   "knowledge.schema.json",
-  "axm-package-meta.schema.json",
+  "agent-extensions.schema.json",
 ] as const;
 
 const getRecord = (record: Record<string, unknown>, key: string): Record<string, unknown> => {

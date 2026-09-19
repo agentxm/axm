@@ -30,7 +30,7 @@ import {
   extensionName,
   exactVersion,
   handle,
-  packageExtensionDeclaration,
+  agentExtensionRecommendation,
   packageUrl,
 } from "./test-helpers.js";
 
@@ -882,7 +882,7 @@ describe("discoverPackages", () => {
             purl: packageUrl("pkg:npm/react@18.2.0"),
             version: "18.2.0",
             declaredExtensions: [
-              packageExtensionDeclaration({
+              agentExtensionRecommendation({
                 ref: "@acme/skills/react",
                 versionRange: "^1.0.0",
               }),

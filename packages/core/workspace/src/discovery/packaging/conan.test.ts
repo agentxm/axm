@@ -254,15 +254,14 @@ describe("conanReader", () => {
     expect(conanReader.type).toBe(conanType);
   });
 
-  describe("valid axm metadata in conandata.yml", () => {
-    it.effect("extracts extensions from axm field", () =>
+  describe("valid agentExtensions metadata in conandata.yml", () => {
+    it.effect("extracts extensions from agentExtensions field", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "conan", name: "zlib", version: "1.2.13" });
           const yml = [
-            "axm:",
-            "  extensions:",
-            '    - { ref: "@conan/skills/zlib", versionRange: "^1.0.0" }',
+            "agentExtensions:",
+            '  - { ref: "@conan/skills/zlib", versionRange: "^1.0.0" }',
           ].join("\n");
           const result = yield* readInTempCache(purl, yml);
           expect(Option.isSome(result)).toBe(true);
@@ -286,8 +285,8 @@ describe("conanReader", () => {
     );
   });
 
-  describe("no axm field", () => {
-    it.effect("returns Option.none when conandata.yml has no axm field", () =>
+  describe("no agentExtensions field", () => {
+    it.effect("returns Option.none when conandata.yml has no agentExtensions field", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "conan", name: "zlib", version: "1.2.13" });
@@ -300,11 +299,11 @@ describe("conanReader", () => {
   });
 
   describe("malformed metadata", () => {
-    it.effect("returns Option.none on malformed axm metadata", () =>
+    it.effect("returns Option.none on malformed agentExtensions metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "conan", name: "zlib", version: "1.2.13" });
-          const yml = "axm:\n  extensions: not-an-array\n";
+          const yml = "agentExtensions: not-an-array\n";
           const result = yield* readInTempCache(purl, yml);
           expect(Option.isNone(result)).toBe(true);
         }),

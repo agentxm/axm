@@ -185,7 +185,7 @@ describe("discover handler", () => {
       "node_modules/react/package.json": {
         name: "react",
         version: "18.2.0",
-        axm: { extensions: [{ ref: "@acme/skills/react-testing" }] },
+        agentExtensions: [{ ref: "@acme/skills/react-testing" }],
       },
     });
     const { program, rendererState } = runHandler(project, () => undefined);

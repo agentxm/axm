@@ -210,7 +210,7 @@ describe("cocoapodsDetector", () => {
 /** Helper to set up a temp project with Pods/ for reader tests. */
 const readInTempDir = (
   pkgPurl: Schema.Schema.Type<typeof PackageUrlPartsSchema>,
-  axmJsonContent?: string,
+  agentExtensionsJsonContent?: string,
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -220,10 +220,13 @@ const readInTempDir = (
     // Write the root Podfile (source for the detected package)
     yield* fs.writeFileString(path.join(tmpDir, "Podfile"), "# empty");
 
-    if (axmJsonContent !== undefined) {
+    if (agentExtensionsJsonContent !== undefined) {
       const podDir = path.join(tmpDir, "Pods", pkgPurl.name);
       yield* fs.makeDirectory(podDir, { recursive: true });
-      yield* fs.writeFileString(path.join(podDir, "axm.json"), axmJsonContent);
+      yield* fs.writeFileString(
+        path.join(podDir, "agent-extensions.json"),
+        agentExtensionsJsonContent,
+      );
     }
 
     const detected = {
@@ -239,15 +242,15 @@ describe("cocoapodsReader", () => {
     expect(cocoapodsReader.type).toBe(cocoapodsType);
   });
 
-  describe("valid axm.json sidecar", () => {
-    it.effect("extracts extensions from axm.json", () =>
+  describe("valid agent-extensions.json sidecar", () => {
+    it.effect("extracts extensions from agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cocoapods", name: "Alamofire" });
           const result = yield* readInTempDir(
             purl,
             JSON.stringify({
-              extensions: [{ ref: "@alamofire/skills/alamofire", versionRange: "^5.0.0" }],
+              agentExtensions: [{ ref: "@alamofire/skills/alamofire", versionRange: "^5.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
@@ -264,7 +267,7 @@ describe("cocoapodsReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cocoapods", name: "SwiftyJSON" });
-          const result = yield* readInTempDir(purl, JSON.stringify({ extensions: [] }));
+          const result = yield* readInTempDir(purl, JSON.stringify({ agentExtensions: [] }));
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
             expect(result.value).toEqual([]);
@@ -274,8 +277,8 @@ describe("cocoapodsReader", () => {
     );
   });
 
-  describe("missing axm.json sidecar", () => {
-    it.effect("returns Option.none when no axm.json", () =>
+  describe("missing agent-extensions.json sidecar", () => {
+    it.effect("returns Option.none when no agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cocoapods", name: "SnapKit" });
@@ -286,14 +289,14 @@ describe("cocoapodsReader", () => {
     );
   });
 
-  describe("malformed axm.json", () => {
+  describe("malformed agent-extensions.json", () => {
     it.effect("returns Option.none on malformed metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cocoapods", name: "SomePod" });
           const result = yield* readInTempDir(
             purl,
-            JSON.stringify({ extensions: { invalid: true } }),
+            JSON.stringify({ agentExtensions: { invalid: true } }),
           );
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -302,14 +305,14 @@ describe("cocoapodsReader", () => {
   });
 
   describe("extra fields tolerated", () => {
-    it.effect("ignores extra fields in axm.json", () =>
+    it.effect("ignores extra fields in agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cocoapods", name: "SomePod" });
           const result = yield* readInTempDir(
             purl,
             JSON.stringify({
-              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
+              agentExtensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
               futureField: true,
             }),
           );

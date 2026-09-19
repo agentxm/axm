@@ -302,8 +302,8 @@ describe("gemReader", () => {
     expect(gemReader.type).toBe(gemType);
   });
 
-  describe("valid axm metadata in gemspec", () => {
-    it.effect("extracts extensions from axm metadata", () =>
+  describe("valid agentExtensions metadata in gemspec", () => {
+    it.effect("extracts extensions from agentExtensions metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "gem", name: "rails", version: "7.1.0" });
@@ -312,7 +312,7 @@ describe("gemReader", () => {
             '  s.name = "rails"',
             '  s.version = "7.1.0"',
             "  s.metadata = {",
-            '    "axm_extensions" => "[{\\"ref\\":\\"@rails/skills/rails\\",\\"versionRange\\":\\"^1.0.0\\"}]"',
+            '    "agent_extensions" => "[{\\"ref\\":\\"@rails/skills/rails\\",\\"versionRange\\":\\"^1.0.0\\"}]"',
             "  }",
             "end",
           ].join("\n");
@@ -333,7 +333,7 @@ describe("gemReader", () => {
             "Gem::Specification.new do |s|",
             '  s.name = "some-gem"',
             "  s.metadata = {",
-            '    "axm_extensions" => "[]"',
+            '    "agent_extensions" => "[]"',
             "  }",
             "end",
           ].join("\n");
@@ -347,8 +347,8 @@ describe("gemReader", () => {
     );
   });
 
-  describe("missing axm metadata", () => {
-    it.effect("returns Option.none when no axm keys in gemspec", () =>
+  describe("missing agentExtensions metadata", () => {
+    it.effect("returns Option.none when no agentExtensions key in gemspec", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "gem", name: "nokogiri", version: "1.15.0" });
@@ -381,7 +381,7 @@ describe("gemReader", () => {
   });
 
   describe("malformed metadata", () => {
-    it.effect("returns Option.none on unparseable axm metadata value", () =>
+    it.effect("returns Option.none on unparseable agentExtensions metadata value", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "gem", name: "bad-gem", version: "1.0.0" });
@@ -389,7 +389,7 @@ describe("gemReader", () => {
             "Gem::Specification.new do |s|",
             '  s.name = "bad-gem"',
             "  s.metadata = {",
-            '    "axm_extensions" => "not-a-valid-value"',
+            '    "agent_extensions" => "not-a-valid-value"',
             "  }",
             "end",
           ].join("\n");
@@ -400,8 +400,8 @@ describe("gemReader", () => {
     );
   });
 
-  describe("extra axm-prefixed keys tolerated", () => {
-    it.effect("ignores extra axm keys", () =>
+  describe("extra agentExtensions keys tolerated", () => {
+    it.effect("ignores extra agentExtensions keys", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "gem", name: "some-gem", version: "1.0.0" });
@@ -409,7 +409,7 @@ describe("gemReader", () => {
             "Gem::Specification.new do |s|",
             '  s.name = "some-gem"',
             "  s.metadata = {",
-            '    "axm_extensions" => "[{\\"ref\\":\\"@acme/skills/foo\\",\\"versionRange\\":\\"^1.0.0\\"}]",',
+            '    "agent_extensions" => "[{\\"ref\\":\\"@acme/skills/foo\\",\\"versionRange\\":\\"^1.0.0\\"}]",',
             '    "axm_future_field" => "true"',
             "  }",
             "end",
@@ -433,7 +433,7 @@ describe("gemReader", () => {
             "Gem::Specification.new do |s|",
             '  s.name = "some-gem"',
             "  s.metadata = {",
-            '    "axm_extensions" => "[{\\"ref\\":\\"@acme/skills/foo\\",\\"versionRange\\":\\"^1.0.0\\"},{\\"ref\\":\\"@acme/skills/bar\\",\\"versionRange\\":\\"^2.0.0\\"}]"',
+            '    "agent_extensions" => "[{\\"ref\\":\\"@acme/skills/foo\\",\\"versionRange\\":\\"^1.0.0\\"},{\\"ref\\":\\"@acme/skills/bar\\",\\"versionRange\\":\\"^2.0.0\\"}]"',
             "  }",
             "end",
           ].join("\n");

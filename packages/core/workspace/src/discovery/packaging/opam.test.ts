@@ -273,15 +273,15 @@ describe("opamReader", () => {
     expect(opamReader.type).toBe(opamType);
   });
 
-  describe("valid x-axm fields", () => {
-    it.effect("extracts extensions from x-axm fields", () =>
+  describe("valid x-agentExtensions fields", () => {
+    it.effect("extracts extensions from x-agentExtensions fields", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "opam", name: "lwt" });
           const opamContent = [
             'opam-version: "2.0"',
             'name: "lwt"',
-            'x-axm-extensions: [{"ref":"@ocaml/skills/lwt","versionRange":"^1.0.0"}]',
+            'x-agent-extensions: [{"ref":"@ocaml/skills/lwt","versionRange":"^1.0.0"}]',
           ].join("\n");
           const result = yield* readInTempOpam(purl, opamContent);
           expect(Option.isSome(result)).toBe(true);
@@ -293,8 +293,8 @@ describe("opamReader", () => {
     );
   });
 
-  describe("missing x-axm fields", () => {
-    it.effect("returns Option.none when no x-axm fields", () =>
+  describe("missing x-agentExtensions fields", () => {
+    it.effect("returns Option.none when no x-agentExtensions fields", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "opam", name: "core" });
@@ -306,12 +306,12 @@ describe("opamReader", () => {
     );
   });
 
-  describe("malformed x-axm metadata", () => {
+  describe("malformed x-agent-extensions metadata", () => {
     it.effect("returns Option.none on invalid metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "opam", name: "lwt" });
-          const opamContent = ['opam-version: "2.0"', "x-axm-extensions: not-valid-json"].join(
+          const opamContent = ['opam-version: "2.0"', "x-agent-extensions: not-valid-json"].join(
             "\n",
           );
           const result = yield* readInTempOpam(purl, opamContent);
@@ -321,15 +321,15 @@ describe("opamReader", () => {
     );
   });
 
-  describe("extra x-axm fields tolerated", () => {
-    it.effect("ignores unknown x-axm fields", () =>
+  describe("extra x-agentExtensions fields tolerated", () => {
+    it.effect("ignores unknown x-agentExtensions fields", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "opam", name: "lwt" });
           const opamContent = [
             'opam-version: "2.0"',
-            'x-axm-extensions: [{"ref":"@ocaml/skills/lwt","versionRange":"^1.0.0"}]',
-            "x-axm-futureField: true",
+            'x-agent-extensions: [{"ref":"@ocaml/skills/lwt","versionRange":"^1.0.0"}]',
+            "x-agent-extensions-futureField: true",
           ].join("\n");
           const result = yield* readInTempOpam(purl, opamContent);
           expect(Option.isSome(result)).toBe(true);

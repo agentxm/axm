@@ -36,6 +36,22 @@ Every accepted external result has immutable content identity:
 - local-path resolution binds a content identity independent of later path
   contents.
 
+## Package recommendations
+
+Package ecosystem metadata may recommend extensions through the portable
+`agentExtensions` contract. A recommendation names a qualified extension
+reference and may include a self-contained Registry, Git, or local-path source.
+It is discovery evidence, not durable desired state: AXM presents or imports the
+recommendation through the normal workspace planning boundary before resolving
+it.
+
+A recommendation without `source` always means the fixed AgentXM Registry.
+Workspace source-host configuration cannot redirect it. A recommendation with
+`source` carries its complete acquisition location; only Registry
+recommendations may additionally constrain `versionRange`. This keeps package
+metadata portable while preserving the distinction between third-party
+recommendations and user-authored source configuration.
+
 ## Non-responsibilities
 
 A source host does not declare an extension desired, choose when an accepted
@@ -81,6 +97,8 @@ approval contract.
 - A source name resolves through deterministic scope precedence.
 - Source configuration, authored constraints, and accepted lock state remain
   distinct authority.
+- Package recommendations do not become desired state or inherit a differently
+  configured source host implicitly.
 - Resolution never broadens a user-authored constraint.
 - A satisfying accepted resolution prevents incidental advancement.
 - Every external source result has immutable accepted content identity.

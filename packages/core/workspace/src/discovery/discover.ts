@@ -24,7 +24,7 @@ import { packageDetectors, packageReaders } from "./packaging/index.js";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
 import { PackageUrlSchema } from "@agentxm/extension-model/unstable/packaging/package-url";
 import { readLocalRecommendations } from "./packaging/read.js";
-import type { PackageExtensionDeclaration } from "@agentxm/registry-client";
+import type { AgentExtensionRecommendation } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 
 export interface DiscoverResultEntry {
   readonly ref: string;
@@ -56,7 +56,7 @@ const packageIdentity = (parts: PackageUrlParts): PackageUrlParts => ({
   ...(parts.subpath === undefined ? {} : { subpath: parts.subpath }),
 });
 
-const extensionDeclarationToRef = (value: PackageExtensionDeclaration): string | undefined => {
+const extensionDeclarationToRef = (value: AgentExtensionRecommendation): string | undefined => {
   const parts = parseExtensionFqnParts(value.ref);
   if (parts === undefined) {
     return undefined;
@@ -91,7 +91,7 @@ export const discover = (projectDir: string, registryClient: RegistryClient) =>
 
       const purl = encodePurl(pkg.purl);
       const declaredExtensions = Option.match(HashMap.get(localExtensions, purl), {
-        onNone: (): ReadonlyArray<PackageExtensionDeclaration> => [],
+        onNone: (): ReadonlyArray<AgentExtensionRecommendation> => [],
         onSome: (value) => value,
       });
 
@@ -159,7 +159,7 @@ const mergeRegistryResults = (
 
 const buildLocalOnlyResults = (
   detected: ReadonlyArray<{ readonly purl: PackageUrlParts }>,
-  localExtensions: HashMap.HashMap<string, ReadonlyArray<PackageExtensionDeclaration>>,
+  localExtensions: HashMap.HashMap<string, ReadonlyArray<AgentExtensionRecommendation>>,
 ): ReadonlyArray<DiscoverPackageResult> => {
   const fallbackVersion = decodeVersionSync("0.0.0");
 

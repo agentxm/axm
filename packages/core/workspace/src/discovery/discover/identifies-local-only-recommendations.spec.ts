@@ -35,7 +35,7 @@ describe("Local-only discovery", () => {
     project.writeJson("node_modules/react/package.json", {
       name: "react",
       version: "18.2.0",
-      axm: { extensions: [{ ref: "@acme/skills/react-review" }] },
+      agentExtensions: [{ ref: "@acme/skills/react-review" }],
     });
     const registry = makeRecordedRegistryPort(() => ({
       status: 503,

@@ -2778,6 +2778,20 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Derived from: `cli/update/preview-is-pure`, `cli/install/preview-is-pure`, `cli/skills/update/preview-is-pure`
 - Source: [`packages/core/workspace/src/lifecycle/publisher-changes-require-interactive-approval.spec.ts`](../packages/core/workspace/src/lifecycle/publisher-changes-require-interactive-approval.spec.ts)
 
+##### Share prints live install and package recommendation output without writing
+
+- Requirement: `cli/share-prints-live-install-command`
+- Owner: `workspace`
+- Statement: Share shall refuse a checkout without an origin remote and otherwise shall report origin availability and print one install command whose typed selectors exactly name the distributable authored extensions found from that repository; when one package ecosystem flag is selected, it shall emit that ecosystem's portable agent extension recommendations with their Git source pinned to the sole tag at HEAD, without writing workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
+- Boundary: process; selection: per-change
+- Boundary rationale: The examples read real workspace files, inspect a real Git remote, and use the production repository finder while comparing the checkout before and after the query.
+- Methods: example, snapshot
+- Derived from: `extension-discovery/all-manifest-kinds-from-git-and-path`
+- Source: [`packages/core/workspace/src/sharing/share-workspace.spec.ts`](../packages/core/workspace/src/sharing/share-workspace.spec.ts)
+
 ##### Upgrade discloses the installer it resolved and the version it selected before mutating
 
 - Requirement: `cli/upgrade/discloses-resolved-ownership-before-mutation`
@@ -4005,7 +4019,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 
 - Requirement: `extension-discovery/all-manifest-kinds-from-git-and-path`
 - Owner: `workspace`
-- Statement: Git and path source discovery shall find every extension type defined by the manifest policy, shall keep portable SKILL.md as the only manifest-free convention, and shall refuse duplicate declared identities.
+- Statement: Git and path source discovery shall find every extension type defined by the manifest policy, shall keep portable SKILL.md as the only manifest-free convention, shall omit workspace entries whose distribution intent is false, and shall refuse duplicate declared identities.
 - Class: functional
 - Role: interface
 - Product goals: `extension-adoption`, `trustworthy-distribution`

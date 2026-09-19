@@ -37,12 +37,15 @@ describe("root update command help", () => {
     Effect.gen(function* () {
       const output = stripAnsi(yield* captureHelpOutput(["update"]));
 
-      expect(output).toContain("Update extensions to newer versions");
+      expect(output).toContain(
+        "Advance accepted resolutions within each source's selection intent",
+      );
       expect(output).toContain("[<extension[@version]>]");
-      expect(output).toContain("Registry FQN");
-      expect(output).toContain("(@owner/<plural-type>/<name>[@version]) (optional)");
+      expect(output).toContain("Installed extension FQN; optional @version");
+      expect(output).toContain("constrains Registry sources only");
       expect(output).toContain("axm update");
       expect(output).toContain("axm update @acme/skills/code-review");
+      expect(output).toContain("regardless of source family");
       expect(output).toContain("--ignore-release-age");
     }),
   );

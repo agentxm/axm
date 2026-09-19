@@ -143,15 +143,21 @@ const makeServices = (
             : Effect.void,
       }),
       Layer.mock(AcceptedResolutionWriter, {
-        setAccepted: (type, key, entry) =>
-          type === "mcp-server" && entry.extensionType === "mcp-server"
-            ? (setAcceptedMcpServer?.({
-                name: entry.workspaceName,
-                resolutionKey: key,
-                lockEntry: entry,
-                versionRange: Option.none(),
-              }) ?? Effect.void)
-            : Effect.void,
+        setAccepted: (type, key, entry) => {
+          if (type !== "mcp-server" || entry.identity.owner === undefined) return Effect.void;
+          const lockEntry = {
+            ...entry,
+            identity: { ...entry.identity, owner: entry.identity.owner },
+          };
+          return (
+            setAcceptedMcpServer?.({
+              name: entry.identity.name,
+              resolutionKey: key,
+              lockEntry,
+              versionRange: Option.none(),
+            }) ?? Effect.void
+          );
+        },
       }),
       Layer.succeed(McpSecretStore, secretStore.service),
       Layer.succeed(SourceHostProviders, sourceProviders),
@@ -283,7 +289,7 @@ describe("installMcpServer", () => {
     name = "my-server",
     runnable = true,
   ) => {
-    const canonicalPath = path.join(base, "agent_extensions", "agentxm", owner, "mcps", name);
+    const canonicalPath = path.join(base, "agent_extensions", "registry", owner, "mcps", name);
     fs.mkdirSync(canonicalPath, { recursive: true });
     fs.writeFileSync(
       path.join(canonicalPath, "mcp.json"),
@@ -359,7 +365,7 @@ describe("installMcpServer", () => {
         const canonicalPath = path.join(
           base,
           "agent_extensions",
-          "agentxm",
+          "registry",
           "@community",
           "mcps",
           "my-server",
@@ -547,7 +553,7 @@ describe("installMcpServer", () => {
         const canonicalPath = path.join(
           base,
           "agent_extensions",
-          "agentxm",
+          "registry",
           "@community",
           "mcps",
           "my-server",
@@ -639,7 +645,9 @@ describe("installMcpServer", () => {
         expect(setMcpServerFn).toHaveBeenCalledWith(
           expect.objectContaining({
             name: "my-server",
-            lockEntry: expect.objectContaining({ resolvedVersion: "1.2.3" }),
+            lockEntry: expect.objectContaining({
+              resolved: expect.objectContaining({ version: "1.2.3" }),
+            }),
           }),
         );
       }),
@@ -762,7 +770,7 @@ describe("installMcpServer", () => {
             fileCount: 4,
             targets: [
               expect.objectContaining({
-                path: "agent_extensions/agentxm/@community/mcps/my-server",
+                path: "agent_extensions/registry/@community/mcps/my-server",
                 change: "created",
               }),
               { path: "axm.json", change: "created" },
@@ -833,7 +841,7 @@ describe("installMcpServer", () => {
             fileCount: 2,
             targets: [
               expect.objectContaining({
-                path: "agent_extensions/agentxm/@community/mcps/my-server",
+                path: "agent_extensions/registry/@community/mcps/my-server",
               }),
               expect.objectContaining({ path: "axm.json" }),
             ],

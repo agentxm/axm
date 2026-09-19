@@ -33,10 +33,7 @@ export const specification = defineSpecification({
 const OWNER = "@test";
 const TOKEN = "e2e-test-token";
 
-const registryEnv = (location: string): Record<string, string> => ({
-  AXM_REGISTRY_URL: location,
-  AXM_TOKEN: TOKEN,
-});
+const registryEnv = (_location: string): Record<string, string> => ({ AXM_TOKEN: TOKEN });
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -84,7 +81,8 @@ const initWorkspace = async (workspace: string, location: string) => {
   });
   expect(setup.exitCode, setup.stderr).toBe(0);
   const settings = readSettings(workspace);
-  settings["sources"] = [{ name: "agentxm", type: "registry", location }];
+  settings["defaultRegistry"] = "test";
+  settings["sources"] = [{ name: "test", type: "registry", location }];
   settings["owner"] = OWNER;
   settings["minimumReleaseAge"] = "0s";
   writeSettings(workspace, settings);
@@ -215,7 +213,7 @@ describe("An interrupted workspace change", () => {
       const canonical = path.join(
         workspace.path,
         "agent_extensions",
-        "agentxm",
+        "registry",
         OWNER,
         "skills",
         "alpha",
@@ -275,7 +273,7 @@ describe("An interrupted workspace change", () => {
       expect(proceeded.exitCode, proceeded.stdout + proceeded.stderr).toBe(0);
       expect(
         fs.existsSync(
-          path.join(workspace.path, "agent_extensions", "agentxm", OWNER, "skills", "alpha"),
+          path.join(workspace.path, "agent_extensions", "registry", OWNER, "skills", "alpha"),
         ),
       ).toBe(true);
     } finally {

@@ -25,7 +25,7 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-const PACKAGE = "agent_extensions/agentxm/@acme/skills/review";
+const PACKAGE = "agent_extensions/registry/@acme/skills/review";
 
 describe("Unrecognized install root entries", () => {
   const cleanups: Array<() => void> = [];
@@ -49,7 +49,7 @@ describe("Unrecognized install root entries", () => {
         [`${PACKAGE}.axm-staging/src/SKILL.md`]: "# Staging\n",
         [`${PACKAGE}.axm-backup/src/SKILL.md`]: "# Backup\n",
         "agent_extensions/notes.txt": "notes\n",
-        "agent_extensions/agentxm/stray/readme.md": "stray\n",
+        "agent_extensions/registry/stray/readme.md": "stray\n",
         "foreign/readme.md": "foreign\n",
       },
     });
@@ -70,9 +70,9 @@ describe("Unrecognized install root entries", () => {
           .sort((left, right) => (left.file ?? "").localeCompare(right.file ?? "")),
       ).toEqual(
         [
-          ["agent_extensions/agentxm/stray", "directory"],
           ["agent_extensions/linked", "symlink"],
           ["agent_extensions/notes.txt", "file"],
+          ["agent_extensions/registry/stray", "directory"],
         ].map(([file, kind]) => ({
           ruleId: "workspace/install-root-entries-recognized",
           severity: "warning",

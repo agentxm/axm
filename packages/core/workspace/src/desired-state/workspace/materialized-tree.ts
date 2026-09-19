@@ -53,8 +53,14 @@ interface MaterializedFile {
   readonly absolutePath: string;
 }
 
+export interface MaterializedTreeIntegrityOptions {
+  /** Include one regular file in the digest. Directories are always traversed. */
+  readonly includeFile?: (relativePath: string) => boolean;
+}
+
 export const computeMaterializedTreeIntegrity = (
   root: string,
+  options: MaterializedTreeIntegrityOptions = {},
 ): Effect.Effect<TreeIntegrity, MaterializedTreeInvalid, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -113,7 +119,9 @@ export const computeMaterializedTreeIntegrity = (
           if (info.type === "Directory") {
             yield* walk(absolutePath, relativePath);
           } else if (info.type === "File") {
-            files.push({ relativePath, absolutePath });
+            if (options.includeFile?.(relativePath) !== false) {
+              files.push({ relativePath, absolutePath });
+            }
           } else {
             return yield* treeError(root, `unsupported filesystem entry: ${relativePath}`);
           }

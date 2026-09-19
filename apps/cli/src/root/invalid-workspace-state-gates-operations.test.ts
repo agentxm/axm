@@ -228,9 +228,15 @@ const invokeOperation = (
       return workspace
         .provide(
           handleInstall({
+            type: Option.none(),
             source: Option.some(packagePath),
+            selectors: {},
+            all: true,
             force: false,
             preview: false,
+            env: [],
+            localName: Option.none(),
+            bundled: false,
           }),
         )
         .pipe(
@@ -241,9 +247,15 @@ const invokeOperation = (
       return workspace
         .provide(
           handleInstall({
+            type: Option.none(),
             source: Option.some(packagePath),
+            selectors: {},
+            all: true,
             force: true,
             preview: false,
+            env: [],
+            localName: Option.none(),
+            bundled: false,
           }),
         )
         .pipe(
@@ -310,9 +322,15 @@ describe("Invalid workspace state gates operations", () => {
 
       const install = () =>
         handleInstall({
+          type: Option.none(),
           source: Option.some(packagePath),
+          selectors: {},
+          all: true,
           force: false,
           preview: false,
+          env: [],
+          localName: Option.none(),
+          bundled: false,
         }).pipe(Effect.provide(workspace.layer));
 
       const failure = yield* install().pipe(Effect.flip);

@@ -77,7 +77,7 @@ export const makeAgentMembershipFixture = (options: AgentMembershipFixtureOption
   // JSON is valid YAML, so the lockfile fixture needs no emitter.
   writeFile(
     "axm-lock.yaml",
-    `${JSON.stringify({ lockfileVersion: 7, skills: {}, ...options.lockfile }, null, 2)}\n`,
+    `${JSON.stringify({ lockfileVersion: 8, skills: {}, ...options.lockfile }, null, 2)}\n`,
   );
   for (const [relativePath, contents] of Object.entries(options.files ?? {})) {
     writeFile(relativePath, contents);

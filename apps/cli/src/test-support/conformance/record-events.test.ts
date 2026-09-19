@@ -70,7 +70,7 @@ describe("recorded lifecycle event logs", () => {
 
   const install = (source: string, preview: boolean) =>
     handleInstall(
-      { source: Option.some(source), skills: [], all: false },
+      { source: Option.some(source), skills: [path.basename(source)], all: false },
       { force: false, preview },
     );
 

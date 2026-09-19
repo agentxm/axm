@@ -1,5 +1,12 @@
 import * as semver from "semver";
 
+type PackDependencyDeclarationValue =
+  | string
+  | {
+      readonly source: { readonly type: "registry"; readonly url: URL };
+      readonly versionRange: string;
+    };
+
 export type PackDependencyAuthority = "workspace" | "registry";
 export type PackDependencyReachabilityClassification = "satisfying" | "excluded" | "missing";
 
@@ -13,7 +20,7 @@ export interface PackDependencyDeclaration {
   readonly packFqn: string;
   readonly packAuthority: PackDependencyAuthority;
   readonly manifestPath: string;
-  readonly dependencies: Readonly<Record<string, string>>;
+  readonly dependencies: Readonly<Record<string, PackDependencyDeclarationValue>>;
 }
 
 export interface PackDependencyReachability {
@@ -49,7 +56,9 @@ export const buildPackDependencyReachability = (args: {
     .flatMap((pack) =>
       Object.entries(pack.dependencies)
         .sort(([left], [right]) => left.localeCompare(right))
-        .flatMap(([memberFqn, constraint]) => {
+        .flatMap(([memberFqn, declaration]) => {
+          const constraint =
+            typeof declaration === "string" ? declaration : declaration.versionRange;
           if (semver.validRange(constraint) === null) return [];
           const member = members.get(memberFqn);
           return [

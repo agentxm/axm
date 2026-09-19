@@ -12,7 +12,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { computeSourceHash } from "../desired-state/index.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
-import type { GitHubSource } from "@agentxm/extension-model/unstable/sources/types";
+import type { GitSource } from "@agentxm/extension-model/unstable/sources/types";
 import { sourceToLockEntry } from "../desired-state/index.js";
 import { extensionName } from "../materialization/test-helpers.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
@@ -45,14 +45,11 @@ describe("portable React Router skill acquisition", () => {
       fs.writeFileSync(path.join(sourceRoot, "references", "framework.md"), "# Framework\n");
 
       const source = {
-        type: "github",
-        name: "github",
-        url: new URL("https://github.com"),
-        owner: "remix-run",
-        repo: "react-router",
+        type: "git",
+        url: new URL("https://github.com/remix-run/react-router.git"),
         ref: Option.some("main"),
         subPath: Option.some(sourcePath),
-      } satisfies GitHubSource;
+      } satisfies GitSource;
       const ref = {
         type: "skill",
         refType: "git-hosted",
@@ -81,10 +78,8 @@ describe("portable React Router skill acquisition", () => {
       const canonical = path.join(
         tempDir,
         "agent_extensions",
-        "github",
-        "remix-run",
-        "react-router",
-        ".agents",
+        "git",
+        "@portable",
         "skills",
         "react-router",
       );
@@ -104,24 +99,19 @@ describe("portable React Router skill acquisition", () => {
       }
       const lockEntry = sourceToLockEntry({
         ref,
-        sourceName: Option.none(),
         contentIdentity: computeSourceHash("react-router-content"),
         treeIntegrity: materialized.treeIntegrity,
       });
       expect(lockEntry).toMatchObject({
-        type: "github",
-        sourceType: "github",
-        sourceName: "github",
-        endpoint: new URL("https://github.com"),
-        extensionType: "skill",
-        workspaceName: "react-router",
-        packageFormat: "agent-skill",
-        owner: "remix-run",
-        repo: "react-router",
-        path: sourcePath,
-        ref: "main",
+        source: {
+          type: "git",
+          url: new URL("https://github.com/remix-run/react-router.git"),
+          path: sourcePath,
+          revision: "main",
+        },
+        identity: { name: "react-router" },
       });
-      expect(lockEntry).not.toHaveProperty("packageOwner");
+      expect(lockEntry?.identity).not.toHaveProperty("owner");
 
       const observed = yield* observeCanonicalExtension({
         layout,

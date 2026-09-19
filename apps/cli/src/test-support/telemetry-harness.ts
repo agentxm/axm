@@ -91,9 +91,15 @@ export const makeTelemetryOperation = () => {
           : { source, env: sensitiveSentinels, authorization: sensitiveSentinels[3], force: false };
       const exit = yield* withCliErrorHandling(
         handleInstall({
+          type: Option.none(),
           source: Option.some(options.fail === true ? `${source}/missing` : source),
+          selectors: {},
+          all: true,
           force: false,
           preview: options.preview === true,
+          env: [],
+          localName: Option.none(),
+          bundled: false,
         }),
         {
           command: "install",

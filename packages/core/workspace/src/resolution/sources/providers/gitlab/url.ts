@@ -12,8 +12,6 @@ import { refFromUrlHash } from "../../url-fragment.js";
 
 export const CANONICAL_HOSTNAME = "gitlab.com";
 
-/** Matches: /owner/repo[/-/tree/ref/path] */
-const GITLAB_PATH_PATTERN = /^\/([^/]+)\/([^/]+?)(?:\.git)?(?:\/-\/tree\/([^/]+)(?:\/(.+))?)?$/;
 const decodeGitLabSourceParams = Schema.decodeUnknownResult(GitLabSourceParamsSchema);
 
 export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
@@ -24,25 +22,35 @@ export const parseUrl = (url: URL, hostname: string = CANONICAL_HOSTNAME) => {
       }),
     );
   }
-  const match = url.pathname.match(GITLAB_PATH_PATTERN);
-  if (!match || !match[1] || !match[2]) {
+  const treeMarker = "/-/tree/";
+  const treeIndex = url.pathname.indexOf(treeMarker);
+  const repositoryPath = (treeIndex < 0 ? url.pathname : url.pathname.slice(0, treeIndex))
+    .split("/")
+    .filter((segment) => segment.length > 0);
+  const rawRepo = repositoryPath.at(-1);
+  const ownerSegments = repositoryPath.slice(0, -1);
+  if (rawRepo === undefined || ownerSegments.length === 0) {
     return Effect.fail(
       new SourceSyntaxInvalid({
         detail: "Invalid GitLab URL format",
       }),
     );
   }
+  const treePath =
+    treeIndex < 0 ? [] : url.pathname.slice(treeIndex + treeMarker.length).split("/");
+  const treeRef = treePath.at(0);
+  const subPath = treePath.slice(1).join("/");
   const fragmentRef = Option.getOrUndefined(refFromUrlHash(url));
   const decoded = decodeGitLabSourceParams({
     type: "gitlab",
-    owner: match[1],
-    repo: match[2],
-    ...(match[3] === undefined
+    owner: ownerSegments.join("/"),
+    repo: rawRepo.endsWith(".git") ? rawRepo.slice(0, -4) : rawRepo,
+    ...(treeRef === undefined
       ? fragmentRef === undefined
         ? {}
         : { ref: fragmentRef }
-      : { ref: match[3] }),
-    ...(match[4] === undefined ? {} : { subPath: match[4] }),
+      : { ref: treeRef }),
+    ...(subPath.length === 0 ? {} : { subPath }),
   });
   return Result.isSuccess(decoded)
     ? Effect.succeed(decoded.success satisfies GitLabSourceParams)

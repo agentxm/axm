@@ -177,6 +177,7 @@ export const WorkspaceCatalogLive = Layer.effect(
       workspaceRoot: location.baseDir,
       configuredSources: settings.configuredSources.pipe(Effect.mapError(catalogUnavailable)),
       registrySourceHosts: settings.registrySourceHosts.pipe(Effect.mapError(catalogUnavailable)),
+      defaultRegistry: settings.defaultRegistry.pipe(Effect.mapError(catalogUnavailable)),
       desiredExtensionGraph: desiredState.graph().pipe(Effect.mapError(catalogUnavailable)),
       skillCandidates,
     };

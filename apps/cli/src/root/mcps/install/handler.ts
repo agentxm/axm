@@ -60,7 +60,7 @@ export const handleInstallMcpServer = (
       request: {
         type: Option.some("mcp-server"),
         subject: { kind: "source", source: args.source.value },
-        names: [],
+        selectors: { "mcp-server": [] },
         all: false,
         reinstall: flags.force,
         localName,

@@ -172,7 +172,13 @@ const runInstallPack = (op: InstallPackOperation, adapter: StepFailureConversion
     const packDir = computePackPathsForLayout(
       path.join,
       layout,
-      op.args.sourceName,
+      op.args.ref.refType === "workspace"
+        ? "workspace"
+        : op.args.ref.refType === "registry"
+          ? "registry"
+          : op.args.ref.refType === "local"
+            ? "path"
+            : "git",
       op.args.owner,
       op.args.packName,
     ).canonicalPath;
@@ -269,20 +275,20 @@ const runInstallPack = (op: InstallPackOperation, adapter: StepFailureConversion
     // Write lockfile + settings
     const metadataWarning = yield* desiredStateWriter
       .declare("pack", {
-        type: "registry",
-        sourceType: "registry",
-        packageFormat: "agentxm",
-        endpoint: op.args.ref.source.location,
-        extensionType: "pack",
-        workspaceName: decodeExtensionNameSync(op.args.packName),
-        owner: op.args.owner,
-        name: decodeExtensionNameSync(op.args.packName),
-        resolvedVersion: op.args.resolvedVersion,
-        integrity: op.args.integrity,
-        sourceName: op.args.sourceName,
-        publisherBindingId: op.args.publisherBindingId,
-        manifestContentIdentity,
-        treeIntegrity,
+        name: op.args.packName,
+        lockEntry: {
+          source: { type: "registry", url: op.args.ref.source.location },
+          identity: { owner: op.args.owner, name: decodeExtensionNameSync(op.args.packName) },
+          resolved: {
+            version: op.args.resolvedVersion,
+            integrity: op.args.integrity,
+            publisherBindingId: op.args.publisherBindingId,
+          },
+          manifestVersion: op.args.resolvedVersion,
+          manifestContentIdentity,
+          members: Object.keys(op.args.ref.pack.dependencies),
+          treeIntegrity,
+        },
         versionRange: op.args.versionRange,
       })
       .pipe(

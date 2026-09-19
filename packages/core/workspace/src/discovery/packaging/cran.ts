@@ -2,7 +2,7 @@
  * CRAN (R) package detector and reader for package-compatibility discovery.
  *
  * Parses `DESCRIPTION` files for `Depends`, `Imports`, and `Suggests` fields.
- * Reads `Config/axm` prefixed fields from installed package DESCRIPTION files.
+ * Reads `Config/agentExtensions` from installed package DESCRIPTION files.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -17,7 +17,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { readEnv } from "../internal/environment.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, readFileOptional } from "./reader-io.js";
+import { decodeAgentExtensions, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const cranType = Schema.decodeUnknownSync(PackageTypeSchema)("cran");
@@ -163,7 +163,7 @@ const resolveRLibPath = () =>
 /**
  * CRAN package reader.
  *
- * Reads `Config/axm` prefixed fields from `<lib-path>/<pkg>/DESCRIPTION`
+ * Reads `Config/agentExtensions` from `<lib-path>/<pkg>/DESCRIPTION`
  * for each detected CRAN package and extracts recommendation metadata.
  *
  * @experimental This API is unstable and may change without notice.
@@ -182,30 +182,33 @@ export const cranReader: PackageReader = {
 
       const fields = parseDescriptionFile(content.value);
 
-      // Look for Config/axm fields - the metadata is stored as JSON in Config/axm
-      const axmField = fields["Config/axm"];
-      if (axmField === undefined) return Option.none();
+      const agentExtensionsField = fields["Config/agentExtensions"];
+      if (agentExtensionsField === undefined) return Option.none();
 
-      // Parse the axm metadata JSON
-      const axmParsed = yield* Effect.try({
-        try: (): unknown => JSON.parse(axmField),
+      // Parse the agentExtensions metadata JSON
+      const agentExtensions = yield* Effect.try({
+        try: (): unknown => JSON.parse(agentExtensionsField),
         catch: () => ({ _tag: "JsonParseError" as const }),
       }).pipe(Effect.option);
 
-      if (Option.isNone(axmParsed)) {
-        yield* Effect.logWarning(`Malformed Config/axm in ${pkg.purl.name}: invalid JSON`);
-        return Option.none();
-      }
-
-      const metaResult = decodeAxmMeta(axmParsed.value);
-      if (Result.isFailure(metaResult)) {
+      if (Option.isNone(agentExtensions)) {
         yield* Effect.logWarning(
-          `Invalid axm metadata in ${pkg.purl.name}: schema validation failed`,
+          `Malformed Config/agentExtensions in ${pkg.purl.name}: invalid JSON`,
         );
         return Option.none();
       }
 
-      return Option.some(metaResult.success.extensions);
+      const metaResult = yield* decodeAgentExtensions({
+        agentExtensions: agentExtensions.value,
+      });
+      if (Result.isFailure(metaResult)) {
+        yield* Effect.logWarning(
+          `Invalid agentExtensions metadata in ${pkg.purl.name}: schema validation failed`,
+        );
+        return Option.none();
+      }
+
+      return Option.some(metaResult.success.agentExtensions);
     },
     Effect.annotateLogs({ reader: "cran" }),
     Effect.withSpan("read.cran"),

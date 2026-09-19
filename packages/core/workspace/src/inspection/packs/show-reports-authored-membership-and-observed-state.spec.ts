@@ -80,7 +80,7 @@ describe("Pack state inspection", () => {
             desiredDependencies: [],
           });
           expect(result.canonicalPath).toBe(
-            `${fixture.root}/agent_extensions/agentxm/@acme/packs/toolkit/pack.json`,
+            `${fixture.root}/agent_extensions/registry/@acme/packs/toolkit/pack.json`,
           );
         }),
       )

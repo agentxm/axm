@@ -11,7 +11,11 @@ import * as Option from "effect/Option";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import type { TreeIntegrity } from "../desired-state/index.js";
 import type { SubagentLockEntry } from "../desired-state/index.js";
-import { gitSourceLockFields } from "../desired-state/index.js";
+import {
+  gitSourceLockFields,
+  pathSourceLockFields,
+  registrySourceLockFields,
+} from "../desired-state/index.js";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 
 // -----------------------------------------------------------------------------
@@ -43,12 +47,9 @@ export const buildSubagentLockEntry = (
       return {
         ...gitSourceLockFields(
           ref.source,
-          "subagent",
-          ref.subagent.name,
           Option.fromUndefinedOr(ref.sourcePath),
           ref.gitCommitSha,
           ref.gitTreeSha,
-          contentIdentity,
           ref.owner,
           ref.name,
           treeIntegrity,
@@ -56,36 +57,24 @@ export const buildSubagentLockEntry = (
       };
 
     case "local":
-      return {
-        type: "local",
-        sourceType: "local",
-        sourceName: "local",
-        extensionType: "subagent",
-        workspaceName: ref.subagent.name,
-        packageFormat: "agentxm",
-        packageOwner: ref.owner,
-        packageName: ref.name,
-        path: localSourceLockPath(ref.source.path, workspaceRelativeLocalSourcePath),
+      return pathSourceLockFields(
+        localSourceLockPath(ref.source.path, workspaceRelativeLocalSourcePath),
         contentIdentity,
+        ref.name,
         treeIntegrity,
-      };
+        ref.owner,
+      );
 
     case "registry":
-      return {
-        type: "registry",
-        sourceType: "registry",
-        packageFormat: "agentxm",
-        endpoint: ref.source.location,
-        extensionType: "subagent",
-        workspaceName: ref.subagent.name,
-        owner: ref.owner,
-        name: ref.subagent.name,
-        resolvedVersion: ref.version,
-        integrity: Option.getOrElse(ref.integrity, () => ""),
-        sourceName: ref.source.name,
-        publisherBindingId: ref.publisherBindingId,
+      return registrySourceLockFields(
+        ref.source,
+        ref.owner,
+        ref.name,
+        ref.version,
+        Option.getOrElse(ref.integrity, () => ""),
+        ref.publisherBindingId,
         treeIntegrity,
-      };
+      );
     case "workspace":
       return undefined;
   }

@@ -52,7 +52,7 @@ describe("closure settlement", () => {
     nodeFs.mkdirSync(nodePath.dirname(canonicalFile), { recursive: true });
     nodeFs.mkdirSync(nodePath.dirname(projectionPath), { recursive: true });
     nodeFs.writeFileSync(settingsPath, '{"skills":{}}\n');
-    nodeFs.writeFileSync(lockPath, "lockfileVersion: 7\nskills: {}\n");
+    nodeFs.writeFileSync(lockPath, "lockfileVersion: 8\nskills: {}\n");
     nodeFs.writeFileSync(canonicalFile, "# alpha v1\n");
     nodeFs.writeFileSync(projectionPath, "# projected v1\n");
   });
@@ -135,7 +135,7 @@ describe("closure settlement", () => {
             yield* withWorkspaceClosure("alpha")(write(settingsPath, '{"skills":{"alpha":1}}\n'));
             yield* settleWorkspaceClosure("alpha");
             const result = yield* withWorkspaceClosure("beta")(
-              write(lockPath, "lockfileVersion: 7\nskills: { beta: {} }\n").pipe(
+              write(lockPath, "lockfileVersion: 8\nskills: { beta: {} }\n").pipe(
                 Effect.andThen(write(canonicalFile, "# beta\n")),
                 Effect.andThen(write(projectionPath, "# projected beta\n")),
                 Effect.result,
@@ -148,7 +148,7 @@ describe("closure settlement", () => {
         });
         expect(outcome._tag).toBe("Failure");
         expect(read(settingsPath)).toBe('{"skills":{"alpha":1}}\n');
-        expect(read(lockPath)).toBe("lockfileVersion: 7\nskills: {}\n");
+        expect(read(lockPath)).toBe("lockfileVersion: 8\nskills: {}\n");
         expect(read(canonicalFile)).toBe("# alpha v1\n");
         expect(read(projectionPath)).toBe("# projected v1\n");
       }).pipe(

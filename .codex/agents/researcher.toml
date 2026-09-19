@@ -1,6 +1,6 @@
-# axm:file v=1 ext=@craigsmitham/subagents/researcher src=agent_extensions/agentxm/@craigsmitham/subagents/researcher/src/researcher.md gen=f15e1491af3cef259c5f39a8948d0e6307d7b855170473567d9c6ebf521ca998
+# axm:file v=1 ext=@craigsmitham/subagents/researcher src=agent_extensions/registry/@craigsmitham/subagents/researcher/src/researcher.md gen=34dc16c9feb3d24c9b95ce915ee1ebc9a6c4b5caa57e9cd65b18278f3b252bec
 # AXM managed projection — do not edit directly.
-# Source: agent_extensions/agentxm/@craigsmitham/subagents/researcher/src/researcher.md (acquired, immutable)
+# Source: agent_extensions/registry/@craigsmitham/subagents/researcher/src/researcher.md (acquired, immutable)
 # Use `axm fork` to create an authored copy before customizing.
 # Learn more: `axm help subagents`
 

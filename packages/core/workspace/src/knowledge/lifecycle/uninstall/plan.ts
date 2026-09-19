@@ -62,7 +62,7 @@ const lockCanonicalRoot = (
     layout,
     extensionPathSourceFromLockEntry(locked),
     "knowledge",
-    locked.workspaceName,
+    locked.identity.name,
   ).canonicalPath;
 
 /** Settle whether this Knowledge bundle has anything to remove. */

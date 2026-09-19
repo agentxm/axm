@@ -273,7 +273,7 @@ describe("cargoDetector", () => {
  *
  * `cargoTomlContent`, when provided, is written to
  * `<CARGO_HOME>/registry/src/index.crates.io-mock/<crate>-<version>/Cargo.toml`.
- * Pass a full Cargo.toml (or just the `[package.metadata.axm]` table) — the
+ * Pass a full Cargo.toml (or just the `[package.metadata]` table) — the
  * reader scans for the section header.
  */
 const readInTempCargoHome = (
@@ -338,8 +338,8 @@ describe("cargoReader", () => {
     expect(cargoReader.type).toBe(cargoType);
   });
 
-  describe("valid [package.metadata.axm] in Cargo.toml", () => {
-    it.effect("extracts extensions from [package.metadata.axm]", () =>
+  describe("valid [package.metadata] in Cargo.toml", () => {
+    it.effect("extracts extensions from [package.metadata]", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cargo", name: "serde", version: "1.0.193" });
@@ -350,8 +350,8 @@ describe("cargoReader", () => {
               'name = "serde"',
               'version = "1.0.193"',
               "",
-              "[package.metadata.axm]",
-              'extensions = [{ ref = "@serde/skills/serde", versionRange = "^1.0.0" }]',
+              "[package.metadata]",
+              'agentExtensions = [{ ref = "@serde/skills/serde", versionRange = "^1.0.0" }]',
             ].join("\n"),
           );
           expect(Option.isSome(result)).toBe(true);
@@ -368,7 +368,7 @@ describe("cargoReader", () => {
           const purl = makePurl({ type: "cargo", name: "serde", version: "1.0.0" });
           const result = yield* readInTempCargoHome(
             purl,
-            ["[package.metadata.axm]", "extensions = []"].join("\n"),
+            ["[package.metadata]", "agentExtensions = []"].join("\n"),
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
@@ -389,11 +389,11 @@ describe("cargoReader", () => {
               'name = "serde"',
               'version = "1.0.193"',
               "",
-              "[[package.metadata.axm.extensions]]",
+              "[[package.metadata.agentExtensions]]",
               'ref = "@serde/skills/serde"',
               'versionRange = "^1.0.0"',
               "",
-              "[[package.metadata.axm.extensions]]",
+              "[[package.metadata.agentExtensions]]",
               'ref = "@serde/packs/serde"',
             ].join("\n"),
           );
@@ -415,11 +415,11 @@ describe("cargoReader", () => {
           const result = yield* readInTempCargoHome(
             purl,
             [
-              "[package.metadata.axm]",
-              'extensions = [{ ref = "@serde/skills/serde", versionRange = "^1.0.0" }]',
+              "[package.metadata]",
+              'agentExtensions = [{ ref = "@serde/skills/serde", versionRange = "^1.0.0" }]',
               "",
               "[package.metadata.other-tool]",
-              'extensions = ["should-be-ignored"]',
+              'agentExtensions = ["should-be-ignored"]',
             ].join("\n"),
           );
           expect(Option.isSome(result)).toBe(true);
@@ -431,8 +431,8 @@ describe("cargoReader", () => {
     );
   });
 
-  describe("missing [package.metadata.axm]", () => {
-    it.effect("returns Option.none when Cargo.toml has no axm section", () =>
+  describe("missing [package.metadata]", () => {
+    it.effect("returns Option.none when Cargo.toml has no agentExtensions section", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cargo", name: "tokio", version: "1.0.0" });
@@ -456,14 +456,14 @@ describe("cargoReader", () => {
     );
   });
 
-  describe("malformed axm metadata", () => {
+  describe("malformed agentExtensions metadata", () => {
     it.effect("returns Option.none and warns on schema validation failure", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cargo", name: "serde", version: "1.0.0" });
           const result = yield* readInTempCargoHome(
             purl,
-            ["[package.metadata.axm]", "extensions = 42"].join("\n"),
+            ["[package.metadata]", "agentExtensions = 42"].join("\n"),
           );
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -472,15 +472,15 @@ describe("cargoReader", () => {
   });
 
   describe("extra fields tolerated", () => {
-    it.effect("ignores unknown keys in [package.metadata.axm]", () =>
+    it.effect("ignores unknown keys in [package.metadata]", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cargo", name: "serde", version: "1.0.0" });
           const result = yield* readInTempCargoHome(
             purl,
             [
-              "[package.metadata.axm]",
-              'extensions = [{ ref = "@acme/skills/foo", versionRange = "^1.0.0" }]',
+              "[package.metadata]",
+              'agentExtensions = [{ ref = "@acme/skills/foo", versionRange = "^1.0.0" }]',
               "futureField = true",
             ].join("\n"),
           );

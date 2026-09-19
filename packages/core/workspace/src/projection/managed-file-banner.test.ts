@@ -32,7 +32,7 @@ Review code.`;
       ext: "@acme/subagents/reviewer",
       source: {
         kind: "acquired",
-        path: "agent_extensions/agentxm/@acme/subagents/reviewer/src/reviewer.md",
+        path: "agent_extensions/registry/@acme/subagents/reviewer/src/reviewer.md",
       },
       helpTopic: "subagents",
       format: "markdown",
@@ -41,9 +41,9 @@ Review code.`;
     expect(result).toBe(`---
 name: reviewer
 ---
-<!-- axm:file v=1 ext=@acme/subagents/reviewer src=agent_extensions/agentxm/@acme/subagents/reviewer/src/reviewer.md
+<!-- axm:file v=1 ext=@acme/subagents/reviewer src=agent_extensions/registry/@acme/subagents/reviewer/src/reviewer.md
      AXM managed projection — do not edit directly.
-     Source: agent_extensions/agentxm/@acme/subagents/reviewer/src/reviewer.md (acquired, immutable)
+     Source: agent_extensions/registry/@acme/subagents/reviewer/src/reviewer.md (acquired, immutable)
      Use \`axm fork\` to create an authored copy before customizing.
      Learn more: \`axm help subagents\` -->
 
@@ -73,16 +73,16 @@ Review code.`);
       ext: "@acme/rules/review",
       source: {
         kind: "acquired",
-        path: "agent_extensions/agentxm/@acme/rules/review/src/review.md",
+        path: "agent_extensions/registry/@acme/rules/review/src/review.md",
       },
       helpTopic: "rules",
       format: "toml",
     });
 
     expect(result)
-      .toBe(`# axm:file v=1 ext=@acme/rules/review src=agent_extensions/agentxm/@acme/rules/review/src/review.md
+      .toBe(`# axm:file v=1 ext=@acme/rules/review src=agent_extensions/registry/@acme/rules/review/src/review.md
 # AXM managed projection — do not edit directly.
-# Source: agent_extensions/agentxm/@acme/rules/review/src/review.md (acquired, immutable)
+# Source: agent_extensions/registry/@acme/rules/review/src/review.md (acquired, immutable)
 # Use \`axm fork\` to create an authored copy before customizing.
 # Learn more: \`axm help rules\`
 
@@ -122,7 +122,7 @@ prompt = "Review code."
       ext: "@acme/rules/review",
       source: {
         kind: "acquired",
-        path: "agent_extensions/agentxm/@acme/rules/review/src/review.md",
+        path: "agent_extensions/registry/@acme/rules/review/src/review.md",
       },
       helpTopic: "rules",
       format: "markdown",
@@ -132,7 +132,7 @@ prompt = "Review code."
       ext: "@acme/rules/review",
       source: {
         kind: "acquired",
-        path: "agent_extensions/agentxm/@acme/rules/review/src/review.md",
+        path: "agent_extensions/registry/@acme/rules/review/src/review.md",
       },
       helpTopic: "rules",
       format: "markdown",
@@ -149,7 +149,7 @@ prompt = "Review code."
         ext: "@acme/rules/review",
         source: {
           kind: "acquired",
-          path: "agent_extensions/agentxm/@acme/rules/review/src/review.md",
+          path: "agent_extensions/registry/@acme/rules/review/src/review.md",
         },
         helpTopic: "rules",
         format: "markdown",

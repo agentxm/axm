@@ -1,3 +1,4 @@
+import * as nodePath from "node:path";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -43,7 +44,9 @@ describe("Repeat installs are safe", () => {
   it.effect("repeating an install reports an unchanged no-op", () => {
     const { workspace, cleanup } = makeInstallWorld();
     cleanups.push(cleanup);
-    const source = writeLocalSkillPackage(workspace.root, { name: "code-review" });
+    const source = nodePath.dirname(
+      writeLocalSkillPackage(workspace.root, { name: "code-review" }),
+    );
     const request = installRequest({ type: "skill", subject: { kind: "source", source } });
     return workspace
       .provide(
@@ -83,7 +86,7 @@ describe("Repeat installs are safe", () => {
             const sourceContent = workspace.readFile("vendor/code-review/src/SKILL.md");
             expect(sourceContent).toContain("# code-review");
             expect(
-              workspace.readFile("agent_extensions/local/vendor/code-review/src/SKILL.md"),
+              workspace.readFile("agent_extensions/path/@acme/skills/code-review/src/SKILL.md"),
             ).toBe(sourceContent);
             expect(workspace.readFile(".claude/skills/code-review/SKILL.md")).toBe(sourceContent);
             expect(workspace.readFile(".agents/skills/code-review/SKILL.md")).toBe(sourceContent);

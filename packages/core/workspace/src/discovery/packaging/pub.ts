@@ -13,8 +13,14 @@ import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
+import YAML from "yaml";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, decodePurl, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import {
+  decodeAgentExtensions,
+  decodePurl,
+  parseJsonOptional,
+  readFileOptional,
+} from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const pubType = Schema.decodeUnknownSync(PackageTypeSchema)("pub");
@@ -226,134 +232,11 @@ const resolvePackageRoot = (dartToolDir: string, rootUri: string): Option.Option
   }
 };
 
-const parseYamlInlineObject = (value: string): unknown => {
-  const trimmed = value.trim();
-  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
-    return trimmed.replace(/^["']|["']$/g, "");
-  }
-
-  const body = trimmed.slice(1, -1);
-  const entry: Record<string, string> = {};
-  for (const part of body.split(",")) {
-    const pair = /^\s*([A-Za-z0-9_-]+)\s*:\s*["']([^"']+)["']\s*$/.exec(part);
-    const key = pair?.[1];
-    const rawValue = pair?.[2];
-    if (key === undefined || rawValue === undefined) continue;
-    entry[key] = rawValue;
-  }
-
-  return Object.keys(entry).length > 0 ? entry : value;
-};
-
-const parseYamlInlineArray = (value: string): ReadonlyArray<unknown> => {
-  const inner = value.slice(1, value.lastIndexOf("]")).trim();
-  if (inner === "") return [];
-
-  const objectMatches = Array.from(inner.matchAll(/\{[^{}]*\}/g), (match) => match[0]);
-  if (objectMatches.length > 0) return objectMatches.map(parseYamlInlineObject);
-
-  return inner
-    .split(",")
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0)
-    .map((item) => item.replace(/^["']|["']$/g, ""));
-};
-
-/**
- * Extract the `axm` field from a pubspec.yaml content string using line-based parsing.
- * Returns the axm field value as a simple JSON-like structure, or undefined if not found.
- */
-const extractAxmFromPubspec = (content: string): unknown => {
-  const lines = content.split("\n");
-  let inAxmSection = false;
-  const axmLines: Array<string> = [];
-  let baseIndent = 0;
-
-  for (const line of lines) {
-    if (line.trimStart().startsWith("#")) continue;
-
-    // Detect "axm:" at the top level
-    if (!line.startsWith(" ") && !line.startsWith("\t") && line.trim() === "axm:") {
-      inAxmSection = true;
-      baseIndent = 0;
-      continue;
-    }
-
-    if (inAxmSection) {
-      const trimmed = line.trim();
-      if (trimmed.length === 0) continue;
-
-      const indent = line.length - line.trimStart().length;
-
-      // If we hit another top-level key, stop
-      if (indent === 0 && trimmed.length > 0) {
-        break;
-      }
-
-      if (baseIndent === 0) baseIndent = indent;
-      if (indent >= baseIndent) {
-        axmLines.push(line);
-      } else {
-        break;
-      }
-    }
-  }
-
-  if (axmLines.length === 0) return undefined;
-
-  // Parse the axm section: extract extensions list
-  const result: Record<string, unknown> = {};
-  let currentKey: string | undefined;
-  const currentList: Array<unknown> = [];
-  let inList = false;
-
-  for (const line of axmLines) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith("#")) continue;
-
-    // Check for key: value or key:
-    const colonIdx = trimmed.indexOf(":");
-    if (colonIdx > 0 && !trimmed.startsWith("-")) {
-      // Save previous list if any
-      if (inList && currentKey !== undefined) {
-        result[currentKey] = currentList.slice();
-        currentList.length = 0;
-      }
-
-      const key = trimmed.slice(0, colonIdx).trim();
-      const value = trimmed.slice(colonIdx + 1).trim();
-      currentKey = key;
-
-      if (value.length > 0 && !value.startsWith("[")) {
-        // Simple scalar value
-        result[key] = value;
-        inList = false;
-      } else if (value.startsWith("[")) {
-        result[key] = parseYamlInlineArray(value);
-        inList = false;
-      } else {
-        // List follows on next lines
-        inList = true;
-      }
-    } else if (trimmed.startsWith("- ") && inList && currentKey !== undefined) {
-      const item = parseYamlInlineObject(trimmed.slice(2));
-      currentList.push(item);
-    }
-  }
-
-  // Save final list
-  if (inList && currentKey !== undefined) {
-    result[currentKey] = currentList.slice();
-  }
-
-  return result;
-};
-
 /**
  * Pub package reader.
  *
  * Reads `.dart_tool/package_config.json` to locate the package root,
- * then reads `pubspec.yaml` from that root and extracts the `axm` field.
+ * then reads `pubspec.yaml` and extracts the top-level `agentExtensions` array.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -396,20 +279,21 @@ export const pubReader: PackageReader = {
       const pubspecContent = yield* readFileOptional(pubspecPath);
       if (Option.isNone(pubspecContent)) return Option.none();
 
-      // Extract axm field from pubspec
-      const axmRaw = extractAxmFromPubspec(pubspecContent.value);
-      if (axmRaw === undefined) return Option.none();
+      const metadata = yield* Effect.try({
+        try: (): unknown => YAML.parse(pubspecContent.value),
+        catch: () => ({ _tag: "YamlParseError" as const }),
+      }).pipe(Effect.option);
+      if (Option.isNone(metadata)) return Option.none();
 
-      // Validate axm metadata structure
-      const metaResult = decodeAxmMeta(axmRaw);
+      const metaResult = yield* decodeAgentExtensions(metadata.value);
       if (Result.isFailure(metaResult)) {
         yield* Effect.logWarning(
-          `Invalid axm metadata in ${pkg.purl.name}: schema validation failed`,
+          `Invalid agentExtensions metadata in ${pkg.purl.name}: schema validation failed`,
         );
         return Option.none();
       }
 
-      return Option.some(metaResult.success.extensions);
+      return Option.some(metaResult.success.agentExtensions);
     },
     Effect.annotateLogs({ reader: "pub" }),
     Effect.withSpan("read.pub"),

@@ -16,18 +16,14 @@ import type * as Effect from "effect/Effect";
 import * as Data from "effect/Data";
 import * as ServiceMap from "effect/Context";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import type {
-  GitHostingSourceHost,
-  RegistrySourceHost,
-} from "@agentxm/extension-model/unstable/sources/types";
+import type { RegistrySourceHost } from "@agentxm/extension-model/unstable/sources/types";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type { CarriedFailureCategory } from "./failure-category.js";
 
 /**
- * A source host the workspace has configured: a git-hosting forge or a
- * package registry, in the contract's source-host shape.
+ * A package registry the workspace has configured.
  */
-export type ConfiguredSourceHost = GitHostingSourceHost | RegistrySourceHost;
+export type ConfiguredSourceHost = RegistrySourceHost;
 
 /**
  * The catalog implementation could not produce a workspace fact. The
@@ -80,6 +76,7 @@ export interface WorkspaceCatalogService {
     ReadonlyArray<RegistrySourceHost>,
     WorkspaceCatalogUnavailable
   >;
+  readonly defaultRegistry: Effect.Effect<string, WorkspaceCatalogUnavailable>;
   readonly desiredExtensionGraph: Effect.Effect<
     DesiredExtensionGraphView,
     WorkspaceCatalogUnavailable

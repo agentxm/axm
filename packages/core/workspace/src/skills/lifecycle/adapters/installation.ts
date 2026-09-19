@@ -62,6 +62,7 @@ const skillPathSourceFor = (ref: SkillExtensionRef): SkillPathSource => {
     case "git-hosted":
       return {
         refType: "git-hosted",
+        ...(ref.owner === undefined ? {} : { owner: ref.owner }),
         source: ref.source,
         ...(ref.sourcePath === undefined ? {} : { sourcePath: ref.sourcePath }),
         ...(ref.portable === undefined ? {} : { portable: ref.portable }),
@@ -69,6 +70,7 @@ const skillPathSourceFor = (ref: SkillExtensionRef): SkillPathSource => {
     case "local":
       return {
         refType: "local",
+        ...(ref.owner === undefined ? {} : { owner: ref.owner }),
         source: ref.source,
         ...(ref.sourcePath === undefined ? {} : { sourcePath: ref.sourcePath }),
         ...(ref.portable === undefined ? {} : { portable: ref.portable }),
@@ -80,9 +82,14 @@ const skillPathSourceFor = (ref: SkillExtensionRef): SkillPathSource => {
 
 const previousResolvedVersion = (entry: unknown): string | undefined => {
   if (typeof entry !== "object" || entry === null) return undefined;
-  if (!("type" in entry) || entry.type !== "registry") return undefined;
-  if (!("resolvedVersion" in entry) || typeof entry.resolvedVersion !== "string") return undefined;
-  return entry.resolvedVersion;
+  if (!("source" in entry) || typeof entry.source !== "object" || entry.source === null)
+    return undefined;
+  if (!("type" in entry.source) || entry.source.type !== "registry") return undefined;
+  if (!("resolved" in entry) || typeof entry.resolved !== "object" || entry.resolved === null)
+    return undefined;
+  if (!("version" in entry.resolved) || typeof entry.resolved.version !== "string")
+    return undefined;
+  return entry.resolved.version;
 };
 
 const previousSourceHash = (entry: unknown): string | undefined => {

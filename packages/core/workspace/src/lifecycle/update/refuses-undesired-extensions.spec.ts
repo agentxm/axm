@@ -42,7 +42,7 @@ export const specification = defineSpecification({
 const TOOLKIT = "@acme/packs/toolkit";
 const MEMBER = "pack-member";
 const NEIGHBOR = "unrelated";
-const PACK_RELEASE = "agent_extensions/agentxm/@acme/packs/toolkit/release.txt";
+const PACK_RELEASE = "agent_extensions/registry/@acme/packs/toolkit/release.txt";
 const MEMBER_PROJECTION = `.claude/skills/${MEMBER}/SKILL.md`;
 
 /** Every file under a directory, so "nothing was acquired from it" is provable. */
@@ -124,7 +124,7 @@ describe("Update an extension the workspace does not desire", () => {
         skills: { [NEIGHBOR]: expect.anything() },
       });
       const canonical = workspace.readFile(
-        `agent_extensions/local/vendor/${NEIGHBOR}/src/SKILL.md`,
+        `agent_extensions/path/@acme/skills/${NEIGHBOR}/src/SKILL.md`,
       );
       expect(workspace.readFile(`.claude/skills/${NEIGHBOR}/SKILL.md`)).toBe(canonical);
       expect(workspace.readFile(`.agents/skills/${NEIGHBOR}/SKILL.md`)).toBe(canonical);
@@ -157,8 +157,10 @@ describe("Update an extension the workspace does not desire", () => {
             // content nor the member it would have brought with it.
             expect(workspace.exists(PACK_RELEASE)).toBe(false);
             expect(workspace.exists(MEMBER_PROJECTION)).toBe(false);
-            expect(workspace.exists("agent_extensions/agentxm/@acme/packs/toolkit")).toBe(false);
-            expect(workspace.exists(`agent_extensions/agentxm/@acme/skills/${MEMBER}`)).toBe(false);
+            expect(workspace.exists("agent_extensions/registry/@acme/packs/toolkit")).toBe(false);
+            expect(workspace.exists(`agent_extensions/registry/@acme/skills/${MEMBER}`)).toBe(
+              false,
+            );
             expect(workspace.exists(`.agents/skills/${MEMBER}`)).toBe(false);
             expect(workspace.snapshot()).toEqual(before);
             expect(snapshotDirectory(registry.root)).toEqual(registryBefore);

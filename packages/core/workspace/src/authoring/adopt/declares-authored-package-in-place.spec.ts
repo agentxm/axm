@@ -169,7 +169,7 @@ describe("Adopting an authored package in place", () => {
           parent: "skills",
         });
         writeAuthoringPackage(created.root, authoringTypeFor("skill"), "review", {
-          parent: "agent_extensions/github/@acme/skills",
+          parent: "agent_extensions/git/@acme/skills",
         });
       },
       failure: { _tag: "CreateDestinationExists" },

@@ -43,10 +43,11 @@ describe("List locally named MCP connections as a machine document", () => {
     // Two local connections accept the same published MCP server.
     const fixture = makeInspectionFixture({
       settings: {
-        sources: [{ name: "agentxm", type: "registry", location: inspectionRegistryUrl }],
+        defaultRegistry: "test",
+        sources: [{ name: "test", type: "registry", location: inspectionRegistryUrl }],
         mcpServers: {
-          "work-context": { source: "agentxm:@acme/mcps/context", enabled: true },
-          "personal-context": { source: "agentxm:@acme/mcps/context", enabled: true },
+          "work-context": { source: "test:@acme/mcps/context", enabled: true },
+          "personal-context": { source: "test:@acme/mcps/context", enabled: true },
         },
       },
       lockfile: { mcpServers: { [sharedIdentity]: acceptedResolution } },
@@ -64,7 +65,7 @@ describe("List locally named MCP connections as a machine document", () => {
           for (const item of document.items) {
             expect(item.source).toMatchObject({
               kind: "registry",
-              locator: "agentxm:@acme/mcps/context",
+              locator: "test:@acme/mcps/context",
               identity: expect.stringContaining("@acme/mcps/context"),
             });
             expect(item.resolution).toMatchObject({

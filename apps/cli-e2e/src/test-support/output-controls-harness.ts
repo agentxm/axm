@@ -18,8 +18,6 @@ export const makeOutputControlsFixture = () => {
       env: {
         HOME: home,
         AXM_USER_HOME: home,
-        AXM_REGISTRY_LOCATION: "https://registry.invalid",
-        AXM_REGISTRY_URL: "https://registry.invalid",
         AXM_TOKEN: "",
         AXM_TOKEN_FILE: "",
         AXM_NO_UPDATE_CHECK: "1",

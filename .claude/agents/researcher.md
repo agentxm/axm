@@ -2,9 +2,9 @@
 name: researcher
 description: Executes one bounded Research Brief framing or evidence-gathering phase in a fresh, read-only delegated context for the Research skill.
 ---
-<!-- axm:file v=1 ext=@craigsmitham/subagents/researcher src=agent_extensions/agentxm/@craigsmitham/subagents/researcher/src/researcher.md gen=6f1ded7481b4a5f04b122f5de0ae2bcfd641e6b35c4215bd632822a476475ecd
+<!-- axm:file v=1 ext=@craigsmitham/subagents/researcher src=agent_extensions/registry/@craigsmitham/subagents/researcher/src/researcher.md gen=bc8d58f14f7ad9f8a8dd840f790d797e408bb7f15e996db71bf9f7e549d5d808
      AXM managed projection — do not edit directly.
-     Source: agent_extensions/agentxm/@craigsmitham/subagents/researcher/src/researcher.md (acquired, immutable)
+     Source: agent_extensions/registry/@craigsmitham/subagents/researcher/src/researcher.md (acquired, immutable)
      Use `axm fork` to create an authored copy before customizing.
      Learn more: `axm help subagents` -->
 

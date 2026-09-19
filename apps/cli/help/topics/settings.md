@@ -31,6 +31,30 @@ Run `axm help settings-schema` to print the raw JSON Schema.
 
 `owner` is the default handle AXM uses when creating or resolving workspace-owned extensions.
 
+`defaultRegistry` names the Registry source used for unqualified extension
+references, `axm login` and other authentication commands, and publishing when
+no explicit destination is supplied. Project settings take precedence over
+user settings; when neither scope sets it, the immutable built-in `agentxm`
+source at `https://registry.agentxm.ai` is used.
+
+```jsonc
+{
+  "defaultRegistry": "company",
+  "sources": [
+    {
+      "name": "company",
+      "type": "registry",
+      "location": "https://registry.example.com",
+    },
+  ],
+}
+```
+
+The selected name must identify a configured Registry source. Built-in and
+intrinsic source names are reserved and cannot be redefined in `sources`;
+notably, a configured source cannot shadow `agentxm`. Credentials selected for
+the default Registry are never sent to another configured Registry.
+
 `minimumReleaseAge` controls unattended Registry resolution wherever AXM
 selects a release without an explicit version request — bare `axm install`,
 `axm sync`, every update command, activation, materialization, and `axm
@@ -68,8 +92,7 @@ stay exempt, and `minimumReleaseAge` only to change the window itself.
 `agents` lists the coding agents AXM syncs into. Use `axm agents list`,
 `axm agents add <id>`, and `axm agents remove <id>` instead of hand-editing
 this array; the commands also reconcile per-agent managed artifacts for
-installed extensions. `sources` names registries and source hosts that entries
-can reference.
+installed extensions. `sources` names registries that entries can reference.
 
 Extension entries live under `skills`, `mcpServers`, `subagents`, `rules`,
 `hooks`, `knowledge`, and `packs`. Each entry can be a source
@@ -82,6 +105,11 @@ extension type, and the manifest at that type's authored root.
 User scope does not accept user-authored `workspace` sources or
 authoring-directory settings. The bundled AXM skill is a reserved internal
 static package.
+
+Set `distribute: false` on an authored extension's object-form entry to omit it
+from repository discovery, bulk publication, and `axm share`. This is
+distribution intent, not confidentiality: files committed to public Git remain
+publicly accessible.
 
 ```jsonc
 {
@@ -240,14 +268,14 @@ represent it.
 ## Authoring
 
 Let AXM edit settings for routine install, remove, enable, disable, agent, and
-source changes. Hand-edit settings when reviewing generated changes, adding
-source hosts, or adjusting `lint.rules`.
+source changes. Hand-edit settings when reviewing generated changes, naming a
+Registry endpoint, selecting `defaultRegistry`, or adjusting `lint.rules`.
 
 AXM writes new settings files in canonical key order. When editing an existing
 file, it preserves the file's key order and untouched formatting.
 
-Workspace sources are authoritative local packages. AXM protects them across
-their lifecycle:
+Workspace-authored packages are authoritative local sources. AXM protects them
+across their lifecycle:
 
 - **Install and update cannot replace source** — update reports the package unchanged and explicit refresh/constraint flags do not bypass protection.
 - **Enable and sync resolve locally** — AXM validates the canonical package and never fetches the same FQN from a registry.

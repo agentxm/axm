@@ -77,7 +77,6 @@ export {
   McpCanonicalPathUnsafe,
   McpInstallStateMissing,
   McpLocalNameConflict,
-  McpRegistryOnlyInstall,
   McpRequiredInputsMissing,
   McpWorkspacePackageInvalid,
   type McpAgentSyncFault,

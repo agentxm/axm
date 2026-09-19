@@ -24,6 +24,10 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions/common";
 import {
+  packMemberVersionRange,
+  type PackMemberConstraintMap,
+} from "@agentxm/extension-model/unstable/extensions/common";
+import {
   decodeVersionRangeSync,
   type Version,
 } from "@agentxm/extension-model/unstable/version-constraints";
@@ -72,9 +76,9 @@ export const publishItemId = (target: {
 }): string => formatFqn(target);
 
 const packDependencyDescriptors = Effect.fn("Publish.packDependencyDescriptors")(function* (
-  dependencies: Readonly<Record<string, unknown>>,
+  dependencies: PackMemberConstraintMap,
 ) {
-  return yield* Effect.forEach(Object.entries(dependencies), ([fqn, range]) =>
+  return yield* Effect.forEach(Object.entries(dependencies), ([fqn, constraint]) =>
     Effect.gen(function* () {
       const parsed = yield* Effect.fromResult(
         Result.mapError(
@@ -87,7 +91,7 @@ const packDependencyDescriptors = Effect.fn("Publish.packDependencyDescriptors")
             }),
         ),
       );
-      if (parsed.type === "pack" || typeof range !== "string") {
+      if (parsed.type === "pack") {
         return yield* Effect.fail(
           new PublishFailed({
             category: "validation",
@@ -99,7 +103,11 @@ const packDependencyDescriptors = Effect.fn("Publish.packDependencyDescriptors")
         owner: parsed.owner,
         type: parsed.type,
         name: parsed.name,
-        range: decodeVersionRangeSync(range),
+        range:
+          typeof constraint === "string"
+            ? decodeVersionRangeSync(constraint)
+            : constraint.versionRange,
+        ...(typeof constraint === "string" ? {} : { source: constraint.source }),
       } satisfies PackDependencyDescriptor;
     }),
   );
@@ -317,7 +325,16 @@ export const publishCandidate: (
       published: yield* DateTime.now,
       integrity: candidate.integrity,
       ...(candidate.packages === undefined ? {} : { packages: candidate.packages }),
-      ...(candidate.dependencies === undefined ? {} : { dependencies: candidate.dependencies }),
+      ...(candidate.dependencies === undefined
+        ? {}
+        : {
+            dependencies: Object.fromEntries(
+              Object.entries(candidate.dependencies).map(([fqn, declaration]) => [
+                fqn,
+                packMemberVersionRange(declaration),
+              ]),
+            ),
+          }),
     };
     const publishPreview = candidate.publishPreview;
     if (publishPreview === undefined) {

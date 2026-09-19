@@ -14,14 +14,6 @@ import type { AxmMcpMetadata } from "./entry-semantics.js";
 const sourceTypeFromSettingsSource = (source: string): Exclude<SourceType, "inline"> => {
   if (isWorkspaceSourceLocator(source)) return "workspace";
   switch (source) {
-    case "github":
-      return "github";
-    case "gitlab":
-      return "gitlab";
-    case "bitbucket":
-      return "bitbucket";
-    case "azurerepos":
-      return "azurerepos";
     case "git":
       return "git";
     case "local":

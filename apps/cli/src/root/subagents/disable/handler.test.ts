@@ -236,7 +236,7 @@ describe("subagents disable.handler", () => {
           name: "pack-subagent",
           resolvedVersion: "1.0.0",
           integrity: "sha512-AAAA==",
-          sourceName: "agentxm",
+          sourceName: "test",
           publisherBindingId: "hbnd_test",
           sourceHash: computeSourceHash("# pack-subagent"),
         },

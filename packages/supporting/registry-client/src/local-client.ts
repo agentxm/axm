@@ -46,7 +46,11 @@ import {
   parseExtensionFqnParts,
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import type { PackageExtensionDeclaration } from "./axm-package-meta.js";
+import {
+  AGENTXM_REGISTRY_URL,
+  type AgentExtensionRecommendation,
+  type AgentExtensionSource,
+} from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 import { writeFileAtomic } from "./atomic-write.js";
 import {
   packagesToPackageUrlParts,
@@ -436,22 +440,23 @@ const packageIdentity = (parts: PackageUrlParts): PackageUrlParts => ({
   ...(parts.subpath === undefined ? {} : { subpath: parts.subpath }),
 });
 
-const extensionDeclarationToDiscoveryRef = (value: PackageExtensionDeclaration) => {
+const extensionDeclarationToDiscoveryRef = (value: AgentExtensionRecommendation) => {
   const parts = parseExtensionFqnParts(value.ref);
   if (parts === undefined) {
     return undefined;
   }
 
+  const source = value.source ?? { type: "registry" as const, url: new URL(AGENTXM_REGISTRY_URL) };
   return {
     ref: `${parts.owner}/${toExtensionTypePlural(parts.type)}/${parts.name}`,
-    ...(value.versionRange === undefined || value.versionRange === null
-      ? {}
-      : { versionRange: value.versionRange }),
+    source,
+    ...(value.versionRange === undefined ? {} : { versionRange: value.versionRange }),
   };
 };
 
 const indexToExtensionResult = (
   index: ExtensionIndex,
+  source: AgentExtensionSource,
   attestedBy: ReadonlyArray<"package" | "extension">,
   official: boolean,
 ): DiscoveryExtensionResult | undefined => {
@@ -460,19 +465,85 @@ const indexToExtensionResult = (
     return undefined;
   }
 
-  return {
+  const common = {
     ref: `${index.owner}/${toExtensionTypePlural(index.type)}/${index.name}`,
     resolved: true,
-    extension: {
-      type: index.type,
-      name: index.name,
-      owner: index.owner,
-      installVersion: latestVersion.version,
-    },
     attestedBy,
-    official,
     packageVersionInRange: true,
   };
+  switch (source.type) {
+    case "registry":
+      return {
+        ...common,
+        source,
+        extension: {
+          type: index.type,
+          name: index.name,
+          owner: index.owner,
+          resolution: { type: "registry", version: latestVersion.version },
+        },
+        official,
+      };
+    case "git":
+      return {
+        ...common,
+        source,
+        extension: {
+          type: index.type,
+          name: index.name,
+          owner: index.owner,
+          resolution: source,
+        },
+        official: false,
+      };
+    case "path":
+      return {
+        ...common,
+        source,
+        extension: {
+          type: index.type,
+          name: index.name,
+          owner: index.owner,
+          resolution: source,
+        },
+        official: false,
+      };
+  }
+};
+
+const unresolvedExtensionResult = (
+  ref: string,
+  source: AgentExtensionSource,
+): DiscoveryExtensionResult => {
+  switch (source.type) {
+    case "registry":
+      return {
+        ref,
+        source,
+        resolved: false,
+        attestedBy: ["package"],
+        official: false,
+        packageVersionInRange: true,
+      };
+    case "git":
+      return {
+        ref,
+        source,
+        resolved: false,
+        attestedBy: ["package"],
+        official: false,
+        packageVersionInRange: true,
+      };
+    case "path":
+      return {
+        ref,
+        source,
+        resolved: false,
+        attestedBy: ["package"],
+        official: false,
+        packageVersionInRange: true,
+      };
+  }
 };
 
 /** Parse an extension FQN string into owner/type/name parts. */
@@ -1147,14 +1218,8 @@ export const createLocalRegistryClient = (
                 );
           const resolved =
             match === undefined
-              ? ({
-                  ref: declared.ref,
-                  resolved: false,
-                  attestedBy: ["package"],
-                  official: false,
-                  packageVersionInRange: true,
-                } satisfies DiscoveryExtensionResult)
-              : indexToExtensionResult(match, ["package"], false);
+              ? unresolvedExtensionResult(declared.ref, declared.source)
+              : indexToExtensionResult(match, declared.source, ["package"], false);
           if (resolved !== undefined) {
             entries.set(declared.ref, resolved);
           }
@@ -1176,6 +1241,10 @@ export const createLocalRegistryClient = (
           const existing = entries.get(ref);
           const next = indexToExtensionResult(
             ext,
+            existing?.source ?? {
+              type: "registry",
+              url: new URL(AGENTXM_REGISTRY_URL),
+            },
             existing === undefined ? ["extension"] : ["package", "extension"],
             existing !== undefined,
           );

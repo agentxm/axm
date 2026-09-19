@@ -5,12 +5,15 @@
  */
 
 import * as Option from "effect/Option";
-import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import type { TreeIntegrity } from "../workspace/materialized-tree.js";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions/common";
-import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
-import type { GitBasedSource } from "@agentxm/extension-model/unstable/sources/types";
+import type {
+  GitBasedSource,
+  RegistrySource,
+} from "@agentxm/extension-model/unstable/sources/types";
+import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
+import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 
 export const optionalField = <K extends string, V>(
   key: K,
@@ -23,140 +26,96 @@ export const optionalField = <K extends string, V>(
   return fields;
 };
 
-const gitSourceLockFieldsBase = <
-  TExtensionType extends CatalogExtensionType,
-  TPackageFormat extends "agentxm" | "agent-skill",
->(
+const cloneUrl = (source: GitBasedSource): URL => {
+  return source.url;
+};
+
+const gitSourceLockFieldsBase = (
   source: GitBasedSource,
-  extensionType: TExtensionType,
-  workspaceName: ExtensionName,
-  packageFormat: TPackageFormat,
   selectedPath: Option.Option<string>,
   resolvedCommit: string,
   resolvedTree: string,
-  contentIdentity: SourceHash,
   packageName: ExtensionName,
   treeIntegrity: TreeIntegrity,
 ) => {
-  const path = Option.orElse(selectedPath, () =>
-    source.type === "git" ? Option.none() : source.subPath,
-  );
-  const common = {
-    extensionType,
-    workspaceName,
-    packageFormat,
-    packageName,
-    ...optionalField("ref", source.ref),
-    resolvedCommit,
-    resolvedTree,
-    contentIdentity,
+  const path = Option.orElse(selectedPath, () => source.subPath);
+  return {
+    source: {
+      type: "git" as const,
+      url: cloneUrl(source),
+      ...optionalField("path", path),
+      ...optionalField("revision", source.ref),
+    },
+    identity: { name: packageName },
+    resolved: {
+      commit: resolvedCommit,
+      tree: resolvedTree,
+    },
     treeIntegrity,
   };
-
-  switch (source.type) {
-    case "github":
-      return {
-        type: "github" as const,
-        sourceType: "github" as const,
-        sourceName: source.name,
-        endpoint: source.url,
-        owner: source.owner,
-        repo: source.repo,
-        ...optionalField("path", path),
-        ...common,
-      };
-    case "gitlab":
-      return {
-        type: "gitlab" as const,
-        sourceType: "gitlab" as const,
-        sourceName: source.name,
-        endpoint: source.url,
-        owner: source.owner,
-        repo: source.repo,
-        ...optionalField("path", path),
-        ...common,
-      };
-    case "bitbucket":
-      return {
-        type: "bitbucket" as const,
-        sourceType: "bitbucket" as const,
-        sourceName: source.name,
-        endpoint: source.url,
-        owner: source.owner,
-        repo: source.repo,
-        ...optionalField("path", path),
-        ...common,
-      };
-    case "azurerepos":
-      return {
-        type: source.type,
-        sourceType: source.type,
-        sourceName: source.name,
-        endpoint: source.url,
-        organization: source.organization,
-        project: source.project,
-        repo: source.repo,
-        ...optionalField("path", path),
-        ...common,
-      };
-    case "git":
-      return {
-        type: source.type,
-        sourceType: source.type,
-        sourceName: "git" as const,
-        url: source.url.href,
-        ...optionalField("path", path),
-        ...common,
-      };
-  }
 };
 
-export const gitSourceLockFields = <TExtensionType extends CatalogExtensionType>(
+export const gitSourceLockFields = (
   source: GitBasedSource,
-  extensionType: TExtensionType,
-  workspaceName: ExtensionName,
   selectedPath: Option.Option<string>,
   resolvedCommit: string,
   resolvedTree: string,
-  contentIdentity: SourceHash,
   packageOwner: Handle,
   packageName: ExtensionName,
   treeIntegrity: TreeIntegrity,
-) => ({
-  ...gitSourceLockFieldsBase(
+) => {
+  const fields = gitSourceLockFieldsBase(
     source,
-    extensionType,
-    workspaceName,
-    "agentxm",
     selectedPath,
     resolvedCommit,
     resolvedTree,
-    contentIdentity,
     packageName,
     treeIntegrity,
-  ),
-  packageOwner,
-});
+  );
+  return { ...fields, identity: { ...fields.identity, owner: packageOwner } };
+};
 
 export const portableGitSourceLockFields = (
   source: GitBasedSource,
-  workspaceName: ExtensionName,
   selectedPath: Option.Option<string>,
   resolvedCommit: string,
   resolvedTree: string,
-  contentIdentity: SourceHash,
   packageName: ExtensionName,
   treeIntegrity: TreeIntegrity,
 ) =>
   gitSourceLockFieldsBase(
     source,
-    "skill",
-    workspaceName,
-    "agent-skill",
     selectedPath,
     resolvedCommit,
     resolvedTree,
-    contentIdentity,
     packageName,
     treeIntegrity,
   );
+
+export const pathSourceLockFields = (
+  path: string,
+  contentIdentity: SourceHash,
+  packageName: ExtensionName,
+  treeIntegrity: TreeIntegrity,
+  packageOwner: Handle,
+) => ({
+  source: { type: "path" as const, path },
+  identity: { owner: packageOwner, name: packageName },
+  resolved: { tree: contentIdentity },
+  treeIntegrity,
+});
+
+export const registrySourceLockFields = (
+  source: RegistrySource,
+  packageOwner: Handle,
+  packageName: ExtensionName,
+  version: Version,
+  integrity: string,
+  publisherBindingId: string,
+  treeIntegrity: TreeIntegrity,
+) => ({
+  source: { type: "registry" as const, url: source.location },
+  identity: { owner: packageOwner, name: packageName },
+  resolved: { version, integrity, publisherBindingId },
+  treeIntegrity,
+});

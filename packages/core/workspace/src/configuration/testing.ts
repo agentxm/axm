@@ -40,6 +40,7 @@ import {
   WorkspaceInvariantFactsLive,
 } from "../projection/live.js";
 import { layer as WorkspaceLayerLive } from "../desired-state/live.js";
+import { withTestRegistryDefault } from "../desired-state/testing.js";
 
 import {
   WorkspaceInitializationInteractionTest,
@@ -119,12 +120,12 @@ export const makeConfigurationFixture = (options: ConfigurationFixtureOptions = 
   if (options.settings !== undefined) {
     fs.writeFileSync(
       nodePath.join(workspaceRoot, "axm.json"),
-      JSON.stringify({ agents: [], ...options.settings }, null, 2),
+      JSON.stringify({ agents: [], ...withTestRegistryDefault(options.settings) }, null, 2),
     );
     // JSON is valid YAML, so the lockfile fixture needs no emitter.
     fs.writeFileSync(
       nodePath.join(workspaceRoot, "axm-lock.yaml"),
-      JSON.stringify({ lockfileVersion: 7, skills: {}, ...options.lockfile }),
+      JSON.stringify({ lockfileVersion: 8, skills: {}, ...options.lockfile }),
     );
   }
   for (const [relativePath, contents] of Object.entries(options.files ?? {})) {

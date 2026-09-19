@@ -2,7 +2,7 @@
  * JSR package detector and Deno reader for package-compatibility discovery.
  *
  * Parses `deno.json`/`deno.jsonc` for `jsr:@scope/name` imports and reads
- * axm metadata from Deno's module cache.
+ * agentExtensions metadata from Deno's module cache.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -19,7 +19,12 @@ import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
 import { readEnv } from "../internal/environment.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, decodePurl, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import {
+  decodeAgentExtensions,
+  decodePurl,
+  parseJsonOptional,
+  readFileOptional,
+} from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const jsrType = Schema.decodeUnknownSync(PackageTypeSchema)("jsr");
@@ -176,11 +181,11 @@ export const jsrDetector: PackageDetector = {
   ),
 };
 
-/** Schema to extract the optional "axm" field from deno.json. */
-const AxmContainerSchema = Schema.Struct({
-  axm: Schema.optional(Schema.Unknown),
+/** Schema to detect the portable field in deno.json. */
+const AgentExtensionsContainerSchema = Schema.Struct({
+  agentExtensions: Schema.optional(Schema.Unknown),
 });
-const decodeAxmContainer = Schema.decodeUnknownResult(AxmContainerSchema);
+const decodeAgentExtensionsContainer = Schema.decodeUnknownResult(AgentExtensionsContainerSchema);
 
 /**
  * Resolve the Deno cache directory.
@@ -201,8 +206,8 @@ const resolveDenoDir = () =>
 /**
  * Deno package reader.
  *
- * Reads axm metadata from cached module metadata in Deno's module cache.
- * Checks for an `"axm"` field in cached `deno.json` files.
+ * Reads agentExtensions metadata from cached module metadata in Deno's module cache.
+ * Checks for a top-level `"agentExtensions"` array in cached `deno.json` files.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -229,12 +234,12 @@ export const denoReader: PackageReader = {
       const cacheDirExists = yield* fs.exists(registryCacheDir).pipe(Effect.option);
       if (Option.isNone(cacheDirExists) || !cacheDirExists.value) return Option.none();
 
-      // Check the cached package directory for deno.json with axm field
+      // Check the cached package directory for deno.json with agentExtensions.
       const pkgCacheDir = path.join(registryCacheDir, scope, pkg.purl.name);
       const pkgDirExists = yield* fs.exists(pkgCacheDir).pipe(Effect.option);
       if (Option.isNone(pkgDirExists) || !pkgDirExists.value) return Option.none();
 
-      // Scan version directories for deno.json with axm field
+      // Scan version directories for deno.json with agentExtensions.
       const versionDirs = yield* fs.readDirectory(pkgCacheDir).pipe(Effect.option);
       if (Option.isNone(versionDirs)) return Option.none();
 
@@ -249,22 +254,20 @@ export const denoReader: PackageReader = {
         );
         if (Option.isNone(parsed)) continue;
 
-        // Extract and validate the "axm" field
-        const axmContainerResult = decodeAxmContainer(parsed.value);
-        if (Result.isFailure(axmContainerResult)) continue;
+        const containerResult = decodeAgentExtensionsContainer(parsed.value);
+        if (Result.isFailure(containerResult)) continue;
 
-        const axmRaw = axmContainerResult.success.axm;
-        if (axmRaw === undefined) continue;
+        if (containerResult.success.agentExtensions === undefined) continue;
 
-        const metaResult = decodeAxmMeta(axmRaw);
+        const metaResult = yield* decodeAgentExtensions(parsed.value);
         if (Result.isFailure(metaResult)) {
           yield* Effect.logWarning(
-            `Invalid axm metadata in deno cache for ${scope}/${pkg.purl.name}: schema validation failed`,
+            `Invalid agentExtensions metadata in deno cache for ${scope}/${pkg.purl.name}: schema validation failed`,
           );
           continue;
         }
 
-        return Option.some(metaResult.success.extensions);
+        return Option.some(metaResult.success.agentExtensions);
       }
 
       return Option.none();

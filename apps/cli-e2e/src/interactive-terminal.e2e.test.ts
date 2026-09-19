@@ -6,7 +6,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { Keys, ptyIsSupported, runCliUnderPty, runUnderPty } from "./pty.js";
 import { writeAuthoredSkill } from "./test-support/protected-state.js";
 import { writeLocalSkillPackage } from "./test-support/spec-file-store.js";
-import { createTempDir, runCli } from "./utils.js";
+import { createTempDir, runCli, writeUserDefaultRegistry } from "./utils.js";
 
 const shell = { runtime: "binary", path: "/bin/sh" } as const;
 // `stty`, `tput`, and `printf` are found on PATH, and `tput` reads TERM.
@@ -111,8 +111,6 @@ const demote = ["demote", "@acme/skills/review", "./vendor/review"];
 
 const gateEnv = {
   AXM_NO_UPDATE_CHECK: "1",
-  AXM_REGISTRY_LOCATION: "https://registry.invalid",
-  AXM_REGISTRY_URL: "https://registry.invalid",
 };
 
 describe.skipIf(!ptyIsSupported)("the review gate under a pseudo-terminal", () => {
@@ -383,10 +381,9 @@ describe.skipIf(!ptyIsSupported)("a wait under a pseudo-terminal", () => {
     const auth = await startPendingDeviceAuthServer();
     const home = tempDir("axm-pty-home-");
     const cwd = tempDir("axm-pty-workspace-");
+    writeUserDefaultRegistry(home, auth.url);
     const env = {
       AXM_NO_UPDATE_CHECK: "1",
-      AXM_REGISTRY_URL: auth.url,
-      AXM_REGISTRY_LOCATION: auth.url,
       // A wait only counts down and takes keys where the region animates, and
       // this suite otherwise keeps NO_COLOR for a stable transcript.
       NO_COLOR: "",

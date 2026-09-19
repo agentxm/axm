@@ -516,24 +516,16 @@ const validSettingsContents = {
 };
 
 const validLockfileContents = {
-  lockfileVersion: 7,
+  lockfileVersion: 8,
   skills: {
     "managed-tool": {
-      type: "github",
-      sourceType: "github",
-      sourceName: "github",
-      endpoint: "https://github.com",
-      extensionType: "skill",
-      workspaceName: "managed-tool",
-      packageFormat: "agentxm",
-      packageOwner: "@owner",
-      packageName: "managed-tool",
-      owner: "owner",
-      repo: "repo",
-      ref: "main",
-      resolvedCommit: "commit-1",
-      resolvedTree: "tree-1",
-      contentIdentity: "content-1",
+      source: {
+        type: "git",
+        url: "https://github.com/owner/repo.git",
+        revision: "main",
+      },
+      identity: { owner: "@owner", name: "managed-tool" },
+      resolved: { commit: "commit-1", tree: "tree-1" },
       treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
     },
   },
@@ -639,7 +631,7 @@ export const projectUserShadowing = (workspaceRoot: string, userHome: string): F
       _tag: "valid",
       contents: {
         owner: "@team",
-        sources: [{ name: "shared", type: "github", url: "https://github.com/team" }],
+        sources: [{ name: "shared", type: "registry", location: "https://registry.example/team" }],
       },
     },
   },
@@ -648,7 +640,7 @@ export const projectUserShadowing = (workspaceRoot: string, userHome: string): F
       _tag: "valid",
       contents: {
         owner: "@user",
-        sources: [{ name: "shared", type: "github", url: "https://github.com/user" }],
+        sources: [{ name: "shared", type: "registry", location: "https://registry.example/user" }],
       },
     },
   },
@@ -731,13 +723,13 @@ export const sameNameAcrossOrigins = (workspaceRoot: string, userHome: string): 
       },
     },
     axmExtensions: {
-      "agentxm/@owner/skills/some-skill/skill.json": JSON.stringify({
+      "registry/@owner/skills/some-skill/skill.json": JSON.stringify({
         owner: "@owner",
         type: "skill",
         name: "some-skill",
         version: "1.0.0",
       }),
-      "agentxm/@owner/skills/some-skill/src/SKILL.md":
+      "registry/@owner/skills/some-skill/src/SKILL.md":
         "---\nname: some-skill\ndescription: Canonical\n---\n# canonical\n",
     },
   },

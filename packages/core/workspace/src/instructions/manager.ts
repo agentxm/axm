@@ -64,7 +64,11 @@ import {
   validateExactResolvedVersion,
 } from "../desired-state/index.js";
 import { MaterializedFileTargetSchema } from "../desired-state/index.js";
-import { gitSourceLockFields } from "../desired-state/index.js";
+import {
+  gitSourceLockFields,
+  pathSourceLockFields,
+  registrySourceLockFields,
+} from "../desired-state/index.js";
 import { SourceHostProviders, WorkspaceCatalog } from "../resolution/sources/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { removeIfExists } from "../desired-state/index.js";
@@ -100,24 +104,16 @@ const RULES_REGION = "rules";
 const decodeRuleManifest = Schema.decodeUnknownEffect(RuleManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
 
-const registryRuleLockEntry = (
-  ref: RegistryRuleRef,
-  treeIntegrity: TreeIntegrity,
-): RuleLockEntry => ({
-  type: "registry",
-  sourceType: "registry",
-  packageFormat: "agentxm",
-  endpoint: ref.source.location,
-  extensionType: "rule",
-  workspaceName: ref.rule.name,
-  owner: ref.owner,
-  name: ref.name,
-  resolvedVersion: decodeVersionSync(ref.version),
-  integrity: Option.getOrElse(ref.integrity, () => ""),
-  sourceName: ref.source.name,
-  publisherBindingId: ref.publisherBindingId,
-  treeIntegrity,
-});
+const registryRuleLockEntry = (ref: RegistryRuleRef, treeIntegrity: TreeIntegrity): RuleLockEntry =>
+  registrySourceLockFields(
+    ref.source,
+    ref.owner,
+    ref.name,
+    decodeVersionSync(ref.version),
+    Option.getOrElse(ref.integrity, () => ""),
+    ref.publisherBindingId,
+    treeIntegrity,
+  );
 
 const gitRuleLockEntry = (
   ref: GitHostedRuleRef,
@@ -126,12 +122,9 @@ const gitRuleLockEntry = (
 ): RuleLockEntry => ({
   ...gitSourceLockFields(
     ref.source,
-    "rule",
-    ref.rule.name,
     Option.fromUndefinedOr(ref.sourcePath),
     ref.gitCommitSha,
     ref.gitTreeSha,
-    contentIdentity,
     ref.owner,
     ref.name,
     treeIntegrity,
@@ -143,19 +136,14 @@ const localRuleLockEntry = (
   workspaceRelativeLocalSourcePath: Option.Option<string>,
   contentIdentity: SourceHash,
   treeIntegrity: TreeIntegrity,
-): RuleLockEntry => ({
-  type: "local",
-  sourceType: "local",
-  sourceName: "local",
-  extensionType: "rule",
-  workspaceName: ref.rule.name,
-  packageFormat: "agentxm",
-  packageOwner: ref.owner,
-  packageName: ref.name,
-  path: Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
-  contentIdentity,
-  treeIntegrity,
-});
+): RuleLockEntry =>
+  pathSourceLockFields(
+    Option.getOrElse(workspaceRelativeLocalSourcePath, () => ref.source.path),
+    contentIdentity,
+    ref.name,
+    treeIntegrity,
+    ref.owner,
+  );
 
 const normalizeMarkdown = (content: string): string =>
   content
@@ -763,10 +751,10 @@ export const RuleManagerLive = Layer.effect(
         if (Option.isNone(lockEntry)) {
           return Option.none();
         }
-        if (lockEntry.value.type === "registry") {
+        if (lockEntry.value.source.type === "registry" && "version" in lockEntry.value.resolved) {
           yield* validateExactResolvedVersion(
             `rules.${ref.rule.name}.resolvedVersion`,
-            lockEntry.value.resolvedVersion,
+            lockEntry.value.resolved.version,
           );
         }
         return Option.some({ key: ref.rule.name, entry: lockEntry.value });

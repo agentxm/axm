@@ -12,14 +12,16 @@ export const mcpConfigSurface = (scope: WorkspaceScope): string =>
 export const MCP_AGENT_CONFIG_SURFACE = ".mcp.json";
 
 export const mcpServerVersion = (entry: McpServerLockEntry): string | undefined =>
-  entry.type === "registry" ? entry.resolvedVersion : undefined;
+  entry.source.type === "registry" && "version" in entry.resolved
+    ? entry.resolved.version
+    : undefined;
 
 export const mcpServerSourcePath = (scope: WorkspaceScope, entry: McpServerLockEntry): string =>
   acquiredExtensionDisplayPathFromLockEntry(
     scope === "project" ? ACQUIRED_EXTENSIONS_DIR : ".axm/workspace/agent_extensions",
     entry,
     "mcps",
-    entry.workspaceName,
+    entry.identity.name,
   );
 
 export const agentConfigTarget = (

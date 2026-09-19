@@ -7,6 +7,7 @@
  */
 
 import * as Duration from "effect/Duration";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as SchemaTransformation from "effect/SchemaTransformation";
 import {
@@ -19,6 +20,8 @@ import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/ext
 import { HandleSchema } from "@agentxm/extension-model/unstable/extensions/handle";
 import { LintConfigSchema } from "@agentxm/extension-content/lint";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
+import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
+import { decodeVersionRangeSync } from "@agentxm/extension-model/unstable/version-constraints";
 
 // -----------------------------------------------------------------------------
 // Source Host Config (array-based, discriminated on `type` field)
@@ -30,19 +33,36 @@ import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sour
  *
  * @experimental This API is unstable and may change without notice.
  */
-const SOURCE_NAME_PATTERN = /^(?!(?:git|local|workspace)$)[a-z0-9][a-z0-9.-]*$/;
+const REGISTRY_NAME_PATTERN =
+  /^(?!(?:azurerepos|bitbucket|git|github|gitlab|local|registry|workspace)$)[a-z0-9][a-z0-9.-]*$/;
+
+const SOURCE_NAME_PATTERN =
+  /^(?!(?:agentxm|azurerepos|bitbucket|git|github|gitlab|local|registry|workspace)$)[a-z0-9][a-z0-9.-]*$/;
+
+const RegistryNameSchema = Schema.String.check(
+  Schema.isPattern(REGISTRY_NAME_PATTERN, {
+    message:
+      "registry name must start with a letter or digit, contain only lowercase alphanumeric characters, hyphens, and dots, and must not be an intrinsic source name",
+  }),
+).annotate({
+  identifier: "RegistryName",
+  title: "Registry Name",
+  description:
+    "The name of a configured Registry source, or the immutable built-in agentxm Registry.",
+  examples: ["agentxm", "company"],
+});
 
 const SourceNameSchema = Schema.String.check(
   Schema.isPattern(SOURCE_NAME_PATTERN, {
     message:
-      'source name must start with a letter or digit, contain only lowercase alphanumeric characters, hyphens, and dots, and must not be a reserved name: "git", "local", or "workspace"',
+      "source name must start with a letter or digit, contain only lowercase alphanumeric characters, hyphens, and dots, and must not be a built-in or reserved source name",
   }),
 ).annotate({
   identifier: "SourceName",
   title: "Source Name",
   description:
-    'A source host alias: lowercase letters, numbers, hyphens, and dots. The names "git", "local", and "workspace" are reserved.',
-  examples: ["github", "my-registry.dev"],
+    "A registry source alias: lowercase letters, numbers, hyphens, and dots. Built-in and intrinsic source names are reserved.",
+  examples: ["company", "my-registry.dev"],
 });
 
 const sourceNameFieldSchema = SourceNameSchema.pipe(
@@ -51,73 +71,6 @@ const sourceNameFieldSchema = SourceNameSchema.pipe(
     description: "Alias used in entry source strings for this source host.",
   }),
 );
-
-const sourceUrlFieldSchema = Schema.URLFromString.pipe(
-  Schema.annotateKey({ messageMissingKey: "source url is required" }),
-  Schema.annotate({
-    description: "Base URL for this source host endpoint.",
-  }),
-);
-
-/**
- * GitHub source host configuration.
- *
- * @experimental This API is unstable and may change without notice.
- */
-const GitHubSourceHostConfigSchema = Schema.Struct({
-  name: sourceNameFieldSchema,
-  type: Schema.Literal("github"),
-  url: sourceUrlFieldSchema,
-}).annotate({
-  identifier: "GitHubSourceHostConfig",
-  title: "GitHub Source Host",
-  description: "A GitHub source host.",
-});
-
-/**
- * GitLab source host configuration.
- *
- * @experimental This API is unstable and may change without notice.
- */
-const GitLabSourceHostConfigSchema = Schema.Struct({
-  name: sourceNameFieldSchema,
-  type: Schema.Literal("gitlab"),
-  url: sourceUrlFieldSchema,
-}).annotate({
-  identifier: "GitLabSourceHostConfig",
-  title: "GitLab Source Host",
-  description: "A GitLab source host.",
-});
-
-/**
- * Bitbucket source host configuration.
- *
- * @experimental This API is unstable and may change without notice.
- */
-const BitbucketSourceHostConfigSchema = Schema.Struct({
-  name: sourceNameFieldSchema,
-  type: Schema.Literal("bitbucket"),
-  url: sourceUrlFieldSchema,
-}).annotate({
-  identifier: "BitbucketSourceHostConfig",
-  title: "Bitbucket Source Host",
-  description: "A Bitbucket source host.",
-});
-
-/**
- * Azure Repos source host configuration.
- *
- * @experimental This API is unstable and may change without notice.
- */
-const AzureReposSourceHostConfigSchema = Schema.Struct({
-  name: sourceNameFieldSchema,
-  type: Schema.Literal("azurerepos"),
-  url: sourceUrlFieldSchema,
-}).annotate({
-  identifier: "AzureReposSourceHostConfig",
-  title: "Azure Repos Source Host",
-  description: "An Azure Repos source host.",
-});
 
 /**
  * Registry source host configuration.
@@ -141,23 +94,14 @@ const RegistrySourceHostConfigSchema = Schema.Struct({
 });
 
 /**
- * Discriminated union of source host configurations on the `type` field.
- *
- * Variants: github, gitlab, bitbucket, azurerepos, registry.
+ * Registry source host configuration.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SourceHostConfigSchema = Schema.Union([
-  GitHubSourceHostConfigSchema,
-  GitLabSourceHostConfigSchema,
-  BitbucketSourceHostConfigSchema,
-  AzureReposSourceHostConfigSchema,
-  RegistrySourceHostConfigSchema,
-]).annotate({
+export const SourceHostConfigSchema = RegistrySourceHostConfigSchema.annotate({
   identifier: "SourceHostConfig",
   title: "Source Host Config",
-  description:
-    "A source host configuration: GitHub, GitLab, Bitbucket, Azure Repos, or a package registry.",
+  description: "A named package registry source. Git clone URLs need no configuration.",
 });
 
 /**
@@ -167,16 +111,6 @@ export const SourceHostConfigSchema = Schema.Union([
  */
 export type SourceHostConfig = Schema.Schema.Type<typeof SourceHostConfigSchema>;
 
-/** @experimental */
-export type GitHubSourceHostConfig = Schema.Schema.Type<typeof GitHubSourceHostConfigSchema>;
-/** @experimental */
-export type GitLabSourceHostConfig = Schema.Schema.Type<typeof GitLabSourceHostConfigSchema>;
-/** @experimental */
-export type BitbucketSourceHostConfig = Schema.Schema.Type<typeof BitbucketSourceHostConfigSchema>;
-/** @experimental */
-export type AzureReposSourceHostConfig = Schema.Schema.Type<
-  typeof AzureReposSourceHostConfigSchema
->;
 /** @experimental */
 export type RegistrySourceHostConfig = Schema.Schema.Type<typeof RegistrySourceHostConfigSchema>;
 
@@ -190,10 +124,12 @@ type SourceEntry = {
 
 type EnabledEntryObject = SourceEntryObject & {
   readonly enabled?: boolean | undefined;
+  readonly distribute?: boolean | undefined;
 };
 
 type EnabledEntry = SourceEntry & {
   readonly enabled: boolean;
+  readonly distribute?: boolean;
 };
 
 type KnowledgeEntryObject = EnabledEntryObject & {
@@ -207,6 +143,7 @@ type CanonicalKnowledgeEntry = EnabledEntry & {
 type SkillEntryObject = {
   readonly source: string;
   readonly enabled?: boolean;
+  readonly distribute?: boolean;
   readonly origin?: "bundled";
 };
 
@@ -223,6 +160,7 @@ type McpServerVerboseEntryObject = {
   readonly url?: string | undefined;
   readonly headers?: Readonly<Record<string, string>> | undefined;
   readonly enabled?: boolean | undefined;
+  readonly distribute?: boolean;
   readonly env?: McpServerEnvInput | undefined;
 };
 
@@ -234,6 +172,7 @@ type CanonicalSourcedMcpServerEntry = {
   readonly url?: string | undefined;
   readonly headers?: Readonly<Record<string, string>> | undefined;
   readonly enabled: boolean;
+  readonly distribute?: boolean;
   readonly env: Readonly<Record<string, string>>;
 };
 
@@ -245,6 +184,7 @@ type CanonicalInlineMcpServerEntry = {
   readonly url?: string | undefined;
   readonly headers?: Readonly<Record<string, string>> | undefined;
   readonly enabled: boolean;
+  readonly distribute?: boolean | undefined;
   readonly env: Readonly<Record<string, string>>;
 };
 
@@ -264,6 +204,48 @@ const enabledFieldSchema = Schema.optionalKey(
     default: true,
   }),
 );
+
+const distributeFieldSchema = Schema.optionalKey(
+  Schema.Boolean.annotate({
+    description:
+      "Set to false to omit this authored extension from repository discovery, bulk publication, and share output. This is distribution intent, not a confidentiality control.",
+    default: true,
+  }),
+);
+
+const sourceGrammarIssue = (label: string, fqnType: string, source: string) => {
+  if (source === "workspace") return undefined;
+  const parsed = parseInputPattern(source);
+  if (Option.isNone(parsed)) {
+    try {
+      decodeVersionRangeSync(source);
+      return undefined;
+    } catch {
+      return `${label} source uses unsupported source syntax`;
+    }
+  }
+  switch (parsed.value.pattern.pattern) {
+    case "glob-input":
+      return `${label} source cannot use a glob because source resolution does not support globs`;
+    case "registry-pattern-input": {
+      const type = Option.getOrUndefined(parsed.value.pattern.type);
+      return type === undefined || type === fqnType
+        ? undefined
+        : `${label} registry source must use /${fqnType}/, not /${type}/`;
+    }
+    case "workspace-pattern-input":
+      return parsed.value.pattern.type === fqnType
+        ? undefined
+        : `${label} workspace source must use /${fqnType}/, not /${parsed.value.pattern.type}/`;
+    case "name-input":
+    case "url-input":
+    case "git-scp-address":
+    case "shorthand-input":
+    case "slash-pattern":
+    case "file-path-pattern":
+      return undefined;
+  }
+};
 
 const entrySourceFieldSchema = (label: string, fqnType: string) =>
   Schema.NonEmptyString.pipe(
@@ -290,10 +272,21 @@ const workspaceEntriesMatch = (pluralType: string) =>
     return undefined;
   });
 
+const entrySourcesMatch = (label: string, pluralType: string) =>
+  Schema.makeFilter((entries: Readonly<Record<string, { readonly source: string }>>) => {
+    for (const entry of Object.values(entries)) {
+      const issue = sourceGrammarIssue(label, pluralType, entry.source);
+      if (issue !== undefined) return issue;
+    }
+    return undefined;
+  });
+
 const mcpWorkspaceEntriesMatch = Schema.makeFilter(
   (entries: Readonly<Record<string, CanonicalMcpServerEntry>>) => {
     for (const [entryName, entry] of Object.entries(entries)) {
       if (entry.kind !== "sourced") continue;
+      const issue = sourceGrammarIssue("MCP server", "mcps", entry.source);
+      if (issue !== undefined) return issue;
       if (entry.source.startsWith("workspace:") || entry.source === "authored") {
         return `Workspace package "${entryName}" must use the compact source "workspace" in mcps`;
       }
@@ -405,6 +398,7 @@ const compactOrVerboseEntry = <
 const EnabledEntryCanonicalSchema = Schema.Struct({
   source: Schema.String,
   enabled: Schema.Boolean,
+  distribute: Schema.optionalKey(Schema.Boolean),
 });
 
 const decodeEnabledEntry = (entry: string | EnabledEntryObject): EnabledEntry =>
@@ -413,14 +407,16 @@ const decodeEnabledEntry = (entry: string | EnabledEntryObject): EnabledEntry =>
     : {
         source: entry.source,
         enabled: entry.enabled ?? true,
+        ...(entry.distribute === false ? { distribute: false } : {}),
       };
 
 const encodeEnabledEntry = (entry: EnabledEntry): string | EnabledEntryObject => {
-  if (entry.enabled) return entry.source;
-  const obj: { source: string; enabled?: boolean } = {
+  if (entry.enabled && entry.distribute !== false) return entry.source;
+  const obj: { source: string; enabled?: boolean; distribute?: boolean } = {
     source: entry.source,
   };
   if (!entry.enabled) obj.enabled = false;
+  if (entry.distribute === false) obj.distribute = false;
   return obj;
 };
 
@@ -453,6 +449,7 @@ const compactEnabledEntry = (
 export const SkillEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("skill", "skills"),
   enabled: enabledFieldSchema,
+  distribute: distributeFieldSchema,
   origin: Schema.optionalKey(
     Schema.Literal("bundled").annotate({
       description:
@@ -461,12 +458,14 @@ export const SkillEntryObjectSchema = Schema.Struct({
   ),
 }).annotate({
   title: "Skill Entry Object",
-  description: "A skill entry with source, optional enabled state, and bundled origin marker.",
+  description:
+    "A skill entry with source, optional enabled and distribution state, and bundled origin marker.",
 });
 
 const SkillEntryCanonicalSchema = Schema.Struct({
   source: Schema.String,
   enabled: Schema.Boolean,
+  distribute: Schema.optionalKey(Schema.Boolean),
   origin: Schema.optionalKey(Schema.Literal("bundled")),
 });
 
@@ -476,14 +475,17 @@ const decodeSkillEntry = (entry: string | SkillEntryObject): CanonicalSkillEntry
     : {
         source: entry.source,
         enabled: entry.enabled ?? true,
+        ...(entry.distribute === false ? { distribute: false } : {}),
         ...(entry.origin === undefined ? {} : { origin: entry.origin }),
       };
 
 const encodeSkillEntry = (entry: CanonicalSkillEntry): string | SkillEntryObject => {
-  if (entry.enabled && entry.origin === undefined) return entry.source;
+  if (entry.enabled && entry.distribute !== false && entry.origin === undefined)
+    return entry.source;
   return {
     source: entry.source,
     ...(!entry.enabled ? { enabled: false } : {}),
+    ...(entry.distribute === false ? { distribute: false } : {}),
     ...(entry.origin === undefined ? {} : { origin: entry.origin }),
   };
 };
@@ -538,6 +540,7 @@ export type SkillEntry = Schema.Schema.Type<typeof SkillEntrySchema>;
  */
 export const SkillsMapSchema = Schema.Record(Schema.String, SkillEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .check(entrySourcesMatch("skill", "skills"))
   .check(workspaceEntriesMatch("skills"))
   .annotate({
     identifier: "SkillsMap",
@@ -564,9 +567,10 @@ export type SkillsMap = Schema.Schema.Type<typeof SkillsMapSchema>;
 export const RuleEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("rule", "rules"),
   enabled: enabledFieldSchema,
+  distribute: distributeFieldSchema,
 }).annotate({
   title: "Rule Entry Object",
-  description: "A rule entry with source and an optional enabled flag.",
+  description: "A rule entry with source and optional enabled and distribution state.",
 });
 
 /**
@@ -594,6 +598,7 @@ export type RuleEntry = Schema.Schema.Type<typeof RuleEntrySchema>;
  */
 export const RulesMapSchema = Schema.Record(Schema.String, RuleEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .check(entrySourcesMatch("rule", "rules"))
   .check(workspaceEntriesMatch("rules"))
   .annotate({
     identifier: "RulesMap",
@@ -616,9 +621,10 @@ export type RulesMap = Schema.Schema.Type<typeof RulesMapSchema>;
 export const HookEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("hook", "hooks"),
   enabled: enabledFieldSchema,
+  distribute: distributeFieldSchema,
 }).annotate({
   title: "Hook Entry Object",
-  description: "A hook entry with source and an optional enabled flag.",
+  description: "A hook entry with source and optional enabled and distribution state.",
 });
 
 /**
@@ -646,6 +652,7 @@ export type HookEntry = Schema.Schema.Type<typeof HookEntrySchema>;
  */
 export const HooksMapSchema = Schema.Record(Schema.String, HookEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .check(entrySourcesMatch("hook", "hooks"))
   .check(workspaceEntriesMatch("hooks"))
   .annotate({
     identifier: "HooksMap",
@@ -663,6 +670,7 @@ export type HooksMap = Schema.Schema.Type<typeof HooksMapSchema>;
 export const KnowledgeEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("knowledge bundle", "knowledge"),
   enabled: enabledFieldSchema,
+  distribute: distributeFieldSchema,
   instructionEntry: Schema.optionalKey(
     Schema.Boolean.annotate({
       description:
@@ -672,12 +680,13 @@ export const KnowledgeEntryObjectSchema = Schema.Struct({
 }).annotate({
   title: "Knowledge Entry Object",
   description:
-    "A knowledge bundle entry with source, optional enabled state, and an optional instruction-entry override.",
+    "A knowledge bundle entry with source, optional enabled and distribution state, and an optional instruction-entry override.",
 });
 
 const KnowledgeEntryCanonicalSchema = Schema.Struct({
   source: Schema.String,
   enabled: Schema.Boolean,
+  distribute: Schema.optionalKey(Schema.Boolean),
   instructionEntry: Schema.optionalKey(Schema.Boolean),
 });
 
@@ -687,16 +696,19 @@ const decodeKnowledgeEntry = (entry: string | KnowledgeEntryObject): CanonicalKn
     : {
         source: entry.source,
         enabled: entry.enabled ?? true,
+        ...(entry.distribute === false ? { distribute: false } : {}),
         ...(entry.instructionEntry === undefined
           ? {}
           : { instructionEntry: entry.instructionEntry }),
       };
 
 const encodeKnowledgeEntry = (entry: CanonicalKnowledgeEntry): string | KnowledgeEntryObject => {
-  if (entry.enabled && entry.instructionEntry === undefined) return entry.source;
+  if (entry.enabled && entry.distribute !== false && entry.instructionEntry === undefined)
+    return entry.source;
   return {
     source: entry.source,
     ...(!entry.enabled ? { enabled: false } : {}),
+    ...(entry.distribute === false ? { distribute: false } : {}),
     ...(entry.instructionEntry === undefined ? {} : { instructionEntry: entry.instructionEntry }),
   };
 };
@@ -722,6 +734,7 @@ export type KnowledgeEntry = Schema.Schema.Type<typeof KnowledgeEntrySchema>;
 
 export const KnowledgeMapSchema = Schema.Record(Schema.String, KnowledgeEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .check(entrySourcesMatch("knowledge bundle", "knowledge"))
   .check(workspaceEntriesMatch("knowledge"))
   .annotate({
     identifier: "KnowledgeMap",
@@ -743,10 +756,12 @@ export type KnowledgeMap = Schema.Schema.Type<typeof KnowledgeMapSchema>;
 export const McpServerEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("MCP server", "mcps"),
   enabled: enabledFieldSchema,
+  distribute: distributeFieldSchema,
   env: Schema.optionalKey(McpServerEnvSchema),
 }).annotate({
   title: "MCP Server Entry Object",
-  description: "An MCP server entry with source and optional enabled/env fields.",
+  description:
+    "An MCP server entry with source and optional enabled, distribution, and env fields.",
 });
 
 const McpServerVerboseEntryObjectSchema = Schema.Struct({
@@ -779,6 +794,7 @@ const McpServerVerboseEntryObjectSchema = Schema.Struct({
     }),
   ),
   enabled: enabledFieldSchema,
+  distribute: distributeFieldSchema,
   env: Schema.optionalKey(McpServerEnvSchema),
 }).pipe(
   Schema.check(
@@ -807,6 +823,7 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
       url: Schema.optional(Schema.String),
       headers: Schema.optional(Schema.Record(Schema.String, Schema.String)),
       enabled: Schema.Boolean,
+      distribute: Schema.optionalKey(Schema.Boolean),
       env: Schema.Record(Schema.String, Schema.String),
     }),
     Schema.Struct({
@@ -817,6 +834,7 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
       url: Schema.optional(Schema.String),
       headers: Schema.optional(Schema.Record(Schema.String, Schema.String)),
       enabled: Schema.Boolean,
+      distribute: Schema.optionalKey(Schema.Boolean),
       env: Schema.Record(Schema.String, Schema.String),
     }),
   ]),
@@ -829,6 +847,7 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
               kind: "sourced",
               source: entry.source,
               enabled: entry.enabled ?? true,
+              ...(entry.distribute === false ? { distribute: false } : {}),
               env: decodeMcpEnv(entry.env),
             }
           : {
@@ -838,10 +857,16 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
               ...(entry.url === undefined ? {} : { url: entry.url }),
               ...(entry.headers === undefined ? {} : { headers: entry.headers }),
               enabled: entry.enabled ?? true,
+              ...(entry.distribute === false ? { distribute: false } : {}),
               env: decodeMcpEnv(entry.env),
             },
     encode: (entry: CanonicalMcpServerEntry): string | McpServerVerboseEntryObject => {
-      if (entry.kind !== "inline" && entry.enabled && Object.keys(entry.env).length === 0) {
+      if (
+        entry.kind !== "inline" &&
+        entry.enabled &&
+        entry.distribute !== false &&
+        Object.keys(entry.env).length === 0
+      ) {
         return entry.source;
       }
       const obj: {
@@ -851,6 +876,7 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
         url?: string;
         headers?: Readonly<Record<string, string>>;
         enabled?: boolean;
+        distribute?: boolean;
         env?: Readonly<Record<string, string>>;
       } = {};
       if (entry.kind !== "inline") obj.source = entry.source;
@@ -866,11 +892,13 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
         obj.headers = entry.headers;
       }
       if (!entry.enabled) obj.enabled = false;
+      if (entry.distribute === false) obj.distribute = false;
       if (Object.keys(entry.env).length > 0) obj.env = entry.env;
       if (entry.kind !== "inline") {
         return {
           source: entry.source,
           ...(obj.enabled === undefined ? {} : { enabled: obj.enabled }),
+          ...(obj.distribute === undefined ? {} : { distribute: obj.distribute }),
           ...(obj.env === undefined ? {} : { env: obj.env }),
         };
       }
@@ -879,6 +907,7 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
           command: entry.command,
           ...(obj.args === undefined ? {} : { args: obj.args }),
           ...(obj.enabled === undefined ? {} : { enabled: obj.enabled }),
+          ...(obj.distribute === undefined ? {} : { distribute: obj.distribute }),
           ...(obj.env === undefined ? {} : { env: obj.env }),
         };
       }
@@ -886,6 +915,7 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
         url: entry.url ?? "",
         ...(obj.headers === undefined ? {} : { headers: obj.headers }),
         ...(obj.enabled === undefined ? {} : { enabled: obj.enabled }),
+        ...(obj.distribute === undefined ? {} : { distribute: obj.distribute }),
         ...(obj.env === undefined ? {} : { env: obj.env }),
       };
     },
@@ -958,9 +988,10 @@ export type McpServersMap = Schema.Schema.Type<typeof McpServersMapSchema>;
 export const SubagentEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("subagent", "subagents"),
   enabled: enabledFieldSchema,
+  distribute: distributeFieldSchema,
 }).annotate({
   title: "Subagent Entry Object",
-  description: "A subagent entry with source and an optional enabled flag.",
+  description: "A subagent entry with source and optional enabled and distribution state.",
 });
 
 /**
@@ -1002,6 +1033,7 @@ export type SubagentEntry = Schema.Schema.Type<typeof SubagentEntrySchema>;
  */
 export const SubagentsMapSchema = Schema.Record(Schema.String, SubagentEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .check(entrySourcesMatch("subagent", "subagents"))
   .check(workspaceEntriesMatch("subagents"))
   .annotate({
     identifier: "SubagentsMap",
@@ -1028,9 +1060,10 @@ export type SubagentsMap = Schema.Schema.Type<typeof SubagentsMapSchema>;
 export const PackEntryObjectSchema = Schema.Struct({
   source: entrySourceFieldSchema("pack", "packs"),
   enabled: enabledFieldSchema,
+  distribute: distributeFieldSchema,
 }).annotate({
   title: "Pack Entry Object",
-  description: "A pack entry with a source and an optional enabled flag.",
+  description: "A pack entry with source and optional enabled and distribution state.",
 });
 
 /**
@@ -1071,6 +1104,7 @@ export type PackEntry = Schema.Schema.Type<typeof PackEntrySchema>;
  */
 export const PacksMapSchema = Schema.Record(Schema.String, PackEntrySchema)
   .check(Schema.isPropertyNames(ExtensionMapKeySchema))
+  .check(entrySourcesMatch("pack", "packs"))
   .check(workspaceEntriesMatch("packs"))
   .annotate({
     identifier: "PacksMap",
@@ -1218,6 +1252,7 @@ export const SETTINGS_CONFIG_SCHEMA_BY_TYPE = {
 export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
   "$schema",
   "owner",
+  "defaultRegistry",
   "publish",
   "minimumReleaseAge",
   "minimumReleaseAgeExclude",
@@ -1246,6 +1281,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  *
  * Settings define workspace configuration for AXM including:
  * - owner: Workspace owner handle used for new/scaffold and reconciliation of non-registry sources
+ * - defaultRegistry: Registry source used by unqualified references, authentication, and publishing
  * - minimumReleaseAge: Minimum published age for registry versions during unattended resolution
  * - minimumReleaseAgeExclude: Registry extension identities exempt from minimum release age
  * - sources: Source provider configurations
@@ -1273,6 +1309,12 @@ const SettingsBaseSchema = Schema.Struct({
   owner: Schema.optionalKey(
     Schema.Union([HandleSchema]).annotate({
       description: "Default owner handle used when AXM scaffolds or resolves workspace extensions.",
+    }),
+  ),
+  defaultRegistry: Schema.optionalKey(
+    RegistryNameSchema.annotate({
+      description:
+        "Registry source used by unqualified references, authentication, and publishing. Project settings override user settings; agentxm is the built-in default.",
     }),
   ),
   publish: Schema.optionalKey(
@@ -1322,21 +1364,21 @@ const SettingsBaseSchema = Schema.Struct({
   skills: Schema.optionalKey(
     Schema.Union([SkillsMapSchema]).annotate({
       description:
-        "Desired skills, keyed by workspace skill name. Prefer plain source strings; use the object form only to set `enabled: false`.",
+        "Desired skills, keyed by workspace skill name. Prefer plain source strings; use the object form to set non-default entry metadata such as `enabled: false` or `distribute: false`.",
     }),
   ),
   skillsConfig: Schema.optionalKey(SkillsConfigSchema),
   rules: Schema.optionalKey(
     Schema.Union([RulesMapSchema]).annotate({
       description:
-        "Desired rules, keyed by workspace rule name. Prefer plain source strings; use the object form only to set `enabled: false`.",
+        "Desired rules, keyed by workspace rule name. Prefer plain source strings; use the object form to set non-default entry metadata such as `enabled: false` or `distribute: false`.",
     }),
   ),
   rulesConfig: Schema.optionalKey(RulesConfigSchema),
   hooks: Schema.optionalKey(
     Schema.Union([HooksMapSchema]).annotate({
       description:
-        "Desired hooks, keyed by workspace hook name. Prefer plain source strings; use the object form only to set `enabled: false`.",
+        "Desired hooks, keyed by workspace hook name. Prefer plain source strings; use the object form to set non-default entry metadata such as `enabled: false` or `distribute: false`.",
     }),
   ),
   hooksConfig: Schema.optionalKey(HooksConfigSchema),
@@ -1353,21 +1395,21 @@ const SettingsBaseSchema = Schema.Struct({
   subagents: Schema.optionalKey(
     Schema.Union([SubagentsMapSchema]).annotate({
       description:
-        "Desired subagents, keyed by workspace subagent name. Prefer plain source strings; use the object form only to set `enabled: false`.",
+        "Desired subagents, keyed by workspace subagent name. Prefer plain source strings; use the object form to set non-default entry metadata such as `enabled: false` or `distribute: false`.",
     }),
   ),
   subagentsConfig: Schema.optionalKey(SubagentsConfigSchema),
   packs: Schema.optionalKey(
     Schema.Union([PacksMapSchema]).annotate({
       description:
-        "Desired packs, keyed by workspace pack name. Pack entries do not support `enabled`.",
+        "Desired packs, keyed by workspace pack name. Prefer plain source strings; use the object form to set non-default entry metadata such as `enabled: false` or `distribute: false`.",
     }),
   ),
   packsConfig: Schema.optionalKey(PacksConfigSchema),
   mcpServers: Schema.optionalKey(
     Schema.Union([McpServersMapSchema]).annotate({
       description:
-        "Desired MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form to set enabled state, persisted env values, or an agent target subset.",
+        "Desired MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form to set enabled or distribution state and persisted env values.",
     }),
   ),
   mcpServersConfig: Schema.optionalKey(McpServersConfigSchema),

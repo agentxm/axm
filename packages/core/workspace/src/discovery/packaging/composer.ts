@@ -12,16 +12,16 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { makeDetectedPackage } from "./detected-package.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const composerType = Schema.decodeUnknownSync(PackageTypeSchema)("composer");
 
-/** Schema to extract the optional "extra" field from a composer.json object. */
+/** Schema to extract Composer's custom portable metadata field. */
 const ExtraContainerSchema = Schema.Struct({
   extra: Schema.optional(
     Schema.Struct({
-      axm: Schema.optional(Schema.Unknown),
+      agentExtensions: Schema.optional(Schema.Unknown),
     }),
   ),
 });
@@ -129,7 +129,7 @@ export const composerDetector: PackageDetector = {
  * Composer package reader.
  *
  * Reads `vendor/<namespace>/<name>/composer.json` for each detected Composer
- * package and extracts the `"extra"."axm"` field containing recommendation metadata.
+ * package and extracts the `"extra"."agentExtensions"` array.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -153,7 +153,6 @@ export const composerReader: PackageReader = {
       const parsed = yield* parseJsonOptional(content.value, pkgPath);
       if (Option.isNone(parsed)) return Option.none();
 
-      // Extract and validate the "extra"."axm" field using schema
       const extraContainerResult = decodeExtraContainer(parsed.value);
       if (Result.isFailure(extraContainerResult)) {
         return Option.none();
@@ -162,17 +161,18 @@ export const composerReader: PackageReader = {
       const extra = extraContainerResult.success.extra;
       if (extra === undefined) return Option.none();
 
-      const axmRaw = extra.axm;
-      if (axmRaw === undefined) return Option.none();
+      const agentExtensions = extra.agentExtensions;
+      if (agentExtensions === undefined) return Option.none();
 
-      // Validate axm metadata structure
-      const metaResult = decodeAxmMeta(axmRaw);
+      const metaResult = yield* decodeAgentExtensions({ agentExtensions });
       if (Result.isFailure(metaResult)) {
-        yield* Effect.logWarning(`Invalid axm metadata in ${pkgPath}: schema validation failed`);
+        yield* Effect.logWarning(
+          `Invalid agentExtensions metadata in ${pkgPath}: schema validation failed`,
+        );
         return Option.none();
       }
 
-      return Option.some(metaResult.success.extensions);
+      return Option.some(metaResult.success.agentExtensions);
     },
     Effect.annotateLogs({ reader: "composer" }),
     Effect.withSpan("read.composer"),

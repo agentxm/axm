@@ -67,9 +67,15 @@ describe("Machine error envelope", () => {
         cleanups.push(workspace.cleanup);
 
         const failure = yield* handleInstall({
+          type: Option.none(),
           source: Option.some(row.source(workspace.root)),
+          selectors: {},
+          all: true,
           force: false,
           preview: false,
+          env: [],
+          localName: Option.none(),
+          bundled: false,
         }).pipe(Effect.provide(workspace.layer), Effect.flip);
 
         const classified = classifyError(failure, "json");

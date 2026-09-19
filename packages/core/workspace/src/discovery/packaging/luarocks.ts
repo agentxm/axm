@@ -15,7 +15,12 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, decodePurl, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import {
+  decodeAgentExtensions,
+  decodePurl,
+  parseJsonOptional,
+  readFileOptional,
+} from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const luarocksType = Schema.decodeUnknownSync(PackageTypeSchema)("luarocks");
@@ -137,7 +142,7 @@ export const luarocksDetector: PackageDetector = {
 /**
  * LuaRocks package reader.
  *
- * Reads `axm/axm.json` sidecar from the LuaRocks install tree.
+ * Reads `agent-extensions.json` from the rock root.
  * Checks system tree (`/usr/local/lib/luarocks/rocks-5.x/`) and
  * user tree (`~/.luarocks/lib/luarocks/rocks-5.x/`).
  *
@@ -164,32 +169,31 @@ export const luarocksReader: PackageReader = {
 
       for (const basePath of basePaths) {
         for (const luaVer of luaVersions) {
-          const axmJsonPath = path.join(
+          const metadataPath = path.join(
             basePath,
             `rocks-${luaVer}`,
             pkgName,
             version,
-            "axm",
-            "axm.json",
+            "agent-extensions.json",
           );
-          const content = yield* readFileOptional(axmJsonPath);
+          const content = yield* readFileOptional(metadataPath);
           if (Option.isNone(content)) continue;
 
           const parsed = yield* parseJsonOptional(
             content.value,
-            `${pkgName}/${version}/axm/axm.json`,
+            `${pkgName}/${version}/agent-extensions.json`,
           );
           if (Option.isNone(parsed)) return Option.none();
 
-          const metaResult = decodeAxmMeta(parsed.value);
+          const metaResult = yield* decodeAgentExtensions(parsed.value);
           if (Result.isFailure(metaResult)) {
             yield* Effect.logWarning(
-              `Invalid axm metadata in ${pkgName}: schema validation failed`,
+              `Invalid agentExtensions metadata in ${pkgName}: schema validation failed`,
             );
             return Option.none();
           }
 
-          return Option.some(metaResult.success.extensions);
+          return Option.some(metaResult.success.agentExtensions);
         }
       }
 

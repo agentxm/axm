@@ -36,7 +36,7 @@ const generatedSchemaNames = [
   "rule.schema.json",
   "hook.schema.json",
   "knowledge.schema.json",
-  "axm-package-meta.schema.json",
+  "agent-extensions.schema.json",
 ] as const;
 
 const getRecord = (record: Record<string, unknown>, key: string): Record<string, unknown> => {
@@ -240,8 +240,8 @@ describe("generated schemas", () => {
 
     expect(lockSchema["$ref"]).toBe("#/definitions/Lockfile");
     expect(lockfileVersion["type"]).toBe("number");
-    expect(lockfileVersion["enum"]).toEqual([7]);
-    expect(lockfileVersion["default"]).toBe(7);
+    expect(lockfileVersion["enum"]).toEqual([8]);
+    expect(lockfileVersion["default"]).toBe(8);
     expect(lockfile["required"]).toEqual(["lockfileVersion", "skills"]);
   });
 
@@ -408,7 +408,14 @@ describe("generated schemas", () => {
 
     const lockSchema = readGeneratedSchema("axm-lock.schema.json");
     const packLockEntry = getDefinition(lockSchema, "PackLockEntry");
-    expect(getRecord(packLockEntry, "properties")).toHaveProperty("manifestContentIdentity");
-    expect(getRecord(packLockEntry, "properties")).not.toHaveProperty("resolvedSkills");
+    const variants = packLockEntry["anyOf"];
+    if (!Array.isArray(variants) || !variants.every(isRecord)) {
+      throw new Error("Expected PackLockEntry to contain source-family variants.");
+    }
+    for (const variant of variants) {
+      expect(getRecord(variant, "properties")).toHaveProperty("manifestContentIdentity");
+      expect(getRecord(variant, "properties")).toHaveProperty("members");
+      expect(getRecord(variant, "properties")).not.toHaveProperty("resolvedSkills");
+    }
   });
 });

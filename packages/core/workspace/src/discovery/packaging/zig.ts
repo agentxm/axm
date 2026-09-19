@@ -1,7 +1,7 @@
 /**
  * Zig package detector and reader for package-compatibility discovery.
  *
- * Parses `build.zig.zon` for URL-based dependencies and reads axm metadata
+ * Parses `build.zig.zon` for URL-based dependencies and reads agentExtensions metadata
  * from the Zig package cache at `~/.cache/zig/`.
  *
  * @experimental This API is unstable and may change without notice.
@@ -18,7 +18,12 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, decodePurl, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import {
+  decodeAgentExtensions,
+  decodePurl,
+  parseJsonOptional,
+  readFileOptional,
+} from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const zigType = Schema.decodeUnknownSync(PackageTypeSchema)("zig");
@@ -126,7 +131,7 @@ export const zigDetector: PackageDetector = {
 /**
  * Zig package reader.
  *
- * Reads `axm.json` sidecar files from `~/.cache/zig/p/<hash>/` for each
+ * Reads `agent-extensions.json` sidecar files from `~/.cache/zig/p/<hash>/` for each
  * detected Zig package and extracts recommendation metadata.
  *
  * Since Zig uses content-addressed hashes for packages rather than named
@@ -147,28 +152,31 @@ export const zigReader: PackageReader = {
       const cacheDirExists = yield* fs.exists(cacheDir).pipe(Effect.option);
       if (Option.isNone(cacheDirExists) || !cacheDirExists.value) return Option.none();
 
-      // Scan cache directory entries for axm.json
+      // Scan cache directory entries for agent-extensions.json
       const entries = yield* fs.readDirectory(cacheDir).pipe(Effect.option);
       if (Option.isNone(entries)) return Option.none();
 
-      // Check each cache entry for axm.json with matching package name
+      // Check each cache entry for agent-extensions.json with matching package name
       for (const entry of entries.value) {
-        const axmJsonPath = path.join(cacheDir, entry, "axm.json");
-        const content = yield* readFileOptional(axmJsonPath);
+        const agentExtensionsJsonPath = path.join(cacheDir, entry, "agent-extensions.json");
+        const content = yield* readFileOptional(agentExtensionsJsonPath);
         if (Option.isNone(content)) continue;
 
-        const parsed = yield* parseJsonOptional(content.value, `${pkg.purl.name}/axm.json`);
+        const parsed = yield* parseJsonOptional(
+          content.value,
+          `${pkg.purl.name}/agent-extensions.json`,
+        );
         if (Option.isNone(parsed)) continue;
 
-        const metaResult = decodeAxmMeta(parsed.value);
+        const metaResult = yield* decodeAgentExtensions(parsed.value);
         if (Result.isFailure(metaResult)) {
           yield* Effect.logWarning(
-            `Invalid axm metadata in zig cache for ${pkg.purl.name}: schema validation failed`,
+            `Invalid agentExtensions metadata in zig cache for ${pkg.purl.name}: schema validation failed`,
           );
           continue;
         }
 
-        return Option.some(metaResult.success.extensions);
+        return Option.some(metaResult.success.agentExtensions);
       }
 
       return Option.none();

@@ -49,13 +49,13 @@ const collectFindings = (
       );
       continue;
     }
-    if (accepted.type !== "registry") continue;
+    if (accepted.source.type !== "registry" || !("version" in accepted.resolved)) continue;
     const parsed = parseRegistrySourceRef(node.source);
     const constraint = parsed?.versionRange;
-    if (constraint !== undefined && !versionSatisfiesRange(accepted.resolvedVersion, constraint)) {
+    if (constraint !== undefined && !versionSatisfiesRange(accepted.resolved.version, constraint)) {
       findings.push(
         finding(
-          `Skill '${node.name}' accepts Registry version ${accepted.resolvedVersion}, which does not satisfy desired constraint ${constraint}.`,
+          `Skill '${node.name}' accepts Registry version ${accepted.resolved.version}, which does not satisfy desired constraint ${constraint}.`,
           lockfilePath,
         ),
       );

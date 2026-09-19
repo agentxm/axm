@@ -73,6 +73,91 @@ describe("pack membership output", () => {
   );
 });
 
+describe("source switch output", () => {
+  const artifact: JobStepArtifact = {
+    path: "agent_extensions/registry/@acme/skills/review",
+    scope: "project",
+    change: "updated",
+    sourceSwitch: {
+      before: {
+        family: "git",
+        locator: "https://example.com/acme/review.git",
+        resolution: "commit abc; tree def",
+        treeIntegrity: "sha256-tree-v1:before",
+      },
+      after: {
+        family: "registry",
+        locator: "https://registry.example.com/",
+        resolution: "version 1.0.0",
+        treeIntegrity: "sha256-tree-v1:after",
+      },
+      content: "changed",
+      dependencies: { effect: "not-applicable", added: [], removed: [], changed: [] },
+      projections: { effect: "reconcile", detail: "Reconcile configured-agent projections" },
+      guarantees: { gained: ["publisher epoch", "yank filtering"], lost: [] },
+      packMembers: [
+        {
+          member: "@acme/skills/review",
+          disposition: "source-changed",
+          before: {
+            family: "git",
+            locator: "https://example.com/acme/review.git",
+            resolution: "commit abc; tree def",
+          },
+          after: {
+            family: "registry",
+            locator: "https://registry.example.com/",
+            resolution: "version 1.0.0",
+          },
+        },
+      ],
+    },
+  };
+
+  it.each(["preview", "apply"] as const)("renders source-switch evidence for %s", (mode) => {
+    const plan: Plan = {
+      _tag: "Plan",
+      name: "Switch source",
+      description: Option.none(),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              readiness: "warn",
+              label: "review",
+              warnMessage: "Source authority changes",
+              artifact,
+              run: Effect.succeed({ result: "success", message: "Switched review", artifact }),
+            },
+          ],
+        },
+      ],
+    };
+    const resolution = makeOperationResolution({
+      name: plan.name,
+      description: plan.description,
+      mode,
+      atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+      units: [{ id: "review", label: "review", state: "committed", artifact }],
+    });
+    const doc =
+      mode === "preview"
+        ? planDoc(plan, { mode, verbosity: "normal" })
+        : operationDoc(resolution, { verbosity: "normal" });
+    const text = paint(doc);
+    expect(text).toContain("Source: git https://example.com/acme/review.git to registry");
+    expect(text).toContain("Content: changed");
+    expect(text).toContain("Dependencies: not-applicable");
+    expect(text).toContain("Projections: Reconcile configured-agent projections");
+    expect(text).toContain("Guarantees: gained publisher epoch, yank filtering; lost none");
+    expect(text).toContain(
+      "Pack member source-changed: @acme/skills/review; prior git https://example.com/acme/review.git (commit abc; tree def); target registry",
+    );
+    expect(text).toContain("https://registry.example.com/ (version 1.0.0)");
+  });
+});
+
 const syncPresentation = operationPresentation({
   imperative: "sync",
   past: "Synced",

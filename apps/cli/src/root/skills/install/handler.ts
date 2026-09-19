@@ -88,7 +88,7 @@ export const handleInstall = (args: InstallHandlerArgs, flags: InstallSkillFlags
         request: {
           type: Option.some("skill"),
           subject: { kind: "bundled" },
-          names: [],
+          selectors: {},
           all: false,
           reinstall: flags.force,
           localName: Option.none(),
@@ -124,7 +124,7 @@ export const handleInstall = (args: InstallHandlerArgs, flags: InstallSkillFlags
       request: {
         type: Option.some("skill"),
         subject: { kind: "source", source: args.source.value },
-        names: args.skills,
+        selectors: { skill: args.skills },
         all: args.all,
         reinstall: flags.force,
         localName: Option.none(),

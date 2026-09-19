@@ -39,13 +39,17 @@ interface ResolvedRefFacts {
 const hasChanged = (ref: ResolvedRefFacts, accepted: AcceptedEntry): boolean => {
   if (ref.refType === "git-hosted") {
     return !(
-      accepted.type !== "registry" &&
-      accepted.type !== "local" &&
-      accepted.resolvedTree === ref.gitTreeSha
+      accepted.source.type === "git" &&
+      "tree" in accepted.resolved &&
+      accepted.resolved.tree === ref.gitTreeSha
     );
   }
   if (ref.refType === "registry") {
-    return accepted.type !== "registry" || ref.version !== accepted.resolvedVersion;
+    return (
+      accepted.source.type !== "registry" ||
+      !("version" in accepted.resolved) ||
+      ref.version !== accepted.resolved.version
+    );
   }
   // Local and workspace sources carry no resolution to compare against, so
   // they always advance.

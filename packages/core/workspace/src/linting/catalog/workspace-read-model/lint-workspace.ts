@@ -8,7 +8,7 @@
  * `installedPacks: InstalledPackInfo[]` with per-provenance `displayRoot`s:
  *
  *   Registry-installed native skill: `agent_extensions/<source>/<@owner>/skills/<name>/src/`
- *   Portable acquired skill:         `agent_extensions/<source>/<source-full-name>/`
+ *   Portable acquired skill:         `agent_extensions/<family>/<owner>/skills/<name>/`
  *   Registry pack:                   `agent_extensions/<source>/<@owner>/packs/<name>/`
  *                                    (NO `src/` — matches the on-disk layout.)
  *
@@ -493,9 +493,6 @@ const buildLintWorkspaceView = (
     };
   });
 
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 const MemberIdentitySchema = Schema.Struct({
   owner: CommonManifestBaseFields.owner,
   version: CommonManifestBaseFields.version,
@@ -539,26 +536,15 @@ const memberObservation = (
       },
     ];
   }
-  const resolved: Option.Option<{ readonly lockEntry: unknown }> = installed.resolved;
-  if (Option.isNone(resolved) || !isRecord(resolved.value.lockEntry)) return [];
+  const resolved = installed.resolved;
+  if (Option.isNone(resolved)) return [];
   const entry = resolved.value.lockEntry;
-  const authority = entry["type"];
-  const owner = entry["owner"];
-  const name = entry["name"];
-  const version = entry["resolvedVersion"];
-  if (
-    authority !== "registry" ||
-    typeof owner !== "string" ||
-    typeof name !== "string" ||
-    typeof version !== "string"
-  ) {
-    return [];
-  }
+  if (entry.source.type !== "registry" || !("version" in entry.resolved)) return [];
   return [
     {
-      fqn: `${owner}/${toExtensionTypePlural(extensionType)}/${name}`,
-      version,
-      authority,
+      fqn: `${entry.identity.owner}/${toExtensionTypePlural(extensionType)}/${entry.identity.name}`,
+      version: entry.resolved.version,
+      authority: "registry",
     },
   ];
 };
@@ -831,13 +817,13 @@ const installedPackToInfo = (
   }
 
   const resolved = pack.resolved;
-  if (Option.isSome(resolved) && resolved.value.lockEntry.type === "registry") {
+  if (Option.isSome(resolved) && resolved.value.lockEntry.source.type === "registry") {
     return buildInstalledPackInfo({
       platform: args.platform,
       workspaceRoot: args.workspaceRoot,
       scope: args.scope,
-      sourceName: resolved.value.lockEntry.sourceName,
-      owner: resolved.value.lockEntry.owner,
+      sourceName: "registry",
+      owner: resolved.value.lockEntry.identity.owner,
       name: pack.key.name,
       packJson: undefined,
     });
@@ -957,7 +943,7 @@ const installedKnowledgeToContext = (
 
 /**
  * Locate an installed package's root the same way for every family whose
- * canonical layout is source-qualified: prefer a scanned `packageRoot`, then
+ * canonical layout is identity-qualified: prefer a scanned `packageRoot`, then
  * reconstruct the exact path from the accepted lock entry.
  *
  * Returns `undefined` when neither applies — the extension is
@@ -1078,7 +1064,7 @@ const mcpServerPackageRoot = (
 const isNativeSkill = (skill: InstalledSkill, actual: ActualSkill): boolean => {
   const resolved = skill.resolved;
   if (Option.isSome(resolved)) {
-    return resolved.value.lockEntry.packageFormat === "agentxm";
+    return resolved.value.lockEntry.identity.owner !== undefined;
   }
   if (actual.origin._tag === "canonical-axm-skill") {
     return true;
@@ -1114,13 +1100,13 @@ const acquiredPackageDisplayRoot = (
  */
 export const registryNativeSkillDisplayRoot = (
   scope: "project" | "user",
-  sourceName: string,
+  _sourceName: string,
   owner: string,
   name: string,
-): string => `${canonicalDisplayRoot(scope)}/${sourceName}/${owner}/skills/${name}/src`;
+): string => `${canonicalDisplayRoot(scope)}/registry/${owner}/skills/${name}/src`;
 
 /**
- * Compute the content `displayRoot` for a source-qualified acquired skill.
+ * Compute the content `displayRoot` for an identity-qualified acquired skill.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -1130,7 +1116,7 @@ export const acquiredSkillDisplayRoot = (
   name: string,
 ): string => {
   const packageRoot = acquiredPackageDisplayRoot(scope, entry, "skills", name);
-  return entry.packageFormat === "agent-skill" ? packageRoot : `${packageRoot}/src`;
+  return entry.identity.owner === undefined ? packageRoot : `${packageRoot}/src`;
 };
 
 /**
@@ -1143,10 +1129,10 @@ export const acquiredSkillDisplayRoot = (
  */
 export const registryPackDisplayRoot = (
   scope: "project" | "user",
-  sourceName: string,
+  _sourceName: string,
   owner: string,
   name: string,
-): string => `${canonicalDisplayRoot(scope)}/${sourceName}/${owner}/packs/${name}`;
+): string => `${canonicalDisplayRoot(scope)}/registry/${owner}/packs/${name}`;
 
 // -----------------------------------------------------------------------------
 // Build-a-skill-info helpers (thin wrappers over the skill / pack accessors).
@@ -1179,7 +1165,7 @@ export const buildNativeInstalledSkillInfo = (
 ): InstalledSkillInfo => {
   const packageRoot = args.platform.path.resolve(
     args.workspaceRoot,
-    `${canonicalDisplayRoot(args.scope)}/${args.sourceName}/${args.owner}/skills/${args.name}`,
+    `${canonicalDisplayRoot(args.scope)}/registry/${args.owner}/skills/${args.name}`,
   );
   const contentRoot = args.platform.path.resolve(packageRoot, "src");
   return {
@@ -1207,7 +1193,7 @@ export interface BuildAcquiredInstalledSkillInfoArgs {
 }
 
 /**
- * Build an `InstalledSkillInfo` rooted at its exact accepted source-qualified path.
+ * Build an `InstalledSkillInfo` rooted at its exact accepted identity-qualified path.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -1219,11 +1205,11 @@ export const buildAcquiredInstalledSkillInfo = (
     acquiredPackageDisplayRoot(args.scope, args.lockEntry, "skills", args.name),
   );
   const contentRoot =
-    args.lockEntry.packageFormat === "agent-skill"
+    args.lockEntry.identity.owner === undefined
       ? packageRoot
       : args.platform.path.resolve(packageRoot, "src");
   return {
-    isNative: args.lockEntry.packageFormat === "agentxm",
+    isNative: args.lockEntry.identity.owner !== undefined,
     skillJson: undefined,
     expectedName: args.name,
     displayRoot: acquiredSkillDisplayRoot(args.scope, args.lockEntry, args.name),

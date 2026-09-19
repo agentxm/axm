@@ -33,7 +33,7 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-const MEMBER_CANONICAL = "agent_extensions/agentxm/@acme/skills";
+const MEMBER_CANONICAL = "agent_extensions/registry/@acme/skills";
 
 describe("Unpacking a pack", () => {
   const cleanups: Array<() => void> = [];

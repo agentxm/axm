@@ -4,7 +4,7 @@
  * The registry integration: local and remote registry clients over the
  * generated OpenAPI transport, request policy and retry, the typed registry
  * failure vocabulary with problem-details translation, the content-addressed
- * archive cache, lifecycle administration, and package metadata schemas.
+ * archive cache, lifecycle administration, and package-discovery request types.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -149,13 +149,6 @@ export {
   type RegistryClientFactoryService,
 } from "./registry-client-factory.js";
 
-// Package metadata schemas
-export {
-  AxmPackageMetaSchema,
-  PackageExtensionDeclarationSchema,
-  type AxmPackageMeta,
-  type PackageExtensionDeclaration,
-} from "./axm-package-meta.js";
 export { purlIdentityMatch, purlMatch } from "./purl-match.js";
 
 // Generated OpenAPI transport (consumed by the Registry access capability)

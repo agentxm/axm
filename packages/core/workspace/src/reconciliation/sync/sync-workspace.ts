@@ -249,7 +249,7 @@ export const prepareSyncWorkspace = (
             ? []
             : Object.values(yield* lockfile.entries(selectedType)).map((entry) => ({
                 type: selectedType,
-                name: entry.workspaceName,
+                name: entry.identity.name,
               }));
         const subjects = scoped ? [...selected, ...selectedAccepted] : undefined;
         const projectionFacts = yield* invariantFacts.projectionFacts;

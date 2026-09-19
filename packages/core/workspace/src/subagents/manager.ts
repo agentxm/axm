@@ -997,10 +997,10 @@ export const SubagentManagerLive = Layer.effect(
             kind: "external-resolution",
           });
         }
-        if (lockEntry.type === "registry") {
+        if (lockEntry.source.type === "registry" && "version" in lockEntry.resolved) {
           yield* validateExactResolvedVersion(
             `subagents.${ref.subagent.name}.resolvedVersion`,
-            lockEntry.resolvedVersion,
+            lockEntry.resolved.version,
           );
         }
         return Option.some({ key: ref.subagent.name, entry: lockEntry });

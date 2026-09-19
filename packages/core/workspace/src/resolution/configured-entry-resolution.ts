@@ -17,17 +17,12 @@ import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 
 import {
-  parseRegistrySourceRef,
+  extensionTypeSentenceLabels,
   parseSourceQualifiedRegistrySourcePatternParts,
+  toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
-import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
-import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
-import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
-import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
-import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
+import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type {
   ReleaseAgeEvaluation,
   ReleaseAgeEvidence,
@@ -223,12 +218,7 @@ export const resolveConfiguredRegistryEntry = (
 
     const parsedPattern = parseSourceQualifiedRegistrySourcePatternParts(source);
     const pluralType = parsedPattern?.type;
-    const expectedPlural =
-      expectedType === "mcp-server"
-        ? "mcps"
-        : expectedType === "knowledge"
-          ? "knowledge"
-          : `${expectedType}s`;
+    const expectedPlural = toExtensionTypePlural(expectedType);
     if (pluralType !== undefined && pluralType !== expectedPlural) {
       return yield* new ExtensionResolutionFailed({
         category: "validation",
@@ -289,715 +279,210 @@ export const resolveConfiguredRegistryEntry = (
     });
   });
 
+type ConfiguredRefFor<TType extends ExtensionType> = Extract<
+  ExtensionRef,
+  { readonly type: TType }
+>;
+
+interface ConfiguredRefConstructor<TType extends ExtensionType> {
+  readonly type: TType;
+  readonly isRef: (ref: ExtensionRef) => ref is ConfiguredRefFor<TType>;
+  readonly name: (ref: ConfiguredRefFor<TType>) => string;
+}
+
+const skillRefConstructor: ConfiguredRefConstructor<"skill"> = {
+  type: "skill",
+  isRef: (ref): ref is ConfiguredRefFor<"skill"> => ref.type === "skill",
+  name: (ref) => ref.skill.name,
+};
+
+const mcpServerRefConstructor: ConfiguredRefConstructor<"mcp-server"> = {
+  type: "mcp-server",
+  isRef: (ref): ref is ConfiguredRefFor<"mcp-server"> => ref.type === "mcp-server",
+  name: (ref) => ref.server.name,
+};
+
+const subagentRefConstructor: ConfiguredRefConstructor<"subagent"> = {
+  type: "subagent",
+  isRef: (ref): ref is ConfiguredRefFor<"subagent"> => ref.type === "subagent",
+  name: (ref) => ref.subagent.name,
+};
+
+const ruleRefConstructor: ConfiguredRefConstructor<"rule"> = {
+  type: "rule",
+  isRef: (ref): ref is ConfiguredRefFor<"rule"> => ref.type === "rule",
+  name: (ref) => ref.rule.name,
+};
+
+const hookRefConstructor: ConfiguredRefConstructor<"hook"> = {
+  type: "hook",
+  isRef: (ref): ref is ConfiguredRefFor<"hook"> => ref.type === "hook",
+  name: (ref) => ref.hook.name,
+};
+
+const knowledgeRefConstructor: ConfiguredRefConstructor<"knowledge"> = {
+  type: "knowledge",
+  isRef: (ref): ref is ConfiguredRefFor<"knowledge"> => ref.type === "knowledge",
+  name: (ref) => ref.knowledge.name,
+};
+
+const packRefConstructor: ConfiguredRefConstructor<"pack"> = {
+  type: "pack",
+  isRef: (ref): ref is ConfiguredRefFor<"pack"> => ref.type === "pack",
+  name: (ref) => ref.pack.name,
+};
+
+const resolveConfiguredEntry = <TType extends ExtensionType>(
+  name: string,
+  source: string,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  refConstructor: ConfiguredRefConstructor<TType>,
+) =>
+  Effect.gen(function* () {
+    const expectedType = refConstructor.type;
+    const typeLabel = extensionTypeSentenceLabels[expectedType];
+
+    if (isWorkspaceSourceLocator(source)) {
+      const ref = yield* resolveConfiguredWorkspaceRef(name, source, expectedType);
+      if (!refConstructor.isRef(ref)) {
+        return yield* new ExtensionResolutionFailed({
+          category: "internal",
+          detail: `Workspace ${typeLabel} resolution returned ${ref.type}`,
+        });
+      }
+      return { ref, versionRange: Option.none<VersionRange>() };
+    }
+
+    const registry = yield* resolveConfiguredRegistryRef(
+      name,
+      source,
+      expectedType,
+      releaseAgeEvaluation,
+    );
+    if (Option.isSome(registry)) {
+      const ref = registry.value.ref;
+      if (!refConstructor.isRef(ref)) {
+        return yield* new ExtensionResolutionFailed({
+          category: "internal",
+          detail: `Registry returned a non-${typeLabel}`,
+        });
+      }
+      return { ...registry.value, ref };
+    }
+
+    const providers = yield* SourceHostProviders;
+    const resolvedSource = yield* resolveSource(source, { expectedType }).pipe(
+      Effect.mapError(
+        (cause) =>
+          new ExtensionResolutionFailed({
+            category: "validation",
+            detail: `Invalid ${typeLabel} source for ${name}: ${cause.detail}`,
+            cause,
+          }),
+      ),
+    );
+
+    const parsedPattern = parseSourceQualifiedRegistrySourcePatternParts(source);
+    const expectedPlural = toExtensionTypePlural(expectedType);
+    const requestedOwner =
+      parsedPattern?.type === expectedPlural
+        ? Option.some(parsedPattern.owner)
+        : resolvedSource.type === "registry"
+          ? resolvedSource.owner
+          : Option.none();
+    const versionRange =
+      resolvedSource.type === "registry" && parsedPattern?.type === expectedPlural
+        ? Option.fromUndefinedOr(parsedPattern.versionRange)
+        : Option.none<VersionRange>();
+    const refs = yield* providers
+      .find(resolvedSource, {
+        names: [name],
+        type: expectedType,
+        owner: requestedOwner,
+        versionRange,
+      })
+      .pipe(
+        Effect.map((entries) => entries.filter(refConstructor.isRef)),
+        Effect.mapError(
+          (cause) =>
+            new ExtensionResolutionFailed({
+              category: "internal",
+              detail: `Failed to resolve configured ${typeLabel} "${name}"`,
+              ...(expectedType === "knowledge"
+                ? {}
+                : {
+                    suggestions: [
+                      {
+                        description: `Verify the configured source is reachable and still contains the ${typeLabel}.`,
+                      },
+                    ],
+                  }),
+              cause,
+            }),
+        ),
+      );
+
+    const ref = refs.find((entry) => refConstructor.name(entry) === name);
+    if (ref === undefined) {
+      return yield* new ExtensionResolutionFailed({
+        category: "not_found",
+        detail: `Configured ${typeLabel} "${name}" could not be found in its source`,
+        ...(expectedType === "knowledge"
+          ? {}
+          : {
+              suggestions: [
+                {
+                  description: `Verify the configured source still contains the ${typeLabel} or update axm.json.`,
+                },
+              ],
+            }),
+      });
+    }
+
+    return {
+      ref,
+      versionRange: ref.refType === "registry" ? versionRange : Option.none(),
+    };
+  });
+
 export const resolveConfiguredSkill = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-) =>
-  Effect.gen(function* () {
-    if (isWorkspaceSourceLocator(source)) {
-      const ref = yield* resolveConfiguredWorkspaceRef(name, source, "skill");
-      if (ref.type !== "skill") {
-        return yield* new ExtensionResolutionFailed({
-          category: "internal",
-          detail: `Workspace skill resolution returned ${ref.type}`,
-        });
-      }
-      return { ref, versionRange: Option.none<VersionRange>() };
-    }
-    const registry = yield* resolveConfiguredRegistryRef(
-      name,
-      source,
-      "skill",
-      releaseAgeEvaluation,
-    );
-    if (Option.isSome(registry)) {
-      if (registry.value.ref.type !== "skill") {
-        return yield* new ExtensionResolutionFailed({
-          category: "internal",
-          detail: "Registry returned a non-skill",
-        });
-      }
-      return { ...registry.value, ref: registry.value.ref };
-    }
-    const providers = yield* SourceHostProviders;
-    const resolvedSource = yield* resolveSource(source, { expectedType: "skill" }).pipe(
-      Effect.mapError(
-        (cause) =>
-          new ExtensionResolutionFailed({
-            category: "validation",
-            detail: `Invalid skill source for ${name}: ${cause.detail}`,
-            cause,
-          }),
-      ),
-    );
-
-    const parsedPattern = parseSourceQualifiedRegistrySourcePatternParts(source);
-    const requestedOwner =
-      parsedPattern?.type === "skills"
-        ? Option.some(parsedPattern.owner)
-        : resolvedSource.type === "registry"
-          ? resolvedSource.owner
-          : Option.none();
-    const versionRange =
-      resolvedSource.type === "registry" && parsedPattern?.type === "skills"
-        ? Option.fromUndefinedOr(parsedPattern.versionRange)
-        : Option.none<VersionRange>();
-    const refs = yield* providers
-      .find(resolvedSource, {
-        names: [name],
-        type: "skill",
-        owner: requestedOwner,
-        versionRange,
-      })
-      .pipe(
-        Effect.map((entries) =>
-          entries.filter((entry): entry is SkillExtensionRef => entry.type === "skill"),
-        ),
-        Effect.mapError(
-          (cause) =>
-            new ExtensionResolutionFailed({
-              category: "internal",
-              detail: `Failed to resolve configured skill "${name}"`,
-              suggestions: [
-                {
-                  description: `Verify the configured source is reachable and still contains the skill.`,
-                },
-              ],
-              cause,
-            }),
-        ),
-      );
-
-    const ref = refs.find((entry) => entry.skill.name === name);
-    if (ref === undefined) {
-      return yield* new ExtensionResolutionFailed({
-        category: "not_found",
-        detail: `Configured skill "${name}" could not be found in its source`,
-        suggestions: [
-          {
-            description: `Verify the configured source still contains the skill or update axm.json.`,
-          },
-        ],
-      });
-    }
-
-    return {
-      ref,
-      versionRange: ref.refType === "registry" ? versionRange : Option.none(),
-    };
-  });
-
-export const resolveConfiguredSubagent = (
-  name: string,
-  source: string,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
-) =>
-  Effect.gen(function* () {
-    if (isWorkspaceSourceLocator(source)) {
-      const ref = yield* resolveConfiguredWorkspaceRef(name, source, "subagent");
-      if (ref.type !== "subagent") {
-        return yield* new ExtensionResolutionFailed({
-          category: "internal",
-          detail: `Workspace subagent resolution returned ${ref.type}`,
-        });
-      }
-      return { ref, versionRange: Option.none<VersionRange>() };
-    }
-    const registry = yield* resolveConfiguredRegistryRef(
-      name,
-      source,
-      "subagent",
-      releaseAgeEvaluation,
-    );
-    if (Option.isSome(registry)) {
-      if (registry.value.ref.type !== "subagent") {
-        return yield* new ExtensionResolutionFailed({
-          category: "internal",
-          detail: "Registry returned a non-subagent",
-        });
-      }
-      return { ...registry.value, ref: registry.value.ref };
-    }
-    const providers = yield* SourceHostProviders;
-    const resolvedSource = yield* resolveSource(source, { expectedType: "subagent" }).pipe(
-      Effect.mapError(
-        (cause) =>
-          new ExtensionResolutionFailed({
-            category: "validation",
-            detail: `Invalid subagent source for ${name}: ${cause.detail}`,
-            cause,
-          }),
-      ),
-    );
-
-    const parsedPattern = parseSourceQualifiedRegistrySourcePatternParts(source);
-    const requestedOwner =
-      parsedPattern?.type === "subagents"
-        ? Option.some(parsedPattern.owner)
-        : resolvedSource.type === "registry"
-          ? resolvedSource.owner
-          : Option.none();
-    const versionRange =
-      resolvedSource.type === "registry" && parsedPattern?.type === "subagents"
-        ? Option.fromUndefinedOr(parsedPattern.versionRange)
-        : Option.none<VersionRange>();
-    const refs = yield* providers
-      .find(resolvedSource, {
-        names: [name],
-        type: "subagent",
-        owner: requestedOwner,
-        versionRange,
-      })
-      .pipe(
-        Effect.map((entries) =>
-          entries.filter((entry): entry is SubagentExtensionRef => entry.type === "subagent"),
-        ),
-        Effect.mapError(
-          (cause) =>
-            new ExtensionResolutionFailed({
-              category: "internal",
-              detail: `Failed to resolve configured subagent "${name}"`,
-              suggestions: [
-                {
-                  description: `Verify the configured source is reachable and still contains the subagent.`,
-                },
-              ],
-              cause,
-            }),
-        ),
-      );
-
-    const ref = refs.find((entry) => entry.subagent.name === name);
-    if (ref === undefined) {
-      return yield* new ExtensionResolutionFailed({
-        category: "not_found",
-        detail: `Configured subagent "${name}" could not be found in its source`,
-        suggestions: [
-          {
-            description: `Verify the configured source still contains the subagent or update axm.json.`,
-          },
-        ],
-      });
-    }
-
-    return {
-      ref,
-      versionRange: ref.refType === "registry" ? versionRange : Option.none(),
-    };
-  });
-
-export const resolveConfiguredRule = (
-  name: string,
-  source: string,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
-) =>
-  Effect.gen(function* () {
-    if (isWorkspaceSourceLocator(source)) {
-      const ref = yield* resolveConfiguredWorkspaceRef(name, source, "rule");
-      if (ref.type !== "rule") {
-        return yield* new ExtensionResolutionFailed({
-          category: "internal",
-          detail: `Workspace rule resolution returned ${ref.type}`,
-        });
-      }
-      return { ref, versionRange: Option.none<VersionRange>() };
-    }
-    const registry = yield* resolveConfiguredRegistryRef(
-      name,
-      source,
-      "rule",
-      releaseAgeEvaluation,
-    );
-    if (Option.isSome(registry)) {
-      if (registry.value.ref.type !== "rule") {
-        return yield* new ExtensionResolutionFailed({
-          category: "internal",
-          detail: "Registry returned a non-rule",
-        });
-      }
-      return { ...registry.value, ref: registry.value.ref };
-    }
-    const providers = yield* SourceHostProviders;
-    const resolvedSource = yield* resolveSource(source, { expectedType: "rule" }).pipe(
-      Effect.mapError(
-        (cause) =>
-          new ExtensionResolutionFailed({
-            category: "validation",
-            detail: `Invalid rule source for ${name}: ${cause.detail}`,
-            cause,
-          }),
-      ),
-    );
-
-    const parsedPattern = parseSourceQualifiedRegistrySourcePatternParts(source);
-    const requestedOwner =
-      parsedPattern?.type === "rules"
-        ? Option.some(parsedPattern.owner)
-        : resolvedSource.type === "registry"
-          ? resolvedSource.owner
-          : Option.none();
-    const versionRange =
-      resolvedSource.type === "registry" && parsedPattern?.type === "rules"
-        ? Option.fromUndefinedOr(parsedPattern.versionRange)
-        : Option.none<VersionRange>();
-    const refs = yield* providers
-      .find(resolvedSource, {
-        names: [name],
-        type: "rule",
-        owner: requestedOwner,
-        versionRange,
-      })
-      .pipe(
-        Effect.map((entries) =>
-          entries.filter((entry): entry is RuleExtensionRef => entry.type === "rule"),
-        ),
-        Effect.mapError(
-          (cause) =>
-            new ExtensionResolutionFailed({
-              category: "internal",
-              detail: `Failed to resolve configured rule "${name}"`,
-              suggestions: [
-                {
-                  description:
-                    "Verify the configured source is reachable and still contains the rule.",
-                },
-              ],
-              cause,
-            }),
-        ),
-      );
-
-    const ref = refs.find((entry) => entry.rule.name === name);
-    if (ref === undefined) {
-      return yield* new ExtensionResolutionFailed({
-        category: "not_found",
-        detail: `Configured rule "${name}" could not be found in its source`,
-        suggestions: [
-          {
-            description: "Verify the configured source still contains the rule or update axm.json.",
-          },
-        ],
-      });
-    }
-
-    return {
-      ref,
-      versionRange: ref.refType === "registry" ? versionRange : Option.none(),
-    };
-  });
-
-export const resolveConfiguredHook = (
-  name: string,
-  source: string,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
-) =>
-  Effect.gen(function* () {
-    if (isWorkspaceSourceLocator(source)) {
-      const ref = yield* resolveConfiguredWorkspaceRef(name, source, "hook");
-      if (ref.type !== "hook") {
-        return yield* new ExtensionResolutionFailed({
-          category: "internal",
-          detail: `Workspace hook resolution returned ${ref.type}`,
-        });
-      }
-      return { ref, versionRange: Option.none<VersionRange>() };
-    }
-    const registry = yield* resolveConfiguredRegistryRef(
-      name,
-      source,
-      "hook",
-      releaseAgeEvaluation,
-    );
-    if (Option.isSome(registry)) {
-      if (registry.value.ref.type !== "hook") {
-        return yield* new ExtensionResolutionFailed({
-          category: "internal",
-          detail: "Registry returned a non-hook",
-        });
-      }
-      return { ...registry.value, ref: registry.value.ref };
-    }
-    const providers = yield* SourceHostProviders;
-    const resolvedSource = yield* resolveSource(source, { expectedType: "hook" }).pipe(
-      Effect.mapError(
-        (cause) =>
-          new ExtensionResolutionFailed({
-            category: "validation",
-            detail: `Invalid hook source for ${name}: ${cause.detail}`,
-            cause,
-          }),
-      ),
-    );
-
-    const parsedPattern = parseSourceQualifiedRegistrySourcePatternParts(source);
-    const requestedOwner =
-      parsedPattern?.type === "hooks"
-        ? Option.some(parsedPattern.owner)
-        : resolvedSource.type === "registry"
-          ? resolvedSource.owner
-          : Option.none();
-    const versionRange =
-      resolvedSource.type === "registry" && parsedPattern?.type === "hooks"
-        ? Option.fromUndefinedOr(parsedPattern.versionRange)
-        : Option.none<VersionRange>();
-    const refs = yield* providers
-      .find(resolvedSource, {
-        names: [name],
-        type: "hook",
-        owner: requestedOwner,
-        versionRange,
-      })
-      .pipe(
-        Effect.map((entries) =>
-          entries.filter((entry): entry is HookExtensionRef => entry.type === "hook"),
-        ),
-        Effect.mapError(
-          (cause) =>
-            new ExtensionResolutionFailed({
-              category: "internal",
-              detail: `Failed to resolve configured hook "${name}"`,
-              suggestions: [
-                {
-                  description:
-                    "Verify the configured source is reachable and still contains the hook.",
-                },
-              ],
-              cause,
-            }),
-        ),
-      );
-
-    const ref = refs.find((entry) => entry.hook.name === name);
-    if (ref === undefined) {
-      return yield* new ExtensionResolutionFailed({
-        category: "not_found",
-        detail: `Configured hook "${name}" could not be found in its source`,
-        suggestions: [
-          {
-            description: "Verify the configured source still contains the hook or update axm.json.",
-          },
-        ],
-      });
-    }
-
-    return {
-      ref,
-      versionRange: ref.refType === "registry" ? versionRange : Option.none(),
-    };
-  });
-
-export const resolveConfiguredKnowledge = (
-  name: string,
-  source: string,
-  releaseAgeEvaluation: ReleaseAgeEvaluation,
-) =>
-  Effect.gen(function* () {
-    if (isWorkspaceSourceLocator(source)) {
-      const ref = yield* resolveConfiguredWorkspaceRef(name, source, "knowledge");
-      if (ref.type !== "knowledge") {
-        return yield* new ExtensionResolutionFailed({
-          category: "internal",
-          detail: `Workspace knowledge resolution returned ${ref.type}`,
-        });
-      }
-      return { ref, versionRange: Option.none<VersionRange>() };
-    }
-    const registry = yield* resolveConfiguredRegistryRef(
-      name,
-      source,
-      "knowledge",
-      releaseAgeEvaluation,
-    );
-    if (Option.isSome(registry)) {
-      if (registry.value.ref.type !== "knowledge") {
-        return yield* new ExtensionResolutionFailed({
-          category: "internal",
-          detail: "Registry returned non-knowledge content",
-        });
-      }
-      return { ...registry.value, ref: registry.value.ref };
-    }
-    const providers = yield* SourceHostProviders;
-    const resolvedSource = yield* resolveSource(source, { expectedType: "knowledge" }).pipe(
-      Effect.mapError(
-        (cause) =>
-          new ExtensionResolutionFailed({
-            category: "validation",
-            detail: `Invalid knowledge source for ${name}: ${cause.detail}`,
-            cause,
-          }),
-      ),
-    );
-    const parsedPattern = parseSourceQualifiedRegistrySourcePatternParts(source);
-    const requestedOwner =
-      parsedPattern?.type === "knowledge"
-        ? Option.some(parsedPattern.owner)
-        : resolvedSource.type === "registry"
-          ? resolvedSource.owner
-          : Option.none();
-    const versionRange =
-      resolvedSource.type === "registry" && parsedPattern?.type === "knowledge"
-        ? Option.fromUndefinedOr(parsedPattern.versionRange)
-        : Option.none<VersionRange>();
-    const refs = yield* providers
-      .find(resolvedSource, {
-        names: [name],
-        type: "knowledge",
-        owner: requestedOwner,
-        versionRange,
-      })
-      .pipe(
-        Effect.map((entries) =>
-          entries.filter((entry): entry is KnowledgeExtensionRef => entry.type === "knowledge"),
-        ),
-        Effect.mapError(
-          (cause) =>
-            new ExtensionResolutionFailed({
-              category: "internal",
-              detail: `Failed to resolve configured knowledge bundle "${name}"`,
-              cause,
-            }),
-        ),
-      );
-    const ref = refs.find((entry) => entry.knowledge.name === name);
-    if (ref === undefined) {
-      return yield* new ExtensionResolutionFailed({
-        category: "not_found",
-        detail: `Configured knowledge bundle "${name}" could not be found in its source`,
-      });
-    }
-    return {
-      ref,
-      versionRange: ref.refType === "registry" ? versionRange : Option.none(),
-    };
-  });
+) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, skillRefConstructor);
 
 export const resolveConfiguredMcpServer = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-) =>
-  Effect.gen(function* () {
-    if (isWorkspaceSourceLocator(source)) {
-      const ref = yield* resolveConfiguredWorkspaceRef(name, source, "mcp-server");
-      if (ref.type !== "mcp-server") {
-        return yield* new ExtensionResolutionFailed({
-          category: "internal",
-          detail: `Workspace MCP server resolution returned ${ref.type}`,
-        });
-      }
-      return { ref, versionRange: Option.none<VersionRange>() };
-    }
-    const registry = yield* resolveConfiguredRegistryRef(
-      name,
-      source,
-      "mcp-server",
-      releaseAgeEvaluation,
-    );
-    if (Option.isSome(registry)) {
-      if (registry.value.ref.type !== "mcp-server") {
-        return yield* new ExtensionResolutionFailed({
-          category: "internal",
-          detail: "Registry returned a non-MCP-server",
-        });
-      }
-      return { ...registry.value, ref: registry.value.ref };
-    }
-    const parsed = parseRegistrySourceRef(source);
+) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, mcpServerRefConstructor);
 
-    if (parsed === undefined || parsed.type !== "mcps" || parsed.name !== name) {
-      return yield* new ExtensionResolutionFailed({
-        category: "validation",
-        detail: `The configured MCP server entry "${name}" is invalid.`,
-        suggestions: [{ description: `Use a name like "@owner/mcps/name".` }],
-      });
-    }
+export const resolveConfiguredSubagent = (
+  name: string,
+  source: string,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, subagentRefConstructor);
 
-    const providers = yield* SourceHostProviders;
-    const versionRange = Option.fromUndefinedOr(parsed.versionRange);
-    const resolvedSource = yield* resolveSource(source, { expectedType: "mcp-server" }).pipe(
-      Effect.mapError(
-        (cause) =>
-          new ExtensionResolutionFailed({
-            category: "validation",
-            detail: `Invalid MCP server source for ${name}: ${cause.detail}`,
-            cause,
-          }),
-      ),
-    );
+export const resolveConfiguredRule = (
+  name: string,
+  source: string,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, ruleRefConstructor);
 
-    const refs = yield* providers
-      .find(resolvedSource, {
-        names: [name],
-        type: "mcp-server",
-        owner: Option.some(parsed.owner),
-        versionRange,
-      })
-      .pipe(
-        Effect.map((entries) =>
-          entries.filter((entry): entry is McpServerExtensionRef => entry.type === "mcp-server"),
-        ),
-        Effect.mapError(
-          (cause) =>
-            new ExtensionResolutionFailed({
-              category: "internal",
-              detail: `Failed to resolve configured MCP server "${name}"`,
-              suggestions: [
-                {
-                  description: `Verify the configured registry source is reachable and still contains the MCP server.`,
-                },
-              ],
-              cause,
-            }),
-        ),
-      );
+export const resolveConfiguredHook = (
+  name: string,
+  source: string,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, hookRefConstructor);
 
-    const ref = refs.find((entry) => entry.server.name === name);
-    if (ref === undefined) {
-      return yield* new ExtensionResolutionFailed({
-        category: "not_found",
-        detail: `Configured MCP server "${name}" could not be found in its source`,
-        suggestions: [
-          {
-            description: `Verify the configured source still contains the MCP server or update axm.json.`,
-          },
-        ],
-      });
-    }
-
-    return {
-      ref,
-      versionRange,
-    };
-  });
+export const resolveConfiguredKnowledge = (
+  name: string,
+  source: string,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, knowledgeRefConstructor);
 
 export const resolveConfiguredPack = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
-) =>
-  Effect.gen(function* () {
-    if (isWorkspaceSourceLocator(source)) {
-      const ref = yield* resolveConfiguredWorkspaceRef(name, source, "pack");
-      if (ref.type !== "pack") {
-        return yield* new ExtensionResolutionFailed({
-          category: "internal",
-          detail: `Workspace pack resolution returned ${ref.type}`,
-        });
-      }
-      return { ref, versionRange: Option.none<VersionRange>() };
-    }
-    const registry = yield* resolveConfiguredRegistryRef(
-      name,
-      source,
-      "pack",
-      releaseAgeEvaluation,
-    );
-    if (Option.isSome(registry)) {
-      if (registry.value.ref.type !== "pack") {
-        return yield* new ExtensionResolutionFailed({
-          category: "internal",
-          detail: "Registry returned a non-pack",
-        });
-      }
-      return { ...registry.value, ref: registry.value.ref };
-    }
-    const parsed = parseRegistrySourceRef(source);
-
-    if (parsed === undefined || parsed.type !== "packs" || parsed.name !== name) {
-      return yield* new ExtensionResolutionFailed({
-        category: "validation",
-        detail: `The configured pack entry "${name}" is invalid.`,
-        suggestions: [{ description: `Use a name like "@owner/packs/name".` }],
-      });
-    }
-
-    const providers = yield* SourceHostProviders;
-    const versionRange = Option.fromUndefinedOr(parsed.versionRange);
-    const resolvedSource = yield* resolveSource(source, { expectedType: "pack" }).pipe(
-      Effect.mapError(
-        (cause) =>
-          new ExtensionResolutionFailed({
-            category: "validation",
-            detail: `Invalid pack source for ${name}: ${cause.detail}`,
-            cause,
-          }),
-      ),
-    );
-
-    const findWith = (candidate: typeof resolvedSource) =>
-      providers.find(candidate, {
-        names: [name],
-        type: "pack",
-        owner: Option.some(parsed.owner),
-        versionRange,
-      });
-
-    const refs = yield* findWith(resolvedSource).pipe(
-      Effect.map((entries) => entries.filter((entry): entry is PackRef => entry.type === "pack")),
-      Effect.catch((error) =>
-        resolvedSource.type === "registry"
-          ? Effect.gen(function* () {
-              const settings = yield* SettingsReader;
-              const registryHosts = yield* settings.registrySourceHosts;
-              const fallbackSources = registryHosts
-                .filter((host) => host.location.protocol === "file:")
-                .map((host) => ({
-                  type: "registry" as const,
-                  name: host.name,
-                  location: host.location,
-                  owner: Option.some(parsed.owner),
-                }));
-
-              for (const fallback of fallbackSources) {
-                if (fallback.location.href === resolvedSource.location.href) {
-                  continue;
-                }
-
-                const fallbackResult = yield* findWith(fallback).pipe(Effect.result);
-                if (fallbackResult._tag === "Success" && fallbackResult.success.length > 0) {
-                  return fallbackResult.success.filter(
-                    (entry): entry is PackRef => entry.type === "pack",
-                  );
-                }
-              }
-
-              return yield* error;
-            })
-          : Effect.fail(error),
-      ),
-      Effect.mapError(
-        (cause) =>
-          new ExtensionResolutionFailed({
-            category: "internal",
-            detail: `Failed to resolve configured pack "${name}"`,
-            suggestions: [
-              {
-                description:
-                  "Verify the configured registry source is reachable and still contains the pack.",
-              },
-            ],
-            cause,
-          }),
-      ),
-    );
-
-    const ref = refs.find((entry) => entry.pack.name === name);
-    if (ref === undefined) {
-      return yield* new ExtensionResolutionFailed({
-        category: "not_found",
-        detail: `Configured pack "${name}" could not be found in its source`,
-        suggestions: [
-          {
-            description: "Verify the configured source still contains the pack or update axm.json.",
-          },
-        ],
-      });
-    }
-
-    return {
-      ref,
-      versionRange,
-    };
-  });
+) => resolveConfiguredEntry(name, source, releaseAgeEvaluation, packRefConstructor);

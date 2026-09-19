@@ -71,13 +71,15 @@ export const makeReadModelRecordReaders = (args: {
   };
 
   const packagingKindForResolved = (
-    resolved: Option.Option<{ readonly lockEntry: { readonly type: string } }>,
+    resolved: Option.Option<{
+      readonly lockEntry: { readonly source: { readonly type: string } };
+    }>,
     type: WorkspaceManagedExtensionType,
     source: string,
   ): PackagingKind =>
     Option.match(resolved, {
       onNone: () => packagingKindForSource(type, source),
-      onSome: (row) => deriveSourceMetaFromLockType(row.lockEntry.type).packagingKind,
+      onSome: (row) => deriveSourceMetaFromLockType(row.lockEntry.source.type).packagingKind,
     });
 
   const stringProperty = (
@@ -260,7 +262,9 @@ export const makeReadModelRecordReaders = (args: {
         | { readonly _tag: "direct"; readonly declared: TDeclared }
         | { readonly _tag: "pack-member"; readonly member: TPackMember };
       readonly activation: "enabled" | "disabled";
-      readonly resolved: Option.Option<{ readonly lockEntry: { readonly type: string } }>;
+      readonly resolved: Option.Option<{
+        readonly lockEntry: { readonly source: { readonly type: string } };
+      }>;
     },
   ): ReadModelRecordRow => {
     if (row.installationOrigin._tag === "direct") {
@@ -350,7 +354,9 @@ export const makeReadModelRecordReaders = (args: {
         | { readonly _tag: "direct"; readonly declared: TDeclared }
         | { readonly _tag: "pack-member"; readonly member: TPackMember };
       readonly activation: "enabled" | "disabled";
-      readonly resolved: Option.Option<{ readonly lockEntry: { readonly type: string } }>;
+      readonly resolved: Option.Option<{
+        readonly lockEntry: { readonly source: { readonly type: string } };
+      }>;
       readonly actual: ReadonlyArray<{
         readonly packageRoot?: string | null;
         readonly contentRoot?: string | null;

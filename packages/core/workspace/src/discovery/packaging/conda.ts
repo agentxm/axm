@@ -14,7 +14,12 @@ import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
 import { envOption } from "../internal/environment.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, decodePurl, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import {
+  decodeAgentExtensions,
+  decodePurl,
+  parseJsonOptional,
+  readFileOptional,
+} from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const condaType = Schema.decodeUnknownSync(PackageTypeSchema)("conda");
@@ -302,12 +307,12 @@ export const condaDetector: PackageDetector = {
 };
 
 /**
- * Schema to extract the optional extra.axm field from about.json.
+ * Schema to extract the optional extra.agentExtensions field from about.json.
  */
 const AboutJsonSchema = Schema.Struct({
   extra: Schema.optional(
     Schema.Struct({
-      axm: Schema.optional(Schema.Unknown),
+      agentExtensions: Schema.optional(Schema.Unknown),
     }),
   ),
 });
@@ -316,8 +321,8 @@ const decodeAboutJson = Schema.decodeUnknownResult(AboutJsonSchema);
 /**
  * Conda package reader.
  *
- * Reads `$CONDA_PREFIX/share/axm/<package>/axm.json` as primary source,
- * falling back to package cache `info/about.json` with `extra.axm` key.
+ * Reads `$CONDA_PREFIX/share/agent-extensions/<package>/agent-extensions.json` as primary source,
+ * falling back to package cache `info/about.json` with `extra.agentExtensions`.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -332,24 +337,29 @@ export const condaReader: PackageReader = {
 
       const pkgName = pkg.purl.name;
 
-      // Primary: $CONDA_PREFIX/share/axm/<package>/axm.json
-      const axmJsonPath = path.join(condaPrefix.value, "share", "axm", pkgName, "axm.json");
-      const primaryContent = yield* readFileOptional(axmJsonPath);
+      const metadataPath = path.join(
+        condaPrefix.value,
+        "share",
+        "agent-extensions",
+        pkgName,
+        "agent-extensions.json",
+      );
+      const primaryContent = yield* readFileOptional(metadataPath);
 
       if (Option.isSome(primaryContent)) {
         const parsed = yield* parseJsonOptional(
           primaryContent.value,
-          `conda share/axm/${pkgName}/axm.json`,
+          `conda share/agent-extensions/${pkgName}/agent-extensions.json`,
         );
         if (Option.isSome(parsed)) {
-          const metaResult = decodeAxmMeta(parsed.value);
+          const metaResult = yield* decodeAgentExtensions(parsed.value);
           if (Result.isFailure(metaResult)) {
             yield* Effect.logWarning(
-              `Invalid axm metadata in conda ${pkgName}: schema validation failed`,
+              `Invalid agentExtensions metadata in conda ${pkgName}: schema validation failed`,
             );
             return Option.none();
           }
-          return Option.some(metaResult.success.extensions);
+          return Option.some(metaResult.success.agentExtensions);
         }
       }
 
@@ -374,16 +384,16 @@ export const condaReader: PackageReader = {
             if (Option.isSome(parsed)) {
               const aboutResult = decodeAboutJson(parsed.value);
               if (Result.isSuccess(aboutResult)) {
-                const axmRaw = aboutResult.success.extra?.axm;
-                if (axmRaw !== undefined) {
-                  const metaResult = decodeAxmMeta(axmRaw);
+                const agentExtensions = aboutResult.success.extra?.agentExtensions;
+                if (agentExtensions !== undefined) {
+                  const metaResult = yield* decodeAgentExtensions({ agentExtensions });
                   if (Result.isFailure(metaResult)) {
                     yield* Effect.logWarning(
-                      `Invalid axm metadata in conda cache ${pkgName}: schema validation failed`,
+                      `Invalid agentExtensions metadata in conda cache ${pkgName}: schema validation failed`,
                     );
                     return Option.none();
                   }
-                  return Option.some(metaResult.success.extensions);
+                  return Option.some(metaResult.success.agentExtensions);
                 }
               }
             }

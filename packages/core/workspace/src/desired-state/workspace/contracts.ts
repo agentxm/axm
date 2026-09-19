@@ -16,7 +16,7 @@ import type { InstallableExtensionType } from "@agentxm/extension-model/unstable
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type {
-  RegistryPackLockEntry,
+  PackLockEntry,
   HookLockEntry,
   KnowledgeLockEntry,
   McpServerLockEntry,
@@ -189,13 +189,14 @@ export interface SetSkillArgs {
 }
 
 /**
- * Arguments for `setPack` -- all `PackLockEntry` fields except `type` (always "registry"),
- * plus an optional version constraint for settings persistence.
+ * Arguments for `setPack` plus an optional version constraint for settings persistence.
  */
-export type SetPackArgs = RegistryPackLockEntry & {
+export interface SetPackArgs {
+  readonly name: string;
+  readonly lockEntry: PackLockEntry;
   /** Version constraint from the original source (e.g. "^2.0.0"). Preserved in settings, not in lockfile. */
   readonly versionRange: Option.Option<string>;
-};
+}
 
 /**
  * Arguments for `setSubagent` -- bundles the subagent name with the lock entry.
@@ -257,7 +258,7 @@ export interface WorkspaceStateOptions {
   readonly nonInteractive?: boolean;
   /** Compute the setup plan without writing files. */
   readonly preview?: boolean;
-  /** Built-in source host configs (defaults to git forges only when not provided). */
+  /** Built-in registry source configs. */
   readonly builtInSources?: ReadonlyArray<SourceHostConfig>;
   /** Allow read-only inspection when settings are absent. */
   readonly allowUninitialized?: boolean;

@@ -10,6 +10,7 @@ export interface SubagentSelectionRequest {
 export type SubagentSelectionDecision =
   | { readonly kind: "selected"; readonly names: ReadonlyArray<string> }
   | { readonly kind: "choice-required" }
+  | { readonly kind: "explicit-selection-required" }
   | { readonly kind: "unmatched" };
 
 /**
@@ -26,8 +27,9 @@ export const decideSubagentSelection = (
     const matched = expandGlobs(request.requestedSubagents, names);
     return matched.length === 0 ? { kind: "unmatched" } : { kind: "selected", names: matched };
   }
-  if (request.all || request.nonInteractive || names.length === 1) {
+  if (request.all) {
     return { kind: "selected", names };
   }
+  if (request.nonInteractive) return { kind: "explicit-selection-required" };
   return { kind: "choice-required" };
 };

@@ -691,7 +691,7 @@ export const prepareSelectiveSkillUpdate = Effect.fn("SelectiveSkillUpdate.prepa
     const proposed = registryBindingProposal(item.ref);
     const accepted = lockedSkills[item.ref.skill.name];
     const transition =
-      proposed === undefined || accepted?.type !== "registry"
+      proposed === undefined || accepted?.source.type !== "registry"
         ? Option.none<PublisherBindingTransition>()
         : classifyPublisherBindingTransition({
             accepted: yield* acceptedResolutionRef({

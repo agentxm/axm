@@ -32,6 +32,18 @@ export {
 export type { SetActivationExecutionFailure } from "./activation/errors.js";
 
 export {
+  SOURCE_FAMILY_LIFECYCLE_CELLS,
+  SOURCE_FAMILY_LIFECYCLE_OPERATIONS,
+  SOURCE_FAMILY_LIFECYCLE_OUTCOMES,
+  type BlockedLifecycleCell,
+  type SourceFamilyLifecycleCell,
+  type SourceFamilyLifecycleOperation,
+  type SourceFamilyLifecycleOutcome,
+  type SupportedLifecycleCell,
+  type UnsupportedLifecycleCell,
+} from "./source-family-conformance.js";
+
+export {
   PUBLISHER_CHANGE_CONDITION_ID,
   publisherChangeRiskCondition,
   withPublisherTrust,
@@ -48,8 +60,19 @@ export {
   type InstallExtensionsCandidate,
   type InstallExtensionsFailure,
   type InstallExtensionsRequest,
+  type InstallExtensionSelectors,
   type InstallSubject,
+  installSelectorsFor,
 } from "./install/install-extensions.js";
+export {
+  InstallSelectionInteraction,
+  InstallSelectionCancelled,
+  InstallSelectionUnavailable,
+  extensionRefName,
+  selectInstallRefs,
+  type InstallSelectionCandidate,
+  type InstallSelectionFailure,
+} from "./install/selection.js";
 export {
   installRefused,
   type HookInstallIntent,
@@ -72,7 +95,11 @@ export {
   type RootInstallableType,
   type RootInstallableTypeSegment,
 } from "./install/root-intent.js";
-export { installCommandFor, perTypeInstallPluralSegments } from "./install/per-type-install.js";
+export {
+  installCommandFor,
+  installSourceArgumentDescription,
+  perTypeInstallPluralSegments,
+} from "./install/per-type-install.js";
 export {
   buildConfiguredInstallPlan,
   buildConfiguredPackInstallPlan,

@@ -14,7 +14,12 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, decodePurl, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import {
+  decodeAgentExtensions,
+  decodePurl,
+  parseJsonOptional,
+  readFileOptional,
+} from "./reader-io.js";
 import { parseTomlDocument, tomlStringEntries, tomlTable } from "./toml.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
@@ -106,22 +111,19 @@ const parseGleamToml = (content: string, source: string): ReadonlyArray<Detected
 };
 
 /**
- * Parse Erlang term format hex_metadata.config to extract the extra.axm field.
- * This is a simplified parser that extracts the axm JSON from the extra field.
+ * Parse Erlang term format hex_metadata.config to extract the portable field.
  *
- * Erlang binary strings use `<<"...">>` delimiters. The axm value is a JSON
+ * Erlang binary strings use `<<"...">>` delimiters. The `agentExtensions` value is a JSON
  * string embedded as an Erlang binary, potentially with escaped quotes inside.
  */
 const parseHexMetadataExtra = (content: string): unknown | undefined => {
-  // Look for <<"axm">> key followed by its value in <<"...">> format
-  // The value may contain escaped quotes within the Erlang binary string
-  const axmMatch = /<<"axm">>,\s*<<"((?:[^"\\]|\\.)*)">>/m.exec(content);
-  if (axmMatch?.[1] !== undefined) {
+  const match = /<<"agentExtensions">>,\s*<<"((?:[^"\\]|\\.)*)">>/m.exec(content);
+  if (match?.[1] !== undefined) {
     // Unescape any escaped quotes from the Erlang binary string encoding
-    const jsonStr = axmMatch[1].replace(/\\"/g, '"');
+    const jsonStr = match[1].replace(/\\"/g, '"');
     try {
       const parsed: unknown = JSON.parse(jsonStr);
-      return parsed;
+      return { agentExtensions: parsed };
     } catch {
       return undefined;
     }
@@ -170,7 +172,7 @@ export const hexDetector: PackageDetector = {
 /**
  * Hex package reader.
  *
- * Reads `deps/<package-name>/axm.json` as the primary source, falling back to
+ * Reads `deps/<package-name>/agent-extensions.json` as the primary source, falling back to
  * parsing `hex_metadata.config` for each detected Hex package.
  *
  * @experimental This API is unstable and may change without notice.
@@ -186,21 +188,29 @@ export const hexReader: PackageReader = {
 
       const pkgName = pkg.purl.name;
 
-      // Try axm.json sidecar first
-      const axmJsonPath = path.join(projectDir, "deps", pkgName, "axm.json");
-      const axmContent = yield* readFileOptional(axmJsonPath);
+      // Try agent-extensions.json sidecar first
+      const agentExtensionsJsonPath = path.join(
+        projectDir,
+        "deps",
+        pkgName,
+        "agent-extensions.json",
+      );
+      const agentExtensionsContent = yield* readFileOptional(agentExtensionsJsonPath);
 
-      if (Option.isSome(axmContent)) {
-        const parsed = yield* parseJsonOptional(axmContent.value, `${pkgName}/axm.json`);
+      if (Option.isSome(agentExtensionsContent)) {
+        const parsed = yield* parseJsonOptional(
+          agentExtensionsContent.value,
+          `${pkgName}/agent-extensions.json`,
+        );
         if (Option.isSome(parsed)) {
-          const metaResult = decodeAxmMeta(parsed.value);
+          const metaResult = yield* decodeAgentExtensions(parsed.value);
           if (Result.isFailure(metaResult)) {
             yield* Effect.logWarning(
-              `Invalid axm metadata in ${pkgName}/axm.json: schema validation failed`,
+              `Invalid agentExtensions metadata in ${pkgName}/agent-extensions.json: schema validation failed`,
             );
             return Option.none();
           }
-          return Option.some(metaResult.success.extensions);
+          return Option.some(metaResult.success.agentExtensions);
         }
       }
 
@@ -211,14 +221,14 @@ export const hexReader: PackageReader = {
       if (Option.isSome(hexMetaContent)) {
         const axmData = parseHexMetadataExtra(hexMetaContent.value);
         if (axmData !== undefined) {
-          const metaResult = decodeAxmMeta(axmData);
+          const metaResult = yield* decodeAgentExtensions(axmData);
           if (Result.isFailure(metaResult)) {
             yield* Effect.logWarning(
-              `Invalid axm metadata in ${pkgName}/hex_metadata.config: schema validation failed`,
+              `Invalid agentExtensions metadata in ${pkgName}/hex_metadata.config: schema validation failed`,
             );
             return Option.none();
           }
-          return Option.some(metaResult.success.extensions);
+          return Option.some(metaResult.success.agentExtensions);
         }
       }
 

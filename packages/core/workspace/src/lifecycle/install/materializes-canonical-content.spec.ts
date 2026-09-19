@@ -39,7 +39,7 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-const CANONICAL_SKILL_DOCUMENT = "agent_extensions/local/vendor/code-review/src/SKILL.md";
+const CANONICAL_SKILL_DOCUMENT = "agent_extensions/path/@acme/skills/code-review/src/SKILL.md";
 
 describe("Install materializes canonical content", () => {
   const cleanups: Array<() => void> = [];
@@ -68,7 +68,7 @@ describe("Install materializes canonical content", () => {
 
   it.effect.each(localLifecycleRows)(
     "materializes the source content for a local $label",
-    ({ type, label, writePackage, canonicalFile }) => {
+    ({ type, label, plural, writePackage, canonicalFile }) => {
       const { workspace, cleanup } = makeInstallWorld();
       cleanups.push(cleanup);
       const name = `conformance-${label}`;
@@ -79,9 +79,9 @@ describe("Install materializes canonical content", () => {
             yield* applyInstall(installRequest({ type, subject: { kind: "source", source } }));
 
             const relative = canonicalFile(name);
-            expect(workspace.readFile(`agent_extensions/local/vendor/${name}/${relative}`)).toBe(
-              workspace.readFile(`vendor/${name}/${relative}`),
-            );
+            expect(
+              workspace.readFile(`agent_extensions/path/@acme/${plural}/${name}/${relative}`),
+            ).toBe(workspace.readFile(`vendor/${name}/${relative}`));
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));
@@ -113,16 +113,16 @@ describe("Install materializes canonical content", () => {
 
           const canonical = nodePath.join(
             workspace.root,
-            "agent_extensions/agentxm/@acme/skills/registry-review",
+            "agent_extensions/registry/@acme/skills/registry-review",
           );
           for (const [entry, bytes] of Object.entries(archiveEntries)) {
             expect(fs.readFileSync(nodePath.join(canonical, entry))).toEqual(Buffer.from(bytes));
           }
           expect(
-            entriesUnder(workspace, "agent_extensions/agentxm/@acme/skills/registry-review")
+            entriesUnder(workspace, "agent_extensions/registry/@acme/skills/registry-review")
               .filter((relative) => relative.endsWith(".md") || relative.endsWith(".json"))
               .map((relative) =>
-                relative.replace("agent_extensions/agentxm/@acme/skills/registry-review/", ""),
+                relative.replace("agent_extensions/registry/@acme/skills/registry-review/", ""),
               )
               .sort(),
           ).toEqual(["skill.json", "src/SKILL.md"]);

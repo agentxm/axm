@@ -1,5 +1,5 @@
 /**
- * What one installed extension's state is, uniformly for every catalog type.
+ * What one installed extension's state is, uniformly for every installable type.
  *
  * The answer joins three views of the same extension — what the workspace
  * configured, what it accepted, and what is physically present — and decides
@@ -20,9 +20,9 @@ import * as Schema from "effect/Schema";
 
 import { ManifestIdentitySchema, manifestFilenameForType } from "@agentxm/extension-content";
 import {
-  CatalogExtensionTypeSchema,
-  type CatalogExtensionType,
-} from "@agentxm/extension-model/unstable/extension-types";
+  InstallableExtensionTypeSchema,
+  type InstallableExtensionType,
+} from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { inspectMcpServerAcrossAgents } from "../../projection/index.js";
 import {
   configuredRowsByName,
@@ -53,11 +53,11 @@ const ShowAgentSchema = Schema.Struct({
 
 /**
  * Installed-state detail for one extension. Identical field set for every
- * catalog type — the per-type variation lives in the sibling `agents` array,
+ * installable type — the per-type variation lives in the sibling `agents` array,
  * never in `item`.
  */
 const ShowItemSchema = Schema.Struct({
-  type: CatalogExtensionTypeSchema,
+  type: InstallableExtensionTypeSchema,
   name: Schema.String,
   enabled: Schema.NullOr(Schema.Boolean),
   source: Schema.String,
@@ -84,7 +84,7 @@ type ShowAgent = typeof ShowAgentSchema.Type;
 const canonicalManifestVersion = Effect.fn("ShowExtension.canonicalManifestVersion")(
   function* (args: {
     readonly baseDir: string;
-    readonly type: CatalogExtensionType;
+    readonly type: InstallableExtensionType;
     readonly name: string;
     readonly paths: ReadonlyArray<string>;
   }) {
@@ -118,7 +118,7 @@ const canonicalManifestVersion = Effect.fn("ShowExtension.canonicalManifestVersi
 );
 
 export interface ShowExtensionRequest {
-  readonly type: CatalogExtensionType;
+  readonly type: InstallableExtensionType;
   readonly name: string;
 }
 

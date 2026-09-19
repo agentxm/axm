@@ -17,7 +17,7 @@ const readEnvWithDefault = (name: string, fallback: string): string => {
   const value = process.env[name];
   return typeof value === "string" && value.length > 0 ? value : fallback;
 };
-const REGISTRY_URL = readEnvWithDefault("AXM_REGISTRY_URL", "http://localhost:4300");
+const REGISTRY_URL = readEnvWithDefault("AXM_REGISTRY_SPEC_URL", "http://localhost:4300");
 const SPEC_URL = `${REGISTRY_URL.replace(/\/+$/, "")}/v1/openapi.json`;
 
 console.log(`Fetching OpenAPI spec from ${SPEC_URL}...`);
@@ -29,7 +29,7 @@ const fetchResult = childProcess.spawnSync("curl", ["-sf", "--max-time", "10", S
 
 if (fetchResult.status !== 0) {
   console.error(`Failed to fetch spec from ${SPEC_URL}`);
-  console.error(fetchResult.stderr || "Is the registry running? Check AXM_REGISTRY_URL.");
+  console.error(fetchResult.stderr || "Is the registry running? Check AXM_REGISTRY_SPEC_URL.");
   process.exit(1);
 }
 

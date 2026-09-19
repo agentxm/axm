@@ -65,11 +65,9 @@ describe("Install records the accepted resolution", () => {
 
           const lockfile = yield* decodeLockfile(YAML.parse(workspace.readFile("axm-lock.yaml")));
           expect(lockfile.skills["code-review"]).toMatchObject({
-            type: "local",
-            extensionType: "skill",
-            workspaceName: "code-review",
-            packageName: "code-review",
-            contentIdentity: expect.any(String),
+            source: { type: "path" },
+            identity: { name: "code-review" },
+            resolved: { tree: expect.any(String) },
             treeIntegrity: expect.anything(),
           });
         }),
@@ -93,14 +91,14 @@ describe("Install records the accepted resolution", () => {
           );
           const lockfile = yield* decodeLockfile(YAML.parse(workspace.readFile("axm-lock.yaml")));
           const entry = lockfile[settingsKey]?.[name];
-          if (entry === undefined || entry.type !== "local") {
+          if (entry === undefined || entry.source.type !== "path" || !("tree" in entry.resolved)) {
             throw new Error("Expected the accepted local resolution");
           }
-          expect(fs.realpathSync(nodePath.resolve(workspace.root, entry.path))).toBe(
+          expect(fs.realpathSync(nodePath.resolve(workspace.root, entry.source.path))).toBe(
             fs.realpathSync(source),
           );
-          expect(entry.packageOwner).toBe("@acme");
-          identities.push({ content: entry.contentIdentity, tree: entry.treeIntegrity });
+          expect(entry.identity.owner).toBe("@acme");
+          identities.push({ content: entry.resolved.tree, tree: entry.treeIntegrity });
         }
         const [first, changed, repeated] = identities;
         if (first === undefined || changed === undefined || repeated === undefined) {
@@ -126,11 +124,9 @@ describe("Install records the accepted resolution", () => {
 
             const lockfile = yield* decodeLockfile(YAML.parse(workspace.readFile("axm-lock.yaml")));
             expect(lockfile[settingsKey]?.[name]).toMatchObject({
-              type: "local",
-              extensionType: type,
-              workspaceName: name,
-              packageName: name,
-              contentIdentity: expect.any(String),
+              source: { type: "path" },
+              identity: { name },
+              resolved: { tree: expect.any(String) },
               treeIntegrity: expect.anything(),
             });
           }),
@@ -163,20 +159,18 @@ describe("Install records the accepted resolution", () => {
 
             const lockfile = yield* decodeLockfile(YAML.parse(workspace.readFile("axm-lock.yaml")));
             const entry = lockfile.skills["registry-review"];
-            if (entry === undefined || entry.type !== "registry") {
+            if (entry === undefined || entry.source.type !== "registry") {
               throw new Error("Expected an accepted Registry resolution");
             }
             expect(entry).toMatchObject({
-              sourceName: registry.source.name,
-              extensionType: "skill",
-              workspaceName: "registry-review",
-              owner: "@acme",
-              name: "registry-review",
-              resolvedVersion: "1.2.3",
-              integrity: expectedIntegrity,
-              publisherBindingId: "hbnd_test",
+              identity: { owner: "@acme", name: "registry-review" },
+              resolved: {
+                version: "1.2.3",
+                integrity: expectedIntegrity,
+                publisherBindingId: "hbnd_test",
+              },
             });
-            expect(entry.endpoint.href).toBe(new URL(registry.source.location).href);
+            expect(entry.source.url.href).toBe(new URL(registry.source.location).href);
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));
@@ -205,7 +199,7 @@ describe("Install records the accepted resolution", () => {
         const controlLock = yield* decodeLockfile(
           YAML.parse(control.workspace.readFile("axm-lock.yaml")),
         );
-        expect(controlLock.skills["registry-review"]?.type).toBe("registry");
+        expect(controlLock.skills["registry-review"]?.source.type).toBe("registry");
 
         // Replace only the downloaded bytes, leaving the originally declared
         // identity and integrity intact.

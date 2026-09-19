@@ -188,6 +188,33 @@ describe("Publication selection", () => {
         }),
     );
   }
+
+  it.effect(
+    "omits opted-out authored extensions from bulk publication but permits explicit selection",
+    () =>
+      Effect.gen(function* () {
+        const world = worldWith({
+          skills: {
+            shared: "workspace",
+            private: { source: "workspace", distribute: false },
+          },
+        });
+        world.write("skill", { name: "shared" });
+        world.write("skill", { name: "private" });
+
+        const bulk = publishDocument(
+          yield* world.provide(runPublish(requestFor(world, { preview: true }))),
+        );
+        expect(bulk.execution.outcomes.map(({ id }) => id)).toEqual(["@acme/skills/shared"]);
+
+        const explicit = publishDocument(
+          yield* world.provide(
+            runPublish(requestFor(world, { preview: true, selectors: ["skills/private"] })),
+          ),
+        );
+        expect(explicit.execution.outcomes.map(({ id }) => id)).toEqual(["@acme/skills/private"]);
+      }),
+  );
 });
 
 describe("Type-specific publication selection", () => {

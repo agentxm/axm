@@ -158,6 +158,7 @@ const expectedRules: ReadonlyArray<ExpectedRule> = [
   ["workspace/agent-content-has-settings", "warning", workspaceView],
   ["workspace/skills-declarations-valid", "error", bothViews],
   ["workspace/packs-declarations-valid", "error", bothViews],
+  ["workspace/packs-shared-members-distributable", "error", bothViews],
   ["workspace/configured-but-not-installed", "error", bothViews],
   ["workspace/knowledge-state-valid", "error", bothViews],
   ["workspace/mcps-transport-exclusivity", "warning", bothViews],

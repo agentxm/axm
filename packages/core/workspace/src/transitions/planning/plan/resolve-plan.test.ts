@@ -739,7 +739,7 @@ describe("previewOrApply", () => {
       const settingsPath = `${directory}/axm.json`;
       const lockPath = `${directory}/axm-lock.yaml`;
       yield* fs.writeFileString(settingsPath, "{}");
-      yield* fs.writeFileString(lockPath, "lockfileVersion: 7\nskills: {}\n");
+      yield* fs.writeFileString(lockPath, "lockfileVersion: 8\nskills: {}\n");
       const plan: Plan = {
         _tag: "Plan",
         name: "Layout material",

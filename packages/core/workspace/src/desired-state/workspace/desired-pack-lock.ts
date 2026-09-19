@@ -102,17 +102,15 @@ export const validateDesiredPackLock = ({
 
       const identity = parseExtensionFqnParts(node.identity);
       const entry = lockfile.packs?.[node.name];
-      const configuredSourceName = node.source.startsWith("@")
-        ? "agentxm"
-        : node.source.slice(0, node.source.indexOf(":"));
+      const lockedOwner = entry?.identity.owner;
+      const lockedName = entry?.identity.name;
       if (
         identity === undefined ||
         identity.type !== "pack" ||
         entry === undefined ||
-        entry.sourceName !== configuredSourceName ||
-        entry.owner !== identity.owner ||
-        entry.name !== identity.name ||
-        !node.constraints.every((constraint) => semver.satisfies(entry.resolvedVersion, constraint))
+        lockedOwner !== identity.owner ||
+        lockedName !== identity.name ||
+        !node.constraints.every((constraint) => semver.satisfies(entry.manifestVersion, constraint))
       ) {
         problems.push({
           type: "pack-resolution-unavailable",
@@ -126,7 +124,12 @@ export const validateDesiredPackLock = ({
       const document = manifests.locate({
         owner: identity.owner,
         name: identity.name,
-        sourceName: entry.sourceName,
+        sourceFamily:
+          entry.source.type === "registry"
+            ? "registry"
+            : entry.source.type === "path"
+              ? "path"
+              : "git",
         relativeTo: layout.workspaceRoot,
         workspace: { layout },
       });
@@ -165,7 +168,7 @@ export const validateDesiredPackLock = ({
           pack: node.identity,
           path: manifestPath,
           status: observedManifest === undefined ? "missing" : "changed",
-          acceptedVersion: entry.resolvedVersion,
+          acceptedVersion: entry.manifestVersion,
           acceptedContentIdentity: entry.manifestContentIdentity,
           ...(observedManifest === undefined || observedContentIdentity === undefined
             ? {}

@@ -33,7 +33,7 @@ import { SelectiveUpdate } from "../../../lifecycle/update/selective/use-case.js
 import { planSkillInstallationStep } from "./plan.js";
 
 const NAME = "code-review";
-const canonical = `agent_extensions/local/vendor/${NAME}/src`;
+const canonical = `agent_extensions/path/@acme/skills/${NAME}/src`;
 
 const selectiveRequest = {
   kind: "selective-skills",
@@ -185,7 +185,7 @@ describe("skill installation application", () => {
     "rejects incompatible reused official skill bytes before altering the workspace",
     () => {
       const { workspace, registry } = world();
-      const packagePath = "agent_extensions/agentxm/@agentxm/skills/axm";
+      const packagePath = "agent_extensions/registry/@agentxm/skills/axm";
       workspace.writeFile(
         `${packagePath}/skill.json`,
         JSON.stringify({ owner: "@agentxm", type: "skill", name: "axm", version: "1.0.0" }),
@@ -200,18 +200,13 @@ describe("skill installation application", () => {
             );
             const writer = yield* AcceptedResolutionWriter;
             yield* writer.setAccepted("skill", "axm", {
-              type: "registry",
-              sourceType: "registry",
-              sourceName: registry.source.name,
-              endpoint: new URL(registry.source.location),
-              extensionType: "skill",
-              workspaceName: extensionName("axm"),
-              packageFormat: "agentxm",
-              owner: handle("@agentxm"),
-              name: extensionName("axm"),
-              resolvedVersion: exactVersion("1.0.0"),
-              integrity: "sha512-fixture",
-              publisherBindingId: "hbnd_test",
+              source: { type: "registry", url: new URL(registry.source.location) },
+              identity: { owner: handle("@agentxm"), name: extensionName("axm") },
+              resolved: {
+                version: exactVersion("1.0.0"),
+                integrity: "sha512-fixture",
+                publisherBindingId: "hbnd_test",
+              },
               treeIntegrity,
             });
             const before = workspace.snapshot();
@@ -355,12 +350,10 @@ describe("skill installation application", () => {
             expect(result.version).toBe("1.2.3");
             expect(workspace.readFile("axm.json")).toContain(`@acme/skills/${NAME}${suffix}`);
             const lock = workspace.readFile("axm-lock.yaml");
-            expect(lock).toContain("resolvedVersion: 1.2.3");
+            expect(lock).toContain("version: 1.2.3");
             expect(lock).toContain("publisherBindingId:");
             expect(
-              workspace.readFile(
-                `agent_extensions/${registry.source.name}/@acme/skills/${NAME}/src/SKILL.md`,
-              ),
+              workspace.readFile(`agent_extensions/registry/@acme/skills/${NAME}/src/SKILL.md`),
             ).toBe(workspace.readFile(`.claude/skills/${NAME}/SKILL.md`));
           }),
         )

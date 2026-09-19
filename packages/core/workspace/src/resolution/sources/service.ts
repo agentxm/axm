@@ -25,7 +25,6 @@ import type {
 import type { RegistrySource, Source } from "@agentxm/extension-model/unstable/sources/types";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { createRegistrySourceHostProviderFromHost } from "./providers/registry/host-provider.js";
-import { buildCloneUrlForSource } from "./providers/git-hosting.js";
 
 // -----------------------------------------------------------------------------
 // Service Interface
@@ -82,12 +81,8 @@ export class SourceHostProviders extends ServiceMap.Service<
  */
 export const buildCloneUrlFromSource = (source: Source): Option.Option<string> => {
   switch (source.type) {
-    case "github":
-    case "gitlab":
-    case "bitbucket":
-    case "azurerepos":
-      return Option.some(buildCloneUrlForSource(source));
     case "git":
+      return Option.some(source.url.href);
     case "registry":
     case "local":
     case "workspace":
@@ -106,12 +101,6 @@ export const buildCloneUrlFromSource = (source: Source): Option.Option<string> =
  */
 export const getOriginFromSource = (source: Source): string => {
   switch (source.type) {
-    case "github":
-    case "gitlab":
-    case "bitbucket":
-      return `${source.url.origin}/${source.owner}/${source.repo}`;
-    case "azurerepos":
-      return `${source.url.origin}/${source.organization}/${source.project}/_git/${source.repo}`;
     case "local":
       return source.path;
     case "git":

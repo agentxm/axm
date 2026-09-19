@@ -245,7 +245,7 @@ export const prepareAdoptExtension: (
   const fqn = formatFqn(parsed);
   const sourceDir = path.join(
     layout.acquiredRoot,
-    "agentxm",
+    "registry",
     parsed.owner,
     extensionTypeToPlural[parsed.type],
     name,

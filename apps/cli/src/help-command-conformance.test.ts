@@ -153,6 +153,42 @@ describe("axm help command conformance", () => {
     }),
   );
 
+  it.effect("derives root and per-type install selectors from one grammar", () =>
+    Effect.gen(function* () {
+      const files = yield* collectHelpFiles();
+      const selectorFlags = ["skill", "subagent", "rule", "hook", "knowledge", "mcp", "pack"];
+      const root = files.get("axm install");
+      expect(root).toBeDefined();
+      expect(root?.flags.map(({ name }) => name)).toEqual(
+        expect.arrayContaining([...selectorFlags, "all"]),
+      );
+      expect(root?.flags.map(({ name }) => name)).not.toContain("type");
+
+      const rows = [
+        ["skills", "skill"],
+        ["subagents", "subagent"],
+        ["rules", "rule"],
+        ["hooks", "hook"],
+        ["knowledge", "knowledge"],
+        ["mcps", "mcp"],
+        ["packs", "pack"],
+      ] as const;
+      for (const [plural, selector] of rows) {
+        const doc = files.get(`axm ${plural} install`);
+        expect(doc, plural).toBeDefined();
+        const names = doc?.flags.map(({ name }) => name) ?? [];
+        expect(names, plural).toContain(selector);
+        expect(names, plural).toContain("all");
+        expect(names, plural).not.toContain("type");
+        expect(
+          names.filter((name) => selectorFlags.includes(name)),
+          plural,
+        ).toEqual([selector]);
+        expect(names.includes("as"), plural).toBe(plural === "mcps");
+      }
+    }),
+  );
+
   it.effect("derives every parent membership row from registered command metadata", () =>
     Effect.gen(function* () {
       for (const node of commandNodes()) {

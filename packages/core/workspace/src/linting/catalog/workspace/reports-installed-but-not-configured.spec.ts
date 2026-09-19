@@ -27,7 +27,7 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-const ROOT = "agent_extensions/agentxm/@acme/skills";
+const ROOT = "agent_extensions/registry/@acme/skills";
 
 const manifest = (name: string) =>
   JSON.stringify({ owner: "@acme", type: "skill", name, version: "1.0.0", description: "Fixture" });
@@ -59,7 +59,7 @@ describe("Installed but not configured", () => {
           ...installed("stale"),
           ...installed("orphan"),
           "axm-lock.yaml": JSON.stringify({
-            lockfileVersion: 7,
+            lockfileVersion: 8,
             skills: { kept: lockRow("kept"), stale: lockRow("stale") },
           }),
         },
@@ -82,13 +82,13 @@ describe("Installed but not configured", () => {
           {
             ruleId: "workspace/installed-but-not-configured",
             severity: "warning",
-            message: `Installed skill '@acme/skills/orphan' is not configured in project scope: canonical path ${ROOT}/orphan, source directory agentxm, no lock row.`,
+            message: `Installed skill '@acme/skills/orphan' is not configured in project scope: canonical path ${ROOT}/orphan, source directory registry, no lock row.`,
             file: `${ROOT}/orphan`,
           },
           {
             ruleId: "workspace/installed-but-not-configured",
             severity: "warning",
-            message: `Installed skill '@acme/skills/stale' is not configured in project scope: canonical path ${ROOT}/stale, source directory agentxm, lock row present.`,
+            message: `Installed skill '@acme/skills/stale' is not configured in project scope: canonical path ${ROOT}/stale, source directory registry, lock row present.`,
             file: `${ROOT}/stale`,
           },
         ]);
@@ -111,7 +111,7 @@ describe("Installed but not configured", () => {
       },
       files: {
         ...installed("kept"),
-        "axm-lock.yaml": JSON.stringify({ lockfileVersion: 7, skills: { kept: lockRow("kept") } }),
+        "axm-lock.yaml": JSON.stringify({ lockfileVersion: 8, skills: { kept: lockRow("kept") } }),
       },
     });
     cleanups.push(workspace.cleanup);

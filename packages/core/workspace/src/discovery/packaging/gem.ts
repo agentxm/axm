@@ -16,7 +16,7 @@ import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
 import { envWithDefault } from "../internal/environment.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, decodePurl, readFileOptional } from "./reader-io.js";
+import { decodeAgentExtensions, decodePurl, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const gemType = Schema.decodeUnknownSync(PackageTypeSchema)("gem");
@@ -187,11 +187,11 @@ export const gemDetector: PackageDetector = {
 const resolveGemDir = () => envWithDefault("GEM_HOME", `${os.homedir()}/.gem/ruby`);
 
 /**
- * Parse the `axm_extensions` value from a gemspec metadata string.
+ * Parse the `agent_extensions` value from a gemspec metadata string.
  * The value format is a JSON-stringified array of extension declaration objects.
  */
-const parseAxmMetadataFromGemspec = (content: string): unknown | undefined => {
-  const match = /"axm_extensions"\s*=>\s*"((?:\\.|[^"\\])*)"/.exec(content);
+const parseAgentExtensionsFromGemspec = (content: string): unknown | undefined => {
+  const match = /"agent_extensions"\s*=>\s*"((?:\\.|[^"\\])*)"/.exec(content);
   if (match === null || match[1] === undefined) return undefined;
 
   const rawValue = match[1];
@@ -200,7 +200,7 @@ const parseAxmMetadataFromGemspec = (content: string): unknown | undefined => {
     const decodedValue: unknown = JSON.parse(`"${rawValue}"`);
     if (typeof decodedValue !== "string") return undefined;
 
-    return { extensions: JSON.parse(decodedValue) };
+    return { agentExtensions: JSON.parse(decodedValue) };
   } catch {
     return undefined;
   }
@@ -210,7 +210,7 @@ const parseAxmMetadataFromGemspec = (content: string): unknown | undefined => {
  * Gem package reader.
  *
  * Reads gemspec metadata from `<gem-dir>/specifications/<gem>.gemspec`
- * and extracts `axm_`-prefixed metadata keys.
+ * and extracts the `agent_extensions` metadata value.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -235,18 +235,18 @@ export const gemReader: PackageReader = {
         const content = yield* readFileOptional(gemspecPath);
         if (Option.isNone(content)) return Option.none();
 
-        const axmMeta = parseAxmMetadataFromGemspec(content.value);
-        if (axmMeta === undefined) return Option.none();
+        const metadata = parseAgentExtensionsFromGemspec(content.value);
+        if (metadata === undefined) return Option.none();
 
-        const metaResult = decodeAxmMeta(axmMeta);
+        const metaResult = yield* decodeAgentExtensions(metadata);
         if (Result.isFailure(metaResult)) {
           yield* Effect.logWarning(
-            `Invalid axm metadata in ${gemName}-${version}: schema validation failed`,
+            `Invalid agentExtensions metadata in ${gemName}-${version}: schema validation failed`,
           );
           return Option.none();
         }
 
-        return Option.some(metaResult.success.extensions);
+        return Option.some(metaResult.success.agentExtensions);
       }
 
       // No version - scan specs directory for matching gemspec
@@ -262,16 +262,18 @@ export const gemReader: PackageReader = {
       const content = yield* readFileOptional(gemspecPath);
       if (Option.isNone(content)) return Option.none();
 
-      const axmMeta = parseAxmMetadataFromGemspec(content.value);
-      if (axmMeta === undefined) return Option.none();
+      const metadata = parseAgentExtensionsFromGemspec(content.value);
+      if (metadata === undefined) return Option.none();
 
-      const metaResult = decodeAxmMeta(axmMeta);
+      const metaResult = yield* decodeAgentExtensions(metadata);
       if (Result.isFailure(metaResult)) {
-        yield* Effect.logWarning(`Invalid axm metadata in ${gemName}: schema validation failed`);
+        yield* Effect.logWarning(
+          `Invalid agentExtensions metadata in ${gemName}: schema validation failed`,
+        );
         return Option.none();
       }
 
-      return Option.some(metaResult.success.extensions);
+      return Option.some(metaResult.success.agentExtensions);
     },
     Effect.annotateLogs({ reader: "gem" }),
     Effect.withSpan("read.gem"),

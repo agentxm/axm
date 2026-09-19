@@ -68,7 +68,9 @@ export const makePackWorkspace = (options: PackWorkspaceOptions) => {
     writeAuthoringPackage(created.root, row, member.name, {
       version: member.version,
       parent:
-        member.source === "workspace" ? row.plural : `agent_extensions/agentxm/@acme/${row.plural}`,
+        member.source === "workspace"
+          ? row.plural
+          : `agent_extensions/registry/@acme/${row.plural}`,
     });
   }
 

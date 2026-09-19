@@ -28,7 +28,6 @@ import type {
   McpCanonicalPathUnsafe,
   McpInstallStateMissing,
   McpLocalNameConflict,
-  McpRegistryOnlyInstall,
   McpRequiredInputsMissing,
   McpWorkspacePackageInvalid,
   PackArchiveFetchFailed,
@@ -205,19 +204,6 @@ export const subagentInstallStateMissingToAppError = (
       error.kind === "content-identity"
         ? `Subagent ${error.name} has no materialized content identity`
         : `Subagent ${error.name} did not produce an external resolution`,
-  });
-
-/** Translate an invalid agent MCP config; the site owns the fact sentence. */
-export const mcpRegistryOnlyInstallToAppError = (error: McpRegistryOnlyInstall): AppError =>
-  makeAppError({
-    code: "usage",
-    detail: `MCP servers materialize from a registry package, not from a ${error.refType} source`,
-    suggestions: [
-      {
-        description: "Install from the registry",
-        cmd: `axm mcps install @owner/mcps/${error.serverName}`,
-      },
-    ],
   });
 
 /** Translate missing MCP install state. */

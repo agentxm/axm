@@ -11,7 +11,8 @@ import { createTempDir, runCli } from "../../../e2e/utils.js";
 const configureWorkspaceRegistry = (workspacePath: string, registryPath: string, owner: string) => {
   const settingsPath = path.join(workspacePath, "axm.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  settings.sources = [{ name: "agentxm", type: "registry", location: `file://${registryPath}` }];
+  settings.defaultRegistry = "test";
+  settings.sources = [{ name: "test", type: "registry", location: `file://${registryPath}` }];
   settings.owner = owner;
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 };

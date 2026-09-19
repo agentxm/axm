@@ -185,16 +185,15 @@ describe("juliaReader", () => {
     expect(juliaReader.type).toBe(juliaType);
   });
 
-  describe("valid [axm] section", () => {
-    it.effect("extracts extensions from [axm] section", () =>
+  describe("valid agentExtensions field", () => {
+    it.effect("extracts extensions from agentExtensions", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "julia", name: "DataFrames" });
           const toml = [
             'name = "DataFrames"',
             "",
-            "[axm]",
-            'extensions = [{ ref = "@julialang/skills/dataframes", versionRange = "^1.0.0" }]',
+            'agentExtensions = [{ ref = "@julialang/skills/dataframes", versionRange = "^1.0.0" }]',
           ].join("\n");
           const result = yield* readInTempJulia(purl, toml);
           expect(Option.isSome(result)).toBe(true);
@@ -211,7 +210,7 @@ describe("juliaReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "julia", name: "SomeLib" });
-          const toml = ['name = "SomeLib"', "", "[axm]", "extensions = []"].join("\n");
+          const toml = ['name = "SomeLib"', "", "agentExtensions = []"].join("\n");
           const result = yield* readInTempJulia(purl, toml);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
@@ -222,8 +221,8 @@ describe("juliaReader", () => {
     );
   });
 
-  describe("missing [axm] section", () => {
-    it.effect("returns Option.none when no [axm] section", () =>
+  describe("missing [agentExtensions] section", () => {
+    it.effect("returns Option.none when no [agentExtensions] section", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "julia", name: "Plots" });
@@ -237,12 +236,12 @@ describe("juliaReader", () => {
     );
   });
 
-  describe("malformed [axm] section", () => {
+  describe("malformed [agentExtensions] section", () => {
     it.effect("returns Option.none on invalid metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "julia", name: "SomeLib" });
-          const toml = ['name = "SomeLib"', "", "[axm]", 'extensions = "not-an-array"'].join("\n");
+          const toml = ['name = "SomeLib"', "", 'agentExtensions = "not-an-array"'].join("\n");
           const result = yield* readInTempJulia(purl, toml);
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -251,15 +250,14 @@ describe("juliaReader", () => {
   });
 
   describe("extra fields tolerated", () => {
-    it.effect("ignores unknown fields in [axm]", () =>
+    it.effect("ignores unknown fields in [agentExtensions]", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "julia", name: "SomeLib" });
           const toml = [
             'name = "SomeLib"',
             "",
-            "[axm]",
-            'extensions = [{ ref = "@acme/skills/foo", versionRange = "^1.0.0" }]',
+            'agentExtensions = [{ ref = "@acme/skills/foo", versionRange = "^1.0.0" }]',
             "futureField = true",
           ].join("\n");
           const result = yield* readInTempJulia(purl, toml);

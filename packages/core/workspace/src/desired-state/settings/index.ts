@@ -10,10 +10,6 @@
 
 // Schema types and schemas
 export type {
-  AzureReposSourceHostConfig,
-  BitbucketSourceHostConfig,
-  GitHubSourceHostConfig,
-  GitLabSourceHostConfig,
   HookEntry,
   HooksMap,
   KnowledgeEntry,

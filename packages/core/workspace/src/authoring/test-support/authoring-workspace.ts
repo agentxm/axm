@@ -54,6 +54,7 @@ import {
   WorkspaceCatalogLive,
 } from "../../projection/live.js";
 import { layer as workspaceStateLayer } from "../../desired-state/live.js";
+import { withTestRegistryDefault } from "../../desired-state/testing.js";
 
 /** Settings an authoring specification seeds its workspace with. */
 export interface AuthoringWorkspaceSettings {
@@ -164,7 +165,9 @@ export const makeAuthoringWorkspace = (
     exists: (relativePath) => fs.existsSync(absolute(relativePath)),
     settings: () => JSON.parse(fs.readFileSync(absolute("axm.json"), "utf-8")),
     writeSettings: (value) => {
-      fs.writeFileSync(absolute("axm.json"), `${JSON.stringify(value, null, 2)}\n`);
+      const settings =
+        typeof value === "object" && value !== null ? withTestRegistryDefault(value) : value;
+      fs.writeFileSync(absolute("axm.json"), `${JSON.stringify(settings, null, 2)}\n`);
     },
     lockfileText: () =>
       fs.existsSync(absolute("axm-lock.yaml"))

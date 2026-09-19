@@ -96,7 +96,7 @@ describe("axm lint (e2e, Phase 7)", () => {
           agents: [],
           skills: {},
         });
-        fs.writeFileSync(path.join(temp.path, "axm-lock.yaml"), "lockfileVersion: 7\nskills: {}\n");
+        fs.writeFileSync(path.join(temp.path, "axm-lock.yaml"), "lockfileVersion: 8\nskills: {}\n");
 
         const machine = await runCli(["lint", "--json"], { cwd: temp.path, env });
         expect(machine.exitCode, `${machine.stderr}\n${machine.stdout}`).toBe(0);
@@ -545,8 +545,6 @@ describe("axm lint (e2e, Phase 7)", () => {
         initializeGit(temp.path);
         const env = {
           DO_NOT_TRACK: "1",
-          AXM_REGISTRY_LOCATION: "http://127.0.0.1:9",
-          AXM_REGISTRY_URL: "http://127.0.0.1:9",
         };
         const setup = await runCli(
           ["setup", "--scope", "project", "--agent", "claude-code", "--yes", "--non-interactive"],

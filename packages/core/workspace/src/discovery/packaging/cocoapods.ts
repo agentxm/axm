@@ -13,7 +13,12 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, decodePurl, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import {
+  decodeAgentExtensions,
+  decodePurl,
+  parseJsonOptional,
+  readFileOptional,
+} from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const cocoapodsType = Schema.decodeUnknownSync(PackageTypeSchema)("cocoapods");
@@ -186,7 +191,7 @@ export const cocoapodsDetector: PackageDetector = {
 /**
  * CocoaPods package reader.
  *
- * Reads `Pods/<pod-name>/axm.json` for each detected pod
+ * Reads `Pods/<pod-name>/agent-extensions.json` for each detected pod
  * and extracts recommendation metadata.
  *
  * @experimental This API is unstable and may change without notice.
@@ -203,22 +208,29 @@ export const cocoapodsReader: PackageReader = {
       // Pod name from purl
       const podName = pkg.purl.name;
 
-      const axmJsonPath = path.join(projectDir, "Pods", podName, "axm.json");
+      const agentExtensionsJsonPath = path.join(
+        projectDir,
+        "Pods",
+        podName,
+        "agent-extensions.json",
+      );
 
-      const content = yield* readFileOptional(axmJsonPath);
+      const content = yield* readFileOptional(agentExtensionsJsonPath);
       if (Option.isNone(content)) return Option.none();
 
-      const parsed = yield* parseJsonOptional(content.value, `${podName}/axm.json`);
+      const parsed = yield* parseJsonOptional(content.value, `${podName}/agent-extensions.json`);
       if (Option.isNone(parsed)) return Option.none();
 
-      // Validate axm metadata structure
-      const metaResult = decodeAxmMeta(parsed.value);
+      // Validate agentExtensions metadata structure
+      const metaResult = yield* decodeAgentExtensions(parsed.value);
       if (Result.isFailure(metaResult)) {
-        yield* Effect.logWarning(`Invalid axm metadata in ${podName}: schema validation failed`);
+        yield* Effect.logWarning(
+          `Invalid agentExtensions metadata in ${podName}: schema validation failed`,
+        );
         return Option.none();
       }
 
-      return Option.some(metaResult.success.extensions);
+      return Option.some(metaResult.success.agentExtensions);
     },
     Effect.annotateLogs({ reader: "cocoapods" }),
     Effect.withSpan("read.cocoapods"),

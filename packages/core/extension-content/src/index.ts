@@ -73,7 +73,9 @@ export {
 } from "./packaging/input-normalization.js";
 export {
   type DeclaredPublishIdentity,
+  type ExtensionManifest,
   MANIFEST_FILENAME_BY_TYPE,
+  MANIFEST_SCHEMA_BY_TYPE,
   ManifestError,
   type ManifestIdentity,
   ManifestIdentitySchema,

@@ -201,7 +201,7 @@ describe("disableSkill", () => {
         const registryPath = path.join(
           base,
           "agent_extensions",
-          "local",
+          "path",
           "@community",
           "skills",
           "my-skill",
@@ -347,7 +347,7 @@ describe("disableSkill", () => {
                   type: "pack",
                   pack: "@community/packs/toolkit",
                   manifestPath:
-                    "/project/agent_extensions/agentxm/@community/packs/toolkit/pack.json",
+                    "/project/agent_extensions/registry/@community/packs/toolkit/pack.json",
                   source: "@community/skills/my-skill",
                   constraint: "*",
                   enabled: true,

@@ -167,7 +167,7 @@ describe("pack uninstall graph readiness", () => {
         {
           type: "pack-manifest-unavailable",
           pack: "@acme/packs/sibling",
-          path: "agent_extensions/agentxm/@acme/packs/sibling/pack.json",
+          path: "agent_extensions/registry/@acme/packs/sibling/pack.json",
         },
       ]),
       ["@acme/packs/toolkit"],
@@ -181,7 +181,7 @@ describe("pack uninstall graph readiness", () => {
         {
           problemType: "pack-manifest-unavailable",
           packs: ["@acme/packs/sibling"],
-          authoritativeLocations: ["agent_extensions/agentxm/@acme/packs/sibling/pack.json"],
+          authoritativeLocations: ["agent_extensions/registry/@acme/packs/sibling/pack.json"],
         },
       ],
     });

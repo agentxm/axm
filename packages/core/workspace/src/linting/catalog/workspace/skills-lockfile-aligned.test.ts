@@ -63,18 +63,13 @@ const runCheck = (state: WorkspaceState, nodes: ReadonlyArray<DesiredExtensionNo
   });
 
 const registryResolution = (resolvedVersion: string) => ({
-  type: "registry",
-  sourceType: "registry",
-  sourceName: "agentxm",
-  endpoint: "https://registry.agentxm.ai",
-  extensionType: "skill",
-  workspaceName: "reviewer",
-  packageFormat: "agentxm",
-  owner: "@acme",
-  name: "reviewer",
-  resolvedVersion,
-  integrity: "sha512-stub",
-  publisherBindingId: "hbnd_test",
+  source: { type: "registry", url: "https://registry.agentxm.ai" },
+  identity: { owner: "@acme", name: "reviewer" },
+  resolved: {
+    version: resolvedVersion,
+    integrity: "sha512-stub",
+    publisherBindingId: "hbnd_test",
+  },
   treeIntegrity,
 });
 
@@ -84,25 +79,17 @@ describe("workspace/skills-lockfile-aligned", () => {
       const state = emptyWorkspaceState();
       state.settings = { agents: ["claude-code"], skills: {} };
       state.lockfile = {
-        lockfileVersion: 7,
+        lockfileVersion: 8,
         skills: {
           review: {
-            type: "github",
-            sourceType: "github",
-            sourceName: "github",
-            endpoint: "https://github.com",
-            extensionType: "skill",
-            workspaceName: "review",
-            packageFormat: "agentxm",
-            packageOwner: "@acme",
-            packageName: "review",
-            owner: "acme",
-            repo: "agent-extensions",
-            path: ".agents/skills/review",
-            ref: "v1",
-            resolvedCommit: "commit-v1",
-            resolvedTree: "tree-v1",
-            contentIdentity: "content-v1",
+            source: {
+              type: "git",
+              url: "https://github.com/acme/agent-extensions.git",
+              path: ".agents/skills/review",
+              revision: "v1",
+            },
+            identity: { owner: "@acme", name: "review" },
+            resolved: { commit: "commit-v1", tree: "tree-v1" },
             treeIntegrity,
           },
         },
@@ -124,7 +111,7 @@ describe("workspace/skills-lockfile-aligned", () => {
       const state = emptyWorkspaceState();
       state.settings = { agents: ["claude-code"], skills: { reviewer: source } };
       state.lockfile = {
-        lockfileVersion: 7,
+        lockfileVersion: 8,
         skills: { reviewer: registryResolution("1.0.0") },
       };
 

@@ -11,19 +11,17 @@ import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import { EXTENSION_SHOW_ITEM_FIELDS } from "@agentxm/workspace/inspection";
 import { handleExtensionShow } from "./extension-show.js";
 
-const configured = { source: "@acme/skills/thing", enabled: true };
-
 /**
  * Settings key per catalog type. Written by hand rather than derived so the
  * fixture pins the wire shape the read model actually parses.
  */
 const settingsFor = {
-  skill: { skills: { thing: configured } },
-  "mcp-server": { mcps: { thing: configured } },
-  subagent: { subagents: { thing: configured } },
-  rule: { rules: { thing: configured } },
-  hook: { hooks: { thing: configured } },
-  knowledge: { knowledge: { thing: configured } },
+  skill: { skills: { thing: { source: "@acme/skills/thing", enabled: true } } },
+  "mcp-server": { mcps: { thing: { source: "@acme/mcps/thing", enabled: true } } },
+  subagent: { subagents: { thing: { source: "@acme/subagents/thing", enabled: true } } },
+  rule: { rules: { thing: { source: "@acme/rules/thing", enabled: true } } },
+  hook: { hooks: { thing: { source: "@acme/hooks/thing", enabled: true } } },
+  knowledge: { knowledge: { thing: { source: "@acme/knowledge/thing", enabled: true } } },
 } as const satisfies Record<
   (typeof CATALOG_EXTENSION_TYPES)[number],
   Parameters<typeof writeWorkspaceFiles>[1]

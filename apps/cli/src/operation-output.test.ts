@@ -88,6 +88,78 @@ describe("toPlanResolutionResult", () => {
     expect(result.units[0]?.artifact?.packMembership).toEqual(packMembership);
   });
 
+  it("preserves source-switch evidence and redacts credential-bearing locators", () => {
+    const sourceSwitch = {
+      before: {
+        family: "git" as const,
+        locator: "https://person:secret@example.com/review.git",
+        resolution: "commit abc; tree def",
+        treeIntegrity: "sha256-tree-v1:before",
+      },
+      after: {
+        family: "registry" as const,
+        locator: "https://person:secret@registry.example.com/",
+        resolution: "version 1.0.0",
+        treeIntegrity: "sha256-tree-v1:after",
+      },
+      content: "changed" as const,
+      dependencies: {
+        effect: "not-applicable" as const,
+        added: [],
+        removed: [],
+        changed: [],
+      },
+      projections: { effect: "reconcile" as const, detail: "Reconcile projections" },
+      guarantees: { gained: ["publisher epoch", "yank filtering"], lost: [] },
+      packMembers: [
+        {
+          member: "@acme/skills/review",
+          disposition: "source-changed" as const,
+          before: {
+            family: "git" as const,
+            locator: "https://person:secret@example.com/review.git",
+            resolution: "commit abc; tree def",
+          },
+          after: {
+            family: "registry" as const,
+            locator: "https://person:secret@registry.example.com/",
+            resolution: "version 1.0.0",
+          },
+        },
+      ],
+    };
+    const value = resolution({
+      mode: "preview",
+      units: [
+        unit("review", "ready", {
+          artifact: {
+            path: "agent_extensions/registry/@acme/skills/review",
+            scope: "project",
+            change: "updated",
+            sourceSwitch,
+          },
+        }),
+      ],
+    });
+
+    const encoded = JSON.parse(JSON.stringify(toPlanResolutionResult(value)));
+    const result = Schema.decodeUnknownSync(PlanResolutionResultSchema)(encoded);
+    expect(result.units[0]?.artifact?.sourceSwitch).toMatchObject({
+      before: { family: "git", locator: "https://person:[REDACTED]@example.com/review.git" },
+      after: {
+        family: "registry",
+        locator: "https://person:[REDACTED]@registry.example.com/",
+      },
+      guarantees: { gained: ["publisher epoch", "yank filtering"], lost: [] },
+      packMembers: [
+        {
+          before: { locator: "https://person:[REDACTED]@example.com/review.git" },
+          after: { locator: "https://person:[REDACTED]@registry.example.com/" },
+        },
+      ],
+    });
+  });
+
   it("C-13: a fully unchanged resolution projects no-op with unchanged covering the total", () => {
     const value = resolution({ units: [unit("a", "unchanged"), unit("b", "unchanged")] });
 

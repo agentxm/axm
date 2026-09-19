@@ -45,9 +45,6 @@ import type {
   LockedSkillMissing,
   LockEntryEndpointConflict,
   LockEntryNameInvalid,
-  LockEntrySourceMissing,
-  LockEntrySourceTypeConflict,
-  LockEntryUrlInvalid,
   PackageContentHashFailed,
   SettingsEntryMissing,
   SupersededCanonicalRemovalFailed,
@@ -97,11 +94,8 @@ export type ExtensionManagerFailure =
   | DesiredPackGraphIncomplete
   | CanonicalPathRemovalError
   | SymlinkCreationError
-  | LockEntrySourceMissing
-  | LockEntryUrlInvalid
   | LockEntryNameInvalid
   | LockEntryEndpointConflict
-  | LockEntrySourceTypeConflict
   | AcceptedResolutionMissing
   | InlineExtensionSourceMissing
   | SupersededCanonicalRemovalFailed

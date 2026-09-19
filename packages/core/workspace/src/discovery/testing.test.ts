@@ -16,6 +16,11 @@ describe("./testing.js", () => {
       version: "1.0.0",
       dependencies: { "@acme/review": "1.0.0" },
     });
+    project.writeJson("node_modules/@acme/review/package.json", {
+      name: "@acme/review",
+      version: "1.0.0",
+      agentExtensions: [{ ref: "@acme/skills/review" }],
+    });
     const before = project.snapshot();
     const registry = DiscoveryRegistryTest(() => ({
       body: {
@@ -27,12 +32,13 @@ describe("./testing.js", () => {
             extensions: [
               {
                 ref: "@acme/skills/review",
+                source: { type: "registry", url: "https://registry.agentxm.ai" },
                 resolved: true,
                 extension: {
                   owner: "@acme",
                   type: "skill",
                   name: "review",
-                  installVersion: "1.0.0",
+                  resolution: { type: "registry", version: "1.0.0" },
                 },
                 attestedBy: ["package"],
                 official: false,

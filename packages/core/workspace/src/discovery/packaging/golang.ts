@@ -15,7 +15,7 @@ import * as Schema from "effect/Schema";
 import { readEnv } from "../internal/environment.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const golangType = Schema.decodeUnknownSync(PackageTypeSchema)("golang");
@@ -162,7 +162,7 @@ export const golangDetector: PackageDetector = {
 /**
  * Go module package reader.
  *
- * Reads `axm.json` from `$GOPATH/pkg/mod/<module>@<version>/` for each
+ * Reads `agent-extensions.json` from `$GOPATH/pkg/mod/<module>@<version>/` for each
  * detected Go module and extracts recommendation metadata.
  *
  * @experimental This API is unstable and may change without notice.
@@ -181,24 +181,33 @@ export const golangReader: PackageReader = {
         : pkg.purl.name;
       const version = pkg.purl.version ?? "v0.0.0";
 
-      const axmJsonPath = path.join(gopath, "pkg", "mod", `${modulePath}@${version}`, "axm.json");
+      const agentExtensionsJsonPath = path.join(
+        gopath,
+        "pkg",
+        "mod",
+        `${modulePath}@${version}`,
+        "agent-extensions.json",
+      );
 
-      const content = yield* readFileOptional(axmJsonPath);
+      const content = yield* readFileOptional(agentExtensionsJsonPath);
       if (Option.isNone(content)) return Option.none();
 
-      const parsed = yield* parseJsonOptional(content.value, `${modulePath}@${version}/axm.json`);
+      const parsed = yield* parseJsonOptional(
+        content.value,
+        `${modulePath}@${version}/agent-extensions.json`,
+      );
       if (Option.isNone(parsed)) return Option.none();
 
-      // Validate axm metadata structure
-      const metaResult = decodeAxmMeta(parsed.value);
+      // Validate agentExtensions metadata structure
+      const metaResult = yield* decodeAgentExtensions(parsed.value);
       if (Result.isFailure(metaResult)) {
         yield* Effect.logWarning(
-          `Invalid axm metadata in ${modulePath}@${version}: schema validation failed`,
+          `Invalid agentExtensions metadata in ${modulePath}@${version}: schema validation failed`,
         );
         return Option.none();
       }
 
-      return Option.some(metaResult.success.extensions);
+      return Option.some(metaResult.success.agentExtensions);
     },
     Effect.annotateLogs({ reader: "golang" }),
     Effect.withSpan("read.golang"),

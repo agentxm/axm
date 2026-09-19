@@ -9,6 +9,7 @@
 import * as Effect from "effect/Effect";
 import * as HashMap from "effect/HashMap";
 import * as Option from "effect/Option";
+import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
@@ -16,18 +17,27 @@ import {
   parseExtensionFqnParts,
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import type { RegistryClient } from "@agentxm/registry-client";
-import type { DiscoveryExtensionResult } from "@agentxm/registry-protocol/unstable/registry/discover-schema";
-import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
+import type { RegistryClientFactoryService } from "@agentxm/registry-client";
+import type {
+  DiscoveryExtensionResult,
+  DiscoveryResolvedExtension,
+} from "@agentxm/registry-protocol/unstable/registry/discover-schema";
 import { detectPackages } from "./packaging/detect.js";
 import { packageDetectors, packageReaders } from "./packaging/index.js";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
 import { PackageUrlSchema } from "@agentxm/extension-model/unstable/packaging/package-url";
 import { readLocalRecommendations } from "./packaging/read.js";
-import type { PackageExtensionDeclaration } from "@agentxm/registry-client";
+import {
+  AGENTXM_REGISTRY_URL,
+  type AgentExtensionRecommendation,
+  type AgentExtensionSource,
+} from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
+import type { GitSource, LocalSource } from "@agentxm/extension-model/unstable/sources/types";
+import { findLocalOrGitExtensionPackagesFromSource } from "../resolution/sources/package-sources.js";
 
 export interface DiscoverResultEntry {
   readonly ref: string;
+  readonly source: AgentExtensionSource;
   readonly resolved: boolean;
   readonly extension: DiscoveryExtensionResult["extension"];
   readonly attestedBy: ReadonlyArray<"package" | "extension">;
@@ -56,7 +66,7 @@ const packageIdentity = (parts: PackageUrlParts): PackageUrlParts => ({
   ...(parts.subpath === undefined ? {} : { subpath: parts.subpath }),
 });
 
-const extensionDeclarationToRef = (value: PackageExtensionDeclaration): string | undefined => {
+const extensionDeclarationToRef = (value: AgentExtensionRecommendation): string | undefined => {
   const parts = parseExtensionFqnParts(value.ref);
   if (parts === undefined) {
     return undefined;
@@ -64,137 +74,258 @@ const extensionDeclarationToRef = (value: PackageExtensionDeclaration): string |
   return `${parts.owner}/${toExtensionTypePlural(parts.type)}/${parts.name}`;
 };
 
-export const discover = (projectDir: string, registryClient: RegistryClient) =>
-  Effect.gen(function* () {
-    const detected = yield* detectPackages(projectDir, packageDetectors).pipe(
-      Effect.withSpan("discover.detect"),
-    );
+interface DeclaredRecommendation {
+  readonly declaration: AgentExtensionRecommendation;
+  readonly ref: string;
+  readonly source: AgentExtensionSource;
+}
 
-    if (detected.length === 0) {
+interface DeclaredPackage {
+  readonly detectedPackage: PackageUrlParts;
+  readonly identity: PackageUrlParts;
+  readonly identityPurl: string;
+  readonly version: string;
+  readonly recommendations: ReadonlyArray<DeclaredRecommendation>;
+}
+
+const normalizedSource = (declaration: AgentExtensionRecommendation): AgentExtensionSource =>
+  declaration.source ?? { type: "registry", url: new URL(AGENTXM_REGISTRY_URL) };
+
+const unresolvedEntry = (recommendation: DeclaredRecommendation): DiscoverResultEntry => ({
+  ref: recommendation.ref,
+  source: recommendation.source,
+  resolved: false,
+  extension: undefined,
+  attestedBy: ["package"],
+  official: false,
+  packageVersionInRange: true,
+});
+
+const resolvedLocalEntry = (input: {
+  readonly recommendation: DeclaredRecommendation;
+  readonly source: Exclude<AgentExtensionSource, { readonly type: "registry" }>;
+  readonly identity: {
+    readonly owner: DiscoveryResolvedExtension["owner"];
+    readonly type: DiscoveryResolvedExtension["type"];
+    readonly name: DiscoveryResolvedExtension["name"];
+  };
+}): DiscoverResultEntry => {
+  const common = {
+    ref: input.recommendation.ref,
+    resolved: true,
+    attestedBy: ["package"],
+    official: false,
+    packageVersionInRange: true,
+  } satisfies Omit<DiscoverResultEntry, "source" | "extension">;
+  switch (input.source.type) {
+    case "git":
       return {
-        packages: [],
-        totalDetected: 0,
-        registryAvailable: true,
-      } satisfies DiscoverResult;
-    }
+        ...common,
+        source: input.source,
+        extension: { ...input.identity, resolution: input.source },
+      };
+    case "path":
+      return {
+        ...common,
+        source: input.source,
+        extension: { ...input.identity, resolution: input.source },
+      };
+  }
+};
 
-    const localExtensions = yield* readLocalRecommendations(detected, packageReaders).pipe(
-      Effect.withSpan("discover.readLocal"),
-    );
+const toResolutionSource = (
+  source: Exclude<AgentExtensionSource, { readonly type: "registry" }>,
+  projectDir: string,
+  path: Path.Path,
+): GitSource | LocalSource => {
+  switch (source.type) {
+    case "git":
+      return {
+        type: "git",
+        url: source.url,
+        ref: Option.fromUndefinedOr(source.revision),
+        subPath: Option.fromUndefinedOr(source.path),
+      };
+    case "path":
+      return { type: "local", path: path.resolve(projectDir, source.path) };
+  }
+};
 
-    // v1 submits direct dependencies only. Revisit transitive submission and
-    // privacy-mode filtering together so users get one coherent consent model.
-    const submittedPackages = detected.flatMap((pkg) => {
-      if (pkg.purl.version === undefined) {
-        return [];
+export const discover = (projectDir: string, registryFactory: RegistryClientFactoryService) =>
+  Effect.scoped(
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const detected = yield* detectPackages(projectDir, packageDetectors).pipe(
+        Effect.withSpan("discover.detect"),
+      );
+
+      if (detected.length === 0) {
+        return {
+          packages: [],
+          totalDetected: 0,
+          registryAvailable: true,
+        } satisfies DiscoverResult;
       }
 
-      const purl = encodePurl(pkg.purl);
-      const declaredExtensions = Option.match(HashMap.get(localExtensions, purl), {
-        onNone: (): ReadonlyArray<PackageExtensionDeclaration> => [],
-        onSome: (value) => value,
+      const localExtensions = yield* readLocalRecommendations(detected, packageReaders).pipe(
+        Effect.withSpan("discover.readLocal"),
+      );
+
+      const declaredPackages = detected.flatMap((pkg): ReadonlyArray<DeclaredPackage> => {
+        if (pkg.purl.version === undefined) {
+          return [];
+        }
+
+        const purl = encodePurl(pkg.purl);
+        const declarations = Option.match(HashMap.get(localExtensions, purl), {
+          onNone: (): ReadonlyArray<AgentExtensionRecommendation> => [],
+          onSome: (value) => value,
+        });
+        const recommendations = declarations.flatMap((declaration) => {
+          const ref = extensionDeclarationToRef(declaration);
+          return ref === undefined
+            ? []
+            : [{ declaration, ref, source: normalizedSource(declaration) }];
+        });
+
+        if (recommendations.length === 0) {
+          return [];
+        }
+
+        const identity = packageIdentity(pkg.purl);
+        return [
+          {
+            detectedPackage: pkg.purl,
+            identity,
+            identityPurl: encodePurl(identity),
+            version: pkg.purl.version,
+            recommendations,
+          },
+        ];
       });
 
-      return [
-        {
-          purl: packageIdentity(pkg.purl),
-          version: pkg.purl.version,
-          declaredExtensions,
-        },
+      const registryLocations = [
+        ...new Set(
+          declaredPackages.flatMap((pkg) =>
+            pkg.recommendations.flatMap((entry) =>
+              entry.source.type === "registry" ? [entry.source.url.href] : [],
+            ),
+          ),
+        ),
       ];
-    });
 
-    const registryResult = yield* Effect.result(
-      registryClient.discoverPackages({ packages: submittedPackages }),
-    ).pipe(Effect.withSpan("discover.queryRegistry"));
+      const registryQueries = yield* Effect.forEach(
+        registryLocations,
+        (location) =>
+          Effect.gen(function* () {
+            const client = yield* registryFactory.forLocation(location);
+            const packages = declaredPackages.flatMap((pkg) => {
+              const declaredExtensions = pkg.recommendations
+                .filter(
+                  (entry) => entry.source.type === "registry" && entry.source.url.href === location,
+                )
+                .map((entry) => entry.declaration);
+              return declaredExtensions.length === 0
+                ? []
+                : [{ purl: pkg.identity, version: pkg.version, declaredExtensions }];
+            });
+            const result = yield* Effect.result(client.discoverPackages({ packages }));
+            if (Result.isFailure(result)) {
+              yield* Effect.logWarning(
+                "Registry source is unreachable; recommendations remain unresolved",
+              ).pipe(Effect.annotateLogs({ registry: location }));
+            }
+            return { location, result };
+          }).pipe(Effect.withSpan("discover.queryRegistry")),
+        { concurrency: 4 },
+      );
 
-    if (Result.isFailure(registryResult)) {
-      yield* Effect.logWarning("Registry is unreachable; showing local package declarations only");
-    }
+      const resolveRegistryRecommendation = (
+        pkg: DeclaredPackage,
+        recommendation: DeclaredRecommendation,
+      ): DiscoverResultEntry => {
+        if (recommendation.source.type !== "registry") {
+          return unresolvedEntry(recommendation);
+        }
+        const location = recommendation.source.url.href;
+        const query = registryQueries.find((candidate) => candidate.location === location);
+        if (query === undefined || Result.isFailure(query.result)) {
+          return unresolvedEntry(recommendation);
+        }
+        const packageResult = query.result.success.results.find(
+          (candidate) => candidate.purl === pkg.identityPurl,
+        );
+        const extension = packageResult?.extensions.find(
+          (candidate) => candidate.ref === recommendation.ref,
+        );
+        return extension === undefined
+          ? unresolvedEntry(recommendation)
+          : {
+              ref: extension.ref,
+              source: recommendation.source,
+              resolved: extension.resolved,
+              extension: extension.extension,
+              attestedBy: extension.attestedBy,
+              official: extension.official,
+              packageVersionInRange: extension.packageVersionInRange,
+            };
+      };
 
-    const registryAvailable = Result.isSuccess(registryResult);
-    const packages = registryAvailable
-      ? mergeRegistryResults(detected, registryResult.success.results)
-      : buildLocalOnlyResults(detected, localExtensions);
+      const packages = yield* Effect.forEach(declaredPackages, (pkg) =>
+        Effect.gen(function* () {
+          const extensions = yield* Effect.forEach(
+            pkg.recommendations,
+            (recommendation) => {
+              if (recommendation.source.type === "registry") {
+                return Effect.succeed(resolveRegistryRecommendation(pkg, recommendation));
+              }
+              const source = recommendation.source;
+              const parts = parseExtensionFqnParts(recommendation.ref);
+              if (parts === undefined) {
+                return Effect.succeed(unresolvedEntry(recommendation));
+              }
+              const resolutionSource = toResolutionSource(source, projectDir, path);
+              return Effect.result(
+                findLocalOrGitExtensionPackagesFromSource(resolutionSource, {
+                  names: [parts.name],
+                  owner: Option.some(parts.owner),
+                  type: parts.type,
+                }),
+              ).pipe(
+                Effect.map((resolution) => {
+                  if (Result.isFailure(resolution)) {
+                    return unresolvedEntry(recommendation);
+                  }
+                  const candidate = resolution.success[0];
+                  return candidate === undefined
+                    ? unresolvedEntry(recommendation)
+                    : resolvedLocalEntry({
+                        recommendation,
+                        source,
+                        identity: {
+                          owner: candidate.identity.owner,
+                          type: candidate.identity.type,
+                          name: candidate.identity.name,
+                        },
+                      });
+                }),
+              );
+            },
+            { concurrency: 1 },
+          );
+          return {
+            detectedPackage: pkg.detectedPackage,
+            extensions,
+          } satisfies DiscoverPackageResult;
+        }),
+      );
 
-    return {
-      packages,
-      totalDetected: detected.length,
-      registryAvailable,
-    } satisfies DiscoverResult;
-  }).pipe(Effect.annotateLogs({ command: "discover", projectDir }), Effect.withSpan("discover"));
+      const registryAvailable = registryQueries.every((query) => Result.isSuccess(query.result));
 
-const mergeRegistryResults = (
-  detected: ReadonlyArray<{ readonly purl: PackageUrlParts }>,
-  results: ReadonlyArray<{
-    readonly purl: string;
-    readonly extensions: ReadonlyArray<DiscoveryExtensionResult>;
-  }>,
-): ReadonlyArray<DiscoverPackageResult> => {
-  const detectedByIdentity = new Map(
-    detected.map((pkg) => [encodePurl(packageIdentity(pkg.purl)), pkg.purl]),
-  );
-
-  return results.flatMap((result) => {
-    const detectedPackage = detectedByIdentity.get(result.purl);
-    if (detectedPackage === undefined || result.extensions.length === 0) {
-      return [];
-    }
-
-    return [
-      {
-        detectedPackage,
-        extensions: result.extensions.map((entry) => ({
-          ref: entry.ref,
-          resolved: entry.resolved,
-          extension: entry.extension,
-          attestedBy: entry.attestedBy,
-          official: entry.official,
-          packageVersionInRange: entry.packageVersionInRange,
-        })),
-      },
-    ];
-  });
-};
-
-const buildLocalOnlyResults = (
-  detected: ReadonlyArray<{ readonly purl: PackageUrlParts }>,
-  localExtensions: HashMap.HashMap<string, ReadonlyArray<PackageExtensionDeclaration>>,
-): ReadonlyArray<DiscoverPackageResult> => {
-  const fallbackVersion = decodeVersionSync("0.0.0");
-
-  return detected.flatMap((pkg) => {
-    const refs = HashMap.get(localExtensions, encodePurl(pkg.purl));
-    if (Option.isNone(refs) || refs.value.length === 0) {
-      return [];
-    }
-
-    const extensions = refs.value.flatMap((entry) => {
-      const parts = parseExtensionFqnParts(entry.ref);
-      const ref = extensionDeclarationToRef(entry);
-      if (parts === undefined || ref === undefined) {
-        return [];
-      }
-
-      return [
-        {
-          ref,
-          resolved: true,
-          extension: {
-            owner: parts.owner,
-            type: parts.type,
-            name: parts.name,
-            installVersion: fallbackVersion,
-          },
-          attestedBy: ["package"],
-          official: false,
-          packageVersionInRange: true,
-        } satisfies DiscoverResultEntry,
-      ];
-    });
-
-    return extensions.length === 0
-      ? []
-      : [{ detectedPackage: pkg.purl, extensions } satisfies DiscoverPackageResult];
-  });
-};
+      return {
+        packages,
+        totalDetected: detected.length,
+        registryAvailable,
+      } satisfies DiscoverResult;
+    }),
+  ).pipe(Effect.annotateLogs({ command: "discover", projectDir }), Effect.withSpan("discover"));

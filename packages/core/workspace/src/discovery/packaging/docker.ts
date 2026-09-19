@@ -12,10 +12,21 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, decodePurl, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import {
+  decodeAgentExtensions,
+  decodePurl,
+  parseJsonOptional,
+  readFileOptional,
+} from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const dockerType = Schema.decodeUnknownSync(PackageTypeSchema)("docker");
+const DOCKER_AGENT_EXTENSIONS_LABEL = "org.agentextensions.recommendations";
+
+const DockerAnnotationSchema = Schema.Struct({
+  [DOCKER_AGENT_EXTENSIONS_LABEL]: Schema.optional(Schema.String),
+});
+const decodeDockerAnnotation = Schema.decodeUnknownResult(DockerAnnotationSchema);
 
 /**
  * Parse a Docker image reference into namespace, name, and version components.
@@ -265,7 +276,8 @@ export const dockerDetector: PackageDetector = {
 /**
  * Docker package reader.
  *
- * Inspects local Docker image metadata for `sh.axm.recommended-extensions`
+ * Inspects local Docker image metadata for `org.agentextensions.recommendations`.
+ * The label value is a JSON-encoded `agentExtensions` array.
  * annotation. Since inspecting Docker images requires the Docker CLI,
  * this reader returns Option.none when Docker is not available.
  *
@@ -301,16 +313,25 @@ export const dockerReader: PackageReader = {
       const parsed = yield* parseJsonOptional(content.value, `docker annotations for ${imageRef}`);
       if (Option.isNone(parsed)) return Option.none();
 
-      // Validate axm metadata structure
-      const metaResult = decodeAxmMeta(parsed.value);
+      const annotation = decodeDockerAnnotation(parsed.value);
+      if (Result.isFailure(annotation)) return Option.none();
+      const encoded = annotation.success[DOCKER_AGENT_EXTENSIONS_LABEL];
+      if (encoded === undefined) return Option.none();
+
+      const agentExtensions = yield* parseJsonOptional(encoded, `Docker label for ${imageRef}`);
+      if (Option.isNone(agentExtensions)) return Option.none();
+
+      const metaResult = yield* decodeAgentExtensions({
+        agentExtensions: agentExtensions.value,
+      });
       if (Result.isFailure(metaResult)) {
         yield* Effect.logWarning(
-          `Invalid axm metadata in docker image ${imageRef}: schema validation failed`,
+          `Invalid agentExtensions metadata in docker image ${imageRef}: schema validation failed`,
         );
         return Option.none();
       }
 
-      return Option.some(metaResult.success.extensions);
+      return Option.some(metaResult.success.agentExtensions);
     },
     Effect.annotateLogs({ reader: "docker" }),
     Effect.withSpan("read.docker"),

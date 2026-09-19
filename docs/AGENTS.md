@@ -29,7 +29,7 @@ field profile, and the points where it departs from the skill.
 ## Verify
 
 ```bash
-python3 .claude/skills/author-okf/scripts/validate_okf.py docs
+python3 .claude/skills/okf/scripts/validate_okf.py docs
 ```
 
 Errors mean the bundle is broken; fix them. The `index-description-mismatch`

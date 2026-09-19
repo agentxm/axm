@@ -103,7 +103,7 @@ describe("Advance-approval recovery over the built CLI", () => {
       expect(fs.existsSync(path.join(fixture.invoking, "skills/review"))).toBe(false);
       expect(
         snapshotWorkspaceContent(
-          path.join(fixture.invoking, "agent_extensions/local/vendor/review"),
+          path.join(fixture.invoking, "agent_extensions/path/@acme/skills/review"),
         ),
       ).toEqual(sourceBefore);
       expect(snapshotWorkspaceContent(replacement)).toEqual(sourceBefore);

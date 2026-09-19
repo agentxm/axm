@@ -39,7 +39,7 @@ import type { ArchivalView } from "@agentxm/extension-model/unstable/extensions/
 import type { Bugs, Repository } from "@agentxm/extension-model/unstable/extensions/common";
 import type { DiscoverPackagesResponse } from "@agentxm/registry-protocol/unstable/registry/discover-schema";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
-import type { PackageExtensionDeclaration } from "./axm-package-meta.js";
+import type { AgentExtensionRecommendation } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 import { stripFileProtocol } from "./fs-helpers.js";
 import { makeUserArchiveCache } from "./archive-cache.js";
 import { createLocalRegistryClient } from "./local-client.js";
@@ -306,12 +306,12 @@ export interface ExtensionExistsResponse {
  * and workspace recommendations.
  *
  * - `packages`: detected package purls to match against extension compatibility
- * - `declaredExtensions`: extension refs declared by the package's native AXM metadata
+ * - `declaredExtensions`: extension refs declared by the package's portable agentExtensions metadata
  */
 export interface DiscoverPackageInput {
   readonly purl: PackageUrlParts;
   readonly version: string;
-  readonly declaredExtensions: ReadonlyArray<PackageExtensionDeclaration>;
+  readonly declaredExtensions: ReadonlyArray<AgentExtensionRecommendation>;
 }
 
 export interface DiscoverPackagesArgs {

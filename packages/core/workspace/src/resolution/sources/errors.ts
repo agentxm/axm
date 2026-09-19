@@ -82,7 +82,13 @@ export class SourceNetworkFailure extends Data.TaggedError("SourceNetworkFailure
 
 /** The git subprocess operations this package performs. */
 export type GitOperation =
-  "clone" | "get-commit-sha" | "get-tree-sha" | "compare-directory-to-head";
+  | "clone"
+  | "fetch-commit"
+  | "list-remote-refs"
+  | "get-remote-url"
+  | "get-commit-sha"
+  | "get-tree-sha"
+  | "compare-directory-to-head";
 
 /**
  * A git subprocess operation failed. Clones are network failures; SHA reads
@@ -138,7 +144,11 @@ export const sourceResolutionFailureCategory = (error: SourceResolutionFailure):
     case "SourceNetworkFailure":
       return "network";
     case "GitOperationFailed":
-      return error.operation === "clone" ? "network" : "validation";
+      return error.operation === "clone" ||
+        error.operation === "fetch-commit" ||
+        error.operation === "list-remote-refs"
+        ? "network"
+        : "validation";
     case "WorkspaceCatalogUnavailable":
     case "AxmSkillGateUnavailable":
       return error.category;

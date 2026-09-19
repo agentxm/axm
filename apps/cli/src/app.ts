@@ -57,6 +57,7 @@ import { makeHelpCommand } from "./root/help/command.js";
 import { viewCommand } from "./root/view/command.js";
 import { versionCommand } from "./root/version/command.js";
 import { publishCommand } from "./root/publish/command.js";
+import { shareCommand } from "./root/share/command.js";
 import { adoptCommand } from "./root/adopt/command.js";
 import { demoteCommand } from "./root/demote/command.js";
 import { forkCommand } from "./root/fork/command.js";
@@ -116,6 +117,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
       commands: [
         ...extensionGroupCommands,
         publishCommand,
+        shareCommand,
         forkCommand,
         adoptCommand,
         demoteCommand,

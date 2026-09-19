@@ -351,7 +351,7 @@ describe("nugetDetector", () => {
 /** Helper to set up a temp NuGet packages folder for reader tests. */
 const readInTempNuget = (
   pkgPurl: Schema.Schema.Type<typeof PackageUrlPartsSchema>,
-  axmJsonContent?: string,
+  agentExtensionsJsonContent?: string,
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -360,12 +360,15 @@ const readInTempNuget = (
 
     const packagesFolder = path.join(tmpDir, "nuget-packages");
 
-    if (axmJsonContent !== undefined) {
+    if (agentExtensionsJsonContent !== undefined) {
       const pkgId = pkgPurl.name.toLowerCase();
       const version = pkgPurl.version ?? "0.0.0";
       const pkgDir = path.join(packagesFolder, pkgId, version);
       yield* fs.makeDirectory(pkgDir, { recursive: true });
-      yield* fs.writeFileString(path.join(pkgDir, "axm.json"), axmJsonContent);
+      yield* fs.writeFileString(
+        path.join(pkgDir, "agent-extensions.json"),
+        agentExtensionsJsonContent,
+      );
     }
 
     const detected = {
@@ -396,8 +399,8 @@ describe("nugetReader", () => {
     expect(nugetReader.type).toBe(nugetType);
   });
 
-  describe("valid axm.json", () => {
-    it.effect("extracts extensions from axm.json", () =>
+  describe("valid agent-extensions.json", () => {
+    it.effect("extracts extensions from agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -408,7 +411,7 @@ describe("nugetReader", () => {
           const result = yield* readInTempNuget(
             purl,
             JSON.stringify({
-              extensions: [{ ref: "@newtonsoft/skills/json", versionRange: "^1.0.0" }],
+              agentExtensions: [{ ref: "@newtonsoft/skills/json", versionRange: "^1.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
@@ -429,7 +432,7 @@ describe("nugetReader", () => {
             name: "some.lib",
             version: "1.0.0",
           });
-          const result = yield* readInTempNuget(purl, JSON.stringify({ extensions: [] }));
+          const result = yield* readInTempNuget(purl, JSON.stringify({ agentExtensions: [] }));
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
             expect(result.value).toEqual([]);
@@ -439,8 +442,8 @@ describe("nugetReader", () => {
     );
   });
 
-  describe("missing axm.json", () => {
-    it.effect("returns Option.none when axm.json does not exist", () =>
+  describe("missing agent-extensions.json", () => {
+    it.effect("returns Option.none when agent-extensions.json does not exist", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -455,7 +458,7 @@ describe("nugetReader", () => {
     );
   });
 
-  describe("malformed axm.json", () => {
+  describe("malformed agent-extensions.json", () => {
     it.effect("returns Option.none and warns on malformed metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
@@ -466,7 +469,7 @@ describe("nugetReader", () => {
           });
           const result = yield* readInTempNuget(
             purl,
-            JSON.stringify({ extensions: "not-an-array" }),
+            JSON.stringify({ agentExtensions: "not-an-array" }),
           );
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -475,7 +478,7 @@ describe("nugetReader", () => {
   });
 
   describe("extra fields tolerated", () => {
-    it.effect("ignores extra fields in axm.json", () =>
+    it.effect("ignores extra fields in agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -486,7 +489,7 @@ describe("nugetReader", () => {
           const result = yield* readInTempNuget(
             purl,
             JSON.stringify({
-              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
+              agentExtensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
               futureField: true,
             }),
           );
@@ -512,7 +515,7 @@ describe("nugetReader", () => {
           const result = yield* readInTempNuget(
             purl,
             JSON.stringify({
-              extensions: [{ ref: "@newtonsoft/skills/json", versionRange: "^1.0.0" }],
+              agentExtensions: [{ ref: "@newtonsoft/skills/json", versionRange: "^1.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
@@ -534,7 +537,7 @@ describe("nugetReader", () => {
           const result = yield* readInTempNuget(
             purl,
             JSON.stringify({
-              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
+              agentExtensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
@@ -615,7 +618,7 @@ describe("nugetReader", () => {
     );
   });
 
-  describe("malformed JSON in axm.json", () => {
+  describe("malformed JSON in agent-extensions.json", () => {
     it.effect("returns Option.none on invalid JSON", () =>
       withNodeContext(
         Effect.gen(function* () {
@@ -643,7 +646,7 @@ describe("nugetReader", () => {
           const result = yield* readInTempNuget(
             purl,
             JSON.stringify({
-              extensions: [{ ref: "@microsoft/skills/logging", versionRange: "^1.0.0" }],
+              agentExtensions: [{ ref: "@microsoft/skills/logging", versionRange: "^1.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);

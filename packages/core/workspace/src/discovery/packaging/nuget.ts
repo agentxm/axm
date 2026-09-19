@@ -16,7 +16,7 @@ import * as Schema from "effect/Schema";
 import { readEnv } from "../internal/environment.js";
 import { makeDetectedPackage } from "./detected-package.js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, parseJsonOptional, readFileOptional } from "./reader-io.js";
+import { decodeAgentExtensions, parseJsonOptional, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const nugetType = Schema.decodeUnknownSync(PackageTypeSchema)("nuget");
@@ -255,7 +255,7 @@ const resolveNugetPackagesFolder = () =>
 /**
  * NuGet package reader.
  *
- * Reads `axm.json` from `~/.nuget/packages/{id}/{version}/` for each
+ * Reads `agent-extensions.json` from `~/.nuget/packages/{id}/{version}/` for each
  * detected NuGet package and extracts recommendation metadata.
  *
  * @experimental This API is unstable and may change without notice.
@@ -272,24 +272,32 @@ export const nugetReader: PackageReader = {
       const pkgId = pkg.purl.name.toLowerCase();
       const version = pkg.purl.version ?? "0.0.0";
 
-      const axmJsonPath = path.join(packagesFolder, pkgId, version, "axm.json");
+      const agentExtensionsJsonPath = path.join(
+        packagesFolder,
+        pkgId,
+        version,
+        "agent-extensions.json",
+      );
 
-      const content = yield* readFileOptional(axmJsonPath);
+      const content = yield* readFileOptional(agentExtensionsJsonPath);
       if (Option.isNone(content)) return Option.none();
 
-      const parsed = yield* parseJsonOptional(content.value, `${pkgId}@${version}/axm.json`);
+      const parsed = yield* parseJsonOptional(
+        content.value,
+        `${pkgId}@${version}/agent-extensions.json`,
+      );
       if (Option.isNone(parsed)) return Option.none();
 
-      // Validate axm metadata structure
-      const metaResult = decodeAxmMeta(parsed.value);
+      // Validate agentExtensions metadata structure
+      const metaResult = yield* decodeAgentExtensions(parsed.value);
       if (Result.isFailure(metaResult)) {
         yield* Effect.logWarning(
-          `Invalid axm metadata in ${pkgId}@${version}: schema validation failed`,
+          `Invalid agentExtensions metadata in ${pkgId}@${version}: schema validation failed`,
         );
         return Option.none();
       }
 
-      return Option.some(metaResult.success.extensions);
+      return Option.some(metaResult.success.agentExtensions);
     },
     Effect.annotateLogs({ reader: "nuget" }),
     Effect.withSpan("read.nuget"),

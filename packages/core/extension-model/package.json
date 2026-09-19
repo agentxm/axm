@@ -256,6 +256,11 @@
       "axm-source": "./src/unstable/path-types.ts",
       "default": "./dist/src/unstable/path-types.js"
     },
+    "./unstable/recommendations/agent-extensions": {
+      "types": "./dist/src/unstable/recommendations/agent-extensions.d.ts",
+      "axm-source": "./src/unstable/recommendations/agent-extensions.ts",
+      "default": "./dist/src/unstable/recommendations/agent-extensions.js"
+    },
     "./unstable/rules/manifest-schema": {
       "types": "./dist/src/unstable/rules/manifest-schema.d.ts",
       "axm-source": "./src/unstable/rules/manifest-schema.ts",

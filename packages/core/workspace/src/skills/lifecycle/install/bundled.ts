@@ -98,7 +98,7 @@ export type BundledAxmSkillReadiness =
 
 /** Where the bundled skill's canonical package sits. */
 export const bundledAxmSkillCanonicalPath = (layout: WorkspaceLayout, path: Path.Path): string =>
-  path.join(layout.acquiredRoot, "agentxm", "@agentxm", "skills", "axm");
+  path.join(layout.acquiredRoot, "registry", "@agentxm", "skills", "axm");
 
 /** Whether bundled recovery may write, or must preserve an authored copy. */
 export const inspectBundledAxmSkillReadiness = Effect.gen(function* () {

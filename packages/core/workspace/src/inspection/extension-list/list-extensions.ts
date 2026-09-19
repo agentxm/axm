@@ -59,7 +59,6 @@ const ExtensionListItemSchema = Schema.Struct({
   enabled: Schema.NullOr(Schema.Boolean),
   version: Schema.optional(Schema.String),
   source: Schema.optional(Schema.String),
-  sourceName: Schema.optional(Schema.String),
   assessment: ExtensionAssessmentSchema,
 });
 

@@ -4,53 +4,37 @@ import * as Schema from "effect/Schema";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import { TreeIntegritySchema } from "../workspace/materialized-tree.js";
-import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { gitSourceLockFields } from "./entry-fields.js";
 
 describe("gitSourceLockFields", () => {
-  it("persists locator plus immutable commit, tree, and content identities", () => {
-    const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");
+  it("persists a generic Git locator plus immutable commit and tree identities", () => {
     const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
       `sha256-tree-v1:${"0".repeat(64)}`,
     );
     expect(
       gitSourceLockFields(
         {
-          type: "github",
-          name: "github",
-          url: new URL("https://github.com"),
-          owner: "acme",
-          repo: "extensions",
+          type: "git",
+          url: new URL("https://github.com/acme/extensions.git"),
           ref: Option.some("main"),
           subPath: Option.some("skills/review"),
         },
-        "skill",
-        decodeExtensionNameSync("review"),
         Option.some("skills/review"),
         "commit-1",
         "tree-1",
-        contentIdentity,
         decodeHandleSync("@acme"),
         decodeExtensionNameSync("review"),
         treeIntegrity,
       ),
     ).toEqual({
-      type: "github",
-      sourceType: "github",
-      sourceName: "github",
-      endpoint: new URL("https://github.com"),
-      extensionType: "skill",
-      workspaceName: "review",
-      packageFormat: "agentxm",
-      packageOwner: "@acme",
-      packageName: "review",
-      owner: "acme",
-      repo: "extensions",
-      ref: "main",
-      path: "skills/review",
-      resolvedCommit: "commit-1",
-      resolvedTree: "tree-1",
-      contentIdentity,
+      source: {
+        type: "git",
+        url: new URL("https://github.com/acme/extensions.git"),
+        revision: "main",
+        path: "skills/review",
+      },
+      identity: { owner: "@acme", name: "review" },
+      resolved: { commit: "commit-1", tree: "tree-1" },
       treeIntegrity,
     });
   });

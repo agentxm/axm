@@ -1,11 +1,14 @@
-     Extension                  Type
-     @acme/skills/code-review   skill
-     @acme/subagents/reviewer   subagent
-     @sam/skills/review-notes   skill
-     Not shown at this width: Trust,
-     Install, For package
+     Extension
+     @acme/skills/code-review
+     @acme/subagents/reviewer
+     @acme/skills/git-review
+     @sam/skills/review-notes
+     @acme/skills/local-review
+     Not shown at this width: Type,
+     Trust, Resolution, Source, For
+     package
 
-3 companion extensions for 2 of 14
+5 companion extensions for 2 of 14
 detected packages · axm view <extension>
 for details
 

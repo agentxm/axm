@@ -50,7 +50,7 @@ export interface WorkspaceLocationService extends StateCellPaths {
   readonly lockPath: string;
   /** The resolved layout; replaced only when an owner is recorded. */
   readonly layout: Ref.Ref<WorkspaceLayout>;
-  /** Built-in source hosts merged behind project and user settings. */
+  /** Built-in registries merged behind project and user settings. */
   readonly builtInSources: ReadonlyArray<SourceHostConfig>;
 }
 
@@ -88,11 +88,7 @@ const requireInitializedWorkspace = <R>(
     ),
   );
 
-const defaultBuiltInSources: ReadonlyArray<SourceHostConfig> = [
-  { name: "github", type: "github", url: new URL("https://github.com") },
-  { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
-  { name: "bitbucket", type: "bitbucket", url: new URL("https://bitbucket.org") },
-];
+const defaultBuiltInSources: ReadonlyArray<SourceHostConfig> = [];
 
 /**
  * Resolve the workspace location from an existing workspace on disk.

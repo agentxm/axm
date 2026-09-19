@@ -6,35 +6,136 @@
 
 import * as Schema from "effect/Schema";
 import {
+  ExtensionFqnSchema,
   ExtensionNameSchema,
   extensionTypePluralSegments,
   extensionTypes,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { HandleSchema, SlugSchema } from "@agentxm/extension-model/unstable/extensions/handle";
-import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
+import {
+  AgentExtensionGitSourceSchema,
+  AgentExtensionPathSourceSchema,
+  AgentExtensionRegistrySourceSchema,
+} from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
+import {
+  VersionRangeSchema,
+  VersionSchema,
+} from "@agentxm/extension-model/unstable/version-constraints";
 
 const discoveryExtensionWireTypes = [...extensionTypes, ...extensionTypePluralSegments] as const;
 const DiscoveryExtensionWireTypeSchema = Schema.Literals(discoveryExtensionWireTypes);
 
-export const DiscoveryResolvedExtensionSchema = Schema.Struct({
-  owner: Schema.Union([HandleSchema, SlugSchema]),
-  type: DiscoveryExtensionWireTypeSchema,
-  name: ExtensionNameSchema,
-  installVersion: VersionSchema,
+const DiscoveryRegistryDeclarationSchema = Schema.Struct({
+  ref: ExtensionFqnSchema,
+  source: AgentExtensionRegistrySourceSchema,
+  versionRange: Schema.optionalKey(VersionRangeSchema),
 });
+
+const DiscoveryGitDeclarationSchema = Schema.Struct({
+  ref: ExtensionFqnSchema,
+  source: AgentExtensionGitSourceSchema,
+});
+
+const DiscoveryPathDeclarationSchema = Schema.Struct({
+  ref: ExtensionFqnSchema,
+  source: AgentExtensionPathSourceSchema,
+});
+
+/** A normalized recommendation submitted for package-side attestation. */
+export const DiscoveryDeclaredExtensionSchema = Schema.Union([
+  DiscoveryRegistryDeclarationSchema,
+  DiscoveryGitDeclarationSchema,
+  DiscoveryPathDeclarationSchema,
+]);
+
+export type DiscoveryDeclaredExtension = Schema.Schema.Type<
+  typeof DiscoveryDeclaredExtensionSchema
+>;
+
+export const DiscoverPackageInputSchema = Schema.Struct({
+  purl: Schema.String,
+  version: Schema.String,
+  declaredExtensions: Schema.Array(DiscoveryDeclaredExtensionSchema),
+});
+
+export type DiscoverPackageInput = Schema.Schema.Type<typeof DiscoverPackageInputSchema>;
+
+export const DiscoverPackagesRequestSchema = Schema.Struct({
+  client: Schema.Struct({ axmVersion: Schema.String }),
+  packages: Schema.Array(DiscoverPackageInputSchema),
+});
+
+export type DiscoverPackagesRequest = Schema.Schema.Type<typeof DiscoverPackagesRequestSchema>;
+
+export const DiscoveryRegistryResolutionSchema = Schema.Struct({
+  type: Schema.Literal("registry"),
+  version: VersionSchema,
+});
+
+export const DiscoveryGitResolutionSchema = AgentExtensionGitSourceSchema;
+export const DiscoveryPathResolutionSchema = AgentExtensionPathSourceSchema;
+
+const makeResolvedExtensionSchema = <TResolution extends Schema.Top>(resolution: TResolution) =>
+  Schema.Struct({
+    owner: Schema.Union([HandleSchema, SlugSchema]),
+    type: DiscoveryExtensionWireTypeSchema,
+    name: ExtensionNameSchema,
+    resolution,
+  });
+
+export const DiscoveryRegistryResolvedExtensionSchema = makeResolvedExtensionSchema(
+  DiscoveryRegistryResolutionSchema,
+);
+export const DiscoveryGitResolvedExtensionSchema = makeResolvedExtensionSchema(
+  DiscoveryGitResolutionSchema,
+);
+export const DiscoveryPathResolvedExtensionSchema = makeResolvedExtensionSchema(
+  DiscoveryPathResolutionSchema,
+);
+
+export const DiscoveryResolvedExtensionSchema = Schema.Union([
+  DiscoveryRegistryResolvedExtensionSchema,
+  DiscoveryGitResolvedExtensionSchema,
+  DiscoveryPathResolvedExtensionSchema,
+]);
 
 export type DiscoveryResolvedExtension = Schema.Schema.Type<
   typeof DiscoveryResolvedExtensionSchema
 >;
 
-export const DiscoveryExtensionResultSchema = Schema.Struct({
+const discoveryResultFields = {
   ref: Schema.String,
   resolved: Schema.Boolean,
-  extension: Schema.optional(DiscoveryResolvedExtensionSchema),
   attestedBy: Schema.Array(Schema.Literals(["package", "extension"])),
-  official: Schema.Boolean,
   packageVersionInRange: Schema.Boolean,
+};
+
+const DiscoveryRegistryExtensionResultSchema = Schema.Struct({
+  ...discoveryResultFields,
+  source: AgentExtensionRegistrySourceSchema,
+  extension: Schema.optional(DiscoveryRegistryResolvedExtensionSchema),
+  official: Schema.Boolean,
 });
+
+const DiscoveryGitExtensionResultSchema = Schema.Struct({
+  ...discoveryResultFields,
+  source: AgentExtensionGitSourceSchema,
+  extension: Schema.optional(DiscoveryGitResolvedExtensionSchema),
+  official: Schema.Literal(false),
+});
+
+const DiscoveryPathExtensionResultSchema = Schema.Struct({
+  ...discoveryResultFields,
+  source: AgentExtensionPathSourceSchema,
+  extension: Schema.optional(DiscoveryPathResolvedExtensionSchema),
+  official: Schema.Literal(false),
+});
+
+export const DiscoveryExtensionResultSchema = Schema.Union([
+  DiscoveryRegistryExtensionResultSchema,
+  DiscoveryGitExtensionResultSchema,
+  DiscoveryPathExtensionResultSchema,
+]);
 
 export type DiscoveryExtensionResult = Schema.Schema.Type<typeof DiscoveryExtensionResultSchema>;
 

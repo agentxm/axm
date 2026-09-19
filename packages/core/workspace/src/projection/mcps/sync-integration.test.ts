@@ -57,7 +57,7 @@ const entryForTransports = (transports: ReadonlyArray<string>): McpServerEntry =
 const addArgs = (workspaceRoot: string) => ({
   workspaceRoot,
   serverName: "chrome-devtools-mcp",
-  canonicalPath: `${workspaceRoot}/agent_extensions/agentxm/@mcp/mcps/chrome-devtools-mcp`,
+  canonicalPath: `${workspaceRoot}/agent_extensions/registry/@mcp/mcps/chrome-devtools-mcp`,
   owner: handle("@mcp"),
   resolvedVersion: "1.0.0",
 });

@@ -15,7 +15,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, decodePurl, readFileOptional } from "./reader-io.js";
+import { decodeAgentExtensions, decodePurl, readFileOptional } from "./reader-io.js";
 import { parseTomlDocument, tomlStringEntries, tomlTable, type TomlTable } from "./toml.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
@@ -77,16 +77,19 @@ export const juliaDetector: PackageDetector = {
 };
 
 /**
- * Read the `[axm]` table from Project.toml content, or `undefined` when the
- * file does not parse or the table is absent.
+ * Read the top-level `agentExtensions` array from Project.toml.
  */
-const parseAxmSection = (content: string): TomlTable | undefined =>
-  tomlTable(parseTomlDocument(content), "axm");
+const parseAgentExtensions = (content: string): TomlTable | undefined => {
+  const document = parseTomlDocument(content);
+  const agentExtensions = document?.["agentExtensions"];
+  return agentExtensions === undefined ? undefined : { agentExtensions };
+};
 
 /**
  * Julia package reader.
  *
- * Reads `[axm]` section from `~/.julia/packages/<pkg>/<hash>/Project.toml`
+ * Reads the top-level `agentExtensions` array from
+ * `~/.julia/packages/<pkg>/<hash>/Project.toml`
  * for each detected Julia package.
  *
  * @experimental This API is unstable and may change without notice.
@@ -107,22 +110,24 @@ export const juliaReader: PackageReader = {
       const hashDirs = yield* fs.readDirectory(juliaPkgsDir).pipe(Effect.option);
       if (Option.isNone(hashDirs)) return Option.none();
 
-      // Check each hash directory for Project.toml with [axm] section
+      // Check each hash directory for portable metadata.
       for (const hashDir of hashDirs.value) {
         const projectTomlPath = path.join(juliaPkgsDir, hashDir, "Project.toml");
         const content = yield* readFileOptional(projectTomlPath);
         if (Option.isNone(content)) continue;
 
-        const axmFields = parseAxmSection(content.value);
-        if (axmFields === undefined) continue;
+        const metadata = parseAgentExtensions(content.value);
+        if (metadata === undefined) continue;
 
-        const metaResult = decodeAxmMeta(axmFields);
+        const metaResult = yield* decodeAgentExtensions(metadata);
         if (Result.isFailure(metaResult)) {
-          yield* Effect.logWarning(`Invalid axm metadata in ${pkgName}: schema validation failed`);
+          yield* Effect.logWarning(
+            `Invalid agentExtensions metadata in ${pkgName}: schema validation failed`,
+          );
           return Option.none();
         }
 
-        return Option.some(metaResult.success.extensions);
+        return Option.some(metaResult.success.agentExtensions);
       }
 
       return Option.none();

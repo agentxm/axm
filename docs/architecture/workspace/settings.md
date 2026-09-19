@@ -29,7 +29,7 @@ review:
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | Extension intent            | Names directly desired extensions, source or version constraints, activation, and per-extension realization choices. |
 | Workspace realization       | Selects coding agents, inline definitions, and workspace capabilities such as instruction-file management.           |
-| Acquisition policy          | Configures source hosts and policy that constrains new resolution.                                                   |
+| Acquisition policy          | Names Registry endpoints, selects the default Registry, and constrains new resolution.                               |
 | Authoring defaults          | Supplies workspace identity defaults used for authoring and local resolution.                                        |
 | Workspace validation policy | Configures lint behavior without declaring extensions desired.                                                       |
 
@@ -81,11 +81,15 @@ uses the exact source selector `workspace`. Its settings key and manifest name
 must agree.
 
 Some defaults and policies are intentionally layered for project operations.
-Project source hosts override same-named user hosts, which override built-in
-hosts. Project authoring and release policies may fall back to user settings
-when the project has not made an explicit choice. An explicit project value,
-including an empty exclusion list, wins. This inheritance never imports user
-extension roots, agent targets, or activation into project desired state.
+Only registries are named in `sources`: a project definition takes precedence
+over a same-named user definition, while the built-in `agentxm` Registry cannot
+be shadowed. `defaultRegistry` resolves from project settings, then user
+settings, then `agentxm`. Git and path locators are self-describing and do not
+participate in named-source precedence. Project authoring and release policies
+may fall back to user settings when the project has not made an explicit choice.
+An explicit project value, including an empty exclusion list, wins. This
+inheritance never imports user extension roots, agent targets, or activation
+into project desired state.
 
 ## Non-responsibilities
 

@@ -60,6 +60,7 @@ const digestVectors = Schema.decodeUnknownSync(PublicationDigestVectorsSchema)(e
 
 const reverseObjectKeys = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.map(reverseObjectKeys);
+  if (value instanceof URL) return value;
   if (typeof value !== "object" || value === null) return value;
   return Object.fromEntries(
     Object.entries(value)

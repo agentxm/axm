@@ -221,6 +221,11 @@
       "axm-source": "./src/publishing/testing.ts",
       "default": "./dist/src/publishing/testing.js"
     },
+    "./sharing": {
+      "types": "./dist/src/sharing/index.d.ts",
+      "axm-source": "./src/sharing/index.ts",
+      "default": "./dist/src/sharing/index.js"
+    },
     "./projection/agent-adapters": {
       "types": "./dist/src/projection/agent-adapters/index.d.ts",
       "axm-source": "./src/projection/agent-adapters/index.ts",

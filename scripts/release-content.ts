@@ -13,9 +13,9 @@ export const RELEASE_CONTENT_SOURCES = {
   "install.md": "apps/cli/site-content/install.md",
   "agent-catalog.json": "apps/cli/site-content/__generated__/agent-catalog/agent-catalog.json",
   "cli-reference.json": "apps/cli/site-content/__generated__/cli-reference/cli-reference.json",
+  "agent-extensions.schema.json":
+    "apps/cli/site-content/__generated__/schemas/agent-extensions.schema.json",
   "axm-lock.schema.json": "apps/cli/site-content/__generated__/schemas/axm-lock.schema.json",
-  "axm-package-meta.schema.json":
-    "apps/cli/site-content/__generated__/schemas/axm-package-meta.schema.json",
   "hook.schema.json": "apps/cli/site-content/__generated__/schemas/hook.schema.json",
   "knowledge.schema.json": "apps/cli/site-content/__generated__/schemas/knowledge.schema.json",
   "mcp.schema.json": "apps/cli/site-content/__generated__/schemas/mcp.schema.json",

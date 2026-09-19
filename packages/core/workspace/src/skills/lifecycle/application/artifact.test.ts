@@ -15,11 +15,8 @@ it("reports the Git source identity, selected directory and accepted tree", () =
     name: decodeExtensionNameSync("quality"),
     owner: decodeHandleSync("@qualitymd"),
     source: {
-      type: "github",
-      name: "github",
-      url: new URL("https://github.com"),
-      owner: "qualitymd",
-      repo: "quality.md",
+      type: "git",
+      url: new URL("https://github.com/qualitymd/quality.md.git"),
       ref: Option.some("main"),
       subPath: Option.none(),
     },
@@ -34,8 +31,8 @@ it("reports the Git source identity, selected directory and accepted tree", () =
     },
   };
   expect(gitHostedSkillArtifactSource(ref)).toEqual({
-    type: "github",
-    origin: "https://github.com/qualitymd/quality.md",
+    type: "git",
+    origin: "https://github.com/qualitymd/quality.md.git",
     ref: "main",
     directory: "skills/quality",
     gitTreeHash: ref.gitTreeSha,

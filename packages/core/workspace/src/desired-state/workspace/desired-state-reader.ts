@@ -57,7 +57,11 @@ export const makeDesiredStateReader = (
 ): DesiredStateReaderService => {
   const graph: DesiredStateReaderService["graph"] = (options) =>
     Effect.gen(function* () {
-      const current = options?.settings ?? (yield* settings.settings);
+      const selected = options?.settings ?? (yield* settings.settings);
+      const current = {
+        ...selected,
+        defaultRegistry: selected.defaultRegistry ?? (yield* settings.defaultRegistry),
+      };
       const configuredSources = yield* settings.configuredSources;
       const layout = yield* Ref.get(location.layout);
       const registryAccessorities = Object.fromEntries(
@@ -65,17 +69,18 @@ export const makeDesiredStateReader = (
           source.type === "registry" ? [[source.name, source.location] as const] : [],
         ),
       );
+      const lockfile = options?.acceptedResolutions ?? (yield* documents.acceptedResolutions);
       const built = yield* buildDesiredStateGraph({
         manifests,
         baseDir: location.baseDir,
         settings: current,
         layout,
         registryAccessorities,
+        acceptedPacks: lockfile.packs ?? {},
         ...(options?.prospectivePacks === undefined
           ? {}
           : { prospectivePacks: options.prospectivePacks }),
       });
-      const lockfile = options?.acceptedResolutions ?? (yield* documents.acceptedResolutions);
       return yield* validateDesiredPackLock({
         manifests,
         graph: built,

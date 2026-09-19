@@ -196,8 +196,8 @@ describe("luarocksDetector", () => {
 /** Helper to set up a temp LuaRocks tree for reader tests. */
 const readInTempLuarocks = (
   pkgPurl: Schema.Schema.Type<typeof PackageUrlPartsSchema>,
-  axmJsonContent?: string,
-  location?: "root" | "user",
+  agentExtensionsJsonContent?: string,
+  location: "portable" | "legacy" = "portable",
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -207,44 +207,8 @@ const readInTempLuarocks = (
     const pkgName = pkgPurl.name;
     const version = pkgPurl.version ?? "0.0.0-0";
 
-    if (axmJsonContent !== undefined) {
-      if (location === "user") {
-        const userTree = path.join(
-          tmpDir,
-          ".luarocks",
-          "lib",
-          "luarocks",
-          "rocks-5.4",
-          pkgName,
-          version,
-          "axm",
-        );
-        yield* fs.makeDirectory(userTree, { recursive: true });
-        yield* fs.writeFileString(path.join(userTree, "axm.json"), axmJsonContent);
-
-        // Override HOME for user tree lookup
-        const origHome = process.env["HOME"];
-        process.env["HOME"] = tmpDir;
-
-        const detected = {
-          purl: pkgPurl,
-          type: luarocksType,
-          source: path.join(tmpDir, "project", "mylib.rockspec"),
-        };
-        return yield* luarocksReader.read(detected).pipe(
-          Effect.ensuring(
-            Effect.sync(() => {
-              if (origHome === undefined) {
-                delete process.env["HOME"];
-              } else {
-                process.env["HOME"] = origHome;
-              }
-            }),
-          ),
-        );
-      }
-
-      const userTree = path.join(
+    if (agentExtensionsJsonContent !== undefined) {
+      const rockRoot = path.join(
         tmpDir,
         ".luarocks",
         "lib",
@@ -253,8 +217,12 @@ const readInTempLuarocks = (
         pkgName,
         version,
       );
-      yield* fs.makeDirectory(userTree, { recursive: true });
-      yield* fs.writeFileString(path.join(userTree, "axm.json"), axmJsonContent);
+      const metadataPath =
+        location === "legacy"
+          ? path.join(rockRoot, "axm", "axm.json")
+          : path.join(rockRoot, "agent-extensions.json");
+      yield* fs.makeDirectory(path.dirname(metadataPath), { recursive: true });
+      yield* fs.writeFileString(metadataPath, agentExtensionsJsonContent);
 
       const origHome = process.env["HOME"];
       process.env["HOME"] = tmpDir;
@@ -290,17 +258,16 @@ describe("luarocksReader", () => {
     expect(luarocksReader.type).toBe(luarocksType);
   });
 
-  describe("valid axm.json sidecar", () => {
-    it.effect("extracts extensions from axm/axm.json", () =>
+  describe("valid agent-extensions.json sidecar", () => {
+    it.effect("extracts extensions from agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "luarocks", name: "luasocket", version: "3.1.0" });
           const result = yield* readInTempLuarocks(
             purl,
             JSON.stringify({
-              extensions: [{ ref: "@luarocks/skills/luasocket", versionRange: "^1.0.0" }],
+              agentExtensions: [{ ref: "@luarocks/skills/luasocket", versionRange: "^1.0.0" }],
             }),
-            "user",
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
@@ -312,7 +279,7 @@ describe("luarocksReader", () => {
       ),
     );
 
-    it.effect("does not read root axm.json", () =>
+    it.effect("does not read the former axm/axm.json sidecar", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "luarocks", name: "luasocket", version: "3.1.0" });
@@ -321,7 +288,7 @@ describe("luarocksReader", () => {
             JSON.stringify({
               extensions: [{ ref: "@luarocks/skills/luasocket", versionRange: "^1.0.0" }],
             }),
-            "root",
+            "legacy",
           );
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -332,11 +299,7 @@ describe("luarocksReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "luarocks", name: "somelib", version: "1.0.0" });
-          const result = yield* readInTempLuarocks(
-            purl,
-            JSON.stringify({ extensions: [] }),
-            "user",
-          );
+          const result = yield* readInTempLuarocks(purl, JSON.stringify({ agentExtensions: [] }));
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
             expect(result.value).toEqual([]);
@@ -346,8 +309,8 @@ describe("luarocksReader", () => {
     );
   });
 
-  describe("missing axm.json", () => {
-    it.effect("returns Option.none when axm.json does not exist", () =>
+  describe("missing agent-extensions.json", () => {
+    it.effect("returns Option.none when agent-extensions.json does not exist", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "luarocks", name: "luasocket", version: "3.1.0" });
@@ -358,16 +321,12 @@ describe("luarocksReader", () => {
     );
   });
 
-  describe("malformed axm.json", () => {
+  describe("malformed agent-extensions.json", () => {
     it.effect("returns Option.none on invalid metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "luarocks", name: "somelib", version: "1.0.0" });
-          const result = yield* readInTempLuarocks(
-            purl,
-            JSON.stringify({ extensions: 42 }),
-            "user",
-          );
+          const result = yield* readInTempLuarocks(purl, JSON.stringify({ agentExtensions: 42 }));
           expect(Option.isNone(result)).toBe(true);
         }),
       ),
@@ -375,17 +334,16 @@ describe("luarocksReader", () => {
   });
 
   describe("extra fields tolerated", () => {
-    it.effect("ignores extra fields in axm.json", () =>
+    it.effect("ignores extra fields in agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "luarocks", name: "somelib", version: "1.0.0" });
           const result = yield* readInTempLuarocks(
             purl,
             JSON.stringify({
-              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
+              agentExtensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
               futureField: true,
             }),
-            "user",
           );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
@@ -396,12 +354,12 @@ describe("luarocksReader", () => {
     );
   });
 
-  describe("malformed JSON in axm.json", () => {
+  describe("malformed JSON in agent-extensions.json", () => {
     it.effect("returns Option.none on invalid JSON", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "luarocks", name: "somelib", version: "1.0.0" });
-          const result = yield* readInTempLuarocks(purl, "{ not valid json }", "user");
+          const result = yield* readInTempLuarocks(purl, "{ not valid json }");
           expect(Option.isNone(result)).toBe(true);
         }),
       ),

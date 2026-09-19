@@ -127,6 +127,7 @@ const makePackLockEntry = (
   integrity: "sha512-pack",
   sourceName: "local-reg",
   publisherBindingId: "hbnd_test",
+  manifestVersion: "1.0.0",
   manifestContentIdentity: computePackManifestContentIdentity({
     owner,
     type: "pack",
@@ -134,6 +135,7 @@ const makePackLockEntry = (
     version: "1.0.0",
     dependencies,
   }),
+  members: Object.keys(dependencies),
 });
 
 const writeRegistrySkill = ({
@@ -209,7 +211,7 @@ const writeInstalledPackManifest = ({
   readonly name: string;
   readonly dependencies: Record<string, string>;
 }) => {
-  const dir = path.join(workspaceRoot, ACQUIRED_EXTENSIONS_DIR, "local-reg", owner, "packs", name);
+  const dir = path.join(workspaceRoot, ACQUIRED_EXTENSIONS_DIR, "registry", owner, "packs", name);
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(
     path.join(dir, PACK_MANIFEST_FILENAME),
@@ -506,9 +508,10 @@ describe("update.handler — error recovery", () => {
         "Expected lockfile object",
       );
       const lockedSkills = expectRecord(lockfile["skills"], "Expected lockfile.skills");
+      const entry = expectRecord(lockedSkills["code-review"], "Expected code-review lock entry");
       return stringProperty(
-        expectRecord(lockedSkills["code-review"], "Expected code-review lock entry"),
-        "resolvedVersion",
+        expectRecord(entry["resolved"], "Expected accepted resolution"),
+        "version",
       );
     };
 
@@ -686,7 +689,7 @@ describe("update.handler — error recovery", () => {
             lockedSkills["code-review"],
             "Expected code-review lock entry",
           );
-          expect(stringProperty(lockedSkill, "resolvedVersion")).toBe("1.3.0");
+          expect(stringProperty(expectRecord(lockedSkill["resolved"]), "version")).toBe("1.3.0");
         }),
       );
     },
@@ -739,7 +742,9 @@ describe("update.handler — error recovery", () => {
         );
         const lockedSkills = expectRecord(lockfile["skills"], "Expected lockfile.skills");
         const lockedSkill = expectRecord(lockedSkills["axm"], "Expected AXM skill lock entry");
-        expect(stringProperty(lockedSkill, "resolvedVersion")).toBe(AXM_SKILL_VERSION);
+        expect(stringProperty(expectRecord(lockedSkill["resolved"]), "version")).toBe(
+          AXM_SKILL_VERSION,
+        );
       }),
     );
   });
@@ -803,7 +808,7 @@ describe("update.handler — error recovery", () => {
           lockedSkills["code-review"],
           "Expected code-review lock entry",
         );
-        expect(stringProperty(lockedSkill, "resolvedVersion")).toBe("1.3.0");
+        expect(stringProperty(expectRecord(lockedSkill["resolved"]), "version")).toBe("1.3.0");
         expect(logs.warn).toEqual([]);
         const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
           planName: "Update skills",
@@ -915,7 +920,7 @@ describe("update.handler — preview flag", () => {
           lockedSkills["code-review"],
           "Expected code-review lock entry",
         );
-        expect(stringProperty(lockedSkill, "resolvedVersion")).toBe("1.0.0");
+        expect(stringProperty(expectRecord(lockedSkill["resolved"]), "version")).toBe("1.0.0");
 
         // Settings should be unchanged
         const settings = expectRecord(
@@ -987,10 +992,10 @@ describe("update.handler — preview flag", () => {
           lockedSkills["code-review"],
           "Expected code-review lock entry",
         );
-        expect(stringProperty(lockedCodeReview, "resolvedVersion")).toBe("1.0.0");
+        expect(stringProperty(expectRecord(lockedCodeReview["resolved"]), "version")).toBe("1.0.0");
 
         const lockedTesting = expectRecord(lockedSkills["testing"], "Expected testing lock entry");
-        expect(stringProperty(lockedTesting, "resolvedVersion")).toBe("1.0.0");
+        expect(stringProperty(expectRecord(lockedTesting["resolved"]), "version")).toBe("1.0.0");
 
         // Preview outcome should be displayed
         expect(logs.info.some((m) => m.includes("Would update 2 skills"))).toBe(true);

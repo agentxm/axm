@@ -92,14 +92,14 @@
           {
             "name": "install",
             "aliases": [],
-            "description": "Reinstall configured skills from their sources, or install skills from a registry, GitHub, or local path",
+            "description": "Reinstall all configured skills from their sources, or install skills from a source",
             "arguments": [
               {
                 "name": "source",
                 "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "Registry reference (@owner/skills/name), GitHub shorthand (owner/repo), local path, or URL"
+                "description": "skill source (Registry FQN @owner/skills/name[@version], self-describing Git locator, or path locator)"
               }
             ],
             "options": [
@@ -116,7 +116,7 @@
                 "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "Cherry-pick specific skills from a multi-skill source",
+                "description": "Select a skill by name or glob; repeatable",
                 "variadic": { "min": 0 }
               },
               {
@@ -124,14 +124,14 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Install every skill found in the source without prompting"
+                "description": "Install every matching extension without prompting"
               },
               {
                 "name": "reinstall",
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Reinstall a skill that already exists"
+                "description": "Reinstall extensions that already exist"
               },
               {
                 "name": "preview",
@@ -158,36 +158,12 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm skills install",
-                "description": "Reinstall all configured skills from their sources"
+                "command": "axm skills install ./extensions --skill example",
+                "description": "Install an explicit selection from one source locator"
               },
               {
-                "command": "axm skills install @acme/skills/code-review",
-                "description": "Add a code review skill to your agents"
-              },
-              {
-                "command": "axm skills install @acme/skills/code-review@^1.0.0",
-                "description": "Pin to a specific version range"
-              },
-              {
-                "command": "axm skills install owner/repo",
-                "description": "Install from a GitHub repository"
-              },
-              {
-                "command": "axm skills install ./path/to/skills",
-                "description": "Install from a local directory during development"
-              },
-              {
-                "command": "axm skills install owner/repo --all",
-                "description": "CI: install every skill in the source without a selection prompt"
-              },
-              {
-                "command": "axm skills install @acme/skills/code-review --preview",
-                "description": "See what would be installed before committing"
-              },
-              {
-                "command": "axm skills install @agentxm/skills/axm --bundled",
-                "description": "Recover the compatible embedded AXM skill without network access"
+                "command": "axm skills install ./extensions --all",
+                "description": "Install every matching extension without prompting"
               }
             ],
             "subcommands": []
@@ -878,14 +854,14 @@
           {
             "name": "install",
             "aliases": [],
-            "description": "Reinstall configured MCP servers from their sources, or install an MCP server from a registry",
+            "description": "Reinstall all configured mcps from their sources, or install mcps from a source",
             "arguments": [
               {
                 "name": "source",
                 "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "Registry MCP server reference (@owner/mcps/name or bare name)"
+                "description": "MCP server source (Registry FQN @owner/mcps/name[@version], self-describing Git locator, or path locator)"
               }
             ],
             "options": [
@@ -898,11 +874,26 @@
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
+                "name": "mcp",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Select a mcp server by name or glob; repeatable",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "all",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Install every matching extension without prompting"
+              },
+              {
                 "name": "reinstall",
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Reinstall an MCP server that already exists"
+                "description": "Reinstall extensions that already exist"
               },
               {
                 "name": "preview",
@@ -924,7 +915,7 @@
                 "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "Install using this local name"
+                "description": "Install one MCP server using this local name"
               },
               {
                 "name": "ignore-release-age",
@@ -937,28 +928,12 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm mcps install",
-                "description": "Reinstall all configured MCP servers from their sources"
+                "command": "axm mcps install ./extensions --mcp example",
+                "description": "Install an explicit selection from one source locator"
               },
               {
-                "command": "axm mcps install @acme/mcps/my-server",
-                "description": "Add an MCP server from the registry"
-              },
-              {
-                "command": "axm mcps install @acme/mcps/my-server --as work-server",
-                "description": "Install a second connection under an explicit local name"
-              },
-              {
-                "command": "axm mcps install my-server",
-                "description": "Install using your default owner"
-              },
-              {
-                "command": "axm mcps install @acme/mcps/my-server --preview",
-                "description": "See what would be installed first"
-              },
-              {
-                "command": "axm mcps install @acme/mcps/my-server --env API_KEY=abc --env REGION=us",
-                "description": "Supply multiple MCP input values"
+                "command": "axm mcps install ./extensions --all",
+                "description": "Install every matching extension without prompting"
               }
             ],
             "subcommands": []
@@ -1399,14 +1374,14 @@
           {
             "name": "install",
             "aliases": [],
-            "description": "Reinstall configured subagents from their sources, or install subagents from a registry, GitHub, or local path",
+            "description": "Reinstall all configured subagents from their sources, or install subagents from a source",
             "arguments": [
               {
                 "name": "source",
                 "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "Registry reference (@owner/subagents/name), GitHub shorthand (owner/repo), local path, or URL"
+                "description": "subagent source (Registry FQN @owner/subagents/name[@version], self-describing Git locator, or path locator)"
               }
             ],
             "options": [
@@ -1423,7 +1398,7 @@
                 "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "Cherry-pick specific subagents from a multi-subagent source",
+                "description": "Select a subagent by name or glob; repeatable",
                 "variadic": { "min": 0 }
               },
               {
@@ -1431,14 +1406,14 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Install every subagent found in the source without prompting"
+                "description": "Install every matching extension without prompting"
               },
               {
                 "name": "reinstall",
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Reinstall a subagent that already exists"
+                "description": "Reinstall extensions that already exist"
               },
               {
                 "name": "preview",
@@ -1458,32 +1433,12 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm subagents install",
-                "description": "Reinstall all configured subagents from their sources"
+                "command": "axm subagents install ./extensions --subagent example",
+                "description": "Install an explicit selection from one source locator"
               },
               {
-                "command": "axm subagents install @acme/subagents/researcher",
-                "description": "Add a researcher subagent to your agents"
-              },
-              {
-                "command": "axm subagents install @acme/subagents/researcher@^1.0.0",
-                "description": "Pin to a specific version range"
-              },
-              {
-                "command": "axm subagents install owner/repo",
-                "description": "Install from a GitHub repository"
-              },
-              {
-                "command": "axm subagents install ./path/to/subagents",
-                "description": "Install from a local directory during development"
-              },
-              {
-                "command": "axm subagents install owner/repo --all",
-                "description": "CI: install every subagent in the source without a selection prompt"
-              },
-              {
-                "command": "axm subagents install @acme/subagents/researcher --preview",
-                "description": "See what would be installed before committing"
+                "command": "axm subagents install ./extensions --all",
+                "description": "Install every matching extension without prompting"
               }
             ],
             "subcommands": []
@@ -2117,14 +2072,14 @@
           {
             "name": "install",
             "aliases": [],
-            "description": "Install hooks packages",
+            "description": "Reinstall all configured hooks from their sources, or install hooks from a source",
             "arguments": [
               {
                 "name": "source",
                 "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "hooks package source (@owner/hooks/name, path, URL, or git shorthand)"
+                "description": "hook source (Registry FQN @owner/hooks/name[@version], self-describing Git locator, or path locator)"
               }
             ],
             "options": [
@@ -2137,11 +2092,26 @@
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
+                "name": "hook",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Select a hook by name or glob; repeatable",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "all",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Install every matching extension without prompting"
+              },
+              {
                 "name": "reinstall",
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Reinstall a hooks package that already exists"
+                "description": "Reinstall extensions that already exist"
               },
               {
                 "name": "preview",
@@ -2161,12 +2131,12 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm hooks install",
-                "description": "Reinstall configured hooks packages"
+                "command": "axm hooks install ./extensions --hook example",
+                "description": "Install an explicit selection from one source locator"
               },
               {
-                "command": "axm hooks install @acme/hooks/workspace-baseline",
-                "description": "Install a hooks package from the registry"
+                "command": "axm hooks install ./extensions --all",
+                "description": "Install every matching extension without prompting"
               }
             ],
             "subcommands": []
@@ -2579,14 +2549,14 @@
           {
             "name": "install",
             "aliases": [],
-            "description": "Install or restore Knowledge bundles",
+            "description": "Reinstall all configured knowledge from their sources, or install knowledge from a source",
             "arguments": [
               {
                 "name": "source",
                 "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "Knowledge source (@owner/knowledge/name, path, URL, or git locator)"
+                "description": "knowledge bundle source (Registry FQN @owner/knowledge/name[@version], self-describing Git locator, or path locator)"
               }
             ],
             "options": [
@@ -2595,15 +2565,37 @@
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Use project (default) or user knowledge state",
+                "description": "Install to project (default) or user-level configuration",
                 "choices": [{ "value": "project" }, { "value": "user" }]
+              },
+              {
+                "name": "knowledge",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Select a knowledge bundle by name or glob; repeatable",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "all",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Install every matching extension without prompting"
+              },
+              {
+                "name": "reinstall",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Reinstall extensions that already exist"
               },
               {
                 "name": "preview",
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Display plan without applying"
+                "description": "Show what would be installed without making changes"
               },
               {
                 "name": "ignore-release-age",
@@ -2616,8 +2608,12 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm knowledge install @acme/knowledge/platform",
-                "description": "Install a Knowledge bundle from the registry"
+                "command": "axm knowledge install ./extensions --knowledge example",
+                "description": "Install an explicit selection from one source locator"
+              },
+              {
+                "command": "axm knowledge install ./extensions --all",
+                "description": "Install every matching extension without prompting"
               }
             ],
             "subcommands": []
@@ -3510,14 +3506,14 @@
           {
             "name": "install",
             "aliases": [],
-            "description": "Reinstall configured packs from their sources, or install a pack and its extensions from a registry",
+            "description": "Reinstall all configured packs from their sources, or install packs from a source",
             "arguments": [
               {
                 "name": "source",
                 "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "Registry pack reference (@owner/packs/name, @owner/packs/name@version, or bare pack-name)"
+                "description": "pack source (Registry FQN @owner/packs/name[@version], self-describing Git locator, or path locator)"
               }
             ],
             "options": [
@@ -3530,11 +3526,26 @@
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
+                "name": "pack",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Select a pack by name or glob; repeatable",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "all",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Install every matching extension without prompting"
+              },
+              {
                 "name": "reinstall",
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Reinstall a pack that already exists"
+                "description": "Reinstall extensions that already exist"
               },
               {
                 "name": "preview",
@@ -3554,24 +3565,12 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm packs install",
-                "description": "Reinstall all configured packs from their sources"
+                "command": "axm packs install ./extensions --pack example",
+                "description": "Install an explicit selection from one source locator"
               },
               {
-                "command": "axm packs install @acme/packs/frontend-tools",
-                "description": "Add a curated set of frontend extensions to your agents"
-              },
-              {
-                "command": "axm packs install @acme/packs/frontend-tools@^2.0.0",
-                "description": "Pin to a specific version range"
-              },
-              {
-                "command": "axm packs install frontend-tools",
-                "description": "Install using your default owner"
-              },
-              {
-                "command": "axm packs install @acme/packs/frontend-tools --preview",
-                "description": "See what would be installed before committing"
+                "command": "axm packs install ./extensions --all",
+                "description": "Install every matching extension without prompting"
               }
             ],
             "subcommands": []
@@ -4094,6 +4093,212 @@
         "subcommands": []
       },
       {
+        "name": "share",
+        "aliases": [],
+        "description": "Print a Git locator install command for distributable authored extensions; opt-out is not confidentiality",
+        "arguments": [],
+        "options": [
+          {
+            "name": "bazel",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable bazel package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "cargo",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable cargo package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "cocoapods",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable cocoapods package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "composer",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable composer package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "conan",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable conan package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "conda",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable conda package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "cpan",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable cpan package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "cran",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable cran package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "docker",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable docker package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "gem",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable gem package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "golang",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable golang package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "hackage",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable hackage package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "hex",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable hex package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "huggingface",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable huggingface package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "jsr",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable jsr package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "julia",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable julia package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "luarocks",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable luarocks package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "maven",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable maven package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "mojo",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable mojo package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "npm",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable npm package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "nuget",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable nuget package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "opam",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable opam package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "pub",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable pub package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "pypi",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable pypi package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "swift",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable swift package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "zig",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable zig package metadata with the Git source locator for the tag at HEAD"
+          }
+        ],
+        "globalOptions": [],
+        "examples": [
+          {
+            "command": "axm share",
+            "description": "Print a live-checked install command with origin's self-describing locator"
+          },
+          {
+            "command": "axm share --npm",
+            "description": "Emit package.json metadata for the tag at HEAD"
+          },
+          {
+            "command": "axm share --json",
+            "description": "Emit the share result as structured data"
+          }
+        ],
+        "subcommands": []
+      },
+      {
         "name": "fork",
         "aliases": [],
         "description": "Fork a managed AXM package into project-workspace authorship",
@@ -4235,14 +4440,14 @@
       {
         "name": "install",
         "aliases": [],
-        "description": "Install extensions from a registry FQN or source locator, or reinstall configured extensions",
+        "description": "Install extensions from Registry, Git, or path sources, or reinstall configured sources",
         "arguments": [
           {
             "name": "source",
             "aliases": [],
             "type": "string",
             "required": false,
-            "description": "Registry FQN (@owner/<plural-type>/<name>[@version]) or source locator; provider shorthand uses a final @ref, and shorthand refs cannot contain \"/\""
+            "description": "Registry FQN (@owner/<plural-type>/<name>[@version]), self-describing Git locator, or path locator; hosted shorthand uses a final @revision, and shorthand revisions cannot contain \"/\""
           }
         ],
         "options": [
@@ -4255,11 +4460,18 @@
             "choices": [{ "value": "project" }, { "value": "user" }]
           },
           {
+            "name": "all",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Install every matching extension without prompting"
+          },
+          {
             "name": "reinstall",
             "aliases": [],
             "type": "boolean",
             "required": false,
-            "description": "Reinstall an extension that already exists"
+            "description": "Reinstall extensions that already exist"
           },
           {
             "name": "preview",
@@ -4274,29 +4486,97 @@
             "type": "boolean",
             "required": false,
             "description": "Take a release younger than the configured minimum release age, for this run only"
+          },
+          {
+            "name": "skill",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Select a skill by name or glob; repeatable",
+            "variadic": { "min": 0 }
+          },
+          {
+            "name": "subagent",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Select a subagent by name or glob; repeatable",
+            "variadic": { "min": 0 }
+          },
+          {
+            "name": "rule",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Select a rule by name or glob; repeatable",
+            "variadic": { "min": 0 }
+          },
+          {
+            "name": "hook",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Select a hook by name or glob; repeatable",
+            "variadic": { "min": 0 }
+          },
+          {
+            "name": "knowledge",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Select a knowledge bundle by name or glob; repeatable",
+            "variadic": { "min": 0 }
+          },
+          {
+            "name": "mcp",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Select a mcp server by name or glob; repeatable",
+            "variadic": { "min": 0 }
+          },
+          {
+            "name": "pack",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Select a pack by name or glob; repeatable",
+            "variadic": { "min": 0 }
+          },
+          {
+            "name": "env",
+            "aliases": ["-e"],
+            "type": "string",
+            "required": false,
+            "description": "Provide an MCP input value as KEY=VALUE; repeatable",
+            "variadic": { "min": 0 }
+          },
+          {
+            "name": "as",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Install one MCP server using this local name"
           }
         ],
         "globalOptions": [],
         "examples": [
-          {
-            "command": "axm install",
-            "description": "Reinstall all configured extensions from their sources"
-          },
+          { "command": "axm install", "description": "Reinstall all configured extensions" },
           {
             "command": "axm install @acme/skills/code-review",
             "description": "Install a skill by fully qualified registry name"
           },
           {
-            "command": "axm install @acme/hooks/session-audit@^1.2.0",
-            "description": "Install a hook with a version constraint"
-          },
-          {
             "command": "axm install github:acme/agent-extensions//tools@v1.0.0",
-            "description": "Discover and install skills, MCP servers, subagents, rules, hooks, and knowledge from a locator"
+            "description": "Discover and install from a hosted Git locator"
           },
           {
-            "command": "axm install @acme/packs/frontend-tools --preview",
-            "description": "Preview a pack install from the registry"
+            "command": "axm install ./extensions --skill review --rule safe-shell",
+            "description": "Install explicit per-type selections from a source"
+          },
+          {
+            "command": "axm install ./extensions --all",
+            "description": "Install every extension in a source without prompting"
           }
         ],
         "subcommands": []
@@ -4304,14 +4584,14 @@
       {
         "name": "update",
         "aliases": [],
-        "description": "Update extensions to newer versions",
+        "description": "Advance accepted resolutions within each source's selection intent",
         "arguments": [
           {
             "name": "extension[@version]",
             "aliases": [],
             "type": "string",
             "required": false,
-            "description": "Registry FQN (@owner/<plural-type>/<name>[@version])"
+            "description": "Installed extension FQN; optional @version constrains Registry sources only"
           }
         ],
         "options": [
@@ -4353,11 +4633,11 @@
           },
           {
             "command": "axm update @acme/skills/code-review",
-            "description": "Update a skill by fully qualified registry name"
+            "description": "Update an installed extension by FQN, regardless of source family"
           },
           {
             "command": "axm update @acme/hooks/session-audit@^1.2.0",
-            "description": "Update a hook with a version constraint"
+            "description": "Update a Registry extension within a version constraint"
           },
           {
             "command": "axm update @acme/skills/code-review --ignore-release-age",
@@ -4508,14 +4788,15 @@
             "aliases": [],
             "type": "choice",
             "required": false,
-            "description": "Non-container extension type for bare-name lookup",
+            "description": "Extension type for bare-name lookup",
             "choices": [
               { "value": "skill" },
               { "value": "mcp-server" },
               { "value": "subagent" },
               { "value": "rule" },
               { "value": "hook" },
-              { "value": "knowledge" }
+              { "value": "knowledge" },
+              { "value": "pack" }
             ]
           }
         ],
@@ -5375,14 +5656,14 @@
           {
             "name": "install",
             "aliases": [],
-            "description": "Install rules",
+            "description": "Reinstall all configured rules from their sources, or install rules from a source",
             "arguments": [
               {
                 "name": "source",
                 "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "rule source (@owner/rules/name, path, URL, or git shorthand)"
+                "description": "rule source (Registry FQN @owner/rules/name[@version], self-describing Git locator, or path locator)"
               }
             ],
             "options": [
@@ -5395,11 +5676,26 @@
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
+                "name": "rule",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Select a rule by name or glob; repeatable",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "all",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Install every matching extension without prompting"
+              },
+              {
                 "name": "reinstall",
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Reinstall a rule that already exists"
+                "description": "Reinstall extensions that already exist"
               },
               {
                 "name": "preview",
@@ -5418,10 +5714,13 @@
             ],
             "globalOptions": [],
             "examples": [
-              { "command": "axm rules install", "description": "Reinstall configured rules" },
               {
-                "command": "axm rules install @acme/rules/commit-style",
-                "description": "Install a rule from the registry"
+                "command": "axm rules install ./extensions --rule example",
+                "description": "Install an explicit selection from one source locator"
+              },
+              {
+                "command": "axm rules install ./extensions --all",
+                "description": "Install every matching extension without prompting"
               }
             ],
             "subcommands": []

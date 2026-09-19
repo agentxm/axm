@@ -5,17 +5,7 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 
 const gitHostedSourceOrigin = (ref: GitHostedSkillRef): string => {
-  const source = ref.source;
-  switch (source.type) {
-    case "github":
-    case "gitlab":
-    case "bitbucket":
-      return `${source.url.origin}/${source.owner}/${source.repo}`;
-    case "azurerepos":
-      return `${source.url.origin}/${source.organization}/${source.project}/_git/${source.repo}`;
-    case "git":
-      return source.url.href;
-  }
+  return ref.source.url.href;
 };
 
 export const gitHostedSkillArtifactSource = (ref: SkillExtensionRef) => {

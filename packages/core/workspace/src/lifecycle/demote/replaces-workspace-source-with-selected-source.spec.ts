@@ -166,7 +166,7 @@ describe("Demoting workspace authorship", () => {
                 );
                 const neighborCanonical = nodePath.join(
                   workspace.root,
-                  `agent_extensions/local/vendor/${NEIGHBOR}`,
+                  `agent_extensions/path/@acme/skills/${NEIGHBOR}`,
                 );
                 const neighborContentBefore = snapshotContent(neighborCanonical);
                 const neighborLockBefore = yield* lockfile.entry("skill", NEIGHBOR);
@@ -186,7 +186,7 @@ describe("Demoting workspace authorship", () => {
                 // package no longer exists.
                 const expectedSource =
                   registry !== undefined
-                    ? `agentxm:@acme/${row.plural}/${REVIEW}`
+                    ? `test:@acme/${row.plural}/${REVIEW}`
                     : `./vendor/${REVIEW}`;
                 expect(readSettings(workspace)).toMatchObject({
                   [row.settingsKey]: {
@@ -201,8 +201,8 @@ describe("Demoting workspace authorship", () => {
                 // is gone rather than merged with the replacement.
                 const canonical =
                   registry !== undefined
-                    ? `agent_extensions/agentxm/@acme/${row.plural}/${REVIEW}/${row.manifest}`
-                    : `agent_extensions/local/vendor/${REVIEW}/${row.manifest}`;
+                    ? `agent_extensions/registry/@acme/${row.plural}/${REVIEW}/${row.manifest}`
+                    : `agent_extensions/path/@acme/${row.plural}/${REVIEW}/${row.manifest}`;
                 expect(
                   snapshotContent(nodePath.dirname(nodePath.join(workspace.root, canonical))),
                 ).toEqual(expectedContent);
@@ -217,7 +217,7 @@ describe("Demoting workspace authorship", () => {
                 expect(neighborDeclaration(workspace)).toEqual(neighborSettingsBefore);
 
                 expect(workspace.readFile("axm-lock.yaml")).toContain(
-                  registry !== undefined ? "resolvedVersion: 2.0.0" : `${REVIEW}:`,
+                  registry !== undefined ? "version: 2.0.0" : `${REVIEW}:`,
                 );
               }),
             )

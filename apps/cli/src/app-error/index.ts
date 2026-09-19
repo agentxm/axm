@@ -33,6 +33,7 @@ export { serializeErrorCauseChain, type SerializedErrorCause } from "./cause-cha
 export {
   REDACTED_SECRET,
   collectSensitiveStrings,
+  redactCredentialBearingLocator,
   redactAppErrorMetadata,
   redactSensitiveText,
   redactSensitiveValue,

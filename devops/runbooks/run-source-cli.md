@@ -12,7 +12,7 @@ sources:
     title: Pre-migration repository guidance
 generated:
   by: codex/gpt-6
-  at: 2026-09-11T16:07:00Z
+  at: 2026-09-19T10:44:01Z
 ---
 
 # Run the AXM source CLI against a workspace
@@ -38,32 +38,35 @@ Both entrypoints preserve the caller's working directory. `-C` / `--directory`
 then selects the workspace before runtime initialization, and relative command
 arguments resolve from that directory.
 
-Neither entrypoint selects a registry. With `AXM_REGISTRY_LOCATION` unset the
-CLI's own default applies; export it to target a local registry instead. The
-`axm-local` wrapper also sets `AXM_TELEMETRY=0` when unset, because a source run
-reports the plain package version and would otherwise be indistinguishable from
-a release in telemetry; set it yourself when invoking `bun` directly.
+Neither entrypoint selects a Registry. The effective `defaultRegistry` in
+project settings, then user settings, selects it; the immutable built-in
+`agentxm` Registry applies when neither scope makes a selection. The `axm-local`
+wrapper sets `AXM_TELEMETRY=0` when unset, because a source run reports the
+plain package version and would otherwise be indistinguishable from a release
+in telemetry; set it yourself when invoking `bun` directly.
 
 ```bash
 # against the CLI's default registry
 /path/to/axm/scripts/axm-local list
 
-# against a local registry
-AXM_REGISTRY_LOCATION=http://localhost:4300 /path/to/axm/scripts/axm-local list
-
-# isolate AXM user state while preserving the shell/toolchain HOME
+# isolate AXM user state while preserving the shell/toolchain HOME, then
+# select a local Registry when the project does not override defaultRegistry
 mkdir -p /tmp/axm-source-user
+mkdir -p /tmp/axm-source-user/.axm/workspace
+printf '%s\n' '{"defaultRegistry":"local","sources":[{"name":"local","type":"registry","location":"http://localhost:4300"}]}' \
+  > /tmp/axm-source-user/.axm/workspace/axm.json
 AXM_USER_HOME=/tmp/axm-source-user \
-  AXM_REGISTRY_URL=http://localhost:4300 \
   /path/to/axm/scripts/axm-local -C /path/to/workspace list
 ```
 
 `AXM_USER_HOME` relocates only AXM's user workspace and application resources;
 it does not replace `HOME`, so Bun, pnpm, Git, and credential helpers continue
-to resolve through the caller's normal toolchain environment. An HTTP(S)
-`AXM_REGISTRY_LOCATION` selects both extension resolution and the Registry
-service when `AXM_REGISTRY_URL` is absent. Set both only to the same origin;
-different HTTP origins are rejected before a request.
+to resolve through the caller's normal toolchain environment. Use a disposable
+directory as shown when creating test-only user settings. A project
+`defaultRegistry` has higher precedence; select the test Registry in that
+project's `axm.json` when the project already declares a default. Keep the
+named source and selection together so unqualified resolution, authentication,
+and publishing use one destination.
 
 Shell wrappers are the supported way to keep both forms on `PATH`; define them
 in your own shell profile rather than in this repository.

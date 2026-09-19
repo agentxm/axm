@@ -41,7 +41,7 @@ const initializePack = (root: string) => {
   writeWorkspaceFiles(axmDir, {
     owner: "@acme",
     agents: ["claude-code"],
-    sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/test-registry" }],
+    sources: [{ type: "registry", name: "test", location: "file:///tmp/test-registry" }],
     packs: { toolkit: "workspace" },
   });
   const packDir = path.join(root, "packs", "toolkit");
@@ -62,7 +62,7 @@ const initializePack = (root: string) => {
 
 const initializePackWithSkill = (root: string) => {
   const { axmDir, packDir, lockPath } = initializePack(root);
-  const skillDir = path.join(root, "agent_extensions", "agentxm", "@acme", "skills", "review");
+  const skillDir = path.join(root, "agent_extensions", "registry", "@acme", "skills", "review");
   fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
   fs.writeFileSync(
     path.join(skillDir, "skill.json"),
@@ -90,18 +90,13 @@ const initializePackWithSkill = (root: string) => {
       ...lock,
       skills: {
         review: {
-          type: "registry",
-          sourceType: "registry",
-          endpoint: "file:///tmp/test-registry",
-          extensionType: "skill",
-          workspaceName: "review",
-          packageFormat: "agentxm",
-          owner: "@acme",
-          name: "review",
-          resolvedVersion: "1.0.0",
-          integrity: "sha512-AAAA==",
-          sourceName: "agentxm",
-          publisherBindingId: "hbnd_test",
+          source: { type: "registry", url: "file:///tmp/test-registry" },
+          identity: { owner: "@acme", name: "review" },
+          resolved: {
+            version: "1.0.0",
+            integrity: "sha512-AAAA==",
+            publisherBindingId: "hbnd_test",
+          },
           treeIntegrity: computeMaterializedTreeIntegritySync(skillDir),
         },
       },
@@ -303,7 +298,8 @@ describe("packs activation", () => {
       });
       expect(fs.existsSync(renderedSkill)).toBe(false);
       expect(fs.existsSync(skillDir)).toBe(false);
-      expect(fs.readFileSync(lockPath, "utf8")).not.toContain("workspaceName: review");
+      const lock = expectRecord(YAML.parse(fs.readFileSync(lockPath, "utf8")));
+      expect(lock["skills"]).not.toHaveProperty("review");
       expect(fs.existsSync(path.join(root, "packs", "toolkit", "pack.json"))).toBe(true);
     }),
   );

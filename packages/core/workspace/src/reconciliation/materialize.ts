@@ -635,16 +635,17 @@ export const collectMaterializeSteps = (args: {
               `previous source=${
                 accepted === undefined
                   ? "none"
-                  : sourceTransitionIdentity(accepted.type, node.identity)
+                  : sourceTransitionIdentity(accepted.source.type, node.identity)
               }`,
               `proposed source=${sourceTransitionIdentity(ref.source.type, node.identity)}`,
-              `previous version=${accepted?.type === "registry" ? accepted.resolvedVersion : "none"}`,
+              `previous version=${accepted?.source.type === "registry" && "version" in accepted.resolved ? accepted.resolved.version : "none"}`,
               `proposed version=${ref.refType === "registry" || ref.refType === "workspace" ? ref.version : "unversioned"}`,
               `reason=${observation.status !== "usable" ? observation.status : "stale-projection"}`,
               `downgrade=${
-                accepted?.type === "registry" &&
+                accepted?.source.type === "registry" &&
+                "version" in accepted.resolved &&
                 (ref.refType === "registry" || ref.refType === "workspace") &&
-                semver.gt(accepted.resolvedVersion, ref.version)
+                semver.gt(accepted.resolved.version, ref.version)
                   ? "yes"
                   : "no"
               }`,
@@ -840,7 +841,7 @@ export const collectMaterializeSteps = (args: {
         );
         if (Option.isNone(canonical)) return;
         const accepted = canonical.value.accepted;
-        if (accepted?.type !== "local") return;
+        if (accepted?.source.type !== "path") return;
         const { desired, observation } = canonical.value;
         const acceptedSource = printSourceParams(lockEntryToSourceParams(accepted));
         if (acceptedSource !== desired.source && acceptedSource !== desired.identity) return;

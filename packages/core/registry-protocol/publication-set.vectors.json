@@ -3,9 +3,9 @@
   "contract": "publication-set-v2",
   "canonicalization": {
     "encoding": "Hash the UTF-8 bytes of JSON.stringify over the canonical object described by publication-set-v2.",
-    "objectKeys": "Reconstruct descriptor, target, visibility, intent, pack, and dependency objects in the contract's declared key order before hashing.",
+    "objectKeys": "Reconstruct descriptor, target, visibility, intent, pack, dependency, and source objects in the contract's declared key order before hashing.",
     "candidateOrder": "Sort candidates by owner, type, name, then version using ascending code-unit order.",
-    "dependencyOrder": "Sort pack dependencies by owner, type, name, then range using ascending code-unit order.",
+    "dependencyOrder": "Sort pack dependencies by owner, type, name, range, then source URL using ascending code-unit order.",
     "optionalFields": "Omit archiveSha256Hex and pack when absent. null is invalid for either optional field and must be rejected before hashing.",
     "evolution": "A future digest algorithm must mint a new publication-set contract identifier and vector format; do not change these vectors in place."
   },
@@ -114,6 +114,43 @@
         }
       ],
       "publicationSetDigest": "2fd0aa0d5e79a03feceb16307aa87e79d0f8056e87a59678ec9675b638f6016e"
+    },
+    {
+      "name": "explicit-registry-pack-member-source",
+      "candidates": [
+        {
+          "descriptor": {
+            "target": {
+              "owner": "@acme",
+              "type": "pack",
+              "name": "sourced",
+              "version": "1.0.0"
+            },
+            "participation": "publish",
+            "visibility": {
+              "intent": null,
+              "request": null
+            },
+            "archiveSha256Hex": "5555555555555555555555555555555555555555555555555555555555555555",
+            "pack": {
+              "dependencies": [
+                {
+                  "owner": "@agentxm",
+                  "type": "skill",
+                  "name": "axm",
+                  "range": "^0.30.0",
+                  "source": {
+                    "type": "registry",
+                    "url": "https://registry.agentxm.ai/"
+                  }
+                }
+              ]
+            }
+          },
+          "descriptorDigest": "900b5e53eaa7dfb07e67d84d068c31219994ee5c26851a6953f438dbcdd0199d"
+        }
+      ],
+      "publicationSetDigest": "5ca9029cd0220ff349925a7872a6e7a9422fc2f0ab185f7c5d87fecd2e707828"
     },
     {
       "name": "original-publication-set-v2-pins",

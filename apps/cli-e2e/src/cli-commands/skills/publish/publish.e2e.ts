@@ -38,8 +38,9 @@ describe("axm skills publish", () => {
         // Set up registry source and owner
         const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        settings.defaultRegistry = "test";
         settings.sources = [
-          { name: "agentxm", type: "registry", location: `file://${registryDir.path}` },
+          { name: "test", type: "registry", location: `file://${registryDir.path}` },
         ];
         settings.owner = "@test";
         settings.skills = {
@@ -157,8 +158,9 @@ describe("axm skills publish", () => {
         );
         const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        settings.defaultRegistry = "test";
         settings.sources = [
-          { name: "agentxm", type: "registry", location: `file://${registryDir.path}` },
+          { name: "test", type: "registry", location: `file://${registryDir.path}` },
         ];
         settings.owner = "@test";
         settings.skills = { ...settings.skills, "git-source-review": "workspace" };
@@ -247,8 +249,9 @@ describe("axm skills publish", () => {
 
         const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        settings.defaultRegistry = "test";
         settings.sources = [
-          { name: "agentxm", type: "registry", location: `file://${registryDir.path}` },
+          { name: "test", type: "registry", location: `file://${registryDir.path}` },
         ];
         settings.owner = "@myorg";
         settings.skills = {
@@ -316,8 +319,9 @@ describe("axm skills publish", () => {
 
         const settingsPath = path.join(temp.path, "axm.json");
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        settings.defaultRegistry = "test";
         settings.sources = [
-          { name: "agentxm", type: "registry", location: `file://${registryDir.path}` },
+          { name: "test", type: "registry", location: `file://${registryDir.path}` },
         ];
         settings.owner = "@test";
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
@@ -382,9 +386,8 @@ describe("axm skills publish", () => {
       );
       const settingsPath = path.join(tempPath, "axm.json");
       const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-      settings.sources = [
-        { name: "agentxm", type: "registry", location: `file://${registryPath}` },
-      ];
+      settings.defaultRegistry = "test";
+      settings.sources = [{ name: "test", type: "registry", location: `file://${registryPath}` }];
       settings.owner = owner;
       if (skills) settings.skills = skills;
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));

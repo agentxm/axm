@@ -4,6 +4,8 @@ import * as Schema from "effect/Schema";
 import * as semver from "semver";
 import {
   extensionTypes,
+  packMemberRegistrySource,
+  packMemberVersionRange,
   parseExtensionFqnParts,
   parseRegistrySourceRef,
   toExtensionTypePlural,
@@ -16,6 +18,7 @@ import type { Settings } from "../settings/index.js";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { isDesiredExtensionActive } from "./desired-state-enabled.js";
 import type { WorkspaceLayout } from "./layout.js";
+import type { PackLockEntry } from "../lockfile/schema.js";
 import type { PackManifestsPort } from "./pack-manifests.js";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { intersectVersionConstraints } from "@agentxm/extension-model/unstable/version-constraints";
@@ -43,6 +46,7 @@ export type DesiredExtensionOrigin =
       readonly pack: string;
       readonly manifestPath: string;
       readonly source: string;
+      readonly sourceAuthority?: string;
       readonly constraint: string;
       readonly enabled: boolean;
     };
@@ -158,6 +162,8 @@ interface DesiredStateGraphArgs {
   readonly prospectivePacks?: ReadonlyArray<ProspectivePackRef>;
   /** Registry source aliases mapped to their stable authority endpoints. */
   readonly registryAccessorities?: Readonly<Record<string, URL | string>>;
+  /** Accepted external pack identities keyed by settings name. */
+  readonly acceptedPacks?: Readonly<Record<string, PackLockEntry>>;
 }
 
 interface CandidateCommon {
@@ -186,6 +192,33 @@ interface PackIdentity {
   readonly constraint?: string;
 }
 
+const packAuthorityIdentity = (
+  configuredSource: string,
+  accepted: PackLockEntry | undefined,
+  workspaceIdentity: string,
+  baseDir: string,
+): string => {
+  if (isWorkspaceSourceLocator(configuredSource)) return `workspace:${workspaceIdentity}`;
+  if (accepted === undefined) return configuredSource;
+  switch (accepted.source.type) {
+    case "registry":
+      return `registry:${accepted.source.url.href}`;
+    case "path": {
+      const normalized = configuredSource.replaceAll("\\", "/").replace(/\/$/u, "");
+      const packageSuffix = `/packs/${accepted.identity.name}`;
+      const sourceRoot = normalized.endsWith(packageSuffix)
+        ? normalized.slice(0, -packageSuffix.length)
+        : normalized;
+      const absoluteSourceRoot = sourceRoot.startsWith("/")
+        ? sourceRoot
+        : `${baseDir.replaceAll("\\", "/").replace(/\/$/u, "")}/${sourceRoot.replace(/^\.\//u, "")}`;
+      return `path:${absoluteSourceRoot}`;
+    }
+    case "git":
+      return `git:${accepted.source.url.href}#${accepted.source.revision ?? "HEAD"}`;
+  }
+};
+
 const nodeKey = (type: ExtensionType, name: string): string => `${type}:${name}`;
 
 const packageIdentity = (identity: string): string =>
@@ -193,8 +226,9 @@ const packageIdentity = (identity: string): string =>
 
 const registryLocator = (
   source: string,
+  defaultRegistry = "agentxm",
 ): { readonly sourceName: string; readonly ref: string } | undefined => {
-  if (source.startsWith("@")) return { sourceName: "agentxm", ref: source };
+  if (source.startsWith("@")) return { sourceName: defaultRegistry, ref: source };
   const separator = source.indexOf(":");
   if (separator <= 0) return undefined;
   const ref = source.slice(separator + 1);
@@ -223,7 +257,7 @@ const sourceIdentity = (
       : { identity: `workspace:${settings.owner}/${toExtensionTypePlural(type)}/${name}` };
   }
 
-  const locator = registryLocator(source);
+  const locator = registryLocator(source, settings.defaultRegistry);
   const parsed = locator === undefined ? undefined : parseRegistrySourceRef(locator.ref);
   if (parsed !== undefined && parsed.type === toExtensionTypePlural(type)) {
     const registryAccessority =
@@ -248,6 +282,8 @@ const packIdentity = (
   settingsName: string,
   source: string,
   settings: Settings,
+  accepted: PackLockEntry | undefined,
+  prospective: ProspectivePackRef | undefined,
 ): PackIdentity | undefined => {
   if (isWorkspaceSourceLocator(source)) {
     if (settings.owner === undefined) return undefined;
@@ -258,7 +294,7 @@ const packIdentity = (
     };
   }
 
-  const locator = registryLocator(source);
+  const locator = registryLocator(source, settings.defaultRegistry);
   const parsed = locator === undefined ? undefined : parseRegistrySourceRef(locator.ref);
   if (parsed !== undefined && parsed.type === "packs") {
     return {
@@ -275,6 +311,12 @@ const packIdentity = (
       name: settingsName,
       fqn: `${settings.owner}/packs/${settingsName}`,
     };
+  }
+
+  const owner = accepted?.identity.owner ?? prospective?.owner;
+  const name = accepted?.identity.name ?? prospective?.pack.name;
+  if (owner !== undefined && name !== undefined) {
+    return { owner, name, fqn: `${owner}/packs/${name}` };
   }
 
   return undefined;
@@ -331,6 +373,7 @@ export const buildDesiredStateGraph = ({
   layout,
   prospectivePacks = [],
   registryAccessorities = {},
+  acceptedPacks = {},
 }: DesiredStateGraphArgs): Effect.Effect<DesiredStateGraph, never> =>
   Effect.gen(function* () {
     const candidates: Candidate[] = [];
@@ -434,7 +477,17 @@ export const buildDesiredStateGraph = ({
     addSettingsEntries("knowledge", settings.knowledge);
 
     for (const [settingsName, entry] of Object.entries(settings.packs ?? {})) {
-      const identity = packIdentity(settingsName, entry.source, settings);
+      const acceptedPack = acceptedPacks[settingsName];
+      const prospectivePack = prospectivePacks.find(
+        (candidate) => candidate.pack.name === settingsName,
+      );
+      const identity = packIdentity(
+        settingsName,
+        entry.source,
+        settings,
+        acceptedPack,
+        prospectivePack,
+      );
       if (identity === undefined) {
         problems.push({
           type: "pack-identity-mismatch",
@@ -466,13 +519,28 @@ export const buildDesiredStateGraph = ({
       });
 
       const workspacePack = isWorkspaceSourceLocator(entry.source);
-      const configuredRegistrySource = registryLocator(entry.source)?.sourceName ?? "agentxm";
+      const inheritedMemberAuthority = packAuthorityIdentity(
+        entry.source,
+        acceptedPack,
+        identity.fqn,
+        baseDir,
+      );
+      const configuredRegistrySource =
+        registryLocator(entry.source, settings.defaultRegistry)?.sourceName ??
+        settings.defaultRegistry ??
+        "agentxm";
       if (entry.enabled === false) continue;
 
       const document = manifests.locate({
         owner: identity.owner,
         name: identity.name,
-        sourceName: workspacePack ? "workspace" : configuredRegistrySource,
+        sourceFamily: workspacePack
+          ? "workspace"
+          : acceptedPack?.source.type === "path"
+            ? "path"
+            : acceptedPack === undefined || acceptedPack.source.type === "registry"
+              ? "registry"
+              : "git",
         relativeTo: baseDir,
         workspace: layout === undefined ? { baseDir, settings } : { layout },
       });
@@ -523,31 +591,42 @@ export const buildDesiredStateGraph = ({
         continue;
       }
 
-      for (const [fqn, constraint] of Object.entries(manifest.dependencies)) {
+      for (const [fqn, declaration] of Object.entries(manifest.dependencies)) {
         const parsed = parseExtensionFqnParts(fqn);
         if (parsed === undefined || parsed.type === "pack") continue;
+        const constraint = packMemberVersionRange(declaration);
+        const declaredSource = packMemberRegistrySource(declaration);
         const dependencyIdentity =
-          parsed.type === "mcp-server" &&
-          registryAccessorities[configuredRegistrySource] !== undefined
-            ? mcpRegistryResolutionKey({
-                authority: registryAccessorities[configuredRegistrySource],
-                owner: parsed.owner,
-                name: parsed.name,
-              })
-            : `${parsed.owner}/${toExtensionTypePlural(parsed.type)}/${parsed.name}`;
+          declaredSource !== undefined
+            ? `registry:${declaredSource.url.href}:${fqn}`
+            : parsed.type === "mcp-server" &&
+                registryAccessorities[configuredRegistrySource] !== undefined
+              ? mcpRegistryResolutionKey({
+                  authority: registryAccessorities[configuredRegistrySource],
+                  owner: parsed.owner,
+                  name: parsed.name,
+                })
+              : `${parsed.owner}/${toExtensionTypePlural(parsed.type)}/${parsed.name}`;
         candidates.push({
           type: parsed.type,
           name: parsed.name,
           identity: dependencyIdentity,
           authority: "sourced",
-          source: `${fqn}@${constraint}`,
+          source:
+            declaredSource === undefined
+              ? `${fqn}@${constraint}`
+              : `${declaredSource.url.href}#${fqn}@${constraint}`,
           enabled: true,
           constraint,
           origin: {
             type: "pack",
             pack: workspacePack ? `workspace:${identity.fqn}` : identity.fqn,
             manifestPath: document.relativePath,
-            source: fqn,
+            source: declaredSource?.url.href ?? fqn,
+            sourceAuthority:
+              declaredSource === undefined
+                ? inheritedMemberAuthority
+                : `registry:${declaredSource.url.href}`,
             constraint,
             enabled: true,
           },

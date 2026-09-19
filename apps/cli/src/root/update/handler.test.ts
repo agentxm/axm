@@ -247,7 +247,7 @@ describe("root update handler", () => {
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         owner: "@axm",
-        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/test-registry" }],
+        sources: [{ type: "registry", name: "test", location: "file:///tmp/test-registry" }],
         packs: { fresh: "@acme/packs/fresh" },
       });
 
@@ -316,7 +316,7 @@ describe("root update handler", () => {
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         owner: "@axm",
-        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/test-registry" }],
+        sources: [{ type: "registry", name: "test", location: "file:///tmp/test-registry" }],
         packs: { one: "@acme/packs/one", two: "@acme/packs/two" },
       });
       const settingsBefore = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
@@ -359,7 +359,7 @@ describe("root update handler", () => {
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         owner: "@axm",
-        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/test-registry" }],
+        sources: [{ type: "registry", name: "test", location: "file:///tmp/test-registry" }],
         skills: { reviewer: "@acme/skills/reviewer" },
       });
 
@@ -408,7 +408,7 @@ describe("root update handler", () => {
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         owner: "@axm",
-        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/test-registry" }],
+        sources: [{ type: "registry", name: "test", location: "file:///tmp/test-registry" }],
         skills: { reviewer: "@acme/skills/reviewer" },
       });
 
@@ -445,7 +445,7 @@ describe("root update handler", () => {
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {
         agents: ["claude-code"],
         owner: "@axm",
-        sources: [{ type: "registry", name: "agentxm", location: "file:///tmp/test-registry" }],
+        sources: [{ type: "registry", name: "test", location: "file:///tmp/test-registry" }],
         skills: { skill: "@acme/skills/skill" },
         mcps: { server: "@acme/mcps/server" },
         subagents: { subagent: "@acme/subagents/subagent" },

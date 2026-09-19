@@ -221,8 +221,9 @@ export const enableSubagent: OperationHandler<
     });
 
     const version =
-      canonical.value.accepted?.type === "registry"
-        ? canonical.value.accepted.resolvedVersion
+      canonical.value.accepted?.source.type === "registry" &&
+      "version" in canonical.value.accepted.resolved
+        ? canonical.value.accepted.resolved.version
         : undefined;
 
     return {

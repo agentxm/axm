@@ -30,7 +30,6 @@ export type { CarriedFailureCategory } from "./failure-category.js";
 
 // Provider implementations
 export { createGitSourceHostProvider } from "./providers/git.js";
-export { createGitHostingSourceHostProvider } from "./providers/git-hosting.js";
 export { createLocalSourceHostProvider } from "./providers/local.js";
 export {
   createLocalRegistrySourceHostProvider,
@@ -109,7 +108,10 @@ export { findGitRoot, isGitManaged } from "./git/detect.js";
 export {
   compareDirectoryToHead,
   getCommitSha,
+  getExactTag,
+  getRemoteUrl,
   getTreeSha,
+  listRemoteRefs,
   shallowClone,
   type GitDirectoryComparisonResult,
   type GitDirectoryDifference,

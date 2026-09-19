@@ -9,8 +9,10 @@ import {
   ExtensionNameSchema,
   ExtensionTypeSchema,
   ExtensionVisibilitySchema,
+  PackMemberRegistrySourceSchema,
   type ExtensionName,
   type ExtensionType,
+  type PackMemberRegistrySource,
 } from "@agentxm/extension-model/unstable/extensions/common";
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions/fqn";
 import { HandleSchema, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
@@ -55,6 +57,7 @@ const PackDependencyDescriptorSchema = Schema.Struct({
   type: Schema.Literals(["hook", "knowledge", "mcp-server", "rule", "skill", "subagent"] as const),
   name: ExtensionNameSchema,
   range: VersionRangeSchema,
+  source: Schema.optional(PackMemberRegistrySourceSchema),
 }).annotate({ identifier: "PackDependencyDescriptor" });
 
 export interface PackDependencyDescriptor {
@@ -62,6 +65,7 @@ export interface PackDependencyDescriptor {
   readonly type: Exclude<ExtensionType, "pack">;
   readonly name: ExtensionName;
   readonly range: VersionRange;
+  readonly source?: PackMemberRegistrySource | undefined;
 }
 
 export const PublicationVisibilityInputSchema = Schema.Struct({
@@ -82,6 +86,11 @@ export const PublicationDescriptorSchema = Schema.Struct({
     }),
   ),
 }).annotate({ identifier: "PublicationDescriptor" });
+
+const PublicationDescriptorInputSchema = Schema.Union([
+  PublicationDescriptorSchema,
+  Schema.toType(PublicationDescriptorSchema),
+]);
 
 export interface PublicationDescriptor {
   readonly target: PublicationTarget;
@@ -303,10 +312,11 @@ const compareDependencies = (
   compareText(left.owner, right.owner) ||
   compareText(left.type, right.type) ||
   compareText(left.name, right.name) ||
-  compareText(left.range, right.range);
+  compareText(left.range, right.range) ||
+  compareText(left.source?.url.href ?? "", right.source?.url.href ?? "");
 
 export const normalizePublicationDescriptor = (input: unknown): PublicationDescriptor => {
-  const descriptor = Schema.decodeUnknownSync(PublicationDescriptorSchema)(input);
+  const descriptor = Schema.decodeUnknownSync(PublicationDescriptorInputSchema)(input);
   return {
     target: {
       owner: descriptor.target.owner,
@@ -339,6 +349,14 @@ export const normalizePublicationDescriptor = (input: unknown): PublicationDescr
                 type: dependency.type,
                 name: dependency.name,
                 range: dependency.range,
+                ...(dependency.source === undefined
+                  ? {}
+                  : {
+                      source: {
+                        type: dependency.source.type,
+                        url: dependency.source.url,
+                      },
+                    }),
               }))
               .sort(compareDependencies),
           },
@@ -356,6 +374,30 @@ export const normalizePublicationSet = (
 const canonicalBytes = (value: unknown): Uint8Array =>
   new TextEncoder().encode(JSON.stringify(value));
 
+const canonicalPublicationDescriptor = (input: unknown): unknown => {
+  const descriptor = normalizePublicationDescriptor(input);
+  return {
+    ...descriptor,
+    ...(descriptor.pack === undefined
+      ? {}
+      : {
+          pack: {
+            dependencies: descriptor.pack.dependencies.map((dependency) => ({
+              ...dependency,
+              ...(dependency.source === undefined
+                ? {}
+                : {
+                    source: {
+                      type: dependency.source.type,
+                      url: dependency.source.url.href,
+                    },
+                  }),
+            })),
+          },
+        }),
+  };
+};
+
 const sha256Hex = (bytes: Uint8Array): Sha256Hex =>
   Schema.decodeUnknownSync(Sha256HexSchema)(createHash("sha256").update(bytes).digest("hex"));
 
@@ -363,7 +405,7 @@ export const publicationDescriptorDigest = (descriptor: unknown): Sha256Hex =>
   sha256Hex(
     canonicalBytes({
       contract: PUBLICATION_SET_CONTRACT,
-      descriptor: normalizePublicationDescriptor(descriptor),
+      descriptor: canonicalPublicationDescriptor(descriptor),
     }),
   );
 
@@ -371,7 +413,7 @@ export const publicationSetDigest = (descriptors: ReadonlyArray<unknown>): Sha25
   sha256Hex(
     canonicalBytes({
       contract: PUBLICATION_SET_CONTRACT,
-      candidates: normalizePublicationSet(descriptors),
+      candidates: normalizePublicationSet(descriptors).map(canonicalPublicationDescriptor),
     }),
   );
 
@@ -391,12 +433,9 @@ export const validatePublicationDescriptors = (
       `Publication sets accept at most ${MAX_PUBLICATION_SET_CANDIDATES} candidates.`,
     );
   }
-  Schema.decodeUnknownSync(PreviewPublicationSetRequestSchema)({
-    contract: PUBLICATION_SET_CONTRACT,
-    candidates: descriptors,
-  });
+  const normalized = normalizePublicationSet(descriptors);
   const identities = new Set<string>();
-  for (const descriptor of descriptors) {
+  for (const descriptor of normalized) {
     const key = publicationIdentityKey(descriptor.target);
     if (identities.has(key)) {
       throw new TypeError(`Duplicate publication target ${key}.`);
@@ -409,7 +448,7 @@ export const validatePublicationDescriptors = (
       throw new TypeError("Pack declarations are required exactly for pack candidates.");
     }
   }
-  return normalizePublicationSet(descriptors);
+  return normalized;
 };
 
 const dependencyIdentityKey = (dependency: PackDependencyDescriptor): string =>

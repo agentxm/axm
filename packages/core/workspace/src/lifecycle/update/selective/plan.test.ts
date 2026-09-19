@@ -52,22 +52,19 @@ const skillBase = (name: string) => ({
 const makeSkillRef = (
   name: string,
   source:
-    | { readonly type: "github"; readonly tree: string }
+    | { readonly type: "git"; readonly tree: string }
     | { readonly type: "registry"; readonly version: Version }
     | { readonly type: "local" },
 ): SkillExtensionRef => {
-  if (source.type === "github") {
+  if (source.type === "git") {
     return {
       ...skillBase(name),
       refType: "git-hosted",
       owner: AXM,
       name: extensionName(name),
       source: {
-        type: "github",
-        name: "github",
-        url: new URL("https://github.com"),
-        owner: "owner",
-        repo: "repo",
+        type: "git",
+        url: new URL("https://github.com/owner/repo.git"),
         ref: Option.none(),
         subPath: Option.none(),
       },
@@ -107,7 +104,7 @@ const makeSkillRef = (
 const skillUnit = (
   name: string,
   source:
-    | { readonly type: "github"; readonly tree: string }
+    | { readonly type: "git"; readonly tree: string }
     | { readonly type: "registry"; readonly version: Version }
     | { readonly type: "local" },
   force = false,
@@ -119,36 +116,20 @@ const skillUnit = (
 });
 
 const githubLock = (name: string, tree: string): SkillLockEntry => ({
-  type: "github",
-  sourceType: "github",
-  sourceName: "github",
-  endpoint: new URL("https://github.com"),
-  extensionType: "skill",
-  workspaceName: extensionName(name),
-  packageFormat: "agentxm",
-  packageOwner: AXM,
-  packageName: extensionName(name),
-  owner: "owner",
-  repo: "repo",
-  resolvedCommit: "commit",
-  resolvedTree: tree,
-  contentIdentity: CONTENT_IDENTITY,
+  source: { type: "git", url: new URL("https://github.com/owner/repo.git") },
+  identity: { owner: AXM, name: extensionName(name) },
+  resolved: { commit: "commit", tree },
   treeIntegrity: TREE_INTEGRITY,
 });
 
 const registryLock = (version: Version): SkillLockEntry => ({
-  type: "registry",
-  sourceType: "registry",
-  endpoint: new URL("http://localhost:3000"),
-  extensionType: "skill",
-  workspaceName: extensionName("skill"),
-  packageFormat: "agentxm",
-  owner: AXM,
-  name: extensionName("skill"),
-  resolvedVersion: version,
-  integrity: "sha512-AAAA==",
-  sourceName: "agentxm",
-  publisherBindingId: "hbnd_test",
+  source: { type: "registry", url: new URL("http://localhost:3000") },
+  identity: { owner: AXM, name: extensionName("skill") },
+  resolved: {
+    version,
+    integrity: "sha512-AAAA==",
+    publisherBindingId: "hbnd_test",
+  },
   treeIntegrity: TREE_INTEGRITY,
 });
 
@@ -215,7 +196,7 @@ describe("buildSelectiveUpdatePlan — skills", () => {
   it.effect("skips a Git resolution with the same accepted tree", () =>
     Effect.gen(function* () {
       const message = yield* firstMessage(
-        skillUnit("commit", { type: "github", tree: "same-tree" }),
+        skillUnit("commit", { type: "git", tree: "same-tree" }),
         { commit: githubLock("commit", "same-tree") },
         dispatched,
       );
@@ -226,7 +207,7 @@ describe("buildSelectiveUpdatePlan — skills", () => {
   it.effect("dispatches a Git resolution whose accepted tree changed", () =>
     Effect.gen(function* () {
       const message = yield* firstMessage(
-        skillUnit("commit", { type: "github", tree: "new-tree" }),
+        skillUnit("commit", { type: "git", tree: "new-tree" }),
         { commit: githubLock("commit", "old-tree") },
         dispatched,
       );
@@ -257,28 +238,21 @@ describe("buildSelectiveUpdatePlan — skills", () => {
         skillUnit("local", { type: "local" }),
         {
           local: {
-            type: "local",
-            sourceType: "local",
-            sourceName: "local",
-            extensionType: "skill",
-            workspaceName: extensionName("local"),
-            packageFormat: "agentxm",
-            packageOwner: AXM,
-            packageName: extensionName("local"),
-            path: "source",
-            contentIdentity: CONTENT_IDENTITY,
+            source: { type: "path", path: "source" },
+            identity: { owner: AXM, name: extensionName("local") },
+            resolved: { tree: CONTENT_IDENTITY },
             treeIntegrity: TREE_INTEGRITY,
           },
         },
         dispatched,
       );
       const missing = yield* firstMessage(
-        skillUnit("missing", { type: "github", tree: "tree" }),
+        skillUnit("missing", { type: "git", tree: "tree" }),
         {},
         dispatched,
       );
       const forced = yield* firstMessage(
-        skillUnit("forced", { type: "github", tree: "tree" }, true),
+        skillUnit("forced", { type: "git", tree: "tree" }, true),
         { forced: githubLock("forced", "tree") },
         dispatched,
       );
@@ -330,18 +304,13 @@ const makeSubagentRef = (name: string, version: string): RegistrySubagentRef => 
 
 const acceptedSubagent = (version: string): SubagentsLockMap => ({
   researcher: {
-    type: "registry",
-    sourceType: "registry",
-    endpoint: new URL("file:///test-registry"),
-    extensionType: "subagent",
-    workspaceName: extensionName("researcher"),
-    packageFormat: "agentxm",
-    owner: handle("@test"),
-    name: extensionName("researcher"),
-    resolvedVersion: exactVersion(version),
-    integrity: "sha512-AAAA==",
-    sourceName: "agentxm",
-    publisherBindingId: "hbnd_test",
+    source: { type: "registry", url: new URL("file:///test-registry") },
+    identity: { owner: handle("@test"), name: extensionName("researcher") },
+    resolved: {
+      version: exactVersion(version),
+      integrity: "sha512-AAAA==",
+      publisherBindingId: "hbnd_test",
+    },
     treeIntegrity: TREE_INTEGRITY,
   },
 });

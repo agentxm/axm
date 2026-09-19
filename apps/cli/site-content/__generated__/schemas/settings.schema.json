@@ -9,6 +9,13 @@
       "description": "A unique username or organization name starting with @, like @my-org.",
       "examples": ["@my-org", "@username"]
     },
+    "RegistryName": {
+      "type": "string",
+      "pattern": "^(?!(?:azurerepos|bitbucket|git|github|gitlab|local|registry|workspace)$)[a-z0-9][a-z0-9.-]*$",
+      "title": "Registry Name",
+      "description": "Registry source used by unqualified references, authentication, and publishing. Project settings override user settings; agentxm is the built-in default.",
+      "examples": ["agentxm", "company"]
+    },
     "ExtensionVisibility": {
       "type": "string",
       "enum": ["public", "private"],
@@ -130,60 +137,12 @@
     },
     "SourceName": {
       "type": "string",
-      "pattern": "^(?!(?:git|local|workspace)$)[a-z0-9][a-z0-9.-]*$",
+      "pattern": "^(?!(?:agentxm|azurerepos|bitbucket|git|github|gitlab|local|registry|workspace)$)[a-z0-9][a-z0-9.-]*$",
       "title": "Source Name",
       "description": "Alias used in entry source strings for this source host.",
-      "examples": ["github", "my-registry.dev"]
+      "examples": ["company", "my-registry.dev"]
     },
-    "GitHubSourceHostConfig": {
-      "type": "object",
-      "properties": {
-        "name": { "$ref": "#/definitions/SourceName" },
-        "type": { "type": "string", "enum": ["github"] },
-        "url": { "type": "string" }
-      },
-      "required": ["name", "type", "url"],
-      "additionalProperties": false,
-      "title": "GitHub Source Host",
-      "description": "A GitHub source host."
-    },
-    "GitLabSourceHostConfig": {
-      "type": "object",
-      "properties": {
-        "name": { "$ref": "#/definitions/SourceName" },
-        "type": { "type": "string", "enum": ["gitlab"] },
-        "url": { "type": "string" }
-      },
-      "required": ["name", "type", "url"],
-      "additionalProperties": false,
-      "title": "GitLab Source Host",
-      "description": "A GitLab source host."
-    },
-    "BitbucketSourceHostConfig": {
-      "type": "object",
-      "properties": {
-        "name": { "$ref": "#/definitions/SourceName" },
-        "type": { "type": "string", "enum": ["bitbucket"] },
-        "url": { "type": "string" }
-      },
-      "required": ["name", "type", "url"],
-      "additionalProperties": false,
-      "title": "Bitbucket Source Host",
-      "description": "A Bitbucket source host."
-    },
-    "AzureReposSourceHostConfig": {
-      "type": "object",
-      "properties": {
-        "name": { "$ref": "#/definitions/SourceName" },
-        "type": { "type": "string", "enum": ["azurerepos"] },
-        "url": { "type": "string" }
-      },
-      "required": ["name", "type", "url"],
-      "additionalProperties": false,
-      "title": "Azure Repos Source Host",
-      "description": "An Azure Repos source host."
-    },
-    "RegistrySourceHostConfig": {
+    "SourceHostConfig": {
       "type": "object",
       "properties": {
         "name": { "$ref": "#/definitions/SourceName" },
@@ -192,19 +151,8 @@
       },
       "required": ["name", "type", "location"],
       "additionalProperties": false,
-      "title": "Registry Source Host",
-      "description": "A package registry source host."
-    },
-    "SourceHostConfig": {
-      "anyOf": [
-        { "$ref": "#/definitions/GitHubSourceHostConfig" },
-        { "$ref": "#/definitions/GitLabSourceHostConfig" },
-        { "$ref": "#/definitions/BitbucketSourceHostConfig" },
-        { "$ref": "#/definitions/AzureReposSourceHostConfig" },
-        { "$ref": "#/definitions/RegistrySourceHostConfig" }
-      ],
       "title": "Source Host Config",
-      "description": "A source host configuration: GitHub, GitLab, Bitbucket, Azure Repos, or a package registry."
+      "description": "A named package registry source. Git clone URLs need no configuration."
     },
     "SkillEntry": {
       "anyOf": [
@@ -227,6 +175,11 @@
               "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
               "default": true
             },
+            "distribute": {
+              "type": "boolean",
+              "description": "Set to false to omit this authored extension from repository discovery, bulk publication, and share output. This is distribution intent, not a confidentiality control.",
+              "default": true
+            },
             "origin": {
               "type": "string",
               "enum": ["bundled"],
@@ -236,7 +189,7 @@
           "required": ["source"],
           "additionalProperties": false,
           "title": "Skill Entry Object",
-          "description": "A skill entry with source, optional enabled state, and bundled origin marker."
+          "description": "A skill entry with source, optional enabled and distribution state, and bundled origin marker."
         }
       ],
       "title": "Skill Entry",
@@ -285,12 +238,17 @@
               "type": "boolean",
               "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
               "default": true
+            },
+            "distribute": {
+              "type": "boolean",
+              "description": "Set to false to omit this authored extension from repository discovery, bulk publication, and share output. This is distribution intent, not a confidentiality control.",
+              "default": true
             }
           },
           "required": ["source"],
           "additionalProperties": false,
           "title": "Rule Entry Object",
-          "description": "A rule entry with source and an optional enabled flag."
+          "description": "A rule entry with source and optional enabled and distribution state."
         }
       ],
       "title": "Rule Entry",
@@ -339,12 +297,17 @@
               "type": "boolean",
               "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
               "default": true
+            },
+            "distribute": {
+              "type": "boolean",
+              "description": "Set to false to omit this authored extension from repository discovery, bulk publication, and share output. This is distribution intent, not a confidentiality control.",
+              "default": true
             }
           },
           "required": ["source"],
           "additionalProperties": false,
           "title": "Hook Entry Object",
-          "description": "A hook entry with source and an optional enabled flag."
+          "description": "A hook entry with source and optional enabled and distribution state."
         }
       ],
       "title": "Hook Entry",
@@ -394,6 +357,11 @@
               "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
               "default": true
             },
+            "distribute": {
+              "type": "boolean",
+              "description": "Set to false to omit this authored extension from repository discovery, bulk publication, and share output. This is distribution intent, not a confidentiality control.",
+              "default": true
+            },
             "instructionEntry": {
               "type": "boolean",
               "description": "Include this bundle in the managed Knowledge Bundles instruction table. Omit to inherit the manifest default."
@@ -402,7 +370,7 @@
           "required": ["source"],
           "additionalProperties": false,
           "title": "Knowledge Entry Object",
-          "description": "A knowledge bundle entry with source, optional enabled state, and an optional instruction-entry override."
+          "description": "A knowledge bundle entry with source, optional enabled and distribution state, and an optional instruction-entry override."
         }
       ],
       "title": "Knowledge Entry",
@@ -458,12 +426,17 @@
               "type": "boolean",
               "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
               "default": true
+            },
+            "distribute": {
+              "type": "boolean",
+              "description": "Set to false to omit this authored extension from repository discovery, bulk publication, and share output. This is distribution intent, not a confidentiality control.",
+              "default": true
             }
           },
           "required": ["source"],
           "additionalProperties": false,
           "title": "Subagent Entry Object",
-          "description": "A subagent entry with source and an optional enabled flag."
+          "description": "A subagent entry with source and optional enabled and distribution state."
         }
       ],
       "title": "Subagent Entry",
@@ -512,12 +485,17 @@
               "type": "boolean",
               "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
               "default": true
+            },
+            "distribute": {
+              "type": "boolean",
+              "description": "Set to false to omit this authored extension from repository discovery, bulk publication, and share output. This is distribution intent, not a confidentiality control.",
+              "default": true
             }
           },
           "required": ["source"],
           "additionalProperties": false,
           "title": "Pack Entry Object",
-          "description": "A pack entry with a source and an optional enabled flag."
+          "description": "A pack entry with source and optional enabled and distribution state."
         }
       ],
       "title": "Pack Entry",
@@ -596,6 +574,11 @@
             "enabled": {
               "type": "boolean",
               "description": "Set to false to disable this entry. Omit otherwise — true is the default and should not be written explicitly.",
+              "default": true
+            },
+            "distribute": {
+              "type": "boolean",
+              "description": "Set to false to omit this authored extension from repository discovery, bulk publication, and share output. This is distribution intent, not a confidentiality control.",
               "default": true
             },
             "env": { "$ref": "#/definitions/McpServerEnv" }
@@ -764,6 +747,9 @@
             "workspace/agent-content-has-settings": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/skills-declarations-valid": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/packs-declarations-valid": { "$ref": "#/definitions/LintRuleSeverity" },
+            "workspace/packs-shared-members-distributable": {
+              "$ref": "#/definitions/LintRuleSeverity"
+            },
             "workspace/configured-but-not-installed": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/knowledge-state-valid": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/mcps-transport-exclusivity": { "$ref": "#/definitions/LintRuleSeverity" },
@@ -793,6 +779,7 @@
           "anyOf": [{ "$ref": "#/definitions/Handle" }],
           "description": "Default owner handle used when AXM scaffolds or resolves workspace extensions."
         },
+        "defaultRegistry": { "$ref": "#/definitions/RegistryName" },
         "publish": {
           "anyOf": [{ "$ref": "#/definitions/WorkspacePublishOptions" }],
           "description": "Workspace-level publication defaults."
@@ -830,17 +817,17 @@
         },
         "skills": {
           "anyOf": [{ "$ref": "#/definitions/SkillsMap" }],
-          "description": "Desired skills, keyed by workspace skill name. Prefer plain source strings; use the object form only to set `enabled: false`."
+          "description": "Desired skills, keyed by workspace skill name. Prefer plain source strings; use the object form to set non-default entry metadata such as `enabled: false` or `distribute: false`."
         },
         "skillsConfig": { "$ref": "#/definitions/SkillsConfig" },
         "rules": {
           "anyOf": [{ "$ref": "#/definitions/RulesMap" }],
-          "description": "Desired rules, keyed by workspace rule name. Prefer plain source strings; use the object form only to set `enabled: false`."
+          "description": "Desired rules, keyed by workspace rule name. Prefer plain source strings; use the object form to set non-default entry metadata such as `enabled: false` or `distribute: false`."
         },
         "rulesConfig": { "$ref": "#/definitions/RulesConfig" },
         "hooks": {
           "anyOf": [{ "$ref": "#/definitions/HooksMap" }],
-          "description": "Desired hooks, keyed by workspace hook name. Prefer plain source strings; use the object form only to set `enabled: false`."
+          "description": "Desired hooks, keyed by workspace hook name. Prefer plain source strings; use the object form to set non-default entry metadata such as `enabled: false` or `distribute: false`."
         },
         "hooksConfig": { "$ref": "#/definitions/HooksConfig" },
         "knowledge": {
@@ -853,17 +840,17 @@
         },
         "subagents": {
           "anyOf": [{ "$ref": "#/definitions/SubagentsMap" }],
-          "description": "Desired subagents, keyed by workspace subagent name. Prefer plain source strings; use the object form only to set `enabled: false`."
+          "description": "Desired subagents, keyed by workspace subagent name. Prefer plain source strings; use the object form to set non-default entry metadata such as `enabled: false` or `distribute: false`."
         },
         "subagentsConfig": { "$ref": "#/definitions/SubagentsConfig" },
         "packs": {
           "anyOf": [{ "$ref": "#/definitions/PacksMap" }],
-          "description": "Desired packs, keyed by workspace pack name. Pack entries do not support `enabled`."
+          "description": "Desired packs, keyed by workspace pack name. Prefer plain source strings; use the object form to set non-default entry metadata such as `enabled: false` or `distribute: false`."
         },
         "packsConfig": { "$ref": "#/definitions/PacksConfig" },
         "mcpServers": {
           "anyOf": [{ "$ref": "#/definitions/McpServersMap" }],
-          "description": "Desired MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form to set enabled state, persisted env values, or an agent target subset."
+          "description": "Desired MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form to set enabled or distribution state and persisted env values."
         },
         "mcpServersConfig": { "$ref": "#/definitions/McpServersConfig" },
         "lint": {

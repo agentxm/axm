@@ -13,7 +13,11 @@ import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import { AuthoringFailed } from "../../authoring/errors.js";
 import { authoringStepFailure } from "../../authoring/step-failure.js";
-import type { Handle } from "@agentxm/extension-model/unstable/extensions";
+import type {
+  Handle,
+  PackMemberConstraint,
+  PackMemberConstraintMap,
+} from "@agentxm/extension-model/unstable/extensions";
 import type { OperationHandler } from "../../transitions/planning/index.js";
 import type { Operation } from "../../transitions/planning/index.js";
 import type { JobStepResult } from "../../transitions/planning/index.js";
@@ -29,6 +33,7 @@ import {
 } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { packManifestArtifact } from "./artifact.js";
 import { hashContent } from "./hash-content.js";
+import { decodeVersionRangeSync } from "@agentxm/extension-model/unstable/version-constraints";
 
 // -----------------------------------------------------------------------------
 // Operation types
@@ -149,9 +154,9 @@ export const addToPack: OperationHandler<
           ),
         );
 
-        const dependencies: Record<string, string> = { ...manifest.dependencies };
+        const dependencies: Record<string, PackMemberConstraint> = { ...manifest.dependencies };
         for (const [fqn, version] of Object.entries(additions)) {
-          dependencies[fqn] = version;
+          dependencies[fqn] = decodeVersionRangeSync(version);
         }
 
         const updatedManifest = {
@@ -160,7 +165,7 @@ export const addToPack: OperationHandler<
           type: manifest.type,
           name: manifest.name,
           version: manifest.version,
-          dependencies,
+          dependencies: dependencies satisfies PackMemberConstraintMap,
         };
         const validatedUpdatedManifest = yield* Schema.decodeUnknownEffect(PackManifestSchema)(
           updatedManifest,

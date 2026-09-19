@@ -42,8 +42,8 @@ describe("extension path helpers", () => {
     );
 
     expect(paths).toEqual({
-      canonicalPath: "/workspace/agent_extensions/agentxm/@acme/rules/review-pr",
-      extensionSrcPath: "/workspace/agent_extensions/agentxm/@acme/rules/review-pr/src",
+      canonicalPath: "/workspace/agent_extensions/registry/@acme/rules/review-pr",
+      extensionSrcPath: "/workspace/agent_extensions/registry/@acme/rules/review-pr/src",
     });
   });
 
@@ -53,6 +53,7 @@ describe("extension path helpers", () => {
       layout,
       {
         refType: "local",
+        owner: handle("@acme"),
         source: { type: "local", path: "/workspace/vendor/reviewer" },
         sourcePath: "vendor/reviewer",
       },
@@ -61,17 +62,18 @@ describe("extension path helpers", () => {
     );
 
     expect(paths).toEqual({
-      canonicalPath: "/workspace/agent_extensions/local/vendor/reviewer",
-      extensionSrcPath: "/workspace/agent_extensions/local/vendor/reviewer/src",
+      canonicalPath: "/workspace/agent_extensions/path/@acme/subagents/reviewer",
+      extensionSrcPath: "/workspace/agent_extensions/path/@acme/subagents/reviewer/src",
     });
   });
 
-  it("encodes parent segments in an outside-workspace local source coordinate", () => {
+  it("keeps outside-workspace source coordinates out of the canonical identity path", () => {
     const paths = computeExtensionPathsForLayout(
       nodePath.join,
       layout,
       {
         refType: "local",
+        owner: handle("@acme"),
         source: { type: "local", path: "/outside/review" },
         sourcePath: "../outside/review",
       },
@@ -80,8 +82,8 @@ describe("extension path helpers", () => {
     );
 
     expect(paths).toEqual({
-      canonicalPath: "/workspace/agent_extensions/local/%2E%2E/outside/review",
-      extensionSrcPath: "/workspace/agent_extensions/local/%2E%2E/outside/review/src",
+      canonicalPath: "/workspace/agent_extensions/path/@acme/skills/review",
+      extensionSrcPath: "/workspace/agent_extensions/path/@acme/skills/review/src",
     });
   });
 
@@ -92,11 +94,8 @@ describe("extension path helpers", () => {
       {
         refType: "git-hosted",
         source: {
-          type: "github",
-          name: "github",
-          url: new URL("https://github.com"),
-          owner: "remix-run",
-          repo: "react-router",
+          type: "git",
+          url: new URL("https://github.com/remix-run/react-router.git"),
           ref: Option.some("main"),
           subPath: Option.some(".agents/skills/react-router"),
         },
@@ -108,11 +107,35 @@ describe("extension path helpers", () => {
     );
 
     expect(paths).toEqual({
-      canonicalPath:
-        "/workspace/agent_extensions/github/remix-run/react-router/.agents/skills/react-router",
-      extensionSrcPath:
-        "/workspace/agent_extensions/github/remix-run/react-router/.agents/skills/react-router",
+      canonicalPath: "/workspace/agent_extensions/git/@portable/skills/react-router",
+      extensionSrcPath: "/workspace/agent_extensions/git/@portable/skills/react-router",
     });
+  });
+
+  it("gives packages discovered at one repository path distinct identity paths", () => {
+    const source = {
+      refType: "git-hosted" as const,
+      owner: handle("@acme"),
+      source: {
+        type: "git" as const,
+        url: new URL("https://github.com/acme/extensions.git"),
+        ref: Option.some("main"),
+        subPath: Option.some("packages/shared"),
+      },
+      sourcePath: "packages/shared",
+    };
+
+    const skill = computeExtensionPathsForLayout(nodePath.join, layout, source, "skills", "review");
+    const rule = computeExtensionPathsForLayout(
+      nodePath.join,
+      layout,
+      source,
+      "rules",
+      "review-policy",
+    );
+
+    expect(skill.canonicalPath).toBe("/workspace/agent_extensions/git/@acme/skills/review");
+    expect(rule.canonicalPath).toBe("/workspace/agent_extensions/git/@acme/rules/review-policy");
   });
 
   it("computes markdown content filenames and paths", () => {

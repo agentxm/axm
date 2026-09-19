@@ -35,59 +35,61 @@ type SourceLockEntry =
  * @experimental This API is unstable and may change without notice.
  */
 export const lockEntryToSourceParams = (entry: SourceLockEntry): SourceParams => {
-  switch (entry.type) {
-    case "github":
-      return {
-        type: "github",
-        sourceName: entry.sourceName,
-        owner: entry.owner,
-        repo: entry.repo,
-        ref: Option.fromUndefinedOr(entry.ref),
-        subPath: Option.fromUndefinedOr(entry.path),
-      };
-    case "gitlab":
-      return {
-        type: "gitlab",
-        sourceName: entry.sourceName,
-        owner: entry.owner,
-        repo: entry.repo,
-        ref: Option.fromUndefinedOr(entry.ref),
-        subPath: Option.fromUndefinedOr(entry.path),
-      };
-    case "bitbucket":
-      return {
-        type: "bitbucket",
-        sourceName: entry.sourceName,
-        owner: entry.owner,
-        repo: entry.repo,
-        ref: Option.fromUndefinedOr(entry.ref),
-        subPath: Option.fromUndefinedOr(entry.path),
-      };
-    case "azurerepos":
-      return {
-        type: "azurerepos",
-        sourceName: entry.sourceName,
-        organization: entry.organization,
-        project: entry.project,
-        repo: entry.repo,
-        ref: Option.fromUndefinedOr(entry.ref),
-        subPath: Option.fromUndefinedOr(entry.path),
-      };
+  switch (entry.source.type) {
     case "git":
       return {
         type: "git",
-        url: new URL(entry.url),
-        ref: Option.fromUndefinedOr(entry.ref),
+        url: entry.source.url,
+        ref: Option.fromUndefinedOr(entry.source.revision),
+        subPath: Option.fromUndefinedOr(entry.source.path),
       };
-    case "local":
-      return { type: "local", path: entry.path };
+    case "path":
+      return { type: "local", path: entry.source.path };
     case "registry":
       return {
         type: "registry",
-        sourceName: entry.sourceName,
+        sourceName: entry.source.url.href,
         owner: Option.none(),
       };
   }
+};
+
+const knownGitHostPrefix = (url: URL): string | undefined => {
+  switch (url.hostname.toLowerCase()) {
+    case "github.com":
+      return "github";
+    case "gitlab.com":
+      return "gitlab";
+    case "bitbucket.org":
+      return "bitbucket";
+    default:
+      return undefined;
+  }
+};
+
+const trimSlashes = (value: string): string => {
+  let start = 0;
+  let end = value.length;
+  while (start < end && value[start] === "/") start += 1;
+  while (end > start && value[end - 1] === "/") end -= 1;
+  return value.slice(start, end);
+};
+
+/** Whether a declaration locator denotes the self-described accepted source. */
+export const lockEntryMatchesSourceLocator = (entry: SourceLockEntry, locator: string): boolean => {
+  if (printSourceParams(lockEntryToSourceParams(entry)) === locator) return true;
+  if (entry.source.type !== "git") return false;
+
+  const prefix = knownGitHostPrefix(entry.source.url);
+  if (prefix === undefined) return false;
+  const repository = trimSlashes(entry.source.url.pathname).replace(/\.git$/, "");
+  if (repository.length === 0) return false;
+  const path = entry.source.path === undefined ? "" : `//${entry.source.path}`;
+  const revision = entry.source.revision === undefined ? "" : `@${entry.source.revision}`;
+  return (
+    locator === `${prefix}:${repository}${path}${revision}` ||
+    (prefix === "github" && locator === `${repository}${path}${revision}`)
+  );
 };
 
 /**
@@ -98,6 +100,8 @@ export const lockEntryToSourceParams = (entry: SourceLockEntry): SourceParams =>
  * @experimental This API is unstable and may change without notice.
  */
 export const printSkillLockSourceLocator = (_lockName: string, entry: SkillLockEntry): string =>
-  entry.type === "registry"
-    ? `${entry.sourceName}:${formatFqn({ owner: entry.owner, type: "skill", name: entry.name })}@${entry.resolvedVersion}`
+  entry.source.type === "registry" &&
+  "version" in entry.resolved &&
+  entry.identity.owner !== undefined
+    ? `registry:${entry.source.url.href}:${formatFqn({ owner: entry.identity.owner, type: "skill", name: entry.identity.name })}@${entry.resolved.version}`
     : printSourceParams(lockEntryToSourceParams(entry));

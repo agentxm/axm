@@ -19,7 +19,6 @@ import { buildLintWorkspace } from "./lint-workspace.js";
 const WORKSPACE_ROOT = "/workspace";
 const USER_HOME = "/home/user";
 
-const installedAt = "2026-01-01T00:00:00.000Z";
 const treeIntegrity = `sha256-tree-v1:${"0".repeat(64)}`;
 
 const baseManifest = {
@@ -70,44 +69,29 @@ const settings = {
 };
 
 const lockfile = {
-  lockfileVersion: 7,
+  lockfileVersion: 8,
   skills: {
     "bad-skill": {
-      type: "registry",
-      sourceType: "registry",
-      sourceName: "agentxm",
-      endpoint: "https://registry.agentxm.ai",
-      extensionType: "skill",
-      workspaceName: "bad-skill",
-      packageFormat: "agentxm",
-      owner: "@acme",
-      name: "bad-skill",
-      resolvedVersion: "1.0.0",
-      integrity: "sha256-test",
-      publisherBindingId: "hbnd_test",
+      source: { type: "registry", url: "https://registry.agentxm.ai" },
+      identity: { owner: "@acme", name: "bad-skill" },
+      resolved: {
+        version: "1.0.0",
+        integrity: "sha256-test",
+        publisherBindingId: "hbnd_test",
+      },
       treeIntegrity,
-      installedAt,
-      updatedAt: installedAt,
-      agents: [],
     },
   },
   mcpServers: {
     "bad-mcp": {
-      type: "registry",
-      sourceType: "registry",
-      sourceName: "agentxm",
-      endpoint: "https://registry.agentxm.ai",
-      extensionType: "mcp-server",
-      workspaceName: "bad-mcp",
-      packageFormat: "agentxm",
-      owner: "@acme",
-      name: "bad-mcp",
-      resolvedVersion: "1.0.0",
-      integrity: "sha256-test",
-      publisherBindingId: "hbnd_test",
+      source: { type: "registry", url: "https://registry.agentxm.ai" },
+      identity: { owner: "@acme", name: "bad-mcp" },
+      resolved: {
+        version: "1.0.0",
+        integrity: "sha256-test",
+        publisherBindingId: "hbnd_test",
+      },
       treeIntegrity,
-      installedAt,
-      updatedAt: installedAt,
     },
   },
 };

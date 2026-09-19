@@ -208,7 +208,7 @@ describe("axm skills install output UX", () => {
         },
       );
 
-      expect(result.exitCode).toBe(0);
+      expect(result.exitCode, result.stdout + result.stderr).toBe(0);
       const document = JSON.parse(result.stdout);
       expect(document.ok).toBe(true);
       expect(document.result.contract).toBe("plan-result-v3");

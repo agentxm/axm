@@ -55,6 +55,7 @@ import {
 } from "@agentxm/workspace/desired-state";
 import {
   AppErrorCodeSchema,
+  redactCredentialBearingLocator,
   redactSensitiveText,
   serializeErrorCauseChain,
 } from "./app-error/index.js";
@@ -127,6 +128,54 @@ const StepArtifactReferenceSchema = Schema.Struct({
   owner: Schema.optional(Schema.String),
 });
 
+const SourceSwitchEndpointSchema = Schema.Struct({
+  family: Schema.Literals(["registry", "git", "path"] as const),
+  locator: Schema.String,
+  resolution: Schema.String,
+  treeIntegrity: Schema.String,
+});
+
+const PackMemberSourceSwitchEndpointSchema = Schema.Struct({
+  family: Schema.Literals(["registry", "git", "path", "workspace"] as const),
+  locator: Schema.String,
+  resolution: Schema.String,
+});
+
+const PackMemberSourceSwitchEvidenceSchema = Schema.Struct({
+  member: Schema.String,
+  disposition: Schema.Literals([
+    "added",
+    "removed",
+    "retained",
+    "source-changed",
+    "version-changed",
+    "unchanged",
+  ] as const),
+  before: Schema.optional(PackMemberSourceSwitchEndpointSchema),
+  after: Schema.optional(PackMemberSourceSwitchEndpointSchema),
+});
+
+const SourceSwitchEvidenceSchema = Schema.Struct({
+  before: SourceSwitchEndpointSchema,
+  after: SourceSwitchEndpointSchema,
+  content: Schema.Literals(["equivalent", "changed"] as const),
+  dependencies: Schema.Struct({
+    effect: Schema.Literals(["not-applicable", "unchanged", "changed"] as const),
+    added: Schema.Array(Schema.String),
+    removed: Schema.Array(Schema.String),
+    changed: Schema.Array(Schema.String),
+  }),
+  projections: Schema.Struct({
+    effect: Schema.Literal("reconcile"),
+    detail: Schema.String,
+  }),
+  guarantees: Schema.Struct({
+    gained: Schema.Array(Schema.String),
+    lost: Schema.Array(Schema.String),
+  }),
+  packMembers: Schema.optional(Schema.Array(PackMemberSourceSwitchEvidenceSchema)),
+});
+
 const StepArtifactSchema = Schema.Struct({
   path: Schema.optional(Schema.String),
   scope: Schema.Literals(["project", "user"] as const),
@@ -148,6 +197,7 @@ const StepArtifactSchema = Schema.Struct({
       deprecation: Schema.optional(DeprecationViewSchema),
     }),
   ),
+  sourceSwitch: Schema.optional(SourceSwitchEvidenceSchema),
 }).annotate({
   identifier: "StepArtifact",
   title: "Plan Step Artifact",
@@ -433,9 +483,47 @@ const artifactForJson = (
   artifact: JobStepArtifact,
   options: PlanResolutionResultOptions,
 ): StepArtifact => {
-  const { targets, source, managedRegions, references, ...base } = artifact;
+  const { targets, source, sourceSwitch, managedRegions, references, ...base } = artifact;
   const sanitizedBase = {
     ...base,
+    ...(sourceSwitch === undefined
+      ? {}
+      : {
+          sourceSwitch: {
+            ...sourceSwitch,
+            before: {
+              ...sourceSwitch.before,
+              locator: redactCredentialBearingLocator(sourceSwitch.before.locator),
+            },
+            after: {
+              ...sourceSwitch.after,
+              locator: redactCredentialBearingLocator(sourceSwitch.after.locator),
+            },
+            ...(sourceSwitch.packMembers === undefined
+              ? {}
+              : {
+                  packMembers: sourceSwitch.packMembers.map((member) => ({
+                    ...member,
+                    ...(member.before === undefined
+                      ? {}
+                      : {
+                          before: {
+                            ...member.before,
+                            locator: redactCredentialBearingLocator(member.before.locator),
+                          },
+                        }),
+                    ...(member.after === undefined
+                      ? {}
+                      : {
+                          after: {
+                            ...member.after,
+                            locator: redactCredentialBearingLocator(member.after.locator),
+                          },
+                        }),
+                  })),
+                }),
+          },
+        }),
     ...(references === undefined
       ? {}
       : {

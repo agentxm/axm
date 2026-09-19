@@ -74,7 +74,7 @@ describe("Sync preserves undeclared authored packages", () => {
       settings: BASE,
       files: {
         ...AUTHORED,
-        "agent_extensions/agentxm/@acme/skills/stale/skill.json": manifest("stale"),
+        "agent_extensions/registry/@acme/skills/stale/skill.json": manifest("stale"),
       },
     });
     cleanups.push(workspace.cleanup);

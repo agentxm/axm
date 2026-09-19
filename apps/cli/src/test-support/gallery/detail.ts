@@ -14,7 +14,10 @@ export const detail: Doc = [
       { label: "Version", value: "0.4.2" },
       { label: "Source", value: "registry (https://registry.axm.sh/@craigsmitham/effect-v4)" },
       { label: "Owner", value: [{ text: "@craigsmitham", link: "https://axm.sh/@craigsmitham" }] },
-      { label: "Installed at", value: "agent_extensions/agentxm/@craigsmitham/skills/effect-v4" },
+      {
+        label: "Installed at",
+        value: "agent_extensions/registry/@craigsmitham/skills/effect-v4",
+      },
       {
         label: "Description",
         value:

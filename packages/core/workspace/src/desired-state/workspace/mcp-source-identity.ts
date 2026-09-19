@@ -7,7 +7,6 @@
 
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions/common";
-import type { McpServerLockEntry } from "../lockfile/schema.js";
 
 const normalizeAuthority = (authority: URL | string): string => {
   const raw = authority instanceof URL ? authority.href : authority;
@@ -29,23 +28,23 @@ export const mcpRegistryResolutionKey = (args: {
   `registry:${encodeIdentityPart(normalizeAuthority(args.authority))}:${args.owner}/mcps/${args.name}`;
 
 /** Deterministic lock-map key for every currently accepted MCP source class. */
-export const mcpResolutionKey = (entry: McpServerLockEntry): string => {
-  switch (entry.type) {
+export const mcpResolutionKey = (entry: {
+  readonly source:
+    | { readonly type: "registry"; readonly url: URL }
+    | { readonly type: "git"; readonly url: URL }
+    | { readonly type: "path"; readonly path: string };
+  readonly identity: { readonly owner?: Handle | undefined; readonly name: ExtensionName };
+}): string => {
+  switch (entry.source.type) {
     case "registry":
       return mcpRegistryResolutionKey({
-        authority: entry.endpoint,
-        owner: entry.owner,
-        name: entry.name,
+        authority: entry.source.url,
+        owner: entry.identity.owner ?? "",
+        name: entry.identity.name,
       });
-    case "github":
-    case "gitlab":
-    case "bitbucket":
-      return `${entry.type}:${encodeIdentityPart(normalizeAuthority(entry.endpoint))}:${entry.owner}/${entry.repo}:${entry.packageOwner ?? ""}/mcps/${entry.packageName}`;
-    case "azurerepos":
-      return `azurerepos:${encodeIdentityPart(normalizeAuthority(entry.endpoint))}:${entry.organization}/${entry.project}/${entry.repo}:${entry.packageOwner ?? ""}/mcps/${entry.packageName}`;
     case "git":
-      return `git:${encodeIdentityPart(normalizeAuthority(entry.url))}:${entry.packageOwner ?? ""}/mcps/${entry.packageName}`;
-    case "local":
-      return `local:${encodeIdentityPart(entry.path)}:${entry.packageOwner ?? ""}/mcps/${entry.packageName}`;
+      return `git:${encodeIdentityPart(normalizeAuthority(entry.source.url))}:${entry.identity.owner ?? ""}/mcps/${entry.identity.name}`;
+    case "path":
+      return `path:${encodeIdentityPart(entry.source.path)}:${entry.identity.owner ?? ""}/mcps/${entry.identity.name}`;
   }
 };

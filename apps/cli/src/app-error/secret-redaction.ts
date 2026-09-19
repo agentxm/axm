@@ -52,6 +52,13 @@ export const redactSensitiveText = (
   return output;
 };
 
+/** Redact URL userinfo in addition to the general credential shapes. */
+export const redactCredentialBearingLocator = (locator: string): string =>
+  redactSensitiveText(locator).replace(
+    /([a-z][a-z0-9+.-]*:\/\/[^\s/:@]+:)[^\s/@]+@/giu,
+    "$1[REDACTED]@",
+  );
+
 const collectSensitiveStringsInto = (
   value: unknown,
   output: Set<string>,

@@ -101,10 +101,7 @@ export const enableSkill: OperationHandler<
     const materializationAgents = yield* agentRepository.getMaterializationAgents();
 
     const accepted = canonical.value.accepted;
-    const portable =
-      accepted !== undefined &&
-      "packageFormat" in accepted &&
-      accepted.packageFormat === "agent-skill";
+    const portable = accepted !== undefined && accepted.identity.owner === undefined;
     const skillSrcPath = portable
       ? canonical.value.observation.path
       : path.join(canonical.value.observation.path, "src");

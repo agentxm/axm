@@ -116,10 +116,12 @@ export const listSkills = Effect.fn("Inspection.listSkills")(function* (request:
   const locked = yield* lockfile.entries("skill");
   const rows = inventory.items.map((row): SkillListRow => ({
     ...baseRow(row),
-    sourceType: locked[row.name]?.type ?? "detected",
+    sourceType: locked[row.name]?.source.type ?? "detected",
   }));
   return {
-    inventory: augment(inventory, (row) => ({ sourceType: locked[row.name]?.type ?? "detected" })),
+    inventory: augment(inventory, (row) => ({
+      sourceType: locked[row.name]?.source.type ?? "detected",
+    })),
     rows,
   } satisfies TypeListResult<SkillListRow>;
 });
@@ -198,23 +200,23 @@ export const listHooks = Effect.fn("Inspection.listHooks")(function* () {
  * registry locator, then the fully qualified name a workspace locator carries.
  */
 export const listPacks = Effect.fn("Inspection.listPacks")(function* () {
+  const settings = yield* SettingsReader;
   const lockfile = yield* LockfileReader;
   const inventory = yield* inventoryFor("pack", []);
+  const configured = yield* settings.entries("pack");
   const packs = yield* lockfile.entries("pack");
   const rows = inventory.items.map((row): PackListRow => {
     const entry = packs[row.name];
-    const configuredSource = row.source ?? row.origins.join(", ");
+    const configuredSource = configured[row.name]?.source ?? row.source ?? row.origins.join(", ");
     const registrySource = parseSourceQualifiedRegistrySourcePatternParts(configuredSource);
     const workspaceSource = parseExtensionFqnParts(
       configuredSource.replace(/^workspace:/u, "").replace(/@[^@/]+$/u, ""),
     );
     return {
       ...baseRow(row),
-      owner: entry?.owner ?? registrySource?.owner ?? workspaceSource?.owner ?? "n/a",
-      version: entry?.resolvedVersion ?? "n/a",
-      source: configuredSource.startsWith("workspace:")
-        ? "workspace"
-        : (entry?.sourceName ?? configuredSource),
+      owner: entry?.identity.owner ?? registrySource?.owner ?? workspaceSource?.owner ?? "n/a",
+      version: entry?.manifestVersion ?? "n/a",
+      source: configuredSource.startsWith("workspace:") ? "workspace" : configuredSource,
     };
   });
   const byName = new Map(rows.map((row) => [row.name, row]));

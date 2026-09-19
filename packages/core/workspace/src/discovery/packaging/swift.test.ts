@@ -246,7 +246,7 @@ let package = Package(
 /** Helper to set up a temp project with .build/checkouts for reader tests. */
 const readInTempDir = (
   pkgPurl: Schema.Schema.Type<typeof PackageUrlPartsSchema>,
-  axmJsonContent?: string,
+  agentExtensionsJsonContent?: string,
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -256,10 +256,13 @@ const readInTempDir = (
     // Write the root Package.swift (source for the detected package)
     yield* fs.writeFileString(path.join(tmpDir, "Package.swift"), "// Package.swift");
 
-    if (axmJsonContent !== undefined) {
+    if (agentExtensionsJsonContent !== undefined) {
       const checkoutDir = path.join(tmpDir, ".build", "checkouts", pkgPurl.name);
       yield* fs.makeDirectory(checkoutDir, { recursive: true });
-      yield* fs.writeFileString(path.join(checkoutDir, "axm.json"), axmJsonContent);
+      yield* fs.writeFileString(
+        path.join(checkoutDir, "agent-extensions.json"),
+        agentExtensionsJsonContent,
+      );
     }
 
     const detected = {
@@ -275,8 +278,8 @@ describe("swiftReader", () => {
     expect(swiftReader.type).toBe(swiftType);
   });
 
-  describe("valid axm.json sidecar", () => {
-    it.effect("extracts extensions from axm.json", () =>
+  describe("valid agent-extensions.json sidecar", () => {
+    it.effect("extracts extensions from agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -287,7 +290,7 @@ describe("swiftReader", () => {
           const result = yield* readInTempDir(
             purl,
             JSON.stringify({
-              extensions: [{ ref: "@apple/skills/swift-nio", versionRange: "^2.0.0" }],
+              agentExtensions: [{ ref: "@apple/skills/swift-nio", versionRange: "^2.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
@@ -308,7 +311,7 @@ describe("swiftReader", () => {
             namespace: "github.com/apple",
             name: "swift-log",
           });
-          const result = yield* readInTempDir(purl, JSON.stringify({ extensions: [] }));
+          const result = yield* readInTempDir(purl, JSON.stringify({ agentExtensions: [] }));
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
             expect(result.value).toEqual([]);
@@ -318,8 +321,8 @@ describe("swiftReader", () => {
     );
   });
 
-  describe("missing axm.json sidecar", () => {
-    it.effect("returns Option.none when axm.json does not exist", () =>
+  describe("missing agent-extensions.json sidecar", () => {
+    it.effect("returns Option.none when agent-extensions.json does not exist", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -334,7 +337,7 @@ describe("swiftReader", () => {
     );
   });
 
-  describe("malformed axm.json", () => {
+  describe("malformed agent-extensions.json", () => {
     it.effect("returns Option.none and warns on malformed metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
@@ -343,7 +346,7 @@ describe("swiftReader", () => {
             namespace: "github.com/some",
             name: "some-package",
           });
-          const result = yield* readInTempDir(purl, JSON.stringify({ extensions: 42 }));
+          const result = yield* readInTempDir(purl, JSON.stringify({ agentExtensions: 42 }));
           expect(Option.isNone(result)).toBe(true);
         }),
       ),
@@ -351,7 +354,7 @@ describe("swiftReader", () => {
   });
 
   describe("extra fields tolerated", () => {
-    it.effect("ignores extra fields in axm.json", () =>
+    it.effect("ignores extra fields in agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -362,7 +365,7 @@ describe("swiftReader", () => {
           const result = yield* readInTempDir(
             purl,
             JSON.stringify({
-              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
+              agentExtensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
               futureField: true,
             }),
           );
@@ -391,7 +394,7 @@ describe("swiftReader", () => {
     );
   });
 
-  describe("malformed JSON in axm.json", () => {
+  describe("malformed JSON in agent-extensions.json", () => {
     it.effect("returns Option.none on invalid JSON", () =>
       withNodeContext(
         Effect.gen(function* () {

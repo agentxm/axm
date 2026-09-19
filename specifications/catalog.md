@@ -942,7 +942,6 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `apps/cli/src/root/discover/handler.test.ts`, `packages/core/workspace/src/discovery/discover.ts`
-- Open questions: How should local-only recommendations represent unresolved Registry identity and install version? The current fallback supplies resolved true and a synthetic 0.0.0 version; this requirement does not accept those values as verified Registry facts.
 - Source: [`packages/core/workspace/src/discovery/discover/identifies-local-only-recommendations.spec.ts`](../packages/core/workspace/src/discovery/discover/identifies-local-only-recommendations.spec.ts)
 
 ##### Discover reports companions for actual project dependencies
@@ -2638,6 +2637,19 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 #### Functional
 
+##### Pack authority switches are atomic member-diffed reinstalls
+
+- Requirement: `cli/install/pack-source-switches-are-member-diffed`
+- Owner: `workspace`
+- Statement: When install resolves an accepted Pack identity from another source authority, it shall preview every member as added, removed, retained, source-changed, version-changed, or unchanged with prior and target authority evidence; apply the target manifest as one atomic graph transition; retain a dropped member that is also desired directly; and leave the prior graph unchanged when any target member cannot resolve.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, state-transition, invariant
+- Derived from: `cli/install/source-switches-are-previewed-and-atomic`
+- Source: [`packages/core/workspace/src/lifecycle/install/pack-source-switches-are-member-diffed.spec.ts`](../packages/core/workspace/src/lifecycle/install/pack-source-switches-are-member-diffed.spec.ts)
+
 ##### Install records the accepted resolution in the lockfile
 
 - Requirement: `cli/install/records-accepted-resolution`
@@ -2653,6 +2665,19 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Additional evidence: process via [`apps/cli-e2e/src/root-install.e2e.test.ts`](../apps/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
 - Source: [`packages/core/workspace/src/lifecycle/install/records-accepted-resolution.spec.ts`](../packages/core/workspace/src/lifecycle/install/records-accepted-resolution.spec.ts)
 
+##### Installing an accepted identity from another authority is an approved source switch
+
+- Requirement: `cli/install/source-switches-are-previewed-and-atomic`
+- Owner: `workspace`
+- Statement: When install resolves an already accepted extension identity from another source authority, it shall preview content equivalence using the published archive boundary, dependency and projection effects, and Registry guarantees gained or lost; require interactive approval; replace the accepted source atomically in either direction while preserving desired-state fields; and refuse replacement when acquired content has local modifications.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, state-transition
+- Derived from: `cli/install/preview-is-pure`, `cli/publisher-changes-require-interactive-approval`
+- Source: [`packages/core/workspace/src/lifecycle/install/source-switches-are-previewed-and-atomic.spec.ts`](../packages/core/workspace/src/lifecycle/install/source-switches-are-previewed-and-atomic.spec.ts)
+
 ##### Publication uses the explicitly selected Registry
 
 - Requirement: `cli/publication-uses-explicit-registry-target`
@@ -2665,7 +2690,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary rationale: The publish use case resolves the target against the workspace's configured sources; two real file Registries show the admitted publication landing at the selected destination and the other staying empty.
 - Methods: decision-table, example
 - Derived from: `apps/cli/src/root/publish/command.ts`, `apps/cli/src/root/publish/per-type-command.ts`
-- Open questions: What target or rejection is required when both a configured name and an explicit URL are supplied? The current implementation prefers the URL and retains the supplied name as a label; no public precedence promise was identified.; Which Registry should a publication without either target select? The current implementation takes the first resolved Registry source; this requirement does not establish that default or source-order policy.; Which URL schemes are supported publication targets beyond the existing local Registry and HTTP implementations? No new scheme support or normalization guarantee is established here.
+- Open questions: What target or rejection is required when both a configured name and an explicit URL are supplied? The current implementation prefers the URL and retains the supplied name as a label; no public precedence promise was identified.; Which URL schemes are supported publication targets beyond the existing local Registry and HTTP implementations? No new scheme support or normalization guarantee is established here.
 - Limitation: The examples use local file Registry destinations. HTTP publication capability binding and credential-origin isolation remain separately owned; no live Registry, remote authentication, or server-side storage behavior is established here. Retires when: Retain explicit target selection evidence through each supported target transport without duplicating the credential and publication-capability owners.
 - Source: [`packages/core/workspace/src/publishing/target/publication-uses-explicit-registry-target.spec.ts`](../packages/core/workspace/src/publishing/target/publication-uses-explicit-registry-target.spec.ts)
 
@@ -2856,6 +2881,20 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Methods: example, decision-table
 - Derived from: `cli/update/preview-is-pure`, `cli/install/preview-is-pure`, `cli/skills/update/preview-is-pure`
 - Source: [`packages/core/workspace/src/lifecycle/publisher-changes-require-interactive-approval.spec.ts`](../packages/core/workspace/src/lifecycle/publisher-changes-require-interactive-approval.spec.ts)
+
+##### Share prints live install and package recommendation output without writing
+
+- Requirement: `cli/share-prints-live-install-command`
+- Owner: `workspace`
+- Statement: Share shall refuse a checkout without an origin remote and otherwise shall report origin availability and print one install command whose typed selectors exactly name the distributable authored extensions found from that repository; when one package ecosystem flag is selected, it shall emit that ecosystem's portable agent extension recommendations with their Git source pinned to the sole tag at HEAD, without writing workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
+- Boundary: process; selection: per-change
+- Boundary rationale: The examples read real workspace files, inspect a real Git remote, and use the production repository finder while comparing the checkout before and after the query.
+- Methods: example, snapshot
+- Derived from: `extension-discovery/all-manifest-kinds-from-git-and-path`
+- Source: [`packages/core/workspace/src/sharing/share-workspace.spec.ts`](../packages/core/workspace/src/sharing/share-workspace.spec.ts)
 
 ##### Upgrade discloses the installer it resolved and the version it selected before mutating
 
@@ -4056,20 +4095,6 @@ People and agents can find, install, update, and remove reusable extensions acro
 
 #### Functional
 
-##### The environment selects the built-in extension source
-
-- Requirement: `cli/environment-selects-built-in-extension-source`
-- Owner: `cli-e2e`
-- Statement: For extension resolution through the built-in AgentXM source, AXM shall use a non-empty AXM_REGISTRY_LOCATION before the selected Registry service URL while preserving a file source independently from HTTP services.
-- Class: functional
-- Role: interface
-- Product goals: `extension-adoption`, `machine-automation`
-- Boundary: process; selection: per-change
-- Boundary rationale: Fresh built CLI invocations resolve and acquire distinct package bytes from real file Registries and a controlled HTTP origin, so an environment value merely parsed but ignored cannot satisfy the cases.
-- Methods: decision-table, example
-- Derived from: `apps/cli/help/topics/environment.md`, `apps/cli/src/runtime.test.ts`
-- Source: [`apps/cli-e2e/src/environment-selects-built-in-extension-source.spec.ts`](../apps/cli-e2e/src/environment-selects-built-in-extension-source.spec.ts)
-
 ##### Product activity events represent usable outcomes
 
 - Requirement: `cli/telemetry/product-activity-events-represent-usable-outcomes`
@@ -4095,6 +4120,20 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Methods: decision-table, example
 - Derived from: `apps/cli/src/root/view/handler.ts`, `cli/view/reports-missing-targets-and-fields`
 - Source: [`apps/cli/src/root/view/returns-the-selected-field.spec.ts`](../apps/cli/src/root/view/returns-the-selected-field.spec.ts)
+
+##### Git and path discovery recognize every extension manifest
+
+- Requirement: `extension-discovery/all-manifest-kinds-from-git-and-path`
+- Owner: `workspace`
+- Statement: Git and path source discovery shall find every extension type defined by the manifest policy, shall keep portable SKILL.md as the only manifest-free convention, shall omit workspace entries whose distribution intent is false, and shall refuse duplicate declared identities.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `trustworthy-distribution`
+- Boundary: process; selection: per-change
+- Boundary rationale: The Git case clones a real committed repository through the production acquisition boundary, while the path case reads the same fixture directly; both then use the shared manifest finder.
+- Methods: decision-table, example
+- Derived from: `extension-installability/source-family-policy-is-total`
+- Source: [`packages/core/workspace/src/resolution/sources/discovers-all-manifest-kinds-from-git-and-path.spec.ts`](../packages/core/workspace/src/resolution/sources/discovers-all-manifest-kinds-from-git-and-path.spec.ts)
 
 ##### A canonical extension name always parses back to the identity that produced it
 
@@ -4134,18 +4173,71 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Derived from: `extension-identity/canonical-names-round-trip`, `extension-identity/malformed-names-are-rejected`
 - Source: [`packages/core/extension-model/src/unstable/extensions/references-are-a-name-with-an-optional-constraint.spec.ts`](../packages/core/extension-model/src/unstable/extensions/references-are-a-name-with-an-optional-constraint.spec.ts)
 
-##### Source locators resolve through a stable grammar and configured hosts
+##### Every extension type decides installability for every source family
+
+- Requirement: `extension-installability/source-family-policy-is-total`
+- Owner: `extension-model`
+- Statement: Installability by source family shall be a total policy over every extension type, and every extension type shall be installable from Git, registry, path, and workspace sources.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: decision-table
+- Source: [`packages/core/extension-model/src/unstable/extensions/installability-by-source-family-is-total.spec.ts`](../packages/core/extension-model/src/unstable/extensions/installability-by-source-family-is-total.spec.ts)
+
+##### Every extension type records every source-family lifecycle outcome
+
+- Requirement: `extension-lifecycle/type-family-operation-conformance-is-total`
+- Owner: `workspace`
+- Statement: The lifecycle conformance suite shall execute every extension type by source family by operation cell, shall record supported, unsupported by design, or blocked, and every unsupported cell shall name its design decision.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `trustworthy-distribution`
+- Boundary: process; selection: per-change
+- Boundary rationale: The source fixtures are hermetic: Registry is file-backed, Git is a local bare repository, path and workspace are temporary directories, and no network host participates.
+- Methods: decision-table, invariant
+- Derived from: `extension-installability/source-family-policy-is-total`, `extension-discovery/all-manifest-kinds-from-git-and-path`
+- Source: [`packages/core/workspace/src/lifecycle/source-family-conformance.spec.ts`](../packages/core/workspace/src/lifecycle/source-family-conformance.spec.ts)
+
+##### Pack and MCP installs use the shared source grammar
+
+- Requirement: `install/pack-and-mcp-use-shared-source-resolution`
+- Owner: `workspace`
+- Statement: Pack and MCP server install shall resolve Registry, Git, and path locators through the shared source resolver, shall persist accepted external source authority, and shall reject unsupported per-type settings sources during schema parsing.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `trustworthy-distribution`
+- Boundary: process; selection: per-change
+- Boundary rationale: The examples execute real local package discovery, planning, materialization, settings writes, lock writes, postconditions, and repeated MCP source admission through the public install use case.
+- Methods: example, invariant
+- Derived from: `extension-installability/source-family-policy-is-total`, `extension-discovery/all-manifest-kinds-from-git-and-path`
+- Source: [`packages/core/workspace/src/lifecycle/install/pack-and-mcp-install-use-shared-source-resolution.spec.ts`](../packages/core/workspace/src/lifecycle/install/pack-and-mcp-install-use-shared-source-resolution.spec.ts)
+
+##### Git and path Packs inherit members from one source view
+
+- Requirement: `packs/source-inherited-members-share-one-source-view`
+- Owner: `workspace`
+- Statement: A Git or path Pack shall resolve sourceless members by declared identity from the same source view as the Pack, shall refuse ambiguous identities, and shall record the Pack's immutable resolution and member identities in accepted lock authority.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `trustworthy-distribution`
+- Boundary: process; selection: per-change
+- Boundary rationale: The Git example clones one committed fixture through the production provider and compares the accepted commit on the Pack with its captured member candidate; the path example expands that captured source view without reacquisition.
+- Methods: example, invariant
+- Derived from: `extension-discovery/all-manifest-kinds-from-git-and-path`
+- Source: [`packages/core/workspace/src/resolution/packs-inherit-members-from-one-source-view.spec.ts`](../packages/core/workspace/src/resolution/packs-inherit-members-from-one-source-view.spec.ts)
+
+##### Hosted Git syntax expands to self-describing Git locators
 
 - Requirement: `source-resolution/locator-grammar-is-stable`
 - Owner: `workspace`
-- Statement: A source locator shall resolve through the published grammar to exactly the coordinates it names, a project-defined source shall override a built-in host of the same name, and a locator outside the grammar shall be refused with a typed failure that explains the rejection.
+- Statement: Hosted Git shorthand and browser URLs shall expand to one self-describing Git locator; HTTPS, SSH, Git, and SCP clone addresses shall require no host configuration; registry aliases alone shall remain configured sources.
 - Class: functional
 - Role: interface
 - Product goals: `extension-adoption`, `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, property, example
-- Assumptions: The workspace presents its configured sources ahead of the built-in hosts, which is what the workspace settings reader's three-layer merge (project, then user, then built-in) produces.
-- Limitation: The override example shows that resolution selects the configured entry when a project source and the built-in host of the same name are both presented. That the workspace puts the project entry first — the name-based merge of project, user, and built-in sources — is workspace-state's settings reader, which a domain:supporting package may not depend on; its own merge-ordering tests assert it. Retires when: Source resolution can observe a workspace-assembled catalog from this package — for example, workspace-state publishes catalog assembly through a port a supporting package may depend on.
+- Limitation: This grammar specification proves expansion and classification without contacting a Git remote. Retires when: The CLI end-to-end suite exercises each transport against controlled Git remotes.
 - Additional evidence: process via [`apps/cli-e2e/src/http-registry.e2e.test.ts`](../apps/cli-e2e/src/http-registry.e2e.test.ts) — Publishes, installs, and updates over a real HTTP registry transport — bearer-token auth headers, PUT uploads, immutable version and holdback semantics, no upload when the authoritative preview is blocked, and registry-form locator resolution with file:// parity — plus release-age-gated advancement, explicit bypass, unchanged settings, and second-run no-op exit codes that the in-memory file-registry harness cannot observe.
 - Source: [`packages/core/workspace/src/resolution/sources/locator-grammar-is-stable.spec.ts`](../packages/core/workspace/src/resolution/sources/locator-grammar-is-stable.spec.ts)
 
@@ -4293,21 +4385,6 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Open questions: Must agent sessions always skip startup checks when AXM_NO_UPDATE_CHECK is not 1? Earlier environment help said they skip, but the current runtime and its internal test permit agent checks even without a TTY.; Does suppression also prohibit reading an existing update cache, beyond the absence of requests and notifications promised here?
 - Limitation: The primary decision table uses a populated fresh cache and a controlled HTTP port; it establishes notification suppression and command-network independence, but does not by itself establish the absence of a background refresh when a cache is missing or stale. Retires when: Add a scheduler-coordinated missing/stale-cache control that observes the live startup wrapper's detached request and completion without wall-clock sleeps or leaked fibers.
 - Source: [`apps/cli/src/environment-disables-startup-update-check.spec.ts`](../apps/cli/src/environment-disables-startup-update-check.spec.ts)
-
-##### Registry services use the selected environment origin
-
-- Requirement: `cli/environment-selects-registry-services`
-- Owner: `cli`
-- Statement: AXM shall use an HTTP(S) AXM_REGISTRY_LOCATION as its Registry service and authentication target, retain file-source selection independently, and reject an explicitly different AXM_REGISTRY_URL origin before a Registry request.
-- Class: functional
-- Role: interface
-- Product goals: `machine-automation`, `extension-adoption`
-- Boundary: memory; selection: per-change
-- Boundary rationale: The composition root decodes the environment and builds the Registry and authentication targets; composing it over a controlled HTTP transport shows the selected origin reaching the request without contacting a real Registry. The built-CLI rows are bound evidence at apps/cli-e2e/src/registry-service-origin.e2e.test.ts.
-- Methods: example, decision-table
-- Derived from: `apps/cli/help/topics/environment.md`, `apps/cli/src/runtime.ts`, `apps/cli-e2e/src/registry-service-origin.e2e.test.ts`
-- Additional evidence: process via [`apps/cli-e2e/src/registry-service-origin.e2e.test.ts`](../apps/cli-e2e/src/registry-service-origin.e2e.test.ts) — Only a real invocation against a real HTTP origin shows the selected service reaching the wire, and shows a conflicting selector refused before any request leaves the process.
-- Source: [`apps/cli/src/environment-selects-registry-services.spec.ts`](../apps/cli/src/environment-selects-registry-services.spec.ts)
 
 ##### The published exit-code reference matches the runtime exit codes
 
@@ -4502,6 +4579,22 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Derived from: `cli/machine-progress-events-follow-the-lifecycle-schema`, `packages/supporting/registry-client/src/request-policy.test.ts`, `packages/supporting/registry-client/src/remote-client.test.ts`, `packages/core/workspace/src/transitions/planning/plan/operation-events.test.ts`
 - Limitation: Examples drive the published schema, the projector, and the live join over an authored event log. A registry download that a transport failure actually retries is witnessed by ordinary tests in the registry client, not decided here. Retires when: Bind producer evidence here when a retrying producer's own attempt reporting is allocated its own obligation.
 - Source: [`apps/cli/src/screen/retried-work-names-the-attempt-in-flight.spec.ts`](../apps/cli/src/screen/retried-work-names-the-attempt-in-flight.spec.ts)
+
+##### Settings select one default Registry
+
+- Requirement: `cli/settings-select-default-registry`
+- Owner: `cli`
+- Statement: AXM shall select one effective default Registry from project settings, then user settings, then the built-in AgentXM source, and shall use that destination for unqualified resolution, authentication, and publishing without forwarding its credentials to another Registry.
+- Class: functional
+- Role: interface
+- Product goals: `machine-automation`, `extension-adoption`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The composition root reads real project and user settings through the production workspace layer; built-CLI install, authentication, and publish-preview rows are bound evidence for the process boundary.
+- Methods: example, decision-table
+- Derived from: `apps/cli/help/topics/settings.md`, `apps/cli/src/runtime.ts`, `packages/supporting/registry-access/src/credentials/token-resolution.ts`
+- Supersedes: `cli/environment-selects-built-in-extension-source`, `cli/environment-selects-registry-services`
+- Additional evidence: process via [`apps/cli-e2e/src/registry-service-origin.e2e.test.ts`](../apps/cli-e2e/src/registry-service-origin.e2e.test.ts) — Only a real invocation against a controlled HTTP origin shows the settings-selected default Registry reaching the wire and an invalid selection being refused before any request leaves the process.
+- Source: [`apps/cli/src/settings-select-default-registry.spec.ts`](../apps/cli/src/settings-select-default-registry.spec.ts)
 
 ##### Raw token creation hands a pipe only the new secret
 
@@ -4703,6 +4796,19 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Methods: example, contract
 - Derived from: `apps/cli/help/topics/publish.md`, `apps/cli/src/root/publish/command.test.ts`
 - Source: [`packages/core/workspace/src/publishing/archive/archive-inventory-matches-published-bytes.spec.ts`](../packages/core/workspace/src/publishing/archive/archive-inventory-matches-published-bytes.spec.ts)
+
+##### Publication reports the Registry's lifecycle refusal
+
+- Requirement: `cli/publish/reports-lifecycle-refusal-reason`
+- Owner: `workspace`
+- Statement: When the Registry refuses an admitted publication because the extension is deleting, held, or archived, AXM shall report that exact lifecycle reason for the failed candidate rather than classify the refusal as an integrity conflict.
+- Class: functional
+- Role: interface
+- Product goals: `trustworthy-distribution`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Derived from: `packages/core/workspace/src/publishing/publish/use-case.ts`
+- Source: [`packages/core/workspace/src/publishing/upload/reports-lifecycle-refusal-reason.spec.ts`](../packages/core/workspace/src/publishing/upload/reports-lifecycle-refusal-reason.spec.ts)
 
 #### Constraints
 

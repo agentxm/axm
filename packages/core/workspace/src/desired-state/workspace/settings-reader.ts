@@ -1,6 +1,6 @@
 /**
  * Settings reader: the selected scope's desired-state document and the
- * settings-derived facts commands consult — merged source hosts, owner,
+ * settings-derived facts commands consult — merged registries, owner,
  * publication default, release-age policy, configured agents, instruction
  * and Knowledge discovery configuration, and the per-type entry maps.
  *
@@ -48,6 +48,8 @@ export interface SettingsReaderService {
   readonly registrySourceHosts: Read<
     ReadonlyArray<Extract<SourceHostConfig, { type: "registry" }>>
   >;
+  /** defaultRegistry: project settings, then user-scope settings, then agentxm. */
+  readonly defaultRegistry: Read<string>;
   /** Owner: project settings, then user-scope settings, then none. */
   readonly owner: Read<Option.Option<Handle>>;
   /** Repository publication default for this exact workspace scope. */
@@ -76,11 +78,15 @@ const mergeSources = (
   globalSources: ReadonlyArray<SourceHostConfig>,
   builtInSources: ReadonlyArray<SourceHostConfig>,
 ): ReadonlyArray<SourceHostConfig> => {
-  const projectNames = new Set(projectSources.map((s) => s.name));
-  const filteredGlobal = globalSources.filter((s) => !projectNames.has(s.name));
+  const builtInNames = new Set(builtInSources.map((source) => source.name));
+  const filteredProject = projectSources.filter((source) => !builtInNames.has(source.name));
+  const projectNames = new Set(filteredProject.map((source) => source.name));
+  const filteredGlobal = globalSources.filter(
+    (source) => !builtInNames.has(source.name) && !projectNames.has(source.name),
+  );
   const projectGlobalNames = new Set([...projectNames, ...filteredGlobal.map((s) => s.name)]);
   return [
-    ...projectSources,
+    ...filteredProject,
     ...filteredGlobal,
     ...builtInSources.filter((s) => !projectGlobalNames.has(s.name)),
   ];
@@ -121,6 +127,12 @@ export const makeSettingsReader = (
         ),
       ),
     ),
+    defaultRegistry: Effect.gen(function* () {
+      const project = yield* projectSettings;
+      if (project.defaultRegistry !== undefined) return project.defaultRegistry;
+      const user = yield* userSettings;
+      return user.defaultRegistry ?? "agentxm";
+    }).pipe(Effect.withSpan("SettingsReader.defaultRegistry")),
     owner: Effect.gen(function* () {
       const project = yield* projectSettings;
       if (project.owner) return Option.some(project.owner);

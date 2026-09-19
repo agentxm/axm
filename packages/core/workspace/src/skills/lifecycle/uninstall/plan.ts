@@ -85,7 +85,7 @@ const skillSourceTarget = (
         workspaceCanonicalRoot(location.scope),
         entry,
         "skills",
-        entry.workspaceName,
+        sanitizedName,
       ),
       change: "removed",
     };

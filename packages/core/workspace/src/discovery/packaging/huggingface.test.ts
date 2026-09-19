@@ -73,8 +73,8 @@ describe("huggingfaceReader", () => {
     expect(huggingfaceReader.type).toBe(huggingfaceType);
   });
 
-  describe("valid axm metadata in YAML frontmatter", () => {
-    it.effect("extracts extensions from frontmatter axm field", () =>
+  describe("valid agentExtensions metadata in YAML frontmatter", () => {
+    it.effect("extracts extensions from frontmatter agentExtensions field", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -85,9 +85,8 @@ describe("huggingfaceReader", () => {
           const readme = [
             "---",
             "license: llama2",
-            "axm:",
-            "  extensions:",
-            '    - { ref: "@meta/skills/llama", versionRange: "^1.0.0" }',
+            "agentExtensions:",
+            '  - { ref: "@meta/skills/llama", versionRange: "^1.0.0" }',
             "---",
             "# Llama 2",
             "This is a model card.",
@@ -109,9 +108,8 @@ describe("huggingfaceReader", () => {
           const purl = makePurl({ type: "huggingface", name: "gpt2" });
           const readme = [
             "---",
-            "axm:",
-            "  extensions:",
-            '    - { ref: "@openai/skills/gpt2", versionRange: "^1.0.0" }',
+            "agentExtensions:",
+            '  - { ref: "@openai/skills/gpt2", versionRange: "^1.0.0" }',
             "---",
             "# GPT-2",
           ].join("\n");
@@ -158,8 +156,8 @@ describe("huggingfaceReader", () => {
     );
   });
 
-  describe("no axm field in frontmatter", () => {
-    it.effect("returns Option.none when frontmatter has no axm field", () =>
+  describe("no agentExtensions field in frontmatter", () => {
+    it.effect("returns Option.none when frontmatter has no agentExtensions field", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -192,8 +190,8 @@ describe("huggingfaceReader", () => {
     );
   });
 
-  describe("invalid axm metadata structure", () => {
-    it.effect("returns Option.none when axm field has invalid structure", () =>
+  describe("invalid agentExtensions metadata structure", () => {
+    it.effect("returns Option.none when agentExtensions field has invalid structure", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -201,9 +199,7 @@ describe("huggingfaceReader", () => {
             namespace: "meta-llama",
             name: "Llama-2-7b",
           });
-          const readme = ["---", "axm:", "  extensions: not-an-array", "---", "# Llama 2"].join(
-            "\n",
-          );
+          const readme = ["---", "agentExtensions: not-an-array", "---", "# Llama 2"].join("\n");
           const result = yield* readInTempCache(purl, readme);
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -220,7 +216,7 @@ describe("huggingfaceReader", () => {
             namespace: "meta-llama",
             name: "Llama-2-7b",
           });
-          const readme = ["---", "axm:", "  extensions: []", "---", "# Llama 2"].join("\n");
+          const readme = ["---", "agentExtensions: []", "---", "# Llama 2"].join("\n");
           const result = yield* readInTempCache(purl, readme);
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {

@@ -5,7 +5,6 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
-import * as Config from "effect/Config";
 import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -14,8 +13,6 @@ import * as Logger from "effect/Logger";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { CliConfig, CliOutput, Flag, GlobalFlag } from "effect/unstable/cli";
-import { pathToFileURL } from "node:url";
-import { resolve as resolvePath } from "node:path";
 
 import { AppError, makeAppError } from "./app-error/index.js";
 
@@ -88,7 +85,7 @@ import {
 } from "@agentxm/registry-access/adapters";
 import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
 import { resolveTelemetryMode } from "./telemetry/index.js";
-import type { WorkspaceStateOptions } from "@agentxm/workspace/desired-state";
+import { SettingsReader, type WorkspaceStateOptions } from "@agentxm/workspace/desired-state";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { layer as coreWorkspaceLayer } from "@agentxm/workspace/desired-state/live";
 import type { SourceHostConfig } from "@agentxm/workspace/desired-state";
@@ -97,6 +94,10 @@ import {
   type AbsolutePath,
 } from "@agentxm/extension-model/unstable/path-types";
 import { ExecutionDirectory } from "./execution-directory.js";
+import {
+  DefaultRegistryTarget,
+  type DefaultRegistryTargetService,
+} from "./default-registry-target.js";
 import {
   UpgradePreparationLive,
   PackageInstallationLive,
@@ -112,6 +113,7 @@ import { suggestionsForScope } from "./root/shared/scoped-command.js";
 import { ScreenLoggerLive } from "./screen/index.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
+import { AGENTXM_REGISTRY_URL } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 
 export { verboseFlag, debugFlag };
 
@@ -125,79 +127,8 @@ export const axmGlobalFlags = [
 ] as const;
 
 // -- Runtime layers --
-const DEFAULT_REGISTRY_URL = "https://registry.agentxm.ai";
 const GITHUB_LATEST_RELEASE_URL = "https://github.com/agentxm/axm/releases/latest";
-
-export type RegistryTargetSelection =
-  | { readonly ok: true; readonly registryUrl: string }
-  | { readonly ok: false; readonly message: string };
-
-const nonEmpty = (value: string | undefined): string | undefined =>
-  value !== undefined && value.length > 0 ? value : undefined;
-
-const parseHttpUrl = (
-  value: string,
-  variable: "AXM_REGISTRY_LOCATION" | "AXM_REGISTRY_URL",
-): URL | RegistryTargetSelection => {
-  try {
-    const url = new URL(value);
-    if (url.protocol === "http:" || url.protocol === "https:") return url;
-    return {
-      ok: false,
-      message: `${variable} must use http or https when it selects Registry services.`,
-    };
-  } catch {
-    return { ok: false, message: `${variable} must be a valid absolute HTTP(S) URL.` };
-  }
-};
-
-export const resolveRegistryTargetSelection = (input: {
-  readonly registryLocation?: string | undefined;
-  readonly registryUrl?: string | undefined;
-}): RegistryTargetSelection => {
-  const location = nonEmpty(input.registryLocation);
-  const explicitRegistryUrl = nonEmpty(input.registryUrl);
-  const serviceValue = explicitRegistryUrl ?? DEFAULT_REGISTRY_URL;
-  const serviceUrl = parseHttpUrl(serviceValue, "AXM_REGISTRY_URL");
-  if (!(serviceUrl instanceof URL)) return serviceUrl;
-  if (location === undefined) return { ok: true, registryUrl: serviceValue };
-
-  let locationUrl: URL;
-  try {
-    locationUrl = new URL(location);
-  } catch {
-    return { ok: true, registryUrl: serviceValue };
-  }
-  if (locationUrl.protocol !== "http:" && locationUrl.protocol !== "https:") {
-    return { ok: true, registryUrl: serviceValue };
-  }
-  if (explicitRegistryUrl !== undefined && locationUrl.origin !== serviceUrl.origin) {
-    return {
-      ok: false,
-      message:
-        "AXM_REGISTRY_LOCATION and AXM_REGISTRY_URL select different HTTP origins. Align them, or use a file source with the intended service URL.",
-    };
-  }
-  return { ok: true, registryUrl: location };
-};
-
-const RegistryUrlConfig = Config.all({
-  registryLocation: Config.option(Config.String("AXM_REGISTRY_LOCATION")),
-  registryUrl: Config.option(Config.String("AXM_REGISTRY_URL")),
-}).pipe(
-  Config.map(({ registryLocation, registryUrl }) => {
-    const selection = resolveRegistryTargetSelection({
-      registryLocation: Option.getOrUndefined(registryLocation),
-      registryUrl: Option.getOrUndefined(registryUrl),
-    });
-    return selection.ok
-      ? selection.registryUrl
-      : (nonEmpty(Option.getOrUndefined(registryUrl)) ?? DEFAULT_REGISTRY_URL);
-  }),
-);
-
-// eslint-disable-next-line no-restricted-syntax -- RegistryUrlConfig is total; command startup translates its explicit cross-field validation below.
-const RegistryUrlLayer = Layer.orDie(Layer.effect(RegistryUrl, RegistryUrlConfig));
+const registryUrlLayer = (registryUrl: string) => Layer.succeed(RegistryUrl, registryUrl);
 
 export const withAxmUserAgent = (httpClient: HttpClient.HttpClient, version: string) =>
   httpClient.pipe(
@@ -227,12 +158,14 @@ const AxmHttpClientLayer = Layer.provide(
 );
 
 const PlatformLayer = Layer.mergeAll(NodeServices.layer, AxmHttpClientLayer);
-const RegistryRuntimeLayer = Layer.mergeAll(PlatformLayer, RegistryUrlLayer);
+const registryRuntimeLayer = (registryUrl: string) =>
+  Layer.mergeAll(PlatformLayer, registryUrlLayer(registryUrl));
 
-const CredentialStoreLayer = Layer.provide(
-  CredentialStoreSessionLive,
-  Layer.provide(CredentialStoreLive, RegistryRuntimeLayer),
-);
+const credentialStoreLayer = (registryUrl: string) =>
+  Layer.provide(
+    CredentialStoreSessionLive,
+    Layer.provide(CredentialStoreLive, registryRuntimeLayer(registryUrl)),
+  );
 
 // Renewing and revoking a session are the calls that must not travel through
 // the authenticated transport: the refresh grant is what the transport asks
@@ -241,10 +174,11 @@ const CredentialStoreLayer = Layer.provide(
 // plain client, and nothing else is.
 const TokenExchangeLayer = Layer.provide(TokenExchangeLive, PlatformLayer);
 
-const SessionRefreshLayer = Layer.provide(
-  SessionRefresherLive,
-  Layer.mergeAll(TokenExchangeLayer, CredentialStoreLayer),
-);
+const sessionRefreshLayer = (registryUrl: string) =>
+  Layer.provide(
+    SessionRefresherLive,
+    Layer.mergeAll(TokenExchangeLayer, credentialStoreLayer(registryUrl)),
+  );
 
 /**
  * The transport every Registry call uses. It presents the invocation's
@@ -252,31 +186,37 @@ const SessionRefreshLayer = Layer.provide(
  * whether it is authenticated — including the reads, which is what lets a
  * signed-in person see their own private extensions.
  */
-const AuthenticatedHttpLayer = Layer.provide(
-  AuthMiddlewareLive,
-  Layer.mergeAll(SessionRefreshLayer, CredentialStoreLayer, RegistryRuntimeLayer),
-);
+const authenticatedHttpLayer = (registryUrl: string) =>
+  Layer.provide(
+    AuthMiddlewareLive,
+    Layer.mergeAll(
+      sessionRefreshLayer(registryUrl),
+      credentialStoreLayer(registryUrl),
+      registryRuntimeLayer(registryUrl),
+    ),
+  );
 
-const AuthenticatedRuntimeLayer = Layer.provideMerge(AuthenticatedHttpLayer, RegistryRuntimeLayer);
+const authenticatedRuntimeLayer = (registryUrl: string) =>
+  Layer.provideMerge(authenticatedHttpLayer(registryUrl), registryRuntimeLayer(registryUrl));
 
 // Registry clients are constructed here, once, from the authenticated
 // transport and the configured default registry; features keep the factory in
 // `R`.
-const RegistryClientFactoryLayer = Layer.provide(
-  RegistryClientFactoryLive,
-  AuthenticatedRuntimeLayer,
-);
+const registryClientFactoryLayer = (registryUrl: string) =>
+  Layer.provide(RegistryClientFactoryLive, authenticatedRuntimeLayer(registryUrl));
 
-const AuthServicesLayer = Layer.provideMerge(
-  Layer.mergeAll(PendingDeviceLoginStoreLive, AuthClientLive, TokenExchangeLayer),
-  Layer.mergeAll(AuthenticatedRuntimeLayer, CredentialStoreLayer),
-);
+const authServicesLayer = (registryUrl: string) =>
+  Layer.provideMerge(
+    Layer.mergeAll(PendingDeviceLoginStoreLive, AuthClientLive, TokenExchangeLayer),
+    Layer.mergeAll(authenticatedRuntimeLayer(registryUrl), credentialStoreLayer(registryUrl)),
+  );
 
-export const AuthLayer = Layer.mergeAll(AuthServicesLayer, AuthenticatedHttpLayer);
+export const makeAuthLayer = (registryUrl: string) =>
+  Layer.mergeAll(authServicesLayer(registryUrl), authenticatedHttpLayer(registryUrl));
 
 export const runtimeBaseLayer = Layer.mergeAll(
   NodeServices.layer,
-  RegistryUrlLayer,
+  registryUrlLayer(AGENTXM_REGISTRY_URL),
   makeAxmSkillCompatibilityPolicyLayer(loadVersion()),
   // AuthLoginInteractionLive spawns platform commands via ChildProcessSpawner,
   // provided by NodeServices (memoized with the merged instance above).
@@ -329,73 +269,68 @@ const makeRuntimeLoggerLayer = Layer.unwrap(
 );
 
 interface RuntimeEnvConfig {
-  readonly registryLocation: string;
-  readonly registryUrl: string;
   readonly doNotTrack: Option.Option<string>;
   readonly telemetry: Option.Option<string>;
   readonly verbose: Option.Option<string>;
   readonly debug: Option.Option<string>;
 }
 
-const getNonEmptyEnv = (env: NodeJS.ProcessEnv, name: string): Option.Option<string> =>
-  Option.fromUndefinedOr(env[name]).pipe(Option.filter((value) => value.length > 0));
-
-const normalizeRegistryLocation = (location: string, executionDirectory: string): string => {
-  try {
-    return new URL(location).href;
-  } catch {
-    return pathToFileURL(resolvePath(executionDirectory, location)).href;
-  }
-};
-
-export const resolveBuiltInRegistryLocation = (
-  env: NodeJS.ProcessEnv,
-  registryUrl: string,
-  executionDirectory: string,
-): string =>
-  Option.match(getNonEmptyEnv(env, "AXM_REGISTRY_LOCATION"), {
-    onNone: () => normalizeRegistryLocation(registryUrl, executionDirectory),
-    onSome: (location) => normalizeRegistryLocation(location, executionDirectory),
-  });
-
-export const resolveBuiltInSources = Effect.gen(function* () {
-  const registryUrl = yield* RegistryUrl;
-  const executionDirectory = yield* ExecutionDirectory;
-  return getBuiltInSources(
-    resolveBuiltInRegistryLocation(process.env, registryUrl, executionDirectory.path),
-  );
-});
-
-export const getBuiltInSources = (registryLocation: string): ReadonlyArray<SourceHostConfig> => [
-  { name: "agentxm", type: "registry", location: new URL(registryLocation) },
-  { name: "github", type: "github", url: new URL("https://github.com") },
-  { name: "gitlab", type: "gitlab", url: new URL("https://gitlab.com") },
-  { name: "bitbucket", type: "bitbucket", url: new URL("https://bitbucket.org") },
+export const getBuiltInSources = (): ReadonlyArray<SourceHostConfig> => [
+  { name: "agentxm", type: "registry", location: new URL(AGENTXM_REGISTRY_URL) },
 ];
 
-const readRuntimeEnvConfig = (executionDirectory: string) =>
-  Effect.gen(function* () {
-    const registryUrl = yield* RegistryUrl;
-    const registrySelection = resolveRegistryTargetSelection({
-      registryLocation: process.env["AXM_REGISTRY_LOCATION"],
-      registryUrl: process.env["AXM_REGISTRY_URL"],
-    });
-    if (!registrySelection.ok) {
-      return yield* makeAppError({ code: "usage", detail: registrySelection.message });
-    }
-    return {
-      registryLocation: resolveBuiltInRegistryLocation(
-        process.env,
-        registryUrl,
-        executionDirectory,
-      ),
-      registryUrl,
-      doNotTrack: Option.fromUndefinedOr(process.env["DO_NOT_TRACK"]),
-      telemetry: Option.fromUndefinedOr(process.env["AXM_TELEMETRY"]),
-      verbose: Option.fromUndefinedOr(process.env["AXM_VERBOSE"]),
-      debug: Option.fromUndefinedOr(process.env["AXM_DEBUG"]),
-    };
-  });
+const readRuntimeEnvConfig = (): RuntimeEnvConfig => ({
+  doNotTrack: Option.fromUndefinedOr(process.env["DO_NOT_TRACK"]),
+  telemetry: Option.fromUndefinedOr(process.env["AXM_TELEMETRY"]),
+  verbose: Option.fromUndefinedOr(process.env["AXM_VERBOSE"]),
+  debug: Option.fromUndefinedOr(process.env["AXM_DEBUG"]),
+});
+
+export const resolveDefaultRegistryTarget = (projectRoot: AbsolutePath) => {
+  const stateLayer = Layer.provide(
+    coreWorkspaceLayer({
+      scope: "project",
+      projectRoot,
+      builtInSources: getBuiltInSources(),
+      allowUninitialized: true,
+    }),
+    AgentPresenceProbeLive,
+  );
+  return Effect.scoped(
+    Effect.gen(function* () {
+      const settings = yield* SettingsReader;
+      const name = yield* settings.defaultRegistry;
+      const source = yield* settings.sourceByName(name);
+      if (Option.isNone(source) || source.value.type !== "registry") {
+        return yield* makeAppError({
+          code: "usage",
+          detail: `Default registry source "${name}" is not configured.`,
+          recover: `Add a Registry source named "${name}" or change defaultRegistry in axm.json.`,
+        });
+      }
+      const location = source.value.location;
+      return {
+        name,
+        url: location.protocol === "file:" ? location.href : location.origin,
+      } satisfies DefaultRegistryTargetService;
+    }).pipe(Effect.provide(stateLayer)),
+  ).pipe(
+    Effect.matchEffect({
+      onFailure: (cause) =>
+        cause instanceof AppError
+          ? Effect.fail(cause)
+          : // Settings validity belongs to the command's workspace boundary,
+            // where its canonical path-aware diagnostic is preserved. Runtime
+            // bootstrap only needs a safe transport default until that boundary
+            // is reached.
+            Effect.succeed({
+              name: "agentxm",
+              url: AGENTXM_REGISTRY_URL,
+            } satisfies DefaultRegistryTargetService),
+      onSuccess: Effect.succeed,
+    }),
+  );
+};
 
 const makeCliTelemetryConfig = (envConfig: RuntimeEnvConfig): CliTelemetryConfig => ({
   mode: resolveTelemetryMode({
@@ -405,15 +340,12 @@ const makeCliTelemetryConfig = (envConfig: RuntimeEnvConfig): CliTelemetryConfig
   client: { name: "cli", version: loadVersion() },
 });
 
-const makeWorkspaceProgramLayer = (
-  registryLocation: string,
-  workspace: Omit<WorkspaceStateOptions, "builtInSources">,
-) => {
+const makeWorkspaceProgramLayer = (workspace: Omit<WorkspaceStateOptions, "builtInSources">) => {
   // -- Workspace-state foundation --
   const wsLayer = Layer.provide(
     coreWorkspaceLayer({
       ...workspace,
-      builtInSources: getBuiltInSources(registryLocation),
+      builtInSources: getBuiltInSources(),
     }),
     AgentPresenceProbeLive,
   );
@@ -465,17 +397,15 @@ const makeWorkspaceProgramLayer = (
 const envToBool = (opt: Option.Option<string>): boolean =>
   isEnabledEnvRequest(Option.getOrUndefined(opt));
 
-const resolveRuntimeConfig = (executionDirectory: string) =>
-  Effect.gen(function* () {
-    const envConfig = yield* readRuntimeEnvConfig(executionDirectory);
-
-    return {
-      envConfig,
-      envVerbose: envToBool(envConfig.verbose),
-      envDebug: envToBool(envConfig.debug),
-      telemetryConfig: makeCliTelemetryConfig(envConfig),
-    } as const;
-  });
+const resolveRuntimeConfig = () => {
+  const envConfig = readRuntimeEnvConfig();
+  return {
+    envConfig,
+    envVerbose: envToBool(envConfig.verbose),
+    envDebug: envToBool(envConfig.debug),
+    telemetryConfig: makeCliTelemetryConfig(envConfig),
+  } as const;
+};
 
 type CliWorkspaceOptions = Omit<WorkspaceStateOptions, "builtInSources" | "projectRoot"> & {
   readonly projectRoot?: AbsolutePath;
@@ -486,13 +416,12 @@ export const withWorkspace =
   <A, R>(program: Effect.Effect<A, ExpectedCliError, R>) =>
     Effect.gen(function* () {
       const executionDirectory = yield* ExecutionDirectory;
-      const envConfig = yield* readRuntimeEnvConfig(executionDirectory.path);
       const configured = typeof options === "string" ? { scope: options } : options;
       const resolved = {
         ...configured,
         projectRoot: configured.projectRoot ?? executionDirectory.path,
       } satisfies Omit<WorkspaceStateOptions, "builtInSources">;
-      const wsLayer = makeWorkspaceProgramLayer(envConfig.registryLocation, resolved);
+      const wsLayer = makeWorkspaceProgramLayer(resolved);
       return yield* Effect.scoped(
         Layer.build(wsLayer).pipe(
           Effect.flatMap((workspaceContext) => Effect.provide(program, workspaceContext)),
@@ -565,7 +494,8 @@ export const withRuntime =
       }
       yield* fs.stat(`${canonical}${path.sep}.`).pipe(Effect.mapError(directoryError));
       const executionDirectory = { path: decodeAbsolutePathSync(canonical) };
-      const config = yield* resolveRuntimeConfig(executionDirectory.path);
+      const config = resolveRuntimeConfig();
+      const defaultRegistry = yield* resolveDefaultRegistryTarget(executionDirectory.path);
       const format = yield* resolveCliFormat;
       const foundationLayer = makeFoundationLayer(format, {
         envVerbose: config.envVerbose,
@@ -600,15 +530,25 @@ export const withRuntime =
       return yield* withCliErrorHandling(
         program.pipe(
           Effect.provideService(ExecutionDirectory, executionDirectory),
-          Effect.provide(AuthLayer),
+          Effect.provideService(DefaultRegistryTarget, defaultRegistry),
+          Effect.provide(makeAuthLayer(defaultRegistry.url)),
         ),
         {
           command,
           format,
           telemetryConfig: config.telemetryConfig,
         },
-      ).pipe(Effect.provide(appLayer), Effect.scoped);
-    }).pipe(Effect.provide(Layer.mergeAll(AuthenticatedRuntimeLayer, RegistryClientFactoryLayer)));
+      ).pipe(
+        Effect.provide(appLayer),
+        Effect.provide(
+          Layer.mergeAll(
+            authenticatedRuntimeLayer(defaultRegistry.url),
+            registryClientFactoryLayer(defaultRegistry.url),
+          ),
+        ),
+        Effect.scoped,
+      );
+    });
 
 // Machine-output decoding surface for JavaScript and TypeScript automation.
 // The machine-output help topic points consumers here, so the published

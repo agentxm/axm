@@ -162,10 +162,10 @@ describe("zigDetector", () => {
 // Zig Reader tests
 // ──────────────────────────────────────────────────────────────────
 
-/** Helper to set up a temp Zig cache with axm.json for reader tests. */
+/** Helper to set up a temp Zig cache with agent-extensions.json for reader tests. */
 const readInTempZigCache = (
   pkgPurl: Schema.Schema.Type<typeof PackageUrlPartsSchema>,
-  axmJsonContent?: string,
+  agentExtensionsJsonContent?: string,
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -175,10 +175,13 @@ const readInTempZigCache = (
     // Set up a fake Zig cache structure
     const zigCacheDir = path.join(tmpDir, ".cache", "zig", "p");
 
-    if (axmJsonContent !== undefined) {
+    if (agentExtensionsJsonContent !== undefined) {
       const hashDir = path.join(zigCacheDir, "abc123def456");
       yield* fs.makeDirectory(hashDir, { recursive: true });
-      yield* fs.writeFileString(path.join(hashDir, "axm.json"), axmJsonContent);
+      yield* fs.writeFileString(
+        path.join(hashDir, "agent-extensions.json"),
+        agentExtensionsJsonContent,
+      );
     }
 
     // Create a source file
@@ -214,15 +217,15 @@ describe("zigReader", () => {
     expect(zigReader.type).toBe(zigType);
   });
 
-  describe("valid axm.json in cache", () => {
-    it.effect("extracts extensions from axm.json", () =>
+  describe("valid agent-extensions.json in cache", () => {
+    it.effect("extracts extensions from agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "zig", name: "zap" });
           const result = yield* readInTempZigCache(
             purl,
             JSON.stringify({
-              extensions: [{ ref: "@zig/skills/zap", versionRange: "^1.0.0" }],
+              agentExtensions: [{ ref: "@zig/skills/zap", versionRange: "^1.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
@@ -234,8 +237,8 @@ describe("zigReader", () => {
     );
   });
 
-  describe("missing axm.json", () => {
-    it.effect("returns Option.none when no axm.json exists", () =>
+  describe("missing agent-extensions.json", () => {
+    it.effect("returns Option.none when no agent-extensions.json exists", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "zig", name: "zap" });
@@ -246,14 +249,14 @@ describe("zigReader", () => {
     );
   });
 
-  describe("malformed axm.json", () => {
+  describe("malformed agent-extensions.json", () => {
     it.effect("returns Option.none on malformed metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "zig", name: "zap" });
           const result = yield* readInTempZigCache(
             purl,
-            JSON.stringify({ extensions: "not-an-array" }),
+            JSON.stringify({ agentExtensions: "not-an-array" }),
           );
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -262,14 +265,14 @@ describe("zigReader", () => {
   });
 
   describe("extra fields tolerated", () => {
-    it.effect("ignores extra fields in axm.json", () =>
+    it.effect("ignores extra fields in agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "zig", name: "zap" });
           const result = yield* readInTempZigCache(
             purl,
             JSON.stringify({
-              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
+              agentExtensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
               futureField: true,
             }),
           );
@@ -287,7 +290,7 @@ describe("zigReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "zig", name: "zap" });
-          // readInTempZigCache without axmJsonContent won't create the cache dir
+          // readInTempZigCache without agentExtensionsJsonContent won't create the cache dir
           const result = yield* readInTempZigCache(purl);
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -295,7 +298,7 @@ describe("zigReader", () => {
     );
   });
 
-  describe("malformed JSON in axm.json", () => {
+  describe("malformed JSON in agent-extensions.json", () => {
     it.effect("returns Option.none on invalid JSON", () =>
       withNodeContext(
         Effect.gen(function* () {

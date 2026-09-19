@@ -36,12 +36,11 @@ import {
 export const SPEC_REGISTRY_ENDPOINT = "https://registry.example.com/";
 
 /**
- * The settings `sources` row that names it. A lockfile row references its
- * source by name, so a workspace that holds an accepted resolution must
- * declare the Registry it was accepted from.
+ * The settings `sources` row that gives the Registry a declaration-time name.
+ * The accepted resolution remains self-describing through the Registry URL.
  */
 export const SPEC_REGISTRY_SOURCE = {
-  name: "agentxm",
+  name: "test",
   type: "registry",
   location: SPEC_REGISTRY_ENDPOINT,
 } as const;
@@ -69,7 +68,7 @@ export const seedAcceptedRegistryResolution = Effect.fn("seedAcceptedRegistryRes
     const owner = decodeHandleSync(resolution.owner);
     const canonicalPath = path.join(
       layout.acquiredRoot,
-      "agentxm",
+      "registry",
       owner,
       extensionTypeToPlural[resolution.type],
       resolution.name,
@@ -77,53 +76,35 @@ export const seedAcceptedRegistryResolution = Effect.fn("seedAcceptedRegistryRes
     const treeIntegrity = yield* computeMaterializedTreeIntegrity(canonicalPath);
     const name: ExtensionName = decodeExtensionNameSync(resolution.name);
     const shared = {
-      type: "registry",
-      sourceType: "registry",
-      sourceName: "agentxm",
-      endpoint: new URL(SPEC_REGISTRY_ENDPOINT),
-      packageFormat: "agentxm",
-      owner,
-      name,
-      workspaceName: name,
-      resolvedVersion: decodeVersionSync(resolution.version),
-      integrity: `sha512-${resolution.name}`,
-      publisherBindingId: "spec-publisher-binding",
+      source: { type: "registry", url: new URL(SPEC_REGISTRY_ENDPOINT) },
+      identity: { owner, name },
+      resolved: {
+        version: decodeVersionSync(resolution.version),
+        integrity: `sha512-${resolution.name}`,
+        publisherBindingId: "spec-publisher-binding",
+      },
       treeIntegrity,
     } as const;
 
     switch (resolution.type) {
       case "skill":
-        return yield* accepted.setAccepted("skill", resolution.name, {
-          ...shared,
-          extensionType: "skill",
-        });
+        return yield* accepted.setAccepted("skill", resolution.name, shared);
       case "subagent":
-        return yield* accepted.setAccepted("subagent", resolution.name, {
-          ...shared,
-          extensionType: "subagent",
-        });
+        return yield* accepted.setAccepted("subagent", resolution.name, shared);
       case "rule":
-        return yield* accepted.setAccepted("rule", resolution.name, {
-          ...shared,
-          extensionType: "rule",
-        });
+        return yield* accepted.setAccepted("rule", resolution.name, shared);
       case "hook":
-        return yield* accepted.setAccepted("hook", resolution.name, {
-          ...shared,
-          extensionType: "hook",
-        });
+        return yield* accepted.setAccepted("hook", resolution.name, shared);
       case "knowledge":
-        return yield* accepted.setAccepted("knowledge", resolution.name, {
-          ...shared,
-          extensionType: "knowledge",
-        });
+        return yield* accepted.setAccepted("knowledge", resolution.name, shared);
       case "pack":
         // A Pack row is flat rather than nested, and carries the manifest
         // identity the Registry accepted alongside the tree integrity.
         return yield* accepted.setAccepted("pack", resolution.name, {
           ...shared,
-          extensionType: "pack",
+          manifestVersion: shared.resolved.version,
           manifestContentIdentity: decodeSourceHash(`sha256-${resolution.name}-manifest`),
+          members: [],
         });
       case "mcp-server":
         return yield* accepted.setAccepted(
@@ -133,7 +114,7 @@ export const seedAcceptedRegistryResolution = Effect.fn("seedAcceptedRegistryRes
             owner,
             name: resolution.name,
           }),
-          { ...shared, extensionType: "mcp-server" },
+          shared,
         );
     }
   },

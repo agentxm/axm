@@ -6,6 +6,7 @@ import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/sour
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import {
   lockEntryToSourceParams,
+  lockEntryMatchesSourceLocator,
   printSkillLockSourceLocator,
 } from "./lock-entry-to-source-params.js";
 
@@ -18,44 +19,27 @@ describe("lock entry printers", () => {
   it("maps accepted Git and local resolutions back to source parameters", () => {
     expect(
       lockEntryToSourceParams({
-        type: "github",
-        sourceType: "github",
-        sourceName: "github",
-        endpoint: new URL("https://github.com"),
-        extensionType: "skill",
-        workspaceName: extensionName("review"),
-        packageFormat: "agentxm",
-        packageOwner: handle("@acme"),
-        packageName: extensionName("review"),
-        owner: "acme",
-        repo: "extensions",
-        ref: "main",
-        path: "skills/review",
-        resolvedCommit: "commit-1",
-        resolvedTree: "tree-1",
-        contentIdentity,
+        source: {
+          type: "git",
+          url: new URL("https://github.com/acme/extensions.git"),
+          revision: "main",
+          path: "skills/review",
+        },
+        identity: { owner: handle("@acme"), name: extensionName("review") },
+        resolved: { commit: "commit-1", tree: "tree-1" },
         treeIntegrity,
       }),
     ).toEqual({
-      type: "github",
-      sourceName: "github",
-      owner: "acme",
-      repo: "extensions",
+      type: "git",
+      url: new URL("https://github.com/acme/extensions.git"),
       ref: Option.some("main"),
       subPath: Option.some("skills/review"),
     });
     expect(
       lockEntryToSourceParams({
-        type: "local",
-        sourceType: "local",
-        sourceName: "local",
-        extensionType: "skill",
-        workspaceName: extensionName("review"),
-        packageFormat: "agentxm",
-        packageOwner: handle("@acme"),
-        packageName: extensionName("review"),
-        path: "../review",
-        contentIdentity,
+        source: { type: "path", path: "../review" },
+        identity: { owner: handle("@acme"), name: extensionName("review") },
+        resolved: { tree: contentIdentity },
         treeIntegrity,
       }),
     ).toEqual({ type: "local", path: "../review" });
@@ -64,20 +48,34 @@ describe("lock entry printers", () => {
   it("prints a Registry accepted resolution as an exact locator", () => {
     expect(
       printSkillLockSourceLocator("ignored", {
-        type: "registry",
-        sourceType: "registry",
-        endpoint: new URL("https://registry.agentxm.ai"),
-        extensionType: "skill",
-        workspaceName: extensionName("review"),
-        packageFormat: "agentxm",
-        owner: handle("@acme"),
-        name: extensionName("review"),
-        resolvedVersion: exactVersion("1.2.3"),
-        integrity: "sha512-archive",
-        sourceName: "agentxm",
-        publisherBindingId: "binding-1",
+        source: { type: "registry", url: new URL("https://registry.agentxm.ai") },
+        identity: { owner: handle("@acme"), name: extensionName("review") },
+        resolved: {
+          version: exactVersion("1.2.3"),
+          integrity: "sha512-archive",
+          publisherBindingId: "binding-1",
+        },
         treeIntegrity,
       }),
-    ).toBe("agentxm:@acme/skills/review@1.2.3");
+    ).toBe("registry:https://registry.agentxm.ai/:@acme/skills/review@1.2.3");
+  });
+
+  it("matches hosted Git shorthand after trimming URL path separators", () => {
+    expect(
+      lockEntryMatchesSourceLocator(
+        {
+          source: {
+            type: "git",
+            url: new URL("https://github.com/acme/extensions.git/"),
+            revision: "main",
+            path: "skills/review",
+          },
+          identity: { owner: handle("@acme"), name: extensionName("review") },
+          resolved: { commit: "commit-1", tree: "tree-1" },
+          treeIntegrity,
+        },
+        "github:acme/extensions//skills/review@main",
+      ),
+    ).toBe(true);
   });
 });

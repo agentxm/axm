@@ -64,7 +64,7 @@ const manifestFor = (fixture: PackFixture): Readonly<Record<string, unknown>> =>
 const packDirectory = (fixture: PackFixture): string =>
   fixture.authority === "workspace"
     ? nodePath.join("packs", fixture.name)
-    : nodePath.join("agent_extensions", "agentxm", OWNER, "packs", fixture.name);
+    : nodePath.join("agent_extensions", "registry", OWNER, "packs", fixture.name);
 
 const manifestPath = (fixture: PackFixture): string =>
   nodePath.join(packDirectory(fixture), "pack.json");

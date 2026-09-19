@@ -141,7 +141,7 @@ export const acceptedLockedCanonicalPath = (
           layout,
           extensionPathSourceFromLockEntry(entry),
           toExtensionTypePlural(args.type),
-          entry.workspaceName,
+          entry.identity.name,
         ).canonicalPath,
     );
   });
@@ -329,10 +329,7 @@ const refForDesired = (
         staticPackage: {
           owner: decodeHandleSync("@agentxm"),
           name: decodeExtensionNameSync(desired.name),
-          root:
-            layout.scope === "project"
-              ? path.join(layout.acquiredRoot, "agentxm", "@agentxm", "skills", desired.name)
-              : path.join(layout.acquiredRoot, "agentxm", "@agentxm", "skills", desired.name),
+          root: path.join(layout.acquiredRoot, "registry", "@agentxm", "skills", desired.name),
         },
       });
     }

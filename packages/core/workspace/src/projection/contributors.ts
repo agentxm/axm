@@ -47,8 +47,6 @@ import type { WorkspaceLayout } from "../desired-state/index.js";
  * every other source class materializes under the external extensions tree.
  */
 export type SourceLockEntryLike = ExtensionPathLockEntry & {
-  readonly workspaceName: string;
-  readonly packageOwner?: Handle | undefined;
   readonly treeIntegrity: TreeIntegrity;
 };
 
@@ -133,7 +131,7 @@ export const contributorForNode = (args: {
       layout,
       extensionPathSourceFromLockEntry(locked),
       extensionDir,
-      locked.workspaceName,
+      node.name,
     ).canonicalPath;
     const observedTree = yield* computeMaterializedTreeIntegrity(packageRoot);
     if (observedTree !== locked.treeIntegrity) {
@@ -142,10 +140,7 @@ export const contributorForNode = (args: {
     return {
       node,
       packageRoot,
-      identityOwner:
-        locked.type === "registry"
-          ? Option.some(locked.owner)
-          : Option.fromUndefinedOr(locked.packageOwner),
+      identityOwner: Option.fromUndefinedOr(locked.identity.owner),
     };
   });
 

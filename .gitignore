@@ -50,6 +50,7 @@ http-client.private.env.json
 .nx/workspace-data/
 tmp/
 .axm/
+.work/evals/
 
 # Test results (JUnit XML reports)
 test-results/

@@ -46,18 +46,13 @@ const runCheck = (state: WorkspaceState, nodes: ReadonlyArray<DesiredExtensionNo
   });
 
 const resolution = {
-  type: "registry",
-  sourceType: "registry",
-  sourceName: "agentxm",
-  endpoint: "https://registry.agentxm.ai",
-  extensionType: "skill",
-  workspaceName: "my-skill",
-  packageFormat: "agentxm",
-  owner: "@examples",
-  name: "my-skill",
-  resolvedVersion: "1.0.0",
-  integrity: "sha512-stub",
-  publisherBindingId: "hbnd_test",
+  source: { type: "registry", url: "https://registry.agentxm.ai" },
+  identity: { owner: "@examples", name: "my-skill" },
+  resolved: {
+    version: "1.0.0",
+    integrity: "sha512-stub",
+    publisherBindingId: "hbnd_test",
+  },
   treeIntegrity,
 };
 
@@ -67,7 +62,7 @@ const stateWithDesiredSkill = () => {
     agents: ["claude-code"],
     skills: { "my-skill": { source: "@examples/skills/my-skill@1.0.0" } },
   };
-  state.lockfile = { lockfileVersion: 7, skills: { "my-skill": resolution } };
+  state.lockfile = { lockfileVersion: 8, skills: { "my-skill": resolution } };
   return state;
 };
 

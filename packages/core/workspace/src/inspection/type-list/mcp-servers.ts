@@ -141,7 +141,9 @@ export const mcpServerListRows = (args: {
 }): McpServerListRow => {
   const { row, configuredEntry, desiredNode, locked, inspections } = args;
   const registryResolution =
-    Option.isSome(locked) && locked.value.type === "registry" ? locked.value : undefined;
+    Option.isSome(locked) && locked.value.source.type === "registry"
+      ? locked.value.resolved
+      : undefined;
   return {
     ...row,
     localName: row.name,
@@ -166,10 +168,13 @@ export const mcpServerListRows = (args: {
         ? null
         : {
             kind: "registry",
-            version: registryResolution.resolvedVersion,
-            integrity: registryResolution.integrity,
+            version: "version" in registryResolution ? registryResolution.version : "n/a",
+            integrity: "integrity" in registryResolution ? registryResolution.integrity : "",
           },
-    version: registryResolution?.resolvedVersion ?? "n/a",
+    version:
+      registryResolution !== undefined && "version" in registryResolution
+        ? registryResolution.version
+        : "n/a",
     transport: args.origins.some((origin) => origin.includes("config")) ? "config" : "auto",
     status:
       row.lifecycle === "configured" || row.lifecycle === "implicit"

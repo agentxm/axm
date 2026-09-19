@@ -304,7 +304,7 @@ describe("dockerReader", () => {
     expect(dockerReader.type).toBe(dockerType);
   });
 
-  describe("valid axm annotation", () => {
+  describe("valid agentExtensions annotation", () => {
     it.effect("extracts extensions from annotation file", () =>
       withNodeContext(
         Effect.gen(function* () {
@@ -312,7 +312,9 @@ describe("dockerReader", () => {
           const result = yield* readInTempDir(
             purl,
             JSON.stringify({
-              extensions: [{ ref: "@nginx/skills/nginx", versionRange: "^1.0.0" }],
+              "org.agentextensions.recommendations": JSON.stringify([
+                { ref: "@nginx/skills/nginx", versionRange: "^1.0.0" },
+              ]),
             }),
           );
           expect(Option.isSome(result)).toBe(true);
@@ -327,7 +329,10 @@ describe("dockerReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "docker", name: "postgres", version: "16" });
-          const result = yield* readInTempDir(purl, JSON.stringify({ extensions: [] }));
+          const result = yield* readInTempDir(
+            purl,
+            JSON.stringify({ "org.agentextensions.recommendations": JSON.stringify([]) }),
+          );
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
             expect(result.value).toEqual([]);
@@ -354,7 +359,12 @@ describe("dockerReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "docker", name: "myimage", version: "1.0" });
-          const result = yield* readInTempDir(purl, JSON.stringify({ extensions: "not-an-array" }));
+          const result = yield* readInTempDir(
+            purl,
+            JSON.stringify({
+              "org.agentextensions.recommendations": JSON.stringify("not-an-array"),
+            }),
+          );
           expect(Option.isNone(result)).toBe(true);
         }),
       ),
@@ -369,7 +379,9 @@ describe("dockerReader", () => {
           const result = yield* readInTempDir(
             purl,
             JSON.stringify({
-              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
+              "org.agentextensions.recommendations": JSON.stringify([
+                { ref: "@acme/skills/foo", versionRange: "^1.0.0" },
+              ]),
               futureField: true,
             }),
           );

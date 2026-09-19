@@ -113,7 +113,7 @@ describe("bazelDetector", () => {
 /** Helper to set up a temp Bazel output base for reader tests. */
 const readInTempBazel = (
   pkgPurl: Schema.Schema.Type<typeof PackageUrlPartsSchema>,
-  axmJsonContent?: string,
+  agentExtensionsJsonContent?: string,
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -127,11 +127,14 @@ const readInTempBazel = (
     yield* fs.makeDirectory(projectDir, { recursive: true });
     yield* fs.writeFileString(path.join(projectDir, "MODULE.bazel"), 'module(name = "myproject")');
 
-    if (axmJsonContent !== undefined) {
+    if (agentExtensionsJsonContent !== undefined) {
       const outputBase = path.join(tmpDir, "output_base");
       const externalDir = path.join(outputBase, "external", pkgName);
       yield* fs.makeDirectory(externalDir, { recursive: true });
-      yield* fs.writeFileString(path.join(externalDir, "axm.json"), axmJsonContent);
+      yield* fs.writeFileString(
+        path.join(externalDir, "agent-extensions.json"),
+        agentExtensionsJsonContent,
+      );
 
       // Set BAZEL_OUTPUT_BASE
       const origOutputBase = process.env["BAZEL_OUTPUT_BASE"];
@@ -168,15 +171,15 @@ describe("bazelReader", () => {
     expect(bazelReader.type).toBe(bazelType);
   });
 
-  describe("valid axm.json in external repository", () => {
-    it.effect("extracts extensions from axm.json", () =>
+  describe("valid agent-extensions.json in external repository", () => {
+    it.effect("extracts extensions from agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "bazel", name: "com_google_protobuf" });
           const result = yield* readInTempBazel(
             purl,
             JSON.stringify({
-              extensions: [{ ref: "@google/skills/protobuf", versionRange: "^1.0.0" }],
+              agentExtensions: [{ ref: "@google/skills/protobuf", versionRange: "^1.0.0" }],
             }),
           );
           expect(Option.isSome(result)).toBe(true);
@@ -193,7 +196,7 @@ describe("bazelReader", () => {
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "bazel", name: "rules_go" });
-          const result = yield* readInTempBazel(purl, JSON.stringify({ extensions: [] }));
+          const result = yield* readInTempBazel(purl, JSON.stringify({ agentExtensions: [] }));
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
             expect(result.value).toEqual([]);
@@ -203,8 +206,8 @@ describe("bazelReader", () => {
     );
   });
 
-  describe("missing axm.json", () => {
-    it.effect("returns Option.none when axm.json does not exist", () =>
+  describe("missing agent-extensions.json", () => {
+    it.effect("returns Option.none when agent-extensions.json does not exist", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "bazel", name: "rules_go" });
@@ -215,12 +218,12 @@ describe("bazelReader", () => {
     );
   });
 
-  describe("malformed axm.json", () => {
+  describe("malformed agent-extensions.json", () => {
     it.effect("returns Option.none on invalid metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "bazel", name: "rules_go" });
-          const result = yield* readInTempBazel(purl, JSON.stringify({ extensions: 42 }));
+          const result = yield* readInTempBazel(purl, JSON.stringify({ agentExtensions: 42 }));
           expect(Option.isNone(result)).toBe(true);
         }),
       ),
@@ -228,14 +231,14 @@ describe("bazelReader", () => {
   });
 
   describe("extra fields tolerated", () => {
-    it.effect("ignores extra fields in axm.json", () =>
+    it.effect("ignores extra fields in agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "bazel", name: "rules_go" });
           const result = yield* readInTempBazel(
             purl,
             JSON.stringify({
-              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
+              agentExtensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
               futureField: true,
             }),
           );
@@ -248,7 +251,7 @@ describe("bazelReader", () => {
     );
   });
 
-  describe("malformed JSON in axm.json", () => {
+  describe("malformed JSON in agent-extensions.json", () => {
     it.effect("returns Option.none on invalid JSON", () =>
       withNodeContext(
         Effect.gen(function* () {

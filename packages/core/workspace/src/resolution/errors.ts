@@ -64,7 +64,7 @@ export class PackDependencyConflict extends Data.TaggedError("PackDependencyConf
 
 /** Workspace authority shadows a pack member outside the pack's constraint. */
 export class PackConstraintShadowed extends Data.TaggedError("PackConstraintShadowed")<{
-  readonly packSource: "workspace" | "registry";
+  readonly packSource: "workspace" | "registry" | "git" | "local";
   readonly packFqn: string;
   readonly memberFqn: string;
   readonly constraint: string;

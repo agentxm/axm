@@ -511,7 +511,7 @@ export const makeFileRegistry = (options: { readonly root?: string } = {}): File
   return {
     root,
     url: pathToFileURL(root).href,
-    source: { name: "agentxm", type: "registry", location: `file://${root}` },
+    source: { name: "test", type: "registry", location: `file://${root}` },
     writeSkill,
     writeSubagent: (name, versions) => writeDocumentPackage("subagent", name, versions),
     writeRule: (name, versions) => writeDocumentPackage("rule", name, versions),

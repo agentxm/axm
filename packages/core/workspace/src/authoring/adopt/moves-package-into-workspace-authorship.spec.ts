@@ -40,7 +40,7 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-const ACQUIRED_PARENT = "agent_extensions/agentxm/@acme/skills";
+const ACQUIRED_PARENT = "agent_extensions/registry/@acme/skills";
 
 describe("Adopting existing packages", () => {
   const cleanups: Array<() => void> = [];
@@ -75,7 +75,7 @@ describe("Adopting existing packages", () => {
         () =>
           Effect.gen(function* () {
             const created = workspace();
-            const acquiredParent = `agent_extensions/agentxm/@acme/${row.plural}`;
+            const acquiredParent = `agent_extensions/registry/@acme/${row.plural}`;
             if (activation.declared !== undefined) {
               created.writeSettings({
                 owner: "@acme",
@@ -112,7 +112,7 @@ describe("Adopting existing packages", () => {
         () =>
           Effect.gen(function* () {
             const created = workspace();
-            const parent = `agent_extensions/agentxm/@acme/${row.plural}`;
+            const parent = `agent_extensions/registry/@acme/${row.plural}`;
             writeAuthoringPackage(created.root, row, "review", { parent });
             writeAuthoringPackage(created.root, authoringTypeFor("skill"), "test-helper", {
               parent: ACQUIRED_PARENT,

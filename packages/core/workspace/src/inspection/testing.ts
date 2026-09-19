@@ -42,6 +42,7 @@ import {
   makeRegistrySkillLockEntry,
 } from "../desired-state/testing.js";
 import { WorkspaceStateLive } from "../desired-state/live.js";
+import { withTestRegistryDefault } from "../desired-state/testing.js";
 
 export const inspectionRegistryUrl = "https://inspection-registry.example.test";
 
@@ -148,12 +149,12 @@ export const makeInspectionFixture = (options: InspectionFixtureOptions = {}) =>
   if (options.settings !== undefined) {
     fs.writeFileSync(
       nodePath.join(workspaceRoot, "axm.json"),
-      JSON.stringify({ agents: [], ...options.settings }, null, 2),
+      JSON.stringify({ agents: [], ...withTestRegistryDefault(options.settings) }, null, 2),
     );
     // JSON is valid YAML, so the lockfile fixture needs no emitter.
     fs.writeFileSync(
       nodePath.join(workspaceRoot, "axm-lock.yaml"),
-      JSON.stringify({ lockfileVersion: 7, skills: {}, ...options.lockfile }),
+      JSON.stringify({ lockfileVersion: 8, skills: {}, ...options.lockfile }),
     );
   }
   for (const [relativePath, contents] of Object.entries(options.files ?? {}))
@@ -442,7 +443,8 @@ export const makeAcceptedPackFixture = (
   return makeInspectionFixture({
     settings: {
       agents: [],
-      sources: [{ name: "agentxm", type: "registry", location: inspectionRegistryUrl }],
+      defaultRegistry: "test",
+      sources: [{ name: "test", type: "registry", location: inspectionRegistryUrl }],
       packs: { [name]: { source: `@acme/packs/${name}@${version}`, enabled: true } },
     },
     lockfile: {
@@ -456,7 +458,11 @@ export const makeAcceptedPackFixture = (
       },
     },
     files: {
-      [`agent_extensions/agentxm/@acme/packs/${name}/pack.json`]: JSON.stringify(manifest, null, 2),
+      [`agent_extensions/registry/@acme/packs/${name}/pack.json`]: JSON.stringify(
+        manifest,
+        null,
+        2,
+      ),
     },
   });
 };

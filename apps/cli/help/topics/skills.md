@@ -4,11 +4,11 @@ Before distributing package-root files, read `axm help publish` for the
 Registry-only archive policy and effective preview.
 
 Project-authored skill packages live in `./skills/<skill-name>`; acquired skills
-use the source-qualified canonical scheme. A Registry skill such as
-`@acme/skills/review` lives at
-`./agent_extensions/agentxm/@acme/skills/review`; a portable GitHub skill at
+use the source-family and identity-based canonical scheme. A Registry skill
+such as `@acme/skills/review` lives at
+`./agent_extensions/registry/@acme/skills/review`; a portable GitHub skill at
 `github:remix-run/react-router//.agents/skills/react-router@main` lives at
-`./agent_extensions/github/remix-run/react-router/.agents/skills/react-router`.
+`./agent_extensions/git/@portable/skills/react-router`.
 
 ## skill.json
 
@@ -102,13 +102,13 @@ adapter proves unit-local AXM ownership; unknown artifacts are retained.
 AXM records accepted immutable resolution for externally sourced skills:
 
 - **`integrity`** — the SRI sha512 of the published archive. AXM verifies it against the downloaded bytes before extracting, every time it fetches. This is the supply-chain guarantee: a tampered or corrupted download fails the install.
-- **Git identity** — immutable commit, tree, and content identity for Git-hosted sources.
-- **Local-source identity** — relative locator and content identity for an accepted local source.
+- **Git identity** — source URL, optional selected path and revision, plus immutable commit and tree identities.
+- **Local-source identity** — workspace-relative locator and immutable tree identity for an accepted local source.
 
 After install, remote-source canonical files under `agent_extensions/` are
-observed materialization. Lockfile v7 records the source type, exact source
-name and endpoint or coordinate, requested intent, immutable resolution,
-package format, and strict integrity of their complete package tree. If any
+observed materialization. Lockfile v8 separates each row into its
+self-describing `source`, package `identity`, immutable `resolved` identity,
+and strict `treeIntegrity` for the complete materialized package tree. If any
 path or byte changes locally, AXM preserves the
 drift and blocks affected lint, inspection, reconciliation, projection, and
 lifecycle work until reinstall, update, or fork resolves it. Workspace-authored

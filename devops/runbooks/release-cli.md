@@ -92,7 +92,7 @@ Each stable GitHub Release contains exactly 20 files:
 - four installer documents: `install.sh`, `install.ps1`, `install.cmd`, and
   `install.md`; and
 - ten generated JSON Schemas: `axm-lock.schema.json`,
-  `axm-package-meta.schema.json`, `hook.schema.json`, `knowledge.schema.json`,
+  `agent-extensions.schema.json`, `hook.schema.json`, `knowledge.schema.json`,
   `mcp.schema.json`, `pack.schema.json`, `rule.schema.json`,
   `settings.schema.json`, `skill.schema.json`, and `subagent.schema.json`.
 

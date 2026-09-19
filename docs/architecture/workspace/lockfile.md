@@ -30,16 +30,23 @@ the accepted content from another result at the same mutable source:
 
 - a Registry version, extension-archive integrity, and publisher binding;
 - a Git commit and tree identity; or
-- a local-path content identity.
+- a path content identity.
 
-The current strict version is version 7. Every acquired package row records
-the exact source type, source name, endpoint or coordinates, requested intent,
-and immutable resolution. It also
-records `treeIntegrity`, the deterministic integrity of the complete installed
-package tree under `agent_extensions/<source-name>/<source-full-name>/`. This package-level
-identity covers every shipped file, including companion files outside the
-extension's primary payload, rather than treating a single manifest or entry
-file as the installed unit.
+The current strict version is version 8. Every acquired package row separates
+four facts: a self-describing `source` locator, declared package `identity`, the
+family-specific immutable `resolved` result, and `treeIntegrity` for the
+complete installed package tree under
+`agent_extensions/<source-family>/<owner>/<plural-type>/<name>/`. This
+package-level identity covers every shipped file, including companion files
+outside the extension's primary payload, rather than treating a single manifest
+or entry file as the installed unit.
+
+Registry locators record the Registry URL; their resolution records version,
+archive integrity, and publisher binding. Git locators record clone URL plus an
+optional selected path and revision; their resolution records commit and tree.
+Path locators record a workspace-relative path; their resolution records the
+observed tree. Configured Registry names and Registry version constraints remain
+desired-state input rather than lock identity.
 
 Most extension maps are keyed by workspace extension name. MCP resolution rows
 are instead keyed by source identity: source authority plus published package
@@ -92,7 +99,7 @@ records the accepted result. Copying data among these surfaces does not transfer
 their authority.
 
 Sync and reinstall rematerialize only the exact locked identity. When a mutable
-Git or local-path source no longer reproduces that identity and canonical
+Git or path source no longer reproduces that identity and canonical
 content is unavailable, the affected semantic mutation closure blocks. AXM
 does not substitute current bytes. An explicit update may resolve and accept a
 new identity within durable version intent.

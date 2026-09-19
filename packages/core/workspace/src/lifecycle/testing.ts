@@ -58,8 +58,10 @@ import {
   WorkspaceInvariantFactsLive,
 } from "../projection/live.js";
 import { layer as WorkspaceLayerLive } from "../desired-state/live.js";
+import { withTestRegistryDefault } from "../desired-state/testing.js";
 
 import { ExtensionLifecycleFailed } from "./errors.js";
+import { InstallSelectionInteraction } from "./install/selection.js";
 import { SkillSelectionInteraction } from "../skills/lifecycle/application/index.js";
 import { SubagentSelectionInteraction } from "../subagents/lifecycle/application/index.js";
 import { BundledAxmSkillAsset } from "../skills/lifecycle/install/bundled.js";
@@ -237,12 +239,12 @@ export const makeLifecycleFixture = (options: LifecycleFixtureOptions = {}) => {
   if (options.settings !== undefined) {
     fs.writeFileSync(
       nodePath.join(workspaceRoot, "axm.json"),
-      JSON.stringify({ agents: [], ...options.settings }, null, 2),
+      JSON.stringify({ agents: [], ...withTestRegistryDefault(options.settings) }, null, 2),
     );
     // JSON is valid YAML, so the lockfile fixture needs no emitter.
     fs.writeFileSync(
       nodePath.join(workspaceRoot, "axm-lock.yaml"),
-      JSON.stringify({ lockfileVersion: 7, skills: {}, ...options.lockfile }),
+      JSON.stringify({ lockfileVersion: 8, skills: {}, ...options.lockfile }),
     );
   }
   for (const [relativePath, contents] of Object.entries(options.files ?? {})) {
@@ -263,6 +265,9 @@ export const makeLifecycleFixture = (options: LifecycleFixtureOptions = {}) => {
     readonly offered: ReadonlyArray<string>;
   }> = [];
   const selection = Layer.mergeAll(
+    Layer.succeed(InstallSelectionInteraction, {
+      select: (candidates) => Effect.succeed(options.select === "none" ? [] : candidates),
+    }),
     Layer.succeed(SkillSelectionInteraction, {
       select: (candidates) => {
         selectionCalls.push({ type: "skill", offered: candidates.map((ref) => ref.skill.name) });

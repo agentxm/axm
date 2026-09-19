@@ -61,12 +61,12 @@ describe("List locally named MCP connections for a person", () => {
         expect.arrayContaining([
           expect.objectContaining({
             localName: "work-context",
-            source: "agentxm:@acme/mcps/context",
+            source: "test:@acme/mcps/context",
             version: "1.0.0",
           }),
           expect.objectContaining({
             localName: "personal-context",
-            source: "agentxm:@acme/mcps/context",
+            source: "test:@acme/mcps/context",
             version: "1.0.0",
           }),
         ]),

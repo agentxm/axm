@@ -5,7 +5,5 @@
  * @packageDocumentation
  */
 
-export { resolveRepo } from "./resolve-repo.js";
 export { parseShorthand } from "./shorthand.js";
 export { parseUrl } from "./url.js";
-export { parseScp } from "./scp.js";

@@ -13,7 +13,7 @@ import type { ExtensionName, ExtensionType } from "../common.js";
 import type * as Option from "effect/Option";
 import type * as Record from "effect/Record";
 import type { RefType, Source } from "../../sources/types.js";
-import type { ExtensionDependencyConstraintMap } from "../common.js";
+import type { PackMemberConstraintMap } from "../common.js";
 import type { Version } from "../../version-constraints/version-constraints.js";
 import type { Handle } from "../handle.js";
 import type { PackageUrlParts } from "../../packaging/package-url.js";
@@ -157,8 +157,9 @@ export type PackRefBase<TRefType extends RefType, TSource extends Source> = Exte
   TSource
 > & {
   readonly owner: Handle;
+  readonly version: Version;
   readonly pack: {
     readonly name: ExtensionName;
-    readonly dependencies: ExtensionDependencyConstraintMap;
+    readonly dependencies: PackMemberConstraintMap;
   };
 };

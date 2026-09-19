@@ -7,14 +7,20 @@ describe("printSourceParams", () => {
   it("prints source parameters", () => {
     expect(
       printSourceParams({
-        type: "github",
-        sourceName: "github",
-        owner: "acme",
-        repo: "widgets",
+        type: "git",
+        url: new URL("https://github.com/acme/widgets.git"),
         ref: Option.some("main"),
         subPath: Option.some("skills/foo"),
       }),
     ).toBe("github:acme/widgets//skills/foo@main");
+    expect(
+      printSourceParams({
+        type: "git",
+        url: new URL("https://dev.azure.com/acme/platform/_git/widgets"),
+        ref: Option.some("main"),
+        subPath: Option.some("skills/foo"),
+      }),
+    ).toBe("azurerepos:acme/platform/widgets//skills/foo@main");
     expect(printSourceParams({ type: "local", path: "./skills/foo" })).toBe("./skills/foo");
     expect(
       printSourceParams({

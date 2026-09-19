@@ -31,6 +31,7 @@ import type { ArchivalView } from "@agentxm/extension-model/unstable/extensions/
 import type {
   RegistryBindingProposal,
   ReleaseAgeOperationEvidence,
+  SourceBindingProposal,
 } from "../../../resolution/index.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
@@ -152,6 +153,8 @@ export interface JobStepArtifact {
   readonly packMembership?: PackMembershipDelta;
   /** Registry lifecycle evidence captured when the candidate was resolved. */
   readonly registryLifecycle?: RegistryLifecycleEvidence;
+  /** Evidence for an explicit cross-authority replacement. */
+  readonly sourceSwitch?: SourceSwitchEvidence;
 }
 
 export interface JobStepManagedRegion {
@@ -190,6 +193,53 @@ export interface RegistryLifecycleEvidence {
   readonly deprecation?: DeprecationView;
 }
 
+export type SourceSwitchFamily = "registry" | "git" | "path";
+
+export interface SourceSwitchEndpoint {
+  readonly family: SourceSwitchFamily;
+  readonly locator: string;
+  readonly resolution: string;
+  readonly treeIntegrity: string;
+}
+
+export interface PackMemberSourceSwitchEndpoint {
+  readonly family: SourceSwitchFamily | "workspace";
+  readonly locator: string;
+  readonly resolution: string;
+}
+
+export type PackMemberSourceSwitchDisposition =
+  "added" | "removed" | "retained" | "source-changed" | "version-changed" | "unchanged";
+
+export interface PackMemberSourceSwitchEvidence {
+  readonly member: string;
+  readonly disposition: PackMemberSourceSwitchDisposition;
+  readonly before?: PackMemberSourceSwitchEndpoint;
+  readonly after?: PackMemberSourceSwitchEndpoint;
+}
+
+export interface SourceSwitchEvidence {
+  readonly before: SourceSwitchEndpoint;
+  readonly after: SourceSwitchEndpoint;
+  readonly content: "equivalent" | "changed";
+  readonly dependencies: {
+    readonly effect: "not-applicable" | "unchanged" | "changed";
+    readonly added: ReadonlyArray<string>;
+    readonly removed: ReadonlyArray<string>;
+    readonly changed: ReadonlyArray<string>;
+  };
+  readonly projections: {
+    readonly effect: "reconcile";
+    readonly detail: string;
+  };
+  readonly guarantees: {
+    readonly gained: ReadonlyArray<string>;
+    readonly lost: ReadonlyArray<string>;
+  };
+  /** Complete member diff when the switched extension is a Pack. */
+  readonly packMembers?: ReadonlyArray<PackMemberSourceSwitchEvidence>;
+}
+
 export type JobStepResult<Output = never> =
   | {
       readonly result: "success";
@@ -225,6 +275,7 @@ export interface ReadyJobStep<Requirements = never, Output = never> {
   readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
   readonly registryLifecycle?: RegistryLifecycleEvidence;
   readonly registryBinding?: RegistryBindingProposal;
+  readonly sourceBinding?: SourceBindingProposal;
   readonly run: Effect.Effect<JobStepResult<Output>, StepFailure, Requirements>;
 }
 
@@ -240,6 +291,7 @@ export interface WarnJobStep<Requirements = never, Output = never> {
   readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
   readonly registryLifecycle?: RegistryLifecycleEvidence;
   readonly registryBinding?: RegistryBindingProposal;
+  readonly sourceBinding?: SourceBindingProposal;
   readonly run: Effect.Effect<JobStepResult<Output>, StepFailure, Requirements>;
 }
 
@@ -255,6 +307,7 @@ export interface ErrorJobStep {
   readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
   readonly registryLifecycle?: RegistryLifecycleEvidence;
   readonly registryBinding?: RegistryBindingProposal;
+  readonly sourceBinding?: SourceBindingProposal;
   /** Semantic blockers already represented in Plan.riskConditions. */
   readonly blockingConditionIds?: ReadonlyArray<string>;
 }

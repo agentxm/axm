@@ -35,6 +35,7 @@ import {
 
 const resolveSubagentRegistrySource = (
   pattern: Extract<InputPattern, { readonly pattern: "registry-pattern-input" }>,
+  originalInput: string,
   options: Option.Option<RegistryResolutionOptions>,
 ) =>
   Effect.gen(function* () {
@@ -48,6 +49,7 @@ const resolveSubagentRegistrySource = (
 
     return yield* resolveConfiguredRegistrySource({
       sourceName: pattern.sourceName,
+      useDefaultRegistry: originalInput.startsWith("@"),
       owner: pattern.owner,
       extensionType: "subagent",
       extensionName: pattern.name,
@@ -71,7 +73,11 @@ export const resolveSubagentInstallSource: (
   const pattern = parseResult.pattern;
   switch (pattern.pattern) {
     case "registry-pattern-input":
-      return yield* resolveSubagentRegistrySource(pattern, resolutionOptions);
+      return yield* resolveSubagentRegistrySource(
+        pattern,
+        parseResult.originalInput,
+        resolutionOptions,
+      );
     case "shorthand-input":
       return yield* resolveShorthandInputSource({
         pattern,

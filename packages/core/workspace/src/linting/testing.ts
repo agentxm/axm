@@ -45,6 +45,7 @@ import {
 } from "../projection/live.js";
 import type { WorkspaceStateError } from "../desired-state/index.js";
 import { WorkspaceStateLive } from "../desired-state/live.js";
+import { withTestRegistryDefault } from "../desired-state/testing.js";
 import { ConfiguredAgentOutcomesProviderTest } from "../desired-state/testing.js";
 
 import { allCatalogRuleIds } from "./catalog/index.js";
@@ -167,7 +168,10 @@ export const makeLintWorkspace = (
     fs.writeFileSync(file, contents);
   };
   const writeSettings = (settings: Readonly<Record<string, unknown>>): void => {
-    writeFile("axm.json", `${JSON.stringify({ agents: [], ...settings }, null, 2)}\n`);
+    writeFile(
+      "axm.json",
+      `${JSON.stringify({ agents: [], ...withTestRegistryDefault(settings) }, null, 2)}\n`,
+    );
   };
 
   writeSettings(options.settings ?? {});
@@ -231,7 +235,7 @@ export const makeLintWorkspace = (
 // -----------------------------------------------------------------------------
 
 /** Where a project workspace keeps the official AXM skill's canonical package. */
-export const OFFICIAL_AXM_SKILL_PACKAGE_ROOT = "agent_extensions/agentxm/@agentxm/skills/axm";
+export const OFFICIAL_AXM_SKILL_PACKAGE_ROOT = "agent_extensions/registry/@agentxm/skills/axm";
 
 /** Where a workspace that authors its own `axm` skill keeps it. */
 export const AUTHORED_AXM_SKILL_PACKAGE_ROOT = "skills/axm";

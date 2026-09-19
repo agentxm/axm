@@ -15,7 +15,7 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { PackageURL } from "packageurl-js";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
-import { decodeAxmMeta, decodePurl, readFileOptional } from "./reader-io.js";
+import { decodeAgentExtensions, decodePurl, readFileOptional } from "./reader-io.js";
 import type { DetectedPackage, PackageDetector, PackageReader } from "./types.js";
 
 const hackageType = Schema.decodeUnknownSync(PackageTypeSchema)("hackage");
@@ -239,34 +239,22 @@ export const hackageDetector: PackageDetector = {
 };
 
 /**
- * Parse x-axm custom fields from a cabal file content.
- * Returns a record mapping field names (without x-axm- prefix) to values.
+ * Parse the portable custom field from a cabal file.
  */
-const parseXAxmFields = (content: string): Record<string, unknown> => {
-  const fields: Record<string, unknown> = {};
-  const regex = /^x-axm-(\S+)\s*:\s*(.+)$/gim;
-  let match: RegExpExecArray | null;
-
-  while ((match = regex.exec(content)) !== null) {
-    const fieldName = match[1];
-    const rawValue = match[2]?.trim();
-    if (fieldName === undefined || rawValue === undefined) continue;
-
-    // Try to parse JSON value, otherwise use as string
-    try {
-      fields[fieldName] = JSON.parse(rawValue);
-    } catch {
-      fields[fieldName] = rawValue;
-    }
+const parseAgentExtensionsField = (content: string): Record<string, unknown> | undefined => {
+  const rawValue = /^x-agent-extensions\s*:\s*(.+)$/im.exec(content)?.[1]?.trim();
+  if (rawValue === undefined) return undefined;
+  try {
+    return { agentExtensions: JSON.parse(rawValue) };
+  } catch {
+    return { agentExtensions: rawValue };
   }
-
-  return fields;
 };
 
 /**
  * Hackage package reader.
  *
- * Reads `x-axm` prefixed custom fields from `.cabal` files in
+ * Reads `x-agent-extensions` from `.cabal` files in
  * `~/.cabal/store/ghc-<version>/<pkg>-<version>/` or `dist-newstyle/`.
  *
  * @experimental This API is unstable and may change without notice.
@@ -303,18 +291,18 @@ export const hackageReader: PackageReader = {
               const cabalPath = path.join(pkgDir, cabalFile);
               const content = yield* readFileOptional(cabalPath);
               if (Option.isSome(content)) {
-                const xAxmFields = parseXAxmFields(content.value);
-                if (Object.keys(xAxmFields).length === 0) return Option.none();
+                const metadata = parseAgentExtensionsField(content.value);
+                if (metadata === undefined) return Option.none();
 
-                const metaResult = decodeAxmMeta(xAxmFields);
+                const metaResult = yield* decodeAgentExtensions(metadata);
                 if (Result.isFailure(metaResult)) {
                   yield* Effect.logWarning(
-                    `Invalid axm metadata in ${pkgName}: schema validation failed`,
+                    `Invalid agentExtensions metadata in ${pkgName}: schema validation failed`,
                   );
                   return Option.none();
                 }
 
-                return Option.some(metaResult.success.extensions);
+                return Option.some(metaResult.success.agentExtensions);
               }
             }
           }
@@ -333,18 +321,18 @@ export const hackageReader: PackageReader = {
         const candidatePath = path.join(distDir, "build", pkgDirName, `${pkgName}.cabal`);
         const content = yield* readFileOptional(candidatePath);
         if (Option.isSome(content)) {
-          const xAxmFields = parseXAxmFields(content.value);
-          if (Object.keys(xAxmFields).length === 0) return Option.none();
+          const metadata = parseAgentExtensionsField(content.value);
+          if (metadata === undefined) return Option.none();
 
-          const metaResult = decodeAxmMeta(xAxmFields);
+          const metaResult = yield* decodeAgentExtensions(metadata);
           if (Result.isFailure(metaResult)) {
             yield* Effect.logWarning(
-              `Invalid axm metadata in ${pkgName}: schema validation failed`,
+              `Invalid agentExtensions metadata in ${pkgName}: schema validation failed`,
             );
             return Option.none();
           }
 
-          return Option.some(metaResult.success.extensions);
+          return Option.some(metaResult.success.agentExtensions);
         }
       }
 

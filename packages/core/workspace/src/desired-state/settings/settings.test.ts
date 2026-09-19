@@ -207,37 +207,37 @@ describe("settings", () => {
           prior: `{
   "sources": [
     {
-      "name": "github",
-      "type": "github",
-      "url": "https://github.com/"
+      "name": "primary",
+      "type": "registry",
+      "location": "https://registry.example.com/"
     }
   ]
 }\n`,
           next: {
             sources: [
               {
-                name: "github",
-                type: "github",
-                url: "https://github.com",
+                name: "primary",
+                type: "registry",
+                location: "https://registry.example.com",
               },
               {
-                name: "gitlab",
-                type: "gitlab",
-                url: "https://gitlab.com",
+                name: "secondary",
+                type: "registry",
+                location: "https://registry.secondary.example.com",
               },
             ],
           },
           expected: `{
   "sources": [
     {
-      "name": "github",
-      "type": "github",
-      "url": "https://github.com/"
+      "name": "primary",
+      "type": "registry",
+      "location": "https://registry.example.com/"
     },
     {
-      "name": "gitlab",
-      "type": "gitlab",
-      "url": "https://gitlab.com/"
+      "name": "secondary",
+      "type": "registry",
+      "location": "https://registry.secondary.example.com/"
     }
   ]
 }\n`,

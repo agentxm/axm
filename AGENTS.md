@@ -8,7 +8,7 @@ Use capabilities and configurability offered by our adopted software, infrastruc
 Use extreme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md instructions.
 
 Shared product language and naming live in the
-[AgentXM Knowledge bundle](agent_extensions/agentxm/@agentxm/knowledge/agentxm/src/index.md).
+[AgentXM Knowledge bundle](agent_extensions/registry/@agentxm/knowledge/agentxm/src/index.md).
 The repository tree, package manifests, and configuration own the current tool
 and package inventory.
 
@@ -21,7 +21,7 @@ explicitly before repository commands. `pnpm axm` runs the Bun entrypoint and
 workspace packages from source through the `axm-source` export condition.
 
 The portable
-[Repository task interface](agent_extensions/agentxm/@craigsmitham/knowledge/product-engineering/src/engineering/repository-task-interface.md)
+[Repository task interface](agent_extensions/registry/@craigsmitham/knowledge/product-engineering/src/engineering/repository-task-interface.md)
 is authoritative for execution-surface semantics and conformance. AXM binds it
 locally in [Repository task interface](docs/guides/repository-task-interface.md) —
 read that binding before adding a script, target, wrapper, cache, or automation
@@ -55,11 +55,12 @@ impact against its affected base. Use the in-flight CLI against another
 workspace only through the
 [source CLI runbook](devops/runbooks/run-source-cli.md).
 
-For testing install, lint, and other default-source behavior, set
-`AXM_REGISTRY_LOCATION` to a file path, `file://` URL, or HTTP(S) URL instead
-of checking custom registry sources into `axm.json`. `axm lint`
-reports workspace findings read-only; `axm lint --fix` performs only
-deterministic, meaning-preserving source or configuration normalization.
+For testing install, lint, and other default-source behavior, configure a named
+Registry in `sources` and select it with `defaultRegistry` in the applicable
+project or isolated user-scope `axm.json`; see the
+[source CLI runbook](devops/runbooks/run-source-cli.md). `axm lint` reports
+workspace findings read-only; `axm lint --fix` performs only deterministic,
+meaning-preserving source or configuration normalization.
 
 ### Releasing
 
@@ -114,7 +115,7 @@ requirements-engineering guidance linked below with the repository policy in
 placement, binding, admission criteria, metadata, and the disposition ledger.
 Design specifications from intended observable obligations, not the current
 implementation; follow the
-[requirements-engineering guidance](agent_extensions/agentxm/@craigsmitham/knowledge/product-engineering/src/solution/requirements/index.md)
+[requirements-engineering guidance](agent_extensions/registry/@craigsmitham/knowledge/product-engineering/src/solution/requirements/index.md)
 and [testing strategy](docs/architecture/system-wide/testing-strategy.md).
 
 ## Architecture
@@ -350,7 +351,7 @@ requirements.
 | ---------- | ------ | -------------------------------------------------------------------------------- | ---------------- | -------------------------------- |
 | axm-agents | survey | any session running `axm agents` or projecting extensions into configured agents | —                | a target condition can be stated |
 
-<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery gen=abee481ebc05dd2e5f7ce32ac4090f2fb1716e0ca9f0affcda8f8daad2cda581 -->
+<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery gen=34ce6dc698e5313721e0028dace5268c870d65a6a3abc01a8403582d84750766 -->
 
 ## Knowledge Bundles
 
@@ -361,10 +362,10 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 <!-- axm:point v=1 ext=@agentxm/knowledge/agent-engineering kind=knowledge -->
 <!-- axm:point v=1 ext=@agentxm/knowledge/agentxm kind=knowledge -->
 
-| Bundle                                                                                          | Description                                                                                                                                                         |
-| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [agent-engineering](agent_extensions/agentxm/@agentxm/knowledge/agent-engineering/src/index.md) | End-to-end design of goal-directed AI agent systems: agent behavior, multi-agent coordination, prompts, context, harness, skills, evaluation, trust, and operations |
-| [agentxm](agent_extensions/agentxm/@agentxm/knowledge/agentxm/src/index.md)                     | Canonical public AgentXM product language, ecosystem foundations, and durable knowledge about extensions, identity, discovery, and publishing                       |
+| Bundle                                                                                           | Description                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [agent-engineering](agent_extensions/registry/@agentxm/knowledge/agent-engineering/src/index.md) | End-to-end design of goal-directed AI agent systems: agent behavior, multi-agent coordination, prompts, context, harness, skills, evaluation, trust, and operations |
+| [agentxm](agent_extensions/registry/@agentxm/knowledge/agentxm/src/index.md)                     | Canonical public AgentXM product language, ecosystem foundations, and durable knowledge about extensions, identity, discovery, and publishing                       |
 
 ### @craigsmitham
 
@@ -373,12 +374,12 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 <!-- axm:point v=1 ext=@craigsmitham/knowledge/field-notes kind=knowledge -->
 <!-- axm:point v=1 ext=@craigsmitham/knowledge/product-engineering kind=knowledge -->
 
-| Bundle                                                                                                   | Description                                                                                                                                                        |
-| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [docs](agent_extensions/agentxm/@craigsmitham/knowledge/docs/src/index.md)                               | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns |
-| [effect-v4](agent_extensions/agentxm/@craigsmitham/knowledge/effect-v4/src/index.md)                     | Checklists to consult when designing, implementing, maintaining, or reviewing Effect v4 TypeScript                                                                 |
-| [field-notes](agent_extensions/agentxm/@craigsmitham/knowledge/field-notes/src/index.md)                 | Operational field-note practice for factual and diagnostic evidence capture, impact-aware triage, evidence-led findings, and verified corrective action            |
-| [product-engineering](agent_extensions/agentxm/@craigsmitham/knowledge/product-engineering/src/index.md) | Opinionated product-development lifecycle from strategy through operations and maintenance, with shared conceptual foundations                                     |
+| Bundle                                                                                                    | Description                                                                                                                                                        |
+| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [docs](agent_extensions/registry/@craigsmitham/knowledge/docs/src/index.md)                               | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns |
+| [effect-v4](agent_extensions/registry/@craigsmitham/knowledge/effect-v4/src/index.md)                     | Checklists to consult when designing, implementing, maintaining, or reviewing Effect v4 TypeScript                                                                 |
+| [field-notes](agent_extensions/registry/@craigsmitham/knowledge/field-notes/src/index.md)                 | Operational field-note practice for factual and diagnostic evidence capture, impact-aware triage, evidence-led findings, and verified corrective action            |
+| [product-engineering](agent_extensions/registry/@craigsmitham/knowledge/product-engineering/src/index.md) | Opinionated product-development lifecycle from strategy through operations and maintenance, with shared conceptual foundations                                     |
 
 <!-- axm:end v=1 region=knowledge -->
 <!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions gen=028022caf089edcb31ccbf74e3695e11332a84c7dccba06bcb04ffc9b04c5099 -->

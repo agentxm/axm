@@ -30,7 +30,7 @@ export const specification = defineSpecification({
 
 type SpecWorkspace = ReturnType<typeof makeSpecWorkspace>;
 
-const canonicalSkillDocument = "agent_extensions/local/vendor/code-review/src/SKILL.md";
+const canonicalSkillDocument = "agent_extensions/path/@acme/skills/code-review/src/SKILL.md";
 const projectedSkillDocument = ".claude/skills/code-review/SKILL.md";
 
 /**
@@ -42,7 +42,17 @@ const reinstallForms = [
   {
     form: "root install",
     install: (source: string, force: boolean) =>
-      handleInstall({ source: Option.some(source), force, preview: false }),
+      handleInstall({
+        type: Option.none(),
+        source: Option.some(source),
+        selectors: {},
+        all: true,
+        force,
+        preview: false,
+        env: [],
+        localName: Option.none(),
+        bundled: false,
+      }),
   },
   {
     form: "skills install",
@@ -71,9 +81,17 @@ const heldReleaseWorkspace = (cleanups: Array<() => void>) => {
 };
 
 const configuredInstall = (workspace: SpecWorkspace, flags: { readonly force: boolean }) =>
-  handleInstall({ source: Option.none(), preview: false, ...flags }).pipe(
-    Effect.provide(workspace.layer),
-  );
+  handleInstall({
+    type: Option.none(),
+    source: Option.none(),
+    selectors: {},
+    all: false,
+    preview: false,
+    env: [],
+    localName: Option.none(),
+    bundled: false,
+    ...flags,
+  }).pipe(Effect.provide(workspace.layer));
 
 const expectNothingInstalled = (workspace: SpecWorkspace, name: string): void => {
   expect(workspace.rendererState.results).toEqual([]);

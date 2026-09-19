@@ -14,16 +14,16 @@ export const FilesystemPackManifests = Layer.effect(
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     return PackManifests.of({
-      locate: ({ owner, name, sourceName, relativeTo, workspace }) => {
+      locate: ({ owner, name, sourceFamily, relativeTo, workspace }) => {
         const directory =
           "layout" in workspace
-            ? computePackPathsForLayout(path.join, workspace.layout, sourceName, owner, name)
+            ? computePackPathsForLayout(path.join, workspace.layout, sourceFamily, owner, name)
                 .canonicalPath
             : path.join(
                 workspace.baseDir,
-                sourceName === "workspace"
+                sourceFamily === "workspace"
                   ? configuredAuthoredDirectory(workspace.settings, "pack")
-                  : path.join(ACQUIRED_EXTENSIONS_DIR, sourceName, owner, "packs"),
+                  : path.join(ACQUIRED_EXTENSIONS_DIR, sourceFamily, owner, "packs"),
                 name,
               );
         const manifestPath = path.join(directory, PACK_MANIFEST_FILENAME);

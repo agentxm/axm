@@ -48,7 +48,17 @@ describe("Quiet machine diagnostics", () => {
     cleanups.push(workspace.cleanup);
     const source = writeLocalSkillPackage(workspace.root, { name: "quiet-example" });
     return Effect.gen(function* () {
-      yield* handleInstall({ source: Option.some(source), force: false, preview: false });
+      yield* handleInstall({
+        type: Option.none(),
+        source: Option.some(source),
+        selectors: {},
+        all: true,
+        force: false,
+        preview: false,
+        env: [],
+        localName: Option.none(),
+        bundled: false,
+      });
       const screen = yield* Screen;
       yield* screen.log({ level: "info", message: "Useful information" });
       yield* screen.log({ level: "warn", message: "Warning remains visible" });

@@ -75,6 +75,8 @@ describe("Installed state stays in the selected scope", () => {
         const otherInstall = await run([
           "install",
           otherSource,
+          "--skill",
+          otherName,
           "--scope",
           scope === "project" ? "user" : "project",
         ]);
@@ -84,7 +86,7 @@ describe("Installed state stays in the selected scope", () => {
         const name = `${scope}-review`;
         const source = writeLocalSkillPackage(fixture.root, { name });
         const sourceText = fs.readFileSync(path.join(source, "src", "SKILL.md"), "utf8");
-        const installed = await run(["install", source, "--scope", scope]);
+        const installed = await run(["install", source, "--skill", name, "--scope", scope]);
         expect(installed.exitCode, installed.stdout + installed.stderr).toBe(0);
         expect(
           fs.existsSync(path.join(selectedNative, "skills", name, "SKILL.md")),

@@ -50,7 +50,6 @@ describe("Recorded Registry update assessment", () => {
                   name: "review",
                   enabled: false,
                   installed: true,
-                  sourceName: "company",
                   assessment: {
                     state: "available",
                     installedVersion: "1.0.0",

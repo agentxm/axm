@@ -16,6 +16,7 @@ import { buildReconciliationClosure } from "../../../reconciliation/index.js";
 import * as DateTime from "effect/DateTime";
 import type * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import {
   DesiredStateReader,
   SettingsReader,
@@ -45,12 +46,15 @@ import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import {
   parseExtensionFqnParts,
+  packMemberRegistrySource,
+  packMemberVersionRange,
   toExtensionTypePlural,
   type ExtensionName,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
-import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
+import type { RegistrySource, Source } from "@agentxm/extension-model/unstable/sources/types";
+import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import {
   versionSatisfiesRange,
@@ -78,6 +82,7 @@ import {
 } from "../../../transitions/planning/index.js";
 import {
   acceptedLockedCanonicalPath,
+  acceptedLockedResolutionRef,
   isDesiredExtensionActive,
   usableAcceptedCanonical,
   type HookExtensionTarget,
@@ -109,15 +114,16 @@ import { expandPackInstallRefs, expandPackInstallRefsWithReleaseAge } from "../e
 import { validatePackGraphPostcondition } from "../graph-transition.js";
 import { buildPackMemberInstallStep } from "../member-install-step.js";
 import { registrySourceArtifact, registrySourcePath } from "../artifact.js";
-import { makeWorkspaceRetentionPolicy } from "../../../reconciliation/index.js";
+import { exclusiveMemberRetentionPolicy } from "../../../reconciliation/index.js";
 
 /** A pack install request after grammar parsing, before anything is discovered. */
 export interface ParsedPackInstallRequest {
-  readonly owner: Handle;
-  readonly packName: ExtensionName;
+  readonly owner: Option.Option<Handle>;
+  readonly packName: Option.Option<ExtensionName>;
   readonly versionRange: Option.Option<VersionRange>;
   readonly resolvedInput: string;
-  readonly inputKind: "name-input" | "name-input-with-version" | "registry-pattern-input";
+  readonly inputKind:
+    "name-input" | "name-input-with-version" | "registry-pattern-input" | "source-locator-input";
   readonly sourceResolution?: string;
   readonly unattended: boolean;
   readonly nonInteractive: boolean;
@@ -125,11 +131,11 @@ export interface ParsedPackInstallRequest {
   readonly releaseAgeHoldbackBehavior?: "continue" | "preserve-or-block";
 }
 
-/** One pack registry lookup. */
+/** One pack source lookup. */
 export interface PackSourceRequest {
-  readonly source: RegistrySource;
-  readonly owner: Handle;
-  readonly packName: ExtensionName;
+  readonly source: Source;
+  readonly owner: Option.Option<Handle>;
+  readonly packName: Option.Option<ExtensionName>;
   readonly versionRange: Option.Option<VersionRange>;
   readonly sourceResolution?: string;
 }
@@ -138,8 +144,37 @@ export interface PackSourceRequest {
 export interface PackDiscovery {
   readonly ref: PackRef;
   readonly probes: ReadonlyArray<RegistryLookupProbe>;
-  readonly registrySourceLabel: string;
+  readonly sourceLabel: string;
 }
+
+/** Discover every pack a locator exposes so the shared install selector can decide among them. */
+export const discoverPackRefs: (
+  request: PackSourceRequest,
+) => Effect.Effect<ReadonlyArray<PackRef>, ExtensionLifecycleFailed, ResolveInstallRequirements> =
+  Effect.fn("InstallExtensions.discoverPackRefs")(function* (request: PackSourceRequest) {
+    if (request.source.type === "registry") {
+      return [(yield* discoverPackRef(request)).ref];
+    }
+    const sources = yield* SourceHostProviders;
+    const refs = yield* sources
+      .find(request.source, {
+        names: Option.toArray(request.packName),
+        type: "pack",
+        owner: request.owner,
+        versionRange: request.versionRange,
+      })
+      .pipe(
+        Effect.mapError((cause) =>
+          installRefused({
+            category:
+              sourceResolutionFailureCategory(cause) === "not_found" ? "not_found" : "network",
+            detail: "Pack source could not be read",
+            cause,
+          }),
+        ),
+      );
+    return refs.filter((ref): ref is PackRef => ref.type === "pack");
+  });
 
 const isRemoteReadNotImplemented = (error: SourceResolutionFailure): boolean => {
   const detail = sourceFailureDetail(error);
@@ -210,33 +245,6 @@ const collectResolvedDependencyNames = (
   return names;
 };
 
-/**
- * Members the replaced pack owned that the incoming graph no longer declares
- * and no other origin retains. Removing them is what makes a pack upgrade a
- * graph transition rather than an accumulation.
- */
-const collectDroppedPackDependencyTargets = (args: {
-  readonly graph: DesiredStateGraph;
-  readonly replacingPackIdentity: string;
-  readonly nextDependencies: PackDependencyNameSets;
-}): ReadonlyArray<DroppedPackDependency> => {
-  const droppedTargets: Array<DroppedPackDependency> = [];
-  for (const node of args.graph.nodes) {
-    if (node.type === "pack") continue;
-    const belongedToReplacedPack = node.origins.some(
-      (origin) => origin.type === "pack" && origin.pack === args.replacingPackIdentity,
-    );
-    if (!belongedToReplacedPack || args.nextDependencies[node.type].has(node.name)) continue;
-    const retainedElsewhere = node.origins.some(
-      (origin) =>
-        origin.type === "settings" ||
-        (origin.type === "pack" && origin.pack !== args.replacingPackIdentity),
-    );
-    if (!retainedElsewhere) droppedTargets.push({ target: { type: node.type, name: node.name } });
-  }
-  return droppedTargets;
-};
-
 const formatRegistrySourceLabel = (args: {
   readonly source: RegistrySource;
   readonly registryHosts: ReadonlyArray<{ readonly name: string; readonly location: URL }>;
@@ -262,6 +270,12 @@ const packInstallCoverage = (ref: ExtensionRef | undefined): "eligible" | "ineli
     case undefined:
       return "ineligible";
   }
+};
+
+const failureDetail = (cause: unknown): string | undefined => {
+  if (typeof cause !== "object" || cause === null || !("detail" in cause)) return undefined;
+  const detail = Reflect.get(cause, "detail");
+  return typeof detail === "string" && detail.length > 0 ? detail : undefined;
 };
 
 const resolveMinimumReleaseAge = (
@@ -314,6 +328,19 @@ export interface WorkspaceAuthorityScan {
   readonly fingerprint: string;
 }
 
+const sourceAuthorityIdentity = (source: Source): string => {
+  switch (source.type) {
+    case "registry":
+      return `registry:${source.location.href}`;
+    case "local":
+      return `path:${source.path}`;
+    case "git":
+      return `git:${source.url.href}#${Option.getOrElse(source.ref, () => "HEAD")}${Option.match(source.subPath, { onNone: () => "", onSome: (subPath) => `//${subPath}` })}`;
+    case "workspace":
+      return `workspace:${source.owner}/${toExtensionTypePlural(source.extensionType)}/${source.name}`;
+  }
+};
+
 const scanWorkspaceAuthority: (
   pack: PackRef,
 ) => Effect.Effect<WorkspaceAuthorityScan, ExtensionLifecycleFailed, InstallStepRequirements> =
@@ -353,9 +380,56 @@ const scanWorkspaceAuthority: (
     const dependencies = Object.entries(pack.pack.dependencies).sort(([left], [right]) =>
       left.localeCompare(right),
     );
-    for (const [fqn, constraint] of dependencies) {
+    for (const [fqn, declaration] of dependencies) {
       const parsed = parseExtensionFqnParts(fqn);
       if (parsed === undefined || parsed.type === "pack") continue;
+      const constraint = packMemberVersionRange(declaration);
+      const declaredSource = packMemberRegistrySource(declaration);
+      const existing = graph.nodes.find(
+        (node) => node.type === parsed.type && node.name === parsed.name,
+      );
+      const existingPackOrigins = (existing?.origins ?? []).flatMap((origin) =>
+        origin.type === "pack" && origin.pack.replace(/^workspace:/u, "") !== packIdentity
+          ? [origin]
+          : [],
+      );
+      const requestedAuthority =
+        declaredSource === undefined
+          ? sourceAuthorityIdentity(pack.source)
+          : `registry:${declaredSource.url.href}`;
+      const existingPackDeclarations = existingPackOrigins.map(
+        (origin) =>
+          `${origin.pack} declares ${fqn} from ${origin.sourceAuthority ?? origin.source}`,
+      );
+      if (existingPackDeclarations.length > 0) {
+        const heldAuthorities = [
+          ...new Set(existingPackOrigins.map((origin) => origin.sourceAuthority ?? origin.source)),
+        ];
+        if (heldAuthorities.some((authority) => authority !== requestedAuthority)) {
+          const declarations = [
+            ...existingPackDeclarations,
+            `${packIdentity} declares ${fqn} from ${requestedAuthority}`,
+          ];
+          blockers.push({
+            id: `pack-authority:member:${fqn}:source-conflict`,
+            target: { type: parsed.type, name: parsed.name, identity: fqn },
+            relationship: { kind: "member", root: packIdentity },
+            requestedSource: requestedAuthority,
+            configuredSource: heldAuthorities.join(", "),
+            cause: "pack-source-conflict",
+            detail: `Pack member ${fqn} is held by ${heldAuthorities.join(", ")}; conflicting declarations: ${declarations.join(", ")}`,
+            requiredVersionRange: constraint,
+            recovery: [
+              {
+                description:
+                  "Remove or transition the conflicting Pack declaration before installing this Pack; Pack member authority has no override flag.",
+              },
+            ],
+          });
+          continue;
+        }
+      }
+
       const desired = graph.nodes.find(
         (node) =>
           node.type === parsed.type &&
@@ -396,7 +470,13 @@ const scanWorkspaceAuthority: (
       const input: SourceAuthorityInput = {
         target: { type: parsed.type, name: parsed.name, identity: targetIdentity },
         relationship: { kind: "member" as const, root: packIdentity },
-        requested: { identity: `registry:${targetIdentity}`, workspace: false },
+        requested: {
+          identity:
+            declaredSource === undefined
+              ? `registry:${targetIdentity}`
+              : `registry:${declaredSource.url.href}:${targetIdentity}`,
+          workspace: false,
+        },
         configured,
         requiredVersionRange: constraint,
       };
@@ -464,6 +544,16 @@ export const parsePackInstallRequest: (
   Effect.fn("InstallExtensions.parsePackRequest")(function* (args: PackInstallArgs) {
     const settings = yield* SettingsReader;
     const trimmed = args.source.trim();
+    const policy = {
+      unattended: args.unattended ?? false,
+      nonInteractive: args.nonInteractive,
+      ...(args.releaseAgeEvaluation === undefined
+        ? {}
+        : { releaseAgeEvaluation: args.releaseAgeEvaluation }),
+      ...(args.releaseAgeHoldbackBehavior === undefined
+        ? {}
+        : { releaseAgeHoldbackBehavior: args.releaseAgeHoldbackBehavior }),
+    } as const;
     const parsed = parseRegistryInstallTarget(trimmed, {
       expectedType: "pack",
       allowBareName: true,
@@ -490,35 +580,22 @@ export const parsePackInstallRequest: (
             suggestions: [{ description: "Use @owner/packs/pack-name format." }],
           });
         default:
-          return yield* installRefused({
-            category: "usage",
-            detail: "Packs can only be installed from a registry",
-            suggestions: [
-              {
-                description:
-                  "Use @owner/packs/pack-name or just pack-name (resolved to default owner).",
-              },
-            ],
-          });
+          return {
+            inputKind: "source-locator-input" as const,
+            owner: Option.none<Handle>(),
+            packName: Option.none<ExtensionName>(),
+            versionRange: Option.none<VersionRange>(),
+            resolvedInput: trimmed,
+            ...policy,
+          };
       }
     }
-
-    const policy = {
-      unattended: args.unattended ?? false,
-      nonInteractive: args.nonInteractive,
-      ...(args.releaseAgeEvaluation === undefined
-        ? {}
-        : { releaseAgeEvaluation: args.releaseAgeEvaluation }),
-      ...(args.releaseAgeHoldbackBehavior === undefined
-        ? {}
-        : { releaseAgeHoldbackBehavior: args.releaseAgeHoldbackBehavior }),
-    } as const;
 
     if (parsed.success.kind === "registry") {
       return {
         inputKind: "registry-pattern-input" as const,
-        owner: parsed.success.owner,
-        packName: parsed.success.name,
+        owner: Option.some(parsed.success.owner),
+        packName: Option.some(parsed.success.name),
         versionRange: Option.fromUndefinedOr(parsed.success.versionRange),
         resolvedInput: trimmed,
         ...policy,
@@ -564,8 +641,8 @@ export const parsePackInstallRequest: (
         parsed.success.versionRange === undefined
           ? ("name-input" as const)
           : ("name-input-with-version" as const),
-      owner,
-      packName: parsed.success.name,
+      owner: Option.some(owner),
+      packName: Option.some(parsed.success.name),
       versionRange,
       resolvedInput,
       sourceResolution: `${trimmed} -> ${resolvedInput}`,
@@ -573,7 +650,7 @@ export const parsePackInstallRequest: (
     };
   });
 
-/** Resolve the registry the parsed pack request names. */
+/** Resolve the source the parsed pack request names. */
 export const resolvePackSourceRequest: (
   request: ParsedPackInstallRequest,
 ) => Effect.Effect<PackSourceRequest, ExtensionLifecycleFailed, ResolveInstallRequirements> =
@@ -588,13 +665,6 @@ export const resolvePackSourceRequest: (
         }),
       ),
     );
-    if (source.type !== "registry") {
-      return yield* installRefused({
-        category: "usage",
-        detail: "Packs can only be installed from a registry",
-        suggestions: [{ description: "Use a registry source: @owner/packs/pack-name" }],
-      });
-    }
     return {
       source,
       owner: request.owner,
@@ -618,11 +688,60 @@ export const discoverPackRef: (
 )(function* (request: PackSourceRequest) {
   const settings = yield* SettingsReader;
   const sources = yield* SourceHostProviders;
+  if (request.source.type !== "registry") {
+    const refs = yield* sources
+      .find(request.source, {
+        names: Option.toArray(request.packName),
+        type: "pack",
+        owner: request.owner,
+        versionRange: request.versionRange,
+      })
+      .pipe(
+        Effect.mapError((cause) =>
+          installRefused({
+            category:
+              sourceResolutionFailureCategory(cause) === "not_found" ? "not_found" : "network",
+            detail: "Pack source could not be read",
+            cause,
+          }),
+        ),
+      );
+    const packs = refs.filter((ref): ref is PackRef => ref.type === "pack");
+    if (packs.length === 0) {
+      return yield* installRefused({
+        category: "not_found",
+        detail: "No pack was found in the source",
+      });
+    }
+    if (packs.length > 1) {
+      return yield* installRefused({
+        category: "usage",
+        detail: `Pack source contains multiple packs: ${packs.map((ref) => ref.pack.name).join(", ")}`,
+        suggestions: [{ description: "Use a source locator that selects one pack package." }],
+      });
+    }
+    const [ref] = packs;
+    if (ref === undefined) {
+      return yield* installRefused({
+        category: "not_found",
+        detail: "No pack was found in the source",
+      });
+    }
+    return { ref, probes: [], sourceLabel: printSourceParams(request.source) };
+  }
+  if (Option.isNone(request.owner) || Option.isNone(request.packName)) {
+    return yield* installRefused({
+      category: "validation",
+      detail: "Registry pack source must identify an owner and pack name",
+    });
+  }
+  const owner = request.owner.value;
+  const packName = request.packName.value;
   const findWith = (candidate: RegistrySource) =>
     sources.find(candidate, {
-      names: [request.packName],
+      names: [packName],
       type: "pack",
-      owner: Option.some(request.owner),
+      owner: Option.some(owner),
       versionRange: request.versionRange,
     });
   const probes: Array<RegistryLookupProbe> = [];
@@ -668,7 +787,7 @@ export const discoverPackRef: (
             type: "registry" as const,
             name: host.name,
             location: host.location,
-            owner: Option.some(request.owner),
+            owner: Option.some(owner),
           }) satisfies RegistrySource,
       );
 
@@ -731,7 +850,7 @@ export const discoverPackRef: (
     const loginSuggestions = yield* registryLoginSuggestions(probes.map((probe) => probe.location));
     return yield* installRefused({
       category: "not_found",
-      detail: `Pack "${request.packName}" not found in registry`,
+      detail: `Pack "${packName}" not found in registry`,
       suggestions: [
         { description: "Verify the pack name and check available packs." },
         ...loginSuggestions,
@@ -742,7 +861,7 @@ export const discoverPackRef: (
   return {
     ref,
     probes,
-    registrySourceLabel: formatRegistrySourceLabel({ source: resolvedSource, registryHosts }),
+    sourceLabel: formatRegistrySourceLabel({ source: resolvedSource, registryHosts }),
   };
 });
 
@@ -751,14 +870,14 @@ export const packDiscoveryDiagnostics = (
   request: PackSourceRequest,
   discovery: PackDiscovery,
 ): ReadonlyArray<string> => [
-  `Pack: ${request.owner}/packs/${request.packName}`,
+  `Pack: ${discovery.ref.owner}/packs/${discovery.ref.pack.name}`,
   ...(request.sourceResolution === undefined
     ? []
     : [`Source resolution: ${request.sourceResolution}`]),
   ...(discovery.probes.length > 0
     ? [`Host resolution: ${discovery.probes.map(formatRegistryProbe).join("; ")}`]
     : []),
-  `Registry source: ${discovery.registrySourceLabel}`,
+  `Source: ${discovery.sourceLabel}`,
   "Found pack",
 ];
 
@@ -802,7 +921,7 @@ export const planPackInstall: (
   PackInstallRequirements
 > = Effect.fn("InstallExtensions.planPack")(function* (intent: PackInstallIntent) {
   const location = yield* WorkspaceLocation;
-  const desiredState = yield* DesiredStateReader;
+  const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const sources = yield* SourceHostProviders;
   const packManager = yield* PackManager;
@@ -898,13 +1017,14 @@ export const planPackInstall: (
             : { dependencyResolver: intent.dependencyResolver }),
         })
   ).pipe(
-    Effect.mapError((cause) =>
-      installRefused({
+    Effect.mapError((cause) => {
+      const memberFailure = failureDetail(cause);
+      return installRefused({
         category: "conflict",
-        detail: `Pack ${packIdentity} could not be expanded`,
+        detail: `Pack ${packIdentity} could not be expanded${memberFailure === undefined ? "" : `: ${memberFailure}`}`,
         cause,
-      }),
-    ),
+      });
+    }),
   );
   const releaseAge =
     intent.releaseAgeEvaluation === undefined
@@ -1004,8 +1124,6 @@ export const planPackInstall: (
   // manifest or accepted resolution is unavailable. Preserve fail-closed
   // cleanup by suppressing dropped-member removal until the pre-install graph
   // is complete.
-  const existingPack = graph.complete ? currentPackNode : undefined;
-  const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, lifecycleStepFailure);
 
   const installSteps = yield* Effect.forEach(
     refs,
@@ -1047,15 +1165,102 @@ export const planPackInstall: (
     { concurrency: 1 },
   );
 
+  const acceptedPackPath = yield* acceptedLockedCanonicalPath({
+    type: "pack",
+    name: intent.packToInstall.pack.name,
+  }).pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "internal",
+        detail: `The accepted path for Pack ${packIdentity} could not be read`,
+        cause,
+      }),
+    ),
+  );
+  const previousMemberIdentities = yield* Option.match(acceptedPackPath, {
+    onNone: () => Effect.succeed(new Set<string>()),
+    onSome: (packPath) =>
+      fs.readFileString(path.join(packPath, "pack.json")).pipe(
+        Effect.mapError((cause) =>
+          installRefused({
+            category: "conflict",
+            detail: `The accepted manifest for Pack ${packIdentity} could not be read`,
+            cause,
+          }),
+        ),
+        Effect.flatMap((raw) =>
+          Effect.try({
+            try: () => {
+              const parsed: unknown = JSON.parse(raw);
+              if (
+                typeof parsed !== "object" ||
+                parsed === null ||
+                !("dependencies" in parsed) ||
+                typeof parsed.dependencies !== "object" ||
+                parsed.dependencies === null
+              ) {
+                throw new TypeError("Pack manifest dependencies are unavailable");
+              }
+              return new Set(
+                Object.keys(parsed.dependencies).flatMap((fqn) => {
+                  const member = parseExtensionFqnParts(fqn);
+                  return member === undefined || member.type === "pack"
+                    ? []
+                    : [`${member.type}:${member.name}`];
+                }),
+              );
+            },
+            catch: (cause) =>
+              installRefused({
+                category: "conflict",
+                detail: `The accepted manifest for Pack ${packIdentity} could not be inspected`,
+                cause,
+              }),
+          }),
+        ),
+      ),
+  });
+  const previousMembers = yield* Effect.forEach(
+    graph.nodes.filter(
+      (node) => node.type !== "pack" && previousMemberIdentities.has(`${node.type}:${node.name}`),
+    ),
+    (node) =>
+      acceptedLockedResolutionRef({ type: node.type, name: node.name }).pipe(
+        Effect.mapError((cause) =>
+          installRefused({
+            category: "internal",
+            detail: `The accepted source for pack member ${node.identity} could not be reconstructed`,
+            cause,
+          }),
+        ),
+        Effect.map(
+          Option.match({
+            onNone: () => [],
+            onSome: (ref) => [
+              {
+                ref,
+                retained: node.origins.some(
+                  (origin) =>
+                    origin.type === "settings" ||
+                    (origin.type === "pack" &&
+                      origin.pack.replace(/^workspace:/u, "") !==
+                        packIdentity.replace(/^workspace:/u, "")),
+                ),
+              },
+            ],
+          }),
+        ),
+      ),
+    { concurrency: 1 },
+  ).pipe(Effect.map((members) => members.flat()));
+
   const nextDependencies = collectResolvedDependencyNames(refs);
-  const unresolvedDroppedTargets =
-    existingPack === undefined
-      ? []
-      : collectDroppedPackDependencyTargets({
-          graph,
-          replacingPackIdentity: existingPack.identity,
-          nextDependencies,
-        });
+  const unresolvedDroppedTargets: ReadonlyArray<DroppedPackDependency> = previousMembers.flatMap(
+    ({ ref, retained }) => {
+      if (ref.type === "pack" || retained || nextDependencies[ref.type].has(ref.name)) return [];
+      return [{ target: targetFromRef(ref) }];
+    },
+  );
   const droppedTargets = yield* Effect.forEach(
     unresolvedDroppedTargets,
     (dropped) =>
@@ -1085,34 +1290,34 @@ export const planPackInstall: (
     ({ target }): PlannedJobStep<InstallStepRequirements> => {
       switch (target.type) {
         case "skill":
-          return buildUninstallOperation(skillManager, retentionPolicy, {
+          return buildUninstallOperation(skillManager, exclusiveMemberRetentionPolicy, {
             toStepFailure: lifecycleStepFailure,
             target,
           });
         case "mcp-server":
-          return buildUninstallOperation(mcpServerManager, retentionPolicy, {
+          return buildUninstallOperation(mcpServerManager, exclusiveMemberRetentionPolicy, {
             toStepFailure: lifecycleStepFailure,
             target,
           });
         case "subagent":
-          return buildUninstallOperation(subagentManager, retentionPolicy, {
+          return buildUninstallOperation(subagentManager, exclusiveMemberRetentionPolicy, {
             toStepFailure: lifecycleStepFailure,
             target,
           });
         case "rule":
-          return buildUninstallOperation(ruleManager, retentionPolicy, {
+          return buildUninstallOperation(ruleManager, exclusiveMemberRetentionPolicy, {
             toStepFailure: lifecycleStepFailure,
             target,
             enclosingClosure: { projections: [target.type] },
           });
         case "hook":
-          return buildUninstallOperation(hookManager, retentionPolicy, {
+          return buildUninstallOperation(hookManager, exclusiveMemberRetentionPolicy, {
             toStepFailure: lifecycleStepFailure,
             target,
             enclosingClosure: { projections: [target.type] },
           });
         case "knowledge":
-          return buildUninstallOperation(knowledgeManager, retentionPolicy, {
+          return buildUninstallOperation(knowledgeManager, exclusiveMemberRetentionPolicy, {
             toStepFailure: lifecycleStepFailure,
             target,
             enclosingClosure: { projections: [target.type] },
@@ -1232,7 +1437,23 @@ export const planPackInstall: (
       { imperative: "install", past: "Installed", gerund: "Installing" },
       "pack",
     ),
-    jobs: [{ concurrency: 1, steps: [graphStep] }],
+    jobs: [
+      {
+        concurrency: 1,
+        steps: [
+          {
+            ...graphStep,
+            sourceBinding: {
+              extensionType: "pack",
+              target: intent.packToInstall.pack.name,
+              ref: intent.packToInstall,
+              members: refs.filter((ref) => ref.type !== "pack"),
+              previousMembers,
+            },
+          },
+        ],
+      },
+    ],
     ...(releaseAge === undefined ? {} : { releaseAge }),
   } satisfies Plan<InstallStepRequirements>;
 });

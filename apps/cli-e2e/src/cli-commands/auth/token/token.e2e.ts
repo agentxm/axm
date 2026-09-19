@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { runCommand } from "@agentxm/client-e2e-utils";
 import { describe, expect, it } from "vitest";
 import { startHttpRegistry } from "../../../e2e/http-registry-server.js";
-import { createTempDir, runCli } from "../../../e2e/utils.js";
+import { createTempDir, runCli, writeUserDefaultRegistry } from "../../../e2e/utils.js";
 
 // Process evidence for this module is bound by the auth.e2e.test.ts Vitest entrypoint.
 
@@ -96,9 +96,15 @@ describe("axm token", () => {
 
   it("waits for verification and writes only the created token", async () => {
     const registry = await startHttpRegistry({ stepUpTokenCreate: true });
+    const home = createTempDir();
     try {
+      writeUserDefaultRegistry(home.path, registry.url);
       const result = await runCli(createArgs, {
-        env: { AXM_REGISTRY_URL: registry.url, AXM_TOKEN: "e2e-test-token" },
+        env: {
+          HOME: home.path,
+          AXM_USER_HOME: home.path,
+          AXM_TOKEN: "e2e-test-token",
+        },
         exactOutput: true,
       });
 
@@ -121,15 +127,22 @@ describe("axm token", () => {
       );
       expect(registry.requests.filter((request) => request.method === "DELETE")).toEqual([]);
     } finally {
+      home.cleanup();
       await registry.close();
     }
   });
 
   it("revokes a created token that stdout did not accept", async () => {
     const registry = await startHttpRegistry({ stepUpTokenCreate: true });
+    const home = createTempDir();
     try {
+      writeUserDefaultRegistry(home.path, registry.url);
       const result = await runCli(createArgs, {
-        env: { AXM_REGISTRY_URL: registry.url, AXM_TOKEN: "e2e-test-token" },
+        env: {
+          HOME: home.path,
+          AXM_USER_HOME: home.path,
+          AXM_TOKEN: "e2e-test-token",
+        },
         closedStdout: true,
       });
 
@@ -145,6 +158,7 @@ describe("axm token", () => {
         ]),
       );
     } finally {
+      home.cleanup();
       await registry.close();
     }
   });
@@ -155,11 +169,11 @@ describe("axm token", () => {
     const registry = await startHttpRegistry({ stepUpTokenCreate: true });
     const home = createTempDir();
     try {
+      writeUserDefaultRegistry(home.path, registry.url);
       const result = await runCommand(process.execPath, [BUILT_CLI_PATH, ...createArgs], {
         env: {
           HOME: home.path,
           AXM_USER_HOME: home.path,
-          AXM_REGISTRY_URL: registry.url,
           AXM_TOKEN: "e2e-test-token",
         },
         closedStdout: true,

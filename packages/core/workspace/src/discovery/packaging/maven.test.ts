@@ -628,8 +628,8 @@ describe("mavenReader", () => {
     expect(mavenReader.type).toBe(mavenType);
   });
 
-  describe("valid META-INF/axm.json in JAR", () => {
-    it.effect("extracts extensions from META-INF/axm.json", () =>
+  describe("valid META-INF/agent-extensions.json in JAR", () => {
+    it.effect("extracts extensions from META-INF/agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -639,9 +639,9 @@ describe("mavenReader", () => {
             version: "32.1.0-jre",
           });
           const result = yield* readInTempM2(purl, {
-            entryName: "META-INF/axm.json",
+            entryName: "META-INF/agent-extensions.json",
             entryContent: JSON.stringify({
-              extensions: [{ ref: "@google/skills/guava", versionRange: "^1.0.0" }],
+              agentExtensions: [{ ref: "@google/skills/guava", versionRange: "^1.0.0" }],
             }),
           });
           expect(Option.isSome(result)).toBe(true);
@@ -662,8 +662,8 @@ describe("mavenReader", () => {
             version: "1.0.0",
           });
           const result = yield* readInTempM2(purl, {
-            entryName: "META-INF/axm.json",
-            entryContent: JSON.stringify({ extensions: [] }),
+            entryName: "META-INF/agent-extensions.json",
+            entryContent: JSON.stringify({ agentExtensions: [] }),
           });
           expect(Option.isSome(result)).toBe(true);
           if (Option.isSome(result)) {
@@ -674,8 +674,8 @@ describe("mavenReader", () => {
     );
   });
 
-  describe("JAR without META-INF/axm.json", () => {
-    it.effect("returns Option.none when JAR has no axm.json", () =>
+  describe("JAR without META-INF/agent-extensions.json", () => {
+    it.effect("returns Option.none when JAR has no agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -711,7 +711,7 @@ describe("mavenReader", () => {
     );
   });
 
-  describe("malformed axm.json", () => {
+  describe("malformed agent-extensions.json", () => {
     it.effect("returns Option.none and warns on malformed metadata", () =>
       withNodeContext(
         Effect.gen(function* () {
@@ -722,8 +722,8 @@ describe("mavenReader", () => {
             version: "1.0.0",
           });
           const result = yield* readInTempM2(purl, {
-            entryName: "META-INF/axm.json",
-            entryContent: JSON.stringify({ extensions: { invalid: true } }),
+            entryName: "META-INF/agent-extensions.json",
+            entryContent: JSON.stringify({ agentExtensions: { invalid: true } }),
           });
           expect(Option.isNone(result)).toBe(true);
         }),
@@ -732,7 +732,7 @@ describe("mavenReader", () => {
   });
 
   describe("extra fields tolerated", () => {
-    it.effect("ignores extra fields in axm.json", () =>
+    it.effect("ignores extra fields in agent-extensions.json", () =>
       withNodeContext(
         Effect.gen(function* () {
           const purl = makePurl({
@@ -742,9 +742,9 @@ describe("mavenReader", () => {
             version: "1.0.0",
           });
           const result = yield* readInTempM2(purl, {
-            entryName: "META-INF/axm.json",
+            entryName: "META-INF/agent-extensions.json",
             entryContent: JSON.stringify({
-              extensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
+              agentExtensions: [{ ref: "@acme/skills/foo", versionRange: "^1.0.0" }],
               futureField: true,
             }),
           });
@@ -768,9 +768,9 @@ describe("mavenReader", () => {
             version: "3.14.0",
           });
           const result = yield* readInTempM2(purl, {
-            entryName: "META-INF/axm.json",
+            entryName: "META-INF/agent-extensions.json",
             entryContent: JSON.stringify({
-              extensions: [{ ref: "@apache/skills/commons", versionRange: "^1.0.0" }],
+              agentExtensions: [{ ref: "@apache/skills/commons", versionRange: "^1.0.0" }],
             }),
           });
           expect(Option.isSome(result)).toBe(true);

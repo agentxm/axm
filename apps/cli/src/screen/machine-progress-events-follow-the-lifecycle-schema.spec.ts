@@ -70,9 +70,15 @@ describe("Machine progress event contract", () => {
       cleanups.push(workspace.cleanup);
       const skillPackage = writeLocalSkillPackage(workspace.root, { name: "code-review" });
       yield* handleInstall({
+        type: Option.none(),
         source: Option.some(skillPackage),
+        selectors: {},
+        all: true,
         force: false,
         preview: false,
+        env: [],
+        localName: Option.none(),
+        bundled: false,
       }).pipe(Effect.provide(workspace.layer));
       const log = workspace.streams?.log ?? [];
       return { log, progress: progressLines(log) };

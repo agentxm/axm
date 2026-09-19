@@ -3,6 +3,7 @@ import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
+import YAML from "yaml";
 
 import { countUnitStates, deriveOperationOutcome } from "../../transitions/planning/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -24,6 +25,13 @@ import {
   readSettings,
 } from "../install/test-helpers.js";
 import { applyUpdate, expectResolved, targetedUpdateRequest } from "./test-helpers.js";
+
+const lockSkill = (raw: string, name: string): unknown => {
+  const parsed: unknown = YAML.parse(raw);
+  if (typeof parsed !== "object" || parsed === null || !("skills" in parsed)) return undefined;
+  if (typeof parsed.skills !== "object" || parsed.skills === null) return undefined;
+  return Object.entries(parsed.skills).find(([key]) => key === name)?.[1];
+};
 
 export const specification = defineSpecification({
   requirement: "cli/update/advances-resolution-within-intent",
@@ -80,7 +88,7 @@ it.effect(
             preapprovedPlanExecution,
           );
           expect(deriveOperationOutcome(resolution)).toBe("applied");
-          expect(workspace.readFile("axm-lock.yaml")).toContain("resolvedVersion: 1.1.0");
+          expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.1.0");
           expect(workspace.readFile(`.claude/agents/${name}.md`)).toContain("Compatible reviewer.");
           expect(workspace.readFile("axm.json")).toBe(before);
         }),
@@ -165,11 +173,11 @@ describe.each(["targeted", "selective"] as const)(
           .provide(
             Effect.gen(function* () {
               yield* acceptedThenPublished(registry, workspace);
-              expect(workspace.readFile("axm-lock.yaml")).toContain("resolvedVersion: 1.0.0");
+              expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.0.0");
 
               const resolution = expectResolved(yield* update());
 
-              expect(workspace.readFile("axm-lock.yaml")).toContain("resolvedVersion: 2.0.0");
+              expect(workspace.readFile("axm-lock.yaml")).toContain("version: 2.0.0");
               expect(workspace.readFile(`.claude/skills/${REVIEW}/SKILL.md`)).toContain(
                 "Second guidance.",
               );
@@ -200,7 +208,7 @@ describe.each(["targeted", "selective"] as const)(
 
             const resolution = expectResolved(yield* update());
 
-            expect(workspace.readFile("axm-lock.yaml")).toContain("resolvedVersion: 1.1.0");
+            expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.1.0");
             expect(workspace.readFile(`.claude/skills/${REVIEW}/SKILL.md`)).toContain(
               "Compatible guidance.",
             );
@@ -223,10 +231,8 @@ describe.each(["targeted", "selective"] as const)(
             yield* acceptedThenPublished(registry, workspace);
             const settingsBefore = JSON.stringify(readSettings(workspace));
             const unrelatedProjection = workspace.readFile(`.claude/skills/${UNRELATED}/SKILL.md`);
-            const unrelatedIdentity = new RegExp(
-              `${UNRELATED}:[\\s\\S]*?contentIdentity: ([0-9a-f]{64})`,
-            ).exec(workspace.readFile("axm-lock.yaml"))?.[1];
-            expect(unrelatedIdentity).toBeDefined();
+            const unrelatedAccepted = lockSkill(workspace.readFile("axm-lock.yaml"), UNRELATED);
+            expect(unrelatedAccepted).toBeDefined();
 
             yield* update();
 
@@ -234,9 +240,11 @@ describe.each(["targeted", "selective"] as const)(
             expect(workspace.readFile(`.claude/skills/${UNRELATED}/SKILL.md`)).toBe(
               unrelatedProjection,
             );
-            expect(workspace.readFile("axm-lock.yaml")).toContain(unrelatedIdentity ?? "");
+            expect(lockSkill(workspace.readFile("axm-lock.yaml"), UNRELATED)).toEqual(
+              unrelatedAccepted,
+            );
             expect(
-              workspace.readFile(`agent_extensions/local/vendor/${UNRELATED}/src/SKILL.md`),
+              workspace.readFile(`agent_extensions/path/@acme/skills/${UNRELATED}/src/SKILL.md`),
             ).toContain(UNRELATED);
           }),
         )

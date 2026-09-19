@@ -28,7 +28,6 @@ import {
   KnowledgeResolutionMissing,
   KnowledgeUnavailable,
   McpInstallStateMissing,
-  McpRegistryOnlyInstall,
   PackArchiveFetchFailed,
   PackDefinitionInvalid,
   PackInstallStateMissing,
@@ -324,15 +323,6 @@ const cases: ReadonlyArray<ConversionCase> = [
     failure: new SubagentInstallStateMissing({ name: "demo", kind: "external-resolution" }),
     code: "internal",
     detail: "Subagent demo did not produce an external resolution",
-  },
-  {
-    name: "McpRegistryOnlyInstall",
-    failure: new McpRegistryOnlyInstall({ serverName: "demo", refType: "workspace" }),
-    code: "usage",
-    detail: "MCP servers materialize from a registry package, not from a workspace source",
-    suggestions: [
-      { description: "Install from the registry", cmd: "axm mcps install @owner/mcps/demo" },
-    ],
   },
   {
     name: "McpInstallStateMissing",

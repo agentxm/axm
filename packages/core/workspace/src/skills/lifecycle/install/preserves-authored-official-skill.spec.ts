@@ -84,7 +84,7 @@ describe("Bundled official-skill recovery over an authored official skill", () =
           expect(workspace.readFile("axm.json")).toBe(before.settings);
           expect(workspace.readFile("axm-lock.yaml")).toBe(before.lock);
           expect(fs.readFileSync(authoredPath, "utf8")).toBe(before.authored);
-          expect(workspace.exists("agent_extensions/agentxm/@agentxm/skills/axm")).toBe(false);
+          expect(workspace.exists("agent_extensions/registry/@agentxm/skills/axm")).toBe(false);
           expect(workspace.exists(".claude/skills/axm")).toBe(false);
         }),
       )

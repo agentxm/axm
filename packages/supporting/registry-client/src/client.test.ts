@@ -45,7 +45,7 @@ import {
   exactVersion,
   extensionName,
   handle,
-  packageExtensionDeclaration,
+  agentExtensionRecommendation,
   packageType,
   versionRange,
 } from "./test-helpers.js";
@@ -1267,7 +1267,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
                 purl: makeDetectedPackage("npm", "next"),
                 version: "14.0.0",
                 declaredExtensions: [
-                  packageExtensionDeclaration({
+                  agentExtensionRecommendation({
                     ref: "@vercel/skills/nextjs",
                     versionRange: "^1.0.0",
                   }),
@@ -1413,7 +1413,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
                 purl: makeDetectedPackage("npm", "next"),
                 version: "14.0.0",
                 declaredExtensions: [
-                  packageExtensionDeclaration({
+                  agentExtensionRecommendation({
                     ref: "@vercel/skills/nextjs",
                     versionRange: "^1.0.0",
                   }),
@@ -1448,7 +1448,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
                 purl: makeDetectedPackage("npm", "unknown"),
                 version: "1.0.0",
                 declaredExtensions: [
-                  packageExtensionDeclaration({
+                  agentExtensionRecommendation({
                     ref: "@unknown/skills/nonexistent",
                     versionRange: "^1.0.0",
                   }),
@@ -1527,7 +1527,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
           expect(entry.extension?.type).toBe("skill");
           expect(entry.extension?.name).toBe("my-skill");
           expect(entry.extension?.owner).toBe("@test");
-          expect(entry.extension?.installVersion).toBe("1.0.0");
+          expect(entry.extension?.resolution).toEqual({ type: "registry", version: "1.0.0" });
         }).pipe(
           Effect.ensuring(
             Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),

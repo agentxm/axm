@@ -28,6 +28,23 @@ import { WorkspaceLocation } from "./workspace/location.js";
 
 export * from "./workspace/test-stubs.js";
 
+/** Give fixture-owned Registry sources an explicit default without changing production policy. */
+export const withTestRegistryDefault = <Settings extends Readonly<object>>(
+  settings: Settings,
+): Settings | (Settings & { readonly defaultRegistry: "test" }) => {
+  const sources = "sources" in settings ? settings.sources : undefined;
+  const hasTestRegistry =
+    Array.isArray(sources) &&
+    sources.some(
+      (source) =>
+        typeof source === "object" && source !== null && "name" in source && source.name === "test",
+    );
+  const defaultRegistry = "defaultRegistry" in settings ? settings.defaultRegistry : undefined;
+  return hasTestRegistry && defaultRegistry === undefined
+    ? { defaultRegistry: "test", ...settings }
+    : settings;
+};
+
 /**
  * A transaction scope over the located workspace with the given admission —
  * one invocation of a memory transition-lock world from

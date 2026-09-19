@@ -19,14 +19,16 @@ export const validateExactPackDependencyVersions = (
   Effect.forEach(
     Object.entries(resolved),
     ([fqn, value]) =>
-      Schema.decodeUnknownEffect(VersionSchema)(value.version).pipe(
-        Effect.mapError(
-          (cause) =>
-            new PackDefinitionInvalid({
-              detail: `Pack dependency ${field}.${fqn}.version must be an exact semver value`,
-              cause,
-            }),
-        ),
-      ),
+      value.source === "registry" || value.source === "workspace"
+        ? Schema.decodeUnknownEffect(VersionSchema)(value.version).pipe(
+            Effect.mapError(
+              (cause) =>
+                new PackDefinitionInvalid({
+                  detail: `Pack dependency ${field}.${fqn}.version must be an exact semver value`,
+                  cause,
+                }),
+            ),
+          )
+        : Effect.void,
     { concurrency: "unbounded", discard: true },
   );

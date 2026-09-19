@@ -22,14 +22,13 @@ import type {
   ExtensionFiles,
   FindOptions,
 } from "@agentxm/extension-model/unstable/sources/source-host-provider";
-import type { GitHostingSource, Source } from "@agentxm/extension-model/unstable/sources/types";
+import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { AxmSkillCandidateGate } from "./axm-skill-gate.js";
 import { RegistryResolutionPolicy } from "./registry-resolution-policy.js";
 import { SourceNotResolvable, type SourceResolutionFailure } from "./errors.js";
 import { fileUrlToPath } from "./file-url.js";
 import { createGitSourceHostProvider } from "./providers/git.js";
-import { createGitHostingSourceHostProvider } from "./providers/git-hosting.js";
 import { createLocalSourceHostProvider } from "./providers/local.js";
 import {
   buildCloneUrlFromSource,
@@ -89,16 +88,6 @@ export const SourceHostProvidersLive: Layer.Layer<
       Layer.succeed(RegistryResolutionPolicy, resolutionPolicy),
     );
 
-    const findGitHosting = (source: GitHostingSource, options: FindOptions) => {
-      const provider = createGitHostingSourceHostProvider(source);
-      return provider.find(source, options).pipe(Effect.provide(depLayer));
-    };
-
-    const fetchGitHosting = (source: GitHostingSource, ref: ExtensionRef) => {
-      const provider = createGitHostingSourceHostProvider(source);
-      return provider.fetch(source, ref).pipe(Effect.provide(depLayer));
-    };
-
     const localSourceForWorkspace = (source: Extract<Source, { readonly type: "local" }>) => ({
       ...source,
       path: path.isAbsolute(source.path)
@@ -125,11 +114,6 @@ export const SourceHostProvidersLive: Layer.Layer<
 
     const findImpl = (source: Source, options: FindOptions) => {
       switch (source.type) {
-        case "github":
-        case "gitlab":
-        case "bitbucket":
-        case "azurerepos":
-          return findGitHosting(source, options);
         case "local":
           return localProvider.find(localSourceForWorkspace(source), options).pipe(
             Effect.provide(depLayer),
@@ -155,11 +139,6 @@ export const SourceHostProvidersLive: Layer.Layer<
       ref: ExtensionRef,
     ): Effect.Effect<ExtensionFiles, SourceResolutionFailure, Scope.Scope> => {
       switch (source.type) {
-        case "github":
-        case "gitlab":
-        case "bitbucket":
-        case "azurerepos":
-          return fetchGitHosting(source, ref);
         case "local":
           return localProvider.fetch(source, ref).pipe(Effect.provide(depLayer));
         case "git":

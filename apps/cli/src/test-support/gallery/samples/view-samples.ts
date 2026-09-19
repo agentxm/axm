@@ -35,6 +35,8 @@ export const codeReview: ViewDocument = {
   ].map(published),
   install: "axm skills install @acme/skills/code-review",
   visibility: "public",
+  lifecycleState: "active",
+  archival: null,
   deprecation: null,
 };
 
@@ -48,6 +50,8 @@ export const changelog: ViewDocument = {
   versions: ["0.3.0", "0.2.0", "0.1.0"].map(published),
   install: "axm skills install @legacy/skills/changelog",
   visibility: "public",
+  lifecycleState: "deprecated",
+  archival: null,
   deprecation: {
     deprecatedAt: DateTime.makeUnsafe("2026-08-02T00:00:00Z"),
     message: "Superseded by release notes that read the pull requests, not the log.",

@@ -310,6 +310,69 @@ describe("buildInstallOperation", () => {
     }),
   );
 
+  it.effect("reports archival once alongside independent deprecation and yank notices", () =>
+    Effect.gen(function* () {
+      const manager = {
+        isInstalled: () => Effect.succeed(true),
+        materializeInstall: () => Effect.succeed(NO_FACTS),
+        acceptedResolution: () => Effect.succeed(Option.none()),
+      } satisfies InstallMaterialization<
+        SkillExtensionRef,
+        void,
+        ExtensionManagerFailure,
+        ManagerRequirements
+      >;
+      const name = extensionName("review");
+      const archival = {
+        archivedAt: DateTime.makeUnsafe("2026-09-19T00:00:00.000Z"),
+        reason: "No longer maintained",
+      };
+      const deprecation = {
+        deprecatedAt: DateTime.makeUnsafe("2026-09-18T00:00:00.000Z"),
+        message: "Move review workflows.",
+      };
+      const archiveWarning = "@acme/skills/review is archived: No longer maintained";
+      const ref: RegistrySkillRef = {
+        type: "skill",
+        refType: "registry",
+        publisherBindingId: "hbnd_test",
+        source: {
+          type: "registry",
+          name: "agentxm",
+          location: new URL("https://registry.agentxm.ai"),
+          owner: Option.some(handle("@acme")),
+        },
+        owner: handle("@acme"),
+        name,
+        version: exactVersion("1.0.0"),
+        integrity: Option.none(),
+        packages: [],
+        archival,
+        deprecation,
+        lifecycleWarnings: [archiveWarning, "@acme/skills/review@1.0.0 is yanked"],
+        skill: { name, description: Option.none(), metadata: Option.none() },
+      };
+
+      const operation = buildInstallOperation(manager, {
+        ref,
+        declaration: { name: ref.skill.name, versionRange: Option.none() },
+        toStepFailure,
+        buildArtifact: () =>
+          Effect.succeed({ path: "agent_extensions/review", scope: "project", change: "created" }),
+      });
+
+      if (operation.readiness !== "warn") throw new Error("Expected warning-ready install");
+      expect(operation.warnMessage.match(/is archived/gu)).toHaveLength(1);
+      expect(operation.warnMessage).toContain("is deprecated");
+      expect(operation.warnMessage).toContain("is yanked");
+      const result = yield* grounded(operation.run);
+      expect(result).toMatchObject({
+        result: "success",
+        artifact: { registryLifecycle: { archival, deprecation } },
+      });
+    }),
+  );
+
   it.effect("rejects installing over a workspace source before materialization", () =>
     Effect.gen(function* () {
       const materializeInstall = vi.fn(() => Effect.succeed(NO_FACTS));

@@ -23,6 +23,7 @@ import {
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
+import { ArchivalViewSchema } from "@agentxm/extension-model/unstable/extensions/archival";
 import {
   resolveIdentifier,
   type IdentifierResourceType,
@@ -49,6 +50,8 @@ const ViewDocumentFields = {
   versions: Schema.Array(ViewVersionSchema),
   install: Schema.String,
   visibility: Schema.Literals(["public", "private"] as const),
+  lifecycleState: Schema.Literals(["active", "deprecated", "archived"] as const),
+  archival: Schema.NullOr(ArchivalViewSchema),
   deprecation: Schema.NullOr(DeprecationViewSchema),
 } satisfies Schema.Struct.Fields;
 
@@ -59,6 +62,7 @@ export const ViewFieldValueSchema = Schema.Union([
   Schema.String,
   Schema.Array(Schema.String),
   Schema.Null,
+  ArchivalViewSchema,
   DeprecationViewSchema,
 ]);
 export type ViewFieldValue = typeof ViewFieldValueSchema.Type;
@@ -72,6 +76,8 @@ export const VIEW_FIELDS = [
   "owner",
   "type",
   "visibility",
+  "lifecycle-state",
+  "archival",
   "deprecation",
 ] as const;
 export type ViewField = (typeof VIEW_FIELDS)[number];
@@ -209,6 +215,9 @@ const toDocument = (index: ExtensionIndex, visibility: "public" | "private"): Vi
     })),
     install: installCommandFor(index.type, handle),
     visibility,
+    lifecycleState:
+      index.archival !== null ? "archived" : index.deprecation !== null ? "deprecated" : "active",
+    archival: index.archival,
     deprecation: index.deprecation,
   };
 };
@@ -228,6 +237,10 @@ const fieldValue = (data: ViewDocument, field: ViewField): ViewFieldValue | unde
       return data.type;
     case "visibility":
       return data.visibility;
+    case "lifecycle-state":
+      return data.lifecycleState;
+    case "archival":
+      return data.archival;
     case "deprecation":
       return data.deprecation;
   }

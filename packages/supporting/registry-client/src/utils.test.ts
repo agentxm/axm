@@ -32,6 +32,34 @@ const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
 });
 
 describe("extensionLifecycleWarnings", () => {
+  it("reports archival once before an exact-version yank notice", () => {
+    const version = makeVersionEntry({
+      yankedAt: DateTime.makeUnsafe("2025-02-01T00:00:00Z"),
+      yankNotice: "Security issue",
+    });
+
+    expect(
+      extensionLifecycleWarnings(
+        {
+          owner: handle("@acme"),
+          type: "skill",
+          name: extensionName("review"),
+          publisherBindingId: "hbnd_test",
+          archival: {
+            archivedAt: DateTime.makeUnsafe("2025-03-01T00:00:00Z"),
+            reason: "No longer maintained",
+          },
+          deprecation: null,
+          versions: [version],
+        },
+        version,
+      ),
+    ).toEqual([
+      "@acme/skills/review is archived: No longer maintained",
+      "@acme/skills/review@1.0.0 is yanked: Security issue",
+    ]);
+  });
+
   it("uses canonical plural paths for MCP servers", () => {
     const version = makeVersionEntry({
       yankedAt: DateTime.makeUnsafe("2025-02-01T00:00:00Z"),
@@ -44,6 +72,7 @@ describe("extensionLifecycleWarnings", () => {
           type: "mcp-server",
           name: extensionName("github"),
           publisherBindingId: "hbnd_test",
+          archival: null,
           deprecation: null,
           versions: [version],
         },

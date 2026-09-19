@@ -346,6 +346,7 @@ describe("RegistrySourceHostProvider.resolveNamed", () => {
     type: "skill" as const,
     name: extensionName("my-skill"),
     publisherBindingId: "hbnd_test",
+    archival: null,
     deprecation: null,
     versions: [
       makeVersionEntry({ version: "1.0.0" }),
@@ -383,6 +384,7 @@ describe("RegistrySourceHostProvider.resolveNamed", () => {
               type: "skill",
               name: extensionName("my-skill"),
               publisherBindingId: "hbnd_test",
+              archival: null,
               deprecation: null,
               versions: [makeVersionEntry({ version: "1.0.0" })],
             }),
@@ -415,6 +417,7 @@ describe("RegistrySourceHostProvider.resolveNamed", () => {
               type: "skill",
               name: extensionName("my-skill"),
               publisherBindingId: "hbnd_test",
+              archival: null,
               deprecation: null,
               versions: [makeVersionEntry({ version: "1.0.0" })],
             }),
@@ -444,6 +447,7 @@ describe("RegistrySourceHostProvider.resolveNamed", () => {
               type: "pack",
               name: extensionName("toolkit"),
               publisherBindingId: "hbnd_test",
+              archival: null,
               deprecation: null,
               versions: [
                 makeVersionEntry({ version: "1.0.0" }),

@@ -566,6 +566,20 @@ const lifecycleTransitionFamily = defineResultFamily({
   ],
 });
 
+const archivalTransitionFamily = defineResultFamily({
+  id: "archival-transition",
+  schemaNames: ["ArchivalTransitionOutputSchema"],
+  requiredTopLevelKeys: ["target", "before", "after", "disposition", "revision"],
+  scenarios: ["created", "edited", "restored", "unchanged", "stale revision"],
+  rationale:
+    "Archival administration reports the authoritative conditional Registry transition without a local workspace artifact.",
+  humanOutputKind: "mutation",
+  commandCoverage: [
+    "packages/core/workspace/src/publishing/archival/archives-at-the-observed-revision.spec.ts",
+    "packages/core/workspace/src/publishing/archival/unarchives-at-the-observed-revision.spec.ts",
+  ],
+});
+
 const formatterPaths = [
   "axm",
   "axm agents",
@@ -668,6 +682,7 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
   ...rowsFor(helpFamily, ["axm knowledge concepts"]),
   ...rowsFor(planFamily, planPaths),
   ...rowsFor(lifecycleTransitionFamily, ["axm deprecate", "axm undeprecate"]),
+  ...rowsFor(archivalTransitionFamily, ["axm archive", "axm unarchive"]),
   ...rowsFor(publishFamily, publishPaths),
   ...rowsFor(agentsListFamily, ["axm agents list"]),
   ...rowsFor(agentCapabilitiesFamily, ["axm agents capabilities"]),

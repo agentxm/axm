@@ -57,7 +57,9 @@ import { forkCommand } from "./root/fork/command.js";
 import { cacheCommand } from "./root/cache/command.js";
 import { visibilityCommand } from "./root/visibility/command.js";
 import {
+  archiveCommand,
   deprecateCommand,
+  unarchiveCommand,
   undeprecateCommand,
   unyankCommand,
   yankCommand,
@@ -122,6 +124,8 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
         unyankCommand,
         deprecateCommand,
         undeprecateCommand,
+        archiveCommand,
+        unarchiveCommand,
       ],
     },
     {

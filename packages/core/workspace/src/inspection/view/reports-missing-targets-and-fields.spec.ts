@@ -37,6 +37,7 @@ const publishedIndex = (versions: ReadonlyArray<string>) => ({
   description: "Review guidance",
   publisher_binding_id: "hbnd_read_fixture",
   visibility: "public",
+  archival: null,
   deprecation: null,
   versions: versions.map((version, index) => ({
     version,

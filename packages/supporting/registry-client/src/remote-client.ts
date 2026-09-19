@@ -179,6 +179,15 @@ const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
             url: a.url ?? undefined,
           })),
     visibility: response.visibility ?? undefined,
+    archival:
+      response.archival === null
+        ? null
+        : {
+            archivedAt: response.archival.archivedAt,
+            ...(response.archival.reason === undefined || response.archival.reason === null
+              ? {}
+              : { reason: response.archival.reason }),
+          },
     deprecation:
       response.deprecation === null
         ? null
@@ -257,6 +266,7 @@ const toRegistryManifest = (
     version: latest.version,
     integrity: latest.integrity,
     packages: packagesToPackageUrlParts(latest.packages),
+    ...(index.archival === null ? {} : { archival: index.archival }),
     ...(index.deprecation === null ? {} : { deprecation: index.deprecation }),
     ...(lifecycleWarnings.length === 0 ? {} : { lifecycleWarnings }),
   });

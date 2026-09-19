@@ -38,6 +38,13 @@ export const extensionLifecycleWarnings = (
 ): ReadonlyArray<string> => {
   const warnings: string[] = [];
   const extensionRef = `${index.owner}/${toExtensionTypePlural(index.type)}/${index.name}`;
+  if (index.archival !== null) {
+    warnings.push(
+      index.archival.reason === undefined
+        ? `${extensionRef} is archived; historical releases remain available`
+        : `${extensionRef} is archived: ${index.archival.reason}`,
+    );
+  }
   if (version.yankedAt !== undefined) {
     const context = [version.yankCategory, version.yankNotice].filter(
       (value): value is string => value !== undefined,

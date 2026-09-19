@@ -18,6 +18,8 @@ export const RegistryTransitionActionSchema = Schema.Literals([
   "unyank",
   "deprecate",
   "undeprecate",
+  "archive",
+  "unarchive",
   "visibility-set",
   "visibility-reconcile",
 ] as const).annotate({ identifier: "RegistryTransitionAction" });

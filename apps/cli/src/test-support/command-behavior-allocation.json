@@ -796,6 +796,36 @@
         }
       ]
     },
+    "archive": {
+      "flags": [
+        {
+          "name": "reason",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        }
+      ],
+      "arguments": [
+        {
+          "name": "extension",
+          "rawHelp": {
+            "type": "string",
+            "required": true,
+            "variadic": false
+          }
+        }
+      ],
+      "relatedRequirements": [],
+      "parameterBindings": [
+        {
+          "parameters": ["argument:extension", "flag:reason"],
+          "requirements": ["cli/archive/archives-at-the-observed-revision"],
+          "when": "An extension FQN and optional public reason select a conditional archival write."
+        }
+      ]
+    },
     "deprecate": {
       "flags": [
         {
@@ -8183,6 +8213,27 @@
           "details": [
             "The token identifier is neither an authentication credential nor a Registry/workspace selector."
           ]
+        }
+      ]
+    },
+    "unarchive": {
+      "flags": [],
+      "arguments": [
+        {
+          "name": "extension",
+          "rawHelp": {
+            "type": "string",
+            "required": true,
+            "variadic": false
+          }
+        }
+      ],
+      "relatedRequirements": [],
+      "parameterBindings": [
+        {
+          "parameters": ["argument:extension"],
+          "requirements": ["cli/unarchive/restores-at-the-observed-revision"],
+          "when": "An extension FQN selects a conditional archival removal."
         }
       ]
     },

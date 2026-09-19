@@ -10,6 +10,9 @@ import { ExtensionFqnSchema } from "../extensions/common.js";
 import { SourceRefSchema, SourceSubPathSchema } from "../sources/types.js";
 import { VersionRangeSchema } from "../version-constraints/version-constraints.js";
 
+/** The Registry used by portable recommendations that omit an explicit source. */
+export const AGENTXM_REGISTRY_URL = "https://registry.agentxm.ai";
+
 export const AgentExtensionGitSourceSchema = Schema.Struct({
   type: Schema.Literal("git"),
   url: Schema.URLFromString,
@@ -48,6 +51,8 @@ export const AgentExtensionSourceSchema = Schema.Union([
   title: "Agent extension recommendation source",
   description: "A self-describing Git, Registry, or filesystem locator.",
 });
+
+export type AgentExtensionSource = Schema.Schema.Type<typeof AgentExtensionSourceSchema>;
 
 const RegistryAgentExtensionRecommendationSchema = Schema.Struct({
   ref: ExtensionFqnSchema,

@@ -16,6 +16,11 @@ describe("./testing.js", () => {
       version: "1.0.0",
       dependencies: { "@acme/review": "1.0.0" },
     });
+    project.writeJson("node_modules/@acme/review/package.json", {
+      name: "@acme/review",
+      version: "1.0.0",
+      agentExtensions: [{ ref: "@acme/skills/review" }],
+    });
     const before = project.snapshot();
     const registry = DiscoveryRegistryTest(() => ({
       body: {

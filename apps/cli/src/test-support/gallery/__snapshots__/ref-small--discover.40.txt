@@ -3,7 +3,7 @@
      @acme/subagents/reviewer   subagent
      @sam/skills/review-notes   skill
      Not shown at this width: Trust,
-     Install, For package
+     Install, Source, For package
 
 3 companion extensions for 2 of 14
 detected packages · axm view <extension>

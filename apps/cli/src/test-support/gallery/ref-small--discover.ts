@@ -18,6 +18,7 @@ const companion = (
   },
 ) => ({
   ref: `${owner}/${type}s/${name}`,
+  source: { type: "registry", url: new URL("https://registry.agentxm.ai") } as const,
   resolved: true,
   extension: Schema.decodeUnknownSync(DiscoveryResolvedExtensionSchema)({
     owner,

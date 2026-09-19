@@ -17,7 +17,24 @@ interface DiscoverTableRow {
   readonly attestedBy: ReadonlyArray<string>;
   readonly official: boolean;
   readonly installVersion: string;
+  readonly source: string;
 }
+
+const sourceText = (
+  source: DiscoverExtensionsResult["packages"][number]["extensions"][number]["source"],
+): string => {
+  switch (source.type) {
+    case "registry":
+      return source.url.href;
+    case "git": {
+      const revision = source.revision === undefined ? "" : `#${source.revision}`;
+      const path = source.path === undefined ? "" : `:${source.path}`;
+      return `${source.url.href}${revision}${path}`;
+    }
+    case "path":
+      return source.path;
+  }
+};
 
 /**
  * How far a recommendation is vouched for: `attested` when the package and
@@ -46,6 +63,7 @@ const DiscoverColumns = [
   },
   { header: "Trust", value: trustText },
   { header: "Install", value: (row: DiscoverTableRow) => row.installVersion },
+  { header: "Source", priority: "optional", value: (row: DiscoverTableRow) => row.source },
   { header: "For package", priority: "optional", value: (row: DiscoverTableRow) => row.package },
 ] satisfies ReadonlyArray<ViewColumn<DiscoverTableRow>>;
 
@@ -62,12 +80,13 @@ const toDiscoverTableRows = (result: DiscoverExtensionsResult): ReadonlyArray<Di
       attestedBy: entry.attestedBy,
       official: entry.official,
       installVersion: entry.extension?.installVersion ?? NOT_REPORTED,
+      source: sourceText(entry.source),
     })),
   );
 
-/** A Registry that did not answer leaves only what packages declare locally. */
+/** A Registry that did not answer leaves its recommendations unresolved. */
 const registryUnavailable: Text = [
-  { text: "Registry unavailable, local recommendations only", tone: "warn" },
+  { text: "One or more Registry sources unavailable", tone: "warn" },
 ];
 
 const discoverSummary = (

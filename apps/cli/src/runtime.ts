@@ -113,6 +113,7 @@ import { suggestionsForScope } from "./root/shared/scoped-command.js";
 import { ScreenLoggerLive } from "./screen/index.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
+import { AGENTXM_REGISTRY_URL } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 
 export { verboseFlag, debugFlag };
 
@@ -126,7 +127,6 @@ export const axmGlobalFlags = [
 ] as const;
 
 // -- Runtime layers --
-const DEFAULT_REGISTRY_URL = "https://registry.agentxm.ai";
 const registryUrlLayer = (registryUrl: string) => Layer.succeed(RegistryUrl, registryUrl);
 
 export const withAxmUserAgent = (httpClient: HttpClient.HttpClient, version: string) =>
@@ -201,7 +201,7 @@ export const makeAuthLayer = (registryUrl: string) =>
 
 export const runtimeBaseLayer = Layer.mergeAll(
   NodeServices.layer,
-  registryUrlLayer(DEFAULT_REGISTRY_URL),
+  registryUrlLayer(AGENTXM_REGISTRY_URL),
   makeAxmSkillCompatibilityPolicyLayer(loadVersion()),
   // AuthLoginInteractionLive spawns platform commands via ChildProcessSpawner,
   // provided by NodeServices (memoized with the merged instance above).
@@ -261,7 +261,7 @@ interface RuntimeEnvConfig {
 }
 
 export const getBuiltInSources = (): ReadonlyArray<SourceHostConfig> => [
-  { name: "agentxm", type: "registry", location: new URL(DEFAULT_REGISTRY_URL) },
+  { name: "agentxm", type: "registry", location: new URL(AGENTXM_REGISTRY_URL) },
 ];
 
 const readRuntimeEnvConfig = (): RuntimeEnvConfig => ({
@@ -310,7 +310,7 @@ export const resolveDefaultRegistryTarget = (projectRoot: AbsolutePath) => {
             // is reached.
             Effect.succeed({
               name: "agentxm",
-              url: DEFAULT_REGISTRY_URL,
+              url: AGENTXM_REGISTRY_URL,
             } satisfies DefaultRegistryTargetService),
       onSuccess: Effect.succeed,
     }),

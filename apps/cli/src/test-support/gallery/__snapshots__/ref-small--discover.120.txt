@@ -1,7 +1,7 @@
-     Extension                  Type       Trust                Install   For package
-     @acme/skills/code-review   skill      attested, official   1.4.0     vitest@3.2.4
-     @acme/subagents/reviewer   subagent   attested             0.9.0     vitest@3.2.4
-     @sam/skills/review-notes   skill      extension only       0.2.1     eslint@9.30.0
+     Extension                  Type       Trust                Install   Source                         For package
+     @acme/skills/code-review   skill      attested, official   1.4.0     https://registry.agentxm.ai/   vitest@3.2.4
+     @acme/subagents/reviewer   subagent   attested             0.9.0     https://registry.agentxm.ai/   vitest@3.2.4
+     @sam/skills/review-notes   skill      extension only       0.2.1     https://registry.agentxm.ai/   eslint@9.30.0
 
 3 companion extensions for 2 of 14 detected packages · axm view <extension> for details
 

@@ -12,7 +12,23 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import type { PackageType } from "@agentxm/extension-model/unstable/packaging";
-import { createRegistryClient, type RegistryClient } from "@agentxm/registry-client";
+import {
+  createRegistryClient,
+  type RegistryClient,
+  type RegistryClientFactoryService,
+} from "@agentxm/registry-client";
+
+export const registryFactoryForClient = (
+  client: RegistryClient,
+  observeLocation: (location: string) => void = () => undefined,
+): RegistryClientFactoryService => ({
+  forLocation: (location) =>
+    Effect.sync(() => {
+      observeLocation(location);
+      return client;
+    }),
+  forDefaultRegistry: Effect.succeed(client),
+});
 
 export const packageType = (value: string): PackageType =>
   Schema.decodeUnknownSync(PackageTypeSchema)(value);

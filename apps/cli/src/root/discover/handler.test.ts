@@ -33,7 +33,7 @@ const companion = (name: string, official: boolean, attestedBy: ReadonlyArray<st
 const stubFactoryLayer = (respond: () => DiscoverPackagesResponse | undefined) =>
   Layer.succeed(RegistryClientFactory, {
     forLocation: () => Effect.succeed(makeStubClient(respond)),
-    forDefaultRegistry: Effect.succeed(makeStubClient(respond)),
+    forDefaultRegistry: Effect.die("Discover must resolve each declared source directly"),
   });
 
 const makeStubClient = (respond: () => DiscoverPackagesResponse | undefined): RegistryClient =>
@@ -68,8 +68,16 @@ const makeProject = (files: Readonly<Record<string, unknown>>): ProjectFixture =
 
 const twoPackageProject = {
   "package.json": { dependencies: { react: "18.2.0" }, devDependencies: { vitest: "3.2.1" } },
-  "node_modules/react/package.json": { name: "react", version: "18.2.0" },
-  "node_modules/vitest/package.json": { name: "vitest", version: "3.2.1" },
+  "node_modules/react/package.json": {
+    name: "react",
+    version: "18.2.0",
+    agentExtensions: [{ ref: "@acme/skills/react-testing" }],
+  },
+  "node_modules/vitest/package.json": {
+    name: "vitest",
+    version: "3.2.1",
+    agentExtensions: [{ ref: "@acme/skills/effect-testing" }],
+  },
 };
 
 const twoPackageResponse = {
@@ -117,7 +125,11 @@ describe("discover handler", () => {
               _tag: "table",
               rows: expect.arrayContaining([
                 expect.objectContaining({
-                  cells: expect.arrayContaining(["@acme/skills/react-testing", "react@18.2.0"]),
+                  cells: expect.arrayContaining([
+                    "@acme/skills/react-testing",
+                    "https://registry.agentxm.ai/",
+                    "react@18.2.0",
+                  ]),
                 }),
                 expect.objectContaining({
                   cells: expect.arrayContaining(["@acme/skills/effect-testing", "vitest@3.2.1"]),
@@ -153,7 +165,7 @@ describe("discover handler", () => {
     );
   });
 
-  it.effect("keeps registry unavailable as warning context for empty results", () => {
+  it.effect("does not consult a Registry for packages without recommendations", () => {
     const project = makeProject({
       "package.json": { dependencies: { react: "18.2.0" } },
       "node_modules/react/package.json": { name: "react", version: "18.2.0" },
@@ -169,10 +181,11 @@ describe("discover handler", () => {
             _tag: "paragraph",
             text: "No companion extensions for the 1 package this project depends on.",
           });
-          expect(doc).toContainEqual({
-            _tag: "paragraph",
-            text: [{ text: "Registry unavailable, local recommendations only", tone: "warn" }],
-          });
+          expect(doc).not.toContainEqual(
+            expect.objectContaining({
+              text: [{ text: "One or more Registry sources unavailable", tone: "warn" }],
+            }),
+          );
         }),
       ),
       Effect.ensuring(Effect.sync(project.cleanup)),
@@ -199,9 +212,7 @@ describe("discover handler", () => {
               parts: [
                 { text: "1 companion extension for 1 of 1 detected package" },
                 {
-                  text: [
-                    { text: "Registry unavailable, local recommendations only", tone: "warn" },
-                  ],
+                  text: [{ text: "One or more Registry sources unavailable", tone: "warn" }],
                 },
                 { text: [{ text: "axm view <extension> for details", tone: "dim" }] },
               ],
@@ -233,7 +244,10 @@ describe("discover handler", () => {
                 expect.objectContaining({
                   package: "pkg:npm/react@18.2.0",
                   extensions: expect.arrayContaining([
-                    expect.objectContaining({ name: "react-testing" }),
+                    expect.objectContaining({
+                      name: "react-testing",
+                      source: { type: "registry", url: "https://registry.agentxm.ai/" },
+                    }),
                   ]),
                 }),
               ]),

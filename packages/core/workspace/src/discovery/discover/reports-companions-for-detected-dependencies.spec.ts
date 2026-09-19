@@ -8,6 +8,7 @@ import { discover } from "../discover.js";
 import {
   makeRecordedRegistryPort,
   makeTemporaryProject,
+  registryFactoryForClient,
   snapshotDirectory,
 } from "../test-helpers.js";
 
@@ -48,7 +49,12 @@ describe("Dependency-backed companion discovery", () => {
     project.writeJson("node_modules/react/package.json", {
       name: "react",
       version: "18.2.0",
-      agentExtensions: [{ ref: "@acme/skills/react-review" }],
+      agentExtensions: [
+        {
+          ref: "@acme/skills/react-review",
+          source: { type: "registry", url: "https://extensions.example.test" },
+        },
+      ],
     });
     const before = snapshotDirectory(project.root);
     const registry = makeRecordedRegistryPort(() => ({
@@ -66,7 +72,11 @@ describe("Dependency-backed companion discovery", () => {
     }));
     return Effect.gen(function* () {
       const client = yield* registry.client;
-      const result = yield* discover(project.root, client);
+      const locations: Array<string> = [];
+      const result = yield* discover(
+        project.root,
+        registryFactoryForClient(client, (location) => locations.push(location)),
+      );
       expect(result).toMatchObject({
         totalDetected: 2,
         registryAvailable: true,
@@ -85,6 +95,7 @@ describe("Dependency-backed companion discovery", () => {
         ],
       });
       expect(registry.requests).toHaveLength(1);
+      expect(locations).toEqual(["https://extensions.example.test/"]);
       expect(registry.requests[0]).toMatchObject({
         method: "POST",
         body: {
@@ -106,7 +117,7 @@ describe("Dependency-backed companion discovery", () => {
     const registry = makeRecordedRegistryPort(() => ({ body: { results: [] } }));
     return Effect.gen(function* () {
       const client = yield* registry.client;
-      const result = yield* discover(project.root, client);
+      const result = yield* discover(project.root, registryFactoryForClient(client));
       expect(result).toEqual({ packages: [], totalDetected: 0, registryAvailable: true });
       expect(registry.requests).toEqual([]);
     }).pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(project.cleanup)));
@@ -120,6 +131,7 @@ describe("Dependency-backed companion discovery", () => {
     project.writeJson("packages/app/node_modules/vite/package.json", {
       name: "vite",
       version: "5.0.0",
+      agentExtensions: [{ ref: "@acme/skills/vite-review" }],
     });
     const requested = nodePath.join(project.root, "packages", "app");
     const before = snapshotDirectory(project.root);
@@ -151,7 +163,7 @@ describe("Dependency-backed companion discovery", () => {
     }));
     return Effect.gen(function* () {
       const client = yield* registry.client;
-      const result = yield* discover(requested, client);
+      const result = yield* discover(requested, registryFactoryForClient(client));
       expect(result).toMatchObject({
         totalDetected: 1,
         registryAvailable: true,
@@ -165,7 +177,15 @@ describe("Dependency-backed companion discovery", () => {
       expect(registry.requests).toHaveLength(1);
       expect(registry.requests[0]).toMatchObject({
         method: "POST",
-        body: { packages: [{ purl: "pkg:npm/vite", version: "5.0.0" }] },
+        body: {
+          packages: [
+            {
+              purl: "pkg:npm/vite",
+              version: "5.0.0",
+              declaredExtensions: [{ ref: "@acme/skills/vite-review" }],
+            },
+          ],
+        },
       });
       expect(snapshotDirectory(project.root)).toEqual(before);
     }).pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(project.cleanup)));

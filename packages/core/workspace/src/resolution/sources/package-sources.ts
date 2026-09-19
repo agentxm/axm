@@ -10,7 +10,11 @@ import {
   type SourceResolutionFailure,
 } from "./errors.js";
 import { shallowClone } from "./git/operations.js";
-import type { Source } from "@agentxm/extension-model/unstable/sources/types";
+import type {
+  GitSource,
+  LocalSource,
+  Source,
+} from "@agentxm/extension-model/unstable/sources/types";
 import { SourceHostProviders } from "./service.js";
 import {
   discoverExtensionPackages,
@@ -28,6 +32,34 @@ export interface AcquiredExternalSource {
   readonly directory: string;
   readonly origin: string;
 }
+
+/** Discover manifest packages from a self-describing local or Git source. */
+export const findLocalOrGitExtensionPackagesFromSource = (
+  source: GitSource | LocalSource,
+  filter: ExtensionPackageFilter,
+): Effect.Effect<
+  ReadonlyArray<ResolvedExtensionPackage>,
+  SourceResolutionFailure,
+  FileSystem.FileSystem | Path.Path | Scope.Scope
+> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const origin = source.type === "git" ? source.url.href : source.path;
+    let discoveryRoot: string;
+    if (source.type === "local") {
+      discoveryRoot = source.path;
+    } else {
+      const cloneRoot = yield* acquireClone(source.url.href, source.ref);
+      discoveryRoot = Option.match(source.subPath, {
+        onNone: () => cloneRoot,
+        onSome: (subPath) => path.join(cloneRoot, subPath),
+      });
+    }
+    const packages = yield* discoverExtensionPackages(discoveryRoot, filter);
+    return packages
+      .filter(isManifestExtensionPackage)
+      .map((candidate) => ({ ...candidate, origin }));
+  });
 
 const acquireClone = (
   cloneUrl: string,
@@ -104,28 +136,13 @@ export const findExtensionPackagesFromSource = (
   FileSystem.FileSystem | Path.Path | SourceHostProviders | Scope.Scope
 > =>
   Effect.gen(function* () {
-    const path = yield* Path.Path;
-    const providers = yield* SourceHostProviders;
-    const origin = providers.origin(source);
     switch (source.type) {
-      case "local": {
-        const packages = yield* discoverExtensionPackages(source.path, filter);
-        return packages
-          .filter(isManifestExtensionPackage)
-          .map((candidate) => ({ ...candidate, origin }));
-      }
-      case "git": {
-        const cloneRoot = yield* acquireClone(source.url.href, source.ref);
-        const discoveryRoot = Option.match(source.subPath, {
-          onNone: () => cloneRoot,
-          onSome: (subPath) => path.join(cloneRoot, subPath),
-        });
-        const packages = yield* discoverExtensionPackages(discoveryRoot, filter);
-        return packages
-          .filter(isManifestExtensionPackage)
-          .map((candidate) => ({ ...candidate, origin }));
-      }
+      case "local":
+      case "git":
+        return yield* findLocalOrGitExtensionPackagesFromSource(source, filter);
       case "registry": {
+        const providers = yield* SourceHostProviders;
+        const origin = providers.origin(source);
         const refs = yield* providers.find(source, {
           names: filter.names,
           owner: filter.owner,

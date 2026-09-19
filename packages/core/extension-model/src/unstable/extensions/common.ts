@@ -177,6 +177,15 @@ export type StandardGoverns = "package-body" | "runtime-protocol" | "host-file";
 /** Workspace-level capability a type participates in. */
 export type WorkspaceCapabilityKey = "instructions";
 
+/** Authority families an extension may be installed from. */
+export const extensionSourceFamilies = ["git", "registry", "path", "workspace"] as const;
+
+export type ExtensionSourceFamily = (typeof extensionSourceFamilies)[number];
+
+type ExtensionInstallability = {
+  readonly [Family in ExtensionSourceFamily]: boolean;
+};
+
 /**
  * One extension type's naming and capability-axis row. Every CONDITIONAL
  * parity obligation is a predicate over the five axis columns.
@@ -191,6 +200,7 @@ interface ExtensionTypeRow {
   readonly placement: ExtensionPlacement;
   readonly governs: StandardGoverns | null;
   readonly installInputs: boolean;
+  readonly installableFrom: ExtensionInstallability;
   readonly workspaceCapability: WorkspaceCapabilityKey | null;
 }
 
@@ -215,6 +225,7 @@ export const EXTENSION_TYPE_TABLE = {
     placement: "per-agent",
     governs: "package-body",
     installInputs: false,
+    installableFrom: { git: true, registry: true, path: true, workspace: true },
     workspaceCapability: null,
   },
   "mcp-server": {
@@ -227,6 +238,7 @@ export const EXTENSION_TYPE_TABLE = {
     placement: "per-agent",
     governs: "runtime-protocol",
     installInputs: true,
+    installableFrom: { git: true, registry: true, path: true, workspace: true },
     workspaceCapability: null,
   },
   subagent: {
@@ -239,6 +251,7 @@ export const EXTENSION_TYPE_TABLE = {
     placement: "per-agent",
     governs: null,
     installInputs: false,
+    installableFrom: { git: true, registry: true, path: true, workspace: true },
     workspaceCapability: null,
   },
   rule: {
@@ -251,6 +264,7 @@ export const EXTENSION_TYPE_TABLE = {
     placement: "workspace",
     governs: "host-file",
     installInputs: false,
+    installableFrom: { git: true, registry: true, path: true, workspace: true },
     workspaceCapability: "instructions",
   },
   hook: {
@@ -263,6 +277,7 @@ export const EXTENSION_TYPE_TABLE = {
     placement: "per-agent",
     governs: null,
     installInputs: false,
+    installableFrom: { git: true, registry: true, path: true, workspace: true },
     workspaceCapability: null,
   },
   knowledge: {
@@ -275,6 +290,7 @@ export const EXTENSION_TYPE_TABLE = {
     placement: "workspace",
     governs: "package-body",
     installInputs: false,
+    installableFrom: { git: true, registry: true, path: true, workspace: true },
     workspaceCapability: null,
   },
   pack: {
@@ -287,6 +303,7 @@ export const EXTENSION_TYPE_TABLE = {
     placement: "container",
     governs: null,
     installInputs: false,
+    installableFrom: { git: true, registry: true, path: true, workspace: true },
     workspaceCapability: null,
   },
 } as const satisfies { readonly [key: string]: ExtensionTypeRow };
@@ -400,6 +417,13 @@ export type RegistryType = PerAgentType | WorkspaceType;
 /** Extension types whose installs accept user-provided inputs. */
 export type InputType = TypesWhere<"installInputs", true>;
 
+/** Extension types installable from one source family. */
+export type InstallableFrom<Family extends ExtensionSourceFamily> = {
+  [Type in ExtensionType]: ExtensionTypeRows[Type]["installableFrom"][Family] extends true
+    ? Type
+    : never;
+}[ExtensionType];
+
 /** Extension types whose governing standard covers the package body. */
 export type BodyGovernedType = TypesWhere<"governs", "package-body">;
 
@@ -436,6 +460,24 @@ export const REGISTRY_EXTENSION_TYPES: ReadonlyArray<RegistryType> = extensionTy
 export const INPUT_EXTENSION_TYPES: ReadonlyArray<InputType> = extensionTypes.filter(
   (type): type is InputType => EXTENSION_TYPE_TABLE[type].installInputs,
 );
+
+/** Installability policy, total over every extension type and source family. */
+export const INSTALLABLE_FROM_BY_TYPE = EffectRecord.map(
+  EXTENSION_TYPE_TABLE,
+  (row) => row.installableFrom,
+);
+
+export const extensionTypesInstallableFrom = <Family extends ExtensionSourceFamily>(
+  family: Family,
+): ReadonlyArray<InstallableFrom<Family>> =>
+  extensionTypes.filter(
+    (type): type is InstallableFrom<Family> => INSTALLABLE_FROM_BY_TYPE[type][family],
+  );
+
+export const isInstallableFrom = <Family extends ExtensionSourceFamily>(
+  type: ExtensionType,
+  family: Family,
+): type is InstallableFrom<Family> => INSTALLABLE_FROM_BY_TYPE[type][family];
 
 export const BODY_GOVERNED_EXTENSION_TYPES: ReadonlyArray<BodyGovernedType> = extensionTypes.filter(
   (type): type is BodyGovernedType => EXTENSION_TYPE_TABLE[type].governs === "package-body",

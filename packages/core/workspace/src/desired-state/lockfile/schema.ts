@@ -15,7 +15,7 @@ import { HandleSchema } from "@agentxm/extension-model/unstable/extensions";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { TreeIntegritySchema } from "../workspace/materialized-tree.js";
 import { ExtensionNameSchema } from "@agentxm/extension-model/unstable/extensions/common";
-import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";
+import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   SourceNamespaceSchema,
@@ -51,7 +51,7 @@ const LocalSourceLockPathSchema = Schema.String.pipe(
  * Used to produce lock-entry schemas with feature-specific shared fields.
  */
 const makeSourceLockUnion = <
-  TExtensionType extends CatalogExtensionType,
+  TExtensionType extends InstallableExtensionType,
   TPackageOwner extends Schema.Top,
   TPackageFormat extends Schema.Top,
   F extends Schema.Struct.Fields,
@@ -528,7 +528,7 @@ export type PacksLockMap = Schema.Schema.Type<typeof PacksLockMapSchema>;
 // =============================================================================
 
 /**
- * Every catalog extension type's lock-entry schema, keyed by type.
+ * Every installable extension type's lock-entry schema, keyed by type.
  *
  * Total by construction: a new extension type fails compile here until its lock
  * entry exists. The parity conformance suite decodes a synthetic entry through
@@ -546,7 +546,8 @@ export const LOCK_ENTRY_SCHEMA_BY_TYPE = {
   rule: RuleLockEntrySchema,
   hook: HookLockEntrySchema,
   knowledge: KnowledgeLockEntrySchema,
-} as const satisfies Record<CatalogExtensionType, Schema.Top>;
+  pack: PackLockEntrySchema,
+} as const satisfies Record<InstallableExtensionType, Schema.Top>;
 
 // =============================================================================
 // Lockfile

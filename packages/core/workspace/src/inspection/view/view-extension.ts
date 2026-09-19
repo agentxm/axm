@@ -16,6 +16,7 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
+import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
   extensionTypeToPlural,
   parseExtensionFqnParts,
@@ -129,7 +130,7 @@ export const resolveViewRegistry = Effect.fn("ViewExtension.resolveRegistry")(fu
  */
 const resolveBareHandle = Effect.fn("ViewExtension.resolveBareHandle")(function* (handle: string) {
   const attempts = yield* Effect.forEach(
-    ["skill", "subagent"] as const,
+    installableExtensionTypes,
     (resourceType) =>
       Effect.scoped(
         resolveIdentifier({

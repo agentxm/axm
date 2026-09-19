@@ -12,9 +12,9 @@ import {
   type SourceResolutionFailure,
 } from "./errors.js";
 import {
-  isCatalogExtensionType,
-  type CatalogExtensionType,
-} from "@agentxm/extension-model/unstable/extension-types/schema";
+  isInstallableExtensionType,
+  type InstallableExtensionType,
+} from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
   decodeExtensionNameSync,
   extensionTypePluralSentenceLabels,
@@ -30,11 +30,9 @@ import { createRegistryClient } from "@agentxm/registry-client";
 import { WorkspaceCatalog } from "./workspace-catalog.js";
 
 /**
- * Every non-pack extension type an installed identifier can name. Packs are
- * excluded because they are containers: a pack has no per-type lock map of its
- * own to resolve a bare name against.
+ * Every installable extension type an installed identifier can name.
  */
-export type IdentifierResourceType = CatalogExtensionType;
+export type IdentifierResourceType = InstallableExtensionType;
 export type IdentifierResolutionScope = "installed" | "registry" | "both";
 
 export interface ResolvedIdentifier {
@@ -74,7 +72,7 @@ interface IdentifierParts {
 }
 
 const isIdentifierResourceType = (type: ExtensionType): type is IdentifierResourceType =>
-  isCatalogExtensionType(type);
+  isInstallableExtensionType(type);
 
 const decodeName = (input: string) =>
   Effect.try({

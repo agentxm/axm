@@ -3,7 +3,7 @@ import * as Option from "effect/Option";
 
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
-import { CATALOG_EXTENSION_TYPES } from "@agentxm/extension-model/unstable/extension-types";
+import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { withRuntime, withWorkspace } from "../../runtime.js";
@@ -24,10 +24,8 @@ const viewConfig = {
     Flag.withDescription("Target a specific named registry instead of the default"),
     Flag.optional,
   ),
-  // Pack is excluded by the identifier resolver because containers have no
-  // per-type installed-name map. Fully qualified pack identities still work.
-  type: Flag.Literals("type", [...CATALOG_EXTENSION_TYPES]).pipe(
-    Flag.withDescription("Non-container extension type for bare-name lookup"),
+  type: Flag.Literals("type", [...installableExtensionTypes]).pipe(
+    Flag.withDescription("Extension type for bare-name lookup"),
     Flag.optional,
   ),
 } as const;

@@ -8,7 +8,7 @@
 
 import * as Schema from "effect/Schema";
 
-import { CatalogExtensionTypeSchema } from "@agentxm/extension-model/unstable/extension-types";
+import { InstallableExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
 /**
  * A workspace inspection query could not proceed. `category` and `detail`
@@ -31,7 +31,7 @@ export class WorkspaceInspectionFailed extends Schema.TaggedError<WorkspaceInspe
 export class ExtensionNotInstalled extends Schema.TaggedError<ExtensionNotInstalled>()(
   "ExtensionNotInstalled",
   {
-    type: CatalogExtensionTypeSchema,
+    type: InstallableExtensionTypeSchema,
     name: Schema.String,
     scope: Schema.Literals(["project", "user"]),
   },

@@ -2,29 +2,37 @@ import * as Schema from "effect/Schema";
 
 import {
   extensionTypeFromPlural,
-  extensionTypePluralSegments,
-  extensionTypes,
+  extensionSourceFamilies,
+  extensionTypesInstallableFrom,
   extensionTypeToPlural,
-  isExtensionType,
-  isExtensionTypePlural,
 } from "./common.js";
 
-export const installableExtensionTypes = extensionTypes;
+export const installableExtensionTypes = extensionSourceFamilies
+  .flatMap((family) => extensionTypesInstallableFrom(family))
+  .filter((type, index, types) => types.indexOf(type) === index);
 
 export type InstallableExtensionType = (typeof installableExtensionTypes)[number];
 
+const installableExtensionTypeSet = new Set<string>(installableExtensionTypes);
+
 export const isInstallableExtensionType = (
   value: string | undefined,
-): value is InstallableExtensionType => isExtensionType(value);
+): value is InstallableExtensionType =>
+  value !== undefined && installableExtensionTypeSet.has(value);
 
-export const installableExtensionTypePluralSegments = extensionTypePluralSegments;
+export const installableExtensionTypePluralSegments = installableExtensionTypes.map(
+  (type) => extensionTypeToPlural[type],
+);
 
 export type InstallableExtensionTypePlural =
   (typeof installableExtensionTypePluralSegments)[number];
 
+const installableExtensionTypePluralSet = new Set<string>(installableExtensionTypePluralSegments);
+
 export const isInstallableExtensionTypePlural = (
   value: string | undefined,
-): value is InstallableExtensionTypePlural => isExtensionTypePlural(value);
+): value is InstallableExtensionTypePlural =>
+  value !== undefined && installableExtensionTypePluralSet.has(value);
 
 const installableExtensionTypeFromPlural: Record<
   InstallableExtensionTypePlural,

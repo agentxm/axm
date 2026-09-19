@@ -4053,6 +4053,18 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Derived from: `extension-identity/canonical-names-round-trip`, `extension-identity/malformed-names-are-rejected`
 - Source: [`packages/core/extension-model/src/unstable/extensions/references-are-a-name-with-an-optional-constraint.spec.ts`](../packages/core/extension-model/src/unstable/extensions/references-are-a-name-with-an-optional-constraint.spec.ts)
 
+##### Every extension type decides installability for every source family
+
+- Requirement: `extension-installability/source-family-policy-is-total`
+- Owner: `extension-model`
+- Statement: Installability by source family shall be a total policy over every extension type, and every extension type shall be installable from Git, registry, path, and workspace sources.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: decision-table
+- Source: [`packages/core/extension-model/src/unstable/extensions/installability-by-source-family-is-total.spec.ts`](../packages/core/extension-model/src/unstable/extensions/installability-by-source-family-is-total.spec.ts)
+
 ##### Source locators resolve through a stable grammar and configured hosts
 
 - Requirement: `source-resolution/locator-grammar-is-stable`

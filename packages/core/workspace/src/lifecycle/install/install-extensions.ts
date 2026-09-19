@@ -8,10 +8,10 @@
  * of a source's contents the person wants.
  *
  * `prepare` settles all of that and writes nothing. The locator form is the
- * reason it must: a locator can carry skills, rules, hooks, knowledge bundles
- * and subagents at once, and each is an independent closure inside one
- * prepared candidate — so the preview shows the whole set, one type failing
- * leaves the others committed, and the operation reports every outcome.
+ * reason it must: a locator can carry several extension types at once, and
+ * each is an independent closure inside one prepared candidate — so the
+ * preview shows the whole set, one type failing leaves the others committed,
+ * and the operation reports every outcome.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -19,7 +19,10 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
+import {
+  installableExtensionTypes,
+  type InstallableExtensionType,
+} from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
   operationPresentation,
   prepareExecutionCandidate,
@@ -347,9 +350,6 @@ const planForType = (
   }
 };
 
-/** The types a locator can carry, in the order a locator install reports them. */
-const LOCATOR_TYPES = ["skill", "rule", "hook", "knowledge", "subagent"] as const;
-
 const isNoMatch = (failure: InstallExtensionsFailure): boolean =>
   failure._tag === "ExtensionLifecycleFailed" &&
   (failure.category === "not_found" || failure.category === "usage");
@@ -373,7 +373,7 @@ const planLocatorInstall = (
 > =>
   Effect.gen(function* () {
     const attempts = yield* Effect.forEach(
-      LOCATOR_TYPES,
+      installableExtensionTypes,
       (type) =>
         planForType(type, source, request).pipe(
           Effect.map((planned) => Option.some({ type, ...planned })),
@@ -396,8 +396,7 @@ const planLocatorInstall = (
     if (matched.length === 0) {
       return yield* installRefused({
         category: "not_found",
-        detail:
-          "No locator-discoverable extensions found in source (supported: skills, rules, hooks, knowledge, and subagents)",
+        detail: "No installable extensions were found in the source",
       });
     }
 

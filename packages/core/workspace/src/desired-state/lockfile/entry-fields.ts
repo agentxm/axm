@@ -8,7 +8,7 @@ import * as Option from "effect/Option";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import type { TreeIntegrity } from "../workspace/materialized-tree.js";
 import type { ExtensionName } from "@agentxm/extension-model/unstable/extensions/common";
-import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";
+import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { GitBasedSource } from "@agentxm/extension-model/unstable/sources/types";
 
@@ -24,7 +24,7 @@ export const optionalField = <K extends string, V>(
 };
 
 const gitSourceLockFieldsBase = <
-  TExtensionType extends CatalogExtensionType,
+  TExtensionType extends InstallableExtensionType,
   TPackageFormat extends "agentxm" | "agent-skill",
 >(
   source: GitBasedSource,
@@ -111,7 +111,7 @@ const gitSourceLockFieldsBase = <
   }
 };
 
-export const gitSourceLockFields = <TExtensionType extends CatalogExtensionType>(
+export const gitSourceLockFields = <TExtensionType extends InstallableExtensionType>(
   source: GitBasedSource,
   extensionType: TExtensionType,
   workspaceName: ExtensionName,

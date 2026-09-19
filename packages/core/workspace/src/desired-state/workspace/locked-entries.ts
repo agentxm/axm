@@ -1,21 +1,21 @@
 /**
- * Per-type lockfile reads, keyed by catalog extension type.
+ * Per-type lockfile reads, keyed by installable extension type.
  *
  * `LockfileReader` exposes one total accessor over the installable types. The
- * helpers here retain catalog-type narrowing for callers that work over the
- * callers that work over the whole catalog — installed-identifier resolution,
- * `<type> show` — stay total without a switch of their own.
+ * helpers here keep installed-identifier resolution and `<type> show` total
+ * without a switch of their own.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";
+import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type * as Effect from "effect/Effect";
 import type {
   HookLockEntry,
   KnowledgeLockEntry,
   KnowledgeLockMap,
   McpServerLockEntry,
+  PackLockEntry,
   RuleLockEntry,
   SkillLockEntry,
   SubagentLockEntry,
@@ -34,17 +34,18 @@ export type AnyLockEntry =
   | McpServerLockEntry
   | RuleLockEntry
   | HookLockEntry
-  | KnowledgeLockEntry;
+  | KnowledgeLockEntry
+  | PackLockEntry;
 
 export type AnyLockMap = { readonly [name: string]: AnyLockEntry };
 
 /**
- * The `satisfies Record<CatalogExtensionType, …>` is load-bearing: a new
- * catalog type fails compile here until it is wired, instead of silently
- * resolving to an empty lock map.
+ * The installable-type parameter is load-bearing: a new installable type fails
+ * compile in the lock reader until it is wired, instead of silently resolving
+ * to an empty lock map.
  */
-/** Read the whole lock map for one catalog extension type. */
-export const getLockedEntries = (lockfile: LockfileReaderService, type: CatalogExtensionType) =>
+/** Read the whole lock map for one installable extension type. */
+export const getLockedEntries = (lockfile: LockfileReaderService, type: InstallableExtensionType) =>
   lockfile.entries(type);
 
 /** Read accepted external Knowledge resolutions from the workspace lockfile. */

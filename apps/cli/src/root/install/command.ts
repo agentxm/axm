@@ -59,7 +59,7 @@ export const installCommand = Command.make(
     {
       command: "axm install github:acme/agent-extensions//tools@v1.0.0",
       description:
-        "Discover and install skills, MCP servers, subagents, rules, hooks, and knowledge from a locator",
+        "Discover and install skills, subagents, rules, hooks, and knowledge from a locator",
     },
     {
       command: "axm install @acme/packs/frontend-tools --preview",

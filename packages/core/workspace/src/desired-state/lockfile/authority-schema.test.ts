@@ -1,6 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
+import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
+  LOCK_ENTRY_SCHEMA_BY_TYPE,
   LOCKFILE_VERSION,
   LockfileSchema,
   McpServerLockEntrySchema,
@@ -11,6 +13,10 @@ import {
 const decodeLockfile = Schema.decodeUnknownSync(LockfileSchema);
 
 describe("authoritative external-resolution lockfile", () => {
+  it("defines a lock-entry schema for every installable extension type", () => {
+    expect(Object.keys(LOCK_ENTRY_SCHEMA_BY_TYPE)).toEqual(installableExtensionTypes);
+  });
+
   it("uses a clean-cut schema version", () => {
     expect(LOCKFILE_VERSION).toBe(7);
     expect(

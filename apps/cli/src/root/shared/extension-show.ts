@@ -11,7 +11,7 @@ import {
 } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "./command-capabilities.js";
-import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types";
+import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { extensionTypeSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
 import { ExtensionShowResultSchema, ShowExtension } from "@agentxm/workspace/inspection";
 
@@ -56,7 +56,7 @@ const agentColumns: ReadonlyArray<ViewColumn<ShowAgentRow>> = [
 const yesNo = (value: boolean): string => (value ? "yes" : "no");
 
 export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (args: {
-  readonly type: CatalogExtensionType;
+  readonly type: InstallableExtensionType;
   readonly name: string;
 }) {
   const screen = yield* Screen;
@@ -109,11 +109,11 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
 });
 
 /**
- * Builds one group's `show` verb. Every catalog type gets the same argument
+ * Builds one group's `show` verb. Every installable type gets the same argument
  * shape and the same result document; only the type id differs.
  */
 export const makeExtensionShowCommand = (args: {
-  readonly type: CatalogExtensionType;
+  readonly type: InstallableExtensionType;
   readonly group: string;
   readonly exampleName: string;
 }) => {

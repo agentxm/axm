@@ -1,5 +1,5 @@
 import { viewPageDoc } from "../../root/view/view.js";
-import { codeReview } from "./view-samples.js";
+import { codeReview } from "./samples/view-samples.js";
 
 /**
  * A detail page (*Reference cases*, board `5 · View`, frame *view — an

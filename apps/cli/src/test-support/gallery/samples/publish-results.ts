@@ -5,10 +5,10 @@ import {
   type PublishResultItem,
 } from "@agentxm/workspace/publishing";
 
-import type { VerbosityLevel } from "../../cli-flags/index.js";
-import { publishDoc } from "../../root/publish/view.js";
-import type { Doc } from "../../screen/doc.js";
-import { exactVersion, extensionName, handle } from "../test-stubs.js";
+import type { VerbosityLevel } from "../../../cli-flags/index.js";
+import { publishDoc } from "../../../root/publish/view.js";
+import type { Doc } from "../../../screen/doc.js";
+import { exactVersion, extensionName, handle } from "../../test-stubs.js";
 
 type Kind = "skill" | "subagent" | "pack";
 

@@ -1,7 +1,7 @@
- ?   Which agents should AXM configure?
- ❯ ◉ Claude Code
-   ◉ Codex
-   ◉ Cursor
-   ◯ Gemini CLI
-     ↓ 8 more
-3 selected · space · ^a all · enter
+ ?   Select agents to configure  type to filter
+ ❯ ◯ AdaL
+   ◯ AiderDesk
+   ◯ Amp
+   ◯ Antigravity
+     ↓ 59 more
+2 selected · space · ^a all · enter

@@ -4,8 +4,7 @@ Setting up AXM in ~/code/storefront
  ✔   Scanned repo and machine
                     found 4 agents
 
- ✔   Agents         Claude Code, Codex,
-                    Cursor
+ ✔   Agents         AdaL, AiderDesk, Amp
  ✔   Sync instructions
        yes
  ✔   Instructions source

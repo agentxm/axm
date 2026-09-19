@@ -7,7 +7,7 @@ import {
   missingDescription,
   repeated,
   staleLockfile,
-} from "../../test-support/gallery/lint-findings.js";
+} from "../../test-support/gallery/samples/lint-findings.js";
 import { FOLD_THRESHOLD } from "./view.js";
 
 const paint = (doc: ReturnType<typeof lintFrame>): string =>

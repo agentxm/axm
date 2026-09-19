@@ -1,7 +1,12 @@
 import type { Doc } from "../../screen/doc.js";
 import { confirmAnswer } from "../../screen/ask/confirm.js";
 import { setupResultDoc } from "../../root/setup/view.js";
-import { applyAsk, initializedOutcome, setupNext, sourceAnswered } from "./setup-records.js";
+import {
+  applyAsk,
+  initializedOutcome,
+  setupNext,
+  sourceAnswered,
+} from "./samples/setup-records.js";
 
 /**
  * The settled setup: the answers, the gate's answer, the ledger of every file

@@ -5,7 +5,7 @@ import {
   reviewKit,
   reviewer,
   triage,
-} from "./publish-results.js";
+} from "./samples/publish-results.js";
 
 /**
  * The plan with `--verbose`: every row carries the evidence the default

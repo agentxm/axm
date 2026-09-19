@@ -120,7 +120,7 @@ describe("WorkspaceInitializationInteractionLive", () => {
   it.effect("answers with the agents the person leaves picked", () =>
     Effect.gen(function* () {
       const harness = yield* makeHarness;
-      harness.script.answers.push("Claude Code, Codex");
+      harness.script.answers.push({ _tag: "Pick", titles: ["Claude Code", "Codex"] });
 
       const selected = yield* selectAgents({ configuredIds: ["codex"] }).pipe(
         Effect.provide(harness.layer),
@@ -133,7 +133,7 @@ describe("WorkspaceInitializationInteractionLive", () => {
   it.effect("maps a cancelled agent pick into WorkspaceInitializationCancelled", () =>
     Effect.gen(function* () {
       const harness = yield* makeHarness;
-      harness.script.answers.push("cancel");
+      harness.script.answers.push({ _tag: "Cancel" });
 
       const failure = yield* selectAgents({}).pipe(Effect.provide(harness.layer), Effect.flip);
 
@@ -144,7 +144,7 @@ describe("WorkspaceInitializationInteractionLive", () => {
   it.effect("maps a cancelled prompt into WorkspaceInitializationCancelled", () =>
     Effect.gen(function* () {
       const harness = yield* makeHarness;
-      harness.script.answers.push("cancel");
+      harness.script.answers.push({ _tag: "Cancel" });
 
       const exit = yield* Effect.gen(function* () {
         const interaction = yield* WorkspaceInitializationInteraction;
@@ -211,7 +211,7 @@ describe("WorkspaceInitializationInteractionLive", () => {
   it.effect("offers the source files as a list that says which exist", () =>
     Effect.gen(function* () {
       const harness = yield* makeHarness;
-      harness.script.answers.push("GEMINI.md");
+      harness.script.answers.push({ _tag: "Choose", title: "GEMINI.md" });
 
       const selected = yield* selectSource.pipe(Effect.provide(harness.layer));
 
@@ -244,7 +244,10 @@ describe("WorkspaceInitializationInteractionLive", () => {
   it.effect("asks for a file name when the source is another file", () =>
     Effect.gen(function* () {
       const harness = yield* makeHarness;
-      harness.script.answers.push("Other…", " docs/AGENTS.md ");
+      harness.script.answers.push(
+        { _tag: "Choose", title: "Other…" },
+        { _tag: "Input", text: " docs/AGENTS.md " },
+      );
 
       const selected = yield* selectSource.pipe(Effect.provide(harness.layer));
 
@@ -261,7 +264,10 @@ describe("WorkspaceInitializationInteractionLive", () => {
   it.effect("refuses a source file name that is empty or outside the project", () =>
     Effect.gen(function* () {
       const harness = yield* makeHarness;
-      harness.script.answers.push("Other…", "docs/AGENTS.md");
+      harness.script.answers.push(
+        { _tag: "Choose", title: "Other…" },
+        { _tag: "Input", text: "docs/AGENTS.md" },
+      );
       yield* selectSource.pipe(Effect.provide(harness.layer));
 
       const refusal = (raw: string) =>
@@ -279,7 +285,7 @@ describe("WorkspaceInitializationInteractionLive", () => {
   it.effect("maps a cancelled source list into WorkspaceInitializationCancelled", () =>
     Effect.gen(function* () {
       const harness = yield* makeHarness;
-      harness.script.answers.push("cancel");
+      harness.script.answers.push({ _tag: "Cancel" });
 
       const failure = yield* selectSource.pipe(Effect.provide(harness.layer), Effect.flip);
 

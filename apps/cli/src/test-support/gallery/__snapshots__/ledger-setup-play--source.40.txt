@@ -2,11 +2,12 @@ Setting up AXM in ~/code/storefront
   project scope
  ✔   Scanned repo and machine
                     found 4 agents
- ✔   Agents         Claude Code, Codex,
-                    Cursor
+ ✔   Agents         AdaL, AiderDesk, Amp
  ✔   Sync instructions
        yes
  ?   Instructions source
+     AXM will sync its contents to the
+     selected agents' instruction files.
  ❯   AGENTS.md
      CLAUDE.md
      Other…

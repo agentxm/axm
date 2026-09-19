@@ -1,4 +1,4 @@
-import { lintFrame } from "./lint-findings.js";
+import { lintFrame } from "./samples/lint-findings.js";
 
 /**
  * No findings (*Reference cases*, board `3 · Lint`, frame *Clean, drifted and

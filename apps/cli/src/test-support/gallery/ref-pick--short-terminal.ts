@@ -1,6 +1,6 @@
 import type { Doc } from "../../screen/doc.js";
 import { pickDoc } from "../../screen/ask/pick.js";
-import { toolkitAfter, toolkitPick } from "./pick-asks.js";
+import { toolkitAfter, toolkitPick } from "./samples/pick-asks.js";
 
 /** The rows the board's short terminal gives the question. */
 const SHORT = 6;

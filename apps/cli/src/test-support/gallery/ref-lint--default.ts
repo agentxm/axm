@@ -1,4 +1,9 @@
-import { floatingMember, lintFrame, missingDescription, staleLockfile } from "./lint-findings.js";
+import {
+  floatingMember,
+  lintFrame,
+  missingDescription,
+  staleLockfile,
+} from "./samples/lint-findings.js";
 
 /**
  * A few findings (*Reference cases*, board `3 · Lint`, frame *lint — what is

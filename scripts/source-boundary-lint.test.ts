@@ -23,6 +23,8 @@ const repoRoot = path.resolve(fileURLToPath(new URL(".", import.meta.url)), ".."
 const PRODUCTION_SOURCE = "apps/cli/src/root/list/command.ts";
 /** Screen's process adapter: the sole writer after runtime startup. */
 const OUTPUT_BOUNDARY = "apps/cli/src/screen/streams.ts";
+/** The only production module allowed to acquire the terminal input queue. */
+const INPUT_BOUNDARY = "apps/cli/src/screen/interaction.ts";
 
 /**
  * How long the first lint in this file may take. ESLint resolves the flat
@@ -82,6 +84,54 @@ describe("production source boundary lint rules", () => {
         PRODUCTION_SOURCE,
       ),
     ).toEqual([]);
+    expect(
+      await violations('export { Prompt } from "effect/unstable/cli";', PRODUCTION_SOURCE),
+    ).toHaveLength(1);
+    expect(
+      await violations('export * from "effect/unstable/cli/Prompt";', PRODUCTION_SOURCE),
+    ).toHaveLength(1);
+    expect(
+      await violations(
+        'import * as Cli from "effect/unstable/cli"; const { Prompt: P } = Cli;',
+        PRODUCTION_SOURCE,
+      ),
+    ).toHaveLength(1);
+    expect(
+      await violations(
+        'const { Prompt } = await import("effect/unstable/cli");',
+        PRODUCTION_SOURCE,
+      ),
+    ).toHaveLength(1);
+    expect(
+      await violations('await import("effect/unstable/cli/Prompt");', PRODUCTION_SOURCE),
+    ).toHaveLength(1);
+    expect(
+      await violations(
+        'const Cli = await import("effect/unstable/cli"); Cli.Prompt;',
+        PRODUCTION_SOURCE,
+      ),
+    ).toHaveLength(1);
+    expect(
+      await violations(
+        'let Cli; Cli = await import("effect/unstable/cli"); Cli.Prompt;',
+        PRODUCTION_SOURCE,
+      ),
+    ).toHaveLength(1);
+    expect(
+      await violations(
+        'import * as Cli from "effect/unstable/cli"; const p = Cli["Prompt"];',
+        PRODUCTION_SOURCE,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("keeps raw terminal input at the shared interaction owner", async () => {
+    expect(await violations("terminal.readInput;", PRODUCTION_SOURCE)).toEqual([
+      "axm-policy/no-terminal-read-input: Acquire Terminal.readInput only in screen/interaction.ts so each interaction has one scoped input owner.",
+    ]);
+    expect(await violations('terminal["readInput"];', PRODUCTION_SOURCE)).toHaveLength(1);
+    expect(await violations("const { readInput } = terminal;", PRODUCTION_SOURCE)).toHaveLength(1);
+    expect(await violations("terminal.readInput;", INPUT_BOUNDARY)).toEqual([]);
   });
 
   it("reports the streaming result shape in code position", async () => {
@@ -110,6 +160,7 @@ describe("production source boundary lint rules", () => {
     expect(
       await violations('import { Prompt } from "effect/unstable/cli";', OUTPUT_BOUNDARY),
     ).toHaveLength(1);
+    expect(await violations("terminal.readInput;", OUTPUT_BOUNDARY)).toHaveLength(1);
   });
 
   it("keeps the boundary rules reachable alongside the co-located restrictions", async () => {

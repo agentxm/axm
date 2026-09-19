@@ -1,5 +1,5 @@
 import { viewPageDoc } from "../../root/view/view.js";
-import { changelog } from "./view-samples.js";
+import { changelog } from "./samples/view-samples.js";
 
 /**
  * A deprecated extension (*Reference cases*, board `5 · View`, frame

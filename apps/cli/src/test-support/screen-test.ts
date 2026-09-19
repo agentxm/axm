@@ -9,9 +9,8 @@ import type { Doc } from "../screen/doc.js";
 import type { LivePlan } from "../screen/live-ledger.js";
 import { paintText, type PaintStyle } from "../screen/paint-text.js";
 import { Screen, type ResultOptions, type ScreenLogRecord } from "../screen/screen.js";
-import { parkedOnWait } from "../screen/wait/run.js";
-import type { WaitView } from "../screen/wait/wait.js";
 import { emptyAskScript, scriptedAsk, type AskScript } from "./scripted-ask.js";
+import { emptyWaitScript, scriptedWait, type WaitScript } from "./scripted-wait.js";
 
 export interface TestScreenState {
   readonly results: Array<{
@@ -32,6 +31,7 @@ export interface TestScreenState {
   readonly logs: Array<ScreenLogRecord>;
   /** Questions this screen was given, and the keys it answers the next ones with. */
   readonly script: AskScript;
+  readonly waitScript: WaitScript;
 }
 
 const emptyState = (): TestScreenState => ({
@@ -42,11 +42,13 @@ const emptyState = (): TestScreenState => ({
   plans: [],
   logs: [],
   script: emptyAskScript(),
+  waitScript: emptyWaitScript(),
 });
 
-export const makeTestScreen = (
-  documentResult = false,
-): {
+export const makeTestScreen = (options?: {
+  readonly documentResult?: boolean;
+  readonly interactive?: boolean;
+}): {
   readonly layer: Layer.Layer<Screen>;
   readonly state: TestScreenState;
 } => {
@@ -66,16 +68,16 @@ export const makeTestScreen = (
     document: <S extends Schema.Top>(
       data: Schema.Schema.Type<S>,
       schema: S,
-      options?: ResultOptions,
+      resultOptions?: ResultOptions,
     ) =>
       Effect.sync(() => {
         state.results.push({
           data,
           schema: Option.some(schema),
-          ...(options?.ok === undefined ? {} : { ok: options.ok }),
+          ...(resultOptions?.ok === undefined ? {} : { ok: resultOptions.ok }),
         });
-        state.suggestions.push(...(options?.suggestions ?? []));
-        return documentResult;
+        state.suggestions.push(...(resultOptions?.suggestions ?? []));
+        return options?.documentResult === true;
       }),
     observe: (lifecycle) =>
       subscribeLossless(lifecycle, (event) => Effect.sync(() => void state.events.push(event))),
@@ -85,19 +87,14 @@ export const makeTestScreen = (
         return true;
       }),
     log: (record) => Effect.sync(() => void state.logs.push(record)),
-    ask: scriptedAsk(state.script, (doc) =>
-      state.docs.push({ channel: "stderr", doc, persistent: false }),
+    ask: scriptedAsk(
+      state.script,
+      (doc) => state.docs.push({ channel: "stderr", doc, persistent: false }),
+      options?.interactive !== false,
     ),
-    // A test screen cannot be stopped, so a wait is its brief and the effect
-    // it was parked on, in the order a terminal would have shown them.
-    wait: <A, E, R>(view: WaitView, awaited: Effect.Effect<A, E, R>) =>
-      parkedOnWait(
-        view,
-        Effect.suspend((): Effect.Effect<A, E, R> => {
-          state.docs.push({ channel: "stderr", doc: view.brief, persistent: true });
-          return awaited;
-        }),
-      ),
+    wait: scriptedWait(state.waitScript, (doc, persistent) =>
+      state.docs.push({ channel: "stderr", doc, persistent }),
+    ),
     facts: Effect.succeed({ columns: 80, colors: false, animate: false }),
     settle: Effect.void,
   });

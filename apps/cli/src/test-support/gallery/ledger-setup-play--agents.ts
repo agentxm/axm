@@ -1,7 +1,7 @@
 import type { Doc } from "../../screen/doc.js";
 import { initialPickState, pickDoc } from "../../screen/ask/pick.js";
-import { agentsPick } from "./pick-asks.js";
-import { setupOpening } from "./setup-records.js";
+import { agentsPick } from "./samples/pick-asks.js";
+import { setupOpening } from "./samples/setup-records.js";
 
 /**
  * Setup opens like every other command — its title line, then what the scan

@@ -76,7 +76,7 @@ describe("release cohort artifact manifest", () => {
 });
 
 describe("bootstrap cohort manifests", () => {
-  it("pins intra-cohort runtime dependencies to the exact preview version", () => {
+  it("pins only intra-cohort runtime dependencies to the exact preview version", () => {
     const preview = "0.31.1-preview.123.abcdef012345";
     const stamped: unknown = JSON.parse(
       stampBootstrapManifest(
@@ -110,7 +110,7 @@ describe("bootstrap cohort manifests", () => {
         effect: "catalog:",
       },
       optionalDependencies: {
-        "@agentxm/registry-protocol": preview,
+        "@agentxm/registry-protocol": "catalog:",
       },
       peerDependencies: {
         "@agentxm/extension-content": preview,

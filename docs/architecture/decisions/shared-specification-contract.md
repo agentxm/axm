@@ -110,13 +110,20 @@ established that specifications own AXM requirements.
 - The Allure adapter and catalog generator validate metadata through the
   shared decoders; a specification that does not satisfy the contract fails
   to load.
-- A change to the contract is a change to a published kernel package and
+- A change to the contract is a change to a published cohort package and
   follows the fixed release cohort, so a consuming repository adopts a new
   contract version deliberately.
 
 ## Reconsideration
 
+Reconsidered on 2026-09-19 when the public cohort was reduced to four packages
+and Registry protocol became a CLI-bundled implementation detail. The decision
+remains: specification metadata is still an independently published member of
+the fixed cohort, so its consumers retain one deliberate version coordinate
+without requiring cross-repository release orchestration.
+
 Reconsider when a third specification corpus needs the contract with
-materially different vocabularies, when the shared kernel stops shipping as
-one fixed cohort, or when a corpus needs an obligation to exist on `main`
-without being authority, which presence-as-authority cannot express.
+materially different vocabularies, when specification metadata needs a release
+lifecycle independent of the CLI cohort, or when a corpus needs an obligation
+to exist on `main` without being authority, which presence-as-authority cannot
+express.

@@ -73,11 +73,12 @@ agent administration tool.
   handles, FQNs, extension types, manifests, version constraints, package
   identities, and agent capability data. It stays platform-neutral and
   dependency-light.
-- `@agentxm/registry-protocol` owns the Registry wire contracts and the
-  contract-level publication validation both the client and the Registry run
-  identically: request and response schemas, publication and deprecation views,
-  suggested-action error vocabulary, content parsing, and publish lint rules.
-  It depends only on the extension model.
+- `@agentxm/registry-protocol` owns the CLI-side wire schemas, codecs, and
+  error vocabulary for the public Registry HTTP contract. The platform owns
+  its server contract independently; the implementations agree through the
+  published OpenAPI surface and versioned digest vectors rather than a shared
+  package dependency. Registry protocol depends only on the extension model
+  and is bundled into `axm.sh`.
 - The [package architecture](package-architecture.md) divides the rest of the
   implementation by strategic domain — the distinctive extension-management
   model under `packages/core/`, undifferentiated adaptation to external systems
@@ -85,8 +86,8 @@ agent administration tool.
   role within each: contracts, integrations, capabilities, and vertical feature
   packages.
 - `axm.sh` owns command parsing, terminal interaction, rendering, and assembly
-  of the executable runtime. It delegates reusable behavior to the libraries
-  and publishes the generated site content.
+  of the executable runtime. It delegates reusable behavior to the libraries,
+  bundles private runtime packages, and publishes generated site content.
 - End-to-end projects verify the published CLI boundary and do not become
   production dependencies.
 

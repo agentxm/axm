@@ -43,20 +43,12 @@
     "qwen-code"
   ],
   "exports": {
-    "./app": {
-      "types": "./dist/src/app.d.ts",
-      "axm-source": "./src/app.ts",
-      "experimental": "./dist/src/app.js",
-      "default": "./dist/src/app.js"
-    },
     "./runtime": {
       "types": "./dist/src/runtime.d.ts",
       "axm-source": "./src/runtime.ts",
       "experimental": "./dist/src/runtime.js",
       "default": "./dist/src/runtime.js"
-    },
-    "./unstable/site-content/schemas/*": "./site-content/__generated__/schemas/*",
-    "./unstable/site-content/*": "./site-content/*"
+    }
   },
   "files": [
     "dist/src/",

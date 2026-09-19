@@ -51,7 +51,12 @@ describe("release tag helpers", () => {
     // the release group by that same tag for the two to describe one cohort.
     expect(Reflect.get(release, "projects")).toEqual([`tag:${RELEASE_COHORT_TAG}`]);
     expect(Reflect.get(release, "projectsRelationship")).toBe("fixed");
-    expect(RELEASE_PACKAGES.length).toBeGreaterThan(0);
+    expect(RELEASE_PACKAGES.map(({ name }) => name).sort()).toEqual([
+      "@agentxm/extension-content",
+      "@agentxm/extension-model",
+      "@agentxm/specification-metadata",
+      "axm.sh",
+    ]);
   });
 
   it("publishes every cohort member after the members its manifest depends on", () => {

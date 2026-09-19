@@ -203,12 +203,12 @@
         "cwd": "."
       }
     },
-    "download-ci-binaries": {
+    "download-ci-artifacts": {
       "executor": "nx:run-commands",
       "cache": false,
       "dependsOn": ["^build"],
       "options": {
-        "command": "bun scripts/download-ci-binaries.ts",
+        "command": "bun scripts/download-ci-artifacts.ts",
         "cwd": "."
       }
     },
@@ -232,6 +232,15 @@
       ],
       "options": {
         "command": "bun scripts/produce-release-cohort.ts",
+        "cwd": "."
+      }
+    },
+    "produce-release-content": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["cli:generate:schemas"],
+      "options": {
+        "command": "bun scripts/release-content.ts",
         "cwd": "."
       }
     },

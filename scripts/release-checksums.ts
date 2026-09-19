@@ -11,7 +11,29 @@ export const EXPECTED_BINARY_ASSETS = [
   "axm-windows-x64.exe",
 ] as const;
 
+export const EXPECTED_CONTENT_ASSETS = [
+  "install.sh",
+  "install.ps1",
+  "install.cmd",
+  "install.md",
+  "axm-lock.schema.json",
+  "axm-package-meta.schema.json",
+  "hook.schema.json",
+  "knowledge.schema.json",
+  "mcp.schema.json",
+  "pack.schema.json",
+  "rule.schema.json",
+  "settings.schema.json",
+  "skill.schema.json",
+  "subagent.schema.json",
+] as const;
+
 export const CHECKSUM_MANIFEST = "SHA256SUMS";
+export const EXPECTED_RELEASE_ASSETS = [
+  ...EXPECTED_BINARY_ASSETS,
+  ...EXPECTED_CONTENT_ASSETS,
+  CHECKSUM_MANIFEST,
+] as const;
 
 const checksumPattern = /^([0-9a-f]{64}) {2}([A-Za-z0-9._-]+)$/u;
 const expectedBinaryNames: ReadonlySet<string> = new Set(EXPECTED_BINARY_ASSETS);
@@ -40,8 +62,8 @@ export const parseChecksumManifest = (content: string): ReadonlyMap<string, stri
   return entries;
 };
 
-const requireBinaries = (directory: string): void => {
-  for (const name of EXPECTED_BINARY_ASSETS) {
+const requireAssets = (directory: string, names: readonly string[]): void => {
+  for (const name of names) {
     const path = join(directory, name);
     if (!existsSync(path) || !statSync(path).isFile()) {
       throw new Error(`Release asset is missing: ${name}`);
@@ -50,7 +72,7 @@ const requireBinaries = (directory: string): void => {
 };
 
 export const generateReleaseChecksums = (directory: string): void => {
-  requireBinaries(directory);
+  requireAssets(directory, EXPECTED_BINARY_ASSETS);
   const lines = [...EXPECTED_BINARY_ASSETS]
     .sort()
     .map((name) => `${sha256File(join(directory, name))}  ${name}`);
@@ -60,27 +82,13 @@ export const generateReleaseChecksums = (directory: string): void => {
   });
 };
 
-export const validateReleaseAssets = (
+export const validateBinaryReleaseAssets = (
   directory: string,
-): { readonly assetCount: number; readonly binaryCount: number } => {
-  requireBinaries(directory);
+): { readonly binaryCount: number } => {
+  requireAssets(directory, EXPECTED_BINARY_ASSETS);
   const manifestPath = join(directory, CHECKSUM_MANIFEST);
   if (!existsSync(manifestPath)) {
     throw new Error(`Release asset is missing: ${CHECKSUM_MANIFEST}`);
-  }
-
-  const actualFiles = readdirSync(directory).filter((name) =>
-    statSync(join(directory, name)).isFile(),
-  );
-  const expectedFiles = new Set([...EXPECTED_BINARY_ASSETS, CHECKSUM_MANIFEST]);
-  const unexpected = actualFiles.filter((name) => !expectedFiles.has(name));
-  if (unexpected.length > 0) {
-    throw new Error(`Release asset is unexpected: ${unexpected.sort().join(", ")}`);
-  }
-  if (actualFiles.length !== expectedFiles.size) {
-    throw new Error(
-      `Expected ${String(expectedFiles.size)} release assets, found ${String(actualFiles.length)}`,
-    );
   }
 
   const entries = parseChecksumManifest(readFileSync(manifestPath, "utf8"));
@@ -100,7 +108,56 @@ export const validateReleaseAssets = (
     }
   }
 
-  return { assetCount: actualFiles.length, binaryCount: EXPECTED_BINARY_ASSETS.length };
+  return { binaryCount: EXPECTED_BINARY_ASSETS.length };
+};
+
+export const validateReleaseContentAssets = (
+  directory: string,
+): { readonly contentCount: number } => {
+  requireAssets(directory, EXPECTED_CONTENT_ASSETS);
+  const actualFiles = readdirSync(directory).filter((name) =>
+    statSync(join(directory, name)).isFile(),
+  );
+  const expectedFiles: ReadonlySet<string> = new Set(EXPECTED_CONTENT_ASSETS);
+  const unexpected = actualFiles.filter((name) => !expectedFiles.has(name));
+  if (unexpected.length > 0) {
+    throw new Error(`Release content asset is unexpected: ${unexpected.sort().join(", ")}`);
+  }
+  if (actualFiles.length !== expectedFiles.size) {
+    throw new Error(
+      `Expected ${String(expectedFiles.size)} release content assets, found ${String(actualFiles.length)}`,
+    );
+  }
+  return { contentCount: EXPECTED_CONTENT_ASSETS.length };
+};
+
+export const validateReleaseAssets = (
+  directory: string,
+): {
+  readonly assetCount: number;
+  readonly binaryCount: number;
+  readonly contentCount: number;
+} => {
+  const binary = validateBinaryReleaseAssets(directory);
+  requireAssets(directory, EXPECTED_CONTENT_ASSETS);
+  const actualFiles = readdirSync(directory).filter((name) =>
+    statSync(join(directory, name)).isFile(),
+  );
+  const expectedFiles: ReadonlySet<string> = new Set(EXPECTED_RELEASE_ASSETS);
+  const unexpected = actualFiles.filter((name) => !expectedFiles.has(name));
+  if (unexpected.length > 0) {
+    throw new Error(`Release asset is unexpected: ${unexpected.sort().join(", ")}`);
+  }
+  if (actualFiles.length !== expectedFiles.size) {
+    throw new Error(
+      `Expected ${String(expectedFiles.size)} release assets, found ${String(actualFiles.length)}`,
+    );
+  }
+  return {
+    assetCount: actualFiles.length,
+    binaryCount: binary.binaryCount,
+    contentCount: EXPECTED_CONTENT_ASSETS.length,
+  };
 };
 
 const main = (): void => {
@@ -112,7 +169,7 @@ const main = (): void => {
   if (command === "generate") generateReleaseChecksums(directory);
   const result = validateReleaseAssets(directory);
   console.log(
-    `Validated ${String(result.binaryCount)} binaries and ${CHECKSUM_MANIFEST} in ${directory}`,
+    `Validated ${String(result.binaryCount)} binaries, ${String(result.contentCount)} content assets, and ${CHECKSUM_MANIFEST} in ${directory}`,
   );
 };
 

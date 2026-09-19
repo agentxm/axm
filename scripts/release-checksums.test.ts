@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   EXPECTED_BINARY_ASSETS,
+  EXPECTED_CONTENT_ASSETS,
   generateReleaseChecksums,
   parseChecksumManifest,
   validateReleaseAssets,
@@ -17,6 +18,9 @@ const fixtureDirectory = (): string => {
   const directory = mkdtempSync(join(tmpdir(), "axm-release-checksums-"));
   directories.push(directory);
   for (const name of EXPECTED_BINARY_ASSETS) {
+    writeFileSync(join(directory, name), `contents:${name}`);
+  }
+  for (const name of EXPECTED_CONTENT_ASSETS) {
     writeFileSync(join(directory, name), `contents:${name}`);
   }
   return directory;
@@ -37,7 +41,11 @@ describe("release checksums", () => {
     const lines = manifest.trimEnd().split("\n");
     expect(lines).toHaveLength(5);
     expect(lines.map((line) => line.slice(66))).toEqual([...EXPECTED_BINARY_ASSETS].sort());
-    expect(validateReleaseAssets(directory)).toEqual({ assetCount: 6, binaryCount: 5 });
+    expect(validateReleaseAssets(directory)).toEqual({
+      assetCount: 20,
+      binaryCount: 5,
+      contentCount: 14,
+    });
   });
 
   it.each([
@@ -67,5 +75,16 @@ describe("release checksums", () => {
     generateReleaseChecksums(mismatched);
     writeFileSync(join(mismatched, EXPECTED_BINARY_ASSETS[0]), "changed");
     expect(() => validateReleaseAssets(mismatched)).toThrow(/checksum mismatch/u);
+  });
+
+  it("requires every installer and published schema without adding them to SHA256SUMS", () => {
+    const directory = fixtureDirectory();
+    generateReleaseChecksums(directory);
+    rmSync(join(directory, EXPECTED_CONTENT_ASSETS[0]));
+    expect(() => validateReleaseAssets(directory)).toThrow(/install\.sh/u);
+
+    const manifest = readFileSync(join(directory, "SHA256SUMS"), "utf8");
+    expect(manifest).not.toContain("install.sh");
+    expect(manifest).not.toContain("schema.json");
   });
 });

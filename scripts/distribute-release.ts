@@ -14,7 +14,7 @@ import {
 } from "./release-command.js";
 import {
   CHECKSUM_MANIFEST,
-  EXPECTED_BINARY_ASSETS,
+  EXPECTED_RELEASE_ASSETS,
   parseChecksumManifest,
   validateReleaseAssets,
 } from "./release-checksums.js";
@@ -167,7 +167,7 @@ try {
               return contentIntegrity(readFileSync(join(directory, name)));
             };
             await publishImmutableCohort(
-              [...EXPECTED_BINARY_ASSETS, CHECKSUM_MANIFEST].map((name) => ({
+              EXPECTED_RELEASE_ASSETS.map((name) => ({
                 name,
                 integrity: contentIntegrity(readFileSync(join(assets, name))),
                 read: () => readAsset(name),

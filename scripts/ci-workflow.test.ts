@@ -184,7 +184,7 @@ describe("aggregate required verification", () => {
     for (const job of ["verify-main", "verify-e2e", "windows-workspace"]) {
       expect(JSON.stringify(workflow.jobs[job])).toContain("github.event_name == 'schedule'");
     }
-    for (const job of ["binary-smoke", "npm-cohort"]) {
+    for (const job of ["binary-smoke", "release-content", "npm-cohort"]) {
       expect(JSON.stringify(workflow.jobs[job])).not.toContain("github.event_name == 'schedule'");
     }
   });
@@ -378,11 +378,15 @@ describe("aggregate required verification", () => {
     const jobs = readWorkflow().jobs;
     expect(JSON.stringify(jobs["classify"])).toContain("git show -s --format=%s");
     expect(JSON.stringify(jobs["classify"])).toContain("--release-artifacts");
-    for (const job of ["binary-smoke", "npm-cohort"]) {
+    for (const job of ["binary-smoke", "release-content", "npm-cohort"]) {
       expect(JSON.stringify(jobs[job])).toContain(
         "needs.classify.outputs.release-artifacts == 'true'",
       );
     }
+    expect(JSON.stringify(jobs["release-content"])).toContain("axm:produce-release-content");
+    expect(JSON.stringify(jobs["release-content"])).toContain(
+      "axm-release-content-${{ github.sha }}",
+    );
     expect(JSON.stringify(jobs["verify-main"])).toContain(
       "needs.classify.outputs.release-artifacts == 'true'",
     );

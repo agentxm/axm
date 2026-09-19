@@ -81,6 +81,27 @@ candidate state in the [specification catalog](../../specifications/catalog.md).
 - `pnpm release:plan` runs with `--only-touched=false` so release planning does
   not depend on touched-file detection.
 
+### GitHub Release asset inventory
+
+Each stable GitHub Release contains exactly 20 files:
+
+- five native binaries: `axm-darwin-arm64`, `axm-darwin-x64`,
+  `axm-linux-arm64`, `axm-linux-x64`, and `axm-windows-x64.exe`;
+- the binaries-only `SHA256SUMS` manifest;
+- four installer documents: `install.sh`, `install.ps1`, `install.cmd`, and
+  `install.md`; and
+- ten generated JSON Schemas: `axm-lock.schema.json`,
+  `axm-package-meta.schema.json`, `hook.schema.json`, `knowledge.schema.json`,
+  `mcp.schema.json`, `pack.schema.json`, `rule.schema.json`,
+  `settings.schema.json`, `skill.schema.json`, and `subagent.schema.json`.
+
+CI stages the installer and schema files as one exact-commit release-content
+artifact. Publication downloads that artifact beside the five exact-commit
+binaries, generates `SHA256SUMS` for the binaries only, rejects missing or
+undeclared files, and applies the same immutable upload and integrity read-back
+to every release asset. The content assets do not change the installers'
+`SHA256SUMS` contract.
+
 ---
 
 ## Release Flow
@@ -160,8 +181,9 @@ candidate state in the [specification catalog](../../specifications/catalog.md).
    the release identity from the resulting `main` commit. That release commit
    must complete the `ci.yml` workflow successfully before
    publishing. That exact push run compiles and smoke-tests the native binaries,
-   packs the fixed npm cohort once, verifies reproducible bytes and package
-   contents, and uploads both artifact families with commit identity. CI
+   stages the installer/schema content, packs the fixed npm cohort once,
+   verifies reproducible bytes and package contents, and uploads all three
+   artifact families with commit identity. CI
    artifacts are retained for 90 days. Successful `push` CI on `main` continues
    automatically into `publish.yml`; the canonical release subject supplies
    the tag, and the completed run supplies the exact commit and CI run ID. No
@@ -175,8 +197,9 @@ candidate state in the [specification catalog](../../specifications/catalog.md).
 5. Let GitHub Actions finish the publish.
 
    The publication workflow validates the exact release commit and successful
-   merged-revision CI run, downloads and validates its binaries, npm tarballs,
-   metadata, and checksums, and preflights every mutable distribution owner.
+   merged-revision CI run, downloads and validates its binaries, installer and
+   schema content, npm tarballs, metadata, and checksums, and preflights every
+   mutable distribution owner.
    The distribution preflight also rejects uninitialized npm packages before
    any output is written, except during the explicit first-package setup below.
    It then prepares an exact draft GitHub Release, distributes those exact
@@ -218,7 +241,7 @@ candidate state in the [specification catalog](../../specifications/catalog.md).
    order. Each package must have confirmed matching bytes before its consumers
    can be published. A dependency failure stops subsequent publication; an
    ambiguous response gets readback within that package's observation window.
-   Independent binary assets retain concurrent readback.
+   Independent GitHub Release assets retain concurrent readback.
 
    If an exact-commit CI artifact has expired or is missing, publication fails
    before writes. Regenerate it only by dispatching `ci.yml` at the release tag,

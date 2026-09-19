@@ -183,7 +183,7 @@ describe("repository task interface", () => {
       "validate-release-cohort",
       "validate-release-tag",
       "resolve-release-meta",
-      "download-ci-binaries",
+      "download-ci-artifacts",
       "promote-release-channel",
     ]) {
       const dependencies = root?.data.targets?.[targetName]?.dependsOn ?? [];
@@ -373,6 +373,7 @@ describe("repository task interface", () => {
       "validate-release-cohort",
       "specification-verdict",
       "distribute-release",
+      "produce-release-content",
       "verify-installed-package",
       "verify-artifacts",
       "update-homebrew-formula",

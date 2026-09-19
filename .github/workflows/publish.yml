@@ -230,7 +230,7 @@ jobs:
           pnpm exec nx run axm:resolve-release-meta --outputStyle=static --
           "${{ needs.source.outputs.tag }}" "${{ needs.source.outputs.sha }}"
 
-      - name: Download release binaries from CI
+      - name: Download exact release artifacts from CI
         env:
           GH_TOKEN: ${{ github.token }}
           CI_RUN_ID: ${{ needs.source.outputs.ci_run_id }}
@@ -239,7 +239,7 @@ jobs:
           if [[ -n "$CI_RUN_ID" ]]; then
             args+=("$CI_RUN_ID")
           fi
-          pnpm exec nx run axm:download-ci-binaries --outputStyle=static -- "${args[@]}"
+          pnpm exec nx run axm:download-ci-artifacts --outputStyle=static -- "${args[@]}"
 
       - name: Generate release checksums
         run: pnpm exec nx run axm:generate-release-checksums --outputStyle=static -- release-assets

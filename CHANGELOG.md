@@ -1,3 +1,13 @@
+## 0.32.1 (2026-09-20)
+
+### 🩹 Fixes
+
+- Fix Yarn Classic installation of the bundled CLI package. ([#386](https://github.com/agentxm/axm/pull/386))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.32.0 (2026-09-20)
 
 ### ⚠️ Breaking Changes

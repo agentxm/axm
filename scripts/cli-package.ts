@@ -99,7 +99,7 @@ export const composeCliManifest = (
       optionalDependencies: Object.fromEntries(
         [...optional].sort(([a], [b]) => a.localeCompare(b, "en")),
       ),
-      bundleDependencies: [...names].sort(),
+      bundledDependencies: [...names].sort(),
     };
   });
 

@@ -1,3 +1,18 @@
+## 0.32.0 (2026-09-20)
+
+### ⚠️ Breaking Changes
+
+- Add first-class Registry, Git, and path sources with portable package recommendations and atomic source switching. ([#382](https://github.com/agentxm/axm/pull/382))
+- Place source acquisition, discovery, publishing, and native agent adapters with ([#369](https://github.com/agentxm/axm/pull/369))
+  the workspace capabilities that own their policy. Partition Registry access
+  into explicit authentication, credential, and environment-adapter entry points.
+
+- Consolidate workspace state, resolution, projection, materialization, reconciliation, and transaction capabilities under the workspace package. Consumers of the unstable programmatic APIs must adopt the new owner-specific workspace entry points. ([#365](https://github.com/agentxm/axm/pull/365))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.31.1 (2026-09-15)
 
 ### 🩹 Fixes

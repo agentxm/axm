@@ -51,7 +51,7 @@ export const composeBundledPackageManifest = (
   return bundled;
 };
 
-/** Preserve declarations and Node resolution by shipping private compiled packages intact. */
+/** Ship private compiled packages intact while exposing only registry-resolvable dependencies. */
 export const composeCliManifest = (
   cli: Readonly<Record<string, unknown>>,
   internal: ReadonlyArray<Readonly<Record<string, unknown>>>,
@@ -62,10 +62,13 @@ export const composeCliManifest = (
       Schema.decodeUnknownEffect(manifestFields)(manifest),
     );
     const names = new Set(packages.map(({ name }) => name));
-    const required = new Map(Object.entries(root.dependencies ?? {}));
-    const optional = new Map(Object.entries(root.optionalDependencies ?? {}));
+    const required = new Map(
+      Object.entries(root.dependencies ?? {}).filter(([name]) => !names.has(name)),
+    );
+    const optional = new Map(
+      Object.entries(root.optionalDependencies ?? {}).filter(([name]) => !names.has(name)),
+    );
     for (const pkg of packages) {
-      required.set(pkg.name, pkg.version);
       for (const [field, entries] of [
         ["dependencies", pkg.dependencies],
         ["peerDependencies", pkg.peerDependencies],
@@ -99,7 +102,7 @@ export const composeCliManifest = (
       optionalDependencies: Object.fromEntries(
         [...optional].sort(([a], [b]) => a.localeCompare(b, "en")),
       ),
-      bundleDependencies: [...names].sort(),
+      bundledDependencies: [...names].sort(),
     };
   });
 

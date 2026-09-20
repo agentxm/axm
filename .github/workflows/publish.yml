@@ -245,7 +245,7 @@ jobs:
         run: pnpm exec nx run axm:generate-release-checksums --outputStyle=static
 
       - name: Validate release asset set
-        run: pnpm exec nx run axm:validate-release-assets --outputStyle=static -- release-assets
+        run: pnpm exec nx run axm:validate-release-assets --outputStyle=static
 
       - name: Validate exact npm cohort
         run: >-
@@ -261,7 +261,7 @@ jobs:
           pnpm exec nx run axm:distribute-release --outputStyle=static --
           "${{ steps.release_meta.outputs.version }}"
           "${{ steps.release_meta.outputs.tag }}"
-          release-assets release-npm "${{ steps.release_meta.outputs.sha }}" --preflight
+          "${{ steps.release_meta.outputs.sha }}" --preflight
 
       - name: Prepare exact draft GitHub Release
         id: prepare_release
@@ -284,7 +284,7 @@ jobs:
           pnpm exec nx run axm:distribute-release --outputStyle=static --
           "${{ steps.release_meta.outputs.version }}"
           "${{ steps.release_meta.outputs.tag }}"
-          release-assets release-npm "${{ steps.release_meta.outputs.sha }}"
+          "${{ steps.release_meta.outputs.sha }}"
 
       - name: Publish verified GitHub Release
         id: publish_release

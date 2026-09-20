@@ -47,9 +47,9 @@ const npmAuthentication = await Effect.runPromise(
 
 const version = process.argv[2];
 const tag = process.argv[3];
-const assets = resolve(process.argv[4] ?? "release-assets");
-const npmCohort = resolve(process.argv[5] ?? "release-npm");
-const releaseCommit = process.argv[6];
+const assets = resolve("release-assets");
+const npmCohort = resolve("release-npm");
+const releaseCommit = process.argv[4];
 const preflightOnly = process.argv.includes("--preflight");
 if (
   version === undefined ||
@@ -57,9 +57,7 @@ if (
   releaseCommit === undefined ||
   !/^[0-9a-f]{40}$/u.test(releaseCommit)
 )
-  throw new Error(
-    "Expected <version> <cli-vVERSION> <asset-directory> <npm-cohort-directory> <release-commit>.",
-  );
+  throw new Error("Expected <version> <cli-vVERSION> <release-commit>.");
 guardPublicationVersion(version, null, "candidate");
 validateReleaseAssets(assets);
 await validateReleaseCohort(npmCohort, version, releaseCommit);

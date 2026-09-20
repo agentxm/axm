@@ -1,3 +1,13 @@
+## 0.32.2 (2026-09-20)
+
+### 🩹 Fixes
+
+- Make the packaged CLI installable with Yarn Classic without publishing private implementation packages. ([#388](https://github.com/agentxm/axm/pull/388))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.32.1 (2026-09-20)
 
 ### 🩹 Fixes

@@ -49,8 +49,6 @@ describe("compiled CLI package composition", () => {
       ]);
       expect(result.bundledDependencies).toEqual(["@fixture/resolution", "@fixture/update"]);
       expect(result.dependencies).toEqual({
-        "@fixture/update": "0.0.1",
-        "@fixture/resolution": "0.0.1",
         "@agentxm/extension-model": "^1.2.3",
         effect: "4.0.0-rc.115",
         semver: "7.8.5",

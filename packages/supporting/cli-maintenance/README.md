@@ -14,8 +14,8 @@ platform eligibility, requires installation ownership before release selection,
 and decides the action shared by preview and application. It owns the
 `InstallationInspection` and `CliReleaseCatalog` contracts, the invocation
 directory, command evidence, and typed upgrade failures. The
-`./self-update/adapters/releases` implementation reads the public stable channel
-and derives immutable GitHub coordinates; `./self-update/composition` connects
+`./self-update/adapters/releases` implementation validates GitHub's latest-release
+redirect and derives immutable GitHub coordinates; `./self-update/composition` connects
 it to the caller's HTTP client. Substitute catalogs exercise selection policy
 without HTTP, installation state, or a CLI. Native host implementations live
 beside the application in `self-update/adapters/native`; their Layers are
@@ -43,7 +43,7 @@ remain enforced inside this package without a separate native-adapter package.
 The same capability owns informational startup checks: suppression, cache
 freshness, version eligibility, conditional refresh, and the decision that an
 unavailable check cannot fail an explicit command. `UpdateCheckCache` and
-`StableChannelCheck` are application contracts. The cache reports a validated
+`LatestReleaseCheck` are application contracts. The cache reports a validated
 snapshot; the application evaluates it once and returns version facts. Its
 optional refresh belongs to the invocation scope, with a three-second bound.
 The HTTP adapter validates the release authority's response; filesystem storage

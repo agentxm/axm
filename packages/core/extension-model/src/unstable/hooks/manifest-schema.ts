@@ -10,7 +10,7 @@ import {
   CanonicalHookToolIdSchema,
   HookBlockOutcomeSchema,
   HookModifyOperationSchema,
-} from "../agent-capabilities/index.js";
+} from "../agent-capabilities/schema.js";
 import {
   CommonManifestBaseFields,
   ExtensionNameSchema,

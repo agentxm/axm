@@ -125,19 +125,16 @@ const withPublicationSource = (
 
 /**
  * What publishing a release artifact actually looks like in a workflow: the
- * distribution and promotion entry points, the credentials only the canonical
- * workflow may hold, and the tap token that writes the public formula. A
- * second workflow that published releases would have to carry at least one of
- * these, whatever it called its own job.
+ * distribution entry points and credentials only the canonical workflow may
+ * hold. A second workflow that published releases would have to carry at least
+ * one of these, whatever it called its own job.
  */
 const PUBLICATION_SIGNALS = [
   "axm:distribute-release",
   "axm:publish-bootstrap-prerelease",
   "axm:reconcile-github-release",
-  "axm:promote-release-channel",
   "axm:update-homebrew-formula",
   "HOMEBREW_TAP_TOKEN",
-  "AXM_RELEASE_CONTROL_TOKEN",
   "NPM_INITIAL_PUBLISH_TOKEN",
 ] as const;
 
@@ -228,6 +225,20 @@ describe("Canonical release workflow", () => {
             step.run?.includes("npm install --global") && step.run.includes("axm --version"),
         ),
       ).toBe(true);
+    }),
+  );
+
+  it.effect("has no private Control dependency", () =>
+    Effect.sync(() => {
+      const source = fs.readFileSync(path.join(workflowsDirectory, "publish.yml"), "utf8");
+      for (const forbidden of [
+        "control.agentxm.ai",
+        "AXM_RELEASE_CONTROL_TOKEN",
+        "AXM_CONTROL_ACCESS_CLIENT_ID",
+        "AXM_CONTROL_ACCESS_CLIENT_SECRET",
+      ]) {
+        expect(source).not.toContain(forbidden);
+      }
     }),
   );
 

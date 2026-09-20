@@ -34,11 +34,10 @@ const decodeJsonRecord = Schema.decodeUnknownSync(Schema.Record(Schema.String, S
 const decodeJsonArray = Schema.decodeUnknownSync(Schema.Array(Schema.Unknown));
 const decodeStringArray = Schema.decodeUnknownSync(Schema.Array(Schema.String));
 
-// The generated schema document is published package content, reachable
-// through the public site-content export.
+// Bind to the generated source document that release packaging publishes.
 const publishedSettingsSchema = (): Record<string, unknown> => {
   const loaded: unknown = requireFromSpec(
-    "axm.sh/unstable/site-content/schemas/settings.schema.json",
+    "../../site-content/__generated__/schemas/settings.schema.json",
   );
   return decodeJsonRecord(loaded);
 };

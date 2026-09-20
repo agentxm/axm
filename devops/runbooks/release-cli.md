@@ -15,7 +15,7 @@ sources:
     title: Pre-migration repository guidance
 generated:
   by: codex/gpt-5
-  at: 2026-09-15T01:50:00Z
+  at: 2026-09-19T00:00:00Z
 ---
 
 # Release the AXM CLI
@@ -39,27 +39,28 @@ prepared release is ready to publish.
 ## Applicability, authority, and completion evidence
 
 This procedure is for an authorized release maintainer with the required GitHub,
-Registry, npm, and tap permissions. It documents operations that commit, push,
+npm, and tap permissions. It documents operations that commit, push,
 publish, and change channels; a documentation task does not authorize them.
 Use the exact release commit/tag as input and the canonical workflow as the
 operation authority. Stop on a failed identity, authentication, integrity, or
 CI gate; the recovery branches above determine the next permitted operation.
 
 Completion is the canonical workflow's required distribution and verification
-gates plus confirmed promotion for the exact candidate. Preserve its workflow
-run, commit, tag, artifact identities, and final summary as evidence. A
-superseded candidate is a separate terminal outcome, not promotion success.
-An incomplete or uncertain publication returns to the release maintainer; do
-not substitute manual writes or infer atomic rollback.
+gates for the exact candidate. Preserve its workflow run, commit, tag, artifact
+identities, and final summary as evidence. A superseded candidate is a separate
+terminal outcome, not successful completion. An incomplete or uncertain
+publication returns to the release maintainer; do not substitute manual writes
+or infer atomic rollback.
 
 ## Release Model
 
 The binding obligations are the executable process specifications for the
-canonical publish workflow, production-gate validation, and isolated candidate
-state in the [specification catalog](../../specifications/catalog.md).
+canonical publish workflow, exact reviewable candidate generation, and isolated
+candidate state in the [specification catalog](../../specifications/catalog.md).
 
 - Releases are published from GitHub Actions. Do not publish packages or create
-  GitHub Releases manually.
+  GitHub Releases manually; the rollback procedure below only changes which
+  existing release GitHub marks latest.
 - Release candidates are prepared only by explicitly dispatching
   `prepare-release.yml` with an exact current `main` commit. Do not cut or push
   a release commit from a local checkout.
@@ -80,6 +81,27 @@ state in the [specification catalog](../../specifications/catalog.md).
 - Release tags use the `cli-v{SEMVER}` format, for example `cli-v0.1.0`.
 - `pnpm release:plan` runs with `--only-touched=false` so release planning does
   not depend on touched-file detection.
+
+### GitHub Release asset inventory
+
+Each stable GitHub Release contains exactly 20 files:
+
+- five native binaries: `axm-darwin-arm64`, `axm-darwin-x64`,
+  `axm-linux-arm64`, `axm-linux-x64`, and `axm-windows-x64.exe`;
+- the binaries-only `SHA256SUMS` manifest;
+- four installer documents: `install.sh`, `install.ps1`, `install.cmd`, and
+  `install.md`; and
+- ten generated JSON Schemas: `axm-lock.schema.json`,
+  `agent-extensions.schema.json`, `hook.schema.json`, `knowledge.schema.json`,
+  `mcp.schema.json`, `pack.schema.json`, `rule.schema.json`,
+  `settings.schema.json`, `skill.schema.json`, and `subagent.schema.json`.
+
+CI stages the installer and schema files as one exact-commit release-content
+artifact. Publication downloads that artifact beside the five exact-commit
+binaries, generates `SHA256SUMS` for the binaries only, rejects missing or
+undeclared files, and applies the same immutable upload and integrity read-back
+to every release asset. The content assets do not change the installers'
+`SHA256SUMS` contract.
 
 ---
 
@@ -114,26 +136,17 @@ state in the [specification catalog](../../specifications/catalog.md).
    update a generated release branch with a generic branch update.
 
    Source preparation checks that every npm cohort package already exists,
-   before candidate generation or production previews. A new version of an
+   before candidate generation. A new version of an
    existing package passes this check; a new package name requires first
    publication and canonical trusted-publisher setup. npm requires a package
    to exist before configuring its [trusted publisher](https://docs.npmjs.com/cli/v11/commands/npm-trust/#prerequisites).
    Public package metadata establishes existence, not publisher permissions.
-   Failed registry reads stop preparation rather than being treated as absence.
+   Failed npm reads stop preparation rather than being treated as absence.
 
-   The workflow installs the locked workspace in its ephemeral checkout. Before
-   candidate state exists, it uses the committed source CLI and the skill source
-   from the latest reachable release tag at or before the current version to
-   verify production Registry authentication, immutable archive integrity, and
-   the authoritative publish-preview contract. If a failed candidate was merged
-   but never published, preparation uses the preceding released tag instead of
-   inventing a tag for the failed candidate. The preflight checkout exposes only
-   that released skill as workspace-authored content; it does not consume the
-   historic accepted resolution lockfile.
-
-   After preflight, Nx Release versions the fixed cohort and changelog, stamps
-   and regenerates the bundled skill, and previews the exact candidate against
-   the production Registry. The workflow commits and pushes
+   The workflow installs the locked workspace in its ephemeral checkout. Nx
+   Release versions the fixed cohort and changelog, stamps and regenerates the
+   bundled skill, then validates the exact cohort without contacting a private
+   service. The workflow commits and pushes
    `release/cli-v{VERSION}`, opens the release pull request, records source and
    candidate provenance in its summary. GitHub creates the candidate's PR
    workflow in an approval-required state. No preparation step publishes a
@@ -169,8 +182,9 @@ state in the [specification catalog](../../specifications/catalog.md).
    the release identity from the resulting `main` commit. That release commit
    must complete the `ci.yml` workflow successfully before
    publishing. That exact push run compiles and smoke-tests the native binaries,
-   packs the fixed npm cohort once, verifies reproducible bytes and package
-   contents, and uploads both artifact families with commit identity. CI
+   stages the installer/schema content, packs the fixed npm cohort once,
+   verifies reproducible bytes and package contents, and uploads all three
+   artifact families with commit identity. CI
    artifacts are retained for 90 days. Successful `push` CI on `main` continues
    automatically into `publish.yml`; the canonical release subject supplies
    the tag, and the completed run supplies the exact commit and CI run ID. No
@@ -184,8 +198,9 @@ state in the [specification catalog](../../specifications/catalog.md).
 5. Let GitHub Actions finish the publish.
 
    The publication workflow validates the exact release commit and successful
-   merged-revision CI run, downloads and validates its binaries, npm tarballs,
-   metadata, and checksums, and preflights every mutable distribution owner.
+   merged-revision CI run, downloads and validates its binaries, installer and
+   schema content, npm tarballs, metadata, and checksums, and preflights every
+   mutable distribution owner.
    The distribution preflight also rejects uninitialized npm packages before
    any output is written, except during the explicit first-package setup below.
    It then prepares an exact draft GitHub Release, distributes those exact
@@ -195,20 +210,9 @@ state in the [specification catalog](../../specifications/catalog.md).
    Required evidence
    includes exact-version bash installations on Linux/macOS, PowerShell and cmd
    on Windows, clean published npm installations on Linux/macOS/Windows,
-   pnpm and Yarn Classic on Linux, macOS Homebrew installation, and publication
-   and installation of the matching official skill.
+   pnpm and Yarn Classic on Linux, and macOS Homebrew installation.
 
-   Only after every required gate succeeds does the final job promote stable.
-   Promotion uses `If-None-Match: *` for first creation and the public strong
-   ETag for replacement, retaining representation preflight and artifact
-   validation. An identical coordinate with identical validated descriptors is
-   confirmed without mutation credentials. A lost submission response gets one
-   bounded public readback and no repeated PUT; unsuccessful readback leaves
-   promotion incomplete/uncertain. Readback does not independently verify an
-   audit event.
-
-   Recovery uses the same workflow with the existing `release_tag`, without a
-   promotion-bypass input:
+   Recovery uses the same workflow with the existing `release_tag`:
 
    ```bash
    gh workflow run publish.yml \
@@ -228,7 +232,7 @@ state in the [specification catalog](../../specifications/catalog.md).
    order. Each package must have confirmed matching bytes before its consumers
    can be published. A dependency failure stops subsequent publication; an
    ambiguous response gets readback within that package's observation window.
-   Independent binary assets retain concurrent readback.
+   Independent GitHub Release assets retain concurrent readback.
 
    If an exact-commit CI artifact has expired or is missing, publication fails
    before writes. Regenerate it only by dispatching `ci.yml` at the release tag,
@@ -240,11 +244,23 @@ state in the [specification catalog](../../specifications/catalog.md).
    successful CI run identify the earlier producer; provenance alone does not
    claim to attest that build step.
 
+   If a published release must be rolled back, first verify the previous GitHub
+   Release and its installation evidence, then mark that release as latest:
+
+   ```bash
+   gh release edit <previous-tag> --repo agentxm/axm --latest
+   ```
+
+   This restores GitHub's stable release selection for installers and native
+   managers. It does not delete immutable release assets or npm packages, and
+   it is not an atomic rollback of npm or Homebrew state.
+
    Canonical releases share one concurrency group without canceling active
    runs. npm latest and the tap are checked before publication and at their
    write boundaries. An older candidate is superseded when newer distribution
-   is observed; it does not repair historical distribution or move channels
-   backward. Concurrent tap changes reject the push and require a fresh run.
+   is observed; it does not repair historical distribution or move those
+   owners backward. Concurrent tap changes reject the push and require a fresh
+   run.
 
    npm, Homebrew, and the draft GitHub Release assets can exist before stable;
    the GitHub Release becomes public only after distribution completes. Default
@@ -252,9 +268,8 @@ state in the [specification catalog](../../specifications/catalog.md).
    discovery behavior; it is not stable-only. An interrupted release can remain
    partly published until a rerun or superseding release. There is no atomic
    cross-service transaction, automatic rollback, or propagation deadline. The
-   always-run summary distinguishes distribution/verification failure, complete
-   distribution with incomplete promotion, confirmed promotion, and superseded
-   candidates.
+   always-run summary distinguishes completed distribution and verification,
+   incomplete attempts, and superseded candidates.
 
 ---
 
@@ -303,8 +318,8 @@ script:
    ```
 
    The automatic run is a `workflow_run` event. Its source summary must name the
-   exact tag, commit, and CI run; its final summary records distribution,
-   verification, and stable-promotion state.
+   exact tag, commit, and CI run; its final summary records distribution and
+   verification state.
 
 ## Bootstrap prerelease
 
@@ -377,17 +392,12 @@ maintainer. It does not provide a local or placeholder-package publisher.
   later step fails, keep and inspect the named remote branch as the recoverable
   outcome; do not delete shared remote state as rollback or blindly retry over
   it.
-- Preparation requires the `AXM_REGISTRY_TOKEN` repository secret. Candidate
-  branch and pull-request authority comes from the job-scoped workflow token.
-  A maintainer approves the prepared PR workflow using their existing GitHub
-  access; preparation needs no additional credential or Actions write permission.
+- Candidate branch and pull-request authority comes from the job-scoped workflow
+  token. A maintainer approves the prepared PR workflow using their existing
+  GitHub access; preparation needs no additional credential or Actions write
+  permission.
 - Homebrew automation requires the `HOMEBREW_TAP_TOKEN` repository secret in
   `agentxm/axm`.
-- Stable-channel promotion requires `AXM_RELEASE_CONTROL_TOKEN`,
-  `AXM_CONTROL_ACCESS_CLIENT_ID`, and `AXM_CONTROL_ACCESS_CLIENT_SECRET`. The
-  bearer token is a workflow-bound principal with only `releases.promote`; the
-  Cloudflare Access service token admits the workflow to the private Control
-  surface.
 
 ## Accountability, gaps, and maintenance
 

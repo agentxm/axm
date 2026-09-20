@@ -2934,17 +2934,19 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Derived from: `cli/upgrade/installer-availability-gates-mutation`
 - Source: [`apps/cli/src/root/upgrade/homebrew-checks-availability-once.spec.ts`](../apps/cli/src/root/upgrade/homebrew-checks-availability-once.spec.ts)
 
-##### Latest upgrade uses the promoted stable channel
+##### Latest upgrade uses GitHub's latest release
 
-- Requirement: `cli/upgrade/latest-uses-promoted-stable-channel`
+- Requirement: `cli/upgrade/latest-uses-github-release`
 - Owner: `cli-maintenance`
-- Statement: An upgrade without an exact version shall select only the validated release coordinate in the fixed public stable-channel document using one bounded request, and shall not enumerate GitHub releases or infer stability from package-manager publication state.
+- Statement: An upgrade without an exact version shall resolve the stable release from the Location header of one bounded request to the repository's GitHub latest-release URL, validate its release tag, derive immutable asset URLs from that tag, and shall not use the GitHub REST API or package-manager publication state for release selection.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/releases/latest-uses-promoted-stable-channel.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/releases/latest-uses-promoted-stable-channel.spec.ts)
+- Supersedes: `cli/upgrade/latest-uses-promoted-stable-channel`
+- Assumptions: The release workflow publishes a stable CLI release as GitHub's latest release after all immutable artifacts are attached.
+- Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/releases/latest-uses-github-release.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/releases/latest-uses-github-release.spec.ts)
 
 ##### Unsupported upgrade routes require explicit recovery
 
@@ -2969,7 +2971,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary: memory; selection: per-change
 - Methods: example
 - Assumptions: Filesystem restoration remains available; operating-system or storage failures that also prevent rollback require separate recovery evidence.
-- Limitation: Restoration after an externally terminated replacement is witnessed in process, through the finalizer the interrupt runs, rather than at the process boundary: the release channel and asset URLs are compiled constants with no environment override, so no installed-boundary run can serve a release fixture to the built executable. Retires when: The self-update capability accepts a release-origin override that a controlled run may point at a local fixture, and an installed-boundary example signals the running upgrade and observes the restored executable and exit status.
+- Limitation: Restoration after an externally terminated replacement is witnessed in process, through the finalizer the interrupt runs, rather than at the process boundary: latest-release discovery and asset URLs are compiled constants with no environment override, so no installed-boundary run can serve a release fixture to the built executable. Retires when: The self-update capability accepts a release-origin override that a controlled run may point at a local fixture, and an installed-boundary example signals the running upgrade and observes the restored executable and exit status.
 - Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/restores-original-after-failed-replacement.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/restores-original-after-failed-replacement.spec.ts)
 
 ##### Script upgrade verifies a download before replacing the installed executable
@@ -4336,6 +4338,19 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
 - Source: [`packages/core/workspace/src/knowledge/query/capabilities/publishes-discovery-capabilities.spec.ts`](../packages/core/workspace/src/knowledge/query/capabilities/publishes-discovery-capabilities.spec.ts)
 
+##### The command reference reflects the released CLI
+
+- Requirement: `cli/reference-asset-reflects-command-tree`
+- Owner: `cli`
+- Statement: Each AXM release shall provide a deterministic, schema-versioned command-reference document containing every registered command and its CLI-owned names, aliases, descriptions, examples, arguments, options and choices, and generation shall fail when required command metadata is missing.
+- Class: functional
+- Role: interface
+- Product goals: `knowledge-access`, `machine-automation`
+- Boundary: memory; selection: per-change
+- Methods: contract, example
+- Derived from: `cli/command-help-is-complete`
+- Source: [`apps/cli/src/cli-reference-asset-reflects-command-tree.spec.ts`](../apps/cli/src/cli-reference-asset-reflects-command-tree.spec.ts)
+
 ### Goal: machine-automation
 
 Machine consumers can drive AgentXM surfaces non-interactively with complete, schema-backed results separated from diagnostics.
@@ -4704,7 +4719,7 @@ AXM works on every supported operating system, runtime, shell, and filesystem.
 
 - Requirement: `system/installability/native-installers-use-requested-version`
 - Owner: `cli-e2e`
-- Statement: When AXM_INSTALL_VERSION names an exact unprefixed major.minor.patch release without prerelease or build metadata, the public installers shall select that immutable release without stable-channel discovery and shall install only an executable reporting that version.
+- Statement: When AXM_INSTALL_VERSION names an exact unprefixed major.minor.patch release without prerelease or build metadata, the public installers shall select that immutable release without latest-release discovery and shall install only an executable reporting that version.
 - Class: functional
 - Role: interface
 - Product goals: `platform-reach`, `trustworthy-distribution`
@@ -4712,7 +4727,8 @@ AXM works on every supported operating system, runtime, shell, and filesystem.
 - Boundary rationale: The actual public shell installer runs with a controlled downloader; exact and mutable release URLs return different checksum-valid executable bytes, and independent filesystem readback establishes which release was committed.
 - Methods: example
 - Derived from: `apps/cli/help/topics/environment.md`, `apps/cli/help/topics/upgrade.md`, `apps/cli/site-content/install.sh`, `apps/cli/site-content/install.ps1`
-- Open questions: When AXM_INSTALL_VERSION is unset, does latest stable mean GitHub's latest release or the separately promoted AXM stable-channel document? Current public installers use GitHub latest; the accepted upgrade owner requires the promoted channel for axm upgrade.; What observable refusal and recovery must an invalid AXM_INSTALL_VERSION produce? The public source declares the supported value domain but does not state pre-request rejection, exact diagnostics, or preservation timing.; Are prerelease and build-metadata versions supported by the public installers? The stated unprefixed-semver domain is broader than the accepted exact-upgrade stable-version domain; do not import upgrade's restriction without a decision.
+- Assumptions: When AXM_INSTALL_VERSION is unset, public installers select GitHub's latest AXM release.
+- Open questions: What observable refusal and recovery must an invalid AXM_INSTALL_VERSION produce? The public source declares the supported value domain but does not state pre-request rejection, exact diagnostics, or preservation timing.; Are prerelease and build-metadata versions supported by the public installers? The stated unprefixed-semver domain is broader than the accepted exact-upgrade stable-version domain; do not import upgrade's restriction without a decision.
 - Limitation: The direct cases run the shell installer on macOS/Linux. Existing PowerShell/cmd installed-product evidence verifies installation but does not discriminate immutable-version routing from latest routing; that missing URL-and-version control remains explicit. Retires when: Add the same selected-versus-newer transport control to the actual PowerShell installer and its cmd entrypoint on the supported Windows matrix.
 - Source: [`apps/cli-e2e/src/installers/native-installers-use-requested-version.spec.ts`](../apps/cli-e2e/src/installers/native-installers-use-requested-version.spec.ts)
 
@@ -4793,6 +4809,20 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Methods: example, contract
 - Derived from: `packages/core/workspace/src/publishing/publish/use-case.ts`
 - Source: [`packages/core/workspace/src/publishing/upload/reports-lifecycle-refusal-reason.spec.ts`](../packages/core/workspace/src/publishing/upload/reports-lifecycle-refusal-reason.spec.ts)
+
+#### Constraints
+
+##### Publication-set digests follow versioned conformance vectors
+
+- Requirement: `registry/publication-set-digests-follow-versioned-vectors`
+- Owner: `registry-protocol`
+- Statement: Publication descriptor and set digests shall match the byte-vendorable vectors published by the Registry protocol package regardless of input object-key, candidate, or pack-dependency order; absent optional fields shall be omitted and null optional fields rejected before hashing; and a digest algorithm change shall use a new contract identifier and vector format.
+- Class: constraint
+- Role: interface
+- Product goals: `trustworthy-distribution`, `dependable-change-process`
+- Boundary: memory; selection: per-change
+- Methods: contract, example
+- Source: [`packages/core/registry-protocol/src/unstable/registry/publication-set-digests-follow-versioned-vectors.spec.ts`](../packages/core/registry-protocol/src/unstable/registry/publication-set-digests-follow-versioned-vectors.spec.ts)
 
 #### External conformance
 
@@ -5047,21 +5077,23 @@ Changes and releases land through the governed repository process with required 
 - Assumptions: Installed extension content under agent_extensions/ is published extension content that AXM manages and the Registry governs, not a repository-authored artifact; the obligation and its scan cover repository-authored content only.
 - Source: [`scripts/public-artifacts-protect-private-context.spec.ts`](../scripts/public-artifacts-protect-private-context.spec.ts)
 
-##### Release preparation validates production Registry gates without distribution
+##### Release preparation produces an exact reviewable candidate
 
-- Requirement: `system/process/release-preparation-validates-production-gates`
+- Requirement: `system/process/release-preparation-produces-reviewable-candidate`
 - Owner: `axm`
-- Statement: An explicitly dispatched GitHub Actions preparation shall bind an exact current main revision, preflight the production Registry from the latest reachable released CLI at or before the current version before generating candidate state, validate the exact generated candidate in preview-only mode, and open a reviewable candidate pull request whose exact commit receives Required CI without applying a publication.
+- Statement: An explicitly dispatched GitHub Actions preparation shall bind an exact current main revision, generate and validate the release candidate without contacting a private service, and open a reviewable candidate pull request whose exact commit receives Required CI without applying a publication.
 - Class: process
 - Role: supporting
 - Product goals: `dependable-change-process`, `trustworthy-distribution`
 - Boundary: repository; selection: per-change
-- Boundary rationale: The committed preparation workflow, source resolver, candidate orchestration, and approved PR workflow declare the ordering, provenance, credentials, and verification path without requiring a developer checkout.
+- Boundary rationale: The committed preparation workflow, source resolver, candidate orchestration, and approved PR workflow declare the ordering, provenance, and verification path without requiring a developer checkout.
 - Methods: example, contract
-- Assumptions: A preview publication against the production Registry reports the same gate outcomes a real publication would enforce.; Repository Actions policy permits the preparation job's contents and pull-request permissions, and a release maintainer can approve the prepared PR workflow.; Release tags are created only by the canonical GitHub Release workflow.
-- Bound evidence: `test: axm:test (scripts/release-preparation-validates-production-gates.spec.ts)` — Checks explicit preparation dispatch, exact-source and stale-main guards, released-skill and exact-candidate Registry previews, reviewable pull-request creation, and the declared PR verification path for the candidate commit.
+- Derived from: `system/process/release-preparation-validates-production-gates`
+- Supersedes: `system/process/release-preparation-validates-production-gates`
+- Assumptions: Repository Actions policy permits the preparation job's contents and pull-request permissions, and a release maintainer can approve the prepared PR workflow.
+- Bound evidence: `test: axm:test (scripts/release-preparation-produces-reviewable-candidate.spec.ts)` — Checks explicit preparation dispatch, exact-source and stale-main guards, private-service independence, candidate phase ordering, reviewable pull-request creation, and the declared PR verification path for the candidate commit.
 - Bound evidence: `test: axm:test (scripts/repository-task-interface.test.ts)` — Checks that local release-preparation orchestration has no root alias and that source resolution and candidate generation are fresh internal targets owned by the Actions workflow.
-- Source: [`scripts/release-preparation-validates-production-gates.spec.ts`](../scripts/release-preparation-validates-production-gates.spec.ts)
+- Source: [`scripts/release-preparation-produces-reviewable-candidate.spec.ts`](../scripts/release-preparation-produces-reviewable-candidate.spec.ts)
 
 ##### One automated workflow publishes releases
 
@@ -5144,6 +5176,35 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 #### Process
 
+##### Release cohort includes public site content
+
+- Requirement: `system/process/release-cohort-includes-site-content`
+- Owner: `axm`
+- Statement: Each stable release shall publish the four installer documents, the generated agent catalog and CLI reference, and ten generated JSON Schemas as immutable GitHub Release assets from the exact release commit, in addition to the five native binaries and their binaries-only SHA256SUMS manifest, and shall reject any undeclared release asset.
+- Class: process
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The committed CI and publication workflows define the exact producer, artifact inventory, and immutable GitHub Release publication path.
+- Methods: contract
+- Assumptions: The generated agent catalog, CLI reference, schemas, and installer documents in the release commit are the content intended for that release.
+- Source: [`scripts/release-cohort-includes-site-content.spec.ts`](../scripts/release-cohort-includes-site-content.spec.ts)
+
+##### Release automation uses only public distribution boundaries
+
+- Requirement: `system/process/release-path-uses-only-public-hosts-and-credentials`
+- Owner: `axm`
+- Statement: AXM release preparation, production and publication shall reference only the declared public GitHub, npm and Homebrew distribution hosts and only the credentials required to publish through those hosts.
+- Class: process
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: The release workflows, their root task definitions and the transitively imported release scripts expose every committed host and repository-secret reference used by release automation.
+- Methods: contract
+- Assumptions: Provider-owned action implementations and package-manager behavior remain outside the repository source boundary.
+- Bound evidence: `test: axm:test (scripts/release-path-uses-only-public-hosts-and-credentials.spec.ts)` — Discovers the committed release workflows and their transitive root-script graph, rejects host and repository-secret references outside explicit allowlists, and proves both rejection paths with a fixture workflow.
+- Source: [`scripts/release-path-uses-only-public-hosts-and-credentials.spec.ts`](../scripts/release-path-uses-only-public-hosts-and-credentials.spec.ts)
+
 ##### Release previews preserve the canonical candidate
 
 - Requirement: `system/process/release-preview-preserves-canonical-candidate`
@@ -5157,83 +5218,47 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Derived from: `system/process/release-publication-preserves-newer-versions`
 - Source: [`scripts/release-preview-version-preserves-candidate.spec.ts`](../scripts/release-preview-version-preserves-candidate.spec.ts)
 
-##### Release promotion checks public validators before conditional updates
-
-- Requirement: `system/process/release-promotion-validates-public-validators`
-- Owner: `axm`
-- Statement: Before conditionally updating an existing stable channel, release promotion shall verify that public reads negotiating identity, gzip, Brotli, and Zstandard return the same strong ETag and untransformed document, and shall perform no mutation if any read fails or disagrees.
-- Class: process
-- Role: supporting
-- Product goals: `trustworthy-distribution`, `dependable-change-process`
-- Boundary: repository; selection: per-change
-- Boundary rationale: The committed promotion entry point owns this release gate; bound tooling tests drive its network boundary with controlled responses without publishing a release.
-- Methods: contract
-- Derived from: `system/process/release-promotion-precedes-independent-distribution`
-- Assumptions: A concurrent channel change may invalidate the preflight and requires a new invocation.
-- Bound evidence: `test: axm:test (scripts/release-channel-promotion.test.ts)` — Exercises identity, gzip, Brotli, and Zstandard public reads before the Control PUT, rejects weak or absent validators, transformation, inconsistent validators or documents, and failed reads without mutation, and preserves conditional creation and newer-channel retention.
-- Source: [`scripts/release-promotion-validates-public-validators.spec.ts`](../scripts/release-promotion-validates-public-validators.spec.ts)
-
 ##### Release publication preserves newer distribution versions
 
 - Requirement: `system/process/release-publication-preserves-newer-versions`
 - Owner: `axm`
-- Statement: The canonical release workflow shall serialize active release publications across tags and stop an older candidate as superseded when a newer npm latest, Homebrew formula or stable version is observed, without moving those publications backward or attempting historical distribution repair.
+- Statement: The canonical release workflow shall serialize active release publications across tags and stop an older candidate as superseded when a newer npm latest or Homebrew formula version is observed, without moving those publications backward or attempting historical distribution repair.
 - Class: process
 - Role: supporting
 - Product goals: `trustworthy-distribution`, `dependable-change-process`
 - Boundary: repository; selection: per-change
 - Boundary rationale: Canonical publication adapters and bound failure-injection tooling provide evidence without publishing a real release.
 - Methods: contract
-- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/release-channel-promotion.test.ts, scripts/update-homebrew-formula.test.ts)` — Exercises older candidates before publication and at owner write boundaries, equal-version formula conflicts and newer-channel retention.
+- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/update-homebrew-formula.test.ts)` — Exercises older candidates before publication and at owner write boundaries plus equal-version formula conflicts.
 - Source: [`scripts/release-publication-preserves-newer-versions.spec.ts`](../scripts/release-publication-preserves-newer-versions.spec.ts)
 
 ##### Release reruns reuse only identical published content
 
 - Requirement: `system/process/release-publication-reuses-identical-content`
 - Owner: `axm`
-- Statement: A rerun of one release coordinate shall verify and reuse identical published content, publish missing outputs and reject conflicting bytes or failed existence queries without overwriting published outputs or requiring a promotion bypass.
+- Statement: A rerun of one release coordinate shall verify and reuse identical published content, publish missing outputs and reject conflicting bytes or failed existence queries without overwriting published outputs.
 - Class: process
 - Role: supporting
 - Product goals: `trustworthy-distribution`, `dependable-change-process`
 - Boundary: repository; selection: per-change
 - Boundary rationale: Canonical publication adapters and bound failure-injection tooling provide evidence without publishing a real release.
 - Methods: contract
-- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/release-github-release-api.test.ts, scripts/release-channel-promotion.test.ts, scripts/update-homebrew-formula.test.ts)` — Exercises absent and identical outputs, integrity conflicts, failed existence reads, partial publication reruns, and identical-coordinate promotion without credentials.
+- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/release-github-release-api.test.ts, scripts/update-homebrew-formula.test.ts)` — Exercises absent and identical outputs, integrity conflicts, failed existence reads, and partial publication reruns.
 - Source: [`scripts/release-publication-reuses-identical-content.spec.ts`](../scripts/release-publication-reuses-identical-content.spec.ts)
 
-##### Release results distinguish distribution and promotion state
+##### Release results distinguish distribution and verification state
 
 - Requirement: `system/process/release-workflow-reports-publication-state`
 - Owner: `axm`
-- Statement: The canonical release workflow shall report the exact candidate and every publication and verification result separately from confirmed, incomplete or uncertain promotion and superseded candidates, retaining uncertain submission evidence until bounded readback confirms channel state.
+- Statement: The canonical release workflow shall report the exact candidate and every publication and verification result, distinguishing completed releases, incomplete attempts and superseded candidates.
 - Class: process
 - Role: supporting
 - Product goals: `trustworthy-distribution`, `dependable-change-process`
 - Boundary: repository; selection: per-change
 - Boundary rationale: Canonical publication adapters and bound failure-injection tooling provide evidence without publishing a real release.
 - Methods: contract
-- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/release-channel-promotion.test.ts, scripts/update-homebrew-formula.test.ts)` — Exercises publication boundary outcomes, one readback after a lost promotion response, uncertain readback failures, and no repeated conditional mutation.
+- Bound evidence: `test: axm:test (scripts/release-publication.test.ts, scripts/update-homebrew-formula.test.ts)` — Exercises publication boundary outcomes, bounded readback after ambiguous owner responses, and no repeated conditional mutation.
 - Source: [`scripts/release-workflow-reports-publication-state.spec.ts`](../scripts/release-workflow-reports-publication-state.spec.ts)
-
-##### Stable promotion follows verified candidate distribution
-
-- Requirement: `system/process/stable-promotion-follows-verified-distribution`
-- Owner: `axm`
-- Statement: The canonical release workflow shall attempt stable promotion only after publication of the candidate binary/checksum assets, fixed npm cohort, Homebrew formula and official skill, and successful exact-candidate script, published-package, Homebrew and official-skill installation verification; promotion failures shall not prevent that preceding distribution.
-- Class: process
-- Role: supporting
-- Product goals: `trustworthy-distribution`, `dependable-change-process`
-- Boundary: repository; selection: per-change
-- Boundary rationale: The canonical workflow graph defines required release readiness and exact-candidate job inputs.
-- Methods: contract
-- Derived from: `system/process/release-promotion-precedes-independent-distribution`
-- Supersedes: `system/process/release-promotion-precedes-independent-distribution`
-- Assumptions: The release coordinate is immutable and each required verifier reports truthful evidence about its named candidate.
-- Limitation: Repository evidence checks the workflow graph; it does not execute the published installer platform matrix. Retires when: An authorized release supplies successful exact-candidate matrix results and promotion readback.
-- Bound evidence: `test: axm:test (scripts/repository-task-interface.test.ts)` — Inspects the resolved promotion target and requires its workspace build prerequisites to follow the project graph, so a fresh candidate checkout does not depend on artifacts left by another job.
-- Bound evidence: `test: axm:test (scripts/stable-promotion-follows-verified-distribution.spec.ts)` — Parses actual job dependencies and required success conditions, exercises each failed/skipped/canceled gate, and checks exact candidate inputs and the declared installer matrix.
-- Bound evidence: `test: axm:test (scripts/verify-installed-package.test.ts)` — Runs the published-package verifier through a package-manager launcher with sibling entrypoints from an unrelated directory, including paths with spaces, and rejects wrong installed versions and unexpected stderr; Windows CI executes the batch-launcher cases.
-- Source: [`scripts/stable-promotion-follows-verified-distribution.spec.ts`](../scripts/stable-promotion-follows-verified-distribution.spec.ts)
 
 ### Goal: workspace-intent-fidelity
 

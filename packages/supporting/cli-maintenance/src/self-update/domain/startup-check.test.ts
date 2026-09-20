@@ -1,12 +1,10 @@
 import { describe, expect, it } from "@effect/vitest";
-import { decodeStableChannelDocumentSync } from "@agentxm/extension-model/unstable/release-channel";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Option from "effect/Option";
-import { stableChannelDocument } from "../testing.js";
 import {
   availableStartupUpdate,
-  isChannelCacheStale,
+  isReleaseCacheStale,
   shouldSkipStartupCheck,
   type StartupCheckContext,
 } from "./startup-check.js";
@@ -23,13 +21,13 @@ const context: StartupCheckContext = {
 
 describe("startup update policy", () => {
   it("keeps the sixty-minute freshness boundary with an explicit clock observation", () => {
-    expect(isChannelCacheStale(DateTime.subtractDuration(now, Duration.minutes(59)), now)).toBe(
+    expect(isReleaseCacheStale(DateTime.subtractDuration(now, Duration.minutes(59)), now)).toBe(
       false,
     );
-    expect(isChannelCacheStale(DateTime.subtractDuration(now, Duration.minutes(60)), now)).toBe(
+    expect(isReleaseCacheStale(DateTime.subtractDuration(now, Duration.minutes(60)), now)).toBe(
       false,
     );
-    expect(isChannelCacheStale(DateTime.subtractDuration(now, Duration.minutes(61)), now)).toBe(
+    expect(isReleaseCacheStale(DateTime.subtractDuration(now, Duration.minutes(61)), now)).toBe(
       true,
     );
   });
@@ -59,8 +57,7 @@ describe("startup update policy", () => {
 
   it("offers only a newer validated version from a fresh snapshot", () => {
     const cache = {
-      document: decodeStableChannelDocumentSync(stableChannelDocument("2.0.0")),
-      etag: null,
+      version: "2.0.0",
       validatedAt: now,
     };
     expect(availableStartupUpdate("1.0.0", cache, now)).toEqual(

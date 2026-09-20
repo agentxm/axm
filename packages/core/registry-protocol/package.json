@@ -35,6 +35,7 @@
       "axm-source": "./src/unstable/registry/publication-set.ts",
       "default": "./dist/src/unstable/registry/publication-set.js"
     },
+    "./unstable/registry/publication-set.vectors.json": "./publication-set.vectors.json",
     "./unstable/registry/schema": {
       "types": "./dist/src/unstable/registry/schema.d.ts",
       "axm-source": "./src/unstable/registry/schema.ts",
@@ -53,6 +54,7 @@
   },
   "files": [
     "dist/src/",
+    "publication-set.vectors.json",
     "!**/*.map"
   ],
   "publishConfig": {
@@ -70,6 +72,7 @@
     "semver": "catalog:"
   },
   "devDependencies": {
+    "@agentxm/specification-metadata": "workspace:*",
     "@effect/vitest": "catalog:",
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",

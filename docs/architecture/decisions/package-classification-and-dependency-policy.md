@@ -62,16 +62,17 @@ A feature never depends on a feature: shared behaviour moves inward to a
 capability rather than creating a feature-to-feature edge. Cycles are never
 permitted, and the rule's circular checks run with no ignored project pairs.
 
-**Two seams are named exactly, not by tier.** `@agentxm/extension-model` and
-`@agentxm/registry-protocol` cross the repository boundary: the AgentXM
-Registry imports them, and the platform repository adopts them as its shared
-kernel. Their constraints are written by `scope:` tag rather than by domain —
-the model may depend on nothing but itself and a fixed external budget
-(`effect`, `packageurl-js`, `semver`, `spdx-expression-parse`), and the
-protocol may depend only on the model. `@agentxm/extension-content` is a third
-narrow grant: it reads the model and nothing else, so integrations and
-supporting packages may consume content behaviour without pulling workspace or
-transport packages behind it.
+**Narrow seams are named exactly, not by tier.**
+`@agentxm/extension-model` crosses the repository boundary as the shared
+kernel. `@agentxm/registry-protocol` is the CLI-owned representation of the
+public Registry HTTP contract and remains a narrow internal seam. Their
+constraints are written by `scope:` tag rather than by domain — the model may
+depend on nothing but itself and a fixed external budget (`effect`,
+`packageurl-js`, `semver`, `spdx-expression-parse`), and the protocol may depend
+only on the model. `@agentxm/extension-content` is a third narrow grant: it
+reads the model and nothing else, so integrations and supporting packages may
+consume content behaviour without pulling workspace or transport packages
+behind it.
 
 **Engineering tooling never enters runtime.** No runtime role lists
 `role:tooling` among its permitted targets, so production source cannot import

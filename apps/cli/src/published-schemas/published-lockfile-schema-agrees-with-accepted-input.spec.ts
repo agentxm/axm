@@ -30,11 +30,10 @@ const decodeJsonRecord = Schema.decodeUnknownSync(Schema.Record(Schema.String, S
 const decodeNumberArray = Schema.decodeUnknownSync(Schema.Array(Schema.Number));
 const decodeStringArray = Schema.decodeUnknownSync(Schema.Array(Schema.String));
 
-// The generated schema document is published package content, reachable
-// through the public site-content export.
+// Bind to the generated source document that release packaging publishes.
 const publishedLockfileSchema = (): Record<string, unknown> => {
   const loaded: unknown = requireFromSpec(
-    "axm.sh/unstable/site-content/schemas/axm-lock.schema.json",
+    "../../site-content/__generated__/schemas/axm-lock.schema.json",
   );
   return decodeJsonRecord(loaded);
 };

@@ -1,9 +1,10 @@
-/** Resolve an exact main revision and released skill for Actions preparation. */
+/** Resolve an exact main revision and cohort state for Actions preparation. */
 
 import { appendFileSync } from "node:fs";
 import * as Effect from "effect/Effect";
 
-import { selectReleasedSkillTag, validateReleasePreparationSource } from "./release-preflight.js";
+import { validateRunnerCommandFile } from "./classify-ci-changes.js";
+import { validateReleasePreparationSource } from "./release-preflight.js";
 import { requireInitializedNpmPackages } from "./release-publication.js";
 import {
   currentHeadSha,
@@ -19,7 +20,7 @@ const sourceSha =
   process.env["AXM_RELEASE_SOURCE_SHA"] ??
   fail("AXM_RELEASE_SOURCE_SHA must name the exact main commit to prepare.");
 const outputPath =
-  process.env["GITHUB_OUTPUT"] ??
+  validateRunnerCommandFile(process.env["GITHUB_OUTPUT"], process.env["RUNNER_TEMP"]) ??
   fail("GITHUB_OUTPUT is required when resolving a release preparation source.");
 
 requireCleanWorkingTree();
@@ -32,15 +33,7 @@ validateReleasePreparationSource(sourceSha, headSha, originMainSha);
 
 await Effect.runPromise(requireInitializedNpmPackages(RELEASE_PACKAGES.map((pkg) => pkg.name)));
 
-const reachableTags = git("tag", "--merged", "HEAD", "--list", "cli-v*").split("\n");
-const releasedSkillTag = selectReleasedSkillTag(version, reachableTags);
-
 console.log(`  Source commit: ${sourceSha}`);
 console.log(`  Current version: ${version}`);
-console.log(`  Released skill tag: ${releasedSkillTag}`);
 
-appendFileSync(
-  outputPath,
-  `source_sha=${sourceSha}\ncurrent_version=${version}\nreleased_skill_tag=${releasedSkillTag}\n`,
-  "utf8",
-);
+appendFileSync(outputPath, `source_sha=${sourceSha}\ncurrent_version=${version}\n`, "utf8");

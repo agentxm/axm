@@ -12,7 +12,7 @@ import { handleUpgrade } from "./handler.js";
 
 const upgradeConfig = {
   version: Argument.String("version").pipe(
-    Argument.withDescription("Exact stable version; omit to use the promoted stable channel"),
+    Argument.withDescription("Exact stable version; omit to use GitHub's latest release"),
     Argument.optional,
   ),
   reinstall: Flag.Boolean("reinstall").pipe(

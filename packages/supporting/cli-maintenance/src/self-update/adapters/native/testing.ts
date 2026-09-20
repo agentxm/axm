@@ -2,7 +2,7 @@
  * Deterministic ports for specifying and testing the self-update capability
  * without touching the machine it runs on, and without a terminal: a
  * recording subprocess that answers installer commands, a chosen install
- * method, an install-metadata record and channel cache in memory, a release
+ * method, an install-metadata record and release cache in memory, a release
  * origin served from a fixture, and a trial runner that records the native
  * effects of the upgrade without selecting a delivery observer.
  *
@@ -10,7 +10,6 @@
  * @packageDocumentation
  */
 
-import { stableChannelDocument } from "../../testing.js";
 import {
   UpgradePreparationLive,
   PackageInstallationLive,
@@ -170,32 +169,29 @@ export const makeSubprocessTest = (options?: SubprocessTestOptions) => {
 export const upgradeBinary = new TextEncoder().encode("AXM selected executable fixture\n");
 
 /**
- * A release origin that serves the promoted channel document, the selected
+ * A release origin that serves GitHub's latest-release redirect, the selected
  * binary, and a checksum manifest that actually matches those bytes, so the
  * script installer's integrity gate is exercised rather than bypassed.
  */
 export const makeReleaseOrigin = (options?: {
-  readonly channelVersion?: string | undefined;
+  readonly latestVersion?: string | undefined;
   readonly binary?: Uint8Array | undefined;
   readonly checksumManifest?: string | undefined;
 }) => {
   const requests: Array<string> = [];
   const binary = options?.binary ?? upgradeBinary;
   const binaryHash = createHash("sha256").update(binary).digest("hex");
-  const channel = stableChannelDocument(options?.channelVersion ?? TARGET_VERSION);
+  const latestVersion = options?.latestVersion ?? TARGET_VERSION;
+  const binaryNames = [
+    "axm-darwin-arm64",
+    "axm-darwin-x64",
+    "axm-linux-arm64",
+    "axm-linux-x64",
+    "axm-windows-x64.exe",
+  ];
   const checksums =
     options?.checksumManifest ??
-    `${channel.artifacts.binaries.map((entry) => `${binaryHash}  ${entry.name}`).join("\n")}\n`;
-  const document = {
-    ...channel,
-    artifacts: {
-      checksumManifest: {
-        ...channel.artifacts.checksumManifest,
-        sha256: createHash("sha256").update(checksums).digest("hex"),
-      },
-      binaries: channel.artifacts.binaries.map((entry) => ({ ...entry, sha256: binaryHash })),
-    },
-  };
+    `${binaryNames.map((name) => `${binaryHash}  ${name}`).join("\n")}\n`;
   const client = HttpClient.make((request) =>
     Effect.sync(() => {
       requests.push(request.url);
@@ -207,7 +203,12 @@ export const makeReleaseOrigin = (options?: {
       }
       return HttpClientResponse.fromWeb(
         request,
-        new Response(JSON.stringify(document), { status: 200 }),
+        new Response(null, {
+          status: 302,
+          headers: {
+            location: `https://github.com/agentxm/axm/releases/tag/cli-v${latestVersion}`,
+          },
+        }),
       );
     }),
   );
@@ -220,7 +221,7 @@ export interface UpgradeTrial {
   readonly calls: ReadonlyArray<SubprocessInvocation>;
   /** Every install-metadata record the upgrade persisted. */
   readonly installMetaWrites: ReadonlyArray<InstallMetaData>;
-  /** Every channel-cache write the upgrade performed. */
+  /** Every latest-release cache write the upgrade performed. */
   readonly updateCheckWrites: ReadonlyArray<{ readonly version: string }>;
   /** Every release-origin request the upgrade made. */
   readonly releaseRequests: ReadonlyArray<string>;
@@ -234,7 +235,7 @@ export interface UpgradeTrialOptions extends SubprocessTestOptions {
   readonly reinstall?: boolean | undefined;
   /** Assess the upgrade without performing it. */
   readonly preview?: boolean | undefined;
-  readonly channelVersion?: string | undefined;
+  readonly latestVersion?: string | undefined;
   readonly binary?: Uint8Array | undefined;
   readonly checksumManifest?: string | undefined;
   /** The install metadata already on the machine. */
@@ -253,7 +254,7 @@ export interface UpgradeTrialFixture {
   readonly calls: ReadonlyArray<SubprocessInvocation>;
   /** Every install-metadata record the upgrade persisted. */
   readonly installMetaWrites: ReadonlyArray<InstallMetaData>;
-  /** Every channel-cache write the upgrade performed. */
+  /** Every latest-release cache write the upgrade performed. */
   readonly updateCheckWrites: ReadonlyArray<{ readonly version: string }>;
   /** Every release-origin request the upgrade made. */
   readonly releaseRequests: ReadonlyArray<string>;
@@ -345,7 +346,7 @@ export const makeUpgradeTrial = (
           read: () => Effect.succeed(Option.none()),
           write: (cache) =>
             Effect.sync(() => {
-              updateCheckWrites.push({ version: cache.document.version });
+              updateCheckWrites.push({ version: cache.version });
             }),
         } satisfies typeof UpdateCheckCache.Service),
       ),

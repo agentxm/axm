@@ -230,7 +230,7 @@ jobs:
           pnpm exec nx run axm:resolve-release-meta --outputStyle=static --
           "${{ needs.source.outputs.tag }}" "${{ needs.source.outputs.sha }}"
 
-      - name: Download release binaries from CI
+      - name: Download exact release artifacts from CI
         env:
           GH_TOKEN: ${{ github.token }}
           CI_RUN_ID: ${{ needs.source.outputs.ci_run_id }}
@@ -239,13 +239,13 @@ jobs:
           if [[ -n "$CI_RUN_ID" ]]; then
             args+=("$CI_RUN_ID")
           fi
-          pnpm exec nx run axm:download-ci-binaries --outputStyle=static -- "${args[@]}"
+          pnpm exec nx run axm:download-ci-artifacts --outputStyle=static -- "${args[@]}"
 
       - name: Generate release checksums
-        run: pnpm exec nx run axm:generate-release-checksums --outputStyle=static -- release-assets
+        run: pnpm exec nx run axm:generate-release-checksums --outputStyle=static
 
       - name: Validate release asset set
-        run: pnpm exec nx run axm:validate-release-assets --outputStyle=static -- release-assets
+        run: pnpm exec nx run axm:validate-release-assets --outputStyle=static
 
       - name: Validate exact npm cohort
         run: >-
@@ -261,7 +261,7 @@ jobs:
           pnpm exec nx run axm:distribute-release --outputStyle=static --
           "${{ steps.release_meta.outputs.version }}"
           "${{ steps.release_meta.outputs.tag }}"
-          release-assets release-npm "${{ steps.release_meta.outputs.sha }}" --preflight
+          "${{ steps.release_meta.outputs.sha }}" --preflight
 
       - name: Prepare exact draft GitHub Release
         id: prepare_release
@@ -284,7 +284,7 @@ jobs:
           pnpm exec nx run axm:distribute-release --outputStyle=static --
           "${{ steps.release_meta.outputs.version }}"
           "${{ steps.release_meta.outputs.tag }}"
-          release-assets release-npm "${{ steps.release_meta.outputs.sha }}"
+          "${{ steps.release_meta.outputs.sha }}"
 
       - name: Publish verified GitHub Release
         id: publish_release
@@ -367,94 +367,6 @@ jobs:
             echo "Expected $EXPECTED_VERSION, observed $actual."
             exit 1
           fi
-
-  skill-publish:
-    name: Publish AXM Skill
-    needs: release
-    if: ${{ needs.release.result == 'success' && needs.release.outputs.outcome == 'distributed' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout released tree
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          ref: ${{ needs.release.outputs.sha }}
-
-      - name: Download released AXM binary
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          mkdir -p release-assets
-          gh release download "${{ needs.release.outputs.tag }}" \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern axm-linux-x64 \
-            --dir release-assets
-          chmod +x release-assets/axm-linux-x64
-
-      - name: Publish bundled AXM skill
-        env:
-          AXM_TOKEN: ${{ secrets.AXM_REGISTRY_TOKEN }}
-        run: |
-          release-assets/axm-linux-x64 skills publish @agentxm/skills/axm \
-            --registry-url https://registry.agentxm.ai \
-            --on-existing verify \
-            --non-interactive \
-            --json
-
-  skill-verify:
-    name: Verify AXM Skill Install
-    needs:
-      - release
-      - skill-publish
-    if: ${{ needs.skill-publish.result == 'success' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download released AXM binary
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          mkdir -p release-assets
-          gh release download "${{ needs.release.outputs.tag }}" \
-            --repo "$GITHUB_REPOSITORY" \
-            --pattern axm-linux-x64 \
-            --dir release-assets
-          chmod +x release-assets/axm-linux-x64
-
-      - name: Verify clean-workspace skill resolution
-        env:
-          AXM_EXPECTED_VERSION: ${{ needs.release.outputs.version }}
-          AXM_REGISTRY_URL: https://registry.agentxm.ai
-        run: |
-          set -euo pipefail
-          axm_binary="$GITHUB_WORKSPACE/release-assets/axm-linux-x64"
-          verification_root="$(mktemp -d)"
-          trap 'rm -rf "$verification_root"' EXIT
-
-          for attempt in 1 2 3 4 5; do
-            workspace="$verification_root/attempt-$attempt"
-            mkdir -p "$workspace"
-            cd "$workspace"
-
-            if "$axm_binary" setup --scope project --agent claude-code --yes --non-interactive; then
-              actual_version="$(
-                "$axm_binary" skills show axm --json |
-                  jq -r '.result.item.version'
-              )"
-              skill_document="agent_extensions/agentxm/@agentxm/skills/axm/src/SKILL.md"
-
-              if [[ "$actual_version" == "$AXM_EXPECTED_VERSION" ]] &&
-                grep -Fq "cli-version: \"$AXM_EXPECTED_VERSION\"" "$skill_document"; then
-                echo "Verified @agentxm/skills/axm@$AXM_EXPECTED_VERSION"
-                exit 0
-              fi
-            fi
-
-            echo "Skill version has not propagated yet (attempt $attempt/5)."
-            sleep 10
-          done
-
-          echo "Expected @agentxm/skills/axm@$AXM_EXPECTED_VERSION from the production registry."
-          exit 1
 
   install-verify:
     name: Installer Verification - ${{ matrix.os }} - ${{ matrix.mode }}
@@ -641,41 +553,6 @@ jobs:
           pnpm exec nx run axm:verify-installed-package --
           "${{ matrix.manager }}" "${{ needs.release.outputs.version }}"
 
-  promote:
-    name: Promote Verified Candidate to Stable
-    needs: [release, install-verify, package-verify, brew-verify, skill-publish, skill-verify]
-    if: >-
-      ${{ !cancelled() && needs.release.result == 'success' &&
-          needs.release.outputs.outcome == 'distributed' &&
-          needs.install-verify.result == 'success' && needs.package-verify.result == 'success' &&
-          needs.brew-verify.result == 'success' && needs.skill-publish.result == 'success' &&
-          needs.skill-verify.result == 'success' }}
-    runs-on: ubuntu-latest
-    outputs:
-      outcome: ${{ steps.promotion.outputs.outcome }}
-    steps:
-      - name: Checkout candidate
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-          ref: ${{ needs.release.outputs.sha }}
-      - name: Set up workspace toolchain
-        uses: ./.github/actions/setup-workspace
-      - name: Download candidate assets for descriptor validation
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release download "${{ needs.release.outputs.tag }}" --repo "$GITHUB_REPOSITORY" --dir release-assets
-      - name: Promote stable release channel
-        id: promotion
-        env:
-          AXM_RELEASE_CONTROL_TOKEN: ${{ secrets.AXM_RELEASE_CONTROL_TOKEN }}
-          AXM_CONTROL_ACCESS_CLIENT_ID: ${{ secrets.AXM_CONTROL_ACCESS_CLIENT_ID }}
-          AXM_CONTROL_ACCESS_CLIENT_SECRET: ${{ secrets.AXM_CONTROL_ACCESS_CLIENT_SECRET }}
-        run: >-
-          pnpm exec nx run axm:promote-release-channel --outputStyle=static --
-          "${{ needs.release.outputs.version }}" "${{ needs.release.outputs.tag }}"
-          "${{ needs.release.outputs.sha }}" release-assets
-
   summary:
     name: Release Publication Summary
     needs:
@@ -687,14 +564,11 @@ jobs:
         install-verify,
         package-verify,
         brew-verify,
-        skill-publish,
-        skill-verify,
-        promote,
       ]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Record distribution, verification, and promotion results
+      - name: Record distribution and verification results
         env:
           ELIGIBLE: ${{ needs.source.outputs.eligible }}
           MODE: ${{ needs.source.outputs.mode }}
@@ -704,7 +578,6 @@ jobs:
           GITHUB_RELEASE: ${{ needs.release.outputs.github_release }}
           PUBLICATION: ${{ needs.release.outputs.publication }}
           DISTRIBUTION: ${{ needs.release.outputs.outcome }}
-          PROMOTION: ${{ needs.promote.outputs.outcome }}
           BOOTSTRAP_VERSION: ${{ needs.bootstrap-prerelease.outputs.version }}
           BOOTSTRAP_VERIFY: ${{ needs.bootstrap-prerelease-verify.result }}
           RESULTS: ${{ toJSON(needs) }}
@@ -726,13 +599,11 @@ jobs:
             echo "GitHub Release: ${GITHUB_RELEASE:-not completed}"
             echo "Publication boundaries: ${PUBLICATION:-not completed}"
             echo "$RESULTS" | jq -r 'to_entries[] | "- \(.key): \(.value.result)"'
-            if [ "$DISTRIBUTION" = superseded ] || [ "$PROMOTION" = newer-channel-retained ]; then
-              echo "Superseded candidate; stable release completion is not claimed."
-            elif [ "$PROMOTION" = promoted ] || [ "$PROMOTION" = already-current ]; then
-              echo "Promotion confirmed for the verified candidate."
-            elif [ "$DISTRIBUTION" = distributed ] && echo "$RESULTS" | jq -e '[.["install-verify"].result, .["package-verify"].result, .["brew-verify"].result, .["skill-publish"].result, .["skill-verify"].result] | all(. == "success")' >/dev/null; then
-              echo "Distribution complete; promotion incomplete or uncertain. Inspect promotion submission/readback evidence."
+            if [ "$DISTRIBUTION" = superseded ]; then
+              echo "Superseded candidate; release completion is not claimed."
+            elif [ "$DISTRIBUTION" = distributed ] && echo "$RESULTS" | jq -e '[.["install-verify"].result, .["package-verify"].result, .["brew-verify"].result] | all(. == "success")' >/dev/null; then
+              echo "Distribution and verification complete for the release."
             else
-              echo "Distribution or verification incomplete; promotion readiness was not established."
+              echo "Distribution or verification incomplete."
             fi
           } >> "$GITHUB_STEP_SUMMARY"

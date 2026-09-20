@@ -8,10 +8,11 @@ import * as Layer from "effect/Layer";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
-import { afterEach, beforeEach } from "vitest";
+import { afterEach, beforeEach, vi } from "vitest";
 import {
   getBuiltInSources,
   makeCliLoggerLayer,
+  withAxmFetchPolicy,
   withAxmUserAgent,
   withWorkspace,
 } from "./runtime.js";
@@ -49,6 +50,27 @@ describe("withAxmUserAgent", () => {
       expect(observedUserAgent).toBe("axm-cli/1.2.3");
     }),
   );
+});
+
+describe("withAxmFetchPolicy", () => {
+  it("observes GitHub's latest-release redirect without changing other requests", async () => {
+    const fetchImplementation = Object.assign(
+      vi.fn(() => Promise.resolve(new Response(null, { status: 204 }))),
+      { preconnect: vi.fn() },
+    );
+    const fetchWithPolicy = withAxmFetchPolicy(fetchImplementation);
+
+    await fetchWithPolicy("https://github.com/agentxm/axm/releases/latest", { cache: "no-store" });
+    await fetchWithPolicy("https://registry.agentxm.ai/v1/extensions", { cache: "reload" });
+
+    expect(fetchImplementation).toHaveBeenNthCalledWith(1, expect.anything(), {
+      cache: "no-store",
+      redirect: "manual",
+    });
+    expect(fetchImplementation).toHaveBeenNthCalledWith(2, expect.anything(), {
+      cache: "reload",
+    });
+  });
 });
 
 describe("makeCliLoggerLayer", () => {

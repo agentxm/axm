@@ -72,7 +72,6 @@
     "@agentxm/cli-maintenance": "workspace:^",
     "@agentxm/client-e2e-utils": "workspace:*",
     "@agentxm/extension-content": "workspace:*",
-    "@agentxm/extension-model": "workspace:*",
     "@agentxm/specification-metadata": "workspace:*",
     "@boundaries/elements": "catalog:",
     "@dagrejs/graphlib": "catalog:",

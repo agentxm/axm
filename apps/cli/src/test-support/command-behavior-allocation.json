@@ -8789,7 +8789,7 @@
         {
           "parameters": ["argument:version"],
           "requirements": [
-            "cli/upgrade/latest-uses-promoted-stable-channel",
+            "cli/upgrade/latest-uses-github-release",
             "cli/upgrade/exact-version-bypasses-discovery"
           ],
           "when": "Omitted and exact-version forms have separate selection authorities.",

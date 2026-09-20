@@ -629,6 +629,32 @@ jobs:
           compression-level: 0
           retention-days: 90
 
+  release-content:
+    name: Produce verified release content
+    needs: classify
+    if: >-
+      !cancelled() && needs.classify.outputs.release-artifacts == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up workspace toolchain
+        uses: ./.github/actions/setup-workspace
+
+      - name: Produce exact installers and published schemas
+        run: pnpm exec nx run axm:produce-release-content --outputStyle=static
+
+      - name: Upload exact release content
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: axm-release-content-${{ github.sha }}
+          path: release-content/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90
+
   npm-cohort:
     name: Produce verified npm cohort
     needs: classify
@@ -687,6 +713,7 @@ jobs:
       - verify-e2e
       - windows-workspace
       - binary-smoke
+      - release-content
       - npm-cohort
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -713,7 +740,7 @@ jobs:
           elif [[ "$EVENT_NAME" == "schedule" ]]; then
             expected=(classify secrets verify-main verify-e2e windows-workspace)
           elif [[ "$RELEASE_ARTIFACTS_SELECTED" == "true" ]]; then
-            expected=(classify secrets verify-main verify-e2e windows-workspace binary-smoke npm-cohort)
+            expected=(classify secrets verify-main verify-e2e windows-workspace binary-smoke release-content npm-cohort)
           elif [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
             expected=(classify secrets verify-main verify-e2e windows-workspace)
           else

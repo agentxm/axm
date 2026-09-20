@@ -36,6 +36,11 @@
       "axm-source": "./src/unstable/agent-capabilities/identity.ts",
       "default": "./dist/src/unstable/agent-capabilities/identity.js"
     },
+    "./unstable/agent-capabilities/schema": {
+      "types": "./dist/src/unstable/agent-capabilities/schema.d.ts",
+      "axm-source": "./src/unstable/agent-capabilities/schema.ts",
+      "default": "./dist/src/unstable/agent-capabilities/schema.js"
+    },
     "./unstable/agents/registry": {
       "types": "./dist/src/unstable/agents/registry.d.ts",
       "axm-source": "./src/unstable/agents/registry.ts",
@@ -250,11 +255,6 @@
       "types": "./dist/src/unstable/path-types.d.ts",
       "axm-source": "./src/unstable/path-types.ts",
       "default": "./dist/src/unstable/path-types.js"
-    },
-    "./unstable/release-channel": {
-      "types": "./dist/src/unstable/release-channel.d.ts",
-      "axm-source": "./src/unstable/release-channel.ts",
-      "default": "./dist/src/unstable/release-channel.js"
     },
     "./unstable/recommendations/agent-extensions": {
       "types": "./dist/src/unstable/recommendations/agent-extensions.d.ts",

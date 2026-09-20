@@ -1,9 +1,9 @@
 # Upgrade AXM
 
-`axm upgrade` selects the release named by the public stable channel, then
-compares it with the running AXM version before deciding whether its owning
-installer may mutate the installation. `axm upgrade <version>` selects an exact
-stable version without changing the channel.
+`axm upgrade` selects GitHub's latest stable AXM release, then compares it with
+the running AXM version before deciding whether its owning installer may mutate
+the installation. `axm upgrade <version>` selects an exact stable version
+without latest-release discovery.
 
 ## Version behavior
 
@@ -101,7 +101,7 @@ because the failure message directs the reader to it.
 | `intent`                | Requested mode, exact version when one was requested, and whether a reinstall was asked for                                                                                                                                                                                  |
 | `local`                 | Observed version before the command and its relation to the target                                                                                                                                                                                                           |
 | `ownership`             | Detected `method` (`script`, `homebrew`, `npm`, `pnpm`, `yarn`, `unknown`), detection source, evidence, confidence, and executable path                                                                                                                                      |
-| `canonical`             | Selected release source, version, channel revision, and validation time                                                                                                                                                                                                      |
+| `canonical`             | Selected release source, version, and validation time                                                                                                                                                                                                                        |
 | `installerAvailability` | `ready`, `lagging`, `leading`, `unavailable`, `indeterminate`, or `not-required`, with the version the installer advertises                                                                                                                                                  |
 | `target`                | Selected version, release tag, and artifact URLs                                                                                                                                                                                                                             |
 | `mutation`              | `not-attempted`, `unchanged`, `updated`, `rolled-back`, or `unknown`                                                                                                                                                                                                         |

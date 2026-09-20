@@ -101,9 +101,8 @@ export const UpgradeAssessmentResultSchema = Schema.Struct({
     executablePath: Schema.NullOr(Schema.String),
   }),
   canonical: Schema.Struct({
-    source: Schema.Literals(["stable-channel", "exact-version"] as const),
+    source: Schema.Literals(["github-latest", "exact-version"] as const),
     version: Schema.String,
-    channelRevision: Schema.NullOr(Schema.Number),
     validatedAt: Schema.String,
   }),
   installerAvailability: Schema.Struct({
@@ -398,9 +397,8 @@ export const toUpgradeAssessment = (input: UpgradeSettlement): UpgradeAssessment
       executablePath: input.result.executablePath,
     },
     canonical: {
-      source: input.resolution.channel === null ? "exact-version" : "stable-channel",
+      source: input.resolution.source,
       version: input.resolution.targetVersion,
-      channelRevision: input.resolution.channel?.revision ?? null,
       validatedAt: input.resolution.validatedAt,
     },
     installerAvailability: {

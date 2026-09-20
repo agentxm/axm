@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve, join } from "node:path";
-import { parseChecksumManifest, validateReleaseAssets } from "./release-checksums.js";
+import { parseChecksumManifest, validateBinaryReleaseAssets } from "./release-checksums.js";
 import { captureIn, runIn } from "./release-command.js";
 import { guardPublicationVersion } from "./release-publication.js";
 import { prepareFormula, formulaVersion } from "./release-formula.js";
@@ -10,7 +10,7 @@ if (version === undefined) throw new Error("Expected release version.");
 const tap = resolve(process.env["HOMEBREW_TAP_DIR"] ?? "../homebrew-tap");
 const assets = resolve(process.env["RELEASE_ASSET_DIR"] ?? "release-assets");
 const repository = process.env["GITHUB_REPO"] ?? "agentxm/axm";
-validateReleaseAssets(assets);
+validateBinaryReleaseAssets(assets);
 const formulaPath = join(tap, "Formula/axm.rb");
 const original = readFileSync(formulaPath, "utf8");
 const candidate = prepareFormula(

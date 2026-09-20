@@ -9,9 +9,9 @@ import { readReleaseWorkflow } from "./release-workflow-graph.js";
 
 export const specification = defineSpecification({
   requirement: "system/process/release-workflow-reports-publication-state",
-  title: "Release results distinguish distribution and promotion state",
+  title: "Release results distinguish distribution and verification state",
   statement:
-    "The canonical release workflow shall report the exact candidate and every publication and verification result separately from confirmed, incomplete or uncertain promotion and superseded candidates, retaining uncertain submission evidence until bounded readback confirms channel state.",
+    "The canonical release workflow shall report the exact candidate and every publication and verification result, distinguishing completed releases, incomplete attempts and superseded candidates.",
   class: "process",
   role: "supporting",
   goals: ["trustworthy-distribution", "dependable-change-process"],
@@ -26,13 +26,13 @@ export const specification = defineSpecification({
 });
 export const boundEvidence = defineBoundEvidence([
   {
-    gate: "test: axm:test (scripts/release-publication.test.ts, scripts/release-channel-promotion.test.ts, scripts/update-homebrew-formula.test.ts)",
+    gate: "test: axm:test (scripts/release-publication.test.ts, scripts/update-homebrew-formula.test.ts)",
     verifies:
-      "Exercises publication boundary outcomes, one readback after a lost promotion response, uncertain readback failures, and no repeated conditional mutation.",
+      "Exercises publication boundary outcomes, bounded readback after ambiguous owner responses, and no repeated conditional mutation.",
   },
 ]);
 
-describe("Release results distinguish distribution and promotion state", () => {
+describe("Release results distinguish distribution and verification state", () => {
   it("binds the canonical workflow to the verified publication controls", () => {
     const workflow = readReleaseWorkflow();
     expect(workflow.concurrency).toEqual({
@@ -56,56 +56,35 @@ describe("Publication summary evidence", () => {
   it.skipIf(process.platform === "win32").each([
     {
       distribution: "distribution-failed",
-      promotion: "",
       verification: "skipped",
       expected: "Distribution or verification incomplete",
     },
     {
       distribution: "distributed",
-      promotion: "",
       verification: "failure",
       expected: "Distribution or verification incomplete",
     },
     {
       distribution: "distributed",
-      promotion: "",
       verification: "success",
-      expected: "Distribution complete; promotion incomplete or uncertain",
-    },
-    {
-      distribution: "distributed",
-      promotion: "promoted",
-      verification: "success",
-      expected: "Promotion confirmed",
-    },
-    {
-      distribution: "distributed",
-      promotion: "already-current",
-      verification: "success",
-      expected: "Promotion confirmed",
+      expected: "Distribution and verification complete",
     },
     {
       distribution: "superseded",
-      promotion: "",
       verification: "skipped",
       expected: "Superseded candidate",
     },
-    {
-      distribution: "distributed",
-      promotion: "newer-channel-retained",
-      verification: "success",
-      expected: "Superseded candidate",
-    },
-  ])("reports $distribution / $promotion / $verification truthfully", (scenario) => {
+  ])("reports $distribution / $verification truthfully", (scenario) => {
     const directory = mkdtempSync(join(tmpdir(), "release-summary-"));
     const summary = join(directory, "summary.md");
     try {
       const command = readReleaseWorkflow().jobs["summary"]?.steps[0]?.run;
       if (command === undefined) throw new Error("Missing canonical release summary.");
       const results = Object.fromEntries(
-        ["install-verify", "package-verify", "brew-verify", "skill-publish", "skill-verify"].map(
-          (name) => [name, { result: scenario.verification, outputs: {} }],
-        ),
+        ["install-verify", "package-verify", "brew-verify"].map((name) => [
+          name,
+          { result: scenario.verification, outputs: {} },
+        ]),
       );
       const run = spawnSync("bash", ["-euo", "pipefail", "-c", command], {
         encoding: "utf8",
@@ -120,7 +99,6 @@ describe("Publication summary evidence", () => {
           GITHUB_RELEASE: "published",
           PUBLICATION: '{"artifacts":"succeeded","npm":"succeeded","tap":"succeeded"}',
           DISTRIBUTION: scenario.distribution,
-          PROMOTION: scenario.promotion,
           RESULTS: JSON.stringify(results),
         },
       });

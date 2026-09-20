@@ -197,14 +197,14 @@ most `./live` (the composed Layer) and `./testing` (the seam its consumers'
 specifications and tests are owed). No other deep exports, and never a reach
 into another package's `src`. Two exceptions, both deliberate:
 
-- `@agentxm/extension-model` and `@agentxm/registry-protocol` keep their
-  existing `./unstable/*` subpaths. They are the cross-repository contract
-  seams, so renaming their entry points is a separate, coordinated change.
+- `@agentxm/extension-model` keeps its existing `./unstable/*` subpaths as the
+  cross-repository contract seam. `@agentxm/registry-protocol` keeps its
+  `./unstable/*` subpaths as the CLI's internal package boundary.
 - `@agentxm/extension-content` exports `.`, `./knowledge`, `./lint`, and
   `./testing`, because its knowledge and lint surfaces have separate consumers.
 
-`axm.sh` exports only `./app`, `./runtime`, and its site-content subpaths. No
-project imports the application.
+`axm.sh` exports only `./runtime`. The application entry and site content are
+package-internal release inputs, not programmatic package exports.
 
 ## TypeScript
 

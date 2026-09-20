@@ -49,7 +49,7 @@ const upgradeFailedToAppError = (error: UpgradeFailed): AppError =>
 
 export interface UpgradeHandlerArgs {
   readonly reinstall: boolean;
-  /** Optional exact stable version. Omit to use the promoted stable channel. */
+  /** Optional exact stable version. Omit to use GitHub's latest release. */
   readonly requestedVersion?: string | undefined;
   /** Resolve and report the upgrade without performing it. */
   readonly preview?: boolean;

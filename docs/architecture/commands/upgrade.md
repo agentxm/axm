@@ -1,7 +1,7 @@
 ---
 type: Architecture
 status: stable
-description: Stable-channel selection, installer coordination, mutation, verification, and recovery for AXM self-upgrade.
+description: GitHub release selection, installer coordination, mutation, verification, and recovery for AXM self-upgrade.
 depends-on:
   - overview.md
   - output.md
@@ -9,25 +9,27 @@ depends-on:
 
 # Upgrade
 
-`axm upgrade` updates the AXM executable without making GitHub's release list,
-an npm dist-tag, or a package-manager formula the authority for which release is
-stable. The public stable-channel document is that authority. Distribution
-systems remain independent delivery mechanisms whose readiness is checked
-before mutation.
+`axm upgrade` updates the AXM executable. GitHub's latest published release is
+the authority for the default target; npm tags and package-manager formulae do
+not select it. Distribution systems remain independent delivery mechanisms
+whose readiness is checked before mutation.
 
 ## Selection
 
-`axm upgrade` reads the fixed public stable-channel document once and validates
-its complete release coordinate, artifact URLs, checksums, revision, and
-timestamps. A malformed, missing, rate-limited, or unavailable channel produces
-an explicit result and no installation change. Startup update notification uses
-the same channel and a bounded local cache, but cache state never authorizes an
-explicit upgrade.
+`axm upgrade` makes one bounded web request to
+`https://github.com/agentxm/axm/releases/latest`, observes the redirect without
+following it, validates that its `Location` names a normalized stable
+`cli-v<version>` tag in the same repository, and derives immutable artifact URLs
+from that tag. It does not use the GitHub REST API. A malformed, missing,
+rate-limited, or unavailable response produces an explicit result and no
+installation change. Startup update notification uses the same discovery path
+and caches only the validated version and observation time; cache state never
+authorizes an explicit upgrade.
 
 `axm upgrade <version>` selects one normalized stable semantic version without
 network discovery. It derives the immutable `cli-v<version>` GitHub Release
 coordinate and refuses leading `v`, prerelease, and non-normalized input. Exact
-selection does not change the promoted channel.
+selection does not perform latest-release discovery.
 
 Downgrades are refused in both modes. `--reinstall` permits replacement only
 when the selected and installed versions are equal.
@@ -63,16 +65,15 @@ observation. Each delegated command retains its own timeout. There is no
 publication poll or retry deadline. Human and machine results use the same
 recorded assessment.
 
-Release automation verifies required distribution before promoting stable, but
-that readiness is evidence at promotion time. Native package channels, public
-installer scripts, and GitHub releases have their own discovery behavior and
-may expose the candidate before stable promotion. Upgrade still checks current
+Release automation attaches immutable artifacts before publishing the GitHub
+release as latest. Native package channels and public installer scripts retain
+their own discovery behavior. Upgrade still checks current package-manager
 availability before mutation.
 
 ## Mutation and verification
 
-The script installation path downloads only URLs accepted from the channel or
-derived from an exact immutable coordinate. It verifies the checksum manifest,
+The script installation path downloads only URLs derived from the validated
+latest or exact immutable coordinate. It verifies the checksum manifest,
 prepares and executes the candidate to confirm its exact version, preserves a
 recoverable backup, replaces the executable, and verifies the installed entry
 point. A failure after replacement attempts rollback and reports whether

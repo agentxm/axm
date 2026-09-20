@@ -56,11 +56,6 @@
       "axm-source": "./src/self-update/composition/index.ts",
       "default": "./dist/src/self-update/composition/index.js"
     },
-    "./self-update/testing": {
-      "types": "./dist/src/self-update/testing.d.ts",
-      "axm-source": "./src/self-update/testing.ts",
-      "default": "./dist/src/self-update/testing.js"
-    },
     "./self-update/adapters/cli": {
       "types": "./dist/src/self-update/adapters/cli/index.d.ts",
       "axm-source": "./src/self-update/adapters/cli/index.ts",

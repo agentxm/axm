@@ -16,7 +16,7 @@ import { InstallationRecorder, PackageInstaller } from "./package-installer.js";
 import { prepareUpgrade, type UpgradeCandidate, type UpgradeRequest } from "./preparation.js";
 import { CliReleaseCatalog } from "./releases.js";
 import { ScriptExecutableInstaller, ScriptReleaseAssets } from "./script-installer.js";
-import { rememberStableChannel } from "./startup-check.js";
+import { rememberLatestRelease } from "./startup-check.js";
 import { UpdateCheckCache } from "./update-cache.js";
 import { UpgradeWorkingDirectory } from "./working-directory.js";
 
@@ -145,8 +145,8 @@ export const applyUpgrade: (
   | InstallerInstructions
 > = Effect.fn("SelfUpdate.applyUpgrade")(function* (candidate: UpgradeCandidate) {
   const { method, platform, resolution } = candidate;
-  if (resolution.channel !== null) {
-    yield* rememberStableChannel(resolution.channel, resolution.etag);
+  if (resolution.source === "github-latest") {
+    yield* rememberLatestRelease(resolution.targetVersion);
   }
   const unchanged = yield* unchangedResult(candidate);
   if (unchanged !== null) return settle(candidate, unchanged, notRequired, null);

@@ -203,12 +203,12 @@
         "cwd": "."
       }
     },
-    "download-ci-binaries": {
+    "download-ci-artifacts": {
       "executor": "nx:run-commands",
       "cache": false,
       "dependsOn": ["^build"],
       "options": {
-        "command": "bun scripts/download-ci-binaries.ts",
+        "command": "bun scripts/download-ci-artifacts.ts",
         "cwd": "."
       }
     },
@@ -235,6 +235,19 @@
         "cwd": "."
       }
     },
+    "produce-release-content": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [
+        "cli:generate:schemas",
+        "cli:generate:agent-catalog",
+        "cli:generate:cli-reference"
+      ],
+      "options": {
+        "command": "bun scripts/release-content.ts",
+        "cwd": "."
+      }
+    },
     "generate-release-checksums": {
       "executor": "nx:run-commands",
       "cache": false,
@@ -248,15 +261,6 @@
       "cache": false,
       "options": {
         "command": "bash scripts/validate-release-assets.sh",
-        "cwd": "."
-      }
-    },
-    "promote-release-channel": {
-      "executor": "nx:run-commands",
-      "cache": false,
-      "dependsOn": ["^build"],
-      "options": {
-        "command": "bun scripts/promote-release-channel.ts",
         "cwd": "."
       }
     },

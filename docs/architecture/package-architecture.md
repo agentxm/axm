@@ -32,10 +32,10 @@ composition and interaction boundary and owns no reusable business policy.
 
 A package is a source/compiler boundary; its existence does not require an npm
 publication. The fixed published cohort contains `axm.sh`,
-`@agentxm/extension-model`, `@agentxm/registry-protocol`,
-`@agentxm/extension-content`, and `@agentxm/specification-metadata`. The domain,
-wire, portable-content, and specification contracts have consumers outside the
-CLI. The CLI publishes its application/runtime entries and site assets.
+`@agentxm/extension-model`, `@agentxm/extension-content`, and
+`@agentxm/specification-metadata`. The shared model, portable content, and
+specification contracts have consumers outside the CLI. The CLI publishes its
+runtime entry and includes site assets as package and release content.
 
 Other runtime packages are private workspace dependencies. The canonical
 cohort packer includes their compiled JavaScript, declarations, manifests, and
@@ -71,15 +71,15 @@ from the path and rejects a project that authors one or sits outside a tier.
 **Technical role** answers which direction a dependency may point, and is
 authored in each `project.json`:
 
-| Role               | What it is                                                                         |
-| ------------------ | ---------------------------------------------------------------------------------- |
-| `role:contract`    | Wire and model shapes shared across repository boundaries; no behaviour of its own |
-| `role:integration` | Isolates change driven by an external system or a native agent surface             |
-| `role:capability`  | Reusable mechanics or policy that several features build on                        |
-| `role:feature`     | One complete reusable use case, end to end                                         |
-| `role:application` | Parsing, interaction, rendering, process behaviour, and Layer composition          |
-| `role:tooling`     | Engineering support under `tools/`, barred from runtime                            |
-| `role:e2e`         | Observes shipped artifacts and entry points                                        |
+| Role               | What it is                                                                      |
+| ------------------ | ------------------------------------------------------------------------------- |
+| `role:contract`    | Wire and model shapes shared across package boundaries; no behaviour of its own |
+| `role:integration` | Isolates change driven by an external system or a native agent surface          |
+| `role:capability`  | Reusable mechanics or policy that several features build on                     |
+| `role:feature`     | One complete reusable use case, end to end                                      |
+| `role:application` | Parsing, interaction, rendering, process behaviour, and Layer composition       |
+| `role:tooling`     | Engineering support under `tools/`, barred from runtime                         |
+| `role:e2e`         | Observes shipped artifacts and entry points                                     |
 
 The two are independent on purpose. `registry-client` is an integration and
 strategically undifferentiated; `workspace/transitions/settlement` is a
@@ -87,8 +87,9 @@ low-level capability and among the most distinctive code in the repository.
 
 ## Core packages
 
-`packages/core/` contains the `domain:core` packages in the fixed `release:cli`
-cohort.
+`packages/core/` contains the `domain:core` packages that implement the CLI's
+distinctive model. A package may be published independently or bundled into
+`axm.sh`.
 
 ### Contracts
 
@@ -97,13 +98,16 @@ cohort.
 | `@agentxm/extension-model`   | `role:contract` | Platform-neutral extension identities, handles, FQNs, extension types, manifests, version constraints, package identities, and agent capability data |
 | `@agentxm/registry-protocol` | `role:contract` | Registry wire contracts — index, discovery, publication set, visibility, authorization — and the suggested-action error vocabulary                   |
 
-These two cross the repository boundary: the AgentXM Registry imports them and
-the platform repository adopts them as its shared kernel. Both keep their
-`./unstable/*` subpath exports, which are the cross-repository seam and are
-named exactly in the dependency rules rather than covered by a tier. A contract
-package acquires no filesystem, terminal, workspace, or transport behaviour,
-and the model's external dependency budget is fixed at `effect`,
-`packageurl-js`, `semver`, and `spdx-expression-parse`.
+The extension model crosses the repository boundary as the shared kernel. Its
+`./unstable/*` exports are the public seam adopted by other AgentXM
+implementations. Registry protocol is a CLI-owned representation of the public
+HTTP contract; the platform owns its server contract independently, and both
+sides meet through the published OpenAPI surface and versioned digest vectors.
+Registry protocol retains `./unstable/*` workspace subpaths but is bundled into
+`axm.sh`, not published independently. A contract package acquires no
+filesystem, terminal, workspace, or transport behaviour, and the model's
+external dependency budget is fixed at `effect`, `packageurl-js`, `semver`, and
+`spdx-expression-parse`.
 
 The extension model also owns shared exact/range/yank release selection in
 `unstable/version-constraints/version-selection`. Its candidate contract contains
@@ -556,8 +560,9 @@ release set is selected with `"projects": ["tag:release:cli"]`. Release
 workflows use the same matcher rather than a second project list.
 `projectsRelationship: "fixed"` and version plans stay while these unstable
 packages ship as one product. Another release group is created only when a
-package gains a genuinely independent lifecycle. Keep `nx` and all `@nx/*`
-packages on one version.
+package gains a genuinely independent lifecycle. Production packages without
+the tag are bundled into `axm.sh` and do not become separate release
+coordinates. Keep `nx` and all `@nx/*` packages on one version.
 
 ### Creating a package
 
@@ -565,10 +570,11 @@ Use `@nx/js:library` with the workspace defaults: the `tsc` bundler, ESLint,
 Vitest in the Node environment, strict TypeScript, `project.json`
 configuration, and buildable and publishable setup. Place it under
 `packages/<tier>/<name>` so the plugin infers its `domain:*` tag — authoring
-one is an error — and supply its `role:*`, `scope:*`, and `release:cli` tags.
-Its `test`, `lint`, and `typecheck` targets follow from placement. Do not build
-a custom generator until repeated AXM-specific edits remain after the official
-generator and workspace defaults are in place.
+one is an error — and supply its `role:*` and `scope:*` tags. Add `release:cli`
+only when the package is an independently published member of the fixed
+cohort. Its `test`, `lint`, and `typecheck` targets follow from placement. Do
+not build a custom generator until repeated AXM-specific edits remain after the
+official generator and workspace defaults are in place.
 
 ### Domain workflows stay custom
 

@@ -37,7 +37,7 @@ export const specification = defineSpecification({
   limitations: [
     {
       limitation:
-        "Restoration after an externally terminated replacement is witnessed in process, through the finalizer the interrupt runs, rather than at the process boundary: the release channel and asset URLs are compiled constants with no environment override, so no installed-boundary run can serve a release fixture to the built executable.",
+        "Restoration after an externally terminated replacement is witnessed in process, through the finalizer the interrupt runs, rather than at the process boundary: latest-release discovery and asset URLs are compiled constants with no environment override, so no installed-boundary run can serve a release fixture to the built executable.",
       retirementCondition:
         "The self-update capability accepts a release-origin override that a controlled run may point at a local fixture, and an installed-boundary example signals the running upgrade and observes the restored executable and exit status.",
     },

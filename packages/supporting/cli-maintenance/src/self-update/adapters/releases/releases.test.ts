@@ -5,7 +5,6 @@ import * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
 import { makeCliReleaseCatalog } from "./index.js";
-import { stableChannelDocument as channelDocument } from "../../testing.js";
 
 const makeMockHttpClient = (handler: (url: string) => Response): HttpClient.HttpClient =>
   HttpClient.make((request) =>
@@ -26,41 +25,47 @@ const makeNetworkErrorClient = (): HttpClient.HttpClient =>
   );
 
 describe("resolveLatestVersion", () => {
-  it.effect("resolves the promoted release in one bounded channel request", () =>
+  it.effect("resolves GitHub's latest stable release in one bounded request", () =>
     Effect.gen(function* () {
       const visited: Array<string> = [];
       const result = yield* makeCliReleaseCatalog(
         makeMockHttpClient((url) => {
           visited.push(url);
-          return new Response(JSON.stringify(channelDocument("2.0.0")), { status: 200 });
+          return new Response(null, {
+            status: 302,
+            headers: { location: "/agentxm/axm/releases/tag/cli-v2.0.0" },
+          });
         }),
       ).stable("axm-linux-x64");
 
-      expect(visited).toEqual(["https://releases.axm.sh/v1/channels/stable.json"]);
-      expect(result.targetVersion).toBe("2.0.0");
-      expect(result.release.tagName).toBe("cli-v2.0.0");
-      expect(result.release.binaryAssetUrl).toContain("axm-linux-x64");
-      expect(result.channel?.revision).toBe(3);
+      expect(visited).toEqual(["https://github.com/agentxm/axm/releases/latest"]);
+      expect(result).toMatchObject({
+        targetVersion: "2.0.0",
+        source: "github-latest",
+        release: {
+          tagName: "cli-v2.0.0",
+          binaryAssetUrl:
+            "https://github.com/agentxm/axm/releases/download/cli-v2.0.0/axm-linux-x64",
+          checksumAssetUrl:
+            "https://github.com/agentxm/axm/releases/download/cli-v2.0.0/SHA256SUMS",
+        },
+      });
     }),
   );
 
-  it.effect("rejects invalid channel documents and missing platform assets", () =>
+  it.effect("rejects malformed or untrusted latest-release redirects", () =>
     Effect.gen(function* () {
-      const invalid = { ...channelDocument(), version: "1.0.0-beta.1" };
-      const missing = channelDocument();
-      const invalidError = yield* Effect.flip(
-        makeCliReleaseCatalog(
-          makeMockHttpClient(() => new Response(JSON.stringify(invalid), { status: 200 })),
-        ).stable("axm-linux-x64"),
-      );
-      const missingError = yield* Effect.flip(
-        makeCliReleaseCatalog(
-          makeMockHttpClient(() => new Response(JSON.stringify(missing), { status: 200 })),
-        ).stable("axm-plan9-x64"),
-      );
-
-      expect(invalidError.category).toBe("validation");
-      expect(missingError.category).toBe("unavailable");
+      for (const location of [
+        "https://example.test/agentxm/axm/releases/tag/cli-v2.0.0",
+        "https://github.com/agentxm/axm/releases/tag/cli-v2.0.0-beta.1",
+      ]) {
+        const error = yield* Effect.flip(
+          makeCliReleaseCatalog(
+            makeMockHttpClient(() => new Response(null, { status: 302, headers: { location } })),
+          ).stable("axm-linux-x64"),
+        );
+        expect(error.category).toBe("validation");
+      }
     }),
   );
 

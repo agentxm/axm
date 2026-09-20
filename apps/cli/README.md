@@ -33,14 +33,9 @@ and topic reference.
 
 ## Programmatic API
 
-The `axm.sh/app` and `axm.sh/runtime` exports are experimental. `run()` is a
-process entry point that supports one invocation per process. It owns stdout,
-stderr, and signal handlers for that invocation, and terminates the process on
-failure. Repeated, concurrent, and Worker-hosted invocation are unsupported.
-
-`rootCommand` is available for structural inspection and composition under the
-same experimental API contract. No persistent or re-entrant application
-lifecycle is provided.
+The experimental `axm.sh/runtime` export provides the machine-output document
+schema and kind detector for JavaScript and TypeScript automation. The command
+application and generated site content are not programmatic package exports.
 
 ## Source
 

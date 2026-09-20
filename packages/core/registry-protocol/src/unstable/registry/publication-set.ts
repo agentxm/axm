@@ -75,7 +75,7 @@ export const PublicationVisibilityInputSchema = Schema.Struct({
 
 export type PublicationVisibilityInput = typeof PublicationVisibilityInputSchema.Type;
 
-const PublicationDescriptorSchema = Schema.Struct({
+export const PublicationDescriptorSchema = Schema.Struct({
   target: PublicationTargetSchema,
   participation: Schema.Literals(["publish", "verified-existing"] as const),
   archiveSha256Hex: Schema.optional(Sha256HexSchema),
@@ -86,6 +86,11 @@ const PublicationDescriptorSchema = Schema.Struct({
     }),
   ),
 }).annotate({ identifier: "PublicationDescriptor" });
+
+const PublicationDescriptorInputSchema = Schema.Union([
+  PublicationDescriptorSchema,
+  Schema.toType(PublicationDescriptorSchema),
+]);
 
 export interface PublicationDescriptor {
   readonly target: PublicationTarget;
@@ -310,26 +315,57 @@ const compareDependencies = (
   compareText(left.range, right.range) ||
   compareText(left.source?.url.href ?? "", right.source?.url.href ?? "");
 
-export const normalizePublicationDescriptor = (
-  descriptor: PublicationDescriptor,
-): PublicationDescriptor => ({
-  target: descriptor.target,
-  participation: descriptor.participation,
-  visibility: descriptor.visibility,
-  ...(descriptor.archiveSha256Hex === undefined
-    ? {}
-    : { archiveSha256Hex: descriptor.archiveSha256Hex }),
-  ...(descriptor.pack === undefined
-    ? {}
-    : {
-        pack: {
-          dependencies: [...descriptor.pack.dependencies].sort(compareDependencies),
-        },
-      }),
-});
+export const normalizePublicationDescriptor = (input: unknown): PublicationDescriptor => {
+  const descriptor = Schema.decodeUnknownSync(PublicationDescriptorInputSchema)(input);
+  return {
+    target: {
+      owner: descriptor.target.owner,
+      type: descriptor.target.type,
+      name: descriptor.target.name,
+      version: descriptor.target.version,
+    },
+    participation: descriptor.participation,
+    visibility: {
+      intent:
+        descriptor.visibility.intent === null
+          ? null
+          : {
+              value: descriptor.visibility.intent.value,
+              source: descriptor.visibility.intent.source,
+              fingerprint: descriptor.visibility.intent.fingerprint,
+            },
+      request: descriptor.visibility.request,
+    },
+    ...(descriptor.archiveSha256Hex === undefined
+      ? {}
+      : { archiveSha256Hex: descriptor.archiveSha256Hex }),
+    ...(descriptor.pack === undefined
+      ? {}
+      : {
+          pack: {
+            dependencies: descriptor.pack.dependencies
+              .map((dependency) => ({
+                owner: dependency.owner,
+                type: dependency.type,
+                name: dependency.name,
+                range: dependency.range,
+                ...(dependency.source === undefined
+                  ? {}
+                  : {
+                      source: {
+                        type: dependency.source.type,
+                        url: dependency.source.url,
+                      },
+                    }),
+              }))
+              .sort(compareDependencies),
+          },
+        }),
+  };
+};
 
 export const normalizePublicationSet = (
-  descriptors: ReadonlyArray<PublicationDescriptor>,
+  descriptors: ReadonlyArray<unknown>,
 ): ReadonlyArray<PublicationDescriptor> =>
   descriptors
     .map(normalizePublicationDescriptor)
@@ -338,24 +374,46 @@ export const normalizePublicationSet = (
 const canonicalBytes = (value: unknown): Uint8Array =>
   new TextEncoder().encode(JSON.stringify(value));
 
+const canonicalPublicationDescriptor = (input: unknown): unknown => {
+  const descriptor = normalizePublicationDescriptor(input);
+  return {
+    ...descriptor,
+    ...(descriptor.pack === undefined
+      ? {}
+      : {
+          pack: {
+            dependencies: descriptor.pack.dependencies.map((dependency) => ({
+              ...dependency,
+              ...(dependency.source === undefined
+                ? {}
+                : {
+                    source: {
+                      type: dependency.source.type,
+                      url: dependency.source.url.href,
+                    },
+                  }),
+            })),
+          },
+        }),
+  };
+};
+
 const sha256Hex = (bytes: Uint8Array): Sha256Hex =>
   Schema.decodeUnknownSync(Sha256HexSchema)(createHash("sha256").update(bytes).digest("hex"));
 
-export const publicationDescriptorDigest = (descriptor: PublicationDescriptor): Sha256Hex =>
+export const publicationDescriptorDigest = (descriptor: unknown): Sha256Hex =>
   sha256Hex(
     canonicalBytes({
       contract: PUBLICATION_SET_CONTRACT,
-      descriptor: normalizePublicationDescriptor(descriptor),
+      descriptor: canonicalPublicationDescriptor(descriptor),
     }),
   );
 
-export const publicationSetDigest = (
-  descriptors: ReadonlyArray<PublicationDescriptor>,
-): Sha256Hex =>
+export const publicationSetDigest = (descriptors: ReadonlyArray<unknown>): Sha256Hex =>
   sha256Hex(
     canonicalBytes({
       contract: PUBLICATION_SET_CONTRACT,
-      candidates: normalizePublicationSet(descriptors),
+      candidates: normalizePublicationSet(descriptors).map(canonicalPublicationDescriptor),
     }),
   );
 
@@ -375,12 +433,9 @@ export const validatePublicationDescriptors = (
       `Publication sets accept at most ${MAX_PUBLICATION_SET_CANDIDATES} candidates.`,
     );
   }
-  Schema.decodeUnknownSync(Schema.toType(PreviewPublicationSetRequestSchema))({
-    contract: PUBLICATION_SET_CONTRACT,
-    candidates: descriptors,
-  });
+  const normalized = normalizePublicationSet(descriptors);
   const identities = new Set<string>();
-  for (const descriptor of descriptors) {
+  for (const descriptor of normalized) {
     const key = publicationIdentityKey(descriptor.target);
     if (identities.has(key)) {
       throw new TypeError(`Duplicate publication target ${key}.`);
@@ -393,7 +448,7 @@ export const validatePublicationDescriptors = (
       throw new TypeError("Pack declarations are required exactly for pack candidates.");
     }
   }
-  return normalizePublicationSet(descriptors);
+  return normalized;
 };
 
 const dependencyIdentityKey = (dependency: PackDependencyDescriptor): string =>

@@ -183,8 +183,7 @@ describe("repository task interface", () => {
       "validate-release-cohort",
       "validate-release-tag",
       "resolve-release-meta",
-      "download-ci-binaries",
-      "promote-release-channel",
+      "download-ci-artifacts",
     ]) {
       const dependencies = root?.data.targets?.[targetName]?.dependsOn ?? [];
       expect(dependencies, targetName).toContain("^build");
@@ -365,18 +364,18 @@ describe("repository task interface", () => {
       "lint-bundled-skill",
       "parity-ledger-check",
       "resolve-release-preparation-source",
-      // A cached result would skip the production Registry preflight or the
-      // exact candidate preview.
+      // Candidate generation mutates versioned source and must always execute
+      // against the exact checked-out preparation revision.
       "release-prepare-candidate",
       "reconcile-github-release",
       "publish-bootstrap-prerelease",
       "validate-release-cohort",
       "specification-verdict",
       "distribute-release",
+      "produce-release-content",
       "verify-installed-package",
       "verify-artifacts",
       "update-homebrew-formula",
-      "promote-release-channel",
       "validate-release-tag",
     ]) {
       expect(targetCache(rootTargets, targetName), targetName).toBe(false);

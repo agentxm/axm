@@ -46,41 +46,7 @@ jobs:
           pnpm exec nx run axm:resolve-release-preparation-source
           --outputStyle=static
 
-      - name: Checkout released skill source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 1
-          path: .release-preflight/released
-          persist-credentials: false
-          ref: ${{ steps.source.outputs.released_skill_tag }}
-
-      - name: Configure released skill preflight
-        run: |
-          rm -f .release-preflight/released/axm-lock.yaml
-          # $schema is a literal JSON property, not a shell variable.
-          # shellcheck disable=SC2016
-          printf '%s\n' \
-            '{' \
-            '  "$schema": "https://axm.sh/schemas/settings.schema.json",' \
-            '  "owner": "@agentxm",' \
-            '  "skills": { "axm": "workspace" }' \
-            '}' > .release-preflight/released/axm.json
-
-      - name: Preflight production Registry from released skill
-        env:
-          AXM_TOKEN: ${{ secrets.AXM_REGISTRY_TOKEN }}
-        run: >-
-          pnpm axm:local -C .release-preflight/released skills publish
-          @agentxm/skills/axm --registry-url https://registry.agentxm.ai
-          --on-existing verify --preview --json --non-interactive
-
-      - name: Remove released skill preflight checkout
-        if: always()
-        run: rm -rf .release-preflight
-
       - name: Generate and validate exact candidate
-        env:
-          AXM_TOKEN: ${{ secrets.AXM_REGISTRY_TOKEN }}
         run: >-
           pnpm exec nx run axm:release-prepare-candidate
           --outputStyle=static

@@ -60,6 +60,8 @@
       // Explicit roots for source-conditioned Bun launchers.
       "entry": [
         "src/main.ts",
+        "scripts/generate-agent-catalog.ts",
+        "scripts/generate-cli-reference.ts",
         "scripts/generate-schemas.ts",
         "scripts/generate-type-enumerations.ts",
         "scripts/paint-gallery.ts",

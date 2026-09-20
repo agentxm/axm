@@ -181,9 +181,6 @@ importers:
       '@agentxm/extension-content':
         specifier: workspace:*
         version: link:packages/core/extension-content
-      '@agentxm/extension-model':
-        specifier: workspace:*
-        version: link:packages/core/extension-model
       '@agentxm/specification-metadata':
         specifier: workspace:*
         version: link:tools/specification-metadata
@@ -509,6 +506,9 @@ importers:
         specifier: 'catalog:'
         version: 7.8.5
     devDependencies:
+      '@agentxm/specification-metadata':
+        specifier: workspace:*
+        version: link:../../../tools/specification-metadata
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)

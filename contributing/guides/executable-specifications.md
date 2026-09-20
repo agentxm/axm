@@ -94,9 +94,9 @@ harness:
 - **Owner-local fixtures.** Fixtures for the owning package's own
   specifications live beside them (`./testing.js`, `./test-helpers.js`) and stay
   unpublished.
-- **CLI adapter specifications** use the application's own entry points
-  (`axm.sh/app`, `axm.sh/runtime`); end-to-end specifications use the existing
-  execution bindings in `apps/cli-e2e`.
+- **CLI adapter specifications** use the application's published runtime entry
+  (`axm.sh/runtime`) when they need its automation contract; end-to-end
+  specifications use the existing execution bindings in `apps/cli-e2e`.
 
 A specification that can only be written by reaching past these surfaces is
 describing a mechanism, not a rule — see [Admission](#admission).

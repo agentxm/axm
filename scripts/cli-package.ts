@@ -10,6 +10,7 @@ import * as semver from "semver";
 const manifestFields = Schema.Struct({
   name: Schema.String,
   version: Schema.String,
+  files: Schema.optional(Schema.Array(Schema.String)),
   dependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   optionalDependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
   peerDependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
@@ -98,11 +99,11 @@ export const composeCliManifest = (
     }
     return {
       ...cli,
+      files: [...new Set([...(root.files ?? []), "dist/node_modules/"])],
       dependencies: Object.fromEntries([...required].sort(([a], [b]) => a.localeCompare(b, "en"))),
       optionalDependencies: Object.fromEntries(
         [...optional].sort(([a], [b]) => a.localeCompare(b, "en")),
       ),
-      bundledDependencies: [...names].sort(),
     };
   });
 
@@ -161,7 +162,9 @@ export const packCliPackage = (options: {
       const internal = yield* Effect.forEach(options.internalPackages, (pkg) =>
         Effect.gen(function* () {
           const tarball = yield* packWorkspace(pkg.name, pkg.directory);
-          const directory = path.join(packageRoot, "node_modules", pkg.name);
+          // Node resolves this from dist/src without npm exposing private packages as
+          // registry dependencies. Yarn Classic otherwise fetches bundled dependencies.
+          const directory = path.join(packageRoot, "dist", "node_modules", pkg.name);
           yield* fs.makeDirectory(directory, { recursive: true });
           yield* unpack(tarball, directory);
           const manifestPath = path.join(directory, "package.json");
@@ -177,11 +180,6 @@ export const packCliPackage = (options: {
       yield* fs.writeFileString(
         path.join(packageRoot, "package.json"),
         `${JSON.stringify(composed, null, 2)}\n`,
-      );
-      // This directory really is hoisted; the repository retains its isolated linker and lockfile.
-      yield* fs.writeFileString(
-        path.join(packageRoot, "pnpm-workspace.yaml"),
-        "nodeLinker: hoisted\n",
       );
       yield* execute(packageRoot, "pnpm", [
         "pack",

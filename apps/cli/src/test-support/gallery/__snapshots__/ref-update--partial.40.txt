@@ -9,12 +9,63 @@ Updating
  ~   @acme/…/okf    0.1.9     updated
  ~   @a…/research   1.2.0     updated
  ✖   @acme/…ering   -         failed
+     The registry did not answer within
+     30s while resolving
+     @acme/knowledge/agent-engineering.
+     The request was retried three times
+     and the workspace was left as it
+     was. (timeout)
  ✖   @acme/…ering   -         failed
+     The registry did not answer within
+     30s while resolving
+     @acme/knowledge/product-engineering
+     . The request was retried three
+     times and the workspace was left as
+     it was. (timeout)
  ✖   @acme/…notes   -         failed
+     The archive AXM downloaded for
+     @acme/packs/field-notes does not
+     match the integrity the lockfile
+     records. Nothing was written to
+     /home/dev/work/platform-services/ag
+     ent_extensions, and the installed
+     version is still in place.
+     (conflict)
  ✖   @…/effect-v4   -         failed
+     The archive AXM downloaded for
+     @acme-enterprise/knowledge/effect-v
+     4 does not match the integrity the
+     lockfile records. Nothing was
+     written to
+     /home/dev/work/platform-services/ag
+     ent_extensions, and the installed
+     version is still in place.
+     (conflict)
  ✖   @acme/…ement   -         failed
+     AXM could not write
+     /home/dev/work/platform-services/.c
+     laude/agents: the directory is
+     read-only. The extension was not
+     projected into any agent, and
+     @acme/subagents/work-management
+     still resolves to the version
+     already installed. (forbidden)
  ✖   @acme/…cript   -         failed
+     AXM could not write
+     /home/dev/work/platform-services/.c
+     odex/rules: the directory is
+     read-only. The extension was not
+     projected into any agent, and
+     @acme/rules/typescript still
+     resolves to the version already
+     installed. (forbidden)
  ✖   @acme/…eview   -         failed
+     The registry did not answer within
+     30s while resolving
+     @acme/skills/incident-review. The
+     request was retried three times and
+     the workspace was left as it was.
+     (timeout)
  =   1 extension already current
      --verbose to list
      --verbose for details
@@ -22,6 +73,8 @@ Updating
 Partially updated
   5 changed · 7 failed · 1 already
   current · exit 1
+Every extension that did not settle:
+effects were restored.
 
 Next
      axm list

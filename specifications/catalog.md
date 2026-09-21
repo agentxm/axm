@@ -375,6 +375,22 @@ People and agents can understand invalid workspace state and recover it through 
 - Supersedes: `cli/whoami/refreshes-rejected-stored-credentials`
 - Source: [`packages/supporting/registry-access/src/adapters/renews-the-stored-session-once.spec.ts`](../packages/supporting/registry-access/src/adapters/renews-the-stored-session-once.spec.ts)
 
+##### A unit that did not settle as planned says why, and what it was left in
+
+- Requirement: `cli/unsettled-units-state-their-reason`
+- Owner: `cli`
+- Statement: For every unit of a settled operation that did not settle as planned, human output shall state that unit's reason in full beside its row and shall state whether the unit's prior state was kept, restored, or left incomplete, at every bounded terminal width AXM supports, on an unbounded stream, and at normal as well as verbose detail; a unit the operation never reached shall state what stopped it, and a unit whose producer supplied no reason shall state that rather than showing nothing.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `extension-adoption`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The reason is the sentence a producer settled its unit with, carried on the resolution. Which units fail, and why, belongs to those producers and is not decided here.
+- Methods: example, property
+- Derived from: `cli/mutations-are-closure-atomic`
+- Open questions: Whether quiet output keeps an unsettled unit's reason is recorded on `cli/diagnostic-controls-select-the-requested-detail` and is not decided here.
+- Limitation: Examples and the property drive the settled operation document. That a producer settles a failed unit with a reason at all is witnessed by the producers' own tests, not decided here. Retires when: Bind producer evidence here if a producer is ever allowed to settle a unit unsettled without a stated reason.
+- Source: [`apps/cli/src/unsettled-units-state-their-reason.spec.ts`](../apps/cli/src/unsettled-units-state-their-reason.spec.ts)
+
 ##### Availability outcomes retain the observed reason
 
 - Requirement: `cli/upgrade/availability-failures-are-attributed`

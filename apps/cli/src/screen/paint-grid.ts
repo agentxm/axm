@@ -5,6 +5,7 @@ import type {
   LedgerFold,
   LedgerNode,
   LedgerRow,
+  Mark,
   TableColumn,
   TableRow,
   Text,
@@ -268,6 +269,43 @@ const ledgerColumn = (
   return column.role === "fixed" ? { ...laid, minWidth: laid.naturalWidth } : laid;
 };
 
+/**
+ * The tone a reason takes: its own row's mark, so the line and the mark above
+ * it make one claim. A row that simply never ran states a fact rather than a
+ * failure, so it reads as an aside.
+ */
+const reasonTone = (mark: Mark): Tone => {
+  switch (mark) {
+    case "failed":
+    case "error":
+      return "error";
+    case "blocked":
+    case "rolled-back":
+    case "warn":
+      return "warn";
+    default:
+      return "dim";
+  }
+};
+
+/**
+ * Why a row did not settle as planned, at the content column beneath it. It is
+ * painted whatever the layout did to the columns, because the reason is the
+ * one value a reader cannot recover from anywhere else.
+ */
+const paintReason = (
+  row: LedgerRow,
+  style: ResolvedStyle,
+  indent: number,
+): ReadonlyArray<string> =>
+  row.reason === undefined || plain(row.reason).length === 0
+    ? []
+    : paintPrefixed(row.reason, style, {
+        indent: indent + GUTTER_WIDTH,
+        first: "",
+        tone: reasonTone(row.mark),
+      });
+
 /** The fold line: a mark, how many rows it stands for, and how to reveal them. */
 const paintFold = (
   fold: LedgerFold,
@@ -291,7 +329,8 @@ const paintFold = (
  *
  * Under width pressure a ledger drops its `optional` columns and then stacks,
  * keeping each row's mark and name on one line with its remaining cells dim
- * beneath; it never drops a column whose value has nowhere else to appear.
+ * beneath. A row's reason is painted beneath it whatever the layout chose, so
+ * the one value that has nowhere else to appear is never what gives way.
  */
 export const paintLedger = (
   node: LedgerNode,
@@ -365,6 +404,7 @@ export const paintLedger = (
                 style,
                 { indent: indent + GUTTER_WIDTH + depthLead(row), first: "", tone: "dim" },
               )),
+          ...paintReason(row, style, indent),
           ...children(row),
         ];
       }),
@@ -403,6 +443,7 @@ export const paintLedger = (
         indent,
         first: gutter(markGlyph(row.mark, style)),
       }),
+      ...paintReason(row, style, indent),
       ...children(row),
     ]),
     ...fold,

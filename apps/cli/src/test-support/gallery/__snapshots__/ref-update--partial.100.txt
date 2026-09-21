@@ -7,16 +7,36 @@ Updating  in this project · agents: claude-code, codex, grok-cli, opencode
  ~   @acme/skills/okf              0.1.9     updated
  ~   @acme/skills/research         1.2.0     updated
  ✖   @acme/…/agent-engineering     -         failed
+     The registry did not answer within 30s while resolving @acme/knowledge/agent-engineering. The
+     request was retried three times and the workspace was left as it was. (timeout)
  ✖   @acme/…/product-engineering   -         failed
+     The registry did not answer within 30s while resolving @acme/knowledge/product-engineering. The
+     request was retried three times and the workspace was left as it was. (timeout)
  ✖   @acme/packs/field-notes       -         failed
+     The archive AXM downloaded for @acme/packs/field-notes does not match the integrity the
+     lockfile records. Nothing was written to /home/dev/work/platform-services/agent_extensions, and
+     the installed version is still in place. (conflict)
  ✖   @acme-enterprise…/effect-v4   -         failed
+     The archive AXM downloaded for @acme-enterprise/knowledge/effect-v4 does not match the
+     integrity the lockfile records. Nothing was written to
+     /home/dev/work/platform-services/agent_extensions, and the installed version is still in place.
+     (conflict)
  ✖   @acme/…/work-management       -         failed
+     AXM could not write /home/dev/work/platform-services/.claude/agents: the directory is
+     read-only. The extension was not projected into any agent, and @acme/subagents/work-management
+     still resolves to the version already installed. (forbidden)
  ✖   @acme/rules/typescript        -         failed
+     AXM could not write /home/dev/work/platform-services/.codex/rules: the directory is read-only.
+     The extension was not projected into any agent, and @acme/rules/typescript still resolves to
+     the version already installed. (forbidden)
  ✖   @acme/…/incident-review       -         failed
+     The registry did not answer within 30s while resolving @acme/skills/incident-review. The
+     request was retried three times and the workspace was left as it was. (timeout)
  =   1 extension already current  --verbose to list
      --verbose for details
 
 Partially updated  5 changed · 7 failed · 1 already current · exit 1
+Every extension that did not settle: effects were restored.
 
 Next
      axm list   Inspect installed extensions

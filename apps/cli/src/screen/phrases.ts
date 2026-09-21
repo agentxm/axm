@@ -98,6 +98,20 @@ export const NOT_TRIED = "not tried";
 /** Why a row rolled back when the unit was still running as the operation stopped. */
 export const INTERRUPTED_IN_FLIGHT = "interrupted in flight";
 
+/**
+ * Why a row was never tried, when nothing more specific stopped it. A unit the
+ * operation stopped before still owes the reader a reason; this is the one it
+ * has when no blocking condition named a subject of its own.
+ */
+export const notTriedReason = (presentation: OperationPresentation): string =>
+  `the operation stopped before this ${presentation.subject.singular}`;
+
+/**
+ * What a row says when its producer settled it unsettled and supplied no
+ * reason. Saying so is information; a blank line beneath a failed row is not.
+ */
+export const UNREPORTED_REASON = "no reason was reported";
+
 export const unitStateChange = (state: UnitState): Change => {
   switch (state) {
     case "planned":
@@ -181,6 +195,17 @@ export const disposition = (value: UnitDisposition): string => {
       return unreachable(value);
   }
 };
+
+/**
+ * What became of every unit that did not settle as planned, where they were
+ * all left in the same state. A partial operation whose closures each rolled
+ * themselves back says it once beneath its verdict instead of repeating it on
+ * every row, and names what the claim covers so its scope is not guessed at.
+ */
+export const sharedDispositionStatement = (
+  presentation: OperationPresentation,
+  value: UnitDisposition,
+): string => `Every ${presentation.subject.singular} that did not settle: ${disposition(value)}.`;
 
 export const blockingClass = (value: BlockingClass): string => {
   switch (value) {

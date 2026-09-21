@@ -24,6 +24,7 @@ import {
   MISSING_VERSION,
   NOT_TRIED,
   Screen,
+  UNREPORTED_REASON,
   VERBOSE_DETAILS_HINT,
   VERBOSE_LIST_HINT,
   agentOutcome,
@@ -38,12 +39,14 @@ import {
   interruptionPhrase,
   joined,
   ledgerViewPolicy,
+  notTriedReason,
   operationTitle,
   outcomeHeadline,
   planVerdict,
   plannedArtifactChange,
   resultLedgerColumns,
   scopePhrase,
+  sharedDispositionStatement,
   subjectHeader,
   subjectNoun,
   unitState,
@@ -241,7 +244,63 @@ type Settlement =
   | { readonly _tag: "state"; readonly state: UnitState };
 
 /** States whose unit did not settle as planned, so its message is the reason why. */
-const UNSETTLED: ReadonlySet<UnitState> = new Set(["failed", "blocked", "interrupted"]);
+const UNSETTLED: ReadonlySet<UnitState> = new Set([
+  "failed",
+  "blocked",
+  "interrupted",
+  "rolled-back",
+]);
+
+/** Whether a settlement owes the reader a reason of its own. */
+const owesReason = (settlement: Settlement): boolean =>
+  settlement._tag === "not-tried" ||
+  settlement._tag === "rolled-back-in-flight" ||
+  (settlement._tag === "state" && UNSETTLED.has(settlement.state));
+
+/**
+ * The line beneath an unsettled row: why it did not settle, and — where the
+ * units differ — what state it was left in. The producer's own sentence is
+ * used where there is one; a unit the operation never reached says what
+ * stopped it, and one whose producer said nothing says that, because a blank
+ * line beneath a failed row reads as information that was lost.
+ */
+const reasonOf = (
+  unit: ResolvedUnit<unknown>,
+  settlement: Settlement,
+  presentation: OperationPresentation,
+  saidOnce: boolean,
+): string | undefined => {
+  if (!owesReason(settlement)) return undefined;
+  const settled =
+    saidOnce || unit.disposition === undefined ? undefined : disposition(unit.disposition);
+  switch (settlement._tag) {
+    case "not-tried":
+      return joined([unit.blocking?.detail ?? notTriedReason(presentation), settled]);
+    case "rolled-back-in-flight":
+      return joined([INTERRUPTED_IN_FLIGHT, settled]);
+    default:
+      return joined([unit.message ?? UNREPORTED_REASON, settled]);
+  }
+};
+
+/**
+ * The state every unsettled unit was left in, when they were all left in the
+ * same one: a partial operation whose closures each rolled themselves back
+ * says so once beneath its verdict rather than on every row.
+ */
+const sharedDisposition = (
+  units: ReadonlyArray<ResolvedUnit<unknown>>,
+  mode: OperationResolution<unknown>["mode"],
+  presentation: OperationPresentation,
+): string | undefined => {
+  const unsettled = units.filter((unit) => owesReason(settlementOf(unit, mode)));
+  if (unsettled.length < 2) return undefined;
+  const dispositions = new Set(unsettled.map((unit) => unit.disposition));
+  const [only] = dispositions;
+  return dispositions.size === 1 && only !== undefined
+    ? sharedDispositionStatement(presentation, only)
+    : undefined;
+};
 
 const settlementOf = (
   unit: ResolvedUnit<unknown>,
@@ -268,6 +327,8 @@ const resultRow = (
   unit: ResolvedUnit<unknown>,
   mode: OperationResolution<unknown>["mode"],
   detailed: boolean,
+  presentation: OperationPresentation,
+  dispositionSaidOnce: boolean,
 ): LedgerRow => {
   const settlement = settlementOf(unit, mode);
   const name = unit.artifact?.packMembership?.pack ?? unit.label;
@@ -289,13 +350,11 @@ const resultRow = (
           ],
         };
       case "not-tried":
-        // Nothing happened to it, so there is nothing to detail.
+        // Nothing happened to it, so there is nothing to detail; why it was
+        // never reached is the reason line beneath it.
         return { mark: "not-tried", cells: [name, version, NOT_TRIED, ""] };
       case "rolled-back-in-flight":
-        return {
-          mark: "rolled-back",
-          cells: [name, version, unitState("rolled-back"), INTERRUPTED_IN_FLIGHT],
-        };
+        return { mark: "rolled-back", cells: [name, version, unitState("rolled-back"), ""] };
       case "state":
         return {
           mark: unitStateChange(settlement.state),
@@ -303,19 +362,24 @@ const resultRow = (
             name,
             version,
             unitState(settlement.state),
-            detailCell(unit.artifact, [
-              // A unit that did not settle as planned says why in its own
-              // message; any other unit's message restates its status.
-              unit.artifact === undefined || UNSETTLED.has(settlement.state)
-                ? unit.message
-                : undefined,
-              unit.disposition === undefined ? undefined : disposition(unit.disposition),
-            ]),
+            // A unit that did not settle as planned says why, and what it was
+            // left in, on its reason line; any other unit's message restates
+            // its status, except where there is no artifact to describe it.
+            UNSETTLED.has(settlement.state)
+              ? detailCell(unit.artifact, [])
+              : detailCell(unit.artifact, [
+                  unit.artifact === undefined ? unit.message : undefined,
+                  unit.disposition === undefined ? undefined : disposition(unit.disposition),
+                ]),
           ],
         };
     }
   })();
-  return withChildren({ id: unitIdOf(unit), ...row }, rowChildren(unit, detailed));
+  const reason = reasonOf(unit, settlement, presentation, dispositionSaidOnce);
+  return withChildren(
+    { id: unitIdOf(unit), ...row, ...(reason === undefined ? {} : { reason }) },
+    rowChildren(unit, detailed),
+  );
 };
 
 const planRow = (
@@ -340,11 +404,13 @@ const planRow = (
           : step.artifact.change === "created" && presentation.verb.create !== undefined
             ? presentation.verb.create
             : plannedArtifactChange(step.artifact.change),
-        detailCell(step.artifact, [
-          step.readiness === "warn" ? step.warnMessage : undefined,
-          step.readiness === "error" ? step.errorMessage : undefined,
-        ]),
+        detailCell(step.artifact, [step.readiness === "warn" ? step.warnMessage : undefined]),
       ],
+      // A step the plan cannot run states why beneath its row, where no width
+      // can take the reason away.
+      ...(step.readiness === "error" && step.errorMessage !== undefined
+        ? { reason: step.errorMessage }
+        : {}),
     },
     rowChildren(step, detailed),
   );
@@ -623,9 +689,18 @@ export const operationDoc = (
     (unit) => detailed || (unit.state !== "unchanged" && unit.state !== "skipped"),
   );
   const coverage = resolutionAgentCoverage(resolution);
+  // Where every unsettled unit was left in the same state, the verdict says so
+  // once; where they differ, each row says it for itself.
+  const settledAlike = sharedDisposition(resolution.units, resolution.mode, presentation);
+  const dispositionSaidOnce =
+    settledAlike !== undefined &&
+    resolution.blocking === undefined &&
+    resolution.failure?.detail === undefined;
   const ledger = foldedLedger(
     ledgerColumns(presentation, "Status"),
-    visible.map((unit) => resultRow(unit, resolution.mode, detailed)),
+    visible.map((unit) =>
+      resultRow(unit, resolution.mode, detailed, presentation, dispositionSaidOnce),
+    ),
     detailed
       ? []
       : foldGroups(presentation, [
@@ -675,10 +750,13 @@ export const operationDoc = (
       verdict,
       aside,
       // A blocked operation stopped on a condition a person must resolve, so
-      // its reason stands with its verdict; a failure's reason follows it.
+      // its reason stands with its verdict; a failure's reason follows it, and
+      // where neither says anything the state the unsettled units share does.
       ...(resolution.blocking === undefined
         ? resolution.failure?.detail === undefined
-          ? {}
+          ? dispositionSaidOnce && settledAlike !== undefined
+            ? { reason: settledAlike }
+            : {}
           : { reason: resolution.failure.detail }
         : { reason: resolution.blocking.detail, blocked: true }),
     }),

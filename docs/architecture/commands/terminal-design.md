@@ -83,8 +83,11 @@ last; `fixed` columns keep their width; an `elastic` column takes spare width.
 Plan, progress, and result ledgers differ only in their final columns — a plan
 and detail against a status — and their marks. A ledger folds rows that repeat
 one outcome, such as unchanged units, into one fold line with a mark, a count, a
-noun, and the flag that reveals them. Row children carry per-agent outcomes and
-details, aligned to the content column and shown at verbose level. A ledger
+noun, and the flag that reveals them. A row that did not settle as planned
+carries its reason: one line beneath the row, at the content column, toned as
+the row's own mark, painted at every width and every level of detail because a
+reason has nowhere else to appear. Row children carry per-agent outcomes and
+details, aligned to the same column and shown at verbose level. A ledger
 takes any columns: lint's are finding, location, and fix, with the rule
 identifier and help as a dim child line, and a rule that repeats folds into one
 row with a location count. The separator between semantic parts of an aside or

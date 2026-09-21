@@ -2,9 +2,17 @@ Installing
 
      Extension                     Version   Status
  ↶   @acme/packs/review-kit        2.1.0     rolled back
+     The pack's members were written and then removed again when a later member
+     failed., effects were restored
  ✖   @acme-e…/incident-commander   -         failed
+     The registry has no version of
+     @acme-enterprise/subagents/incident-commander that satisfies >=2.0.0, which
+     @acme/packs/review-kit requires. Nothing was installed. (not_found),
+     effects were restored
  ·   @acme/…/incident-review       2.0.0     not tried
+     the operation stopped before this extension
  ·   @acme/knowledge/runbooks      5.2.0     not tried
+     the operation stopped before this extension
      --verbose for details
 
 Failed to install 4 extensions - all changes rolled back

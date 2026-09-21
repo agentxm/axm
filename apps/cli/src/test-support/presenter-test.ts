@@ -6,7 +6,14 @@ import type * as Schema from "effect/Schema";
 import { type BoxOptions, type LogMessage, type ResultOptions } from "../screen/output.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { subscribeLossless, type OperationEvent } from "@agentxm/workspace/transitions/planning";
-import { Screen, plain, promptRequired, type Doc, type DocNode } from "../screen/index.js";
+import {
+  Screen,
+  plain,
+  promptRequired,
+  type Doc,
+  type DocNode,
+  type LedgerRow,
+} from "../screen/index.js";
 import { emptyAskScript, scriptedAsk, type AskScript } from "./scripted-ask.js";
 import { emptyWaitScript, scriptedWait, type WaitScript } from "./scripted-wait.js";
 
@@ -78,13 +85,21 @@ const makeEmptyState = (): TestRendererState => ({
   waitScript: emptyWaitScript(),
 });
 
+/**
+ * One row as a reader takes it in: its cells, and the reason beneath it where
+ * it did not settle as planned. The reason is part of the row, so a test that
+ * reads this text sees what the painter would put on the terminal.
+ */
+const rowText = (row: LedgerRow): string =>
+  [...row.cells.map(plain), ...(row.reason === undefined ? [] : [plain(row.reason)])].join("   ");
+
 const nodeText = (node: DocNode): string => {
   switch (node._tag) {
     case "headline":
     case "paragraph":
       return plain(node.text);
     case "ledger":
-      return node.rows.map((row) => row.cells.map(plain).join("   ")).join("\n");
+      return node.rows.map((row) => rowText(row)).join("\n");
     case "prompt":
       return plain(node.question);
     case "wait":
@@ -137,7 +152,7 @@ const captureDoc = (
   const capture = (node: DocNode): void => {
     if (node._tag === "ledger") {
       for (const row of node.rows) {
-        const message = row.cells.map(plain).join("   ");
+        const message = rowText(row);
         state.summaries.push(message);
         if (row.mark === "failed") state.logs.push({ _tag: "error", message });
         if (row.children !== undefined) captureDoc(state, row.children, channel, persistent);

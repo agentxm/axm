@@ -128,7 +128,7 @@ describe("Share workspace", () => {
       expect(result.installCommand.replaceAll(root, "<workspace>")).toMatchInlineSnapshot(
         `"axm install --skill shared --skill undeclared file://<workspace>"`,
       );
-      expect(result.installCommand).not.toContain("private");
+      expect(result.installCommand).not.toContain("--skill private");
       expect(snapshot(root)).toEqual(before);
     }),
   );

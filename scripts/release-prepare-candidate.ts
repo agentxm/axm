@@ -75,6 +75,13 @@ const candidateHost: ReleaseCandidateHost<NxReleaseContext> = {
       RELEASE_PROCESS_ENV,
     ),
 
+  generateCliReference: () =>
+    run(
+      "pnpm",
+      ["exec", "nx", "run", "cli:generate:cli-reference", "--outputStyle=static"],
+      RELEASE_PROCESS_ENV,
+    ),
+
   validateCohort: (version) => {
     console.log("\n==> Candidate phase 4: Validate the exact release cohort");
     const appliedVersion = requireMatchingReleasePackageVersions();

@@ -45,7 +45,7 @@ Updating  in this project · agents: claude-code, codex, grok-cli, opencode
      times and the workspace was left as it was. (timeout)
  =   1 extension already current  --verbose to list
 
-Partially updated  5 changed · 7 failed · 1 already current · exit 1
+Partially updated  5 updated · 7 failed · 1 already current · exit 1
 Every extension that did not settle: effects were restored.
 
 Next

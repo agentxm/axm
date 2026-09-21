@@ -648,7 +648,10 @@ const titleLine = (
 const statusWord = (settlement: Settlement): string => {
   switch (settlement._tag) {
     case "changed":
-      return unitState("committed");
+      // The row says what the change was, so the tally that counts the row
+      // says the same: a verdict reading `5 changed` over five rows reading
+      // `updated` asks a reader to work out that they are the same five.
+      return artifactChange(settlement.artifact.change);
     case "not-tried":
       return NOT_TRIED;
     case "rolled-back-in-flight":
@@ -660,6 +663,9 @@ const statusWord = (settlement: Settlement): string => {
 
 /** The settlements a verdict's aside counts, in the order it names them. */
 const TALLIED: ReadonlyArray<string> = [
+  artifactChange("created"),
+  artifactChange("updated"),
+  artifactChange("removed"),
   unitState("committed"),
   unitState("failed"),
   unitState("blocked"),
@@ -685,10 +691,15 @@ const verdictAside = (
   outcome: ReturnType<typeof deriveOperationOutcome>,
   exitCode: number,
 ): ReadonlyArray<string> => {
-  const words = units.map((unit) => statusWord(settlementOf(unit, mode)));
+  const settlements = units.map((unit) => settlementOf(unit, mode));
+  const words = settlements.map(statusWord);
   const repeatedByHeadline = new Set<string>(
     outcome === "applied"
-      ? [unitState("committed")]
+      ? // The headline already claims what was applied, whichever words the
+        // rows used for it.
+        settlements.flatMap((settlement, index) =>
+          settlement._tag === "changed" ? [words[index] ?? ""] : [],
+        )
       : outcome === "previewed"
         ? [unitState("planned"), unitState("ready")]
         : outcome === "no-op"

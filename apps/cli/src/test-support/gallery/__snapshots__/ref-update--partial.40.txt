@@ -105,7 +105,7 @@ Updating
      --verbose to list
 
 Partially updated
-  5 changed · 7 failed · 1 already
+  5 updated · 7 failed · 1 already
   current · exit 1
 Every extension that did not settle:
 effects were restored.

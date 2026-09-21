@@ -1726,6 +1726,20 @@ AXM works on every supported operating system, runtime, shell, and filesystem.
 
 #### Quality
 
+##### POSIX installer retries failed release downloads
+
+- Requirement: `system/installability/posix-installer-retries-release-downloads`
+- Owner: `cli-e2e`
+- Statement: When a release asset download fails transiently, the POSIX installer shall retry a bounded number of times and complete installation from a later checksum-valid response without a user restart.
+- Class: quality (installability)
+- Role: experience
+- Product goals: `platform-reach`, `trustworthy-distribution`
+- Boundary: process; selection: per-change
+- Boundary rationale: The actual shell installer requests an artifact and its checksum from a fixture that first returns server errors and then valid bytes; filesystem readback establishes whether installation completed.
+- Methods: example
+- Limitation: The fixture exercises the curl-backed installer on macOS/Linux; the wget fallback shares the shell retry loop but is not separately run. Retires when: Exercise the wget fallback with the same controlled response sequence.
+- Source: [`apps/cli-e2e/src/installers/posix-installer-retries-release-downloads.spec.ts`](../apps/cli-e2e/src/installers/posix-installer-retries-release-downloads.spec.ts)
+
 ##### AXM installs through its supported channels with integrity verification
 
 - Requirement: `system/installability/product-installs-through-supported-channels`

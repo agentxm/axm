@@ -38,6 +38,7 @@ import {
   factParts,
   interruptionPhrase,
   joined,
+  dispositionStatement,
   ledgerViewPolicy,
   notTriedReason,
   operationTitle,
@@ -251,6 +252,9 @@ const UNSETTLED: ReadonlySet<UnitState> = new Set([
   "rolled-back",
 ]);
 
+/** Where a producer's sentence has already closed, so nothing is appended to it. */
+const SENTENCE_END = /[.!?)]$/u;
+
 /** Whether a settlement owes the reader a reason of its own. */
 const owesReason = (settlement: Settlement): boolean =>
   settlement._tag === "not-tried" ||
@@ -271,16 +275,18 @@ const reasonOf = (
   saidOnce: boolean,
 ): string | undefined => {
   if (!owesReason(settlement)) return undefined;
-  const settled =
-    saidOnce || unit.disposition === undefined ? undefined : disposition(unit.disposition);
-  switch (settlement._tag) {
-    case "not-tried":
-      return joined([unit.blocking?.detail ?? notTriedReason(presentation), settled]);
-    case "rolled-back-in-flight":
-      return joined([INTERRUPTED_IN_FLIGHT, settled]);
-    default:
-      return joined([unit.message ?? UNREPORTED_REASON, settled]);
-  }
+  const reason =
+    settlement._tag === "not-tried"
+      ? (unit.blocking?.detail ?? notTriedReason(presentation))
+      : settlement._tag === "rolled-back-in-flight"
+        ? INTERRUPTED_IN_FLIGHT
+        : (unit.message ?? UNREPORTED_REASON);
+  if (saidOnce || unit.disposition === undefined) return reason;
+  // A producer's sentence already ends where it means to, so the settlement
+  // follows it as a sentence of its own rather than as another clause.
+  return SENTENCE_END.test(reason.trimEnd())
+    ? `${reason} ${dispositionStatement(unit.disposition)}`
+    : joined([reason, disposition(unit.disposition)]);
 };
 
 /**
@@ -422,8 +428,20 @@ const planRow = (
  */
 const FOLD_HINT = VERBOSE_LIST_HINT;
 
-/** Where no gate opens, the only place a reader learns the details are one flag away. */
+/**
+ * Where no gate opens, the only place a reader learns the details are one flag
+ * away. Width no longer hides anything, so the hint is stated only where
+ * verbose genuinely shows a row something normal level leaves out.
+ */
 const DETAIL_HINT = VERBOSE_DETAILS_HINT;
+
+const detailAwaitsVerbose = (
+  units: ReadonlyArray<{
+    readonly artifact?: JobStepArtifact;
+    readonly agentOutcomes?: ResolvedUnit<unknown>["agentOutcomes"];
+  }>,
+): boolean =>
+  units.some((unit) => rowChildren(unit, true).length > rowChildren(unit, false).length);
 
 interface FoldGroup {
   readonly count: number;
@@ -863,7 +881,7 @@ export const planDoc = (
     },
     // Where no gate opens there is nothing to answer, so the hint is the only
     // way a reader learns the details are one flag away.
-    ...(gated || detailed || unchanged > 0
+    ...(gated || detailed || unchanged > 0 || !detailAwaitsVerbose(steps)
       ? []
       : [{ _tag: "paragraph", tone: "dim", text: DETAIL_HINT } as const]),
   ];
@@ -936,7 +954,7 @@ export const livePlan = (
     verdict: planVerdict(presentation, "apply", running.length),
     // Where no gate opens this is the only place a reader learns the details
     // are one flag away.
-    ...(detailed ? {} : { hint: DETAIL_HINT }),
+    ...(detailed || !detailAwaitsVerbose(steps) ? {} : { hint: DETAIL_HINT }),
   };
 };
 

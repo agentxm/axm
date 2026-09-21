@@ -151,6 +151,7 @@ export {
   bytes,
   count,
   disposition,
+  dispositionStatement,
   duration,
   interruptionPhrase,
   liveUnitActivity,

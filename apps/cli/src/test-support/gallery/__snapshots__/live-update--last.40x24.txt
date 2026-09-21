@@ -2,7 +2,7 @@ Updating  in this project · agents: cl…
 
      Extension     Version   Status
  ◒   @acme…eview   2.0.0     applying
-     --verbose for details
+     96 KB / 192 KB
 
 applying 12 of 12 in 10.6s
 --verbose for details

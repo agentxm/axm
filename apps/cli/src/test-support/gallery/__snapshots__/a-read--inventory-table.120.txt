@@ -1,10 +1,20 @@
-     Extension                  Type         Management                         Installed   Version   Assessment
-     @acme/skills/code-review   skill        managed by this workspace          yes         1.4.0     not checked
-     @acme/skills/triage        skill        managed by this workspace          yes         2.0.1     not checked
-     @acme/subagents/reviewer   subagent     managed by this workspace          yes         0.9.0     not checked
-     @acme/packs/review-kit     pack         managed by this workspace          yes         2.1.0     not checked
-     github                     mcp-server   managed by this workspace          yes         1.0.0     not checked
- ▲   @legacy/skills/changelog   skill        installed but no longer selected   yes         0.3.0     not checked
-     Not shown at this width: Source, Guidance
+     Extension          Type         Management         Installed   Version   Source              Assessment    Guidance
+     @acme/skills/      skill        managed by this    yes         1.4.0     agentxm:@acme/      not checked   -
+     code-review                     workspace                                skills/
+                                                                              example@1.0.0
+     @acme/skills/      skill        managed by this    yes         2.0.1     agentxm:@acme/      not checked   -
+     triage                          workspace                                skills/
+                                                                              example@1.0.0
+     @acme/subagents/   subagent     managed by this    yes         0.9.0     agentxm:@acme/      not checked   -
+     reviewer                        workspace                                skills/
+                                                                              example@1.0.0
+     @acme/packs/       pack         managed by this    yes         2.1.0     agentxm:@acme/      not checked   -
+     review-kit                      workspace                                skills/
+                                                                              example@1.0.0
+     github             mcp-server   managed by this    yes         1.0.0     ./github            not checked   -
+                                     workspace
+ ▲   @legacy/skills/    skill        installed but no   yes         0.3.0     agentxm:@acme/      not checked   -
+     changelog                       longer selected                          skills/
+                                                                              example@1.0.0
 
 6 extensions · 3 enabled · 1 needs attention · axm lint explains

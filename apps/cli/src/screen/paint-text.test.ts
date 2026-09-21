@@ -662,13 +662,14 @@ describe("paintText", () => {
       ]);
     });
 
-    it("drops an optional column before stacking required columns", () => {
+    it("moves an optional column's values beneath their rows before stacking", () => {
       expect(plain(ledger, 44)).toEqual([
         "     Extension        Version   Plan",
         " +   @…/code-review   1.4.0     install",
+        "     42 files",
         " ~   @acme/…/triage   2.0.1     update",
+        "     from 1.9.4",
         " =   3 unchanged  --verbose to list",
-        "     --verbose for details",
       ]);
     });
 

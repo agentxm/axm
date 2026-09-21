@@ -28,8 +28,9 @@ import {
   type PaintWidth,
 } from "./paint-kit.js";
 import { joinGridLine, layoutTable, type LayoutColumn, type TableLayout } from "./table-layout.js";
+import type { Glyphs } from "./glyphs.js";
 import { displayWidth, padDisplay } from "./width.js";
-import { longestWordWidth, truncateText } from "./wrap-text.js";
+import { longestWordWidth, spansOf, truncateText } from "./wrap-text.js";
 
 /**
  * Label–value pairs with each value starting at `valueStart`. A label that
@@ -289,6 +290,45 @@ const reasonTone = (mark: Mark): Tone => {
 };
 
 /**
+ * The cells of the columns the grid could not lay out, beneath the row they
+ * belong to. A value that does not fit beside its row moves under it; it never
+ * leaves the document. One hidden column needs no label — the value is the
+ * only thing missing — and several are named so a reader knows which is which.
+ */
+const relocatedText = (
+  row: LedgerRow,
+  hidden: ReadonlyArray<number>,
+  headers: ReadonlyArray<Text>,
+  glyphs: Glyphs,
+): Text => {
+  const shown = hidden.flatMap((index) => {
+    const cell = cellAt(row.cells, index);
+    return plain(cell).length === 0 ? [] : [{ header: plain(headers[index] ?? ""), cell }];
+  });
+  const [only] = shown;
+  if (only === undefined) return "";
+  if (shown.length === 1) return only.cell;
+  return shown.flatMap((part, position) => [
+    ...(position === 0 ? [] : [{ text: glyphs.separator }]),
+    ...(part.header.length === 0 ? [] : [{ text: `${part.header}  ` }]),
+    ...spansOf(part.cell),
+  ]);
+};
+
+const paintRelocated = (
+  row: LedgerRow,
+  hidden: ReadonlyArray<number>,
+  headers: ReadonlyArray<Text>,
+  style: ResolvedStyle,
+  indent: number,
+): ReadonlyArray<string> => {
+  const text = relocatedText(row, hidden, headers, style.glyphs);
+  return plain(text).length === 0
+    ? []
+    : paintPrefixed(text, style, { indent: indent + GUTTER_WIDTH, first: "", tone: "dim" });
+};
+
+/**
  * Why a row did not settle as planned, at the content column beneath it. It is
  * painted whatever the layout did to the columns, because the reason is the
  * one value a reader cannot recover from anywhere else.
@@ -327,10 +367,11 @@ const paintFold = (
  * start at the value column, so a ledger, its fields, and its answers share
  * one lane.
  *
- * Under width pressure a ledger drops its `optional` columns and then stacks,
- * keeping each row's mark and name on one line with its remaining cells dim
- * beneath. A row's reason is painted beneath it whatever the layout chose, so
- * the one value that has nowhere else to appear is never what gives way.
+ * Under width pressure a ledger wraps its cells, then drops its `optional`
+ * columns, then stacks each row into its mark and name with its remaining
+ * values dim beneath. A value a dropped column held is repainted under its own
+ * row, and a row's reason is painted there whatever the layout chose, so width
+ * moves what a ledger carries and never removes it.
  */
 export const paintLedger = (
   node: LedgerNode,
@@ -362,6 +403,7 @@ export const paintLedger = (
     gap: COLUMN_GAP,
     stackBelow: 0,
     droppable: ["optional"],
+    wrapBeforeDrop: true,
   });
   const fold = (node.folds ?? []).flatMap((each) => paintFold(each, style, indent));
   const children = (row: LedgerRow): ReadonlyArray<string> =>
@@ -372,10 +414,10 @@ export const paintLedger = (
     // Stacked: the mark and the name on one line, the rest dim beneath it.
     return [
       ...node.rows.flatMap((row) => {
+        // A stacked row keeps every value it has, optional columns included:
+        // there is no narrower layout left for one of them to move to.
         const rest = node.columns
-          .flatMap((column, position) =>
-            position === 0 || column.priority === "optional" ? [] : [cellAt(row.cells, position)],
-          )
+          .flatMap((_column, position) => (position === 0 ? [] : [cellAt(row.cells, position)]))
           .filter((cell) => plain(cell).length > 0);
         return [
           // The mark stays in the gutter; only the name moves under its parent.
@@ -443,16 +485,10 @@ export const paintLedger = (
         indent,
         first: gutter(markGlyph(row.mark, style)),
       }),
+      ...paintRelocated(row, layout.hidden, headers, style, indent),
       ...paintReason(row, style, indent),
       ...children(row),
     ]),
     ...fold,
-    ...(layout.hidden.length === 0
-      ? []
-      : paintPrefixed("--verbose for details", style, {
-          indent: indent + GUTTER_WIDTH,
-          first: "",
-          tone: "dim",
-        })),
   ];
 };

@@ -3,10 +3,13 @@ Previewing publish
 
      Extension      Version   Plan
  +   @acme/…eview   1.4.0     publish
+     42 files, 380 KB
  +   @a…/reviewer   0.9.0     publish
+     3 files, 4 KB
  =   @acm…/triage   2.0.1     skip
+     already published
  +   @acme/…w-kit   2.1.0     publish
-     --verbose for details
+     after its 2 members
 
      Visibility     public (from the
                     manifest)

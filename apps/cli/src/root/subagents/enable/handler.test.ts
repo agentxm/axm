@@ -193,7 +193,7 @@ describe("subagents enable.handler", () => {
                   // The refusal is why the unit did not settle, so it stands on
                   // the row's reason line rather than in a droppable cell.
                   reason:
-                    'Accepted subagent content for "my-agent" is not usable (not_found), effects were restored',
+                    'Accepted subagent content for "my-agent" is not usable (not_found) Effects were restored.',
                 }),
               ]),
             }),

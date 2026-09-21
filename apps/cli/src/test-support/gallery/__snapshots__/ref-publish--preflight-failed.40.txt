@@ -3,9 +3,9 @@ Previewing publish
 
      Extension      Version   Plan
  ✖   @acme/…eview   1.4.0     failed
+     candidate is invalid
      skill.json is missing a required
      version.
-     --verbose for details
 
 AXM found a problem in 1 extension
 before publishing

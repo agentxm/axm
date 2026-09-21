@@ -1,14 +1,15 @@
 @craigsmitham/effect-v4  skill
 
      Version        0.4.2
-     Source
-       registry
-       (https://registry.axm.sh/@craigsm
-       itham/effect-v4)
+     Source         registry (https://
+                    registry.axm.sh/
+                    @craigsmitham/
+                    effect-v4)
      Owner          @craigsmitham
-     Installed at
-       agent_extensions/registry/@craigs
-       mitham/skills/effect-v4
+     Installed at   agent_extensions/
+                    registry/
+                    @craigsmitham/
+                    skills/effect-v4
      Description    Checklists to
                     consult when
                     designing,

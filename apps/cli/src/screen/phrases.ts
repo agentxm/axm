@@ -197,6 +197,15 @@ export const disposition = (value: UnitDisposition): string => {
 };
 
 /**
+ * The same settlement fact as a sentence of its own, for a reason line whose
+ * producer already finished its own sentence.
+ */
+export const dispositionStatement = (value: UnitDisposition): string => {
+  const clause = disposition(value);
+  return `${clause.slice(0, 1).toUpperCase()}${clause.slice(1)}.`;
+};
+
+/**
  * What became of every unit that did not settle as planned, where they were
  * all left in the same state. A partial operation whose closures each rolled
  * themselves back says it once beneath its verdict instead of repeating it on

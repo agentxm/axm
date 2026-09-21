@@ -1,11 +1,13 @@
 Previewing sync  in this project
 
-     Extension                     Version   Plan
- +   @acme/skills/standup          0.4.2     install
- +   github                        -         install
- ~   @acme/skills/triage           2.0.1     update
- -   @legacy/skills/changelog      0.3.0     remove
+     Extension                     Version   Plan      Detail
+ +   @acme/skills/standup          0.4.2     install   agent_extensions/standup
+ +   github                        -         install   2 files,
+                                                       agent_extensions/github
+ ~   @acme/skills/triage           2.0.1     update    from 1.9.4,
+                                                       agent_extensions/triage
+ -   @legacy/skills/changelog      0.3.0     remove    agent_extensions/
+                                                       changelog
  =   12 extensions already current  --verbose to list
-     --verbose for details
 
 Would sync 4 extensions  12 already current · no changes made

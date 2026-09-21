@@ -2,6 +2,7 @@ Updating  in this project · agents: cl…
 
      Extension     Version   Status
  ◒   @acme…tever   1.0.1     applying
+     96 KB / 192 KB
  ~   @acme…-spew   0.1.9     update
  ~   @acme…-docs   0.5.0     update
  ~   @acme/…/okf   0.1.8     update
@@ -9,6 +10,5 @@ Updating  in this project · agents: cl…
  ~   @acme…ering   0.9.4     update
  ~   @acme…ering   2.3.0     update
  ·   5 more waiting
-     --verbose for details
 
 applying 1 of 12 in 700ms

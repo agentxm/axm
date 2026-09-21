@@ -134,6 +134,21 @@ People and agents can understand invalid workspace state and recover it through 
 - Open questions: Which target takes precedence when a single word names both a topic and a command? These examples do not establish that collision policy.
 - Source: [`apps/cli-e2e/src/help/returns-requested-topic-or-command.spec.ts`](../apps/cli-e2e/src/help/returns-requested-topic-or-command.spec.ts)
 
+##### A ledger moves a value it cannot lay out; it never removes one
+
+- Requirement: `cli/ledger-width-relocates-values`
+- Owner: `cli`
+- Statement: When an operation ledger cannot lay a column out at the available width, each non-empty value of that column shall appear beneath its own row, so that no value present at a wider width is absent at a narrower one; a value marked as one a person copies shall appear whole, never cut, split, or hyphenated, on a line of its own where it does not fit beside its row.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `extension-adoption`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The painter is a pure function from a document and a terminal width to lines, so the whole obligation is decided in memory.
+- Methods: property, example
+- Derived from: `cli/ascii-human-output-preserves-content`, `cli/non-tty-output-is-plain-and-unpadded`
+- Assumptions: A ledger's protected name column is shortened in the middle rather than relocated, which `cli/names-yield-width-last` owns; this obligation covers every other column.
+- Source: [`apps/cli/src/screen/ledger-width-relocates-values.spec.ts`](../apps/cli/src/screen/ledger-width-relocates-values.spec.ts)
+
 ##### Authored skills are excluded from unowned agent output findings
 
 - Requirement: `cli/lint/authored-skills-are-not-agent-output`

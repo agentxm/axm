@@ -4,11 +4,11 @@ Syncing
  ▲   @acme-enterprise…/effect-v4   -         blocked     from 0.4.2,
                                                          /home/dev/work/platform-services/agent_extensions/effect-v4
      The workspace pins @acme-enterprise/knowledge/effect-v4 to 0.4.2 while the pack @acme/packs/field-notes requires
-     ^0.5.0. Two settings ask for versions that cannot both hold, so AXM changed nothing., no changes were applied
+     ^0.5.0. Two settings ask for versions that cannot both hold, so AXM changed nothing. No changes were applied.
  ▲   @acme/packs/field-notes       -         blocked     from 1.0.0,
                                                          /home/dev/work/platform-services/agent_extensions/field-notes
-     This pack waits on @acme-enterprise/knowledge/effect-v4, which is blocked by a version conflict., no changes were
-     applied
+     This pack waits on @acme-enterprise/knowledge/effect-v4, which is blocked by a version conflict. No changes were
+     applied.
  ·   @acme/skills/research         -         not tried
      the operation stopped before this extension
 

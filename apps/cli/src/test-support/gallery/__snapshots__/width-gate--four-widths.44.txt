@@ -4,10 +4,13 @@ Previewing install
 
      Extension        Version   Plan
  +   @…/code-review   1.4.0     install
+     42 files, 380 KB
  +   @acm…/reviewer   0.9.0     install
+     3 files, 4 KB
  +   @a…/review-kit   2.1.0     install
+     after its 2 members
  ~   @acme/…/triage   2.0.1     update
-     --verbose for details
+     from 1.9.4, 8 files
 
  ▲   Publisher identity changed for
      @acme/skills/triage

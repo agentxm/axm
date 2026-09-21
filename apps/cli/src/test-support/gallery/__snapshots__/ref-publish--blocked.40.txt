@@ -2,9 +2,9 @@ Publishing  as @acme · to agentxm
 
      Extension      Version   Status
  ▲   @acme/…eview   1.4.0     blocked
+     4 paths differ from HEAD
  ·   @a…/reviewer   0.9.0     not tried
  ·   @acme/…w-kit   2.1.0     not tried
-     --verbose for details
 
  ▲   Publish is blocked — an explicit
      override is required

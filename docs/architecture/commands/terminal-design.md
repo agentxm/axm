@@ -197,15 +197,26 @@ alignment, so a header never drifts from its cells. Breakpoints are emergent,
 not configured: with a required name, a preferred version, and an optional
 elastic detail, spare width flows to detail and detail drops first.
 
-A ledger drops only its `optional` columns, whose values a flag or `--verbose`
-still reveals. When the columns it keeps — the gutter, the name, and every
-column that is not optional — overflow, it stacks each row into its mark and
-name on one line and its remaining values beneath, rather than drop a value
-that has nowhere else to appear. It stacks on that overflow, not at a fixed
+A long word gives way at a path separator or a comma before it is split
+between characters, so a path list wraps at its segments and a column's floor
+is its widest segment rather than the whole list.
+
+A ledger would rather wrap than drop: it shrinks every column to its word
+floors before it gives one up, because wrapping keeps a value in the column
+whose header names it. What it does drop — only an `optional` column — is
+repainted beneath each row that has a value for it, dim, at the content
+column: the bare value when one column was dropped, and `Header  value` pairs
+when more than one was. When the columns it keeps — the gutter, the name, and
+every column that is not optional — overflow, it stacks each row into its mark
+and name on one line and every remaining value beneath. Width therefore moves
+what a ledger carries and never removes it, and no ledger sends a reader to
+`--verbose` for a value the same flag would drop again. The hint remains only
+where verbose genuinely shows more: folded already-current and not-selected
+rows, and every agent's outcome. A ledger stacks on overflow, not at a fixed
 width, and its name column holds the key lane, so a ledger's second column,
 its fields, and its answers share the value column. A read-only table instead
-drops `preferred` columns and stacks below forty columns, which suits wide
-inventories.
+drops `preferred` columns, names what it dropped in one line, and stacks below
+forty columns, which suits wide inventories.
 
 A question yields in three steps. Its key chips follow it on one line while
 both fit; then they take the line beneath it, aligned to the content column;
@@ -238,7 +249,8 @@ every key.
 A long name shortens in the middle, keeping its scope and last path segment:
 `@acme-enterprise/…/soc2-review`. A copyable value — a URL, a `next` command, a
 one-time code, a request identifier — is never cut, truncated, or hyphenated;
-when it does not fit it moves to its own line.
+when it does not fit it moves to its own line, in a ledger cell as anywhere
+else.
 
 A stream that is not a terminal is unbounded. Nothing written to it is
 wrapped, truncated, or padded to a terminal width, so an agent or a pager

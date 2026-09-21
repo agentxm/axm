@@ -19,10 +19,13 @@ Setting up AXM in ~/code/storefront
  +   CLAUDE.md      created
  +   .curso…s.mdc   created
  +   @agentx…/axm   created
+     0.31.1
  +   .claude…/axm   created
+     Claude Code
  +   .agents…/axm   created
+     Codex
  +   .cursor…/axm   created
-     --verbose for details
+     Cursor
 
 Set up AXM for 3 agents
   8 created, 1 updated

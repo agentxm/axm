@@ -41,15 +41,17 @@ export const desiredStateReconcilableRule: AdvisoryRule<WorkspaceRuleContext> = 
           message:
             problem.type === "workspace-owner-missing"
               ? `${problem.extensionType} '${problem.name}' uses source 'workspace', but axm.json does not declare an owner.`
-              : problem.type === "projection-collision"
-                ? `${problem.extensionType} '${problem.name}' has competing desired identities: ${problem.identities.join(", ")}.`
-                : `${problem.extensionType} '${problem.name}' has incompatible constraints: ${problem.contributors
-                    .map((contributor) =>
-                      contributor.source === "pack"
-                        ? `${contributor.dependingPack ?? "unknown Pack"} range=${contributor.range} location=${contributor.location}`
-                        : `settings range=${contributor.range} location=${contributor.location}`,
-                    )
-                    .join(", ")}. Decision=blocked; reason=no-satisfying-version.`,
+              : problem.type === "member-configuration-unbound"
+                ? `${problem.extensionType} '${problem.name}' is configured in ${problem.location}, but no configured pack supplies it. Remove the entry, or declare a source to install it directly.`
+                : problem.type === "projection-collision"
+                  ? `${problem.extensionType} '${problem.name}' has competing desired identities: ${problem.identities.join(", ")}.`
+                  : `${problem.extensionType} '${problem.name}' has incompatible constraints: ${problem.contributors
+                      .map((contributor) =>
+                        contributor.source === "pack"
+                          ? `${contributor.dependingPack ?? "unknown Pack"} range=${contributor.range} location=${contributor.location}`
+                          : `settings range=${contributor.range} location=${contributor.location}`,
+                      )
+                      .join(", ")}. Decision=blocked; reason=no-satisfying-version.`,
           location: { file: "axm.json" },
         };
       });

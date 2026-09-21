@@ -323,7 +323,7 @@ describe("disableSkill", () => {
       }),
     );
 
-    it.effect("derives a registry FQN when promoting an implicit registry skill", () =>
+    it.effect("records a configuration-only entry for an implicit registry skill", () =>
       Effect.gen(function* () {
         const base = path.join(tmpDir, "project");
         const axmDir = path.join(base, ".axm");
@@ -363,30 +363,38 @@ describe("disableSkill", () => {
         );
 
         expect(result.result).toBe("success");
+        // The Pack stays the sole owner of the member source and range: the
+        // preference records the choice and nothing else.
         expect(onSetEntry).toHaveBeenCalledWith("skill", "my-skill", {
-          source: "@community/skills/my-skill",
+          kind: "configuration",
           enabled: false,
         });
       }),
     );
 
-    it.effect("fails when implicit skill has no derivable source", () =>
+    it.effect("records the preference even when no source can be derived", () =>
       Effect.gen(function* () {
         const base = path.join(tmpDir, "project");
         const axmDir = path.join(base, ".axm");
         fs.mkdirSync(axmDir, { recursive: true });
 
+        const onSetEntry = vi.fn<(type: string, name: string, entry: unknown) => void>();
         const rows = [
           implicitRow({ type: "skill", name: "my-skill", packagingKind: "non-native" }),
         ];
 
         const result = yield* disableSkill(makeOp()).pipe(
-          Effect.provide(withServices(axmDir, { rows })),
+          Effect.provide(withServices(axmDir, { rows, onSetEntry })),
           Effect.catch((e) => Effect.succeed({ result: "error" as const, message: e.detail })),
         );
 
-        expect(result.result).toBe("error");
-        expect(result.message).toContain("Cannot determine source");
+        // A preference needs no source, so disabling stays available offline
+        // and for a member whose source cannot be spelled.
+        expect(result.result).toBe("success");
+        expect(onSetEntry).toHaveBeenCalledWith("skill", "my-skill", {
+          kind: "configuration",
+          enabled: false,
+        });
       }),
     );
   });

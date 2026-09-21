@@ -146,8 +146,12 @@ export {
 } from "../packs/lifecycle/member-install-step.js";
 export {
   configuredPackConstraintBlockPlan,
+  PACK_CONSTRAINT_CONFLICT_BLOCKER_ID,
+  packUpdateGroups,
   prospectivePackConstraintProblems,
+  prospectivePackUpdateGroups,
   relevantPackConstraintProblems,
+  type PackUpdateGroup,
 } from "../packs/lifecycle/constraint-gate.js";
 
 // Uninstall: withdrawing extensions, as one use case behind every spelling.

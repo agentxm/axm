@@ -877,7 +877,7 @@ export const installMcpServer: (
             owner: ref.owner,
             resolvedVersion,
             nothingRunnable,
-            enabled: projectionEntry.enabled,
+            enabled: projectionEntry.enabled !== false,
             configValues: preserveSecretReferences(projectionEnv, secretNames),
             entry: projectionEntry,
           });

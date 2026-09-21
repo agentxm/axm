@@ -12,7 +12,7 @@ import {
   type DesiredStateProblem,
   type ProspectivePackRef,
 } from "./desired-state-graph.js";
-import { isDesiredExtensionActive } from "./desired-state-enabled.js";
+import { effectiveExtensionActivation } from "./desired-state-enabled.js";
 import type { WorkspaceLayout } from "./layout.js";
 import type { PackManifestsPort } from "./pack-manifests.js";
 
@@ -53,7 +53,14 @@ const withoutInvalidPackOrigins = (
           : [origin.constraint],
     );
     if (settingsOrigin?.type === "settings" && settingsOrigin.authority === "inline") {
-      return [{ ...node, enabled: isDesiredExtensionActive(origins), constraints, origins }];
+      return [
+        {
+          ...node,
+          enabled: effectiveExtensionActivation(origins, node.preference),
+          constraints,
+          origins,
+        },
+      ];
     }
     return [
       {
@@ -65,7 +72,7 @@ const withoutInvalidPackOrigins = (
           (packOrigin === undefined
             ? node.source
             : `${packOrigin.source}@${packOrigin.constraint}`),
-        enabled: isDesiredExtensionActive(origins),
+        enabled: effectiveExtensionActivation(origins, node.preference),
         constraints,
         origins,
       },

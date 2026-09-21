@@ -25,17 +25,17 @@ managed outputs must never be used to invent missing settings.
 Settings records several kinds of choices that a user may reasonably make and
 review:
 
-| Configuration kind          | Architectural role                                                                                                   |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Extension intent            | Names directly desired extensions, source or version constraints, activation, and per-extension realization choices. |
-| Workspace realization       | Selects coding agents, inline definitions, and workspace capabilities such as instruction-file management.           |
-| Acquisition policy          | Names Registry endpoints, selects the default Registry, and constrains new resolution.                               |
-| Authoring defaults          | Supplies workspace identity defaults used for authoring and local resolution.                                        |
-| Workspace validation policy | Configures lint behavior without declaring extensions desired.                                                       |
+| Configuration kind          | Architectural role                                                                                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Extension intent            | Names directly desired extensions, source or version constraints, activation, and per-extension realization choices, and configures members a Pack supplies. |
+| Workspace realization       | Selects coding agents, inline definitions, and workspace capabilities such as instruction-file management.                                                   |
+| Acquisition policy          | Names Registry endpoints, selects the default Registry, and constrains new resolution.                                                                       |
+| Authoring defaults          | Supplies workspace identity defaults used for authoring and local resolution.                                                                                |
+| Workspace validation policy | Configures lint behavior without declaring extensions desired.                                                                                               |
 
-Extension entries are roots of desired state. Pack members remain derived from
-accepted locked Pack metadata or workspace-authored Pack manifests; AXM does not
-flatten them into settings.
+A sourced extension entry is a root of desired state. Pack members remain
+derived from accepted locked Pack metadata or workspace-authored Pack
+manifests; AXM does not flatten them into settings.
 
 For a sourced MCP entry, the `mcpServers` map key is the workspace-local
 connection name and the value identifies its package source. Several local
@@ -53,11 +53,27 @@ Knowledge entry's instruction-publication override, for example, is distinct
 from both Knowledge-wide instruction publication and top-level
 instruction-file management.
 
-A settings entry for a Pack member is direct desired intent, even when its only
-type-specific choice overrides package behavior. It contributes its own source
+Whether a settings entry is desired intent turns on whether it declares a
+source. A sourced entry is direct desired intent: it contributes its own source
 constraint, combines with the Pack constraint, and remains desired if the Pack
-route is removed. Settings does not contain a separate non-retaining
-Pack-member overlay model.
+route is removed. A source-less entry configures the member some installed Pack
+already supplies under that local name. It carries preferences only —
+activation, and the type-specific choices that entry type admits — and
+contributes no dependency root, version constraint, source resolution, or
+retention claim, so a Pack stays the sole owner of its member's version and
+remains free to advance it.
+
+Activation writes the entry this distinction requires. Turning a Pack-supplied
+member off or on records a configuration entry rather than copying the member's
+source and range into settings, which would fork the member into an
+independent declaration the workspace never asked for. An entry that already
+declares a source keeps it. A preference binds to one unambiguous Pack-supplied
+identity under its local name: it cannot invent an alias or infer a source, it
+stays dormant while every Pack supplying it is disabled, and a preference no
+configured Pack supplies is reported rather than guessed at. Removing the last
+Pack that supplies the member removes its configuration in the same transition;
+removing the configuration alone restores inherited behavior without
+uninstalling a member another route still reaches.
 
 Instruction-file management is a first-class workspace capability represented
 by the top-level `instructionFiles` object, not Rule configuration. Absence

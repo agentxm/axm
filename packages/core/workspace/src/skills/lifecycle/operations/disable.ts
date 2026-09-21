@@ -95,25 +95,18 @@ export const disableSkill: OperationHandler<
         detail: "Cannot disable the skill while pack-derived desired state is unresolved.",
       });
     }
-    const desiredBeforeDisable = graph.nodes.find(
-      (node) => node.type === "skill" && node.name === op.args.skillName,
-    );
-
     const sanitizedName = sanitizeName(op.args.skillName);
     const materializationAgents = yield* agentRepository.getMaterializationAgents();
     const installableTargetOptions = yield* runWorkspaceTransaction({
       transition: Effect.gen(function* () {
         if (isImplicit) {
-          const source =
-            desiredBeforeDisable?.source ?? Option.getOrElse(installed.source, () => undefined);
-          if (source === undefined) {
-            return yield* new ExtensionLifecycleFailed({
-              category: "internal",
-              detail: `Cannot determine source for implicit skill "${op.args.skillName}"`,
-              suggestions: [{ description: "Provide a source when disabling this skill" }],
-            });
-          }
-          yield* settingsWriter.setEntry("skill", op.args.skillName, { source, enabled: false });
+          // An implicit skill is supplied by a Pack. The preference records the
+          // choice alone: copying the member's source here would fork it into an
+          // independent declaration and pin the Pack's range into settings.
+          yield* settingsWriter.setEntry("skill", op.args.skillName, {
+            kind: "configuration",
+            enabled: false,
+          });
         } else {
           yield* settingsWriter.updateEntry("skill", op.args.skillName, (entry) => ({
             ...entry,

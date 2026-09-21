@@ -68,6 +68,19 @@ export interface EntriesAccessor<Document, Entry> {
   readonly remove: (document: Document, name: string) => Document;
 }
 
+/**
+ * A settings map accessor, plus the one write that must never be open-coded.
+ *
+ * `setActivation` is the only supported way to record an enable or disable:
+ * an existing entry keeps everything it declares and moves only its
+ * activation, while a member that has no entry yet gets a configuration-only
+ * one. A caller cannot accidentally turn a Pack-supplied member into an
+ * independent declaration by reaching for a source it happens to know.
+ */
+export interface SettingsEntriesAccessor<Entry> extends EntriesAccessor<Settings, Entry> {
+  readonly setActivation: (settings: Settings, name: string, enabled: boolean) => Settings;
+}
+
 const accessor = <Document, Entry>(
   read: (document: Document) => Readonly<Record<string, Entry>>,
   write: (document: Document, entries: Readonly<Record<string, Entry>>) => Document,
@@ -82,37 +95,68 @@ const accessor = <Document, Entry>(
   },
 });
 
+/**
+ * A settings accessor whose activation write knows the type's configuration
+ * form. `configuration` is absent for Packs: a Pack is declared, never
+ * supplied by another Pack, so it has no configuration-only entry to create.
+ */
+const settingsAccessor = <Entry>(
+  read: (settings: Settings) => Readonly<Record<string, Entry>>,
+  write: (settings: Settings, entries: Readonly<Record<string, Entry>>) => Settings,
+  configuration?: (enabled: boolean) => Entry,
+): SettingsEntriesAccessor<Entry> => {
+  const base = accessor(read, write);
+  return {
+    ...base,
+    setActivation: (settings, name, enabled) => {
+      const current = base.entry(settings, name);
+      if (Option.isSome(current)) {
+        return base.set(settings, name, { ...current.value, enabled });
+      }
+      return configuration === undefined
+        ? settings
+        : base.set(settings, name, configuration(enabled));
+    },
+  };
+};
+
 /** Settings entry maps by type; absent maps read as empty. */
 export const settingsEntries: {
-  readonly [T in InstallableExtensionType]: EntriesAccessor<Settings, SettingsEntryByType[T]>;
+  readonly [T in InstallableExtensionType]: SettingsEntriesAccessor<SettingsEntryByType[T]>;
 } = {
-  skill: accessor(
+  skill: settingsAccessor(
     (settings) => settings.skills ?? {},
     (settings, skills) => ({ ...settings, skills }),
+    (enabled) => ({ kind: "configuration", enabled }),
   ),
-  pack: accessor(
+  pack: settingsAccessor(
     (settings) => settings.packs ?? {},
     (settings, packs) => ({ ...settings, packs }),
   ),
-  "mcp-server": accessor(
+  "mcp-server": settingsAccessor(
     (settings) => settings.mcpServers ?? {},
     (settings, mcpServers) => ({ ...settings, mcpServers }),
+    (enabled) => ({ kind: "configuration", enabled, env: {} }),
   ),
-  subagent: accessor(
+  subagent: settingsAccessor(
     (settings) => settings.subagents ?? {},
     (settings, subagents) => ({ ...settings, subagents }),
+    (enabled) => ({ kind: "configuration", enabled }),
   ),
-  rule: accessor(
+  rule: settingsAccessor(
     (settings) => settings.rules ?? {},
     (settings, rules) => ({ ...settings, rules }),
+    (enabled) => ({ kind: "configuration", enabled }),
   ),
-  hook: accessor(
+  hook: settingsAccessor(
     (settings) => settings.hooks ?? {},
     (settings, hooks) => ({ ...settings, hooks }),
+    (enabled) => ({ kind: "configuration", enabled }),
   ),
-  knowledge: accessor(
+  knowledge: settingsAccessor(
     (settings) => settings.knowledge ?? {},
     (settings, knowledge) => ({ ...settings, knowledge }),
+    (enabled) => ({ kind: "configuration", enabled }),
   ),
 };
 

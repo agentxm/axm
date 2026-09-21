@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import {
+  PACK_CONSTRAINT_CONFLICT_BLOCKER_ID,
   UpdateExtensions,
   WORKSPACE_UPDATE_ATOMICITY,
   type ConfiguredUpdateSelector,
@@ -134,7 +135,22 @@ const handleWorkspaceUpdateBody = Effect.fn("Update.handleConfigured")(function*
       }),
     ),
   );
+  // A constraint contradiction is a choice to make, not a step to repeat:
+  // point at the declarations that disagree instead of implying a rerun or a
+  // sync would settle them.
+  const constraintRefused = resolution.units.some(
+    (unit) => unit.blocking?.reference === PACK_CONSTRAINT_CONFLICT_BLOCKER_ID,
+  );
   yield* emitOperationResolution(args.command, resolution, {
-    suggestions: [{ description: "Inspect installed extensions", cmd: "axm list" }],
+    suggestions: constraintRefused
+      ? [
+          {
+            description:
+              "Review the declarations that disagree, then widen or remove the declared range, or hold the Pack at a compatible version",
+            cmd: "axm packs show <pack>",
+          },
+          { description: "Inspect installed extensions", cmd: "axm list" },
+        ]
+      : [{ description: "Inspect installed extensions", cmd: "axm list" }],
   });
 });

@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   requirement: "cli/packs/unpack/promotes-members-without-overwriting-direct-intent",
   title: "Unpack keeps members installed as direct declarations",
   statement:
-    "When a person unpacks a configured pack with complete member resolutions, AXM shall preserve its installed leaf members as direct workspace declarations, retain existing direct declarations unchanged, and remove the pack declaration.",
+    "When a person unpacks a configured pack with complete member resolutions, AXM shall preserve its installed leaf members as direct workspace declarations, retain existing direct declarations unchanged, carry a configuration-only member entry's preferences into the declaration it creates rather than treating that entry as an existing declaration, and remove the pack declaration.",
   class: "functional",
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
@@ -81,4 +81,28 @@ describe("Unpacking a pack", () => {
         )
         .pipe(Effect.provide(NodeServices.layer));
     });
+
+  it.effect("promotes a member that only carried a configuration entry", () => {
+    const world = makePackWorld(cleanups);
+    return world.workspace
+      .provide(
+        Effect.gen(function* () {
+          // A preference, not a declaration: it states activation and names no
+          // source, so unpack still owes this member a declaration of its own.
+          yield* seedAuthoredPackWorkspace(world, { skills: { review: { enabled: false } } });
+
+          const resolution = yield* applyUnpack({ name: PACK });
+
+          expect(deriveOperationOutcome(resolution)).toBe("applied");
+          const settings = readSettings(world.workspace);
+          expect(settings).toMatchObject({
+            skills: {
+              review: { source: expect.stringContaining("@acme/skills/review"), enabled: false },
+            },
+          });
+          expect(JSON.stringify(settings)).not.toContain(`"${PACK}"`);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
 });

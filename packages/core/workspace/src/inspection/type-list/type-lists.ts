@@ -140,7 +140,7 @@ export const listSubagents = Effect.fn("Inspection.listSubagents")(function* (re
 const sourcedRows = (
   type: "rule" | "hook",
   inventory: ExtensionInventory,
-  configured: Readonly<Record<string, { readonly source: string } | undefined>>,
+  configured: Readonly<Record<string, { readonly source?: string | undefined } | undefined>>,
   locked: Readonly<Record<string, unknown>>,
   outcomesFor: (row: ExtensionInventoryRow) => ReadonlyArray<ConfiguredAgentOutcome>,
 ): TypeListResult<SourcedListRow> => {

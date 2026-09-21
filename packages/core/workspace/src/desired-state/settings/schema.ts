@@ -115,7 +115,7 @@ export type SourceHostConfig = Schema.Schema.Type<typeof SourceHostConfigSchema>
 export type RegistrySourceHostConfig = Schema.Schema.Type<typeof RegistrySourceHostConfigSchema>;
 
 type SourceEntryObject = {
-  readonly source: string;
+  readonly source?: string;
 };
 
 type SourceEntry = {
@@ -123,33 +123,61 @@ type SourceEntry = {
 };
 
 type EnabledEntryObject = SourceEntryObject & {
-  readonly enabled?: boolean | undefined;
-  readonly distribute?: boolean | undefined;
+  readonly enabled?: boolean;
+  readonly distribute?: boolean;
 };
 
-type EnabledEntry = SourceEntry & {
+/** The authored shape of an entry that always declares acquisition. */
+type SourcedEntryObject = SourceEntry & {
+  readonly enabled?: boolean;
+  readonly distribute?: boolean;
+};
+
+/**
+ * A Pack-member configuration entry: an object with no acquisition definition.
+ *
+ * It carries preferences for a member some installed Pack already supplies. It
+ * declares no source, contributes no version constraint, and never becomes a
+ * dependency root — `kind` is the internal discriminator only, never authored
+ * in the settings document.
+ */
+type MemberConfigurationEntry = {
+  readonly kind: "configuration";
+  readonly source?: undefined;
+  readonly distribute?: undefined;
+  readonly enabled?: boolean;
+};
+
+type CanonicalSourcedEnabledEntry = SourceEntry & {
+  readonly kind?: "sourced" | undefined;
   readonly enabled: boolean;
   readonly distribute?: boolean;
 };
 
+type EnabledEntry = CanonicalSourcedEnabledEntry | MemberConfigurationEntry;
+
 type KnowledgeEntryObject = EnabledEntryObject & {
+  readonly instructionEntry?: boolean;
+};
+
+type CanonicalSourcedKnowledgeEntry = CanonicalSourcedEnabledEntry & {
   readonly instructionEntry?: boolean | undefined;
 };
 
-type CanonicalKnowledgeEntry = EnabledEntry & {
-  readonly instructionEntry?: boolean | undefined;
-};
+type CanonicalKnowledgeEntry =
+  | CanonicalSourcedKnowledgeEntry
+  | (MemberConfigurationEntry & { readonly instructionEntry?: boolean });
 
 type SkillEntryObject = {
-  readonly source: string;
+  readonly source?: string;
   readonly enabled?: boolean;
   readonly distribute?: boolean;
   readonly origin?: "bundled";
 };
 
-type CanonicalSkillEntry = EnabledEntry & {
-  readonly origin?: "bundled";
-};
+type CanonicalSkillEntry =
+  | (CanonicalSourcedEnabledEntry & { readonly origin?: "bundled" })
+  | (MemberConfigurationEntry & { readonly origin?: undefined });
 
 type McpServerEnvInput = Readonly<Record<string, string>> | ReadonlyArray<string>;
 
@@ -188,7 +216,22 @@ type CanonicalInlineMcpServerEntry = {
   readonly env: Readonly<Record<string, string>>;
 };
 
-type CanonicalMcpServerEntry = CanonicalSourcedMcpServerEntry | CanonicalInlineMcpServerEntry;
+type CanonicalConfigurationMcpServerEntry = {
+  readonly kind: "configuration";
+  readonly source?: undefined;
+  readonly command?: undefined;
+  readonly args?: undefined;
+  readonly url?: undefined;
+  readonly headers?: undefined;
+  readonly distribute?: undefined;
+  readonly enabled?: boolean;
+  readonly env: Readonly<Record<string, string>>;
+};
+
+type CanonicalMcpServerEntry =
+  | CanonicalSourcedMcpServerEntry
+  | CanonicalInlineMcpServerEntry
+  | CanonicalConfigurationMcpServerEntry;
 
 const ExtensionMapKeySchema = Schema.String.check(
   Schema.isPattern(EXTENSION_NAME_PATTERN, {
@@ -262,24 +305,30 @@ const entrySourceFieldSchema = (label: string, fqnType: string) =>
   );
 
 const workspaceEntriesMatch = (pluralType: string) =>
-  Schema.makeFilter((entries: Readonly<Record<string, { readonly source: string }>>) => {
-    for (const [entryName, entry] of Object.entries(entries)) {
-      if (entry.source.startsWith("workspace:") || entry.source === "authored") {
-        return `Workspace package "${entryName}" must use the compact source "workspace" in ${pluralType}`;
+  Schema.makeFilter(
+    (entries: Readonly<Record<string, { readonly source?: string | undefined }>>) => {
+      for (const [entryName, entry] of Object.entries(entries)) {
+        if (entry.source === undefined) continue;
+        if (entry.source.startsWith("workspace:") || entry.source === "authored") {
+          return `Workspace package "${entryName}" must use the compact source "workspace" in ${pluralType}`;
+        }
+        if (!isWorkspaceSourceLocator(entry.source)) continue;
       }
-      if (!isWorkspaceSourceLocator(entry.source)) continue;
-    }
-    return undefined;
-  });
+      return undefined;
+    },
+  );
 
 const entrySourcesMatch = (label: string, pluralType: string) =>
-  Schema.makeFilter((entries: Readonly<Record<string, { readonly source: string }>>) => {
-    for (const entry of Object.values(entries)) {
-      const issue = sourceGrammarIssue(label, pluralType, entry.source);
-      if (issue !== undefined) return issue;
-    }
-    return undefined;
-  });
+  Schema.makeFilter(
+    (entries: Readonly<Record<string, { readonly source?: string | undefined }>>) => {
+      for (const entry of Object.values(entries)) {
+        if (entry.source === undefined) continue;
+        const issue = sourceGrammarIssue(label, pluralType, entry.source);
+        if (issue !== undefined) return issue;
+      }
+      return undefined;
+    },
+  );
 
 const mcpWorkspaceEntriesMatch = Schema.makeFilter(
   (entries: Readonly<Record<string, CanonicalMcpServerEntry>>) => {
@@ -316,10 +365,40 @@ const decodeMcpEnv = (env: McpServerEnvInput | undefined): Readonly<Record<strin
 const hasOwnKey = (entry: Readonly<Record<string, unknown>>, key: string): boolean =>
   Object.hasOwn(entry, key) && entry[key] !== undefined;
 
+/**
+ * An entry object with no acquisition definition configures a Pack-supplied
+ * member. Only the preferences the member model recognizes are admissible:
+ * acquisition-shaped and distribution-shaped fields belong to a declaration,
+ * and an object that sets nothing at all expresses no intent.
+ */
+const memberConfigurationIssue = (
+  label: string,
+  entry: Readonly<Record<string, unknown>>,
+  preferences: ReadonlyArray<string>,
+): string | undefined => {
+  for (const forbidden of ["distribute", "origin"]) {
+    if (hasOwnKey(entry, forbidden)) {
+      return `${label} entry without a source configures a Pack-supplied member and cannot set ${forbidden}`;
+    }
+  }
+  if (!preferences.some((preference) => hasOwnKey(entry, preference))) {
+    return `${label} entry must declare a source or set at least one of ${preferences.join(", ")}`;
+  }
+  return undefined;
+};
+
 const validateMcpTransportExclusivity = (
   entry: Readonly<Record<string, unknown>>,
 ): string | undefined => {
   const transports = ["source", "command", "url"].filter((key) => hasOwnKey(entry, key));
+  if (transports.length === 0) {
+    for (const forbidden of ["args", "headers"]) {
+      if (hasOwnKey(entry, forbidden)) {
+        return `MCP server entry without source, command, or url configures a Pack-supplied member and cannot set ${forbidden}`;
+      }
+    }
+    return memberConfigurationIssue("MCP server", entry, ["enabled", "env"]);
+  }
   if (transports.length !== 1) {
     return "MCP server entry must include exactly one of source, command, or url";
   }
@@ -395,22 +474,41 @@ const compactOrVerboseEntry = <
       ),
     );
 
-const EnabledEntryCanonicalSchema = Schema.Struct({
+/**
+ * The canonical discriminator. `kind` never appears in the settings document:
+ * decoding derives it from whether the authored entry declares a source, and
+ * encoding drops it again.
+ */
+const sourcedKindFieldSchema = Schema.optional(Schema.Literal("sourced"));
+const configurationKindFieldSchema = Schema.Literal("configuration");
+const configurationSourceFieldSchema = Schema.optional(Schema.Never);
+const configurationEnabledFieldSchema = Schema.optionalKey(Schema.Boolean);
+
+const SourcedEnabledEntryCanonicalSchema = Schema.Struct({
+  kind: sourcedKindFieldSchema,
   source: Schema.String,
   enabled: Schema.Boolean,
   distribute: Schema.optionalKey(Schema.Boolean),
 });
 
-const decodeEnabledEntry = (entry: string | EnabledEntryObject): EnabledEntry =>
-  typeof entry === "string"
-    ? { source: entry, enabled: true }
-    : {
-        source: entry.source,
-        enabled: entry.enabled ?? true,
-        ...(entry.distribute === false ? { distribute: false } : {}),
-      };
+const absentFieldSchema = Schema.optional(Schema.Never);
 
-const encodeEnabledEntry = (entry: EnabledEntry): string | EnabledEntryObject => {
+const MemberConfigurationCanonicalSchema = Schema.Struct({
+  kind: configurationKindFieldSchema,
+  source: configurationSourceFieldSchema,
+  distribute: absentFieldSchema,
+  enabled: configurationEnabledFieldSchema,
+});
+
+const EnabledEntryCanonicalSchema = Schema.Union([
+  SourcedEnabledEntryCanonicalSchema,
+  MemberConfigurationCanonicalSchema,
+]);
+
+/** A sourced entry with nothing but its source left to say encodes compactly. */
+const encodeSourcedEnabledEntry = (
+  entry: CanonicalSourcedEnabledEntry,
+): string | SourcedEntryObject => {
   if (entry.enabled && entry.distribute !== false) return entry.source;
   const obj: { source: string; enabled?: boolean; distribute?: boolean } = {
     source: entry.source,
@@ -419,6 +517,25 @@ const encodeEnabledEntry = (entry: EnabledEntry): string | EnabledEntryObject =>
   if (entry.distribute === false) obj.distribute = false;
   return obj;
 };
+
+const decodeEnabledEntry = (entry: string | EnabledEntryObject): EnabledEntry =>
+  typeof entry === "string"
+    ? { source: entry, enabled: true }
+    : entry.source === undefined
+      ? {
+          kind: "configuration",
+          ...(entry.enabled === undefined ? {} : { enabled: entry.enabled }),
+        }
+      : {
+          source: entry.source,
+          enabled: entry.enabled ?? true,
+          ...(entry.distribute === false ? { distribute: false } : {}),
+        };
+
+const encodeEnabledEntry = (entry: EnabledEntry): string | EnabledEntryObject =>
+  entry.kind === "configuration"
+    ? { ...(entry.enabled === undefined ? {} : { enabled: entry.enabled }) }
+    : encodeSourcedEnabledEntry(entry);
 
 const enabledEntryTransformation = {
   decode: decodeEnabledEntry,
@@ -442,12 +559,64 @@ const compactEnabledEntry = (
   );
 
 /**
+ * Packs declare acquisition only: a Pack entry always carries a source, so it
+ * keeps the sourced-only canonical shape.
+ */
+const compactSourcedEntry = (
+  objectSchema: Schema.Codec<SourcedEntryObject, SourcedEntryObject>,
+  annotations: {
+    readonly identifier: string;
+    readonly title: string;
+    readonly description: string;
+    readonly examples: ReadonlyArray<string | SourcedEntryObject>;
+  },
+) =>
+  compactOrVerboseEntry(
+    objectSchema,
+    SourcedEnabledEntryCanonicalSchema,
+    {
+      decode: (entry: string | SourcedEntryObject): CanonicalSourcedEnabledEntry =>
+        typeof entry === "string"
+          ? { source: entry, enabled: true }
+          : {
+              source: entry.source,
+              enabled: entry.enabled ?? true,
+              ...(entry.distribute === false ? { distribute: false } : {}),
+            },
+      encode: encodeSourcedEnabledEntry,
+    },
+    annotations,
+  );
+
+/** The per-type entry object shape that admits a Pack-member configuration. */
+const memberEntryObjectSchema = (
+  label: string,
+  fqnType: string,
+  annotations: { readonly title: string; readonly description: string },
+) =>
+  Schema.Struct({
+    source: Schema.optionalKey(entrySourceFieldSchema(label, fqnType)),
+    enabled: enabledFieldSchema,
+    distribute: distributeFieldSchema,
+  })
+    .pipe(
+      Schema.check(
+        Schema.makeFilter((entry: EnabledEntryObject) =>
+          entry.source === undefined
+            ? memberConfigurationIssue(label, entry, ["enabled"])
+            : undefined,
+        ),
+      ),
+    )
+    .annotate(annotations);
+
+/**
  * Managed skill with source and optional config flags.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const SkillEntryObjectSchema = Schema.Struct({
-  source: entrySourceFieldSchema("skill", "skills"),
+  source: Schema.optionalKey(entrySourceFieldSchema("skill", "skills")),
   enabled: enabledFieldSchema,
   distribute: distributeFieldSchema,
   origin: Schema.optionalKey(
@@ -456,30 +625,58 @@ export const SkillEntryObjectSchema = Schema.Struct({
         "Marks the official AXM skill as materialized from the running CLI's embedded bundle.",
     }),
   ),
-}).annotate({
-  title: "Skill Entry Object",
-  description:
-    "A skill entry with source, optional enabled and distribution state, and bundled origin marker.",
-});
+})
+  .pipe(
+    Schema.check(
+      Schema.makeFilter((entry: SkillEntryObject) =>
+        entry.source === undefined
+          ? memberConfigurationIssue("skill", entry, ["enabled"])
+          : undefined,
+      ),
+    ),
+  )
+  .annotate({
+    title: "Skill Entry Object",
+    description:
+      "A skill entry with source, optional enabled and distribution state, and bundled origin marker, or a source-less Pack-member configuration.",
+  });
 
-const SkillEntryCanonicalSchema = Schema.Struct({
-  source: Schema.String,
-  enabled: Schema.Boolean,
-  distribute: Schema.optionalKey(Schema.Boolean),
-  origin: Schema.optionalKey(Schema.Literal("bundled")),
-});
+const SkillEntryCanonicalSchema = Schema.Union([
+  Schema.Struct({
+    kind: sourcedKindFieldSchema,
+    source: Schema.String,
+    enabled: Schema.Boolean,
+    distribute: Schema.optionalKey(Schema.Boolean),
+    origin: Schema.optionalKey(Schema.Literal("bundled")),
+  }),
+  Schema.Struct({
+    kind: configurationKindFieldSchema,
+    source: configurationSourceFieldSchema,
+    distribute: absentFieldSchema,
+    origin: absentFieldSchema,
+    enabled: configurationEnabledFieldSchema,
+  }),
+]);
 
 const decodeSkillEntry = (entry: string | SkillEntryObject): CanonicalSkillEntry =>
   typeof entry === "string"
     ? { source: entry, enabled: true }
-    : {
-        source: entry.source,
-        enabled: entry.enabled ?? true,
-        ...(entry.distribute === false ? { distribute: false } : {}),
-        ...(entry.origin === undefined ? {} : { origin: entry.origin }),
-      };
+    : entry.source === undefined
+      ? {
+          kind: "configuration",
+          ...(entry.enabled === undefined ? {} : { enabled: entry.enabled }),
+        }
+      : {
+          source: entry.source,
+          enabled: entry.enabled ?? true,
+          ...(entry.distribute === false ? { distribute: false } : {}),
+          ...(entry.origin === undefined ? {} : { origin: entry.origin }),
+        };
 
 const encodeSkillEntry = (entry: CanonicalSkillEntry): string | SkillEntryObject => {
+  if (entry.kind === "configuration") {
+    return { ...(entry.enabled === undefined ? {} : { enabled: entry.enabled }) };
+  }
   if (entry.enabled && entry.distribute !== false && entry.origin === undefined)
     return entry.source;
   return {
@@ -503,10 +700,11 @@ export const SkillEntrySchema = Schema.Union([Schema.String, SkillEntryObjectSch
     identifier: "SkillEntry",
     title: "Skill Entry",
     description:
-      "A skill entry: a source string, or an object with source plus optional flags and bundled origin.",
+      "A skill entry: a source string, an object with source plus optional flags and bundled origin, or a source-less object configuring a Pack-supplied skill.",
     examples: [
       "@acme/skills/code-review@^1.0.0",
       { source: "github:acme/agent-extensions", enabled: false },
+      { enabled: false },
     ],
   })
   .pipe(
@@ -564,13 +762,10 @@ export type SkillsMap = Schema.Schema.Type<typeof SkillsMapSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const RuleEntryObjectSchema = Schema.Struct({
-  source: entrySourceFieldSchema("rule", "rules"),
-  enabled: enabledFieldSchema,
-  distribute: distributeFieldSchema,
-}).annotate({
+export const RuleEntryObjectSchema = memberEntryObjectSchema("rule", "rules", {
   title: "Rule Entry Object",
-  description: "A rule entry with source and optional enabled and distribution state.",
+  description:
+    "A rule entry with source and optional enabled and distribution state, or a source-less Pack-member configuration.",
 });
 
 /**
@@ -581,10 +776,12 @@ export const RuleEntryObjectSchema = Schema.Struct({
 export const RuleEntrySchema = compactEnabledEntry(RuleEntryObjectSchema, {
   identifier: "RuleEntry",
   title: "Rule Entry",
-  description: "A rule entry: a source string, or an object with source plus optional flags.",
+  description:
+    "A rule entry: a source string, an object with source plus optional flags, or a source-less object configuring a Pack-supplied rule.",
   examples: [
     "@acme/rules/api-conventions@^1.0.0",
     { source: "@acme/rules/api-conventions@^1.0.0", enabled: false },
+    { enabled: false },
   ],
 });
 
@@ -618,13 +815,10 @@ export type RulesMap = Schema.Schema.Type<typeof RulesMapSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const HookEntryObjectSchema = Schema.Struct({
-  source: entrySourceFieldSchema("hook", "hooks"),
-  enabled: enabledFieldSchema,
-  distribute: distributeFieldSchema,
-}).annotate({
+export const HookEntryObjectSchema = memberEntryObjectSchema("hook", "hooks", {
   title: "Hook Entry Object",
-  description: "A hook entry with source and optional enabled and distribution state.",
+  description:
+    "A hook entry with source and optional enabled and distribution state, or a source-less Pack-member configuration.",
 });
 
 /**
@@ -635,10 +829,12 @@ export const HookEntryObjectSchema = Schema.Struct({
 export const HookEntrySchema = compactEnabledEntry(HookEntryObjectSchema, {
   identifier: "HookEntry",
   title: "Hook Entry",
-  description: "A hook entry: a source string, or an object with source plus optional flags.",
+  description:
+    "A hook entry: a source string, an object with source plus optional flags, or a source-less object configuring a Pack-supplied hook.",
   examples: [
     "@acme/hooks/block-secrets@^1.0.0",
     { source: "@acme/hooks/block-secrets@^1.0.0", enabled: false },
+    { enabled: false },
   ],
 });
 
@@ -668,7 +864,7 @@ export type HooksMap = Schema.Schema.Type<typeof HooksMapSchema>;
 // -----------------------------------------------------------------------------
 
 export const KnowledgeEntryObjectSchema = Schema.Struct({
-  source: entrySourceFieldSchema("knowledge bundle", "knowledge"),
+  source: Schema.optionalKey(entrySourceFieldSchema("knowledge bundle", "knowledge")),
   enabled: enabledFieldSchema,
   distribute: distributeFieldSchema,
   instructionEntry: Schema.optionalKey(
@@ -677,32 +873,66 @@ export const KnowledgeEntryObjectSchema = Schema.Struct({
         "Include this bundle in the managed Knowledge Bundles instruction table. Omit to inherit the manifest default.",
     }),
   ),
-}).annotate({
-  title: "Knowledge Entry Object",
-  description:
-    "A knowledge bundle entry with source, optional enabled and distribution state, and an optional instruction-entry override.",
-});
+})
+  .pipe(
+    Schema.check(
+      Schema.makeFilter((entry: KnowledgeEntryObject) =>
+        entry.source === undefined
+          ? memberConfigurationIssue("knowledge bundle", entry, ["enabled", "instructionEntry"])
+          : undefined,
+      ),
+    ),
+  )
+  .annotate({
+    title: "Knowledge Entry Object",
+    description:
+      "A knowledge bundle entry with source, optional enabled and distribution state, and an optional instruction-entry override, or a source-less Pack-member configuration.",
+  });
 
-const KnowledgeEntryCanonicalSchema = Schema.Struct({
-  source: Schema.String,
-  enabled: Schema.Boolean,
-  distribute: Schema.optionalKey(Schema.Boolean),
-  instructionEntry: Schema.optionalKey(Schema.Boolean),
-});
+const KnowledgeEntryCanonicalSchema = Schema.Union([
+  Schema.Struct({
+    kind: sourcedKindFieldSchema,
+    source: Schema.String,
+    enabled: Schema.Boolean,
+    distribute: Schema.optionalKey(Schema.Boolean),
+    instructionEntry: Schema.optionalKey(Schema.Boolean),
+  }),
+  Schema.Struct({
+    kind: configurationKindFieldSchema,
+    source: configurationSourceFieldSchema,
+    distribute: absentFieldSchema,
+    enabled: configurationEnabledFieldSchema,
+    instructionEntry: Schema.optionalKey(Schema.Boolean),
+  }),
+]);
 
 const decodeKnowledgeEntry = (entry: string | KnowledgeEntryObject): CanonicalKnowledgeEntry =>
   typeof entry === "string"
     ? { source: entry, enabled: true }
-    : {
-        source: entry.source,
-        enabled: entry.enabled ?? true,
-        ...(entry.distribute === false ? { distribute: false } : {}),
-        ...(entry.instructionEntry === undefined
-          ? {}
-          : { instructionEntry: entry.instructionEntry }),
-      };
+    : entry.source === undefined
+      ? {
+          kind: "configuration",
+          ...(entry.enabled === undefined ? {} : { enabled: entry.enabled }),
+          ...(entry.instructionEntry === undefined
+            ? {}
+            : { instructionEntry: entry.instructionEntry }),
+        }
+      : {
+          source: entry.source,
+          enabled: entry.enabled ?? true,
+          ...(entry.distribute === false ? { distribute: false } : {}),
+          ...(entry.instructionEntry === undefined
+            ? {}
+            : { instructionEntry: entry.instructionEntry }),
+        };
 
 const encodeKnowledgeEntry = (entry: CanonicalKnowledgeEntry): string | KnowledgeEntryObject => {
+  if (entry.kind === "configuration") {
+    return {
+      ...(entry.enabled === undefined ? {} : { enabled: entry.enabled }),
+      ...(entry.instructionEntry === undefined ? {} : { instructionEntry: entry.instructionEntry }),
+    };
+  }
   if (entry.enabled && entry.distribute !== false && entry.instructionEntry === undefined)
     return entry.source;
   return {
@@ -721,11 +951,12 @@ export const KnowledgeEntrySchema = compactOrVerboseEntry(
     identifier: "KnowledgeEntry",
     title: "Knowledge Entry",
     description:
-      "A knowledge bundle source string, or an object with optional lifecycle and instruction-entry settings.",
+      "A knowledge bundle source string, an object with optional lifecycle and instruction-entry settings, or a source-less object configuring a Pack-supplied bundle.",
     examples: [
       "@acme/knowledge/payments@^1.0.0",
       { source: "@acme/knowledge/payments@^1.0.0", enabled: false },
       { source: "@acme/knowledge/payments@^1.0.0", instructionEntry: false },
+      { instructionEntry: false },
     ],
   },
 );
@@ -837,6 +1068,17 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
       distribute: Schema.optionalKey(Schema.Boolean),
       env: Schema.Record(Schema.String, Schema.String),
     }),
+    Schema.Struct({
+      kind: configurationKindFieldSchema,
+      source: configurationSourceFieldSchema,
+      command: absentFieldSchema,
+      args: absentFieldSchema,
+      url: absentFieldSchema,
+      headers: absentFieldSchema,
+      distribute: absentFieldSchema,
+      enabled: configurationEnabledFieldSchema,
+      env: Schema.Record(Schema.String, Schema.String),
+    }),
   ]),
   {
     decode: (entry: string | McpServerVerboseEntryObject): CanonicalMcpServerEntry =>
@@ -850,17 +1092,29 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
               ...(entry.distribute === false ? { distribute: false } : {}),
               env: decodeMcpEnv(entry.env),
             }
-          : {
-              kind: "inline",
-              ...(entry.command === undefined ? {} : { command: entry.command }),
-              ...(entry.args === undefined ? {} : { args: entry.args }),
-              ...(entry.url === undefined ? {} : { url: entry.url }),
-              ...(entry.headers === undefined ? {} : { headers: entry.headers }),
-              enabled: entry.enabled ?? true,
-              ...(entry.distribute === false ? { distribute: false } : {}),
-              env: decodeMcpEnv(entry.env),
-            },
+          : entry.command === undefined && entry.url === undefined
+            ? {
+                kind: "configuration",
+                ...(entry.enabled === undefined ? {} : { enabled: entry.enabled }),
+                env: decodeMcpEnv(entry.env),
+              }
+            : {
+                kind: "inline",
+                ...(entry.command === undefined ? {} : { command: entry.command }),
+                ...(entry.args === undefined ? {} : { args: entry.args }),
+                ...(entry.url === undefined ? {} : { url: entry.url }),
+                ...(entry.headers === undefined ? {} : { headers: entry.headers }),
+                enabled: entry.enabled ?? true,
+                ...(entry.distribute === false ? { distribute: false } : {}),
+                env: decodeMcpEnv(entry.env),
+              },
     encode: (entry: CanonicalMcpServerEntry): string | McpServerVerboseEntryObject => {
+      if (entry.kind === "configuration") {
+        return {
+          ...(entry.enabled === undefined ? {} : { enabled: entry.enabled }),
+          ...(Object.keys(entry.env).length === 0 ? {} : { env: entry.env }),
+        };
+      }
       if (
         entry.kind !== "inline" &&
         entry.enabled &&
@@ -924,7 +1178,7 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
     identifier: "McpServerEntry",
     title: "MCP Server Entry",
     description:
-      "An MCP server entry: a source string, sourced object, inline command object, or inline URL object.",
+      "An MCP server entry: a source string, sourced object, inline command object, inline URL object, or a source-less object configuring a Pack-supplied connection.",
     examples: [
       "@acme/mcps/context@^1.0.0",
       { source: "github:acme/agent-extensions", enabled: false },
@@ -934,6 +1188,7 @@ export const McpServerEntrySchema = compactOrVerboseEntry(
         env: ["LINEAR_API_KEY"],
       },
       { url: "https://mcp.sentry.dev/sse", headers: { Authorization: "Bearer ${SENTRY_TOKEN}" } },
+      { enabled: false },
     ],
   },
 );
@@ -947,7 +1202,8 @@ export type McpServerEntry = Schema.Schema.Type<typeof McpServerEntrySchema>;
 
 export const isSourcedMcpServerEntry = (
   entry: McpServerEntry,
-): entry is McpServerEntry & { readonly source: string } => entry.kind !== "inline";
+): entry is McpServerEntry & { readonly source: string } =>
+  entry.kind !== "inline" && entry.kind !== "configuration";
 
 export const isInlineMcpServerEntry = (
   entry: McpServerEntry,
@@ -985,13 +1241,10 @@ export type McpServersMap = Schema.Schema.Type<typeof McpServersMapSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SubagentEntryObjectSchema = Schema.Struct({
-  source: entrySourceFieldSchema("subagent", "subagents"),
-  enabled: enabledFieldSchema,
-  distribute: distributeFieldSchema,
-}).annotate({
+export const SubagentEntryObjectSchema = memberEntryObjectSchema("subagent", "subagents", {
   title: "Subagent Entry Object",
-  description: "A subagent entry with source and optional enabled and distribution state.",
+  description:
+    "A subagent entry with source and optional enabled and distribution state, or a source-less Pack-member configuration.",
 });
 
 /**
@@ -1005,10 +1258,12 @@ export const SubagentEntryObjectSchema = Schema.Struct({
 export const SubagentEntrySchema = compactEnabledEntry(SubagentEntryObjectSchema, {
   identifier: "SubagentEntry",
   title: "Subagent Entry",
-  description: "A subagent entry: a source string, or an object with source plus optional flags.",
+  description:
+    "A subagent entry: a source string, an object with source plus optional flags, or a source-less object configuring a Pack-supplied subagent.",
   examples: [
     "@acme/subagents/reviewer@^1.0.0",
     { source: "github:acme/agent-extensions", enabled: false },
+    { enabled: false },
   ],
 });
 
@@ -1073,7 +1328,7 @@ export const PackEntryObjectSchema = Schema.Struct({
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const PackEntrySchema = compactEnabledEntry(PackEntryObjectSchema, {
+export const PackEntrySchema = compactSourcedEntry(PackEntryObjectSchema, {
   identifier: "PackEntry",
   title: "Pack Entry",
   description: "A pack entry: a source string, or an object with source plus optional flags.",

@@ -72,8 +72,10 @@ export const skillsDeclarationsValidRule: AdvisoryRule<WorkspaceRuleContext> = {
       if (Result.isFailure(declaredResult) || Option.isNone(declaredResult.success)) {
         return EMPTY_ADVISORY_FINDINGS;
       }
-      const entries: ReadonlyArray<Categorized> = declaredResult.success.value.map(
-        ({ name, entry }) => categorizeEntry(name, entry.source),
+      // A configuration-only entry declares no source to validate.
+      const entries: ReadonlyArray<Categorized> = declaredResult.success.value.flatMap(
+        ({ name, entry }) =>
+          entry.source === undefined ? [] : [categorizeEntry(name, entry.source)],
       );
 
       // Group by registry FQN for duplicate detection.

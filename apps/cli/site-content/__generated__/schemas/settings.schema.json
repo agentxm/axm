@@ -186,17 +186,15 @@
               "description": "Marks the official AXM skill as materialized from the running CLI's embedded bundle."
             }
           },
-          "required": ["source"],
-          "additionalProperties": false,
-          "title": "Skill Entry Object",
-          "description": "A skill entry with source, optional enabled and distribution state, and bundled origin marker."
+          "additionalProperties": false
         }
       ],
       "title": "Skill Entry",
-      "description": "A skill entry: a source string, or an object with source plus optional flags and bundled origin.",
+      "description": "A skill entry: a source string, an object with source plus optional flags and bundled origin, or a source-less object configuring a Pack-supplied skill.",
       "examples": [
         "@acme/skills/code-review@^1.0.0",
-        { "source": "github:acme/agent-extensions", "enabled": false }
+        { "source": "github:acme/agent-extensions", "enabled": false },
+        { "enabled": false }
       ]
     },
     "SkillsMap": {
@@ -245,17 +243,15 @@
               "default": true
             }
           },
-          "required": ["source"],
-          "additionalProperties": false,
-          "title": "Rule Entry Object",
-          "description": "A rule entry with source and optional enabled and distribution state."
+          "additionalProperties": false
         }
       ],
       "title": "Rule Entry",
-      "description": "A rule entry: a source string, or an object with source plus optional flags.",
+      "description": "A rule entry: a source string, an object with source plus optional flags, or a source-less object configuring a Pack-supplied rule.",
       "examples": [
         "@acme/rules/api-conventions@^1.0.0",
-        { "source": "@acme/rules/api-conventions@^1.0.0", "enabled": false }
+        { "source": "@acme/rules/api-conventions@^1.0.0", "enabled": false },
+        { "enabled": false }
       ]
     },
     "RulesMap": {
@@ -304,17 +300,15 @@
               "default": true
             }
           },
-          "required": ["source"],
-          "additionalProperties": false,
-          "title": "Hook Entry Object",
-          "description": "A hook entry with source and optional enabled and distribution state."
+          "additionalProperties": false
         }
       ],
       "title": "Hook Entry",
-      "description": "A hook entry: a source string, or an object with source plus optional flags.",
+      "description": "A hook entry: a source string, an object with source plus optional flags, or a source-less object configuring a Pack-supplied hook.",
       "examples": [
         "@acme/hooks/block-secrets@^1.0.0",
-        { "source": "@acme/hooks/block-secrets@^1.0.0", "enabled": false }
+        { "source": "@acme/hooks/block-secrets@^1.0.0", "enabled": false },
+        { "enabled": false }
       ]
     },
     "HooksMap": {
@@ -367,18 +361,16 @@
               "description": "Include this bundle in the managed Knowledge Bundles instruction table. Omit to inherit the manifest default."
             }
           },
-          "required": ["source"],
-          "additionalProperties": false,
-          "title": "Knowledge Entry Object",
-          "description": "A knowledge bundle entry with source, optional enabled and distribution state, and an optional instruction-entry override."
+          "additionalProperties": false
         }
       ],
       "title": "Knowledge Entry",
-      "description": "A knowledge bundle source string, or an object with optional lifecycle and instruction-entry settings.",
+      "description": "A knowledge bundle source string, an object with optional lifecycle and instruction-entry settings, or a source-less object configuring a Pack-supplied bundle.",
       "examples": [
         "@acme/knowledge/payments@^1.0.0",
         { "source": "@acme/knowledge/payments@^1.0.0", "enabled": false },
-        { "source": "@acme/knowledge/payments@^1.0.0", "instructionEntry": false }
+        { "source": "@acme/knowledge/payments@^1.0.0", "instructionEntry": false },
+        { "instructionEntry": false }
       ]
     },
     "KnowledgeMap": {
@@ -433,17 +425,15 @@
               "default": true
             }
           },
-          "required": ["source"],
-          "additionalProperties": false,
-          "title": "Subagent Entry Object",
-          "description": "A subagent entry with source and optional enabled and distribution state."
+          "additionalProperties": false
         }
       ],
       "title": "Subagent Entry",
-      "description": "A subagent entry: a source string, or an object with source plus optional flags.",
+      "description": "A subagent entry: a source string, an object with source plus optional flags, or a source-less object configuring a Pack-supplied subagent.",
       "examples": [
         "@acme/subagents/reviewer@^1.0.0",
-        { "source": "github:acme/agent-extensions", "enabled": false }
+        { "source": "github:acme/agent-extensions", "enabled": false },
+        { "enabled": false }
       ]
     },
     "SubagentsMap": {
@@ -587,7 +577,7 @@
         }
       ],
       "title": "MCP Server Entry",
-      "description": "An MCP server entry: a source string, sourced object, inline command object, or inline URL object.",
+      "description": "An MCP server entry: a source string, sourced object, inline command object, inline URL object, or a source-less object configuring a Pack-supplied connection.",
       "examples": [
         "@acme/mcps/context@^1.0.0",
         { "source": "github:acme/agent-extensions", "enabled": false },
@@ -595,7 +585,8 @@
         {
           "url": "https://mcp.sentry.dev/sse",
           "headers": { "Authorization": "Bearer ${SENTRY_TOKEN}" }
-        }
+        },
+        { "enabled": false }
       ]
     },
     "McpServersMap": {

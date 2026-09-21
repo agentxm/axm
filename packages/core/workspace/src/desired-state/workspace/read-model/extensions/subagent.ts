@@ -203,7 +203,8 @@ const subagentPolicy = (
 > => ({
   declaredEntries: (d) => d,
   declaredName: (e) => e.name,
-  declaredActivation: (e) => (e.entry.enabled ? "enabled" : "disabled"),
+  declaredActivation: (e) => (e.entry.enabled === false ? "disabled" : "enabled"),
+  declaresAcquisition: (e) => e.entry.source !== undefined,
   resolvedEntries: (r) => r,
   resolvedName: (e) => e.name,
   actualEntries: (a) => a,

@@ -124,6 +124,11 @@ const reconcileSuggestion = (packIdentity: string) => ({
 /**
  * Write the member's own declaration: the source and activation it already
  * has under the Pack become the direct declaration it keeps without it.
+ *
+ * Unpacking deliberately creates acquisition intent, but the member may
+ * already carry a configuration-only entry. Those preferences describe the
+ * member, not the route that supplied it, so the ones the new declaration can
+ * express cross over rather than being dropped on the way.
  */
 const promoteToDirectSettings = (
   settingsWriter: SettingsWriterService,
@@ -135,7 +140,10 @@ const promoteToDirectSettings = (
       case "skill":
         return settingsWriter.setEntry("skill", node.name, entry);
       case "mcp-server":
-        return settingsWriter.setEntry("mcp-server", node.name, { ...entry, env: {} });
+        return settingsWriter.setEntry("mcp-server", node.name, {
+          ...entry,
+          env: node.preference?.env ?? {},
+        });
       case "subagent":
         return settingsWriter.setEntry("subagent", node.name, entry);
       case "rule":
@@ -143,7 +151,12 @@ const promoteToDirectSettings = (
       case "hook":
         return settingsWriter.setEntry("hook", node.name, entry);
       case "knowledge":
-        return settingsWriter.setEntry("knowledge", node.name, entry);
+        return settingsWriter.setEntry("knowledge", node.name, {
+          ...entry,
+          ...(node.preference?.instructionEntry === undefined
+            ? {}
+            : { instructionEntry: node.preference.instructionEntry }),
+        });
       case "pack":
         return Effect.fail(
           new ExtensionLifecycleFailed({

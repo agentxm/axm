@@ -75,9 +75,10 @@ export const readAxmSkillWorkspaceCompatibility = (
   Effect.gen(function* () {
     const declared = yield* args.workspace.skills.declaredByName("axm");
     const installed = yield* args.workspace.skills.byName("axm");
+    // A configuration-only entry declares no source of its own.
     const declaredSource = Option.match(declared, {
       onNone: () => null,
-      onSome: ({ entry }) => entry.source,
+      onSome: ({ entry }) => entry.source ?? null,
     });
     if (!declaresOfficialAxmSkill({ declaredSource, installed })) {
       return Option.none();

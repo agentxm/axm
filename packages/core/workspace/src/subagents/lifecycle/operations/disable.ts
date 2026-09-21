@@ -101,26 +101,15 @@ export const disableSubagent: OperationHandler<
         detail: "Cannot disable the subagent while pack-derived desired state is unresolved.",
       });
     }
-    const desiredBeforeDisable = graph.nodes.find(
-      (node) => node.type === "subagent" && node.name === op.args.subagentName,
-    );
-
     const configuredAgents = yield* agentRepo.getConfiguredAgents();
 
     const renderedFiles = yield* runWorkspaceTransaction({
       transition: Effect.gen(function* () {
         if (isImplicit) {
-          const source =
-            desiredBeforeDisable?.source ?? Option.getOrElse(installed.source, () => undefined);
-          if (source === undefined) {
-            return yield* new ExtensionLifecycleFailed({
-              category: "internal",
-              detail: `Cannot determine source for implicit subagent "${op.args.subagentName}"`,
-              suggestions: [{ description: "Provide a source when disabling this subagent" }],
-            });
-          }
+          // An implicit subagent is supplied by a Pack. Record the preference
+          // only; the Pack stays the sole owner of the member's source.
           yield* settingsWriter.setEntry("subagent", op.args.subagentName, {
-            source,
+            kind: "configuration",
             enabled: false,
           });
         } else {

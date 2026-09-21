@@ -1,6 +1,6 @@
 import effectEslint from "@effect/eslint-plugin";
 import nxPlugin from "@nx/eslint-plugin";
-import jsoncParser from "jsonc-eslint-parser";
+import * as jsoncParser from "jsonc-eslint-parser";
 import { capabilityBoundaries } from "./tools/architecture/boundaries.mjs";
 import {
   capabilityElements,

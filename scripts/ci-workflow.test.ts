@@ -1,7 +1,7 @@
 /**
  * The aggregate verification gate: continuous integration runs on every pull
  * request and merge group, and one always-run `required` job aggregates every
- * other job so a skipped or failed check can never disappear from the verdict.
+ * gating job so a skipped or failed check can never disappear from the verdict.
  *
  * Supersedes the retired specification identity
  * `system/process/merges-require-aggregate-verification`
@@ -203,7 +203,15 @@ describe("aggregate required verification", () => {
     if (!Array.isArray(needs)) {
       throw new Error("the required job must aggregate its checks through `needs`");
     }
-    for (const name of Object.keys(workflow.jobs).filter((job) => job !== "required")) {
+    const cacheWarmJob = workflow.jobs["warm-main-caches"];
+    if (typeof cacheWarmJob !== "object" || cacheWarmJob === null) {
+      throw new Error("the optional cache warmer must be declared");
+    }
+    expect(cacheWarmJob).toHaveProperty("continue-on-error", true);
+    expect(needs).not.toContain("warm-main-caches");
+    for (const name of Object.keys(workflow.jobs).filter(
+      (job) => job !== "required" && job !== "warm-main-caches",
+    )) {
       expect(needs).toContain(name);
     }
 

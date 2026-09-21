@@ -36,6 +36,13 @@ belong here. Repository owners administer those settings, but their current
 membership and recovery owner are not established by the checked-in review
 routes.
 
+[Renovate](../tools/renovate.md) runs as a self-hosted workflow and
+authenticates as a repository-owned GitHub App, not as `GITHUB_TOKEN`. That app
+is not yet created and its `RENOVATE_APP_ID` variable and
+`RENOVATE_APP_PRIVATE_KEY` secret are unset, so creating it, installing it on
+this repository, and assigning its rotation owner remain outstanding
+provisioning items for the repository administrators.
+
 [CodeQL](../tools/codeql.md) owns the local source-analysis adoption and
 verified managed configuration. GitHub supplies its scanner and alert surface;
 repository settings remain the authority for access and merge protection.

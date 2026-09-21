@@ -6,11 +6,6 @@ rules:
     # subject, and successful required-CI result before privileged work begins.
     ignore:
       - publish.yml
-  dependabot-cooldown:
-    # Dependency update cadence is governed by the repository's existing
-    # Dependabot policy; this workflow-focused gate does not change it.
-    ignore:
-      - dependabot.yml
   self-repository:
     # actionlint does not yet accept zizmor's `$/...` self-repository syntax.
     # Local actions and reusable workflows remain pinned by the checked-out

@@ -6,7 +6,6 @@ import {
   SettingsWriter,
   settingsEntries,
   DesiredStateReader,
-  type DesiredExtensionNode,
   type Settings,
 } from "../desired-state/index.js";
 import { WorkspaceSyncFailed } from "./errors.js";
@@ -21,31 +20,20 @@ export type DesiredStateChange =
     }
   | { readonly kind: "remove"; readonly type: ExtensionType; readonly name: string };
 
+/**
+ * Record an activation preference without inventing acquisition intent.
+ *
+ * The typed accessor owns the decision: an entry that already exists keeps
+ * whatever it declares — a source and its range, or an inline MCP definition —
+ * and only its activation moves. When no entry exists yet, the extension
+ * reached the workspace through a Pack, so the preference is written as a
+ * configuration-only entry, leaving the Pack the sole owner of the member's
+ * source and version constraint.
+ */
 const activatedSettings = (
   settings: Settings,
   change: Extract<DesiredStateChange, { readonly kind: "activation" }>,
-  node: DesiredExtensionNode,
-): Settings => {
-  if (change.type === "mcp-server") {
-    const accessor = settingsEntries["mcp-server"];
-    const current = accessor.entry(settings, change.name);
-    if (Option.isSome(current))
-      return accessor.set(settings, change.name, { ...current.value, enabled: change.enabled });
-    if (node.authority === "inline") return settings;
-    return accessor.set(settings, change.name, {
-      kind: "sourced",
-      source: node.source,
-      enabled: change.enabled,
-      env: {},
-    });
-  }
-  const accessor = settingsEntries[change.type];
-  const current = accessor.entry(settings, change.name);
-  if (Option.isSome(current))
-    return accessor.set(settings, change.name, { ...current.value, enabled: change.enabled });
-  if (node.authority === "inline") return settings;
-  return accessor.set(settings, change.name, { source: node.source, enabled: change.enabled });
-};
+): Settings => settingsEntries[change.type].setActivation(settings, change.name, change.enabled);
 
 /** Evaluate proposed intent without writing settings, locks, or package content. */
 export const proposeDesiredState = (changes: ReadonlyArray<DesiredStateChange>) =>
@@ -69,7 +57,7 @@ export const proposeDesiredState = (changes: ReadonlyArray<DesiredStateChange>) 
           detail: `Desired ${change.type} "${change.name}" was not found`,
         });
       }
-      settings = activatedSettings(settings, change, node);
+      settings = activatedSettings(settings, change);
     }
     const after = yield* desiredState.graph({ settings });
     return { before, after, settings, changes };

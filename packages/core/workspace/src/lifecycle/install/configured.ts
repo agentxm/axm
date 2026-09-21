@@ -65,7 +65,7 @@ import {
 import {
   SettingsReader,
   acceptedResolutionRef,
-  enabledConfiguredEntries,
+  acquisitionConfiguredEntries,
 } from "../../desired-state/index.js";
 
 import type { ExtensionLifecycleFailed } from "../errors.js";
@@ -354,7 +354,7 @@ const collectPackPlans: (
       }),
     ),
   );
-  const entries = enabledConfiguredEntries(configured).filter(
+  const entries = acquisitionConfiguredEntries(configured).filter(
     ([name]) => args.selectedNames === undefined || args.selectedNames.has(name),
   );
 
@@ -692,7 +692,7 @@ const collectSimpleTypePlans = (
       case "skill": {
         const configured = yield* settings.entries("skill").pipe(Effect.mapError(readFailed));
         // A bundled skill is shipped with the CLI, not acquired from a source.
-        const entries = enabledConfiguredEntries(configured).filter(
+        const entries = acquisitionConfiguredEntries(configured).filter(
           ([, entry]) => entry.origin !== "bundled",
         );
         return toCollectedPlans({
@@ -705,7 +705,7 @@ const collectSimpleTypePlans = (
         const configured = yield* settings.entries("subagent").pipe(Effect.mapError(readFailed));
         return toCollectedPlans({
           plans: yield* Effect.forEach(
-            enabledConfiguredEntries(configured),
+            acquisitionConfiguredEntries(configured),
             ([name, entry]) => planFor(name, entry.source),
             { concurrency: "unbounded" },
           ),
@@ -715,7 +715,7 @@ const collectSimpleTypePlans = (
         const configured = yield* settings.entries("rule").pipe(Effect.mapError(readFailed));
         return toCollectedPlans({
           plans: yield* Effect.forEach(
-            enabledConfiguredEntries(configured),
+            acquisitionConfiguredEntries(configured),
             ([name, entry]) => planFor(name, entry.source),
             { concurrency: "unbounded" },
           ),
@@ -725,7 +725,7 @@ const collectSimpleTypePlans = (
         const configured = yield* settings.entries("hook").pipe(Effect.mapError(readFailed));
         return toCollectedPlans({
           plans: yield* Effect.forEach(
-            enabledConfiguredEntries(configured),
+            acquisitionConfiguredEntries(configured),
             ([name, entry]) => planFor(name, entry.source),
             { concurrency: "unbounded" },
           ),
@@ -735,7 +735,7 @@ const collectSimpleTypePlans = (
         const configured = yield* settings.entries("knowledge").pipe(Effect.mapError(readFailed));
         return toCollectedPlans({
           plans: yield* Effect.forEach(
-            enabledConfiguredEntries(configured),
+            acquisitionConfiguredEntries(configured),
             ([name, entry]) => planFor(name, entry.source),
             { concurrency: "unbounded" },
           ),
@@ -745,7 +745,7 @@ const collectSimpleTypePlans = (
         const configured = yield* settings.entries("mcp-server").pipe(Effect.mapError(readFailed));
         return toCollectedPlans({
           plans: yield* Effect.forEach(
-            enabledConfiguredEntries(configured),
+            acquisitionConfiguredEntries(configured),
             ([name, entry]) =>
               // An inline connection is workspace configuration, not an
               // acquired package: `axm sync` reconciles it, install does not.

@@ -16,7 +16,7 @@ import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/mani
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import type { Settings } from "../settings/index.js";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import { isDesiredExtensionActive } from "./desired-state-enabled.js";
+import { effectiveExtensionActivation, isDesiredExtensionActive } from "./desired-state-enabled.js";
 import type { WorkspaceLayout } from "./layout.js";
 import type { PackLockEntry } from "../lockfile/schema.js";
 import type { PackManifestsPort } from "./pack-manifests.js";
@@ -51,6 +51,21 @@ export type DesiredExtensionOrigin =
       readonly enabled: boolean;
     };
 
+/**
+ * A preference a settings entry expresses about a Pack-supplied member.
+ *
+ * It is deliberately not a `DesiredExtensionOrigin`: a preference declares no
+ * acquisition, so it must never satisfy a check that asks whether settings
+ * declared this extension. It contributes no constraint and no source.
+ */
+export interface DesiredMemberPreference {
+  readonly localName: string;
+  readonly location: string;
+  readonly enabled?: boolean;
+  readonly instructionEntry?: boolean;
+  readonly env?: Readonly<Record<string, string>>;
+}
+
 interface DesiredExtensionNodeCommon {
   readonly type: ExtensionType;
   readonly name: string;
@@ -58,6 +73,8 @@ interface DesiredExtensionNodeCommon {
   readonly enabled: boolean;
   readonly constraints: ReadonlyArray<string>;
   readonly origins: ReadonlyArray<DesiredExtensionOrigin>;
+  /** Present when a source-less settings entry configures this member. */
+  readonly preference?: DesiredMemberPreference;
 }
 
 export type DesiredExtensionNode = DesiredExtensionNodeCommon &
@@ -135,6 +152,17 @@ export type DesiredStateProblem =
       readonly name: string;
       readonly constraints: ReadonlyArray<string>;
       readonly contributors: ReadonlyArray<DesiredConstraintContributor>;
+    }
+  | {
+      /**
+       * A source-less settings entry configures a member no configured Pack
+       * supplies under that local name. The entry cannot be repaired by
+       * guessing a source, so it is reported rather than silently ignored.
+       */
+      readonly type: "member-configuration-unbound";
+      readonly extensionType: ExtensionType;
+      readonly name: string;
+      readonly location: string;
     };
 
 export interface DesiredStateGraph {
@@ -378,9 +406,44 @@ export const buildDesiredStateGraph = ({
   Effect.gen(function* () {
     const candidates: Candidate[] = [];
     const problems: DesiredStateProblem[] = [];
+    /** Source-less settings entries, awaiting a Pack-supplied provider. */
+    const preferences = new Map<string, DesiredMemberPreference>();
+    /**
+     * Members some configured Pack declares, whether or not that Pack is
+     * enabled. A disabled Pack still proves membership, so a preference on one
+     * of its members stays dormant instead of reading as an orphan.
+     */
+    const provenMembership = new Set<string>();
+    /**
+     * Set when a configured Pack's membership could not be read. Orphanhood is
+     * then unprovable, so no unbound-configuration problem is reported.
+     */
+    let membershipIncomplete = false;
     const prospectivePacksByIdentity = new Map(
       prospectivePacks.map((ref) => [`${ref.owner}/packs/${ref.pack.name}`, ref]),
     );
+
+    const addMemberPreference = (
+      type: Exclude<ExtensionType, "pack">,
+      name: string,
+      entry: {
+        readonly enabled?: boolean | undefined;
+        readonly instructionEntry?: boolean | undefined;
+        readonly env?: Readonly<Record<string, string>> | undefined;
+      },
+    ) => {
+      preferences.set(nodeKey(type, name), {
+        localName: name,
+        location: SETTINGS_FILENAME,
+        ...(entry.enabled === undefined ? {} : { enabled: entry.enabled }),
+        ...(entry.instructionEntry === undefined
+          ? {}
+          : { instructionEntry: entry.instructionEntry }),
+        ...(entry.env === undefined || Object.keys(entry.env).length === 0
+          ? {}
+          : { env: entry.env }),
+      });
+    };
 
     const addSettingsEntries = (
       type: Exclude<ExtensionType, "pack">,
@@ -389,15 +452,21 @@ export const buildDesiredStateGraph = ({
             Record<
               string,
               {
-                readonly source: string;
-                readonly enabled: boolean;
-                readonly origin?: "bundled";
+                readonly kind?: "sourced" | "inline" | "configuration" | undefined;
+                readonly source?: string | undefined;
+                readonly enabled?: boolean | undefined;
+                readonly instructionEntry?: boolean | undefined;
+                readonly origin?: "bundled" | undefined;
               }
             >
           >
         | undefined,
     ) => {
       for (const [name, entry] of Object.entries(entries ?? {})) {
+        if (entry.kind === "configuration" || entry.source === undefined) {
+          addMemberPreference(type, name, entry);
+          continue;
+        }
         const bundled = type === "skill" && entry.origin === "bundled";
         const identity = bundled
           ? { identity: `bundled:@agentxm/skills/${name}` }
@@ -411,14 +480,14 @@ export const buildDesiredStateGraph = ({
           identity: identity.identity,
           authority: "sourced",
           source: entry.source,
-          enabled: entry.enabled,
+          enabled: entry.enabled !== false,
           ...(identity.constraint === undefined ? {} : { constraint: identity.constraint }),
           origin: {
             type: "settings",
             localName: name,
             authority: "sourced",
             source: entry.source,
-            enabled: entry.enabled,
+            enabled: entry.enabled !== false,
             ...(identity.constraint === undefined ? {} : { constraint: identity.constraint }),
           },
         });
@@ -427,6 +496,10 @@ export const buildDesiredStateGraph = ({
 
     addSettingsEntries("skill", settings.skills);
     for (const [name, entry] of Object.entries(settings.mcpServers ?? {})) {
+      if (entry.kind === "configuration") {
+        addMemberPreference("mcp-server", name, entry);
+        continue;
+      }
       if (entry.kind === "inline") {
         candidates.push({
           type: "mcp-server",
@@ -441,6 +514,10 @@ export const buildDesiredStateGraph = ({
             enabled: entry.enabled,
           },
         });
+        continue;
+      }
+      if (entry.source === undefined) {
+        addMemberPreference("mcp-server", name, entry);
         continue;
       }
       const identity = sourceIdentity(
@@ -518,6 +595,7 @@ export const buildDesiredStateGraph = ({
         },
       });
 
+      const packEnabled = entry.enabled !== false;
       const workspacePack = isWorkspaceSourceLocator(entry.source);
       const inheritedMemberAuthority = packAuthorityIdentity(
         entry.source,
@@ -529,8 +607,6 @@ export const buildDesiredStateGraph = ({
         registryLocator(entry.source, settings.defaultRegistry)?.sourceName ??
         settings.defaultRegistry ??
         "agentxm";
-      if (entry.enabled === false) continue;
-
       const document = manifests.locate({
         owner: identity.owner,
         name: identity.name,
@@ -550,16 +626,18 @@ export const buildDesiredStateGraph = ({
         ? Effect.gen(function* () {
             const contents = yield* document.contents;
             if (contents === undefined) {
-              problems.push({
-                type: "pack-manifest-unavailable",
-                pack: identity.fqn,
-                path: manifestPath,
-              });
+              if (packEnabled) {
+                problems.push({
+                  type: "pack-manifest-unavailable",
+                  pack: identity.fqn,
+                  path: manifestPath,
+                });
+              }
               return undefined;
             }
 
             const decoded = parsePackManifest(contents);
-            if (decoded === undefined) {
+            if (decoded === undefined && packEnabled) {
               problems.push({
                 type: "pack-manifest-invalid",
                 pack: identity.fqn,
@@ -575,25 +653,35 @@ export const buildDesiredStateGraph = ({
             version: prospective.version,
             dependencies: prospective.pack.dependencies,
           });
-      if (manifest === undefined) continue;
+      if (manifest === undefined) {
+        membershipIncomplete = true;
+        continue;
+      }
       if (
         manifest.owner !== identity.owner ||
         manifest.name !== identity.name ||
         (identity.constraint !== undefined &&
           !semver.satisfies(manifest.version, identity.constraint))
       ) {
-        problems.push({
-          type: "pack-identity-mismatch",
-          pack: identity.fqn,
-          path: manifestPath,
-          detail: `Expected ${identity.fqn}${identity.constraint === undefined ? "" : `@${identity.constraint}`}, found ${manifest.owner}/packs/${manifest.name}@${manifest.version}.`,
-        });
+        if (packEnabled) {
+          problems.push({
+            type: "pack-identity-mismatch",
+            pack: identity.fqn,
+            path: manifestPath,
+            detail: `Expected ${identity.fqn}${identity.constraint === undefined ? "" : `@${identity.constraint}`}, found ${manifest.owner}/packs/${manifest.name}@${manifest.version}.`,
+          });
+        }
+        membershipIncomplete = true;
         continue;
       }
 
       for (const [fqn, declaration] of Object.entries(manifest.dependencies)) {
         const parsed = parseExtensionFqnParts(fqn);
         if (parsed === undefined || parsed.type === "pack") continue;
+        // Membership is proven by the manifest, not by the Pack being active:
+        // a disabled Pack still supplies the identity its members configure.
+        provenMembership.add(nodeKey(parsed.type, parsed.name));
+        if (!packEnabled) continue;
         const constraint = packMemberVersionRange(declaration);
         const declaredSource = packMemberRegistrySource(declaration);
         const dependencyIdentity =
@@ -697,6 +785,30 @@ export const buildDesiredStateGraph = ({
             ? existing.constraints
             : [...existing.constraints, candidate.constraint],
         origins,
+      });
+    }
+
+    // Acquisition is settled; now bind the source-less settings entries to the
+    // identities the Packs supplied. A preference never creates a node, never
+    // adds a constraint, and never resurrects a member no reachable Pack
+    // supplies — it only adjusts the member that is already there.
+    for (const [key, preference] of preferences) {
+      const node = nodes.get(key);
+      if (node === undefined) {
+        const [type, ...rest] = key.split(":");
+        if (provenMembership.has(key) || membershipIncomplete) continue;
+        problems.push({
+          type: "member-configuration-unbound",
+          extensionType: extensionTypes.find((candidate) => candidate === type) ?? "skill",
+          name: rest.join(":"),
+          location: preference.location,
+        });
+        continue;
+      }
+      nodes.set(key, {
+        ...node,
+        enabled: effectiveExtensionActivation(node.origins, preference),
+        preference,
       });
     }
 

@@ -42,4 +42,30 @@ describe("Accepted settings round-trip", () => {
       expect(encoded).toEqual(fixture);
     }),
   );
+
+  it.effect("Pack-member configuration entries re-encode exactly as authored", () =>
+    Effect.gen(function* () {
+      // Each entry states a preference about a member a Pack supplies. The
+      // distinction between an omitted preference and an explicit one is the
+      // whole content of these entries, so it has to survive a round trip.
+      const fixture = {
+        packs: { toolkit: "@acme/packs/toolkit@^1.0.0" },
+        skills: { "code-review": { enabled: false } },
+        rules: { "api-conventions": { enabled: true } },
+        hooks: { "block-secrets": { enabled: false } },
+        subagents: { reviewer: { enabled: true } },
+        knowledge: {
+          payments: { instructionEntry: false },
+          billing: { enabled: false, instructionEntry: true },
+        },
+        mcpServers: {
+          context: { env: { TOKEN: "${TOKEN}" } },
+          search: { enabled: false },
+        },
+      };
+      const decoded = yield* decodeSettings(fixture);
+      const encoded = yield* encodeSettings(decoded);
+      expect(encoded).toEqual(fixture);
+    }),
+  );
 });

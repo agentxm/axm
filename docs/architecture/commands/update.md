@@ -53,6 +53,17 @@ because the command explicitly requests replacement. AXM discloses that
 replacement; it does not require `--force` for the routine operation the user
 selected.
 
+A workspace sweep plans selected packs that share a member as one group,
+against the same proposed graph, because one member resolution has to satisfy
+every constraint on it. A group whose constraints cannot be satisfied together
+is refused before it writes anything, and the refusal names every selected pack
+it prevented alongside the constraints that decided it. Packs that share no
+member belong to different groups, so a refusal in one leaves the others free
+to settle and their committed work stands. A contradiction between declared
+constraints is a choice to make, not a step to repeat: the report points at the
+declarations that disagree rather than implying that rerunning the sweep or
+running sync would settle them.
+
 Inline MCP definitions have no accepted external resolution to advance or
 reinstall. Workspace-wide update reports each as not applicable, continues with
 independent sourced entries, and points to sync for projection reconciliation.
@@ -79,7 +90,9 @@ path.
 The `cli/update/*` specifications own update's binding obligations — advancing
 the accepted resolution within durable intent
 (`cli/update/advances-resolution-within-intent`), refusing extensions the
-workspace does not desire (`cli/update/refuses-undesired-extensions`), and pure
-preview (`cli/update/preview-is-pure`). The
+workspace does not desire (`cli/update/refuses-undesired-extensions`), planning
+coherent groups and explaining what a refusal prevented
+(`cli/update/plans-coherent-groups-and-explains-blockers`), and pure preview
+(`cli/update/preview-is-pure`). The
 [specification catalog](../../../specifications/catalog.md) resolves each
 identity to its owning project and file.

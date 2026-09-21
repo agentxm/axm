@@ -58,8 +58,14 @@ export const prepareUninstallArtifact = (
     const lockPath = `${prefix}axm-lock.yaml`;
     const targets: JobStepArtifactTarget[] = [];
     const references: JobStepArtifactReference[] = [];
-    if (before?.origins.some((origin) => origin.type === "settings"))
+    // Settings change when the removal withdraws a declaration, and equally
+    // when it withdraws a configuration-only entry for a Pack-supplied member.
+    if (
+      before?.origins.some((origin) => origin.type === "settings") === true ||
+      before?.preference !== undefined
+    ) {
       targets.push({ path: settingsPath, change: "updated" });
+    }
     const locked = yield* locks.entry(
       target.type,
       target.type === "mcp-server" ? (before?.identity ?? target.name) : target.name,

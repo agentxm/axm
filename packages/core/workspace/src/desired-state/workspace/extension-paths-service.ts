@@ -71,8 +71,9 @@ export const makeExtensionPaths = (
       if (Option.isSome(lockEntry) && lockEntry.value.source.type === "registry") {
         return lockEntry.value.identity.name;
       }
+      // A configuration-only entry declares no source, so it names no package.
       const entry = (yield* settings.entries("skill"))[name];
-      if (entry !== undefined) {
+      if (entry?.source !== undefined) {
         const parsed = parseSourceQualifiedRegistrySourcePatternParts(entry.source);
         if (parsed?.name !== undefined) return parsed.name;
       }

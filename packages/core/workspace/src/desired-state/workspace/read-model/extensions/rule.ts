@@ -199,6 +199,7 @@ const rulePolicy = (
   declaredEntries: (d) => d,
   declaredName: (entry) => entry.name,
   declaredActivation: (entry) => (entry.entry.enabled === false ? "disabled" : "enabled"),
+  declaresAcquisition: (entry) => entry.entry.source !== undefined,
   resolvedEntries: (r) => r,
   resolvedName: (entry) => entry.name,
   actualEntries: (a) => a,

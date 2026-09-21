@@ -66,10 +66,12 @@ manifest default and optional workspace override effectively admit it, whether
 reached directly or through a Pack. Every write renders that whole set, so one
 bundle's lifecycle never drops another bundle's discovery routing.
 
-A Pack-only bundle follows its manifest default. A direct settings declaration
-for the same bundle may override that default. The declaration is durable
-desired intent rather than a Pack-member overlay: it contributes its source
-constraint and remains after the Pack route is removed.
+A Pack-only bundle follows its manifest default. A settings entry for the same
+bundle may override that default, and what else the entry does depends on
+whether it declares a source. A sourced declaration is durable desired intent:
+it contributes its source constraint and remains after the Pack route is
+removed. A source-less entry only overrides the default for the bundle the Pack
+supplies, so removing the Pack removes the override with it.
 
 A workspace-authored Knowledge bundle may exist without being desired or
 discoverable; it remains authoring inventory. Removing activation strips only

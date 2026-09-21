@@ -77,6 +77,7 @@ export const validatePackGraphPostcondition = (args: {
         case "projection-collision":
         case "constraint-conflict":
         case "workspace-owner-missing":
+        case "member-configuration-unbound":
           return requiredMemberKeys.has(`${problem.extensionType}:${problem.name}`);
       }
     });

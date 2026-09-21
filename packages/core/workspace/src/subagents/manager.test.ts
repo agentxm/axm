@@ -117,18 +117,23 @@ const makeTestLayer = (overrides?: {
   const configuredSubagents = overrides?.configuredSubagents ?? {};
   const graph = {
     complete: true,
-    nodes: Object.entries(configuredSubagents).map(([name, entry]) => {
+    // A configuration-only entry declares no source, so it contributes no node
+    // of its own; these fixtures describe declared subagents.
+    nodes: Object.entries(configuredSubagents).flatMap(([name, entry]) => {
       const source = typeof entry === "string" ? entry : entry.source;
+      if (source === undefined) return [];
       const enabled = typeof entry === "string" || entry.enabled !== false;
-      return {
-        type: "subagent" as const,
-        name,
-        identity: source,
-        source,
-        enabled,
-        constraints: [],
-        origins: [{ type: "settings" as const, source, enabled }],
-      };
+      return [
+        {
+          type: "subagent" as const,
+          name,
+          identity: source,
+          source,
+          enabled,
+          constraints: [],
+          origins: [{ type: "settings" as const, source, enabled }],
+        },
+      ];
     }),
     mcpSourceClosures: [],
     problems: [],

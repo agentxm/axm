@@ -21,6 +21,20 @@ import { AXM_MCP_METADATA_KEY } from "./entry-semantics.js";
  */
 export type McpServerDeclaration =
   | {
+      /**
+       * A Pack-supplied connection the workspace only configures: it names no
+       * transport of its own, so the resolved member supplies one.
+       */
+      readonly kind: "configuration";
+      readonly source?: undefined;
+      readonly command?: undefined;
+      readonly args?: undefined;
+      readonly url?: undefined;
+      readonly headers?: undefined;
+      readonly enabled?: boolean;
+      readonly env: Readonly<Record<string, string>>;
+    }
+  | {
       readonly kind: "inline";
       readonly source?: undefined;
       readonly command?: string | undefined;

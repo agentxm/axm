@@ -819,7 +819,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 
 - Requirement: `cli/packs/unpack/promotes-members-without-overwriting-direct-intent`
 - Owner: `workspace`
-- Statement: When a person unpacks a configured pack with complete member resolutions, AXM shall preserve its installed leaf members as direct workspace declarations, retain existing direct declarations unchanged, and remove the pack declaration.
+- Statement: When a person unpacks a configured pack with complete member resolutions, AXM shall preserve its installed leaf members as direct workspace declarations, retain existing direct declarations unchanged, carry a configuration-only member entry's preferences into the declaration it creates rather than treating that entry as an existing declaration, and remove the pack declaration.
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
@@ -3038,7 +3038,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/activation-follows-desired-state`
 - Owner: `workspace`
-- Statement: When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record a direct activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members, and retaining members reached elsewhere; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in.
+- Statement: When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record an activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members, and retaining members reached elsewhere; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`
@@ -3588,6 +3588,20 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Source: [`packages/core/workspace/src/mcp-connections/lifecycle/update/shared-source-update-is-closure-wide.spec.ts`](../packages/core/workspace/src/mcp-connections/lifecycle/update/shared-source-update-is-closure-wide.spec.ts)
 
+##### Configuring a Pack-supplied member declares no acquisition
+
+- Requirement: `cli/pack-member-configuration-does-not-create-acquisition-intent`
+- Owner: `workspace`
+- Statement: A settings entry that declares no source shall configure the member an installed Pack supplies under that local name: it shall record only the preferences it states, contribute no dependency root, version constraint, source resolution, or retention claim, and leave the Pack free to advance that member's version; changing activation for a member no direct entry declares shall write such an entry rather than copy the member's source or range, while an entry that does declare a source shall keep its constraint and the refusal that constraint earns.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `extension-adoption`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/activation-follows-desired-state`
+- Open questions: Whether a Pack transition that replaces a member identity under the same local name should refuse to carry the preference across, or move it; the current implementation keeps the preference bound to the local name.
+- Source: [`packages/core/workspace/src/lifecycle/activation/pack-member-configuration-does-not-create-acquisition-intent.spec.ts`](../packages/core/workspace/src/lifecycle/activation/pack-member-configuration-does-not-create-acquisition-intent.spec.ts)
+
 ##### Pack inspection refuses mismatched and unavailable targets
 
 - Requirement: `cli/packs/show/rejects-mismatched-and-unavailable-packs`
@@ -3944,6 +3958,20 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Derived from: `cli/update/machine-result-names-bundled-source-blocker`, `apps/cli/src/root/update/blocker-suggestions.test.ts`
 - Supersedes: `cli/update/machine-result-names-bundled-source-blocker`
 - Source: [`packages/core/workspace/src/lifecycle/update/bundled-source-routes-to-recovery.spec.ts`](../packages/core/workspace/src/lifecycle/update/bundled-source-routes-to-recovery.spec.ts)
+
+##### A workspace update settles related Pack changes together and names what a refusal prevented
+
+- Requirement: `cli/update/plans-coherent-groups-and-explains-blockers`
+- Owner: `workspace`
+- Statement: A workspace update shall plan selected Packs that share a member as one group against the same proposed graph, refuse a group whose constraints cannot be satisfied before it writes anything, and report every selected Pack that refusal prevented together with the constraints that decided it, while a group that shares no member with a refused one remains free to settle and stays committed.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/update/advances-resolution-within-intent`, `cli/mutations-are-closure-atomic`
+- Open questions: Whether a blocked group should also report the newest Pack version it could have selected, which cli/update/explains-excluded-newer-versions owns separately.
+- Source: [`packages/core/workspace/src/lifecycle/update/plans-coherent-groups-and-explains-blockers.spec.ts`](../packages/core/workspace/src/lifecycle/update/plans-coherent-groups-and-explains-blockers.spec.ts)
 
 ##### Update is blocked for an extension the workspace does not desire
 
@@ -4878,11 +4906,11 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Limitation: This owner concerns application resources, not the OS keychain. It does not claim that AXM_USER_HOME changes the logged-in operating-system account or keychain namespace. Retires when: Retain that ownership distinction while changes to the application-home implementation are reviewed.
 - Source: [`apps/cli-e2e/src/environment-relocates-user-resources.spec.ts`](../apps/cli-e2e/src/environment-relocates-user-resources.spec.ts)
 
-##### MCP entries declare exactly one of source, command, or url
+##### MCP entries declare at most one of source, command, or url
 
 - Requirement: `cli/mcps/entries-declare-exactly-one-transport`
 - Owner: `workspace`
-- Statement: An MCP server entry in axm.json shall declare exactly one of source, command, or url, and a document declaring none or more than one shall be refused with an error naming that rule.
+- Statement: An MCP server entry in axm.json shall declare at most one of source, command, or url; an entry declaring more than one shall be refused with an error naming that rule, and an entry declaring none shall be accepted only as a Pack-member configuration that sets at least one supported preference and no transport field, with any other source-less entry refused with an error naming the rule it broke.
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`

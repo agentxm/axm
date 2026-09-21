@@ -88,6 +88,7 @@ const policy: SubjectPolicy<
   declaredEntries: (declared) => declared,
   declaredName: (entry) => entry.name,
   declaredActivation: (entry) => (entry.enabled ? "enabled" : "disabled"),
+  declaresAcquisition: () => true,
   resolvedEntries: (resolved) => resolved,
   resolvedName: (entry) => entry.name,
   actualEntries: (actual) => actual,

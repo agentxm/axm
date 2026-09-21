@@ -36,21 +36,43 @@ export const declareMaterialization = <TRef extends ExtensionRef>(args: {
           ? `${ref.source.name}:${formatFqn({ owner: ref.owner, type: ref.type, name: ref.name })}${Option.isSome(args.versionRange) ? `@${args.versionRange.value}` : ""}`
           : printSourceParams(lockEntryToSourceParams(entry)),
     });
+    // Declaring a materialization intentionally creates acquisition intent.
+    // Where an entry already carried member preferences, they cross over; the
+    // markers that only exist to prove a configuration entry declares nothing
+    // do not.
     if (ref.type === "mcp-server") {
       const current = (yield* reader.entries("mcp-server"))[name];
       yield* writer.setEntry("mcp-server", name, {
-        ...current,
         kind: "sourced",
         source,
         enabled: current?.enabled ?? true,
+        ...(current?.distribute === undefined ? {} : { distribute: current.distribute }),
         env: current?.env ?? {},
+      });
+    } else if (ref.type === "knowledge") {
+      const current = (yield* reader.entries("knowledge"))[name];
+      yield* writer.setEntry("knowledge", name, {
+        source,
+        enabled: current?.enabled ?? true,
+        ...(current?.distribute === undefined ? {} : { distribute: current.distribute }),
+        ...(current?.instructionEntry === undefined
+          ? {}
+          : { instructionEntry: current.instructionEntry }),
+      });
+    } else if (ref.type === "skill") {
+      const current = (yield* reader.entries("skill"))[name];
+      yield* writer.setEntry("skill", name, {
+        source,
+        enabled: current?.enabled ?? true,
+        ...(current?.distribute === undefined ? {} : { distribute: current.distribute }),
+        ...(current?.origin === undefined ? {} : { origin: current.origin }),
       });
     } else {
       const current = (yield* reader.entries(ref.type))[name];
       yield* writer.setEntry(ref.type, name, {
-        ...current,
         source,
         enabled: current?.enabled ?? true,
+        ...(current?.distribute === undefined ? {} : { distribute: current.distribute }),
       });
     }
   });

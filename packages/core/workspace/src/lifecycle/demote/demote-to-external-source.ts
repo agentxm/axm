@@ -164,7 +164,7 @@ const restoreDisabledState = (
   type: ExtensionType,
   name: string,
 ): Effect.Effect<void, RestoreDisabledStateFailure> => {
-  const disable = <T extends { readonly enabled: boolean }>(entry: T): T => ({
+  const disable = <T extends { readonly enabled?: boolean | undefined }>(entry: T): T => ({
     ...entry,
     enabled: false,
   });

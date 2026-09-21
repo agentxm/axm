@@ -73,6 +73,15 @@ export interface SubjectPolicy<TDeclared, TResolved, TActual, TPackMember, TInst
    */
   readonly declaredActivation: (entry: TDeclaredEntry<TDeclared>) => ActivationState;
 
+  /**
+   * Whether a declared entry declares acquisition.
+   *
+   * A source-less entry configures a member some Pack supplies. It is not an
+   * independent installation, so it produces no direct row — it only adjusts
+   * the pack-member row that already exists.
+   */
+  readonly declaresAcquisition: (entry: TDeclaredEntry<TDeclared>) => boolean;
+
   /** Iterate the subject's resolved entries from a decoded `resolved` payload. */
   readonly resolvedEntries: (resolved: TResolved) => ReadonlyArray<TResolvedEntry<TResolved>>;
 
@@ -320,6 +329,8 @@ export const projectInstalledExtensions = <
     }
     const direct: ReadonlyArray<NamedRow> = Array.getSomes(
       Array.fromIterable(declaredByName.entries()).map(([name, entry]) => {
+        // A configuration-only entry acquires nothing, so it is not a route.
+        if (!policy.declaresAcquisition(entry)) return Option.none<NamedRow>();
         const activation = policy.declaredActivation(entry);
         const memberState = memberByName.get(name);
         const providingPacks: ReadonlyArray<InstalledPackRef> =
@@ -341,8 +352,16 @@ export const projectInstalledExtensions = <
     //    including disabled).
     const implicit: ReadonlyArray<NamedRow> = Array.getSomes(
       Array.fromIterable(memberByName.entries()).map(([name, state]) => {
-        if (declaredByName.has(name)) return Option.none<NamedRow>(); // direct wins
-        const activation = policy.packMemberActivation(state.member);
+        const declaredEntry = declaredByName.get(name);
+        if (declaredEntry !== undefined && policy.declaresAcquisition(declaredEntry)) {
+          return Option.none<NamedRow>(); // direct wins
+        }
+        // An explicit disable in a configuration-only entry overrides the
+        // member; anything else inherits whatever the Pack supplies.
+        const activation =
+          declaredEntry !== undefined && policy.declaredActivation(declaredEntry) === "disabled"
+            ? "disabled"
+            : policy.packMemberActivation(state.member);
         const attached = policy.attachActualToInstalled(name, actualEntries);
         const row = policy.buildInstalledRow({
           name,

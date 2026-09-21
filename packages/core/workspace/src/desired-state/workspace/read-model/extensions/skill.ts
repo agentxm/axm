@@ -288,7 +288,8 @@ const skillPolicy = (
 > => ({
   declaredEntries: (declared) => declared,
   declaredName: (entry) => entry.name,
-  declaredActivation: (entry) => (entry.entry.enabled ? "enabled" : "disabled"),
+  declaredActivation: (entry) => (entry.entry.enabled === false ? "disabled" : "enabled"),
+  declaresAcquisition: (entry) => entry.entry.source !== undefined,
   resolvedEntries: (resolved) => resolved,
   resolvedName: (entry) => simpleName(entry.name),
   actualEntries: (actual) => actual,

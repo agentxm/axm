@@ -54,7 +54,7 @@ import {
   SettingsReader,
   WorkspaceLocation,
   acceptedResolutionRef,
-  enabledConfiguredEntries,
+  acquisitionConfiguredEntries,
   isSourcedDesiredExtension,
   type WorkspaceSettingsReadFailure,
   type WorkspaceStateReadFailure,
@@ -113,7 +113,7 @@ import { planSkillInstall } from "../../skills/lifecycle/install/plan.js";
 import { planSubagentInstall } from "../../subagents/lifecycle/install/plan.js";
 import {
   configuredPackConstraintBlockPlan,
-  prospectivePackConstraintProblems,
+  prospectivePackUpdateGroups,
 } from "../../packs/lifecycle/constraint-gate.js";
 import { WORKSPACE_UPDATE_EXECUTION_CAPABILITIES } from "./atomicity.js";
 import { assessGitSelector } from "./git-selector.js";
@@ -328,8 +328,16 @@ type CollectedPackResolution =
     }
   | {
       readonly kind: "resolved";
+      readonly name: string;
       readonly resolution: ConfiguredUpdateResolution<PackInstallIntent>;
     };
+
+/** One selected Pack advance, kept with the configured name that named it. */
+interface SelectedPackAdvance {
+  readonly name: string;
+  readonly identity: string;
+  readonly intent: PackInstallIntent;
+}
 
 const releaseAgeRecord = (args: {
   readonly target: string;
@@ -757,7 +765,7 @@ const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
     const configured = yield* settings.entries("skill");
-    const entries = selectedEntries(enabledConfiguredEntries(configured), selection).filter(
+    const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection).filter(
       hasConfiguredSource,
     );
 
@@ -791,7 +799,7 @@ const collectRulePlans = (selection: WorkspaceUpdateCollectionRequest) =>
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
     const configured = yield* settings.entries("rule");
-    const entries = selectedEntries(enabledConfiguredEntries(configured), selection);
+    const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection);
 
     const resolved = yield* Effect.forEach(
       entries,
@@ -823,7 +831,7 @@ const collectHookPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
     const configured = yield* settings.entries("hook");
-    const entries = selectedEntries(enabledConfiguredEntries(configured), selection);
+    const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection);
 
     const resolved = yield* Effect.forEach(
       entries,
@@ -855,7 +863,7 @@ const collectKnowledgePlans = (selection: WorkspaceUpdateCollectionRequest) =>
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
     const configured = yield* settings.entries("knowledge");
-    const entries = selectedEntries(enabledConfiguredEntries(configured), selection);
+    const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection);
 
     const resolved = yield* Effect.forEach(
       entries,
@@ -887,7 +895,7 @@ const collectSubagentPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
     const configured = yield* settings.entries("subagent");
-    const entries = selectedEntries(enabledConfiguredEntries(configured), selection).filter(
+    const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection).filter(
       hasConfiguredSource,
     );
 
@@ -924,7 +932,7 @@ const collectMcpServerPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     const configured = yield* settings.entries("mcp-server");
     const graph = yield* desiredState.graph();
     const seenSourceClosures = new Set<string>();
-    const entries = selectedEntries(enabledConfiguredEntries(configured), selection).flatMap(
+    const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection).flatMap(
       (entry): ReadonlyArray<typeof entry> => {
         const [name, configuredEntry] = entry;
         const desired = graph.nodes.find(
@@ -1016,6 +1024,7 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
                     } satisfies CollectedPackResolution)
                   : ({
                       kind: "resolved",
+                      name,
                       resolution,
                     } satisfies CollectedPackResolution),
               ),
@@ -1031,11 +1040,21 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
       { concurrency: "unbounded" },
     );
 
-    const selected = resolved.flatMap((item) =>
-      item.kind === "resolved" && item.resolution.kind === "selected" ? [item.resolution] : [],
+    const selected: ReadonlyArray<SelectedPackAdvance> = resolved.flatMap((item) =>
+      item.kind === "resolved" && item.resolution.kind === "selected"
+        ? [
+            {
+              name: item.name,
+              identity: `${item.resolution.intent.packToInstall.owner}/packs/${item.resolution.intent.packToInstall.pack.name}`,
+              intent: item.resolution.intent,
+            },
+          ]
+        : [],
     );
     const prospectivePacks = selected.map(({ intent }) => intent.packToInstall);
-    const constraintProblems = yield* prospectivePackConstraintProblems({
+    // Packs that share a member settle together; packs that share none are
+    // independent, so one group's refusal leaves the others free to commit.
+    const groups = yield* prospectivePackUpdateGroups({
       prospectivePacks,
       ...(selection.names === undefined ? {} : { selectedNames: selection.names }),
     });
@@ -1053,27 +1072,35 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
           ? item.collection.bypasses
           : [],
     );
-    if (constraintProblems.length > 0) {
-      return toCollectedWorkspaceUpdatePlans({
-        plans: [
-          configuredPackConstraintBlockPlan({
-            operation: "update",
-            problems: constraintProblems,
-          }),
-        ],
-        holdbacks: resolvedHoldbacks,
-        bypasses: resolvedBypasses,
-      });
-    }
 
-    const selectedPlans = yield* Effect.forEach(selected, ({ intent }) => planPackInstall(intent), {
-      concurrency: "unbounded",
+    const blockedGroups = groups.filter((group) => group.problems.length > 0);
+    const blockedIdentities = new Set(blockedGroups.flatMap((group) => group.packIdentities));
+    const blockPlans = blockedGroups.map((group) => {
+      const prevented = selected
+        .filter((advance) => group.packIdentities.includes(advance.identity))
+        .map((advance) => advance.name);
+      return configuredPackConstraintBlockPlan({
+        operation: "update",
+        problems: group.problems,
+        ...(prevented.length === 0 ? {} : { blockedPackNames: prevented }),
+      });
     });
+
+    const readyAdvances = selected.filter((advance) => !blockedIdentities.has(advance.identity));
+    const selectedPlans = yield* Effect.forEach(
+      readyAdvances,
+      ({ intent }) => planPackInstall(intent),
+      { concurrency: "unbounded" },
+    );
     const plannedCollections = resolved.flatMap((item) =>
       item.kind === "planned" ? [item.collection] : [],
     );
     return toCollectedWorkspaceUpdatePlans({
-      plans: [...plannedCollections.flatMap((collection) => collection.plans), ...selectedPlans],
+      plans: [
+        ...plannedCollections.flatMap((collection) => collection.plans),
+        ...blockPlans,
+        ...selectedPlans,
+      ],
       holdbacks: resolvedHoldbacks,
       bypasses: resolvedBypasses,
       originForStep: (index) => (index === 0 ? "direct" : "dependency"),

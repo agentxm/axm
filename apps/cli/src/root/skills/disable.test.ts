@@ -207,7 +207,7 @@ describe("disable.handler", () => {
   // ---------------------------------------------------------------------------
 
   describe("implicit skill disable (pack-derived entry promotion)", () => {
-    it.effect("creates direct entry when disabling implicit skill", () => {
+    it.effect("records a configuration-only entry when disabling an implicit skill", () => {
       const { provide, logs } = makeLayers();
       const axmDir = path.join(tempDir, ".axm");
       const skillDir = path.join(
@@ -267,13 +267,11 @@ describe("disable.handler", () => {
           expect(logs.success.length).toBeGreaterThan(0);
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
 
-          // Settings should have a new direct entry with enabled: false
+          // The Pack still owns the member, so settings carry the preference
+          // alone: no source, and no version range copied out of the Pack.
           const settingsContent = fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8");
           const settings = JSON.parse(settingsContent);
-          expect(settings.skills?.["code-review"]).toEqual({
-            source: "@acme/skills/code-review@^1.0.0",
-            enabled: false,
-          });
+          expect(settings.skills?.["code-review"]).toEqual({ enabled: false });
         }),
       );
     });

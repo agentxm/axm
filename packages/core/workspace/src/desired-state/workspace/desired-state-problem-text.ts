@@ -29,6 +29,8 @@ export const desiredStateProblemText = (problem: DesiredStateProblem): string =>
       return `${problem.extensionType} ${problem.name}: incompatible constraints ${problem.contributors.map(constraintContributorText).join(", ")}; decision=blocked; reason=no-satisfying-version`;
     case "workspace-owner-missing":
       return `${problem.extensionType} ${problem.name}: workspace owner is missing`;
+    case "member-configuration-unbound":
+      return `${problem.extensionType} ${problem.name}: ${problem.location} configures a Pack member no configured pack supplies`;
   }
 };
 

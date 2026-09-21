@@ -19,6 +19,7 @@ import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extensi
 import type { Lockfile, McpServerLockEntry } from "../../../lockfile/schema.js";
 import { lockEntryToSourceParams } from "../../lock-entry-to-source-params.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
+import { isSourcedMcpServerEntry } from "../../../settings/schema.js";
 import type { McpServerEntry, Settings } from "../../../settings/schema.js";
 import type { Diagnostics, Warning } from "../diagnostics.js";
 import type { LockfileReadError, SettingsReadError } from "../errors.js";
@@ -120,7 +121,9 @@ const resolvedFromState = (
   const resolved: ResolvedMcpServer[] = [];
   const names = new Set<string>();
   for (const [localName, entry] of Object.entries(settings.mcpServers ?? {})) {
-    if (entry.kind === "inline") continue;
+    // Inline connections define themselves; configuration-only entries name no
+    // source. Neither resolves through a shared source identity.
+    if (!isSourcedMcpServerEntry(entry)) continue;
     const parsed = parseSourceQualifiedRegistrySourcePatternParts(entry.source);
     const configuredRegistry = settings.sources?.find(
       (source) => source.type === "registry" && source.name === parsed?.sourceName,
@@ -253,7 +256,10 @@ const mcpServerPolicy = (
 > => ({
   declaredEntries: (d) => d,
   declaredName: (e) => e.name,
-  declaredActivation: (entry) => (entry.entry.enabled ? "enabled" : "disabled"),
+  declaredActivation: (entry) => (entry.entry.enabled === false ? "disabled" : "enabled"),
+  // An inline connection defines itself; only a source-less, non-inline entry
+  // configures a member another Pack supplies.
+  declaresAcquisition: (entry) => entry.entry.kind !== "configuration",
   resolvedEntries: (r) => r,
   resolvedName: (e) => e.name,
   actualEntries: (a) => a,

@@ -28,7 +28,7 @@ export const specification = defineSpecification({
   requirement: "cli/activation-follows-desired-state",
   title: "Activation preserves leaf content and realizes Pack dependency routes",
   statement:
-    "When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record a direct activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members, and retaining members reached elsewhere; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in.",
+    "When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record an activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members, and retaining members reached elsewhere; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability"],

@@ -93,8 +93,10 @@ export {
   type SubagentPathSource,
 } from "./workspace/subagent-paths.js";
 export {
+  acquisitionConfiguredEntries,
   enabledConfiguredEntries,
   isConfiguredEntryEnabled,
+  type ConfiguredEntryAcquisitionState,
   type ConfiguredEntryEnabledState,
 } from "./workspace/configured-entry.js";
 
@@ -186,6 +188,7 @@ export {
   desiredStateProblemsText,
 } from "./workspace/desired-state-problem-text.js";
 export {
+  effectiveExtensionActivation,
   isDesiredExtensionActive,
   type DesiredStateEnabledOrigin,
 } from "./workspace/desired-state-enabled.js";

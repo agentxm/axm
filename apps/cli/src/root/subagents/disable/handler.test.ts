@@ -185,7 +185,7 @@ describe("subagents disable.handler", () => {
   // Implicit promotion: pack-provided subagent gets a direct settings entry
   // ---------------------------------------------------------------------------
 
-  it.effect("promotes implicit subagent to configured entry with enabled: false", () => {
+  it.effect("records a configuration-only entry for an implicit subagent", () => {
     const { provide, rendererState } = makeLayers();
     const axmDir = path.join(tempDir, ".axm");
     const subagentDir = path.join(
@@ -250,7 +250,7 @@ describe("subagents disable.handler", () => {
           preview: false,
         });
 
-        // Verify settings now has a direct entry with enabled: false
+        // Verify settings now carry the preference without a source
         const settings = readSettings(axmDir);
         const subagents = settings["subagents"] as Record<string, unknown>;
         if (subagents === undefined) {
@@ -259,9 +259,7 @@ describe("subagents disable.handler", () => {
         expect(subagents).toBeDefined();
         expect(subagents["pack-subagent"]).toBeDefined();
 
-        const entry = subagents["pack-subagent"] as { source: string; enabled: boolean };
-        expect(entry.enabled).toBe(false);
-        expect(entry.source).toBe("@acme/subagents/pack-subagent@^1.0.0");
+        expect(subagents["pack-subagent"]).toEqual({ enabled: false });
       }),
     );
   });

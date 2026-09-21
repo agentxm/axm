@@ -776,7 +776,7 @@ const installedSkillToInfo = (
   }
 
   if (skill.installationOrigin._tag === "direct") {
-    const parsed = parseRegistrySourceRef(skill.installationOrigin.declared.entry.source);
+    const parsed = parseRegistrySourceRef(skill.installationOrigin.declared.entry.source ?? "");
     if (parsed !== undefined && parsed.type === "skills") {
       return nativeSkillInfo(args, "agentxm", parsed.owner, skill.key.name);
     }
@@ -1017,7 +1017,7 @@ const subagentPackageRoot = (
   }
 
   if (subagent.installationOrigin._tag === "direct") {
-    const parsed = parseRegistrySourceRef(subagent.installationOrigin.declared.entry.source);
+    const parsed = parseRegistrySourceRef(subagent.installationOrigin.declared.entry.source ?? "");
     if (parsed !== undefined && parsed.type === "subagents") {
       return args.platform.path.resolve(
         args.workspaceRoot,
@@ -1072,7 +1072,7 @@ const isNativeSkill = (skill: InstalledSkill, actual: ActualSkill): boolean => {
   if (skill.installationOrigin._tag !== "direct") {
     return false;
   }
-  const parsed = parseRegistrySourceRef(skill.installationOrigin.declared.entry.source);
+  const parsed = parseRegistrySourceRef(skill.installationOrigin.declared.entry.source ?? "");
   return parsed !== undefined && parsed.type === "skills";
 };
 

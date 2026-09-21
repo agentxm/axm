@@ -23,6 +23,8 @@ import {
 } from "../desired-state/index.js";
 import type { AcceptedCanonicalRefError } from "../desired-state/index.js";
 
+import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
+
 import { ExtensionResolutionFailed } from "./errors.js";
 import type { PackDependencyRefResolver } from "./pack-dependency-resolution.js";
 
@@ -39,9 +41,17 @@ export const acceptedPackDependencyResolver =
     Effect.gen(function* () {
       const accepted = yield* acceptedLockedResolutionRef({ type, name });
       if (Option.isNone(accepted)) {
+        // Restoration replays accepted state exactly. With no accepted row for
+        // this member there is nothing to replay, and choosing a version here
+        // would silently turn a restore into a new selection. Name the Pack,
+        // the member, and the route that is allowed to choose instead.
+        const packName = parseExtensionFqnParts(root)?.name;
         return yield* new ExtensionResolutionFailed({
           category: "conflict",
           detail: `Accepted Pack recovery for ${root} has no accepted ${type} resolution for ${owner}/${name}`,
+          recover:
+            "Restoring a Pack replays its accepted member resolutions and never selects a new one. Restore the accepted resolution file, or update the Pack explicitly to select new accepted state within its declared intent.",
+          ...(packName === undefined ? {} : { cmd: `axm packs update ${packName}` }),
         });
       }
       return accepted.value;

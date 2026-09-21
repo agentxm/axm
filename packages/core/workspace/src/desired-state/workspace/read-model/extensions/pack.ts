@@ -200,7 +200,9 @@ const packPolicy = (
 > => ({
   declaredEntries: (d) => d,
   declaredName: (e) => e.name,
-  declaredActivation: (entry) => (entry.entry.enabled ? "enabled" : "disabled"),
+  declaredActivation: (entry) => (entry.entry.enabled === false ? "disabled" : "enabled"),
+  // A Pack is always declared; it is never supplied by another Pack.
+  declaresAcquisition: () => true,
   resolvedEntries: (r) => r,
   resolvedName: (e) => e.name,
   actualEntries: (a) => a,

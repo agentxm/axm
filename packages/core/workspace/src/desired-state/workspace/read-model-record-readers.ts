@@ -249,8 +249,8 @@ export const makeReadModelRecordReaders = (args: {
     TDeclared extends {
       readonly entry: {
         readonly source?: string | undefined;
-        readonly enabled?: boolean;
-        readonly origin?: "bundled";
+        readonly enabled?: boolean | undefined;
+        readonly origin?: "bundled" | undefined;
       };
     },
     TPackMember,
@@ -341,8 +341,8 @@ export const makeReadModelRecordReaders = (args: {
     TDeclared extends {
       readonly entry: {
         readonly source?: string | undefined;
-        readonly enabled?: boolean;
-        readonly origin?: "bundled";
+        readonly enabled?: boolean | undefined;
+        readonly origin?: "bundled" | undefined;
       };
     },
     TPackMember,

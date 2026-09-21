@@ -94,6 +94,12 @@ const actions: Array<PtyActionOutcome> = [];
 for (const action of request.actions) {
   if ("awaiting" in action) {
     const matched = await awaitText(action.awaiting);
+    // The awaited text can land before the frame it belongs to finishes
+    // painting: a prompt writes its question, then its rows. Capturing on the
+    // match alone yields a half-drawn frame whenever the subject is slow
+    // enough to split them across chunks, so wait for the output to go quiet
+    // first, exactly as a `send` action does.
+    if (matched) await settle();
     actions.push({ action, matched, emitted: takeEmitted() });
     if (!matched) break;
     continue;

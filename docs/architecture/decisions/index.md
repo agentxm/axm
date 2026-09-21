@@ -61,3 +61,6 @@ specifications, never in these records.
   unverifiable content is preserved and reported
 
 - [Shared desired-state reconciliation](shared-desired-state-reconciliation.md) — shared realization policy belongs below peer command features and above canonical and projection mechanics
+- [Node runtime floor is Node 24](node-runtime-floor.md) — the development
+  pin, the published `engines.node` range, and the `@types/node` ceiling are
+  one Node 24 floor that CI exercises where it is declared

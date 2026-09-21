@@ -72,22 +72,24 @@
       enabled: false,
     },
     {
-      // The declared types currently sit two majors ahead of the Node runtime
-      // pinned in `mise.toml`, which arrived by drift rather than by decision.
-      // Resolving the direction is a separate decision with its own authority,
-      // because `engines` in the published CLI manifest is a user-facing
-      // contract. Hold the entry until that decision lands, then replace this
-      // rule with a ceiling tied to the chosen runtime major.
+      // The declared types follow the runtime floor rather than the newest
+      // Node line, so the compiler refuses an API that the floor does not
+      // ship. `mise.toml` and every manifest's `engines.node` are on 24, so
+      // this ceiling holds the types on the 24 line and still takes its patch
+      // and minor releases. It is raised in the same change that raises the
+      // floor, never ahead of it.
+      // Decision: docs/architecture/decisions/node-runtime-floor.md
       matchPackageNames: ["@types/node"],
-      enabled: false,
+      allowedVersions: "<25",
     },
     {
       // `engines.node` is a published contract: every manifest here declares
-      // `>=22.19.0`, and raising it can refuse installation for an end user.
-      // A dry run showed Renovate proposing `>=22.23.2` as an ordinary minor
-      // across ten manifests, which is below the major gate and would have
-      // landed that decision automatically. The runtime floor moves under its
-      // own decision, in the same change as the development pin.
+      // `>=24.19.0`, and raising it costs reach for an end user on an older
+      // runtime. A dry run showed Renovate proposing the pin as an ordinary
+      // minor across ten manifests, which is below the major gate and would
+      // have landed that decision automatically. The floor moves under its own
+      // decision, in the same change as the development pin and the types.
+      // Decision: docs/architecture/decisions/node-runtime-floor.md
       matchDepTypes: ["engines"],
       enabled: false,
     },

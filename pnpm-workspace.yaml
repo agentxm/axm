@@ -13,11 +13,11 @@ peerDependencyRules:
 catalog:
   "@effect/eslint-plugin": ^0.3.2
   "@effect/language-service": ^0.87.2
-  "@effect/openapi-generator": 4.0.0-rc.115
-  "@effect/platform-node": 4.0.0-rc.115
-  "@effect/platform-node-shared": 4.0.0-rc.115
-  "@effect/tsgo": ^0.36.5
-  "@effect/vitest": 4.0.0-rc.115
+  "@effect/openapi-generator": 4.0.0-rc.117
+  "@effect/platform-node": 4.0.0-rc.117
+  "@effect/platform-node-shared": 4.0.0-rc.117
+  "@effect/tsgo": ^0.45.0
+  "@effect/vitest": 4.0.0-rc.117
   "@eslint/js": ^10.0.0
   "@nx/devkit": 23.1.1
   "@nx/eslint": 23.1.1
@@ -34,7 +34,7 @@ catalog:
   allure: ^3.16.0
   allure-js-commons: ^3.12.1
   allure-vitest: ^3.12.1
-  effect: 4.0.0-rc.115
+  effect: 4.0.0-rc.117
   eslint: ^10.3.0
   execa: ^9.6.1
   "@fast-check/vitest": ^0.5.0
@@ -71,13 +71,13 @@ allowBuilds:
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - "@agentxm/*"
-  - "@effect/openapi-generator@4.0.0-rc.115"
-  - "@effect/platform-node-shared@4.0.0-rc.115"
-  - "@effect/platform-node@4.0.0-rc.115"
-  - "@effect/vitest@4.0.0-rc.115"
+  - "@effect/openapi-generator@4.0.0-rc.117"
+  - "@effect/platform-node-shared@4.0.0-rc.117"
+  - "@effect/platform-node@4.0.0-rc.117"
+  - "@effect/vitest@4.0.0-rc.117"
   - "@fast-check/vitest@0.5.0"
   - axm.sh
-  - effect@4.0.0-rc.115
+  - effect@4.0.0-rc.117
 
 overrides:
   # Compatible type consumers share the declared Node/Bun tooling cohort.

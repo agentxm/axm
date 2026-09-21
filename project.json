@@ -37,10 +37,11 @@
         "^default",
         "^production",
         "{workspaceRoot}/eslint.config.mjs",
+        "{workspaceRoot}/benchmarks/**/*",
         "{workspaceRoot}/scripts/placement-tags-plugin.ts"
       ],
       "options": {
-        "command": "eslint .pnpmfile.cjs allurerc.ts eslint.config.mjs vitest.config.ts vitest.execution.ts vitest.reporting.ts vitest.purpose.setup.ts scripts --max-warnings=0",
+        "command": "eslint .pnpmfile.cjs allurerc.ts eslint.config.mjs vitest.config.ts vitest.execution.ts vitest.reporting.ts vitest.purpose.setup.ts benchmarks scripts --max-warnings=0",
         "cwd": "."
       }
     },
@@ -59,6 +60,7 @@
       "dependsOn": ["^build"],
       "inputs": [
         "{workspaceRoot}/package.json",
+        "{workspaceRoot}/benchmarks/**/*",
         "{workspaceRoot}/scripts/**/*",
         "sharedGlobals",
         "^production"

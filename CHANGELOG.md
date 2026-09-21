@@ -1,3 +1,13 @@
+## 0.32.3 (2026-09-21)
+
+### 🩹 Fixes
+
+- Retry failed POSIX installer release downloads ([#391](https://github.com/agentxm/axm/pull/391))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.32.2 (2026-09-20)
 
 ### 🩹 Fixes

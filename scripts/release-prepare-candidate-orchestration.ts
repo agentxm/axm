@@ -8,6 +8,7 @@ export interface ReleaseCandidateHost<Context> {
   readonly changelog: (candidate: VersionedReleaseCandidate<Context>) => Promise<void>;
   readonly stampSkill: (version: string) => void;
   readonly generateSkill: () => void;
+  readonly generateCliReference: () => void;
   readonly validateCohort: (version: string) => void;
 }
 
@@ -18,6 +19,7 @@ export const runReleaseCandidatePreparation = async <Context>(
   await host.changelog(candidate);
   host.stampSkill(candidate.version);
   host.generateSkill();
+  host.generateCliReference();
   host.validateCohort(candidate.version);
   return candidate.version;
 };

@@ -5095,7 +5095,7 @@ Changes and releases land through the governed repository process with required 
 
 - Requirement: `system/process/release-preparation-produces-reviewable-candidate`
 - Owner: `axm`
-- Statement: An explicitly dispatched GitHub Actions preparation shall bind an exact current main revision, generate and validate the release candidate without contacting a private service, and open a reviewable candidate pull request whose exact commit receives Required CI without applying a publication.
+- Statement: An explicitly dispatched GitHub Actions preparation shall bind an exact current main revision, generate all version-derived release content and validate the candidate without contacting a private service, and open a reviewable candidate pull request whose exact commit receives Required CI without applying a publication.
 - Class: process
 - Role: supporting
 - Product goals: `dependable-change-process`, `trustworthy-distribution`
@@ -5105,7 +5105,7 @@ Changes and releases land through the governed repository process with required 
 - Derived from: `system/process/release-preparation-validates-production-gates`
 - Supersedes: `system/process/release-preparation-validates-production-gates`
 - Assumptions: Repository Actions policy permits the preparation job's contents and pull-request permissions, and a release maintainer can approve the prepared PR workflow.
-- Bound evidence: `test: axm:test (scripts/release-preparation-produces-reviewable-candidate.spec.ts)` — Checks explicit preparation dispatch, exact-source and stale-main guards, private-service independence, candidate phase ordering, reviewable pull-request creation, and the declared PR verification path for the candidate commit.
+- Bound evidence: `test: axm:test (scripts/release-preparation-produces-reviewable-candidate.spec.ts)` — Checks explicit preparation dispatch, exact-source and stale-main guards, private-service independence, version-derived skill and CLI-reference generation order, reviewable pull-request creation, and the declared PR verification path for the candidate commit.
 - Bound evidence: `test: axm:test (scripts/repository-task-interface.test.ts)` — Checks that local release-preparation orchestration has no root alias and that source resolution and candidate generation are fresh internal targets owned by the Actions workflow.
 - Source: [`scripts/release-preparation-produces-reviewable-candidate.spec.ts`](../scripts/release-preparation-produces-reviewable-candidate.spec.ts)
 

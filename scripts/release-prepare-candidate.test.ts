@@ -4,14 +4,16 @@ import {
   type ReleaseCandidateHost,
   runReleaseCandidatePreparation,
 } from "./release-prepare-candidate-orchestration.js";
-type CandidateFailurePoint = "version" | "changelog" | "stamp" | "generate" | "validate";
+type CandidateFailurePoint =
+  "version" | "changelog" | "stamp" | "generate-skill" | "generate-cli-reference" | "validate";
 
 describe("release candidate phase orchestration", () => {
   const candidateFailurePoints: readonly CandidateFailurePoint[] = [
     "version",
     "changelog",
     "stamp",
-    "generate",
+    "generate-skill",
+    "generate-cli-reference",
     "validate",
   ];
 
@@ -35,8 +37,12 @@ describe("release candidate phase orchestration", () => {
         failAt("stamp");
       },
       generateSkill: () => {
-        events.push("generate");
-        failAt("generate");
+        events.push("generate-skill");
+        failAt("generate-skill");
+      },
+      generateCliReference: () => {
+        events.push("generate-cli-reference");
+        failAt("generate-cli-reference");
       },
       validateCohort: () => {
         events.push("validate");
@@ -50,7 +56,14 @@ describe("release candidate phase orchestration", () => {
     const { events, host } = makeCandidateHost();
 
     await expect(runReleaseCandidatePreparation(host)).resolves.toBe("1.2.3");
-    expect(events).toEqual(["version", "changelog", "stamp", "generate", "validate"]);
+    expect(events).toEqual([
+      "version",
+      "changelog",
+      "stamp",
+      "generate-skill",
+      "generate-cli-reference",
+      "validate",
+    ]);
   });
 
   it.each(candidateFailurePoints)("stops when candidate phase %s fails", async (failurePoint) => {

@@ -18,7 +18,7 @@ export const specification = defineSpecification({
   requirement: "system/process/release-preparation-produces-reviewable-candidate",
   title: "Release preparation produces an exact reviewable candidate",
   statement:
-    "An explicitly dispatched GitHub Actions preparation shall bind an exact current main revision, generate and validate the release candidate without contacting a private service, and open a reviewable candidate pull request whose exact commit receives Required CI without applying a publication.",
+    "An explicitly dispatched GitHub Actions preparation shall bind an exact current main revision, generate all version-derived release content and validate the candidate without contacting a private service, and open a reviewable candidate pull request whose exact commit receives Required CI without applying a publication.",
   class: "process",
   role: "supporting",
   goals: ["dependable-change-process", "trustworthy-distribution"],
@@ -38,7 +38,7 @@ export const boundEvidence = defineBoundEvidence([
   {
     gate: "test: axm:test (scripts/release-preparation-produces-reviewable-candidate.spec.ts)",
     verifies:
-      "Checks explicit preparation dispatch, exact-source and stale-main guards, private-service independence, candidate phase ordering, reviewable pull-request creation, and the declared PR verification path for the candidate commit.",
+      "Checks explicit preparation dispatch, exact-source and stale-main guards, private-service independence, version-derived skill and CLI-reference generation order, reviewable pull-request creation, and the declared PR verification path for the candidate commit.",
   },
   {
     gate: "test: axm:test (scripts/repository-task-interface.test.ts)",
@@ -88,7 +88,8 @@ const recordingCandidateHost = () => {
       events.push("changelog");
     },
     stampSkill: () => events.push("stamp"),
-    generateSkill: () => events.push("generate"),
+    generateSkill: () => events.push("generate-skill"),
+    generateCliReference: () => events.push("generate-cli-reference"),
     validateCohort: () => events.push("validate"),
   };
   return { events, host };
@@ -164,7 +165,14 @@ describe("Release preparation workflow", () => {
     Effect.promise(async () => {
       const { events, host } = recordingCandidateHost();
       await runReleaseCandidatePreparation(host);
-      expect(events).toEqual(["version", "changelog", "stamp", "generate", "validate"]);
+      expect(events).toEqual([
+        "version",
+        "changelog",
+        "stamp",
+        "generate-skill",
+        "generate-cli-reference",
+        "validate",
+      ]);
     }),
   );
 });

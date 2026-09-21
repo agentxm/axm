@@ -1,0 +1,12 @@
+Updating  in this project · agents: claude-code, codex, grok-cli, opencode
+
+     Extension                     Version   Status   Detail
+ ~   @acme/…/product-engineering   2.3.0     update
+ ~   @acme/packs/field-notes       1.0.0     update
+ ~   @acme-enterprise…/effect-v4   0.4.2     update
+ ~   @acme/…/work-management       0.3.1     update
+ ~   @acme/rules/typescript        3.1.0     update
+ ~   @acme/…/incident-review       2.0.0     update
+
+applying 6 of 12 in 5.2s
+--verbose for details

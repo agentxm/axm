@@ -1,0 +1,14 @@
+Syncing
+
+     Extension      Version   Status
+ ▲   @…/effect-v4   -         blocked
+ ▲   @acme/…notes   -         blocked
+ ·   @a…/research   -         not tried
+     --verbose for details
+
+Failed to sync 3 extensions
+  2 blocked · 1 not tried · exit 1
+
+Next
+     axm list
+     Inspect installed extensions

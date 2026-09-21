@@ -1,0 +1,7 @@
+Updating  in this project · agents: claude-code, codex, grok-cli, opencode
+
+     Extension                     Version   Status     Detail
+ ◒   @acme/…/incident-review       2.0.0     applying   96 KB / 192 KB
+
+applying 12 of 12 in 10.6s
+--verbose for details

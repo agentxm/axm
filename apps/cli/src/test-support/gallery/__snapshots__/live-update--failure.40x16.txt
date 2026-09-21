@@ -1,0 +1,13 @@
+Updating  in this project · agents: cl…
+
+     Extension     Version   Status
+ ~   @acme…ering   2.3.0     update
+ ~   @acme…notes   1.0.0     update
+ ~   @acme…ct-v4   0.4.2     update
+ ~   @acme…ement   0.3.1     update
+ ~   @acme…cript   3.1.0     update
+ ~   @acme…eview   2.0.0     update
+     --verbose for details
+
+applying 6 of 12 in 5.2s
+--verbose for details

@@ -1,0 +1,21 @@
+Installing
+
+ ↶   @acme/packs/review-kit
+     2.1.0 · rolled back
+ ✖   @acme-enterpris…/incident-commander
+     - · failed
+ ·   @acme/skills/incident-review
+     2.0.0 · not tried
+ ·   @acme/knowledge/runbooks
+     5.2.0 · not tried
+
+Failed to install 4 extensions - all
+changes rolled back
+  1 failed · 1 rolled back · 2 not tried
+  · exit 3
+One extension could not be resolved, so
+the install was rolled back.
+
+Next
+     axm list
+     Inspect installed extensions

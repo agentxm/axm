@@ -1,0 +1,12 @@
+Syncing
+
+     Extension                     Version   Status
+ ▲   @acme-enterprise…/effect-v4   -         blocked
+ ▲   @acme/packs/field-notes       -         blocked
+ ·   @acme/skills/research         -         not tried
+     --verbose for details
+
+Failed to sync 3 extensions  2 blocked · 1 not tried · exit 1
+
+Next
+     axm list   Inspect installed extensions

@@ -1,0 +1,27 @@
+Updating  in this project · agents: claude-code, codex, grok-cli, opencode
+
+     Extension                     Version   Status
+ ~   @acme/…/improve-whatever      1.0.2     updated
+ ~   @acme/skills/spot-spew        0.2.0     updated
+ ~   @acme/skills/devops-docs      0.5.1     updated
+ ~   @acme/skills/okf              0.1.9     updated
+ ~   @acme/skills/research         1.2.0     updated
+ ✖   @acme/…/agent-engineering     -         failed
+ ✖   @acme/…/product-engineering   -         failed
+ ✖   @acme/packs/field-notes       -         failed
+ ✖   @acme-enterprise…/effect-v4   -         failed
+ ✖   @acme/…/work-management       -         failed
+ ✖   @acme/rules/typescript        -         failed
+ ✖   @acme/…/incident-review       -         failed
+ =   1 extension already current  --verbose to list
+     --verbose for details
+
+Partially updated  5 changed · 7 failed · 1 already current · exit 1
+
+Next
+     axm list   Inspect installed extensions
+
+ ▲   1 release allowed before the 24h minimum release age
+     @acme/packs/field-notes 1.0.0 — published 2026-09-21T16:44:17.865Z
+     Allowed by project minimumReleaseAgeExclude; otherwise held until
+     2026-09-22T16:44:17.865Z

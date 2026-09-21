@@ -306,7 +306,18 @@ answered states, and every node kind — and its
 file snapshots record the painted output at 40, 80, 120, and 200 columns, and
 at 16 and 24 rows where a scene must fit. A scene fixture is a pure function
 of the terminal size, painted one column short of the width and held within the
-height less two rows. A fixture drawn from the design canvas is named
+height less two rows.
+
+Scenarios that go wrong are drawn from one shared stress data set — qualified
+names across every extension type, a scope too long for its lane, absolute
+paths, reasons that run to several sentences, and a command a reader copies
+out — so layout is reviewed where it has to choose between the information a
+ledger carries and the columns it lays out. Those frames add a hundred columns
+to the widths above, the width a working terminal usually has. A live scene is
+reviewed over time as well as in one frame: a sequence of scenes cut from one
+recorded event log shows the same operation starting, settling units, failing
+one, and reaching its last, so a row that leaves the window between frames left
+because the window's own rules put it there. A fixture drawn from the design canvas is named
 `<board>--<frame>`, so its snapshots can be held against the mock they
 implement. Retained alternatives are separate fixtures only while they remain
 useful review scenarios; superseded or semantically duplicate variants are

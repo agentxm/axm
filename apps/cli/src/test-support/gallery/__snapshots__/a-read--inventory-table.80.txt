@@ -1,10 +1,16 @@
-     Extension                  Type         Management   Installed   Version
-     @acme/skills/code-review   skill        configured   yes         1.4.0
-     @acme/skills/triage        skill        configured   yes         2.0.1
-     @acme/subagents/reviewer   subagent     configured   yes         0.9.0
-     @acme/packs/review-kit     pack         configured   yes         2.1.0
-     github                     mcp-server   configured   yes         1.0.0
- ▲   @legacy/skills/changelog   skill        leftover     yes         0.3.0
-     Not shown at this width: Source, Assessment, Guidance
+     Extension                  Type         Management                Installed
+     @acme/skills/code-review   skill        managed by this           yes
+                                             workspace
+     @acme/skills/triage        skill        managed by this           yes
+                                             workspace
+     @acme/subagents/reviewer   subagent     managed by this           yes
+                                             workspace
+     @acme/packs/review-kit     pack         managed by this           yes
+                                             workspace
+     github                     mcp-server   managed by this           yes
+                                             workspace
+ ▲   @legacy/skills/changelog   skill        installed but no longer   yes
+                                             selected
+     Not shown at this width: Version, Source, Assessment, Guidance
 
 6 extensions · 3 enabled · 1 needs attention · axm lint explains

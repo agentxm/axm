@@ -148,7 +148,7 @@ describe("version preview", () => {
           " ~   @acme/skills/review           1.3.0     update   from 1.2.0, 1 file, skills/review/skill.json",
         );
         expect(lines.filter((line) => line.startsWith("Would "))).toEqual([
-          "Would update 1 skill  1 to update · nothing was written",
+          "Would update 1 skill  no changes made",
         ]);
         expect(JSON.parse(fs.readFileSync(manifest, "utf8"))).toMatchObject({ version: "1.2.0" });
       }),

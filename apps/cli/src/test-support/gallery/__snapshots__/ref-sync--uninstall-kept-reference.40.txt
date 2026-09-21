@@ -7,8 +7,8 @@ Uninstalling
      --verbose to list
      --verbose for details
 
- ▲   AXM will not touch 1 path
+ ▲   1 existing item was left unchanged
      AGENTS.md, prose AXM did not write
 
 Uninstalled 2 extensions
-  2 applied · 1 already current
+  1 already current

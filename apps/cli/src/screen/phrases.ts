@@ -65,7 +65,7 @@ export const unitState = (state: UnitState): string => {
     case "ready":
       return "ready";
     case "committed":
-      return "applied";
+      return "changed";
     case "unchanged":
       return "already current";
     case "failed":
@@ -537,17 +537,17 @@ export const artifactChange = (value: ArtifactChange): string => {
 export const agentOutcome = (value: ConfiguredAgentOutcome["outcome"]): string => {
   switch (value) {
     case "projected":
-      return "projected";
+      return "available";
     case "current":
-      return "already current";
+      return "already available";
     case "not-applicable":
-      return "not applicable";
+      return "not used by this agent";
     case "unsupported":
       return "not supported by this agent";
     case "blocked":
-      return "blocked";
+      return "not updated";
     case "failed":
-      return "failed";
+      return "update failed";
     default:
       return unreachable(value);
   }

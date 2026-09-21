@@ -89,7 +89,7 @@ export const selectInstalledKnowledgeBundles = Effect.fn(
     return yield* new InstalledKnowledgeUnavailable({
       reason: "desired-state-incomplete",
       detail:
-        "Knowledge desired state cannot be inspected until pack and declaration problems are fixed",
+        "AXM could not determine which Knowledge bundles should be installed because some pack or axm.json entries are invalid",
     });
   }
   const locked = yield* lockfile.entries("knowledge");

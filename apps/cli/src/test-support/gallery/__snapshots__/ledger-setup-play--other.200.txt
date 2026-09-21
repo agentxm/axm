@@ -1,5 +1,5 @@
-Setting up AXM in ~/code/storefront  project scope
- ✔   Scanned repo and machine      found 4 agents
+Setting up AXM in ~/code/storefront  for this project
+ ✔   Checked for coding agents     found 4 agents
  ✔   Agents                        AdaL, AiderDesk, Amp
  ✔   Sync instructions             yes
  ?   Instructions file name ❯ docs/AGENTS.md

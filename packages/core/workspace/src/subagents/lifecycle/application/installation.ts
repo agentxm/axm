@@ -63,7 +63,7 @@ export const prepareSubagentInstallations = <E, Preparation, Execution>(
       );
       if (refused.length > 0)
         return yield* new SubagentPlacementUnavailable({
-          reason: `Cannot install subagents in user scope for the configured agent placement: ${refused.join("; ")}`,
+          reason: `Cannot install subagents for this user with the configured agent locations: ${refused.join("; ")}`,
         });
     }
     return yield* Effect.forEach(entries, (entry) =>

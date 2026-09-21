@@ -122,7 +122,7 @@ const projectOnlyOutcome = (args: {
     reasonCode: "project-only",
     reason:
       args.reason ??
-      `${args.agentName} supports ${args.typeLabel.toLowerCase()} only in project scope.`,
+      `${args.agentName} supports ${args.typeLabel.toLowerCase()} only for projects.`,
   });
 
 const scopeNotModeledOutcome = (args: {
@@ -138,7 +138,7 @@ const scopeNotModeledOutcome = (args: {
     reasonCode: "scope-not-modeled",
     reason:
       args.reason ??
-      `AXM has not modeled ${args.typeLabel.toLowerCase()} for ${args.agentName} in user scope.`,
+      `AXM does not yet support ${args.typeLabel.toLowerCase()} for ${args.agentName} at the user level.`,
   });
 
 const perAgentOutcomes = (

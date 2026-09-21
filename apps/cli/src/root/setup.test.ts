@@ -1388,7 +1388,7 @@ describe("setup.handler", () => {
           yield* handleSetup({ scope: "user", agents: ["claude-code"] });
 
           const limits = rendererState.notes.find(
-            (note) => note.title === "Some extension types are limited in user scope",
+            (note) => note.title === "Some extension types are limited for this user",
           );
           expect(limits?.message.split("\n").length).toBeGreaterThan(0);
           expect(limits?.message).not.toMatch(/supports skills/);
@@ -1549,7 +1549,7 @@ describe("setup.handler", () => {
               _tag: "headline",
               tone: "neutral",
               text: [{ text: `Setting up AXM in ${fs.realpathSync(tempDir)}`, bold: true }],
-              aside: [{ text: "project scope" }],
+              aside: [{ text: "for this project" }],
             },
           ]);
         }),

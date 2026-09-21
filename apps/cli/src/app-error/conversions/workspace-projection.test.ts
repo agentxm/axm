@@ -40,7 +40,7 @@ const cases: ReadonlyArray<ConversionCase> = [
     failure: new DesiredStateIncomplete({ problems: "pack demo is missing" }),
     code: "conflict",
     detail:
-      "Desired state cannot be enumerated completely; fix pack and declaration problems first: pack demo is missing",
+      "AXM could not determine what should be installed because some pack or axm.json entries are invalid: pack demo is missing",
   },
   {
     name: "AuthoredContributorUnsupported",
@@ -58,13 +58,13 @@ const cases: ReadonlyArray<ConversionCase> = [
     name: "ContributorUnresolved",
     failure: new ContributorUnresolved({ type: "rule", name: "demo" }),
     code: "conflict",
-    detail: "Active rule has no accepted resolution: demo",
+    detail: "AXM has no locked version for active rule demo",
   },
   {
     name: "ContributorTreeMismatch",
     failure: new ContributorTreeMismatch({ packageRoot: "/w/rules/demo" }),
     code: "conflict",
-    detail: "Materialized package tree does not match the accepted lock entry: /w/rules/demo",
+    detail: "Installed package files differ from axm-lock.yaml: /w/rules/demo",
     suggestions: [
       {
         description:
@@ -87,33 +87,34 @@ const cases: ReadonlyArray<ConversionCase> = [
       reason: "AXM managed region rules has duplicate, nested, or unpaired markers",
     }),
     code: "conflict",
-    detail: "AXM managed region rules has duplicate, nested, or unpaired markers: AGENTS.md",
+    detail:
+      "AXM cannot safely update its section in AGENTS.md: AXM managed region rules has duplicate, nested, or unpaired markers",
   },
   {
     name: "ManagedRegionViolation without message",
     failure: new ManagedRegionViolation({ displayPath: "AGENTS.md" }),
     code: "conflict",
-    detail: "Cannot reconcile managed region: AGENTS.md",
+    detail: "AXM cannot safely update its section in AGENTS.md",
   },
   {
     name: "ProjectionIoFailed inspect",
     failure: new ProjectionIoFailed({ path: "/w/AGENTS.md", step: "inspect", cause: ioCause }),
     code: "internal",
-    detail: "Failed to inspect managed-region target: /w/AGENTS.md",
+    detail: "Failed to inspect AXM's section in /w/AGENTS.md",
     cause: ioCause,
   },
   {
     name: "ProjectionIoFailed read",
     failure: new ProjectionIoFailed({ path: "/w/AGENTS.md", step: "read", cause: ioCause }),
     code: "internal",
-    detail: "Failed to read managed-region target: /w/AGENTS.md",
+    detail: "Failed to read AXM's section in /w/AGENTS.md",
     cause: ioCause,
   },
   {
     name: "ProjectionIoFailed reconcile",
     failure: new ProjectionIoFailed({ path: "/w/AGENTS.md", step: "reconcile", cause: ioCause }),
     code: "internal",
-    detail: "Failed to reconcile managed-region target: /w/AGENTS.md",
+    detail: "Failed to update AXM's section in /w/AGENTS.md",
     cause: ioCause,
   },
 ];

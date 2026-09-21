@@ -10,5 +10,4 @@ Previewing sync  in this project
      --verbose for details
 
 Would sync 4 extensions
-  4 to sync · 12 already current ·
-  nothing was written
+  12 already current · no changes made

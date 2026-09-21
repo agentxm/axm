@@ -8,4 +8,4 @@ Previewing sync  in this project
  =   12 extensions already current  --verbose to list
      --verbose for details
 
-Would sync 4 extensions  4 to sync · 12 already current · nothing was written
+Would sync 4 extensions  12 already current · no changes made

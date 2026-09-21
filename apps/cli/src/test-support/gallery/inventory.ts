@@ -18,26 +18,33 @@ export const inventoryColumns: ReadonlyArray<TableColumn> = [
 export const inventoryRows: ReadonlyArray<ReadonlyArray<string>> = [
   [
     "@craigsmitham/effect-v4",
-    "installed",
+    "managed by this workspace",
     "enabled",
     "registry",
     "claude-code, codex, cursor, gemini-cli",
-    "claude-code:projected, codex:projected, cursor:projected, gemini-cli:projected",
+    "claude-code: available, codex: available, cursor: available, gemini-cli: available",
   ],
   [
     "@craigsmitham/field-notes",
-    "installed",
+    "managed by this workspace",
     "enabled",
     "registry",
     "claude-code, codex",
-    "claude-code:projected, codex:current",
+    "claude-code: available, codex: already available",
   ],
-  ["@agentxm/knowledge/agentxm", "installed", "disabled", "registry", "none", "none"],
-  ["local-notes", "detected", "n/a", "detected", "none", "none"],
+  [
+    "@agentxm/knowledge/agentxm",
+    "managed by this workspace",
+    "disabled",
+    "registry",
+    "none",
+    "none",
+  ],
+  ["local-notes", "outside AXM", "not applicable", "detected", "none", "none"],
 ];
 
 export const inventoryCaption =
-  "4 skills (3 configured, 0 implicit, 3 installed, 0 leftover, 0 undeclared, 1 unmanaged)";
+  "4 skills: 3 managed by this workspace, 3 installed, 1 found outside AXM";
 
 export const inventory: Doc = [
   {

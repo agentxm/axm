@@ -534,7 +534,7 @@ export const planMcpServerInstall: (
     if (refused.length > 0) {
       return yield* installRefused({
         category: "validation",
-        detail: `Cannot install MCP servers in user scope for the configured agent placement: ${refused.join("; ")}`,
+        detail: `Cannot install MCP servers for this user with the configured agent locations: ${refused.join("; ")}`,
       });
     }
   }

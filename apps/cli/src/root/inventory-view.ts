@@ -1,6 +1,6 @@
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
-import type { Text, Tint } from "../screen/index.js";
+import { agentOutcome, count, type Text, type Tint } from "../screen/index.js";
 import type {
   ConfiguredAgentOutcome,
   ExtensionInventory,
@@ -35,15 +35,48 @@ interface InventoryRowFacts {
   readonly enabled: boolean | null;
 }
 
-export const inventoryLifecycle = (row: InventoryRowFacts): string => row.lifecycle;
+export const inventoryLifecycle = (row: InventoryRowFacts): string => {
+  switch (row.lifecycle) {
+    case "configured":
+      return "managed by this workspace";
+    case "implicit":
+      return "included by a pack";
+    case "leftover":
+      return "installed but no longer selected";
+    case "undeclared":
+      return "authored here but not added";
+    case "unmanaged":
+      return "outside AXM";
+  }
+};
 
 export const inventoryActivation = (row: InventoryRowFacts): string =>
-  row.enabled === null ? "n/a" : row.enabled ? "enabled" : "disabled";
+  row.enabled === null ? "not applicable" : row.enabled ? "enabled" : "disabled";
 
 export const inventoryAgentOutcomes = (outcomes: ReadonlyArray<ConfiguredAgentOutcome>): string =>
   outcomes.length === 0
     ? "none"
-    : outcomes.map(({ agentId, outcome }) => `${agentId}:${outcome}`).join(", ");
+    : outcomes.map(({ agentId, outcome }) => `${agentId}: ${agentOutcome(outcome)}`).join(", ");
 
-export const inventorySummary = (inventory: ExtensionInventory, label: string): string =>
-  `${inventory.count} ${inventory.count === 1 ? label : `${label}s`} (${inventory.configuredCount} configured, ${inventory.implicitCount} implicit, ${inventory.installedCount} installed, ${inventory.leftoverCount} leftover, ${inventory.undeclaredCount} undeclared, ${inventory.unmanagedCount} unmanaged)`;
+export const inventorySummary = (inventory: ExtensionInventory, label: string): string => {
+  const parts = [
+    inventory.configuredCount === 0
+      ? undefined
+      : `${String(inventory.configuredCount)} managed by this workspace`,
+    inventory.implicitCount === 0
+      ? undefined
+      : `${String(inventory.implicitCount)} included by packs`,
+    inventory.installedCount === 0 ? undefined : `${String(inventory.installedCount)} installed`,
+    inventory.leftoverCount === 0
+      ? undefined
+      : `${String(inventory.leftoverCount)} installed but no longer selected`,
+    inventory.undeclaredCount === 0
+      ? undefined
+      : `${String(inventory.undeclaredCount)} authored here but not added`,
+    inventory.unmanagedCount === 0
+      ? undefined
+      : `${String(inventory.unmanagedCount)} found outside AXM`,
+  ].filter((part): part is string => part !== undefined);
+  const headline = count(inventory.count, label);
+  return parts.length === 0 ? headline : `${headline}: ${parts.join(", ")}`;
+};

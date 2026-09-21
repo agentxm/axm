@@ -313,7 +313,7 @@ const settleDemotion = Effect.fn("Demote.prepare")(function* (request: DemoteReq
   if (layout.scope !== "project") {
     return yield* new ExtensionLifecycleFailed({
       category: "usage",
-      detail: "Demote requires project scope",
+      detail: "Demote is available only for project workspaces",
     });
   }
 

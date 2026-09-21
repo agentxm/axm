@@ -20,7 +20,7 @@ const renderInstructionEntry = (
   resolution: KnowledgeInstructionEntryResolution | undefined,
 ): string =>
   resolution === undefined
-    ? "n/a"
+    ? "not applicable"
     : `${resolution.included ? "included" : "excluded"} (${resolution.reason})`;
 
 const BundleColumns = [

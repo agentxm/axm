@@ -17,6 +17,7 @@ import {
 } from "@agentxm/workspace/lifecycle";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
+  credentialFreeLocatorRecoveryValue,
   deriveOperationOutcome,
   operationPresentation,
   type ConfirmationRecoveryArgument,
@@ -29,7 +30,11 @@ import {
 } from "../../cli-runtime/index.js";
 import { Verbosity } from "../../cli-flags/index.js";
 import { lifecycleFailureToAppError } from "../../feature-errors.js";
-import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
+import {
+  emitOperationResolution,
+  operationResolutionSummary,
+  retryCanHelp,
+} from "../../operation-output.js";
 import { Screen, headlineDoc } from "../../screen/index.js";
 import { makeInstallPlanExecution } from "./confirmation-recovery.js";
 import { emitNoOpOutcome } from "./no-op-output.js";
@@ -127,7 +132,28 @@ const body = (args: InstallCommandArgs) =>
       return;
     }
 
-    yield* emitOperationResolution(args.command, resolution, { suggestions: args.suggestions });
+    yield* emitOperationResolution(args.command, resolution, {
+      // An install that did not finish is repeated through the route the
+      // person typed: settled units are no-ops, and the locators are the
+      // credential-free ones the confirmation recovery already reproduces.
+      suggestions: ({ unsettled }) =>
+        unsettled.length === 0 || !retryCanHelp(unsettled)
+          ? args.suggestions
+          : [
+              {
+                description:
+                  unsettled.length === 1
+                    ? "Try the extension that did not install again"
+                    : "Try the extensions that did not install again",
+                cmd: [
+                  "axm",
+                  ...args.recoveryCommand,
+                  ...args.recoveryLocators.map(credentialFreeLocatorRecoveryValue),
+                ].join(" "),
+              },
+              ...args.suggestions,
+            ],
+    });
   });
 
 /** Run one install route end to end. */

@@ -75,7 +75,15 @@ shape happens to fit the terminal.
 
 Every command whose result carries a ledger opens with the same title line:
 what it is doing, where it acts, and which agents it covers, stated once so no
-row repeats it. No command prints a logo or a phase strip; setup opens like
+row repeats it. A condition the operation reports about its units — a
+release-age decision, a warning several units share — stands between the rows
+and the verdict, and states nothing a row contradicts: an annotation naming a
+unit that did not settle as planned yields to that unit's own reason. `Next` is
+the last thing a reader sees, and on a result that did not succeed it names a
+recovery that fits: the emitting command again, narrowed to the units still
+waiting where an unchanged retry can change their outcome, or what the
+producers of those failures themselves suggested. Where no command would
+change it, it offers no retry. No command prints a logo or a phase strip; setup opens like
 every other command.
 
 A ledger's columns carry a role. The `name` column is protected and shortened

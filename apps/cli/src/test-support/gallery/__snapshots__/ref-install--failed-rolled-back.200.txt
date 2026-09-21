@@ -16,3 +16,4 @@ One extension could not be resolved, so the install was rolled back.
 
 Next
      axm list   Inspect installed extensions
+     axm install @acme/packs/review-kit@1.9.0   Install the pack at a version whose members resolve

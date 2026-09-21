@@ -521,9 +521,19 @@ const headlineTone = (outcome: ReturnType<typeof deriveOperationOutcome>): Tone 
   }
 };
 
-const groupedWarnings = (units: ReadonlyArray<ResolvedUnit<unknown>>): Doc => {
+/**
+ * Warnings the operation reported, grouped by what they say and naming the
+ * units they are about. A unit that did not settle as planned is not named:
+ * its reason states what became of it, and an annotation on work that did not
+ * happen reads as a claim about work that did.
+ */
+const groupedWarnings = (
+  units: ReadonlyArray<ResolvedUnit<unknown>>,
+  mode: OperationResolution<unknown>["mode"],
+): Doc => {
   const groups = new Map<string, Array<string>>();
   for (const unit of units) {
+    if (owesReason(settlementOf(unit, mode))) continue;
     for (const warning of unit.warnings ?? []) {
       const labels = groups.get(warning) ?? [];
       labels.push(unit.label);
@@ -696,10 +706,43 @@ const verdictAside = (
   ].filter((part): part is string => part !== undefined);
 };
 
+/**
+ * The units of a settled operation that did not settle as planned, in ledger
+ * order. An adapter reads them to offer a recovery that fits what actually
+ * happened, rather than the same suggestion whatever the outcome.
+ */
+export const unsettledUnits = (
+  resolution: OperationResolution<unknown>,
+): ReadonlyArray<ResolvedUnit<unknown>> =>
+  resolution.units.filter((unit) => owesReason(settlementOf(unit, resolution.mode)));
+
+/**
+ * What every unsettled unit's producer suggested, in ledger order and without
+ * repeats. The resolution lifts only the first failed unit's suggestions; a
+ * reader of seven failures needs all of them.
+ */
+const producerSuggestions = (
+  resolution: OperationResolution<unknown>,
+): ReadonlyArray<SuggestedAction> => {
+  const suggested = unsettledUnits(resolution).flatMap((unit) => unit.error?.suggestions ?? []);
+  return suggested.filter(
+    (suggestion, index) =>
+      suggested.findIndex(
+        (other) => other.description === suggestion.description && other.cmd === suggestion.cmd,
+      ) === index,
+  );
+};
+
 export interface OperationDocOptions {
   readonly verbosity: VerbosityLevel;
   readonly message?: string;
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
+  /**
+   * Conditions the operation reports beside its ledger, such as a release-age
+   * decision. They stand between the rows and the verdict, so `Next` is the
+   * last thing a reader sees.
+   */
+  readonly callouts?: Doc;
 }
 
 export const operationDoc = (
@@ -743,7 +786,17 @@ export const operationDoc = (
           { count: counts.skipped, state: "skipped" },
         ]),
   );
-  const next = [...(options.suggestions ?? []), ...(resolution.recovery?.actions ?? [])];
+  const offered = [
+    ...(options.suggestions ?? []),
+    ...(resolution.recovery?.actions ?? []),
+    ...producerSuggestions(resolution),
+  ];
+  const next = offered.filter(
+    (suggestion, index) =>
+      offered.findIndex(
+        (other) => other.description === suggestion.description && other.cmd === suggestion.cmd,
+      ) === index,
+  );
   const aside = verdictAside(
     resolution.units,
     resolution.mode,
@@ -759,8 +812,9 @@ export const operationDoc = (
       ...(coverage === undefined ? {} : { scope: coverage.scope, agents: coverage.agents }),
     }),
     ...ledger,
-    ...groupedWarnings(resolution.units),
+    ...groupedWarnings(resolution.units, resolution.mode),
     ...untouchedPaths(resolution.units, resolution.mode),
+    ...(options.callouts ?? []),
     ...(coverage === undefined || coverage.agents.length > 0
       ? []
       : [

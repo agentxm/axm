@@ -21,11 +21,16 @@ import {
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
-import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
+import {
+  emitOperationResolution,
+  operationResolutionSummary,
+  retryCanHelp,
+} from "../../operation-output.js";
 import { extensionLifecycleFailedToAppError } from "../../feature-errors.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
+import { INSPECT_INSTALLED } from "../suggested-actions.js";
 import { handleWorkspaceUpdate } from "./workspace-update-handler.js";
 
 export interface RootUpdateFlags {
@@ -37,11 +42,6 @@ export interface RootUpdateHandlerArgs extends RootUpdateFlags {
   readonly source: Option.Option<string>;
   readonly recoveryCommand?: ReadonlyArray<string>;
 }
-
-const INSPECT_INSTALLED: SuggestedAction = {
-  description: "Inspect installed extensions",
-  cmd: "axm list",
-};
 
 /**
  * What to type next when an update is refused. The refusal itself is the
@@ -159,6 +159,7 @@ const reportTargeted = (
   candidate: Exclude<UpdateCandidate, { readonly outcome: "nothing-configured" }>,
   execution: PlanExecution,
   subjectType: UpdateSubjectType,
+  source: string,
 ) =>
   Effect.gen(function* () {
     const resolution = yield* UpdateExtensions.previewOrApply(candidate, execution);
@@ -170,7 +171,17 @@ const reportTargeted = (
       ),
     );
     yield* emitOperationResolution("update", reported, {
-      suggestions: [INSPECT_INSTALLED],
+      // A targeted update names one extension, so the route that recovers it
+      // is the one the person just typed.
+      suggestions: ({ unsettled }) =>
+        unsettled.length === 0 || !retryCanHelp(unsettled)
+          ? [INSPECT_INSTALLED]
+          : [
+              {
+                description: "Try the extension that did not update again",
+                cmd: `axm update ${credentialFreeLocatorRecoveryValue(source)}`,
+              },
+            ],
       ...(context === undefined ? {} : { targetedUpdate: contextForResolution(context, reported) }),
     });
   });
@@ -221,5 +232,5 @@ const handleUpdateBody = Effect.fn("Update.handle")(function* (args: RootUpdateH
     return;
   }
   const execution = yield* targetedExecution(args, source);
-  yield* reportTargeted(candidate, execution, candidate.subjectType);
+  yield* reportTargeted(candidate, execution, candidate.subjectType, source);
 });

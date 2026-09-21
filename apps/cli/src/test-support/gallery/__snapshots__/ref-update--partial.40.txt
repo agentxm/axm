@@ -111,13 +111,13 @@ Every extension that did not settle:
 effects were restored.
 
 Next
-     axm list
-     Inspect installed extensions
-
- ▲   1 release allowed before the 24h
-     minimum release age
-     @acme/packs/field-notes 1.0.0 —
-     published 2026-09-21T16:44:17.865Z
-     Allowed by project
-     minimumReleaseAgeExclude; otherwise
-     held until 2026-09-22T16:44:17.865Z
+     axm update
+     Try the extensions that did not
+     update again
+     https://status.example.com/registry
+     axm update @acme/packs/field-notes --refresh
+     Resolve the source again, then
+     update
+     axm update @acme-enterprise/knowledge/effect-v4 --refresh
+     Resolve the source again, then
+     update

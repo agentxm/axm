@@ -392,6 +392,21 @@ People and agents can understand invalid workspace state and recover it through 
 - Assumptions: Extension names are single path segments, so the segment after the last separator is the name itself.
 - Source: [`apps/cli/src/screen/names-yield-width-last.spec.ts`](../apps/cli/src/screen/names-yield-width-last.spec.ts)
 
+##### A result that did not succeed names a recovery that fits it
+
+- Requirement: `cli/non-success-results-name-a-fitting-recovery`
+- Owner: `cli`
+- Statement: When an operation settles partial, failed, blocked, or interrupted, its `Next` shall name at least one recovery that fits the outcome — the emitting command narrowed to the units that did not settle where an unchanged retry can help, or a recovery the producer of a failure stated — and shall not consist solely of a generic inventory suggestion; where no command can change the outcome, it shall offer no retry.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `extension-adoption`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The recovery is derived from the settled resolution and the adapter's own route spelling, both in memory. Which blocker a command's own refusal admits is the emitting feature's and is not decided here.
+- Methods: example, decision-table
+- Derived from: `cli/unsettled-units-state-their-reason`
+- Limitation: Examples drive the shared operation document and the retry policy. That each adapter spells its own route correctly is witnessed by that adapter's tests. Retires when: Bind adapter evidence here when a route's spelling becomes an accepted obligation of its own.
+- Source: [`apps/cli/src/non-success-results-name-a-fitting-recovery.spec.ts`](../apps/cli/src/non-success-results-name-a-fitting-recovery.spec.ts)
+
 ##### A read carries the credential the invocation holds
 
 - Requirement: `cli/reads-carry-the-invocations-credential`
@@ -465,7 +480,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/withheld-releases-name-recovery-from-the-emitting-command`
 - Owner: `cli`
-- Statement: When a command holds, refuses, or explicitly allows an otherwise-too-young release under the minimum release age, its diagnostic shall state that observable outcome before the policy mechanism, preserve the release and timing evidence, name recovery routes reachable from the emitting command when action is required, and shall not name a command the operator did not run.
+- Statement: When a command holds, refuses, or explicitly allows an otherwise-too-young release under the minimum release age, its diagnostic shall state that observable outcome before the policy mechanism, preserve the release and timing evidence, name recovery routes reachable from the emitting command when action is required, shall not name a command the operator did not run, and shall not report a release as allowed into the workspace when the unit it names did not commit.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`

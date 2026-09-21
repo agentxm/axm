@@ -373,7 +373,7 @@ describe("root update handler", () => {
     }),
   );
 
-  it.effect("states that the exemption allowed the release and preserves both timestamps", () =>
+  it.effect("says nothing was allowed in when the unit the exemption named failed", () =>
     Effect.gen(function* () {
       const {
         provide,
@@ -414,11 +414,11 @@ describe("root update handler", () => {
 
       yield* provide(update(rootUpdate));
 
-      expect(logs.warn).toContain("1 release allowed before the 24h minimum release age");
-      expect(logs.info).toContain(
-        "@acme/skills/reviewer 1.0.0 — published 2026-08-11T12:00:00.000Z",
-      );
-      expect(logs.info).toContain(
+      // The unit the exemption named failed, so nothing was let into the
+      // workspace and the callout that would say one was does not stand.
+      expect(logs.error.some((message) => message.includes("failed"))).toBe(true);
+      expect(logs.warn).not.toContain("1 release allowed before the 24h minimum release age");
+      expect(logs.info).not.toContain(
         "Allowed by project minimumReleaseAgeExclude; otherwise held until 2026-08-12T12:00:00.000Z",
       );
     }),

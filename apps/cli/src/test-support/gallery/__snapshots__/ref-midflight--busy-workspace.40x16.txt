@@ -1,7 +1,7 @@
 Installing  in this project · agents: …
 
      Extension        Version   Status
- +   @acme…/standup   0.4.2     install
+ ·   @acme…/standup   0.4.2     install
 
  ◒   Waiting - another operation holds…
      axm sync (pid 4122)

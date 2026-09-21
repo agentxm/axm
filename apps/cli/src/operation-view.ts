@@ -945,12 +945,17 @@ export const livePlan = (
     columns: liveColumns(presentation),
     rows: running.map((step) => {
       // Children are the settled document's business; a live row carries the
-      // unit's mark and the cells that identify it, and nothing else.
+      // unit's mark, the cells that identify it, and the word it will settle
+      // with — the same word its result row uses, from the same phrase.
       const row = planRow(step, presentation, false);
       return {
         id: unitIdOf(step),
         plannedMark: row.mark ?? "waiting",
         plannedStatus: cellOf(row, 2),
+        settledStatus:
+          step.artifact === undefined
+            ? presentation.verb.past.toLowerCase()
+            : artifactChange(step.artifact.change),
         cells: [cellOf(row, 0), cellOf(row, 1)],
       };
     }),

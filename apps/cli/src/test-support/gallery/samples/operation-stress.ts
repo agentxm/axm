@@ -359,6 +359,11 @@ const resolved = (unit: ResolvedUnit<unknown>, index: number, seq: number): Oper
   state: unit.state,
   index,
   total: liveUnits.length,
+  // A unit that did not settle as planned states why while the operation is
+  // still running, so the live row carries the reason its result row will.
+  ...(unit.error === undefined
+    ? {}
+    : { failure: { category: unit.error.category, detail: unit.error.detail } }),
 });
 
 /**
@@ -403,9 +408,9 @@ export const liveUpdatePlan: LivePlan = {
     id: unitId(unit),
     plannedMark: "update" as const,
     plannedStatus: "update",
+    settledStatus: "updated",
     cells: [unit.label, unit.artifact?.previousVersion ?? "-"],
   })),
-  hint: "--verbose for details",
 };
 
 /** Events up to and including the unit at `index`, by the phase it reached. */

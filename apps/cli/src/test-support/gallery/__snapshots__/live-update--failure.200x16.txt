@@ -1,12 +1,14 @@
 Updating  in this project · agents: claude-code, codex, grok-cli, opencode
 
      Extension                              Version   Status   Detail
- ~   @acme/knowledge/product-engineering    2.3.0     update
- ~   @acme/packs/field-notes                1.0.0     update
- ~   @acme-enterprise/knowledge/effect-v4   0.4.2     update
- ~   @acme/subagents/work-management        0.3.1     update
- ~   @acme/rules/typescript                 3.1.0     update
- ~   @acme/skills/incident-review           2.0.0     update
+ ✖   @acme/knowledge/agent-engineering      0.9.4     failed
+     The registry did not answer within 30s while resolving @acme/knowledge/agent-engineering. The request was retried three times and the workspace was left as it was.
+ ·   @acme/knowledge/product-engineering    2.3.0     update
+ ·   @acme/packs/field-notes                1.0.0     update
+ ·   @acme-enterprise/knowledge/effect-v4   0.4.2     update
+ ·   @acme/subagents/work-management        0.3.1     update
+ ·   @acme/rules/typescript                 3.1.0     update
+ ·   @acme/skills/incident-review           2.0.0     update
+ ·   5 more  5 done, 1 failed
 
-applying 6 of 12 in 5.2s
---verbose for details
+applying 6 of 12 done, 1 failed in 5.2s

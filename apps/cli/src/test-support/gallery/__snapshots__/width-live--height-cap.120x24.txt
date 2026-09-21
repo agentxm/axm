@@ -3,20 +3,20 @@ Publishing as @acme
      Extension                      Version   Status     Detail
  ◒   @acme/skills/changelog         0.3.0     applying   40 KB / 96 KB
  ◒   @acme/skills/release-notes     1.1.0     applying   12 KB / 30 KB
- +   @acme/skills/retro             0.2.0     publish
- +   @acme/subagents/reviewer       0.9.0     publish
- +   @acme/skills/triage            0.5.1     publish
- +   @acme/skills/incident-review   2.0.0     publish
- +   @acme/subagents/planner        0.1.4     publish
- +   @acme/skills/api-docs          1.3.2     publish
- +   @acme/skills/migrations        0.7.0     publish
- +   @acme/rules/typescript         3.1.0     publish
- +   @acme/skills/benchmarks        0.2.9     publish
- +   @acme/hooks/pre-commit         1.0.3     publish
- +   @acme/skills/on-call           0.4.0     publish
- +   @acme/knowledge/runbooks       5.2.0     publish
- +   @acme/skills/team-01           0.1.0     publish
- ·   22 more waiting  3 done
+ ·   @acme/skills/retro             0.2.0     publish
+ ·   @acme/subagents/reviewer       0.9.0     publish
+ ·   @acme/skills/triage            0.5.1     publish
+ ·   @acme/skills/incident-review   2.0.0     publish
+ ·   @acme/subagents/planner        0.1.4     publish
+ ·   @acme/skills/api-docs          1.3.2     publish
+ ·   @acme/skills/migrations        0.7.0     publish
+ ·   @acme/rules/typescript         3.1.0     publish
+ ·   @acme/skills/benchmarks        0.2.9     publish
+ ·   @acme/hooks/pre-commit         1.0.3     publish
+ ·   @acme/skills/on-call           0.4.0     publish
+ ·   @acme/knowledge/runbooks       5.2.0     publish
+ ·   @acme/skills/team-01           0.1.0     publish
+ ·   25 more  3 done
 
-applying 5 of 40 in 8.2s
+applying 3 of 40 done in 8.2s
 --verbose for details

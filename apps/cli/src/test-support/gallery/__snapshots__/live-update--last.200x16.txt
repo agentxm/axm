@@ -1,7 +1,13 @@
 Updating  in this project · agents: claude-code, codex, grok-cli, opencode
 
-     Extension                      Version   Status     Detail
- ◒   @acme/skills/incident-review   2.0.0     applying   96 KB / 192 KB
+     Extension                             Version   Status     Detail
+ ✖   @acme/knowledge/agent-engineering     0.9.4     failed
+     The registry did not answer within 30s while resolving @acme/knowledge/agent-engineering. The request was retried three times and the workspace was left as it was.
+ ✖   @acme/knowledge/product-engineering   2.3.0     failed
+     The registry did not answer within 30s while resolving @acme/knowledge/product-engineering. The request was retried three times and the workspace was left as it was.
+ ✖   @acme/packs/field-notes               1.0.0     failed
+     The archive AXM downloaded for @acme/packs/field-notes does not match the integrity the lockfile records. Nothing was written to /home/dev/work/platform-services/agent_extensions, and the insta…
+ ◒   @acme/skills/incident-review          2.0.0     applying   96 KB / 192 KB
+ ·   8 more  5 done, 6 failed
 
-applying 12 of 12 in 10.6s
---verbose for details
+applying 11 of 12 done, 6 failed in 10.6s

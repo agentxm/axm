@@ -1,8 +1,14 @@
 Updating  in this project · agents: cl…
 
      Extension                 Status
+ ✖   @acm…/agent-engineering   failed
+     0.9.4
+     The registry did not answer withi…
+ ✖   @a…/product-engineering   failed
+     2.3.0
+     The registry did not answer withi…
+ ✖   @acme/packs/field-notes   failed
+     1.0.0
+     The archive AXM downloaded for @a…
  ◒   @acme/…/incident-review   applying
      Version  2.0.0 · Detail  96 KB / …
-
-applying 12 of 12 in 10.6s
---verbose for details

@@ -278,7 +278,11 @@ from the events.
 The live ledger is the plan's rows joined to live progress by unit id. Plan
 rows, lifecycle events, and resolved units share one identifier, and views
 obtain it from the plan layer rather than rebuilding it. A running row shows ◒,
-its state word and its measure; a row not yet started shows `· waiting`; and a
+its state word and its measure; a row not yet started shows the waiting mark
+and the word its plan gave it; a row that has settled shows its final mark and
+the word its result row will use, from the same phrase, so a reader is not told
+one thing while an operation runs and another when it ends; a row that did not
+settle as planned states its reason beneath it as soon as it settles; and a
 row is paused while a wait whose subject
 is that unit is open. An operation with no plan, such as sign-in or upgrade,
 synthesizes rows from its units. A wait that names no unit, such as another
@@ -287,12 +291,18 @@ stands beneath the ledger in place of the status line, with how long it has
 lasted, who holds it, and what stopping costs. Nested units roll up into their parent row's
 state word and measure.
 
-The scene never exceeds the terminal height less two rows. The ledger window
-shows running rows first, then the next few waiting, then the ledger's own fold
-line, which carries the waiting mark, how many rows it stands for, and how many
-have finished; settled rows leave the window and return in the result. Beneath
-the ledger one dim line says what the operation is doing, how far it has come,
-and how long it has taken. When a ledger and an interaction compete for height, the interaction
+The scene never exceeds the terminal height less two rows. While the rows fit
+that height every row stays, in plan order: what has already happened is part
+of what a reader is reading. When they do not fit, the window keeps the work in
+flight, then every row that did not settle as planned, then the next few
+waiting, and then the most recent of what settled as planned; a row leaves in
+the reverse of that order, so a row that did not settle as planned never leaves
+before one that did. A reason takes a line of the height, and is counted as
+one. The ledger's own fold line carries the waiting mark, how many rows it
+stands for, and how many have finished and failed. Beneath the ledger one dim
+line says what the operation is doing, how many of its units have finished —
+finished, not started — how many did not settle as planned, and how long it has
+taken. When a ledger and an interaction compete for height, the interaction
 keeps its minimum — its question, three rows, and a hint — and the ledger window
 shrinks to its header and fold line.
 

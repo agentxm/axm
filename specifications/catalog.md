@@ -333,6 +333,21 @@ People and agents can understand invalid workspace state and recover it through 
 - Methods: example
 - Source: [`packages/core/workspace/src/linting/catalog/workspace/reports-user-outputs-without-settings.spec.ts`](../packages/core/workspace/src/linting/catalog/workspace/reports-user-outputs-without-settings.spec.ts)
 
+##### Live progress keeps what has already happened in view
+
+- Requirement: `cli/live-progress-retains-settled-units`
+- Owner: `cli`
+- Statement: While an operation runs, a unit that has settled shall keep its row in the live ledger carrying the final mark and status word its result row will use, for as long as the rows fit the height the scene allows; when they do not, a row that did not settle as planned shall never leave before one that did, and what left shall be counted; the status line shall state how many units have finished out of the total and, once any has, how many did not settle as planned; and a unit that did not settle as planned shall state its reason on its live row as soon as it settles.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `extension-adoption`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The live ledger is a pure function of a recorded event log and the space the scene gives, so the whole obligation is decided in memory.
+- Methods: example
+- Derived from: `cli/retried-work-names-the-attempt-in-flight`, `cli/unsettled-units-state-their-reason`
+- Limitation: Examples drive the projector and the live join over an authored event log. That a real terminal erases exactly the rows it painted when settled rows are retained is witnessed by the pseudo-terminal harness in `apps/cli-e2e`, not decided here. Retires when: Bind terminal evidence here if the live region ever paints a row the frame cannot erase.
+- Source: [`apps/cli/src/screen/live-progress-retains-settled-units.spec.ts`](../apps/cli/src/screen/live-progress-retains-settled-units.spec.ts)
+
 ##### The recovery route for a rejected lockfile re-accepts the desired state
 
 - Requirement: `cli/lockfile-rejections-name-recovery-routes`
@@ -464,13 +479,14 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/errors-do-not-disclose-credentials`
 - Owner: `cli`
-- Statement: AXM shall redact credential values from error reports and their diagnostic details in human and machine output at every supported verbosity level.
+- Statement: AXM shall redact credential values from error reports and their diagnostic details in human and machine output at every supported verbosity level, and from the failure detail a resolved unit publishes on the lifecycle event stream.
 - Class: quality (security)
 - Role: experience
 - Product goals: `actionable-diagnostics`, `machine-automation`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
 - Derived from: `apps/cli/help/topics/machine-output.md`, `apps/cli/src/cli-runtime/handle-error.test.ts`, `apps/cli/src/cli-runtime/json-envelope.test.ts`
+- Limitation: The lifecycle-event example drives the projector and the redaction the producer applies. That every producer applies it before publishing is witnessed by `cli/long-running-operations-emit-lifecycle-events`. Retires when: Bind producer evidence here if a producer ever publishes a failure detail the shared redaction has not seen.
 - Limitation: These examples exercise production error construction and channel rendering with supplied verbosity settings; they do not establish every command-specific diagnostic producer or global flag combination. Retires when: Bind process evidence for global verbosity selection and review diagnostic producers for values that bypass the shared error boundary.
 - Additional evidence: process via [`apps/cli-e2e/src/command.e2e.test.ts`](../apps/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI to observe inline MCP lifecycle argv, exit codes, JSON envelopes, and native files, and invokes the built error runtime with a synthetic secret to establish redaction in human verbose, debug, and quiet-precedence modes.
 - Additional evidence: process via [`apps/cli-e2e/src/smoke.e2e.test.ts`](../apps/cli-e2e/src/smoke.e2e.test.ts) — Observes the shipped process streams under --json: exactly one stdout document per invocation, NDJSON diagnostics on stderr, and the redacted error envelope for failing and defect invocations — channel separation the in-memory renderer capture cannot prove.
@@ -4561,7 +4577,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/long-running-operations-emit-lifecycle-events`
 - Owner: `workspace`
-- Statement: A plan-family operation shall publish an operation-started event, a phase-started event for each phase it enters, a unit-started and a unit-resolved event for every unit it attempts, and exactly one settled event whose outcome equals the outcome of its result document.
+- Statement: A plan-family operation shall publish an operation-started event, a phase-started event for each phase it enters, a unit-started and a unit-resolved event for every unit it attempts, and exactly one settled event whose outcome equals the outcome of its result document; a unit it resolves as failed shall state on that event the category and detail its producer settled with, and a unit that settled as planned shall state none.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -4569,6 +4585,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Boundary rationale: The lifecycle is published by the operation itself; the transport that encodes it for automation is owned separately by cli/machine-progress-events-follow-the-lifecycle-schema.
 - Methods: contract, example
 - Derived from: `cli/machine-progress-events-follow-the-lifecycle-schema`
+- Limitation: The redaction example drives the shared credential-shape redaction the producer applies. Exact secret values harvested at a structured error boundary are redacted by the CLI envelope, which `cli/errors-do-not-disclose-credentials` owns. Retires when: Bind envelope evidence here if a producer is ever given the boundary's harvested secrets.
 - Source: [`packages/core/workspace/src/transitions/planning/plan/long-running-operations-emit-lifecycle-events.spec.ts`](../packages/core/workspace/src/transitions/planning/plan/long-running-operations-emit-lifecycle-events.spec.ts)
 
 ##### A failed machine invocation still emits the stable error envelope
@@ -4603,7 +4620,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/machine-progress-events-follow-the-lifecycle-schema`
 - Owner: `cli`
-- Statement: When machine output mode is on and progress is enabled, every progress event written to standard error shall decode as one lifecycle event of the published schema whose sequence number strictly increases within its operation, and the operation shall write exactly one settled event before its result document.
+- Statement: When machine output mode is on and progress is enabled, every progress event written to standard error shall decode as one lifecycle event of the published schema whose sequence number strictly increases within its operation, the operation shall write exactly one settled event before its result document, and a resolved unit that did not settle as planned shall carry the category and detail its producer settled with through that schema while a unit that settled as planned carries none.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `actionable-diagnostics`

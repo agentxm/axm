@@ -1,22 +1,22 @@
 Updating  in this project · agents: cl…
 
      Extension                 Status
+ ~   @acme…/improve-whatever   updated
+     1.0.1
+ ~   @acme/skills/spot-spew    updated
+     0.1.9
+ ~   @ac…/skills/devops-docs   updated
+     0.5.0
+ ~   @acme/skills/okf          updated
+     0.1.8
  ◒   @acme/skills/research     applying
      Version  1.1.3 · Detail  96 KB / …
- ~   @acm…/agent-engineering   update
+ ·   @acm…/agent-engineering   update
      0.9.4
- ~   @a…/product-engineering   update
+ ·   @a…/product-engineering   update
      2.3.0
- ~   @acme/packs/field-notes   update
+ ·   @acme/packs/field-notes   update
      1.0.0
- ~   @a…/knowledge/effect-v4   update
+ ·   @a…/knowledge/effect-v4   update
      0.4.2
- ~   @acme/…/work-management   update
-     0.3.1
- ~   @acme/rules/typescript    update
-     3.1.0
- ~   @acme/…/incident-review   update
-     2.0.0
-
-applying 5 of 12 in 4.3s
---verbose for details
+ ·   @acme/…/work-management   update

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
+import { redactRegistryText } from "@agentxm/registry-client";
+
+import { initialProgress, reduceProgress } from "../screen/progress.js";
 import { AppError } from "./app-error.js";
+import { REDACTED_SECRET } from "./secret-redaction.js";
 import { classifyError } from "../cli-runtime/index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
@@ -7,7 +11,7 @@ export const specification = defineSpecification({
   requirement: "cli/errors-do-not-disclose-credentials",
   title: "Error reports keep credentials out of diagnostic details",
   statement:
-    "AXM shall redact credential values from error reports and their diagnostic details in human and machine output at every supported verbosity level.",
+    "AXM shall redact credential values from error reports and their diagnostic details in human and machine output at every supported verbosity level, and from the failure detail a resolved unit publishes on the lifecycle event stream.",
   class: "quality",
   characteristic: "security",
   role: "experience",
@@ -24,6 +28,12 @@ export const specification = defineSpecification({
   limitations: [
     {
       limitation:
+        "The lifecycle-event example drives the projector and the redaction the producer applies. That every producer applies it before publishing is witnessed by `cli/long-running-operations-emit-lifecycle-events`.",
+      retirementCondition:
+        "Bind producer evidence here if a producer ever publishes a failure detail the shared redaction has not seen.",
+    },
+    {
+      limitation:
         "These examples exercise production error construction and channel rendering with supplied verbosity settings; they do not establish every command-specific diagnostic producer or global flag combination.",
       retirementCondition:
         "Bind process evidence for global verbosity selection and review diagnostic producers for values that bypass the shared error boundary.",
@@ -38,6 +48,27 @@ const levels = [
 ] as const;
 
 describe("Credential-safe error reports", () => {
+  it("redacts a credential in the failure detail a resolved unit publishes", () => {
+    const state = reduceProgress(initialProgress, {
+      _tag: "UnitResolved",
+      seq: 4,
+      atMs: 1_000,
+      unitId: "skill:code-review",
+      label: "code-review",
+      state: "failed",
+      index: 0,
+      // The producer redacts before it publishes; the projector keeps what it
+      // was given, so what a live row can show is what arrived.
+      failure: {
+        category: "auth",
+        detail: redactRegistryText("The registry refused Bearer sk_live_not_a_real_secret_value."),
+      },
+    });
+    const detail = state.units[0]?.failure?.detail ?? "";
+    expect(detail).not.toContain("sk_live_not_a_real_secret_value");
+    expect(detail).toContain(REDACTED_SECRET);
+  });
+
   for (const format of ["text", "json"] as const) {
     it(`${format} diagnostics redact proofs embedded in a JSON response string`, () => {
       const proof = "DISPOSABLE_INITIATOR_PROOF_ENCODED";

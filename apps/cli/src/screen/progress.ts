@@ -15,6 +15,7 @@ import type {
   ProgressAttempt,
   ProgressUnit,
   SettledOutcome,
+  UnitFailure,
   UnitState,
 } from "@agentxm/workspace/transitions/planning";
 
@@ -36,6 +37,11 @@ export interface ProgressUnitState {
   readonly measure?: ProgressMeasure;
   /** The attempt in flight, present only while a producer is retrying the unit. */
   readonly attempt?: ProgressAttempt;
+  /**
+   * Why the unit did not settle as planned, where its producer stated one, so
+   * a live row can say why without waiting for the result document.
+   */
+  readonly failure?: UnitFailure;
 }
 
 export interface ProgressWait {
@@ -134,6 +140,7 @@ export const reduceProgress = (state: ProgressState, event: OperationEvent): Pro
         label: event.label,
         status: event.state,
         settledAtMs: event.atMs,
+        ...(event.failure === undefined ? {} : { failure: event.failure }),
       });
       return {
         ...state,

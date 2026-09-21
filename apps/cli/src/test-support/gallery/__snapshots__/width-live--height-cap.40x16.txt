@@ -5,10 +5,10 @@ Publishing as @acme
      Version  0.3.0 · Detail  40 KB / …
  ◒   @acme/…/release-notes     applying
      Version  1.1.0 · Detail  12 KB / …
- +   @acme/skills/retro        publish
+ ·   @acme/skills/retro        publish
      0.2.0
- +   @ac…/subagents/reviewer   publish
+ ·   @ac…/subagents/reviewer   publish
      0.9.0
- +   @acme/skills/triage       publish
+ ·   @acme/skills/triage       publish
      0.5.1
- +   @acme/…/incident-review   publish
+ ·   @acme/…/incident-review   publish

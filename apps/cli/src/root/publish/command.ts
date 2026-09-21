@@ -335,6 +335,7 @@ export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
   Command.withDescription(
     "Publish project-workspace extensions to a registry (archive policy: axm help publish)",
   ),
+  Command.withShortDescription("Publish project extensions to a registry"),
   Command.withExamples([
     { command: "axm publish", description: "Publish every workspace-sourced extension" },
     {

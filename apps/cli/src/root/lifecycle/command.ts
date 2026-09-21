@@ -253,6 +253,7 @@ export const yankCommand = Command.make("yank", yankConfig, (input) =>
   withArgvTracking(yankConfig),
   withCommandCapabilities(directWriteCapabilities("registry")),
   Command.withDescription("Exclude extension versions from fresh resolution"),
+  Command.withShortDescription("Exclude a version from fresh resolution"),
   Command.withExamples([
     { command: "axm yank @acme/skills/code-review@1.2.3", description: "Yank one version" },
     {
@@ -282,6 +283,7 @@ export const deprecateCommand = Command.make("deprecate", deprecateConfig, (inpu
   withArgvTracking(deprecateConfig),
   withCommandCapabilities(deprecateCapabilities),
   Command.withDescription("Create or edit warning-only extension deprecation guidance"),
+  Command.withShortDescription("Warn consumers that an extension is deprecated"),
   Command.withExamples([
     {
       command:
@@ -311,6 +313,7 @@ export const archiveCommand = Command.make("archive", archiveConfig, (input) =>
   withArgvTracking(archiveConfig),
   withCommandCapabilities(directWriteCapabilities("registry")),
   Command.withDescription("Block new releases while retaining historical resolution"),
+  Command.withShortDescription("Block new releases; history keeps resolving"),
   Command.withExamples([
     {
       command: 'axm archive @acme/skills/code-review --reason "No longer maintained"',

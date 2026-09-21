@@ -62,6 +62,7 @@ export const adoptCommand = Command.make("adopt", config, ({ fqn, preview }) =>
   Command.withDescription(
     "Adopt a canonical package into project-workspace authorship, or declare an undeclared authored package in place",
   ),
+  Command.withShortDescription("Take over authorship of a package in place"),
   Command.withExamples([
     {
       command: "axm adopt @acme/skills/code-review",

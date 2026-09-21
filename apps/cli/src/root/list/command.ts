@@ -105,6 +105,7 @@ export const listCommand = Command.make(
   withArgvTracking(listConfig),
   withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription("List extensions across all types"),
+  Command.withShortDescription("List installed extensions"),
   Command.withExamples([
     { command: "axm list", description: "List the local project inventory" },
     { command: "axm list --type skill", description: "List only skills" },

@@ -325,10 +325,15 @@ describe("main CLI help", () => {
 
     expect(result.exitCode).toBe(0);
     expect(output).toContain("Agent Extension Manager");
-    expect(output).toContain("EXTENSIONS");
+    expect(output).toContain("START HERE");
+    expect(output).toContain("EXTENSION TYPES");
+    expect(output).toContain("MANAGE EXTENSIONS");
+    expect(output).toContain("AUTHOR EXTENSIONS");
+    expect(output).toContain("PUBLISHED EXTENSIONS");
     expect(output).toContain("WORKSPACE");
     expect(output).toContain("AUTH");
-    expect(output).toContain("START HERE");
+    expect(output).toContain("CLI");
+    expect(output).not.toContain("OUTPUT MODES");
     expect(output).toContain("skills");
     expect(output).toContain("packs");
     expect(output).toContain("mcps");

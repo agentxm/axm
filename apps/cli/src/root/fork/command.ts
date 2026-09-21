@@ -95,6 +95,7 @@ export const forkCommand = Command.make("fork", config, (parsed) =>
   withArgvTracking(config),
   withCommandCapabilities(previewableCapabilities("authored-source")),
   Command.withDescription("Fork a managed AXM package into project-workspace authorship"),
+  Command.withShortDescription("Fork a managed package into project authorship"),
   Command.withExamples([
     {
       command: "axm fork @acme/skills/review @me/skills/review-custom",

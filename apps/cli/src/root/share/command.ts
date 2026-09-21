@@ -90,6 +90,7 @@ export const shareCommand = Command.make("share", shareConfig, (config) =>
   Command.withDescription(
     "Print a Git locator install command for distributable authored extensions; opt-out is not confidentiality",
   ),
+  Command.withShortDescription("Print a Git install command for an authored extension"),
   Command.withExamples([
     {
       command: "axm share",

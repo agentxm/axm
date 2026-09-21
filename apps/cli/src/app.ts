@@ -37,10 +37,7 @@ import { groupCapabilities, withCommandCapabilities } from "./root/shared/comman
 import { setupCommand } from "./root/setup.js";
 import { instructionsCommand } from "./root/instructions.js";
 import { agentsCommand } from "./root/agents/_agents.js";
-import {
-  extensionGroupCommands,
-  workspaceCapabilityCommands,
-} from "./root/extension-type-commands.js";
+import { extensionTypeCommands } from "./root/extension-type-commands.js";
 import { loginCommand } from "./root/auth/login.js";
 import { logoutCommand } from "./root/auth/logout.js";
 import { whoamiCommand } from "./root/auth/whoami.js";
@@ -113,21 +110,34 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   ]),
   Command.withSubcommands([
     {
-      group: "EXTENSIONS",
+      group: "GETTING STARTED",
+      commands: [setupCommand, discoverCommand, helpCommand],
+    },
+    {
+      group: "EXTENSION TYPES",
+      commands: [...extensionTypeCommands],
+    },
+    {
+      group: "MANAGE EXTENSIONS",
+      commands: [installCommand, updateCommand, uninstallCommand, listCommand, viewCommand],
+    },
+    {
+      group: "AUTHOR EXTENSIONS",
       commands: [
-        ...extensionGroupCommands,
-        publishCommand,
-        shareCommand,
         forkCommand,
         adoptCommand,
         demoteCommand,
-        installCommand,
-        updateCommand,
-        uninstallCommand,
-        listCommand,
-        viewCommand,
-        visibilityCommand,
         versionCommand,
+        publishCommand,
+        shareCommand,
+      ],
+    },
+    {
+      // `un*` rows fold into the command they reverse, so order is layout here:
+      // each inverse directly follows its forward command.
+      group: "PUBLISHED EXTENSIONS",
+      commands: [
+        visibilityCommand,
         yankCommand,
         unyankCommand,
         deprecateCommand,
@@ -138,23 +148,15 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
     },
     {
       group: "WORKSPACE",
-      commands: [
-        syncCommand,
-        agentsCommand,
-        instructionsCommand,
-        ...workspaceCapabilityCommands,
-        lintCommand,
-        cacheCommand,
-        upgradeCommand,
-      ],
+      commands: [syncCommand, agentsCommand, instructionsCommand, lintCommand],
     },
     {
       group: "AUTH",
       commands: [loginCommand, logoutCommand, whoamiCommand, tokenCommand],
     },
     {
-      group: "GETTING STARTED",
-      commands: [setupCommand, discoverCommand, helpCommand],
+      group: "CLI",
+      commands: [cacheCommand, upgradeCommand],
     },
   ]),
   Command.withGlobalFlags(axmGlobalFlags),

@@ -4,24 +4,17 @@ okf_version: "0.2"
 
 # Field notes knowledge
 
-Portable concepts for **observing work in progress and converting what you
-observe into durable improvement**. The practice: declare a small number of
-subjects worth watching, record specific incidents while the work is happening,
-then periodically assess recurring patterns by evidence, impact, exposure, and
-risk before promoting them into verified changes.
+Portable concepts for preserving concrete friction encountered during ordinary
+agent work. The practice records what happened, its observed cost or impact,
+its outcome, and evidence already available in the session so a later process
+can analyze the notes.
 
-This bundle defines the concepts. The `field-notes` rule performs capture; the
-`field-notes` skill performs declaration and triage. Nothing here prescribes a
-repository layout, tracker, or tool.
+This bundle defines the concepts. The `field-notes` rule identifies eligible
+friction and the `field-notes` skill records an occurrence. Analysis,
+prioritization, remediation, and note lifecycle are outside this practice.
 
 ## Concepts
 
-* [Field notes](field-notes-explainer.md) - How field notes preserve one
-  operational occurrence with observed facts, safe diagnostic evidence,
-  impact, detection, recovery, and explicitly tentative interpretation.
-* [Subjects](subject-explainer.md) - What a field note subject is — survey
-  versus target mode, what makes a usable target condition, how a survey
-  subject graduates, and when a subject retires.
-* [Closure](closure-explainer.md) - How field notes become improvements through
-  evidence-led patterning, multidimensional priority, explicit decisions, and
-  verified corrective action.
+* [Field notes](field-notes-explainer.md) - How to preserve one occurrence of
+  session friction with factual context, observed cost or impact, outcome, and
+  safe evidence without adding analysis.

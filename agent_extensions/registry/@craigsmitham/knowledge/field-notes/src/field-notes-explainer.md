@@ -1,7 +1,7 @@
 ---
 type: Explanation
 title: Field notes
-description: How field notes preserve one operational occurrence with observed facts, safe diagnostic evidence, impact, detection, recovery, and explicitly tentative interpretation.
+description: How field notes preserve one occurrence of agent-session friction with observed facts, cost or impact, outcome, and safe evidence without adding analysis.
 tags: [field-notes, observation, continuous-improvement, resilience-engineering, explanation]
 status: draft
 sources:
@@ -11,157 +11,96 @@ sources:
   - id: flanagan-cit
     resource: https://www.apa.org/pubs/databases/psycinfo/cit-article.pdf
     title: J.C. Flanagan — The Critical Incident Technique (Psychological Bulletin, 1954)
-  - id: army-aar
-    resource: https://www.first.army.mil/Portals/102/FM%207-0%20Appendix%20K.pdf
-    title: FM 7-0 Appendix K — After Action Reviews
   - id: esm-survey
     resource: https://dl.acm.org/doi/10.1145/3123988
     title: The Experience Sampling Method on Mobile Devices (ACM Computing Surveys)
   - id: who-minimal-information
     resource: https://qualityhealthservices.who.int/quality-toolkit/qt-catalog-item/minimal-information-model-for-patient-safety-incident-reporting-and-learning-systems-user-guide
     title: WHO — Minimal Information Model for Patient Safety Incident Reporting and Learning Systems
-  - id: ahrq-report-design
-    resource: https://www.ahrq.gov/patient-safety/reports/hotline/design2.html
-    title: AHRQ — Developing and Testing the Health Care Safety Hotline
 generated:
   by: codex/gpt-5
-  at: 2026-08-24T21:16:03Z
+  at: 2026-09-21T16:30:00Z
 ---
 
 # Field notes
 
-A **field note** is a record of one specific incident, written while the work
-that produced it is still happening.
+A **field note** is a record of one specific occurrence of friction, written
+while the agent session that encountered it is still active.
 
-The practice exists because the most valuable information about how a system
-actually behaves is produced constantly and discarded immediately. Someone works
-around a confusing command, guesses at an undocumented step, or waits on
-something slow — and then finishes the task and forgets. The information was
-free at the moment it occurred and is unrecoverable an hour later.
+## Preserve work as it happened
 
-## The gap being observed
+Instructions, documentation, and runbooks describe work as imagined. Actual
+work meets conditions they did not anticipate.[^hollnagel-safety-ii] A command
+fails unexpectedly, guidance conflicts, a capability is missing, or progress
+requires an undocumented workaround. This evidence is cheap at the moment it
+appears and difficult to reconstruct later.
 
-Instruction files, documentation, and runbooks describe **work-as-imagined**: an
-idealized account of the task that cannot anticipate the conditions the work
-actually meets.[^hollnagel-safety-ii] **Work-as-done** is what happens instead.
-Systems keep working because people at the sharp end adapt across that gap.
-
-A field note is one observation of that gap. This framing has a consequence that
-a failure log does not: **the adaptations that succeeded are the most valuable
-records in the set.** An undocumented workaround that worked is knowledge the
-system depends on and has not written down. A log that only admits failures
-throws it away.
-
-That is why a note carries a `kind`:
-
-| Kind | What it records |
-| --- | --- |
-| `gap` | Outcome differed from what the instructions or output implied |
-| `workaround` | Succeeded by improvising a step no document describes |
-| `blocked` | A subject in `target` mode was prevented from reaching its condition |
+Successful adaptations matter too. A workaround that restored progress records
+friction the system still imposed, even when the overall task succeeded.
 
 ## Incidents, not impressions
 
-The oldest form of this practice requires reports of **specific observed
-incidents with behavioral detail**, never general opinions.[^flanagan-cit] The
-constraint is what makes the records aggregable: ten incidents can be compared,
-counted, and traced; ten impressions cannot.
+Field notes describe specific observed incidents with behavioral detail rather
+than general opinions.[^flanagan-cit] “The CLI is confusing” is an impression.
+“The command exited successfully without creating the named file, so the agent
+read the help and repeated the step with another flag” is an occurrence.
 
-"The CLI is confusing" is not a field note. "`init` exited 0 but wrote no
-config, so I ran it twice before checking the exit path" is.
+A small common structure makes records comparable while retaining the account
+of what happened.[^who-minimal-information] A note records:
 
-The note combines a small common structure with a free evidence narrative. That
-shape follows mature incident-learning systems: enough standard fields to
-compare reports, while preserving the reporter's account in their own
-terms.[^who-minimal-information] It records what was expected, what was
-observed, impact, recovery, detection, and conditions directly seen. The
-expected-versus-observed comparison retains the practical core of after-action
-review.[^army-aar]
+- the task context and relevant conditions already known;
+- the friction encountered;
+- observed cost or impact;
+- the outcome and any recovery already performed; and
+- the minimum safe evidence already available.
 
-Cause is deliberately separate. `Observed factors` carries facts;
-`Hypothesis` carries the reporter's tentative explanation; `Suggests` carries
-an optional improvement idea. A hypothesis is useful intake, but repeating it
-does not make it true. Reporting-form research similarly limits structured
-contributing factors to conditions reporters can observe reliably.[^ahrq-report-design]
+No predefined subject or classification is required. A free-text area helps
+later readers orient themselves without asking the capturing agent to develop a
+taxonomy.
 
-It also records **observed impact**: what this incident delayed, degraded,
-repeated, or prevented, plus directly measured cost such as retries, extra
-steps, elapsed time, rework, or unusable output. Impact is evidence about the
-incident, not a severity score. The observer does not predict how often it will
-recur, extrapolate to people or systems not observed, or estimate hypothetical
-harm. An unmeasured cost stays `not measured` rather than becoming a guess.
+## Record observed cost or impact
 
-Each note has a unique occurrence identity, an observation time, and an opaque
-session identity. The occurrence ID prevents same-day repeats from colliding;
-the session ID lets later triage distinguish two reports from two independent
-occasions. The pattern key is only a candidate classification and never replaces
-either identity.
+Useful cost evidence includes retries, extra tool calls, repeated reads, manual
+steps, delay, compute, user intervention, rework, degraded output, blocked or
+incomplete work, and remaining uncertainty. Include only dimensions that
+actually changed and measurements already available. Distinguish overhead
+caused by the friction from work the task inherently required.
 
-Detection and recovery complete the operational account. Detection says how the
-gap became visible — command output, a test, user correction, inspection, or
-another signal. Recovery says what restored progress and whether the original
-task completed. Together they distinguish obvious, easily reversible friction
-from delayed or silent behavior with an expensive workaround.
+Impact is evidence about the occurrence, not a severity score. Do not estimate
+unmeasured cost, project future harm, or infer how often the friction occurs.
 
-## Why capture is in-situ
+## Capture in the session
 
-Recording at the moment of occurrence rather than in retrospect is the single
-design choice that most affects data quality; retrospective accounts lose
-detail and reshape events toward coherence.[^esm-survey]
+Recording at the moment of occurrence preserves details that retrospective
+accounts lose or reshape.[^esm-survey] An agent session also has a hard memory
+boundary: information not written during the session may disappear completely.
 
-An agent session has an unusual property here: it has no memory across sessions,
-so anything not written during the session is gone completely rather than merely
-degraded. Capture must therefore be cheap enough to happen inline, which means
-appending a small file and continuing — never investigating, fixing, or
-escalating what was just observed.
+Capture must therefore remain cheap. Write one concise file after the immediate
+outcome is known, combine its retries and recovery, and continue the original
+task. Routine work, expected diagnostic failures, isolated typing mistakes, and
+speculative concerns do not qualify.
 
-## Preserve evidence before reducing it
+## Use only what is already known
 
-In-situ capture begins before the note is written. Structured command and API
-results often carry the only durable retrieval keys for an operational
-occurrence: a stable error class, request or correlation identifier, response
-status, retry decision, recovery command, or artifact integrity. A formatter
-that keeps only a human summary, a pipeline that hides the failing process
-status, or suppressed diagnostic output can destroy that evidence before the
-capture rule runs.
+Capture is evidence preservation, not analysis. Do not investigate, interpret,
+diagnose, call another tool, rerun an operation, or develop recommendations to
+enrich a note. Missing information stays missing.
 
-The practice therefore preserves a small **diagnostic envelope** until capture
-eligibility is decided. It contains only already-observed fields that help
-retrieve, verify, or compare the incident. It is not a raw transcript: secrets,
-authorization material, opaque response bodies, and unreviewed values stay out
-of a public note. Nor does preservation authorize a second mutation merely to
-recover a missing identifier.
+Sometimes the task has already established a related constraint, explanation,
+occurrence, or possible remedy. The note may retain that as optional existing
+context if it preserves the uncertainty already present. It must not generate a
+hypothesis or recommendation to fill the section.
 
-Missing evidence has two materially different meanings. `Not supplied` means
-the authoritative result did not expose the field. `Unavailable — output was
-not retained` means the observing workflow discarded it. Keeping that
-distinction visible lets triage separate a product observability gap from a
-capture-process gap without guessing at either cause.
+Structured results may already expose useful evidence such as an error class,
+response status, file reference, version, or recovery command. Preserve only
+the minimum safe portion needed to understand or verify the occurrence. Never
+record credentials, authorization material, opaque response bodies, or
+unreviewed values that may contain sensitive data.
 
-## Notes are not findings
-
-Two artifacts, deliberately separate:
-
-- A **field note** is raw, cheap, unreviewed, and possibly duplicated. Volume is
-  expected. One incident, one file, appended and abandoned. Single incidents
-  remain notes even when their observed cost deserves attention.
-- A **finding** is curated: a recurring pattern, promoted deliberately, carrying
-  provenance back to the notes that produced it and a claim about what to change.
-
-Collapsing the two produces a store that is too noisy to read and too expensive
-to write. Keeping them separate lets capture stay free and judgment stay
-occasional. How notes become findings is in [Closure](closure-explainer.md).
-
-## Reporting is expected behavior
-
-An observer asked to record its own confusion, retries, and improvisations is
-being asked to report against its own apparent competence. Any such system must
-say plainly that recording is the correct behavior and carries no implication of
-failure, or the records quietly stop appearing.
+Recording a note does not authorize remediation, broader investigation,
+external communication, or any other new side effect.
 
 [^hollnagel-safety-ii]: Hollnagel, *From Safety-I to Safety-II*.
 [^flanagan-cit]: Flanagan, *The Critical Incident Technique*, 1954.
-[^army-aar]: FM 7-0 Appendix K, *After Action Reviews*.
 [^esm-survey]: *The Experience Sampling Method on Mobile Devices*.
 [^who-minimal-information]: WHO, *Minimal Information Model for Patient Safety Incident Reporting and Learning Systems*.
-[^ahrq-report-design]: AHRQ, *Developing and Testing the Health Care Safety Hotline*.

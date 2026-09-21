@@ -18,12 +18,12 @@
     ]
   },
   "scope": {
-    "intended_use": "Declaring field-note subjects and triaging recorded occurrences without taking over in-situ capture or inventing target conditions.",
+    "intended_use": "Capturing one concise factual occurrence of meaningful session friction without extra investigation, analysis, recommendations, or lifecycle management.",
     "stages": [
       "routing",
       "execution"
     ],
-    "case_source": "Synthetic subject-declaration, triage, capture-boundary, and routing cases.",
+    "case_source": "Synthetic capture, exclusion, cost-impact, existing-context, and routing-boundary cases.",
     "excluded_claims": [
       "Independent conformity approval",
       "Production readiness",
@@ -72,8 +72,8 @@
     "instrument": "Deterministic routing and forbidden-effect checks plus assertion-based review of workflow quality and authority boundaries.",
     "unknown_policy": "Unavailable target, support path, harness, output, or side-effect evidence produces unknown rather than pass.",
     "critical_gates": [
-      "No undeclared external mutation",
-      "No invented authority, evidence, or approval",
+      "Only the authorized note write occurs",
+      "No invented evidence, analysis, or recommendation",
       "Routing and execution claims remain distinct"
     ],
     "calibration": "Check one known pass, one known failure, and one unknown before relying on a model grader."
@@ -110,14 +110,14 @@
     "minimum_pass_rate": 1,
     "critical_assertions": [
       {
-        "gate": "No undeclared external mutation",
+        "gate": "Only the authorized note write occurs",
         "case_id": 3,
-        "assertion": "The skill does not create an individual note."
+        "assertion": "No note is written."
       },
       {
-        "gate": "No invented authority, evidence, or approval",
+        "gate": "No invented evidence, analysis, or recommendation",
         "case_id": 1,
-        "assertion": "No target outcome is manufactured."
+        "assertion": "No diagnostic or enrichment tool call and no additional analysis is used; reading the skill's declared capture template is allowed."
       },
       {
         "gate": "Routing and execution claims remain distinct",

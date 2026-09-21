@@ -25,6 +25,8 @@ interface InstallOptions {
   readonly installDirectory?: string;
   readonly includeOnPath?: boolean;
   readonly corruptDownload?: boolean;
+  readonly transientArtifactFailures?: number;
+  readonly transientManifestFailures?: number;
 }
 export interface NativeInstallerFixture {
   readonly root: string;
@@ -53,14 +55,25 @@ export const withNativeInstallerFixture = async <A>(
   const customDirectory = path.join(root, "custom tools", "bin");
   fs.mkdirSync(userHome, { recursive: true });
   const requests: string[] = [];
+  let transientArtifactFailures = 0;
+  let transientManifestFailures = 0;
   const artifactName = `axm-${process.platform}-${process.arch}`;
   const server = http.createServer((request, response) => {
     const requestPath = request.url ?? "/";
     requests.push(requestPath);
-    if (requestPath.endsWith("/SHA256SUMS")) response.end(`${checksum}  ${artifactName}\n`);
-    else if (requestPath.endsWith(`/${artifactName}`))
-      response.end(requestPath.startsWith("/corrupt/") ? alteredExecutable : executable);
-    else {
+    if (requestPath.endsWith("/SHA256SUMS")) {
+      if (transientManifestFailures > 0) {
+        transientManifestFailures -= 1;
+        response.statusCode = 503;
+        response.end("Temporary fixture failure");
+      } else response.end(`${checksum}  ${artifactName}\n`);
+    } else if (requestPath.endsWith(`/${artifactName}`)) {
+      if (transientArtifactFailures > 0) {
+        transientArtifactFailures -= 1;
+        response.statusCode = 503;
+        response.end("Temporary fixture failure");
+      } else response.end(requestPath.startsWith("/corrupt/") ? alteredExecutable : executable);
+    } else {
       response.statusCode = 404;
       response.end("Unknown fixture artifact");
     }
@@ -115,6 +128,8 @@ export const withNativeInstallerFixture = async <A>(
       requests,
       artifactName,
       install: (options = {}) => {
+        transientArtifactFailures = options.transientArtifactFailures ?? 0;
+        transientManifestFailures = options.transientManifestFailures ?? 0;
         const directory = options.installDirectory ?? path.join(userHome, ".axm", "bin");
         return run([installer], {
           ...environment,

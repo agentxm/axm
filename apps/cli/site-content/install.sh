@@ -112,11 +112,21 @@ detect_tools() {
 }
 
 download() {
-  if [ "$DOWNLOADER" = "curl" ]; then
-    curl -fsSL --output "$2" "$1"
-  else
-    wget -qO "$2" "$1"
-  fi
+  download_attempt=1
+  while :; do
+    if [ "$DOWNLOADER" = "curl" ]; then
+      if curl -fsSL --output "$2" "$1"; then
+        return 0
+      fi
+    elif wget -qO "$2" "$1"; then
+      return 0
+    fi
+
+    [ "$download_attempt" -lt 3 ] || return 1
+    echo "Download failed; retrying AXM release asset (${download_attempt}/3)..." >&2
+    download_attempt=$((download_attempt + 1))
+    sleep 1
+  done
 }
 
 hash_file() {

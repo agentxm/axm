@@ -4,14 +4,16 @@ import { spawn } from "node:child_process";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";
+import * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
 
 import { makeFileRegistry } from "@agentxm/registry-client/testing";
 import * as Effect from "effect/Effect";
 import { startLifecycleRegistry, type RequestMetrics } from "./lifecycle-registry.js";
+import { startLifecycleGitSource, writeSkillPackage } from "./lifecycle-sources.js";
 
-const fixtureVersion = 3;
+const fixtureVersion = 4;
 const fixtureSizes = [1, 10, 50, 200] as const;
 const commandTimeoutMs = 600_000;
 const archiveBodyDelayMs = 25;
@@ -53,11 +55,17 @@ type Scenario =
   | "cold-exact-restore"
   | "changed-version-update-preview"
   | "changed-version-update"
-  | "transient-metadata-failure-preview";
+  | "transient-metadata-failure-preview"
+  | "path-cold-sync"
+  | "path-no-op-sync"
+  | "git-cold-sync"
+  | "git-exact-restore"
+  | "git-no-op-sync";
 
 interface Sample {
   readonly mode: "control" | "diagnostic";
   readonly scenario: Scenario;
+  readonly sourceFamily: "registry" | "git" | "path";
   readonly extensions: number;
   readonly durationMs: number;
   readonly peakRssBytes: number | null;
@@ -67,6 +75,16 @@ interface Sample {
   readonly planCounts: Readonly<Record<string, number>> | null;
   readonly cacheState: "fresh" | "warm" | "cleared";
   readonly requests: RequestMetrics | null;
+  readonly nodeApi: NodeApiMetrics | null;
+  readonly perClosureWrites: null;
+  readonly lockWaitMs: null;
+}
+
+interface NodeApiMetrics {
+  readonly directoryCalls: number;
+  readonly hashBytes: number;
+  readonly gitProcesses: number;
+  readonly writeCalls: number;
 }
 
 interface CommandResult {
@@ -76,6 +94,7 @@ interface CommandResult {
   readonly stdout: string;
   readonly stderr: string;
   readonly timedOut: boolean;
+  readonly nodeApi: NodeApiMetrics | null;
 }
 
 const selectedSizes = (): ReadonlyArray<number> => {
@@ -104,6 +123,12 @@ const run = (
     try: (signal) =>
       new Promise<CommandResult>((resolve, reject) => {
         const started = process.hrtime.bigint();
+        const diagnosticsFile = path.join(path.dirname(userHome), "node-api-metrics.json");
+        if (observeRss) fs.rmSync(diagnosticsFile, { force: true });
+        const preload = path.resolve(
+          path.dirname(builtCli),
+          "../../../../benchmarks/lifecycle-preload.cjs",
+        );
         const child = spawn("node", [builtCli, ...args], {
           cwd: workspace,
           env: {
@@ -116,6 +141,12 @@ const run = (
             AXM_TELEMETRY: "0",
             CI: "1",
             NO_COLOR: "1",
+            ...(observeRss
+              ? {
+                  NODE_OPTIONS: `--require=${preload}`,
+                  AXM_BENCH_DIAGNOSTICS_FILE: diagnosticsFile,
+                }
+              : {}),
           },
           stdio: ["ignore", "pipe", "pipe"],
         });
@@ -163,10 +194,48 @@ const run = (
             stdout,
             stderr,
             timedOut,
+            nodeApi: observeRss ? readNodeApiMetrics(diagnosticsFile) : null,
           });
         });
       }),
     catch: (cause) => new LifecycleBenchmarkError(`Benchmark CLI process failed: ${String(cause)}`),
+  });
+
+const readNodeApiMetrics = (file: string): NodeApiMetrics | null => {
+  if (!fs.existsSync(file)) return null;
+  const value: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
+  if (
+    !isRecord(value) ||
+    typeof value["directoryCalls"] !== "number" ||
+    typeof value["hashBytes"] !== "number" ||
+    typeof value["gitProcesses"] !== "number" ||
+    typeof value["writeCalls"] !== "number"
+  ) {
+    return null;
+  }
+  return {
+    directoryCalls: value["directoryCalls"],
+    hashBytes: value["hashBytes"],
+    gitProcesses: value["gitProcesses"],
+    writeCalls: value["writeCalls"],
+  };
+};
+
+const probeRegistryIndex = (url: string) =>
+  Effect.tryPromise({
+    try: () =>
+      new Promise<void>((resolve, reject) => {
+        const request = http.get(url, (response) => {
+          response.resume();
+          response.once("end", () =>
+            response.statusCode === 200
+              ? resolve()
+              : reject(new Error(`Probe returned ${String(response.statusCode)}`)),
+          );
+        });
+        request.once("error", reject);
+      }),
+    catch: (cause) => new LifecycleBenchmarkError(`Duplicate probe failed: ${String(cause)}`),
   });
 
 const check = (result: CommandResult, label: string): void => {
@@ -226,6 +295,11 @@ const measure = (
   append({
     mode,
     scenario,
+    sourceFamily: scenario.startsWith("git-")
+      ? "git"
+      : scenario.startsWith("path-")
+        ? "path"
+        : "registry",
     extensions,
     durationMs: result.durationMs,
     peakRssBytes: result.peakRssBytes,
@@ -233,8 +307,137 @@ const measure = (
     ...summary,
     cacheState,
     requests,
+    nodeApi: result.nodeApi,
+    perClosureWrites: null,
+    lockWaitMs: null,
   });
 };
+
+const runSourceScenarios = (
+  root: string,
+  builtCli: string,
+  mode: Sample["mode"],
+  append: (sample: Sample) => void,
+) =>
+  Effect.gen(function* () {
+    const prepare = (name: "path" | "git", source: string) =>
+      Effect.gen(function* () {
+        const workspace = path.join(root, `${name}-workspace`);
+        const userHome = path.join(root, `${name}-home`);
+        fs.mkdirSync(workspace, { recursive: true });
+        fs.mkdirSync(userHome, { recursive: true });
+        check(
+          yield* run(
+            builtCli,
+            workspace,
+            userHome,
+            ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--json"],
+            false,
+          ),
+          `${name} fixture setup`,
+        );
+        const settingsPath = path.join(workspace, "axm.json");
+        const settings: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+        if (!isRecord(settings)) {
+          throw new LifecycleBenchmarkError(`${name} setup wrote invalid settings.`);
+        }
+        fs.writeFileSync(
+          settingsPath,
+          `${JSON.stringify({ ...settings, skills: { [`bench-${name}`]: source } })}\n`,
+        );
+        return { workspace, userHome };
+      });
+    const invoke = (workspace: string, userHome: string, args: ReadonlyArray<string>) =>
+      Effect.map(
+        run(
+          builtCli,
+          workspace,
+          userHome,
+          [...args, "--json", "--non-interactive"],
+          mode === "diagnostic",
+        ),
+        (result) => ({ result, requests: null }),
+      );
+
+    const pathWorkspace = path.join(root, "path-workspace");
+    writeSkillPackage(pathWorkspace, "bench-path", "Accepted path guidance.");
+    const pathFixture = yield* prepare("path", "./vendor/bench-path");
+    measure(
+      append,
+      mode,
+      "path-cold-sync",
+      1,
+      "fresh",
+      yield* invoke(pathFixture.workspace, pathFixture.userHome, ["sync"]),
+    );
+    measure(
+      append,
+      mode,
+      "path-no-op-sync",
+      1,
+      "warm",
+      yield* invoke(pathFixture.workspace, pathFixture.userHome, ["sync"]),
+    );
+
+    yield* Effect.acquireUseRelease(
+      Effect.tryPromise({
+        try: () => startLifecycleGitSource(root),
+        catch: (cause) =>
+          new LifecycleBenchmarkError(`Git fixture startup failed: ${String(cause)}`),
+      }),
+      (git) =>
+        Effect.gen(function* () {
+          const fixture = yield* prepare("git", git.url);
+          measure(
+            append,
+            mode,
+            "git-cold-sync",
+            1,
+            "fresh",
+            yield* invoke(fixture.workspace, fixture.userHome, ["sync"]),
+          );
+          const accepted = fs.readFileSync(path.join(fixture.workspace, "axm-lock.yaml"), "utf8");
+          const canonical = path.join(
+            fixture.workspace,
+            "agent_extensions",
+            "git",
+            "@acme",
+            "skills",
+            "bench-git",
+          );
+          fs.rmSync(canonical, { recursive: true, force: true });
+          git.advance();
+          measure(
+            append,
+            mode,
+            "git-exact-restore",
+            1,
+            "warm",
+            yield* invoke(fixture.workspace, fixture.userHome, ["sync"]),
+          );
+          if (
+            fs.readFileSync(path.join(canonical, "src", "SKILL.md"), "utf8").includes("New Git") ||
+            fs.readFileSync(path.join(fixture.workspace, "axm-lock.yaml"), "utf8") !== accepted
+          ) {
+            throw new LifecycleBenchmarkError("Git restore changed the accepted identity.");
+          }
+          measure(
+            append,
+            mode,
+            "git-no-op-sync",
+            1,
+            "warm",
+            yield* invoke(fixture.workspace, fixture.userHome, ["sync"]),
+          );
+        }),
+      (git) =>
+        Effect.tryPromise({
+          try: () => git.close(),
+          catch: (cause) =>
+            new LifecycleBenchmarkError(`Git fixture shutdown failed: ${String(cause)}`),
+        }),
+    );
+  });
 
 export const runLifecycleBenchmark = (repoRoot: string, outputPath: string): Promise<void> =>
   Effect.runPromise(
@@ -247,7 +450,12 @@ export const runLifecycleBenchmark = (repoRoot: string, outputPath: string): Pro
         throw new LifecycleBenchmarkError("CLI package has no version.");
       }
       const fixtureHash = createHash("sha256");
-      for (const relative of ["benchmarks/lifecycle.ts", "benchmarks/lifecycle-registry.ts"]) {
+      for (const relative of [
+        "benchmarks/lifecycle.ts",
+        "benchmarks/lifecycle-registry.ts",
+        "benchmarks/lifecycle-sources.ts",
+        "benchmarks/lifecycle-preload.cjs",
+      ]) {
         fixtureHash.update(relative);
         fixtureHash.update(fs.readFileSync(path.join(repoRoot, relative)));
       }
@@ -256,13 +464,19 @@ export const runLifecycleBenchmark = (repoRoot: string, outputPath: string): Pro
         cwd: repoRoot,
         encoding: "utf8",
       }).trim();
+      const sourceDirty =
+        execFileSync("git", ["status", "--porcelain"], {
+          cwd: repoRoot,
+          encoding: "utf8",
+        }).trim().length > 0;
       const samples: Array<Sample> = [];
+      let duplicateRequestProbe = false;
       fs.mkdirSync(path.dirname(outputPath), { recursive: true });
       const append = (sample: Sample): void => {
         samples.push(sample);
         fs.writeFileSync(
           outputPath,
-          `${JSON.stringify({ schemaVersion: 1, fixtureVersion, complete: false, fixtureSourceSha256, sourceRevision, sourceVersion: packageJson["version"], samples }, null, 2)}\n`,
+          `${JSON.stringify({ schemaVersion: 1, fixtureVersion, complete: false, fixtureSourceSha256, sourceRevision, sourceDirty, sourceVersion: packageJson["version"], samples }, null, 2)}\n`,
         );
       };
       for (const count of selectedSizes()) {
@@ -478,6 +692,21 @@ export const runLifecycleBenchmark = (repoRoot: string, outputPath: string): Pro
                     "Update did not select the changed skill version.",
                   );
                 }
+                if (count === 1) {
+                  yield* runSourceScenarios(root, builtCli, mode, append);
+                }
+                if (mode === "diagnostic" && count === selectedSizes()[0]) {
+                  registry.reset(true);
+                  const probeUrl = `${registry.url}/v1/extensions/@acme/skills/${firstName}`;
+                  yield* probeRegistryIndex(probeUrl);
+                  yield* probeRegistryIndex(probeUrl);
+                  const probe = registry.metrics();
+                  if (probe?.requests !== 2 || probe.uniqueKeys !== 1 || probe.repeatedKeys !== 1) {
+                    throw new LifecycleBenchmarkError("Duplicate request metric did not change.");
+                  }
+                  duplicateRequestProbe = true;
+                  registry.reset(false);
+                }
               }),
             ({ root, fixture, registry }) =>
               Effect.gen(function* () {
@@ -517,6 +746,7 @@ export const runLifecycleBenchmark = (repoRoot: string, outputPath: string): Pro
         complete: true,
         fixtureSourceSha256,
         sourceRevision,
+        sourceDirty,
         sourceVersion: packageJson["version"],
         host: {
           platform: process.platform,
@@ -528,9 +758,10 @@ export const runLifecycleBenchmark = (repoRoot: string, outputPath: string): Pro
         toolchain: {
           node: execFileSync("node", ["--version"], { encoding: "utf8" }).trim(),
           bun: Bun.version,
+          git: execFileSync("git", ["--version"], { encoding: "utf8" }).trim(),
         },
         fixture: {
-          source: "loopback HTTP Registry backed by immutable file fixture",
+          sources: ["loopback HTTP Registry", "local path", "loopback Git daemon"],
           owner: "@acme",
           sizes: selectedSizes(),
           seed: "0x1234abcd",
@@ -552,10 +783,16 @@ export const runLifecycleBenchmark = (repoRoot: string, outputPath: string): Pro
             overlappingPacksAtSize: 10,
             overlappingPackCount: 2,
             archiveBodyDelayMs,
+            sourceFamilyCasesAtSize: 1,
           },
         },
         method:
-          "One control run without process sampling or request capture, then one diagnostic run per scenario and size. Setup is excluded from timing.",
+          "One control run without process sampling or request capture, then one diagnostic run per scenario and size. Setup is excluded from timing. Directory/write counts intercept Node filesystem APIs, hash bytes count node:crypto Hash.update input, and Git process counts intercept child_process spawn/execFile; these are not physical I/O totals.",
+        unavailableMetrics: {
+          perClosureWrites: "The current CLI exposes no closure-attributed write counter.",
+          lockWaitMs: "The current CLI exposes no lock acquisition timer to this runner.",
+        },
+        counterChecks: { duplicateMetadataRequest: duplicateRequestProbe ? "passed" : "not-run" },
         unavailableHistoricalEvidence:
           "Earlier raw cold-apply, Git, and production traces are unavailable.",
         samples,

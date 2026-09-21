@@ -19,20 +19,20 @@ catalogs:
       specifier: ^0.87.2
       version: 0.87.2
     '@effect/openapi-generator':
-      specifier: 4.0.0-rc.115
-      version: 4.0.0-rc.115
+      specifier: 4.0.0-rc.117
+      version: 4.0.0-rc.117
     '@effect/platform-node':
-      specifier: 4.0.0-rc.115
-      version: 4.0.0-rc.115
+      specifier: 4.0.0-rc.117
+      version: 4.0.0-rc.117
     '@effect/platform-node-shared':
-      specifier: 4.0.0-rc.115
-      version: 4.0.0-rc.115
+      specifier: 4.0.0-rc.117
+      version: 4.0.0-rc.117
     '@effect/tsgo':
-      specifier: ^0.36.5
-      version: 0.36.5
+      specifier: ^0.45.0
+      version: 0.45.0
     '@effect/vitest':
-      specifier: 4.0.0-rc.115
-      version: 4.0.0-rc.115
+      specifier: 4.0.0-rc.117
+      version: 4.0.0-rc.117
     '@eslint/js':
       specifier: ^10.0.0
       version: 10.0.1
@@ -88,8 +88,8 @@ catalogs:
       specifier: 18.2.0
       version: 18.2.0
     effect:
-      specifier: 4.0.0-rc.115
-      version: 4.0.0-rc.115
+      specifier: 4.0.0-rc.117
+      version: 4.0.0-rc.117
     eslint:
       specifier: ^10.3.0
       version: 10.3.0
@@ -198,13 +198,13 @@ importers:
         version: 0.87.2
       '@effect/platform-node':
         specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)(redis@6.2.1)
       '@effect/tsgo':
         specifier: 'catalog:'
-        version: 0.36.5
+        version: 0.45.0
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)(vitest@5.0.0)
       '@eslint/js':
         specifier: 'catalog:'
         version: 10.0.1(eslint@10.3.0(jiti@2.7.0)(supports-color@7.2.0))
@@ -264,7 +264,7 @@ importers:
         version: 18.2.0
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-rc.115
+        version: 4.0.0-rc.117
       eslint:
         specifier: 'catalog:'
         version: 10.3.0(jiti@2.7.0)(supports-color@7.2.0)
@@ -339,13 +339,13 @@ importers:
         version: link:../../packages/core/workspace
       '@effect/platform-node':
         specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)(redis@6.2.1)
       '@effect/platform-node-shared':
         specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-rc.115
+        version: 4.0.0-rc.117
     devDependencies:
       '@agentxm/extension-type-parity':
         specifier: workspace:*
@@ -355,10 +355,10 @@ importers:
         version: link:../../tools/test-support
       '@effect/openapi-generator':
         specifier: 'catalog:'
-        version: 4.0.0-rc.115(@effect/platform-node@4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1))(effect@4.0.0-rc.115)
+        version: 4.0.0-rc.117(@effect/platform-node@4.0.0-rc.117(effect@4.0.0-rc.117)(redis@6.2.1))(effect@4.0.0-rc.117)
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)(vitest@5.0.0)
       '@fast-check/vitest':
         specifier: 'catalog:'
         version: 0.5.0(vitest@5.0.0)
@@ -406,7 +406,7 @@ importers:
         version: typescript@7.0.2
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-rc.115
+        version: 4.0.0-rc.117
       fflate:
         specifier: 'catalog:'
         version: 0.8.3
@@ -430,17 +430,17 @@ importers:
         version: link:../extension-model
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-rc.115
+        version: 4.0.0-rc.117
       yaml:
         specifier: 'catalog:'
         version: 2.9.0
     devDependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)(redis@6.2.1)
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)(vitest@5.0.0)
       '@fast-check/vitest':
         specifier: 'catalog:'
         version: 0.5.0(vitest@5.0.0)
@@ -458,7 +458,7 @@ importers:
     dependencies:
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-rc.115
+        version: 4.0.0-rc.117
       packageurl-js:
         specifier: 'catalog:'
         version: 2.0.1
@@ -474,7 +474,7 @@ importers:
         version: link:../../../tools/specification-metadata
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)(vitest@5.0.0)
       '@fast-check/vitest':
         specifier: 'catalog:'
         version: 0.5.0(vitest@5.0.0)
@@ -501,7 +501,7 @@ importers:
         version: link:../extension-model
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-rc.115
+        version: 4.0.0-rc.117
       semver:
         specifier: 'catalog:'
         version: 7.8.5
@@ -511,7 +511,7 @@ importers:
         version: link:../../../tools/specification-metadata
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)(vitest@5.0.0)
       '@types/semver':
         specifier: 'catalog:'
         version: 7.7.1
@@ -550,7 +550,7 @@ importers:
         version: 1.3.0
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-rc.115
+        version: 4.0.0-rc.117
       fflate:
         specifier: 'catalog:'
         version: 0.8.3
@@ -581,10 +581,10 @@ importers:
         version: link:../../../tools/specification-metadata
       '@effect/platform-node':
         specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)(redis@6.2.1)
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)(vitest@5.0.0)
       '@fast-check/vitest':
         specifier: 'catalog:'
         version: 0.5.0(vitest@5.0.0)
@@ -614,7 +614,7 @@ importers:
         version: link:../../core/extension-model
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-rc.115
+        version: 4.0.0-rc.117
       semver:
         specifier: 'catalog:'
         version: 7.8.5
@@ -624,10 +624,10 @@ importers:
         version: link:../../../tools/specification-metadata
       '@effect/platform-node':
         specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)(redis@6.2.1)
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)(vitest@5.0.0)
       '@fast-check/vitest':
         specifier: 'catalog:'
         version: 0.5.0(vitest@5.0.0)
@@ -660,7 +660,7 @@ importers:
         version: 1.3.0
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-rc.115
+        version: 4.0.0-rc.117
       proper-lockfile:
         specifier: ^4.1.2
         version: 4.1.2
@@ -670,10 +670,10 @@ importers:
         version: link:../../../tools/specification-metadata
       '@effect/platform-node':
         specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)(redis@6.2.1)
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)(vitest@5.0.0)
       '@types/bun':
         specifier: 'catalog:'
         version: 1.3.14
@@ -700,7 +700,7 @@ importers:
         version: link:../../core/registry-protocol
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-rc.115
+        version: 4.0.0-rc.117
       fflate:
         specifier: 'catalog:'
         version: 0.8.3
@@ -710,13 +710,13 @@ importers:
         version: link:../../../tools/specification-metadata
       '@effect/openapi-generator':
         specifier: 'catalog:'
-        version: 4.0.0-rc.115(@effect/platform-node@4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1))(effect@4.0.0-rc.115)
+        version: 4.0.0-rc.117(@effect/platform-node@4.0.0-rc.117(effect@4.0.0-rc.117)(redis@6.2.1))(effect@4.0.0-rc.117)
       '@effect/platform-node':
         specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)(redis@6.2.1)
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)(vitest@5.0.0)
       '@types/bun':
         specifier: 'catalog:'
         version: 1.3.14
@@ -747,7 +747,7 @@ importers:
         version: link:../../packages/core/extension-model
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-rc.115
+        version: 4.0.0-rc.117
     devDependencies:
       '@agentxm/workspace':
         specifier: workspace:^
@@ -772,11 +772,11 @@ importers:
     dependencies:
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-rc.115
+        version: 4.0.0-rc.117
     devDependencies:
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)(vitest@5.0.0)
       '@typescript/native':
         specifier: 'catalog:'
         version: typescript@7.0.2
@@ -791,7 +791,7 @@ importers:
     dependencies:
       effect:
         specifier: 'catalog:'
-        version: 4.0.0-rc.115
+        version: 4.0.0-rc.117
       memfs:
         specifier: ^4.71.0
         version: 4.71.0
@@ -801,10 +801,10 @@ importers:
     devDependencies:
       '@effect/platform-node':
         specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)(redis@6.2.1)
       '@effect/vitest':
         specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)
+        version: 4.0.0-rc.117(effect@4.0.0-rc.117)(vitest@5.0.0)
       '@typescript/native':
         specifier: 'catalog:'
         version: typescript@7.0.2
@@ -1713,69 +1713,69 @@ packages:
     resolution: {integrity: sha512-CfiSoaVQO8pZgaMZGw5VvMvRGybsJ2LaSDoLYaqiVGvo/YYPYVR2GzUKY0h1NtIweq/+SQ5XLrvtzPIttWQ0GQ==}
     hasBin: true
 
-  '@effect/openapi-generator@4.0.0-rc.115':
-    resolution: {integrity: sha512-/AkcQ4GdoTTa7CwkybSnKc0U0FhOCA+TAV6E93Ozz4XshgKCC2F75Zik+3EOlTfbENmvAsYNEIVrPfqupoO+ng==}
+  '@effect/openapi-generator@4.0.0-rc.117':
+    resolution: {integrity: sha512-FINoiEnOn4ahCF53ihfZsnVshq4cwl6RUxoNLcMAzzxi9phOIKdwikpAKKt/HTrLGcaZbxSCGcbldjTY02Li4g==}
     hasBin: true
     peerDependencies:
-      '@effect/platform-node': ^4.0.0-rc.115
-      effect: ^4.0.0-rc.115
+      '@effect/platform-node': ^4.0.0-rc.117
+      effect: ^4.0.0-rc.117
 
-  '@effect/platform-node-shared@4.0.0-rc.115':
-    resolution: {integrity: sha512-rcBwhDIfb82akJoTv7Vwh8K5x9vC/XfuePS7JjOr+z+dORXzsmKqI1BUQF27ARCN9fTAbDh7I6YvBlWhLjnqNg==}
+  '@effect/platform-node-shared@4.0.0-rc.117':
+    resolution: {integrity: sha512-GyRkEfLBG49MwJe+/XDPiXYcQ44RA9p2z0AurlsWhR1cd1PqOUMEZU1pORL+/R5hR8aH6ZuqoJYD8lAc6h+wlA==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      effect: ^4.0.0-rc.115
+      effect: ^4.0.0-rc.117
 
-  '@effect/platform-node@4.0.0-rc.115':
-    resolution: {integrity: sha512-mW03Wjq2FiTL5oi9yOkaKpCyUNBaduKgTk7qMHNELvC21Jq2qOAfdsfH+p+s2zmpB9w2RSa+ApODv4WjO9wQfw==}
+  '@effect/platform-node@4.0.0-rc.117':
+    resolution: {integrity: sha512-WbPcvQDkqXFnCeG6LohJ9eVNapCDhZbCpezhYKxm0IsZEk7swakRh7RkC1t2CXzd3hGmszTv2k9e/pXyZuL+wQ==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
-      effect: ^4.0.0-rc.115
+      effect: ^4.0.0-rc.117
       redis: '>=5.0.0 <7.0.0'
 
-  '@effect/tsgo-darwin-arm64@0.36.5':
-    resolution: {integrity: sha512-+JPS65Ekod5NS41Kg9OIyuUsygNcSw5/4Y+UNbY6Wob6dvP+CkEa51pGBAmHKQp3Z/D3g/A9GNE66ndu9kz8dw==}
+  '@effect/tsgo-darwin-arm64@0.45.0':
+    resolution: {integrity: sha512-WUoiEVcm8E19QK6fl63lsssM4dkT9IFnULbmqQ6LBfv7H9uRkpE9S3thj8ZtZ+vl/QY8atwfuaTf+3A1m/kGtQ==}
     cpu: [arm64]
     os: [darwin]
 
-  '@effect/tsgo-darwin-x64@0.36.5':
-    resolution: {integrity: sha512-S67mS1GTSvfeN5Tsij7QarJNuv3q7U/PMhjTbGtKO9mqgDTOA2IOlxq7YPIxkWq+AiOIv0H3aHGk7ToRjcPWxg==}
+  '@effect/tsgo-darwin-x64@0.45.0':
+    resolution: {integrity: sha512-s3yz7ZfIzvObXJ/r5xd9sEPxHKC3L+D+yedS1BV2Kpn47Je2svYCNYKxzXIpqFLkNjK+RcOQrcfYbYEpKZZa6g==}
     cpu: [x64]
     os: [darwin]
 
-  '@effect/tsgo-linux-arm64@0.36.5':
-    resolution: {integrity: sha512-bNLzLrQ/4Sf0N7NlAqcEpr+g+RW/ERIvmSFQN9Nu+hSFti4Kx9Nrfo1LJ4V0qASry5Rj2DG4Wa9C5ydQAD9qqA==}
+  '@effect/tsgo-linux-arm64@0.45.0':
+    resolution: {integrity: sha512-N+lyzixtylOOn49demDaqg0kb/U8ISxM10Gphs1pIMSGlqlfqC4inYEoFpYej+f4T/cRlkA11Ue7wJzNz83ePA==}
     cpu: [arm64]
     os: [linux]
 
-  '@effect/tsgo-linux-arm@0.36.5':
-    resolution: {integrity: sha512-UqtTPUgoVMRHAOcHiK7sddxjUEj6kOkXAlu4Y2TL/MhGiu81ZBzZrg8TXf0ApNeEMOD0EIK8hwU2kik8O+buxA==}
+  '@effect/tsgo-linux-arm@0.45.0':
+    resolution: {integrity: sha512-f6zL6YbWA9lXdfJ//KOjUz/U3CdGtajKi5NsR/lcQaKfZiJwHfeeLBB3yetF3qbPGSA149/kuMoDMWL13RUH3A==}
     cpu: [arm]
     os: [linux]
 
-  '@effect/tsgo-linux-x64@0.36.5':
-    resolution: {integrity: sha512-QWdyuUcAb1kZBeItycHg1ZKloNbVDtlVm1C0bbDVHqZIZ/d2rqhKi6Zajm64GnHtfdwPTn8Oi1iOCH1IYgo0IQ==}
+  '@effect/tsgo-linux-x64@0.45.0':
+    resolution: {integrity: sha512-aWt0G8celAxJOis4+xiILkyMP/3J+vukimUhSoCmUAPt8zoT9qhZcN64XYZE7jfqp88ByRdgN9GK1/C7YfPtcQ==}
     cpu: [x64]
     os: [linux]
 
-  '@effect/tsgo-win32-arm64@0.36.5':
-    resolution: {integrity: sha512-5tO5em1DfplFz5GqpQVGRSrAoE+kEgIc7Y0ClbT9jkxaK18IFVq9KIYybt4d6VT4+QnNQGdqWOahMcGE4JAZ8w==}
+  '@effect/tsgo-win32-arm64@0.45.0':
+    resolution: {integrity: sha512-EAdeV366ja+M4XCx6xjXMv4Xkc0Fgzy4bapa0saDWcGhllNLqJDfOk4lk0BgAEjBUI8+0xC+PXKVB5SMz4EpVA==}
     cpu: [arm64]
     os: [win32]
 
-  '@effect/tsgo-win32-x64@0.36.5':
-    resolution: {integrity: sha512-pmaKwdYAIs9GFpMV9glIUks0UZDHE1/xwP6+GCGhSFxB76cDLMnrHr/IBt5VfGddT65SK+Dyw/vAtcX7fRp4KA==}
+  '@effect/tsgo-win32-x64@0.45.0':
+    resolution: {integrity: sha512-1Hsr/sT5dmIafoY9L0ASJo4VqGyPNzM1nwTb4Wj1Lmjq6kGuwO/PVozFg3WZZ0piChFmgiU3nx1AKZfyqgjGUw==}
     cpu: [x64]
     os: [win32]
 
-  '@effect/tsgo@0.36.5':
-    resolution: {integrity: sha512-BHxVjeRK1/XlqYHWXkbT4W9JpOrT3sNA2wrfwQPBTojD5OSyxI2TUIltobYhWudyfuCrn770qP6uOpDjdrmghA==}
+  '@effect/tsgo@0.45.0':
+    resolution: {integrity: sha512-gPG0ixVHgtYBUe5DbKX9vzHlhqd9+ZEfs4m/XWy0808av0A2XqMzaG3F5rnPBN7EUJRPlo9TluIi8WHx/pBV+A==}
     hasBin: true
 
-  '@effect/vitest@4.0.0-rc.115':
-    resolution: {integrity: sha512-DJR0hfdr3HNXAkzW8AzfvUz6VmrNFLrKk9tZGDURi33faMyxkc7ZewxELMMZwGpOTGN4mfqYVbX2CXgI+ZJBeQ==}
+  '@effect/vitest@4.0.0-rc.117':
+    resolution: {integrity: sha512-jJg9M7T3OhTcvoD9Zi28S5+0H+axlSHAYjXM8TYeLJy/FVlPe0B/Vc3ZfaqUF0rwkfQ6ziyCdjiBS46+182H1Q==}
     peerDependencies:
-      effect: ^4.0.0-rc.115
+      effect: ^4.0.0-rc.117
       vitest: '>=5.0.0 <6.0.0'
 
   '@emnapi/core@1.10.0':
@@ -4281,8 +4281,8 @@ packages:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
     engines: {node: '>= 0.4'}
 
-  effect@4.0.0-rc.115:
-    resolution: {integrity: sha512-ogYulZ5ffeOzrJqQrG0XOkDO5lKn2s9KNHhoxJy/6wKUkF0i12dlVXWA9TgsgQ+zV/JzizyG0+XMPepZEQX6vw==}
+  effect@4.0.0-rc.117:
+    resolution: {integrity: sha512-UUyi9QiOW4nySFIBM3KnYbNMd9EZliOdKfBcyLD0mPMPheO2fkuXS5y0opjWc9oqzlJxPQICEGm8gGw3kh9j/w==}
 
   ejs@5.0.1:
     resolution: {integrity: sha512-COqBPFMxuPTPspXl2DkVYaDS3HtrD1GpzOGkNTJ1IYkifq/r9h8SVEFrjA3D9/VJGOEoMQcrlhpntcSUrM8k6A==}
@@ -7428,67 +7428,67 @@ snapshots:
 
   '@effect/language-service@0.87.2': {}
 
-  '@effect/openapi-generator@4.0.0-rc.115(@effect/platform-node@4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1))(effect@4.0.0-rc.115)':
+  '@effect/openapi-generator@4.0.0-rc.117(@effect/platform-node@4.0.0-rc.117(effect@4.0.0-rc.117)(redis@6.2.1))(effect@4.0.0-rc.117)':
     dependencies:
-      '@effect/platform-node': 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
-      effect: 4.0.0-rc.115
+      '@effect/platform-node': 4.0.0-rc.117(effect@4.0.0-rc.117)(redis@6.2.1)
+      effect: 4.0.0-rc.117
       swagger2openapi: 7.0.8
     transitivePeerDependencies:
       - encoding
 
-  '@effect/platform-node-shared@4.0.0-rc.115(effect@4.0.0-rc.115)':
+  '@effect/platform-node-shared@4.0.0-rc.117(effect@4.0.0-rc.117)':
     dependencies:
       '@types/ws': 8.18.1
-      effect: 4.0.0-rc.115
+      effect: 4.0.0-rc.117
       ws: 8.21.3
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@effect/platform-node@4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)':
+  '@effect/platform-node@4.0.0-rc.117(effect@4.0.0-rc.117)(redis@6.2.1)':
     dependencies:
-      '@effect/platform-node-shared': 4.0.0-rc.115(effect@4.0.0-rc.115)
-      effect: 4.0.0-rc.115
+      '@effect/platform-node-shared': 4.0.0-rc.117(effect@4.0.0-rc.117)
+      effect: 4.0.0-rc.117
       redis: 6.2.1
       undici: 8.10.2
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
 
-  '@effect/tsgo-darwin-arm64@0.36.5':
+  '@effect/tsgo-darwin-arm64@0.45.0':
     optional: true
 
-  '@effect/tsgo-darwin-x64@0.36.5':
+  '@effect/tsgo-darwin-x64@0.45.0':
     optional: true
 
-  '@effect/tsgo-linux-arm64@0.36.5':
+  '@effect/tsgo-linux-arm64@0.45.0':
     optional: true
 
-  '@effect/tsgo-linux-arm@0.36.5':
+  '@effect/tsgo-linux-arm@0.45.0':
     optional: true
 
-  '@effect/tsgo-linux-x64@0.36.5':
+  '@effect/tsgo-linux-x64@0.45.0':
     optional: true
 
-  '@effect/tsgo-win32-arm64@0.36.5':
+  '@effect/tsgo-win32-arm64@0.45.0':
     optional: true
 
-  '@effect/tsgo-win32-x64@0.36.5':
+  '@effect/tsgo-win32-x64@0.45.0':
     optional: true
 
-  '@effect/tsgo@0.36.5':
+  '@effect/tsgo@0.45.0':
     optionalDependencies:
-      '@effect/tsgo-darwin-arm64': 0.36.5
-      '@effect/tsgo-darwin-x64': 0.36.5
-      '@effect/tsgo-linux-arm': 0.36.5
-      '@effect/tsgo-linux-arm64': 0.36.5
-      '@effect/tsgo-linux-x64': 0.36.5
-      '@effect/tsgo-win32-arm64': 0.36.5
-      '@effect/tsgo-win32-x64': 0.36.5
+      '@effect/tsgo-darwin-arm64': 0.45.0
+      '@effect/tsgo-darwin-x64': 0.45.0
+      '@effect/tsgo-linux-arm': 0.45.0
+      '@effect/tsgo-linux-arm64': 0.45.0
+      '@effect/tsgo-linux-x64': 0.45.0
+      '@effect/tsgo-win32-arm64': 0.45.0
+      '@effect/tsgo-win32-x64': 0.45.0
 
-  '@effect/vitest@4.0.0-rc.115(effect@4.0.0-rc.115)(vitest@5.0.0)':
+  '@effect/vitest@4.0.0-rc.117(effect@4.0.0-rc.117)(vitest@5.0.0)':
     dependencies:
-      effect: 4.0.0-rc.115
+      effect: 4.0.0-rc.117
       vitest: 5.0.0(@types/node@24.13.6)(@vitest/coverage-v8@5.0.0)(vite@8.2.0(@types/node@24.13.6)(esbuild@0.27.2)(jiti@2.7.0)(yaml@2.9.0))
 
   '@emnapi/core@1.10.0':
@@ -9885,7 +9885,7 @@ snapshots:
       es-errors: 1.3.0
       gopd: 1.2.0
 
-  effect@4.0.0-rc.115: {}
+  effect@4.0.0-rc.117: {}
 
   ejs@5.0.1: {}
 

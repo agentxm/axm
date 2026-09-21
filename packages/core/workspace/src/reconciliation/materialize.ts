@@ -9,6 +9,7 @@
  * @experimental All exports from this module are unstable and may change without notice.
  */
 
+import { pathToFileURL } from "node:url";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -501,6 +502,7 @@ export const collectMaterializeSteps = (args: {
     const desiredStateReader = yield* DesiredStateReader;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const providers = yield* SourceHostProviders;
     const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation();
     const configuredMcpServerEntries = yield* settings.entries("mcp-server");
     const configuredAgents = args.configuredAgents ?? (yield* settings.configuredAgents);
@@ -602,7 +604,24 @@ export const collectMaterializeSteps = (args: {
               undefined,
             );
           });
-          const ref = resolved.ref;
+          let ref = resolved.ref;
+          if (forceCanonical && accepted !== undefined && ref.refType === "git-hosted") {
+            const acceptedGitRef = ref;
+            const files = yield* providers.fetch(acceptedGitRef).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new WorkspaceSyncFailed({
+                    category: "conflict",
+                    detail: `Cannot restore ${node.type} ${node.name} from its accepted Git commit ${acceptedGitRef.gitCommitSha}`,
+                    cause,
+                  }),
+              ),
+            );
+            ref = {
+              ...acceptedGitRef,
+              location: pathToFileURL(files.directory).href,
+            } satisfies ExtensionRef;
+          }
           const configuredMcpEntry =
             node.type === "mcp-server" ? configuredMcpServerEntries[node.name] : undefined;
           const materializationCurrent =

@@ -11,8 +11,8 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 
-import { SourceNetworkFailure, type SourceError } from "../errors.js";
-import { shallowClone, shallowFetchCommit } from "../git/operations.js";
+import { SourceNetworkFailure, SourceNotResolvable, type SourceError } from "../errors.js";
+import { getTreeSha, shallowClone, shallowFetchCommit } from "../git/operations.js";
 import type { SourceHostProvider } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import type { GitSource } from "@agentxm/extension-model/unstable/sources/types";
 import { discoverConventionRefs } from "./convention-discovery.js";
@@ -82,6 +82,13 @@ export const createGitSourceHostProvider = (): SourceHostProvider<
       );
       yield* shallowFetchCommit(source.url.href, tempDir, ref.gitCommitSha);
       const sourcePath = ref.sourcePath ?? ".";
+      const fetchedTree = yield* getTreeSha(tempDir, sourcePath);
+      if (fetchedTree !== ref.gitTreeSha) {
+        return yield* new SourceNotResolvable({
+          category: "conflict",
+          detail: `Fetched Git content for ${source.url.href} at ${ref.gitCommitSha} did not match the accepted tree`,
+        });
+      }
       return { directory: sourcePath === "." ? tempDir : path.join(tempDir, sourcePath) };
     });
   },

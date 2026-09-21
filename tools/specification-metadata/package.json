@@ -30,7 +30,7 @@
     "access": "public"
   },
   "engines": {
-    "node": ">=22.19.0"
+    "node": ">=24.19.0"
   },
   "nx": {
     "includedScripts": []

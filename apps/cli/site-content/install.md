@@ -80,7 +80,7 @@ it later.** Frame the choice that way, then ask the user to pick one:
    packages. Pick this if most CLIs are managed with brew.
 3. **npm** — `npm install -g axm.sh`, alongside other global npm packages.
    Pick this if AXM is part of a Node.js-heavy environment. Requires Node.js
-   ≥22.19.0. If `node --version` reports an older release, upgrade Node first
+   ≥24.19.0. If `node --version` reports an older release, upgrade Node first
    or pick option 1 or 2 instead.
 
 Wait for the user's choice before running an installer.
@@ -93,7 +93,7 @@ Wait for the user's choice before running an installer.
 | B      | Windows (PS)              | `irm https://axm.sh/install.ps1 \| iex`                               |
 | C      | Windows (CMD)             | `curl -fsSL -o install.cmd https://axm.sh/install.cmd && install.cmd` |
 | D      | Homebrew                  | `brew install agentxm/tap/axm`                                        |
-| E      | npm (any OS, Node ≥22.19) | `npm install -g axm.sh`                                               |
+| E      | npm (any OS, Node ≥24.19) | `npm install -g axm.sh`                                               |
 
 Install locations: `~/.axm/bin/axm` (script, macOS/Linux);
 `%USERPROFILE%\.axm\bin\axm.exe` (script, Windows).

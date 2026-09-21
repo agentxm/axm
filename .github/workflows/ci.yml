@@ -208,26 +208,12 @@ jobs:
 
       - name: Restore pnpm store
         id: pnpm-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ runner.temp }}/axm-ci-cache/pnpm-store
           key: axm-ci-pnpm-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             axm-ci-pnpm-v1-${{ runner.os }}-${{ runner.arch }}-
-
-      - name: Restore Nx cache
-        id: nx-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ${{ runner.temp }}/axm-ci-cache/nx
-          key: >-
-            axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-${{
-            hashFiles('mise.toml', '.github/actions/setup-workspace/action.yml') }}-${{ hashFiles('pnpm-lock.yaml') }}-${{
-            needs.classify.outputs.head }}
-          restore-keys: |
-            axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', '.github/actions/setup-workspace/action.yml') }}-${{ hashFiles('pnpm-lock.yaml') }}-
-            axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('mise.toml', '.github/actions/setup-workspace/action.yml') }}-
-            axm-ci-nx-v2-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Determine release verification mode
         id: release-mode
@@ -254,7 +240,6 @@ jobs:
         id: verify
         env:
           pnpm_config_store_dir: ${{ runner.temp }}/axm-ci-cache/pnpm-store
-          NX_CACHE_DIRECTORY: ${{ runner.temp }}/axm-ci-cache/nx
           NX_PARALLEL: "3"
           VITEST_MAX_WORKERS: "2"
           AXM_RELEASE_PREPARATION: ${{ steps.release-mode.outputs.release_preparation }}
@@ -271,8 +256,6 @@ jobs:
       - name: Publish verification summary
         if: always()
         env:
-          NX_CACHE_HIT: ${{ steps.nx-cache.outputs.cache-hit }}
-          NX_CACHE_PATH: ${{ runner.temp }}/axm-ci-cache/nx
           PNPM_CACHE_HIT: ${{ steps.pnpm-cache.outputs.cache-hit }}
           PNPM_CACHE_PATH: ${{ runner.temp }}/axm-ci-cache/pnpm-store
           VERIFY_OUTCOME: ${{ steps.verify.outcome }}
@@ -299,7 +282,6 @@ jobs:
             echo "| --- | --- |"
             echo "| Outcome | $verify_outcome |"
             echo "| pnpm cache | $(cache_status "$PNPM_CACHE_HIT") ($(cache_size "$PNPM_CACHE_PATH")) |"
-            echo "| Nx cache | $(cache_status "$NX_CACHE_HIT") ($(cache_size "$NX_CACHE_PATH")) |"
             echo "| Concurrency | Nx 3; Vitest 2 |"
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -328,6 +310,48 @@ jobs:
           report_paths: "test-results/**/junit.xml"
           check_name: Test Results
           include_passed: true
+
+  warm-main-caches:
+    name: Warm main dependency cache
+    # Only the default branch's cache is readable by proposed-change runs.
+    # The schedule keeps the store warm if main has no push for seven days.
+    if: github.event_name == 'push' || github.event_name == 'schedule'
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up workspace toolchain
+        uses: ./.github/actions/setup-workspace
+        with:
+          install: "false"
+
+      - name: Restore pnpm store
+        id: pnpm-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/axm-ci-cache/pnpm-store
+          key: axm-ci-pnpm-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            axm-ci-pnpm-v1-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Install workspace dependencies
+        env:
+          pnpm_config_store_dir: ${{ runner.temp }}/axm-ci-cache/pnpm-store
+        run: pnpm install --frozen-lockfile
+
+      - name: Save pnpm store on main
+        if: steps.pnpm-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/axm-ci-cache/pnpm-store
+          key: axm-ci-pnpm-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
 
   verify-main:
     name: Verify main workspace

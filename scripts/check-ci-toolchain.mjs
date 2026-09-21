@@ -97,12 +97,25 @@ if (ciWorkflow.includes("affected_projects")) {
   errors.push("the path classifier must not install Nx only to render an affected-project summary");
 }
 
+const proposedVerification =
+  /^ {2}verify-pr:[\s\S]*?(?=^ {2}warm-main-caches:)/mu.exec(ciWorkflow)?.[0] ?? "";
+const mainCacheWarming =
+  /^ {2}warm-main-caches:[\s\S]*?(?=^ {2}verify-main:)/mu.exec(ciWorkflow)?.[0] ?? "";
 if (
-  !/key:\s*>-\s+axm-ci-nx-v2-[\s\S]{0,500}needs\.classify\.outputs\.head\s*\}\}\s+restore-keys:/u.test(
-    ciWorkflow,
-  )
+  !proposedVerification.includes("uses: actions/cache/restore@") ||
+  proposedVerification.includes("uses: actions/cache/save@") ||
+  proposedVerification.includes("uses: actions/cache@")
 ) {
-  errors.push("the Nx cache must use a commit-specific primary key");
+  errors.push("proposed-change verification must restore caches without saving them");
+}
+if (
+  !mainCacheWarming.includes("uses: actions/cache/save@") ||
+  !mainCacheWarming.includes("github.event_name == 'push' || github.event_name == 'schedule'")
+) {
+  errors.push("main push and scheduled CI must produce the shared dependency cache");
+}
+if (ciWorkflow.includes("axm-ci-nx-")) {
+  errors.push("hosted CI must not restore nonportable Nx cache artifacts");
 }
 
 if (packageManifest.scripts?.["generate:check"]?.includes("format:check")) {

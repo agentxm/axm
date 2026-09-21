@@ -499,18 +499,6 @@ export const SPEC_TRACKED_EXTENSION_TYPES: ReadonlyArray<SpecTrackedType> = exte
   (type): type is SpecTrackedType => EXTENSION_TYPE_TABLE[type].governs !== null,
 );
 
-export const WORKSPACE_CAPABILITY_EXTENSION_TYPES: ReadonlyArray<WorkspaceCapabilityType> =
-  extensionTypes.filter(
-    (type): type is WorkspaceCapabilityType =>
-      EXTENSION_TYPE_TABLE[type].workspaceCapability !== null,
-  );
-
-/** Extension types managed purely as extensions, with no workspace capability. */
-export const EXTENSION_ONLY_TYPES: ReadonlyArray<Exclude<ExtensionType, WorkspaceCapabilityType>> =
-  extensionTypes.filter(
-    (type): type is Exclude<ExtensionType, WorkspaceCapabilityType> =>
-      EXTENSION_TYPE_TABLE[type].workspaceCapability === null,
-  );
 const EXTENSION_NAME_MAX_LENGTH = 64;
 const EXTENSION_NAME_PATTERN_SOURCE = "[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?";
 const EXTENSION_NAME_BRAND = "ExtensionName" as const;

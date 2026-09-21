@@ -188,6 +188,7 @@ export const versionCommand = Command.make(
   withArgvTracking(rootVersionConfig),
   withCommandCapabilities(previewableCapabilities("authored-source")),
   Command.withDescription("Bump a project-workspace extension manifest version"),
+  Command.withShortDescription("Bump an extension manifest version"),
   Command.withExamples([
     {
       command: "axm version @acme/hooks/block-secrets patch",

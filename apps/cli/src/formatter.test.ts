@@ -67,7 +67,7 @@ describe("makeAxmFormatter", () => {
       expect(output).toContain("--verbose");
     });
 
-    it("describes output-mode guarantees in root help", () => {
+    it("points at command help for flag details instead of describing flags twice", () => {
       const doc = makeHelpDoc({
         usage: "axm [flags]",
         globalFlags: [
@@ -82,8 +82,11 @@ describe("makeAxmFormatter", () => {
       });
       const output = formatter.formatHelpDoc(doc);
 
-      expect(output).toContain("OUTPUT MODES");
-      expect(output).toContain("--quiet Show only final outcomes, errors, and required actions");
+      expect(output).toContain(
+        "GLOBAL FLAGS\n  --quiet\n  Run axm <command> --help for flag details",
+      );
+      expect(output).not.toContain("OUTPUT MODES");
+      expect(output).not.toContain("Show only final outcomes, errors, and required actions");
     });
   });
 
@@ -143,7 +146,7 @@ describe("makeAxmFormatter", () => {
         usage: "axm <subcommand> [flags]",
         subcommands: [
           {
-            group: "EXTENSIONS",
+            group: "MANAGE EXTENSIONS",
             commands: [
               {
                 name: "mcps",
@@ -172,10 +175,10 @@ describe("makeAxmFormatter", () => {
       const output = formatter.formatHelpDoc(doc);
       expect(output).toContain("▄▀█ ▀▄▀ █▀▄▀█");
       expect(output).toContain("USAGE\n  axm <command> [flags]");
-      expect(output).toMatch(/EXTENSIONS\n {2}mcps, mcps\s+MCP servers/);
+      expect(output).toMatch(/MANAGE EXTENSIONS\n {2}mcps, mcps\s+MCP servers/);
       expect(output).not.toMatch(/^ {2}(commands|files)\b/m);
       expect(output).toMatch(/START HERE\n {2}help\s+Help\n {2}setup\s+Set up/);
-      expect(output).toMatch(/AUTH\n {2}login\s+Log in/);
+      expect(output).toMatch(/AUTH\n {2}login$/m);
       expect(output).toContain("GLOBAL FLAGS\n  --verbose, --json");
       expect(output).not.toContain("agents");
       expect(output).not.toContain("skills");
@@ -194,9 +197,9 @@ describe("makeAxmFormatter", () => {
         usage: "axm <subcommand> [flags]",
         subcommands: [
           {
-            group: "AUTH",
+            group: "WORKSPACE",
             commands: [
-              { name: "login", alias: undefined, shortDescription: "Log in", description: "" },
+              { name: "sync", alias: undefined, shortDescription: "Materialize", description: "" },
             ],
           },
         ],
@@ -207,8 +210,8 @@ describe("makeAxmFormatter", () => {
       expect(output).toContain("\u001b[1mUSAGE\u001b[0m");
       expect(output).toContain("\u001b[36maxm <command> [flags]\u001b[0m");
       expect(output).not.toContain("CORE");
-      expect(output).toContain("\u001b[1mAUTH\u001b[0m\n  \u001b[36mlogin\u001b[0m");
-      expect(output).toContain("Log in");
+      expect(output).toContain("\u001b[1mWORKSPACE\u001b[0m\n  \u001b[36msync\u001b[0m");
+      expect(output).toContain("Materialize");
       expect(output).toContain("[32m--json[0m");
     });
 
@@ -279,6 +282,113 @@ describe("makeAxmFormatter", () => {
       expect(usageIdx).toBeLessThan(startHereIdx);
       expect(startHereIdx).toBeLessThan(authIdx);
       expect(authIdx).toBeLessThan(footerIdx);
+    });
+
+    it("renders a compact group as a wrapped name list closed by its footer", () => {
+      const doc = makeHelpDoc({
+        usage: "axm [flags]",
+        subcommands: [
+          {
+            group: "EXTENSION TYPES",
+            commands: [
+              {
+                name: "skills",
+                alias: undefined,
+                shortDescription: "Manage skills",
+                description: "",
+              },
+              {
+                name: "packs",
+                alias: undefined,
+                shortDescription: "Manage packs",
+                description: "",
+              },
+            ],
+          },
+        ],
+        globalFlags,
+      });
+      const output = formatter.formatHelpDoc(doc);
+
+      expect(output).toContain(
+        "EXTENSION TYPES\n  skills, packs\n  Run axm <type> --help for type-specific commands",
+      );
+      expect(output).not.toContain("Manage skills");
+    });
+
+    it("renders a compact group without a footer when it declares none", () => {
+      const doc = makeHelpDoc({
+        usage: "axm [flags]",
+        subcommands: [
+          {
+            group: "CLI",
+            commands: [
+              { name: "cache", alias: undefined, shortDescription: "Cache", description: "" },
+              { name: "upgrade", alias: undefined, shortDescription: "Upgrade", description: "" },
+            ],
+          },
+        ],
+        globalFlags,
+      });
+      const output = formatter.formatHelpDoc(doc);
+
+      expect(output).toContain("CLI\n  cache, upgrade\n\nGLOBAL FLAGS");
+    });
+
+    it("folds an inverse command into the row of the command it reverses", () => {
+      const doc = makeHelpDoc({
+        usage: "axm [flags]",
+        subcommands: [
+          {
+            group: "PUBLISHED EXTENSIONS",
+            commands: [
+              {
+                name: "yank",
+                alias: undefined,
+                shortDescription: "Exclude a version",
+                description: "",
+              },
+              {
+                name: "unyank",
+                alias: undefined,
+                shortDescription: "Restore a version",
+                description: "",
+              },
+            ],
+          },
+        ],
+        globalFlags,
+      });
+      const output = formatter.formatHelpDoc(doc);
+
+      expect(output).toMatch(/PUBLISHED EXTENSIONS\n {2}yank, unyank\s+Exclude a version\n/);
+      expect(output).not.toContain("Restore a version");
+    });
+
+    it("keeps an inverse command on its own row when another command separates the pair", () => {
+      const doc = makeHelpDoc({
+        usage: "axm [flags]",
+        subcommands: [
+          {
+            group: "MANAGE EXTENSIONS",
+            commands: [
+              { name: "install", alias: undefined, shortDescription: "Install", description: "" },
+              { name: "update", alias: undefined, shortDescription: "Update", description: "" },
+              {
+                name: "uninstall",
+                alias: undefined,
+                shortDescription: "Uninstall",
+                description: "",
+              },
+            ],
+          },
+        ],
+        globalFlags,
+      });
+      const output = formatter.formatHelpDoc(doc);
+
+      expect(output).not.toContain("install, uninstall");
+      expect(output).toMatch(/ {2}uninstall\s+Uninstall/);
     });
 
     it("renders custom groups in compact root command list", () => {

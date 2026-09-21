@@ -89,6 +89,7 @@ const reconcileCommandWithExamples = reconcileCommand.pipe(
 
 export const visibilityCommand = Command.make("visibility").pipe(
   Command.withDescription("Inspect and manage whole-Extension Registry visibility"),
+  Command.withShortDescription("Inspect or change registry visibility"),
   withCommandCapabilities(groupCapabilities),
   Command.withExamples([
     { description: "Inspect visibility", command: "axm visibility status @acme/skills/review" },

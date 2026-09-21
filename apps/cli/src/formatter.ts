@@ -66,8 +66,20 @@ const LEADING_GROUP = "GETTING STARTED";
  * Display labels for command groups. Only
  * defined when the display label differs from the group key.
  */
-const COMPACT_GROUP_LABELS: Record<string, string> = {
+const GROUP_DISPLAY_LABELS: Record<string, string> = {
   "GETTING STARTED": "START HERE",
+};
+
+/**
+ * Groups rendered as a wrapped name list rather than a described table, each
+ * mapped to the footer that closes it, or to `null` for no footer. Form is the
+ * formatter's to decide, so the command tree declares group membership and
+ * nothing about layout.
+ */
+const COMPACT_GROUP_FOOTERS: Record<string, string | null> = {
+  "EXTENSION TYPES": "Run axm <type> --help for type-specific commands",
+  AUTH: null,
+  CLI: null,
 };
 
 /** Indent for content rows under section headers (commands, flags, usage). */
@@ -75,10 +87,15 @@ const SECTION_INDENT = "  ";
 
 /** Display label for the global flags compact row appended to root help. */
 const GLOBAL_FLAGS_LABEL = "GLOBAL FLAGS";
-const OUTPUT_MODE_FLAGS = new Set(["non-interactive", "verbose", "debug", "quiet"]);
 
-/** Target line width for wrapping the compact command lists. */
-const ROOT_HELP_WIDTH = 80;
+/**
+ * Root help names the global flags and stops there; command help already
+ * prints every one of them with its description.
+ */
+const GLOBAL_FLAGS_FOOTER = "Run axm <command> --help for flag details";
+
+/** Target line width for every rendered root-help line. */
+export const ROOT_HELP_WIDTH = 80;
 const TABLE_HELP_WIDTH = 78;
 
 /**
@@ -142,48 +159,74 @@ const makeHelpColors = (enabled: boolean): HelpColors => {
   };
 };
 
-const renderCommandRow = (
-  command: {
-    readonly name: string;
-    readonly alias?: string | undefined;
-    readonly shortDescription?: string | undefined;
-    readonly description?: string | undefined;
-  },
-  columnWidth: number,
-  colors: HelpColors,
-): string => {
-  const displayName = formatSubcommandName(command.name, command.alias);
-  const padding = " ".repeat(Math.max(1, columnWidth - displayName.length));
-  return `  ${colors.cyan(displayName)}${padding}${command.shortDescription ?? command.description ?? ""}`;
+type GroupCommands = NonNullable<HelpDoc["subcommands"]>[number]["commands"];
+
+interface CommandRow {
+  readonly displayName: string;
+  readonly description: string;
+}
+
+/**
+ * Folds a command named `un<previous>` into the row above it, so an inverse
+ * pair reads as one entry under its forward command's description. Adjacency
+ * is the whole rule: the group declares row order, and an inverse separated
+ * from its forward command keeps its own row.
+ */
+const foldInverseCommands = (commands: GroupCommands): ReadonlyArray<CommandRow> => {
+  const rows: Array<CommandRow> = [];
+  let forwardName: string | undefined;
+
+  for (const command of commands) {
+    const previous = rows[rows.length - 1];
+    if (
+      forwardName !== undefined &&
+      previous !== undefined &&
+      command.name === `un${forwardName}`
+    ) {
+      rows[rows.length - 1] = {
+        ...previous,
+        displayName: `${previous.displayName}, ${command.name}`,
+      };
+      continue;
+    }
+
+    rows.push({
+      displayName: formatSubcommandName(command.name, command.alias),
+      description: command.shortDescription ?? command.description ?? "",
+    });
+    forwardName = command.name;
+  }
+
+  return rows;
+};
+
+const renderCommandRow = (row: CommandRow, columnWidth: number, colors: HelpColors): string => {
+  const padding = " ".repeat(Math.max(1, columnWidth - row.displayName.length));
+  return `  ${colors.cyan(row.displayName)}${padding}${row.description}`;
 };
 
 const renderRootHelpDoc = (doc: HelpDoc, colors: HelpColors): string => {
-  const renderCommandGroup = (
-    label: string,
-    commands: NonNullable<HelpDoc["subcommands"]>[number]["commands"],
-  ): ReadonlyArray<string> => {
+  const renderCommandGroup = (label: string, commands: GroupCommands): ReadonlyArray<string> => {
     if (commands.length === 0) return [];
 
-    const columnWidth =
-      commands.reduce(
-        (max, command) => Math.max(max, formatSubcommandName(command.name, command.alias).length),
-        0,
-      ) + 1;
+    const rows = foldInverseCommands(commands);
+    const columnWidth = rows.reduce((max, row) => Math.max(max, row.displayName.length), 0) + 1;
 
     return [
-      colors.bold(COMPACT_GROUP_LABELS[label] ?? label),
-      ...commands.map((command) => renderCommandRow(command, columnWidth, colors)),
+      colors.bold(GROUP_DISPLAY_LABELS[label] ?? label),
+      ...rows.map((row) => renderCommandRow(row, columnWidth, colors)),
     ];
   };
 
   const renderCompactGroup = (
     label: string,
     commands: ReadonlyArray<string>,
+    footer: string | null,
     colorize: (text: string) => string = colors.cyan,
   ): ReadonlyArray<string> => {
     if (commands.length === 0) return [];
 
-    const displayLabel = COMPACT_GROUP_LABELS[label] ?? label;
+    const displayLabel = GROUP_DISPLAY_LABELS[label] ?? label;
     const rows = wrapCommandRows(commands, SECTION_INDENT.length, ROOT_HELP_WIDTH);
 
     return [
@@ -192,6 +235,7 @@ const renderRootHelpDoc = (doc: HelpDoc, colors: HelpColors): string => {
         const trailingComma = rowIndex < rows.length - 1 ? "," : "";
         return `${SECTION_INDENT}${row.map((command) => colorize(command)).join(", ")}${trailingComma}`;
       }),
+      ...(footer === null ? [] : [`${SECTION_INDENT}${colors.dim(footer)}`]),
     ];
   };
 
@@ -199,7 +243,15 @@ const renderRootHelpDoc = (doc: HelpDoc, colors: HelpColors): string => {
   const trailingGroups: Array<ReadonlyArray<string>> = [];
   for (const group of doc.subcommands ?? []) {
     const label = groupLabel(group.group);
-    const rendered = renderCommandGroup(label, group.commands);
+    const compactFooter = COMPACT_GROUP_FOOTERS[label];
+    const rendered =
+      compactFooter === undefined
+        ? renderCommandGroup(label, group.commands)
+        : renderCompactGroup(
+            label,
+            group.commands.map((command) => command.name),
+            compactFooter,
+          );
     if (rendered.length === 0) continue;
     (label === LEADING_GROUP ? leadingGroups : trailingGroups).push(rendered);
   }
@@ -207,30 +259,10 @@ const renderRootHelpDoc = (doc: HelpDoc, colors: HelpColors): string => {
   const globalFlagRow = renderCompactGroup(
     GLOBAL_FLAGS_LABEL,
     (doc.globalFlags ?? []).map((flag) => `--${flag.name}`),
+    GLOBAL_FLAGS_FOOTER,
     colors.green,
   );
   if (globalFlagRow.length > 0) trailingGroups.push(globalFlagRow);
-
-  const outputModeFlags = (doc.globalFlags ?? []).filter(
-    (flag) => OUTPUT_MODE_FLAGS.has(flag.name) && Option.isSome(flag.description),
-  );
-  if (outputModeFlags.length > 0) {
-    const width =
-      outputModeFlags.reduce((max, flag) => Math.max(max, `--${flag.name}`.length), 0) + 1;
-    trailingGroups.push([
-      colors.bold("OUTPUT MODES"),
-      ...outputModeFlags.map((flag) =>
-        renderCommandRow(
-          {
-            name: `--${flag.name}`,
-            description: Option.getOrElse(flag.description, () => ""),
-          },
-          width,
-          colors,
-        ),
-      ),
-    ]);
-  }
 
   const sections: Array<ReadonlyArray<string>> = [...leadingGroups, ...trailingGroups].filter(
     (section) => section.length > 0,

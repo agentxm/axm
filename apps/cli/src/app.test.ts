@@ -11,15 +11,13 @@ import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
 
 import { ExitCode } from "./app-error/index.js";
 import {
-  EXTENSION_ONLY_TYPES,
-  WORKSPACE_CAPABILITY_EXTENSION_TYPES,
   extensionTypes,
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
 
 import { run } from "./app.js";
 import { captureHelpDoc, collectHelpFiles } from "./test-support/command-tree-test-helpers.js";
-import { LearnMore } from "./formatter.js";
+import { LearnMore, ROOT_HELP_WIDTH, makeAxmFormatter } from "./formatter.js";
 import {
   INSTALLED_STATE_SCOPE_COMMANDS,
   PROJECT_ONLY_AUTHORING_COMMANDS,
@@ -29,6 +27,29 @@ const groupCommandNames = (doc: HelpDoc, group: string): ReadonlyArray<string> =
   (doc.subcommands ?? [])
     .filter((entry) => entry.group === group)
     .flatMap((entry) => entry.commands.map((command) => command.name));
+
+/** Root-help sections that head something other than a command group. */
+const NON_COMMAND_SECTIONS = new Set(["USAGE", "GLOBAL FLAGS", "LEARN MORE"]);
+
+/**
+ * Command names read back out of rendered root help. Every command-group row
+ * opens with its comma-separated names, so a group footer and any other prose
+ * row drops out.
+ */
+const renderedRootCommandNames = (rendered: string): ReadonlyArray<string> =>
+  rendered
+    .split("\n\n")
+    .flatMap((section) => {
+      const [heading, ...rows] = section.split("\n");
+      return heading !== undefined &&
+        /^[A-Z][A-Z ]*$/.test(heading) &&
+        !NON_COMMAND_SECTIONS.has(heading)
+        ? rows
+        : [];
+    })
+    .flatMap(
+      (row) => /^ {2}([a-z][a-z-]*(?:, [a-z][a-z-]*)*)(?: |$)/.exec(row)?.[1]?.split(", ") ?? [],
+    );
 
 class ExitCalled extends Error {
   readonly code: number;
@@ -241,27 +262,40 @@ describe("root command help", () => {
     }),
   );
 
-  it.effect(
-    "opens the EXTENSIONS group with the catalog's extension-only types, in table order",
-    () =>
-      Effect.gen(function* () {
-        const doc = yield* captureHelpDoc([]);
-        const extensions = groupCommandNames(doc, "EXTENSIONS");
-        const expected = EXTENSION_ONLY_TYPES.map(toExtensionTypePlural);
-
-        expect(extensions.slice(0, expected.length)).toEqual(expected);
-      }),
-  );
-
-  it.effect("lists workspace-capability types under WORKSPACE rather than EXTENSIONS", () =>
+  it.effect("lists every catalog extension type under EXTENSION TYPES, in table order", () =>
     Effect.gen(function* () {
       const doc = yield* captureHelpDoc([]);
-      const workspace = groupCommandNames(doc, "WORKSPACE");
-      const extensions = groupCommandNames(doc, "EXTENSIONS");
-      const expected = WORKSPACE_CAPABILITY_EXTENSION_TYPES.map(toExtensionTypePlural);
 
-      expect(expected.filter((plural) => !workspace.includes(plural))).toEqual([]);
-      expect(expected.filter((plural) => extensions.includes(plural))).toEqual([]);
+      expect(groupCommandNames(doc, "EXTENSION TYPES")).toEqual(
+        extensionTypes.map(toExtensionTypePlural),
+      );
+    }),
+  );
+
+  it.effect("names every registered root command exactly once in rendered root help", () =>
+    Effect.gen(function* () {
+      const doc = yield* captureHelpDoc([]);
+      const rendered = renderedRootCommandNames(
+        makeAxmFormatter({ colors: false }).formatHelpDoc(doc),
+      );
+      const registered = (doc.subcommands ?? []).flatMap((group) =>
+        group.commands.map((command) => command.name),
+      );
+
+      expect(rendered.length).toBe(new Set(rendered).size);
+      expect(new Set(rendered)).toEqual(new Set(registered));
+    }),
+  );
+
+  it.effect(`renders root help within ${ROOT_HELP_WIDTH} columns`, () =>
+    Effect.gen(function* () {
+      const doc = yield* captureHelpDoc([]);
+      const rendered = makeAxmFormatter({ colors: false }).formatHelpDoc(doc);
+      const overflowing = rendered
+        .split("\n")
+        .filter((line) => Array.from(line).length > ROOT_HELP_WIDTH);
+
+      expect(overflowing).toEqual([]);
     }),
   );
 });

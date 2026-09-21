@@ -399,6 +399,8 @@ export const installCommand = finishCommand(
       ["axm help workspace-state", "How locators and accepted resolutions differ"],
     ]),
   ),
+  // Root help only: the per-type install commands keep their own descriptions.
+  Command.withShortDescription("Install from a registry, Git, or path"),
 );
 
 export const skillsInstallCommand = makePerTypeInstallCommand("skill");

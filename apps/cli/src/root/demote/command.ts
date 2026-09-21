@@ -103,6 +103,7 @@ export const demoteCommand = Command.make(
   withArgvTracking(config),
   withCommandCapabilities(demoteCapabilities),
   Command.withDescription("Explicitly remove project-workspace source authority"),
+  Command.withShortDescription("Give up project authorship of a package"),
   Command.withExamples([
     {
       command: "axm demote @acme/skills/code-review @acme/skills/code-review",

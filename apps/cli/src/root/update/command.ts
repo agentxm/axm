@@ -40,6 +40,7 @@ export const updateCommand = Command.make(
   withArgvTracking(updateConfig),
   withCommandCapabilities(previewableCapabilities("workspace", { trust: ["publisher-change"] })),
   Command.withDescription("Advance accepted resolutions within each source's selection intent"),
+  Command.withShortDescription("Advance installed extensions to newer versions"),
   Command.withExamples([
     {
       command: "axm update",

@@ -9,17 +9,13 @@
  * property.
  *
  * The record is `as const` so each value keeps its concrete command type — the
- * derived arrays below stay a union of those types, which is what lets
+ * derived array below stays a union of those types, which is what lets
  * `Command.withSubcommands` keep inferring the error and service channels.
  */
 
 import type * as CliCommand from "effect/unstable/cli/Command";
 
-import {
-  EXTENSION_ONLY_TYPES,
-  WORKSPACE_CAPABILITY_EXTENSION_TYPES,
-  type ExtensionType,
-} from "@agentxm/extension-model/unstable/extensions";
+import { extensionTypes, type ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 
 import { hooksCommand } from "./hooks/_hooks.js";
 import { knowledgeCommand } from "./knowledge/_knowledge.js";
@@ -40,15 +36,7 @@ export const EXTENSION_TYPE_COMMANDS = {
 } as const satisfies Record<ExtensionType, CliCommand.Command.Any>;
 
 /**
- * Type commands listed under EXTENSIONS, in catalog order. A type that also
- * carries a workspace capability is managed alongside the workspace instead,
- * so it is excluded here by axis rather than by name.
+ * Every type command, in extension type table order. Root help names one type
+ * namespace per catalog row, so the catalog decides both membership and order.
  */
-export const extensionGroupCommands = EXTENSION_ONLY_TYPES.map(
-  (type) => EXTENSION_TYPE_COMMANDS[type],
-);
-
-/** Type commands listed under WORKSPACE because they toggle a workspace capability. */
-export const workspaceCapabilityCommands = WORKSPACE_CAPABILITY_EXTENSION_TYPES.map(
-  (type) => EXTENSION_TYPE_COMMANDS[type],
-);
+export const extensionTypeCommands = extensionTypes.map((type) => EXTENSION_TYPE_COMMANDS[type]);

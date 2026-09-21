@@ -77,12 +77,22 @@ describe("axm source smoke", () => {
       expect(output).not.toContain("--wizard");
       expect(output).not.toContain("-vv");
       expect(output).not.toContain("--version, -v");
-      expect(output).toContain("Never prompt; fail with guidance when input is required");
-      expect(output).toContain("Show only final outcomes, errors, and required actions");
-      expect(output).toContain("Show additional redacted diagnostic details for errors");
-      expect(output).toContain("Show redacted cause and stack details");
+      expect(output).toContain("Run axm <command> --help for flag details");
     },
   );
+
+  // Root help names the global flags and points at command help for the rest,
+  // so command help is where their descriptions have to be.
+  it("describes every global flag in command help", { timeout: 30_000 }, async () => {
+    const result = await runAxm(["setup", "--help"]);
+    const output = combinedOutput(result);
+
+    expect(result.exitCode).toBe(0);
+    expect(output).toContain("Never prompt; fail with guidance when input is required");
+    expect(output).toContain("Show only final outcomes, errors, and required actions");
+    expect(output).toContain("Show additional redacted diagnostic details for errors");
+    expect(output).toContain("Show redacted cause and stack details");
+  });
 
   it("rejects the retired -vv debug spelling", { timeout: 30_000 }, async () => {
     const result = await runAxm(["-vv", "status", "--non-interactive"]);

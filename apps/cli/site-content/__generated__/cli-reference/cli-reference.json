@@ -67,6 +67,193 @@
     ],
     "subcommands": [
       {
+        "name": "setup",
+        "aliases": [],
+        "description": "Set up AXM in the current project",
+        "arguments": [],
+        "options": [
+          {
+            "name": "scope",
+            "aliases": [],
+            "type": "choice",
+            "required": false,
+            "description": "Configuration scope: project or user (required for unattended apply)",
+            "choices": [{ "value": "project" }, { "value": "user" }]
+          },
+          {
+            "name": "agent",
+            "aliases": [],
+            "type": "choice",
+            "required": false,
+            "description": "Specify agents to configure (skips auto-detection)",
+            "variadic": { "min": 0 },
+            "choices": [
+              { "value": "adal" },
+              { "value": "aider-desk" },
+              { "value": "amp" },
+              { "value": "antigravity" },
+              { "value": "antigravity-cli" },
+              { "value": "augment" },
+              { "value": "claude-code" },
+              { "value": "cline" },
+              { "value": "codearts-agent" },
+              { "value": "codebuddy" },
+              { "value": "codemaker" },
+              { "value": "codestudio" },
+              { "value": "codex" },
+              { "value": "command-code" },
+              { "value": "continue" },
+              { "value": "cortex" },
+              { "value": "crush" },
+              { "value": "cursor" },
+              { "value": "deepagents" },
+              { "value": "devin" },
+              { "value": "dexto" },
+              { "value": "droid" },
+              { "value": "firebender" },
+              { "value": "forgecode" },
+              { "value": "gemini-cli" },
+              { "value": "github-copilot-cli" },
+              { "value": "goose" },
+              { "value": "grok-cli" },
+              { "value": "hermes" },
+              { "value": "ibm-bob" },
+              { "value": "iflow-cli" },
+              { "value": "junie" },
+              { "value": "lingma" },
+              { "value": "kilo" },
+              { "value": "kimi-cli" },
+              { "value": "kiro-cli" },
+              { "value": "kode" },
+              { "value": "mcpjam" },
+              { "value": "minimax-code" },
+              { "value": "mistral-vibe" },
+              { "value": "mux" },
+              { "value": "neovate" },
+              { "value": "openclaw" },
+              { "value": "opencode" },
+              { "value": "openhands" },
+              { "value": "ona" },
+              { "value": "pi" },
+              { "value": "pochi" },
+              { "value": "qoder" },
+              { "value": "qoder-cn" },
+              { "value": "qwen-code" },
+              { "value": "replit" },
+              { "value": "roo" },
+              { "value": "rovodev" },
+              { "value": "tabnine-cli" },
+              { "value": "trae-cn" },
+              { "value": "trae" },
+              { "value": "warp" },
+              { "value": "windsurf" },
+              { "value": "zencoder" },
+              { "value": "zed" },
+              { "value": "zenflow" }
+            ]
+          },
+          {
+            "name": "yes",
+            "aliases": ["-y"],
+            "type": "boolean",
+            "required": false,
+            "description": "Apply the documented unattended setup defaults with an explicit scope and explicit agents"
+          },
+          {
+            "name": "preview",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Display plan without applying"
+          }
+        ],
+        "globalOptions": [],
+        "examples": [
+          {
+            "command": "axm setup",
+            "description": "Preview, confirm, and initialize project setup"
+          },
+          {
+            "command": "axm setup --preview --scope project --json --non-interactive",
+            "description": "Preview the exact unattended setup candidate without writing"
+          },
+          {
+            "command": "axm setup --scope user",
+            "description": "Initialize the user workspace in ~/.axm/workspace/"
+          },
+          {
+            "command": "axm setup --agent claude-code --agent cursor",
+            "description": "Initialize with specific agents"
+          }
+        ],
+        "subcommands": []
+      },
+      {
+        "name": "discover",
+        "aliases": [],
+        "description": "Find extensions for your project",
+        "arguments": [],
+        "options": [
+          {
+            "name": "path",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Scan a different directory instead of the current working directory"
+          }
+        ],
+        "globalOptions": [],
+        "examples": [
+          {
+            "command": "axm discover",
+            "description": "Discover extensions for the current project"
+          },
+          {
+            "command": "axm discover --path ./my-project",
+            "description": "Discover extensions for a specific directory"
+          },
+          {
+            "command": "axm discover --json",
+            "description": "Emit { command, items, count, totalDetected, registryAvailable }"
+          }
+        ],
+        "subcommands": []
+      },
+      {
+        "name": "help",
+        "aliases": [],
+        "description": "Show general help, a topic page, raw schema, or command help",
+        "arguments": [
+          {
+            "name": "topic-or-command",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Help topic or command path, such as basic-usage, skills install, or agents add",
+            "variadic": {}
+          }
+        ],
+        "options": [],
+        "globalOptions": [],
+        "examples": [
+          { "command": "axm help", "description": "View help topics" },
+          { "command": "axm help basic-usage", "description": "How to use AXM" },
+          { "command": "axm help skills install", "description": "Show nested command help" },
+          {
+            "command": "axm help getting-started",
+            "description": "How to set up and configure AXM"
+          },
+          { "command": "axm help skills", "description": "Managing agent skills with AXM" },
+          { "command": "axm help subagents", "description": "Managing subagents with AXM" },
+          {
+            "command": "axm help skill-schema",
+            "description": "Print the skill manifest JSON Schema"
+          },
+          { "command": "axm help exit-codes", "description": "Exit code conventions" }
+        ],
+        "subcommands": []
+      },
+      {
         "name": "skills",
         "aliases": [],
         "description": "Manage skills",
@@ -1975,6 +2162,474 @@
               {
                 "command": "axm subagents disable researcher --scope user",
                 "description": "Disable for user-scope configuration"
+              }
+            ],
+            "subcommands": []
+          }
+        ]
+      },
+      {
+        "name": "rules",
+        "aliases": [],
+        "description": "Manage rules capabilities for configured agents",
+        "arguments": [],
+        "options": [],
+        "globalOptions": [],
+        "examples": [{ "command": "axm rules list", "description": "Inventory detected rules" }],
+        "subcommands": [
+          {
+            "name": "new",
+            "aliases": [],
+            "description": "Create a new rule in the project-workspace authoring root",
+            "arguments": [
+              {
+                "name": "name",
+                "aliases": [],
+                "type": "string",
+                "required": true,
+                "description": "Name of the rule (without owner)"
+              }
+            ],
+            "options": [
+              {
+                "name": "owner",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Owner to create under; recorded as the workspace owner when none is set (e.g., @acme)"
+              },
+              {
+                "name": "title",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Display title for the rule"
+              },
+              {
+                "name": "preview",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Show what would be created without writing files"
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              { "command": "axm rules new commit-style", "description": "Scaffold a new rule" },
+              {
+                "command": "axm rules new commit-style --owner @acme",
+                "description": "Create a rule under a specific owner"
+              }
+            ],
+            "subcommands": []
+          },
+          {
+            "name": "install",
+            "aliases": [],
+            "description": "Reinstall all configured rules from their sources, or install rules from a source",
+            "arguments": [
+              {
+                "name": "source",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "rule source (Registry FQN @owner/rules/name[@version], self-describing Git locator, or path locator)"
+              }
+            ],
+            "options": [
+              {
+                "name": "scope",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Install to project (default) or user-level configuration",
+                "choices": [{ "value": "project" }, { "value": "user" }]
+              },
+              {
+                "name": "rule",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Select a rule by name or glob; repeatable",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "all",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Install every matching extension without prompting"
+              },
+              {
+                "name": "reinstall",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Reinstall extensions that already exist"
+              },
+              {
+                "name": "preview",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Show what would be installed without making changes"
+              },
+              {
+                "name": "ignore-release-age",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Take a release younger than the configured minimum release age, for this run only"
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              {
+                "command": "axm rules install ./extensions --rule example",
+                "description": "Install an explicit selection from one source locator"
+              },
+              {
+                "command": "axm rules install ./extensions --all",
+                "description": "Install every matching extension without prompting"
+              }
+            ],
+            "subcommands": []
+          },
+          {
+            "name": "uninstall",
+            "aliases": [],
+            "description": "Uninstall a rule",
+            "arguments": [
+              {
+                "name": "name",
+                "aliases": [],
+                "type": "string",
+                "required": true,
+                "description": "Name of the rule"
+              }
+            ],
+            "options": [
+              {
+                "name": "scope",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Uninstall from project (default) or user-level configuration",
+                "choices": [{ "value": "project" }, { "value": "user" }]
+              },
+              {
+                "name": "preview",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Show what would be removed without making changes"
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              {
+                "command": "axm rules uninstall commit-style",
+                "description": "Uninstall a rule by name"
+              }
+            ],
+            "subcommands": []
+          },
+          {
+            "name": "list",
+            "aliases": [],
+            "description": "List detected rules and their lifecycle classification",
+            "arguments": [],
+            "options": [
+              {
+                "name": "scope",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "List rules from project (default) or user-level configuration",
+                "choices": [{ "value": "project" }, { "value": "user" }]
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              { "command": "axm rules list", "description": "Inventory detected rules" }
+            ],
+            "subcommands": []
+          },
+          {
+            "name": "show",
+            "aliases": [],
+            "description": "Inspect one installed rule",
+            "arguments": [
+              {
+                "name": "name",
+                "aliases": [],
+                "type": "string",
+                "required": true,
+                "description": "Name of the rule to inspect"
+              }
+            ],
+            "options": [
+              {
+                "name": "scope",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Inspect project (default) or user-level configuration",
+                "choices": [{ "value": "project" }, { "value": "user" }]
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              {
+                "command": "axm rules show commit-style",
+                "description": "Inspect one installed rule"
+              },
+              {
+                "command": "axm rules show commit-style --scope user",
+                "description": "Inspect a user-level rule"
+              }
+            ],
+            "subcommands": []
+          },
+          {
+            "name": "enable",
+            "aliases": [],
+            "description": "Enable a rule",
+            "arguments": [
+              {
+                "name": "name",
+                "aliases": [],
+                "type": "string",
+                "required": true,
+                "description": "Name of the rule"
+              }
+            ],
+            "options": [
+              {
+                "name": "scope",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Enable in project (default) or user-level configuration",
+                "choices": [{ "value": "project" }, { "value": "user" }]
+              },
+              {
+                "name": "preview",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Show what would change without enabling"
+              },
+              {
+                "name": "ignore-release-age",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Take a release younger than the configured minimum release age, for this run only"
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              {
+                "command": "axm rules enable commit-style",
+                "description": "Enable a configured rule"
+              }
+            ],
+            "subcommands": []
+          },
+          {
+            "name": "disable",
+            "aliases": [],
+            "description": "Disable a rule without uninstalling it",
+            "arguments": [
+              {
+                "name": "name",
+                "aliases": [],
+                "type": "string",
+                "required": true,
+                "description": "Name of the rule"
+              }
+            ],
+            "options": [
+              {
+                "name": "scope",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Disable in project (default) or user-level configuration",
+                "choices": [{ "value": "project" }, { "value": "user" }]
+              },
+              {
+                "name": "preview",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Show what would change without disabling"
+              },
+              {
+                "name": "ignore-release-age",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Take a release younger than the configured minimum release age, for this run only"
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              {
+                "command": "axm rules disable commit-style",
+                "description": "Disable a configured rule"
+              }
+            ],
+            "subcommands": []
+          },
+          {
+            "name": "update",
+            "aliases": [],
+            "description": "Update configured rules",
+            "arguments": [
+              {
+                "name": "source",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Filter to rules matching a name or source"
+              }
+            ],
+            "options": [
+              {
+                "name": "scope",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Update in project (default) or user-level configuration",
+                "choices": [{ "value": "project" }, { "value": "user" }]
+              },
+              {
+                "name": "name",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Update only specific rules by name or glob pattern",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "preview",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Show what would change without updating"
+              },
+              {
+                "name": "ignore-release-age",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Take a release younger than the configured minimum release age, for this run only"
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              { "command": "axm rules update", "description": "Update configured rules" },
+              {
+                "command": "axm rules update --name commit-*",
+                "description": "Update only rules matching a glob"
+              }
+            ],
+            "subcommands": []
+          },
+          {
+            "name": "publish",
+            "aliases": [],
+            "description": "Publish project-workspace rules to a registry",
+            "arguments": [
+              {
+                "name": "name",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Bare names, globs, or fully-qualified extension names",
+                "variadic": { "min": 0 }
+              }
+            ],
+            "options": [
+              {
+                "name": "owner",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Filter by owner",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "exclude",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Exclude a matching name, glob, or FQN",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "registry",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Target a specific named registry"
+              },
+              {
+                "name": "registry-url",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Override the target registry URL for automation"
+              },
+              {
+                "name": "on-existing",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Override existing-version policy (verify rebuilds the authored archive and requires its SHA-512 digest to match)",
+                "choices": [{ "value": "error" }, { "value": "verify" }]
+              },
+              {
+                "name": "backfill",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Publish an unpublished version lower than the highest published version"
+              },
+              {
+                "name": "accept-warnings",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Apply the plan even when preflight reports unresolved warnings"
+              },
+              {
+                "name": "visibility",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Initial visibility for every new extension in the selection",
+                "choices": [{ "value": "public" }, { "value": "private" }]
+              },
+              {
+                "name": "preview",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Preflight without uploading"
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              {
+                "command": "axm rules publish",
+                "description": "Publish every workspace-sourced rules package"
+              },
+              {
+                "command": "axm rules publish example-* --on-existing verify",
+                "description": "Publish matching rules packages"
               }
             ],
             "subcommands": []
@@ -3972,472 +4627,6 @@
         ]
       },
       {
-        "name": "publish",
-        "aliases": [],
-        "description": "Publish project-workspace extensions to a registry (archive policy: axm help publish)",
-        "arguments": [
-          {
-            "name": "extension",
-            "aliases": [],
-            "type": "string",
-            "required": false,
-            "description": "FQNs or type-qualified extension selectors",
-            "variadic": { "min": 0 }
-          }
-        ],
-        "options": [
-          {
-            "name": "owner",
-            "aliases": [],
-            "type": "string",
-            "required": false,
-            "description": "Filter by owner",
-            "variadic": { "min": 0 }
-          },
-          {
-            "name": "type",
-            "aliases": [],
-            "type": "choice",
-            "required": false,
-            "description": "Filter by extension type",
-            "variadic": { "min": 0 },
-            "choices": [
-              { "value": "skill" },
-              { "value": "mcp-server" },
-              { "value": "subagent" },
-              { "value": "rule" },
-              { "value": "hook" },
-              { "value": "knowledge" },
-              { "value": "pack" }
-            ]
-          },
-          {
-            "name": "exclude",
-            "aliases": [],
-            "type": "string",
-            "required": false,
-            "description": "Exclude a matching selector",
-            "variadic": { "min": 0 }
-          },
-          {
-            "name": "registry",
-            "aliases": [],
-            "type": "string",
-            "required": false,
-            "description": "Target a specific named registry"
-          },
-          {
-            "name": "registry-url",
-            "aliases": [],
-            "type": "string",
-            "required": false,
-            "description": "Override the target registry URL for automation"
-          },
-          {
-            "name": "on-existing",
-            "aliases": [],
-            "type": "choice",
-            "required": false,
-            "description": "Override existing-version policy (verify rebuilds the authored archive and requires its SHA-512 digest to match)",
-            "choices": [{ "value": "error" }, { "value": "verify" }]
-          },
-          {
-            "name": "backfill",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Publish an unpublished version lower than the highest published version"
-          },
-          {
-            "name": "accept-warnings",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Apply the plan even when preflight reports unresolved warnings"
-          },
-          {
-            "name": "visibility",
-            "aliases": [],
-            "type": "choice",
-            "required": false,
-            "description": "Initial visibility for every new extension in the selection",
-            "choices": [{ "value": "public" }, { "value": "private" }]
-          },
-          {
-            "name": "preview",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Preflight without uploading"
-          },
-          {
-            "name": "include-dependencies",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Include workspace-sourced dependencies of selected packs"
-          }
-        ],
-        "globalOptions": [],
-        "examples": [
-          { "command": "axm publish", "description": "Publish every workspace-sourced extension" },
-          {
-            "command": "axm publish --owner @acme --on-existing verify",
-            "description": "Idempotently publish an authored catalog"
-          },
-          {
-            "command": "axm publish @acme/skills/code-review",
-            "description": "Publish one workspace-authored extension explicitly"
-          }
-        ],
-        "subcommands": []
-      },
-      {
-        "name": "share",
-        "aliases": [],
-        "description": "Print a Git locator install command for distributable authored extensions; opt-out is not confidentiality",
-        "arguments": [],
-        "options": [
-          {
-            "name": "bazel",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable bazel package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "cargo",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable cargo package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "cocoapods",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable cocoapods package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "composer",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable composer package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "conan",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable conan package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "conda",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable conda package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "cpan",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable cpan package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "cran",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable cran package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "docker",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable docker package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "gem",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable gem package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "golang",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable golang package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "hackage",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable hackage package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "hex",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable hex package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "huggingface",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable huggingface package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "jsr",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable jsr package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "julia",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable julia package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "luarocks",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable luarocks package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "maven",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable maven package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "mojo",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable mojo package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "npm",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable npm package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "nuget",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable nuget package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "opam",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable opam package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "pub",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable pub package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "pypi",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable pypi package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "swift",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable swift package metadata with the Git source locator for the tag at HEAD"
-          },
-          {
-            "name": "zig",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Emit portable zig package metadata with the Git source locator for the tag at HEAD"
-          }
-        ],
-        "globalOptions": [],
-        "examples": [
-          {
-            "command": "axm share",
-            "description": "Print a live-checked install command with origin's self-describing locator"
-          },
-          {
-            "command": "axm share --npm",
-            "description": "Emit package.json metadata for the tag at HEAD"
-          },
-          {
-            "command": "axm share --json",
-            "description": "Emit the share result as structured data"
-          }
-        ],
-        "subcommands": []
-      },
-      {
-        "name": "fork",
-        "aliases": [],
-        "description": "Fork a managed AXM package into project-workspace authorship",
-        "arguments": [
-          {
-            "name": "source",
-            "aliases": [],
-            "type": "string",
-            "required": true,
-            "description": "Registry, workspace, local, or Git AXM package source"
-          },
-          {
-            "name": "extension",
-            "aliases": [],
-            "type": "string",
-            "required": true,
-            "description": "New target FQN"
-          }
-        ],
-        "options": [
-          {
-            "name": "from",
-            "aliases": [],
-            "type": "string",
-            "required": false,
-            "description": "Source package FQN when the source contains multiple packages"
-          },
-          {
-            "name": "enable",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Enable and materialize a newly forked extension"
-          },
-          {
-            "name": "preview",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Display plan without applying"
-          }
-        ],
-        "globalOptions": [],
-        "examples": [
-          {
-            "command": "axm fork @acme/skills/review @me/skills/review-custom",
-            "description": "Fork a Registry skill as a disabled workspace-authored package"
-          },
-          {
-            "command": "axm fork ./extensions @me/hooks/check-policy --from @acme/hooks/check-policy --enable",
-            "description": "Fork one package from a local collection and enable it"
-          }
-        ],
-        "subcommands": []
-      },
-      {
-        "name": "adopt",
-        "aliases": [],
-        "description": "Adopt a canonical package into project-workspace authorship, or declare an undeclared authored package in place",
-        "arguments": [
-          {
-            "name": "extension",
-            "aliases": [],
-            "type": "string",
-            "required": true,
-            "description": "Canonical extension FQN (@owner/<plural-type>/name)"
-          }
-        ],
-        "options": [
-          {
-            "name": "preview",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Display plan without applying"
-          }
-        ],
-        "globalOptions": [],
-        "examples": [
-          {
-            "command": "axm adopt @acme/skills/code-review",
-            "description": "Adopt an installed package for authoring, or declare authored skills/code-review"
-          }
-        ],
-        "subcommands": []
-      },
-      {
-        "name": "demote",
-        "aliases": [],
-        "description": "Explicitly remove project-workspace source authority",
-        "arguments": [
-          {
-            "name": "extension",
-            "aliases": [],
-            "type": "string",
-            "required": true,
-            "description": "Workspace extension FQN (@owner/<plural-type>/name)"
-          },
-          {
-            "name": "source",
-            "aliases": [],
-            "type": "string",
-            "required": true,
-            "description": "Replacement registry, git, or local source"
-          }
-        ],
-        "options": [
-          {
-            "name": "yes",
-            "aliases": ["-y"],
-            "type": "boolean",
-            "required": false,
-            "description": "Approve replacing workspace source authority with the externally sourced package in advance"
-          },
-          {
-            "name": "preview",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Display plan without applying"
-          },
-          {
-            "name": "ignore-release-age",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Take a release younger than the configured minimum release age, for this run only"
-          }
-        ],
-        "globalOptions": [],
-        "examples": [
-          {
-            "command": "axm demote @acme/skills/code-review @acme/skills/code-review",
-            "description": "Return a workspace skill to registry management"
-          }
-        ],
-        "subcommands": []
-      },
-      {
         "name": "install",
         "aliases": [],
         "description": "Install extensions from Registry, Git, or path sources, or reinstall configured sources",
@@ -4818,6 +5007,533 @@
         "subcommands": []
       },
       {
+        "name": "fork",
+        "aliases": [],
+        "description": "Fork a managed AXM package into project-workspace authorship",
+        "arguments": [
+          {
+            "name": "source",
+            "aliases": [],
+            "type": "string",
+            "required": true,
+            "description": "Registry, workspace, local, or Git AXM package source"
+          },
+          {
+            "name": "extension",
+            "aliases": [],
+            "type": "string",
+            "required": true,
+            "description": "New target FQN"
+          }
+        ],
+        "options": [
+          {
+            "name": "from",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Source package FQN when the source contains multiple packages"
+          },
+          {
+            "name": "enable",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Enable and materialize a newly forked extension"
+          },
+          {
+            "name": "preview",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Display plan without applying"
+          }
+        ],
+        "globalOptions": [],
+        "examples": [
+          {
+            "command": "axm fork @acme/skills/review @me/skills/review-custom",
+            "description": "Fork a Registry skill as a disabled workspace-authored package"
+          },
+          {
+            "command": "axm fork ./extensions @me/hooks/check-policy --from @acme/hooks/check-policy --enable",
+            "description": "Fork one package from a local collection and enable it"
+          }
+        ],
+        "subcommands": []
+      },
+      {
+        "name": "adopt",
+        "aliases": [],
+        "description": "Adopt a canonical package into project-workspace authorship, or declare an undeclared authored package in place",
+        "arguments": [
+          {
+            "name": "extension",
+            "aliases": [],
+            "type": "string",
+            "required": true,
+            "description": "Canonical extension FQN (@owner/<plural-type>/name)"
+          }
+        ],
+        "options": [
+          {
+            "name": "preview",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Display plan without applying"
+          }
+        ],
+        "globalOptions": [],
+        "examples": [
+          {
+            "command": "axm adopt @acme/skills/code-review",
+            "description": "Adopt an installed package for authoring, or declare authored skills/code-review"
+          }
+        ],
+        "subcommands": []
+      },
+      {
+        "name": "demote",
+        "aliases": [],
+        "description": "Explicitly remove project-workspace source authority",
+        "arguments": [
+          {
+            "name": "extension",
+            "aliases": [],
+            "type": "string",
+            "required": true,
+            "description": "Workspace extension FQN (@owner/<plural-type>/name)"
+          },
+          {
+            "name": "source",
+            "aliases": [],
+            "type": "string",
+            "required": true,
+            "description": "Replacement registry, git, or local source"
+          }
+        ],
+        "options": [
+          {
+            "name": "yes",
+            "aliases": ["-y"],
+            "type": "boolean",
+            "required": false,
+            "description": "Approve replacing workspace source authority with the externally sourced package in advance"
+          },
+          {
+            "name": "preview",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Display plan without applying"
+          },
+          {
+            "name": "ignore-release-age",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Take a release younger than the configured minimum release age, for this run only"
+          }
+        ],
+        "globalOptions": [],
+        "examples": [
+          {
+            "command": "axm demote @acme/skills/code-review @acme/skills/code-review",
+            "description": "Return a workspace skill to registry management"
+          }
+        ],
+        "subcommands": []
+      },
+      {
+        "name": "version",
+        "aliases": [],
+        "description": "Bump a project-workspace extension manifest version",
+        "arguments": [
+          {
+            "name": "extension",
+            "aliases": [],
+            "type": "string",
+            "required": true,
+            "description": "Fully-qualified extension handle (@owner/<skills|subagents|mcps|rules|hooks|knowledge|packs>/name)"
+          },
+          {
+            "name": "bump",
+            "aliases": [],
+            "type": "string",
+            "required": true,
+            "description": "Version bump rule or set"
+          },
+          {
+            "name": "version",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Exact semver version for set"
+          }
+        ],
+        "options": [
+          {
+            "name": "preview",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Print the bump without writing"
+          }
+        ],
+        "globalOptions": [],
+        "examples": [
+          {
+            "command": "axm version @acme/hooks/block-secrets patch",
+            "description": "Bump a hook's patch version"
+          },
+          {
+            "command": "axm version @acme/skills/code-review minor",
+            "description": "Bump a skill's minor version"
+          },
+          {
+            "command": "axm version @acme/subagents/researcher patch",
+            "description": "Bump a subagent's patch version"
+          },
+          {
+            "command": "axm version @acme/mcps/my-server minor",
+            "description": "Bump an MCP server's minor version"
+          },
+          {
+            "command": "axm version @acme/packs/frontend-tools set 1.2.3",
+            "description": "Set an exact pack version"
+          }
+        ],
+        "subcommands": []
+      },
+      {
+        "name": "publish",
+        "aliases": [],
+        "description": "Publish project-workspace extensions to a registry (archive policy: axm help publish)",
+        "arguments": [
+          {
+            "name": "extension",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "FQNs or type-qualified extension selectors",
+            "variadic": { "min": 0 }
+          }
+        ],
+        "options": [
+          {
+            "name": "owner",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Filter by owner",
+            "variadic": { "min": 0 }
+          },
+          {
+            "name": "type",
+            "aliases": [],
+            "type": "choice",
+            "required": false,
+            "description": "Filter by extension type",
+            "variadic": { "min": 0 },
+            "choices": [
+              { "value": "skill" },
+              { "value": "mcp-server" },
+              { "value": "subagent" },
+              { "value": "rule" },
+              { "value": "hook" },
+              { "value": "knowledge" },
+              { "value": "pack" }
+            ]
+          },
+          {
+            "name": "exclude",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Exclude a matching selector",
+            "variadic": { "min": 0 }
+          },
+          {
+            "name": "registry",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Target a specific named registry"
+          },
+          {
+            "name": "registry-url",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Override the target registry URL for automation"
+          },
+          {
+            "name": "on-existing",
+            "aliases": [],
+            "type": "choice",
+            "required": false,
+            "description": "Override existing-version policy (verify rebuilds the authored archive and requires its SHA-512 digest to match)",
+            "choices": [{ "value": "error" }, { "value": "verify" }]
+          },
+          {
+            "name": "backfill",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Publish an unpublished version lower than the highest published version"
+          },
+          {
+            "name": "accept-warnings",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Apply the plan even when preflight reports unresolved warnings"
+          },
+          {
+            "name": "visibility",
+            "aliases": [],
+            "type": "choice",
+            "required": false,
+            "description": "Initial visibility for every new extension in the selection",
+            "choices": [{ "value": "public" }, { "value": "private" }]
+          },
+          {
+            "name": "preview",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Preflight without uploading"
+          },
+          {
+            "name": "include-dependencies",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Include workspace-sourced dependencies of selected packs"
+          }
+        ],
+        "globalOptions": [],
+        "examples": [
+          { "command": "axm publish", "description": "Publish every workspace-sourced extension" },
+          {
+            "command": "axm publish --owner @acme --on-existing verify",
+            "description": "Idempotently publish an authored catalog"
+          },
+          {
+            "command": "axm publish @acme/skills/code-review",
+            "description": "Publish one workspace-authored extension explicitly"
+          }
+        ],
+        "subcommands": []
+      },
+      {
+        "name": "share",
+        "aliases": [],
+        "description": "Print a Git locator install command for distributable authored extensions; opt-out is not confidentiality",
+        "arguments": [],
+        "options": [
+          {
+            "name": "bazel",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable bazel package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "cargo",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable cargo package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "cocoapods",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable cocoapods package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "composer",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable composer package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "conan",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable conan package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "conda",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable conda package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "cpan",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable cpan package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "cran",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable cran package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "docker",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable docker package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "gem",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable gem package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "golang",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable golang package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "hackage",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable hackage package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "hex",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable hex package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "huggingface",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable huggingface package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "jsr",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable jsr package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "julia",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable julia package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "luarocks",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable luarocks package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "maven",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable maven package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "mojo",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable mojo package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "npm",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable npm package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "nuget",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable nuget package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "opam",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable opam package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "pub",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable pub package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "pypi",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable pypi package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "swift",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable swift package metadata with the Git source locator for the tag at HEAD"
+          },
+          {
+            "name": "zig",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Emit portable zig package metadata with the Git source locator for the tag at HEAD"
+          }
+        ],
+        "globalOptions": [],
+        "examples": [
+          {
+            "command": "axm share",
+            "description": "Print a live-checked install command with origin's self-describing locator"
+          },
+          {
+            "command": "axm share --npm",
+            "description": "Emit package.json metadata for the tag at HEAD"
+          },
+          {
+            "command": "axm share --json",
+            "description": "Emit the share result as structured data"
+          }
+        ],
+        "subcommands": []
+      },
+      {
         "name": "visibility",
         "aliases": [],
         "description": "Inspect and manage whole-Extension Registry visibility",
@@ -4938,67 +5654,6 @@
             "subcommands": []
           }
         ]
-      },
-      {
-        "name": "version",
-        "aliases": [],
-        "description": "Bump a project-workspace extension manifest version",
-        "arguments": [
-          {
-            "name": "extension",
-            "aliases": [],
-            "type": "string",
-            "required": true,
-            "description": "Fully-qualified extension handle (@owner/<skills|subagents|mcps|rules|hooks|knowledge|packs>/name)"
-          },
-          {
-            "name": "bump",
-            "aliases": [],
-            "type": "string",
-            "required": true,
-            "description": "Version bump rule or set"
-          },
-          {
-            "name": "version",
-            "aliases": [],
-            "type": "string",
-            "required": false,
-            "description": "Exact semver version for set"
-          }
-        ],
-        "options": [
-          {
-            "name": "preview",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Print the bump without writing"
-          }
-        ],
-        "globalOptions": [],
-        "examples": [
-          {
-            "command": "axm version @acme/hooks/block-secrets patch",
-            "description": "Bump a hook's patch version"
-          },
-          {
-            "command": "axm version @acme/skills/code-review minor",
-            "description": "Bump a skill's minor version"
-          },
-          {
-            "command": "axm version @acme/subagents/researcher patch",
-            "description": "Bump a subagent's patch version"
-          },
-          {
-            "command": "axm version @acme/mcps/my-server minor",
-            "description": "Bump an MCP server's minor version"
-          },
-          {
-            "command": "axm version @acme/packs/frontend-tools set 1.2.3",
-            "description": "Set an exact pack version"
-          }
-        ],
-        "subcommands": []
       },
       {
         "name": "yank",
@@ -5599,474 +6254,6 @@
         ]
       },
       {
-        "name": "rules",
-        "aliases": [],
-        "description": "Manage rules capabilities for configured agents",
-        "arguments": [],
-        "options": [],
-        "globalOptions": [],
-        "examples": [{ "command": "axm rules list", "description": "Inventory detected rules" }],
-        "subcommands": [
-          {
-            "name": "new",
-            "aliases": [],
-            "description": "Create a new rule in the project-workspace authoring root",
-            "arguments": [
-              {
-                "name": "name",
-                "aliases": [],
-                "type": "string",
-                "required": true,
-                "description": "Name of the rule (without owner)"
-              }
-            ],
-            "options": [
-              {
-                "name": "owner",
-                "aliases": [],
-                "type": "string",
-                "required": false,
-                "description": "Owner to create under; recorded as the workspace owner when none is set (e.g., @acme)"
-              },
-              {
-                "name": "title",
-                "aliases": [],
-                "type": "string",
-                "required": false,
-                "description": "Display title for the rule"
-              },
-              {
-                "name": "preview",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Show what would be created without writing files"
-              }
-            ],
-            "globalOptions": [],
-            "examples": [
-              { "command": "axm rules new commit-style", "description": "Scaffold a new rule" },
-              {
-                "command": "axm rules new commit-style --owner @acme",
-                "description": "Create a rule under a specific owner"
-              }
-            ],
-            "subcommands": []
-          },
-          {
-            "name": "install",
-            "aliases": [],
-            "description": "Reinstall all configured rules from their sources, or install rules from a source",
-            "arguments": [
-              {
-                "name": "source",
-                "aliases": [],
-                "type": "string",
-                "required": false,
-                "description": "rule source (Registry FQN @owner/rules/name[@version], self-describing Git locator, or path locator)"
-              }
-            ],
-            "options": [
-              {
-                "name": "scope",
-                "aliases": [],
-                "type": "choice",
-                "required": false,
-                "description": "Install to project (default) or user-level configuration",
-                "choices": [{ "value": "project" }, { "value": "user" }]
-              },
-              {
-                "name": "rule",
-                "aliases": [],
-                "type": "string",
-                "required": false,
-                "description": "Select a rule by name or glob; repeatable",
-                "variadic": { "min": 0 }
-              },
-              {
-                "name": "all",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Install every matching extension without prompting"
-              },
-              {
-                "name": "reinstall",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Reinstall extensions that already exist"
-              },
-              {
-                "name": "preview",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Show what would be installed without making changes"
-              },
-              {
-                "name": "ignore-release-age",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Take a release younger than the configured minimum release age, for this run only"
-              }
-            ],
-            "globalOptions": [],
-            "examples": [
-              {
-                "command": "axm rules install ./extensions --rule example",
-                "description": "Install an explicit selection from one source locator"
-              },
-              {
-                "command": "axm rules install ./extensions --all",
-                "description": "Install every matching extension without prompting"
-              }
-            ],
-            "subcommands": []
-          },
-          {
-            "name": "uninstall",
-            "aliases": [],
-            "description": "Uninstall a rule",
-            "arguments": [
-              {
-                "name": "name",
-                "aliases": [],
-                "type": "string",
-                "required": true,
-                "description": "Name of the rule"
-              }
-            ],
-            "options": [
-              {
-                "name": "scope",
-                "aliases": [],
-                "type": "choice",
-                "required": false,
-                "description": "Uninstall from project (default) or user-level configuration",
-                "choices": [{ "value": "project" }, { "value": "user" }]
-              },
-              {
-                "name": "preview",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Show what would be removed without making changes"
-              }
-            ],
-            "globalOptions": [],
-            "examples": [
-              {
-                "command": "axm rules uninstall commit-style",
-                "description": "Uninstall a rule by name"
-              }
-            ],
-            "subcommands": []
-          },
-          {
-            "name": "list",
-            "aliases": [],
-            "description": "List detected rules and their lifecycle classification",
-            "arguments": [],
-            "options": [
-              {
-                "name": "scope",
-                "aliases": [],
-                "type": "choice",
-                "required": false,
-                "description": "List rules from project (default) or user-level configuration",
-                "choices": [{ "value": "project" }, { "value": "user" }]
-              }
-            ],
-            "globalOptions": [],
-            "examples": [
-              { "command": "axm rules list", "description": "Inventory detected rules" }
-            ],
-            "subcommands": []
-          },
-          {
-            "name": "show",
-            "aliases": [],
-            "description": "Inspect one installed rule",
-            "arguments": [
-              {
-                "name": "name",
-                "aliases": [],
-                "type": "string",
-                "required": true,
-                "description": "Name of the rule to inspect"
-              }
-            ],
-            "options": [
-              {
-                "name": "scope",
-                "aliases": [],
-                "type": "choice",
-                "required": false,
-                "description": "Inspect project (default) or user-level configuration",
-                "choices": [{ "value": "project" }, { "value": "user" }]
-              }
-            ],
-            "globalOptions": [],
-            "examples": [
-              {
-                "command": "axm rules show commit-style",
-                "description": "Inspect one installed rule"
-              },
-              {
-                "command": "axm rules show commit-style --scope user",
-                "description": "Inspect a user-level rule"
-              }
-            ],
-            "subcommands": []
-          },
-          {
-            "name": "enable",
-            "aliases": [],
-            "description": "Enable a rule",
-            "arguments": [
-              {
-                "name": "name",
-                "aliases": [],
-                "type": "string",
-                "required": true,
-                "description": "Name of the rule"
-              }
-            ],
-            "options": [
-              {
-                "name": "scope",
-                "aliases": [],
-                "type": "choice",
-                "required": false,
-                "description": "Enable in project (default) or user-level configuration",
-                "choices": [{ "value": "project" }, { "value": "user" }]
-              },
-              {
-                "name": "preview",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Show what would change without enabling"
-              },
-              {
-                "name": "ignore-release-age",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Take a release younger than the configured minimum release age, for this run only"
-              }
-            ],
-            "globalOptions": [],
-            "examples": [
-              {
-                "command": "axm rules enable commit-style",
-                "description": "Enable a configured rule"
-              }
-            ],
-            "subcommands": []
-          },
-          {
-            "name": "disable",
-            "aliases": [],
-            "description": "Disable a rule without uninstalling it",
-            "arguments": [
-              {
-                "name": "name",
-                "aliases": [],
-                "type": "string",
-                "required": true,
-                "description": "Name of the rule"
-              }
-            ],
-            "options": [
-              {
-                "name": "scope",
-                "aliases": [],
-                "type": "choice",
-                "required": false,
-                "description": "Disable in project (default) or user-level configuration",
-                "choices": [{ "value": "project" }, { "value": "user" }]
-              },
-              {
-                "name": "preview",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Show what would change without disabling"
-              },
-              {
-                "name": "ignore-release-age",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Take a release younger than the configured minimum release age, for this run only"
-              }
-            ],
-            "globalOptions": [],
-            "examples": [
-              {
-                "command": "axm rules disable commit-style",
-                "description": "Disable a configured rule"
-              }
-            ],
-            "subcommands": []
-          },
-          {
-            "name": "update",
-            "aliases": [],
-            "description": "Update configured rules",
-            "arguments": [
-              {
-                "name": "source",
-                "aliases": [],
-                "type": "string",
-                "required": false,
-                "description": "Filter to rules matching a name or source"
-              }
-            ],
-            "options": [
-              {
-                "name": "scope",
-                "aliases": [],
-                "type": "choice",
-                "required": false,
-                "description": "Update in project (default) or user-level configuration",
-                "choices": [{ "value": "project" }, { "value": "user" }]
-              },
-              {
-                "name": "name",
-                "aliases": [],
-                "type": "string",
-                "required": false,
-                "description": "Update only specific rules by name or glob pattern",
-                "variadic": { "min": 0 }
-              },
-              {
-                "name": "preview",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Show what would change without updating"
-              },
-              {
-                "name": "ignore-release-age",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Take a release younger than the configured minimum release age, for this run only"
-              }
-            ],
-            "globalOptions": [],
-            "examples": [
-              { "command": "axm rules update", "description": "Update configured rules" },
-              {
-                "command": "axm rules update --name commit-*",
-                "description": "Update only rules matching a glob"
-              }
-            ],
-            "subcommands": []
-          },
-          {
-            "name": "publish",
-            "aliases": [],
-            "description": "Publish project-workspace rules to a registry",
-            "arguments": [
-              {
-                "name": "name",
-                "aliases": [],
-                "type": "string",
-                "required": false,
-                "description": "Bare names, globs, or fully-qualified extension names",
-                "variadic": { "min": 0 }
-              }
-            ],
-            "options": [
-              {
-                "name": "owner",
-                "aliases": [],
-                "type": "string",
-                "required": false,
-                "description": "Filter by owner",
-                "variadic": { "min": 0 }
-              },
-              {
-                "name": "exclude",
-                "aliases": [],
-                "type": "string",
-                "required": false,
-                "description": "Exclude a matching name, glob, or FQN",
-                "variadic": { "min": 0 }
-              },
-              {
-                "name": "registry",
-                "aliases": [],
-                "type": "string",
-                "required": false,
-                "description": "Target a specific named registry"
-              },
-              {
-                "name": "registry-url",
-                "aliases": [],
-                "type": "string",
-                "required": false,
-                "description": "Override the target registry URL for automation"
-              },
-              {
-                "name": "on-existing",
-                "aliases": [],
-                "type": "choice",
-                "required": false,
-                "description": "Override existing-version policy (verify rebuilds the authored archive and requires its SHA-512 digest to match)",
-                "choices": [{ "value": "error" }, { "value": "verify" }]
-              },
-              {
-                "name": "backfill",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Publish an unpublished version lower than the highest published version"
-              },
-              {
-                "name": "accept-warnings",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Apply the plan even when preflight reports unresolved warnings"
-              },
-              {
-                "name": "visibility",
-                "aliases": [],
-                "type": "choice",
-                "required": false,
-                "description": "Initial visibility for every new extension in the selection",
-                "choices": [{ "value": "public" }, { "value": "private" }]
-              },
-              {
-                "name": "preview",
-                "aliases": [],
-                "type": "boolean",
-                "required": false,
-                "description": "Preflight without uploading"
-              }
-            ],
-            "globalOptions": [],
-            "examples": [
-              {
-                "command": "axm rules publish",
-                "description": "Publish every workspace-sourced rules package"
-              },
-              {
-                "command": "axm rules publish example-* --on-existing verify",
-                "description": "Publish matching rules packages"
-              }
-            ],
-            "subcommands": []
-          }
-        ]
-      },
-      {
         "name": "lint",
         "aliases": [],
         "description": "Check workspace configuration",
@@ -6137,113 +6324,6 @@
           {
             "command": "axm lint --json",
             "description": "Emit findings as a structured JSON document"
-          }
-        ],
-        "subcommands": []
-      },
-      {
-        "name": "cache",
-        "aliases": [],
-        "description": "Inspect and maintain the verified registry archive cache",
-        "arguments": [],
-        "options": [],
-        "globalOptions": [],
-        "examples": [
-          { "command": "axm cache status", "description": "Show archive cache usage" },
-          { "command": "axm cache verify", "description": "Verify cached archive integrity" },
-          { "command": "axm cache prune", "description": "Remove expired and excess entries" }
-        ],
-        "subcommands": [
-          {
-            "name": "status",
-            "aliases": [],
-            "description": "Show verified registry archive cache usage and limits",
-            "arguments": [],
-            "options": [],
-            "globalOptions": [],
-            "examples": [
-              { "command": "axm cache status", "description": "Show archive cache usage" },
-              { "command": "axm cache status --json", "description": "Emit cache status as JSON" }
-            ],
-            "subcommands": []
-          },
-          {
-            "name": "verify",
-            "aliases": [],
-            "description": "Verify every cached archive and remove corrupt entries",
-            "arguments": [],
-            "options": [],
-            "globalOptions": [],
-            "examples": [
-              { "command": "axm cache verify", "description": "Verify cached archive integrity" },
-              {
-                "command": "axm cache verify --json",
-                "description": "Emit verification results as JSON"
-              }
-            ],
-            "subcommands": []
-          },
-          {
-            "name": "prune",
-            "aliases": [],
-            "description": "Remove expired archives and enforce the 2 GiB cache limit",
-            "arguments": [],
-            "options": [],
-            "globalOptions": [],
-            "examples": [
-              {
-                "command": "axm cache prune",
-                "description": "Prune expired and excess cache entries"
-              },
-              { "command": "axm cache prune --json", "description": "Emit pruning results as JSON" }
-            ],
-            "subcommands": []
-          }
-        ]
-      },
-      {
-        "name": "upgrade",
-        "aliases": [],
-        "description": "Update axm to the promoted stable or an exact version",
-        "arguments": [
-          {
-            "name": "version",
-            "aliases": [],
-            "type": "string",
-            "required": false,
-            "description": "Exact stable version; omit to use GitHub's latest release"
-          }
-        ],
-        "options": [
-          {
-            "name": "reinstall",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Reinstall an equal version; never permits a downgrade"
-          },
-          {
-            "name": "preview",
-            "aliases": [],
-            "type": "boolean",
-            "required": false,
-            "description": "Report the resolved install method, target, and command without running it"
-          }
-        ],
-        "globalOptions": [],
-        "examples": [
-          { "command": "axm upgrade", "description": "Download and install the latest version" },
-          {
-            "command": "axm upgrade 1.2.3",
-            "description": "Install an exact stable version without release discovery"
-          },
-          {
-            "command": "axm upgrade --reinstall",
-            "description": "Reinstall an equal version without permitting a downgrade"
-          },
-          {
-            "command": "axm upgrade --preview",
-            "description": "Show the detected installer and the command it would run, changing nothing"
           }
         ],
         "subcommands": []
@@ -6465,189 +6545,109 @@
         ]
       },
       {
-        "name": "setup",
+        "name": "cache",
         "aliases": [],
-        "description": "Set up AXM in the current project",
+        "description": "Inspect and maintain the verified registry archive cache",
         "arguments": [],
+        "options": [],
+        "globalOptions": [],
+        "examples": [
+          { "command": "axm cache status", "description": "Show archive cache usage" },
+          { "command": "axm cache verify", "description": "Verify cached archive integrity" },
+          { "command": "axm cache prune", "description": "Remove expired and excess entries" }
+        ],
+        "subcommands": [
+          {
+            "name": "status",
+            "aliases": [],
+            "description": "Show verified registry archive cache usage and limits",
+            "arguments": [],
+            "options": [],
+            "globalOptions": [],
+            "examples": [
+              { "command": "axm cache status", "description": "Show archive cache usage" },
+              { "command": "axm cache status --json", "description": "Emit cache status as JSON" }
+            ],
+            "subcommands": []
+          },
+          {
+            "name": "verify",
+            "aliases": [],
+            "description": "Verify every cached archive and remove corrupt entries",
+            "arguments": [],
+            "options": [],
+            "globalOptions": [],
+            "examples": [
+              { "command": "axm cache verify", "description": "Verify cached archive integrity" },
+              {
+                "command": "axm cache verify --json",
+                "description": "Emit verification results as JSON"
+              }
+            ],
+            "subcommands": []
+          },
+          {
+            "name": "prune",
+            "aliases": [],
+            "description": "Remove expired archives and enforce the 2 GiB cache limit",
+            "arguments": [],
+            "options": [],
+            "globalOptions": [],
+            "examples": [
+              {
+                "command": "axm cache prune",
+                "description": "Prune expired and excess cache entries"
+              },
+              { "command": "axm cache prune --json", "description": "Emit pruning results as JSON" }
+            ],
+            "subcommands": []
+          }
+        ]
+      },
+      {
+        "name": "upgrade",
+        "aliases": [],
+        "description": "Update axm to the promoted stable or an exact version",
+        "arguments": [
+          {
+            "name": "version",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Exact stable version; omit to use GitHub's latest release"
+          }
+        ],
         "options": [
           {
-            "name": "scope",
+            "name": "reinstall",
             "aliases": [],
-            "type": "choice",
-            "required": false,
-            "description": "Configuration scope: project or user (required for unattended apply)",
-            "choices": [{ "value": "project" }, { "value": "user" }]
-          },
-          {
-            "name": "agent",
-            "aliases": [],
-            "type": "choice",
-            "required": false,
-            "description": "Specify agents to configure (skips auto-detection)",
-            "variadic": { "min": 0 },
-            "choices": [
-              { "value": "adal" },
-              { "value": "aider-desk" },
-              { "value": "amp" },
-              { "value": "antigravity" },
-              { "value": "antigravity-cli" },
-              { "value": "augment" },
-              { "value": "claude-code" },
-              { "value": "cline" },
-              { "value": "codearts-agent" },
-              { "value": "codebuddy" },
-              { "value": "codemaker" },
-              { "value": "codestudio" },
-              { "value": "codex" },
-              { "value": "command-code" },
-              { "value": "continue" },
-              { "value": "cortex" },
-              { "value": "crush" },
-              { "value": "cursor" },
-              { "value": "deepagents" },
-              { "value": "devin" },
-              { "value": "dexto" },
-              { "value": "droid" },
-              { "value": "firebender" },
-              { "value": "forgecode" },
-              { "value": "gemini-cli" },
-              { "value": "github-copilot-cli" },
-              { "value": "goose" },
-              { "value": "grok-cli" },
-              { "value": "hermes" },
-              { "value": "ibm-bob" },
-              { "value": "iflow-cli" },
-              { "value": "junie" },
-              { "value": "lingma" },
-              { "value": "kilo" },
-              { "value": "kimi-cli" },
-              { "value": "kiro-cli" },
-              { "value": "kode" },
-              { "value": "mcpjam" },
-              { "value": "minimax-code" },
-              { "value": "mistral-vibe" },
-              { "value": "mux" },
-              { "value": "neovate" },
-              { "value": "openclaw" },
-              { "value": "opencode" },
-              { "value": "openhands" },
-              { "value": "ona" },
-              { "value": "pi" },
-              { "value": "pochi" },
-              { "value": "qoder" },
-              { "value": "qoder-cn" },
-              { "value": "qwen-code" },
-              { "value": "replit" },
-              { "value": "roo" },
-              { "value": "rovodev" },
-              { "value": "tabnine-cli" },
-              { "value": "trae-cn" },
-              { "value": "trae" },
-              { "value": "warp" },
-              { "value": "windsurf" },
-              { "value": "zencoder" },
-              { "value": "zed" },
-              { "value": "zenflow" }
-            ]
-          },
-          {
-            "name": "yes",
-            "aliases": ["-y"],
             "type": "boolean",
             "required": false,
-            "description": "Apply the documented unattended setup defaults with an explicit scope and explicit agents"
+            "description": "Reinstall an equal version; never permits a downgrade"
           },
           {
             "name": "preview",
             "aliases": [],
             "type": "boolean",
             "required": false,
-            "description": "Display plan without applying"
+            "description": "Report the resolved install method, target, and command without running it"
           }
         ],
         "globalOptions": [],
         "examples": [
+          { "command": "axm upgrade", "description": "Download and install the latest version" },
           {
-            "command": "axm setup",
-            "description": "Preview, confirm, and initialize project setup"
+            "command": "axm upgrade 1.2.3",
+            "description": "Install an exact stable version without release discovery"
           },
           {
-            "command": "axm setup --preview --scope project --json --non-interactive",
-            "description": "Preview the exact unattended setup candidate without writing"
+            "command": "axm upgrade --reinstall",
+            "description": "Reinstall an equal version without permitting a downgrade"
           },
           {
-            "command": "axm setup --scope user",
-            "description": "Initialize the user workspace in ~/.axm/workspace/"
-          },
-          {
-            "command": "axm setup --agent claude-code --agent cursor",
-            "description": "Initialize with specific agents"
+            "command": "axm upgrade --preview",
+            "description": "Show the detected installer and the command it would run, changing nothing"
           }
-        ],
-        "subcommands": []
-      },
-      {
-        "name": "discover",
-        "aliases": [],
-        "description": "Find extensions for your project",
-        "arguments": [],
-        "options": [
-          {
-            "name": "path",
-            "aliases": [],
-            "type": "string",
-            "required": false,
-            "description": "Scan a different directory instead of the current working directory"
-          }
-        ],
-        "globalOptions": [],
-        "examples": [
-          {
-            "command": "axm discover",
-            "description": "Discover extensions for the current project"
-          },
-          {
-            "command": "axm discover --path ./my-project",
-            "description": "Discover extensions for a specific directory"
-          },
-          {
-            "command": "axm discover --json",
-            "description": "Emit { command, items, count, totalDetected, registryAvailable }"
-          }
-        ],
-        "subcommands": []
-      },
-      {
-        "name": "help",
-        "aliases": [],
-        "description": "Show general help, a topic page, raw schema, or command help",
-        "arguments": [
-          {
-            "name": "topic-or-command",
-            "aliases": [],
-            "type": "string",
-            "required": false,
-            "description": "Help topic or command path, such as basic-usage, skills install, or agents add",
-            "variadic": {}
-          }
-        ],
-        "options": [],
-        "globalOptions": [],
-        "examples": [
-          { "command": "axm help", "description": "View help topics" },
-          { "command": "axm help basic-usage", "description": "How to use AXM" },
-          { "command": "axm help skills install", "description": "Show nested command help" },
-          {
-            "command": "axm help getting-started",
-            "description": "How to set up and configure AXM"
-          },
-          { "command": "axm help skills", "description": "Managing agent skills with AXM" },
-          { "command": "axm help subagents", "description": "Managing subagents with AXM" },
-          {
-            "command": "axm help skill-schema",
-            "description": "Print the skill manifest JSON Schema"
-          },
-          { "command": "axm help exit-codes", "description": "Exit code conventions" }
         ],
         "subcommands": []
       }

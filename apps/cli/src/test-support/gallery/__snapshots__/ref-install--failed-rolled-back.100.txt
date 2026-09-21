@@ -1,18 +1,19 @@
 Installing
 
-     Extension                     Version   Status        Detail
- ↶   @acme/packs/review-kit        2.1.0     rolled back   /home/dev/work/platform-services/
-                                                           agent_extensions/review-kit
+     Extension                            Version   Status        Detail
+ ↶   @acme/packs/review-kit               2.1.0     rolled back   /home/dev/work/platform-services/
+                                                                  agent_extensions/review-kit
      The pack's members were written and then removed again when a later member failed. Effects were
      restored.
- ✖   @acme-e…/incident-commander   -         failed        /home/dev/work/platform-services/
-                                                           agent_extensions/incident-commander
+ ✖   @acm…/subagents/incident-commander   -         failed        /home/dev/work/platform-services/
+                                                                  agent_extensions/
+                                                                  incident-commander
      The registry has no version of @acme-enterprise/subagents/incident-commander that satisfies
      >=2.0.0, which @acme/packs/review-kit requires. Nothing was installed. (not_found) Effects were
      restored.
- ·   @acme/…/incident-review       2.0.0     not tried
+ ·   @acme/skills/incident-review         2.0.0     not tried
      the operation stopped before this extension
- ·   @acme/knowledge/runbooks      5.2.0     not tried
+ ·   @acme/knowledge/runbooks             5.2.0     not tried
      the operation stopped before this extension
 
 Failed to install 4 extensions - all changes rolled back

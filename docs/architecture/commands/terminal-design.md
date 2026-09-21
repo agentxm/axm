@@ -81,7 +81,10 @@ every other command.
 A ledger's columns carry a role. The `name` column is protected and shortened
 last; `fixed` columns keep their width; an `elastic` column takes spare width.
 Plan, progress, and result ledgers differ only in their final columns — a plan
-and detail against a status — and their marks. A ledger folds rows that repeat
+and detail against a status — and their marks. A version column states the move
+a unit made where both ends are known, the version still installed for a unit
+that did not settle, and that its target is not resolved yet where a plan has
+not resolved one. A ledger folds rows that repeat
 one outcome, such as unchanged units, into one fold line with a mark, a count, a
 noun, and the flag that reveals them. A row that did not settle as planned
 carries its reason: one line beneath the row, at the content column, toned as
@@ -246,8 +249,16 @@ match. One dim line beneath the list says how many are picked and names its
 keys; a narrow line drops the arrows and the words of named keys first, then
 every key.
 
-A long name shortens in the middle, keeping its scope and last path segment:
-`@acme-enterprise/…/soc2-review`. A copyable value — a URL, a `next` command, a
+A protected column is laid out at its natural width even where a width hint
+would keep the columns after it on a shared lane: alignment is worth having
+while the values fit beside it, and yields to information when they do not. A
+name therefore shortens only once every shrinkable column has given up what it
+can. When it must shorten, it gives up scope characters and keeps every later
+segment, because the type segment is what tells `@acme/skills/docs` from
+`@acme/knowledge/docs`: `@acme-enterpr…/skills/audits/soc2-review`. Where no
+scope worth keeping fits, whole middle segments go instead, and finally the
+last segment takes what is left. Every row of one ledger identifies its unit in
+the same form, and that form states the unit's type. A copyable value — a URL, a `next` command, a
 one-time code, a request identifier — is never cut, truncated, or hyphenated;
 when it does not fit it moves to its own line, in a ledger cell as anywhere
 else.

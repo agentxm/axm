@@ -1,14 +1,14 @@
 Updating  in this project · agents: cl…
 
-     Extension     Version   Status
- ◒   @acme…tever   1.0.1     applying
-     96 KB / 192 KB
- ~   @acme…-spew   0.1.9     update
- ~   @acme…-docs   0.5.0     update
- ~   @acme/…/okf   0.1.8     update
- ~   @…/research   1.1.3     update
- ~   @acme…ering   0.9.4     update
- ~   @acme…ering   2.3.0     update
- ·   5 more waiting
-
-applying 1 of 12 in 700ms
+     Extension                 Status
+ ◒   @acme…/improve-whatever   applying
+     Version  1.0.1 · Detail  96 KB / …
+ ~   @acme/skills/spot-spew    update
+     0.1.9
+ ~   @ac…/skills/devops-docs   update
+     0.5.0
+ ~   @acme/skills/okf          update
+     0.1.8
+ ~   @acme/skills/research     update
+     1.1.3
+ ~   @acm…/agent-engineering   update

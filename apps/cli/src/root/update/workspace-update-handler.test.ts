@@ -142,12 +142,12 @@ describe("workspace update handler output", () => {
         });
         expect(planResultUnits(result)).toEqual([
           expect.objectContaining({
-            label: "linear",
+            label: "mcps/linear",
             state: "skipped",
             message: "linear is inline workspace configuration; run axm sync to reconcile it",
           }),
           expect.objectContaining({
-            label: "sentry",
+            label: "mcps/sentry",
             state: "skipped",
             message: "sentry is inline workspace configuration; run axm sync to reconcile it",
           }),
@@ -181,9 +181,9 @@ describe("workspace update handler output", () => {
             outcome: "failed",
             counts: { total: 2, failed: 1 },
             units: expect.arrayContaining([
-              expect.objectContaining({ label: "linear", state: "skipped" }),
+              expect.objectContaining({ label: "mcps/linear", state: "skipped" }),
               expect.objectContaining({
-                label: "broken",
+                label: "mcps/broken",
                 state: "failed",
                 message: expect.stringContaining('Unknown MCP server "missing-server"'),
               }),

@@ -362,6 +362,21 @@ People and agents can understand invalid workspace state and recover it through 
 - Limitation: The HTTP evidence does not establish visual rendering or a real identity-provider round trip. Retires when: Record browser verification of the provider, callback, and terminal result.
 - Source: [`packages/supporting/registry-access/src/authentication/browser-completion-follows-credential-persistence.spec.ts`](../packages/supporting/registry-access/src/authentication/browser-completion-follows-credential-persistence.spec.ts)
 
+##### A name gives way last, and keeps what tells it apart
+
+- Requirement: `cli/names-yield-width-last`
+- Owner: `cli`
+- Statement: A ledger shall shorten a unit's name only when the line has no width left to give it, and a name it must shorten shall keep its final segment and its type segment, giving up scope characters first.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `extension-adoption`
+- Boundary: memory; selection: per-change
+- Boundary rationale: Layout is a pure function of a document and a terminal width, so the whole obligation is decided in memory.
+- Methods: example
+- Derived from: `cli/ledger-width-relocates-values`
+- Assumptions: Extension names are single path segments, so the segment after the last separator is the name itself.
+- Source: [`apps/cli/src/screen/names-yield-width-last.spec.ts`](../apps/cli/src/screen/names-yield-width-last.spec.ts)
+
 ##### A read carries the credential the invocation holds
 
 - Requirement: `cli/reads-carry-the-invocations-credential`

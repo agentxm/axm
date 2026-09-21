@@ -11,20 +11,20 @@ Setting up AXM in ~/code/storefront
        AGENTS.md
  ✔   Apply setup    yes
 
-     Target         Status
- +   axm.json       created
- +   axm-lo….yaml   created
- ~   .gitignore     updated
- =   AGENTS.md      already current
- +   CLAUDE.md      created
- +   .curso…s.mdc   created
- +   @agentx…/axm   created
+     Target              Status
+ +   axm.json            created
+ +   axm-lock.yaml       created
+ ~   .gitignore          updated
+ =   AGENTS.md           already current
+ +   CLAUDE.md           created
+ +   .curs…/agents.mdc   created
+ +   @agen…/skills/axm   created
      0.31.1
- +   .claude…/axm   created
+ +   .clau…/skills/axm   created
      Claude Code
- +   .agents…/axm   created
+ +   .agen…/skills/axm   created
      Codex
- +   .cursor…/axm   created
+ +   .curs…/skills/axm   created
      Cursor
 
 Set up AXM for 3 agents

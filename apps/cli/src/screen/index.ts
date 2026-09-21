@@ -170,6 +170,7 @@ export {
   ALREADY_PUBLISHED,
   NOT_TRIED,
   INTERRUPTED_IN_FLIGHT,
+  PENDING_VERSION,
   UNREPORTED_REASON,
   exitPhrase,
   publishDisposition,

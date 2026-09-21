@@ -226,7 +226,7 @@ describe("root update handler", () => {
       });
       expect(planResultUnits(result)).toMatchObject([
         {
-          label: "handbook",
+          label: "knowledge/handbook",
           state: "unchanged",
           message: "handbook is workspace-sourced and unchanged",
         },

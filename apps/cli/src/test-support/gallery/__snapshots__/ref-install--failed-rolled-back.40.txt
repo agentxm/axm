@@ -8,7 +8,7 @@ Installing
      then removed again when a later
      member failed. Effects were
      restored.
- ✖   @acme-enterpris…/incident-commander
+ ✖   @acme…/subagents/incident-commander
      - · failed · /home/dev/work/
      platform-services/agent_extensions/
      incident-commander

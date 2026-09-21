@@ -656,7 +656,7 @@ describe("paintText", () => {
     it("keeps an optional column when shortening names is sufficient", () => {
       expect(plain(ledger, 60)).toEqual([
         "     Extension                Version   Plan      Detail",
-        " +   @acme/…/code-review      1.4.0     install   42 files",
+        " +   @a…/skills/code-review   1.4.0     install   42 files",
         " ~   @acme/skills/triage      2.0.1     update    from 1.9.4",
         " =   3 unchanged  --verbose to list",
       ]);
@@ -664,10 +664,10 @@ describe("paintText", () => {
 
     it("moves an optional column's values beneath their rows before stacking", () => {
       expect(plain(ledger, 44)).toEqual([
-        "     Extension        Version   Plan",
-        " +   @…/code-review   1.4.0     install",
+        "     Extension             Version   Plan",
+        " +   @acme/…/code-review   1.4.0     install",
         "     42 files",
-        " ~   @acme/…/triage   2.0.1     update",
+        " ~   @acme/skills/triage   2.0.1     update",
         "     from 1.9.4",
         " =   3 unchanged  --verbose to list",
       ]);
@@ -741,7 +741,7 @@ describe("paintText", () => {
       ).toEqual([" ✔   A question longer than the key lane allows", "       yes"]);
     });
 
-    it("shortens a long name in the middle, keeping its scope and last segment", () => {
+    it("gives the name column spare width, and shortens its scope when there is none", () => {
       const long: Doc = [
         {
           _tag: "ledger",
@@ -761,9 +761,9 @@ describe("paintText", () => {
         },
       ];
       expect(plain(long, 60)).toEqual([
-        "     Extension                Version   Plan",
-        " +   @acme-ent…/soc2-review   1.4.0     install",
-        " +   @acme/…/code-review      1.4.0     install",
+        "     Extension                             Version   Plan",
+        " +   @acme-en…/skills/audits/soc2-review   1.4.0     install",
+        " +   @acme/skills/code-review              1.4.0     install",
       ]);
       // The name that fits is untouched, and both versions stay in one column.
       expect(plain(long, 60)[1]?.indexOf("1.4.0")).toBe(plain(long, 60)[2]?.indexOf("1.4.0"));

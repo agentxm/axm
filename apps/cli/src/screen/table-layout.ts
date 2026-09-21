@@ -90,8 +90,15 @@ const softFloor = (column: LayoutColumn): number =>
     Math.max(wordFloor(column), Math.min(Math.ceil(column.naturalWidth / 2), SOFT_FLOOR_CAP)),
   );
 
+/**
+ * The width a column is laid out at before anything shrinks. A width hint
+ * keeps the columns after it on a shared lane, which is worth having while the
+ * values fit beside it; a protected column starts at its natural width all the
+ * same, so its value gives way only once every shrinkable column has, and
+ * alignment yields to information rather than the other way round.
+ */
 const startWidth = (column: LayoutColumn): number =>
-  column.width === undefined
+  column.width === undefined || column.priority === "required"
     ? column.naturalWidth
     : Math.max(Math.min(column.width, column.naturalWidth), declaredFloor(column));
 

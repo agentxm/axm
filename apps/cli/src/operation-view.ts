@@ -23,6 +23,7 @@ import {
   INTERRUPTED_IN_FLIGHT,
   MISSING_VERSION,
   NOT_TRIED,
+  PENDING_VERSION,
   Screen,
   UNREPORTED_REASON,
   VERBOSE_DETAILS_HINT,
@@ -87,16 +88,32 @@ const detailCell = (
   extra: ReadonlyArray<string | undefined>,
 ): string =>
   joined([
-    artifact?.previousVersion === undefined ? undefined : `from ${artifact.previousVersion}`,
     artifact?.fileCount === undefined ? undefined : count(artifact.fileCount, "file"),
     ...extra,
     artifact === undefined ? undefined : artifactPaths(artifact),
   ]);
 
-const versionCell = (artifact: JobStepArtifact | undefined): string =>
-  artifact?.version === undefined || artifact.version.length === 0
-    ? MISSING_VERSION.operation
-    : artifact.version;
+/**
+ * The version column: what the unit moved between where both ends are known,
+ * the version it reached where only that is known, and — for a unit that did
+ * not settle — the version still installed, because that is the fact a reader
+ * acts on. A planned row with no artifact has a target it has not resolved
+ * yet, which is not the same as having none.
+ */
+const versionCell = (artifact: JobStepArtifact | undefined): string => {
+  const version =
+    artifact?.version === undefined || artifact.version.length === 0 ? undefined : artifact.version;
+  const previous =
+    artifact?.previousVersion === undefined || artifact.previousVersion.length === 0
+      ? undefined
+      : artifact.previousVersion;
+  if (version === undefined) return previous ?? MISSING_VERSION.operation;
+  return previous === undefined || previous === version ? version : `${previous} to ${version}`;
+};
+
+/** The same column on a planned row, which may not know its target yet. */
+const plannedVersionCell = (artifact: JobStepArtifact | undefined): string =>
+  artifact === undefined ? PENDING_VERSION : versionCell(artifact);
 
 /**
  * Plan, progress, and result ledgers differ only in their third column — what
@@ -404,7 +421,7 @@ const planRow = (
             : artifactChangeMark(step.artifact.change),
       cells: [
         step.artifact?.packMembership?.pack ?? step.label,
-        versionCell(step.artifact),
+        plannedVersionCell(step.artifact),
         step.artifact === undefined
           ? presentation.verb.imperative
           : step.artifact.change === "created" && presentation.verb.create !== undefined

@@ -161,14 +161,14 @@ describe("formatPackageUrlParts", () => {
 describe("toLabelWithCompanions", () => {
   it("returns base label when packages is empty", () => {
     const result = toLabelWithCompanions({ type: "skill", name: "my-skill" }, []);
-    expect(result).toBe("my-skill");
+    expect(result).toBe("skills/my-skill");
   });
 
   it("appends single companionPackage in parentheses", () => {
     const result = toLabelWithCompanions({ type: "skill", name: "react-testing" }, [
       packageUrl("pkg:npm/react"),
     ]);
-    expect(result).toBe("react-testing (pkg:npm/react)");
+    expect(result).toBe("skills/react-testing (pkg:npm/react)");
   });
 
   it("appends multiple packages comma-separated", () => {
@@ -176,7 +176,7 @@ describe("toLabelWithCompanions", () => {
       packageUrl("pkg:npm/react"),
       packageUrl("pkg:npm/typescript"),
     ]);
-    expect(result).toBe("fullstack (pkg:npm/react, pkg:npm/typescript)");
+    expect(result).toBe("skills/fullstack (pkg:npm/react, pkg:npm/typescript)");
   });
 
   it("works with pack targets", () => {
@@ -184,7 +184,7 @@ describe("toLabelWithCompanions", () => {
       { type: "pack", name: "frontend", owner: handle("@acme") },
       [packageUrl("pkg:npm/react")],
     );
-    expect(result).toBe("@acme/frontend (pkg:npm/react)");
+    expect(result).toBe("@acme/packs/frontend (pkg:npm/react)");
   });
 });
 
@@ -909,7 +909,9 @@ describe("buildUninstallOperation", () => {
       expect(materializeUninstall).toHaveBeenCalledWith({
         target: { type: "skill", name: "review" },
       });
-      expect(result.message).toBe("Unconfigured review; preserved its workspace-authored source");
+      expect(result.message).toBe(
+        "Unconfigured skills/review; preserved its workspace-authored source",
+      );
     }),
   );
 
@@ -967,11 +969,11 @@ describe("buildUninstallOperation", () => {
       // Content AXM cannot verify is never deleted.
       expect(materializeUninstall).not.toHaveBeenCalled();
       expect(result.message).toBe(
-        "Unconfigured toolkit; preserved its package because its manifest could not be read",
+        "Unconfigured skills/toolkit; preserved its package because its manifest could not be read",
       );
       if (result.result !== "success") throw new Error(result.message);
       expect(result.warnings).toEqual([
-        "toolkit: its package manifest is missing at packs/toolkit/pack.json, so AXM removed its configuration entry and accepted resolution and left its package content in place. Delete that content yourself once you no longer need it.",
+        "skills/toolkit: its package manifest is missing at packs/toolkit/pack.json, so AXM removed its configuration entry and accepted resolution and left its package content in place. Delete that content yourself once you no longer need it.",
       ]);
     }),
   );
@@ -1156,7 +1158,7 @@ describe("buildUninstallOperation", () => {
         expect(removeLockfileEntry).not.toHaveBeenCalled();
         expect(result).toMatchObject({
           disposition: "unchanged",
-          message: "review is already absent",
+          message: "skills/review is already absent",
         });
       }),
   );

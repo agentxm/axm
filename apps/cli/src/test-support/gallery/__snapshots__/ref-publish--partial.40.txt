@@ -1,12 +1,12 @@
 Publishing  as @acme · to agentxm
 
-     Extension      Version   Status
- +   @acme/…eview   1.4.0     published
- ✖   @a…/reviewer   0.9.0     failed
+     Extension       Version   Status
+ +   @acme/…review   1.4.0     published
+ ✖   @ac…/reviewer   0.9.0     failed
      upload failed, retryable
      Registry upload is temporarily
      unavailable.
- ·   @acme/…w-kit   2.1.0     not tried
+ ·   @…/review-kit   2.1.0     not tried
      blocked by a dependency
 
 Partially published

@@ -1,10 +1,9 @@
 Syncing
 
-     Extension      Version   Status
- ▲   @…/effect-v4   -         blocked
-     from 0.4.2, /home/dev/work/
-     platform-services/agent_extensions/
-     effect-v4
+     Extension       Version   Status
+ ▲   @a…/effect-v4   0.4.2     blocked
+     /home/dev/work/platform-services/
+     agent_extensions/effect-v4
      The workspace pins
      @acme-enterprise/knowledge/
      effect-v4 to 0.4.2 while the pack
@@ -13,16 +12,15 @@ Syncing
      versions that cannot both hold, so
      AXM changed nothing. No changes
      were applied.
- ▲   @acme/…notes   -         blocked
-     from 1.0.0, /home/dev/work/
-     platform-services/agent_extensions/
-     field-notes
+ ▲   @acme/…-notes   1.0.0     blocked
+     /home/dev/work/platform-services/
+     agent_extensions/field-notes
      This pack waits on
      @acme-enterprise/knowledge/
      effect-v4, which is blocked by a
      version conflict. No changes were
      applied.
- ·   @a…/research   -         not tried
+ ·   @ac…/research   1.1.3     not tried
      the operation stopped before this
      extension
 

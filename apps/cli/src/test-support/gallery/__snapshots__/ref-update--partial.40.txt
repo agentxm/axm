@@ -2,29 +2,28 @@ Updating
   in this project · agents: claude-code,
   codex, grok-cli, opencode
 
-     Extension      Version   Status
- ~   @acme/…tever   1.0.2     updated
-     from 1.0.1, 6 files, /home/dev/
-     work/platform-services/
+ ~   @acme/skills/improve-whatever
+     1.0.1 to 1.0.2 · updated · 6 files,
+     /home/dev/work/platform-services/
      agent_extensions/improve-whatever
- ~   @…/spot-spew   0.2.0     updated
-     from 0.1.9, 6 files, /home/dev/
-     work/platform-services/
+ ~   @acme/skills/spot-spew
+     0.1.9 to 0.2.0 · updated · 6 files,
+     /home/dev/work/platform-services/
      agent_extensions/spot-spew
- ~   @acme/…-docs   0.5.1     updated
-     from 0.5.0, 6 files, /home/dev/
-     work/platform-services/
+ ~   @acme/skills/devops-docs
+     0.5.0 to 0.5.1 · updated · 6 files,
+     /home/dev/work/platform-services/
      agent_extensions/devops-docs
- ~   @acme/…/okf    0.1.9     updated
-     from 0.1.8, 6 files, /home/dev/
-     work/platform-services/
+ ~   @acme/skills/okf
+     0.1.8 to 0.1.9 · updated · 6 files,
+     /home/dev/work/platform-services/
      agent_extensions/okf
- ~   @a…/research   1.2.0     updated
-     from 1.1.3, 6 files, /home/dev/
-     work/platform-services/
+ ~   @acme/skills/research
+     1.1.3 to 1.2.0 · updated · 6 files,
+     /home/dev/work/platform-services/
      agent_extensions/research
- ✖   @acme/…ering   -         failed
-     from 0.9.4, /home/dev/work/
+ ✖   @acme/knowledge/agent-engineering
+     0.9.4 · failed · /home/dev/work/
      platform-services/agent_extensions/
      agent-engineering
      The registry did not answer within
@@ -33,8 +32,8 @@ Updating
      The request was retried three times
      and the workspace was left as it
      was. (timeout)
- ✖   @acme/…ering   -         failed
-     from 2.3.0, /home/dev/work/
+ ✖   @acme/knowledge/product-engineering
+     2.3.0 · failed · /home/dev/work/
      platform-services/agent_extensions/
      product-engineering
      The registry did not answer within
@@ -43,8 +42,8 @@ Updating
      request was retried three times and
      the workspace was left as it was.
      (timeout)
- ✖   @acme/…notes   -         failed
-     from 1.0.0, /home/dev/work/
+ ✖   @acme/packs/field-notes
+     1.0.0 · failed · /home/dev/work/
      platform-services/agent_extensions/
      field-notes
      The archive AXM downloaded for
@@ -55,8 +54,8 @@ Updating
      agent_extensions, and the installed
      version is still in place.
      (conflict)
- ✖   @…/effect-v4   -         failed
-     from 0.4.2, /home/dev/work/
+ ✖   @acme-enterpri…/knowledge/effect-v4
+     0.4.2 · failed · /home/dev/work/
      platform-services/agent_extensions/
      effect-v4
      The archive AXM downloaded for
@@ -68,8 +67,8 @@ Updating
      agent_extensions, and the installed
      version is still in place.
      (conflict)
- ✖   @acme/…ement   -         failed
-     from 0.3.1, /home/dev/work/
+ ✖   @acme/subagents/work-management
+     0.3.1 · failed · /home/dev/work/
      platform-services/agent_extensions/
      work-management
      AXM could not write /home/dev/work/
@@ -80,8 +79,8 @@ Updating
      @acme/subagents/work-management
      still resolves to the version
      already installed. (forbidden)
- ✖   @acme/…cript   -         failed
-     from 3.1.0, /home/dev/work/
+ ✖   @acme/rules/typescript
+     3.1.0 · failed · /home/dev/work/
      platform-services/agent_extensions/
      typescript
      AXM could not write /home/dev/work/
@@ -92,8 +91,8 @@ Updating
      @acme/rules/typescript still
      resolves to the version already
      installed. (forbidden)
- ✖   @acme/…eview   -         failed
-     from 2.0.0, /home/dev/work/
+ ✖   @acme/skills/incident-review
+     2.0.0 · failed · /home/dev/work/
      platform-services/agent_extensions/
      incident-review
      The registry did not answer within

@@ -95,6 +95,13 @@ export const exitPhrase = (code: number): string => `exit ${String(code)}`;
  */
 export const NOT_TRIED = "not tried";
 
+/**
+ * What a planned row says in place of a version when the operation has not yet
+ * resolved what it will move to. A dash reads as "there is none"; a plan that
+ * has not resolved its target yet has one it does not know.
+ */
+export const PENDING_VERSION = "pending";
+
 /** Why a row rolled back when the unit was still running as the operation stopped. */
 export const INTERRUPTED_IN_FLIGHT = "interrupted in flight";
 

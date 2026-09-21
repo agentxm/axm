@@ -3,6 +3,7 @@ import type { InstallStepRequirements } from "./vocabulary.js";
 import * as Option from "effect/Option";
 
 import type { JobStepResult, Plan } from "../../transitions/planning/index.js";
+import { toTypedLabel } from "../../reconciliation/index.js";
 
 export const inlineMcpNotApplicablePlan = (
   name: string,
@@ -18,7 +19,7 @@ export const inlineMcpNotApplicablePlan = (
         {
           key: `not-applicable:mcp-server:${name}`,
           readiness: "ready",
-          label: name,
+          label: toTypedLabel("mcp-server", name),
           run: Effect.succeed({
             result: "success",
             disposition: "skipped",

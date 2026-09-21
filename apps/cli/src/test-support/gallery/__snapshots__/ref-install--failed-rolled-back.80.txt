@@ -15,7 +15,7 @@ Installing
      @acme-enterprise/subagents/incident-commander that satisfies >=2.0.0, which
      @acme/packs/review-kit requires. Nothing was installed. (not_found) Effects
      were restored.
- ·   @acme/…/incident-review       2.0.0     not tried
+ ·   @ac…/skills/incident-review   2.0.0     not tried
      the operation stopped before this extension
  ·   @acme/knowledge/runbooks      5.2.0     not tried
      the operation stopped before this extension

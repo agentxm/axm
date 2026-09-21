@@ -21,6 +21,7 @@ import {
   type LifecycleRegistry,
 } from "../testing.js";
 import { previewUninstall, uninstallRequest } from "./test-helpers.js";
+import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";
 
 export const specification = defineSpecification({
   requirement: "cli/uninstall/preview-is-pure",
@@ -240,7 +241,11 @@ describe("Uninstall preview purity", () => {
               expect(resolution.units).toEqual([]);
             } else {
               expect(deriveOperationOutcome(resolution)).toBe("previewed");
-              expect(resolution.units).toMatchObject([{ label: absent.selector, state: "ready" }]);
+              // Every row of one ledger names its unit in the same form, so
+              // the label states the type the selector left implicit.
+              expect(resolution.units).toMatchObject([
+                { label: `${toExtensionTypePlural(type)}/${absent.selector}`, state: "ready" },
+              ]);
               // A unit with no artifact declares no target to withdraw.
               expect(resolution.units.map((unit) => unit.artifact)).toEqual([undefined]);
             }

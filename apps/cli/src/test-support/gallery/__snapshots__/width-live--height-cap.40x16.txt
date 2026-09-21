@@ -1,14 +1,14 @@
 Publishing as @acme
 
-     Extension     Version   Status
- ◒   @acme…gelog   0.3.0     applying
-     40 KB / 96 KB
- ◒   @acme…notes   1.1.0     applying
-     12 KB / 30 KB
- +   @acm…/retro   0.2.0     publish
- +   @…/reviewer   0.9.0     publish
- +   @ac…/triage   0.5.1     publish
- +   @acme…eview   2.0.0     publish
- +   @a…/planner   0.1.4     publish
- ·   30 more waiting  3 done
-
+     Extension                 Status
+ ◒   @acme/skills/changelog    applying
+     Version  0.3.0 · Detail  40 KB / …
+ ◒   @acme/…/release-notes     applying
+     Version  1.1.0 · Detail  12 KB / …
+ +   @acme/skills/retro        publish
+     0.2.0
+ +   @ac…/subagents/reviewer   publish
+     0.9.0
+ +   @acme/skills/triage       publish
+     0.5.1
+ +   @acme/…/incident-review   publish

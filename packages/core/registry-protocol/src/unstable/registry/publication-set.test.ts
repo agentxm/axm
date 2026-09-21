@@ -177,6 +177,18 @@ describe("publication set contract", () => {
 
     expect(validatePublicationSetResponse(descriptors, response)).toEqual(response);
     expect(() =>
+      validatePublicationSetResponse(descriptors, {
+        ...response,
+        candidates: [
+          {
+            ...response.candidates[0],
+            // A digest for a different descriptor cannot be rebound to this target.
+            descriptorDigest: publicationDescriptorDigest(pack),
+          },
+        ],
+      }),
+    ).toThrow("incompatible candidate");
+    expect(() =>
       validatePublicationSetResponse(descriptors, { ...response, candidates: [] }),
     ).toThrow("every candidate");
     expect(() =>

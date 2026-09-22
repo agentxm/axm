@@ -30,18 +30,19 @@ describe("terminal display width", () => {
   describe("shortening a name in the middle", () => {
     const name = "@acme-enterprise/skills/audits/soc2-review";
 
-    it("drops whole middle segments, keeping the scope and the last one", () => {
-      expect(truncateDisplay(name, 30, "middle")).toBe("@acme-enterprise/…/soc2-review");
+    it("shortens the scope and keeps every segment after it", () => {
+      expect(truncateDisplay(name, 40, "middle")).toBe("@acme-enterpr…/skills/audits/soc2-review");
+      expect(truncateDisplay(name, 30, "middle")).toBe("@ac…/skills/audits/soc2-review");
     });
 
-    it("keeps as many trailing segments as the width allows", () => {
-      expect(truncateDisplay(name, 40, "middle")).toBe("@acme-enterprise/…/audits/soc2-review");
-    });
-
-    it("keeps the last segment whole once the scope no longer fits", () => {
+    it("keeps the type segment, which is what tells two names apart", () => {
       expect(truncateDisplay("@acme-enterprise/skills/soc2-evidence-review", 35, "middle")).toBe(
-        "@acme-enterpr…/soc2-evidence-review",
+        "@acme-…/skills/soc2-evidence-review",
       );
+    });
+
+    it("gives what is left to the last segment once no scope worth keeping fits", () => {
+      expect(truncateDisplay(name, 27, "middle")).toBe("@acme-enterpri…/soc2-review");
     });
 
     it("leaves a name that fits untouched", () => {

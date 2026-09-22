@@ -1,0 +1,14 @@
+Updating  in this project · agents: cl…
+
+     Extension                   Status
+ ✖   @acme/…/agent-engineering   failed
+     0.9.4
+     The registry did not answer withi…
+ ·   @acm…/product-engineering   update
+     2.3.0
+ ·   @acme/packs/field-notes     update
+     1.0.0
+ ·   @acm…/knowledge/effect-v4   update
+     0.4.2
+ ·   @acme/…/work-management     update
+     0.3.1

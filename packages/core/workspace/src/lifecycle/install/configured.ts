@@ -92,6 +92,7 @@ import {
   type ResolveInstallRequirements,
 } from "./vocabulary.js";
 import { findGitReinstallRefs, pinGitReinstallRef } from "./git-reinstall.js";
+import { nameFromLabel } from "../../reconciliation/index.js";
 
 /** Which extension types a configured-entry sweep covers. */
 export type ConfiguredInstallableType = InstallableExtensionType;
@@ -149,7 +150,7 @@ const configuredAgentOperationsFrom = (
   for (const { type, collection } of collections) {
     for (const fragment of collection.fragments) {
       if (fragment.key.startsWith("not-applicable:")) continue;
-      const name = fragment.step.label.replace(/^(?:Install|Reinstall|Skip|Update)\s+/u, "");
+      const name = nameFromLabel(fragment.step.label);
       operations.set(`${type}:${name}`, { extensionType: type, name, plannedState: "enabled" });
     }
   }

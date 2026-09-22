@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   requirement: "cli/long-running-operations-emit-lifecycle-events",
   title: "A plan-family operation publishes its lifecycle as typed events",
   statement:
-    "A plan-family operation shall publish an operation-started event, a phase-started event for each phase it enters, a unit-started and a unit-resolved event for every unit it attempts, and exactly one settled event whose outcome equals the outcome of its result document.",
+    "A plan-family operation shall publish an operation-started event, a phase-started event for each phase it enters, a unit-started and a unit-resolved event for every unit it attempts, and exactly one settled event whose outcome equals the outcome of its result document; a unit it resolves as failed shall state on that event the category and detail its producer settled with, and a unit that settled as planned shall state none.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -34,11 +34,23 @@ export const specification = defineSpecification({
   supersedes: [],
   assumptions: [],
   openQuestions: [],
+  limitations: [
+    {
+      limitation:
+        "The redaction example drives the shared credential-shape redaction the producer applies. Exact secret values harvested at a structured error boundary are redacted by the CLI envelope, which `cli/errors-do-not-disclose-credentials` owns.",
+      retirementCondition:
+        "Bind envelope evidence here if a producer is ever given the boundary's harvested secrets.",
+    },
+  ],
 });
 
 const makePlan = (args: {
   readonly name: string;
-  readonly units: ReadonlyArray<{ readonly label: string; readonly fails?: boolean }>;
+  readonly units: ReadonlyArray<{
+    readonly label: string;
+    readonly fails?: boolean;
+    readonly detail?: string;
+  }>;
 }): Plan => ({
   _tag: "Plan",
   name: args.name,
@@ -55,8 +67,11 @@ const makePlan = (args: {
           unit.fails === true
             ? Effect.succeed({
                 result: "error" as const,
-                message: `${unit.label} failed`,
-                error: new StepFailure({ category: "internal", detail: `${unit.label} failed` }),
+                message: unit.detail ?? `${unit.label} failed`,
+                error: new StepFailure({
+                  category: "internal",
+                  detail: unit.detail ?? `${unit.label} failed`,
+                }),
               })
             : Effect.succeed({ result: "success" as const, message: `${unit.label} applied` }),
       })),
@@ -133,6 +148,52 @@ describe("A plan-family operation's lifecycle", () => {
         deriveOperationOutcome(resolution),
       );
       expect(deriveOperationOutcome(resolution)).toBe("applied");
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("states why a unit failed on the event that resolves it", () =>
+    Effect.gen(function* () {
+      const workspace = yield* makeSpecWorkspace("axm-lifecycle-failure-");
+      const { events } = yield* observe(
+        makePlan({
+          name: "Install extensions",
+          units: [{ label: "review" }, { label: "deploy", fails: true }],
+        }),
+        workspace.workspaceDir,
+        "apply",
+      );
+
+      const resolved = events.flatMap((event) => (event._tag === "UnitResolved" ? [event] : []));
+      const failed = resolved.find((event) => event.state === "failed");
+      expect(failed?.failure).toEqual({ category: "internal", detail: "deploy failed" });
+      // A unit that settled as planned has nothing to say about failing.
+      for (const event of resolved.filter((candidate) => candidate.state === "committed")) {
+        expect(event.failure).toBeUndefined();
+      }
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("redacts a credential out of the detail it publishes", () =>
+    Effect.gen(function* () {
+      const workspace = yield* makeSpecWorkspace("axm-lifecycle-redaction-");
+      const secret = "axm_pat_notarealtokenvalue000000";
+      const { events } = yield* observe(
+        makePlan({
+          name: "Install extensions",
+          units: [
+            { label: "deploy", fails: true, detail: `The registry refused Bearer ${secret}.` },
+          ],
+        }),
+        workspace.workspaceDir,
+        "apply",
+      );
+
+      const failed = events.find(
+        (event) => event._tag === "UnitResolved" && event.state === "failed",
+      );
+      const detail = failed?._tag === "UnitResolved" ? (failed.failure?.detail ?? "") : "";
+      expect(detail.length).toBeGreaterThan(0);
+      expect(detail).not.toContain(secret);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 

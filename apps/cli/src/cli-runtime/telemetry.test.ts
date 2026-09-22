@@ -3,6 +3,8 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
+import { makeOperationLifecycle } from "@agentxm/workspace/transitions/planning";
+
 import { makeAppError } from "../app-error/index.js";
 import { QuestionCancelled } from "../screen/ask/question-cancelled.js";
 import { TelemetryClient, type TelemetryClientService } from "../telemetry/index.js";
@@ -17,6 +19,7 @@ import {
   ProductActivityLive,
   setCommandSemanticProperties,
   getCommandSemanticProperties,
+  observeLifecycleForTelemetry,
   startProductActivity,
 } from "./telemetry.js";
 
@@ -368,6 +371,44 @@ describe("purposeful product lifecycle", () => {
       expect(capture.events[1]?.properties?.["product.value_completed"]).toBe(true);
       expect(capture.events[1]?.properties?.["product.activation_completed"]).toBe(false);
     }),
+  );
+});
+
+describe("lifecycle observation", () => {
+  it.effect("records counts and keeps a producer's failure text out of them", () =>
+    Effect.gen(function* () {
+      const failureDetail = "SYNTHETIC_FAILURE_DETAIL_81";
+      yield* Effect.scoped(
+        Effect.gen(function* () {
+          const lifecycle = yield* makeOperationLifecycle({ name: "Updating", mode: "apply" });
+          yield* observeLifecycleForTelemetry(lifecycle);
+          yield* lifecycle.publish((seq, atMs) => ({
+            _tag: "OperationStarted",
+            seq,
+            atMs,
+            operationId: lifecycle.operationId,
+            name: "Updating",
+            mode: "apply",
+          }));
+          yield* lifecycle.publish((seq, atMs) => ({
+            _tag: "UnitResolved",
+            seq,
+            atMs,
+            unitId: "skill:review",
+            label: "review",
+            state: "failed",
+            index: 0,
+            failure: { category: "auth", detail: `The registry refused ${failureDetail}.` },
+          }));
+          yield* lifecycle.settle("failed");
+          yield* lifecycle.drained.await;
+        }),
+      );
+      // The observer folds the stream into counts; the sentence a producer
+      // settled a unit with is not one of them.
+      const properties = yield* getCommandSemanticProperties;
+      expect(JSON.stringify(properties)).not.toContain(failureDetail);
+    }).pipe(Effect.provide(CommandSemanticPropertiesLive)),
   );
 });
 

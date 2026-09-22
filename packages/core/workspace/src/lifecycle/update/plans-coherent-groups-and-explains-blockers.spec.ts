@@ -219,13 +219,15 @@ describe("A workspace update plans coherent groups", () => {
 
           for (const resolution of [previewed, applied]) {
             const blocked = resolution.units.filter((unit) => unit.state === "blocked");
-            expect(blocked.map((unit) => unit.label)).toContain("alpha-pack");
+            // One label policy for every planner: a blocked row states its
+            // owner and type like every other row of the same ledger.
+            expect(blocked.map((unit) => unit.label)).toContain("@acme/packs/alpha-pack");
             // A machine consumer reads the class of blocker without parsing prose.
             expect(blocked.map((unit) => unit.blocking?.reference)).toContain(
               "pack-constraint-conflict",
             );
             const reason = blocked.map((unit) => unit.message ?? "").join(" ");
-            expect(reason).toContain("prevented=alpha-pack");
+            expect(reason).toContain("prevented=@acme/packs/alpha-pack");
             expect(reason).toContain("^1.0.0");
             expect(reason).toContain("^2.0.0");
           }

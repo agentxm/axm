@@ -118,10 +118,35 @@ export const extensionRefRegistryLifecycle = (ref: ExtensionRef) => {
 /**
  * Produce a display label from an ExtensionTarget.
  *
- * Pack targets render as `owner/name`; others render as `name`.
+ * One policy, for every planner: the qualified identity `owner/type/name`
+ * where the owner is known, and `type/name` where it is not. A ledger that
+ * mixes `code-review` with `@acme/packs/review-kit` asks a reader to work out
+ * what each row is, and shortening a name in the middle takes the type
+ * segment first — the one part that tells `@acme/skills/docs` from
+ * `@acme/knowledge/docs` — so every row states its type.
  */
+export const toTypedLabel = (type: ExtensionTarget["type"], name: string): string =>
+  `${toExtensionTypePlural(type)}/${name}`;
+
 export const toLabel = (target: ExtensionTarget): string =>
-  target.type === "pack" ? `${target.owner}/${target.name}` : target.name;
+  target.type === "pack"
+    ? `${target.owner}/${toTypedLabel(target.type, target.name)}`
+    : toTypedLabel(target.type, target.name);
+
+/**
+ * The extension name inside a display label. A label states its extension's
+ * type so one ledger reads in one form; anything that has to match a
+ * configured entry, a prepared artifact, or an agent projection needs the name
+ * the workspace keys by, and takes it from here rather than reading the label
+ * as if it were one.
+ */
+export const nameFromLabel = (label: string): string => {
+  const [name] = label
+    .replace(/^(?:Install|Reinstall|Skip|Update)\s+/u, "")
+    .split("/")
+    .slice(-1);
+  return name === undefined || name.length === 0 ? label : name;
+};
 
 /**
  * Produce a stable step identity key from an ExtensionTarget.

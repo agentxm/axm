@@ -347,9 +347,10 @@ requirements.
 
 ## Field note subjects
 
-| Subject    | Mode   | Scope                                                                            | Target condition | Retire when                      |
-| ---------- | ------ | -------------------------------------------------------------------------------- | ---------------- | -------------------------------- |
-| axm-agents | survey | any session running `axm agents` or projecting extensions into configured agents | —                | a target condition can be stated |
+| Subject    | Mode   | Scope                                                                                                                                  | Target condition | Retire when                      |
+| ---------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | -------------------------------- |
+| axm-agents | survey | any session running `axm agents` or projecting extensions into configured agents                                                       | —                | a target condition can be stated |
+| axm-output | survey | any session reading AXM human output: a value a terminal lost, a reason a result did not give, a recovery that did not fit the outcome | —                | a target condition can be stated |
 
 <!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery gen=3607e62077344852ba953853814c3757fcf472c43b433038e8993e3958c1922d -->
 

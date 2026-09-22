@@ -9,8 +9,8 @@
      Owner          @legacy
      Latest         0.3.0
      Versions       0.3.0, 0.2.0, 0.1.0
-     Replacement
-       @acme/skills/release-notes
+     Replacement    @acme/skills/
+                    release-notes
 
 Next
      axm skills install @acme/skills/release-notes

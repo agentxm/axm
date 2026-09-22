@@ -20,11 +20,12 @@ import {
 } from "@agentxm/workspace/transitions/planning";
 
 import { extensionLifecycleFailedToAppError } from "../../../feature-errors.js";
-import { emitOperationResolution } from "../../../operation-output.js";
+import { emitOperationResolution, retryCanHelp } from "../../../operation-output.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import { withOperationLifecycle } from "../../../operation-lifecycle.js";
 import { LIST_INSTALLED_SKILLS } from "../../suggested-actions.js";
+import { nameFromLabel } from "@agentxm/workspace/reconciliation";
 
 const COMMAND = "skills.update";
 
@@ -99,6 +100,24 @@ const handleUpdateBody = Effect.fn("Update.handle")(function* (args: UpdateHandl
   );
   const resolution = yield* SelectiveUpdate.previewOrApply(candidate, execution);
   yield* emitOperationResolution(COMMAND, resolution, {
-    suggestions: [LIST_INSTALLED_SKILLS],
+    // The route is safe to repeat: a skill that settled is a no-op on a
+    // rerun, so the same command narrowed to the names still waiting is what
+    // recovers them.
+    suggestions: ({ unsettled }) =>
+      unsettled.length === 0 || !retryCanHelp(unsettled)
+        ? [LIST_INSTALLED_SKILLS]
+        : [
+            {
+              description:
+                unsettled.length === 1
+                  ? "Try the skill that did not update again"
+                  : "Try the skills that did not update again",
+              cmd: [
+                "axm skills update",
+                ...unsettled.map((unit) => `--name ${nameFromLabel(unit.label)}`),
+              ].join(" "),
+            },
+            LIST_INSTALLED_SKILLS,
+          ],
   });
 });

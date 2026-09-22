@@ -68,6 +68,7 @@ import {
   selectiveUpdatePlanName,
   type SelectiveUpdateCandidate,
 } from "./vocabulary.js";
+import { nameFromLabel } from "../../../reconciliation/index.js";
 
 const PLAN_NAME = selectiveUpdatePlanName("subagent");
 const PLAN_DESCRIPTION = "Update installed subagents";
@@ -468,9 +469,7 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
       ...new Set(
         request.nameFilters.length > 0
           ? request.nameFilters
-          : plan.jobs.flatMap((job) =>
-              job.steps.map((step) => step.label.replace(/^(?:Skip|Update)\s+/u, "")),
-            ),
+          : plan.jobs.flatMap((job) => job.steps.map((step) => nameFromLabel(step.label))),
       ),
     ].map((name) => ({ extensionType: "subagent", name, plannedState: "enabled" as const }));
 

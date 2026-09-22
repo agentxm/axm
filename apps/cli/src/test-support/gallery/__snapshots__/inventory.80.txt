@@ -1,8 +1,12 @@
-     Name                         State                       Activation
-     @craigsmitham/effect-v4      managed by this workspace   enabled
-     @craigsmitham/field-notes    managed by this workspace   enabled
-     @agentxm/knowledge/agentxm   managed by this workspace   disabled
-     local-notes                  outside AXM                 not applicable
-     Not shown at this width: Type, Agents, Agent outcomes
+     Name               State              Activation       Agents
+     @craigsmitham/     managed by this    enabled          claude-code, codex,
+     effect-v4          workspace                           cursor, gemini-cli
+     @craigsmitham/     managed by this    enabled          claude-code, codex
+     field-notes        workspace
+     @agentxm/          managed by this    disabled         none
+     knowledge/         workspace
+     agentxm
+     local-notes        outside AXM        not applicable   none
+     Not shown at this width: Type, Agent outcomes
 
 4 skills: 3 managed by this workspace, 3 installed, 1 found outside AXM

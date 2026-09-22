@@ -1368,6 +1368,31 @@ export const planPackInstall: (
             ...droppedTargets.map(({ target }) => target.type),
           ]),
         });
+  // The pack's own row reads this closure's artifact, so it carries the same
+  // version facts a member's artifact does: a pack that commits showed `-`
+  // where every leaf showed what it moved to.
+  const packRef = refs.find((ref) => ref.type === "pack");
+  const packVersion =
+    packRef?.refType === "registry" || packRef?.refType === "workspace"
+      ? packRef.version
+      : undefined;
+  const acceptedPackRef = yield* acceptedLockedResolutionRef({
+    type: "pack",
+    name: intent.packToInstall.pack.name,
+  }).pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "internal",
+        detail: `The accepted source for Pack ${packIdentity} could not be reconstructed`,
+        cause,
+      }),
+    ),
+  );
+  const previousPackVersion = Option.match(acceptedPackRef, {
+    onNone: () => undefined,
+    onSome: (ref) =>
+      ref.refType === "registry" || ref.refType === "workspace" ? ref.version : undefined,
+  });
   const graphStep = yield* buildReconciliationClosure({
     toStepFailure: lifecycleStepFailure,
     label: packIdentity,
@@ -1378,6 +1403,10 @@ export const planPackInstall: (
       change: "updated",
       fileCount: refs.length + droppedTargets.length,
       targets: artifactTargets,
+      ...(packVersion === undefined ? {} : { version: packVersion }),
+      ...(previousPackVersion === undefined || previousPackVersion === packVersion
+        ? {}
+        : { previousVersion: previousPackVersion }),
     },
     children: [
       ...installSteps.map((step, index) => ({

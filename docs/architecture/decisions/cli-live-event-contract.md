@@ -228,6 +228,27 @@ The live row names the retry in place of its measurement, because a restarted
 attempt counts the same bytes again and the attempt is what explains the wait.
 `cli/retried-work-names-the-attempt-in-flight` owns that obligation.
 
+## Amendment: a resolved unit states why it failed
+
+`UnitResolved` carries an optional `failure` of `{ category, detail }`: the
+category its producer chose from the plan vocabulary and the detail sentence it
+settled with. It is present only where the unit's state is `failed` or
+`blocked`, and absent from every unit that settled as planned.
+
+The producer states it because only the producer knows why. Plan execution sets
+it from the step's own `StepFailure`; the unit observer sets it from a failing
+exit whose cause carries one, and omits it for a defect, which is an invariant
+violation with no producer sentence to report. The detail is redacted before it
+is published, the same way every other reported failure text is.
+
+This is the one fact on the stream that is a sentence rather than an
+identifier, and it stays a fact: it is the producer's own detail, not a phrase
+chosen for a terminal, and each consumer words its row its own way. The live
+frame reads it so a failed row can say why while the operation is still
+running, instead of a reader waiting for the result document to learn what
+happened three units ago. Telemetry keeps counting events and never carries the
+text.
+
 ## Supersession and reconsideration
 
 Reconsider the unbounded broadcast if a producer cannot keep its event count

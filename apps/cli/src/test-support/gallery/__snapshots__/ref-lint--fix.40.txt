@@ -3,12 +3,13 @@ Fixing  in this project
      Finding        Location       Fix
  ~   Lockfi…stale   axm-lock.yam   fixed
                     l
- ✖   Descri…ssing   skills/triag
-                    e/SKILL.md
+ ✖   Descri…ssing   skills/
+                    triage/
+                    SKILL.md
      skill/description-present — Agents
      choose skills by description
- ▲   Member…loats   packs/review
-                    -kit
+ ▲   Member…loats   packs/
+                    review-kit
      pack/member-pinned — Pin
      @acme/skills/triage for repeatable
      installs

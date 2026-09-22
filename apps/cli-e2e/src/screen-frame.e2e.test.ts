@@ -27,7 +27,7 @@ describe("interactive screen frame", () => {
     );
     // Progress lives in the live ledger, which carries the operation's counts
     // beneath its rows.
-    expect(result.stderr).toContain("Frame task 1 of 1 in ");
+    expect(result.stderr).toContain("Frame task 1 of 1 done in ");
     expect(result.stderr.slice(-HANDBACK.length)).toBe(HANDBACK);
   });
 

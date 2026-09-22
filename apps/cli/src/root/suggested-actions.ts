@@ -5,6 +5,11 @@ export const SET_UP_AXM_WORKSPACE = {
   cmd: "axm setup",
 } as const satisfies SuggestedAction;
 
+export const INSPECT_INSTALLED = {
+  description: "Inspect installed extensions",
+  cmd: "axm list",
+} as const satisfies SuggestedAction;
+
 export const LIST_INSTALLED_SKILLS = {
   description: "List installed skills",
   cmd: "axm skills list",

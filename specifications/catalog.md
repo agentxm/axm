@@ -5302,6 +5302,20 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `docs/architecture/workspace/execution.md`
 - Source: [`apps/cli-e2e/src/acquires-content-before-workspace-transition.spec.ts`](../apps/cli-e2e/src/acquires-content-before-workspace-transition.spec.ts)
 
+##### Extension directory copies have finite byte and entry limits
+
+- Requirement: `workspace/extension-directory-copy-is-bounded`
+- Owner: `workspace`
+- Statement: AXM shall reject an extension directory that exceeds finite byte or entry limits before writing its target tree and stream admitted content with bounded filesystem work.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: A temporary source and destination make the copied bytes, entry count, typed refusal, and absence of target writes directly observable.
+- Methods: boundary-value, example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`packages/core/workspace/src/acquisition/extension-directory-copy-is-bounded.spec.ts`](../packages/core/workspace/src/acquisition/extension-directory-copy-is-bounded.spec.ts)
+
 #### Quality
 
 ##### Local Registry storage failures remain failures

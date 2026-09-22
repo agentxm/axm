@@ -46,7 +46,10 @@ import { GitDirectoryComparison } from "./git/directory-comparison.js";
 import { compareDirectoryToHead } from "./git/operations.js";
 import { findGitRoot } from "./git/detect.js";
 import { AcquiredContent, sourceRefContentKey } from "../../acquisition/acquired-content.js";
-import { copyExtensionDirectory } from "../../acquisition/copy-directory.js";
+import {
+  DirectoryCopyLimitExceeded,
+  copyExtensionDirectory,
+} from "../../acquisition/copy-directory.js";
 
 // -----------------------------------------------------------------------------
 // Layer
@@ -192,12 +195,17 @@ export const SourceHostProvidersLive: Layer.Layer<
           );
           yield* copyExtensionDirectory(files.directory, directory).pipe(
             Effect.provide(depLayer),
-            Effect.mapError(
-              (cause) =>
-                new SourceNetworkFailure({
-                  detail: "Path-source content could not be captured",
-                  cause,
-                }),
+            Effect.mapError((cause) =>
+              cause instanceof DirectoryCopyLimitExceeded
+                ? new SourceNotResolvable({
+                    category: "validation",
+                    detail: `Path-source content exceeds the ${cause.limit} ${cause.resource} copy limit`,
+                    cause,
+                  })
+                : new SourceNetworkFailure({
+                    detail: "Path-source content could not be captured",
+                    cause,
+                  }),
             ),
           );
           return { directory };

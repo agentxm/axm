@@ -247,19 +247,32 @@ export const shallowClone = (url: string, destination: string, ref?: string) =>
 
 /** Initialize a shallow checkout at one immutable, remote-reachable commit. */
 export const shallowFetchCommit = (url: string, destination: string, commit: string) =>
-  withGitRequestPermit(
-    url,
-    Effect.tryPromise({
+  Effect.gen(function* () {
+    const mapError = mapGitError(
+      "fetch-commit",
+      `Failed to fetch recorded commit ${commit} from ${url}`,
+    );
+    yield* Effect.tryPromise({
       try: async (signal) => {
         const git = createGit(destination, signal);
         await git.init();
         await git.addRemote("origin", url);
-        await git.raw(["fetch", "--depth", "1", "origin", commit]);
-        await git.raw(["checkout", "--detach", "FETCH_HEAD"]);
       },
-      catch: mapGitError("fetch-commit", `Failed to fetch recorded commit ${commit} from ${url}`),
-    }).pipe(withGitOperationDeadline("fetch-commit")),
-  ).pipe(Effect.withSpan("Git.shallowFetchCommit"));
+      catch: mapError,
+    });
+    yield* withGitRequestPermit(
+      url,
+      Effect.tryPromise({
+        try: (signal) =>
+          createGit(destination, signal).raw(["fetch", "--depth", "1", "origin", commit]),
+        catch: mapError,
+      }),
+    );
+    yield* Effect.tryPromise({
+      try: (signal) => createGit(destination, signal).raw(["checkout", "--detach", "FETCH_HEAD"]),
+      catch: mapError,
+    });
+  }).pipe(withGitOperationDeadline("fetch-commit"), Effect.withSpan("Git.shallowFetchCommit"));
 
 /** Remote branch and tag names advertised by a Git repository. */
 export interface GitRemoteRefs {

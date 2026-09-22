@@ -5292,15 +5292,14 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 
 - Requirement: `cli/acquires-content-before-workspace-transition`
 - Owner: `cli-e2e`
-- Statement: For an install or configured sync, AXM shall acquire remote package content before holding the workspace transition, so no Registry archive request occurs while that transition is held.
+- Statement: For an install or configured sync, AXM shall acquire remote package content before holding the workspace transition, so no Registry archive or Git fetch request occurs while that transition is held.
 - Class: functional
 - Role: supporting
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
 - Boundary: process; selection: per-change
-- Boundary rationale: The real CLI process and HTTP transport make both the archive request and on-disk workspace lock observable at the same instant.
+- Boundary rationale: The real CLI process and controlled Registry and Git transports make each remote request and the on-disk workspace lock observable at the same instant.
 - Methods: example
 - Derived from: `docs/architecture/workspace/execution.md`
-- Limitation: The fixture covers Registry archives; Git transport is verified separately. Retires when: A Git process fixture observes network activity against the workspace transition.
 - Source: [`apps/cli-e2e/src/acquires-content-before-workspace-transition.spec.ts`](../apps/cli-e2e/src/acquires-content-before-workspace-transition.spec.ts)
 
 #### Quality

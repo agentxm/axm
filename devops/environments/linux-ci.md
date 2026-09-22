@@ -24,6 +24,8 @@ The PR lane restores pnpm and Nx caches into job-local directories. Nx cache
 keys include the toolchain, lockfile and source revision; restored results remain
 subject to Nx provenance checks. Dependency caches are not test evidence.
 E2E leaves remain fresh even when their build prerequisites are cached.
+The shared mise action also restores the main toolchain cache in proposed-change
+jobs; only runs on `main` save a new copy.
 
 Main workspace verification runs alongside the existing E2E partitions.
 Parallelism inside each machine remains bounded by its resources; more jobs

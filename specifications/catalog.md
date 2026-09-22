@@ -4970,6 +4970,18 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Methods: contract, example
 - Source: [`packages/core/registry-protocol/src/unstable/registry/publication-set-digests-follow-versioned-vectors.spec.ts`](../packages/core/registry-protocol/src/unstable/registry/publication-set-digests-follow-versioned-vectors.spec.ts)
 
+##### Resolution metadata keeps batch evidence complete and attributable
+
+- Requirement: `registry/resolution-metadata-preserves-batch-evidence`
+- Owner: `registry-protocol`
+- Statement: A Registry batch metadata exchange shall use one unique caller key per bounded request item and one ordered outcome per key, shall distinguish complete metadata from a page requiring continuation, and shall reject a continued page whose revision differs from the request so AXM cannot select from incomplete or mixed evidence.
+- Class: constraint
+- Role: interface
+- Product goals: `trustworthy-distribution`, `dependable-change-process`
+- Boundary: memory; selection: per-change
+- Methods: contract, example
+- Source: [`packages/core/registry-protocol/src/unstable/registry/resolution-metadata-preserves-batch-evidence.spec.ts`](../packages/core/registry-protocol/src/unstable/registry/resolution-metadata-preserves-batch-evidence.spec.ts)
+
 #### External conformance
 
 ##### Publishing is a write the publisher makes as themselves

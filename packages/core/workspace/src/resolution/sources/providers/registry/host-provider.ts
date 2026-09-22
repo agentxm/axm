@@ -63,6 +63,7 @@ import type {
   RegistrySourceHost,
 } from "@agentxm/extension-model/unstable/sources/types";
 import type { ExtensionIndex, VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
+import { makeThrottledUnitProgress } from "../../../../transitions/planning/plan/operation-events.js";
 type RegistryProviderRequirements =
   | FileSystem.FileSystem
   | Path.Path
@@ -628,9 +629,16 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
     const { owner, version, integrity: expectedIntegrity } = ref;
     const type = refRegistryType(ref);
     const name = refName(ref);
+    const reportProgress = yield* makeThrottledUnitProgress({ unit: "bytes" });
 
     const packageArgs: GetExtensionPackageArgs = Option.match(expectedIntegrity, {
-      onNone: () => ({ owner, type, name, version: Option.some(version) }),
+      onNone: () => ({
+        owner,
+        type,
+        name,
+        version: Option.some(version),
+        onProgress: (progress) => reportProgress(progress.done, progress.total, progress.attempt),
+      }),
       onSome: (integrity) => ({
         owner,
         type,
@@ -643,6 +651,7 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
             ? {}
             : { lifecycleWarnings: ref.lifecycleWarnings }),
         },
+        onProgress: (progress) => reportProgress(progress.done, progress.total, progress.attempt),
       }),
     });
     const { archive: archiveBytes, warnings } = yield* client.getExtensionPackage(packageArgs);

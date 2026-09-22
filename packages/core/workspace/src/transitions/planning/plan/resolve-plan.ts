@@ -57,6 +57,8 @@ import {
   recordOperationJournal,
 } from "./operation-journal.js";
 import { redactRegistryText } from "@agentxm/registry-client";
+import { AcquiredContent, registryRefContentKey } from "../../../acquisition/acquired-content.js";
+import { SourceHostProviders } from "../../../resolution/sources/service.js";
 
 import {
   CurrentOperationUnit,
@@ -592,6 +594,7 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
       }
     }
     yield* enterPhase("apply");
+    const acquired = yield* Effect.serviceOption(AcquiredContent);
     // Each unit is one semantic closure: its run executes under its closure
     // identity so the transaction attributes every snapshot to it, and its
     // settlement (below) either commits or rolls back exactly that closure.
@@ -599,16 +602,23 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
       ...candidate.plan,
       jobs: candidate.plan.jobs.map((job) => ({
         ...job,
-        steps: job.steps.map((step) =>
-          step.readiness === "error"
-            ? step
-            : {
-                ...step,
-                run: withWorkspaceClosure(unitIdOf(step))(step.run).pipe(
-                  Effect.provideService(CurrentOperationUnit, { unitId: unitIdOf(step) }),
-                ),
-              },
-        ),
+        steps: job.steps.map((step) => {
+          if (step.readiness === "error") return step;
+          const binding = step.sourceBinding;
+          const acquisitionFailure =
+            Option.isSome(acquired) && binding !== undefined
+              ? [binding.ref, ...(binding.members ?? [])]
+                  .filter((ref) => ref.refType === "registry")
+                  .map((ref) => acquired.value.registryFailures.get(registryRefContentKey(ref)))
+                  .find((failure) => failure !== undefined)
+              : undefined;
+          return {
+            ...step,
+            run: withWorkspaceClosure(unitIdOf(step))(
+              acquisitionFailure === undefined ? step.run : Effect.fail(acquisitionFailure),
+            ).pipe(Effect.provideService(CurrentOperationUnit, { unitId: unitIdOf(step) })),
+          };
+        }),
       })),
     };
     return yield* applyPlan(closureScopedPlan, {
@@ -849,6 +859,64 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
   const transitionSubject = "workspace-transition";
   const applyResult = yield* Effect.scoped(
     Effect.gen(function* () {
+      const registryRefs = candidatePlan.jobs.flatMap((job) =>
+        job.steps.flatMap((step) =>
+          step.sourceBinding === undefined
+            ? []
+            : [step.sourceBinding.ref, ...(step.sourceBinding.members ?? [])].filter(
+                (ref) => ref.refType === "registry",
+              ),
+        ),
+      );
+      const uniqueRegistryRefs = registryRefs.filter(
+        (ref, index) =>
+          registryRefs.findIndex(
+            (candidateRef) => registryRefContentKey(candidateRef) === registryRefContentKey(ref),
+          ) === index,
+      );
+      const sources = yield* Effect.serviceOption(SourceHostProviders);
+      const acquiredResults = Option.isSome(sources)
+        ? yield* Effect.forEach(uniqueRegistryRefs, (ref) => {
+            const key = registryRefContentKey(ref);
+            return observeUnit(
+              {
+                id: `registry-extract:${ref.owner}/${ref.type}/${ref.name}`,
+                label: `acquiring ${ref.name}`,
+              },
+              sources.value.fetch(ref),
+            ).pipe(
+              Effect.match({
+                onFailure: (cause) => ({
+                  ref,
+                  key,
+                  failure: new StepFailure({
+                    category: "network",
+                    detail: `Could not acquire ${ref.type} ${ref.name} before applying the workspace transition`,
+                    cause,
+                  }),
+                }),
+                onSuccess: (files) => ({ ref, key, files }),
+              }),
+            );
+          })
+        : [];
+      const acquiredContent = {
+        filesByRef: new Map(
+          acquiredResults.flatMap((result) =>
+            "files" in result ? [[result.ref, result.files] as const] : [],
+          ),
+        ),
+        registryFiles: new Map(
+          acquiredResults.flatMap((result) =>
+            "files" in result ? [[result.key, result.files] as const] : [],
+          ),
+        ),
+        registryFailures: new Map(
+          acquiredResults.flatMap((result) =>
+            "failure" in result ? [[result.key, result.failure] as const] : [],
+          ),
+        ),
+      };
       const waited = yield* Ref.make(false);
       const contention = yield* acquireWorkspaceTransition({
         command: applyExecution.approvalRecovery.command.join(" "),
@@ -873,7 +941,11 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
       if (Option.isSome(contention)) {
         return { type: "contention", contention: contention.value } as const;
       }
-      return yield* guardedApply.pipe(
+      return yield* (
+        Option.isSome(sources) && uniqueRegistryRefs.length > 0
+          ? guardedApply.pipe(Effect.provideService(AcquiredContent, acquiredContent))
+          : guardedApply
+      ).pipe(
         Effect.match({
           onFailure: (error) => ({ type: "failure", error }) as const,
           onSuccess: (value) => ({ type: "success", value }) as const,

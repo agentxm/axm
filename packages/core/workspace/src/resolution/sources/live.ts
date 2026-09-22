@@ -41,6 +41,7 @@ import { WorkspaceCatalog } from "./workspace-catalog.js";
 import { GitDirectoryComparison } from "./git/directory-comparison.js";
 import { compareDirectoryToHead } from "./git/operations.js";
 import { findGitRoot } from "./git/detect.js";
+import { AcquiredContent, registryRefContentKey } from "../../acquisition/acquired-content.js";
 
 // -----------------------------------------------------------------------------
 // Layer
@@ -168,7 +169,25 @@ export const SourceHostProvidersLive: Layer.Layer<
           ),
       fetch: (ref) => {
         const source = ref.source;
-        return fetchImpl(source, ref).pipe(Effect.withSpan("SourceHostProviders.fetch"));
+        return Effect.serviceOption(AcquiredContent).pipe(
+          Effect.flatMap((acquired) => {
+            if (Option.isNone(acquired)) return fetchImpl(source, ref);
+            const files =
+              acquired.value.filesByRef.get(ref) ??
+              (ref.refType === "registry"
+                ? acquired.value.registryFiles.get(registryRefContentKey(ref))
+                : undefined);
+            return files === undefined
+              ? Effect.fail(
+                  new SourceNotResolvable({
+                    category: "validation",
+                    detail: "The selected source was not acquired before the workspace transition",
+                  }),
+                )
+              : Effect.succeed(files);
+          }),
+          Effect.withSpan("SourceHostProviders.fetch"),
+        );
       },
       cloneUrl: buildCloneUrlFromSource,
       origin: getOriginFromSource,

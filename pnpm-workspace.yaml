@@ -4,6 +4,8 @@ packages:
   - tools/*
 
 verifyDepsBeforeRun: error
+# mise owns the pnpm version; keep the lockfile as one document for dependency graph readers.
+pmOnFail: ignore
 
 peerDependencyRules:
   allowedVersions:

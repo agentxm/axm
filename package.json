@@ -67,7 +67,7 @@
     ],
     "{!(.axm|agent_extensions)/**/,}*.{json,md,mdx,yml,yaml,css,scss,html}": "prettier --write"
   },
-  "packageManager": "pnpm@11.20.0",
+  "packageManager": "pnpm@12.5.1",
   "devDependencies": {
     "@agentxm/cli-maintenance": "workspace:^",
     "@agentxm/client-e2e-utils": "workspace:*",

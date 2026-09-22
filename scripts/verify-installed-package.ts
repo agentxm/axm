@@ -44,7 +44,7 @@ const execute = (executable: string, args: ReadonlyArray<string>, verify = false
       env,
       encoding: "utf8",
       shell: windows,
-      timeout: 180_000,
+      timeout: windows && manager === "npm" ? 360_000 : 180_000,
     },
   );
   if (result.error !== undefined || result.status !== 0)
@@ -56,6 +56,8 @@ const execute = (executable: string, args: ReadonlyArray<string>, verify = false
       `Installed ${manager} executable did not report exactly ${version} with empty stderr: ${JSON.stringify({ stdout: result.stdout, stderr: result.stderr })}`,
     );
 };
+const cleanup = () =>
+  rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 1_000 });
 try {
   const reference = `axm.sh@${version}`;
   if (manager === "npm") {
@@ -63,17 +65,10 @@ try {
   } else if (manager === "pnpm") {
     const bin = join(root, "bin");
     mkdirSync(bin);
-    env["PNPM_HOME"] = bin;
+    // pnpm 12 links global executables into PNPM_HOME/bin.
+    env["PNPM_HOME"] = root;
     env["PATH"] = `${bin}${delimiter}${env["PATH"] ?? ""}`;
-    execute("pnpm", [
-      "add",
-      "--global",
-      "--global-dir",
-      join(root, "global"),
-      "--global-bin-dir",
-      join(root, "bin"),
-      reference,
-    ]);
+    execute("pnpm", ["add", "--global", "--global-dir", join(root, "global"), reference]);
   } else {
     execute("corepack", [
       "yarn@1.22.22",
@@ -94,6 +89,12 @@ try {
   console.log(
     `Verified published ${reference} installed by ${manager} on ${process.platform}-${process.arch}.`,
   );
-} finally {
-  rmSync(root, { recursive: true, force: true });
+} catch (cause) {
+  try {
+    cleanup();
+  } catch (cleanupCause) {
+    console.error("Could not remove temporary package installation:", cleanupCause);
+  }
+  throw cause;
 }
+cleanup();

@@ -29,7 +29,6 @@ export const specification = defineSpecification({
   supersedes: [],
   assumptions: [],
   openQuestions: [
-    "The earlier public quiet description covered narration, tables, progress, and required actions as well as error detail; complete human-output suppression across commands needs separate allocation and evidence.",
     "What diagnostic selection is promised for failures before parsed command runtime initialization, including raw arguments after -- and parser failures?",
   ],
   limitations: [

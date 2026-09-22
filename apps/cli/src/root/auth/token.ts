@@ -24,6 +24,7 @@ import {
 import { HumanVerificationOptions, isNonInteractive, jsonFlag } from "../../cli-flags/index.js";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import {
+  emitResult,
   Screen,
   count,
   fieldsDoc,
@@ -343,61 +344,44 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
 export const handleListTokens = Effect.fn("AuthTokenList.handle")(
   function* () {
     const registry = yield* selectedRegistry;
-    const screen = yield* Screen;
 
     const result = yield* withLiveOperation(
       { command: "auth.token.list", name: "List registry tokens", mode: "preview" },
       listTokens(registry.url),
     );
 
-    if (
-      yield* screen.document(
-        {
-          items: result.tokens.map((item) => ({
-            id: item.id,
-            name: item.name,
-            type: item.type,
-            permissions: readTokenPermissions(item.permissions),
-            createdAt: item.createdAt,
-            expiresAt: item.expiresAt,
-            lastUsedAt: item.lastUsedAt,
-          })),
-          count: result.tokens.length,
-          hasMore: result.hasMore,
-          cursor: result.cursor,
-        },
-        TokenListDocumentSchema,
-      )
-    ) {
-      return;
-    }
-
-    if (result.tokens.length === 0) {
-      yield* screen.result(
-        inventoryDoc({
-          rows: [],
+    yield* emitResult(
+      {
+        items: result.tokens.map((item) => ({
+          id: item.id,
+          name: item.name,
+          type: item.type,
+          permissions: readTokenPermissions(item.permissions),
+          createdAt: item.createdAt,
+          expiresAt: item.expiresAt,
+          lastUsedAt: item.lastUsedAt,
+        })),
+        count: result.tokens.length,
+        hasMore: result.hasMore,
+        cursor: result.cursor,
+      },
+      TokenListDocumentSchema,
+      () => {
+        const rows = result.tokens.map((item) => ({
+          id: item.id,
+          name: item.name ?? "",
+          type: item.type,
+          canDo: describeTokenPermissions(readTokenPermissions(item.permissions)),
+          expiresAt: DateTime.formatIso(item.expiresAt),
+          lastUsedAt: item.lastUsedAt === null ? "never" : DateTime.formatIso(item.lastUsedAt),
+        }));
+        return inventoryDoc({
+          rows,
           columns: TokenListColumns,
+          summary: count(rows.length, "token"),
           empty: "No tokens found",
-        }),
-      );
-      return;
-    }
-
-    const rows = result.tokens.map((item) => ({
-      id: item.id,
-      name: item.name ?? "",
-      type: item.type,
-      canDo: describeTokenPermissions(readTokenPermissions(item.permissions)),
-      expiresAt: DateTime.formatIso(item.expiresAt),
-      lastUsedAt: item.lastUsedAt === null ? "never" : DateTime.formatIso(item.lastUsedAt),
-    }));
-    yield* screen.result(
-      inventoryDoc({
-        rows,
-        columns: TokenListColumns,
-        summary: count(rows.length, "token"),
-        empty: "No tokens found",
-      }),
+        });
+      },
     );
   },
   Effect.mapError(coerceAuthFailure),
@@ -407,32 +391,24 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(
 export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(
   function* (tokenId: string) {
     const registry = yield* selectedRegistry;
-    const screen = yield* Screen;
     yield* withLiveOperation(
       { command: "auth.token.revoke", name: `Revoke registry token ${tokenId}`, mode: "apply" },
       revokeToken(tokenId, registry.url),
     );
 
-    if (
-      yield* screen.document(
-        { result: { status: "revoked", tokenId } },
-        RevokeTokenDocumentSchema,
-        { suggestions: RevokeTokenSuggestions },
-      )
-    ) {
-      return;
-    }
-
-    // Revocation evicts the cached credential in the same command, so the
-    // bound a person needs is the next request, not a propagation window.
-    yield* screen.result([
-      {
-        _tag: "headline",
-        tone: "ok",
-        text: `Revoked token ${tokenId}. It is refused on its next request.`,
-      },
-      { _tag: "next", actions: RevokeTokenSuggestions },
-    ]);
+    yield* emitResult(
+      { result: { status: "revoked", tokenId } },
+      RevokeTokenDocumentSchema,
+      () => [
+        {
+          _tag: "headline",
+          tone: "ok",
+          text: `Revoked token ${tokenId}. It is refused on its next request.`,
+        },
+        { _tag: "next", actions: RevokeTokenSuggestions },
+      ],
+      { suggestions: RevokeTokenSuggestions },
+    );
   },
   Effect.mapError(coerceAuthFailure),
   Effect.asVoid,

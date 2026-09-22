@@ -16,8 +16,8 @@ export type Change =
 
 /**
  * A unit that has not settled: `working` is the running mark the live region
- * animates, and `waiting` a unit that has not started. Only a live ledger
- * carries one, because a settled document knows what happened.
+ * animates, and `waiting` a unit that has not started. Durable outcomes use
+ * their settled mark instead.
  */
 export type LiveMark = "working" | "waiting";
 

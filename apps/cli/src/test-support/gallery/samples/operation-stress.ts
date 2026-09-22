@@ -24,8 +24,6 @@ import {
   type ResolvedUnit,
 } from "@agentxm/workspace/transitions/planning";
 
-import type { LivePlan } from "../../../screen/live-ledger.js";
-
 export const updatePresentation: OperationPresentation = operationPresentation({
   imperative: "update",
   past: "Updated",
@@ -395,23 +393,6 @@ export const liveUpdateLog: ReadonlyArray<OperationEvent> = [
     resolved(unit, index, 5 + index * 3),
   ]),
 ];
-
-/** The plan the live update streams: the same rows its result ledger settles. */
-export const liveUpdatePlan: LivePlan = {
-  title: "Updating",
-  aside: [{ text: "in this project" }, { text: `agents: ${AGENTS.join(", ")}` }],
-  columns: [
-    { header: "Extension", role: "name" },
-    { header: "Version", role: "fixed", priority: "optional" },
-  ],
-  rows: liveUnits.map((unit) => ({
-    id: unitId(unit),
-    plannedMark: "update" as const,
-    plannedStatus: "update",
-    settledStatus: "updated",
-    cells: [unit.label, unit.artifact?.previousVersion ?? "-"],
-  })),
-};
 
 /** Events up to and including the unit at `index`, by the phase it reached. */
 export const liveUpdateThrough = (

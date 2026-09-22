@@ -3,7 +3,7 @@
  *
  * The view is pure; this is the only part that reads keys and moves the scene.
  * It prints the wait's brief to the transcript once, puts the countdown line
- * beneath the operation's ledger, and races the awaited effect against the
+ * in the active region, and races the awaited effect against the
  * keys: `o` reopens, `c` copies, `esc` and an interrupt stop the wait. Raw
  * mode belongs to `Terminal.readInput`, which restores it when this scope
  * closes.
@@ -11,6 +11,9 @@
 
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
+import * as Cause from "effect/Cause";
+import * as Option from "effect/Option";
 import type * as Scope from "effect/Scope";
 import type * as Terminal from "effect/Terminal";
 
@@ -40,8 +43,8 @@ const failedActionDoc = (action: "open" | "copy"): Doc => [
 
 /**
  * Carry one wait as a lifecycle fact for as long as it stands open. The
- * `Waiting` event names the unit the wait parks, so the live ledger paints
- * that row paused and every lossless observer sees the same pause. Every
+ * `Waiting` event names the unit the wait parks, so current activity and
+ * every lossless observer see the same pause. Every
  * screen pairs its waits this way, whatever it can show of them.
  */
 export const parkedOnWait = <A, E, R>(
@@ -53,6 +56,23 @@ export const parkedOnWait = <A, E, R>(
     subject: view.subject,
     detail: view.detail,
   }).pipe(Effect.andThen(run), Effect.ensuring(publishWaitEnded(view.subject)));
+
+const failedWait = <A, E>(view: WaitView, surface: WaitSurface, exit: Exit.Exit<A, E>) =>
+  Effect.gen(function* () {
+    if (Exit.isSuccess(exit)) return;
+    const failure = Cause.findErrorOption(exit.cause);
+    const stopped = Option.isSome(failure) && failure.value instanceof WaitAbandoned;
+    const disposition = Cause.hasInterruptsOnly(exit.cause)
+      ? "interrupted"
+      : stopped
+        ? "stopped"
+        : "ended before completion";
+    // The feature reports pending, denied or expired from its typed result.
+    // A deadline crossing alone cannot tell us why an arbitrary effect ended.
+    yield* surface.finish([
+      { _tag: "headline", tone: "warn", text: `${view.label}: waiting ${disposition}` },
+    ]);
+  });
 
 /**
  * The static form: the brief alone, with no countdown and no keys. It is what
@@ -69,9 +89,9 @@ export const runStaticWait = <A, E, R>(
     const startedAtMs = yield* Clock.currentTimeMillis;
     const value = yield* awaited;
     const elapsed = (yield* Clock.currentTimeMillis) - startedAtMs;
-    yield* surface.transcript(waitSettled(view, elapsed));
+    yield* surface.finish(waitSettled(view, elapsed));
     return value;
-  });
+  }).pipe(Effect.onExit((exit) => failedWait(view, surface, exit)));
 
 export const runWait = <A, E, R>(
   view: WaitView,
@@ -115,12 +135,12 @@ export const runWait = <A, E, R>(
     const elapsed = (yield* Clock.currentTimeMillis) - startedAtMs;
     // The wait leaves the region before its settled line joins the transcript,
     // so the two never stand on screen together.
-    yield* surface.showInteraction(undefined);
-    yield* surface.transcript(waitSettled(view, elapsed));
+    yield* surface.finish(waitSettled(view, elapsed));
     return value;
   }).pipe(
     // However it ends — settled, stopped, or interrupted — nothing of the wait
     // is left standing in the live region.
+    Effect.onExit((exit) => failedWait(view, surface, exit)),
     Effect.ensuring(surface.showInteraction(undefined)),
     Effect.scoped,
   );

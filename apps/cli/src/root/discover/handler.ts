@@ -5,7 +5,7 @@ import * as Path from "effect/Path";
 import { DiscoverExtensions, DiscoverOutputSchema } from "@agentxm/workspace/discovery";
 import { observeUnit } from "@agentxm/workspace/transitions/planning";
 
-import { Screen } from "../../screen/index.js";
+import { emitResult } from "../../screen/index.js";
 import { discoverDoc } from "./view.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import {
@@ -29,7 +29,6 @@ export const resolveDiscoverProjectDir = (
   });
 
 export const handleDiscover = Effect.fn("Discover.handle")(function* (args: DiscoverHandlerArgs) {
-  const screen = yield* Screen;
   const executionDirectory = yield* ExecutionDirectory;
   const path = yield* Path.Path;
   const projectDir = resolveDiscoverProjectDir(args.path, executionDirectory, path);
@@ -41,9 +40,5 @@ export const handleDiscover = Effect.fn("Discover.handle")(function* (args: Disc
     ),
   );
 
-  if (yield* screen.document(result.document, DiscoverOutputSchema)) {
-    return;
-  }
-
-  yield* screen.result(discoverDoc(result));
+  yield* emitResult(result.document, DiscoverOutputSchema, () => discoverDoc(result));
 });

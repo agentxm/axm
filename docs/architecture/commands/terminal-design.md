@@ -57,7 +57,7 @@ shape happens to fit the terminal.
 
 | Need                                                         | Node                                                                                                  |
 | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| Show units an operation plans, is running, or has settled    | `ledger`; columns declare a header, a role, and a priority, and each row carries a mark and a unit id |
+| Compare units an operation plans or has settled              | `ledger`; columns declare a header, a role, and a priority, and each row carries a mark and a unit id |
 | Compare many like read-only items across the same attributes | `table`, optionally with a leading mark per row to flag the item that needs attention                 |
 | Show containment or hierarchy                                | `tree`                                                                                                |
 | Describe one item                                            | `fields`                                                                                              |
@@ -88,7 +88,7 @@ every other command.
 
 A ledger's columns carry a role. The `name` column is protected and shortened
 last; `fixed` columns keep their width; an `elastic` column takes spare width.
-Plan, progress, and result ledgers differ only in their final columns — a plan
+Plan and result ledgers differ in their final columns — a plan
 and detail against a status — and their marks. A version column states the move
 a unit made where both ends are known, the version still installed for a unit
 that did not settle, and that its target is not resolved yet where a plan has
@@ -275,82 +275,63 @@ A stream that is not a terminal is unbounded. Nothing written to it is
 wrapped, truncated, or padded to a terminal width, so an agent or a pager
 receives the whole value on one line.
 
-## Live scene
+## Transcript and active region
 
-The live region shows one scene: the operation's ledger with at most one
-interaction — a prompt or a wait — beneath it. Every part of the scene is a
-pure function of its state and the terminal facts to a document painted by the
-one painter, and wording comes from the phrase layer beside the painter, never
-from the events.
+The transcript is the durable story of an invocation. Once appended, context,
+phase conclusions, review candidates, answers, instructions, warnings, and
+outcomes stay in emission order. Normal narration follows meaningful phases
+and exceptions; verbose and debug may add unit transitions. Continuous
+measurements remain transient at every verbosity.
 
-The live ledger is the plan's rows joined to live progress by unit id. Plan
-rows, lifecycle events, and resolved units share one identifier, and views
-obtain it from the plan layer rather than rebuilding it. A running row shows ◒,
-its state word and its measure; a row not yet started shows the waiting mark
-and the word its plan gave it; a row that has settled shows its final mark and
-the word its result row will use, from the same phrase, so a reader is not told
-one thing while an operation runs and another when it ends; a row that did not
-settle as planned states its reason beneath it as soon as it settles; and a
-row is paused while a wait whose subject
-is that unit is open. An operation with no plan, such as sign-in or upgrade,
-synthesizes rows from its units. A wait that names no unit, such as another
-operation holding the workspace, is the system's rather than a row's: it
-stands beneath the ledger in place of the status line, with how long it has
-lasted, who holds it, and what stopping costs. Nested units roll up into their parent row's
-state word and measure.
+The active region holds one activity or one foreground interaction. Its title
+identifies the operation and phase; details may show a current unit, a retry,
+a measurement, elapsed time, or the known condition delaying work. Counts name
+what the producer actually measured. An unknown or inconsistent total is not a
+percentage or a fabricated denominator. Moving to a new phase appends the
+previous phase's truthful disposition; the typed final result determines
+whether the requested operation succeeded.
 
-The scene never exceeds the terminal height less two rows. While the rows fit
-that height every row stays, in plan order: what has already happened is part
-of what a reader is reading. When they do not fit, the window keeps the work in
-flight, then every row that did not settle as planned, then the next few
-waiting, and then the most recent of what settled as planned; a row leaves in
-the reverse of that order, so a row that did not settle as planned never leaves
-before one that did. A reason takes a line of the height, and is counted as
-one. The ledger's own fold line carries the waiting mark, how many rows it
-stands for, and how many have finished and failed. Beneath the ledger one dim
-line says what the operation is doing, how many of its units have finished —
-finished, not started — how many did not settle as planned, and how long it has
-taken. When a ledger and an interaction compete for height, the interaction
-keeps its minimum — its question, three rows, and a hint — and the ledger window
-shrinks to its header and fold line.
+Screen owns operation lifetimes and foreground selection. Frame owns only
+serialized writes, terminal geometry, cursor visibility, and repainting the
+active tail. Durable output is appended above that tail, after which the
+current activity can repaint. Open interactions take precedence over progress
+and own one scoped input permit. Releasing an old operation cannot remove a
+newer question.
 
-Live lines never wrap. Every repainting line is truncated to one column less
-than the terminal width with the active glyph set's ellipsis. Copyable values are kept out of repainting lines: a
-wait prints its URL to the transcript once and keeps only its countdown live.
-After a narrowing resize the frame erases the rows the terminal rewrapped, not
-the lines it painted, so no ghost lines remain.
+Active lines do not wrap. They stop one column short of the actual terminal
+width and fit within its height less two rows. Copyable values and full
+failure reasons live in durable documents. A resize changes future layout;
+committed content is never recomputed by AXM. When old cursor geometry becomes
+uncertain, Frame abandons that tail with a newline instead of moving upward
+into history. A terminal may reflow its own scrollback independently.
 
-When a part of the scene finishes it leaves the region and appends its settled
-form to the transcript: a prompt becomes an `answer` line, a wait becomes a ✔
-line, and at settlement the region clears and the full
-result ledger prints once, on stdout, complete for pipes. Rows that did not fit
-leave the window, never the result. The settled document prints after every
-lossless subscriber has drained, so live output never overtakes settled
-output.
+Questions commit their context before showing controls, then append a labeled
+answer or cancellation. Waits commit actionable instructions before showing
+status, then append their truthful disposition. The active region releases
+the cursor when empty. The result prints after every lossless event subscriber
+has drained and remains complete on stdout.
 
-When animation is unavailable — CI, pipes, `TERM=dumb` — the same transitions
-become transcript lines: one when the operation starts, one per wait, and one
-when it settles, followed by the result ledger. Without a terminal,
-`--verbose` adds per-row timings to the result ledger; it does not stream one
-line per unit. An open prompt is the exception: it is not progress but the
-thing the person has to answer, so it paints and repaints wherever the region
-can be erased at all. A quiet wait is instead a static required-action block.
-The region hands the cursor back
-the moment it empties. How quiet mode treats the transition lines belongs to
-[CLI output](output.md).
+CI, pipes, and terminals without animation receive the same eligible semantic
+milestones as static text. Quiet mode keeps required actions and actionable
+outcomes while suppressing routine narration and countdowns. Interactivity,
+color, glyph selection, and animation are separate decisions; an allowed
+question remains usable without progress animation. Terminals too small for
+usable controls fail with guidance rather than accepting an unseen decision.
 
 ## Gallery
 
 The gallery under `apps/cli/src/test-support/gallery/` is the acceptance
 surface for design. Each fixture is one document or scene for one scenario —
-an inventory list, an inspection, a plan, progress, and result ledger, a
+an inventory list, an inspection, a plan, a transcript checkpoint, a result ledger, a
 failure with recovery, a waiting operation, a wait in its open, static, and
 settled forms, each prompt kind in its initial, filtered, error, narrow, and
 answered states, and every node kind — and its
 file snapshots record the painted output at 40, 80, 120, and 200 columns, and
 at 16 and 24 rows where a scene must fit. A scene fixture is a pure function
 of the terminal size, painted one column short of the width and held within the
-height less two rows.
+height less two rows. A transcript checkpoint paints its entire committed
+history followed by that bounded scene; the history has no viewport height
+limit.
 
 Scenarios that go wrong are drawn from one shared stress data set — qualified
 names across every extension type, a scope too long for its lane, absolute
@@ -359,9 +340,8 @@ out — so layout is reviewed where it has to choose between the information a
 ledger carries and the columns it lays out. Those frames add a hundred columns
 to the widths above, the width a working terminal usually has. A live scene is
 reviewed over time as well as in one frame: a sequence of scenes cut from one
-recorded event log shows the same operation starting, settling units, failing
-one, and reaching its last, so a row that leaves the window between frames left
-because the window's own rules put it there. A fixture drawn from the design canvas is named
+recorded event log shows the same operation starting, settling work, failing,
+and advancing phases. Committed lines remain present at later checkpoints. A fixture drawn from the design canvas is named
 `<board>--<frame>`, so its snapshots can be held against the mock they
 implement. Retained alternatives are separate fixtures only while they remain
 useful review scenarios; superseded or semantically duplicate variants are
@@ -380,8 +360,10 @@ prompt that leaves raw mode on or the cursor hidden breaks the shell it
 returns to. The pseudo-terminal harness in `apps/cli-e2e/src/pty.ts` is where
 that evidence comes from: it runs the built artifact under a real terminal of
 a declared size, replays a script of waits and key writes against it, and
-reports the transcript together with whether raw mode was handed back and the
-cursor left visible. Each interaction kind proves its keys there; the states
+reports exact bytes and resize points together with whether raw mode was
+handed back and the cursor left visible. Headless terminal replay interprets
+those bytes into the visible buffer and scrollback; merely stripping ANSI
+would incorrectly count erased text as retained history. Each interaction kind proves its keys there; the states
 it can be in are proved in the gallery.
 
 The harness needs a pseudo-terminal, which the toolchain supplies on POSIX
@@ -403,7 +385,7 @@ pnpm exec nx run cli-e2e:e2e-main
 | Windows Terminal            | Full support with the Unicode glyph set and key input                                                                  |
 | CI logs                     | Plain mode; transcript lines, no cursor movement, no color unless forced                                               |
 | Narrow panes                | Ledgers stack when the columns they keep overflow; tables stack below forty; below twenty the painter paints at twenty |
-| Short panes                 | The scene fits the height; the ledger window shrinks before an interaction does                                        |
+| Short panes                 | The active region fits; committed history remains in scrollback; unusable controls fail with guidance                  |
 | Piped or redirected streams | Unbounded plain text                                                                                                   |
 
 ## Time to first output

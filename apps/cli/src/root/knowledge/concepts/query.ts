@@ -9,7 +9,7 @@ import {
 import { observeUnit } from "@agentxm/workspace/transitions/planning";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
-import { Screen, inventoryDoc, type ViewColumn } from "../../../screen/index.js";
+import { emitResult, inventoryDoc, type ViewColumn } from "../../../screen/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   readOnlyCapabilities,
@@ -57,7 +57,6 @@ export const handleKnowledgeConceptQuery = Effect.fn("Knowledge.concepts.query")
   scope: WorkspaceScope,
   args: KnowledgeConceptQueryArgs,
 ) {
-  const screen = yield* Screen;
   const result = yield* withLiveOperation(
     { command: "knowledge.concepts.query", name: "Query installed knowledge", mode: "preview" },
     observeUnit(
@@ -68,21 +67,20 @@ export const handleKnowledgeConceptQuery = Effect.fn("Knowledge.concepts.query")
   if (result.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
   if (result.outcome === "cursor-expired") return yield* failKnowledgeCursorExpired();
   const page = result.page;
-  if (yield* screen.document(page, KnowledgeConceptQueryPageSchema)) return;
-  const rows = page.items.map(({ ref, title, matchedFields }) => ({
-    bundle: sanitizeKnowledgeTerminalText(ref.bundle),
-    concept: sanitizeKnowledgeTerminalText(ref.conceptId),
-    title: sanitizeKnowledgeTerminalText(title ?? "—"),
-    matched: matchedFields.join(", ") || "—",
-  }));
-  yield* screen.result(
-    inventoryDoc({
+  yield* emitResult(page, KnowledgeConceptQueryPageSchema, () => {
+    const rows = page.items.map(({ ref, title, matchedFields }) => ({
+      bundle: sanitizeKnowledgeTerminalText(ref.bundle),
+      concept: sanitizeKnowledgeTerminalText(ref.conceptId),
+      title: sanitizeKnowledgeTerminalText(title ?? "—"),
+      matched: matchedFields.join(", ") || "—",
+    }));
+    return inventoryDoc({
       rows,
       columns: conceptColumns,
       summary: `${rows.length} concept result${rows.length === 1 ? "" : "s"}`,
       empty: "No installed knowledge concepts matched the query",
-    }),
-  );
+    });
+  });
 });
 
 const optionalString = (name: string, description: string) =>

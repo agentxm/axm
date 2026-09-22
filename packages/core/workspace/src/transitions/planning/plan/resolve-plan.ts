@@ -558,6 +558,7 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
       }),
     });
   }
+  if (uniqueSourceRefs.length > 0) yield* enterPhase("acquisition");
   const acquiredResults =
     acquire === undefined
       ? []
@@ -870,6 +871,7 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
     if (operations.length === 0) {
       return { ...result, candidateId: candidate.id } satisfies ExecutedPlan<Output>;
     }
+    yield* enterPhase("verification");
     type Readback = {
       readonly override: boolean;
       readonly byName: ReadonlyMap<string, ReadonlyArray<ConfiguredAgentOutcome>>;

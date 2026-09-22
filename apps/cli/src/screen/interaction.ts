@@ -11,6 +11,8 @@ import type { ScenePart } from "./scene.js";
 export interface InteractionSurface {
   readonly showInteraction: (part: ScenePart | undefined) => Effect.Effect<void>;
   readonly transcript: (doc: Doc) => Effect.Effect<void>;
+  /** Atomically replace controls with their durable disposition. */
+  readonly finish: (doc: Doc) => Effect.Effect<void>;
 }
 
 /** One terminal key after platform input has been normalized. */

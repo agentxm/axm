@@ -96,6 +96,13 @@ const paintQuestion = (
   const contentStart = indent + GUTTER_WIDTH;
   const question = bold(node.question);
   const questionWidth = displayWidth(plain(node.question));
+  if (
+    questionWidth === 0 &&
+    node.filter === undefined &&
+    node.entry === undefined &&
+    node.chips.length === 0
+  )
+    return [];
   const room = (used: number): boolean => style.width === "unbounded" || used <= style.width;
   const alone = paintPrefixed(question, style, { indent, first });
   if (!style.wrap && style.width !== "unbounded") {

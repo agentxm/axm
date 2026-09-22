@@ -5,8 +5,8 @@ import { OperationEventSchema, type OperationEvent } from "@agentxm/workspace/tr
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
+import { progressActivity } from "./progress-view.js";
 import { plain } from "./doc.js";
-import { joinLiveRows, type LivePlan } from "./live-ledger.js";
 import { ProgressEventSchema, progressEvent } from "./machine-events.js";
 import { initialProgress, reduceProgress, type ProgressState } from "./progress.js";
 
@@ -14,7 +14,7 @@ export const specification = defineSpecification({
   requirement: "cli/retried-work-names-the-attempt-in-flight",
   title: "A retried unit reports which attempt is in flight, to machines and to people alike",
   statement:
-    "When a producer retries a unit's work, the unit's progress events shall carry the attempt in flight and the attempt limit, a machine progress event shall carry both unchanged through the published lifecycle schema, and the live row for that unit shall name the retry it is on in place of its measurement; a unit on its first attempt shall name no retry.",
+    "When a producer retries a unit's work, the unit's progress events shall carry the attempt in flight and the attempt limit, a machine progress event shall carry both unchanged through the published lifecycle schema, and the active detail for that unit shall name the retry it is on in place of its measurement; a unit on its first attempt shall name no retry.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -34,7 +34,7 @@ export const specification = defineSpecification({
   limitations: [
     {
       limitation:
-        "Examples drive the published schema, the projector, and the live join over an authored event log. A registry download that a transport failure actually retries is witnessed by ordinary tests in the registry client, not decided here.",
+        "Examples drive the published schema, the projector, and the active presentation over an authored event log. A registry download that a transport failure actually retries is witnessed by ordinary tests in the registry client, not decided here.",
       retirementCondition:
         "Bind producer evidence here when a retrying producer's own attempt reporting is allocated its own obligation.",
     },
@@ -85,25 +85,9 @@ const progressOn = (
 const fold = (events: ReadonlyArray<OperationEvent>): ProgressState =>
   events.reduce(reduceProgress, initialProgress);
 
-const plan: LivePlan = {
-  title: "Installing",
-  columns: [{ header: "Extension", role: "name" }],
-  rows: [
-    {
-      id: "skill:code-review",
-      plannedMark: "create",
-      plannedStatus: "install",
-      cells: ["code-review"],
-    },
-  ],
-};
-
-/** The detail cell, which is the last column the live ledger appends. */
 const detail = (state: ProgressState): string => {
-  const [row] = joinLiveRows(state, plan);
-  expect(row).toBeDefined();
-  const cells = row?.row.cells ?? [];
-  return plain(cells[cells.length - 1] ?? "");
+  const node = progressActivity(state)({ columns: 80, rows: 24, nowMs: 2_000, spinner: "*" })[0];
+  return node?._tag === "wait" ? plain(node.detail ?? "") : "";
 };
 
 describe("A retried unit names the attempt in flight", () => {
@@ -116,15 +100,17 @@ describe("A retried unit names the attempt in flight", () => {
     expect(machine.event).toEqual(event);
   });
 
-  it("names the retry on the live row in place of the measurement", () => {
-    expect(detail(fold([...downloading, progressOn(4, 0, { n: 2, of: 3 })]))).toBe("retry 2 of 3");
+  it("names the retry in the active detail in place of the measurement", () => {
+    expect(detail(fold([...downloading, progressOn(4, 0, { n: 2, of: 3 })]))).toContain(
+      "retry 2 of 3",
+    );
   });
 
   it("names no retry while the first attempt runs", () => {
-    expect(detail(fold([...downloading, progressOn(4, 512_000, { n: 1, of: 3 })]))).toBe(
+    expect(detail(fold([...downloading, progressOn(4, 512_000, { n: 1, of: 3 })]))).toContain(
       "512 KB / 2 MB",
     );
-    expect(detail(fold([...downloading, progressOn(4, 512_000)]))).toBe("512 KB / 2 MB");
+    expect(detail(fold([...downloading, progressOn(4, 512_000)]))).toContain("512 KB / 2 MB");
   });
 
   it("stops naming a retry once a later attempt reports without one", () => {
@@ -133,6 +119,6 @@ describe("A retried unit names the attempt in flight", () => {
       progressOn(4, 0, { n: 2, of: 3 }),
       progressOn(5, 1_000_000),
     ]);
-    expect(detail(state)).toBe("1 MB / 2 MB");
+    expect(detail(state)).toContain("1 MB / 2 MB");
   });
 });

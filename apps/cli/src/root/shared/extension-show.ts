@@ -1,8 +1,9 @@
+import { withLiveOperation } from "../../operation-lifecycle.js";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import {
-  Screen,
+  emitResult,
   fieldsDoc,
   headlineDoc,
   tableDoc,
@@ -59,17 +60,15 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
   readonly type: InstallableExtensionType;
   readonly name: string;
 }) {
-  const screen = yield* Screen;
-  const result = yield* Effect.catchTag(
-    ShowExtension.query(args),
-    "ExtensionNotInstalled",
-    (failure) => Effect.fail(extensionNotInstalledToAppError(failure)),
+  const result = yield* withLiveOperation(
+    { command: "extension.show", name: "Inspect extension", mode: "preview" },
+    Effect.catchTag(ShowExtension.query(args), "ExtensionNotInstalled", (failure) =>
+      Effect.fail(extensionNotInstalledToAppError(failure)),
+    ),
   );
   const label = extensionTypeSentenceLabels[args.type];
 
-  if (yield* screen.document(result, ExtensionShowResultSchema)) return;
-
-  yield* screen.result([
+  yield* emitResult(result, ExtensionShowResultSchema, () => [
     ...headlineDoc("neutral", `${label} ${args.name}`),
     ...fieldsDoc(
       {
@@ -83,29 +82,26 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
       },
       showFields,
     ),
+    ...(result.agents.length > 0
+      ? tableDoc(
+          result.agents.map((agent) => ({
+            agent: agent.agent,
+            status: agent.status,
+            path: agent.path ?? "",
+            detail: `${agent.reasonCode}: ${
+              agent.reason ??
+              (agent.fields.length > 0
+                ? agent.fields.join(", ")
+                : agent.warnings.length > 0
+                  ? agent.warnings.join("; ")
+                  : "no additional detail")
+            }`,
+          })),
+          agentColumns,
+          { caption: "Agent placements" },
+        )
+      : []),
   ]);
-
-  if (result.agents.length > 0) {
-    yield* screen.result(
-      tableDoc(
-        result.agents.map((agent) => ({
-          agent: agent.agent,
-          status: agent.status,
-          path: agent.path ?? "",
-          detail: `${agent.reasonCode}: ${
-            agent.reason ??
-            (agent.fields.length > 0
-              ? agent.fields.join(", ")
-              : agent.warnings.length > 0
-                ? agent.warnings.join("; ")
-                : "no additional detail")
-          }`,
-        })),
-        agentColumns,
-        { caption: "Agent placements" },
-      ),
-    );
-  }
 });
 
 /**

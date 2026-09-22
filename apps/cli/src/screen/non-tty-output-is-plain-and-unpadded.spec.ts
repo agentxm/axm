@@ -100,6 +100,25 @@ describe("Non-terminal human output", () => {
     }),
   );
 
+  it.effect("lays out separate terminal streams at their own widths", () => {
+    const streams = makeRecordingStreams({
+      stdoutIsTTY: true,
+      stderrIsTTY: true,
+      stdoutColumns: 100,
+      columns: 20,
+    });
+    const text = "This result uses the stdout terminal width independently of narration.";
+    return Effect.gen(function* () {
+      const screen = yield* Screen;
+      yield* screen.result([{ _tag: "paragraph", text }]);
+      yield* screen.note([{ _tag: "paragraph", text }]);
+      expect(streams.lines("stdout")).toEqual([text]);
+      const narration = streams.lines("stderr");
+      expect(narration.length).toBeGreaterThan(1);
+      for (const line of narration) expect(displayWidth(line)).toBeLessThanOrEqual(20);
+    }).pipe(Effect.provide(humanScreenLayer(streams)));
+  });
+
   for (const row of [
     { label: "two pipes", stdoutIsTTY: false, stderrIsTTY: false },
     { label: "piped stdout and terminal stderr", stdoutIsTTY: false, stderrIsTTY: true },

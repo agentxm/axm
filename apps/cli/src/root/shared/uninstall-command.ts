@@ -25,7 +25,6 @@ import {
   operationResolutionSummary,
   retryCanHelp,
 } from "../../operation-output.js";
-import { Screen, successDoc } from "../../screen/index.js";
 import { makeUninstallPlanExecution } from "./confirmation-recovery.js";
 import { emitNoOpOutcome } from "./no-op-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
@@ -98,11 +97,9 @@ const body = (args: UninstallCommandArgs) =>
       resolution.mode === "preview" &&
       resolution.units.length === 0
     ) {
-      const { emitted } = yield* emitOperationResolution(args.command, resolution);
-      if (!emitted) {
-        const screen = yield* Screen;
-        yield* screen.result(successDoc(args.previewEmptyResult));
-      }
+      yield* emitOperationResolution(args.command, resolution, {
+        message: args.previewEmptyResult,
+      });
       return;
     }
 

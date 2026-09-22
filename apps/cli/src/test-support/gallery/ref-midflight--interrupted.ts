@@ -33,10 +33,10 @@ const notTried = (id: string, version: string): ResolvedUnit<unknown> => ({
 
 /**
  * Interrupted mid-apply (*Reference cases*, board `4 · Going wrong
- * mid-flight`, frame *ctrl-c during apply — the live ledger settles into
+ * mid-flight`, frame *ctrl-c during apply — the result records
  * rolled-back rows*).
  *
- * The ledger the operation was streaming settles into the result: the unit
+ * The final result records the disposition after interruption: the unit
  * that had installed and the one in flight both roll back, and the two the
  * interruption reached first were never tried. The verdict is toned and
  * carries the exit code a script sees; rerunning is safe because nothing is

@@ -265,10 +265,15 @@ const makeTestScreenService = (
     Effect.sync(() => {
       state.credentials.push(content);
     }),
-  note: (doc, options) =>
+  note: (doc) =>
     Effect.sync(() => {
       state.docs.push({ channel: "stderr", doc });
-      captureDoc(state, doc, "stderr", options?.persistent === true);
+      captureDoc(state, doc, "stderr", false);
+    }),
+  instruction: (doc) =>
+    Effect.sync(() => {
+      state.docs.push({ channel: "stderr", doc });
+      captureDoc(state, doc, "stderr", true);
     }),
   document: <S extends Schema.Top>(
     data: Schema.Schema.Type<S>,
@@ -292,8 +297,6 @@ const makeTestScreenService = (
     }),
   observe: (lifecycle) =>
     subscribeLossless(lifecycle, (event) => Effect.sync(() => void state.events.push(event))),
-  // A presenter test screen never animates, so it has no live ledger.
-  showPlan: () => Effect.succeed(false),
   log: (record) =>
     Effect.sync(() => {
       state.logs.push({

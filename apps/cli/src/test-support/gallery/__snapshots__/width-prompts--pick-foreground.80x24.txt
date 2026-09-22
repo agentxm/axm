@@ -1,0 +1,10 @@
+ ?   Which extensions should be installed?  type to filter
+ ❯ ◪ Skills
+   ◉   code-review
+   ◉   triage
+   ◯   changelog
+   ◯   standup
+   ◯ Subagents
+   ◯   reviewer
+   ◯   planner
+2 selected · ↑↓ move · space toggle · ^a all · enter confirm

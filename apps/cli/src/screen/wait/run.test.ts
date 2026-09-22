@@ -59,6 +59,11 @@ const makeHarness: Effect.Effect<Harness> = Effect.gen(function* () {
     surface: {
       showInteraction: (part) => Effect.sync(() => void shown.push(part)),
       transcript: (doc) => Effect.sync(() => void transcript.push(doc)),
+      finish: (doc) =>
+        Effect.sync(() => {
+          shown.push(undefined);
+          if (doc.length > 0) transcript.push(doc);
+        }),
     },
   };
 });
@@ -92,7 +97,7 @@ describe("runWait", () => {
       // The brief first, once, then the settled record the wait leaves behind.
       expect(harness.transcript[0]).toEqual(view.brief);
       expect(harness.transcript.at(-1)).toMatchObject([
-        { _tag: "answer", mark: "ok", label: "Device sign-in" },
+        { _tag: "answer", mark: "dim", label: "Device sign-in" },
       ]);
       expect(harness.shown.at(-1)).toBeUndefined();
     }),
@@ -132,8 +137,11 @@ describe("runWait", () => {
       ).pipe(Effect.flip);
 
       expect(failure._tag).toBe("WaitAbandoned");
-      // A stopped wait settled nothing, so it leaves no record behind.
-      expect(harness.transcript).toEqual([view.brief]);
+      // A stopped wait preserves both instructions and its truthful disposition.
+      expect(harness.transcript).toEqual([
+        view.brief,
+        [{ _tag: "headline", tone: "warn", text: "Device sign-in: waiting stopped" }],
+      ]);
       expect(harness.shown.at(-1)).toBeUndefined();
     }),
   );
@@ -250,10 +258,10 @@ describe("runStaticWait", () => {
       const settled = yield* runStaticWait(view, Effect.succeed("approved"), harness.surface);
 
       expect(settled).toBe("approved");
-      expect(harness.shown).toEqual([]);
+      expect(harness.shown.filter((part) => part !== undefined)).toEqual([]);
       expect(harness.transcript[0]).toEqual(view.brief);
       expect(harness.transcript.at(-1)).toMatchObject([
-        { _tag: "answer", mark: "ok", label: "Device sign-in" },
+        { _tag: "answer", mark: "dim", label: "Device sign-in" },
       ]);
     }),
   );

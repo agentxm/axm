@@ -27,6 +27,11 @@ import { handleKnowledgeLint } from "./lint.js";
 import { handleKnowledgeConceptGet } from "./concepts/get.js";
 import { handleKnowledgeConceptSearch } from "./concepts/search.js";
 import { handleKnowledgeConceptStatus } from "./concepts/status.js";
+import { handleKnowledgeConceptResolve } from "./concepts/resolve.js";
+import { handleKnowledgeConceptRelated } from "./concepts/related.js";
+import { handleKnowledgeConceptQuery } from "./concepts/query.js";
+import { handleKnowledgeList } from "./list.js";
+import { paintText } from "../../screen/index.js";
 import { KnowledgeManager } from "@agentxm/workspace/materialization";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace/projection/live";
 import { SourceHostProvidersLive } from "@agentxm/workspace/resolution/sources/live";
@@ -360,6 +365,55 @@ describe("knowledge JSON output", () => {
           bundleCount: 1,
           conceptCount: 2,
         });
+      }),
+    );
+  });
+
+  it.effect("each human discovery result is complete on stdout and observes its inspection", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext();
+    const axmDir = path.join(tempDir, ".axm");
+    writeKnowledgeExtension(axmDir, "platform");
+    fs.writeFileSync(
+      path.join(tempDir, "knowledge", "platform", "src", "auth.md"),
+      "---\ntype: policy\ndescription: Authentication policy\n---\n# Authentication\n\nRotate credentials.\n",
+    );
+    writeWorkspaceFiles(axmDir, { knowledge: { platform: "workspace" } });
+    const reference = "@acme/knowledge/platform#auth";
+    return provide(
+      Effect.gen(function* () {
+        const cases = [
+          [handleKnowledgeList(), "platform"],
+          [handleKnowledgeConceptSearch("Authentication", "project"), "auth"],
+          [
+            handleKnowledgeConceptQuery("project", {
+              expression: "Authentication",
+              fields: [],
+              properties: [],
+              metadata: [],
+              lifecycle: [],
+              tags: [],
+              explain: false,
+            }),
+            "auth",
+          ],
+          [handleKnowledgeConceptResolve(reference), reference],
+          [handleKnowledgeConceptGet(reference), "Rotate credentials."],
+          [handleKnowledgeConceptRelated(reference), "No related installed knowledge concepts"],
+          [handleKnowledgeConceptStatus(), "Knowledge discovery"],
+        ] as const;
+        for (const [command, expected] of cases) {
+          const before = rendererState.docs.length;
+          const eventsBefore = rendererState.events.length;
+          yield* command;
+          const stdout = rendererState.docs
+            .slice(before)
+            .filter((entry) => entry.channel === "stdout")
+            .flatMap((entry) => paintText(entry.doc, { width: "unbounded", colors: false }))
+            .join("\n");
+          expect(stdout).toContain(expected);
+          expect(rendererState.events.slice(eventsBefore).at(0)?._tag).toBe("OperationStarted");
+          expect(rendererState.events.at(-1)?._tag).toBe("OperationSettled");
+        }
       }),
     );
   });

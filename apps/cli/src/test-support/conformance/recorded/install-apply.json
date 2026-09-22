@@ -37,8 +37,14 @@
     "index": 0
   },
   {
-    "_tag": "UnitStarted",
+    "_tag": "PhaseStarted",
     "seq": 6,
+    "atMs": 0,
+    "phase": "acquisition"
+  },
+  {
+    "_tag": "UnitStarted",
+    "seq": 7,
     "atMs": 0,
     "unitId": "source-acquire:skill/code-review",
     "label": "acquiring code-review",
@@ -46,7 +52,7 @@
   },
   {
     "_tag": "UnitResolved",
-    "seq": 7,
+    "seq": 8,
     "atMs": 0,
     "unitId": "source-acquire:skill/code-review",
     "label": "acquiring code-review",
@@ -55,19 +61,19 @@
   },
   {
     "_tag": "PhaseStarted",
-    "seq": 8,
+    "seq": 9,
     "atMs": 0,
     "phase": "validation"
   },
   {
     "_tag": "PhaseStarted",
-    "seq": 9,
+    "seq": 10,
     "atMs": 0,
     "phase": "apply"
   },
   {
     "_tag": "UnitStarted",
-    "seq": 10,
+    "seq": 11,
     "atMs": 0,
     "unitId": "skill:code-review",
     "label": "skills/code-review",
@@ -76,7 +82,7 @@
   },
   {
     "_tag": "UnitResolved",
-    "seq": 11,
+    "seq": 12,
     "atMs": 0,
     "unitId": "skill:code-review",
     "label": "skills/code-review",
@@ -86,7 +92,7 @@
   },
   {
     "_tag": "OperationSettled",
-    "seq": 12,
+    "seq": 13,
     "atMs": 0,
     "outcome": "applied"
   },
@@ -128,8 +134,14 @@
     "index": 0
   },
   {
-    "_tag": "UnitStarted",
+    "_tag": "PhaseStarted",
     "seq": 6,
+    "atMs": 0,
+    "phase": "acquisition"
+  },
+  {
+    "_tag": "UnitStarted",
+    "seq": 7,
     "atMs": 0,
     "unitId": "source-acquire:skill/deploy",
     "label": "acquiring deploy",
@@ -137,7 +149,7 @@
   },
   {
     "_tag": "UnitResolved",
-    "seq": 7,
+    "seq": 8,
     "atMs": 0,
     "unitId": "source-acquire:skill/deploy",
     "label": "acquiring deploy",
@@ -146,19 +158,19 @@
   },
   {
     "_tag": "PhaseStarted",
-    "seq": 8,
+    "seq": 9,
     "atMs": 0,
     "phase": "validation"
   },
   {
     "_tag": "PhaseStarted",
-    "seq": 9,
+    "seq": 10,
     "atMs": 0,
     "phase": "apply"
   },
   {
     "_tag": "UnitStarted",
-    "seq": 10,
+    "seq": 11,
     "atMs": 0,
     "unitId": "skill:deploy",
     "label": "skills/deploy",
@@ -167,7 +179,7 @@
   },
   {
     "_tag": "UnitResolved",
-    "seq": 11,
+    "seq": 12,
     "atMs": 0,
     "unitId": "skill:deploy",
     "label": "skills/deploy",
@@ -177,7 +189,7 @@
   },
   {
     "_tag": "OperationSettled",
-    "seq": 12,
+    "seq": 13,
     "atMs": 0,
     "outcome": "applied"
   }

@@ -29,7 +29,8 @@ import { FrameLive } from "../../screen/frame.js";
 import { gallery } from "../gallery/index.js";
 import { paintText } from "../../screen/paint-text.js";
 import { initialProgress, reduceProgress, type ProgressState } from "../../screen/progress.js";
-import { liveLedgerDoc } from "../../screen/live-ledger.js";
+import { progressActivity } from "../../screen/progress-view.js";
+import { paintLivePart } from "../../screen/scene.js";
 import { Screen, ScreenLive } from "../../screen/screen.js";
 import { OutputStreams } from "../../screen/streams.js";
 import { asciiGlyphs } from "../../screen/glyphs.js";
@@ -82,7 +83,13 @@ const makeOrderedStreams = () => {
     stdout: (content) => Effect.sync(() => void log.push({ channel: "stdout", content })),
     stderr: (content) => Effect.sync(() => void log.push({ channel: "stderr", content })),
     credential: (content) => Effect.sync(() => void log.push({ channel: "stdout", content })),
-    facts: Effect.succeed({ stdoutIsTTY: true, stderrIsTTY: true, columns: 80, rows: 24 }),
+    facts: Effect.succeed({
+      stdoutIsTTY: true,
+      stderrIsTTY: true,
+      columns: 80,
+      rows: 24,
+      stdoutColumns: 80,
+    }),
     resize: Stream.empty,
   });
   return { log, layer };
@@ -227,16 +234,18 @@ describe("renderer conformance", () => {
   describe.each(recordedLogs)("recorded log $name", ({ events }) => {
     it("folds deterministically into the same progress state at every width", () => {
       const reference = fold(events);
-      // The live ledger is bound by height as well as width, so the suite
-      // holds it at the two terminal heights the gallery snapshots scenes at.
+      // Current activity is bounded; the fold itself has no viewport policy.
       for (const width of conformanceWidths) {
         expect(fold(events)).toEqual(reference);
         for (let count = 1; count <= events.length; count += 1) {
-          const doc = liveLedgerDoc(fold(events.slice(0, count)), { rows: 22, nowMs: 5_000 });
-          for (const painter of painters) {
-            for (const line of painter.paint(doc, { width, colors: false })) {
-              expect(displayWidth(line), `${String(width)}: ${line}`).toBeLessThanOrEqual(width);
-            }
+          const doc = progressActivity(fold(events.slice(0, count)))({
+            columns: width,
+            rows: 22,
+            nowMs: 5_000,
+            spinner: "*",
+          });
+          for (const line of paintLivePart(doc, { columns: width, rows: 22 }, { colors: false })) {
+            expect(displayWidth(line), `${String(width)}: ${line}`).toBeLessThanOrEqual(width);
           }
         }
       }

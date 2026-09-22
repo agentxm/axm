@@ -33,5 +33,10 @@ export const waitDoc = (view: WaitView, keys: WaitKeys, facts: { readonly nowMs:
 
 /** The one transcript line a settled wait leaves behind. */
 export const waitSettled = (view: WaitView, elapsedMs: number): Doc => [
-  { _tag: "answer", mark: "ok", label: view.label, value: duration(elapsedMs) },
+  {
+    _tag: "answer",
+    mark: "dim",
+    label: view.label,
+    value: `Wait completed in ${duration(elapsedMs)}`,
+  },
 ];

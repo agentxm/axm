@@ -1,7 +1,7 @@
 ---
 type: Decision
 status: stable
-description: AXM human output speaks one ledger grammar through a shared gutter and one live scene, prompts and human waits are application-owned documents run by the Screen, and Ink remains deferred.
+description: Shared document grammar and application-owned interactions accumulate a stable transcript while one active region owns terminal updates.
 depends-on:
   - ./cli-output-view-model-and-terminal-ownership.md
   - ./cli-live-event-contract.md
@@ -40,15 +40,14 @@ Human output speaks one grammar with three parts.
    five-column gutter, and content aligned with a mark starts at column six.
    Unmarked titles, verdicts, labels, empty states, and hints stay at the
    margin. These two edges are the complete alignment system.
-2. **One ledger.** A plan, its live progress, and its result are the same
-   `ledger` node with different final columns and marks. In an animated
-   terminal the plan ledger becomes the progress ledger; settled rows leave
-   the live window and return in the final result ledger, so scrollback holds
-   one ledger per operation.
-3. **One scene.** The live region shows one scene: the operation's ledger with
-   at most one interaction — a prompt or a wait — beneath it. When a part of
-   the scene finishes it leaves the region and appends its settled form to the
-   transcript.
+2. **Durable documents.** Plans and results use a ledger when several subjects
+   need review or comparison. Scalars, single outcomes, and activity do not
+   acquire a ledger merely because the command performs work. A review and its
+   result may repeat identities because they answer different questions.
+3. **One active region.** Meaningful context and dispositions accumulate in
+   the transcript. Current activity or one foreground interaction occupies the
+   only region that can be repainted. Once committed, content is never folded
+   away or replaced by the final result.
 
 Prompts are application-owned. A view describes a question as data — an `Ask`
 of kind `Confirm`, `Choose`, `Input`, or `Pick` — and `Screen.ask` runs it. Each
@@ -86,15 +85,14 @@ new obligations land as specifications with the changes that implement them.
 The accepted architecture already had the right seams. A grammar expressed as
 node vocabulary and painter constants holds everywhere the painter runs,
 including ASCII mode and every width, without each view or prompt
-re-implementing alignment. Making plan, progress, and result one ledger removes
-duplicated scrollback and lets a person read an operation as one record.
+re-implementing alignment. The ledger remains a reusable document grammar while the accumulated
+transcript records how an operation reached its result.
 
 A prompt painted through the painter inherits the gutter, key chips, glyph
 policy, and resize-safe erase by construction. The existing selection widgets
 were already reducers wrapped in string rendering, so the move deletes code
-rather than adding a framework. Placing prompts and waits in the same scene as
-the ledger is what lets a gate be answered while the plan is visible and a
-step-up verification interrupt an upload without hiding its rows.
+rather than adding a framework. Committing review and instructions before their controls lets a gate or
+external-action wait interrupt work without replacing its context.
 
 ## Material alternatives
 
@@ -104,8 +102,9 @@ step-up verification interrupt an upload without hiding its rows.
 - **Adopt Ink for prompts and the live region.** A component tree would give a
   scene, but would make feature views depend on one framework and duplicate
   the painter's width and glyph rules. Rejected for now.
-- **Keep separate plan, progress, and result layouts.** Each is simpler alone,
-  but scrollback repeats units and nothing aligns across them. Rejected.
+- **Use the full ledger as the live progress region.** Rejected by the
+  transcript amendment below: bounded folding and final repainting break
+  continuity even when they share a visual grammar.
 - **Own raw terminal mode directly.** Effect's scoped terminal input already
   sets and restores raw mode and decodes keys; owning it adds risk without
   capability. Rejected.
@@ -127,30 +126,28 @@ Negative:
   prompt site;
 - Windows Terminal key decoding remains a reviewed matrix expectation because
   the pseudo-terminal harness runs only on POSIX; and
-- the height budget now splits between a ledger and an interaction, which
-  needs fixtures at short terminal heights.
+- terminal resize requires conservative handling of uncertain cursor geometry,
+  with emulator and real PTY evidence beyond still snapshots.
 
-## Amendment: settled rows stay in the live window
+## Amendment: preserve the accumulating transcript
 
-A settled row stays in the live window. It takes its final mark and the word
-its result row will use, and leaves only when the rows no longer fit the height
-the scene allows. Under that pressure rows leave in one order — settled as
-planned first, oldest first, then the waiting rows beyond the next few — and a
-row that did not settle as planned never leaves before one that did, because
-what went wrong is what a reader has still to act on. What left is counted on
-the fold line, and the status line states how many units have finished, not how
-many have started.
+Maintainer acceptance of output continuity replaces the earlier live-ledger
+window, including its policy of retaining settled rows only while they fit.
+Height limits apply to current activity and controls. They no longer decide
+which previously reported outcomes remain visible. Phase milestones and
+exceptions are appended as work advances; the final result remains a complete
+independent document on stdout.
 
-The original rule removed every settled row unconditionally, and gave height as
-its reason. Height was never the reason it fired: the rows left as they settled
-whether or not the scene had room, so an operation that failed seven of
-thirteen units showed nothing of those seven until it ended, and its last frame
-claimed `13 of 13` over a unit that was still running.
+The implementation removes plan injection into the frame, the live ledger's
+window and fold rules, and implicit required-action detection. Screen selects
+a scoped owner; Frame serializes the active tail and durable writes. Existing
+lifecycle events remain the shared source for human narration, machine output,
+and telemetry. No additional mode or event bus is introduced.
 
-What does not change: one ledger per operation in scrollback, because the live
-region still clears at settlement and the result ledger prints once; and the
-event stream, which the [live-event contract](cli-live-event-contract.md)
-owns.
+The executable specification `cli/output-preserves-committed-history`
+supersedes `cli/live-progress-retains-settled-units`. Channel, machine,
+credential, review, failure, and recovery obligations retain their own
+specification authorities.
 
 ## Supersession and reconsideration
 

@@ -1,6 +1,7 @@
+import { withLiveOperation } from "../../operation-lifecycle.js";
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
+import { emitResult, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import {
   listMcpServers,
   mcpServerListDocument,
@@ -28,11 +29,12 @@ const McpServerListColumns = [
 ] satisfies ReadonlyArray<ViewColumn<McpServerListRow>>;
 
 export const handleListMcpServers = Effect.fn("ListMcpServers.handle")(function* () {
-  const screen = yield* Screen;
-  const { inventory, rows } = yield* listMcpServers();
+  const { inventory, rows } = yield* withLiveOperation(
+    { command: "mcps.list", name: "Inspect MCP servers", mode: "preview" },
+    listMcpServers(),
+  );
   const output = mcpServerListDocument({ inventory, rows });
-  if (yield* screen.document(output, McpServerListQueryResultSchema)) return;
-  yield* screen.result(
+  yield* emitResult(output, McpServerListQueryResultSchema, () =>
     inventoryDoc({
       rows,
       columns: McpServerListColumns,

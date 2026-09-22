@@ -7,6 +7,7 @@ import * as Effect from "effect/Effect";
 
 import { makeCliTestContext } from "../../test-support/test-helpers.js";
 import { handleCachePrune, handleCacheStatus, handleCacheVerify } from "./command.js";
+import { humanScreenLayer, makeRecordingStreams } from "../../test-support/screen-harness.js";
 
 describe("cache commands", () => {
   let tempDir: string;
@@ -63,5 +64,17 @@ describe("cache commands", () => {
         expect(rendererState.results).toHaveLength(2);
       }),
     );
+  });
+
+  it.effect("keeps verification and maintenance outcomes on stdout", () => {
+    const streams = makeRecordingStreams();
+    const context = makeCliTestContext({ screenLayer: humanScreenLayer(streams) });
+    return Effect.gen(function* () {
+      yield* handleCacheVerify();
+      yield* handleCachePrune();
+      const stdout = streams.lines("stdout").join("\n");
+      expect(stdout).toContain("Verified 0 archive cache entries; 0 corrupt removed.");
+      expect(stdout).toContain("Pruned 0 archive cache entries (0 B); 0 remain (0 B).");
+    }).pipe(Effect.provide(context.baseLayer));
   });
 });

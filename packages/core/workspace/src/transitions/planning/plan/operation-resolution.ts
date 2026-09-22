@@ -69,7 +69,9 @@ export const OperationPhaseSchema = Schema.Literals([
   "preview",
   "confirmation",
   "validation",
+  "acquisition",
   "apply",
+  "verification",
   "restoration",
 ] as const).annotate({
   identifier: "OperationPhase",

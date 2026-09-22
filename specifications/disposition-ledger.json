@@ -1,5 +1,11 @@
 [
   {
+    "requirement": "cli/live-progress-retains-settled-units",
+    "disposition": "superseded-by",
+    "successor": "cli/output-preserves-committed-history",
+    "basis": "Maintainer-approved transcript continuity replaces the bounded live ledger. Durable milestones and failures never fold out of history; only current activity and controls remain height-bound."
+  },
+  {
     "requirement": "cli/cache/status/reports-usage-and-effective-limits",
     "disposition": "superseded-by",
     "successor": "cli/cache/prune/enforces-reported-retention-limits",

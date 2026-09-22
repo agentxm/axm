@@ -10,7 +10,7 @@ import {
   selectedRegistry,
   TokenPermissionsSchema,
 } from "@agentxm/registry-access/authentication";
-import { Screen, rawDoc } from "../../screen/index.js";
+import { emitResult, rawDoc } from "../../screen/index.js";
 import { observeUnit } from "@agentxm/workspace/transitions/planning";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
@@ -38,7 +38,6 @@ export type WhoamiDocument = typeof WhoamiDocumentSchema.Type;
 
 export const handleWhoami = Effect.fn("AuthWhoami.handle")(
   function* () {
-    const screen = yield* Screen;
     const registry = yield* selectedRegistry;
 
     const identity = yield* withLiveOperation(
@@ -49,22 +48,17 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(
       ),
     );
 
-    if (yield* screen.document({ data: identity }, WhoamiDocumentSchema)) return;
-
-    // A signed-in person is limited only by their permissions, so there is
-    // nothing narrower to show them. Only a credential they narrowed has a
-    // permission level and an allowlist, in the words a token is described in.
-    const restrictions = identity.resourceRestrictions?.extensions ?? null;
-    const limits =
-      identity.authority === "account"
-        ? [`Authority  everything your permissions allow`]
-        : [
-            `Authority  limited`,
-            `Can do  ${describeTokenPermissions(identity.permissions)}`,
-            `Extensions  ${restrictions === null ? "unrestricted" : restrictions.length === 0 ? "none" : restrictions.join(", ")}`,
-          ];
-    yield* screen.result(
-      rawDoc(
+    yield* emitResult({ data: identity }, WhoamiDocumentSchema, () => {
+      const restrictions = identity.resourceRestrictions?.extensions ?? null;
+      const limits =
+        identity.authority === "account"
+          ? [`Authority  everything your permissions allow`]
+          : [
+              `Authority  limited`,
+              `Can do  ${describeTokenPermissions(identity.permissions)}`,
+              `Extensions  ${restrictions === null ? "unrestricted" : restrictions.length === 0 ? "none" : restrictions.join(", ")}`,
+            ];
+      return rawDoc(
         [
           `Authenticated as ${identity.user}`,
           `Registry  ${identity.registry}`,
@@ -79,8 +73,8 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(
           `Expires  ${identity.expiresAt === null ? "unavailable" : DateTime.formatIso(identity.expiresAt)}`,
           "",
         ].join("\n"),
-      ),
-    );
+      );
+    });
   },
   Effect.mapError(coerceAuthFailure),
   Effect.asVoid,

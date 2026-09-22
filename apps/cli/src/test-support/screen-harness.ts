@@ -32,6 +32,7 @@ export interface RecordingStreamOptions {
   readonly stdoutIsTTY?: boolean;
   readonly stderrIsTTY?: boolean;
   readonly columns?: number;
+  readonly stdoutColumns?: number;
   readonly rows?: number;
 }
 
@@ -50,6 +51,7 @@ export const makeRecordingStreams = (options?: RecordingStreamOptions): Recordin
     stdoutIsTTY: options?.stdoutIsTTY ?? false,
     stderrIsTTY: options?.stderrIsTTY ?? false,
     columns: options?.columns ?? 80,
+    stdoutColumns: options?.stdoutColumns ?? options?.columns ?? 80,
     rows: options?.rows ?? 24,
   };
   const record = (channel: "stdout" | "stderr") => (content: string) =>
@@ -88,22 +90,24 @@ export const machineScreenLayer = (
  */
 export const humanScreenLayer = (
   streams: RecordingStreams,
-  options?: { readonly env?: NodeJS.ProcessEnv },
+  options?: { readonly env?: NodeJS.ProcessEnv; readonly quiet?: boolean },
 ): Layer.Layer<Screen> => {
   const policy = resolveCliOutputPolicy({
     stdoutIsTTY: streams.facts.stdoutIsTTY,
     stderrIsTTY: streams.facts.stderrIsTTY,
     env: options?.env ?? {},
+    quiet: options?.quiet === true,
   });
   const glyphs = policy.glyphs === "ascii" ? asciiGlyphs : unicodeGlyphs;
   const frame = Layer.provide(
-    FrameLive({ animate: false, quiet: false, colors: policy.stderrColors, glyphs }),
+    FrameLive({ animate: false, quiet: policy.quiet, colors: policy.stderrColors, glyphs }),
     streams.layer,
   );
   return Layer.provide(
     ScreenLive({
       colors: { stdout: policy.stdoutColors, stderr: policy.stderrColors },
       animate: false,
+      quiet: policy.quiet,
       glyphs,
     }),
     Layer.merge(frame, streams.layer),

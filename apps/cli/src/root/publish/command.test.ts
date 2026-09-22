@@ -10,10 +10,8 @@ import {
   isEffectCliExit,
 } from "../../cli-runtime/index.js";
 import {
-  ResolvePlanInteraction,
   StepFailure,
   renderConfirmationRecoveryCommand,
-  type Plan,
 } from "@agentxm/workspace/transitions/planning";
 import {
   extensionTypes,
@@ -48,7 +46,6 @@ import {
 import { exitCodeFor } from "../../app-error/index.js";
 import { emitPublishResult } from "./result.js";
 import { asciiGlyphs, paintText } from "../../screen/index.js";
-import { livePlan } from "../../operation-view.js";
 import type { TestRendererState } from "../../test-support/presenter-test.js";
 import {
   normalizePublishResult,
@@ -452,41 +449,6 @@ describe("root publish", () => {
       );
     });
 
-    it.effect("hands the live ledger the extensions it will publish", () => {
-      writeReviewSkill();
-      const { provide } = makeContext(false);
-      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
-      const presented: Array<Plan<unknown, unknown>> = [];
-
-      return provide(
-        Effect.gen(function* () {
-          yield* handleRootPublish(args(registryUrl, { preview: false })).pipe(
-            Effect.updateService(ResolvePlanInteraction, (interaction) => ({
-              ...interaction,
-              presentPlan: (plan, options) =>
-                Effect.sync(() => void presented.push(plan)).pipe(
-                  Effect.andThen(interaction.presentPlan(plan, options)),
-                ),
-            })),
-          );
-
-          const [plan] = presented;
-          if (plan === undefined) throw new Error("Expected the publish plan to be presented");
-          expect(livePlan(plan, { verbosity: "normal" })).toMatchObject({
-            title: "Publishing",
-            rows: [
-              {
-                id: "@acme/skills/review",
-                plannedMark: "create",
-                plannedStatus: "publish",
-                cells: ["@acme/skills/review", "1.0.0"],
-              },
-            ],
-          });
-        }),
-      );
-    });
-
     it.effect("states that a version is already published without a ledger", () => {
       writeReviewSkill();
       const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
@@ -699,6 +661,7 @@ describe("root publish", () => {
             "     Extension                     Version   Status   Detail",
             " xx  @acme/skills/review           1.0.0     failed   upload failed, retryable",
             "     Registry upload is temporarily unavailable.",
+            "     request req_retry",
             "",
             "Publish failed for 1 extension  1 failed - exit 8",
             "",
@@ -803,9 +766,7 @@ describe("root publish", () => {
 
       return Effect.provide(
         Effect.gen(function* () {
-          const reported = yield* emitPublishResult(publishedReview, { exitCode: 0 });
-
-          expect(reported).toBe(true);
+          yield* emitPublishResult(publishedReview, { exitCode: 0 });
           expect(painted(context.rendererState)).toContain("Published 1 extension  public");
           expect(painted(context.rendererState).join("\n")).not.toContain("Publishing");
         }),

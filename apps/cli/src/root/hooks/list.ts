@@ -1,6 +1,7 @@
+import { withLiveOperation } from "../../operation-lifecycle.js";
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
+import { emitResult, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import { ExtensionInventorySchema } from "@agentxm/workspace/desired-state";
 import { listHooks, type SourcedListRow } from "@agentxm/workspace/inspection";
 import { withArgvTracking } from "../../cli-runtime/index.js";
@@ -32,10 +33,11 @@ const HookListColumns = [
 ] satisfies ReadonlyArray<ViewColumn<SourcedListRow>>;
 
 export const handleListHook = Effect.fn("ListHook.handle")(function* () {
-  const screen = yield* Screen;
-  const { inventory, rows } = yield* listHooks();
-  if (yield* screen.document(inventory, ExtensionInventorySchema)) return;
-  yield* screen.result(
+  const { inventory, rows } = yield* withLiveOperation(
+    { command: "hooks.list", name: "Inspect hooks packages", mode: "preview" },
+    listHooks(),
+  );
+  yield* emitResult(inventory, ExtensionInventorySchema, () =>
     inventoryDoc({
       rows,
       columns: HookListColumns,

@@ -1,5 +1,5 @@
 import type { Doc } from "../../screen/doc.js";
-import { liveLedgerDoc, type LivePlan } from "../../screen/live-ledger.js";
+import { progressActivity } from "../../screen/progress-view.js";
 import { initialProgress, reduceProgress, type ProgressState } from "../../screen/progress.js";
 import type { TerminalSize } from "../../screen/scene.js";
 import type { OperationEvent } from "@agentxm/workspace/transitions/planning";
@@ -98,30 +98,5 @@ const publishLog: ReadonlyArray<OperationEvent> = [
 
 const state: ProgressState = publishLog.reduce(reduceProgress, initialProgress);
 
-const plan: LivePlan = {
-  title: "Publishing as @acme",
-  columns: [
-    { header: "Extension", role: "name" },
-    { header: "Version", role: "fixed", priority: "optional" },
-  ],
-  rows: units.map((unit) => ({
-    id: unitId(unit),
-    plannedMark: "create",
-    plannedStatus: "publish",
-    cells: [unit.name, unit.version],
-  })),
-  hint: "--verbose for details",
-};
-
-/**
- * A publish of forty extensions at a short terminal height (canvas *Width and
- * height*, board `Width-live`, frame *Height cap*). The live ledger keeps the
- * running rows first, then the next waiting rows, and folds the rest into one
- * line; the status line beneath it survives every squeeze.
- *
- * The wait that sits beneath the ledger on the canvas belongs to the scene's
- * interaction part, which the `Screen.wait` primitive owns, so this fixture is
- * the ledger part alone and is given the whole height the scene would share.
- */
 export const widthLiveHeightCap = (terminal: TerminalSize): Doc =>
-  liveLedgerDoc(state, { plan, rows: terminal.rows - 2, nowMs: NOW });
+  progressActivity(state)({ ...terminal, nowMs: NOW, spinner: "◒" });

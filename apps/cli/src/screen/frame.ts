@@ -7,96 +7,71 @@ import * as Semaphore from "effect/Semaphore";
 import * as ServiceMap from "effect/Context";
 import * as Stream from "effect/Stream";
 
-import { liveLedgerDoc, type LivePlan } from "./live-ledger.js";
-import { paintText } from "./paint-text.js";
 import { unicodeGlyphs, type Glyphs } from "./glyphs.js";
-import { initialProgress, type ProgressState } from "./progress.js";
-import { progressTransitionDoc } from "./progress-view.js";
-import { paintScene, type Scene, type ScenePart } from "./scene.js";
+import { liveColumns, liveRows, paintLivePart, type ScenePart } from "./scene.js";
 import { OutputStreams } from "./streams.js";
-import { displayWidth, renderedRows } from "./width.js";
-import { ensureNewline, streamPaintWidth } from "./presenter-helpers.js";
 import { CURSOR_SHOW } from "./terminal-style.js";
 
 const ESC = "\u001b[";
 const CURSOR_HIDE = `${ESC}?25l`;
-/** Erase from the cursor to the end of the screen. */
 const ERASE_BELOW = `${ESC}0J`;
-const cursorUp = (rows: number): string => (rows <= 0 ? "" : `${ESC}${String(rows)}A`);
 
-/**
- * The single terminal owner's live region and transcript. Transcript writes
- * insert above the live region; the region shows one scene — the operation's
- * ledger with at most one interaction beneath it — and clears at settlement,
- * where the result ledger takes over.
- */
+/** Screen selects one foreground owner; Frame knows nothing about operations. */
+export interface ActiveView {
+  readonly owner: symbol;
+  readonly kind: "activity" | "interaction";
+  readonly part: ScenePart;
+}
+
 export class Frame extends ServiceMap.Service<
   Frame,
   {
     readonly stdout: (content: string) => Effect.Effect<void>;
     readonly stderr: (content: string) => Effect.Effect<void>;
-    /** Present the latest progress state; the frame diffs it against the previous one. */
-    readonly present: (operationId: string, state: ProgressState) => Effect.Effect<void>;
-    /** Whether an interaction can paint on the terminal-owned stream. */
+    /** Append a milestone and replace the foreground under one write permit. */
+    readonly updateActive: (
+      active: ActiveView | undefined,
+      content?: string,
+      immediate?: boolean,
+    ) => Effect.Effect<void>;
+    /** A stale owner cannot finish or clear a newer interaction. */
+    readonly finishActive: (
+      owner: symbol,
+      content: string,
+      next?: ActiveView,
+    ) => Effect.Effect<void>;
     readonly canInteract: Effect.Effect<boolean>;
-    /**
-     * Give the live ledger the plan its rows come from; `undefined` leaves it
-     * to synthesize rows from the units the operation reports.
-     */
-    readonly showPlan: (operationId: string, plan: LivePlan | undefined) => Effect.Effect<boolean>;
-    /** Replace the interaction beneath the ledger — a prompt or a wait; `undefined` clears it. */
-    readonly showInteraction: (part: ScenePart | undefined) => Effect.Effect<void>;
     readonly settle: Effect.Effect<void>;
   }
 >()("axm.sh/screen/Frame") {}
 
 interface FrameState {
-  /** Unsettled operations in start order; the newest owns the visible ledger. */
-  readonly operations: ReadonlyMap<string, OperationFrame>;
-  readonly scene: Scene;
-  /** Display widths of the lines standing in the live region, in paint order. */
-  readonly painted: ReadonlyArray<number>;
-  /** Exact unstyled scene bytes, used to avoid repainting an unchanged frame. */
-  readonly paintedContent: string;
-  readonly paintedColumns: number | undefined;
-  /** Whether the region hid the cursor and still owes the terminal a show. */
+  readonly active: ActiveView | undefined;
+  readonly painted: ReadonlyArray<string>;
+  readonly columns: number | undefined;
+  readonly rows: number | undefined;
   readonly cursorHidden: boolean;
-}
-
-interface OperationFrame {
-  readonly progress?: ProgressState;
-  readonly plan?: LivePlan;
+  /** Raw text without a newline has not yielded a safe place to animate. */
+  readonly freshLine: boolean;
 }
 
 const initialState: FrameState = {
-  operations: new Map(),
-  scene: {},
+  active: undefined,
   painted: [],
-  paintedContent: "",
-  paintedColumns: undefined,
+  columns: undefined,
+  rows: undefined,
   cursorHidden: false,
-};
-
-/**
- * Erase the live region. A narrowed terminal has rewrapped what was painted,
- * so the rows to clear come from the remembered line widths at the current
- * width rather than from the number of lines painted; erasing from the first
- * of them to the end of the screen then leaves no ghost row behind.
- */
-const eraseBytes = (painted: ReadonlyArray<number>, columns: number): string => {
-  if (painted.length === 0) return "";
-  const rows = painted.reduce((total, width) => total + renderedRows(width, columns), 0);
-  return `\r${cursorUp(rows - 1)}${ERASE_BELOW}`;
+  freshLine: true,
 };
 
 export interface FrameOptions {
   readonly animate: boolean;
   readonly quiet: boolean;
-  /** ANSI styling for the stderr live region and transcript transitions. */
   readonly colors: boolean;
   readonly glyphs?: Glyphs;
 }
 
+/** Serializes writes and owns only the transient tail, never the transcript. */
 export const FrameLive = (options: FrameOptions): Layer.Layer<Frame, never, OutputStreams> =>
   Layer.effect(
     Frame,
@@ -104,227 +79,128 @@ export const FrameLive = (options: FrameOptions): Layer.Layer<Frame, never, Outp
       const streams = yield* OutputStreams;
       const state = yield* Ref.make(initialState);
       const permit = yield* Semaphore.make(1);
-      const canInteract = Effect.map(streams.facts, (facts) => facts.stderrIsTTY);
-      // Transcript transitions land on stderr: bounded by the terminal width
-      // when stderr is a terminal, unbounded (never wrapped or padded) otherwise.
-      const style = (facts: { readonly stderrIsTTY: boolean; readonly columns: number }) => ({
-        width: streamPaintWidth(facts.stderrIsTTY, facts.columns),
-        colors: options.colors,
-        ...(options.glyphs === undefined ? {} : { glyphs: options.glyphs }),
-      });
-
-      /**
-       * The operation's live ledger as the scene's ledger part: the plan's
-       * rows joined to the latest progress, laid out in the height the scene
-       * gives it. The part is rebuilt whenever either side changes, so the
-       * scene never holds a stale join.
-       */
-      const ledgerPart = (
-        progress: ProgressState | undefined,
-        plan: LivePlan | undefined,
-      ): ScenePart | undefined =>
-        progress === undefined && plan === undefined
-          ? undefined
-          : (facts) =>
-              liveLedgerDoc(progress ?? initialProgress, {
-                ...(plan === undefined ? {} : { plan }),
-                rows: facts.rows,
-                nowMs: facts.nowMs,
-              });
-
-      const activeOperation = (
-        operations: ReadonlyMap<string, OperationFrame>,
-      ): OperationFrame | undefined => {
-        let active: OperationFrame | undefined;
-        for (const operation of operations.values()) active = operation;
-        return active;
-      };
-
-      const sceneWithOperations = (
-        current: FrameState,
-        operations: ReadonlyMap<string, OperationFrame>,
-      ): Scene => {
-        const active = activeOperation(operations);
-        return {
-          ...current.scene,
-          ledger: active === undefined ? undefined : ledgerPart(active.progress, active.plan),
-        };
-      };
 
       const eraseLocked = Effect.gen(function* () {
         const current = yield* Ref.get(state);
         if (current.painted.length === 0) return;
         const facts = yield* streams.facts;
-        yield* streams.stderr(eraseBytes(current.painted, facts.columns));
-        yield* Ref.update(state, (value) => ({
-          ...value,
-          painted: [],
-          paintedContent: "",
-          paintedColumns: undefined,
-        }));
+        // Terminals disagree about reflow and cursor placement after resize.
+        // Abandon uncertain geometry instead of moving into committed history.
+        const resized = current.columns !== facts.columns || current.rows !== facts.rows;
+        const up = current.painted.length - 1;
+        yield* streams.stderr(
+          resized ? "\r\n" : `\r${up > 0 ? `${ESC}${String(up)}A` : ""}${ERASE_BELOW}`,
+        );
+        yield* Ref.update(state, (value) => ({ ...value, painted: [] }));
       });
-
-      /**
-       * What the region may show. Progress animates only where the terminal
-       * can animate and quiet has not silenced it, but an open question is not
-       * progress: it is the thing the person has to answer, so it paints
-       * wherever the region can be erased and repainted at all.
-       */
-      const visibleScene = (
-        current: FrameState,
-        facts: { readonly stderrIsTTY: boolean },
-      ): Scene => {
-        if (options.animate && !options.quiet) return current.scene;
-        return facts.stderrIsTTY ? { interaction: current.scene.interaction } : {};
-      };
 
       const repaintLocked = Effect.gen(function* () {
         const current = yield* Ref.get(state);
         const facts = yield* streams.facts;
-        const erase = eraseBytes(current.painted, facts.columns);
+        const active = current.active;
+        const eligible =
+          facts.stderrIsTTY &&
+          facts.columns > 1 &&
+          current.freshLine &&
+          active !== undefined &&
+          (active.kind === "interaction" || (options.animate && !options.quiet));
         const nowMs = yield* Clock.currentTimeMillis;
-        const frames = (options.glyphs ?? unicodeGlyphs).spinner;
-        const spinner = frames[Math.floor(nowMs / 80) % frames.length] ?? "";
-        const lines = paintScene(visibleScene(current, facts), facts, {
-          colors: options.colors,
-          spinner,
-          nowMs,
-          ...(options.glyphs === undefined ? {} : { glyphs: options.glyphs }),
-        });
-        const paintedContent = lines.join("\n");
-        if (paintedContent === current.paintedContent && current.paintedColumns === facts.columns)
+        const glyphs = options.glyphs ?? unicodeGlyphs;
+        const spinner = glyphs.spinner[Math.floor(nowMs / 80) % glyphs.spinner.length] ?? "";
+        const space = { columns: liveColumns(facts.columns), rows: liveRows(facts.rows) };
+        const lines = eligible
+          ? paintLivePart(active.part({ ...space, spinner, nowMs }), space, {
+              colors: options.colors,
+              glyphs,
+              spinner,
+            })
+          : [];
+        if (
+          lines.join("\n") === current.painted.join("\n") &&
+          current.columns === facts.columns &&
+          current.rows === facts.rows &&
+          current.cursorHidden === lines.length > 0
+        )
           return;
-        // A painted region hides the cursor; an empty one hands it back, but
-        // only where it was the region that hid it.
-        const handback = current.cursorHidden ? CURSOR_SHOW : "";
-        const paint = lines.length === 0 ? handback : `${CURSOR_HIDE}${lines.join("\n")}`;
-        if (erase.length > 0 || paint.length > 0) yield* streams.stderr(`${erase}${paint}`);
-        yield* Ref.set(state, {
-          ...current,
-          painted: lines.map(displayWidth),
-          paintedContent,
-          paintedColumns: facts.columns,
+        yield* eraseLocked;
+        if (lines.length > 0) yield* streams.stderr(`${CURSOR_HIDE}${lines.join("\n")}`);
+        else if (current.cursorHidden) yield* streams.stderr(CURSOR_SHOW);
+        yield* Ref.update(state, (value) => ({
+          ...value,
+          painted: lines,
+          columns: facts.columns,
+          rows: facts.rows,
           cursorHidden: lines.length > 0,
-        });
+        }));
       });
 
-      const repaint = permit.withPermit(repaintLocked);
+      const appendLocked = (channel: "stdout" | "stderr", content: string) =>
+        Effect.gen(function* () {
+          if (content.length === 0) return;
+          yield* eraseLocked;
+          const facts = yield* streams.facts;
+          yield* streams[channel](content);
+          // Redirected stdout cannot change the stderr terminal's cursor.
+          // Two TTY streams may share it; never add bytes to exact raw output.
+          if (channel === "stderr" || facts.stdoutIsTTY) {
+            yield* Ref.update(state, (value) => ({
+              ...value,
+              freshLine: content.endsWith("\n"),
+            }));
+          }
+        });
 
       const write = (channel: "stdout" | "stderr", content: string) =>
+        permit.withPermit(appendLocked(channel, content).pipe(Effect.andThen(repaintLocked)));
+
+      const updateActive = (active: ActiveView | undefined, content = "", immediate = true) =>
         permit.withPermit(
           Effect.gen(function* () {
-            yield* eraseLocked;
-            yield* streams[channel](content);
+            yield* appendLocked("stderr", content);
+            yield* Ref.update(state, (value) => ({ ...value, active }));
+            if (immediate || content.length > 0) yield* repaintLocked;
+          }),
+        );
+
+      const finishActive = (owner: symbol, content: string, next?: ActiveView) =>
+        permit.withPermit(
+          Effect.gen(function* () {
+            if ((yield* Ref.get(state)).active?.owner !== owner) return;
+            yield* appendLocked("stderr", content);
+            yield* Ref.update(state, (value) => ({ ...value, active: next }));
             yield* repaintLocked;
           }),
         );
 
       const settle = permit.withPermit(
         Effect.gen(function* () {
+          yield* eraseLocked;
           const current = yield* Ref.get(state);
-          const facts = yield* streams.facts;
-          const erase = eraseBytes(current.painted, facts.columns);
-          // The region hands the cursor back the moment it empties, so
-          // settlement owes one only where something was still standing.
-          if (erase.length > 0 || current.cursorHidden) {
-            yield* streams.stderr(`${erase}${CURSOR_SHOW}`);
-          }
-          yield* Ref.set(state, {
-            ...current,
-            painted: [],
-            paintedContent: "",
-            paintedColumns: undefined,
-            cursorHidden: false,
-            operations: new Map(),
-            scene: {},
-          });
+          if (current.cursorHidden) yield* streams.stderr(CURSOR_SHOW);
+          yield* Ref.set(state, { ...initialState, freshLine: current.freshLine });
         }),
       );
 
-      const present = (operationId: string, next: ProgressState): Effect.Effect<void> =>
-        permit.withPermit(
-          Effect.gen(function* () {
-            const current = yield* Ref.get(state);
-            // An animated terminal shows every transition in the live ledger
-            // already, and its settlement is the result ledger the command
-            // prints, so nothing about progress reaches the transcript.
-            const previous = current.operations.get(operationId)?.progress;
-            const transition = options.animate ? [] : progressTransitionDoc(previous, next);
-            yield* eraseLocked;
-            yield* Ref.update(state, (value) => {
-              const operations = new Map(value.operations);
-              if (next.settled === undefined) {
-                const operation = operations.get(operationId);
-                operations.set(operationId, {
-                  ...(operation?.plan === undefined ? {} : { plan: operation.plan }),
-                  progress: next,
-                });
-              } else {
-                operations.delete(operationId);
-              }
-              return {
-                ...value,
-                operations,
-                scene: sceneWithOperations(value, operations),
-              };
-            });
-            if (!options.quiet && transition.length > 0) {
-              const facts = yield* streams.facts;
-              yield* streams.stderr(ensureNewline(paintText(transition, style(facts)).join("\n")));
-            }
-            yield* repaintLocked;
-          }),
-        );
-
-      /** Change what the region stands on, then repaint it under one permit. */
-      const show = (update: (value: FrameState) => FrameState): Effect.Effect<void> =>
-        permit.withPermit(
-          Effect.gen(function* () {
-            yield* Ref.update(state, update);
-            yield* repaintLocked;
-          }),
-        );
-
+      const repaint = permit.withPermit(repaintLocked);
       if (options.animate) {
         yield* Effect.repeat(repaint, Schedule.spaced("80 millis")).pipe(Effect.forkScoped);
-        yield* streams.resize.pipe(
-          Stream.runForEach(() => repaint),
-          Effect.forkScoped,
-        );
       }
-
+      // Questions resize even when progress animation is disabled.
+      yield* streams.resize.pipe(
+        Stream.runForEach(() => repaint),
+        Effect.forkScoped,
+      );
       yield* Effect.addFinalizer(() => settle);
 
       return {
-        stdout: (content: string) => write("stdout", content),
-        stderr: (content: string) => write("stderr", content),
-        present,
-        canInteract,
-        showPlan: (operationId: string, plan: LivePlan | undefined) =>
-          show((value) => ({
-            ...(() => {
-              const operations = new Map(value.operations);
-              const operation = operations.get(operationId);
-              operations.set(operationId, {
-                ...(operation?.progress === undefined ? {} : { progress: operation.progress }),
-                ...(plan === undefined ? {} : { plan }),
-              });
-              return {
-                ...value,
-                operations,
-                scene: sceneWithOperations(value, operations),
-              };
-            })(),
-          })).pipe(
-            Effect.andThen(
-              Effect.map(
-                streams.facts,
-                (facts) => options.animate && !options.quiet && facts.stderrIsTTY,
-              ),
-            ),
-          ),
-        showInteraction: (part: ScenePart | undefined) =>
-          show((value) => ({ ...value, scene: { ...value.scene, interaction: part } })),
+        stdout: (content) => write("stdout", content),
+        stderr: (content) => write("stderr", content),
+        updateActive,
+        finishActive,
+        canInteract: Effect.map(
+          streams.facts,
+          (facts) => facts.stderrIsTTY && facts.columns >= 20 && facts.rows >= 4,
+        ),
         settle,
       };
     }),

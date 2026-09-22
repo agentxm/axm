@@ -1,7 +1,7 @@
 import type { OperationEvent } from "@agentxm/workspace/transitions/planning";
 
 import type { Doc } from "../../screen/doc.js";
-import { liveLedgerDoc, type LivePlan } from "../../screen/live-ledger.js";
+import { progressActivity } from "../../screen/progress-view.js";
 import { initialProgress, reduceProgress, type ProgressState } from "../../screen/progress.js";
 import type { TerminalSize } from "../../screen/scene.js";
 
@@ -30,32 +30,5 @@ const log: ReadonlyArray<OperationEvent> = [
 
 const state: ProgressState = log.reduce(reduceProgress, initialProgress);
 
-const plan: LivePlan = {
-  title: "Installing",
-  aside: [{ text: "in this project" }, { text: "agents: claude-code, codex" }],
-  columns: [
-    { header: "Extension", role: "name" },
-    { header: "Version", role: "fixed", priority: "optional" },
-  ],
-  rows: [
-    {
-      id: "@acme/skills/standup",
-      plannedMark: "create",
-      plannedStatus: "install",
-      cells: ["@acme/skills/standup", "0.4.2"],
-    },
-  ],
-};
-
-/**
- * Waiting on the system (*Reference cases*, board `4 · Going wrong
- * mid-flight`, frame *Waiting on the system — another operation holds the
- * workspace*).
- *
- * The wait names no unit, so it stands beneath the ledger in place of the
- * status line: what the operation is parked on and how long it has waited,
- * who holds the workspace, and what stopping costs — nothing, because
- * contention is decided before anything is written.
- */
 export const refMidflightBusyWorkspace = (terminal: TerminalSize): Doc =>
-  liveLedgerDoc(state, { plan, rows: terminal.rows - 2, nowMs: NOW });
+  progressActivity(state)({ ...terminal, nowMs: NOW, spinner: "◒" });

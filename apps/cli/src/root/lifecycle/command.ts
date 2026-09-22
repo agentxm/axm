@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { Screen, headlineDoc, successDoc } from "../../screen/index.js";
+import { emitResult, headlineDoc, successDoc } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   directWriteCapabilities,
@@ -26,6 +26,7 @@ import {
 import { publishFailureToAppError } from "../../feature-errors.js";
 
 import { withRuntime } from "../../runtime.js";
+import { withLiveOperation } from "../../operation-lifecycle.js";
 
 const categoryValues = ["broken", "security", "accidental", "other"] as const;
 
@@ -43,9 +44,7 @@ export const ArchivalTransitionOutputSchema = ArchivalTransitionSchema.annotate(
  */
 const emitRegistryTransition = (transition: RegistryTransition) =>
   Effect.gen(function* () {
-    const screen = yield* Screen;
-    if (yield* screen.document(transition, RegistryTransitionSchema)) return;
-    yield* screen.result(successDoc(transition.message));
+    yield* emitResult(transition, RegistryTransitionSchema, () => successDoc(transition.message));
   });
 
 export const handleYank = Effect.fn("Yank.handle")(
@@ -58,12 +57,15 @@ export const handleYank = Effect.fn("Yank.handle")(
     const category = Option.getOrUndefined(input.category);
     const notice = Option.getOrUndefined(input.notice);
     yield* emitRegistryTransition(
-      yield* RetirePublishedVersion.yank({
-        ref: input.ref,
-        allVersions: input.allVersions,
-        ...(category === undefined ? {} : { category }),
-        ...(notice === undefined ? {} : { notice }),
-      }),
+      yield* withLiveOperation(
+        { command: "yank", name: `Yank ${input.ref}`, mode: "apply" },
+        RetirePublishedVersion.yank({
+          ref: input.ref,
+          allVersions: input.allVersions,
+          ...(category === undefined ? {} : { category }),
+          ...(notice === undefined ? {} : { notice }),
+        }),
+      ),
     );
   },
   Effect.mapError(publishFailureToAppError),
@@ -72,16 +74,19 @@ export const handleYank = Effect.fn("Yank.handle")(
 
 export const handleUnyank = Effect.fn("Unyank.handle")(
   function* (ref: string) {
-    yield* emitRegistryTransition(yield* RetirePublishedVersion.unyank(ref));
+    yield* emitRegistryTransition(
+      yield* withLiveOperation(
+        { command: "unyank", name: `Restore ${ref}`, mode: "apply" },
+        RetirePublishedVersion.unyank(ref),
+      ),
+    );
   },
   Effect.mapError(publishFailureToAppError),
   Effect.asVoid,
 );
 
 const emitDeprecationTransition = (transition: DeprecationTransition) =>
-  Effect.gen(function* () {
-    const screen = yield* Screen;
-    if (yield* screen.document(transition, LifecycleTransitionOutputSchema)) return;
+  emitResult(transition, LifecycleTransitionOutputSchema, () => {
     const verb =
       transition.disposition === "created"
         ? "Deprecated"
@@ -92,23 +97,28 @@ const emitDeprecationTransition = (transition: DeprecationTransition) =>
             : transition.after === null
               ? "Already active"
               : "Deprecation already current for";
-    yield* screen.result(successDoc(`${verb} ${transition.target}.`));
-    if (transition.after?.message !== undefined) {
-      yield* screen.note(headlineDoc("info", `Message: ${transition.after.message}`));
-    }
-    if (transition.after?.replacement !== undefined) {
-      const replacement = transition.after.replacement;
-      yield* screen.note(
-        headlineDoc(
-          "info",
-          replacement.status === "available"
-            ? `Replacement: ${replacement.fqn}`
-            : replacement.fqn === undefined
-              ? "Replacement: unavailable or not visible"
-              : `Replacement: ${replacement.fqn} (unavailable)`,
-        ),
-      );
-    }
+    const replacement = transition.after?.replacement;
+    return [
+      ...successDoc(`${verb} ${transition.target}.`),
+      ...headlineDoc(
+        "info",
+        `State: ${transition.before === null ? "active" : "deprecated"} to ${transition.after === null ? "active" : "deprecated"}`,
+      ),
+      ...headlineDoc("info", `Revision: ${transition.revision}`),
+      ...(transition.after?.message === undefined
+        ? []
+        : headlineDoc("info", `Message: ${transition.after.message}`)),
+      ...(replacement === undefined
+        ? []
+        : headlineDoc(
+            "info",
+            replacement.status === "available"
+              ? `Replacement: ${replacement.fqn}`
+              : replacement.fqn === undefined
+                ? "Replacement: unavailable or not visible"
+                : `Replacement: ${replacement.fqn} (unavailable)`,
+          )),
+    ];
   });
 
 export const handleDeprecate = Effect.fn("Deprecate.handle")(
@@ -119,7 +129,10 @@ export const handleDeprecate = Effect.fn("Deprecate.handle")(
     readonly clearMessage: boolean;
     readonly clearReplacement: boolean;
   }) {
-    const written = yield* DeprecatePublishedExtension.deprecate(input);
+    const written = yield* withLiveOperation(
+      { command: "deprecate", name: `Deprecate ${input.ref}`, mode: "apply" },
+      DeprecatePublishedExtension.deprecate(input),
+    );
     yield* emitDeprecationTransition(written.transition);
   },
   Effect.mapError(publishFailureToAppError),
@@ -128,7 +141,10 @@ export const handleDeprecate = Effect.fn("Deprecate.handle")(
 
 export const handleUndeprecate = Effect.fn("Undeprecate.handle")(
   function* (ref: string) {
-    const written = yield* DeprecatePublishedExtension.undeprecate(ref);
+    const written = yield* withLiveOperation(
+      { command: "undeprecate", name: `Restore ${ref}`, mode: "apply" },
+      DeprecatePublishedExtension.undeprecate(ref),
+    );
     yield* emitDeprecationTransition(written.transition);
   },
   Effect.mapError(publishFailureToAppError),
@@ -136,9 +152,7 @@ export const handleUndeprecate = Effect.fn("Undeprecate.handle")(
 );
 
 const emitArchivalTransition = (transition: ArchivalTransition) =>
-  Effect.gen(function* () {
-    const screen = yield* Screen;
-    if (yield* screen.document(transition, ArchivalTransitionOutputSchema)) return;
+  emitResult(transition, ArchivalTransitionOutputSchema, () => {
     const verb =
       transition.disposition === "created"
         ? "Archived"
@@ -149,15 +163,25 @@ const emitArchivalTransition = (transition: ArchivalTransition) =>
             : transition.after === null
               ? "Already active"
               : "Already archived";
-    yield* screen.result(successDoc(`${verb} ${transition.target}.`));
-    if (transition.after?.reason !== undefined) {
-      yield* screen.note(headlineDoc("info", `Reason: ${transition.after.reason}`));
-    }
+    return [
+      ...successDoc(`${verb} ${transition.target}.`),
+      ...headlineDoc(
+        "info",
+        `State: ${transition.before === null ? "active" : "archived"} to ${transition.after === null ? "active" : "archived"}`,
+      ),
+      ...headlineDoc("info", `Revision: ${transition.revision}`),
+      ...(transition.after?.reason === undefined
+        ? []
+        : headlineDoc("info", `Reason: ${transition.after.reason}`)),
+    ];
   });
 
 export const handleArchive = Effect.fn("Archive.handle")(
   function* (input: { readonly ref: string; readonly reason: Option.Option<string> }) {
-    const written = yield* ArchivePublishedExtension.archive(input);
+    const written = yield* withLiveOperation(
+      { command: "archive", name: `Archive ${input.ref}`, mode: "apply" },
+      ArchivePublishedExtension.archive(input),
+    );
     yield* emitArchivalTransition(written.transition);
   },
   Effect.mapError(publishFailureToAppError),
@@ -166,7 +190,10 @@ export const handleArchive = Effect.fn("Archive.handle")(
 
 export const handleUnarchive = Effect.fn("Unarchive.handle")(
   function* (ref: string) {
-    const written = yield* ArchivePublishedExtension.unarchive(ref);
+    const written = yield* withLiveOperation(
+      { command: "unarchive", name: `Unarchive ${ref}`, mode: "apply" },
+      ArchivePublishedExtension.unarchive(ref),
+    );
     yield* emitArchivalTransition(written.transition);
   },
   Effect.mapError(publishFailureToAppError),

@@ -6,7 +6,6 @@ import type * as Schema from "effect/Schema";
 import { subscribeLossless, type OperationEvent } from "@agentxm/workspace/transitions/planning";
 
 import type { Doc } from "../screen/doc.js";
-import type { LivePlan } from "../screen/live-ledger.js";
 import { paintText, type PaintStyle } from "../screen/paint-text.js";
 import { Screen, type ResultOptions, type ScreenLogRecord } from "../screen/screen.js";
 import { emptyAskScript, scriptedAsk, type AskScript } from "./scripted-ask.js";
@@ -26,8 +25,6 @@ export interface TestScreenState {
   }>;
   /** Every lifecycle event observed, in order, across observed operations. */
   readonly events: Array<OperationEvent>;
-  /** Every plan handed to the live ledger, in order. */
-  readonly plans: Array<LivePlan>;
   readonly logs: Array<ScreenLogRecord>;
   /** Every raw credential delivered to stdout, in order. */
   readonly credentials: Array<string>;
@@ -41,7 +38,6 @@ const emptyState = (): TestScreenState => ({
   suggestions: [],
   docs: [],
   events: [],
-  plans: [],
   logs: [],
   credentials: [],
   script: emptyAskScript(),
@@ -61,15 +57,17 @@ export const makeTestScreen = (options?: {
     result: (doc) =>
       Effect.sync(() => void state.docs.push({ channel: "stdout", doc, persistent: false })),
     credential: (content) => Effect.sync(() => void state.credentials.push(content)),
-    note: (doc, options) =>
+    note: (doc) =>
       Effect.sync(
         () =>
           void state.docs.push({
             channel: "stderr",
             doc,
-            persistent: options?.persistent === true,
+            persistent: false,
           }),
       ),
+    instruction: (doc) =>
+      Effect.sync(() => void state.docs.push({ channel: "stderr", doc, persistent: true })),
     document: <S extends Schema.Top>(
       data: Schema.Schema.Type<S>,
       schema: S,
@@ -86,11 +84,6 @@ export const makeTestScreen = (options?: {
       }),
     observe: (lifecycle) =>
       subscribeLossless(lifecycle, (event) => Effect.sync(() => void state.events.push(event))),
-    showPlan: (plan) =>
-      Effect.sync(() => {
-        state.plans.push(plan);
-        return true;
-      }),
     log: (record) => Effect.sync(() => void state.logs.push(record)),
     ask: scriptedAsk(
       state.script,

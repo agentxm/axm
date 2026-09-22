@@ -13,6 +13,7 @@ import {
 import { handleListHook } from "./hooks/list.js";
 import { handleListMcpServers } from "./mcps/list.js";
 import { mcpRegistryResolutionKey } from "@agentxm/workspace/desired-state";
+import { humanScreenLayer, makeRecordingStreams } from "../test-support/screen-harness.js";
 
 describe("list command empty output", () => {
   let tempDir: string;
@@ -80,6 +81,36 @@ describe("list command empty output", () => {
   it.effect("emits a single empty MCP server list payload", () =>
     runEmptyList(handleListMcpServers()),
   );
+
+  it.effect("prints MCP local names, accepted versions and missing projections on stdout", () => {
+    const streams = makeRecordingStreams();
+    const context = makeWorkspaceHandlerTestContext({ screenLayer: humanScreenLayer(streams) });
+    writeRegistryMcpWorkspace();
+    return context.provide(
+      Effect.gen(function* () {
+        yield* handleListMcpServers();
+        const stdout = streams.lines("stdout").join("\n");
+        for (const fact of ["Local name", "context", "2.3.4", "missing"])
+          expect(stdout).toContain(fact);
+        expect(streams.lines("stderr").join("\n")).toContain("Inspect MCP servers");
+      }),
+    );
+  });
+
+  it.effect("gives empty human inventories a standalone result", () => {
+    const streams = makeRecordingStreams();
+    const context = makeWorkspaceHandlerTestContext({ screenLayer: humanScreenLayer(streams) });
+    writeWorkspaceFiles(path.join(tempDir, ".axm"));
+    return context.provide(
+      Effect.gen(function* () {
+        yield* handleListHook();
+        yield* handleListMcpServers();
+        const stdout = streams.lines("stdout").join("\n");
+        expect(stdout).toContain("No hooks packages found");
+        expect(stdout).toContain("No MCP servers found");
+      }),
+    );
+  });
 
   it.effect("emits hooks rows in machine mode without a plan envelope", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });

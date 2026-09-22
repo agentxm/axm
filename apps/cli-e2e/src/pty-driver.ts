@@ -51,10 +51,10 @@ const subject = Bun.spawn({
 
 let reported = 0;
 let awaitedThrough = 0;
-const takeEmitted = (): string => {
+const takeEmitted = () => {
   const emitted = output.slice(reported);
   reported = output.length;
-  return visibleText(emitted);
+  return { emitted: visibleText(emitted), bytes: emitted };
 };
 
 const awaitText = async (text: string): Promise<boolean> => {
@@ -100,13 +100,18 @@ for (const action of request.actions) {
     // enough to split them across chunks, so wait for the output to go quiet
     // first, exactly as a `send` action does.
     if (matched) await settle();
-    actions.push({ action, matched, emitted: takeEmitted() });
+    actions.push({ action, matched, ...takeEmitted() });
     if (!matched) break;
     continue;
   }
-  terminal.write(action.send);
+  if ("resize" in action) {
+    terminal.resize(action.resize.columns, action.resize.rows);
+    // This directly spawned child has no shell establishing a foreground
+    // process group. Deliver the notification a terminal host normally sends.
+    if (subject.exitCode === null && subject.signalCode === null) subject.kill("SIGWINCH");
+  } else terminal.write(action.send);
   await settle();
-  actions.push({ action, matched: true, emitted: takeEmitted() });
+  actions.push({ action, matched: true, ...takeEmitted() });
 }
 
 const exitCode = await Promise.race([

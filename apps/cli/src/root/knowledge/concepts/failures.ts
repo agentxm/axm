@@ -6,28 +6,28 @@ import {
 } from "@agentxm/workspace/knowledge/query";
 
 import { ExitCode } from "../../../app-error/index.js";
-import { Screen, errorDoc } from "../../../screen/index.js";
+import { emitResult, type Screen, errorDoc } from "../../../screen/index.js";
 import { effectCliExit } from "../../../cli-runtime/index.js";
 
 const failWithConflict = Effect.fn("Knowledge.concepts.failWithConflict")(function* (output: {
   readonly outcome: "failed";
   readonly reason: "corpus-changing" | "cursor-expired";
 }) {
-  const screen = yield* Screen;
   const schema =
     output.reason === "cursor-expired"
       ? KnowledgeConceptCursorFailureSchema
       : KnowledgeConceptCorpusChangingFailureSchema;
-  const machine = yield* screen.document(output, schema, { ok: false });
-  if (!machine) {
-    yield* screen.note(
+  yield* emitResult(
+    output,
+    schema,
+    () =>
       errorDoc(
         output.reason === "cursor-expired"
           ? "Knowledge cursor expired; restart the query"
           : "Knowledge corpus kept changing; retry after updates finish",
       ),
-    );
-  }
+    { ok: false },
+  );
   return yield* Effect.die(effectCliExit(ExitCode.Conflict));
 });
 

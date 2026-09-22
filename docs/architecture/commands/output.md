@@ -22,7 +22,7 @@ routes to their executable contracts.
 ## Non-responsibilities
 
 It does not inventory commands, fields, schemas, event variants, or renderer
-APIs. Effect schemas and the machine-output contract register retain their
+APIs. Effect schemas and the command-output contract register retain their
 declared interface authority. Executable specifications own observable
 obligations; command help and ordinary tests explain or witness them.
 
@@ -43,10 +43,19 @@ that every long-running operation publishes to an invocation-scoped broadcast
 contract carries terminal escapes, padding, or wording; the painter and the
 phrase layer beside it own those.
 
-The two contracts do not overlap in time. The live frame paints the event
-stream as a live ledger while an operation runs and clears when the operation
-settles; the settled document, including the result ledger, prints only after
-every lossless subscriber of the stream has drained.
+Human presentation is a growing transcript with one bounded active region.
+The Screen folds lifecycle events losslessly, appends meaningful phase
+conclusions and exceptions, and selects the current activity or interaction.
+The Frame serializes writes and owns only the geometry of that transient tail.
+It cannot fold or repaint committed history. Measurements update current
+activity without adding a line per tick. The authoritative result prints after
+every lossless subscriber has drained, so it follows the story already told.
+
+A ledger is useful for reviewing several proposed changes or comparing final
+outcomes. Progress does not require a ledger, and a scalar or single outcome
+need not be rendered as one. A plan and result may repeat identities because
+they answer different questions; prior stderr narration never suppresses a
+fact required to understand stdout.
 
 ## Channel boundaries
 
@@ -71,10 +80,12 @@ obligations.
   specification `cli/machine-progress-events-follow-the-lifecycle-schema` owns
   that contract and `cli/long-running-operations-emit-lifecycle-events` owns
   which operations must publish.
-- `--quiet` suppresses the title, ledger, narration, and `Next`, while keeping
-  the verdict, a blocked reason, and the action or value a person came for.
-  This includes a wait's static block and URL, published URLs, and other
-  copyable values. A quiet wait has no live countdown.
+- `--quiet` suppresses routine progress and successful-unit detail. It retains
+  the requested result or value, required review and external-action
+  instructions, and actionable failures: affected identity, available reason,
+  state disposition, safe request identifier, and applicable recovery. A quiet
+  wait has its static instructions and no live countdown. An allowed required
+  question remains operable.
 - Unexpected failure still produces a stable machine error envelope while
   retaining diagnostics on stderr. Recognized errors may add a schema-backed
   `problem` discriminant whose fields expose structured facts beyond the stable
@@ -85,8 +96,10 @@ obligations.
 Handlers produce structured results before rendering. Feature-owned views turn
 those results into typed human documents, and the application-owned `Screen` is
 the sole writer after runtime startup. It serializes stdout and stderr,
-maintains the append-only transcript and bottom live frame, runs prompts and
-waits for a person inside that frame, and restores terminal state on shutdown.
+maintains the accumulating transcript, gives an open question or wait
+foreground ownership, and restores terminal state on shutdown. Nested
+operations have scoped owners; finishing one does not clear another's
+interaction.
 Views do not write directly to process streams or derive machine data by parsing
 terminal text.
 
@@ -106,9 +119,18 @@ plan because it creates no local artifact.
 
 ## Contract authority
 
-Effect schemas own published wire shapes. The machine-output contract register
-classifies every command path and tests compare it with the real command tree,
-so a command cannot silently acquire or lose a machine contract.
+Effect schemas own published wire shapes. The single register in
+`apps/cli/src/machine-output-contracts.ts` classifies every command path by
+result family, explicit liveness, and representative human and machine
+scenarios. Tests compare it with the real command tree. Formatter help,
+version, usage errors, and explicit raw credential output retain their own
+contracts.
+
+The executable specifications `cli/output-preserves-committed-history`,
+`cli/results-stand-alone-on-stdout`, and `cli/quiet-keeps-actionable-results`
+own the cross-cutting human promises. Layout and existing machine, approval,
+credential, failure, and recovery specifications continue to own their
+respective obligations.
 
 Contract changes follow the executable specification
 `system/process/pre-launch-changes-stay-coherent`, in the
@@ -135,3 +157,29 @@ For closure-based operations, human and machine results identify each closure
 as applied, no-op, blocked, failed, or rolled back. Overall nonzero exit status
 means the complete request did not converge; it does not imply that no
 independent closure committed.
+
+## Command authoring
+
+Ordinary handlers call `emitResult(value, schema, () => humanDoc)`. The human
+factory is pure and lazy, so machine mode never builds or executes a human
+view. A final human document contains the facts needed when stdout is captured
+alone. Credential delivery keeps its specialized acknowledged-write path;
+raw content keeps the route's exact-byte and sanitization contract.
+
+Use `withLiveOperation` around observed work, preserving the core lifecycle
+stream and its drain-before-result boundary. Publish domain phases where the
+work happens; do not create fake units to obtain a spinner. A completed read,
+download, or verification is finished work, not evidence that an extension was
+installed. The typed domain result owns the verdict.
+
+Use `Screen.note` for durable context and diagnostics, `Screen.instruction`
+for required action, and `Screen.ask` or `Screen.wait` for interaction. Required
+action is explicit; it is never inferred by searching text for URLs or command
+names. Review content prints before the question and remains in history.
+
+Handlers do not import Frame, output streams, raw terminal input, or terminal
+control sequences. Runtime adapters own those mechanics, and lint enforces
+the boundary. Add a command's output and liveness decision to the existing
+register, connect representative scenarios to real tests, and use terminal
+replay when asserting that committed text survives repainting. A final string
+or ANSI-stripped log alone cannot prove that history remained visible.

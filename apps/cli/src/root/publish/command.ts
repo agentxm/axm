@@ -181,7 +181,7 @@ const reportPublishOutcome = Effect.fn("Publish.report")(function* (
               };
         });
   const exitCode = dispositionExitCode(outcome.disposition);
-  const reported = yield* emitPublishResult(
+  yield* emitPublishResult(
     normalizePublishResult({
       mode: outcome.mode,
       ...(outcome.preconditions === undefined ? {} : { preconditions: outcome.preconditions }),
@@ -206,17 +206,15 @@ const reportPublishOutcome = Effect.fn("Publish.report")(function* (
   if (outcome.disposition._tag === "Failed") {
     // A reported outcome already carries the verdict and its recoveries, so
     // the invocation ends with its exit code rather than a second report.
-    return reported
-      ? yield* Effect.die(effectCliExit(exitCode))
-      : yield* publishFailureToAppError(outcome.disposition.failure);
+    return yield* Effect.die(effectCliExit(exitCode));
   }
 });
 
 /**
  * Publish's view renders its preview from the publication set, which carries
  * what the execution plan cannot — skipped extensions, visibility, and source
- * state — so the plan is not printed a second time as its own result. An apply
- * still hands its rows to the live ledger.
+ * state — so the plan is not printed a second time as its own result. Apply
+ * retains the interaction port's risk-driven review policy.
  */
 const withPublishPreviewOwnedByView = Effect.updateService(
   ResolvePlanInteraction,

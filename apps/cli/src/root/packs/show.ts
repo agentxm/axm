@@ -1,7 +1,15 @@
+import { withLiveOperation } from "../../operation-lifecycle.js";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-import { Screen, fieldsDoc, headlineDoc, type ViewField } from "../../screen/index.js";
+import {
+  emitResult,
+  fieldsDoc,
+  headlineDoc,
+  tableDoc,
+  type ViewField,
+  type ViewColumn,
+} from "../../screen/index.js";
 import { PackShowResultSchema, ShowPack, type PackShowResult } from "@agentxm/workspace/inspection";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
@@ -26,15 +34,20 @@ const showFields: ReadonlyArray<ViewField<ShowRow>> = [
   },
 ];
 
+const memberColumns: ReadonlyArray<ViewColumn<PackShowResult["desiredDependencies"][number]>> = [
+  { header: "Member", value: (row) => row.fqn },
+  { header: "Constraint", value: (row) => row.constraint ?? "-" },
+  { header: "Reachability", value: (row) => row.reachability ?? "not established" },
+];
+
 export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: string) {
-  const screen = yield* Screen;
-  const result = yield* Effect.catchTag(
-    ShowPack.query({ target }),
-    "PackInspectionRefused",
-    (failure) => Effect.fail(packInspectionRefusedToAppError(failure)),
+  const result = yield* withLiveOperation(
+    { command: "packs.show", name: "Inspect pack", mode: "preview" },
+    Effect.catchTag(ShowPack.query({ target }), "PackInspectionRefused", (failure) =>
+      Effect.fail(packInspectionRefusedToAppError(failure)),
+    ),
   );
-  if (yield* screen.document(result, PackShowResultSchema)) return;
-  yield* screen.result([
+  yield* emitResult(result, PackShowResultSchema, () => [
     ...headlineDoc("neutral", `Pack ${result.pack}`),
     ...fieldsDoc(
       {
@@ -50,6 +63,7 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
       },
       showFields,
     ),
+    ...tableDoc(result.desiredDependencies, memberColumns),
   ]);
 });
 

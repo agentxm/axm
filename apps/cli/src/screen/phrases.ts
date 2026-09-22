@@ -141,24 +141,6 @@ export const unitStateChange = (state: UnitState): Change => {
   }
 };
 
-/**
- * What a live ledger row says about a unit that has not settled. A running
- * unit usually names the work in flight instead; this is what a row says when
- * nothing more specific is known.
- */
-export const liveUnitActivity = (value: "waiting" | "running" | "paused"): string => {
-  switch (value) {
-    case "waiting":
-      return "waiting";
-    case "running":
-      return "working";
-    case "paused":
-      return "paused";
-    default:
-      return unreachable(value);
-  }
-};
-
 /** How far a running unit has come, in the unit its producer measured. */
 export const progressMeasure = (measure: {
   readonly done: number;
@@ -675,10 +657,14 @@ export const phaseLabel = (phase: OperationPhase): string => {
       return "awaiting confirmation";
     case "validation":
       return "validating";
+    case "acquisition":
+      return "acquiring content";
     case "apply":
-      return "applying";
+      return "applying changes";
+    case "verification":
+      return "verifying agent output";
     case "restoration":
-      return "rolling back";
+      return "restoring affected changes";
     default:
       return unreachable(phase);
   }

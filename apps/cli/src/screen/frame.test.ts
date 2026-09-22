@@ -1,441 +1,167 @@
 import { describe, expect, it } from "@effect/vitest";
-import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
-import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Queue from "effect/Queue";
 import * as Stream from "effect/Stream";
 
-import type { OperationEvent } from "@agentxm/workspace/transitions/planning";
+import { Frame, FrameLive, type ActiveView } from "./frame.js";
+import { makeTestOutputStreams } from "./streams.js";
+import {
+  makeTerminalReplay,
+  replayBytes,
+  terminalTranscript,
+} from "../test-support/terminal-replay.js";
 
-import { Frame, FrameLive } from "./frame.js";
-import type { LivePlan } from "./live-ledger.js";
-import { initialProgress, reduceProgress, type ProgressState } from "./progress.js";
-import { recordedInstallLog } from "./progress.test.js";
-import type { ScenePart } from "./scene.js";
-import { makeTestOutputStreams, type TestOutputStreamsState } from "./streams.js";
-import { displayWidth } from "./width.js";
+const active = (text: string, kind: ActiveView["kind"] = "activity"): ActiveView => ({
+  owner: Symbol(text),
+  kind,
+  part: () => [{ _tag: "raw", content: text }],
+});
 
-const CURSOR_HIDE = "\u001b[?25l";
-
-const stateAt = (count: number): ProgressState =>
-  recordedInstallLog.slice(0, count).reduce(reduceProgress, initialProgress);
-
-const slowLifecycle: ReadonlyArray<OperationEvent> = [
-  {
-    _tag: "OperationStarted",
-    seq: 1,
-    atMs: 1_000,
-    operationId: "operation-slow",
-    name: "Update skill",
-    mode: "apply",
-  },
-  { _tag: "PhaseStarted", seq: 2, atMs: 1_001, phase: "resolution" },
-  {
-    _tag: "UnitStarted",
-    seq: 3,
-    atMs: 1_002,
-    unitId: "configured-update:skill",
-    label: "configured skills",
-    index: 0,
-  },
-  {
-    _tag: "Waiting",
-    seq: 4,
-    atMs: 1_003,
-    blockingClass: "external-blocked",
-    subject: "registry-retry:slow",
-    detail: "Registry download retry 2 of 3 after 10s",
-  },
-  { _tag: "WaitEnded", seq: 5, atMs: 11_003, subject: "registry-retry:slow" },
-  {
-    _tag: "UnitResolved",
-    seq: 6,
-    atMs: 11_004,
-    unitId: "configured-update:skill",
-    label: "configured skills",
-    state: "committed",
-    index: 0,
-  },
-  { _tag: "PhaseStarted", seq: 7, atMs: 11_005, phase: "apply" },
-  {
-    _tag: "UnitStarted",
-    seq: 8,
-    atMs: 11_006,
-    unitId: "registry-extract:@acme/skill/review",
-    label: "extracting review",
-    index: 1,
-  },
-  {
-    _tag: "UnitResolved",
-    seq: 9,
-    atMs: 11_007,
-    unitId: "registry-extract:@acme/skill/review",
-    label: "extracting review",
-    state: "committed",
-    index: 1,
-  },
-  {
-    _tag: "UnitStarted",
-    seq: 10,
-    atMs: 11_008,
-    unitId: "agent-readback:skill",
-    label: "current skill agent state",
-    index: 2,
-  },
-];
-
-const slowStateAt = (count: number): ProgressState =>
-  slowLifecycle.slice(0, count).reduce(reduceProgress, initialProgress);
-
-const makeHarness = (
-  animate: boolean,
-  terminal?: { readonly columns?: number; readonly rows?: number },
-) => {
+const harness = (options?: { animate?: boolean; quiet?: boolean; tty?: boolean }) => {
   const streams = makeTestOutputStreams({
-    stdoutIsTTY: animate,
-    stderrIsTTY: animate,
-    ...(terminal?.columns === undefined ? {} : { columns: terminal.columns }),
-    ...(terminal?.rows === undefined ? {} : { rows: terminal.rows }),
+    stdoutIsTTY: options?.tty ?? true,
+    stderrIsTTY: options?.tty ?? true,
   });
   return {
-    state: streams.state,
-    layer: Layer.provide(FrameLive({ animate, quiet: false, colors: false }), streams.layer),
+    ...streams,
+    layer: Layer.provide(
+      FrameLive({
+        animate: options?.animate ?? true,
+        quiet: options?.quiet ?? false,
+        colors: false,
+      }),
+      streams.layer,
+    ),
   };
 };
 
-/** A plan of `count` units none of which has started, so every row waits. */
-const plan = (count: number): LivePlan => ({
-  title: "Installing",
-  columns: [{ header: "Extension", role: "name" }],
-  rows: Array.from({ length: count }, (_, index) => ({
-    id: `unit-${String(index + 1)}`,
-    plannedMark: "create" as const,
-    plannedStatus: "install",
-    cells: [`unit ${String(index + 1)}`],
-  })),
-});
-
-/** A scene part asking for `count` lines, each naming the part it belongs to. */
-const part =
-  (label: string, count: number): ScenePart =>
-  () => [
-    {
-      _tag: "raw",
-      content: Array.from({ length: count }, (_, index) => `${label} ${String(index + 1)}`).join(
-        "\n",
-      ),
-    },
-  ];
-
-/** The lines standing in the live region after the frame's last write. */
-const liveLines = (state: TestOutputStreamsState): ReadonlyArray<string> => {
-  const last = state.stderr.at(-1) ?? "";
-  const start = last.indexOf(CURSOR_HIDE);
-  return start === -1 ? [] : last.slice(start + CURSOR_HIDE.length).split("\n");
-};
-
-/** Let the frame's forked fibers run, and answer with the next write they made. */
-const awaitWrite = (state: TestOutputStreamsState) =>
-  Effect.gen(function* () {
-    const before = state.stderr.length;
-    for (let turn = 0; turn < 50 && state.stderr.length === before; turn += 1) {
-      yield* Effect.yieldNow;
-    }
-    return state.stderr[before] ?? "";
-  });
-
-describe("Frame", () => {
-  it.effect("inserts transcript output above the live region and clears it at settlement", () => {
-    const harness = makeHarness(true);
+describe("Frame transcript ownership", () => {
+  it.effect("preserves committed history across replacement, logs and settlement", () => {
+    const h = harness();
     return Effect.gen(function* () {
+      const terminal = yield* makeTerminalReplay();
       const frame = yield* Frame;
-      yield* frame.present("operation-1", stateAt(12));
-      yield* frame.stderr("warning\n");
-      const running = harness.state.stderr.join("");
-      expect(running).toContain("Install skill");
-      expect(running).toContain("code-review");
-      expect(running).toContain("warning\n");
-      expect(running.indexOf("warning\n")).toBeLessThan(running.lastIndexOf("code-review"));
-
-      yield* frame.present("operation-1", stateAt(19));
-      // The result ledger the command prints is the settlement, so nothing
-      // about progress is left behind in the transcript.
-      const afterSettlement = harness.state.stderr.join("").slice(running.length);
-      expect(afterSettlement).not.toContain("code-review");
-      expect(afterSettlement).not.toContain("Install skill");
-      expect(liveLines(harness.state)).toEqual([]);
-    }).pipe(Effect.provide(harness.layer), Effect.scoped);
-  });
-
-  it.effect("narrates transitions as static transcript lines without animation", () => {
-    const harness = makeHarness(false);
-    return Effect.gen(function* () {
-      const frame = yield* Frame;
-      for (let count = 1; count <= recordedInstallLog.length; count += 1) {
-        yield* frame.present("operation-1", stateAt(count));
-      }
-      expect(harness.state.stderr.join("")).toBe(
-        [
-          " ●   Install skill",
-          " ●   Resolving sources",
-          " ●   Working on extension sources",
-          " ●   Planning",
-          " ●   Working on lockfile reconciliation",
-          " ●   Validating",
-          " ▲   Waiting - another operation holds the workspace: axm sync (pid 41)",
-          " ●   Applying",
-          " ●   Working on code-review",
-          " ●   Working on deploy",
-          " ▲   Rolling back Install skill",
-          " ✖   Install skill                 1.5s, 1 failed",
-          "",
-        ].join("\n"),
+      const first = active("Checking sources…");
+      yield* frame.stderr("Updating extensions\n");
+      yield* frame.updateActive(first);
+      yield* frame.stderr("A warning stays here\n");
+      yield* frame.finishActive(first.owner, "Checked sources\n", active("Applying changes…"));
+      yield* frame.updateActive(undefined, "Finished applying changes\n");
+      yield* frame.settle;
+      yield* replayBytes(terminal, h.state.stderr.join(""));
+      expect(terminalTranscript(terminal)).toBe(
+        "Updating extensions\nA warning stays here\nChecked sources\nFinished applying changes",
       );
-      expect(harness.state.stderr.join("")).not.toContain("\u001b[");
-    }).pipe(Effect.provide(harness.layer), Effect.scoped);
+    }).pipe(Effect.provide(h.layer), Effect.scoped);
   });
 
-  it.effect("keeps a slow retry, extraction, and readback visible in pipes and a live TTY", () => {
-    const pipe = makeHarness(false);
-    const tty = makeHarness(true);
+  it.effect("does not let stale owners remove a newer question", () => {
+    const h = harness();
     return Effect.gen(function* () {
-      yield* Effect.gen(function* () {
-        const frame = yield* Frame;
-        for (let count = 1; count <= slowLifecycle.length; count += 1) {
-          yield* frame.present("operation-slow", slowStateAt(count));
-        }
-      }).pipe(Effect.provide(pipe.layer), Effect.scoped);
-      expect(pipe.state.stderr.join("")).toContain("Working on configured skills");
-      expect(pipe.state.stderr.join("")).toContain("Registry download retry 2 of 3 after 10s");
-      expect(pipe.state.stderr.join("")).toContain("Working on extracting review");
-      expect(pipe.state.stderr.join("")).toContain("Working on current skill agent state");
-      yield* Effect.gen(function* () {
-        const frame = yield* Frame;
-        for (let count = 1; count <= slowLifecycle.length; count += 1) {
-          yield* frame.present("operation-slow", slowStateAt(count));
-          if (count === 4) {
-            expect(liveLines(tty.state).join("\n")).toContain(
-              "Registry download retry 2 of 3 after 10s",
-            );
-          }
-        }
-        expect(liveLines(tty.state).join("\n")).toContain("current skill agent state");
-      }).pipe(Effect.provide(tty.layer), Effect.scoped);
-    });
+      const terminal = yield* makeTerminalReplay();
+      const frame = yield* Frame;
+      const old = active("old", "interaction");
+      const current = active("Choose agents", "interaction");
+      yield* frame.updateActive(old);
+      yield* frame.updateActive(current);
+      yield* frame.finishActive(old.owner, "wrong answer\n");
+      yield* frame.finishActive(old.owner, "");
+      yield* replayBytes(terminal, h.state.stderr.join(""));
+      expect(terminalTranscript(terminal)).toBe("Choose agents");
+      yield* frame.finishActive(current.owner, "Agents: editor\n");
+    }).pipe(Effect.provide(h.layer), Effect.scoped);
   });
 
-  it.effect(
-    "restores the cursor and preserves transcript output when interrupted during resize",
-    () => {
-      const streams = makeTestOutputStreams({
-        stdoutIsTTY: true,
-        stderrIsTTY: true,
-        resize: Stream.callback((queue) =>
-          Effect.acquireRelease(
-            Effect.sync(() => void Queue.offerUnsafe(queue, 64)),
-            () => Effect.void,
-          ),
-        ),
-      });
+  it.effect("preserves a transcript longer than the viewport", () => {
+    const h = harness();
+    return Effect.gen(function* () {
+      const terminal = yield* makeTerminalReplay(80, 4);
+      const frame = yield* Frame;
+      h.state.size = { columns: 80, rows: 4 };
+      const history = Array.from({ length: 80 }, (_, i) => `Completed phase ${String(i)}`);
+      for (const line of history) {
+        yield* frame.updateActive(active("Current activity"), `${line}\n`);
+      }
+      yield* frame.settle;
+      yield* replayBytes(terminal, h.state.stderr.join(""));
+      expect(terminalTranscript(terminal)).toBe(history.join("\n"));
+      for (const control of ["\u001b[2J", "\u001b[3J", "\u001b[?1049h"]) {
+        expect(h.state.stderr.join("")).not.toContain(control);
+      }
+    }).pipe(Effect.provide(h.layer), Effect.scoped);
+  });
+
+  it.effect("leaves exact raw output without a newline and suspends repainting", () => {
+    const h = harness();
+    return Effect.gen(function* () {
+      const frame = yield* Frame;
+      yield* frame.updateActive(active("Working"));
+      yield* frame.stdout("raw-value");
+      const count = h.state.stderr.length;
+      yield* frame.updateActive(active("Still working"));
+      yield* frame.settle;
+      expect(h.state.stdout.join("")).toBe("raw-value");
+      expect(h.state.stderr.slice(count).join("")).not.toContain("Still working");
+    }).pipe(Effect.provide(h.layer), Effect.scoped);
+  });
+
+  for (const options of [{ animate: false }, { quiet: true }]) {
+    it.effect(`keeps questions usable with ${JSON.stringify(options)}`, () => {
+      const h = harness(options);
       return Effect.gen(function* () {
-        const started = yield* Deferred.make<void>();
-        const fiber = yield* Effect.gen(function* () {
-          const frame = yield* Frame;
-          yield* frame.present("operation-1", stateAt(12));
-          yield* frame.stderr("warning stayed whole\n");
-          yield* Deferred.succeed(started, undefined);
-          return yield* Effect.never;
-        }).pipe(
-          Effect.provide(
-            Layer.provide(FrameLive({ animate: true, quiet: false, colors: false }), streams.layer),
-          ),
-          Effect.scoped,
-          Effect.forkChild,
-        );
-        yield* Deferred.await(started);
-        yield* Fiber.interrupt(fiber);
-
-        const output = streams.state.stderr.join("");
-        expect(output).toContain("warning stayed whole\n");
-        expect(output).toContain("Install skill");
-        expect(output).toContain("\u001b[?25h");
-      });
-    },
-  );
-  it.effect("paints the ledger and the interaction as one scene within the height", () => {
-    const harness = makeHarness(true, { columns: 80, rows: 16 });
-    return Effect.gen(function* () {
-      const frame = yield* Frame;
-      yield* frame.showPlan("operation-1", plan(40));
-      yield* frame.present("operation-1", stateAt(1));
-      yield* frame.showInteraction(part("ask", 4));
-      const lines = liveLines(harness.state);
-      expect(lines).toHaveLength(14);
-      expect(lines[0]).toContain("Installing");
-      // Forty units cannot fit beneath a four-line question, so the window
-      // folds what it cannot show rather than pushing the question off.
-      expect(lines.join("\n")).toContain("more waiting");
-      expect(lines.slice(-4)).toEqual(["ask 1", "ask 2", "ask 3", "ask 4"]);
-    }).pipe(Effect.provide(harness.layer), Effect.scoped);
-  });
-
-  it.effect("clears a part of the scene without disturbing the other", () => {
-    const harness = makeHarness(true, { columns: 80, rows: 16 });
-    return Effect.gen(function* () {
-      const frame = yield* Frame;
-      yield* frame.showPlan("operation-1", plan(2));
-      yield* frame.present("operation-1", stateAt(1));
-      yield* frame.showInteraction(part("ask", 2));
-      const withAsk = liveLines(harness.state);
-      expect(withAsk.slice(-2)).toEqual(["ask 1", "ask 2"]);
-      yield* frame.showInteraction(undefined);
-      expect(liveLines(harness.state)).toEqual(withAsk.slice(0, -2));
-    }).pipe(Effect.provide(harness.layer), Effect.scoped);
-  });
-
-  it.effect("restores the enclosing operation when a nested operation settles", () => {
-    const harness = makeHarness(true, { columns: 80, rows: 16 });
-    return Effect.gen(function* () {
-      const frame = yield* Frame;
-      yield* frame.showPlan("outer", { ...plan(2), title: "Installing" });
-      yield* frame.present("outer", stateAt(1));
-      expect(liveLines(harness.state).join("\n")).toContain("Installing");
-
-      yield* frame.showPlan("inner", { ...plan(1), title: "Syncing" });
-      yield* frame.present("inner", stateAt(1));
-      expect(liveLines(harness.state).join("\n")).toContain("Syncing");
-
-      yield* frame.present("inner", stateAt(recordedInstallLog.length));
-      const restored = liveLines(harness.state).join("\n");
-      expect(restored).toContain("Installing");
-      expect(restored).not.toContain("Syncing");
-
-      yield* frame.present("outer", stateAt(recordedInstallLog.length));
-      expect(liveLines(harness.state)).toEqual([]);
-    }).pipe(Effect.provide(harness.layer), Effect.scoped);
-  });
-
-  it.effect("paints an open question where the region cannot animate", () => {
-    const streams = makeTestOutputStreams({ stdoutIsTTY: true, stderrIsTTY: true });
-    return Effect.gen(function* () {
-      const frame = yield* Frame;
-      // Progress is silent without animation, but a question is not progress:
-      // it is the thing the person has to answer.
-      yield* frame.present("operation-1", stateAt(4));
-      expect(liveLines(streams.state)).toEqual([]);
-
-      yield* frame.showInteraction(part("ask", 2));
-      expect(liveLines(streams.state)).toEqual(["ask 1", "ask 2"]);
-    }).pipe(
-      Effect.provide(
-        Layer.provide(FrameLive({ animate: false, quiet: false, colors: false }), streams.layer),
-      ),
-      Effect.scoped,
-    );
-  });
-
-  it.effect("paints an open question under quiet, which silences everything else", () => {
-    const streams = makeTestOutputStreams({ stdoutIsTTY: true, stderrIsTTY: true });
-    return Effect.gen(function* () {
-      const frame = yield* Frame;
-      yield* frame.showPlan("operation-1", plan(3));
-      yield* frame.present("operation-1", stateAt(4));
-      expect(liveLines(streams.state)).toEqual([]);
-
-      yield* frame.showInteraction(part("ask", 1));
-      expect(liveLines(streams.state)).toEqual(["ask 1"]);
-    }).pipe(
-      Effect.provide(
-        Layer.provide(FrameLive({ animate: true, quiet: true, colors: false }), streams.layer),
-      ),
-      Effect.scoped,
-    );
-  });
-
-  it.effect("keeps the region off a stream that is not a terminal", () => {
-    const streams = makeTestOutputStreams({ stdoutIsTTY: false, stderrIsTTY: false });
-    return Effect.gen(function* () {
-      const frame = yield* Frame;
-      const canInteract = yield* frame.canInteract;
-      expect(canInteract).toBe(false);
-      yield* frame.showInteraction(part("ask", 1));
-      expect(streams.state.stderr).toEqual([]);
-    }).pipe(
-      Effect.provide(
-        Layer.provide(FrameLive({ animate: false, quiet: false, colors: false }), streams.layer),
-      ),
-      Effect.scoped,
-    );
-  });
-
-  it.effect("reports whether a shown plan can occupy the live region", () => {
-    const visible = makeHarness(true);
-    const staticFrame = makeHarness(false);
-    return Effect.gen(function* () {
-      expect(
-        yield* Effect.flatMap(Frame, (frame) => frame.showPlan("operation-1", plan(1))).pipe(
-          Effect.provide(visible.layer),
-          Effect.scoped,
-        ),
-      ).toBe(true);
-      expect(
-        yield* Effect.flatMap(Frame, (frame) => frame.showPlan("operation-1", plan(1))).pipe(
-          Effect.provide(staticFrame.layer),
-          Effect.scoped,
-        ),
-      ).toBe(false);
+        const terminal = yield* makeTerminalReplay();
+        const frame = yield* Frame;
+        yield* frame.updateActive(active("Hidden activity"));
+        yield* frame.updateActive(active("Answer this question", "interaction"));
+        yield* replayBytes(terminal, h.state.stderr.join(""));
+        expect(terminalTranscript(terminal)).toBe("Answer this question");
+      }).pipe(Effect.provide(h.layer), Effect.scoped);
     });
-  });
+  }
 
-  it.effect("hands the cursor back when a question it hid the cursor for leaves", () => {
-    const streams = makeTestOutputStreams({ stdoutIsTTY: true, stderrIsTTY: true });
+  it.effect("never paints control bytes to a pipe", () => {
+    const h = harness({ tty: false });
     return Effect.gen(function* () {
       const frame = yield* Frame;
-      yield* frame.showInteraction(part("ask", 1));
-      expect(streams.state.stderr.at(-1)).toContain(CURSOR_HIDE);
-
-      yield* frame.showInteraction(undefined);
-      expect(streams.state.stderr.at(-1)).toContain("\u001b[?25h");
-    }).pipe(
-      Effect.provide(
-        Layer.provide(FrameLive({ animate: false, quiet: false, colors: false }), streams.layer),
-      ),
-      Effect.scoped,
-    );
+      expect(yield* frame.canInteract).toBe(false);
+      yield* frame.updateActive(active("Hidden", "interaction"), "Visible milestone\n");
+      yield* frame.settle;
+      expect(h.state.stderr.join("")).toBe("Visible milestone\n");
+    }).pipe(Effect.provide(h.layer), Effect.scoped);
   });
 
-  it.effect("erases the rows a narrowed terminal rewrapped, not the lines it painted", () => {
-    return Effect.gen(function* () {
+  it.effect("preserves committed text through resize without trusting old cursor geometry", () =>
+    Effect.gen(function* () {
       const resizes = yield* Queue.unbounded<number>();
       const streams = makeTestOutputStreams({
         stdoutIsTTY: true,
         stderrIsTTY: true,
-        columns: 80,
-        rows: 24,
         resize: Stream.fromQueue(resizes),
       });
+      const terminal = yield* makeTerminalReplay();
       yield* Effect.gen(function* () {
         const frame = yield* Frame;
-        yield* frame.showInteraction(() => [{ _tag: "raw", content: "x".repeat(120) }]);
-        const painted = liveLines(streams.state);
-        expect(painted).toHaveLength(1);
-        expect(displayWidth(painted[0] ?? "")).toBe(79);
-
-        streams.state.size = { columns: 60, rows: 24 };
-        Queue.offerUnsafe(resizes, 60);
-        const repaint = yield* awaitWrite(streams.state);
-
-        // The one painted line stands on two rows at sixty columns, so the
-        // erase reaches up one row and clears to the end of the screen.
-        expect(repaint.startsWith("\r\u001b[1A\u001b[0J")).toBe(true);
-        expect(displayWidth(liveLines(streams.state)[0] ?? "")).toBe(59);
+        yield* frame.stderr("History must survive\n");
+        yield* frame.updateActive(active("x".repeat(75), "interaction"));
+        yield* replayBytes(terminal, streams.state.stderr.join(""));
+        const written = streams.state.stderr.length;
+        terminal.resize(20, 4);
+        streams.state.size = { columns: 20, rows: 4 };
+        yield* Queue.offer(resizes, 20);
+        for (let i = 0; i < 50 && streams.state.stderr.length === written; i += 1)
+          yield* Effect.yieldNow;
+        yield* frame.updateActive(active("New controls", "interaction"));
+        yield* frame.settle;
+        yield* replayBytes(terminal, streams.state.stderr.slice(written).join(""));
+        expect(terminalTranscript(terminal)).toContain("History must survive");
+        expect(streams.state.stderr[written]).toBe("\r\n");
       }).pipe(
         Effect.provide(
-          Layer.provide(FrameLive({ animate: true, quiet: false, colors: false }), streams.layer),
+          Layer.provide(FrameLive({ animate: false, quiet: false, colors: false }), streams.layer),
         ),
         Effect.scoped,
       );
-    });
-  });
+    }).pipe(Effect.scoped),
+  );
 });

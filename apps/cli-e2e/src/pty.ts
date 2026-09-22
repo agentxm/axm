@@ -48,7 +48,11 @@ const PtyAwaitSchema = Schema.Struct({ awaiting: Schema.String });
 /** Write `send` to the terminal, then let the subject's repaint settle. */
 const PtySendSchema = Schema.Struct({ send: Schema.String });
 
-const PtyActionSchema = Schema.Union([PtyAwaitSchema, PtySendSchema]);
+const PtyResizeSchema = Schema.Struct({
+  resize: Schema.Struct({ columns: Schema.Number, rows: Schema.Number }),
+});
+
+const PtyActionSchema = Schema.Union([PtyAwaitSchema, PtySendSchema, PtyResizeSchema]);
 
 const PtyActionOutcomeSchema = Schema.Struct({
   action: PtyActionSchema,
@@ -56,6 +60,8 @@ const PtyActionOutcomeSchema = Schema.Struct({
   matched: Schema.Boolean,
   /** Transcript this action produced, with escape sequences removed. */
   emitted: Schema.String,
+  /** Exact bytes since the preceding action, for terminal replay. */
+  bytes: Schema.String,
 });
 
 export type PtyAction = typeof PtyActionSchema.Type;

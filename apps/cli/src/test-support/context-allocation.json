@@ -1029,7 +1029,9 @@
             "preview",
             "confirmation",
             "validation",
+            "acquisition",
             "apply",
+            "verification",
             "restoration"
           ],
           "bindings": ["phase-interface"]

@@ -135,6 +135,65 @@ if (!refs.branches.includes("main")) process.exitCode = 2;
     }),
   );
 
+  it.effect("terminates a timed-out Git child and returns a typed failure", () =>
+    Effect.sync(() => {
+      const binDir = path.join(tempDir, "bin");
+      const pidPath = path.join(tempDir, "git-child.pid");
+      fs.mkdirSync(binDir);
+      fs.writeFileSync(
+        path.join(binDir, "git"),
+        `#!/bin/sh
+printf '%s\\n' "$$" > "$AXM_GIT_PROBE_PID"
+exec sleep 30
+`,
+        { mode: 0o700 },
+      );
+      const program = `
+import * as Duration from "effect/Duration";
+import * as Effect from "effect/Effect";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+const { listRemoteRefs, withGitOperationDeadline } = await import(process.argv[1]);
+const failure = await Effect.runPromise(
+  listRemoteRefs("probe").pipe(
+    withGitOperationDeadline("list-remote-refs", Duration.seconds(1)),
+    Effect.flip,
+    Effect.provide(NodeServices.layer),
+  ),
+);
+if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadline")) {
+  process.exitCode = 2;
+}
+`;
+      const operationsUrl = new URL(
+        "../../../../dist/src/resolution/sources/git/operations.js",
+        import.meta.url,
+      ).href;
+      try {
+        execFileSync(process.execPath, ["--input-type=module", "-e", program, operationsUrl], {
+          cwd: process.cwd(),
+          env: {
+            ...isolatedGitEnv(),
+            PATH: `${binDir}${path.delimiter}${process.env["PATH"] ?? ""}`,
+            AXM_GIT_PROBE_PID: pidPath,
+          },
+          timeout: 10_000,
+          stdio: "pipe",
+        });
+        const pid = Number(fs.readFileSync(pidPath, "utf8").trim());
+        expect(() => process.kill(pid, 0)).toThrow();
+      } finally {
+        if (fs.existsSync(pidPath)) {
+          const pid = Number(fs.readFileSync(pidPath, "utf8").trim());
+          try {
+            process.kill(pid);
+          } catch {
+            // The expected terminated child has already exited.
+          }
+        }
+      }
+    }),
+  );
+
   describe("getTreeSha", () => {
     it.effect("returns tree SHA for repository root", () =>
       Effect.gen(function* () {

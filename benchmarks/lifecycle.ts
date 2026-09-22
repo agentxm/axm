@@ -7,6 +7,7 @@ import * as fs from "node:fs";
 import * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
+import { Readable } from "node:stream";
 
 import { makeFileRegistry } from "@agentxm/registry-client/testing";
 import * as Effect from "effect/Effect";
@@ -128,8 +129,6 @@ const run = (
     try: (signal) =>
       new Promise<CommandResult>((resolve, reject) => {
         const started = process.hrtime.bigint();
-        const diagnosticsFile = path.join(path.dirname(userHome), "node-api-metrics.json");
-        if (observeRss) fs.rmSync(diagnosticsFile, { force: true });
         const preload = path.resolve(
           path.dirname(builtCli),
           "../../../../benchmarks/lifecycle-preload.cjs",
@@ -149,14 +148,29 @@ const run = (
             ...(observeRss
               ? {
                   NODE_OPTIONS: `--require=${preload}`,
-                  AXM_BENCH_DIAGNOSTICS_FILE: diagnosticsFile,
+                  AXM_BENCH_DIAGNOSTICS: "1",
                 }
               : {}),
           },
-          stdio: ["ignore", "pipe", "pipe"],
+          stdio: ["ignore", "pipe", "pipe", "pipe"] as const,
         });
+        const stdoutStream = child.stdout;
+        const stderrStream = child.stderr;
+        if (stdoutStream === null || stderrStream === null) {
+          child.kill();
+          reject(new LifecycleBenchmarkError("Benchmark CLI output pipes are unavailable."));
+          return;
+        }
         let stdout = "";
         let stderr = "";
+        let diagnostics = "";
+        const diagnosticsStream = child.stdio[3];
+        if (diagnosticsStream instanceof Readable) {
+          diagnosticsStream.setEncoding("utf8");
+          diagnosticsStream.on("data", (chunk: string) => {
+            diagnostics += chunk;
+          });
+        }
         let peakRssBytes: number | null = null;
         const sampleRss = () => {
           if (process.platform !== "linux") return;
@@ -179,12 +193,12 @@ const run = (
           timedOut = true;
           abort();
         }, commandTimeoutMs);
-        child.stdout.setEncoding("utf8");
-        child.stderr.setEncoding("utf8");
-        child.stdout.on("data", (chunk: string) => {
+        stdoutStream.setEncoding("utf8");
+        stderrStream.setEncoding("utf8");
+        stdoutStream.on("data", (chunk: string) => {
           stdout += chunk;
         });
-        child.stderr.on("data", (chunk: string) => {
+        stderrStream.on("data", (chunk: string) => {
           stderr += chunk;
         });
         child.once("error", reject);
@@ -199,16 +213,21 @@ const run = (
             stdout,
             stderr,
             timedOut,
-            nodeApi: observeRss ? readNodeApiMetrics(diagnosticsFile) : null,
+            nodeApi: observeRss ? parseNodeApiMetrics(diagnostics) : null,
           });
         });
       }),
     catch: (cause) => new LifecycleBenchmarkError(`Benchmark CLI process failed: ${String(cause)}`),
   });
 
-const readNodeApiMetrics = (file: string): NodeApiMetrics | null => {
-  if (!fs.existsSync(file)) return null;
-  const value: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
+const parseNodeApiMetrics = (payload: string): NodeApiMetrics | null => {
+  if (payload.length === 0) return null;
+  let value: unknown;
+  try {
+    value = JSON.parse(payload);
+  } catch {
+    return null;
+  }
   if (
     !isRecord(value) ||
     typeof value["directoryCalls"] !== "number" ||

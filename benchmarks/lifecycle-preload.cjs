@@ -6,8 +6,7 @@ const fs = require("node:fs");
 const moduleApi = require("node:module");
 const path = require("node:path");
 
-const output = process.env.AXM_BENCH_DIAGNOSTICS_FILE;
-if (output) {
+if (process.env.AXM_BENCH_DIAGNOSTICS === "1") {
   const directoryCallsByRoot = {
     nxCache: 0,
     extensions: 0,
@@ -98,6 +97,10 @@ if (output) {
   }
   moduleApi.syncBuiltinESMExports();
   process.once("exit", () => {
-    fs.writeFileSync(output, JSON.stringify(metrics));
+    try {
+      fs.writeSync(3, JSON.stringify(metrics));
+    } catch {
+      // The diagnostic pipe may have closed when the benchmark stopped the child.
+    }
   });
 }

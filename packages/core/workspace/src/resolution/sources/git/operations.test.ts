@@ -265,7 +265,10 @@ await Effect.runPromise(
         const pid = Number(fs.readFileSync(pidPath, "utf8").trim());
         const checkout = fs.readFileSync(checkoutPath, "utf8").trim();
         expect(() => process.kill(pid, 0)).toThrow();
-        expect(fs.existsSync(checkout)).toBe(false);
+        expect(path.dirname(checkout)).toBe(os.tmpdir());
+        const checkoutName = path.basename(checkout);
+        expect(checkoutName).toMatch(/^axm-source-discovery-[A-Za-z0-9-]+$/);
+        expect(fs.readdirSync(os.tmpdir())).not.toContain(checkoutName);
       } finally {
         if (fs.existsSync(pidPath)) {
           const pid = Number(fs.readFileSync(pidPath, "utf8").trim());

@@ -23,6 +23,7 @@
 import * as Effect from "effect/Effect";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
+import { OperationRequestBudget } from "@agentxm/registry-client";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
@@ -38,7 +39,7 @@ import {
   resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,
   resolveConfiguredPack,
-  resolveConfiguredRegistryEntry,
+  prepareConfiguredRegistryEntry,
   resolveConfiguredRule,
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
@@ -426,7 +427,7 @@ const sameGitSource = (
   Option.getOrUndefined(left.ref) === Option.getOrUndefined(right.ref) &&
   Option.getOrUndefined(left.subPath) === Option.getOrUndefined(right.subPath);
 
-const resolveUpdateIntent = <TIntent, R>(args: {
+interface ConfiguredUpdateIntentArgs<TIntent, R> {
   readonly type: InstallableExtensionType;
   readonly name: string;
   readonly source: string;
@@ -447,10 +448,18 @@ const resolveUpdateIntent = <TIntent, R>(args: {
     ref: ExtensionRef,
     versionRange: Option.Option<VersionRange>,
   ) => TIntent | undefined;
-}): Effect.Effect<
-  ConfiguredUpdateResolution<TIntent>,
+}
+
+const prepareUpdateIntent = <TIntent, R>(
+  args: ConfiguredUpdateIntentArgs<TIntent, R>,
+): Effect.Effect<
+  Effect.Effect<
+    ConfiguredUpdateResolution<TIntent>,
+    ConfiguredUpdateFailure,
+    R | WorkspaceUpdateCollectorContext
+  >,
   ConfiguredUpdateFailure,
-  R | WorkspaceUpdateCollectorContext
+  WorkspaceUpdateCollectorContext
 > =>
   Effect.gen(function* () {
     const declaredSource = yield* Effect.option(resolveSource(args.source));
@@ -469,107 +478,113 @@ const resolveUpdateIntent = <TIntent, R>(args: {
             sameGitSource(accepted.value.source, gitSource)
           ) {
             const newer = assessment.kind === "tag" ? assessment.newerTag : undefined;
-            return {
+            return Effect.succeed({
               kind: "selector_held",
               message:
                 newer === undefined
                   ? `${args.name} is pinned to Git ${assessment.kind} ${selector} and is unchanged`
                   : `${args.name} is pinned to Git tag ${selector}; newer tag ${newer} is available`,
-            } as const;
+            } as const);
           }
         }
       }
     }
 
-    const registryResolution = yield* resolveConfiguredRegistryEntry(
+    const resolveRegistry = yield* prepareConfiguredRegistryEntry(
       args.name,
       args.source,
       args.type,
       args.releaseAgeEvaluation,
     );
-    if (Option.isSome(registryResolution)) {
-      const resolution = registryResolution.value;
-      if (resolution.kind === "not_found") {
-        return yield* new ExtensionLifecycleFailed({
-          category: "not_found",
-          detail: `Configured extension "${resolution.target}" could not be found in its source`,
-          suggestions: [{ description: "Verify the configured source or update axm.json." }],
-        });
-      }
-      if (resolution.kind === "version_unsatisfied") {
-        return yield* new ExtensionLifecycleFailed({
-          category: "conflict",
-          title: "No compatible version",
-          detail: `${resolution.target} has no visible version satisfying ${resolution.requestedRange}`,
-        });
-      }
-      if (resolution.kind === "policy_held") {
+    return Effect.gen(function* () {
+      const registryResolution = yield* resolveRegistry;
+      if (Option.isSome(registryResolution)) {
+        const resolution = registryResolution.value;
+        if (resolution.kind === "not_found") {
+          return yield* new ExtensionLifecycleFailed({
+            category: "not_found",
+            detail: `Configured extension "${resolution.target}" could not be found in its source`,
+            suggestions: [{ description: "Verify the configured source or update axm.json." }],
+          });
+        }
+        if (resolution.kind === "version_unsatisfied") {
+          return yield* new ExtensionLifecycleFailed({
+            category: "conflict",
+            title: "No compatible version",
+            detail: `${resolution.target} has no visible version satisfying ${resolution.requestedRange}`,
+          });
+        }
+        if (resolution.kind === "policy_held") {
+          return {
+            kind: "policy_held",
+            holdbacks: [
+              releaseAgeRecord({
+                target: resolution.target,
+                versionRange: resolution.versionRange,
+                evidence: resolution.candidate,
+              }),
+            ],
+          } as const;
+        }
+        const intent = args.makeIntent(resolution.ref, resolution.versionRange);
+        if (intent === undefined) {
+          return yield* new ExtensionLifecycleFailed({
+            category: "internal",
+            detail: `Configured ${args.type} resolution returned ${resolution.ref.type}`,
+          });
+        }
         return {
-          kind: "policy_held",
-          holdbacks: [
-            releaseAgeRecord({
-              target: resolution.target,
-              versionRange: resolution.versionRange,
-              evidence: resolution.candidate,
-            }),
-          ],
+          kind: "selected",
+          intent,
+          holdbacks:
+            resolution.kind === "exempted" || resolution.newerHeld === undefined
+              ? []
+              : [
+                  releaseAgeRecord({
+                    target: resolution.target,
+                    versionRange: resolution.versionRange,
+                    evidence: resolution.newerHeld,
+                    selectedVersion: resolution.ref.version,
+                    ...(resolution.acceptedVersion === undefined
+                      ? {}
+                      : { currentVersion: resolution.acceptedVersion }),
+                  }),
+                ],
+          bypasses:
+            resolution.kind === "selected"
+              ? []
+              : [
+                  {
+                    ...releaseAgeRecord({
+                      target: resolution.target,
+                      versionRange: resolution.versionRange,
+                      evidence: resolution.bypassed,
+                      selectedVersion: resolution.ref.version,
+                    }),
+                    ...resolution.exemption,
+                  },
+                ],
         } as const;
       }
-      const intent = args.makeIntent(resolution.ref, resolution.versionRange);
+      const resolved = yield* args.fallback;
+      const intent = args.makeIntent(resolved.ref, resolved.versionRange);
       if (intent === undefined) {
         return yield* new ExtensionLifecycleFailed({
           category: "internal",
-          detail: `Configured ${args.type} resolution returned ${resolution.ref.type}`,
+          detail: `Configured ${args.type} resolution returned ${resolved.ref.type}`,
         });
       }
       return {
         kind: "selected",
         intent,
-        holdbacks:
-          resolution.kind === "exempted" || resolution.newerHeld === undefined
-            ? []
-            : [
-                releaseAgeRecord({
-                  target: resolution.target,
-                  versionRange: resolution.versionRange,
-                  evidence: resolution.newerHeld,
-                  selectedVersion: resolution.ref.version,
-                  ...(resolution.acceptedVersion === undefined
-                    ? {}
-                    : { currentVersion: resolution.acceptedVersion }),
-                }),
-              ],
-        bypasses:
-          resolution.kind === "selected"
-            ? []
-            : [
-                {
-                  ...releaseAgeRecord({
-                    target: resolution.target,
-                    versionRange: resolution.versionRange,
-                    evidence: resolution.bypassed,
-                    selectedVersion: resolution.ref.version,
-                  }),
-                  ...resolution.exemption,
-                },
-              ],
+        holdbacks: resolved.releaseAge?.holdbacks ?? [],
+        bypasses: resolved.releaseAge?.bypasses ?? [],
       } as const;
-    }
-    const resolved = yield* args.fallback;
-    const intent = args.makeIntent(resolved.ref, resolved.versionRange);
-    if (intent === undefined) {
-      return yield* new ExtensionLifecycleFailed({
-        category: "internal",
-        detail: `Configured ${args.type} resolution returned ${resolved.ref.type}`,
-      });
-    }
-    return {
-      kind: "selected",
-      intent,
-      holdbacks: resolved.releaseAge?.holdbacks ?? [],
-      bypasses: resolved.releaseAge?.bypasses ?? [],
-    } as const;
+    });
   });
+
+const resolveUpdateIntent = <TIntent, R>(args: ConfiguredUpdateIntentArgs<TIntent, R>) =>
+  prepareUpdateIntent(args).pipe(Effect.flatten);
 
 const resolveSkillIntent = (
   name: string,
@@ -680,13 +695,13 @@ const resolveMcpServerIntent = (
         : undefined,
   });
 
-const resolvePackRef = (
+const preparePackRef = (
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
   nonInteractive: boolean,
 ) =>
-  resolveUpdateIntent({
+  prepareUpdateIntent({
     type: "pack",
     name,
     source,
@@ -1007,51 +1022,63 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
       hasConfiguredSource,
     );
 
-    const resolved = yield* Effect.forEach(
+    const requestBudget = yield* Effect.serviceOption(OperationRequestBudget);
+    const prepared = yield* Effect.forEach(
       entries,
       ([name, entry]): Effect.Effect<
-        CollectedPackResolution,
+        Effect.Effect<CollectedPackResolution, never, WorkspaceUpdateCollectorContext>,
         never,
         WorkspaceUpdateCollectorContext
       > =>
         isWorkspaceSourceLocator(entry.source)
-          ? Effect.succeed({
-              kind: "planned",
-              collection: collectedWorkspaceSourcePlan(
-                workspaceSourceUnchangedPlan("pack", name, entry.source, location.scope),
-              ),
-            } satisfies CollectedPackResolution)
-          : resolvePackRef(
+          ? Effect.succeed(
+              Effect.succeed({
+                kind: "planned",
+                collection: collectedWorkspaceSourcePlan(
+                  workspaceSourceUnchangedPlan("pack", name, entry.source, location.scope),
+                ),
+              } satisfies CollectedPackResolution),
+            )
+          : preparePackRef(
               name,
               entry.source,
               selection.releaseAgeEvaluation,
               selection.nonInteractive,
             ).pipe(
-              Effect.map((resolution) =>
-                resolution.kind === "selector_held"
-                  ? ({
+              Effect.result,
+              Effect.map((resolve) =>
+                Effect.fromResult(resolve).pipe(
+                  Effect.flatten,
+                  Effect.map((resolution) =>
+                    resolution.kind === "selector_held"
+                      ? ({
+                          kind: "planned",
+                          collection: toCollectedWorkspaceUpdatePlans({
+                            plans: [
+                              selectorHeldPlan(toTypedLabel("pack", name), resolution.message),
+                            ],
+                          }),
+                        } satisfies CollectedPackResolution)
+                      : ({
+                          kind: "resolved",
+                          name,
+                          resolution,
+                        } satisfies CollectedPackResolution),
+                  ),
+                  Effect.catch((error) =>
+                    Effect.succeed({
                       kind: "planned",
                       collection: toCollectedWorkspaceUpdatePlans({
-                        plans: [selectorHeldPlan(toTypedLabel("pack", name), resolution.message)],
+                        plans: [workspacePlanningErrorPlan("pack", name, error)],
                       }),
-                    } satisfies CollectedPackResolution)
-                  : ({
-                      kind: "resolved",
-                      name,
-                      resolution,
                     } satisfies CollectedPackResolution),
-              ),
-              Effect.catch((error) =>
-                Effect.succeed({
-                  kind: "planned",
-                  collection: toCollectedWorkspaceUpdatePlans({
-                    plans: [workspacePlanningErrorPlan("pack", name, error)],
-                  }),
-                } satisfies CollectedPackResolution),
+                  ),
+                ),
               ),
             ),
-      { concurrency: "unbounded" },
+      { concurrency: Option.isSome(requestBudget) ? requestBudget.value.capacity : 1 },
     );
+    const resolved = yield* Effect.all(prepared, { concurrency: "unbounded" });
 
     const selected: ReadonlyArray<SelectedPackAdvance> = resolved.flatMap((item) =>
       item.kind === "resolved" && item.resolution.kind === "selected"

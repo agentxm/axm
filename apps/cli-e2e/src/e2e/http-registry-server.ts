@@ -969,7 +969,7 @@ export const startHttpRegistry = async (
                 published: entry.published,
                 integrity: entry.integrity,
                 ...(entry.dependencies === undefined ? {} : { dependencies: entry.dependencies }),
-                yanked_at: entry.yankedAt,
+                ...(entry.yankedAt === undefined ? {} : { yankedAt: entry.yankedAt }),
               })),
               continuation: null,
             },

@@ -14,7 +14,7 @@ import * as Effect from "effect/Effect";
 import { startLifecycleRegistry, type RequestMetrics } from "./lifecycle-registry.js";
 import { startLifecycleGitSource, writeSkillPackage } from "./lifecycle-sources.js";
 
-const fixtureVersion = 4;
+const fixtureVersion = 5;
 const fixtureSizes = [1, 10, 50, 200] as const;
 const commandTimeoutMs = 600_000;
 const archiveBodyDelayMs = 25;

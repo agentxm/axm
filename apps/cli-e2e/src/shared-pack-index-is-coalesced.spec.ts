@@ -68,105 +68,127 @@ const authorPack = async (workspace: string, name: string) => {
 };
 
 describe("Shared configured Pack member", () => {
-  it("reads one member index and downloads one selected archive", async () => {
-    const publisher = createTempDir();
-    const consumer = createTempDir();
-    let holdFirstPack = false;
-    let releaseFirstPack: () => void = () => undefined;
-    const firstPackGate = new Promise<void>((resolve) => {
-      releaseFirstPack = resolve;
-    });
-    let observeSecondPack: () => void = () => undefined;
-    const secondPackRequested = new Promise<void>((resolve) => {
-      observeSecondPack = resolve;
-    });
-    const registry = await startHttpRegistry({
-      enforcePackDependencies: true,
-      beforeIndexResponse: (name) => {
-        if (!holdFirstPack) return;
-        if (name === "packs/first-pack") return firstPackGate;
-        if (name === "packs/second-pack") observeSecondPack();
-        return undefined;
-      },
-    });
-    try {
-      await setupWorkspace(publisher.path, registry.url);
-      const created = await runCli(["skills", "new", "shared", "--owner", OWNER], {
-        cwd: publisher.path,
-        env,
+  it.each(["sync", "install", "update"])(
+    "%s reads one member index and downloads one selected archive",
+    async (command) => {
+      const publisher = createTempDir();
+      const consumer = createTempDir();
+      const consumerHome = createTempDir();
+      let holdFirstPack = false;
+      let releaseFirstPack: () => void = () => undefined;
+      const firstPackGate = new Promise<void>((resolve) => {
+        releaseFirstPack = resolve;
       });
-      expect(created.exitCode, created.stderr).toBe(0);
-      for (const name of ["first-pack", "second-pack"]) {
-        await authorPack(publisher.path, name);
-      }
-      const published = await runCli(["publish", "--owner", OWNER, "--json"], {
-        cwd: publisher.path,
-        env,
+      let observeSecondPack: () => void = () => undefined;
+      const secondPackRequested = new Promise<void>((resolve) => {
+        observeSecondPack = resolve;
       });
-      expect(published.exitCode, published.stdout + published.stderr).toBe(0);
-
-      const { settingsPath, settings } = await setupWorkspace(consumer.path, registry.url);
-      settings["packs"] = {
-        "first-pack": `${OWNER}/packs/first-pack`,
-        "second-pack": `${OWNER}/packs/second-pack`,
-      };
-      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-
-      const start = registry.requests.length;
-      const metadataStart = registry.metadataRequests.length;
-      holdFirstPack = true;
-      const sync = runCli(["sync", "--json"], { cwd: consumer.path, env });
-      let deadline: ReturnType<typeof setTimeout> | undefined;
-      let secondStartedWhileFirstHeld = false;
+      const registry = await startHttpRegistry({
+        enforcePackDependencies: true,
+        beforeIndexResponse: (name) => {
+          if (!holdFirstPack) return;
+          if (name === "packs/first-pack") return firstPackGate;
+          if (name === "packs/second-pack") observeSecondPack();
+          return undefined;
+        },
+      });
       try {
-        secondStartedWhileFirstHeld = await Promise.race([
-          secondPackRequested.then(() => true),
-          new Promise<false>((resolve) => {
-            deadline = setTimeout(() => resolve(false), 10_000);
-          }),
-        ]);
+        await setupWorkspace(publisher.path, registry.url);
+        const created = await runCli(["skills", "new", "shared", "--owner", OWNER], {
+          cwd: publisher.path,
+          env,
+        });
+        expect(created.exitCode, created.stderr).toBe(0);
+        for (const name of ["first-pack", "second-pack"]) {
+          await authorPack(publisher.path, name);
+        }
+        const published = await runCli(["publish", "--owner", OWNER, "--json"], {
+          cwd: publisher.path,
+          env,
+        });
+        expect(published.exitCode, published.stdout + published.stderr).toBe(0);
+        const sharedPublication = registry.publishes.find(
+          (entry) => entry.plural === "skills" && entry.name === "shared",
+        );
+        if (sharedPublication === undefined) throw new Error("Shared member was not published.");
+        const [major, minor, patch] = sharedPublication.version.split(".").map(Number);
+        if (major === undefined || minor === undefined || patch === undefined)
+          throw new Error("Expected a three-part fixture version.");
+        const yankedVersion = `${major}.${minor}.${patch + 1}`;
+        registry.copyVersion(OWNER, "skills", "shared", sharedPublication.version, yankedVersion);
+        registry.yank(OWNER, "skills", "shared", yankedVersion);
+
+        const { settingsPath, settings } = await setupWorkspace(consumer.path, registry.url);
+        settings["packs"] = {
+          "first-pack": `${OWNER}/packs/first-pack`,
+          "second-pack": `${OWNER}/packs/second-pack`,
+        };
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
+        const start = registry.requests.length;
+        const metadataStart = registry.metadataRequests.length;
+        holdFirstPack = true;
+        const operation = runCli([command, "--json"], {
+          cwd: consumer.path,
+          env: { ...env, HOME: consumerHome.path, AXM_USER_HOME: consumerHome.path },
+        });
+        let deadline: ReturnType<typeof setTimeout> | undefined;
+        let secondStartedWhileFirstHeld = false;
+        try {
+          secondStartedWhileFirstHeld = await Promise.race([
+            secondPackRequested.then(() => true),
+            operation.then(() => false),
+            new Promise<false>((resolve) => {
+              deadline = setTimeout(() => resolve(false), 10_000);
+            }),
+          ]);
+        } finally {
+          if (deadline !== undefined) clearTimeout(deadline);
+          releaseFirstPack();
+        }
+        const result = await operation;
+        expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+        expect(secondStartedWhileFirstHeld, "Independent Pack index request was serialized").toBe(
+          true,
+        );
+        expect(JSON.parse(result.stdout)).toMatchObject({
+          ok: true,
+          result: { outcome: "applied" },
+        });
+        const requests = registry.requests.slice(start);
+        const batches = registry.metadataRequests.slice(metadataStart);
+        const metadataRequests = batches.flat();
+        const memberMetadata = metadataRequests.filter(
+          (identity) => identity === `${OWNER}/skill/shared`,
+        );
+        expect(batches.map((batch) => batch.toSorted())).toContainEqual(
+          [`${OWNER}/pack/first-pack`, `${OWNER}/pack/second-pack`].toSorted(),
+        );
+        const memberArchive = requests.filter(
+          (request) =>
+            request.method === "GET" && /\/skills\/shared\/[^/]+\/archive$/u.test(request.path),
+        );
+        expect(
+          memberMetadata,
+          `${result.stdout}\n${JSON.stringify(
+            requests.map(({ method, path: requestPath, status }) => ({
+              method,
+              path: requestPath,
+              status,
+            })),
+          )}`,
+        ).toHaveLength(1);
+        expect(memberArchive).toHaveLength(1);
+        expect(memberArchive[0]?.path).toContain(
+          `/skills/shared/${sharedPublication.version}/archive`,
+        );
       } finally {
-        if (deadline !== undefined) clearTimeout(deadline);
         releaseFirstPack();
+        await registry.close();
+        publisher.cleanup();
+        consumer.cleanup();
+        consumerHome.cleanup();
       }
-      const result = await sync;
-      expect(secondStartedWhileFirstHeld, "Independent Pack index request was serialized").toBe(
-        true,
-      );
-      expect(result.exitCode, result.stdout + result.stderr).toBe(0);
-      expect(JSON.parse(result.stdout)).toMatchObject({
-        ok: true,
-        result: { outcome: "applied" },
-      });
-      const requests = registry.requests.slice(start);
-      const batches = registry.metadataRequests.slice(metadataStart);
-      const metadataRequests = batches.flat();
-      const memberMetadata = metadataRequests.filter(
-        (identity) => identity === `${OWNER}/skill/shared`,
-      );
-      expect(batches.map((batch) => batch.toSorted())).toContainEqual(
-        [`${OWNER}/pack/first-pack`, `${OWNER}/pack/second-pack`].toSorted(),
-      );
-      const memberArchive = requests.filter(
-        (request) =>
-          request.method === "GET" && /\/skills\/shared\/[^/]+\/archive$/u.test(request.path),
-      );
-      expect(
-        memberMetadata,
-        `${result.stdout}\n${JSON.stringify(
-          requests.map(({ method, path: requestPath, status }) => ({
-            method,
-            path: requestPath,
-            status,
-          })),
-        )}`,
-      ).toHaveLength(1);
-      expect(memberArchive).toHaveLength(1);
-    } finally {
-      releaseFirstPack();
-      await registry.close();
-      publisher.cleanup();
-      consumer.cleanup();
-    }
-  });
+    },
+  );
 });

@@ -17,10 +17,6 @@ import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 
 // -----------------------------------------------------------------------------
-// Path Safety Validation
-// -----------------------------------------------------------------------------
-
-// -----------------------------------------------------------------------------
 // Extension Directory Copy
 // -----------------------------------------------------------------------------
 
@@ -65,7 +61,7 @@ const scanCopy = (
   Effect.gen(function* () {
     const pending = [{ source: src, target: dest }];
     const directories: Array<string> = [];
-    const files: Array<{ source: string; target: string }> = [];
+    const files: Array<{ source: string; target: string; mode: number }> = [];
     let entries = 0;
     let bytes = 0;
 
@@ -94,7 +90,7 @@ const scanCopy = (
         if (bytes > maxBytes) {
           return yield* new DirectoryCopyLimitExceeded({ resource: "bytes", limit: maxBytes });
         }
-        files.push(next);
+        files.push({ ...next, mode: info.mode & 0o777 });
       }
     }
 
@@ -196,7 +192,7 @@ export const copyExtensionDirectory = (
     const copiedBytes = yield* Ref.make(0);
     yield* Effect.forEach(
       files,
-      ({ source, target }) =>
+      ({ source, target, mode }) =>
         fs.stream(source, { chunkSize: 64 * 1024 }).pipe(
           Stream.mapEffect((chunk) =>
             Effect.gen(function* () {
@@ -213,7 +209,10 @@ export const copyExtensionDirectory = (
               return chunk;
             }),
           ),
-          Stream.run(fs.sink(target)),
+          Stream.run(fs.sink(target, { mode })),
+          // Restore source permissions after creation so the umask does not
+          // strip executable or access bits; special bits are never copied.
+          Effect.andThen(fs.chmod(target, mode)),
         ),
       { concurrency: 1, discard: true },
     );

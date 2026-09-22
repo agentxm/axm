@@ -44,7 +44,7 @@ import {
   hydrateAcceptedPackRef,
   makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
-  resolveConfiguredPack,
+  prepareConfiguredPack,
   resolvePackDependenciesWithReleaseAge,
 } from "../resolution/index.js";
 import { SourceHostProviders } from "../resolution/sources/index.js";
@@ -187,7 +187,7 @@ export const collectConfiguredPackRecovery = (args: {
     const configured = yield* settings.entries("pack");
     const entries = enabledConfiguredEntries(configured).filter(([name]) => packNames.has(name));
 
-    const recovered = yield* Effect.forEach(
+    const preparedPacks = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
         Effect.gen(function* () {
@@ -197,10 +197,21 @@ export const collectConfiguredPackRecovery = (args: {
           const accepted = yield* acceptedResolutionRef({ type: "pack", name });
           const acceptedPack =
             Option.isSome(accepted) && accepted.value.type === "pack" ? accepted.value : undefined;
-          const packRef =
+          const resolvePack =
             acceptedPack === undefined
-              ? (yield* resolveConfiguredPack(name, entry.source, releaseAgeEvaluation)).ref
-              : yield* hydrateAcceptedPackRef(name, acceptedPack);
+              ? (yield* prepareConfiguredPack(name, entry.source, releaseAgeEvaluation)).pipe(
+                  Effect.map((resolved) => resolved.ref),
+                )
+              : hydrateAcceptedPackRef(name, acceptedPack);
+          return { name, acceptedPack, resolvePack };
+        }),
+      { concurrency: Option.isSome(requestBudget) ? requestBudget.value.capacity : 1 },
+    );
+    const recovered = yield* Effect.forEach(
+      preparedPacks,
+      ({ name, acceptedPack, resolvePack }) =>
+        Effect.gen(function* () {
+          const packRef = yield* resolvePack;
           if (packRef.type !== "pack") {
             return yield* new WorkspaceSyncFailed({
               category: "conflict",

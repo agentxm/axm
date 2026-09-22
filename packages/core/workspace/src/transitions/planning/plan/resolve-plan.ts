@@ -621,7 +621,16 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
                 }),
               };
             }),
-          { concurrency: Option.isSome(budget) ? budget.value.capacity : 1 },
+          {
+            concurrency: Option.isSome(scratchBudget)
+              ? Math.min(
+                  Option.isSome(budget) ? budget.value.capacity : 1,
+                  Math.max(1, Math.floor(scratchBudget.value.capacity / MAX_ACQUIRED_TREE_BYTES)),
+                )
+              : Option.isSome(budget)
+                ? budget.value.capacity
+                : 1,
+          },
         );
   const acquiredContent = {
     requestedKeys: new Set(uniqueSourceRefs.map(sourceRefContentKey)),

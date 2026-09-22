@@ -18,7 +18,7 @@ export const specification = defineSpecification({
   requirement: "registry-client/operation-scratch-is-bounded",
   title: "Source acquisitions share an operation scratch limit",
   statement:
-    "AXM shall reserve finite scratch capacity before source acquisition, refuse over-capacity work with a typed resource failure, release unused capacity after measuring the acquired tree, and release retained capacity when its resource scope closes.",
+    "AXM shall reserve finite scratch capacity before source acquisition, wait when unsettled reservations can release capacity, refuse retained over-capacity work with a typed resource failure, release unused capacity after measuring the acquired tree, and release retained capacity when its resource scope closes.",
   class: "functional",
   role: "supporting",
   goals: ["safe-repetition", "trustworthy-distribution"],
@@ -39,24 +39,28 @@ describe("Operation scratch budget", () => {
     expect(Number.isSafeInteger(MAX_OPERATION_SCRATCH_BYTES)).toBe(true);
   });
 
-  it.effect("refuses excess capacity and releases unused and closed reservations", () =>
-    Effect.gen(function* () {
-      const budget = yield* makeOperationScratchBudget(10);
-      const parent = yield* Scope.Scope;
-      const firstScope = yield* Scope.fork(parent);
-      const first = yield* budget.reserve(7).pipe(Effect.provideService(Scope.Scope, firstScope));
+  it.effect(
+    "waits for unsettled capacity, refuses retained excess, and releases closed reservations",
+    () =>
+      Effect.gen(function* () {
+        const budget = yield* makeOperationScratchBudget(10);
+        const parent = yield* Scope.Scope;
+        const firstScope = yield* Scope.fork(parent);
+        const first = yield* budget.reserve(7).pipe(Effect.provideService(Scope.Scope, firstScope));
 
-      const denied = yield* Effect.result(budget.reserve(4));
-      expect(Result.isFailure(denied)).toBe(true);
-      if (Result.isFailure(denied))
-        expect(denied.failure._tag).toBe("OperationScratchLimitExceeded");
+        const waiting = yield* budget.reserve(4).pipe(Effect.forkChild);
+        yield* first.settle(3);
+        const second = yield* Fiber.join(waiting);
+        yield* second.settle(4);
 
-      yield* first.settle(3);
-      const second = yield* budget.reserve(4);
-      yield* second.settle(4);
-      yield* Scope.close(firstScope, Exit.void);
-      yield* budget.reserve(6);
-    }).pipe(Effect.scoped),
+        const denied = yield* Effect.result(budget.reserve(4));
+        expect(Result.isFailure(denied)).toBe(true);
+        if (Result.isFailure(denied))
+          expect(denied.failure._tag).toBe("OperationScratchLimitExceeded");
+
+        yield* Scope.close(firstScope, Exit.void);
+        yield* budget.reserve(6);
+      }).pipe(Effect.scoped),
   );
 
   it.effect("releases a reservation when acquisition is interrupted", () =>
@@ -72,10 +76,9 @@ describe("Operation scratch budget", () => {
       ).pipe(Effect.forkChild);
       yield* Deferred.await(reserved);
 
-      const denied = yield* Effect.result(budget.reserve(7));
-      expect(Result.isFailure(denied)).toBe(true);
+      const waitingReserve = yield* budget.reserve(7).pipe(Effect.forkChild);
       yield* Fiber.interrupt(acquiring);
-      yield* budget.reserve(7);
+      yield* Fiber.join(waitingReserve);
     }).pipe(Effect.scoped),
   );
 });

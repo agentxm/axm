@@ -6,6 +6,8 @@ import * as Layer from "effect/Layer";
 import * as Queue from "effect/Queue";
 import * as Stream from "effect/Stream";
 
+import type { OperationEvent } from "@agentxm/workspace/transitions/planning";
+
 import { Frame, FrameLive } from "./frame.js";
 import type { LivePlan } from "./live-ledger.js";
 import { initialProgress, reduceProgress, type ProgressState } from "./progress.js";
@@ -18,6 +20,73 @@ const CURSOR_HIDE = "\u001b[?25l";
 
 const stateAt = (count: number): ProgressState =>
   recordedInstallLog.slice(0, count).reduce(reduceProgress, initialProgress);
+
+const slowLifecycle: ReadonlyArray<OperationEvent> = [
+  {
+    _tag: "OperationStarted",
+    seq: 1,
+    atMs: 1_000,
+    operationId: "operation-slow",
+    name: "Update skill",
+    mode: "apply",
+  },
+  { _tag: "PhaseStarted", seq: 2, atMs: 1_001, phase: "resolution" },
+  {
+    _tag: "UnitStarted",
+    seq: 3,
+    atMs: 1_002,
+    unitId: "configured-update:skill",
+    label: "configured skills",
+    index: 0,
+  },
+  {
+    _tag: "Waiting",
+    seq: 4,
+    atMs: 1_003,
+    blockingClass: "external-blocked",
+    subject: "registry-retry:slow",
+    detail: "Registry download retry 2 of 3 after 10s",
+  },
+  { _tag: "WaitEnded", seq: 5, atMs: 11_003, subject: "registry-retry:slow" },
+  {
+    _tag: "UnitResolved",
+    seq: 6,
+    atMs: 11_004,
+    unitId: "configured-update:skill",
+    label: "configured skills",
+    state: "committed",
+    index: 0,
+  },
+  { _tag: "PhaseStarted", seq: 7, atMs: 11_005, phase: "apply" },
+  {
+    _tag: "UnitStarted",
+    seq: 8,
+    atMs: 11_006,
+    unitId: "registry-extract:@acme/skill/review",
+    label: "extracting review",
+    index: 1,
+  },
+  {
+    _tag: "UnitResolved",
+    seq: 9,
+    atMs: 11_007,
+    unitId: "registry-extract:@acme/skill/review",
+    label: "extracting review",
+    state: "committed",
+    index: 1,
+  },
+  {
+    _tag: "UnitStarted",
+    seq: 10,
+    atMs: 11_008,
+    unitId: "agent-readback:skill",
+    label: "current skill agent state",
+    index: 2,
+  },
+];
+
+const slowStateAt = (count: number): ProgressState =>
+  slowLifecycle.slice(0, count).reduce(reduceProgress, initialProgress);
 
 const makeHarness = (
   animate: boolean,
@@ -125,6 +194,35 @@ describe("Frame", () => {
       );
       expect(harness.state.stderr.join("")).not.toContain("\u001b[");
     }).pipe(Effect.provide(harness.layer), Effect.scoped);
+  });
+
+  it.effect("keeps a slow retry, extraction, and readback visible in pipes and a live TTY", () => {
+    const pipe = makeHarness(false);
+    const tty = makeHarness(true);
+    return Effect.gen(function* () {
+      yield* Effect.gen(function* () {
+        const frame = yield* Frame;
+        for (let count = 1; count <= slowLifecycle.length; count += 1) {
+          yield* frame.present("operation-slow", slowStateAt(count));
+        }
+      }).pipe(Effect.provide(pipe.layer), Effect.scoped);
+      expect(pipe.state.stderr.join("")).toContain("Working on configured skills");
+      expect(pipe.state.stderr.join("")).toContain("Registry download retry 2 of 3 after 10s");
+      expect(pipe.state.stderr.join("")).toContain("Working on extracting review");
+      expect(pipe.state.stderr.join("")).toContain("Working on current skill agent state");
+      yield* Effect.gen(function* () {
+        const frame = yield* Frame;
+        for (let count = 1; count <= slowLifecycle.length; count += 1) {
+          yield* frame.present("operation-slow", slowStateAt(count));
+          if (count === 4) {
+            expect(liveLines(tty.state).join("\n")).toContain(
+              "Registry download retry 2 of 3 after 10s",
+            );
+          }
+        }
+        expect(liveLines(tty.state).join("\n")).toContain("current skill agent state");
+      }).pipe(Effect.provide(tty.layer), Effect.scoped);
+    });
   });
 
   it.effect(

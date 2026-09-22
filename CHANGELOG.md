@@ -1,3 +1,13 @@
+## 0.33.1 (2026-09-22)
+
+### 🚀 Features
+
+- Batch Registry resolution and validate cached exact archives ([#416](https://github.com/agentxm/axm/pull/416))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.33.0 (2026-09-22)
 
 ### 🩹 Fixes

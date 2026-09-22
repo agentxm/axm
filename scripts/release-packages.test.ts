@@ -110,7 +110,7 @@ describe("bootstrap cohort manifests", () => {
         effect: "catalog:",
       },
       optionalDependencies: {
-        "@agentxm/registry-protocol": "catalog:",
+        "@agentxm/registry-protocol": preview,
       },
       peerDependencies: {
         "@agentxm/extension-content": preview,

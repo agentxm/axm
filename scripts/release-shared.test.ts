@@ -54,6 +54,7 @@ describe("release tag helpers", () => {
     expect(RELEASE_PACKAGES.map(({ name }) => name).sort()).toEqual([
       "@agentxm/extension-content",
       "@agentxm/extension-model",
+      "@agentxm/registry-protocol",
       "@agentxm/specification-metadata",
       "axm.sh",
     ]);

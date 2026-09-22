@@ -976,7 +976,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const fetched = yield* provider.fetch(testSource, ref);
-        expect(capturedArgs).toEqual({
+        expect(capturedArgs).toMatchObject({
           owner: "@test",
           type: "skill",
           name: "my-skill",
@@ -987,6 +987,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
             lifecycleWarnings: ["Previously selected version is deprecated"],
           },
         });
+        expect(capturedArgs?.onProgress).toEqual(expect.any(Function));
         for (const [relative, content] of Object.entries(files)) {
           expect(yield* fs.readFileString(nodePath.join(fetched.directory, relative))).toBe(
             content,
@@ -1078,7 +1079,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const fetched = yield* provider.fetch(testSource, ref);
-        expect(capturedArgs).toEqual({
+        expect(capturedArgs).toMatchObject({
           owner: "@test",
           type: "mcp-server",
           name: "my-server",
@@ -1088,6 +1089,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
             publisherBindingId: "hbnd_test",
           },
         });
+        expect(capturedArgs?.onProgress).toEqual(expect.any(Function));
         for (const [relative, content] of Object.entries(files)) {
           expect(yield* fs.readFileString(nodePath.join(fetched.directory, relative))).toBe(
             content,

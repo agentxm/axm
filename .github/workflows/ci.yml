@@ -315,6 +315,9 @@ jobs:
           report_paths: "test-results/**/junit.xml"
           check_name: Test Results
           include_passed: true
+          # Dependabot PRs have a read-only token, including maintainer reruns.
+          # Keep annotations and job summaries without creating a check run.
+          annotate_only: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]' }}
 
   warm-main-caches:
     name: Warm main dependency cache

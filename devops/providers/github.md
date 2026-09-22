@@ -36,12 +36,11 @@ belong here. Repository owners administer those settings, but their current
 membership and recovery owner are not established by the checked-in review
 routes.
 
-[Renovate](../tools/renovate.md) runs as a self-hosted workflow and
-authenticates as a repository-owned GitHub App, not as `GITHUB_TOKEN`. That app
-is not yet created and its `RENOVATE_APP_ID` variable and
-`RENOVATE_APP_PRIVATE_KEY` secret are unset, so creating it, installing it on
-this repository, and assigning its rotation owner remain outstanding
-provisioning items for the repository administrators.
+[Dependabot in AXM](../tools/dependabot.md) uses GitHub's native update service
+and bot identity. Its configuration needs no dedicated App credential.
+Repository administrators maintain dependency alerts and security-update
+settings separately from the version-update configuration; the tool record
+owns the activation readback and remaining verification work.
 
 [CodeQL](../tools/codeql.md) owns the local source-analysis adoption and
 verified managed configuration. GitHub supplies its scanner and alert surface;

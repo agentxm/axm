@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 
 const read = (path) => readFileSync(path, "utf8");
@@ -23,15 +24,28 @@ const requireText = (subject, text, message) => {
 };
 if (
   packageManagerPnpmVersion === undefined ||
-  Number.parseInt(packageManagerPnpmVersion, 10) < 11
+  Number.parseInt(packageManagerPnpmVersion, 10) < 12
 ) {
-  errors.push("package.json packageManager must pin an exact pnpm 11+ version");
+  errors.push("package.json packageManager must pin an exact pnpm 12+ version");
 } else {
   requireText(
     mise,
-    `"npm:pnpm" = "${packageManagerPnpmVersion}"`,
-    "mise.toml npm:pnpm version must match packageManager",
+    `pnpm = "${packageManagerPnpmVersion}"`,
+    "mise.toml pnpm version must match packageManager",
   );
+  try {
+    const activePnpmVersion = execFileSync("pnpm", ["--version"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "inherit"],
+      timeout: 10_000,
+    }).trim();
+    if (activePnpmVersion !== packageManagerPnpmVersion) {
+      errors.push(`pnpm on PATH is ${activePnpmVersion}; expected ${packageManagerPnpmVersion}`);
+    }
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    errors.push(`pnpm version verification failed: ${detail}`);
+  }
 
   const releaseCorepackSetupCount =
     releaseWorkflow.split(`corepack prepare pnpm@${packageManagerPnpmVersion} --activate`).length -
@@ -78,6 +92,7 @@ for (const [workflowPath, source] of workflowSources) {
 
 for (const text of [
   "verifyDepsBeforeRun: error",
+  "pmOnFail: ignore",
   "allowBuilds:",
   '"@swc/core": true',
   "esbuild: true",
@@ -90,7 +105,7 @@ for (const text of [
   requireText(workspaceConfig, text, `pnpm-workspace.yaml is missing ${text}`);
 }
 if (workspaceConfig.includes("onlyBuiltDependencies:")) {
-  errors.push("pnpm-workspace.yaml must use pnpm 11 allowBuilds");
+  errors.push("pnpm-workspace.yaml must use pnpm 12 allowBuilds");
 }
 
 if (ciWorkflow.includes("affected_projects")) {

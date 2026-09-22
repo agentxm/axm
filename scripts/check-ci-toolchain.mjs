@@ -134,6 +134,28 @@ if (!projectManifest.targets?.test?.outputs?.includes("{workspaceRoot}/test-resu
 
 const workspaceCi = packageManifest.scripts?.["ci:workspace"] ?? "";
 requireText(workspaceCi, "pnpm run format:check", "workspace CI must retain formatting");
+const auditGate = projectManifest.targets?.["audit:dependencies"];
+if (
+  auditGate?.cache !== false ||
+  auditGate.options?.command !== "pnpm audit --prod --audit-level high"
+) {
+  errors.push("the production advisory gate must be fresh and fail on high or critical findings");
+}
+const auditReport = projectManifest.targets?.["audit:report"];
+if (
+  auditReport?.cache !== false ||
+  auditReport.options?.command !== "pnpm audit --audit-level low"
+) {
+  errors.push("the full advisory report must run fresh at every severity");
+}
+for (const [name, source] of [
+  ["ci:workspace", workspaceCi],
+  ["verify:pr:source", packageManifest.scripts?.["verify:pr:source"] ?? ""],
+]) {
+  requireText(source, "pnpm exec nx run axm:audit:dependencies", `${name} must run the audit gate`);
+}
+requireText(ciWorkflow, "pnpm exec nx run axm:audit:report", "CI must report all advisories");
+requireText(ciWorkflow, "continue-on-error: true", "the all-advisory report must be nonblocking");
 requireText(
   packageManifest.scripts?.ci ?? "",
   "pnpm run ci:workspace",

@@ -15,6 +15,7 @@
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { OperationRequestBudget } from "@agentxm/registry-client";
 
 import {
   HookManager,
@@ -48,7 +49,7 @@ import {
   resolveConfiguredHook,
   resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,
-  resolveConfiguredPack,
+  prepareConfiguredPack,
   resolveConfiguredRule,
   resolveConfiguredSkill,
   resolveConfiguredSubagent,
@@ -274,19 +275,23 @@ interface ConfiguredPackIntentArgs {
   readonly deferProjections?: boolean;
 }
 
-const resolvePackIntent: (args: ConfiguredPackIntentArgs) => Effect.Effect<
-  {
-    readonly intent: PackInstallIntent;
-    readonly releaseAge:
-      | {
-          readonly holdbacks: ReadonlyArray<ReleaseAgeHoldbackRecord>;
-          readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
-        }
-      | undefined;
-  },
+const preparePackIntent: (args: ConfiguredPackIntentArgs) => Effect.Effect<
+  Effect.Effect<
+    {
+      readonly intent: PackInstallIntent;
+      readonly releaseAge:
+        | {
+            readonly holdbacks: ReadonlyArray<ReleaseAgeHoldbackRecord>;
+            readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
+          }
+        | undefined;
+    },
+    ConfiguredInstallFailure,
+    ResolveInstallRequirements
+  >,
   ConfiguredInstallFailure,
   ResolveInstallRequirements
-> = Effect.fn("InstallExtensions.resolveConfiguredPackIntent")(function* (
+> = Effect.fn("InstallExtensions.prepareConfiguredPackIntent")(function* (
   args: ConfiguredPackIntentArgs,
 ) {
   const accepted = yield* acceptedResolutionRef({
@@ -304,31 +309,35 @@ const resolvePackIntent: (args: ConfiguredPackIntentArgs) => Effect.Effect<
   };
 
   if (Option.isSome(accepted) && accepted.value.type === "pack") {
-    const packToInstall = yield* hydrateAcceptedPackRef(args.name, accepted.value);
-    return {
-      intent: {
-        packToInstall,
-        versionRange: Option.fromUndefinedOr(parseRegistrySourceRef(args.source)?.versionRange),
-        dependencyResolver: acceptedPackDependencyResolver(),
-        ...shared,
-      } satisfies PackInstallIntent,
-      releaseAge: undefined,
-    };
+    return hydrateAcceptedPackRef(args.name, accepted.value).pipe(
+      Effect.map((packToInstall) => ({
+        intent: {
+          packToInstall,
+          versionRange: Option.fromUndefinedOr(parseRegistrySourceRef(args.source)?.versionRange),
+          dependencyResolver: acceptedPackDependencyResolver(),
+          ...shared,
+        } satisfies PackInstallIntent,
+        releaseAge: undefined,
+      })),
+    );
   }
 
-  const resolved = yield* resolveConfiguredPack(
+  const resolve = yield* prepareConfiguredPack(
     args.name,
     args.source,
     args.releaseAgeEvaluation,
   ).pipe(Effect.mapError(resolutionFailed(args.name)));
-  return {
-    intent: {
-      packToInstall: resolved.ref,
-      versionRange: resolved.versionRange,
-      ...shared,
-    } satisfies PackInstallIntent,
-    releaseAge: "releaseAge" in resolved ? resolved.releaseAge : undefined,
-  };
+  return resolve.pipe(
+    Effect.mapError(resolutionFailed(args.name)),
+    Effect.map((resolved) => ({
+      intent: {
+        packToInstall: resolved.ref,
+        versionRange: resolved.versionRange,
+        ...shared,
+      } satisfies PackInstallIntent,
+      releaseAge: "releaseAge" in resolved ? resolved.releaseAge : undefined,
+    })),
+  );
 });
 
 interface CollectPackPlansArgs {
@@ -360,10 +369,11 @@ const collectPackPlansInPhase: (
     ([name]) => args.selectedNames === undefined || args.selectedNames.has(name),
   );
 
-  const resolvedPacks = yield* Effect.forEach(
+  const requestBudget = yield* Effect.serviceOption(OperationRequestBudget);
+  const preparedPacks = yield* Effect.forEach(
     entries,
     ([name, entry]) =>
-      resolvePackIntent({
+      preparePackIntent({
         name,
         source: entry.source,
         releaseAgeEvaluation: args.releaseAgeEvaluation,
@@ -371,8 +381,11 @@ const collectPackPlansInPhase: (
         ...(args.forceCanonical === undefined ? {} : { forceCanonical: args.forceCanonical }),
         ...(args.deferProjections === undefined ? {} : { deferProjections: args.deferProjections }),
       }),
-    { concurrency: "unbounded" },
+    { concurrency: Option.isSome(requestBudget) ? requestBudget.value.capacity : 1 },
   );
+  // Local preparation finishes before Registry requests enter the shared resolver.
+  // The operation's request budget bounds transport while selections run together.
+  const resolvedPacks = yield* Effect.all(preparedPacks, { concurrency: "unbounded" });
 
   const prospectivePacks = resolvedPacks.map(({ intent }) => intent.packToInstall);
   const constraintProblems = yield* prospectivePackConstraintProblems({

@@ -31,3 +31,10 @@ Continued to the final PR checks without repeating the passing suites.
 ## Evidence
 
 Local command log: `/tmp/axm-stabilization-verify-affected.log`.
+
+A later verification pass also reported shutdown warnings for
+`apps/cli/src/utils/fs-helpers.test.ts` and
+`packages/core/workspace/src/acquisition/cross-filesystem-source-publishes.spec.ts`.
+All 3,112 CLI tests and 4,352 workspace tests passed; the workspace suite skipped
+two tests. The workflow exited zero. Those occurrences are in
+`/tmp/axm-pack-verify-affected.log`.

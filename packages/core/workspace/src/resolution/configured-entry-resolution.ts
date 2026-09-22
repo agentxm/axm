@@ -166,31 +166,40 @@ const configuredRegistryResolution = (resolution: ConfiguredRegistryResolution) 
     };
   });
 
-const resolveConfiguredRegistryRef = (
+const prepareConfiguredRegistryRef = (
   name: string,
   source: string,
   expectedType: ExtensionType,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
 ) =>
-  resolveConfiguredRegistryEntry(name, source, expectedType, releaseAgeEvaluation).pipe(
-    Effect.flatMap(
-      Option.match({
-        onNone: () => Effect.succeed(Option.none<ResolvedConfiguredEntry<ConfiguredRegistryRef>>()),
-        onSome: (resolution) =>
-          configuredRegistryResolution(resolution).pipe(Effect.map(Option.some)),
-      }),
+  prepareConfiguredRegistryEntry(name, source, expectedType, releaseAgeEvaluation).pipe(
+    Effect.map((resolve) =>
+      resolve.pipe(
+        Effect.flatMap(
+          Option.match({
+            onNone: () =>
+              Effect.succeed(Option.none<ResolvedConfiguredEntry<ConfiguredRegistryRef>>()),
+            onSome: (resolution) =>
+              configuredRegistryResolution(resolution).pipe(Effect.map(Option.some)),
+          }),
+        ),
+      ),
     ),
   );
 
-export const resolveConfiguredRegistryEntry = (
+/** Finish workspace I/O before starting sibling Registry selections. */
+export const prepareConfiguredRegistryEntry = (
   name: string,
   source: string,
   expectedType: ExtensionType,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
 ): Effect.Effect<
-  Option.Option<ConfiguredRegistryResolution>,
-  ExtensionResolutionFailed | SourceResolutionFailure | AcceptedCanonicalRefError,
-  | SourceHostProviders
+  Effect.Effect<
+    Option.Option<ConfiguredRegistryResolution>,
+    SourceResolutionFailure,
+    SourceHostProviders | Scope.Scope
+  >,
+  ExtensionResolutionFailed | AcceptedCanonicalRefError,
   | WorkspaceCatalog
   | WorkspaceLocation
   | SettingsReader
@@ -199,10 +208,9 @@ export const resolveConfiguredRegistryEntry = (
   | FileSystem.FileSystem
   | HttpClient.HttpClient
   | Path.Path
-  | Scope.Scope
 > =>
   Effect.gen(function* () {
-    if (isWorkspaceSourceLocator(source)) return Option.none();
+    if (isWorkspaceSourceLocator(source)) return Effect.succeed(Option.none());
 
     const resolvedSource = yield* resolveSource(source, { expectedType }).pipe(
       Effect.mapError(
@@ -214,7 +222,7 @@ export const resolveConfiguredRegistryEntry = (
           }),
       ),
     );
-    if (resolvedSource.type !== "registry") return Option.none();
+    if (resolvedSource.type !== "registry") return Effect.succeed(Option.none());
 
     const parsedPattern = parseSourceQualifiedRegistrySourcePatternParts(source);
     const pluralType = parsedPattern?.type;
@@ -256,26 +264,28 @@ export const resolveConfiguredRegistryEntry = (
           })
         : Option.none(),
     );
-    const providers = yield* SourceHostProviders;
-    const resolution = yield* providers.resolveNamedRegistry(resolvedSource, {
-      name: registryName,
-      type: expectedType,
-      owner,
-      versionRange,
-      releaseAgeEvaluation,
-      ...(Option.isSome(accepted) ? { accepted: accepted.value } : {}),
-    });
-    const acceptedVersion =
-      Option.isSome(accepted) &&
-      (resolution.kind === "selected" || resolution.kind === "exempted") &&
-      resolution.ref.version === accepted.value.version &&
-      resolution.ref.publisherBindingId === accepted.value.publisherBindingId
-        ? accepted.value.version
-        : undefined;
-    return Option.some({
-      ...resolution,
-      versionRange,
-      ...(acceptedVersion === undefined ? {} : { acceptedVersion }),
+    return Effect.gen(function* () {
+      const providers = yield* SourceHostProviders;
+      const resolution = yield* providers.resolveNamedRegistry(resolvedSource, {
+        name: registryName,
+        type: expectedType,
+        owner,
+        versionRange,
+        releaseAgeEvaluation,
+        ...(Option.isSome(accepted) ? { accepted: accepted.value } : {}),
+      });
+      const acceptedVersion =
+        Option.isSome(accepted) &&
+        (resolution.kind === "selected" || resolution.kind === "exempted") &&
+        resolution.ref.version === accepted.value.version &&
+        resolution.ref.publisherBindingId === accepted.value.publisherBindingId
+          ? accepted.value.version
+          : undefined;
+      return Option.some({
+        ...resolution,
+        versionRange,
+        ...(acceptedVersion === undefined ? {} : { acceptedVersion }),
+      });
     });
   });
 
@@ -332,7 +342,7 @@ const packRefConstructor: ConfiguredRefConstructor<"pack"> = {
   name: (ref) => ref.pack.name,
 };
 
-const resolveConfiguredEntry = <TType extends ExtensionType>(
+const prepareConfiguredEntry = <TType extends ExtensionType>(
   name: string,
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
@@ -350,100 +360,117 @@ const resolveConfiguredEntry = <TType extends ExtensionType>(
           detail: `Workspace ${typeLabel} resolution returned ${ref.type}`,
         });
       }
-      return { ref, versionRange: Option.none<VersionRange>() };
+      return Effect.succeed({ ref, versionRange: Option.none<VersionRange>() });
     }
 
-    const registry = yield* resolveConfiguredRegistryRef(
+    const resolveRegistry = yield* prepareConfiguredRegistryRef(
       name,
       source,
       expectedType,
       releaseAgeEvaluation,
     );
-    if (Option.isSome(registry)) {
-      const ref = registry.value.ref;
-      if (!refConstructor.isRef(ref)) {
-        return yield* new ExtensionResolutionFailed({
-          category: "internal",
-          detail: `Registry returned a non-${typeLabel}`,
-        });
+    return Effect.gen(function* () {
+      const registry = yield* resolveRegistry;
+      if (Option.isSome(registry)) {
+        const ref = registry.value.ref;
+        if (!refConstructor.isRef(ref)) {
+          return yield* new ExtensionResolutionFailed({
+            category: "internal",
+            detail: `Registry returned a non-${typeLabel}`,
+          });
+        }
+        return { ...registry.value, ref };
       }
-      return { ...registry.value, ref };
-    }
 
-    const providers = yield* SourceHostProviders;
-    const resolvedSource = yield* resolveSource(source, { expectedType }).pipe(
-      Effect.mapError(
-        (cause) =>
-          new ExtensionResolutionFailed({
-            category: "validation",
-            detail: `Invalid ${typeLabel} source for ${name}: ${cause.detail}`,
-            cause,
-          }),
-      ),
-    );
-
-    const parsedPattern = parseSourceQualifiedRegistrySourcePatternParts(source);
-    const expectedPlural = toExtensionTypePlural(expectedType);
-    const requestedOwner =
-      parsedPattern?.type === expectedPlural
-        ? Option.some(parsedPattern.owner)
-        : resolvedSource.type === "registry"
-          ? resolvedSource.owner
-          : Option.none();
-    const versionRange =
-      resolvedSource.type === "registry" && parsedPattern?.type === expectedPlural
-        ? Option.fromUndefinedOr(parsedPattern.versionRange)
-        : Option.none<VersionRange>();
-    const refs = yield* providers
-      .find(resolvedSource, {
-        names: [name],
-        type: expectedType,
-        owner: requestedOwner,
-        versionRange,
-      })
-      .pipe(
-        Effect.map((entries) => entries.filter(refConstructor.isRef)),
+      const providers = yield* SourceHostProviders;
+      const resolvedSource = yield* resolveSource(source, { expectedType }).pipe(
         Effect.mapError(
           (cause) =>
             new ExtensionResolutionFailed({
-              category: "internal",
-              detail: `Failed to resolve configured ${typeLabel} "${name}"`,
-              ...(expectedType === "knowledge"
-                ? {}
-                : {
-                    suggestions: [
-                      {
-                        description: `Verify the configured source is reachable and still contains the ${typeLabel}.`,
-                      },
-                    ],
-                  }),
+              category: "validation",
+              detail: `Invalid ${typeLabel} source for ${name}: ${cause.detail}`,
               cause,
             }),
         ),
       );
 
-    const ref = refs.find((entry) => refConstructor.name(entry) === name);
-    if (ref === undefined) {
-      return yield* new ExtensionResolutionFailed({
-        category: "not_found",
-        detail: `Configured ${typeLabel} "${name}" could not be found in its source`,
-        ...(expectedType === "knowledge"
-          ? {}
-          : {
-              suggestions: [
-                {
-                  description: `Verify the configured source still contains the ${typeLabel} or update axm.json.`,
-                },
-              ],
-            }),
-      });
-    }
+      const parsedPattern = parseSourceQualifiedRegistrySourcePatternParts(source);
+      const expectedPlural = toExtensionTypePlural(expectedType);
+      const requestedOwner =
+        parsedPattern?.type === expectedPlural
+          ? Option.some(parsedPattern.owner)
+          : resolvedSource.type === "registry"
+            ? resolvedSource.owner
+            : Option.none();
+      const versionRange =
+        resolvedSource.type === "registry" && parsedPattern?.type === expectedPlural
+          ? Option.fromUndefinedOr(parsedPattern.versionRange)
+          : Option.none<VersionRange>();
+      const refs = yield* providers
+        .find(resolvedSource, {
+          names: [name],
+          type: expectedType,
+          owner: requestedOwner,
+          versionRange,
+        })
+        .pipe(
+          Effect.map((entries) => entries.filter(refConstructor.isRef)),
+          Effect.mapError(
+            (cause) =>
+              new ExtensionResolutionFailed({
+                category: "internal",
+                detail: `Failed to resolve configured ${typeLabel} "${name}"`,
+                ...(expectedType === "knowledge"
+                  ? {}
+                  : {
+                      suggestions: [
+                        {
+                          description: `Verify the configured source is reachable and still contains the ${typeLabel}.`,
+                        },
+                      ],
+                    }),
+                cause,
+              }),
+          ),
+        );
 
-    return {
-      ref,
-      versionRange: ref.refType === "registry" ? versionRange : Option.none(),
-    };
+      const ref = refs.find((entry) => refConstructor.name(entry) === name);
+      if (ref === undefined) {
+        return yield* new ExtensionResolutionFailed({
+          category: "not_found",
+          detail: `Configured ${typeLabel} "${name}" could not be found in its source`,
+          ...(expectedType === "knowledge"
+            ? {}
+            : {
+                suggestions: [
+                  {
+                    description: `Verify the configured source still contains the ${typeLabel} or update axm.json.`,
+                  },
+                ],
+              }),
+        });
+      }
+
+      return {
+        ref,
+        versionRange: ref.refType === "registry" ? versionRange : Option.none(),
+      };
+    });
   });
+
+const resolveConfiguredEntry = <TType extends ExtensionType>(
+  name: string,
+  source: string,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+  refConstructor: ConfiguredRefConstructor<TType>,
+) =>
+  prepareConfiguredEntry(name, source, releaseAgeEvaluation, refConstructor).pipe(Effect.flatten);
+
+export const prepareConfiguredPack = (
+  name: string,
+  source: string,
+  releaseAgeEvaluation: ReleaseAgeEvaluation,
+) => prepareConfiguredEntry(name, source, releaseAgeEvaluation, packRefConstructor);
 
 export const resolveConfiguredSkill = (
   name: string,

@@ -937,6 +937,7 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
       version: exactVersion("1.0.0"),
       integrity: Option.some(sha512(archiveBytes)),
       packages: [],
+      lifecycleWarnings: ["Previously selected version is deprecated"],
     };
     return runEffect(
       Effect.gen(function* () {
@@ -946,7 +947,12 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
           owner: "@test",
           type: "skill",
           name: "my-skill",
-          version: Option.some(exactVersion("1.0.0")),
+          exact: {
+            version: exactVersion("1.0.0"),
+            integrity: sha512(archiveBytes),
+            publisherBindingId: "hbnd_test",
+            lifecycleWarnings: ["Previously selected version is deprecated"],
+          },
         });
         for (const [relative, content] of Object.entries(files)) {
           expect(yield* fs.readFileString(nodePath.join(fetched.directory, relative))).toBe(
@@ -1043,7 +1049,11 @@ describe("LocalRegistrySourceHostProvider.fetch", () => {
           owner: "@test",
           type: "mcp-server",
           name: "my-server",
-          version: Option.some(exactVersion("2.0.0")),
+          exact: {
+            version: exactVersion("2.0.0"),
+            integrity: sha512(archive),
+            publisherBindingId: "hbnd_test",
+          },
         });
         for (const [relative, content] of Object.entries(files)) {
           expect(yield* fs.readFileString(nodePath.join(fetched.directory, relative))).toBe(

@@ -84,7 +84,8 @@ export interface GetExtensionsByOwnerArgs {
  * - `owner`: owner in the registry path (e.g. `"@acme"`)
  * - `type`: extension type
  * - `name`: extension name
- * - `version`: specific version to fetch, or `None` for latest
+ * - `version`: unresolved version or range; fetch current metadata before acquisition
+ * - `exact`: previously selected immutable version and digest; acquire it directly
  */
 /**
  * Bytes received so far, the declared total when the transport reports one,
@@ -98,11 +99,10 @@ export interface ArchiveDownloadProgress {
   readonly attempt?: { readonly n: number; readonly of: number } | undefined;
 }
 
-export interface GetExtensionPackageArgs {
+interface GetExtensionPackageBaseArgs {
   readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: ExtensionName;
-  readonly version: Option.Option<Version | VersionRange>;
   /** Marks an archive read used only to verify compatibility before selection. */
   readonly usagePurpose?: "verification";
   /**
@@ -111,6 +111,20 @@ export interface GetExtensionPackageArgs {
    */
   readonly onProgress?: (progress: ArchiveDownloadProgress) => Effect.Effect<void>;
 }
+
+/** An immutable selection whose archive digest and lifecycle warnings were already observed. */
+export interface ExactRegistryPackage {
+  readonly version: Version;
+  readonly integrity: string;
+  readonly publisherBindingId: string;
+  readonly lifecycleWarnings?: ReadonlyArray<string>;
+}
+
+export type GetExtensionPackageArgs = GetExtensionPackageBaseArgs &
+  (
+    | { readonly version: Option.Option<Version | VersionRange>; readonly exact?: never }
+    | { readonly exact: ExactRegistryPackage; readonly version?: never }
+  );
 
 // -----------------------------------------------------------------------------
 // Get Extension Index Args

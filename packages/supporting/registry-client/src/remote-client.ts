@@ -740,44 +740,49 @@ export const createRemoteRegistryClient = (
     args: GetExtensionPackageArgs,
   ): Effect.Effect<GetExtensionPackageResponse, RegistryClientFailure> =>
     Effect.gen(function* () {
-      // Step 1: Fetch extension index
-      const indexResult = yield* executeRemoteRequest(
-        client.ExtensionsGet(args.owner, pluralizeType(args.type), args.name, undefined),
-        {
-          operation: "get package index",
-          method: "GET",
-          path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}`,
-          replaySafety: safe,
-          mapError: mapPackageFetchError,
-        },
-      );
+      const selected = yield* Effect.gen(function* () {
+        if (args.exact !== undefined) return args.exact;
+        const indexResult = yield* executeRemoteRequest(
+          client.ExtensionsGet(args.owner, pluralizeType(args.type), args.name, undefined),
+          {
+            operation: "get package index",
+            method: "GET",
+            path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}`,
+            replaySafety: safe,
+            mapError: mapPackageFetchError,
+          },
+        );
 
-      if (indexResult === undefined) {
-        return yield* new RegistryRequestFailed({
-          category: "internal",
-          detail: "Remote Registry returned a package index without a body",
+        if (indexResult === undefined) {
+          return yield* new RegistryRequestFailed({
+            category: "internal",
+            detail: "Remote Registry returned a package index without a body",
+          });
+        }
+
+        const index = yield* Effect.try({
+          try: () => mapToExtensionIndex(indexResult),
+          catch: (cause) => mapDiscoveryError(cause, "REGISTRY_REMOTE_DISCOVERY"),
         });
-      }
-
-      const index = yield* Effect.try({
-        try: () => mapToExtensionIndex(indexResult),
-        catch: (cause) => mapDiscoveryError(cause, "REGISTRY_REMOTE_DISCOVERY"),
+        const entry = resolveVersionEntry(index.versions, args.version);
+        if (Option.isNone(entry)) {
+          return yield* new RegistryOperationFailed({
+            category: "not_found",
+            detail: "Requested package version is not available in remote index",
+          });
+        }
+        return {
+          version: entry.value.version,
+          integrity: entry.value.integrity,
+          publisherBindingId: index.publisherBindingId,
+          lifecycleWarnings: extensionLifecycleWarnings(index, entry.value),
+        };
       });
-
-      // Step 2: Resolve version
-      const resolvedEntry = resolveVersionEntry(index.versions, args.version);
-
-      if (Option.isNone(resolvedEntry)) {
-        return yield* new RegistryOperationFailed({
-          category: "not_found",
-          detail: "Requested package version is not available in remote index",
-        });
-      }
+      const warnings = selected.lifecycleWarnings ?? [];
 
       if (archiveCache !== undefined) {
-        const cached = yield* archiveCache.read(resolvedEntry.value.integrity);
+        const cached = yield* archiveCache.read(selected.integrity);
         if (Option.isSome(cached)) {
-          const warnings = extensionLifecycleWarnings(index, resolvedEntry.value);
           return {
             archive: cached.value,
             ...(warnings.length === 0 ? {} : { warnings }),
@@ -787,7 +792,7 @@ export const createRemoteRegistryClient = (
 
       // Step 3: Download archive, streaming the body so the caller observes
       // progress as bytes arrive; the transport never decides how often.
-      const archivePath = `/v1/extensions/${encodeURIComponent(args.owner)}/${pluralizeType(args.type)}/${encodeURIComponent(args.name)}/${encodeURIComponent(resolvedEntry.value.version)}/archive`;
+      const archivePath = `/v1/extensions/${encodeURIComponent(args.owner)}/${pluralizeType(args.type)}/${encodeURIComponent(args.name)}/${encodeURIComponent(selected.version)}/archive`;
       const archive = yield* executeRemoteRequest(
         downloadArchive(
           args.usagePurpose === "verification" ? verificationHttpClient : remoteHttpClient,
@@ -804,10 +809,9 @@ export const createRemoteRegistryClient = (
       );
 
       if (archiveCache !== undefined) {
-        yield* archiveCache.write(resolvedEntry.value.integrity, archive);
+        yield* archiveCache.write(selected.integrity, archive);
       }
 
-      const warnings = extensionLifecycleWarnings(index, resolvedEntry.value);
       return {
         archive,
         ...(warnings.length === 0 ? {} : { warnings }),

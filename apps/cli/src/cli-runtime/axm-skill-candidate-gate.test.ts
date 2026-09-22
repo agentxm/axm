@@ -207,7 +207,8 @@ describe("official AXM skill gate through registry resolution", () => {
             }),
           ),
         getExtensionPackage: (args) => {
-          const version = Option.getOrThrow(args.version);
+          if (args.exact === undefined) return Effect.die("Expected exact compatibility probe");
+          const version = args.exact.version;
           probes.push(`${version}:${args.usagePurpose ?? "install"}`);
           return Effect.succeed({ archive: version === "2.0.0" ? newer : older });
         },
@@ -264,7 +265,8 @@ describe("official AXM skill gate through registry resolution", () => {
               }),
             ),
           getExtensionPackage: (args) => {
-            const version = Option.getOrThrow(args.version);
+            if (args.exact === undefined) return Effect.die("Expected exact compatibility probe");
+            const version = args.exact.version;
             probes.push(`${version}:${args.usagePurpose ?? "install"}`);
             return version === "0.5.0"
               ? Effect.fail(

@@ -243,6 +243,10 @@ export const McpServerManagerLive = Layer.effect(
         name: registryRef.name,
         version: registryRef.version,
         integrity: registryRef.integrity,
+        publisherBindingId: registryRef.publisherBindingId,
+        ...(registryRef.lifecycleWarnings === undefined
+          ? {}
+          : { lifecycleWarnings: registryRef.lifecycleWarnings }),
         messages: {
           integrityMismatchDetail: `Integrity mismatch for ${registryRef.name}@${registryRef.version}`,
         },

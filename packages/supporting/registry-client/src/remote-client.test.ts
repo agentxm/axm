@@ -527,6 +527,68 @@ describe("ownerExists", () => {
 // =============================================================================
 
 describe("getExtensionPackage", () => {
+  it.effect("uses an exact selection for a cache hit without another metadata request", () =>
+    Effect.gen(function* () {
+      const cachedArchive = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+      const requestedUrls: Array<string> = [];
+      const httpClient = makeMockHttpClient((request) => {
+        requestedUrls.push(request.url);
+        return new Response(undefined, { status: 500 });
+      });
+      const cache = {
+        read: (integrity: string) => {
+          expect(integrity).toBe("sha512-selected");
+          return Effect.succeed(Option.some(cachedArchive));
+        },
+        write: () => Effect.die("write was not expected"),
+        status: () => Effect.die("status was not expected"),
+        verify: () => Effect.die("verify was not expected"),
+        prune: () => Effect.die("prune was not expected"),
+      } satisfies ArchiveCache;
+      const client = createRemoteRegistryClient(BASE_URL, httpClient, cache);
+
+      const result = yield* client.getExtensionPackage({
+        ...makeIndexArgs(),
+        exact: {
+          version: exactVersion("1.0.0"),
+          integrity: "sha512-selected",
+          publisherBindingId: "hbnd_test",
+          lifecycleWarnings: ["Previously selected version is deprecated"],
+        },
+      });
+
+      expect(Array.from(result.archive)).toEqual(Array.from(cachedArchive));
+      expect(result.warnings).toEqual(["Previously selected version is deprecated"]);
+      expect(requestedUrls).toEqual([]);
+    }),
+  );
+
+  it.effect("downloads an exact selection without fetching its index again", () =>
+    Effect.gen(function* () {
+      const archive = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+      const requestedUrls: Array<string> = [];
+      const httpClient = makeMockHttpClient((request) => {
+        requestedUrls.push(request.url);
+        return new Response(archive, { status: 200 });
+      });
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const result = yield* client.getExtensionPackage({
+        ...makeIndexArgs(),
+        exact: {
+          version: exactVersion("1.0.0"),
+          integrity: "sha512-selected",
+          publisherBindingId: "hbnd_test",
+        },
+      });
+
+      expect(Array.from(result.archive)).toEqual(Array.from(archive));
+      expect(requestedUrls).toEqual([
+        `${BASE_URL}/v1/extensions/%40acme/skills/test-skill/1.0.0/archive`,
+      ]);
+    }),
+  );
+
   it.effect("revalidates remote metadata before using a verified cache hit", () =>
     Effect.gen(function* () {
       const cachedArchive = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);

@@ -262,6 +262,10 @@ const installFromRegistry = (
         name: ref.name,
         version: ref.version,
         integrity: ref.integrity,
+        publisherBindingId: ref.publisherBindingId,
+        ...(ref.lifecycleWarnings === undefined
+          ? {}
+          : { lifecycleWarnings: ref.lifecycleWarnings }),
         messages: {
           integrityMismatchDetail: `Integrity mismatch for ${ref.name}@${ref.version}`,
         },

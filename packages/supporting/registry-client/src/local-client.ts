@@ -892,45 +892,52 @@ export const createLocalRegistryClient = (
       const owner = args.owner;
       const dir = extensionDir(registryRoot, owner, args.type, args.name, path.join);
 
-      const version = yield* Option.match(args.version, {
-        onNone: () =>
-          Effect.gen(function* () {
-            const idxPath = path.join(dir, "index.json");
-            const index = yield* readExtensionIndex(fs, idxPath);
+      const selectVersionEffect =
+        args.exact === undefined
+          ? Option.match(args.version, {
+              onNone: () =>
+                Effect.gen(function* () {
+                  const idxPath = path.join(dir, "index.json");
+                  const index = yield* readExtensionIndex(fs, idxPath);
 
-            const selected = selectVersion(index.versions);
-            if (Option.isNone(selected)) {
-              return yield* new RegistryOperationFailed({
-                category: "internal",
-                detail: `No versions found for ${owner}/${args.type}/${args.name}`,
-              });
-            }
-            return selected.value.version;
-          }),
-        onSome: (requestedVersion) =>
-          Effect.gen(function* () {
-            const requestedArchivePath = path.join(dir, `${requestedVersion}.zip`);
-            const requestedExists = yield* registryPathExists(fs, requestedArchivePath);
+                  const selected = selectVersion(index.versions);
+                  if (Option.isNone(selected)) {
+                    return yield* new RegistryOperationFailed({
+                      category: "internal",
+                      detail: `No versions found for ${owner}/${args.type}/${args.name}`,
+                    });
+                  }
+                  return selected.value.version;
+                }),
+              onSome: (requestedVersion) =>
+                Effect.gen(function* () {
+                  const requestedArchivePath = path.join(dir, `${requestedVersion}.zip`);
+                  const requestedExists = yield* registryPathExists(fs, requestedArchivePath);
 
-            // Fast path: exact version archive exists.
-            if (requestedExists) {
-              return requestedVersion;
-            }
+                  // Fast path: exact version archive exists.
+                  if (requestedExists) {
+                    return requestedVersion;
+                  }
 
-            // Fallback: treat requested version as semver constraint (e.g. ^1.0.0).
-            const idxPath = path.join(dir, "index.json");
-            const index = yield* readExtensionIndex(fs, idxPath);
+                  // Fallback: treat requested version as semver constraint (e.g. ^1.0.0).
+                  const idxPath = path.join(dir, "index.json");
+                  const index = yield* readExtensionIndex(fs, idxPath);
 
-            const selected = resolveVersionEntry(index.versions, Option.some(requestedVersion));
-            if (Option.isNone(selected)) {
-              return yield* new RegistryOperationFailed({
-                category: "internal",
-                detail: `No version matched constraint "${requestedVersion}" for ${owner}/${args.type}/${args.name}`,
-              });
-            }
-            return selected.value.version;
-          }),
-      });
+                  const selected = resolveVersionEntry(
+                    index.versions,
+                    Option.some(requestedVersion),
+                  );
+                  if (Option.isNone(selected)) {
+                    return yield* new RegistryOperationFailed({
+                      category: "internal",
+                      detail: `No version matched constraint "${requestedVersion}" for ${owner}/${args.type}/${args.name}`,
+                    });
+                  }
+                  return selected.value.version;
+                }),
+            })
+          : Effect.succeed(args.exact.version);
+      const version = yield* selectVersionEffect;
 
       const archivePath = path.join(dir, `${version}.zip`);
 
@@ -952,7 +959,12 @@ export const createLocalRegistryClient = (
             }),
         ),
       );
-      return { archive };
+      return {
+        archive,
+        ...(args.exact?.lifecycleWarnings === undefined || args.exact.lifecycleWarnings.length === 0
+          ? {}
+          : { warnings: args.exact.lifecycleWarnings }),
+      };
     }),
 
   publishExtension: (args: PublishExtensionArgs) =>

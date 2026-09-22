@@ -25,6 +25,7 @@ import {
   extensionLifecycleWarnings,
   type RegistryClient,
   type RegistryExtensionManifest,
+  type GetExtensionPackageArgs,
   type GetExtensionsByOwnerArgs,
 } from "@agentxm/registry-client";
 import { packagesToPackageUrlParts } from "@agentxm/registry-protocol/unstable/registry";
@@ -204,7 +205,12 @@ const probeAxmSkillCompatibility = (
       owner: index.owner,
       type: index.type,
       name: index.name,
-      version: Option.some(version.version),
+      exact: {
+        version: version.version,
+        integrity: version.integrity,
+        publisherBindingId: index.publisherBindingId,
+        lifecycleWarnings: extensionLifecycleWarnings(index, version),
+      },
       usagePurpose: "verification",
     });
     const actualIntegrity = yield* computeIntegrity(archive);
@@ -638,12 +644,23 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
     const type = refRegistryType(ref);
     const name = refName(ref);
 
-    const { archive: archiveBytes, warnings } = yield* client.getExtensionPackage({
-      owner,
-      type,
-      name,
-      version: Option.some(version),
+    const packageArgs: GetExtensionPackageArgs = Option.match(expectedIntegrity, {
+      onNone: () => ({ owner, type, name, version: Option.some(version) }),
+      onSome: (integrity) => ({
+        owner,
+        type,
+        name,
+        exact: {
+          version,
+          integrity,
+          publisherBindingId: ref.publisherBindingId,
+          ...(ref.lifecycleWarnings === undefined
+            ? {}
+            : { lifecycleWarnings: ref.lifecycleWarnings }),
+        },
+      }),
     });
+    const { archive: archiveBytes, warnings } = yield* client.getExtensionPackage(packageArgs);
     if (warnings !== undefined) {
       yield* Effect.forEach(warnings, (warning) => Effect.logWarning(warning), {
         discard: true,

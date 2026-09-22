@@ -413,15 +413,20 @@ const indexToManifest = (
 /**
  * Process a single name directory within a registry owner/type directory.
  * Reads the index.json, validates it, and selects a matching version.
- * Returns Some(RegistryExtensionManifest) if a matching version is found, None otherwise.
+ * Returns the selected manifest with the index read for it, or None.
  */
+interface IndexedManifest {
+  readonly index: ExtensionIndex;
+  readonly manifest: RegistryExtensionManifest;
+}
+
 const processNameDir = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   typeDir: string,
   nameDir: string,
   versionRange: Option.Option<string>,
-): Effect.Effect<Option.Option<RegistryExtensionManifest>, RegistryClientFailure> =>
+): Effect.Effect<Option.Option<IndexedManifest>, RegistryClientFailure> =>
   Effect.gen(function* () {
     const dir = path.join(typeDir, nameDir);
     const idxPath = path.join(dir, "index.json");
@@ -429,7 +434,7 @@ const processNameDir = (
     if (!idxExists) return Option.none();
 
     const index = yield* readExtensionIndex(fs, idxPath);
-    return indexToManifest(index, versionRange);
+    return Option.map(indexToManifest(index, versionRange), (manifest) => ({ index, manifest }));
   });
 
 const packageIdentity = (parts: PackageUrlParts): PackageUrlParts => ({
@@ -779,20 +784,26 @@ export const createLocalRegistryClient = (
       if (args.owner === "*") {
         const extensionsDir = path.join(registryRoot, "extensions");
         const indexes = yield* scanAllExtensions(fs, path, extensionsDir);
-        const manifests = Array.getSomes(
+        const indexed = Array.getSomes(
           indexes
             .filter((index) => args.types.length === 0 || args.types.includes(index.type))
             .filter((index) => args.names.length === 0 || args.names.includes(index.name))
-            .map((index) => indexToManifest(index, Option.none())),
+            .map((index) =>
+              Option.map(indexToManifest(index, Option.none()), (manifest) => ({
+                index,
+                manifest,
+              })),
+            ),
         );
-        const total = manifests.length;
-        const sliced = manifests.slice(args.offset);
-        const extensions = Option.match(args.limit, {
+        const total = indexed.length;
+        const sliced = indexed.slice(args.offset);
+        const page = Option.match(args.limit, {
           onNone: () => sliced,
           onSome: (l) => sliced.slice(0, l),
         });
         return {
-          extensions,
+          extensions: page.map(({ manifest }) => manifest),
+          indexes: page.map(({ index }) => index),
           total,
         } satisfies GetExtensionsByOwnerResponse;
       }
@@ -827,7 +838,7 @@ export const createLocalRegistryClient = (
           return Array.flatten(nestedResults);
         });
 
-      const all: ReadonlyArray<RegistryExtensionManifest> =
+      const all: ReadonlyArray<IndexedManifest> =
         args.names.length > 0
           ? yield* Effect.forEach(args.names, (name) => findForName(name), {
               concurrency: "unbounded",
@@ -837,13 +848,14 @@ export const createLocalRegistryClient = (
       const total = all.length;
       const offset = args.offset;
       const sliced = all.slice(offset);
-      const extensions = Option.match(args.limit, {
+      const page = Option.match(args.limit, {
         onNone: () => sliced,
         onSome: (l) => sliced.slice(0, l),
       });
 
       return {
-        extensions,
+        extensions: page.map(({ manifest }) => manifest),
+        indexes: page.map(({ index }) => index),
         total,
       } satisfies GetExtensionsByOwnerResponse;
     }),
@@ -892,45 +904,52 @@ export const createLocalRegistryClient = (
       const owner = args.owner;
       const dir = extensionDir(registryRoot, owner, args.type, args.name, path.join);
 
-      const version = yield* Option.match(args.version, {
-        onNone: () =>
-          Effect.gen(function* () {
-            const idxPath = path.join(dir, "index.json");
-            const index = yield* readExtensionIndex(fs, idxPath);
+      const selectVersionEffect =
+        args.exact === undefined
+          ? Option.match(args.version, {
+              onNone: () =>
+                Effect.gen(function* () {
+                  const idxPath = path.join(dir, "index.json");
+                  const index = yield* readExtensionIndex(fs, idxPath);
 
-            const selected = selectVersion(index.versions);
-            if (Option.isNone(selected)) {
-              return yield* new RegistryOperationFailed({
-                category: "internal",
-                detail: `No versions found for ${owner}/${args.type}/${args.name}`,
-              });
-            }
-            return selected.value.version;
-          }),
-        onSome: (requestedVersion) =>
-          Effect.gen(function* () {
-            const requestedArchivePath = path.join(dir, `${requestedVersion}.zip`);
-            const requestedExists = yield* registryPathExists(fs, requestedArchivePath);
+                  const selected = selectVersion(index.versions);
+                  if (Option.isNone(selected)) {
+                    return yield* new RegistryOperationFailed({
+                      category: "internal",
+                      detail: `No versions found for ${owner}/${args.type}/${args.name}`,
+                    });
+                  }
+                  return selected.value.version;
+                }),
+              onSome: (requestedVersion) =>
+                Effect.gen(function* () {
+                  const requestedArchivePath = path.join(dir, `${requestedVersion}.zip`);
+                  const requestedExists = yield* registryPathExists(fs, requestedArchivePath);
 
-            // Fast path: exact version archive exists.
-            if (requestedExists) {
-              return requestedVersion;
-            }
+                  // Fast path: exact version archive exists.
+                  if (requestedExists) {
+                    return requestedVersion;
+                  }
 
-            // Fallback: treat requested version as semver constraint (e.g. ^1.0.0).
-            const idxPath = path.join(dir, "index.json");
-            const index = yield* readExtensionIndex(fs, idxPath);
+                  // Fallback: treat requested version as semver constraint (e.g. ^1.0.0).
+                  const idxPath = path.join(dir, "index.json");
+                  const index = yield* readExtensionIndex(fs, idxPath);
 
-            const selected = resolveVersionEntry(index.versions, Option.some(requestedVersion));
-            if (Option.isNone(selected)) {
-              return yield* new RegistryOperationFailed({
-                category: "internal",
-                detail: `No version matched constraint "${requestedVersion}" for ${owner}/${args.type}/${args.name}`,
-              });
-            }
-            return selected.value.version;
-          }),
-      });
+                  const selected = resolveVersionEntry(
+                    index.versions,
+                    Option.some(requestedVersion),
+                  );
+                  if (Option.isNone(selected)) {
+                    return yield* new RegistryOperationFailed({
+                      category: "internal",
+                      detail: `No version matched constraint "${requestedVersion}" for ${owner}/${args.type}/${args.name}`,
+                    });
+                  }
+                  return selected.value.version;
+                }),
+            })
+          : Effect.succeed(args.exact.version);
+      const version = yield* selectVersionEffect;
 
       const archivePath = path.join(dir, `${version}.zip`);
 
@@ -952,7 +971,12 @@ export const createLocalRegistryClient = (
             }),
         ),
       );
-      return { archive };
+      return {
+        archive,
+        ...(args.exact?.lifecycleWarnings === undefined || args.exact.lifecycleWarnings.length === 0
+          ? {}
+          : { warnings: args.exact.lifecycleWarnings }),
+      };
     }),
 
   publishExtension: (args: PublishExtensionArgs) =>

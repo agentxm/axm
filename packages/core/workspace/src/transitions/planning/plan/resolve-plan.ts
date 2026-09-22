@@ -236,6 +236,8 @@ const readinessBlockersOf = <Requirements, Output>(plan: Plan<Requirements, Outp
 export interface PrepareExecutionCandidateOptions {
   /** Operations whose configured-agent outcomes the candidate projects and, after apply, verifies. */
   readonly configuredAgentOperations?: ReadonlyArray<ConfiguredAgentOperation>;
+  /** Digest of observations revalidated by the owning use case before apply. */
+  readonly observedInputFingerprint?: string;
 }
 
 /**
@@ -303,12 +305,19 @@ export const prepareExecutionCandidate = Effect.fn("prepareExecutionCandidate")(
       settingsPath: location.settingsPath,
       lockPath: location.lockPath,
       baseDir: location.baseDir,
+      ...(options?.observedInputFingerprint === undefined
+        ? {}
+        : { observedInputFingerprint: options.observedInputFingerprint }),
     },
     operations,
   );
 });
 
 export interface ResolveExecutionCandidateOptions<Requirements, Output> {
+  /** Additional observations to re-read under the transition before applying. */
+  readonly additionalFreshness?: (
+    candidate: ExecutionCandidate<Requirements, Output>,
+  ) => Effect.Effect<boolean, never, Requirements>;
   /** A typed pre-apply gate that runs under the transition before revalidation. */
   readonly beforeApply?: (
     candidate: ExecutionCandidate<Requirements, Output>,
@@ -564,9 +573,21 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
     if (!(yield* isExecutionCandidateFresh(candidate))) {
       return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
     }
+    if (
+      options?.additionalFreshness !== undefined &&
+      !(yield* options.additionalFreshness(candidate))
+    ) {
+      return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
+    }
     if (options?.beforeApply !== undefined) {
       yield* options.beforeApply(candidate);
       if (!(yield* isExecutionCandidateFresh(candidate))) {
+        return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
+      }
+      if (
+        options.additionalFreshness !== undefined &&
+        !(yield* options.additionalFreshness(candidate))
+      ) {
         return yield* new StaleExecutionCandidate({ candidate: candidatePlan.name });
       }
     }
@@ -692,42 +713,76 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
     if (operations.length === 0) {
       return { ...result, candidateId: candidate.id } satisfies ExecutedPlan<Output>;
     }
-    const currentOutcomes = (yield* Effect.forEach(operations, (operation) => {
-      const override = provider.byExtensionType[operation.extensionType];
-      return operation.plannedState === "enabled" && override !== undefined
-        ? override("current").pipe(
-            Effect.map((outcomes) => outcomes.filter(({ name }) => name === operation.name)),
-            Effect.mapError(configuredAgentOutcomesUnavailableToStepFailure),
-          )
-        : operation.plannedState === "enabled"
-          ? records.getExtensionInventory(operation.extensionType, {}).pipe(
-              Effect.mapError(workspaceStateReadFailureToStepFailure),
-              Effect.map(
-                (inventory) =>
-                  inventory.items.find((item) => item.name === operation.name)?.agentOutcomes ??
-                  configuredAgentLifecycleOutcomes({
-                    type: operation.extensionType,
-                    name: operation.name,
-                    agentIds: configuredAgents,
-                    scope: location.scope,
-                    state: "current",
-                    targetState: "enabled",
-                    installed: false,
-                  }),
-              ),
-            )
-          : Effect.succeed(
-              configuredAgentLifecycleOutcomes({
-                type: operation.extensionType,
-                name: operation.name,
-                agentIds: configuredAgents,
-                scope: location.scope,
-                state: "current",
-                targetState: operation.plannedState,
-                installed: false,
-              }),
-            );
-    })).flat();
+    type Readback = {
+      readonly override: boolean;
+      readonly byName: ReadonlyMap<string, ReadonlyArray<ConfiguredAgentOutcome>>;
+    };
+    const readbacks = new Map<ConfiguredAgentOperation["extensionType"], Readback>(
+      yield* Effect.forEach(
+        [
+          ...new Set(
+            operations
+              .filter((operation) => operation.plannedState === "enabled")
+              .map((operation) => operation.extensionType),
+          ),
+        ],
+        (type) =>
+          observeUnit(
+            { id: `agent-readback:${type}`, label: `current ${type} agent state` },
+            Effect.gen(function* () {
+              const override = provider.byExtensionType[type];
+              if (override !== undefined) {
+                const outcomes = yield* override("current").pipe(
+                  Effect.mapError(configuredAgentOutcomesUnavailableToStepFailure),
+                );
+                const byName = new Map<string, Array<ConfiguredAgentOutcome>>();
+                for (const outcome of outcomes) {
+                  const grouped = byName.get(outcome.name) ?? [];
+                  grouped.push(outcome);
+                  byName.set(outcome.name, grouped);
+                }
+                return [type, { override: true, byName } satisfies Readback] as const;
+              }
+              const inventory = yield* records
+                .getExtensionInventory(type, {})
+                .pipe(Effect.mapError(workspaceStateReadFailureToStepFailure));
+              const byName = new Map(
+                inventory.items.map((item) => [item.name, item.agentOutcomes] as const),
+              );
+              return [type, { override: false, byName } satisfies Readback] as const;
+            }),
+          ),
+      ),
+    );
+    const currentOutcomes = operations.flatMap((operation) => {
+      if (operation.plannedState !== "enabled") {
+        return configuredAgentLifecycleOutcomes({
+          type: operation.extensionType,
+          name: operation.name,
+          agentIds: configuredAgents,
+          scope: location.scope,
+          state: "current",
+          targetState: operation.plannedState,
+          installed: false,
+        });
+      }
+      const readback = readbacks.get(operation.extensionType);
+      const observed = readback?.byName.get(operation.name);
+      return (
+        observed ??
+        (readback?.override === true
+          ? []
+          : configuredAgentLifecycleOutcomes({
+              type: operation.extensionType,
+              name: operation.name,
+              agentIds: configuredAgents,
+              scope: location.scope,
+              state: "current",
+              targetState: "enabled",
+              installed: false,
+            }))
+      );
+    });
     const incomplete = currentOutcomes.find(
       ({ outcome }) => outcome === "blocked" || outcome === "failed",
     );

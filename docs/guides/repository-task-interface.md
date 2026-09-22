@@ -72,6 +72,11 @@ entry point.
 | Repository tooling, release helpers, and reports                                | `axm`                                         |
 | Published package membership                                                    | `nx.json` release configuration               |
 
+The root `axm` lint and typecheck targets include `benchmarks/` because the
+published benchmark command loads those modules. The lifecycle benchmark's Node
+preload is named in `knip.jsonc` as an entry because its path is selected at
+runtime.
+
 Aggregate targets such as `generate`, `e2e`, and `install-verification` are
 lifecycle nodes: they perform no duplicate check and declare the work they
 aggregate through `dependsOn`.

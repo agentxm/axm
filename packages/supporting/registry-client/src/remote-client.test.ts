@@ -17,7 +17,11 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 
 import { createRemoteRegistryClient as createRemoteRegistryClientWithPolicy } from "./remote-client.js";
-import type { RegistryRequestPolicy } from "./request-policy.js";
+import {
+  RegistryRetryObservation,
+  type RegistryRequestPolicy,
+  type RegistryRetryWait,
+} from "./request-policy.js";
 import {
   PUBLICATION_SET_CONTRACT,
   archiveSha256Hex,
@@ -214,6 +218,8 @@ describe("getExtensionIndex", () => {
   it.effect("retries a transient read without changing the request", () =>
     Effect.gen(function* () {
       const requestedUrls: Array<string> = [];
+      const retryWaits: Array<RegistryRetryWait> = [];
+      const endedWaits: Array<string> = [];
       const httpClient = makeMockHttpClient((request) => {
         requestedUrls.push(request.url);
         return requestedUrls.length === 1
@@ -228,13 +234,27 @@ describe("getExtensionIndex", () => {
         maxBackoff: "0 millis",
       });
 
-      const result = yield* client.getExtensionIndex(makeIndexArgs());
+      const result = yield* client.getExtensionIndex(makeIndexArgs()).pipe(
+        Effect.provideService(RegistryRetryObservation, {
+          waiting: (retry) => Effect.sync(() => retryWaits.push(retry)).pipe(Effect.asVoid),
+          ended: (requestId) => Effect.sync(() => endedWaits.push(requestId)).pipe(Effect.asVoid),
+        }),
+      );
 
       expect(Option.isSome(result)).toBe(true);
       expect(requestedUrls).toEqual([
         `${BASE_URL}/v1/extensions/%40acme/skills/test-skill`,
         `${BASE_URL}/v1/extensions/%40acme/skills/test-skill`,
       ]);
+      expect(retryWaits).toEqual([
+        expect.objectContaining({
+          operation: "get extension index",
+          nextAttempt: 2,
+          maxAttempts: 2,
+          delayMillis: 0,
+        }),
+      ]);
+      expect(endedWaits).toEqual([retryWaits[0]?.requestId]);
     }),
   );
 
@@ -370,6 +390,48 @@ describe("getExtensionIndex", () => {
 // =============================================================================
 
 describe("getExtensionsByScope", () => {
+  it.effect("returns the full index from the same list-mode metadata read", () =>
+    Effect.gen(function* () {
+      let indexReads = 0;
+      const httpClient = makeMockHttpClient((request) => {
+        const path = decodeURIComponent(new URL(request.url).pathname);
+        if (path === "/v1/extensions/@acme/skills") {
+          return new Response(
+            JSON.stringify({
+              total: 1,
+              extensions: [
+                {
+                  owner: "@acme",
+                  type: "skill",
+                  name: "test-skill",
+                  latestVersion: "1.0.0",
+                  deprecation: null,
+                  archival: null,
+                },
+              ],
+            }),
+            { status: 200 },
+          );
+        }
+        indexReads++;
+        return new Response(JSON.stringify(extensionIndexResponse), { status: 200 });
+      });
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const result = yield* client.getExtensionsByScope({
+        owner: registryOwner,
+        names: [],
+        types: ["skill"],
+        limit: Option.none(),
+        offset: 0,
+      });
+
+      expect(indexReads).toBe(1);
+      expect(result.indexes.map((index) => index.name)).toEqual(["test-skill"]);
+      expect(result.extensions.map((entry) => entry.name)).toEqual(["test-skill"]);
+    }),
+  );
+
   it.effect("returns extensions in named mode", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(
@@ -388,6 +450,9 @@ describe("getExtensionsByScope", () => {
       expect(result.extensions.length).toBeGreaterThanOrEqual(1);
       expect(result.total).toBeGreaterThanOrEqual(1);
       expect(result.extensions[0]?.name).toBe("test-skill");
+      expect(result.indexes.map((index) => index.name)).toEqual(
+        result.extensions.map((extension) => extension.name),
+      );
     }),
   );
 
@@ -407,6 +472,7 @@ describe("getExtensionsByScope", () => {
       });
 
       expect(result.extensions.length).toBeLessThanOrEqual(1);
+      expect(result.indexes).toHaveLength(result.extensions.length);
     }),
   );
 
@@ -527,6 +593,68 @@ describe("ownerExists", () => {
 // =============================================================================
 
 describe("getExtensionPackage", () => {
+  it.effect("uses an exact selection for a cache hit without another metadata request", () =>
+    Effect.gen(function* () {
+      const cachedArchive = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+      const requestedUrls: Array<string> = [];
+      const httpClient = makeMockHttpClient((request) => {
+        requestedUrls.push(request.url);
+        return new Response(undefined, { status: 500 });
+      });
+      const cache = {
+        read: (integrity: string) => {
+          expect(integrity).toBe("sha512-selected");
+          return Effect.succeed(Option.some(cachedArchive));
+        },
+        write: () => Effect.die("write was not expected"),
+        status: () => Effect.die("status was not expected"),
+        verify: () => Effect.die("verify was not expected"),
+        prune: () => Effect.die("prune was not expected"),
+      } satisfies ArchiveCache;
+      const client = createRemoteRegistryClient(BASE_URL, httpClient, cache);
+
+      const result = yield* client.getExtensionPackage({
+        ...makeIndexArgs(),
+        exact: {
+          version: exactVersion("1.0.0"),
+          integrity: "sha512-selected",
+          publisherBindingId: "hbnd_test",
+          lifecycleWarnings: ["Previously selected version is deprecated"],
+        },
+      });
+
+      expect(Array.from(result.archive)).toEqual(Array.from(cachedArchive));
+      expect(result.warnings).toEqual(["Previously selected version is deprecated"]);
+      expect(requestedUrls).toEqual([]);
+    }),
+  );
+
+  it.effect("downloads an exact selection without fetching its index again", () =>
+    Effect.gen(function* () {
+      const archive = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+      const requestedUrls: Array<string> = [];
+      const httpClient = makeMockHttpClient((request) => {
+        requestedUrls.push(request.url);
+        return new Response(archive, { status: 200 });
+      });
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const result = yield* client.getExtensionPackage({
+        ...makeIndexArgs(),
+        exact: {
+          version: exactVersion("1.0.0"),
+          integrity: "sha512-selected",
+          publisherBindingId: "hbnd_test",
+        },
+      });
+
+      expect(Array.from(result.archive)).toEqual(Array.from(archive));
+      expect(requestedUrls).toEqual([
+        `${BASE_URL}/v1/extensions/%40acme/skills/test-skill/1.0.0/archive`,
+      ]);
+    }),
+  );
+
   it.effect("revalidates remote metadata before using a verified cache hit", () =>
     Effect.gen(function* () {
       const cachedArchive = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
@@ -604,18 +732,56 @@ describe("getExtensionPackage", () => {
       });
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
       const reported: Array<ArchiveDownloadProgress> = [];
+      const retryActivity: Array<string> = [];
 
-      yield* client.getExtensionPackage({
-        ...makePackageArgs(),
-        onProgress: (progress) => Effect.sync(() => void reported.push(progress)),
-      });
+      yield* client
+        .getExtensionPackage({
+          ...makePackageArgs(),
+          onProgress: (progress) => Effect.sync(() => void reported.push(progress)),
+        })
+        .pipe(
+          Effect.provideService(RegistryRetryObservation, {
+            waiting: ({ nextAttempt }) =>
+              Effect.sync(() => void retryActivity.push(`waiting for ${String(nextAttempt)}`)),
+            ended: () => Effect.sync(() => void retryActivity.push("resumed")),
+          }),
+        );
 
       expect(archiveRequests).toBe(2);
+      expect(retryActivity).toEqual(["waiting for 2", "resumed"]);
       expect(reported.map((progress) => progress.attempt)).toEqual([
         { n: 2, of: 3 },
         { n: 2, of: 3 },
       ]);
       expect(reported[0]?.done).toBe(0);
+    }),
+  );
+
+  it.effect("reports a package index retry before the archive is requested", () =>
+    Effect.gen(function* () {
+      let indexRequests = 0;
+      const httpClient = makeMockHttpClient((request) => {
+        if (request.url.endsWith("/archive")) {
+          return new Response(new Uint8Array([0x50, 0x4b, 0x03, 0x04]), { status: 200 });
+        }
+        indexRequests += 1;
+        return indexRequests === 1
+          ? typedErrorResponse(503, "service_unavailable", "Try again")
+          : new Response(JSON.stringify(extensionIndexResponse), { status: 200 });
+      });
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+      const activity: Array<string> = [];
+
+      yield* client.getExtensionPackage(makePackageArgs()).pipe(
+        Effect.provideService(RegistryRetryObservation, {
+          waiting: ({ nextAttempt }) =>
+            Effect.sync(() => void activity.push(`waiting for ${String(nextAttempt)}`)),
+          ended: () => Effect.sync(() => void activity.push("resumed")),
+        }),
+      );
+
+      expect(indexRequests).toBe(2);
+      expect(activity).toEqual(["waiting for 2", "resumed"]);
     }),
   );
 

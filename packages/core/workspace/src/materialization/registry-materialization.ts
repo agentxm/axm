@@ -12,9 +12,9 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as HttpClient from "effect/unstable/http/HttpClient";
-import type { Version, VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
+import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 import { computeIntegrity, createRegistryClient, extractZip } from "@agentxm/registry-client";
-import type { RegistryClientFailure } from "@agentxm/registry-client";
+import type { GetExtensionPackageArgs, RegistryClientFailure } from "@agentxm/registry-client";
 import type {
   ExtensionName,
   ExtensionType,
@@ -27,7 +27,7 @@ import {
   type CanonicalDirectoryReplacementError,
   type MaterializedPackage,
 } from "../acquisition/canonical-directory.js";
-import { makeThrottledUnitProgress } from "../transitions/planning/index.js";
+import { makeThrottledUnitProgress, observeChildUnit } from "../transitions/planning/index.js";
 import {
   computeMaterializedTreeIntegrity,
   type MaterializedTreeInvalid,
@@ -52,8 +52,10 @@ export interface MaterializeRegistryPackageArgs<E = never> {
   readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: ExtensionName;
-  readonly version: Version | VersionRange;
+  readonly version: Version;
   readonly integrity: Option.Option<string>;
+  readonly publisherBindingId: string;
+  readonly lifecycleWarnings?: ReadonlyArray<string>;
   readonly messages: RegistryPackageMaterializationMessages;
   readonly validate?: (
     stagingPath: string,
@@ -91,13 +93,33 @@ export const materializeRegistryPackageWithTreeIntegrity = <E = never>(
     // tens of events per archive, attributed to the unit that is running and
     // to the attempt the request policy is on.
     const reportProgress = yield* makeThrottledUnitProgress({ unit: "bytes" });
-    const { archive } = yield* client.getExtensionPackage({
-      owner: args.owner,
-      type: args.type,
-      name: args.name,
-      version: Option.some(args.version),
-      onProgress: (progress) => reportProgress(progress.done, progress.total, progress.attempt),
+    const packageArgs: GetExtensionPackageArgs = Option.match(args.integrity, {
+      onNone: () => ({
+        owner: args.owner,
+        type: args.type,
+        name: args.name,
+        version: Option.some(args.version),
+        onProgress: (progress) => reportProgress(progress.done, progress.total, progress.attempt),
+      }),
+      onSome: (integrity) => ({
+        owner: args.owner,
+        type: args.type,
+        name: args.name,
+        exact: {
+          version: args.version,
+          integrity,
+          publisherBindingId: args.publisherBindingId,
+          ...(args.lifecycleWarnings === undefined
+            ? {}
+            : { lifecycleWarnings: args.lifecycleWarnings }),
+        },
+        onProgress: (progress) => reportProgress(progress.done, progress.total, progress.attempt),
+      }),
     });
+    const { archive, warnings } = yield* client.getExtensionPackage(packageArgs);
+    if (warnings !== undefined) {
+      yield* Effect.forEach(warnings, (warning) => Effect.logWarning(warning), { discard: true });
+    }
 
     if (Option.isSome(args.integrity)) {
       const actualIntegrity = yield* computeIntegrity(archive);
@@ -115,7 +137,14 @@ export const materializeRegistryPackageWithTreeIntegrity = <E = never>(
     >({
       baseDir: args.baseDir,
       canonicalPath: args.destinationPath,
-      populate: (stagingPath) => extractZip(archive, stagingPath),
+      populate: (stagingPath) =>
+        observeChildUnit(
+          {
+            id: `registry-extract:${args.owner}/${args.type}/${args.name}`,
+            label: `extracting ${args.name}`,
+          },
+          extractZip(archive, stagingPath),
+        ),
       ...(args.validate === undefined ? {} : { validate: args.validate }),
       inspect: computeMaterializedTreeIntegrity,
     });

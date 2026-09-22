@@ -35,6 +35,7 @@ export const collectUnreachableRetirement = (
     readonly resultingGraph: DesiredStateGraph;
     readonly subjects: ReadonlyArray<Pick<ExtensionTarget, "type" | "name">>;
   },
+  observedGraph?: DesiredStateGraph,
 ) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
@@ -43,7 +44,7 @@ export const collectUnreachableRetirement = (
     const locks = yield* LockfileReader;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const graph = scope?.resultingGraph ?? (yield* desiredState.graph());
+    const graph = observedGraph ?? scope?.resultingGraph ?? (yield* desiredState.graph());
     if (!graph.complete)
       return Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>();
     const reachable = (type: (typeof extensionTypes)[number], key: string) =>
@@ -268,6 +269,7 @@ const leftoverIdentity = (entry: InstalledPackageEntry) =>
 export const collectLeftoverRetirement = (
   adapter: SyncFailureAdapter,
   scope?: { readonly subjects: ReadonlyArray<Pick<ExtensionTarget, "type" | "name">> },
+  observedGraph?: DesiredStateGraph,
 ) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
@@ -276,7 +278,7 @@ export const collectLeftoverRetirement = (
     const locks = yield* LockfileReader;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const graph = yield* desiredState.graph();
+    const graph = observedGraph ?? (yield* desiredState.graph());
     if (!graph.complete) return [];
     const inventory = yield* observeInstallRoot({ layout, graph, locks });
     const acceptedPaths = (yield* Effect.forEach(extensionTypes, (type) =>

@@ -9,6 +9,7 @@
  * @experimental All exports from this module are unstable and may change without notice.
  */
 
+import { pathToFileURL } from "node:url";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -75,6 +76,7 @@ import {
   type CanonicalObservationStatus,
   type DesiredExtensionNode,
   type DesiredStateGraph,
+  type ExtensionInventory,
 } from "../desired-state/index.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
@@ -446,6 +448,12 @@ export interface CollectedMaterializeSteps {
   readonly expectedMcpServerNames: ReadonlySet<string>;
   readonly expectedHookNames: ReadonlySet<string>;
   readonly releaseAge: ReleaseAgeOperationEvidence;
+  /** Physical inventories used to judge currency in this planning phase. */
+  readonly inventoryObservations: ReadonlyArray<{
+    readonly type: DesiredExtensionNode["type"];
+    readonly options: { readonly agents?: ReadonlyArray<string> };
+    readonly inventory: ExtensionInventory;
+  }>;
   readonly steps: ReadonlyArray<PlannedJobStep<MaterializeStepRequirements>>;
 }
 
@@ -499,8 +507,10 @@ export const collectMaterializeSteps = (args: {
     const location = yield* WorkspaceLocation;
     const settings = yield* SettingsReader;
     const desiredStateReader = yield* DesiredStateReader;
+    const records = yield* WorkspaceRecords;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const providers = yield* SourceHostProviders;
     const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation();
     const configuredMcpServerEntries = yield* settings.entries("mcp-server");
     const configuredAgents = args.configuredAgents ?? (yield* settings.configuredAgents);
@@ -538,10 +548,33 @@ export const collectMaterializeSteps = (args: {
       });
     }
 
+    const selected = selectedDesiredNodes(desiredState, selection)
+      .filter(isSourcedDesiredExtension)
+      .filter((node) => node.type !== "pack" || !node.enabled);
+    // Every node of a type judges currency against the same physical inventory
+    // in this planning phase. Keep the shared read local to this invocation.
+    const inventoryOptions = (type: DesiredExtensionNode["type"]) =>
+      configuredAgents.length > 0 &&
+      (type === "skill" || type === "mcp-server" || type === "subagent")
+        ? { agents: configuredAgents }
+        : {};
+    const inventories = new Map(
+      yield* Effect.forEach([...new Set(selected.map((node) => node.type))], (type) =>
+        Effect.gen(function* () {
+          const read = yield* Effect.cached(
+            records.getExtensionInventory(type, inventoryOptions(type)),
+          );
+          return [type, read] as const;
+        }),
+      ),
+    );
+    const phaseReader = {
+      ...desiredStateReader,
+      graph: (options) =>
+        options === undefined ? Effect.succeed(desiredState) : desiredStateReader.graph(options),
+    } satisfies typeof desiredStateReader;
     const evaluated = yield* Effect.forEach(
-      selectedDesiredNodes(desiredState, selection)
-        .filter(isSourcedDesiredExtension)
-        .filter((node) => node.type !== "pack" || !node.enabled),
+      selected,
       (node) =>
         Effect.gen(function* () {
           const canonical = yield* acceptedCanonicalObservation({
@@ -602,14 +635,33 @@ export const collectMaterializeSteps = (args: {
               undefined,
             );
           });
-          const ref = resolved.ref;
+          let ref = resolved.ref;
+          if (forceCanonical && accepted !== undefined && ref.refType === "git-hosted") {
+            const acceptedGitRef = ref;
+            const files = yield* providers.fetch(acceptedGitRef).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new WorkspaceSyncFailed({
+                    category: "conflict",
+                    detail: `Cannot restore ${node.type} ${node.name} from its accepted Git commit ${acceptedGitRef.gitCommitSha}`,
+                    cause,
+                  }),
+              ),
+            );
+            ref = {
+              ...acceptedGitRef,
+              location: pathToFileURL(files.directory).href,
+            } satisfies ExtensionRef;
+          }
           const configuredMcpEntry =
             node.type === "mcp-server" ? configuredMcpServerEntries[node.name] : undefined;
+          const inventoryRead = inventories.get(node.type);
           const materializationCurrent =
             configuredMcpEntry === undefined
               ? yield* isObservedMaterializationCurrent({
                   location,
-                  records: yield* WorkspaceRecords,
+                  records,
+                  ...(inventoryRead === undefined ? {} : { inventory: yield* inventoryRead }),
                   node,
                   configuredAgentIds: configuredAgents,
                   agents: agentRepo,
@@ -656,8 +708,8 @@ export const collectMaterializeSteps = (args: {
           Effect.result,
           Effect.map((result) => ({ node, result })),
         ),
-      { concurrency: "unbounded" },
-    );
+      { concurrency: 16 },
+    ).pipe(Effect.provideService(DesiredStateReader, phaseReader));
     const reconciled = evaluated.flatMap(({ result }) =>
       Result.isSuccess(result) ? [result.success] : [],
     );
@@ -931,12 +983,20 @@ export const collectMaterializeSteps = (args: {
       .map(({ ref }) => ref);
     const preparedHookProjection =
       changedHooks.length === 0 ? undefined : yield* hookManager.prepareProjection(changedHooks);
+    const inventoryObservations = (yield* Effect.forEach([...inventories], ([type, read]) =>
+      Effect.map(Effect.result(read), (result) =>
+        Result.isSuccess(result)
+          ? [{ type, options: inventoryOptions(type), inventory: result.success }]
+          : [],
+      ),
+    )).flat();
     return {
       ...(preparedHookProjection === undefined ? {} : { preparedHookProjection }),
       cleanupSafe: problems.length === 0,
       knowledgeMayChange:
         packRecoverySteps.length > 0 || knowledgeRefs.some(({ materialize }) => materialize),
       serialMaterialization: packRecoverySteps.length > 0,
+      inventoryObservations,
       expectedSkillNames: new Set(
         desiredState.nodes
           .filter((node) => node.type === "skill" && node.enabled)

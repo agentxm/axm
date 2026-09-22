@@ -45,6 +45,7 @@ import {
 } from "../../resolution/index.js";
 import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
+  observeUnit,
   operationPresentation,
   type Plan,
   type PlannedJobStep,
@@ -52,6 +53,7 @@ import {
 import {
   DesiredStateReader,
   SettingsReader,
+  WorkspaceRecords,
   WorkspaceLocation,
   acceptedResolutionRef,
   acquisitionConfiguredEntries,
@@ -769,6 +771,15 @@ const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection).filter(
       hasConfiguredSource,
     );
+    const registryEntries = entries.filter(([, entry]) => !isWorkspaceSourceLocator(entry.source));
+    const installedBefore =
+      registryEntries.length === 0
+        ? new Map<string, boolean>()
+        : new Map(
+            (yield* (yield* WorkspaceRecords).getExtensionInventory("skill", {})).items.map(
+              (item) => [item.name, item.installed] as const,
+            ),
+          );
 
     const resolved = yield* Effect.forEach(
       entries,
@@ -781,11 +792,11 @@ const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest) =>
             )
           : collectResolvedPlan(
               resolveSkillIntent(name, entry.source, selection.releaseAgeEvaluation),
-              (intent) => planSkillInstall(intent),
+              (intent) => planSkillInstall(intent, { installedBefore }),
               (error) => workspacePlanningErrorPlan("skill", name, error),
               toTypedLabel("skill", name),
             ),
-      { concurrency: "unbounded" },
+      { concurrency: 16 },
     );
 
     return toCollectedWorkspaceUpdatePlans({
@@ -1180,7 +1191,14 @@ export const buildWorkspaceUpdatePlan: (
   );
   const collections = yield* Effect.forEach(
     selectedCollectors,
-    ({ collect }) => collect(selection),
+    ({ type, collect }) =>
+      observeUnit(
+        {
+          id: `configured-update:${type}`,
+          label: `configured ${extensionTypePluralSentenceLabels[toInstallableExtensionTypePlural(type)]}`,
+        },
+        collect(selection),
+      ),
     { concurrency: "unbounded" },
   );
   const fragments = mergeFragments(collections);

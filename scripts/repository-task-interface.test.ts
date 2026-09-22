@@ -203,7 +203,7 @@ describe("repository task interface", () => {
     const command = commandText(lint?.options?.command);
     expect(lint?.executor).toBe("nx:run-commands");
     expect(command).toBe(
-      "eslint .pnpmfile.cjs allurerc.ts eslint.config.mjs vitest.config.ts vitest.execution.ts vitest.reporting.ts vitest.purpose.setup.ts scripts --max-warnings=0",
+      "eslint .pnpmfile.cjs allurerc.ts eslint.config.mjs vitest.config.ts vitest.execution.ts vitest.reporting.ts vitest.purpose.setup.ts benchmarks scripts --max-warnings=0",
     );
     expect(command.split(/\s+/u)).not.toContain(".");
   });

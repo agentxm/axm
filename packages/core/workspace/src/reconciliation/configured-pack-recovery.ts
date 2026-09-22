@@ -49,7 +49,6 @@ import {
   acceptedCanonicalObservation,
   computeExtensionPathsForLayout,
   desiredStateProblemsText,
-  DesiredStateReader,
   enabledConfiguredEntries,
   SettingsReader,
   WorkspaceLocation,
@@ -144,6 +143,7 @@ const recoveryStep = (args: {
 export const collectConfiguredPackRecovery = (args: {
   readonly selection: SyncSelection;
   readonly adapter: SyncFailureAdapter;
+  readonly graph: DesiredStateGraph;
 }): Effect.Effect<
   ConfiguredPackRecovery | undefined,
   SyncPolicyFailure,
@@ -157,11 +157,10 @@ export const collectConfiguredPackRecovery = (args: {
   | McpServerInstallRequirements
 > =>
   Effect.gen(function* () {
-    const desiredState = yield* DesiredStateReader;
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
     const layout = yield* Ref.get(location.layout);
-    const graph: DesiredStateGraph = yield* desiredState.graph();
+    const graph = args.graph;
     const recoveryProblems = scopedProblems(graph, args.selection).filter(
       (problem) => recoverableExternalPackName(graph, problem) !== undefined,
     );

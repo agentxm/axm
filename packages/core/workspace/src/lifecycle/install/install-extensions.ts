@@ -108,6 +108,8 @@ import {
   type PrepareInstallRequirements,
 } from "./vocabulary.js";
 import { findGitReinstallRefs, pinGitReinstallRef } from "./git-reinstall.js";
+import { SourceHostProviders } from "../../resolution/sources/service.js";
+import { makeLocatorSourceView } from "./git-discovery.js";
 import {
   InstallSelectionInteraction,
   selectInstallRefs,
@@ -705,6 +707,8 @@ const planLocatorInstall = (
     }
     const candidateTypes =
       explicitlySelectedTypes.length > 0 ? explicitlySelectedTypes : installableExtensionTypes;
+    const sources = yield* SourceHostProviders;
+    const locatorSources = yield* makeLocatorSourceView(sources, candidateTypes.length);
     const attempts = yield* Effect.forEach(
       candidateTypes,
       (type) =>
@@ -723,7 +727,7 @@ const planLocatorInstall = (
           ),
         ),
       { concurrency: 1 },
-    );
+    ).pipe(Effect.provideService(SourceHostProviders, locatorSources));
     const matched = attempts.flatMap((attempt) => (Option.isSome(attempt) ? [attempt.value] : []));
 
     if (matched.length === 0) {

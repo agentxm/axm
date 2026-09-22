@@ -2533,6 +2533,19 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `cli/subagents/new/scaffolds-for-every-configured-agent`
 - Source: [`packages/core/workspace/src/subagents/authoring/new/preview-is-pure.spec.ts`](../packages/core/workspace/src/subagents/authoring/new/preview-is-pure.spec.ts)
 
+##### Sync does not report convergence from stale workspace observations
+
+- Requirement: `cli/sync/no-op-convergence-validates-current-observation`
+- Owner: `workspace`
+- Statement: When a managed projection disappears, workspace settings change, or an owned aggregate changes during observation, sync shall not report a no-op based on the earlier observed state.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/sync/realizes-desired-state`
+- Source: [`packages/core/workspace/src/reconciliation/sync/no-op-convergence-validates-current-observation.spec.ts`](../packages/core/workspace/src/reconciliation/sync/no-op-convergence-validates-current-observation.spec.ts)
+
 ##### Sync preview describes required changes without applying them
 
 - Requirement: `cli/sync/preview-is-pure`
@@ -4253,6 +4266,19 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Methods: decision-table, example
 - Derived from: `extension-installability/source-family-policy-is-total`
 - Source: [`packages/core/workspace/src/resolution/sources/discovers-all-manifest-kinds-from-git-and-path.spec.ts`](../packages/core/workspace/src/resolution/sources/discovers-all-manifest-kinds-from-git-and-path.spec.ts)
+
+##### Broad source discovery skips tool caches without hiding explicit roots
+
+- Requirement: `extension-discovery/broad-scans-skip-tool-caches`
+- Owner: `workspace`
+- Statement: When discovering extension packages from a source, AXM shall omit .nx cache trees from broad convention scans and shall still discover a package when its directory is explicitly selected as the source root.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `extension-discovery/all-manifest-kinds-from-git-and-path`
+- Source: [`packages/core/workspace/src/resolution/sources/broad-discovery-skips-tool-caches.spec.ts`](../packages/core/workspace/src/resolution/sources/broad-discovery-skips-tool-caches.spec.ts)
 
 ##### A canonical extension name always parses back to the identity that produced it
 

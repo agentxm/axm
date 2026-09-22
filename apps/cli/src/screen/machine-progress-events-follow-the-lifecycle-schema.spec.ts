@@ -8,6 +8,8 @@ import { OperationEventSchema } from "@agentxm/workspace/transitions/planning";
 import { PlanResolutionDocumentSchema } from "../operation-output.js";
 import { ProgressEventSchema } from "./index.js";
 import { handleInstall } from "../root/install/handler.js";
+import { handleUpdate } from "../root/update/handler.js";
+import { handleSync } from "../root/sync/handler.js";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../test-support/install-harness.js";
@@ -80,6 +82,45 @@ describe("Machine progress event contract", () => {
         localName: Option.none(),
         bundled: false,
       }).pipe(Effect.provide(workspace.layer));
+      const log = workspace.streams?.log ?? [];
+      return { log, progress: progressLines(log) };
+    });
+
+  const machineConfiguredUpdate = (preview: boolean) =>
+    Effect.gen(function* () {
+      const workspace = makeSpecWorkspace({
+        screen: { kind: "machine" },
+        flags: { json: true },
+      });
+      cleanups.push(workspace.cleanup);
+      const skillPackage = writeLocalSkillPackage(workspace.root, { name: "code-review" });
+      yield* handleInstall({
+        type: Option.none(),
+        source: Option.some(skillPackage),
+        selectors: {},
+        all: true,
+        force: false,
+        preview: false,
+        env: [],
+        localName: Option.none(),
+        bundled: false,
+      }).pipe(Effect.provide(workspace.layer));
+      const log = workspace.streams?.log ?? [];
+      log.splice(0);
+      yield* handleUpdate({ source: Option.none(), force: false, preview }).pipe(
+        Effect.provide(workspace.layer),
+      );
+      return { log, progress: progressLines(log) };
+    });
+
+  const machineSync = (preview: boolean) =>
+    Effect.gen(function* () {
+      const workspace = makeSpecWorkspace({
+        screen: { kind: "machine" },
+        flags: { json: true },
+      });
+      cleanups.push(workspace.cleanup);
+      yield* handleSync({ preview }).pipe(Effect.provide(workspace.layer));
       const log = workspace.streams?.log ?? [];
       return { log, progress: progressLines(log) };
     });
@@ -177,5 +218,78 @@ describe("Machine progress event contract", () => {
       expect(terminal?.index).toBeLessThan(resultIndex);
       expect(events.every((entry) => entry.index < resultIndex)).toBe(true);
     }),
+  );
+
+  it.effect(
+    "configured update preview and apply each have one ordered lifecycle and one result",
+    () =>
+      Effect.forEach(
+        [true, false],
+        (preview) =>
+          Effect.gen(function* () {
+            const { log, progress } = yield* machineConfiguredUpdate(preview);
+            const events = yield* Effect.forEach(progress, (line) =>
+              Effect.map(decodeProgressEvent(line.value), (decoded) => ({
+                index: line.index,
+                event: decoded.event,
+              })),
+            );
+            expect(events.filter((entry) => entry.event._tag === "OperationStarted")).toHaveLength(
+              1,
+            );
+            expect(events.filter((entry) => entry.event._tag === "OperationSettled")).toHaveLength(
+              1,
+            );
+            expect(
+              events.find((entry) => entry.event._tag === "PhaseStarted")?.event,
+            ).toMatchObject({
+              phase: "resolution",
+            });
+            expect(
+              events
+                .filter((entry) => entry.event._tag === "UnitStarted")
+                .map((entry) => entry.event),
+            ).toEqual(
+              expect.arrayContaining([
+                expect.objectContaining({ unitId: "configured-update:skill" }),
+              ]),
+            );
+            for (let index = 1; index < events.length; index += 1) {
+              const previous = events[index - 1];
+              const current = events[index];
+              expect(current?.event.seq).toBeGreaterThan(previous?.event.seq ?? 0);
+            }
+            const resultWrites = log.filter((entry) => entry.channel === "stdout");
+            expect(resultWrites).toHaveLength(1);
+            const resultIndex = log.findIndex((entry) => entry.channel === "stdout");
+            yield* decodeDocument(JSON.parse(resultWrites[0]?.content ?? ""));
+            expect(events.every((entry) => entry.index < resultIndex)).toBe(true);
+          }),
+        { discard: true },
+      ),
+  );
+
+  it.effect("sync preview and apply each settle once before one result document", () =>
+    Effect.forEach(
+      [true, false],
+      (preview) =>
+        Effect.gen(function* () {
+          const { log, progress } = yield* machineSync(preview);
+          const events = yield* Effect.forEach(progress, (line) =>
+            Effect.map(decodeProgressEvent(line.value), (decoded) => ({
+              index: line.index,
+              event: decoded.event,
+            })),
+          );
+          expect(events.filter((entry) => entry.event._tag === "OperationStarted")).toHaveLength(1);
+          expect(events.filter((entry) => entry.event._tag === "OperationSettled")).toHaveLength(1);
+          const resultWrites = log.filter((entry) => entry.channel === "stdout");
+          expect(resultWrites).toHaveLength(1);
+          const resultIndex = log.findIndex((entry) => entry.channel === "stdout");
+          yield* decodeDocument(JSON.parse(resultWrites[0]?.content ?? ""));
+          expect(events.every((entry) => entry.index < resultIndex)).toBe(true);
+        }),
+      { discard: true },
+    ),
   );
 });

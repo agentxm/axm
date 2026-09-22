@@ -83,4 +83,7 @@ export const NoProjectionParticipants: Layer.Layer<ProjectionParticipants> = Lay
 export const workspaceInvariantFactsLayer = (
   facts: ReadonlyArray<ProjectionInvariantFact>,
 ): Layer.Layer<WorkspaceInvariantFacts> =>
-  Layer.succeed(WorkspaceInvariantFacts, { projectionFacts: Effect.succeed(facts) });
+  Layer.succeed(WorkspaceInvariantFacts, {
+    projectionFacts: Effect.succeed(facts),
+    projectionFactsForGraph: () => Effect.succeed(facts),
+  });

@@ -285,7 +285,7 @@ describe("Local Registry storage failure attribution", () => {
         const discovery = yield* client.discoverPackages({ packages: [] });
         const catalog = yield* client.getExtensionsByScope(search);
         expect(discovery).toEqual({ results: [] });
-        expect(catalog).toEqual({ extensions: [], total: 0 });
+        expect(catalog).toEqual({ extensions: [], indexes: [], total: 0 });
       }),
     ).pipe(Effect.provide(NodeServices.layer)),
   );

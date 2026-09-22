@@ -183,6 +183,9 @@ importers:
       '@agentxm/extension-content':
         specifier: workspace:*
         version: link:packages/core/extension-content
+      '@agentxm/registry-client':
+        specifier: workspace:*
+        version: link:packages/supporting/registry-client
       '@agentxm/specification-metadata':
         specifier: workspace:*
         version: link:tools/specification-metadata

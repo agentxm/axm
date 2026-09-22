@@ -17,6 +17,7 @@ import { withLiveOperation, withOperationLifecycle } from "./operation-lifecycle
 import * as Deferred from "effect/Deferred";
 import * as Fiber from "effect/Fiber";
 import { OperationLifecycle, observeUnit } from "@agentxm/workspace/transitions/planning";
+import { RegistryRetryObservation } from "@agentxm/registry-client";
 
 let tempDir: string;
 
@@ -69,6 +70,82 @@ describe("withOperationLifecycle", () => {
         "OperationSettled",
       ]);
       expect(renderer.state.events.at(-1)).toMatchObject({ outcome: "completed" });
+    }),
+  );
+
+  it.effect("publishes Registry retry waits within the outer operation", () =>
+    Effect.gen(function* () {
+      const renderer = TestRenderer.make();
+      yield* withLiveOperation(
+        { command: "update", name: "Update skill", mode: "apply" },
+        Effect.gen(function* () {
+          const observation = yield* RegistryRetryObservation;
+          yield* observation.waiting({
+            requestId: "request-1",
+            operation: "get package index",
+            nextAttempt: 2,
+            maxAttempts: 3,
+            delayMillis: 2_000,
+          });
+          yield* observation.ended("request-1");
+        }),
+      ).pipe(Effect.provide(renderer.layer));
+
+      expect(renderer.state.events.map((event) => event._tag)).toEqual([
+        "OperationStarted",
+        "Waiting",
+        "WaitEnded",
+        "OperationSettled",
+      ]);
+      expect(renderer.state.events[1]).toMatchObject({
+        subject: "registry-retry:request-1",
+        detail: "get package index retry 2 of 3 after 2s",
+      });
+      expect(renderer.state.events[2]).toMatchObject({ subject: "registry-retry:request-1" });
+    }),
+  );
+
+  it.effect("announces resolution before preparation finishes and settles once", () =>
+    Effect.gen(function* () {
+      const workspaceDir = nodePath.join(tempDir, ".axm");
+      const renderer = TestRenderer.make();
+      const preparing = yield* Deferred.make<void>();
+      const continuePreparation = yield* Deferred.make<void>();
+      const fiber = yield* withOperationLifecycle(
+        { command: "update", mode: "apply", planName: "Update extensions" },
+        Deferred.succeed(preparing, undefined).pipe(
+          Effect.andThen(Deferred.await(continuePreparation)),
+        ),
+      ).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            renderer.layer,
+            TestFlagsLayer({ nonInteractive: true }),
+            Layer.effect(WorkspaceLocation, makeWorkspaceLocationMock(workspaceDir)),
+          ).pipe(Layer.provideMerge(NodeServices.layer)),
+        ),
+        Effect.forkChild,
+      );
+      yield* Deferred.await(preparing);
+      yield* Effect.promise(async () => {
+        for (let attempt = 0; attempt < 100; attempt += 1) {
+          if (renderer.state.events.length >= 2) return;
+          await new Promise((resolve) => setTimeout(resolve, 1));
+        }
+        throw new Error("Preparation events were not observed");
+      });
+      expect(renderer.state.events.map((event) => event._tag)).toEqual([
+        "OperationStarted",
+        "PhaseStarted",
+      ]);
+      expect(renderer.state.events[1]).toMatchObject({ phase: "resolution" });
+      yield* Deferred.succeed(continuePreparation, undefined);
+      yield* Fiber.join(fiber);
+      expect(renderer.state.events.map((event) => event._tag)).toEqual([
+        "OperationStarted",
+        "PhaseStarted",
+        "OperationSettled",
+      ]);
     }),
   );
 

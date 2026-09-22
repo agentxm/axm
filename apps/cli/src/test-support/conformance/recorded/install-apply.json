@@ -11,11 +11,17 @@
     "_tag": "PhaseStarted",
     "seq": 2,
     "atMs": 0,
+    "phase": "resolution"
+  },
+  {
+    "_tag": "PhaseStarted",
+    "seq": 3,
+    "atMs": 0,
     "phase": "planning"
   },
   {
     "_tag": "UnitStarted",
-    "seq": 3,
+    "seq": 4,
     "atMs": 0,
     "unitId": "lockfile-reconciliation",
     "label": "lockfile reconciliation",
@@ -23,7 +29,7 @@
   },
   {
     "_tag": "UnitResolved",
-    "seq": 4,
+    "seq": 5,
     "atMs": 0,
     "unitId": "lockfile-reconciliation",
     "label": "lockfile reconciliation",
@@ -32,19 +38,19 @@
   },
   {
     "_tag": "PhaseStarted",
-    "seq": 5,
+    "seq": 6,
     "atMs": 0,
     "phase": "validation"
   },
   {
     "_tag": "PhaseStarted",
-    "seq": 6,
+    "seq": 7,
     "atMs": 0,
     "phase": "apply"
   },
   {
     "_tag": "UnitStarted",
-    "seq": 7,
+    "seq": 8,
     "atMs": 0,
     "unitId": "skill:code-review",
     "label": "skills/code-review",
@@ -53,7 +59,7 @@
   },
   {
     "_tag": "UnitResolved",
-    "seq": 8,
+    "seq": 9,
     "atMs": 0,
     "unitId": "skill:code-review",
     "label": "skills/code-review",
@@ -63,7 +69,7 @@
   },
   {
     "_tag": "OperationSettled",
-    "seq": 9,
+    "seq": 10,
     "atMs": 0,
     "outcome": "applied"
   },
@@ -79,11 +85,17 @@
     "_tag": "PhaseStarted",
     "seq": 2,
     "atMs": 0,
+    "phase": "resolution"
+  },
+  {
+    "_tag": "PhaseStarted",
+    "seq": 3,
+    "atMs": 0,
     "phase": "planning"
   },
   {
     "_tag": "UnitStarted",
-    "seq": 3,
+    "seq": 4,
     "atMs": 0,
     "unitId": "lockfile-reconciliation",
     "label": "lockfile reconciliation",
@@ -91,7 +103,7 @@
   },
   {
     "_tag": "UnitResolved",
-    "seq": 4,
+    "seq": 5,
     "atMs": 0,
     "unitId": "lockfile-reconciliation",
     "label": "lockfile reconciliation",
@@ -100,19 +112,19 @@
   },
   {
     "_tag": "PhaseStarted",
-    "seq": 5,
+    "seq": 6,
     "atMs": 0,
     "phase": "validation"
   },
   {
     "_tag": "PhaseStarted",
-    "seq": 6,
+    "seq": 7,
     "atMs": 0,
     "phase": "apply"
   },
   {
     "_tag": "UnitStarted",
-    "seq": 7,
+    "seq": 8,
     "atMs": 0,
     "unitId": "skill:deploy",
     "label": "skills/deploy",
@@ -121,7 +133,7 @@
   },
   {
     "_tag": "UnitResolved",
-    "seq": 8,
+    "seq": 9,
     "atMs": 0,
     "unitId": "skill:deploy",
     "label": "skills/deploy",
@@ -131,7 +143,7 @@
   },
   {
     "_tag": "OperationSettled",
-    "seq": 9,
+    "seq": 10,
     "atMs": 0,
     "outcome": "applied"
   }

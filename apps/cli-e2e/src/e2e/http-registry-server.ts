@@ -75,6 +75,8 @@ export interface HttpRegistry {
   readonly nextHungArchive: () => Promise<string>;
   /** Stop hanging one `plural/name` download so a later run can complete it. */
   readonly resumeArchive: (pluralAndName: string) => void;
+  /** Make the next matching index read return a retryable response. */
+  readonly failNextIndex: (pluralAndName: string) => void;
   readonly copyVersion: (
     owner: string,
     plural: string,
@@ -351,6 +353,7 @@ export const startHttpRegistry = async (
   >();
   const publishes: Array<PublishRecord> = [];
   const pendingPublishFailures = new Set(options.failPublishOnce ?? []);
+  const pendingIndexFailures = new Set<string>();
   const rejectedPublishes = new Set(options.rejectPublish ?? []);
   const pendingPublishHangs = new Set(options.commitThenHangPublishOnce ?? []);
   const hangingArchives = new Set(options.hangArchive ?? []);
@@ -906,6 +909,18 @@ export const startHttpRegistry = async (
         const owner = decodePathSegment(encodedOwner);
         const plural = decodePathSegment(encodedPlural);
         const name = decodePathSegment(encodedName);
+        if (pendingIndexFailures.delete(`${plural}/${name}`)) {
+          response.setHeader("retry-after", "2");
+          sendJson(response, 503, {
+            kind: "ServiceUnavailableError",
+            type: "about:blank",
+            title: "Service Unavailable",
+            status: 503,
+            detail: "Retry this metadata request.",
+            code: "service_unavailable",
+          });
+          return;
+        }
         const type = TYPE_BY_PLURAL[plural];
         const versions = extensions.get(key(owner, plural, name));
         if (
@@ -956,6 +971,7 @@ export const startHttpRegistry = async (
     publishes,
     requests,
     presentedRefreshTokens,
+    failNextIndex: (pluralAndName) => void pendingIndexFailures.add(pluralAndName),
     copyVersion: (owner, plural, name, sourceVersion, targetVersion) => {
       const extensionKey = key(owner, plural, name);
       const versions = extensions.get(extensionKey) ?? [];

@@ -18,6 +18,7 @@ import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Path from "effect/Path";
+import { RegistryRetryObservation } from "@agentxm/registry-client";
 
 import {
   effectCliExit,
@@ -33,6 +34,9 @@ import {
   getOperationJournal,
   makeOperationJournal,
   makeOperationLifecycle,
+  publishPhaseStarted,
+  publishWaitEnded,
+  publishWaiting,
   resolveInterruption,
   type AtomicityClass,
   type OperationMode,
@@ -92,10 +96,7 @@ const settledOutcomeForExit = (
  * Non-plan commands wrap their work — not their result rendering — so the
  * live frame collapses before the settled document prints.
  */
-export const withLiveOperation = <A, E, R>(
-  args: LiveOperationArgs,
-  body: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E, Exclude<R, OperationLifecycle> | Screen> =>
+export const withLiveOperation = <A, E, R>(args: LiveOperationArgs, body: Effect.Effect<A, E, R>) =>
   Effect.scoped(
     Effect.gen(function* () {
       const screen = yield* Screen;
@@ -114,6 +115,15 @@ export const withLiveOperation = <A, E, R>(
         mode: args.mode,
       }));
       return yield* body.pipe(
+        Effect.provideService(RegistryRetryObservation, {
+          waiting: ({ requestId, operation, nextAttempt, maxAttempts, delayMillis }) =>
+            publishWaiting({
+              blockingClass: "external-blocked",
+              subject: `registry-retry:${requestId}`,
+              detail: `${operation} retry ${String(nextAttempt)} of ${String(maxAttempts)} after ${delayMillis < 1_000 ? `${String(delayMillis)}ms` : `${String(Math.round(delayMillis / 100) / 10)}s`}`,
+            }),
+          ended: (requestId) => publishWaitEnded(`registry-retry:${requestId}`),
+        }),
         Effect.provideService(OperationLifecycle, lifecycle),
         Effect.provideService(CurrentScreenOperationId, lifecycle.operationId),
         Effect.onExit((exit) =>
@@ -157,7 +167,8 @@ export const withOperationLifecycle = <A, E, R>(
                 ? {}
                 : { productActivity: args.productActivity }),
             },
-            body.pipe(
+            publishPhaseStarted("resolution").pipe(
+              Effect.andThen(body),
               Effect.provideService(OperationJournal, journal),
               Effect.provideService(FootprintRecorder, footprint),
             ),

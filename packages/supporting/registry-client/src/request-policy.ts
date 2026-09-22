@@ -3,6 +3,7 @@ import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schedule from "effect/Schedule";
 import * as ServiceMap from "effect/Context";
@@ -39,6 +40,24 @@ export interface RegistryRequestPolicy {
   readonly initialBackoff: Duration.Input;
   readonly maxBackoff: Duration.Input;
 }
+
+/** One request's scheduled retry, with a stable identity across its wait. */
+export interface RegistryRetryWait {
+  readonly requestId: string;
+  readonly operation: string;
+  readonly nextAttempt: number;
+  readonly maxAttempts: number;
+  readonly delayMillis: number;
+}
+
+/** Optional operation-scoped observation for all policy-governed Registry requests. */
+export class RegistryRetryObservation extends ServiceMap.Service<
+  RegistryRetryObservation,
+  {
+    readonly waiting: (retry: RegistryRetryWait) => Effect.Effect<void>;
+    readonly ended: (requestId: string) => Effect.Effect<void>;
+  }
+>()("@agentxm/registry-client/request-policy/RegistryRetryObservation") {}
 
 export const DEFAULT_REGISTRY_REQUEST_POLICY: RegistryRequestPolicy = {
   requestTimeout: "10 seconds",
@@ -114,7 +133,13 @@ const retryAfter = (error: unknown) =>
     });
   });
 
-const retrySchedule = (policy: RegistryRequestPolicy, operation: string) => {
+const retrySchedule = (
+  policy: RegistryRequestPolicy,
+  operation: string,
+  onRetryWaiting?: (
+    retry: Pick<RegistryRetryWait, "nextAttempt" | "maxAttempts" | "delayMillis">,
+  ) => Effect.Effect<void>,
+) => {
   const totalDeadlineMillis = Duration.toMillis(Duration.fromInputUnsafe(policy.totalDeadline));
   const maxBackoffMillis = Duration.toMillis(Duration.fromInputUnsafe(policy.maxBackoff));
 
@@ -146,7 +171,17 @@ const retrySchedule = (policy: RegistryRequestPolicy, operation: string) => {
         ...(requestIdFromError(input) === undefined
           ? {}
           : { requestId: requestIdFromError(input) }),
-      }),
+      }).pipe(
+        Effect.andThen(
+          onRetryWaiting === undefined
+            ? Effect.void
+            : onRetryWaiting({
+                nextAttempt: attempt + 1,
+                maxAttempts: policy.maxAttempts,
+                delayMillis: Duration.toMillis(duration),
+              }),
+        ),
+      ),
     ),
   );
 };
@@ -250,16 +285,44 @@ export const executeRegistryRequest = <A, E, R>(
 
   return Effect.gen(function* () {
     const attempts = yield* Ref.make(0);
-    const countedAttempt = Ref.updateAndGet(attempts, (count) => count + 1).pipe(
-      Effect.flatMap((n) =>
-        Effect.provideService(attempt, RegistryRequestAttempt, { n, of: attemptLimit }),
+    const waiting = yield* Ref.make(false);
+    const retrySession = Option.match(yield* Effect.serviceOption(RegistryRetryObservation), {
+      onNone: () => undefined,
+      onSome: (observer) => ({ observer, requestId: globalThis.crypto.randomUUID() }),
+    });
+    const endRetryWait = Effect.uninterruptible(
+      Ref.getAndSet(waiting, false).pipe(
+        Effect.flatMap((wasWaiting) =>
+          wasWaiting && retrySession !== undefined
+            ? retrySession.observer.ended(retrySession.requestId)
+            : Effect.void,
+        ),
       ),
     );
+    const countedAttempt = Ref.updateAndGet(attempts, (count) => count + 1).pipe(
+      Effect.flatMap((n) =>
+        endRetryWait.pipe(
+          Effect.andThen(
+            Effect.provideService(attempt, RegistryRequestAttempt, { n, of: attemptLimit }),
+          ),
+        ),
+      ),
+    );
+    const onRetryWaiting =
+      retrySession === undefined
+        ? undefined
+        : (retry: Pick<RegistryRetryWait, "nextAttempt" | "maxAttempts" | "delayMillis">) =>
+            Effect.uninterruptible(
+              retrySession.observer
+                .waiting({ ...retry, requestId: retrySession.requestId, operation: args.operation })
+                .pipe(Effect.andThen(Ref.set(waiting, true))),
+            );
     const executed = replaySafe
-      ? countedAttempt.pipe(Effect.retry(retrySchedule(policy, args.operation)))
+      ? countedAttempt.pipe(Effect.retry(retrySchedule(policy, args.operation, onRetryWaiting)))
       : countedAttempt;
 
     return yield* executed.pipe(
+      Effect.ensuring(endRetryWait),
       Effect.timeout(policy.totalDeadline),
       Effect.catch((error) =>
         Ref.get(attempts).pipe(

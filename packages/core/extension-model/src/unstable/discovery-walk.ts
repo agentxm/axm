@@ -7,6 +7,7 @@
 export const DISCOVERY_SKIPPED_DIRECTORIES: ReadonlySet<string> = new Set([
   "node_modules",
   ".git",
+  ".nx",
   ".axm",
   "dist",
   "build",

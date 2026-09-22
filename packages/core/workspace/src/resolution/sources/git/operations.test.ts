@@ -4,6 +4,7 @@
  * Tests git operations for cloning repositories at specific refs.
  */
 
+import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -71,6 +72,215 @@ describe("git", () => {
     execSync("git add .", gitOptions);
     execSync("git commit -m 'Initial commit'", gitOptions);
   };
+
+  it.effect("passes inherited transport settings and noninteractive overrides to Git", () =>
+    Effect.sync(() => {
+      const binDir = path.join(tempDir, "bin");
+      const resultPath = path.join(tempDir, "observed-env.txt");
+      fs.mkdirSync(binDir);
+      fs.writeFileSync(
+        path.join(binDir, "git"),
+        `#!/bin/sh
+case "$PATH" in "$AXM_GIT_PROBE_BIN":*) path_state=ok ;; *) path_state=missing ;; esac
+if [ "$HTTPS_PROXY" = "proxy-sentinel" ]; then proxy_state=ok; else proxy_state=missing; fi
+if [ "$SSH_AUTH_SOCK" = "ssh-sentinel" ]; then ssh_state=ok; else ssh_state=missing; fi
+if [ "$GIT_SSH_COMMAND" = "ssh-command-sentinel" ]; then ssh_command_state=ok; else ssh_command_state=missing; fi
+if [ -z "$PAGER" ] && [ -z "$GIT_PAGER" ]; then pager_state=ok; else pager_state=present; fi
+if [ "$GIT_TERMINAL_PROMPT" = "0" ]; then prompt_state=ok; else prompt_state=missing; fi
+if [ "$GIT_LFS_SKIP_SMUDGE" = "1" ]; then lfs_state=ok; else lfs_state=missing; fi
+printf '%s\\n' "$path_state" "$proxy_state" "$ssh_state" "$ssh_command_state" "$pager_state" "$prompt_state" "$lfs_state" > "$AXM_GIT_PROBE_RESULT"
+printf '0000000000000000000000000000000000000000\\trefs/heads/main\\n'
+`,
+        { mode: 0o700 },
+      );
+      const program = `
+import * as Effect from "effect/Effect";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+const { listRemoteRefs } = await import(process.argv[1]);
+const refs = await Effect.runPromise(listRemoteRefs("probe").pipe(Effect.provide(NodeServices.layer)));
+if (!refs.branches.includes("main")) process.exitCode = 2;
+`;
+      const operationsUrl = new URL(
+        "../../../../dist/src/resolution/sources/git/operations.js",
+        import.meta.url,
+      ).href;
+      execFileSync(process.execPath, ["--input-type=module", "-e", program, operationsUrl], {
+        cwd: process.cwd(),
+        env: {
+          ...isolatedGitEnv(),
+          PATH: `${binDir}${path.delimiter}${process.env["PATH"] ?? ""}`,
+          HTTPS_PROXY: "proxy-sentinel",
+          SSH_AUTH_SOCK: "ssh-sentinel",
+          GIT_SSH_COMMAND: "ssh-command-sentinel",
+          PAGER: "pager-sentinel",
+          GIT_PAGER: "git-pager-sentinel",
+          GIT_TERMINAL_PROMPT: "1",
+          GIT_LFS_SKIP_SMUDGE: "0",
+          AXM_GIT_PROBE_BIN: binDir,
+          AXM_GIT_PROBE_RESULT: resultPath,
+        },
+        timeout: 10_000,
+        stdio: "pipe",
+      });
+
+      expect(fs.readFileSync(resultPath, "utf8").trim().split("\n")).toEqual([
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+      ]);
+    }),
+  );
+
+  it.effect("terminates a timed-out Git child and returns a typed failure", () =>
+    Effect.sync(() => {
+      const binDir = path.join(tempDir, "bin");
+      const pidPath = path.join(tempDir, "git-child.pid");
+      fs.mkdirSync(binDir);
+      fs.writeFileSync(
+        path.join(binDir, "git"),
+        `#!/bin/sh
+printf '%s\\n' "$$" > "$AXM_GIT_PROBE_PID"
+exec sleep 30
+`,
+        { mode: 0o700 },
+      );
+      const program = `
+import * as Duration from "effect/Duration";
+import * as Effect from "effect/Effect";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+const { listRemoteRefs, withGitOperationDeadline } = await import(process.argv[1]);
+const failure = await Effect.runPromise(
+  listRemoteRefs("probe").pipe(
+    withGitOperationDeadline("list-remote-refs", Duration.seconds(1)),
+    Effect.flip,
+    Effect.provide(NodeServices.layer),
+  ),
+);
+if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadline")) {
+  process.exitCode = 2;
+}
+`;
+      const operationsUrl = new URL(
+        "../../../../dist/src/resolution/sources/git/operations.js",
+        import.meta.url,
+      ).href;
+      try {
+        execFileSync(process.execPath, ["--input-type=module", "-e", program, operationsUrl], {
+          cwd: process.cwd(),
+          env: {
+            ...isolatedGitEnv(),
+            PATH: `${binDir}${path.delimiter}${process.env["PATH"] ?? ""}`,
+            AXM_GIT_PROBE_PID: pidPath,
+          },
+          timeout: 10_000,
+          stdio: "pipe",
+        });
+        const pid = Number(fs.readFileSync(pidPath, "utf8").trim());
+        expect(() => process.kill(pid, 0)).toThrow();
+      } finally {
+        if (fs.existsSync(pidPath)) {
+          const pid = Number(fs.readFileSync(pidPath, "utf8").trim());
+          try {
+            process.kill(pid);
+          } catch {
+            // The expected terminated child has already exited.
+          }
+        }
+      }
+    }),
+  );
+
+  it.effect("interrupts a locator checkout child and removes its temporary directory", () =>
+    Effect.sync(() => {
+      const binDir = path.join(tempDir, "bin");
+      const pidPath = path.join(tempDir, "git-child.pid");
+      const checkoutPath = path.join(tempDir, "checkout-path.txt");
+      fs.mkdirSync(binDir);
+      fs.writeFileSync(
+        path.join(binDir, "git"),
+        `#!/bin/sh
+printf '%s\\n' "$$" > "$AXM_GIT_PROBE_PID"
+for argument do last="$argument"; done
+printf '%s\\n' "$last" > "$AXM_GIT_PROBE_CHECKOUT"
+exec sleep 30
+`,
+        { mode: 0o700 },
+      );
+      const program = `
+import * as fs from "node:fs";
+import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
+import * as Option from "effect/Option";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+const { makeLocatorSourceView } = await import(process.argv[1]);
+const providers = {
+  find: () => Effect.die("unused"),
+  resolveNamedRegistry: () => Effect.die("unused"),
+  fetch: () => Effect.die("unused"),
+  cloneUrl: () => Option.none(),
+  origin: () => "fixture",
+};
+const source = {
+  type: "git",
+  url: new URL("https://example.test/repo.git"),
+  ref: Option.none(),
+  subPath: Option.none(),
+};
+const options = { type: "skill", names: [], owner: Option.none(), versionRange: Option.none() };
+await Effect.runPromise(
+  Effect.scoped(Effect.gen(function* () {
+    const view = yield* makeLocatorSourceView(providers, 7);
+    const fiber = yield* view.find(source, options).pipe(Effect.forkChild);
+    yield* Effect.promise(async () => {
+      for (let attempt = 0; attempt < 500; attempt++) {
+        if (fs.existsSync(process.env.AXM_GIT_PROBE_PID)) return;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      throw new Error("Git child did not start");
+    });
+    yield* Fiber.interrupt(fiber);
+  })).pipe(Effect.provide(NodeServices.layer)),
+);
+`;
+      const discoveryUrl = new URL(
+        "../../../../dist/src/lifecycle/install/git-discovery.js",
+        import.meta.url,
+      ).href;
+      try {
+        execFileSync(process.execPath, ["--input-type=module", "-e", program, discoveryUrl], {
+          cwd: process.cwd(),
+          env: {
+            ...isolatedGitEnv(),
+            PATH: `${binDir}${path.delimiter}${process.env["PATH"] ?? ""}`,
+            AXM_GIT_PROBE_PID: pidPath,
+            AXM_GIT_PROBE_CHECKOUT: checkoutPath,
+          },
+          timeout: 10_000,
+          stdio: "pipe",
+        });
+        const pid = Number(fs.readFileSync(pidPath, "utf8").trim());
+        const checkout = fs.readFileSync(checkoutPath, "utf8").trim();
+        expect(() => process.kill(pid, 0)).toThrow();
+        expect(path.dirname(checkout)).toBe(os.tmpdir());
+        const checkoutName = path.basename(checkout);
+        expect(checkoutName).toMatch(/^axm-source-discovery-[A-Za-z0-9-]+$/);
+        expect(fs.readdirSync(os.tmpdir())).not.toContain(checkoutName);
+      } finally {
+        if (fs.existsSync(pidPath)) {
+          const pid = Number(fs.readFileSync(pidPath, "utf8").trim());
+          try {
+            process.kill(pid);
+          } catch {
+            // The expected terminated child has already exited.
+          }
+        }
+      }
+    }),
+  );
 
   describe("getTreeSha", () => {
     it.effect("returns tree SHA for repository root", () =>

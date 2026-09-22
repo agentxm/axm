@@ -36,6 +36,7 @@ import {
   resolveWorkspaceExtensionRef,
   SettingsReader,
   WorkspaceLocation,
+  type DesiredStateGraph,
 } from "../desired-state/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { OwnershipUnitId, ProjectionUnitObservation } from "./units.js";
@@ -232,6 +233,10 @@ export const projectionFactRequiresReconciliation = (fact: ProjectionInvariantFa
 
 export interface WorkspaceInvariantFactsService {
   readonly projectionFacts: Effect.Effect<ReadonlyArray<ProjectionInvariantFact>>;
+  /** Reuse the caller's current graph throughout one projection-observation phase. */
+  readonly projectionFactsForGraph: (
+    graph: DesiredStateGraph,
+  ) => Effect.Effect<ReadonlyArray<ProjectionInvariantFact>>;
 }
 
 export class WorkspaceInvariantFacts extends ServiceMap.Service<
@@ -260,28 +265,43 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
     );
-    const workspaceReadLayer = Layer.mergeAll(
-      Layer.succeed(WorkspaceLocation, location),
-      Layer.succeed(DesiredStateReader, desiredState),
-      Layer.succeed(SettingsReader, settings),
-      Layer.succeed(LockfileReader, lockfile),
-      fsPathLayer,
-    );
+    const workspaceReadLayer = (observedGraph?: DesiredStateGraph) =>
+      Layer.mergeAll(
+        Layer.succeed(WorkspaceLocation, location),
+        Layer.succeed(
+          DesiredStateReader,
+          observedGraph === undefined
+            ? desiredState
+            : {
+                ...desiredState,
+                // Prospective graphs still read their explicit inputs; only the
+                // phase's ordinary current graph is shared with participants.
+                graph: (options) =>
+                  options === undefined
+                    ? Effect.succeed(observedGraph)
+                    : desiredState.graph(options),
+              },
+        ),
+        Layer.succeed(SettingsReader, settings),
+        Layer.succeed(LockfileReader, lockfile),
+        fsPathLayer,
+      );
     // Participants keep their requirements explicit; the layer that evaluates
     // the facts is the boundary that composes them.
-    const participantLayer = Layer.mergeAll(
-      workspaceReadLayer,
-      Layer.succeed(HttpClient.HttpClient, httpClient),
-      Layer.succeed(NativeWriteAuthority, nativeWriteAuthority),
-    );
-    const observeParticipant = (participant: ProjectionParticipant) =>
-      Effect.result(
-        participant
-          .projectionPlans()
-          .pipe(Effect.flatMap(observeProjectionPlans), Effect.provide(participantLayer)),
-      );
-    return {
-      projectionFacts: Effect.gen(function* () {
+    const evaluate = (observedGraph?: DesiredStateGraph) =>
+      Effect.gen(function* () {
+        const readLayer = workspaceReadLayer(observedGraph);
+        const participantLayer = Layer.mergeAll(
+          readLayer,
+          Layer.succeed(HttpClient.HttpClient, httpClient),
+          Layer.succeed(NativeWriteAuthority, nativeWriteAuthority),
+        );
+        const observeParticipant = (participant: ProjectionParticipant) =>
+          Effect.result(
+            participant
+              .projectionPlans()
+              .pipe(Effect.flatMap(observeProjectionPlans), Effect.provide(participantLayer)),
+          );
         const layout = yield* Ref.get(location.layout);
         const observed = yield* Effect.forEach(participants.aggregates, observeParticipant, {
           concurrency: "unbounded",
@@ -293,7 +313,10 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
               )
             : [],
         );
-        const graph = yield* Effect.result(desiredState.graph());
+        const graph =
+          observedGraph === undefined
+            ? yield* Effect.result(desiredState.graph())
+            : Result.succeed(observedGraph);
         const completeGraph =
           Result.isSuccess(graph) && graph.success.complete
             ? Option.some(graph.success)
@@ -317,7 +340,7 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
                       name: node.name,
                     })
                 ).pipe(
-                  Effect.provide(workspaceReadLayer),
+                  Effect.provide(readLayer),
                   Effect.flatMap(
                     Option.match({
                       onNone: () => Effect.succeed(Option.none<ProjectionInvariantFact>()),
@@ -382,7 +405,10 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
           }
         }
         return facts;
-      }),
+      });
+    return {
+      projectionFacts: evaluate(),
+      projectionFactsForGraph: (graph) => evaluate(graph),
     };
   }),
 );

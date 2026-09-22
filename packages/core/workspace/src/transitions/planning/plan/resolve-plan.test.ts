@@ -35,6 +35,7 @@ import {
   ConfiguredAgentOutcomesProviderTest,
   WorkspaceReadTest,
 } from "../../../desired-state/testing.js";
+import { WorkspaceRecords } from "../../../desired-state/index.js";
 import { OperationJournal, makeOperationJournal } from "./operation-journal.js";
 import type { Plan } from "./plan.js";
 import type { PlanExecution } from "./plan-execution.js";
@@ -236,8 +237,8 @@ describe("previewOrApply", () => {
 
     return Effect.gen(function* () {
       const lifecycle = yield* makeOperationLifecycle({ name: plan.name, mode: "apply" });
-      const observed: Array<OperationEvent> = [];
-      yield* subscribeLossless(lifecycle, (event) => Effect.sync(() => void observed.push(event)));
+      const events: Array<OperationEvent> = [];
+      yield* subscribeLossless(lifecycle, (event) => Effect.sync(() => void events.push(event)));
       yield* previewOrApply(plan, {
         execution: preapprovedPlanExecution,
       }).pipe(Effect.provideService(OperationLifecycle, lifecycle));
@@ -245,7 +246,7 @@ describe("previewOrApply", () => {
       yield* lifecycle.drained.await;
 
       expect(
-        observed.map((event) =>
+        events.map((event) =>
           event._tag === "PhaseStarted"
             ? `${event._tag}:${event.phase}`
             : event._tag === "UnitStarted" || event._tag === "UnitResolved"
@@ -262,7 +263,7 @@ describe("previewOrApply", () => {
         "UnitResolved:code-review",
         "OperationSettled",
       ]);
-      expect(observed.map((event) => event.seq)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+      expect(events.map((event) => event.seq)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
       expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(0);
     }).pipe(Effect.provide(context.layer), Effect.scoped);
   });
@@ -572,6 +573,67 @@ describe("previewOrApply", () => {
     }).pipe(Effect.provide(context.layer));
   });
 
+  it.effect("shares final inventory readback across enabled operations of one type", () => {
+    const context = makeTestContext();
+    const plan: Plan = {
+      _tag: "Plan",
+      name: "Install skills",
+      description: Option.none(),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              readiness: "ready",
+              label: "review",
+              run: Effect.succeed({ result: "success", message: "installed" }),
+            },
+            {
+              readiness: "ready",
+              label: "triage",
+              run: Effect.succeed({ result: "success", message: "installed" }),
+            },
+          ],
+        },
+      ],
+    };
+    return Effect.gen(function* () {
+      const lifecycle = yield* makeOperationLifecycle({ name: plan.name, mode: "apply" });
+      const events: Array<OperationEvent> = [];
+      yield* subscribeLossless(lifecycle, (event) => Effect.sync(() => void events.push(event)));
+      const records = yield* WorkspaceRecords;
+      let inventoryReads = 0;
+      const observed = {
+        ...records,
+        getExtensionInventory: (type, options) =>
+          Effect.sync(() => {
+            inventoryReads += 1;
+          }).pipe(Effect.andThen(records.getExtensionInventory(type, options))),
+      } satisfies typeof records;
+      yield* previewOrApply(plan, {
+        execution: applyPlanExecution({
+          approval: "preapproved",
+          recovery: testRecovery,
+          configuredAgentOperations: [
+            { extensionType: "skill", name: "review", plannedState: "enabled" },
+            { extensionType: "skill", name: "triage", plannedState: "enabled" },
+          ],
+        }),
+      }).pipe(
+        Effect.provideService(WorkspaceRecords, observed),
+        Effect.provideService(OperationLifecycle, lifecycle),
+      );
+      yield* lifecycle.settle("applied");
+      yield* lifecycle.drained.await;
+      expect(inventoryReads).toBe(1);
+      expect(
+        events.filter(
+          (event) => event._tag === "UnitStarted" && event.unitId === "agent-readback:skill",
+        ),
+      ).toHaveLength(1);
+    }).pipe(Effect.provide(context.layer));
+  });
+
   it.effect(
     "C-16: displays confirmable risk before confirmation and cancels without execution",
     () => {
@@ -732,6 +794,33 @@ describe("previewOrApply", () => {
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
+  it.effect("includes observed workspace inputs in execution candidate identity", () =>
+    Effect.gen(function* () {
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Sync workspace",
+        description: Option.none(),
+        jobs: [{ concurrency: 1, steps: [] }],
+      };
+      const paths = {
+        settingsPath: "/tmp/axm-candidate/axm.json",
+        lockPath: "/tmp/axm-candidate/axm-lock.yaml",
+        baseDir: "/tmp",
+      };
+      const before = yield* makeExecutionCandidate(plan, {
+        ...paths,
+        observedInputFingerprint: "before",
+      });
+      const after = yield* makeExecutionCandidate(plan, {
+        ...paths,
+        observedInputFingerprint: "after",
+      });
+
+      expect(before.id).not.toBe(after.id);
+      expect(before.observedInputFingerprint).toBe("before");
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("fingerprints the layout's exact settings and lock paths", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -756,6 +845,39 @@ describe("previewOrApply", () => {
       yield* fs.writeFileString(settingsPath, '{"agents":[]}');
       expect(yield* isExecutionCandidateFresh(candidate)).toBe(false);
     }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect(
+    "invalidates a candidate when a missing input appears or a directory gains a member",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-candidate-inputs-" });
+        const members = path.join(directory, "members");
+        const missing = path.join(directory, "missing.json");
+        yield* fs.makeDirectory(members);
+        const plan: Plan = {
+          _tag: "Plan",
+          name: "Observe workspace inputs",
+          description: Option.none(),
+          materialPaths: [members, missing],
+          jobs: [{ concurrency: 1, steps: [] }],
+        };
+        const paths = {
+          settingsPath: path.join(directory, "axm.json"),
+          lockPath: path.join(directory, "axm-lock.yaml"),
+          baseDir: directory,
+        };
+
+        const beforeMissing = yield* makeExecutionCandidate(plan, paths);
+        yield* fs.writeFileString(missing, "{}");
+        expect(yield* isExecutionCandidateFresh(beforeMissing)).toBe(false);
+
+        const beforeMember = yield* makeExecutionCandidate(plan, paths);
+        yield* fs.writeFileString(path.join(members, "added.txt"), "new member");
+        expect(yield* isExecutionCandidateFresh(beforeMember)).toBe(false);
+      }).pipe(Effect.provide(NodeServices.layer)),
   );
 
   it.effect(

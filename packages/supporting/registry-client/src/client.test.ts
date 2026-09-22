@@ -246,6 +246,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
           expect(at(result.extensions, 0).name).toBe("my-skill");
           expect(at(result.extensions, 0).version).toBe("1.0.0");
           expect(at(result.extensions, 0).owner).toBe("@test");
+          expect(result.indexes.map((index) => index.name)).toEqual(["my-skill"]);
           expect(result.total).toBe(1);
         }).pipe(
           Effect.ensuring(
@@ -331,6 +332,9 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
           const client = yield* makeLocalClient(registryRoot);
           const result = yield* client.getExtensionsByScope(defaultSearchOptions);
           expect(result.extensions).toHaveLength(2);
+          expect(result.indexes.map((index) => index.name)).toEqual(
+            result.extensions.map((extension) => extension.name),
+          );
           expect(result.total).toBe(2);
         }).pipe(
           Effect.ensuring(
@@ -512,6 +516,39 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
     // -----------------------------------------------------------------------------
 
     describe("LocalRegistryClient.getExtensionPackage", () => {
+      it.effect(
+        "reads an exact archive and keeps selected lifecycle warnings without an index",
+        () => {
+          const registryRoot = makeRegistryDir();
+          const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
+          const archive = createTestZip("SKILL.md", "# My Skill");
+
+          return Effect.gen(function* () {
+            const fs = yield* FileSystem.FileSystem;
+            yield* fs.makeDirectory(skillDir, { recursive: true });
+            yield* fs.writeFile(nodePath.join(skillDir, "1.0.0.zip"), archive);
+
+            const client = yield* makeLocalClient(registryRoot);
+            const result = yield* client.getExtensionPackage({
+              ...makeIndexArgs("my-skill"),
+              exact: {
+                version: exactVersion("1.0.0"),
+                integrity: yield* computeIntegrity(archive),
+                publisherBindingId: "hbnd_test",
+                lifecycleWarnings: ["Previously selected version is deprecated"],
+              },
+            });
+
+            expect(Array.from(result.archive)).toEqual(Array.from(archive));
+            expect(result.warnings).toEqual(["Previously selected version is deprecated"]);
+          }).pipe(
+            Effect.ensuring(
+              Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
+            ),
+          );
+        },
+      );
+
       it.effect("reads archive bytes for explicit version", () => {
         const registryRoot = makeRegistryDir();
         const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");

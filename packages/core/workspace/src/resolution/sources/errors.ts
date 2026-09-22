@@ -87,6 +87,7 @@ export type GitOperation =
   | "list-remote-refs"
   | "get-remote-url"
   | "get-commit-sha"
+  | "get-exact-tag"
   | "get-tree-sha"
   | "compare-directory-to-head";
 

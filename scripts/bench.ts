@@ -15,12 +15,27 @@ import { fileURLToPath } from "node:url";
 const scriptsRoot = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = path.resolve(scriptsRoot, "..");
 const benchmarksRoot = path.join(repoRoot, "benchmarks");
-const startupBenchmark = await import("../benchmarks/cli-startup.js");
-startupBenchmark.runCliStartupBenchmark(
-  repoRoot,
-  process.env["AXM_BENCHMARK_OUTPUT"] ??
-    path.join(repoRoot, "test-results", "benchmarks", "cli-startup.json"),
-);
+const suite = process.env["AXM_BENCHMARK_SUITE"] ?? "all";
+if (suite !== "all" && suite !== "startup" && suite !== "lifecycle") {
+  throw new Error("AXM_BENCHMARK_SUITE must be all, startup, or lifecycle.");
+}
+if (suite !== "lifecycle") {
+  const startupBenchmark = await import("../benchmarks/cli-startup.js");
+  startupBenchmark.runCliStartupBenchmark(
+    repoRoot,
+    process.env["AXM_BENCHMARK_OUTPUT"] ??
+      path.join(repoRoot, "test-results", "benchmarks", "cli-startup.json"),
+  );
+}
+
+if (suite !== "startup") {
+  const lifecycleBenchmark = await import("../benchmarks/lifecycle.js");
+  await lifecycleBenchmark.runLifecycleBenchmark(
+    repoRoot,
+    process.env["AXM_LIFECYCLE_BENCHMARK_OUTPUT"] ??
+      path.join(repoRoot, "test-results", "benchmarks", "lifecycle.json"),
+  );
+}
 
 const hasBenchFiles = (directory: string): boolean => {
   if (!fs.existsSync(directory)) {
@@ -38,7 +53,7 @@ const hasBenchFiles = (directory: string): boolean => {
   return false;
 };
 
-if (!hasBenchFiles(benchmarksRoot)) process.exit(0);
+if (suite === "lifecycle" || !hasBenchFiles(benchmarksRoot)) process.exit(0);
 
 const run = spawnSync("pnpm", ["exec", "vitest", "bench", "--run", "--dir", "benchmarks"], {
   cwd: repoRoot,

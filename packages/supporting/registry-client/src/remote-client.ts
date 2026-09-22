@@ -344,7 +344,7 @@ const contentLength = (response: HttpClientResponse.HttpClientResponse): number 
 
 /**
  * Stream one archive body into memory, reporting received bytes per chunk and
- * the attempt they arrived on. Non-2xx statuses fail as `HttpClientError` so
+ * zero bytes when a retry attempt begins. Non-2xx statuses fail as `HttpClientError` so
  * the caller's mapping keeps the response evidence.
  */
 const downloadArchive = (
@@ -354,17 +354,13 @@ const downloadArchive = (
 ): Effect.Effect<Uint8Array, HttpClientError.HttpClientError> =>
   Effect.gen(function* () {
     const attempt = yield* Effect.serviceOption(RegistryRequestAttempt);
+    const report = onProgress ?? (() => Effect.void);
+    if (Option.isSome(attempt) && attempt.value.n > 1) {
+      yield* report({ done: 0, attempt: attempt.value });
+    }
     const response = yield* HttpClient.filterStatusOk(http).execute(HttpClientRequest.get(path));
     const total = contentLength(response);
     const received = MutableRef.make(0);
-    const report = onProgress ?? (() => Effect.void);
-    if (Option.isSome(attempt) && attempt.value.n > 1) {
-      yield* report({
-        done: 0,
-        ...(total === undefined ? {} : { total }),
-        attempt: attempt.value,
-      });
-    }
     const chunks = yield* response.stream.pipe(
       Stream.tap((chunk) =>
         report({
@@ -563,16 +559,16 @@ export const createRemoteRegistryClient = (
     args: GetExtensionsByOwnerArgs,
   ): Effect.Effect<GetExtensionsByOwnerResponse, RegistryClientFailure> =>
     Effect.gen(function* () {
-      let allExtensions: ReadonlyArray<RegistryExtensionManifest>;
+      let allIndexes: ReadonlyArray<ExtensionIndex>;
       const owner = args.owner;
 
       if (args.names.length === 0 || owner === "*") {
         // List mode: fetch owner listing, then fan-out to get full indexes
-        allExtensions = yield* getListModeExtensions(args);
+        allIndexes = yield* getListModeExtensions(args);
         if (args.names.length > 0) {
           const nameSet = new Set(args.names);
           const requestedTypes = new Set(args.types);
-          allExtensions = allExtensions.filter(
+          allIndexes = allIndexes.filter(
             (entry) =>
               nameSet.has(entry.name) &&
               (requestedTypes.size === 0 || requestedTypes.has(entry.type)),
@@ -605,31 +601,32 @@ export const createRemoteRegistryClient = (
           { concurrency: REGISTRY_READ_CONCURRENCY },
         );
 
-        allExtensions = maybeEntries.flatMap((entry) =>
-          Option.match(entry, {
-            onNone: () => [],
-            onSome: (value) =>
-              Option.match(toRegistryManifest(value, Option.none()), {
-                onNone: () => [],
-                onSome: (manifest) => [manifest],
-              }),
-          }),
-        );
+        allIndexes = maybeEntries.flatMap((entry) => (Option.isSome(entry) ? [entry.value] : []));
       }
 
-      const total = allExtensions.length;
-      const sliced = allExtensions.slice(args.offset);
-      const extensions = Option.match(args.limit, {
+      const indexed = allIndexes.flatMap((index) =>
+        Option.match(toRegistryManifest(index, Option.none()), {
+          onNone: () => [],
+          onSome: (manifest) => [{ index, manifest }],
+        }),
+      );
+      const total = indexed.length;
+      const sliced = indexed.slice(args.offset);
+      const page = Option.match(args.limit, {
         onNone: () => sliced,
         onSome: (limit) => sliced.slice(0, limit),
       });
 
-      return { extensions, total };
+      return {
+        extensions: page.map(({ manifest }) => manifest),
+        indexes: page.map(({ index }) => index),
+        total,
+      };
     });
 
   const getListModeExtensions = (
     args: GetExtensionsByOwnerArgs,
-  ): Effect.Effect<ReadonlyArray<RegistryExtensionManifest>, RegistryClientFailure> =>
+  ): Effect.Effect<ReadonlyArray<ExtensionIndex>, RegistryClientFailure> =>
     Effect.gen(function* () {
       // Fetch extension lists by type
       const listResults =
@@ -655,18 +652,11 @@ export const createRemoteRegistryClient = (
         { concurrency: REGISTRY_READ_CONCURRENCY },
       );
 
-      const allExtensions = maybeEntries.flatMap((entry) =>
-        Option.match(entry, {
-          onNone: () => [],
-          onSome: (value) =>
-            Option.match(toRegistryManifest(value, Option.none()), {
-              onNone: () => [],
-              onSome: (manifest) => [manifest],
-            }),
-        }),
+      const allIndexes = maybeEntries.flatMap((entry) =>
+        Option.isSome(entry) ? [entry.value] : [],
       );
 
-      const sorted = [...allExtensions].sort((a, b) => {
+      const sorted = [...allIndexes].sort((a, b) => {
         if (a.owner !== b.owner) return a.owner.localeCompare(b.owner);
         if (a.name !== b.name) return a.name.localeCompare(b.name);
         return a.type.localeCompare(b.type);
@@ -740,44 +730,49 @@ export const createRemoteRegistryClient = (
     args: GetExtensionPackageArgs,
   ): Effect.Effect<GetExtensionPackageResponse, RegistryClientFailure> =>
     Effect.gen(function* () {
-      // Step 1: Fetch extension index
-      const indexResult = yield* executeRemoteRequest(
-        client.ExtensionsGet(args.owner, pluralizeType(args.type), args.name, undefined),
-        {
-          operation: "get package index",
-          method: "GET",
-          path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}`,
-          replaySafety: safe,
-          mapError: mapPackageFetchError,
-        },
-      );
+      const selected = yield* Effect.gen(function* () {
+        if (args.exact !== undefined) return args.exact;
+        const indexResult = yield* executeRemoteRequest(
+          client.ExtensionsGet(args.owner, pluralizeType(args.type), args.name, undefined),
+          {
+            operation: "get package index",
+            method: "GET",
+            path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}`,
+            replaySafety: safe,
+            mapError: mapPackageFetchError,
+          },
+        );
 
-      if (indexResult === undefined) {
-        return yield* new RegistryRequestFailed({
-          category: "internal",
-          detail: "Remote Registry returned a package index without a body",
+        if (indexResult === undefined) {
+          return yield* new RegistryRequestFailed({
+            category: "internal",
+            detail: "Remote Registry returned a package index without a body",
+          });
+        }
+
+        const index = yield* Effect.try({
+          try: () => mapToExtensionIndex(indexResult),
+          catch: (cause) => mapDiscoveryError(cause, "REGISTRY_REMOTE_DISCOVERY"),
         });
-      }
-
-      const index = yield* Effect.try({
-        try: () => mapToExtensionIndex(indexResult),
-        catch: (cause) => mapDiscoveryError(cause, "REGISTRY_REMOTE_DISCOVERY"),
+        const entry = resolveVersionEntry(index.versions, args.version);
+        if (Option.isNone(entry)) {
+          return yield* new RegistryOperationFailed({
+            category: "not_found",
+            detail: "Requested package version is not available in remote index",
+          });
+        }
+        return {
+          version: entry.value.version,
+          integrity: entry.value.integrity,
+          publisherBindingId: index.publisherBindingId,
+          lifecycleWarnings: extensionLifecycleWarnings(index, entry.value),
+        };
       });
-
-      // Step 2: Resolve version
-      const resolvedEntry = resolveVersionEntry(index.versions, args.version);
-
-      if (Option.isNone(resolvedEntry)) {
-        return yield* new RegistryOperationFailed({
-          category: "not_found",
-          detail: "Requested package version is not available in remote index",
-        });
-      }
+      const warnings = selected.lifecycleWarnings ?? [];
 
       if (archiveCache !== undefined) {
-        const cached = yield* archiveCache.read(resolvedEntry.value.integrity);
+        const cached = yield* archiveCache.read(selected.integrity);
         if (Option.isSome(cached)) {
-          const warnings = extensionLifecycleWarnings(index, resolvedEntry.value);
           return {
             archive: cached.value,
             ...(warnings.length === 0 ? {} : { warnings }),
@@ -787,7 +782,7 @@ export const createRemoteRegistryClient = (
 
       // Step 3: Download archive, streaming the body so the caller observes
       // progress as bytes arrive; the transport never decides how often.
-      const archivePath = `/v1/extensions/${encodeURIComponent(args.owner)}/${pluralizeType(args.type)}/${encodeURIComponent(args.name)}/${encodeURIComponent(resolvedEntry.value.version)}/archive`;
+      const archivePath = `/v1/extensions/${encodeURIComponent(args.owner)}/${pluralizeType(args.type)}/${encodeURIComponent(args.name)}/${encodeURIComponent(selected.version)}/archive`;
       const archive = yield* executeRemoteRequest(
         downloadArchive(
           args.usagePurpose === "verification" ? verificationHttpClient : remoteHttpClient,
@@ -804,10 +799,9 @@ export const createRemoteRegistryClient = (
       );
 
       if (archiveCache !== undefined) {
-        yield* archiveCache.write(resolvedEntry.value.integrity, archive);
+        yield* archiveCache.write(selected.integrity, archive);
       }
 
-      const warnings = extensionLifecycleWarnings(index, resolvedEntry.value);
       return {
         archive,
         ...(warnings.length === 0 ? {} : { warnings }),

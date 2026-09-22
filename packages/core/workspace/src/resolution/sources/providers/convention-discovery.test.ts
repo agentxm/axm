@@ -247,6 +247,20 @@ describe("discoverConventionRefs", () => {
         });
         expect(ref.location).toContain("packs/starter");
       }
+
+      const broadRefs = yield* discoverConventionRefs(localSource(tempDir), tempDir, {
+        type: "*",
+        names: ["starter"],
+        owner: Option.some(decodeHandleSync("@acme")),
+        versionRange: Option.none(),
+      }).pipe(Effect.provide(NodeServices.layer));
+      expect(broadRefs).toHaveLength(1);
+      const broadPack = broadRefs[0];
+      if (broadPack?.type !== "pack" || broadPack.refType !== "local") {
+        throw new Error("Expected a broad-discovered local Pack");
+      }
+      expect(broadPack.sourceMembers).toHaveLength(1);
+      expect(broadPack.sourceMembers[0]?.name).toBe("review");
     }),
   );
 

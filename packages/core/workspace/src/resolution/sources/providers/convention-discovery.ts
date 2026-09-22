@@ -196,7 +196,7 @@ export const discoverConventionRefs = (
     const root = yield* searchRootFor(source, basePath);
     const candidates = yield* discoverExtensionPackages(
       root,
-      options.type === "pack"
+      options.type === "pack" || options.type === "*"
         ? {
             type: "*",
             names: [],
@@ -210,12 +210,15 @@ export const discoverConventionRefs = (
       { concurrency: GIT_METADATA_CONCURRENCY },
     );
     const discovered = refs.flatMap((ref) => (Option.isSome(ref) ? [ref.value] : []));
-    if (options.type !== "pack") return discovered;
     const sourceMembers = discovered.filter((ref) => ref.type !== "pack");
-    return discovered.flatMap((ref) => {
-      if (ref.type !== "pack") return [];
-      if (options.names.length > 0 && !options.names.includes(ref.pack.name)) return [];
-      if (Option.isSome(options.owner) && options.owner.value !== ref.owner) return [];
-      return [{ ...ref, sourceMembers }];
-    });
+    if (options.type !== "pack" && options.type !== "*") return discovered;
+    const complete = discovered.map((ref) =>
+      ref.type === "pack" ? { ...ref, sourceMembers } : ref,
+    );
+    return complete.filter(
+      (ref) =>
+        (options.type === "*" || ref.type === "pack") &&
+        (options.names.length === 0 || options.names.includes(ref.name)) &&
+        (Option.isNone(options.owner) || options.owner.value === ref.owner),
+    );
   });

@@ -8,6 +8,7 @@ import { OperationEventSchema } from "@agentxm/workspace/transitions/planning";
 import { PlanResolutionDocumentSchema } from "../operation-output.js";
 import { ProgressEventSchema } from "./index.js";
 import { handleInstall } from "../root/install/handler.js";
+import { handleUpdate } from "../root/update/handler.js";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../test-support/install-harness.js";
@@ -84,6 +85,33 @@ describe("Machine progress event contract", () => {
       return { log, progress: progressLines(log) };
     });
 
+  const machineConfiguredUpdate = () =>
+    Effect.gen(function* () {
+      const workspace = makeSpecWorkspace({
+        screen: { kind: "machine" },
+        flags: { json: true },
+      });
+      cleanups.push(workspace.cleanup);
+      const skillPackage = writeLocalSkillPackage(workspace.root, { name: "code-review" });
+      yield* handleInstall({
+        type: Option.none(),
+        source: Option.some(skillPackage),
+        selectors: {},
+        all: true,
+        force: false,
+        preview: false,
+        env: [],
+        localName: Option.none(),
+        bundled: false,
+      }).pipe(Effect.provide(workspace.layer));
+      const log = workspace.streams?.log ?? [];
+      log.splice(0);
+      yield* handleUpdate({ source: Option.none(), force: false, preview: true }).pipe(
+        Effect.provide(workspace.layer),
+      );
+      return { log, progress: progressLines(log) };
+    });
+
   it.effect(
     "every progress line decodes through the published schema with a strictly increasing sequence",
     () =>
@@ -142,6 +170,30 @@ describe("Machine progress event contract", () => {
       const [terminal] = settled;
       expect(terminal).toBeDefined();
       expect(terminal?.index).toBeLessThan(resultIndex);
+      expect(events.every((entry) => entry.index < resultIndex)).toBe(true);
+    }),
+  );
+
+  it.effect("configured update has one ordered lifecycle and one result document", () =>
+    Effect.gen(function* () {
+      const { log, progress } = yield* machineConfiguredUpdate();
+      const events = yield* Effect.forEach(progress, (line) =>
+        Effect.map(decodeProgressEvent(line.value), (decoded) => ({
+          index: line.index,
+          event: decoded.event,
+        })),
+      );
+      expect(events.filter((entry) => entry.event._tag === "OperationStarted")).toHaveLength(1);
+      expect(events.filter((entry) => entry.event._tag === "OperationSettled")).toHaveLength(1);
+      for (let index = 1; index < events.length; index += 1) {
+        const previous = events[index - 1];
+        const current = events[index];
+        expect(current?.event.seq).toBeGreaterThan(previous?.event.seq ?? 0);
+      }
+      const resultWrites = log.filter((entry) => entry.channel === "stdout");
+      expect(resultWrites).toHaveLength(1);
+      const resultIndex = log.findIndex((entry) => entry.channel === "stdout");
+      yield* decodeDocument(JSON.parse(resultWrites[0]?.content ?? ""));
       expect(events.every((entry) => entry.index < resultIndex)).toBe(true);
     }),
   );

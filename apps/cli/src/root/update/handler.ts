@@ -176,38 +176,40 @@ const reportTargeted = (
   });
 
 export const handleUpdate = (args: RootUpdateHandlerArgs) =>
-  withOperationLifecycle(
-    {
-      command: "update",
-      mode: args.preview ? "preview" : "apply",
-      planName: "Update configured extensions",
-      productActivity: { activity: "update", activationEligible: false },
-      presentation: operationPresentation({
-        imperative: "update",
-        past: "Updated",
-        gerund: "Updating",
+  Option.match(args.source, {
+    onNone: () =>
+      handleWorkspaceUpdate({
+        command: "update",
+        type: Option.none(),
+        planName: "Update configured extensions",
+        planDescription: Option.some("Update configured workspace extensions"),
+        flags: { force: args.force, preview: args.preview },
       }),
-    },
-    handleUpdateBody(args).pipe(
-      Effect.catchTag("ExtensionLifecycleFailed", (failure) =>
-        Effect.fail(extensionLifecycleFailedToAppError(failure)),
+    onSome: (source) =>
+      withOperationLifecycle(
+        {
+          command: "update",
+          mode: args.preview ? "preview" : "apply",
+          planName: "Update configured extensions",
+          productActivity: { activity: "update", activationEligible: false },
+          presentation: operationPresentation({
+            imperative: "update",
+            past: "Updated",
+            gerund: "Updating",
+          }),
+        },
+        handleTargetedUpdateBody(args, source).pipe(
+          Effect.catchTag("ExtensionLifecycleFailed", (failure) =>
+            Effect.fail(extensionLifecycleFailedToAppError(failure)),
+          ),
+        ),
       ),
-    ),
-  );
+  });
 
-const handleUpdateBody = Effect.fn("Update.handle")(function* (args: RootUpdateHandlerArgs) {
-  if (Option.isNone(args.source)) {
-    yield* handleWorkspaceUpdate({
-      command: "update",
-      type: Option.none(),
-      planName: "Update configured extensions",
-      planDescription: Option.some("Update configured workspace extensions"),
-      flags: { force: args.force, preview: args.preview },
-    });
-    return;
-  }
-
-  const source = args.source.value;
+const handleTargetedUpdateBody = Effect.fn("Update.handleTargeted")(function* (
+  args: RootUpdateHandlerArgs,
+  source: string,
+) {
   const candidate = yield* UpdateExtensions.prepare({
     kind: "targeted",
     source,

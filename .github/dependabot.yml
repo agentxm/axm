@@ -1,0 +1,63 @@
+# Local policy and manual cohorts: devops/tools/dependabot.md
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+      timezone: Etc/UTC
+    cooldown:
+      # Match the existing zizmor policy; security updates bypass this delay.
+      default-days: 7
+    open-pull-requests-limit: 4
+    versioning-strategy: increase
+    # Version-only restriction: security fixes may still require a major update.
+    allow:
+      - dependency-name: "*"
+        update-types:
+          - version-update:semver-minor
+          - version-update:semver-patch
+    ignore:
+      # Effect runtime and tooling move through coordinated manual changes.
+      # These ignores also require manual security remediation.
+      - dependency-name: effect
+      - dependency-name: "@effect/*"
+      # Types must not describe a newer runtime than the declared Node floor.
+      - dependency-name: "@types/node"
+        versions: [">=25"]
+    groups:
+      nx:
+        patterns: [nx, "@nx/*"]
+      typescript:
+        patterns: [typescript, "@typescript/*"]
+      eslint:
+        patterns:
+          - eslint
+          - "@eslint/*"
+          - "eslint-config-*"
+          - "eslint-import-resolver-*"
+          - "eslint-plugin-*"
+          - typescript-eslint
+          - "@typescript-eslint/*"
+          - jsonc-eslint-parser
+      vite-vitest:
+        patterns: [vite, "@vitejs/*", vitest, "@vitest/*"]
+      allure:
+        patterns: [allure, allure-js-commons, allure-vitest]
+
+  - package-ecosystem: github-actions
+    # Root covers workflows; local composite actions need their own directories.
+    directories: [/, /.github/actions/*]
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+      timezone: Etc/UTC
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 1
+    groups:
+      github-actions:
+        patterns: ["*"]

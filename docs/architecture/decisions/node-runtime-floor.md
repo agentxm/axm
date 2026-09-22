@@ -50,9 +50,9 @@ One floor, declared once and exercised where it is declared:
   `mise.toml`.
 - `engines.node` and the `mise.toml` pin are the same version by construction,
   so CI exercises the CLI on exactly the floor it declares.
-- Renovate holds `engines` and the `mise` manager under manual authority and
-  caps `@types/node` at `<25`. The three move together, in one change, or not
-  at all.
+- Runtime declarations remain under manual authority;
+  [Dependabot](../../../.github/dependabot.yml) caps `@types/node` at `<25`.
+  Raise the runtime floor, development pin, and types ceiling in one change.
 
 Bun stays at `1.3.14`. It compiles the released binaries and moves under its
 own change with its own release verification.
@@ -100,7 +100,7 @@ move one coordinated change across both repositories.
   against the former `@types/node` 26 surface that relied on such an API fails
   type checking and must be rewritten against the floor.
 - Raising the floor again is one change touching `mise.toml`, ten `engines`
-  declarations, the `@types/node` catalog entry and its Renovate ceiling,
+  declarations, the `@types/node` catalog entry and its Dependabot ceiling,
   `publish.yml`'s two literal copies, `CONTRIBUTING.md`, and `install.md`.
   `check:ci-toolchain` fails the build if the `mise.toml` and `publish.yml`
   copies disagree.

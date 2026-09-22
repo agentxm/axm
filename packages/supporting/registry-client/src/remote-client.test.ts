@@ -17,7 +17,11 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 
 import { createRemoteRegistryClient as createRemoteRegistryClientWithPolicy } from "./remote-client.js";
-import type { RegistryRequestPolicy } from "./request-policy.js";
+import {
+  RegistryRetryObservation,
+  type RegistryRequestPolicy,
+  type RegistryRetryWait,
+} from "./request-policy.js";
 import {
   PUBLICATION_SET_CONTRACT,
   archiveSha256Hex,
@@ -214,6 +218,8 @@ describe("getExtensionIndex", () => {
   it.effect("retries a transient read without changing the request", () =>
     Effect.gen(function* () {
       const requestedUrls: Array<string> = [];
+      const retryWaits: Array<RegistryRetryWait> = [];
+      const endedWaits: Array<string> = [];
       const httpClient = makeMockHttpClient((request) => {
         requestedUrls.push(request.url);
         return requestedUrls.length === 1
@@ -228,13 +234,27 @@ describe("getExtensionIndex", () => {
         maxBackoff: "0 millis",
       });
 
-      const result = yield* client.getExtensionIndex(makeIndexArgs());
+      const result = yield* client.getExtensionIndex(makeIndexArgs()).pipe(
+        Effect.provideService(RegistryRetryObservation, {
+          waiting: (retry) => Effect.sync(() => retryWaits.push(retry)).pipe(Effect.asVoid),
+          ended: (requestId) => Effect.sync(() => endedWaits.push(requestId)).pipe(Effect.asVoid),
+        }),
+      );
 
       expect(Option.isSome(result)).toBe(true);
       expect(requestedUrls).toEqual([
         `${BASE_URL}/v1/extensions/%40acme/skills/test-skill`,
         `${BASE_URL}/v1/extensions/%40acme/skills/test-skill`,
       ]);
+      expect(retryWaits).toEqual([
+        expect.objectContaining({
+          operation: "get extension index",
+          nextAttempt: 2,
+          maxAttempts: 2,
+          delayMillis: 0,
+        }),
+      ]);
+      expect(endedWaits).toEqual([retryWaits[0]?.requestId]);
     }),
   );
 
@@ -714,15 +734,18 @@ describe("getExtensionPackage", () => {
       const reported: Array<ArchiveDownloadProgress> = [];
       const retryActivity: Array<string> = [];
 
-      yield* client.getExtensionPackage({
-        ...makePackageArgs(),
-        onProgress: (progress) => Effect.sync(() => void reported.push(progress)),
-        retryObserver: {
-          waiting: ({ nextAttempt }) =>
-            Effect.sync(() => void retryActivity.push(`waiting for ${String(nextAttempt)}`)),
-          ended: () => Effect.sync(() => void retryActivity.push("resumed")),
-        },
-      });
+      yield* client
+        .getExtensionPackage({
+          ...makePackageArgs(),
+          onProgress: (progress) => Effect.sync(() => void reported.push(progress)),
+        })
+        .pipe(
+          Effect.provideService(RegistryRetryObservation, {
+            waiting: ({ nextAttempt }) =>
+              Effect.sync(() => void retryActivity.push(`waiting for ${String(nextAttempt)}`)),
+            ended: () => Effect.sync(() => void retryActivity.push("resumed")),
+          }),
+        );
 
       expect(archiveRequests).toBe(2);
       expect(retryActivity).toEqual(["waiting for 2", "resumed"]);
@@ -749,14 +772,13 @@ describe("getExtensionPackage", () => {
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
       const activity: Array<string> = [];
 
-      yield* client.getExtensionPackage({
-        ...makePackageArgs(),
-        retryObserver: {
+      yield* client.getExtensionPackage(makePackageArgs()).pipe(
+        Effect.provideService(RegistryRetryObservation, {
           waiting: ({ nextAttempt }) =>
             Effect.sync(() => void activity.push(`waiting for ${String(nextAttempt)}`)),
           ended: () => Effect.sync(() => void activity.push("resumed")),
-        },
-      });
+        }),
+      );
 
       expect(indexRequests).toBe(2);
       expect(activity).toEqual(["waiting for 2", "resumed"]);

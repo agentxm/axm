@@ -17,6 +17,7 @@ import { withLiveOperation, withOperationLifecycle } from "./operation-lifecycle
 import * as Deferred from "effect/Deferred";
 import * as Fiber from "effect/Fiber";
 import { OperationLifecycle, observeUnit } from "@agentxm/workspace/transitions/planning";
+import { RegistryRetryObservation } from "@agentxm/registry-client";
 
 let tempDir: string;
 
@@ -69,6 +70,38 @@ describe("withOperationLifecycle", () => {
         "OperationSettled",
       ]);
       expect(renderer.state.events.at(-1)).toMatchObject({ outcome: "completed" });
+    }),
+  );
+
+  it.effect("publishes Registry retry waits within the outer operation", () =>
+    Effect.gen(function* () {
+      const renderer = TestRenderer.make();
+      yield* withLiveOperation(
+        { command: "update", name: "Update skill", mode: "apply" },
+        Effect.gen(function* () {
+          const observation = yield* RegistryRetryObservation;
+          yield* observation.waiting({
+            requestId: "request-1",
+            operation: "get package index",
+            nextAttempt: 2,
+            maxAttempts: 3,
+            delayMillis: 2_000,
+          });
+          yield* observation.ended("request-1");
+        }),
+      ).pipe(Effect.provide(renderer.layer));
+
+      expect(renderer.state.events.map((event) => event._tag)).toEqual([
+        "OperationStarted",
+        "Waiting",
+        "WaitEnded",
+        "OperationSettled",
+      ]);
+      expect(renderer.state.events[1]).toMatchObject({
+        subject: "registry-retry:request-1",
+        detail: "get package index retry 2 of 3 after 2s",
+      });
+      expect(renderer.state.events[2]).toMatchObject({ subject: "registry-retry:request-1" });
     }),
   );
 

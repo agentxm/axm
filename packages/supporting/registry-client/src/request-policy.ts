@@ -3,6 +3,7 @@ import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schedule from "effect/Schedule";
 import * as ServiceMap from "effect/Context";
@@ -40,15 +41,23 @@ export interface RegistryRequestPolicy {
   readonly maxBackoff: Duration.Input;
 }
 
-/** Report a scheduled backoff and close that wait on resume or interruption. */
-export interface RegistryRetryObserver {
-  readonly waiting: (retry: {
-    readonly nextAttempt: number;
-    readonly maxAttempts: number;
-    readonly delayMillis: number;
-  }) => Effect.Effect<void>;
-  readonly ended: () => Effect.Effect<void>;
+/** One request's scheduled retry, with a stable identity across its wait. */
+export interface RegistryRetryWait {
+  readonly requestId: string;
+  readonly operation: string;
+  readonly nextAttempt: number;
+  readonly maxAttempts: number;
+  readonly delayMillis: number;
 }
+
+/** Optional operation-scoped observation for all policy-governed Registry requests. */
+export class RegistryRetryObservation extends ServiceMap.Service<
+  RegistryRetryObservation,
+  {
+    readonly waiting: (retry: RegistryRetryWait) => Effect.Effect<void>;
+    readonly ended: (requestId: string) => Effect.Effect<void>;
+  }
+>()("@agentxm/registry-client/request-policy/RegistryRetryObservation") {}
 
 export const DEFAULT_REGISTRY_REQUEST_POLICY: RegistryRequestPolicy = {
   requestTimeout: "10 seconds",
@@ -127,7 +136,9 @@ const retryAfter = (error: unknown) =>
 const retrySchedule = (
   policy: RegistryRequestPolicy,
   operation: string,
-  onRetryWaiting?: RegistryRetryObserver["waiting"],
+  onRetryWaiting?: (
+    retry: Pick<RegistryRetryWait, "nextAttempt" | "maxAttempts" | "delayMillis">,
+  ) => Effect.Effect<void>,
 ) => {
   const totalDeadlineMillis = Duration.toMillis(Duration.fromInputUnsafe(policy.totalDeadline));
   const maxBackoffMillis = Duration.toMillis(Duration.fromInputUnsafe(policy.maxBackoff));
@@ -260,7 +271,6 @@ export const executeRegistryRequest = <A, E, R>(
     readonly replaySafety: RegistryRequestReplaySafety;
     readonly mapError: (error: E) => RegistryClientFailure;
     readonly policy?: RegistryRequestPolicy;
-    readonly retryObserver?: RegistryRetryObserver;
   },
   // The policy owns the attempt, so it satisfies the service the governed work
   // reads rather than leaving it for the caller to provide.
@@ -276,11 +286,16 @@ export const executeRegistryRequest = <A, E, R>(
   return Effect.gen(function* () {
     const attempts = yield* Ref.make(0);
     const waiting = yield* Ref.make(false);
-    const retryObserver = args.retryObserver;
+    const retrySession = Option.match(yield* Effect.serviceOption(RegistryRetryObservation), {
+      onNone: () => undefined,
+      onSome: (observer) => ({ observer, requestId: globalThis.crypto.randomUUID() }),
+    });
     const endRetryWait = Effect.uninterruptible(
       Ref.getAndSet(waiting, false).pipe(
         Effect.flatMap((wasWaiting) =>
-          wasWaiting && retryObserver !== undefined ? retryObserver.ended() : Effect.void,
+          wasWaiting && retrySession !== undefined
+            ? retrySession.observer.ended(retrySession.requestId)
+            : Effect.void,
         ),
       ),
     );
@@ -294,11 +309,13 @@ export const executeRegistryRequest = <A, E, R>(
       ),
     );
     const onRetryWaiting =
-      retryObserver === undefined
+      retrySession === undefined
         ? undefined
-        : (retry: Parameters<RegistryRetryObserver["waiting"]>[0]) =>
+        : (retry: Pick<RegistryRetryWait, "nextAttempt" | "maxAttempts" | "delayMillis">) =>
             Effect.uninterruptible(
-              retryObserver.waiting(retry).pipe(Effect.andThen(Ref.set(waiting, true))),
+              retrySession.observer
+                .waiting({ ...retry, requestId: retrySession.requestId, operation: args.operation })
+                .pipe(Effect.andThen(Ref.set(waiting, true))),
             );
     const executed = replaySafe
       ? countedAttempt.pipe(Effect.retry(retrySchedule(policy, args.operation, onRetryWaiting)))

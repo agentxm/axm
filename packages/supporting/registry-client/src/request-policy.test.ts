@@ -14,9 +14,9 @@ import {
   executeRegistryRequest,
   PUBLISH_REGISTRY_REQUEST_POLICY,
   RegistryRequestAttempt,
+  RegistryRetryObservation,
   type RegistryRequestPolicy,
   type RegistryRequestReplaySafety,
-  type RegistryRetryObserver,
 } from "./request-policy.js";
 
 const request = HttpClientRequest.get("https://registry.agentxm.ai/v1/extensions");
@@ -47,7 +47,6 @@ const execute = <A, E, R>(
   options?: {
     readonly replaySafety?: RegistryRequestReplaySafety;
     readonly policy?: RegistryRequestPolicy;
-    readonly retryObserver?: RegistryRetryObserver;
   },
 ) =>
   executeRegistryRequest(effect, {
@@ -56,7 +55,6 @@ const execute = <A, E, R>(
     replaySafety: options?.replaySafety ?? { kind: "safe" },
     mapError,
     policy: options?.policy ?? policy(),
-    ...(options?.retryObserver === undefined ? {} : { retryObserver: options.retryObserver }),
   });
 
 const transportError = () =>
@@ -244,15 +242,16 @@ describe("executeRegistryRequest", () => {
               : Effect.succeed("ok"),
           ),
         ),
-        {
-          retryObserver: {
-            waiting: (retry) => Deferred.succeed(announced, retry),
-            ended: () => Ref.update(ended, (count) => count + 1),
-          },
-        },
-      ).pipe(Effect.forkChild);
+      ).pipe(
+        Effect.provideService(RegistryRetryObservation, {
+          waiting: (retry) => Deferred.succeed(announced, retry),
+          ended: () => Ref.update(ended, (count) => count + 1),
+        }),
+        Effect.forkChild,
+      );
 
-      expect(yield* Deferred.await(announced)).toEqual({
+      expect(yield* Deferred.await(announced)).toMatchObject({
+        operation: "test",
         nextAttempt: 2,
         maxAttempts: 3,
         delayMillis: 2_000,
@@ -412,13 +411,13 @@ describe("executeRegistryRequest", () => {
           Effect.andThen(Deferred.succeed(attempted, undefined)),
           Effect.andThen(Effect.fail(responseError(503, { retryAfter: "10" }))),
         ),
-        {
-          retryObserver: {
-            waiting: () => Deferred.succeed(waiting, undefined),
-            ended: () => Ref.update(ended, (count) => count + 1),
-          },
-        },
-      ).pipe(Effect.forkChild);
+      ).pipe(
+        Effect.provideService(RegistryRetryObservation, {
+          waiting: () => Deferred.succeed(waiting, undefined),
+          ended: () => Ref.update(ended, (count) => count + 1),
+        }),
+        Effect.forkChild,
+      );
 
       yield* Deferred.await(attempted);
       yield* Deferred.await(waiting);

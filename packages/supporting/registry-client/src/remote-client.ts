@@ -419,7 +419,6 @@ export const createRemoteRegistryClient = (
       readonly replaySafety: RegistryRequestReplaySafety;
       readonly mapError: (error: E) => RegistryClientFailure;
       readonly policy?: RegistryRequestPolicy;
-      readonly retryObserver?: GetExtensionPackageArgs["retryObserver"];
     },
   ) =>
     executeRegistryRequest(effect, {
@@ -427,7 +426,6 @@ export const createRemoteRegistryClient = (
       request: registryRequestMetadata(args.method, new URL(args.path, baseUrl).href),
       replaySafety: args.replaySafety,
       mapError: args.mapError,
-      ...(args.retryObserver === undefined ? {} : { retryObserver: args.retryObserver }),
       ...(requestPolicy === undefined && args.policy === undefined
         ? {}
         : { policy: requestPolicy ?? args.policy }),
@@ -742,7 +740,6 @@ export const createRemoteRegistryClient = (
             path: `/v1/extensions/${args.owner}/${pluralizeType(args.type)}/${args.name}`,
             replaySafety: safe,
             mapError: mapPackageFetchError,
-            ...(args.retryObserver === undefined ? {} : { retryObserver: args.retryObserver }),
           },
         );
 
@@ -798,7 +795,6 @@ export const createRemoteRegistryClient = (
           path: archivePath,
           replaySafety: safe,
           mapError: mapArchiveFetchError,
-          ...(args.retryObserver === undefined ? {} : { retryObserver: args.retryObserver }),
         },
       );
 

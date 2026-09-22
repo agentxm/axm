@@ -49,10 +49,11 @@ export {
   DEFAULT_REGISTRY_REQUEST_POLICY,
   PUBLISH_REGISTRY_REQUEST_POLICY,
   RegistryRequestAttempt,
+  RegistryRetryObservation,
   executeRegistryRequest,
   type RegistryRequestPolicy,
   type RegistryRequestReplaySafety,
-  type RegistryRetryObserver,
+  type RegistryRetryWait,
 } from "./request-policy.js";
 
 export type {

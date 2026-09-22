@@ -93,6 +93,7 @@ import {
 } from "./vocabulary.js";
 import { findGitReinstallRefs, pinGitReinstallRef } from "./git-reinstall.js";
 import { nameFromLabel } from "../../reconciliation/index.js";
+import { withPackRegistryIndexMemo } from "../../resolution/sources/providers/registry/index-memo.js";
 
 /** Which extension types a configured-entry sweep covers. */
 export type ConfiguredInstallableType = InstallableExtensionType;
@@ -338,7 +339,7 @@ interface CollectPackPlansArgs {
   readonly deferProjections?: boolean;
 }
 
-const collectPackPlans: (
+const collectPackPlansInPhase: (
   args: CollectPackPlansArgs,
 ) => Effect.Effect<
   CollectedConfiguredPlans,
@@ -417,6 +418,9 @@ const collectPackPlans: (
     originForStep: (index) => (index === 0 ? "direct" : "dependency"),
   });
 });
+
+const collectPackPlans = (args: CollectPackPlansArgs) =>
+  withPackRegistryIndexMemo(collectPackPlansInPhase(args));
 
 const collectSimpleTypePlans = (
   type: Exclude<ConfiguredInstallableType, "pack">,

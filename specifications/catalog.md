@@ -5302,6 +5302,20 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `docs/architecture/workspace/execution.md`
 - Source: [`apps/cli-e2e/src/acquires-content-before-workspace-transition.spec.ts`](../apps/cli-e2e/src/acquires-content-before-workspace-transition.spec.ts)
 
+##### Configured packs share one member index read and materialization
+
+- Requirement: `cli/shared-pack-member-index-is-coalesced`
+- Owner: `cli-e2e`
+- Statement: When two configured Packs depend on the same Registry member, AXM shall read that member's index once during planning, retain both Packs' constraints, and acquire the selected member archive once for the workspace transition.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: process; selection: per-change
+- Boundary rationale: The real CLI process and controlled HTTP Registry count exact member-index and archive requests for one configured sync.
+- Methods: example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`apps/cli-e2e/src/shared-pack-index-is-coalesced.spec.ts`](../apps/cli-e2e/src/shared-pack-index-is-coalesced.spec.ts)
+
 ##### Source acquisitions share an operation scratch limit
 
 - Requirement: `registry-client/operation-scratch-is-bounded`
@@ -5399,6 +5413,20 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Methods: boundary-value, example
 - Derived from: `docs/architecture/workspace/execution.md`
 - Source: [`packages/core/workspace/src/acquisition/extension-directory-copy-is-bounded.spec.ts`](../packages/core/workspace/src/acquisition/extension-directory-copy-is-bounded.spec.ts)
+
+##### Shared pack members read metadata once while each constraint selects independently
+
+- Requirement: `workspace/pack-member-index-is-shared-without-sharing-selection`
+- Owner: `workspace`
+- Statement: During one pack-planning phase, concurrent lookups for the same Registry member shall share one index read while preserving each pack's own version and release-age selection, and a failed read shall be retried rather than retained as a successful observation.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: A controlled Registry provider and blocked index lookup expose in-flight sharing and independent policy decisions under two incoming constraints.
+- Methods: example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`packages/core/workspace/src/resolution/sources/providers/registry/shared-pack-index-lookup.spec.ts`](../packages/core/workspace/src/resolution/sources/providers/registry/shared-pack-index-lookup.spec.ts)
 
 #### Quality
 

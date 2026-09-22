@@ -25,6 +25,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 
+import { OperationRequestBudget } from "@agentxm/registry-client";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { sourceRefContentKey } from "../acquisition/acquired-content.js";
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions/fqn";
@@ -47,6 +48,7 @@ import {
   resolvePackDependenciesWithReleaseAge,
 } from "../resolution/index.js";
 import { SourceHostProviders } from "../resolution/sources/index.js";
+import { withPackRegistryIndexMemo } from "../resolution/sources/providers/registry/index-memo.js";
 import {
   acceptedResolutionRef,
   acceptedCanonicalObservation,
@@ -180,6 +182,7 @@ export const collectConfiguredPackRecovery = (args: {
     if (packNames.size === 0) return undefined;
 
     const sources = yield* SourceHostProviders;
+    const requestBudget = yield* Effect.serviceOption(OperationRequestBudget);
     const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation();
     const configured = yield* settings.entries("pack");
     const entries = enabledConfiguredEntries(configured).filter(([name]) => packNames.has(name));
@@ -343,7 +346,7 @@ export const collectConfiguredPackRecovery = (args: {
             bypasses: expansion.bypasses,
           };
         }),
-      { concurrency: 1 },
+      { concurrency: Option.isSome(requestBudget) ? requestBudget.value.capacity : 1 },
     );
 
     const holdbacks = normalizeReleaseAgeRecords(recovered.flatMap(({ holdbacks }) => holdbacks));
@@ -360,4 +363,4 @@ export const collectConfiguredPackRecovery = (args: {
             },
       steps: recovered.flatMap(({ steps }) => steps),
     };
-  });
+  }).pipe(withPackRegistryIndexMemo);

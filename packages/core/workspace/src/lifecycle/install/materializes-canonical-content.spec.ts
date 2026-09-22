@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { unzipSync } from "fflate";
@@ -52,6 +53,38 @@ describe("Install materializes canonical content", () => {
   afterEach(() => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
+
+  it.effect.skipIf(process.platform === "win32")(
+    "preserves executable source files in the canonical package",
+    () => {
+      const { workspace, cleanup } = makeInstallWorld();
+      cleanups.push(cleanup);
+      const source = writeLocalSkillPackage(workspace.root, { name: "executable-review" });
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            const files = yield* FileSystem.FileSystem;
+            const sourceScript = nodePath.join(workspace.root, "vendor/executable-review/run.sh");
+            yield* files.writeFileString(sourceScript, "#!/bin/sh\nprintf 'review complete\\n'\n");
+            yield* files.chmod(sourceScript, 0o755);
+
+            yield* applyInstall(
+              installRequest({ type: "skill", subject: { kind: "source", source } }),
+            );
+
+            const installed = nodePath.join(
+              workspace.root,
+              "agent_extensions/path/@acme/skills/executable-review/run.sh",
+            );
+            expect(yield* files.readFileString(installed)).toBe(
+              yield* files.readFileString(sourceScript),
+            );
+            expect((yield* files.stat(installed)).mode & 0o777).toBe(0o755);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
   it.effect("materializes canonical extension content inside the workspace", () => {
     const { workspace, cleanup } = makeInstallWorld();

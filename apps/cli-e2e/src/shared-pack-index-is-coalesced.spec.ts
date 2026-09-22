@@ -104,6 +104,16 @@ describe("Shared configured Pack member", () => {
         env,
       });
       expect(published.exitCode, published.stdout + published.stderr).toBe(0);
+      const sharedPublication = registry.publishes.find(
+        (entry) => entry.plural === "skills" && entry.name === "shared",
+      );
+      if (sharedPublication === undefined) throw new Error("Shared member was not published.");
+      const [major, minor, patch] = sharedPublication.version.split(".").map(Number);
+      if (major === undefined || minor === undefined || patch === undefined)
+        throw new Error("Expected a three-part fixture version.");
+      const yankedVersion = `${major}.${minor}.${patch + 1}`;
+      registry.copyVersion(OWNER, "skills", "shared", sharedPublication.version, yankedVersion);
+      registry.yank(OWNER, "skills", "shared", yankedVersion);
 
       const { settingsPath, settings } = await setupWorkspace(consumer.path, registry.url);
       settings["packs"] = {
@@ -162,6 +172,9 @@ describe("Shared configured Pack member", () => {
         )}`,
       ).toHaveLength(1);
       expect(memberArchive).toHaveLength(1);
+      expect(memberArchive[0]?.path).toContain(
+        `/skills/shared/${sharedPublication.version}/archive`,
+      );
     } finally {
       releaseFirstPack();
       await registry.close();

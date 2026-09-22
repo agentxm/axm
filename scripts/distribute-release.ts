@@ -216,7 +216,9 @@ try {
               };
             });
             await Effect.runPromise(
-              publishImmutableInDependencyOrder(publications, { timeoutMs: 120_000 }),
+              // npm acknowledged two 0.33.0 uploads before registry reads exposed them
+              // more than two minutes later. Keep each dependency readback bounded.
+              publishImmutableInDependencyOrder(publications, { timeoutMs: 360_000 }),
             );
             await mapWithConcurrency(RELEASE_PACKAGES, 6, async (pkg) =>
               reconcileNpmStableTag({

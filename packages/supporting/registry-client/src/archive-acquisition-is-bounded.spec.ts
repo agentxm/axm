@@ -7,6 +7,7 @@ import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Fiber from "effect/Fiber";
 import * as Path from "effect/Path";
+import * as Stream from "effect/Stream";
 import { zipSync } from "fflate";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -15,6 +16,7 @@ import {
   MAX_ARCHIVE_ENTRIES,
   MAX_BUFFERED_ARCHIVE_BYTES,
   MAX_EXTRACTED_ARCHIVE_BYTES,
+  collectBufferedArchive,
   readBufferedArchive,
 } from "./archive-limits.js";
 import {
@@ -99,6 +101,36 @@ describe("Bounded archive acquisition", () => {
       if (failure._tag === "RegistryOperationFailed") expect(failure.category).toBe("quota");
       expect(yield* files.readDirectory(target)).toEqual([]);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("collects unknown-length chunks once and refuses before an over-limit chunk", () =>
+    Effect.gen(function* () {
+      const observed: Array<number> = [];
+      const chunks = [new Uint8Array([1, 2]), new Uint8Array([3, 4])];
+      const archive = yield* collectBufferedArchive(
+        Stream.fromIterable(chunks),
+        4,
+        undefined,
+        (received) =>
+          Effect.sync(() => {
+            observed.push(received);
+          }),
+      );
+      expect(Array.from(archive)).toEqual([1, 2, 3, 4]);
+      expect(observed).toEqual([2, 4]);
+
+      const failure = yield* collectBufferedArchive(
+        Stream.fromIterable([...chunks, new Uint8Array([5])]),
+        4,
+        undefined,
+        (received) =>
+          Effect.sync(() => {
+            observed.push(received);
+          }),
+      ).pipe(Effect.flip);
+      expect(failure.category).toBe("quota");
+      expect(observed).toEqual([2, 4, 2, 4]);
+    }),
   );
 
   it.effect("refuses expanded bytes before writing extracted entries", () =>

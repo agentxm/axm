@@ -493,8 +493,9 @@ const publisherFor = (row: ExtensionTypeMatrixRow): Publisher => {
 
 // Progress events carry a wall-clock `atMs` by design; parity between two
 // invocations is over the event sequence with that free field folded out.
-const comparableStderr = (stderr: string): string =>
-  stderr
+const comparableStderr = (stderr: string): string => {
+  const acquisitions: string[] = [];
+  const ordered = stderr
     .split("\n")
     .map((line) => {
       try {
@@ -515,6 +516,21 @@ const comparableStderr = (stderr: string): string =>
           const comparable = Object.fromEntries(
             entries.filter(([key]) => key !== "atMs" && !(started && key === "name")),
           );
+          if (
+            entries.some(([key, value]) => key === "_tag" && value === "UnitResolved") &&
+            entries.some(
+              ([key, value]) =>
+                key === "unitId" &&
+                typeof value === "string" &&
+                value.startsWith("registry-extract:"),
+            )
+          ) {
+            const withoutSequence = Object.fromEntries(
+              Object.entries(comparable).filter(([key]) => key !== "seq"),
+            );
+            acquisitions.push(JSON.stringify({ ...parsed, event: withoutSequence }));
+            return undefined;
+          }
           return JSON.stringify({ ...parsed, event: comparable });
         }
         return line;
@@ -522,7 +538,9 @@ const comparableStderr = (stderr: string): string =>
         return line;
       }
     })
-    .join("\n");
+    .filter((line) => line !== undefined);
+  return JSON.stringify({ ordered, acquisitions: acquisitions.sort() });
+};
 
 const expectCleanWorkspace = async (workspacePath: string, context: string): Promise<void> => {
   const result = await runCli(["lint"], { cwd: workspacePath });

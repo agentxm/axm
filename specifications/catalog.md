@@ -1987,11 +1987,11 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `apps/cli/src/root/lifecycle/command.ts`, `packages/core/workspace/src/publishing/lifecycle/archival.ts`
 - Source: [`packages/core/workspace/src/publishing/archival/archives-at-the-observed-revision.spec.ts`](../packages/core/workspace/src/publishing/archival/archives-at-the-observed-revision.spec.ts)
 
-##### The archive cache reports its limits and enforces exactly those
+##### The archive cache reports and enforces its retention limits
 
 - Requirement: `cli/cache/prune/enforces-reported-retention-limits`
 - Owner: `registry-client`
-- Statement: The archive cache shall report its entry count, byte total, and effective size and age limits, and pruning shall remove expired archives and enough excess archive storage to satisfy exactly those reported limits, preserve unrelated files, and report the removed and remaining entry and byte totals.
+- Statement: The archive cache shall report its entry count, byte total, and effective size and age limits, and pruning shall remove expired archives and excess archive storage up to those limits while preserving archives in active use and unrelated files, then report the removed and remaining entry and byte totals.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`
@@ -5318,12 +5318,12 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 
 - Requirement: `cli/shared-pack-member-index-is-coalesced`
 - Owner: `cli-e2e`
-- Statement: When two configured Packs depend on the same Registry member, AXM shall resolve independent Pack indexes concurrently, read the shared member's index once during planning, retain both Packs' constraints, and acquire the selected member archive once for the workspace transition.
+- Statement: When two configured Packs depend on the same Registry member, AXM shall resolve both Pack indexes in one batch, read the shared member's metadata once during planning, retain both Packs' constraints, and acquire the selected member archive once for the workspace transition.
 - Class: functional
 - Role: supporting
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
 - Boundary: process; selection: per-change
-- Boundary rationale: The real CLI process and controlled HTTP Registry hold one Pack index response while observing the other Pack and counting shared member-index and archive requests.
+- Boundary rationale: The real CLI process and controlled HTTP Registry hold one Pack metadata item while observing the other Pack in the same batch and counting shared member metadata and archive requests.
 - Methods: example
 - Derived from: `docs/architecture/workspace/execution.md`
 - Source: [`apps/cli-e2e/src/shared-pack-index-is-coalesced.spec.ts`](../apps/cli-e2e/src/shared-pack-index-is-coalesced.spec.ts)

@@ -6,10 +6,13 @@
 
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
+import * as Cause from "effect/Cause";
+import * as Deferred from "effect/Deferred";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Ref from "effect/Ref";
 import { RegistryOperationFailed, type RegistryClientFailure } from "./errors.js";
 import { computeIntegrity } from "./integrity.js";
 import { writeFileAtomic } from "./atomic-write.js";
@@ -45,6 +48,13 @@ export interface ArchiveCachePruneResult {
 }
 
 export interface ArchiveCache {
+  /** Coalesce equal acquisitions; validate a warm entry before sharing its bytes. */
+  readonly load: (
+    selectionKey: string,
+    integrity: string,
+    fetch: Effect.Effect<Uint8Array, RegistryClientFailure>,
+    validateCached?: Effect.Effect<void, RegistryClientFailure>,
+  ) => Effect.Effect<Uint8Array, RegistryClientFailure>;
   readonly read: (
     integrity: string,
   ) => Effect.Effect<Option.Option<Uint8Array>, RegistryClientFailure>;
@@ -64,6 +74,16 @@ interface CacheEntry {
   readonly size: number;
   readonly accessedAt: DateTime.Utc;
 }
+
+interface LoadAdmission {
+  readonly leader: boolean;
+  readonly result: Deferred.Deferred<LoadCompletion, RegistryClientFailure>;
+}
+
+type LoadCompletion =
+  { readonly _tag: "ready"; readonly archive: Uint8Array } | { readonly _tag: "retry" };
+
+type InFlightLoads = Map<string, Deferred.Deferred<LoadCompletion, RegistryClientFailure>>;
 
 const cacheError = (detail: string, cause?: unknown): RegistryOperationFailed =>
   new RegistryOperationFailed({
@@ -96,194 +116,281 @@ export const makeArchiveCache = (
   path: Path.Path,
   root: string,
   options: ArchiveCacheOptions = {},
-): ArchiveCache => {
-  const maxBytes = options.maxBytes ?? ARCHIVE_CACHE_MAX_BYTES;
-  const maxAge = options.maxAge ?? ARCHIVE_CACHE_MAX_AGE;
+): Effect.Effect<ArchiveCache> =>
+  Effect.gen(function* () {
+    const maxBytes = options.maxBytes ?? ARCHIVE_CACHE_MAX_BYTES;
+    const maxAge = options.maxAge ?? ARCHIVE_CACHE_MAX_AGE;
+    const inFlight = yield* Ref.make<InFlightLoads>(new Map());
+    const active = yield* Ref.make(new Map<string, number>());
+    const writesSincePrune = yield* Ref.make(0);
 
-  const pathForIntegrity = (integrity: string): Effect.Effect<string, RegistryClientFailure> => {
-    const fileName = cacheFileName(integrity);
-    return fileName === undefined
-      ? Effect.fail(cacheError(`Unsupported archive integrity value: ${integrity}`))
-      : Effect.succeed(path.join(root, fileName));
-  };
-
-  const listEntries = (): Effect.Effect<ReadonlyArray<CacheEntry>, RegistryClientFailure> =>
-    Effect.gen(function* () {
-      const exists = yield* fs.exists(root).pipe(Effect.orElseSucceed(() => false));
-      if (!exists) return [];
-      const names = yield* fs
-        .readDirectory(root)
-        .pipe(
-          Effect.mapError((cause) => cacheError(`Failed to inspect archive cache: ${root}`, cause)),
-        );
-      return yield* Effect.forEach(
-        names.filter((name) => name.endsWith(".zip")),
-        (name) =>
-          Effect.gen(function* () {
-            const entryPath = path.join(root, name);
-            const info = yield* fs
-              .stat(entryPath)
-              .pipe(
-                Effect.mapError((cause) =>
-                  cacheError(`Failed to inspect cache entry: ${entryPath}`, cause),
-                ),
-              );
-            return {
-              path: entryPath,
-              integrity: integrityFromFileName(name),
-              size: Number(info.size),
-              accessedAt: Option.match(info.mtime, {
-                onNone: () => DateTime.makeUnsafe(0),
-                onSome: (mtime) => DateTime.makeUnsafe(mtime),
-              }),
-            } satisfies CacheEntry;
-          }),
-        { concurrency: 16 },
-      );
-    });
-
-  const removeEntry = (entryPath: string) =>
-    fs
-      .remove(entryPath)
-      .pipe(
-        Effect.mapError((cause) => cacheError(`Failed to remove cache entry: ${entryPath}`, cause)),
-      );
-
-  const prune = (): Effect.Effect<ArchiveCachePruneResult, RegistryClientFailure> =>
-    Effect.gen(function* () {
-      const now = yield* DateTime.now;
-      const entries = [...(yield* listEntries())].sort((a, b) =>
-        DateTime.Order(a.accessedAt, b.accessedAt),
-      );
-      const expired = entries.filter((entry) =>
-        Duration.isGreaterThan(DateTime.distance(entry.accessedAt, now), maxAge),
-      );
-      yield* Effect.forEach(expired, (entry) => removeEntry(entry.path), { concurrency: 8 });
-
-      const expiredPaths = new Set(expired.map((entry) => entry.path));
-      const retained = entries.filter((entry) => !expiredPaths.has(entry.path));
-      let retainedBytes = retained.reduce((total, entry) => total + entry.size, 0);
-      const removedForSize: Array<CacheEntry> = [];
-      for (const entry of retained) {
-        if (retainedBytes <= maxBytes) break;
-        yield* removeEntry(entry.path);
-        removedForSize.push(entry);
-        retainedBytes -= entry.size;
-      }
-
-      const removed = [...expired, ...removedForSize];
-      return {
-        removed: removed.length,
-        bytesFreed: removed.reduce((total, entry) => total + entry.size, 0),
-        remaining: entries.length - removed.length,
-        remainingBytes: retainedBytes,
-      } satisfies ArchiveCachePruneResult;
-    });
-
-  const read = (
-    integrity: string,
-  ): Effect.Effect<Option.Option<Uint8Array>, RegistryClientFailure> =>
-    Effect.gen(function* () {
-      const entryPath = yield* pathForIntegrity(integrity);
-      const exists = yield* fs.exists(entryPath).pipe(Effect.orElseSucceed(() => false));
-      if (!exists) return Option.none();
-      const archive = yield* readBufferedArchive(fs, entryPath).pipe(
-        Effect.mapError((cause) =>
-          cause instanceof RegistryOperationFailed
-            ? cause
-            : cacheError(`Failed to read cache entry: ${entryPath}`, cause),
-        ),
-      );
-      const actualIntegrity = yield* computeIntegrity(archive);
-      if (actualIntegrity !== integrity) {
-        yield* removeEntry(entryPath);
-        return Option.none();
-      }
-      const now = DateTime.toDateUtc(yield* DateTime.now);
-      yield* fs.utimes(entryPath, now, now).pipe(Effect.ignore);
-      return Option.some(archive);
-    });
-
-  const write = (
-    integrity: string,
-    archive: Uint8Array,
-    writeOptions: { readonly prune?: boolean } = {},
-  ): Effect.Effect<void, RegistryClientFailure> =>
-    Effect.gen(function* () {
-      if (archive.byteLength > MAX_BUFFERED_ARCHIVE_BYTES) {
-        return yield* new RegistryOperationFailed({
-          category: "quota",
-          detail: `Registry archive exceeds the ${MAX_BUFFERED_ARCHIVE_BYTES} byte acquisition limit`,
-        });
-      }
-      const actualIntegrity = yield* computeIntegrity(archive);
-      if (actualIntegrity !== integrity) {
-        return yield* new RegistryOperationFailed({
-          category: "validation",
-          detail: "Downloaded registry archive did not match its published integrity.",
-        });
-      }
-      const entryPath = yield* pathForIntegrity(integrity);
-      yield* fs
-        .makeDirectory(root, { recursive: true })
-        .pipe(
-          Effect.mapError((cause) => cacheError(`Failed to create archive cache: ${root}`, cause)),
-        );
-      yield* writeFileAtomic(fs, {
-        targetPath: entryPath,
-        content: archive,
-        removeTargetBeforeRename: true,
-        mapError: (failure) =>
-          failure.step === "rename"
-            ? cacheError(`Failed to commit cache entry: ${entryPath}`, failure.cause)
-            : cacheError("Failed to write archive cache temp file", failure.cause),
+    const acquireActive = (integrity: string) =>
+      Ref.update(active, (current) => {
+        const next = new Map(current);
+        next.set(integrity, (next.get(integrity) ?? 0) + 1);
+        return next;
       });
-      if (writeOptions.prune !== false) yield* prune();
-    });
+    const releaseActive = (integrity: string) =>
+      Ref.update(active, (current) => {
+        const next = new Map(current);
+        const count = next.get(integrity) ?? 0;
+        if (count <= 1) next.delete(integrity);
+        else next.set(integrity, count - 1);
+        return next;
+      });
 
-  const status = (): Effect.Effect<ArchiveCacheStatus, RegistryClientFailure> =>
-    Effect.map(listEntries(), (entries) => ({
-      entries: entries.length,
-      bytes: entries.reduce((total, entry) => total + entry.size, 0),
-      maxBytes,
-      maxAgeDays: Duration.toDays(maxAge),
-    }));
+    const pathForIntegrity = (integrity: string): Effect.Effect<string, RegistryClientFailure> => {
+      const fileName = cacheFileName(integrity);
+      return fileName === undefined
+        ? Effect.fail(cacheError(`Unsupported archive integrity value: ${integrity}`))
+        : Effect.succeed(path.join(root, fileName));
+    };
 
-  const verify = (): Effect.Effect<ArchiveCacheVerifyResult, RegistryClientFailure> =>
-    Effect.gen(function* () {
-      const entries = yield* listEntries();
-      const results = yield* Effect.forEach(
-        entries,
-        (entry) =>
-          Effect.gen(function* () {
-            if (entry.integrity === undefined) {
+    const listEntries = (): Effect.Effect<ReadonlyArray<CacheEntry>, RegistryClientFailure> =>
+      Effect.gen(function* () {
+        const exists = yield* fs.exists(root).pipe(Effect.orElseSucceed(() => false));
+        if (!exists) return [];
+        const names = yield* fs
+          .readDirectory(root)
+          .pipe(
+            Effect.mapError((cause) =>
+              cacheError(`Failed to inspect archive cache: ${root}`, cause),
+            ),
+          );
+        return yield* Effect.forEach(
+          names.filter((name) => name.endsWith(".zip")),
+          (name) =>
+            Effect.gen(function* () {
+              const entryPath = path.join(root, name);
+              const info = yield* fs
+                .stat(entryPath)
+                .pipe(
+                  Effect.mapError((cause) =>
+                    cacheError(`Failed to inspect cache entry: ${entryPath}`, cause),
+                  ),
+                );
+              return {
+                path: entryPath,
+                integrity: integrityFromFileName(name),
+                size: Number(info.size),
+                accessedAt: Option.match(info.mtime, {
+                  onNone: () => DateTime.makeUnsafe(0),
+                  onSome: (mtime) => DateTime.makeUnsafe(mtime),
+                }),
+              } satisfies CacheEntry;
+            }),
+          { concurrency: 16 },
+        );
+      });
+
+    const removeEntry = (entryPath: string) =>
+      fs
+        .remove(entryPath)
+        .pipe(
+          Effect.mapError((cause) =>
+            cacheError(`Failed to remove cache entry: ${entryPath}`, cause),
+          ),
+        );
+
+    const prune = (): Effect.Effect<ArchiveCachePruneResult, RegistryClientFailure> =>
+      Effect.gen(function* () {
+        const now = yield* DateTime.now;
+        const entries = [...(yield* listEntries())].sort((a, b) =>
+          DateTime.Order(a.accessedAt, b.accessedAt),
+        );
+        let retainedBytes = entries.reduce((total, entry) => total + entry.size, 0);
+        const removed: Array<CacheEntry> = [];
+        for (const entry of entries) {
+          if (!Duration.isGreaterThan(DateTime.distance(entry.accessedAt, now), maxAge)) continue;
+          if (entry.integrity !== undefined && (yield* Ref.get(active)).has(entry.integrity))
+            continue;
+          yield* removeEntry(entry.path);
+          removed.push(entry);
+          retainedBytes -= entry.size;
+        }
+        const removedPaths = new Set(removed.map((entry) => entry.path));
+        for (const entry of entries) {
+          if (retainedBytes <= maxBytes) break;
+          if (removedPaths.has(entry.path)) continue;
+          if (entry.integrity !== undefined && (yield* Ref.get(active)).has(entry.integrity))
+            continue;
+          yield* removeEntry(entry.path);
+          removed.push(entry);
+          retainedBytes -= entry.size;
+        }
+        return {
+          removed: removed.length,
+          bytesFreed: removed.reduce((total, entry) => total + entry.size, 0),
+          remaining: entries.length - removed.length,
+          remainingBytes: retainedBytes,
+        } satisfies ArchiveCachePruneResult;
+      });
+
+    const read = (
+      integrity: string,
+    ): Effect.Effect<Option.Option<Uint8Array>, RegistryClientFailure> =>
+      Effect.gen(function* () {
+        const entryPath = yield* pathForIntegrity(integrity);
+        const exists = yield* fs.exists(entryPath).pipe(Effect.orElseSucceed(() => false));
+        if (!exists) return Option.none();
+        const archive = yield* readBufferedArchive(fs, entryPath).pipe(
+          Effect.mapError((cause) =>
+            cause instanceof RegistryOperationFailed
+              ? cause
+              : cacheError(`Failed to read cache entry: ${entryPath}`, cause),
+          ),
+        );
+        const actualIntegrity = yield* computeIntegrity(archive);
+        if (actualIntegrity !== integrity) {
+          yield* removeEntry(entryPath);
+          return Option.none();
+        }
+        const now = DateTime.toDateUtc(yield* DateTime.now);
+        yield* fs.utimes(entryPath, now, now).pipe(Effect.ignore);
+        return Option.some(archive);
+      });
+
+    const write = (
+      integrity: string,
+      archive: Uint8Array,
+      writeOptions: { readonly prune?: boolean } = {},
+    ): Effect.Effect<void, RegistryClientFailure> =>
+      Effect.gen(function* () {
+        if (archive.byteLength > MAX_BUFFERED_ARCHIVE_BYTES) {
+          return yield* new RegistryOperationFailed({
+            category: "quota",
+            detail: `Registry archive exceeds the ${MAX_BUFFERED_ARCHIVE_BYTES} byte acquisition limit`,
+          });
+        }
+        const actualIntegrity = yield* computeIntegrity(archive);
+        if (actualIntegrity !== integrity) {
+          return yield* new RegistryOperationFailed({
+            category: "validation",
+            detail: "Downloaded registry archive did not match its published integrity.",
+          });
+        }
+        const entryPath = yield* pathForIntegrity(integrity);
+        yield* fs
+          .makeDirectory(root, { recursive: true })
+          .pipe(
+            Effect.mapError((cause) =>
+              cacheError(`Failed to create archive cache: ${root}`, cause),
+            ),
+          );
+        yield* writeFileAtomic(fs, {
+          targetPath: entryPath,
+          content: archive,
+          removeTargetBeforeRename: true,
+          mapError: (failure) =>
+            failure.step === "rename"
+              ? cacheError(`Failed to commit cache entry: ${entryPath}`, failure.cause)
+              : cacheError("Failed to write archive cache temp file", failure.cause),
+        });
+        if (writeOptions.prune !== false) {
+          const shouldPrune = yield* Ref.modify(writesSincePrune, (count) => {
+            const next = (count + 1) % 4;
+            return [next === 0, next] as const;
+          });
+          if (shouldPrune) yield* prune();
+        }
+      });
+
+    const load: ArchiveCache["load"] = (selectionKey, integrity, fetch, validateCached) =>
+      Effect.uninterruptibleMask((restore) =>
+        Effect.gen(function* () {
+          const proposed = yield* Deferred.make<LoadCompletion, RegistryClientFailure>();
+          const admission = yield* Ref.modify(
+            inFlight,
+            (current): readonly [LoadAdmission, InFlightLoads] => {
+              const existing = current.get(selectionKey);
+              if (existing !== undefined) return [{ leader: false, result: existing }, current];
+              const next = new Map(current);
+              next.set(selectionKey, proposed);
+              return [{ leader: true, result: proposed }, next];
+            },
+          );
+          if (!admission.leader) {
+            const completed = yield* restore(Deferred.await(admission.result));
+            return completed._tag === "ready"
+              ? completed.archive
+              : yield* restore(load(selectionKey, integrity, fetch, validateCached));
+          }
+          yield* acquireActive(integrity);
+          const acquire = Effect.gen(function* () {
+            const cached = yield* read(integrity);
+            if (Option.isSome(cached)) {
+              if (validateCached !== undefined) yield* validateCached;
+              return cached.value;
+            }
+            const archive = yield* fetch;
+            yield* write(integrity, archive);
+            return archive;
+          });
+          return yield* restore(acquire).pipe(
+            Effect.onExit((exit) =>
+              Effect.gen(function* () {
+                yield* Ref.update(inFlight, (current) => {
+                  const next = new Map(current);
+                  next.delete(selectionKey);
+                  return next;
+                });
+                yield* releaseActive(integrity);
+                if (exit._tag === "Success") {
+                  yield* Deferred.succeed(proposed, { _tag: "ready", archive: exit.value });
+                } else if (Cause.hasInterruptsOnly(exit.cause)) {
+                  yield* Deferred.succeed(proposed, { _tag: "retry" });
+                } else {
+                  yield* Deferred.failCause(proposed, exit.cause);
+                }
+              }),
+            ),
+          );
+        }),
+      );
+
+    const status = (): Effect.Effect<ArchiveCacheStatus, RegistryClientFailure> =>
+      Effect.map(listEntries(), (entries) => ({
+        entries: entries.length,
+        bytes: entries.reduce((total, entry) => total + entry.size, 0),
+        maxBytes,
+        maxAgeDays: Duration.toDays(maxAge),
+      }));
+
+    const verify = (): Effect.Effect<ArchiveCacheVerifyResult, RegistryClientFailure> =>
+      Effect.gen(function* () {
+        const entries = yield* listEntries();
+        const results = yield* Effect.forEach(
+          entries,
+          (entry) =>
+            Effect.gen(function* () {
+              if (entry.integrity === undefined) {
+                yield* removeEntry(entry.path);
+                return false;
+              }
+              const archive = yield* fs
+                .readFile(entry.path)
+                .pipe(
+                  Effect.mapError((cause) =>
+                    cacheError(`Failed to read cache entry: ${entry.path}`, cause),
+                  ),
+                );
+              const actualIntegrity = yield* computeIntegrity(archive);
+              if (actualIntegrity === entry.integrity) return true;
               yield* removeEntry(entry.path);
               return false;
-            }
-            const archive = yield* fs
-              .readFile(entry.path)
-              .pipe(
-                Effect.mapError((cause) =>
-                  cacheError(`Failed to read cache entry: ${entry.path}`, cause),
-                ),
-              );
-            const actualIntegrity = yield* computeIntegrity(archive);
-            if (actualIntegrity === entry.integrity) return true;
-            yield* removeEntry(entry.path);
-            return false;
-          }),
-        { concurrency: 8 },
-      );
-      const valid = results.filter(Boolean).length;
-      return {
-        checked: results.length,
-        valid,
-        corruptRemoved: results.length - valid,
-      } satisfies ArchiveCacheVerifyResult;
-    });
+            }),
+          { concurrency: 8 },
+        );
+        const valid = results.filter(Boolean).length;
+        return {
+          checked: results.length,
+          valid,
+          corruptRemoved: results.length - valid,
+        } satisfies ArchiveCacheVerifyResult;
+      });
 
-  return { read, write, status, verify, prune };
-};
+    return { load, read, write, status, verify, prune };
+  });
 
 export const makeUserArchiveCache = (): Effect.Effect<
   ArchiveCache,
@@ -294,5 +401,5 @@ export const makeUserArchiveCache = (): Effect.Effect<
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const root = path.join(yield* resolveAxmCacheRoot(), "archives");
-    return makeArchiveCache(fs, path, root);
+    return yield* makeArchiveCache(fs, path, root);
   });

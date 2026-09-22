@@ -10,9 +10,9 @@ import { makeCacheFixture } from "./test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/cache/prune/enforces-reported-retention-limits",
-  title: "The archive cache reports its limits and enforces exactly those",
+  title: "The archive cache reports and enforces its retention limits",
   statement:
-    "The archive cache shall report its entry count, byte total, and effective size and age limits, and pruning shall remove expired archives and enough excess archive storage to satisfy exactly those reported limits, preserve unrelated files, and report the removed and remaining entry and byte totals.",
+    "The archive cache shall report its entry count, byte total, and effective size and age limits, and pruning shall remove expired archives and excess archive storage up to those limits while preserving archives in active use and unrelated files, then report the removed and remaining entry and byte totals.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition"],

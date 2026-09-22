@@ -66,6 +66,18 @@
         "No note lifecycle or improvement workflow is invented.",
         "No task side effect occurs before selection."
       ]
+    },
+    {
+      "id": 6,
+      "stage": "execution",
+      "prompt": "Finish and commit the authorized formatter fix in this worktree. Earlier in this task you recorded a field note about the formatter failure here. Another untracked field note from an unrelated task is also present.",
+      "expected_output": "The formatter fix and its field note are committed together; the unrelated note remains outside the change.",
+      "assertions": [
+        "The task-created field note is included in the authorized commit.",
+        "The unrelated field note is not included.",
+        "The agent checks for omitted task notes during normal delivery review, not immediately after capture.",
+        "The skill does not treat capture itself as commit authorization."
+      ]
     }
   ]
 }

@@ -6,12 +6,15 @@ tags: [effect, effect-v4, datetime, duration, clock, timezone, testing]
 status: stable
 sources:
   - id: effect-datetime
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/07_datetime/10_creating-and-formatting.ts
-    title: Effect 4.0.0-rc.115 DateTime basics
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/07_datetime/10_creating-and-formatting.ts
+    title: Effect 4.0.0-rc.117 DateTime basics
   - id: effect-testclock
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/testing/TestClock.ts
-    title: Effect 4.0.0-rc.115 TestClock source
-generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/testing/TestClock.ts
+    title: Effect 4.0.0-rc.117 TestClock source
+  - id: effect-pg-types
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/sql/pg/src/PgTypes.ts
+    title: Effect 4.0.0-rc.117 PostgreSQL timestamp codecs
+generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
 ---
 
 # Date and time
@@ -27,7 +30,8 @@ generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
 - [ ] Make time-zone and calendar assumptions explicit before formatting or
   performing calendar arithmetic.
 - [ ] Decode and encode timestamps with a schema matching the external
-  representation: string, epoch value, native `Date`, or another declared form.
+  representation: string, epoch value, native `Date`, or another declared
+  form, including the time zone a driver applies on write.[^effect-pg-types]
 - [ ] Express retry timing, polling, and repetition with `Schedule` and Effect
   timing operators rather than manual timestamp loops.
 - [ ] Use `TestClock` to verify sleeps, deadlines, retries, and time-dependent
@@ -35,6 +39,9 @@ generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
 
 ## Resources
 
-- [DateTime basics](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/07_datetime/10_creating-and-formatting.ts)
-- [DateTime source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/DateTime.ts)
-- [TestClock source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/testing/TestClock.ts)
+- [DateTime basics](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/07_datetime/10_creating-and-formatting.ts)
+- [DateTime source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/DateTime.ts)
+- [PostgreSQL timestamp codecs](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/sql/pg/src/PgTypes.ts)
+- [TestClock source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/testing/TestClock.ts)
+
+[^effect-pg-types]: Effect PostgreSQL timestamp codecs.

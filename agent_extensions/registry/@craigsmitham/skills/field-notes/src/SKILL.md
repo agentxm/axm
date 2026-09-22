@@ -52,7 +52,13 @@ material that adds no value, protect secrets and sensitive values, and never edi
 an earlier note to record a later occurrence.
 
 The write completes capture. Do not reread or verify the note, inspect repository
-status, or run any other post-write check for it.
+status, or run any other post-write check as part of capture.
 
 Continue the original task immediately after writing. Mention captured notes in
 at most one short line at the end of the user response.
+
+When the original task includes an authorized commit or other change delivery,
+keep its notes in the same worktree as the associated work. At the normal
+delivery check, include those notes in that change and verify that none from
+the task remain untracked or omitted. Do not sweep in unrelated notes. Capture
+alone does not authorize committing or publishing.

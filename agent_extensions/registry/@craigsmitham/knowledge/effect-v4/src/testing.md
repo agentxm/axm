@@ -6,21 +6,21 @@ tags: [effect, effect-v4, testing, vitest, testclock, layers, determinism]
 status: stable
 sources:
   - id: effect-tests
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/09_testing/10_effect-tests.ts
-    title: Effect 4.0.0-rc.115 Effect tests
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/09_testing/10_effect-tests.ts
+    title: Effect 4.0.0-rc.117 Effect tests
   - id: effect-layer-tests
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/09_testing/20_layer-tests.ts
-    title: Effect 4.0.0-rc.115 layer tests
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/09_testing/20_layer-tests.ts
+    title: Effect 4.0.0-rc.117 layer tests
   - id: effect-testclock
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/testing/TestClock.ts
-    title: Effect 4.0.0-rc.115 TestClock source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/testing/TestClock.ts
+    title: Effect 4.0.0-rc.117 TestClock source
   - id: effect-arbitrary
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/ARBITRARY.md
-    title: Effect 4.0.0-rc.115 native Arbitrary guide
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/ARBITRARY.md
+    title: Effect 4.0.0-rc.117 native Arbitrary guide
   - id: effect-arbitrary-migration
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/ARBITRARY-MIGRATION.md
-    title: Effect 4.0.0-rc.115 native Arbitrary migration
-generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/migration/schema.md#migrating-from-the-fast-check-bridge-to-native-arbitrary
+    title: Effect 4.0.0-rc.117 native Arbitrary migration
+generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
 ---
 
 # Testing
@@ -47,11 +47,11 @@ generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
 
 ## Resources
 
-- [Effect tests](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/09_testing/10_effect-tests.ts)
-- [Layer tests](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/ai-docs/src/09_testing/20_layer-tests.ts)
-- [TestClock source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/testing/TestClock.ts)
-- [Native property testing](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/ARBITRARY.md)
-- [Migration from the fast-check bridge](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/ARBITRARY-MIGRATION.md)
+- [Effect tests](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/09_testing/10_effect-tests.ts)
+- [Layer tests](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/09_testing/20_layer-tests.ts)
+- [TestClock source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/testing/TestClock.ts)
+- [Native property testing](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/ARBITRARY.md)
+- [Migration from the fast-check bridge](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/migration/schema.md#migrating-from-the-fast-check-bridge-to-native-arbitrary)
 
 [^effect-arbitrary-migration]: Effect native Arbitrary migration.
 [^effect-arbitrary]: Effect native property testing guide.

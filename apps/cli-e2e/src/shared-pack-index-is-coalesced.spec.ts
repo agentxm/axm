@@ -144,7 +144,9 @@ describe("Shared configured Pack member", () => {
       const memberMetadata = metadataRequests.filter(
         (identity) => identity === `${OWNER}/skill/shared`,
       );
-      expect(batches).toContainEqual([`${OWNER}/pack/first-pack`, `${OWNER}/pack/second-pack`]);
+      expect(batches.map((batch) => batch.toSorted())).toContainEqual(
+        [`${OWNER}/pack/first-pack`, `${OWNER}/pack/second-pack`].toSorted(),
+      );
       const memberArchive = requests.filter(
         (request) =>
           request.method === "GET" && /\/skills\/shared\/[^/]+\/archive$/u.test(request.path),

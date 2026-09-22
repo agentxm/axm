@@ -1,3 +1,17 @@
+## 0.34.0 (2026-09-22)
+
+### 🩹 Fixes
+
+- Batch configured Pack metadata after workspace preparation, and preserve executable and access permissions when copying extension content. ([#418](https://github.com/agentxm/axm/pull/418))
+
+### ⚠️ Breaking Changes
+
+- Preserve CLI history with an accumulating transcript, scoped interactive controls, and standalone command results. ([#419](https://github.com/agentxm/axm/pull/419))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.33.1 (2026-09-22)
 
 ### 🚀 Features

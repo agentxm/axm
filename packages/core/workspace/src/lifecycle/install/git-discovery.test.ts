@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 
 import type { GitSource } from "@agentxm/extension-model/unstable/sources/types";
@@ -115,9 +116,30 @@ describe("Git locator source view", () => {
         );
         const held = `${remote.bare}.held`;
         fs.renameSync(remote.bare, held);
-        const view = yield* makeLocatorSourceView(providers, 7);
+        const fileSystem = yield* FileSystem.FileSystem;
+        const temporaryDirectories: Array<string> = [];
+        const trackedFileSystem = {
+          ...fileSystem,
+          makeTempDirectory: (options?: {
+            readonly directory?: string | undefined;
+            readonly prefix?: string | undefined;
+          }) =>
+            fileSystem.makeTempDirectory(options).pipe(
+              Effect.tap((directory) =>
+                Effect.sync(() => {
+                  temporaryDirectories.push(directory);
+                }),
+              ),
+            ),
+        } satisfies FileSystem.FileSystem;
+        const view = yield* makeLocatorSourceView(providers, 7).pipe(
+          Effect.provideService(FileSystem.FileSystem, trackedFileSystem),
+        );
         const first = { ...remote.source, subPath: Option.some("vendor/first") };
         expect((yield* view.find(first, options).pipe(Effect.result))._tag).toBe("Failure");
+        const failedDirectory = temporaryDirectories[0];
+        if (failedDirectory === undefined) throw new Error("Expected a temporary checkout");
+        expect(fs.existsSync(failedDirectory)).toBe(false);
         fs.renameSync(held, remote.bare);
         expect((yield* view.find(first, options)).map((ref) => ref.name)).toEqual(["first"]);
       }),

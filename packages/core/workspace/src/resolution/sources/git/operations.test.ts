@@ -194,6 +194,91 @@ if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadli
     }),
   );
 
+  it.effect("interrupts a locator checkout child and removes its temporary directory", () =>
+    Effect.sync(() => {
+      const binDir = path.join(tempDir, "bin");
+      const pidPath = path.join(tempDir, "git-child.pid");
+      const checkoutPath = path.join(tempDir, "checkout-path.txt");
+      fs.mkdirSync(binDir);
+      fs.writeFileSync(
+        path.join(binDir, "git"),
+        `#!/bin/sh
+printf '%s\\n' "$$" > "$AXM_GIT_PROBE_PID"
+for argument do last="$argument"; done
+printf '%s\\n' "$last" > "$AXM_GIT_PROBE_CHECKOUT"
+exec sleep 30
+`,
+        { mode: 0o700 },
+      );
+      const program = `
+import * as fs from "node:fs";
+import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
+import * as Option from "effect/Option";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+const { makeLocatorSourceView } = await import(process.argv[1]);
+const providers = {
+  find: () => Effect.die("unused"),
+  resolveNamedRegistry: () => Effect.die("unused"),
+  fetch: () => Effect.die("unused"),
+  cloneUrl: () => Option.none(),
+  origin: () => "fixture",
+};
+const source = {
+  type: "git",
+  url: new URL("https://example.test/repo.git"),
+  ref: Option.none(),
+  subPath: Option.none(),
+};
+const options = { type: "skill", names: [], owner: Option.none(), versionRange: Option.none() };
+await Effect.runPromise(
+  Effect.scoped(Effect.gen(function* () {
+    const view = yield* makeLocatorSourceView(providers, 7);
+    const fiber = yield* view.find(source, options).pipe(Effect.forkChild);
+    yield* Effect.promise(async () => {
+      for (let attempt = 0; attempt < 500; attempt++) {
+        if (fs.existsSync(process.env.AXM_GIT_PROBE_PID)) return;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      throw new Error("Git child did not start");
+    });
+    yield* Fiber.interrupt(fiber);
+  })).pipe(Effect.provide(NodeServices.layer)),
+);
+`;
+      const discoveryUrl = new URL(
+        "../../../../dist/src/lifecycle/install/git-discovery.js",
+        import.meta.url,
+      ).href;
+      try {
+        execFileSync(process.execPath, ["--input-type=module", "-e", program, discoveryUrl], {
+          cwd: process.cwd(),
+          env: {
+            ...isolatedGitEnv(),
+            PATH: `${binDir}${path.delimiter}${process.env["PATH"] ?? ""}`,
+            AXM_GIT_PROBE_PID: pidPath,
+            AXM_GIT_PROBE_CHECKOUT: checkoutPath,
+          },
+          timeout: 10_000,
+          stdio: "pipe",
+        });
+        const pid = Number(fs.readFileSync(pidPath, "utf8").trim());
+        const checkout = fs.readFileSync(checkoutPath, "utf8").trim();
+        expect(() => process.kill(pid, 0)).toThrow();
+        expect(fs.existsSync(checkout)).toBe(false);
+      } finally {
+        if (fs.existsSync(pidPath)) {
+          const pid = Number(fs.readFileSync(pidPath, "utf8").trim());
+          try {
+            process.kill(pid);
+          } catch {
+            // The expected terminated child has already exited.
+          }
+        }
+      }
+    }),
+  );
+
   describe("getTreeSha", () => {
     it.effect("returns tree SHA for repository root", () =>
       Effect.gen(function* () {

@@ -230,6 +230,44 @@ describe("Sync preserves configuration and accepted resolutions", () => {
       }).pipe(Effect.provide(NodeServices.layer)),
   );
 
+  it.effect("repairs a stale Git projection without recopying current accepted content", () =>
+    Effect.gen(function* () {
+      const remote = yield* gitRepository();
+      cleanups.push(remote.cleanup);
+      const workspace = fixture({
+        agents: ["claude-code"],
+        skills: { [SKILL]: remote.url },
+      });
+      yield* workspace.provide(
+        Effect.gen(function* () {
+          expect(deriveOperationOutcome(expectResolved(yield* applySync()))).toBe("applied");
+          const canonicalFile = nodePath.join(
+            workspace.root,
+            "agent_extensions/git/@acme/skills",
+            SKILL,
+            "src/SKILL.md",
+          );
+          const retainedTime = new Date("2001-01-01T00:00:00.000Z");
+          fs.utimesSync(canonicalFile, retainedTime, retainedTime);
+          const before = fs.statSync(canonicalFile).mtimeMs;
+          const settings = workspace.readFile("axm.json");
+          const lock = workspace.readFile("axm-lock.yaml");
+
+          workspace.remove(CLAUDE_PROJECTION);
+          remote.replaceHistory();
+          expect(deriveOperationOutcome(expectResolved(yield* applySync()))).toBe("applied");
+          expect(workspace.readFile(`${CLAUDE_PROJECTION}/SKILL.md`)).toContain(
+            "Accepted guidance.",
+          );
+          expect(fs.statSync(canonicalFile).mtimeMs).toBe(before);
+          expect(workspace.readFile("axm.json")).toBe(settings);
+          expect(workspace.readFile("axm-lock.yaml")).toBe(lock);
+          expect((yield* applySync())._tag).toBe("AlreadyReconciled");
+        }),
+      );
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("refuses missing Git restoration when the accepted commit is unreachable", () =>
     Effect.gen(function* () {
       const remote = yield* gitRepository();

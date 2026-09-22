@@ -72,7 +72,13 @@ export const makeLocatorSourceView = (
             ),
             (created) => fs.remove(created, { recursive: true }).pipe(Effect.ignore),
           );
-          yield* shallowClone(key.url, directory, key.ref);
+          yield* shallowClone(key.url, directory, key.ref).pipe(
+            Effect.onExit((exit) =>
+              Exit.isFailure(exit)
+                ? fs.remove(directory, { recursive: true }).pipe(Effect.ignore)
+                : Effect.void,
+            ),
+          );
           return directory;
         }),
       capacity: candidateCount,

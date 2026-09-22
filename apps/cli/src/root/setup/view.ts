@@ -34,7 +34,7 @@ export const setupTitleDoc = (args: {
     _tag: "headline",
     tone: "neutral",
     text: emphatic(`${args.preview ? "Previewing setup" : "Setting up AXM"} in ${args.where}`),
-    aside: factParts([`${args.scope} scope`]),
+    aside: factParts([args.scope === "project" ? "for this project" : "for this user"]),
   },
 ];
 
@@ -46,7 +46,7 @@ export const setupAgentScanDoc = (scan: SetupAgentScan): Doc => [
   {
     _tag: "headline",
     tone: "ok",
-    text: "Scanned repo and machine",
+    text: "Checked for coding agents",
     aside: factParts([`found ${count(scan.detectedCount, "agent")}`]),
   },
   ...scan.retiredAgents.map(
@@ -175,7 +175,7 @@ const scopeLimitsDoc = (result: SetupOutcome): Doc => {
         {
           _tag: "callout",
           tone: "info",
-          title: `Some extension types are limited in ${result.scope} scope`,
+          title: `Some extension types are limited ${result.scope === "project" ? "for this project" : "for this user"}`,
           children: limits.map(
             (limit) => ({ _tag: "paragraph", tone: "dim", text: limit }) as const,
           ),
@@ -223,9 +223,9 @@ const agentsPhrase = (agents: number): string =>
 const previewDefaultPhrase = (result: SetupOutcome): string | undefined => {
   switch (result.previewDefaults?.agents) {
     case "detected":
-      return "detected agents";
+      return "using agents found here";
     case "suggested":
-      return "suggested agents";
+      return "using recommended agents";
     case "explicit":
     case undefined:
       return undefined;
@@ -268,7 +268,7 @@ export const setupResultDoc = (result: SetupOutcome, options: SetupResultOptions
           _tag: "headline",
           tone: "neutral",
           text: emphatic(`Would set up AXM ${agentsPhrase(result.agents.length)}`),
-          aside: factParts([previewDefaultPhrase(result), "nothing was written"]),
+          aside: factParts([previewDefaultPhrase(result), "no changes made"]),
         },
         ...next,
       ];

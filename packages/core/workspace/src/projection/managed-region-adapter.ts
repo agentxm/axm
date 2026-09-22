@@ -71,7 +71,7 @@ export const reconcileManagedRegionFile = (args: {
       return yield* new ProjectionTargetUnsupported({
         detail:
           args.unsupportedTargetDetail ??
-          `Managed-region target does not support comments: ${args.displayPath}`,
+          `AXM cannot add its section because ${args.displayPath} does not support comments`,
       });
     }
     const existed = yield* fs

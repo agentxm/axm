@@ -185,7 +185,7 @@ const collectPackConstraints = Effect.fn("SelectiveSkillUpdate.packConstraints")
   if (!graph.complete) {
     return yield* new ExtensionLifecycleFailed({
       category: "validation",
-      detail: "Cannot update skills while the desired pack graph is incomplete",
+      detail: "Cannot update skills because some pack manifests are missing or invalid",
     });
   }
   const constraintMap = new Map<string, Array<PackConstraint>>();

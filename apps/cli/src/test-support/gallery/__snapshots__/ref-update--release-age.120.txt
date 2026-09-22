@@ -1,0 +1,8 @@
+ ▲   1 newer release is still in the 24h waiting period
+     @acme/skills/reviewer: using 1.0.0; 2.0.0 was published 2026-09-21T16:44:17.865Z and becomes available
+     2026-09-22T16:44:17.865Z
+     Wait until the release becomes available, pin an older available version, or declare @acme/skills/reviewer in
+     minimumReleaseAgeExclude. To take it now for this run only, rerun axm update --ignore-release-age.
+ ▲   1 release allowed before the 24h minimum release age
+     @acme/packs/field-notes 1.0.0 — published 2026-09-21T16:44:17.865Z
+     Allowed by project minimumReleaseAgeExclude; otherwise held until 2026-09-22T16:44:17.865Z

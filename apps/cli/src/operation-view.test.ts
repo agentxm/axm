@@ -218,9 +218,7 @@ describe("plan ledger", () => {
     const text = paint(planDoc(mixedPlan, { mode: "preview", verbosity: "normal" }));
     const lines = text.split("\n");
     expect(lines[0]).toBe("Previewing sync  in this project");
-    expect(lines.at(-1)).toBe(
-      "Would sync 3 extensions  3 to sync - 1 already current - nothing was written",
-    );
+    expect(lines.at(-1)).toBe("Would sync 3 extensions  1 already current - no changes made");
   });
 
   it("marks each unit with its own change and folds the ones already current", () => {
@@ -279,7 +277,7 @@ describe("result ledger", () => {
     // Where the operation acted and for which agents is stated once, on the
     // title line, rather than repeated as a trailing aside.
     expect(lines[0]).toBe("Syncing  in this project - agents: claude-code, codex");
-    expect(lines.at(-1)).toBe("Synced 1 extension  1 applied");
+    expect(lines.at(-1)).toBe("Synced 1 extension");
     expect(text).toMatch(/~ {3}@acme\/skills\/triage\s+2\.0\.1\s+updated/);
   });
 
@@ -289,7 +287,7 @@ describe("result ledger", () => {
     expect(paint(doc)).toBe(" ok  Nothing to sync");
   });
 
-  it("reports what it will not touch after the ledger rather than in a row", () => {
+  it("reports what it left unchanged after the ledger rather than in a row", () => {
     const text = paint(
       operationDoc(
         resolutionOf([
@@ -308,7 +306,7 @@ describe("result ledger", () => {
         { verbosity: "normal" },
       ),
     );
-    expect(text).toContain("AXM will not touch 1 path");
+    expect(text).toContain("1 existing item was left unchanged");
     expect(text).toContain("AGENTS.md, prose AXM did not write");
     expect(text).not.toMatch(/- {3}@acme\/subagents\/reviewer.*AGENTS\.md/);
   });

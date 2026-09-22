@@ -2,11 +2,11 @@
   "$schema": "https://axm.sh/schemas/rule.schema.json",
   "owner": "@craigsmitham",
   "name": "field-notes",
-  "version": "0.2.4",
+  "version": "1.0.0",
   "type": "rule",
   "title": "Field notes",
   "priority": 200,
-  "description": "Capture factual feedback and meaningful observations from ordinary work, including first-attempt surprises and eventual outcomes, without derailing the task",
+  "description": "Capture meaningful friction from ordinary work as concise factual field notes without adding analysis or derailing the task",
   "keywords": [
     "field-notes",
     "observation",

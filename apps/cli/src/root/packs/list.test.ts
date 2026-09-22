@@ -128,7 +128,7 @@ describe("packs list.handler", () => {
             expect.objectContaining({
               cells: expect.arrayContaining([
                 "starter-pack",
-                "configured",
+                "managed by this workspace",
                 "@acme",
                 "1.0.0",
                 "test:@acme/packs/starter-pack",
@@ -137,7 +137,7 @@ describe("packs list.handler", () => {
             expect.objectContaining({
               cells: expect.arrayContaining([
                 "frontend-tools",
-                "configured",
+                "managed by this workspace",
                 "@team",
                 "2.3.1",
                 "test:@team/packs/frontend-tools",

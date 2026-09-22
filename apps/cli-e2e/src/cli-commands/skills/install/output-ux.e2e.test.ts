@@ -37,7 +37,7 @@ describe("axm skills install output UX", () => {
       // callout is what tells a reader nothing was materialized.
       expect(output).toContain("Installing  in this project");
       expect(output).not.toContain("agents:");
-      expect(output).toContain("No coding-agent targets were materialized");
+      expect(output).toContain("No coding agents received this change");
       expect(output).toContain("axm agents add --detected");
     } finally {
       temp.cleanup();

@@ -154,19 +154,25 @@ const findingRows = (
 const severityCounts = (
   counts: FindingCounts,
   options?: { readonly withInfos: boolean },
-): ReadonlyArray<Span> =>
-  (
+): ReadonlyArray<Span> => {
+  const present = (
     [
       { value: counts.errors, noun: "error", tone: "error" },
       { value: counts.warnings, noun: "warning", tone: "warn" },
       { value: options?.withInfos === false ? 0 : counts.infos, noun: "info", tone: "info" },
     ] as const
-  )
-    .filter((part) => part.value > 0)
-    .flatMap((part, index) => [
-      ...(index === 0 ? [] : [{ text: ", " }]),
-      { text: count(part.value, part.noun), tone: part.tone, bold: true },
-    ]);
+  ).filter((part) => part.value > 0);
+  return present.flatMap((part, index) => [
+    ...(index === 0
+      ? []
+      : [
+          {
+            text: index === present.length - 1 ? (present.length === 2 ? " and " : ", and ") : ", ",
+          },
+        ]),
+    { text: count(part.value, part.noun), tone: part.tone, bold: true },
+  ]);
+};
 
 const verdictTone = (counts: FindingCounts): Tone =>
   counts.errors > 0 ? "error" : counts.warnings > 0 ? "warn" : counts.infos > 0 ? "info" : "ok";
@@ -175,7 +181,7 @@ const exitPart = (exitCode: number): string | undefined =>
   exitCode === 0 ? undefined : exitPhrase(exitCode);
 
 const fixSuggestion = (fixable: number): SuggestedAction => ({
-  description: `apply the ${fixable === 1 ? "deterministic fix" : `${String(fixable)} deterministic fixes`}`,
+  description: `Apply ${fixable === 1 ? "the available automatic fix" : `${String(fixable)} available automatic fixes`}`,
   cmd: "axm lint --fix",
 });
 
@@ -197,9 +203,7 @@ const fixVerdict = (input: LintViewInput): DocNode => {
     tone: remaining.length === 0 ? "ok" : verdictTone({ ...input.counts, infos: 0 }),
     text: [
       { text: fixed, bold: true },
-      ...(remaining.length === 0
-        ? []
-        : [{ text: ", " }, ...remaining, { text: " still need you" }]),
+      ...(remaining.length === 0 ? [] : [{ text: "; " }, ...remaining, { text: " remain" }]),
     ],
     ...(aside === undefined ? {} : { aside: factParts([aside]) }),
   };

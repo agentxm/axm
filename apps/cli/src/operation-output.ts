@@ -738,6 +738,14 @@ const releaseAgeWindowLabel = (records: ReadonlyArray<ReleaseAgeRecordView>): st
     : "minimum release age";
 };
 
+const releaseAgeWaitingPeriodLabel = (records: ReadonlyArray<ReleaseAgeRecordView>): string => {
+  const windows = new Set(records.map((record) => record.minimumReleaseAgeSeconds));
+  const [only] = windows;
+  return windows.size === 1 && only !== undefined
+    ? `${formatMinimumReleaseAgeSeconds(only)} waiting period`
+    : "minimum release-age waiting period";
+};
+
 const releaseAgeRequiredBy = (record: ReleaseAgeRecordView): string => {
   const root = record.dependencyPath[0];
   return root === undefined || root === record.target ? "" : ` (required by ${root})`;
@@ -745,19 +753,21 @@ const releaseAgeRequiredBy = (record: ReleaseAgeRecordView): string => {
 
 const releaseAgeExemption = (record: ReleaseAgeRecordView): string =>
   record.bypassCause === "exclude"
-    ? `exempt via minimumReleaseAgeExclude in ${record.exemptionScope ?? "unknown"} settings`
-    : "exempt via --ignore-release-age (this run only)";
+    ? `Allowed by ${record.exemptionScope ?? "unknown"} minimumReleaseAgeExclude`
+    : "Allowed by --ignore-release-age for this run";
 
 const releaseAgeHoldbackLine = (record: ReleaseAgeRecordView): string => {
   const kept = record.selectedVersion ?? record.currentVersion;
-  const held = `${record.candidateVersion}${releaseAgeRequiredBy(record)} published ${record.publishedAt}, eligible ${record.eligibleAt}`;
+  const candidate = `${record.candidateVersion}${releaseAgeRequiredBy(record)}`;
   return kept === undefined
-    ? `${record.target} ${held}`
-    : `${record.target} kept at ${kept} — ${held}`;
+    ? `${record.target} ${candidate} was published ${record.publishedAt} and becomes available ${record.eligibleAt}`
+    : `${record.target}: using ${kept}; ${candidate} was published ${record.publishedAt} and becomes available ${record.eligibleAt}`;
 };
 
-const releaseAgeBypassLine = (record: ReleaseAgeRecordView): string =>
-  `Selected ${record.target} ${record.candidateVersion}${releaseAgeRequiredBy(record)} ahead of its eligibility at ${record.eligibleAt} (published ${record.publishedAt}) — ${releaseAgeExemption(record)}`;
+const releaseAgeBypassLines = (record: ReleaseAgeRecordView): ReadonlyArray<string> => [
+  `${record.target} ${record.candidateVersion}${releaseAgeRequiredBy(record)} — published ${record.publishedAt}`,
+  `${releaseAgeExemption(record)}; otherwise held until ${record.eligibleAt}`,
+];
 
 /**
  * The invocation an operator would repeat, derived from the command that
@@ -776,12 +786,15 @@ const releaseAgeRecoveryText = (
     targets.length === 1
       ? `declare ${targets[0]} in minimumReleaseAgeExclude`
       : "declare them in minimumReleaseAgeExclude";
-  return `Wait for the eligible time, pin an eligible version, or ${exemption}. To take ${
+  return `Wait until the release becomes available, pin an older available version, or ${exemption}. To take ${
     targets.length === 1 ? "it" : "them"
   } now for this run only, rerun ${emittingInvocation(command)} --ignore-release-age.`;
 };
 
-const releaseAgeDoc = (command: string, result: PlanResolutionResult): Doc => {
+export const releaseAgeDoc = (
+  command: string,
+  result: Pick<PlanResolutionResult, "holdbacks" | "releaseAgeBypasses">,
+): Doc => {
   const holdbacks = result.holdbacks ?? [];
   const bypasses = result.releaseAgeBypasses ?? [];
   return [
@@ -791,7 +804,7 @@ const releaseAgeDoc = (command: string, result: PlanResolutionResult): Doc => {
           {
             _tag: "callout",
             tone: "warn",
-            title: `${count(holdbacks.length, "newer release")} held by the ${releaseAgeWindowLabel(holdbacks)}`,
+            title: `${count(holdbacks.length, "newer release")} ${holdbacks.length === 1 ? "is" : "are"} still in the ${releaseAgeWaitingPeriodLabel(holdbacks)}`,
             children: [
               ...holdbacks.map(
                 (holdback) =>
@@ -813,13 +826,15 @@ const releaseAgeDoc = (command: string, result: PlanResolutionResult): Doc => {
           {
             _tag: "callout",
             tone: "warn",
-            title: `${count(bypasses.length, "release")} skipped the ${releaseAgeWindowLabel(bypasses)}`,
-            children: bypasses.map(
-              (bypass) =>
-                ({
-                  _tag: "paragraph",
-                  text: releaseAgeBypassLine(bypass),
-                }) as const,
+            title: `${count(bypasses.length, "release")} allowed before the ${releaseAgeWindowLabel(bypasses)}`,
+            children: bypasses.flatMap((bypass) =>
+              releaseAgeBypassLines(bypass).map(
+                (line) =>
+                  ({
+                    _tag: "paragraph",
+                    text: line,
+                  }) as const,
+              ),
             ),
           } as const,
         ]),

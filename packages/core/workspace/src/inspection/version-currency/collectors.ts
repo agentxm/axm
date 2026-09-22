@@ -169,7 +169,8 @@ const collectCurrency = (extensionType: ExtensionType, client: RegistryClient) =
     if (!graph.complete) {
       return yield* new WorkspaceInspectionFailed({
         category: "validation",
-        detail: "Cannot assess extension currency while the desired pack graph is incomplete",
+        detail:
+          "Cannot check for extension updates because some pack manifests are missing or invalid",
       });
     }
     const accepted = yield* Effect.forEach(
@@ -316,7 +317,7 @@ const collectSourceFreshness = (args: { readonly extensionType: ExtensionType })
     if (!graph.complete) {
       return yield* new WorkspaceInspectionFailed({
         category: "validation",
-        detail: "Cannot assess source freshness while the desired pack graph is incomplete",
+        detail: "Cannot check source freshness because some pack manifests are missing or invalid",
       });
     }
     const accepted = yield* Effect.forEach(

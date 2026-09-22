@@ -97,19 +97,19 @@ export const workspaceStateReadFailureToStepFailure = (
       return new StepFailure({
         category: "validation",
         detail: older
-          ? `Workspace lockfile at ${error.path} declares version ${error.observedVersion}, but this AXM supports version ${error.supportedVersion}. Re-accept the workspace intent into the current format before continuing.`
+          ? `Workspace lockfile at ${error.path} uses version ${error.observedVersion}, but this AXM uses version ${error.supportedVersion}. Back up and regenerate the lockfile before continuing.`
           : `Workspace lockfile at ${error.path} declares version ${error.observedVersion}, but this AXM supports version ${error.supportedVersion}. This workspace requires a newer AXM.`,
         suggestions: older
           ? [
               {
                 description:
-                  "Preserve the incompatible lockfile outside its authoritative path, review the desired workspace intent, then remove the incompatible file.",
+                  "Back up the incompatible lockfile outside the workspace, review axm.json, then remove the incompatible file.",
               },
               {
-                description: "Preview fresh resolution in the supported lockfile format.",
+                description: "Preview a new lockfile in the supported format.",
                 cmd: "axm sync --preview",
               },
-              { description: "Apply the reviewed resolution.", cmd: "axm sync" },
+              { description: "Apply the previewed workspace changes.", cmd: "axm sync" },
             ]
           : [{ description: "Upgrade AXM before accessing this workspace." }],
         cause: error,
@@ -118,7 +118,7 @@ export const workspaceStateReadFailureToStepFailure = (
     case "WorkspaceRootEscape":
       return new StepFailure({
         category: "internal",
-        detail: `Failed to read workspace workspace`,
+        detail: "Failed to read the workspace because its root escaped the allowed directory",
         cause: error,
       });
   }

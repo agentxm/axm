@@ -54,15 +54,15 @@ export const packageMaterializationFailedToAppError = (
   const detail = (): string => {
     switch (error.step) {
       case "recover":
-        return `Failed to recover interrupted canonical materialization at ${error.path}`;
+        return `Failed to recover an interrupted package installation at ${error.path}`;
       case "prepare-parent":
-        return `Failed to prepare canonical package parent for ${error.path}`;
+        return `Failed to prepare the package location for ${error.path}`;
       case "prepare-staging":
-        return `Failed to prepare canonical package staging at ${error.path}`;
+        return `Failed to prepare temporary package files at ${error.path}`;
       case "inspect":
-        return `Failed to inspect canonical package at ${error.path}`;
+        return `Failed to inspect the installed package at ${error.path}`;
       case "replace":
-        return `Failed to replace canonical package at ${error.path}`;
+        return `Failed to replace the installed package at ${error.path}`;
       case "inspect-create-destination":
         return `Failed to inspect create-only destination: ${error.path}`;
     }
@@ -153,8 +153,8 @@ export const ruleInstallStateMissingToAppError = (error: RuleInstallStateMissing
     code: "internal",
     detail:
       error.kind === "tree-integrity"
-        ? `Rule ${error.name} has no materialized tree integrity`
-        : `Rule ${error.name} has no materialized content identity`,
+        ? `Installed files for rule ${error.name} could not be verified`
+        : `Installed content for rule ${error.name} could not be identified`,
   });
 
 /** Translate an invalid hook definition; the site owns the fact sentence. */
@@ -171,8 +171,8 @@ export const hookInstallStateMissingToAppError = (error: HookInstallStateMissing
     code: "internal",
     detail:
       error.kind === "tree-integrity"
-        ? `Hook ${error.name} has no materialized tree integrity`
-        : `Hook ${error.name} has no materialized content identity`,
+        ? `Installed files for hook ${error.name} could not be verified`
+        : `Installed content for hook ${error.name} could not be identified`,
   });
 
 /** Translate a transient-backup failure, reproducing each step's detail. */
@@ -202,15 +202,15 @@ export const subagentInstallStateMissingToAppError = (
     code: "internal",
     detail:
       error.kind === "content-identity"
-        ? `Subagent ${error.name} has no materialized content identity`
-        : `Subagent ${error.name} did not produce an external resolution`,
+        ? `Installed content for subagent ${error.name} could not be identified`
+        : `Subagent ${error.name} has no locked source`,
   });
 
 /** Translate missing MCP install state. */
 export const mcpInstallStateMissingToAppError = (error: McpInstallStateMissing): AppError =>
   makeAppError({
     code: "internal",
-    detail: `MCP server ${error.name} has no materialized tree integrity`,
+    detail: `Installed files for MCP server ${error.name} could not be verified`,
   });
 
 /** Translate a local MCP connection name that already stands for another source. */
@@ -284,11 +284,11 @@ export const skillInstallStateMissingToAppError = (error: SkillInstallStateMissi
   const detail = (): string => {
     switch (error.kind) {
       case "tree-integrity":
-        return `Skill ${error.name} has no materialized tree integrity`;
+        return `Installed files for skill ${error.name} could not be verified`;
       case "content-identity":
-        return `Skill ${error.name} has no materialized content identity`;
+        return `Installed content for skill ${error.name} could not be identified`;
       case "external-resolution":
-        return `Skill ${error.name} did not produce an external resolution`;
+        return `Skill ${error.name} has no locked source`;
     }
   };
   return makeAppError({ code: "internal", detail: detail() });
@@ -306,7 +306,7 @@ export const packDefinitionInvalidToAppError = (error: PackDefinitionInvalid): A
 export const packInstallStateMissingToAppError = (error: PackInstallStateMissing): AppError =>
   makeAppError({
     code: "internal",
-    detail: `Pack ${error.name} has no materialized tree integrity`,
+    detail: `Installed files for pack ${error.name} could not be verified`,
   });
 
 /** Translate a pack archive fetch failure. */
@@ -344,11 +344,11 @@ export const knowledgeInstallStateMissingToAppError = (
   const detail = (): string => {
     switch (error.kind) {
       case "tree-integrity":
-        return `Knowledge ${error.name} has no materialized tree integrity`;
+        return `Installed files for Knowledge bundle ${error.name} could not be verified`;
       case "content-identity":
-        return `Knowledge ${error.name} has no materialized content identity`;
+        return `Installed content for Knowledge bundle ${error.name} could not be identified`;
       case "staged-tree-integrity":
-        return `Knowledge ${error.name} has no staged tree integrity`;
+        return `Prepared files for Knowledge bundle ${error.name} could not be verified`;
     }
   };
   return makeAppError({ code: "internal", detail: detail() });
@@ -358,7 +358,7 @@ export const knowledgeInstallStateMissingToAppError = (
 export const knowledgeResolutionMissingToAppError = (error: KnowledgeResolutionMissing): AppError =>
   makeAppError({
     code: "conflict",
-    detail: `Active external Knowledge bundle has no accepted resolution: ${error.name}`,
+    detail: `AXM has no locked version for active Knowledge bundle ${error.name}`,
   });
 
 /** Translate an unreconcilable Knowledge desired-state graph. */
@@ -368,7 +368,7 @@ export const knowledgeDesiredStateUnreconcilableToAppError = (
   makeAppError({
     code: "conflict",
     detail:
-      "Knowledge desired state cannot be reconciled until pack and declaration problems are fixed",
+      "AXM could not determine which Knowledge bundles should be installed because some pack or axm.json entries are invalid",
   });
 
 /** Translate unrestorable locked Knowledge content; the site owns the sentence. */

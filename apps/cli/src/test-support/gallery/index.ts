@@ -41,12 +41,14 @@ import { refPublishBlocked } from "./ref-publish--blocked.js";
 import { refPublishNothingSelected } from "./ref-publish--nothing-selected.js";
 import { refPublishPartial } from "./ref-publish--partial.js";
 import { refPublishPlan } from "./ref-publish--plan.js";
+import { refPublishPreflightFailed } from "./ref-publish--preflight-failed.js";
 import { refPublishSettled } from "./ref-publish--settled.js";
 import { refPublishVerbose } from "./ref-publish--verbose.js";
 import { refSyncMixedOperations } from "./ref-sync--mixed-operations.js";
 import { refSyncNothingToDo } from "./ref-sync--nothing-to-do.js";
 import { refSyncUninstallKeptReference } from "./ref-sync--uninstall-kept-reference.js";
 import { refSyncVerboseChildren } from "./ref-sync--verbose-children.js";
+import { refUpdateReleaseAge } from "./ref-update--release-age.js";
 import { widthGateFourWidths } from "./width-gate--four-widths.js";
 import { widthKeepLongNames } from "./width-keep--long-names.js";
 import { widthKeepNeverCut } from "./width-keep--never-cut.js";
@@ -76,6 +78,7 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
   { _tag: "document", name: "ref-sync--mixed-operations", doc: refSyncMixedOperations },
   { _tag: "document", name: "ref-sync--verbose-children", doc: refSyncVerboseChildren },
   { _tag: "document", name: "ref-sync--nothing-to-do", doc: refSyncNothingToDo },
+  { _tag: "document", name: "ref-update--release-age", doc: refUpdateReleaseAge },
   {
     _tag: "document",
     name: "ref-sync--uninstall-kept-reference",
@@ -101,6 +104,11 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
   { _tag: "document", name: "ref-publish--blocked", doc: refPublishBlocked },
   { _tag: "document", name: "ref-publish--verbose", doc: refPublishVerbose },
   { _tag: "document", name: "ref-publish--partial", doc: refPublishPartial },
+  {
+    _tag: "document",
+    name: "ref-publish--preflight-failed",
+    doc: refPublishPreflightFailed,
+  },
   {
     _tag: "document",
     name: "ref-publish--already-published",

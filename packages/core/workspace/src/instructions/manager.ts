@@ -506,7 +506,7 @@ export const RuleManagerLive = Layer.effect(
             generation,
             ...(args.dryRun === undefined ? {} : { dryRun: args.dryRun }),
             writeWhenMissing: true,
-            unsupportedTargetDetail: `Instruction source does not support managed regions: ${target.relative}`,
+            unsupportedTargetDetail: `AXM cannot add its instruction section because ${target.relative} does not support comments`,
           }),
         );
         const { changed, observedRegion } = reconciliation;

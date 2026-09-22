@@ -67,6 +67,9 @@ const alreadyPublishedVerdict = (existing: ReadonlyArray<PlacedPublication>): st
     : `All ${String(existing.length)} selected versions are already published and verified`;
 };
 
+const preflightFailureVerdict = (failed: number): string =>
+  `AXM found ${failed === 1 ? "a problem" : "problems"} in ${count(failed, "extension")} before publishing`;
+
 export const publishVerdictOf = (
   result: PublishResult,
   placed: ReadonlyArray<PlacedPublication>,
@@ -118,7 +121,7 @@ export const publishVerdictOf = (
     if (failed.length > 0) {
       return {
         tone: "error",
-        verdict: `Publish preflight failed for ${count(failed.length, "extension")}`,
+        verdict: preflightFailureVerdict(failed.length),
         aside: ["nothing was uploaded", ...problemAside],
       };
     }
@@ -150,10 +153,11 @@ export const publishVerdictOf = (
   if (failed.length > 0) {
     const label = failed.some((entry) => entry.item.phase === "upload_execution")
       ? "Publish failed"
-      : "Publish preflight failed";
+      : preflightFailureVerdict(failed.length);
     return {
       tone: "error",
-      verdict: `${label} for ${count(failed.length, "extension")}`,
+      verdict:
+        label === "Publish failed" ? `${label} for ${count(failed.length, "extension")}` : label,
       aside: problemAside,
     };
   }

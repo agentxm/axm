@@ -22,7 +22,7 @@ import { makeAppError, type AppError } from "../app-error.js";
 export const desiredStateIncompleteToAppError = (error: DesiredStateIncomplete): AppError =>
   makeAppError({
     code: "conflict",
-    detail: `Desired state cannot be enumerated completely; fix pack and declaration problems first: ${error.problems}`,
+    detail: `AXM could not determine what should be installed because some pack or axm.json entries are invalid: ${error.problems}`,
   });
 
 /** Translate a workspace-authored contributor in a user workspace. */
@@ -45,14 +45,14 @@ export const contributorIdentityInvalidToAppError = (error: ContributorIdentityI
 export const contributorUnresolvedToAppError = (error: ContributorUnresolved): AppError =>
   makeAppError({
     code: "conflict",
-    detail: `Active ${error.type} has no accepted resolution: ${error.name}`,
+    detail: `AXM has no locked version for active ${error.type} ${error.name}`,
   });
 
 /** Translate a contributor tree drifted from its accepted lock entry. */
 export const contributorTreeMismatchToAppError = (error: ContributorTreeMismatch): AppError =>
   makeAppError({
     code: "conflict",
-    detail: `Materialized package tree does not match the accepted lock entry: ${error.packageRoot}`,
+    detail: `Installed package files differ from axm-lock.yaml: ${error.packageRoot}`,
     suggestions: [
       {
         description:
@@ -70,10 +70,7 @@ export const projectionTargetUnsupportedToAppError = (
 export const managedRegionViolationToAppError = (error: ManagedRegionViolation): AppError =>
   makeAppError({
     code: "conflict",
-    detail:
-      error.reason === undefined
-        ? `Cannot reconcile managed region: ${error.displayPath}`
-        : `${error.reason}: ${error.displayPath}`,
+    detail: `AXM cannot safely update its section in ${error.displayPath}${error.reason === undefined ? "" : `: ${error.reason}`}`,
   });
 
 /** Translate a managed-region filesystem failure, reproducing each step's detail. */
@@ -81,11 +78,11 @@ export const projectionIoFailedToAppError = (error: ProjectionIoFailed): AppErro
   const detail = (): string => {
     switch (error.step) {
       case "inspect":
-        return `Failed to inspect managed-region target: ${error.path}`;
+        return `Failed to inspect AXM's section in ${error.path}`;
       case "read":
-        return `Failed to read managed-region target: ${error.path}`;
+        return `Failed to read AXM's section in ${error.path}`;
       case "reconcile":
-        return `Failed to reconcile managed-region target: ${error.path}`;
+        return `Failed to update AXM's section in ${error.path}`;
     }
   };
   return makeAppError({ code: "internal", detail: detail(), cause: error.cause });

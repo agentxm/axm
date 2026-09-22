@@ -20,7 +20,7 @@ export const pathTraversalDetectedToAppError = (error: PathTraversalDetected): A
 export const materializedTreeInvalidToAppError = (error: MaterializedTreeInvalid): AppError =>
   makeAppError({
     code: "validation",
-    detail: `Invalid materialized package tree at ${error.root}: ${error.reason}`,
+    detail: `Installed package files are invalid at ${error.root}: ${error.reason}`,
     ...(error.cause === undefined ? {} : { cause: error.cause }),
   });
 

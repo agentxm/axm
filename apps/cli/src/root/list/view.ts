@@ -14,7 +14,7 @@ import {
   type Text,
   type ViewColumn,
 } from "../../screen/index.js";
-import { extensionTypeText } from "../inventory-view.js";
+import { extensionTypeText, inventoryLifecycle } from "../inventory-view.js";
 
 interface ListTableRow {
   readonly extension: string;
@@ -43,7 +43,11 @@ const ExtensionListColumns = [
   { header: "Type", value: (row: ListTableRow) => extensionTypeText(row.type) },
   {
     header: "Management",
-    value: (row: ListTableRow) => attention(row.management, row.management === "leftover"),
+    value: (row: ListTableRow) =>
+      attention(
+        inventoryLifecycle({ lifecycle: row.management, enabled: row.enabled }),
+        row.management === "leftover",
+      ),
   },
   {
     header: "Installed",
@@ -53,7 +57,19 @@ const ExtensionListColumns = [
   { header: "Source", priority: "optional", value: (row: ListTableRow) => row.source },
   {
     header: "Assessment",
-    value: (row: ListTableRow) => attention(row.state, row.state === "deprecated"),
+    value: (row: ListTableRow) =>
+      attention(
+        row.state === "not-checked"
+          ? "not checked"
+          : row.state === "not-applicable"
+            ? "not applicable"
+            : row.state === "available"
+              ? "update available"
+              : row.state === "changed"
+                ? "source changed"
+                : row.state,
+        row.state === "deprecated",
+      ),
   },
   { header: "Guidance", priority: "optional", value: (row: ListTableRow) => row.guidance },
 ] satisfies ReadonlyArray<ViewColumn<ListTableRow>>;
@@ -133,7 +149,7 @@ export const emptyInventoryDoc = (state: EmptyInventory): Doc => {
         ...suggestionsDoc([{ description: "Find recommended extensions", cmd: "axm discover" }]),
       ];
     case "empty-user":
-      return paragraphDoc("No extensions installed at user scope.");
+      return paragraphDoc("No extensions installed for this user.");
   }
 };
 

@@ -202,7 +202,9 @@ describe("packs activation", () => {
       if (failure._tag !== "StepFailure") throw failure;
 
       expect(failure.category).toBe("conflict");
-      expect(failure.detail).toContain("cannot be enumerated completely");
+      expect(failure.detail).toContain(
+        "could not determine what should be installed because some pack or axm.json entries are invalid",
+      );
     }),
   );
 

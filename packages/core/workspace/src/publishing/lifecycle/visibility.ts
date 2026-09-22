@@ -91,7 +91,9 @@ export const repositoryVisibilityIntent = Effect.fn("Visibility.repositoryIntent
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   if (layout.scope !== "project") {
-    return yield* Effect.fail(validation("Repository visibility intent requires project scope."));
+    return yield* Effect.fail(
+      validation("Repository visibility can be configured only for project workspaces."),
+    );
   }
   const manifestPath = path.join(
     layout.authoredRoot(parts.type),

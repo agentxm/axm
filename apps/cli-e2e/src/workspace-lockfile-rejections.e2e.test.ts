@@ -83,7 +83,7 @@ describe("workspace lockfile rejection diagnostics", () => {
         suggestions: [
           {
             description:
-              "Preserve the incompatible lockfile outside its authoritative path, review the desired workspace intent, then remove the incompatible file.",
+              "Back up the incompatible lockfile outside the workspace, review axm.json, then remove the incompatible file.",
           },
           { cmd: "axm sync --preview" },
           { cmd: "axm sync" },

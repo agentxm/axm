@@ -1,28 +1,28 @@
-4 skills (3 configured, 0 implicit, 3 installed, 0 leftover, 0 undeclared, 1 unmanaged)
+4 skills: 3 managed by this workspace, 3 installed, 1 found outside AXM
      Name                          @craigsmitham/effect-v4
-     State                         installed
+     State                         managed by this workspace
      Activation                    enabled
      Type                          registry
      Agents                        claude-code, codex, cursor, gemini-cli
-     Agent outcomes                claude-code:projected, codex:projected, cursor:projected, gemini-cli:projected
+     Agent outcomes                claude-code: available, codex: available, cursor: available, gemini-cli: available
 
      Name                          @craigsmitham/field-notes
-     State                         installed
+     State                         managed by this workspace
      Activation                    enabled
      Type                          registry
      Agents                        claude-code, codex
-     Agent outcomes                claude-code:projected, codex:current
+     Agent outcomes                claude-code: available, codex: already available
 
      Name                          @agentxm/knowledge/agentxm
-     State                         installed
+     State                         managed by this workspace
      Activation                    disabled
      Type                          registry
      Agents                        none
      Agent outcomes                none
 
      Name                          local-notes
-     State                         detected
-     Activation                    n/a
+     State                         outside AXM
+     Activation                    not applicable
      Type                          detected
      Agents                        none
      Agent outcomes                none

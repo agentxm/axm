@@ -94,16 +94,19 @@ export const startLifecycleRegistry = async (
         response.end(method === "HEAD" ? undefined : body);
       }
     };
-    if (method !== "GET" && method !== "HEAD") {
+    const sendProblem = (status: number, title: string, code: string): void => {
       send(
-        405,
-        JSON.stringify({ title: "Method not allowed", status: 405 }),
+        status,
+        JSON.stringify({ type: "about:blank", title, status, detail: title, code }),
         "application/problem+json",
       );
+    };
+    if (method !== "GET" && method !== "HEAD") {
+      sendProblem(405, "Method not allowed", "method_not_allowed");
       return;
     }
     if (segments.length < 5 || segments[0] !== "v1" || segments[1] !== "extensions") {
-      send(404, JSON.stringify({ title: "Not found", status: 404 }), "application/problem+json");
+      sendProblem(404, "Not found", "not_found");
       return;
     }
     const owner = segments[2];
@@ -115,24 +118,20 @@ export const startLifecycleRegistry = async (
       name === undefined ||
       !/^bench-(?:\d{3}|pack-[ab])$/.test(name)
     ) {
-      send(404, JSON.stringify({ title: "Not found", status: 404 }), "application/problem+json");
+      sendProblem(404, "Not found", "not_found");
       return;
     }
     const directory = path.join(fixtureRoot, "extensions", owner, plural, name);
     const indexPath = path.join(directory, "index.json");
     if (!fs.existsSync(indexPath)) {
-      send(404, JSON.stringify({ title: "Not found", status: 404 }), "application/problem+json");
+      sendProblem(404, "Not found", "not_found");
       return;
     }
     try {
       const index = indexBody(indexPath);
       if (segments.length === 5) {
         if (failNextMetadata.delete(name)) {
-          send(
-            503,
-            JSON.stringify({ title: "Temporary fixture failure", status: 503 }),
-            "application/problem+json",
-          );
+          sendProblem(503, "Temporary fixture failure", "service_unavailable");
           return;
         }
         send(200, JSON.stringify(index), "application/json");
@@ -140,17 +139,13 @@ export const startLifecycleRegistry = async (
       }
       const version = segments[5];
       if (version === undefined || !/^\d+\.\d+\.\d+$/.test(version)) {
-        send(404, JSON.stringify({ title: "Not found", status: 404 }), "application/problem+json");
+        sendProblem(404, "Not found", "not_found");
         return;
       }
       if (segments.length === 7 && segments[6] === "archive") {
         const archivePath = path.join(directory, `${version}.zip`);
         if (!fs.existsSync(archivePath)) {
-          send(
-            404,
-            JSON.stringify({ title: "Not found", status: 404 }),
-            "application/problem+json",
-          );
+          sendProblem(404, "Not found", "not_found");
           return;
         }
         send(200, fs.readFileSync(archivePath), "application/zip", true);
@@ -178,13 +173,9 @@ export const startLifecycleRegistry = async (
           return;
         }
       }
-      send(404, JSON.stringify({ title: "Not found", status: 404 }), "application/problem+json");
+      sendProblem(404, "Not found", "not_found");
     } catch {
-      send(
-        500,
-        JSON.stringify({ title: "Fixture failure", status: 500 }),
-        "application/problem+json",
-      );
+      sendProblem(500, "Fixture failure", "fixture_failure");
     }
   });
   await new Promise<void>((resolve, reject) => {

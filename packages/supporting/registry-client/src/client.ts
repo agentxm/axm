@@ -38,6 +38,10 @@ import type { DeprecationView } from "@agentxm/extension-model/unstable/extensio
 import type { ArchivalView } from "@agentxm/extension-model/unstable/extensions/archival";
 import type { Bugs, Repository } from "@agentxm/extension-model/unstable/extensions/common";
 import type { DiscoverPackagesResponse } from "@agentxm/registry-protocol/unstable/registry/discover-schema";
+import type {
+  ResolutionMetadataOutcome,
+  ResolutionMetadataRequest,
+} from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
 import type { AgentExtensionRecommendation } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 import { stripFileProtocol } from "./fs-helpers.js";
@@ -378,6 +382,10 @@ export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionTy
  * @experimental This API is unstable and may change without notice.
  */
 export interface RegistryClient {
+  /** Available for remote registries that support the batched resolution contract. */
+  readonly getResolutionMetadata?: (
+    request: ResolutionMetadataRequest,
+  ) => Effect.Effect<ReadonlyArray<ResolutionMetadataOutcome>, RegistryClientFailure>;
   readonly getExtensionsByScope: (
     args: GetExtensionsByOwnerArgs,
   ) => Effect.Effect<GetExtensionsByOwnerResponse, RegistryClientFailure>;

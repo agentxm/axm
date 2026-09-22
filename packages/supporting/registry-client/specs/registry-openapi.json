@@ -1141,6 +1141,21 @@
               ]
             },
             "required": false
+          },
+          {
+            "name": "filter[name]",
+            "in": "query",
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ExtensionName"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "required": false
           }
         ],
         "security": [
@@ -3377,6 +3392,412 @@
         "summary": "Evaluate extension visibility"
       }
     },
+    "/v1/extensions/{owner}/{type}/{name}/archival": {
+      "get": {
+        "tags": ["Extensions"],
+        "operationId": "Extensions.getArchival",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/Handle"
+            },
+            "required": true
+          },
+          {
+            "name": "type",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/ExtensionTypePlural"
+            },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/ExtensionName"
+            },
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ArchivalManagementView",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchivalManagementView"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecodeErrorResponseEncoded"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenErrorEncoded"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ServiceUnavailableError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Get extension archival"
+      },
+      "put": {
+        "tags": ["Extensions"],
+        "operationId": "Extensions.putArchival",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/Handle"
+            },
+            "required": true
+          },
+          {
+            "name": "type",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/ExtensionTypePlural"
+            },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/ExtensionName"
+            },
+            "required": true
+          },
+          {
+            "name": "if-match",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ArchivalTransition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchivalTransition"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "InvalidRequestError | DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DecodeErrorResponseEncoded"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenErrorEncoded"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "LifecycleBlockedError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LifecycleBlockedErrorEncoded"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "PreconditionFailedError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreconditionFailedErrorEncoded"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ServiceUnavailableError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Archive or edit an archived extension",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PutArchivalBody"
+              }
+            }
+          },
+          "required": true
+        }
+      },
+      "delete": {
+        "tags": ["Extensions"],
+        "operationId": "Extensions.deleteArchival",
+        "parameters": [
+          {
+            "name": "owner",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/Handle"
+            },
+            "required": true
+          },
+          {
+            "name": "type",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/ExtensionTypePlural"
+            },
+            "required": true
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/ExtensionName"
+            },
+            "required": true
+          },
+          {
+            "name": "if-match",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ArchivalTransition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchivalTransition"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "InvalidRequestError | DecodeErrorResponse",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DecodeErrorResponseEncoded"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "ForbiddenError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForbiddenErrorEncoded"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NotFoundError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "LifecycleBlockedError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LifecycleBlockedErrorEncoded"
+                }
+              }
+            }
+          },
+          "412": {
+            "description": "PreconditionFailedError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreconditionFailedErrorEncoded"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "ServiceUnavailableError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Unarchive an extension"
+      }
+    },
     "/v1/extensions/{owner}/{type}/{name}/deprecation": {
       "get": {
         "tags": ["Extensions"],
@@ -3807,412 +4228,6 @@
           }
         },
         "summary": "Restore a deprecated extension"
-      }
-    },
-    "/v1/extensions/{owner}/{type}/{name}/archival": {
-      "get": {
-        "tags": ["Extensions"],
-        "operationId": "Extensions.getArchival",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": {
-              "$ref": "#/components/schemas/Handle"
-            },
-            "required": true
-          },
-          {
-            "name": "type",
-            "in": "path",
-            "schema": {
-              "$ref": "#/components/schemas/ExtensionTypePlural"
-            },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": {
-              "$ref": "#/components/schemas/ExtensionName"
-            },
-            "required": true
-          }
-        ],
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "ArchivalManagementView",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ArchivalManagementView"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponseEncoded"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "InternalError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "ServiceUnavailableError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Get extension archival"
-      },
-      "put": {
-        "tags": ["Extensions"],
-        "operationId": "Extensions.putArchival",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": {
-              "$ref": "#/components/schemas/Handle"
-            },
-            "required": true
-          },
-          {
-            "name": "type",
-            "in": "path",
-            "schema": {
-              "$ref": "#/components/schemas/ExtensionTypePlural"
-            },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": {
-              "$ref": "#/components/schemas/ExtensionName"
-            },
-            "required": true
-          },
-          {
-            "name": "if-match",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            },
-            "required": true
-          }
-        ],
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "ArchivalTransition",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ArchivalTransition"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ProblemDetails"
-                    },
-                    {
-                      "$ref": "#/components/schemas/DecodeErrorResponseEncoded"
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "LifecycleBlockedError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LifecycleBlockedErrorEncoded"
-                }
-              }
-            }
-          },
-          "412": {
-            "description": "PreconditionFailedError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PreconditionFailedErrorEncoded"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "InternalError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "ServiceUnavailableError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Archive or edit an archived extension",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PutArchivalBody"
-              }
-            }
-          },
-          "required": true
-        }
-      },
-      "delete": {
-        "tags": ["Extensions"],
-        "operationId": "Extensions.deleteArchival",
-        "parameters": [
-          {
-            "name": "owner",
-            "in": "path",
-            "schema": {
-              "$ref": "#/components/schemas/Handle"
-            },
-            "required": true
-          },
-          {
-            "name": "type",
-            "in": "path",
-            "schema": {
-              "$ref": "#/components/schemas/ExtensionTypePlural"
-            },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": {
-              "$ref": "#/components/schemas/ExtensionName"
-            },
-            "required": true
-          },
-          {
-            "name": "if-match",
-            "in": "header",
-            "schema": {
-              "type": "string"
-            },
-            "required": true
-          }
-        ],
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "ArchivalTransition",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ArchivalTransition"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "InvalidRequestError | DecodeErrorResponse",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/ProblemDetails"
-                    },
-                    {
-                      "$ref": "#/components/schemas/DecodeErrorResponseEncoded"
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "UnauthorizedError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "ForbiddenError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ForbiddenErrorEncoded"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "LifecycleBlockedError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LifecycleBlockedErrorEncoded"
-                }
-              }
-            }
-          },
-          "412": {
-            "description": "PreconditionFailedError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PreconditionFailedErrorEncoded"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "InternalError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "ServiceUnavailableError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          }
-        },
-        "summary": "Unarchive an extension"
       }
     },
     "/v1/extensions/{owner}/{type}/{name}/{version}/yank": {
@@ -4899,6 +4914,135 @@
         "summary": "Preview permanent Extension deletion impact"
       }
     },
+    "/v1/resolutions/metadata": {
+      "post": {
+        "tags": ["Resolutions"],
+        "operationId": "Resolutions.postMetadata",
+        "parameters": [],
+        "security": [
+          {},
+          {
+            "bearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ResolutionMetadataResponse",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolutionMetadataResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "DecodeErrorResponse",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "invalid-request",
+                        "unsupported-schema-version",
+                        "unsupported-selection-policy-version"
+                      ]
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["code", "detail"],
+                  "additionalProperties": false
+                }
+              },
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecodeErrorResponseEncoded"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "UnauthorizedError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": ["request-too-large", "response-too-large"]
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["code", "detail"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "InternalError",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "enum": ["backend-unavailable"]
+                    },
+                    "detail": {
+                      "type": "string"
+                    }
+                  },
+                  "required": ["code", "detail"],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        },
+        "description": "Repeat-safe authorized query. Responses are private and must not be stored by shared caches; errors use the resolution metadata protocol envelope.",
+        "summary": "Resolve current extension metadata in a batch",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolutionMetadataRequest"
+              }
+            }
+          },
+          "required": true
+        }
+      }
+    },
     "/v1/publish-previews": {
       "post": {
         "tags": ["PublishPreviews"],
@@ -5475,8 +5619,14 @@
                                     {
                                       "type": "object",
                                       "properties": {
-                                        "type": { "type": "string", "enum": ["registry"] },
-                                        "url": { "type": "string", "format": "uri" }
+                                        "type": {
+                                          "type": "string",
+                                          "enum": ["registry"]
+                                        },
+                                        "url": {
+                                          "type": "string",
+                                          "format": "uri"
+                                        }
                                       },
                                       "required": ["type", "url"],
                                       "additionalProperties": false
@@ -5484,10 +5634,20 @@
                                     {
                                       "type": "object",
                                       "properties": {
-                                        "type": { "type": "string", "enum": ["git"] },
-                                        "url": { "type": "string", "format": "uri" },
-                                        "path": { "type": "string" },
-                                        "revision": { "type": "string" }
+                                        "type": {
+                                          "type": "string",
+                                          "enum": ["git"]
+                                        },
+                                        "url": {
+                                          "type": "string",
+                                          "format": "uri"
+                                        },
+                                        "path": {
+                                          "type": "string"
+                                        },
+                                        "revision": {
+                                          "type": "string"
+                                        }
                                       },
                                       "required": ["type", "url"],
                                       "additionalProperties": false
@@ -5495,8 +5655,13 @@
                                     {
                                       "type": "object",
                                       "properties": {
-                                        "type": { "type": "string", "enum": ["path"] },
-                                        "path": { "type": "string" }
+                                        "type": {
+                                          "type": "string",
+                                          "enum": ["path"]
+                                        },
+                                        "path": {
+                                          "type": "string"
+                                        }
                                       },
                                       "required": ["type", "path"],
                                       "additionalProperties": false
@@ -5526,7 +5691,9 @@
                                                   "type": "string",
                                                   "enum": ["registry"]
                                                 },
-                                                "version": { "type": "string" }
+                                                "version": {
+                                                  "type": "string"
+                                                }
                                               },
                                               "required": ["type", "version"],
                                               "additionalProperties": false
@@ -5534,10 +5701,20 @@
                                             {
                                               "type": "object",
                                               "properties": {
-                                                "type": { "type": "string", "enum": ["git"] },
-                                                "url": { "type": "string", "format": "uri" },
-                                                "path": { "type": "string" },
-                                                "revision": { "type": "string" }
+                                                "type": {
+                                                  "type": "string",
+                                                  "enum": ["git"]
+                                                },
+                                                "url": {
+                                                  "type": "string",
+                                                  "format": "uri"
+                                                },
+                                                "path": {
+                                                  "type": "string"
+                                                },
+                                                "revision": {
+                                                  "type": "string"
+                                                }
                                               },
                                               "required": ["type", "url"],
                                               "additionalProperties": false
@@ -5545,8 +5722,13 @@
                                             {
                                               "type": "object",
                                               "properties": {
-                                                "type": { "type": "string", "enum": ["path"] },
-                                                "path": { "type": "string" }
+                                                "type": {
+                                                  "type": "string",
+                                                  "enum": ["path"]
+                                                },
+                                                "path": {
+                                                  "type": "string"
+                                                }
                                               },
                                               "required": ["type", "path"],
                                               "additionalProperties": false
@@ -5679,8 +5861,14 @@
                                   {
                                     "type": "object",
                                     "properties": {
-                                      "type": { "type": "string", "enum": ["registry"] },
-                                      "url": { "type": "string", "format": "uri" }
+                                      "type": {
+                                        "type": "string",
+                                        "enum": ["registry"]
+                                      },
+                                      "url": {
+                                        "type": "string",
+                                        "format": "uri"
+                                      }
                                     },
                                     "required": ["type", "url"],
                                     "additionalProperties": false
@@ -5688,10 +5876,20 @@
                                   {
                                     "type": "object",
                                     "properties": {
-                                      "type": { "type": "string", "enum": ["git"] },
-                                      "url": { "type": "string", "format": "uri" },
-                                      "path": { "type": "string" },
-                                      "revision": { "type": "string" }
+                                      "type": {
+                                        "type": "string",
+                                        "enum": ["git"]
+                                      },
+                                      "url": {
+                                        "type": "string",
+                                        "format": "uri"
+                                      },
+                                      "path": {
+                                        "type": "string"
+                                      },
+                                      "revision": {
+                                        "type": "string"
+                                      }
                                     },
                                     "required": ["type", "url"],
                                     "additionalProperties": false
@@ -5699,8 +5897,13 @@
                                   {
                                     "type": "object",
                                     "properties": {
-                                      "type": { "type": "string", "enum": ["path"] },
-                                      "path": { "type": "string" }
+                                      "type": {
+                                        "type": "string",
+                                        "enum": ["path"]
+                                      },
+                                      "path": {
+                                        "type": "string"
+                                      }
                                     },
                                     "required": ["type", "path"],
                                     "additionalProperties": false
@@ -6253,7 +6456,7 @@
                       "$ref": "#/components/schemas/DebugStreamEventEncoded"
                     }
                   },
-                  "required": ["id", "event", "data"],
+                  "required": ["event", "data"],
                   "additionalProperties": false
                 },
                 "x-effect-stream": {
@@ -7870,130 +8073,6 @@
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
-      "DeprecationRevision": {
-        "type": "string",
-        "minLength": 1,
-        "description": "Opaque publisher lifecycle revision used for conditional writes."
-      },
-      "DeprecationManagementView": {
-        "type": "object",
-        "properties": {
-          "deprecation": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/DeprecationView"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "revision": {
-            "$ref": "#/components/schemas/DeprecationRevision"
-          }
-        },
-        "required": ["deprecation", "revision"],
-        "additionalProperties": false
-      },
-      "DeprecationReplacementIntent": {
-        "anyOf": [
-          {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "type": "string",
-                "enum": ["clear"]
-              }
-            },
-            "required": ["kind"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "type": "string",
-                "enum": ["set"]
-              },
-              "fqn": {
-                "$ref": "#/components/schemas/ExtensionFqn"
-              }
-            },
-            "required": ["kind", "fqn"],
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "type": "string",
-                "enum": ["preserve"]
-              }
-            },
-            "required": ["kind"],
-            "additionalProperties": false
-          }
-        ]
-      },
-      "PutDeprecationBody": {
-        "type": "object",
-        "properties": {
-          "message": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 500,
-                "description": "Publisher migration guidance, normalized by the Registry."
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "replacement": {
-            "$ref": "#/components/schemas/DeprecationReplacementIntent"
-          }
-        },
-        "required": ["message", "replacement"],
-        "additionalProperties": false
-      },
-      "DeprecationTransition": {
-        "type": "object",
-        "properties": {
-          "target": {
-            "$ref": "#/components/schemas/ExtensionFqn"
-          },
-          "before": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/DeprecationView"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "after": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/DeprecationView"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "disposition": {
-            "type": "string",
-            "enum": ["created", "edited", "restored", "unchanged"]
-          },
-          "revision": {
-            "$ref": "#/components/schemas/DeprecationRevision"
-          }
-        },
-        "required": ["target", "before", "after", "disposition", "revision"],
-        "additionalProperties": false
-      },
       "ArchivalRevision": {
         "type": "string",
         "minLength": 1,
@@ -8121,6 +8200,130 @@
           },
           "revision": {
             "$ref": "#/components/schemas/ArchivalRevision"
+          }
+        },
+        "required": ["target", "before", "after", "disposition", "revision"],
+        "additionalProperties": false
+      },
+      "DeprecationRevision": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Opaque publisher lifecycle revision used for conditional writes."
+      },
+      "DeprecationManagementView": {
+        "type": "object",
+        "properties": {
+          "deprecation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeprecationView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "$ref": "#/components/schemas/DeprecationRevision"
+          }
+        },
+        "required": ["deprecation", "revision"],
+        "additionalProperties": false
+      },
+      "DeprecationReplacementIntent": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["clear"]
+              }
+            },
+            "required": ["kind"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["set"]
+              },
+              "fqn": {
+                "$ref": "#/components/schemas/ExtensionFqn"
+              }
+            },
+            "required": ["kind", "fqn"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": ["preserve"]
+              }
+            },
+            "required": ["kind"],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "PutDeprecationBody": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "description": "Publisher migration guidance, normalized by the Registry."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "replacement": {
+            "$ref": "#/components/schemas/DeprecationReplacementIntent"
+          }
+        },
+        "required": ["message", "replacement"],
+        "additionalProperties": false
+      },
+      "DeprecationTransition": {
+        "type": "object",
+        "properties": {
+          "target": {
+            "$ref": "#/components/schemas/ExtensionFqn"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeprecationView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "after": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeprecationView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "disposition": {
+            "type": "string",
+            "enum": ["created", "edited", "restored", "unchanged"]
+          },
+          "revision": {
+            "$ref": "#/components/schemas/DeprecationRevision"
           }
         },
         "required": ["target", "before", "after", "disposition", "revision"],
@@ -8611,6 +8814,766 @@
         "additionalProperties": false,
         "title": "Delete Extension Body",
         "description": "High-intent confirmation for permanent whole-Extension deletion."
+      },
+      "ResolutionMetadataCallerKey": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128,
+        "description": "Opaque caller correlation key. It grants no identity or authority."
+      },
+      "ResolutionMetadataIdentity": {
+        "type": "object",
+        "properties": {
+          "owner": {
+            "$ref": "#/components/schemas/Handle"
+          },
+          "type": {
+            "$ref": "#/components/schemas/ExtensionType"
+          },
+          "name": {
+            "$ref": "#/components/schemas/ExtensionName"
+          }
+        },
+        "required": ["owner", "type", "name"],
+        "additionalProperties": false
+      },
+      "ResolutionMetadataRevision": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256
+      },
+      "ResolutionMetadataContinuation": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2048,
+        "description": "Opaque token bound by the server to the request context and revision."
+      },
+      "ResolutionMetadataRequest": {
+        "type": "object",
+        "properties": {
+          "schemaVersion": {
+            "type": "number",
+            "enum": [1]
+          },
+          "selectionPolicyVersion": {
+            "type": "string",
+            "enum": ["1"]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "$ref": "#/components/schemas/ResolutionMetadataCallerKey"
+                    },
+                    "identity": {
+                      "$ref": "#/components/schemas/ResolutionMetadataIdentity"
+                    },
+                    "expectedPublisherBinding": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "knownRevision": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/ResolutionMetadataRevision"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "continuation": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "token": {
+                              "$ref": "#/components/schemas/ResolutionMetadataContinuation"
+                            },
+                            "revision": {
+                              "$ref": "#/components/schemas/ResolutionMetadataRevision"
+                            }
+                          },
+                          "required": ["token", "revision"],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "purpose": {
+                      "type": "string",
+                      "enum": ["select"]
+                    }
+                  },
+                  "required": ["key", "identity", "purpose"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "$ref": "#/components/schemas/ResolutionMetadataCallerKey"
+                    },
+                    "identity": {
+                      "$ref": "#/components/schemas/ResolutionMetadataIdentity"
+                    },
+                    "expectedPublisherBinding": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "knownRevision": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/ResolutionMetadataRevision"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "continuation": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "token": {
+                              "$ref": "#/components/schemas/ResolutionMetadataContinuation"
+                            },
+                            "revision": {
+                              "$ref": "#/components/schemas/ResolutionMetadataRevision"
+                            }
+                          },
+                          "required": ["token", "revision"],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "purpose": {
+                      "type": "string",
+                      "enum": ["restore-exact"]
+                    },
+                    "accepted": {
+                      "type": "object",
+                      "properties": {
+                        "version": {
+                          "$ref": "#/components/schemas/Version"
+                        },
+                        "integrity": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": ["version", "integrity"],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": ["key", "identity", "purpose", "accepted"],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "minItems": 1,
+            "maxItems": 100
+          }
+        },
+        "required": ["schemaVersion", "selectionPolicyVersion", "items"],
+        "additionalProperties": false
+      },
+      "ArchivalView": {
+        "type": "object",
+        "properties": {
+          "archivedAt": {
+            "$ref": "#/components/schemas/IsoDateTimeString"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["archivedAt"],
+        "additionalProperties": false,
+        "description": "Canonical authorization-safe extension archival state."
+      },
+      "Repository_1": {
+        "anyOf": [
+          {
+            "type": "string",
+            "examples": ["https://github.com/acme/code-review", "github:acme/code-review"],
+            "format": "uri-reference"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Version control system (e.g., `git`).",
+                    "examples": ["git"]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "url": {
+                "type": "string",
+                "allOf": [
+                  {
+                    "minLength": 1,
+                    "description": "Repository URL.",
+                    "examples": ["https://github.com/acme/code-review"],
+                    "format": "uri"
+                  }
+                ]
+              },
+              "directory": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Subdirectory within the repository, for monorepo publishers.",
+                    "examples": ["packages/code-review"]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": ["url"],
+            "additionalProperties": false
+          }
+        ],
+        "title": "Repository",
+        "description": "Source repository for this extension. Accepts a URL string (or `host:owner/repo` shorthand) or an object with `type`, `url`, and optional `directory`."
+      },
+      "Bugs_1": {
+        "anyOf": [
+          {
+            "type": "string",
+            "examples": ["https://github.com/acme/code-review/issues"],
+            "format": "uri"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "url": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "allOf": [
+                      {
+                        "minLength": 1,
+                        "description": "Issue tracker URL.",
+                        "examples": ["https://github.com/acme/code-review/issues"],
+                        "format": "uri"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "email": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "allOf": [
+                      {
+                        "minLength": 1,
+                        "description": "Contact email for bug reports.",
+                        "examples": ["bugs@acme.dev"],
+                        "format": "email"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "title": "Bugs",
+        "description": "Where to report bugs against this extension. Accepts a URL string or an object with optional `url` and `email`."
+      },
+      "Author_1": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["name"],
+        "additionalProperties": false,
+        "title": "Author",
+        "description": "A person credited as a creator or maintainer of this extension."
+      },
+      "VersRangeEncoded": {
+        "type": "string",
+        "minLength": 1,
+        "examples": ["vers:npm/>=18.0.0|<19.0.0", "vers:pypi/>=2.31.0", "vers:cargo/>=1.0.0"]
+      },
+      "CompanionPackage_1": {
+        "type": "object",
+        "properties": {
+          "purl": {
+            "$ref": "#/components/schemas/PackageIdentityPurl"
+          },
+          "versionRange": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VersRangeEncoded"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["purl"],
+        "additionalProperties": false,
+        "title": "Companion Package",
+        "description": "A companion package purl identity with an optional VERS compatibility range."
+      },
+      "VersionEntry": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "$ref": "#/components/schemas/Version"
+          },
+          "published": {
+            "$ref": "#/components/schemas/IsoDateTimeString"
+          },
+          "dependencies": {
+            "anyOf": [
+              {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/VersionRange"
+                },
+                "propertyNames": {
+                  "$ref": "#/components/schemas/ExtensionFqn"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "packages": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/CompanionPackage_1"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "integrity": {
+            "type": "string"
+          },
+          "yankedAt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IsoDateTimeString"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "yankCategory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "yankNotice": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["version", "published", "integrity"],
+        "additionalProperties": false,
+        "title": "Version Entry",
+        "description": "A single published version of an extension in the registry."
+      },
+      "ResolutionMetadataPage": {
+        "type": "object",
+        "properties": {
+          "publisherBindingId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "visibility": {
+            "type": "string",
+            "enum": ["public", "private"]
+          },
+          "archival": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArchivalView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deprecation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeprecationView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "revision": {
+            "$ref": "#/components/schemas/ResolutionMetadataRevision"
+          },
+          "observedAt": {
+            "$ref": "#/components/schemas/IsoDateTimeString"
+          },
+          "validUntil": {
+            "$ref": "#/components/schemas/IsoDateTimeString"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "repository": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Repository_1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "bugs": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Bugs_1"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "license": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "authors": {
+            "anyOf": [
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Author_1"
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VersionEntry"
+            },
+            "minItems": 1,
+            "maxItems": 100
+          },
+          "continuation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResolutionMetadataContinuation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "publisherBindingId",
+          "visibility",
+          "archival",
+          "deprecation",
+          "revision",
+          "observedAt",
+          "validUntil",
+          "versions",
+          "continuation"
+        ],
+        "additionalProperties": false
+      },
+      "ResolutionMetadataResponse": {
+        "type": "object",
+        "properties": {
+          "schemaVersion": {
+            "type": "number",
+            "enum": [1]
+          },
+          "selectionPolicyVersion": {
+            "type": "string",
+            "enum": ["1"]
+          },
+          "observedAt": {
+            "$ref": "#/components/schemas/IsoDateTimeString"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "$ref": "#/components/schemas/ResolutionMetadataCallerKey"
+                    },
+                    "outcome": {
+                      "type": "string",
+                      "enum": ["metadata"]
+                    },
+                    "page": {
+                      "$ref": "#/components/schemas/ResolutionMetadataPage"
+                    }
+                  },
+                  "required": ["key", "outcome", "page"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "$ref": "#/components/schemas/ResolutionMetadataCallerKey"
+                    },
+                    "outcome": {
+                      "type": "string",
+                      "enum": ["unchanged"]
+                    },
+                    "publisherBindingId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "visibility": {
+                      "type": "string",
+                      "enum": ["public", "private"]
+                    },
+                    "archival": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/ArchivalView"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "deprecation": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/DeprecationView"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "revision": {
+                      "$ref": "#/components/schemas/ResolutionMetadataRevision"
+                    },
+                    "observedAt": {
+                      "$ref": "#/components/schemas/IsoDateTimeString"
+                    },
+                    "validUntil": {
+                      "$ref": "#/components/schemas/IsoDateTimeString"
+                    },
+                    "exactVersion": {
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/Version"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "outcome",
+                    "publisherBindingId",
+                    "visibility",
+                    "archival",
+                    "deprecation",
+                    "revision",
+                    "observedAt",
+                    "validUntil"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "$ref": "#/components/schemas/ResolutionMetadataCallerKey"
+                    },
+                    "outcome": {
+                      "type": "string",
+                      "enum": ["unavailable"]
+                    }
+                  },
+                  "required": ["key", "outcome"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "$ref": "#/components/schemas/ResolutionMetadataCallerKey"
+                    },
+                    "outcome": {
+                      "type": "string",
+                      "enum": ["binding-conflict"]
+                    },
+                    "publisherBindingId": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": ["key", "outcome", "publisherBindingId"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "$ref": "#/components/schemas/ResolutionMetadataCallerKey"
+                    },
+                    "outcome": {
+                      "type": "string",
+                      "enum": ["exact-conflict"]
+                    },
+                    "reason": {
+                      "type": "string",
+                      "enum": ["version-unavailable", "integrity-mismatch"]
+                    }
+                  },
+                  "required": ["key", "outcome", "reason"],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "$ref": "#/components/schemas/ResolutionMetadataCallerKey"
+                    },
+                    "outcome": {
+                      "type": "string",
+                      "enum": ["restart-required"]
+                    },
+                    "revision": {
+                      "$ref": "#/components/schemas/ResolutionMetadataRevision"
+                    }
+                  },
+                  "required": ["key", "outcome", "revision"],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "maxItems": 100
+          }
+        },
+        "required": ["schemaVersion", "selectionPolicyVersion", "observedAt", "results"],
+        "additionalProperties": false
       },
       "PublicationTarget": {
         "type": "object",
@@ -9456,6 +10419,9 @@
     },
     {
       "name": "Extensions"
+    },
+    {
+      "name": "Resolutions"
     },
     {
       "name": "PublishPreviews"

@@ -29,6 +29,7 @@ import {
   publicationSetDigest,
 } from "@agentxm/registry-protocol/unstable/registry/publication-set";
 import { DiscoverPackagesRequestSchema } from "@agentxm/registry-protocol/unstable/registry/discover-schema";
+import { ResolutionMetadataRequestSchema } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
 import type { ArchiveCache } from "./archive-cache.js";
 import type { ArchiveDownloadProgress } from "./client.js";
 import type { RegistryClientFailure } from "./errors.js";
@@ -215,6 +216,110 @@ const getErrorKind = (status: number): string => {
 // getExtensionIndex
 // =============================================================================
 
+it.effect("sends one repeat-safe resolution metadata batch", () =>
+  Effect.gen(function* () {
+    const methods: string[] = [];
+    const httpClient = makeMockHttpClient((request) => {
+      methods.push(`${request.method} ${new URL(request.url).pathname}`);
+      return new Response(
+        JSON.stringify({
+          schemaVersion: 1,
+          selectionPolicyVersion: "1",
+          observedAt: "2026-09-22T00:00:00.000Z",
+          results: [
+            { key: "first", outcome: "unavailable" },
+            { key: "second", outcome: "unavailable" },
+          ],
+        }),
+        { status: 200 },
+      );
+    });
+    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+    if (client.getResolutionMetadata === undefined) throw new Error("Batch metadata unavailable");
+    const request = Schema.decodeUnknownSync(ResolutionMetadataRequestSchema)({
+      schemaVersion: 1,
+      selectionPolicyVersion: "1",
+      items: ["first", "second"].map((key) => ({
+        key,
+        purpose: "select",
+        identity: { owner: "@acme", type: "skill", name: "test-skill" },
+      })),
+    });
+
+    const results = yield* client.getResolutionMetadata(request);
+
+    expect(methods).toEqual(["POST /v1/resolutions/metadata"]);
+    expect(results.map((result) => result.outcome)).toEqual(["unavailable", "unavailable"]);
+  }),
+);
+
+it.effect("restarts a changed metadata history before returning candidates", () =>
+  Effect.gen(function* () {
+    const observedAt = "2026-09-22T00:00:00.000Z";
+    const page = (revision: string, continuation: string | null, versions: number) => ({
+      key: "first",
+      outcome: "metadata",
+      page: {
+        publisherBindingId: "hbnd_test",
+        visibility: "public",
+        archival: null,
+        deprecation: null,
+        revision,
+        observedAt,
+        validUntil: "2026-09-22T00:00:30.000Z",
+        versions: Array.from({ length: versions }, (_, index) => ({
+          version: `1.0.${index}`,
+          published: observedAt,
+          integrity: `sha512-${index}`,
+        })),
+        continuation,
+      },
+    });
+    const replies = [
+      [page("first-revision", "next", 100)],
+      [{ key: "first", outcome: "restart-required", revision: "second-revision" }],
+      [page("second-revision", null, 1)],
+    ];
+    let calls = 0;
+    const httpClient = makeMockHttpClient(() => {
+      const results = replies[calls];
+      calls += 1;
+      if (results === undefined) throw new Error("Unexpected metadata retry");
+      return new Response(
+        JSON.stringify({
+          schemaVersion: 1,
+          selectionPolicyVersion: "1",
+          observedAt,
+          results,
+        }),
+        { status: 200 },
+      );
+    });
+    const client = createRemoteRegistryClient(BASE_URL, httpClient);
+    if (client.getResolutionMetadata === undefined) throw new Error("Batch metadata unavailable");
+    const request = Schema.decodeUnknownSync(ResolutionMetadataRequestSchema)({
+      schemaVersion: 1,
+      selectionPolicyVersion: "1",
+      items: [
+        {
+          key: "first",
+          identity: { owner: "@acme", type: "skill", name: "test-skill" },
+          purpose: "select",
+        },
+      ],
+    });
+
+    const results = yield* client.getResolutionMetadata(request);
+
+    expect(calls).toBe(3);
+    expect(results[0]?.outcome).toBe("metadata");
+    if (results[0]?.outcome === "metadata") {
+      expect(results[0].page.revision).toBe("second-revision");
+      expect(results[0].page.versions).toHaveLength(1);
+    }
+  }),
+);
+
 describe("getExtensionIndex", () => {
   it.effect("retries a transient read without changing the request", () =>
     Effect.gen(function* () {
@@ -391,6 +496,48 @@ describe("getExtensionIndex", () => {
 // =============================================================================
 
 describe("getExtensionsByScope", () => {
+  it.effect("filters wildcard named discovery before fetching a full index", () =>
+    Effect.gen(function* () {
+      const paths: string[] = [];
+      const httpClient = makeMockHttpClient((request) => {
+        const url = new URL(request.url);
+        paths.push(`${decodeURIComponent(url.pathname)}?${JSON.stringify(request.urlParams)}`);
+        if (decodeURIComponent(url.pathname) === "/v1/extensions/*/skills") {
+          return new Response(
+            JSON.stringify({
+              total: 1,
+              extensions: [
+                {
+                  owner: "@acme",
+                  type: "skill",
+                  name: "test-skill",
+                  latestVersion: "1.0.0",
+                  deprecation: null,
+                  archival: null,
+                },
+              ],
+            }),
+            { status: 200 },
+          );
+        }
+        return new Response(JSON.stringify(extensionIndexResponse), { status: 200 });
+      });
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const result = yield* client.getExtensionsByScope({
+        owner: "*",
+        names: ["test-skill"],
+        types: ["skill"],
+        limit: Option.none(),
+        offset: 0,
+      });
+
+      expect(paths).toHaveLength(2);
+      expect(paths[0]).toContain('"filter[name]":"test-skill"');
+      expect(result.indexes.map((index) => index.name)).toEqual(["test-skill"]);
+    }),
+  );
+
   it.effect("returns the full index from the same list-mode metadata read", () =>
     Effect.gen(function* () {
       let indexReads = 0;
@@ -594,20 +741,50 @@ describe("ownerExists", () => {
 // =============================================================================
 
 describe("getExtensionPackage", () => {
-  it.effect("uses an exact selection for a cache hit without another metadata request", () =>
+  it.effect("validates a warm exact archive online before reusing its bytes", () =>
     Effect.gen(function* () {
       const cachedArchive = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
       const requestedUrls: Array<string> = [];
       const httpClient = makeMockHttpClient((request) => {
         requestedUrls.push(request.url);
-        return new Response(undefined, { status: 500 });
+        return new Response(
+          JSON.stringify({
+            schemaVersion: 1,
+            selectionPolicyVersion: "1",
+            observedAt: "2026-09-22T00:00:00.000Z",
+            results: [
+              {
+                key: "exact",
+                outcome: "metadata",
+                page: {
+                  publisherBindingId: "hbnd_test",
+                  visibility: "public",
+                  archival: null,
+                  deprecation: null,
+                  revision: "revision",
+                  observedAt: "2026-09-22T00:00:00.000Z",
+                  validUntil: "2026-09-22T00:00:30.000Z",
+                  versions: [
+                    {
+                      version: "1.0.0",
+                      published: "2026-09-22T00:00:00.000Z",
+                      integrity: "sha512-selected",
+                    },
+                  ],
+                  continuation: null,
+                },
+              },
+            ],
+          }),
+          { status: 200 },
+        );
       });
       const cache = {
-        load: (_key: string, integrity: string) => {
+        load: () => Effect.die("load was not expected"),
+        read: (integrity: string) => {
           expect(integrity).toBe("sha512-selected");
-          return Effect.succeed(cachedArchive);
+          return Effect.succeed(Option.some(cachedArchive));
         },
-        read: () => Effect.die("read was not expected"),
         write: () => Effect.die("write was not expected"),
         status: () => Effect.die("status was not expected"),
         verify: () => Effect.die("verify was not expected"),
@@ -627,7 +804,44 @@ describe("getExtensionPackage", () => {
 
       expect(Array.from(result.archive)).toEqual(Array.from(cachedArchive));
       expect(result.warnings).toEqual(["Previously selected version is deprecated"]);
-      expect(requestedUrls).toEqual([]);
+      expect(requestedUrls).toEqual([`${BASE_URL}/v1/resolutions/metadata`]);
+    }),
+  );
+
+  it.effect("refuses warm exact bytes after current Registry access disappears", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () =>
+          new Response(
+            JSON.stringify({
+              schemaVersion: 1,
+              selectionPolicyVersion: "1",
+              observedAt: "2026-09-22T00:00:00.000Z",
+              results: [{ key: "exact", outcome: "unavailable" }],
+            }),
+            { status: 200 },
+          ),
+      );
+      const cache = {
+        load: () => Effect.die("load was not expected"),
+        read: () => Effect.succeed(Option.some(new Uint8Array([1]))),
+        write: () => Effect.void,
+        status: () => Effect.die("status was not expected"),
+        verify: () => Effect.die("verify was not expected"),
+        prune: () => Effect.die("prune was not expected"),
+      } satisfies ArchiveCache;
+      const client = createRemoteRegistryClient(BASE_URL, httpClient, cache);
+      const failure = yield* client
+        .getExtensionPackage({
+          ...makeIndexArgs(),
+          exact: {
+            version: exactVersion("1.0.0"),
+            integrity: "sha512-selected",
+            publisherBindingId: "hbnd_test",
+          },
+        })
+        .pipe(Effect.flip);
+      expect(failure.category).toBe("conflict");
     }),
   );
 

@@ -68,10 +68,10 @@ skills:
       owner: "@craigsmitham"
       name: field-notes
     resolved:
-      version: 1.0.0
-      integrity: sha512-LNDyQwrQGo1L4r4MGnDE90N9e3LxLQJZnSc9H0jn8YlMdc0adSiBTOLxjqIpXmA7XPzU3M90Irp3Q4mQs6d6Gg==
+      version: 1.0.1
+      integrity: sha512-nFGfm69TNBMHaIhCiU93S5uyMVMqtuOUmJ6/8zci8UJ7bECOZdFpyVS8CMlSEIL2yBSs/dTzuveyGvKdrhC4+g==
       publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:8d7a891f831f232ef411ebc7293e06e1cb4250d22fa160efe3270df5bcfdd929
+    treeIntegrity: sha256-tree-v1:e7e595f58ddfc92e023a9cb09016858fa6f3661db230bb8ff9da0d4e44e88983
   audit-agent-skill:
     source:
       type: registry
@@ -190,10 +190,10 @@ rules:
       owner: "@craigsmitham"
       name: field-notes
     resolved:
-      version: 1.0.0
-      integrity: sha512-gopFJAWdjmfyTrP6rNhWfDtGT95wrML1PuT02DCw57VHZIcxT3YvIT1igu7vcuJm+PQGRnSApxu2tS5DzK4hLQ==
+      version: 1.0.1
+      integrity: sha512-zSbl0XXKtE34IgJTYmwM4BMmKhsLkfQ1OpI3txMDCpWXQ1J5+MvF8VqpHI7QC8VRN9QqHlhiJRcjvSZk35BlyA==
       publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:0c14a9c8d7939d5d86b13f9525b55008bfd326b222f61c47acf862163167bc70
+    treeIntegrity: sha256-tree-v1:d7fa638c28ea270fe96f22931bfaaade5ccfa0acc91378fd1ab8873d40a1b759
   use-effect-v4:
     source:
       type: registry
@@ -227,10 +227,10 @@ knowledge:
       owner: "@craigsmitham"
       name: effect-v4
     resolved:
-      version: 1.0.4
-      integrity: sha512-R1xrT7IUeeQOFCGrh6YdLC+hOHmNbFDTZ0s6lmNYouNpePRYpdFsIiiOEFcQrhCKF/S+SYaDHUzRtasqQeCxZg==
+      version: 1.0.5
+      integrity: sha512-YH0/ZWj1HjDAE/IM6sV7GsXpTmSf383uV8aBZKZdS1qofJJFiVP60+6gp3yR+/wu/l+AXVqFbFQ7f6qiNoeF6A==
       publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:f364c2ba467c3caa9456f19e5dd3b2ff4e4bf8e3f4be93544b760ba96ac37d91
+    treeIntegrity: sha256-tree-v1:d914ac11eb77dae66bf20f858deb1db853464c867cc6d0bb671b1504ea003b02
   agent-engineering:
     source:
       type: registry

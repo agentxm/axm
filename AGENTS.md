@@ -352,7 +352,7 @@ requirements.
 | axm-agents | survey | any session running `axm agents` or projecting extensions into configured agents                                                       | —                | a target condition can be stated |
 | axm-output | survey | any session reading AXM human output: a value a terminal lost, a reason a result did not give, a recovery that did not fit the outcome | —                | a target condition can be stated |
 
-<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery gen=3607e62077344852ba953853814c3757fcf472c43b433038e8993e3958c1922d -->
+<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery gen=5450184c5889a684d98ba61a844b75e67f6f02b066f59b686093b7c17d8ddc7f -->
 
 ## Knowledge Bundles
 
@@ -383,7 +383,7 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 | [product-engineering](agent_extensions/registry/@craigsmitham/knowledge/product-engineering/src/index.md) | Opinionated product-development lifecycle from strategy through operations and maintenance, with shared conceptual foundations                                     |
 
 <!-- axm:end v=1 region=knowledge -->
-<!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions gen=9b1f8c4e964bf1c64086bdc006fb2fd6d68af6eba2cbf6cb70f1d594efb5dddf -->
+<!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions gen=56ddd20161966479601832c24ccde446e99359391fe8304f460bd5c6f52ff36e -->
 <!-- axm:point v=1 ext=@craigsmitham/rules/use-effect-v4@0.2.0 kind=rule -->
 
 ## Use Effect v4
@@ -393,7 +393,7 @@ and scripts. Each change should advance adoption by migrating relevant existing
 code toward a coherent Effect implementation. Keep migrations incremental and
 reviewable, preserve intended behavior, and avoid unrelated rewrites.
 
-<!-- axm:point v=1 ext=@craigsmitham/rules/field-notes@1.0.0 kind=rule -->
+<!-- axm:point v=1 ext=@craigsmitham/rules/field-notes@1.0.1 kind=rule -->
 
 ## Field notes
 
@@ -406,4 +406,8 @@ Use only evidence and context already available. Do not investigate, perform
 additional analysis, or generate hypotheses or recommendations for the note.
 Skip routine steps, expected diagnostic failures, and isolated typing mistakes.
 Capture does not expand the task's authority.
+
+When committing or delivering authorized task work, include the field notes
+created for that work and check that none were left untracked. Keep unrelated
+notes out of the change.
 <!-- axm:end v=1 region=rules -->

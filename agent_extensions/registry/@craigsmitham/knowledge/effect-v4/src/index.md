@@ -8,7 +8,7 @@ Concise evaluation checklists for designing, implementing, maintaining, and
 reviewing Effect v4 TypeScript. Each topic contains five to ten independently
 judgeable checks plus links to the primary sources used to author it.
 
-This bundle was last reviewed and updated against **Effect 4.0.0-rc.115**.
+This bundle was last reviewed and updated against **Effect 4.0.0-rc.117**.
 Within Effect major version 4, use the checklists as the stable design baseline
 and consult the linked sources when an API has changed or remains under an
 `effect/unstable/*` import. Effect v3 APIs and conventions are out of scope.

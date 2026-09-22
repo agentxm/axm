@@ -6,18 +6,18 @@ tags: [effect, effect-v4, filesystem, path, platform, resource, testing]
 status: stable
 sources:
   - id: effect-filesystem
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/FileSystem.ts
-    title: Effect 4.0.0-rc.115 FileSystem source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/FileSystem.ts
+    title: Effect 4.0.0-rc.117 FileSystem source
   - id: effect-path
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Path.ts
-    title: Effect 4.0.0-rc.115 Path source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Path.ts
+    title: Effect 4.0.0-rc.117 Path source
   - id: applied-alchemy
     resource: https://github.com/alchemy-run/alchemy/blob/ba579a98ea24b41cbf77a89ec8602fe071d5e43a/examples/fly-service/src/worker.ts
     title: Alchemy FileSystem service use at ba579a9
   - id: effect-bytesize
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/ByteSize.ts
-    title: Effect 4.0.0-rc.115 ByteSize source
-generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/ByteSize.ts
+    title: Effect 4.0.0-rc.117 ByteSize source
+generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
 ---
 
 # Filesystem
@@ -41,7 +41,7 @@ generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
 
 ## Resources
 
-- [FileSystem source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/FileSystem.ts)
-- [Path source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Path.ts)
+- [FileSystem source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/FileSystem.ts)
+- [Path source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Path.ts)
 - [Applied FileSystem service in Alchemy](https://github.com/alchemy-run/alchemy/blob/ba579a98ea24b41cbf77a89ec8602fe071d5e43a/examples/fly-service/src/worker.ts)
-- [Byte sizes and filesystem offsets](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/ByteSize.ts)
+- [Byte sizes and filesystem offsets](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/ByteSize.ts)

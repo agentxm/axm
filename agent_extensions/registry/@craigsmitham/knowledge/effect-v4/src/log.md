@@ -1,5 +1,43 @@
 # Directory Update Log
 
+## 2026-09-22
+
+* **Retarget**: Reviewed the twenty-four checklists against the changes from
+  Effect `4.0.0-rc.115` through `4.0.0-rc.117` and refreshed all official
+  Effect source pins. Historical applied-example pins remain unchanged.
+* **Correction**: Repointed the fast-check migration reference in
+  [Testing](testing.md). rc.116 removed `ARBITRARY-MIGRATION.md` and moved its
+  content into the consolidated Schema migration guide.
+* **HTTP API**: Added a check for `HttpApi.ParseOptions`, new in rc.116. Parse
+  options set at the API, group, or endpoint level are replaced, not merged,
+  by a nearer level, and a strict excess-property policy also rejects
+  undeclared headers. [Schema boundaries](schema-boundaries.md) now allows the
+  excess-property decision to sit on the owning contract.
+* **SQL**: Added a check that the dialect client supports the transaction
+  shape relied on. In rc.116 `sqlite-do` gained nested transactions with
+  independent child rollback, but it still does not support concurrent sibling
+  transactions or asynchronous work inside a transaction. rc.117 releases
+  savepoints after nested transactions complete, and custom clients opt in
+  through `releaseSavepoint`. This supersedes the 2026-08-17 note that
+  `sqlite-do` rejects nested transactions. Cloudflare Workers now links the
+  Durable Object SQLite client.
+* **Date and time**: The timestamp-codec check now covers the time zone a
+  driver applies on write. It cites the rc.116 `sql-pg` change: timestamps now
+  decode as `Date`, and `Date` parameters bind as `timestamptz`, so inserting
+  one into a `timestamp` column applies the session `TimeZone`.
+* **Config**: Linked ByteSize parsing. Since rc.116, `ByteSize.Input` accepts
+  only canonical integer strings, so sizes from outside input need
+  `Config.ByteSize` or `ByteSize.fromString`.
+* **Not adopted**: The rc.116 `SchemaGetter`, `SchemaTransformation`, `Stream`,
+  and `Effect.orElseSucceed` API changes do not appear in any checklist item.
+  The experimental Schema JIT and AOT compilers, AI, MCP, cluster, `NetAddress`,
+  and YAML changes fall outside the topics. Fixes to `Pool.makeWithTTL` usage
+  retention (rc.117) and `RcRef` zero idle time-to-live (rc.116) need no
+  checklist change.
+* **Evidence ceiling**: This refresh reviews source, changelogs, and migration
+  documents; it does not claim execution of the upstream suites, re-review of
+  applied example repositories, or field validation of the checklists.
+
 ## 2026-09-11
 
 * **Retarget**: Reviewed the twenty-four checklists against the changes from

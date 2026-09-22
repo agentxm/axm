@@ -6,12 +6,12 @@ tags: [effect, effect-v4, brand, schema, nominal-types, refined-types]
 status: stable
 sources:
   - id: effect-brand
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Brand.ts
-    title: Effect 4.0.0-rc.115 Brand source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Brand.ts
+    title: Effect 4.0.0-rc.117 Brand source
   - id: effect-schema-brand
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Schema.ts
-    title: Effect 4.0.0-rc.115 Schema brand support
-generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Schema.ts
+    title: Effect 4.0.0-rc.117 Schema brand support
+generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
 ---
 
 # Branded types
@@ -35,5 +35,5 @@ generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
 
 ## Resources
 
-- [Brand source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Brand.ts)
-- [Schema brand support](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Schema.ts)
+- [Brand source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Brand.ts)
+- [Schema brand support](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Schema.ts)

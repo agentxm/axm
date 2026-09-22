@@ -6,15 +6,15 @@ tags: [effect, effect-v4, request, batching, cache, ttl, resolver]
 status: stable
 sources:
   - id: effect-request
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Request.ts
-    title: Effect 4.0.0-rc.115 Request source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Request.ts
+    title: Effect 4.0.0-rc.117 Request source
   - id: effect-resolver
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/RequestResolver.ts
-    title: Effect 4.0.0-rc.115 RequestResolver source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/RequestResolver.ts
+    title: Effect 4.0.0-rc.117 RequestResolver source
   - id: effect-cache
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Cache.ts
-    title: Effect 4.0.0-rc.115 Cache source
-generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Cache.ts
+    title: Effect 4.0.0-rc.117 Cache source
+generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
 ---
 
 # Request batching and cache
@@ -37,6 +37,6 @@ generated: { by: codex/gpt-6, at: 2026-09-11T17:32:03Z }
 
 ## Resources
 
-- [RequestResolver source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/RequestResolver.ts)
-- [Cache source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/Cache.ts)
-- [ScopedCache source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.115/packages/effect/src/ScopedCache.ts)
+- [RequestResolver source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/RequestResolver.ts)
+- [Cache source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Cache.ts)
+- [ScopedCache source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/ScopedCache.ts)

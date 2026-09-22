@@ -3,7 +3,7 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "field-notes",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Record concise factual notes about friction encountered during an agent session for later analysis",
   "keywords": [
     "field-notes",

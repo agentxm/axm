@@ -96,6 +96,7 @@ describe("extension list assessment", () => {
         resolveNamedRegistry: () => Effect.die("not used"),
         find: () => Effect.succeed([ref]),
         fetch: () => Effect.die(new Error("not used")),
+        acquireForTransition: () => Effect.die(new Error("not used")),
         cloneUrl: () => Option.none(),
         origin: () => "https://github.com/acme/extensions",
       };
@@ -128,6 +129,7 @@ describe("extension list assessment", () => {
         resolveNamedRegistry: () => Effect.die("not used"),
         find: () => Effect.succeed([]),
         fetch: () => Effect.die(new Error("not used")),
+        acquireForTransition: () => Effect.die(new Error("not used")),
         cloneUrl: () => Option.none(),
         origin: () => "https://github.com/acme/extensions",
       };

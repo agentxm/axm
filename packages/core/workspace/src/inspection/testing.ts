@@ -188,6 +188,7 @@ export const makeInspectionFixture = (options: InspectionFixtureOptions = {}) =>
     find: () => Effect.succeed([]),
     resolveNamedRegistry: () => Effect.die("no named registry in this fixture"),
     fetch: () => Effect.die("no source fetch in this fixture"),
+    acquireForTransition: () => Effect.die("no source acquisition in this fixture"),
     cloneUrl: () => Option.none(),
     origin: () => "fixture",
   });

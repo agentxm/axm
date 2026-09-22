@@ -167,6 +167,7 @@ const providers = (find: SourceHostProvidersService["find"]): SourceHostProvider
   resolveNamedRegistry: () => Effect.die("not used"),
   find,
   fetch: () => Effect.die("unused"),
+  acquireForTransition: () => Effect.die("unused"),
   cloneUrl: () => Option.none(),
   origin: () => "registry",
 });
@@ -406,6 +407,7 @@ describe("resolvePackDependenciesWithReleaseAge", () => {
     resolveNamedRegistry,
     find: () => Effect.die("unused"),
     fetch: () => Effect.die("unused"),
+    acquireForTransition: () => Effect.die("unused"),
     cloneUrl: () => Option.none(),
     origin: () => "registry",
   });

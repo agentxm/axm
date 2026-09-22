@@ -17,7 +17,7 @@ import {
 } from "../transitions/settlement/index.js";
 import { recordFootprint } from "../transitions/settlement/index.js";
 import { shouldReuseCanonicalInstall } from "./canonical-reuse.js";
-import { copyExtensionDirectory } from "./copy-directory.js";
+import { DirectoryCopyLimitExceeded, copyExtensionDirectory } from "./copy-directory.js";
 import { validatePathSafety } from "../desired-state/index.js";
 import {
   CanonicalPackageProbeFailed,
@@ -402,8 +402,12 @@ export const materializeExternalPackageWithTreeIntegrity = <E = never>(
           Effect.mapError(
             (cause) =>
               new PackageCopyFailed({
-                severity: args.copyFailureCode,
-                detail: args.copyFailureDetail(args.canonicalPath),
+                severity:
+                  cause instanceof DirectoryCopyLimitExceeded ? "validation" : args.copyFailureCode,
+                detail:
+                  cause instanceof DirectoryCopyLimitExceeded
+                    ? `Extension content exceeds the ${cause.limit} ${cause.resource} copy limit`
+                    : args.copyFailureDetail(args.canonicalPath),
                 cause,
               }),
           ),

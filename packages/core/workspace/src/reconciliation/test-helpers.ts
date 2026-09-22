@@ -101,6 +101,16 @@ export const recipeWorkspace = (root: string, faults: RecipeWriteFaults = {}) =>
                       : inject(faults.removeAccepted()),
                   ),
                 ),
+            removeAcceptedEntries: (...args: Parameters<typeof writer.removeAcceptedEntries>) =>
+              writer
+                .removeAcceptedEntries(...args)
+                .pipe(
+                  Effect.andThen(
+                    faults.removeAccepted === undefined
+                      ? Effect.void
+                      : inject(faults.removeAccepted()),
+                  ),
+                ),
           };
         }),
       ),

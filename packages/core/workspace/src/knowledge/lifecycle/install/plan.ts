@@ -163,6 +163,9 @@ export const planKnowledgeInstall: (
       const base = {
         key: toStepKey(target),
         label: toLabelWithCompanions(target, packages),
+        ...(ref.refType === "workspace"
+          ? {}
+          : { sourceBinding: { extensionType: ref.type, target: target.name, ref } }),
         run: manager.install({ ref, versionRange, deferProjection: deferProjections }).pipe(
           Effect.mapError(lifecycleStepFailure),
           Effect.as({

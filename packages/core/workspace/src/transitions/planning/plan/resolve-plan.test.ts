@@ -11,6 +11,13 @@ import * as Path from "effect/Path";
 import type * as PlatformError from "effect/PlatformError";
 
 import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/extensions";
+import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
+import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import {
+  MAX_OPERATION_SCRATCH_BYTES,
+  OperationScratchBudget,
+  makeOperationScratchBudget,
+} from "@agentxm/registry-client";
 
 import {
   applyPlanExecution,
@@ -52,6 +59,11 @@ import {
   type OperationEvent,
 } from "./operation-events.js";
 import { WorkspaceRecordsEmpty } from "./__tests__/plan-spec-support.js";
+import {
+  SourceHostProviders,
+  type SourceHostProvidersService,
+} from "../../../resolution/sources/service.js";
+import { SourceNotResolvable } from "../../../resolution/sources/errors.js";
 
 const testRecovery: ConfirmationRecovery = { command: ["install"], arguments: [] };
 
@@ -174,6 +186,211 @@ const makeTestContext = (
 };
 
 describe("previewOrApply", () => {
+  it.effect("releases failed acquisition scratch and commits an independent source", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const failedName = decodeExtensionNameSync("broken");
+      const healthyName = decodeExtensionNameSync("healthy");
+      const failedRef: SkillExtensionRef = {
+        type: "skill",
+        refType: "local",
+        name: failedName,
+        skill: { name: failedName, description: Option.none(), metadata: Option.none() },
+        source: { type: "local", path: "/broken" },
+        location: "file:///broken",
+      };
+      const healthyRef: SkillExtensionRef = {
+        type: "skill",
+        refType: "local",
+        name: healthyName,
+        skill: { name: healthyName, description: Option.none(), metadata: Option.none() },
+        source: { type: "local", path: "/healthy" },
+        location: "file:///healthy",
+      };
+      let failedScratch = "";
+      let healthyScratch = "";
+      let failedApplied = false;
+      let healthyApplied = false;
+      const providers = {
+        find: () => Effect.die(new Error("unexpected source discovery")),
+        resolveNamedRegistry: () => Effect.die(new Error("unexpected registry resolution")),
+        fetch: () => Effect.die(new Error("unexpected source fetch")),
+        acquireForTransition: (ref) =>
+          Effect.gen(function* () {
+            if (ref.name === failedName) {
+              failedScratch = yield* Effect.acquireRelease(
+                fs
+                  .makeTempDirectory({ prefix: "axm-failed-acquisition-" })
+                  .pipe(
+                    Effect.mapError(
+                      (cause) =>
+                        new SourceNotResolvable({ category: "network", detail: "scratch", cause }),
+                    ),
+                  ),
+                (directory) =>
+                  fs.remove(directory, { recursive: true, force: true }).pipe(Effect.ignore),
+              );
+              yield* fs
+                .writeFileString(`${failedScratch}/SKILL.md`, "failed source")
+                .pipe(
+                  Effect.mapError(
+                    (cause) =>
+                      new SourceNotResolvable({ category: "network", detail: "write", cause }),
+                  ),
+                );
+              return yield* new SourceNotResolvable({
+                category: "validation",
+                detail: "Source verification failed",
+              });
+            }
+            expect(
+              yield* fs
+                .exists(failedScratch)
+                .pipe(
+                  Effect.mapError(
+                    (cause) =>
+                      new SourceNotResolvable({ category: "network", detail: "stat", cause }),
+                  ),
+                ),
+            ).toBe(false);
+            healthyScratch = yield* Effect.acquireRelease(
+              fs
+                .makeTempDirectory({ prefix: "axm-healthy-acquisition-" })
+                .pipe(
+                  Effect.mapError(
+                    (cause) =>
+                      new SourceNotResolvable({ category: "network", detail: "scratch", cause }),
+                  ),
+                ),
+              (directory) =>
+                fs.remove(directory, { recursive: true, force: true }).pipe(Effect.ignore),
+            );
+            yield* fs
+              .writeFileString(`${healthyScratch}/SKILL.md`, "healthy source")
+              .pipe(
+                Effect.mapError(
+                  (cause) =>
+                    new SourceNotResolvable({ category: "network", detail: "write", cause }),
+                ),
+              );
+            return { directory: healthyScratch };
+          }),
+        cloneUrl: () => Option.none(),
+        origin: () => "source",
+      } satisfies SourceHostProvidersService;
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Install sources",
+        description: Option.none(),
+        jobs: [
+          {
+            concurrency: 1,
+            executionPolicy: "best-effort",
+            steps: [
+              {
+                readiness: "ready",
+                key: "skill:broken",
+                label: "broken",
+                acquisitionRefs: [failedRef],
+                run: Effect.sync(() => {
+                  failedApplied = true;
+                  return { result: "success" as const, message: "installed" };
+                }),
+              },
+              {
+                readiness: "ready",
+                key: "skill:healthy",
+                label: "healthy",
+                acquisitionRefs: [healthyRef],
+                run: Effect.sync(() => {
+                  healthyApplied = true;
+                  return { result: "success" as const, message: "installed" };
+                }),
+              },
+            ],
+          },
+        ],
+      };
+      const scratch = yield* makeOperationScratchBudget(MAX_OPERATION_SCRATCH_BYTES);
+      const context = makeTestContext();
+      const result = yield* previewOrApply(plan, { execution: preapprovedPlanExecution }).pipe(
+        Effect.provide(context.layer),
+        Effect.provideService(SourceHostProviders, providers),
+        Effect.provideService(OperationScratchBudget, scratch),
+      );
+
+      expect(failedApplied).toBe(false);
+      expect(healthyApplied).toBe(true);
+      expect(deriveOperationOutcome(result)).toBe("partial");
+      expect(result.units.map((unit) => unit.state)).toEqual(["failed", "committed"]);
+      expect(yield* fs.exists(failedScratch)).toBe(false);
+      expect(yield* fs.exists(healthyScratch)).toBe(false);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("refuses a source before fetching when operation scratch is exhausted", () =>
+    Effect.gen(function* () {
+      const name = decodeExtensionNameSync("example");
+      const ref: SkillExtensionRef = {
+        type: "skill",
+        refType: "local",
+        name,
+        skill: { name, description: Option.none(), metadata: Option.none() },
+        source: { type: "local", path: "/source" },
+        location: "file:///source/example",
+      };
+      let acquisitions = 0;
+      let applied = false;
+      const providers = {
+        find: () => Effect.die(new Error("unexpected source discovery")),
+        resolveNamedRegistry: () => Effect.die(new Error("unexpected registry resolution")),
+        fetch: () => Effect.die(new Error("unexpected source fetch")),
+        acquireForTransition: () =>
+          Effect.sync(() => {
+            acquisitions += 1;
+            return { directory: "/unreachable" };
+          }),
+        cloneUrl: () => Option.none(),
+        origin: () => "source",
+      } satisfies SourceHostProvidersService;
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Install source",
+        description: Option.none(),
+        jobs: [
+          {
+            concurrency: 1,
+            steps: [
+              {
+                readiness: "ready",
+                key: "skill:example",
+                label: "example",
+                acquisitionRefs: [ref],
+                run: Effect.sync(() => {
+                  applied = true;
+                  return { result: "success" as const, message: "installed" };
+                }),
+              },
+            ],
+          },
+        ],
+      };
+      const scratch = yield* makeOperationScratchBudget(1);
+      const context = makeTestContext();
+      const result = yield* previewOrApply(plan, { execution: preapprovedPlanExecution }).pipe(
+        Effect.provide(context.layer),
+        Effect.provideService(SourceHostProviders, providers),
+        Effect.provideService(OperationScratchBudget, scratch),
+      );
+
+      expect(acquisitions).toBe(0);
+      expect(applied).toBe(false);
+      expect(deriveOperationOutcome(result)).toBe("failed");
+      expect(result.units[0]?.error?.category).toBe("quota");
+      expect(result.units[0]?.error?.detail).toContain("operation scratch limit");
+    }),
+  );
+
   it.effect("--preview --yes remains a dry run", () => {
     let appliedCount = 0;
     const context = makeTestContext();
@@ -986,9 +1203,36 @@ describe("previewOrApply", () => {
       const material = `${directory}/manifest.json`;
       yield* fs.writeFileString(material, "before");
       let appliedCount = 0;
+      let acquisitions = 0;
+      let confirmedAfterAcquisition = false;
+      const name = decodeExtensionNameSync("package");
+      const ref: SkillExtensionRef = {
+        type: "skill",
+        refType: "local",
+        name,
+        skill: { name, description: Option.none(), metadata: Option.none() },
+        source: { type: "local", path: directory },
+        location: `file://${directory}`,
+      };
+      const sources = {
+        find: () => Effect.die(new Error("unexpected source discovery")),
+        resolveNamedRegistry: () => Effect.die(new Error("unexpected registry resolution")),
+        fetch: () => Effect.die(new Error("unexpected source fetch")),
+        acquireForTransition: () =>
+          Effect.sync(() => {
+            acquisitions += 1;
+            return { directory };
+          }),
+        cloneUrl: () => Option.none(),
+        origin: () => "source",
+      } satisfies SourceHostProvidersService;
       const context = makeTestContext(
         () =>
-          fs.writeFileString(material, "after").pipe(Effect.as("approved" as const), Effect.orDie),
+          Effect.gen(function* () {
+            confirmedAfterAcquisition = acquisitions === 1;
+            yield* fs.writeFileString(material, "after");
+            return "approved" as const;
+          }).pipe(Effect.orDie),
         { confirmationAvailable: true },
         { baseDir: directory },
       );
@@ -1007,6 +1251,7 @@ describe("previewOrApply", () => {
               {
                 readiness: "ready",
                 label: "package",
+                acquisitionRefs: [ref],
                 run: Effect.sync(() => {
                   appliedCount += 1;
                   return { result: "success" as const, message: "updated" };
@@ -1019,10 +1264,12 @@ describe("previewOrApply", () => {
 
       const result = yield* previewOrApply(plan, {
         execution: promptablePlanExecution(testRecovery),
-      }).pipe(Effect.provide(context.layer));
+      }).pipe(Effect.provide(context.layer), Effect.provideService(SourceHostProviders, sources));
       expect(deriveOperationOutcome(result)).toBe("blocked");
       expect(result.blocking?.class).toBe("stale-candidate");
       expect(result.blocking?.escape?.description).toContain("Rerun the command");
+      expect(acquisitions).toBe(1);
+      expect(confirmedAfterAcquisition).toBe(true);
       expect(appliedCount).toBe(0);
     }).pipe(Effect.provide(NodeServices.layer)),
   );

@@ -34,6 +34,10 @@ export interface AcceptedResolutionWriterService {
   ) => Write;
   /** Remove one accepted resolution. No-op when absent. */
   readonly removeAccepted: (type: InstallableExtensionType, key: string) => Write;
+  /** Remove all selected resolutions with one lockfile read and commit. */
+  readonly removeAcceptedEntries: (
+    entries: ReadonlyArray<{ readonly type: InstallableExtensionType; readonly key: string }>,
+  ) => Write;
 }
 
 export class AcceptedResolutionWriter extends ServiceMap.Service<
@@ -79,6 +83,23 @@ export const makeAcceptedResolutionWriter = (
   const current = documents.acceptedResolutions;
   const commit = documents.commitAcceptedResolutions;
   const serialized = mutex.withPermits(1);
+  const removeAcceptedEntries = (
+    entries: ReadonlyArray<{ readonly type: InstallableExtensionType; readonly key: string }>,
+  ): Write =>
+    serialized(
+      Effect.gen(function* () {
+        if (entries.length === 0) return;
+        const base = yield* current;
+        let next = base;
+        for (const { type, key } of entries) {
+          const accessor = lockEntries[type];
+          if (accessor.entries(next)[key] !== undefined) {
+            next = accessor.remove(next, key);
+          }
+        }
+        if (next !== base) yield* commit(base, next);
+      }),
+    ).pipe(Effect.withSpan("AcceptedResolutionWriter.removeAcceptedEntries"));
   return {
     setAccepted: (type, key, entry) =>
       serialized(
@@ -93,15 +114,8 @@ export const makeAcceptedResolutionWriter = (
           );
         }),
       ).pipe(Effect.withSpan("AcceptedResolutionWriter.setAccepted")),
-    removeAccepted: (type, key) =>
-      serialized(
-        Effect.gen(function* () {
-          const lockfile = yield* current;
-          const accessor = lockEntries[type];
-          if (accessor.entries(lockfile)[key] === undefined) return;
-          yield* commit(lockfile, accessor.remove(lockfile, key));
-        }),
-      ).pipe(Effect.withSpan("AcceptedResolutionWriter.removeAccepted")),
+    removeAccepted: (type, key) => removeAcceptedEntries([{ type, key }]),
+    removeAcceptedEntries,
   };
 };
 

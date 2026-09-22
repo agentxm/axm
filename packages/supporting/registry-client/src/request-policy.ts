@@ -6,6 +6,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schedule from "effect/Schedule";
+import * as Semaphore from "effect/Semaphore";
 import * as ServiceMap from "effect/Context";
 
 import {
@@ -58,6 +59,49 @@ export class RegistryRetryObservation extends ServiceMap.Service<
     readonly ended: (requestId: string) => Effect.Effect<void>;
   }
 >()("@agentxm/registry-client/request-policy/RegistryRetryObservation") {}
+
+export interface OperationRequestBudgetService {
+  readonly capacity: number;
+  readonly withAttempt: <A, E, R>(
+    origin: string,
+    effect: Effect.Effect<A, E, R>,
+  ) => Effect.Effect<A, E, R>;
+}
+
+/** Shared by all Registry reads and downloads in one CLI operation. */
+export class OperationRequestBudget extends ServiceMap.Service<
+  OperationRequestBudget,
+  OperationRequestBudgetService
+>()("@agentxm/registry-client/request-policy/OperationRequestBudget") {}
+
+export const makeOperationRequestBudget = (limits: {
+  readonly invocation: number;
+  readonly origin: number;
+}): Effect.Effect<OperationRequestBudgetService> =>
+  Effect.gen(function* () {
+    if (
+      !Number.isSafeInteger(limits.invocation) ||
+      limits.invocation < 1 ||
+      !Number.isSafeInteger(limits.origin) ||
+      limits.origin < 1
+    ) {
+      return yield* Effect.die(new Error("Request limits must be positive finite integers"));
+    }
+    const invocation = yield* Semaphore.make(limits.invocation);
+    const origins = new Map<string, Semaphore.Semaphore>();
+    return {
+      capacity: limits.invocation,
+      withAttempt: (origin, effect) =>
+        Effect.suspend(() => {
+          let originSemaphore = origins.get(origin);
+          if (originSemaphore === undefined) {
+            originSemaphore = Semaphore.makeUnsafe(limits.origin);
+            origins.set(origin, originSemaphore);
+          }
+          return originSemaphore.withPermit(invocation.withPermit(effect));
+        }),
+    } satisfies OperationRequestBudgetService;
+  });
 
 export const DEFAULT_REGISTRY_REQUEST_POLICY: RegistryRequestPolicy = {
   requestTimeout: "10 seconds",
@@ -281,11 +325,18 @@ export const executeRegistryRequest = <A, E, R>(
   // A request the policy will not replay gets exactly one attempt, whatever
   // the policy allows, and says so to the work it governs.
   const attemptLimit = replaySafe ? maxAttempts : 1;
-  const attempt = effect.pipe(Effect.timeout(policy.requestTimeout));
-
   return Effect.gen(function* () {
     const attempts = yield* Ref.make(0);
     const waiting = yield* Ref.make(false);
+    const budget = yield* Effect.serviceOption(OperationRequestBudget);
+    const attempt = Option.match(budget, {
+      onNone: () => effect.pipe(Effect.timeout(policy.requestTimeout)),
+      onSome: (service) =>
+        service.withAttempt(
+          new URL(args.request.url).origin,
+          effect.pipe(Effect.timeout(policy.requestTimeout)),
+        ),
+    });
     const retrySession = Option.match(yield* Effect.serviceOption(RegistryRetryObservation), {
       onNone: () => undefined,
       onSome: (observer) => ({ observer, requestId: globalThis.crypto.randomUUID() }),

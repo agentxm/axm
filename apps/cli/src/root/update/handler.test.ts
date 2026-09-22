@@ -20,6 +20,7 @@ import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
 import {
+  SourceNotResolvable,
   SourceHostProviders,
   type SourceHostProvidersService,
 } from "@agentxm/workspace/resolution/sources";
@@ -130,6 +131,7 @@ describe("root update handler", () => {
       }
     },
     fetch: () => Effect.die("unused"),
+    acquireForTransition: () => Effect.die("unused"),
     cloneUrl: () => Option.none(),
     origin: () => "test registry",
   };
@@ -154,6 +156,7 @@ describe("root update handler", () => {
         },
       }),
     fetch: () => Effect.die("unused"),
+    acquireForTransition: () => Effect.die("unused"),
     cloneUrl: () => Option.none(),
     origin: () => "test registry",
   });
@@ -382,6 +385,13 @@ describe("root update handler", () => {
       } = makeLayers({
         sources: {
           ...selectedSourceHostProviders,
+          acquireForTransition: () =>
+            Effect.fail(
+              new SourceNotResolvable({
+                category: "internal",
+                detail: "Fixture acquisition failed",
+              }),
+            ),
           resolveNamedRegistry: (source, options) =>
             selectedSourceHostProviders.resolveNamedRegistry(source, options).pipe(
               Effect.map((resolution) =>

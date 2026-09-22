@@ -23,9 +23,11 @@ import {
   createRegistryClient,
   extractZip,
   extensionLifecycleWarnings,
+  withBufferedArchiveBudget,
   type RegistryClient,
   type RegistryExtensionManifest,
   type GetExtensionPackageArgs,
+  type GetExtensionIndexArgs,
   type GetExtensionsByOwnerArgs,
 } from "@agentxm/registry-client";
 import { packagesToPackageUrlParts } from "@agentxm/registry-protocol/unstable/registry";
@@ -63,6 +65,8 @@ import type {
   RegistrySourceHost,
 } from "@agentxm/extension-model/unstable/sources/types";
 import type { ExtensionIndex, VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
+import { makeThrottledUnitProgress } from "../../../../transitions/planning/plan/operation-events.js";
+import { RegistryIndexMemo } from "./index-memo.js";
 type RegistryProviderRequirements =
   | FileSystem.FileSystem
   | Path.Path
@@ -186,6 +190,23 @@ const entryForVersion = (
     onSome: Effect.succeed,
   });
 
+const readRegistryIndex = (
+  client: RegistryClient,
+  source: RegistrySource,
+  args: GetExtensionIndexArgs,
+) =>
+  Effect.serviceOption(RegistryIndexMemo).pipe(
+    Effect.flatMap((memo) =>
+      Option.isSome(memo)
+        ? memo.value.get(
+            source.location.protocol === "file:" ? source.location.pathname : source.location.href,
+            source.name,
+            args,
+          )
+        : client.getExtensionIndex(args),
+    ),
+  );
+
 const probeAxmSkillCompatibility = (
   client: RegistryClient,
   source: RegistrySource,
@@ -248,7 +269,7 @@ const probeAxmSkillCompatibility = (
       });
     }
     return { result, ref: ref.value } as const;
-  });
+  }).pipe(withBufferedArchiveBudget);
 
 const resolveNamedFromClient = (
   client: RegistryClient,
@@ -257,7 +278,7 @@ const resolveNamedFromClient = (
 ): Effect.Effect<NamedRegistryResolution, SourceResolutionFailure, RegistryProviderRequirements> =>
   Effect.gen(function* () {
     const policy = yield* RegistryResolutionPolicy;
-    const indexOption = yield* client.getExtensionIndex({
+    const indexOption = yield* readRegistryIndex(client, source, {
       owner: options.owner,
       type: options.type,
       name: decodeExtensionNameSync(options.name),
@@ -464,7 +485,7 @@ const findWithVersionRange = (
                   Effect.flatMap((decodedName) =>
                     decodedName === undefined
                       ? Effect.succeed(Option.none<RegistryExtensionManifest>())
-                      : client.getExtensionIndex({ owner, type, name: decodedName }).pipe(
+                      : readRegistryIndex(client, source, { owner, type, name: decodedName }).pipe(
                           Effect.flatMap((indexOption) =>
                             Option.match(indexOption, {
                               onNone: () =>
@@ -628,9 +649,16 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
     const { owner, version, integrity: expectedIntegrity } = ref;
     const type = refRegistryType(ref);
     const name = refName(ref);
+    const reportProgress = yield* makeThrottledUnitProgress({ unit: "bytes" });
 
     const packageArgs: GetExtensionPackageArgs = Option.match(expectedIntegrity, {
-      onNone: () => ({ owner, type, name, version: Option.some(version) }),
+      onNone: () => ({
+        owner,
+        type,
+        name,
+        version: Option.some(version),
+        onProgress: (progress) => reportProgress(progress.done, progress.total, progress.attempt),
+      }),
       onSome: (integrity) => ({
         owner,
         type,
@@ -643,6 +671,7 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
             ? {}
             : { lifecycleWarnings: ref.lifecycleWarnings }),
         },
+        onProgress: (progress) => reportProgress(progress.done, progress.total, progress.attempt),
       }),
     });
     const { archive: archiveBytes, warnings } = yield* client.getExtensionPackage(packageArgs);
@@ -678,7 +707,7 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
     yield* extractZip(archiveBytes, tmpDir);
 
     return { directory: tmpDir } satisfies ExtensionFiles;
-  });
+  }).pipe(withBufferedArchiveBudget);
 
 // -----------------------------------------------------------------------------
 // LocalRegistrySourceHostProvider

@@ -85,6 +85,7 @@ const makeServices = (
     resolveNamedRegistry: () => Effect.die("not used"),
     find: () => Effect.succeed<ReadonlyArray<ExtensionRef>>([]),
     fetch: () => Effect.succeed({ directory: packDirectory }),
+    acquireForTransition: () => Effect.succeed({ directory: packDirectory }),
     cloneUrl: () => Option.none(),
     origin: (source) =>
       source.type === "registry"

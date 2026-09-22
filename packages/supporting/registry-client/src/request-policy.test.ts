@@ -14,7 +14,9 @@ import {
   executeRegistryRequest,
   PUBLISH_REGISTRY_REQUEST_POLICY,
   RegistryRequestAttempt,
+  OperationRequestBudget,
   RegistryRetryObservation,
+  makeOperationRequestBudget,
   type RegistryRequestPolicy,
   type RegistryRequestReplaySafety,
 } from "./request-policy.js";
@@ -89,6 +91,104 @@ const responseError = (status: number, args?: { retryAfter?: string; bodyDelay?:
 };
 
 describe("executeRegistryRequest", () => {
+  it.effect("admits another origin while one origin is at capacity", () =>
+    Effect.gen(function* () {
+      const budget = yield* makeOperationRequestBudget({ invocation: 2, origin: 1 });
+      const firstStarted = yield* Deferred.make<void>();
+      const releaseFirst = yield* Deferred.make<void>();
+      const sameOriginStarted = yield* Ref.make(false);
+      const otherOriginStarted = yield* Deferred.make<void>();
+
+      const first = yield* budget
+        .withAttempt(
+          "https://registry-one.test",
+          Deferred.succeed(firstStarted, undefined).pipe(
+            Effect.andThen(Deferred.await(releaseFirst)),
+          ),
+        )
+        .pipe(Effect.forkChild);
+      yield* Deferred.await(firstStarted);
+
+      const sameOrigin = yield* budget
+        .withAttempt("https://registry-one.test", Ref.set(sameOriginStarted, true))
+        .pipe(Effect.forkChild);
+      const otherOrigin = yield* budget
+        .withAttempt("https://registry-two.test", Deferred.succeed(otherOriginStarted, undefined))
+        .pipe(Effect.forkChild);
+
+      yield* Deferred.await(otherOriginStarted);
+      expect(yield* Ref.get(sameOriginStarted)).toBe(false);
+      yield* Deferred.succeed(releaseFirst, undefined);
+      yield* Fiber.join(first);
+      yield* Fiber.join(sameOrigin);
+      yield* Fiber.join(otherOrigin);
+      expect(yield* Ref.get(sameOriginStarted)).toBe(true);
+    }),
+  );
+
+  it.effect("holds a shared request permit until the response body completes", () =>
+    Effect.gen(function* () {
+      const budget = yield* makeOperationRequestBudget({ invocation: 1, origin: 1 });
+      const bodyStarted = yield* Deferred.make<void>();
+      const releaseBody = yield* Deferred.make<void>();
+      const secondStarted = yield* Ref.make(false);
+
+      const first = yield* execute(
+        Deferred.succeed(bodyStarted, undefined).pipe(
+          Effect.andThen(Deferred.await(releaseBody)),
+          Effect.as("first"),
+        ),
+      ).pipe(Effect.provideService(OperationRequestBudget, budget), Effect.forkChild);
+      yield* Deferred.await(bodyStarted);
+
+      const second = yield* execute(Ref.set(secondStarted, true).pipe(Effect.as("second"))).pipe(
+        Effect.provideService(OperationRequestBudget, budget),
+        Effect.forkChild,
+      );
+      yield* Effect.yieldNow;
+      expect(yield* Ref.get(secondStarted)).toBe(false);
+
+      yield* Deferred.succeed(releaseBody, undefined);
+      expect(yield* Fiber.join(first)).toBe("first");
+      expect(yield* Fiber.join(second)).toBe("second");
+      expect(yield* Ref.get(secondStarted)).toBe(true);
+    }),
+  );
+
+  it.effect("releases the request permit while a retry waits", () =>
+    Effect.gen(function* () {
+      const budget = yield* makeOperationRequestBudget({ invocation: 1, origin: 1 });
+      const retryWaiting = yield* Deferred.make<void>();
+      const attempts = yield* Ref.make(0);
+      const first = yield* execute(
+        Ref.updateAndGet(attempts, (count) => count + 1).pipe(
+          Effect.flatMap((attempt) =>
+            attempt === 1
+              ? Effect.fail(responseError(429, { bodyDelay: 2 }))
+              : Effect.succeed("done"),
+          ),
+        ),
+      ).pipe(
+        Effect.provideService(OperationRequestBudget, budget),
+        Effect.provideService(RegistryRetryObservation, {
+          waiting: () => Deferred.succeed(retryWaiting, undefined),
+          ended: () => Effect.void,
+        }),
+        Effect.forkChild,
+      );
+
+      yield* Deferred.await(retryWaiting);
+      expect(
+        yield* execute(Effect.succeed("other")).pipe(
+          Effect.provideService(OperationRequestBudget, budget),
+        ),
+      ).toBe("other");
+      yield* TestClock.adjust("2 seconds");
+      expect(yield* Fiber.join(first)).toBe("done");
+      expect(yield* Ref.get(attempts)).toBe(2);
+    }),
+  );
+
   it("gives publish one long attempt without transport replay", () => {
     expect(PUBLISH_REGISTRY_REQUEST_POLICY).toMatchObject({
       requestTimeout: "5 minutes",

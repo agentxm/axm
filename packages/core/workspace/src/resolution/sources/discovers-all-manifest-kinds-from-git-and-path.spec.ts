@@ -42,6 +42,7 @@ const providers: SourceHostProvidersService = {
   resolveNamedRegistry: () => Effect.die("not used"),
   find: () => Effect.die("not used"),
   fetch: () => Effect.die("not used"),
+  acquireForTransition: () => Effect.die("not used"),
   cloneUrl: () => Option.none(),
   origin: getOriginFromSource,
 };

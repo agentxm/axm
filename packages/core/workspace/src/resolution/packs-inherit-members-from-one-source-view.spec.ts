@@ -83,6 +83,8 @@ const noReacquisition: SourceHostProvidersService = {
   resolveNamedRegistry: () => Effect.die("Registry resolution is not used"),
   find: () => Effect.die("Source-inherited members must not reacquire the source"),
   fetch: () => Effect.die("Fetch is not used while expanding captured members"),
+  acquireForTransition: () =>
+    Effect.die("Acquisition is not used while expanding captured members"),
   cloneUrl: () => Option.none(),
   origin: () => "fixture",
 };

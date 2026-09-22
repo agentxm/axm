@@ -32,6 +32,7 @@ import { DiscoverPackagesRequestSchema } from "@agentxm/registry-protocol/unstab
 import type { ArchiveCache } from "./archive-cache.js";
 import type { ArchiveDownloadProgress } from "./client.js";
 import type { RegistryClientFailure } from "./errors.js";
+import { MAX_BUFFERED_ARCHIVE_BYTES } from "./archive-limits.js";
 import {
   extensionName,
   exactVersion,
@@ -652,6 +653,54 @@ describe("getExtensionPackage", () => {
       expect(requestedUrls).toEqual([
         `${BASE_URL}/v1/extensions/%40acme/skills/test-skill/1.0.0/archive`,
       ]);
+    }),
+  );
+
+  it.effect("rejects an oversized archive from its response length before consuming the body", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () =>
+          new Response(new Uint8Array([1]), {
+            status: 200,
+            headers: { "content-length": String(MAX_BUFFERED_ARCHIVE_BYTES + 1) },
+          }),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+      const failure = yield* client
+        .getExtensionPackage({
+          ...makeIndexArgs(),
+          exact: {
+            version: exactVersion("1.0.0"),
+            integrity: "sha512-selected",
+            publisherBindingId: "hbnd_test",
+          },
+        })
+        .pipe(Effect.flip);
+
+      expect(failure.category).toBe("quota");
+      expect(failure.detail).toContain("acquisition limit");
+    }),
+  );
+
+  it.effect("rejects streamed archive bytes when no response length was declared", () =>
+    Effect.gen(function* () {
+      const httpClient = makeMockHttpClient(
+        () => new Response(new Uint8Array(MAX_BUFFERED_ARCHIVE_BYTES + 1), { status: 200 }),
+      );
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+      const failure = yield* client
+        .getExtensionPackage({
+          ...makeIndexArgs(),
+          exact: {
+            version: exactVersion("1.0.0"),
+            integrity: "sha512-selected",
+            publisherBindingId: "hbnd_test",
+          },
+        })
+        .pipe(Effect.flip);
+
+      expect(failure.category).toBe("quota");
+      expect(failure.detail).toContain("acquisition limit");
     }),
   );
 

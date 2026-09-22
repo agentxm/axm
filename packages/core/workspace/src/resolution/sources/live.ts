@@ -15,19 +15,21 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { stripFileProtocol } from "@agentxm/registry-client";
 import type * as Scope from "effect/Scope";
 
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
-import type {
-  ExtensionFiles,
-  FindOptions,
-} from "@agentxm/extension-model/unstable/sources/source-host-provider";
+import type { FindOptions } from "@agentxm/extension-model/unstable/sources/source-host-provider";
+import type { AcquiredSourceFiles } from "./service.js";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { AxmSkillCandidateGate } from "./axm-skill-gate.js";
 import { RegistryResolutionPolicy } from "./registry-resolution-policy.js";
-import { SourceNotResolvable, type SourceResolutionFailure } from "./errors.js";
-import { fileUrlToPath } from "./file-url.js";
+import {
+  SourceNetworkFailure,
+  SourceNotResolvable,
+  type SourceResolutionFailure,
+} from "./errors.js";
 import { createGitSourceHostProvider } from "./providers/git.js";
 import { createLocalSourceHostProvider } from "./providers/local.js";
 import {
@@ -41,6 +43,11 @@ import { WorkspaceCatalog } from "./workspace-catalog.js";
 import { GitDirectoryComparison } from "./git/directory-comparison.js";
 import { compareDirectoryToHead } from "./git/operations.js";
 import { findGitRoot } from "./git/detect.js";
+import { AcquiredContent, sourceRefContentKey } from "../../acquisition/acquired-content.js";
+import {
+  DirectoryCopyLimitExceeded,
+  copyExtensionDirectory,
+} from "../../acquisition/copy-directory.js";
 
 // -----------------------------------------------------------------------------
 // Layer
@@ -99,7 +106,7 @@ export const SourceHostProvidersLive: Layer.Layer<
       ref: ExtensionRef,
     ): Effect.Effect<ExtensionRef, SourceNotResolvable> => {
       if (ref.refType !== "local") return Effect.succeed(ref);
-      const selectedPath = fileUrlToPath(ref.location);
+      const selectedPath = stripFileProtocol(ref.location);
       const relative = makeWorkspaceRelativeSourcePath(path, catalog.workspaceRoot, selectedPath);
       if (Option.isNone(relative)) {
         return Effect.fail(
@@ -137,7 +144,7 @@ export const SourceHostProvidersLive: Layer.Layer<
     const fetchImpl = (
       source: Source,
       ref: ExtensionRef,
-    ): Effect.Effect<ExtensionFiles, SourceResolutionFailure, Scope.Scope> => {
+    ): Effect.Effect<AcquiredSourceFiles, SourceResolutionFailure, Scope.Scope> => {
       switch (source.type) {
         case "local":
           return localProvider.fetch(source, ref).pipe(Effect.provide(depLayer));
@@ -166,9 +173,58 @@ export const SourceHostProvidersLive: Layer.Layer<
             Effect.provide(depLayer),
             Effect.withSpan("SourceHostProviders.resolveNamedRegistry"),
           ),
+      acquireForTransition: (ref) =>
+        Effect.gen(function* () {
+          const files = yield* fetchImpl(ref.source, ref);
+          if (ref.refType !== "local") return files;
+          // Path sources are mutable. The transition consumes captured bytes,
+          // while its normal under-lock freshness check still covers the path.
+          const directory = yield* Effect.acquireRelease(
+            fs.makeTempDirectory({ prefix: "axm-acquired-path-" }).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new SourceNetworkFailure({
+                    detail: "Temporary path-source directory could not be created",
+                    cause,
+                  }),
+              ),
+            ),
+            (scratch) => fs.remove(scratch, { recursive: true }).pipe(Effect.ignore),
+          );
+          yield* copyExtensionDirectory(files.directory, directory).pipe(
+            Effect.provide(depLayer),
+            Effect.mapError((cause) =>
+              cause instanceof DirectoryCopyLimitExceeded
+                ? new SourceNotResolvable({
+                    category: "validation",
+                    detail: `Path-source content exceeds the ${cause.limit} ${cause.resource} copy limit`,
+                    cause,
+                  })
+                : new SourceNetworkFailure({
+                    detail: "Path-source content could not be captured",
+                    cause,
+                  }),
+            ),
+          );
+          return { directory, scratchRoot: directory };
+        }).pipe(Effect.withSpan("SourceHostProviders.acquireForTransition")),
       fetch: (ref) => {
         const source = ref.source;
-        return fetchImpl(source, ref).pipe(Effect.withSpan("SourceHostProviders.fetch"));
+        return Effect.serviceOption(AcquiredContent).pipe(
+          Effect.flatMap((acquired) => {
+            if (Option.isNone(acquired)) return fetchImpl(source, ref);
+            const files = acquired.value.filesByKey.get(sourceRefContentKey(ref));
+            return files === undefined
+              ? Effect.fail(
+                  new SourceNotResolvable({
+                    category: "validation",
+                    detail: "The selected source was not acquired before the workspace transition",
+                  }),
+                )
+              : Effect.succeed(files);
+          }),
+          Effect.withSpan("SourceHostProviders.fetch"),
+        );
       },
       cloneUrl: buildCloneUrlFromSource,
       origin: getOriginFromSource,

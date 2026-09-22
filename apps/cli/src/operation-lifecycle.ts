@@ -18,7 +18,19 @@ import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Path from "effect/Path";
-import { RegistryRetryObservation } from "@agentxm/registry-client";
+import {
+  OperationRequestBudget,
+  OperationExtractionBudget,
+  OperationBufferedArchiveBudget,
+  OperationScratchBudget,
+  RegistryRetryObservation,
+  MAX_OPERATION_SCRATCH_BYTES,
+  makeOperationExtractionBudget,
+  makeOperationBufferedArchiveBudget,
+  makeOperationScratchBudget,
+  MAX_OPERATION_BUFFERED_ARCHIVE_BYTES,
+  makeOperationRequestBudget,
+} from "@agentxm/registry-client";
 
 import {
   effectCliExit,
@@ -104,6 +116,12 @@ export const withLiveOperation = <A, E, R>(args: LiveOperationArgs, body: Effect
         yield* startProductActivity(args.productActivity);
       }
       const lifecycle = yield* makeOperationLifecycle({ name: args.name, mode: args.mode });
+      const requestBudget = yield* makeOperationRequestBudget({ invocation: 4, origin: 4 });
+      const extractionBudget = yield* makeOperationExtractionBudget(2);
+      const bufferedArchiveBudget = yield* makeOperationBufferedArchiveBudget(
+        MAX_OPERATION_BUFFERED_ARCHIVE_BYTES,
+      );
+      const scratchBudget = yield* makeOperationScratchBudget(MAX_OPERATION_SCRATCH_BYTES);
       yield* screen.observe(lifecycle);
       yield* observeLifecycleForTelemetry(lifecycle);
       yield* lifecycle.publish((seq, atMs) => ({
@@ -115,6 +133,10 @@ export const withLiveOperation = <A, E, R>(args: LiveOperationArgs, body: Effect
         mode: args.mode,
       }));
       return yield* body.pipe(
+        Effect.provideService(OperationRequestBudget, requestBudget),
+        Effect.provideService(OperationExtractionBudget, extractionBudget),
+        Effect.provideService(OperationBufferedArchiveBudget, bufferedArchiveBudget),
+        Effect.provideService(OperationScratchBudget, scratchBudget),
         Effect.provideService(RegistryRetryObservation, {
           waiting: ({ requestId, operation, nextAttempt, maxAttempts, delayMillis }) =>
             publishWaiting({

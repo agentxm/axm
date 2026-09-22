@@ -9,9 +9,12 @@
  */
 
 import type { PlatformError } from "effect/PlatformError";
+import * as Data from "effect/Data";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
+import * as Stream from "effect/Stream";
 
 // -----------------------------------------------------------------------------
 // Path Safety Validation
@@ -36,49 +39,66 @@ const ALWAYS_EXCLUDED_NAMES = new Set([".git"]);
  */
 const AGENT_ARTIFACT_EXCLUDED_NAMES = new Set(["README.md", "metadata.json"]);
 
+export const MAX_COPIED_EXTENSION_BYTES = 256 * 1024 * 1024;
+export const MAX_COPIED_EXTENSION_ENTRIES = 10_000;
+
+export class DirectoryCopyLimitExceeded extends Data.TaggedError("DirectoryCopyLimitExceeded")<{
+  readonly resource: "bytes" | "entries";
+  readonly limit: number;
+}> {}
+
 const isExcluded = (name: string, forAgentArtifact: boolean): boolean => {
   if (ALWAYS_EXCLUDED_NAMES.has(name)) return true;
   if (!forAgentArtifact) return false;
   return AGENT_ARTIFACT_EXCLUDED_NAMES.has(name) || name.startsWith("_");
 };
 
-const copyEntry = (
+const scanCopy = (
   src: string,
   dest: string,
   fs: FileSystem.FileSystem,
   path: Path.Path,
   forAgentArtifact: boolean,
-): Effect.Effect<void, PlatformError> =>
+  maxBytes: number,
+  maxEntries: number,
+) =>
   Effect.gen(function* () {
-    // Read through symlinks (stat follows symlinks by default)
-    const info = yield* fs.stat(src);
+    const pending = [{ source: src, target: dest }];
+    const directories: Array<string> = [];
+    const files: Array<{ source: string; target: string }> = [];
+    let entries = 0;
+    let bytes = 0;
 
-    if (info.type === "Directory") {
-      yield* copyDir(src, dest, fs, path, forAgentArtifact);
-    } else {
-      // Copy file content — readFile follows symlinks, giving us dereferenced content
-      const content = yield* fs.readFile(src);
-      yield* fs.makeDirectory(path.dirname(dest), { recursive: true });
-      yield* fs.writeFile(dest, content);
+    while (pending.length > 0) {
+      const next = pending.pop();
+      if (next === undefined) break;
+      // stat follows symlinks so copied content is dereferenced.
+      const info = yield* fs.stat(next.source);
+      if (info.type === "Directory") {
+        directories.push(next.target);
+        const children = (yield* fs.readDirectory(next.source)).filter(
+          (name) => !isExcluded(name, forAgentArtifact),
+        );
+        entries += children.length;
+        if (entries > maxEntries) {
+          return yield* new DirectoryCopyLimitExceeded({ resource: "entries", limit: maxEntries });
+        }
+        for (const name of children) {
+          pending.push({
+            source: path.join(next.source, name),
+            target: path.join(next.target, name),
+          });
+        }
+      } else {
+        bytes += Number(info.size);
+        if (bytes > maxBytes) {
+          return yield* new DirectoryCopyLimitExceeded({ resource: "bytes", limit: maxBytes });
+        }
+        files.push(next);
+      }
     }
-  });
 
-const copyDir = (
-  src: string,
-  dest: string,
-  fs: FileSystem.FileSystem,
-  path: Path.Path,
-  forAgentArtifact: boolean,
-): Effect.Effect<void, PlatformError> =>
-  Effect.gen(function* () {
-    yield* fs.makeDirectory(dest, { recursive: true });
-    const entries = yield* fs.readDirectory(src);
-
-    yield* Effect.forEach(
-      entries.filter((name) => !isExcluded(name, forAgentArtifact)),
-      (name) => copyEntry(path.join(src, name), path.join(dest, name), fs, path, forAgentArtifact),
-      { concurrency: "unbounded" },
-    );
+    return { directories, files };
   });
 
 /**
@@ -96,6 +116,8 @@ export type CopyExtensionDirectoryOptions = {
    * (e.g. `README.md`) that the published package contains.
    */
   readonly forAgentArtifact?: boolean;
+  readonly maxBytes?: number;
+  readonly maxEntries?: number;
 };
 
 export type CopyExtensionDirectoryFailureDetails = {
@@ -125,15 +147,74 @@ export const formatCopyExtensionDirectoryFailure = ({
  * {@link CopyExtensionDirectoryOptions}).
  *
  * Symlinks are dereferenced (file content is copied, not the link).
- * Directory entries are copied concurrently.
+ * Source content is scanned before any target write. Files are streamed one at
+ * a time so a failed or cancelled copy leaves no queued filesystem work.
  */
 export const copyExtensionDirectory = (
   src: string,
   dest: string,
   options?: CopyExtensionDirectoryOptions,
-): Effect.Effect<void, PlatformError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<
+  void,
+  PlatformError | DirectoryCopyLimitExceeded,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    yield* copyDir(src, dest, fs, path, options?.forAgentArtifact ?? false);
+    const maxBytes = Math.min(
+      options?.maxBytes ?? MAX_COPIED_EXTENSION_BYTES,
+      MAX_COPIED_EXTENSION_BYTES,
+    );
+    const maxEntries = Math.min(
+      options?.maxEntries ?? MAX_COPIED_EXTENSION_ENTRIES,
+      MAX_COPIED_EXTENSION_ENTRIES,
+    );
+    if (!Number.isSafeInteger(maxBytes) || maxBytes < 1) {
+      return yield* new DirectoryCopyLimitExceeded({ resource: "bytes", limit: maxBytes });
+    }
+    if (!Number.isSafeInteger(maxEntries) || maxEntries < 1) {
+      return yield* new DirectoryCopyLimitExceeded({ resource: "entries", limit: maxEntries });
+    }
+    const { directories, files } = yield* scanCopy(
+      src,
+      dest,
+      fs,
+      path,
+      options?.forAgentArtifact ?? false,
+      maxBytes,
+      maxEntries,
+    );
+    yield* Effect.forEach(
+      directories,
+      (directory) => fs.makeDirectory(directory, { recursive: true }),
+      {
+        concurrency: 1,
+        discard: true,
+      },
+    );
+    const copiedBytes = yield* Ref.make(0);
+    yield* Effect.forEach(
+      files,
+      ({ source, target }) =>
+        fs.stream(source, { chunkSize: 64 * 1024 }).pipe(
+          Stream.mapEffect((chunk) =>
+            Effect.gen(function* () {
+              const total = yield* Ref.updateAndGet(
+                copiedBytes,
+                (count) => count + chunk.byteLength,
+              );
+              if (total > maxBytes) {
+                return yield* new DirectoryCopyLimitExceeded({
+                  resource: "bytes",
+                  limit: maxBytes,
+                });
+              }
+              return chunk;
+            }),
+          ),
+          Stream.run(fs.sink(target)),
+        ),
+      { concurrency: 1, discard: true },
+    );
   });

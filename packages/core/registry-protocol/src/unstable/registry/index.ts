@@ -27,6 +27,26 @@ export {
   DiscoveryResolvedExtensionSchema,
 } from "./discover-schema.js";
 export {
+  MAX_RESOLUTION_METADATA_ITEMS,
+  MAX_RESOLUTION_METADATA_REQUEST_BYTES,
+  MAX_RESOLUTION_METADATA_RESPONSE_BYTES,
+  MAX_RESOLUTION_METADATA_VERSIONS_PER_PAGE,
+  RESOLUTION_METADATA_SCHEMA_VERSION,
+  RESOLUTION_SELECTION_POLICY_VERSION,
+  decodeResolutionMetadataRequestBody,
+  type ResolutionMetadataError,
+  ResolutionMetadataErrorSchema,
+  ResolutionMetadataIdentitySchema,
+  ResolutionMetadataItemSchema,
+  type ResolutionMetadataOutcome,
+  ResolutionMetadataOutcomeSchema,
+  type ResolutionMetadataRequest,
+  ResolutionMetadataRequestSchema,
+  type ResolutionMetadataResponse,
+  ResolutionMetadataResponseSchema,
+  resolutionMetadataResponseMatchesRequest,
+} from "./resolution-metadata.js";
+export {
   MAX_PUBLICATION_SET_CANDIDATES,
   PUBLICATION_SET_CONTRACT,
   type PackDependencyDescriptor,

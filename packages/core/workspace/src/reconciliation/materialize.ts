@@ -297,6 +297,7 @@ const buildMcpServerSyncOperation = ({
     key: toStepKey(target),
     label: transitionLabel,
     readiness: "ready",
+    ...(ref.refType === "workspace" || !force ? {} : { acquisitionRefs: [ref] }),
     run: installMcpServer({
       name: "install-mcp-server",
       args: {

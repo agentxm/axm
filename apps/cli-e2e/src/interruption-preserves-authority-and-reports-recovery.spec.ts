@@ -44,32 +44,6 @@ const readSettings = (workspace: string): Record<string, unknown> => {
   return parsed;
 };
 
-/** The `result` payload of a machine document, or a failure naming what was missing. */
-const machineResult = (stdout: string): Record<string, unknown> => {
-  const document: unknown = JSON.parse(stdout);
-  if (!isRecord(document) || !isRecord(document["result"])) {
-    throw new Error(`Expected a machine result document, received: ${stdout}`);
-  }
-  return document["result"];
-};
-
-/** The recovery block a retained interruption reports. */
-const recoveryOf = (
-  result: Record<string, unknown>,
-): {
-  readonly retained: ReadonlyArray<unknown>;
-  readonly actions: ReadonlyArray<Record<string, unknown>>;
-} => {
-  const recovery = result["recovery"];
-  if (!isRecord(recovery)) throw new Error("Expected a recovery block");
-  const retained = recovery["retained"];
-  const actions = recovery["actions"];
-  if (!Array.isArray(retained) || !Array.isArray(actions)) {
-    throw new Error("Expected retained paths and recovery actions");
-  }
-  return { retained, actions: actions.filter(isRecord) };
-};
-
 const writeSettings = (workspace: string, value: Record<string, unknown>): void => {
   fs.writeFileSync(path.join(workspace, "axm.json"), `${JSON.stringify(value, null, 2)}\n`);
 };
@@ -142,9 +116,9 @@ describe("An interrupted workspace change", () => {
     }
   });
 
-  it("keeps a settled closure committed, names what it retained, and converges on a rerun", async () => {
-    // `beta`'s archive download is accepted and never answered, so the signal
-    // lands during apply, after `alpha`'s closure has already settled.
+  it("discards staged acquisition when interrupted and converges on a rerun", async () => {
+    // `beta`'s archive download is accepted and never answered. The signal
+    // lands during acquisition, before any workspace closure can commit.
     const registry = await startHttpRegistry({ hangArchive: ["skills/beta"] });
     const workspace = createTempDir();
     const userHome = createTempDir();
@@ -173,14 +147,10 @@ describe("An interrupted workspace change", () => {
         result: {
           contract: "plan-result-v3",
           outcome: "interrupted",
-          interruption: { signal: "SIGTERM", disposition: "retained" },
+          interruption: { signal: "SIGTERM", disposition: "none" },
         },
       });
-      const recovery = recoveryOf(machineResult(interrupted.stdout));
-      expect(recovery.retained.length).toBeGreaterThan(0);
-      expect(recovery.actions[0]?.["description"]).toContain("Re-run the command");
-      // The settled closure's content is on disk; the interrupted one is not.
-      expect(fs.existsSync(path.join(workspace.path, ".agents", "skills", "alpha"))).toBe(true);
+      expect(fs.existsSync(path.join(workspace.path, ".agents", "skills", "alpha"))).toBe(false);
       expect(fs.existsSync(path.join(workspace.path, ".agents", "skills", "beta"))).toBe(false);
 
       // Nothing promised the request would finish; the next ordinary run does.

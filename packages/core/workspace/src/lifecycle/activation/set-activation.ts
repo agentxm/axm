@@ -1055,13 +1055,17 @@ const activationStep = (
         () => Effect.void,
       );
     case "pack":
-      return transactionStep(candidate, packTransition(candidate, transition), () =>
-        validatePackActivation({
-          name: candidate.name,
-          enabled: candidate.enabled,
-          members: transition.members,
-        }),
-      );
+      return {
+        ...transactionStep(candidate, packTransition(candidate, transition), () =>
+          validatePackActivation({
+            name: candidate.name,
+            enabled: candidate.enabled,
+            members: transition.members,
+          }),
+        ),
+        acquisitionRefs:
+          transition.materialization?.steps.flatMap((step) => step.acquisitionRefs ?? []) ?? [],
+      };
   }
 };
 

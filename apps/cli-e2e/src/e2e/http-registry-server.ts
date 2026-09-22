@@ -89,6 +89,8 @@ export interface HttpRegistry {
 }
 
 export interface HttpRegistryOptions {
+  /** Hold a selected index response to observe independent resolution requests. */
+  readonly beforeIndexResponse?: (pluralAndName: string) => Promise<void> | void;
   /** Test-only delay used to make an unordered pack upload fail deterministically. */
   readonly publishDelayMsByPlural?: Readonly<Record<string, number>>;
   /** Fail the first upload for each plural/name key, then allow recovery. */
@@ -109,6 +111,8 @@ export interface HttpRegistryOptions {
   readonly hangArchive?: ReadonlyArray<string>;
   /** Reject a pack until every dependency named by its archive exists. */
   readonly enforcePackDependencies?: boolean;
+  /** Observe an authorized archive request before its response is sent. */
+  readonly onArchiveRequest?: (pluralAndName: string) => void;
   /** Require and complete the durable step-up flow for POST /v1/tokens, and accept revocation. */
   readonly stepUpTokenCreate?: boolean;
   /** Return a deliberately unusable publish-preview contract or HTTP failure. */
@@ -133,6 +137,7 @@ interface StoredVersion {
   readonly integrity: string;
   readonly archive: Buffer;
   readonly published: string;
+  readonly dependencies?: Readonly<Record<string, unknown>>;
   readonly yankedAt?: string;
 }
 
@@ -329,13 +334,13 @@ const publicationSetDigest = (descriptors: ReadonlyArray<PreviewDescriptor>): st
       ),
   });
 
-const packDependencies = (archive: Buffer): ReadonlyArray<string> => {
+const packDependencyConstraints = (archive: Buffer): Readonly<Record<string, unknown>> => {
   const entries = unzipSync(archive);
   const manifestBytes = entries["pack.json"];
   if (manifestBytes === undefined) throw new Error("Pack archive has no pack.json");
   const manifest: unknown = JSON.parse(new TextDecoder().decode(manifestBytes));
-  if (!isRecord(manifest) || !isRecord(manifest["dependencies"])) return [];
-  return Object.keys(manifest["dependencies"]);
+  if (!isRecord(manifest) || !isRecord(manifest["dependencies"])) return {};
+  return manifest["dependencies"];
 };
 
 /**
@@ -695,6 +700,7 @@ export const startHttpRegistry = async (
         const archive = await readBody(request);
         const integrity = sha512Integrity(archive);
         const failureKey = `${plural}/${name}`;
+        const dependencies = plural === "packs" ? packDependencyConstraints(archive) : undefined;
         if (rejectedPublishes.has(failureKey)) {
           sendProblem(response, 422, `Injected publish rejection for ${failureKey}.`);
           return;
@@ -704,7 +710,7 @@ export const startHttpRegistry = async (
           return;
         }
         if (plural === "packs" && options.enforcePackDependencies === true) {
-          const missing = packDependencies(archive).filter((dependency) => {
+          const missing = Object.keys(dependencies ?? {}).filter((dependency) => {
             const dependencyVersions = extensions.get(dependency);
             return dependencyVersions === undefined || dependencyVersions.length === 0;
           });
@@ -739,7 +745,13 @@ export const startHttpRegistry = async (
             ? requestedVisibility
             : "public";
         const resolvedVisibility = existingVisibility ?? establishedVisibility;
-        versions.push({ version, integrity, archive, published });
+        versions.push({
+          version,
+          integrity,
+          archive,
+          published,
+          ...(dependencies === undefined ? {} : { dependencies }),
+        });
         extensions.set(extensionKey, versions);
         extensionVisibilities.set(extensionKey, resolvedVisibility);
         publishes.push({
@@ -860,6 +872,7 @@ export const startHttpRegistry = async (
           sendProblem(response, 404, `No archive for ${plural}/${name}@${version}`);
           return;
         }
+        options.onArchiveRequest?.(`${plural}/${name}`);
         if (hangingArchives.has(`${plural}/${name}`)) {
           // Accepted and never answered: the download stays in flight so the
           // caller can interrupt the invocation at a known point.
@@ -932,6 +945,7 @@ export const startHttpRegistry = async (
           sendProblem(response, 404, `No extension ${plural}/${name}`);
           return;
         }
+        await options.beforeIndexResponse?.(`${plural}/${name}`);
         sendJson(response, 200, {
           name,
           owner,
@@ -944,6 +958,7 @@ export const startHttpRegistry = async (
             version: entry.version,
             published: entry.published,
             integrity: entry.integrity,
+            ...(entry.dependencies === undefined ? {} : { dependencies: entry.dependencies }),
             yanked_at: entry.yankedAt,
           })),
         });

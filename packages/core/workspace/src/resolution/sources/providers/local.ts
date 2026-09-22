@@ -10,9 +10,9 @@
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import { stripFileProtocol } from "@agentxm/registry-client";
 
 import { SourceNetworkFailure, type SourceError } from "../errors.js";
-import { fileUrlToPath } from "../file-url.js";
 import type { SourceHostProvider } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import type { LocalSource } from "@agentxm/extension-model/unstable/sources/types";
 import { discoverConventionRefs } from "./convention-discovery.js";
@@ -54,7 +54,7 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
       );
     }
     return Effect.succeed({
-      directory: fileUrlToPath(ref.location),
+      directory: stripFileProtocol(ref.location),
     });
   },
 });

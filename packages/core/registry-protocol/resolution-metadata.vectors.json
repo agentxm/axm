@@ -1,0 +1,177 @@
+{
+  "format": "agentxm-resolution-metadata-vectors-v1",
+  "selectionPolicyVersion": "1",
+  "evaluatedAt": "2026-09-22T12:00:00Z",
+  "cases": [
+    {
+      "name": "ordinary-range-excludes-yanked-release",
+      "source": "direct",
+      "index": {
+        "owner": "@acme",
+        "type": "skill",
+        "name": "review",
+        "publisherBindingId": "hbnd_acme",
+        "archival": null,
+        "deprecation": null,
+        "versions": [
+          {
+            "version": "1.1.0",
+            "published": "2026-09-18T12:00:00Z",
+            "integrity": "sha512-yanked",
+            "yankedAt": "2026-09-19T12:00:00Z"
+          },
+          { "version": "1.0.0", "published": "2026-09-15T12:00:00Z", "integrity": "sha512-stable" }
+        ]
+      },
+      "request": { "purpose": "select", "range": "^1.0.0", "minimumReleaseAgeSeconds": 0 },
+      "expected": { "kind": "selected", "version": "1.0.0" }
+    },
+    {
+      "name": "exact-pin-retains-yank-warning",
+      "source": "direct",
+      "index": {
+        "owner": "@acme",
+        "type": "skill",
+        "name": "review",
+        "publisherBindingId": "hbnd_acme",
+        "archival": null,
+        "deprecation": null,
+        "versions": [
+          {
+            "version": "1.1.0",
+            "published": "2026-09-18T12:00:00Z",
+            "integrity": "sha512-yanked",
+            "yankedAt": "2026-09-19T12:00:00Z",
+            "yankedCategory": "superseded"
+          },
+          { "version": "1.0.0", "published": "2026-09-15T12:00:00Z", "integrity": "sha512-stable" }
+        ]
+      },
+      "request": {
+        "purpose": "restore-exact",
+        "range": "1.1.0",
+        "acceptedIntegrity": "sha512-yanked",
+        "minimumReleaseAgeSeconds": 0
+      },
+      "expected": { "kind": "selected", "version": "1.1.0", "warning": "yanked" }
+    },
+    {
+      "name": "minimum-release-age-holds-newer-release",
+      "source": "direct",
+      "index": {
+        "owner": "@acme",
+        "type": "skill",
+        "name": "review",
+        "publisherBindingId": "hbnd_acme",
+        "archival": null,
+        "deprecation": null,
+        "versions": [
+          { "version": "2.0.0", "published": "2026-09-22T00:00:00Z", "integrity": "sha512-new" },
+          { "version": "1.0.0", "published": "2026-09-15T12:00:00Z", "integrity": "sha512-stable" }
+        ]
+      },
+      "request": { "purpose": "select", "range": "*", "minimumReleaseAgeSeconds": 86400 },
+      "expected": { "kind": "selected", "version": "1.0.0", "newerHeld": "2.0.0" }
+    },
+    {
+      "name": "direct-constraint-selects-highest-satisfying-release",
+      "source": "direct",
+      "index": {
+        "owner": "@acme",
+        "type": "skill",
+        "name": "review",
+        "publisherBindingId": "hbnd_acme",
+        "archival": null,
+        "deprecation": null,
+        "versions": [
+          { "version": "2.0.0", "published": "2026-09-15T12:00:00Z", "integrity": "sha512-two" },
+          { "version": "1.2.0", "published": "2026-09-14T12:00:00Z", "integrity": "sha512-one-two" }
+        ]
+      },
+      "request": { "purpose": "select", "range": "^1.0.0", "minimumReleaseAgeSeconds": 0 },
+      "expected": { "kind": "selected", "version": "1.2.0" }
+    },
+    {
+      "name": "pack-member-constraint-keeps-member-range",
+      "source": "pack-member",
+      "index": {
+        "owner": "@acme",
+        "type": "skill",
+        "name": "review",
+        "publisherBindingId": "hbnd_acme",
+        "archival": null,
+        "deprecation": null,
+        "versions": [
+          {
+            "version": "1.1.0",
+            "published": "2026-09-15T12:00:00Z",
+            "integrity": "sha512-one-one"
+          },
+          {
+            "version": "1.0.5",
+            "published": "2026-09-14T12:00:00Z",
+            "integrity": "sha512-one-zero-five"
+          }
+        ]
+      },
+      "request": { "purpose": "select", "range": "~1.0.0", "minimumReleaseAgeSeconds": 0 },
+      "expected": { "kind": "selected", "version": "1.0.5" }
+    },
+    {
+      "name": "package-compatibility-remains-version-scoped",
+      "source": "direct",
+      "index": {
+        "owner": "@acme",
+        "type": "skill",
+        "name": "review",
+        "publisherBindingId": "hbnd_acme",
+        "archival": null,
+        "deprecation": null,
+        "versions": [
+          {
+            "version": "1.1.0",
+            "published": "2026-09-15T12:00:00Z",
+            "integrity": "sha512-one-one",
+            "packages": [{ "purl": "pkg:npm/%40acme/core", "versionRange": "vers:npm/>=2.0.0" }]
+          },
+          {
+            "version": "1.0.0",
+            "published": "2026-09-14T12:00:00Z",
+            "integrity": "sha512-one-zero",
+            "packages": [{ "purl": "pkg:npm/%40acme/core", "versionRange": "vers:npm/<2.0.0" }]
+          }
+        ]
+      },
+      "request": {
+        "purpose": "select",
+        "range": "^1.0.0",
+        "minimumReleaseAgeSeconds": 0,
+        "compatiblePackage": { "purl": "pkg:npm/%40acme/core", "version": "2.1.0" }
+      },
+      "expected": { "kind": "selected", "version": "1.1.0" }
+    },
+    {
+      "name": "publisher-binding-change-refuses-accepted-identity",
+      "source": "direct",
+      "index": {
+        "owner": "@acme",
+        "type": "skill",
+        "name": "review",
+        "publisherBindingId": "hbnd_current",
+        "archival": null,
+        "deprecation": null,
+        "versions": [
+          { "version": "1.0.0", "published": "2026-09-15T12:00:00Z", "integrity": "sha512-stable" }
+        ]
+      },
+      "request": {
+        "purpose": "restore-exact",
+        "range": "1.0.0",
+        "acceptedIntegrity": "sha512-stable",
+        "expectedPublisherBinding": "hbnd_previous",
+        "minimumReleaseAgeSeconds": 0
+      },
+      "expected": { "kind": "binding-conflict" }
+    }
+  ]
+}

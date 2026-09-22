@@ -56,6 +56,7 @@ const providers: SourceHostProvidersService = {
   find: () => Effect.die("Git discovery must use the scoped checkout"),
   resolveNamedRegistry: () => Effect.die("unused"),
   fetch: () => Effect.die("unused"),
+  acquireForTransition: () => Effect.die("unused"),
   cloneUrl: () => Option.none(),
   origin: () => "fixture",
 };

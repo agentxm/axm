@@ -794,6 +794,9 @@ export const buildMaterializeOperation = <
     label: args.label ?? toLabelWithCompanions(target, companionPkgs),
     readiness: "ready",
     materialPaths: sourceMaterialPaths(args.ref),
+    ...(args.ref.refType === "workspace" || args.force !== true
+      ? {}
+      : { acquisitionRefs: [args.ref] }),
     run: runMaterializeOperation(manager, args),
   } satisfies PlannedJobStep<R | RecipeRequirements>;
 };
@@ -892,7 +895,7 @@ const retireMaterialization = <TTarget extends ExtensionTarget, TMaterialization
   Effect.gen(function* () {
     const writer = yield* AcceptedResolutionWriter;
     const keys = yield* manager.withdrawnResolutionKeys(args);
-    for (const key of keys) yield* writer.removeAccepted(args.target.type, key);
+    yield* writer.removeAcceptedEntries(keys.map((key) => ({ type: args.target.type, key })));
   });
 
 /**

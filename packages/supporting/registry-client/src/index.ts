@@ -49,12 +49,37 @@ export {
   DEFAULT_REGISTRY_REQUEST_POLICY,
   PUBLISH_REGISTRY_REQUEST_POLICY,
   RegistryRequestAttempt,
+  OperationRequestBudget,
   RegistryRetryObservation,
   executeRegistryRequest,
+  makeOperationRequestBudget,
   type RegistryRequestPolicy,
+  type OperationRequestBudgetService,
   type RegistryRequestReplaySafety,
   type RegistryRetryWait,
 } from "./request-policy.js";
+export {
+  OperationExtractionBudget,
+  makeOperationExtractionBudget,
+  type OperationExtractionBudgetService,
+} from "./extraction-budget.js";
+export {
+  BUFFERED_ARCHIVE_RESERVATION_BYTES,
+  MAX_OPERATION_BUFFERED_ARCHIVE_BYTES,
+  OperationBufferedArchiveBudget,
+  makeOperationBufferedArchiveBudget,
+  withBufferedArchiveBudget,
+  type OperationBufferedArchiveBudgetService,
+} from "./buffered-archive-budget.js";
+export {
+  MAX_ACQUIRED_TREE_BYTES,
+  MAX_OPERATION_SCRATCH_BYTES,
+  OperationScratchBudget,
+  OperationScratchLimitExceeded,
+  makeOperationScratchBudget,
+  type OperationScratchBudgetService,
+  type OperationScratchReservation,
+} from "./scratch-budget.js";
 
 export type {
   ArchiveCache,

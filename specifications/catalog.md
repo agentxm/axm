@@ -4970,6 +4970,18 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Methods: contract, example
 - Source: [`packages/core/registry-protocol/src/unstable/registry/publication-set-digests-follow-versioned-vectors.spec.ts`](../packages/core/registry-protocol/src/unstable/registry/publication-set-digests-follow-versioned-vectors.spec.ts)
 
+##### Resolution metadata keeps batch evidence complete and attributable
+
+- Requirement: `registry/resolution-metadata-preserves-batch-evidence`
+- Owner: `registry-protocol`
+- Statement: A Registry batch metadata exchange shall use one unique caller key per bounded request item and one ordered outcome per key, shall distinguish complete metadata from a page requiring continuation, and shall reject a continued page whose revision differs from the request so AXM cannot select from incomplete or mixed evidence.
+- Class: constraint
+- Role: interface
+- Product goals: `trustworthy-distribution`, `dependable-change-process`
+- Boundary: memory; selection: per-change
+- Methods: contract, example
+- Source: [`packages/core/registry-protocol/src/unstable/registry/resolution-metadata-preserves-batch-evidence.spec.ts`](../packages/core/registry-protocol/src/unstable/registry/resolution-metadata-preserves-batch-evidence.spec.ts)
+
 #### External conformance
 
 ##### Publishing is a write the publisher makes as themselves
@@ -5286,6 +5298,148 @@ AXM works on every supported operating system, runtime, shell, and filesystem.
 
 Every operation is safe to repeat and safe to interrupt: reruns are no-ops, failures roll back their closure, and surviving authority converges.
 
+#### Functional
+
+##### A workspace transition never waits for remote package bytes
+
+- Requirement: `cli/acquires-content-before-workspace-transition`
+- Owner: `cli-e2e`
+- Statement: For an install or configured sync, AXM shall acquire remote package content before holding the workspace transition, so no Registry archive or Git fetch request occurs while that transition is held.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: process; selection: per-change
+- Boundary rationale: The real CLI process and controlled Registry and Git transports make each remote request and the on-disk workspace lock observable at the same instant.
+- Methods: example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`apps/cli-e2e/src/acquires-content-before-workspace-transition.spec.ts`](../apps/cli-e2e/src/acquires-content-before-workspace-transition.spec.ts)
+
+##### Configured packs share one member index read and materialization
+
+- Requirement: `cli/shared-pack-member-index-is-coalesced`
+- Owner: `cli-e2e`
+- Statement: When two configured Packs depend on the same Registry member, AXM shall resolve independent Pack indexes concurrently, read the shared member's index once during planning, retain both Packs' constraints, and acquire the selected member archive once for the workspace transition.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: process; selection: per-change
+- Boundary rationale: The real CLI process and controlled HTTP Registry hold one Pack index response while observing the other Pack and counting shared member-index and archive requests.
+- Methods: example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`apps/cli-e2e/src/shared-pack-index-is-coalesced.spec.ts`](../apps/cli-e2e/src/shared-pack-index-is-coalesced.spec.ts)
+
+##### Source acquisitions share an operation scratch limit
+
+- Requirement: `registry-client/operation-scratch-is-bounded`
+- Owner: `registry-client`
+- Statement: AXM shall reserve finite scratch capacity before source acquisition, wait when unsettled reservations can release capacity, refuse retained over-capacity work with a typed resource failure, release unused capacity after measuring the acquired tree, and release retained capacity when its resource scope closes.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Controlled child scopes and small capacities make admission, refinement, refusal, and release observable without allocating large files.
+- Methods: boundary-value, example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`packages/supporting/registry-client/src/operation-scratch-is-bounded.spec.ts`](../packages/supporting/registry-client/src/operation-scratch-is-bounded.spec.ts)
+
+##### Verified source content stays scoped across delayed confirmation
+
+- Requirement: `workspace/acquired-content-survives-confirmation`
+- Owner: `workspace`
+- Statement: For an apply candidate requiring confirmation, AXM shall acquire its selected source content before prompting, retain that exact content while confirmation is pending, and release the temporary source tree on refusal without applying or reacquiring it.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: A controlled source provider and delayed confirmation port expose the temporary tree's lifetime, acquisition count, and absence of workspace mutation.
+- Methods: example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`packages/core/workspace/src/transitions/planning/plan/acquired-content-survives-confirmation.spec.ts`](../packages/core/workspace/src/transitions/planning/plan/acquired-content-survives-confirmation.spec.ts)
+
+##### Acquired source trees are measured before retention
+
+- Requirement: `workspace/acquired-tree-is-bounded`
+- Owner: `workspace`
+- Statement: AXM shall measure the bytes and entries of an acquired source tree before retaining it for apply and refuse content that exceeds either finite limit.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: A temporary source tree makes byte and entry admission observable before a staged source can be retained.
+- Methods: boundary-value, example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`packages/core/workspace/src/acquisition/acquired-tree-is-bounded.spec.ts`](../packages/core/workspace/src/acquisition/acquired-tree-is-bounded.spec.ts)
+
+##### One candidate has a finite source acquisition queue
+
+- Requirement: `workspace/acquisition-queue-is-bounded`
+- Owner: `workspace`
+- Statement: AXM shall deduplicate external source acquisitions and refuse a candidate whose distinct acquisition count exceeds a finite operation limit before fetching content or taking the workspace transition.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: A synthetic candidate's source refs make deduplication, the admitted queue length, and early refusal directly observable without network or workspace effects.
+- Methods: boundary-value, example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`packages/core/workspace/src/acquisition/acquisition-queue-is-bounded.spec.ts`](../packages/core/workspace/src/acquisition/acquisition-queue-is-bounded.spec.ts)
+
+##### A source on another filesystem publishes through sibling staging
+
+- Requirement: `workspace/cross-filesystem-source-publishes`
+- Owner: `workspace`
+- Statement: AXM shall copy a verified source tree from a different filesystem into canonical sibling staging before publishing it, so cross-filesystem rename restrictions cannot leave a partial canonical package.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: process; selection: per-change
+- Boundary rationale: Separate tmpfs and ordinary temporary directories expose real cross-filesystem rename constraints while the canonical staging and backup paths remain inspectable.
+- Methods: example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`packages/core/workspace/src/acquisition/cross-filesystem-source-publishes.spec.ts`](../packages/core/workspace/src/acquisition/cross-filesystem-source-publishes.spec.ts)
+
+##### Disk exhaustion during staging preserves the prior canonical package
+
+- Requirement: `workspace/disk-exhaustion-preserves-canonical`
+- Owner: `workspace`
+- Statement: AXM shall preserve the prior complete canonical package and remove incomplete sibling staging when a disk-full write fails, so a later retry can publish the source successfully.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: A real temporary filesystem with one injected ENOSPC sink failure exposes the canonical, staging, backup, and retry outcomes without filling the host disk.
+- Methods: fault-injection, example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`packages/core/workspace/src/acquisition/disk-exhaustion-preserves-canonical.spec.ts`](../packages/core/workspace/src/acquisition/disk-exhaustion-preserves-canonical.spec.ts)
+
+##### Extension directory copies have finite byte and entry limits
+
+- Requirement: `workspace/extension-directory-copy-is-bounded`
+- Owner: `workspace`
+- Statement: AXM shall reject an extension directory that exceeds finite byte or entry limits before writing its target tree and stream admitted content with bounded filesystem work.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: A temporary source and destination make the copied bytes, entry count, typed refusal, and absence of target writes directly observable.
+- Methods: boundary-value, example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`packages/core/workspace/src/acquisition/extension-directory-copy-is-bounded.spec.ts`](../packages/core/workspace/src/acquisition/extension-directory-copy-is-bounded.spec.ts)
+
+##### Shared pack members read metadata once while each constraint selects independently
+
+- Requirement: `workspace/pack-member-index-is-shared-without-sharing-selection`
+- Owner: `workspace`
+- Statement: During one pack-planning phase, concurrent lookups for the same Registry member shall share one index read while preserving each pack's own version and release-age selection, and a failed read shall be retried rather than retained as a successful observation.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: A controlled Registry provider and blocked index lookup expose in-flight sharing and independent policy decisions under two incoming constraints.
+- Methods: example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`packages/core/workspace/src/resolution/sources/providers/registry/shared-pack-index-lookup.spec.ts`](../packages/core/workspace/src/resolution/sources/providers/registry/shared-pack-index-lookup.spec.ts)
+
 #### Quality
 
 ##### Local Registry storage failures remain failures
@@ -5305,6 +5459,22 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 ### Goal: trustworthy-distribution
 
 Publishing and acquiring extensions preserves integrity, provenance, and immutable accepted resolutions.
+
+#### Functional
+
+##### Archive acquisition refuses content that exceeds finite resource limits
+
+- Requirement: `registry-client/archive-acquisition-is-bounded`
+- Owner: `registry-client`
+- Statement: AXM shall enforce finite compressed-body, operation-wide buffered-archive, expanded-content, entry-count, and concurrent-extraction limits while acquiring Registry archives, stop at a breached content bound with a typed resource failure, observe cancellation between compressed chunks, and leave the target package tree unwritten on refusal or interruption.
+- Class: functional
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Controlled archive bytes and a temporary filesystem make the admitted byte count, extracted entries, typed refusal, and absence of target writes directly observable.
+- Methods: boundary-value, example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`packages/supporting/registry-client/src/archive-acquisition-is-bounded.spec.ts`](../packages/supporting/registry-client/src/archive-acquisition-is-bounded.spec.ts)
 
 #### Constraints
 
@@ -5409,6 +5579,22 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 ### Goal: workspace-intent-fidelity
 
 Workspace state always reflects explicitly expressed intent, authority, and ownership — never inference, accident, or unauthorized adoption.
+
+#### Functional
+
+##### Every apply has a selected-content boundary
+
+- Requirement: `workspace/apply-provides-acquisition-boundary`
+- Owner: `workspace`
+- Statement: For every apply candidate, AXM shall provide an acquired-content context during the workspace transition, including candidates with no acquisition refs, so source-fetch adapters can refuse undeclared remote retrieval under the lock.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: The real plan executor and transaction scope expose the acquired-content context seen by a closure whose plan names no external acquisitions.
+- Methods: example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`packages/core/workspace/src/transitions/planning/plan/apply-provides-acquisition-boundary.spec.ts`](../packages/core/workspace/src/transitions/planning/plan/apply-provides-acquisition-boundary.spec.ts)
 
 #### Quality
 

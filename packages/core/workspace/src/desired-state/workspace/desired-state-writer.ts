@@ -175,6 +175,7 @@ export const makeDesiredStateWriter = (
       yield* writeSettings(configured.set(currentSettings, name, makeEntry(source)));
       const current = yield* lockfile;
       const previous = accepted.entries(current)[name];
+      if (lockEntrySemanticallyEqual(previous, lockEntry)) return;
       yield* commit(
         current,
         accepted.set(current, name, preserveAcceptedResolutionOnNoop(previous, lockEntry)),
@@ -239,6 +240,7 @@ export const makeDesiredStateWriter = (
       );
       const currentLockfile = yield* lockfile;
       const previous = lockEntries.knowledge.entries(currentLockfile)[name];
+      if (lockEntrySemanticallyEqual(previous, lockEntry)) return;
       yield* commit(
         currentLockfile,
         lockEntries.knowledge.set(
@@ -257,6 +259,7 @@ export const makeDesiredStateWriter = (
       yield* writeSettings(settingsEntries.pack.set(current, name, { source, enabled }));
       const currentLockfile = yield* lockfile;
       const previous = lockEntries.pack.entries(currentLockfile)[name];
+      if (lockEntrySemanticallyEqual(previous, lockEntry)) return;
       yield* commit(
         currentLockfile,
         lockEntries.pack.set(
@@ -288,6 +291,7 @@ export const makeDesiredStateWriter = (
       );
       const currentLockfile = yield* lockfile;
       const previous = lockEntries["mcp-server"].entries(currentLockfile)[resolutionKey];
+      if (lockEntrySemanticallyEqual(previous, lockEntry)) return;
       yield* commit(
         currentLockfile,
         lockEntries["mcp-server"].set(
@@ -334,7 +338,9 @@ export const makeDesiredStateWriter = (
       const current = yield* settings;
       const currentLockfile = yield* lockfile;
       yield* writeSettings(settingsEntries[type].remove(current, name));
-      yield* commit(currentLockfile, lockEntries[type].remove(currentLockfile, name));
+      if (lockEntries[type].entries(currentLockfile)[name] !== undefined) {
+        yield* commit(currentLockfile, lockEntries[type].remove(currentLockfile, name));
+      }
     });
 
   /** Remove each document's entry only when present. */

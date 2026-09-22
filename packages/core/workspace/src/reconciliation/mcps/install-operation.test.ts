@@ -118,6 +118,12 @@ const makeServices = (
           ? { directory: new URL(ref.location).pathname }
           : { directory: ref.source.location.pathname },
       ),
+    acquireForTransition: (ref) =>
+      Effect.succeed(
+        ref.refType === "git-hosted" || ref.refType === "local" || ref.refType === "workspace"
+          ? { directory: new URL(ref.location).pathname }
+          : { directory: ref.source.location.pathname },
+      ),
     cloneUrl: () => Option.none(),
     origin: (source) =>
       source.type === "registry"

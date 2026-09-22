@@ -120,6 +120,7 @@ import {
 } from "../../packs/lifecycle/constraint-gate.js";
 import { WORKSPACE_UPDATE_EXECUTION_CAPABILITIES } from "./atomicity.js";
 import { assessGitSelector } from "./git-selector.js";
+import { withPackRegistryIndexMemo } from "../../resolution/sources/providers/registry/index-memo.js";
 
 export type WorkspaceUpdatableType = InstallableExtensionType;
 
@@ -1117,7 +1118,7 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
       bypasses: resolvedBypasses,
       originForStep: (index) => (index === 0 ? "direct" : "dependency"),
     });
-  });
+  }).pipe(withPackRegistryIndexMemo);
 
 // Total over InstallableExtensionType: a missing key is a compile error, so a
 // type can never again be silently dropped from workspace update.

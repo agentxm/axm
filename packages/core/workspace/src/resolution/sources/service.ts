@@ -53,6 +53,10 @@ export interface SourceHostProvidersService {
   readonly fetch: (
     ref: ExtensionRef,
   ) => Effect.Effect<ExtensionFiles, SourceResolutionFailure, Scope.Scope>;
+  /** Acquire an immutable tree for a workspace transition before its lock. */
+  readonly acquireForTransition?: (
+    ref: ExtensionRef,
+  ) => Effect.Effect<ExtensionFiles, SourceResolutionFailure, Scope.Scope>;
   /** Build a git clone URL for this source. Returns None for non-git sources. */
   readonly cloneUrl: (source: Source) => Option.Option<string>;
   /** Canonical origin string for display/comparison. */

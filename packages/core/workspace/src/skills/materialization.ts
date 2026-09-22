@@ -23,6 +23,7 @@ import { materializeRegistryPackageWithTreeIntegrity } from "../materialization/
 import { validatePathSafety } from "../desired-state/index.js";
 import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "../desired-state/index.js";
 import { copyExtensionDirectory } from "../acquisition/copy-directory.js";
+import { acquiredDirectoryForRef } from "../acquisition/acquired-content.js";
 import type {
   SkillExtensionRef,
   WorkspaceSkillRef,
@@ -79,7 +80,7 @@ const materializeFromDisk = (
       sanitizedName,
     );
     yield* validatePathSafety(pathService, baseDir, canonicalPath);
-    const packageRoot = stripFileProtocol(ref.location);
+    const packageRoot = yield* acquiredDirectoryForRef(ref, stripFileProtocol(ref.location));
     const sourceSkillPath =
       ref.portable === true ? packageRoot : pathService.join(packageRoot, "src");
     yield* validateAxmSkillCandidate({

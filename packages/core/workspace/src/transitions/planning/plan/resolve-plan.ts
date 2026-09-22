@@ -57,7 +57,7 @@ import {
   recordOperationJournal,
 } from "./operation-journal.js";
 import { redactRegistryText } from "@agentxm/registry-client";
-import { AcquiredContent, registryRefContentKey } from "../../../acquisition/acquired-content.js";
+import { AcquiredContent, sourceRefContentKey } from "../../../acquisition/acquired-content.js";
 import { SourceHostProviders } from "../../../resolution/sources/service.js";
 
 import {
@@ -608,8 +608,8 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
           const acquisitionFailure =
             Option.isSome(acquired) && binding !== undefined
               ? [binding.ref, ...(binding.members ?? [])]
-                  .filter((ref) => ref.refType === "registry")
-                  .map((ref) => acquired.value.registryFailures.get(registryRefContentKey(ref)))
+                  .filter((ref) => ref.refType !== "workspace")
+                  .map((ref) => acquired.value.failuresByKey.get(sourceRefContentKey(ref)))
                   .find((failure) => failure !== undefined)
               : undefined;
           return {
@@ -859,59 +859,60 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
   const transitionSubject = "workspace-transition";
   const applyResult = yield* Effect.scoped(
     Effect.gen(function* () {
-      const registryRefs = candidatePlan.jobs.flatMap((job) =>
+      const sourceRefs = candidatePlan.jobs.flatMap((job) =>
         job.steps.flatMap((step) =>
           step.sourceBinding === undefined
             ? []
             : [step.sourceBinding.ref, ...(step.sourceBinding.members ?? [])].filter(
-                (ref) => ref.refType === "registry",
+                (ref) => ref.refType !== "workspace",
               ),
         ),
       );
-      const uniqueRegistryRefs = registryRefs.filter(
-        (ref, index) =>
-          registryRefs.findIndex(
-            (candidateRef) => registryRefContentKey(candidateRef) === registryRefContentKey(ref),
-          ) === index,
-      );
+      const seenSources = new Set<string>();
+      const uniqueSourceRefs = sourceRefs.filter((ref) => {
+        const key = sourceRefContentKey(ref);
+        if (seenSources.has(key)) return false;
+        seenSources.add(key);
+        return true;
+      });
       const sources = yield* Effect.serviceOption(SourceHostProviders);
-      const acquiredResults = Option.isSome(sources)
-        ? yield* Effect.forEach(uniqueRegistryRefs, (ref) => {
-            const key = registryRefContentKey(ref);
-            return observeUnit(
-              {
-                id: `registry-extract:${ref.owner}/${ref.type}/${ref.name}`,
-                label: `acquiring ${ref.name}`,
-              },
-              sources.value.fetch(ref),
-            ).pipe(
-              Effect.match({
-                onFailure: (cause) => ({
-                  ref,
-                  key,
-                  failure: new StepFailure({
-                    category: "network",
-                    detail: `Could not acquire ${ref.type} ${ref.name} before applying the workspace transition`,
-                    cause,
+      const acquire = Option.isSome(sources) ? sources.value.acquireForTransition : undefined;
+      const acquiredResults =
+        acquire === undefined
+          ? []
+          : yield* Effect.forEach(uniqueSourceRefs, (ref) => {
+              const key = sourceRefContentKey(ref);
+              return observeUnit(
+                {
+                  id:
+                    ref.refType === "registry"
+                      ? `registry-extract:${ref.owner}/${ref.type}/${ref.name}`
+                      : `source-acquire:${ref.type}/${ref.name}`,
+                  label: `acquiring ${ref.name}`,
+                },
+                acquire(ref),
+              ).pipe(
+                Effect.match({
+                  onFailure: (cause) => ({
+                    ref,
+                    key,
+                    failure: new StepFailure({
+                      category: "network",
+                      detail: `Could not acquire ${ref.type} ${ref.name} before applying the workspace transition`,
+                      cause,
+                    }),
                   }),
+                  onSuccess: (files) => ({ ref, key, files }),
                 }),
-                onSuccess: (files) => ({ ref, key, files }),
-              }),
-            );
-          })
-        : [];
+              );
+            });
       const acquiredContent = {
-        filesByRef: new Map(
-          acquiredResults.flatMap((result) =>
-            "files" in result ? [[result.ref, result.files] as const] : [],
-          ),
-        ),
-        registryFiles: new Map(
+        filesByKey: new Map(
           acquiredResults.flatMap((result) =>
             "files" in result ? [[result.key, result.files] as const] : [],
           ),
         ),
-        registryFailures: new Map(
+        failuresByKey: new Map(
           acquiredResults.flatMap((result) =>
             "failure" in result ? [[result.key, result.failure] as const] : [],
           ),
@@ -942,7 +943,7 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
         return { type: "contention", contention: contention.value } as const;
       }
       return yield* (
-        Option.isSome(sources) && uniqueRegistryRefs.length > 0
+        acquire !== undefined && uniqueSourceRefs.length > 0
           ? guardedApply.pipe(Effect.provideService(AcquiredContent, acquiredContent))
           : guardedApply
       ).pipe(

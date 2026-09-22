@@ -102,7 +102,7 @@ export const materializeRegistryPackageWithTreeIntegrity = <E = never>(
             integrity: args.integrity,
             publisherBindingId: args.publisherBindingId,
           });
-          const files = acquired.value.registryFiles.get(key);
+          const files = acquired.value.filesByKey.get(key);
           if (files === undefined) {
             return yield* new PackageMaterializationFailed({
               path: args.destinationPath,

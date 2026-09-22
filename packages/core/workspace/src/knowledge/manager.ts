@@ -70,6 +70,7 @@ import {
   registrySourceLockFields,
 } from "../desired-state/index.js";
 import { SourceHostProviders, WorkspaceCatalog } from "../resolution/sources/index.js";
+import { acquiredDirectoryForRef } from "../acquisition/acquired-content.js";
 import type { KnowledgeMap } from "../desired-state/index.js";
 import { knowledgeLockEntryToRef } from "../desired-state/index.js";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
@@ -270,14 +271,16 @@ export const KnowledgeManagerLive = Layer.effect(
           });
         case "git-hosted":
         case "local":
-          return provide(
-            materializeExternalPackage({
-              baseDir: materializationBaseDir,
-              canonicalPath,
-              sourceLocation: ref.location,
-              copyFailureCode: "validation",
-              copyFailureDetail: (target) => `Failed to copy knowledge package to ${target}`,
-            }),
+          return Effect.flatMap(acquiredDirectoryForRef(ref, ref.location), (sourceLocation) =>
+            provide(
+              materializeExternalPackage({
+                baseDir: materializationBaseDir,
+                canonicalPath,
+                sourceLocation,
+                copyFailureCode: "validation",
+                copyFailureDetail: (target) => `Failed to copy knowledge package to ${target}`,
+              }),
+            ),
           );
         case "workspace":
           if (

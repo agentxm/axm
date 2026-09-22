@@ -81,6 +81,7 @@ import {
   materializeExternalPackageWithTreeIntegrity,
 } from "../acquisition/canonical-directory.js";
 import { materializeRegistryPackageWithTreeIntegrity } from "../materialization/registry-materialization.js";
+import { acquiredDirectoryForRef } from "../acquisition/acquired-content.js";
 import { insertManagedFileBanner, type ManagedFileProvenance } from "../projection/index.js";
 import { SubagentManager, type SubagentManagerService } from "../materialization/managers.js";
 import { computePackageContentHash } from "../desired-state/index.js";
@@ -390,7 +391,10 @@ export const SubagentManagerLive = Layer.effect(
       Effect.gen(function* () {
         switch (ref.refType) {
           case "git-hosted": {
-            const packageRoot = stripFileProtocol(ref.location);
+            const packageRoot = yield* acquiredDirectoryForRef(
+              ref,
+              stripFileProtocol(ref.location),
+            );
             const sourcePath =
               currentLayout().scope === "project" ? packageRoot : path.join(packageRoot, "src");
             const targetPath =
@@ -403,7 +407,10 @@ export const SubagentManagerLive = Layer.effect(
             return yield* computeMaterializedTreeIntegrity(targetPath);
           }
           case "local": {
-            const packageRoot = stripFileProtocol(ref.location);
+            const packageRoot = yield* acquiredDirectoryForRef(
+              ref,
+              stripFileProtocol(ref.location),
+            );
             const sourcePath =
               currentLayout().scope === "project" ? packageRoot : path.join(packageRoot, "src");
             const targetPath =

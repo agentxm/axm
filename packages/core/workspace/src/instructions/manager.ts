@@ -50,6 +50,7 @@ import {
 } from "../acquisition/canonical-directory.js";
 import { enabledConfiguredEntries } from "../desired-state/index.js";
 import { materializeRegistryPackageWithTreeIntegrity } from "../materialization/registry-materialization.js";
+import { acquiredDirectoryForRef } from "../acquisition/acquired-content.js";
 import { computeExtensionPathsForLayout } from "../desired-state/index.js";
 import type { ProjectionUnitObservation, ResolvedInstructionsConfig } from "../projection/index.js";
 import { RuleManager } from "../materialization/managers.js";
@@ -265,25 +266,27 @@ export const RuleManagerLive = Layer.effect(
       });
 
     const materializeFromExternal = (ref: GitHostedRuleRef | LocalRuleRef) =>
-      provide(
-        materializeExternalPackageWithTreeIntegrity({
-          baseDir,
-          canonicalPath: computeExtensionPathsForLayout(
-            path.join,
-            currentLayout(),
-            ref,
-            RULE_EXTENSION_DIR,
-            ref.rule.name,
-          ).canonicalPath,
-          sourceLocation: ref.location,
-          copyFailureCode: "validation",
-          copyFailureDetail: (canonicalPath) =>
-            `Failed to copy rule package files to ${canonicalPath}`,
-        }).pipe(
-          Effect.map((materialized) => ({
-            packageRoot: materialized.canonicalPath,
-            treeIntegrity: materialized.treeIntegrity,
-          })),
+      Effect.flatMap(acquiredDirectoryForRef(ref, ref.location), (sourceLocation) =>
+        provide(
+          materializeExternalPackageWithTreeIntegrity({
+            baseDir,
+            canonicalPath: computeExtensionPathsForLayout(
+              path.join,
+              currentLayout(),
+              ref,
+              RULE_EXTENSION_DIR,
+              ref.rule.name,
+            ).canonicalPath,
+            sourceLocation,
+            copyFailureCode: "validation",
+            copyFailureDetail: (canonicalPath) =>
+              `Failed to copy rule package files to ${canonicalPath}`,
+          }).pipe(
+            Effect.map((materialized) => ({
+              packageRoot: materialized.canonicalPath,
+              treeIntegrity: materialized.treeIntegrity,
+            })),
+          ),
         ),
       );
 

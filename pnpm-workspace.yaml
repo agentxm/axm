@@ -4,6 +4,8 @@ packages:
   - tools/*
 
 verifyDepsBeforeRun: error
+# mise owns the pnpm version; keep the lockfile as one document for dependency graph readers.
+pmOnFail: ignore
 
 peerDependencyRules:
   allowedVersions:
@@ -36,7 +38,7 @@ catalog:
   allure-vitest: ^3.12.1
   effect: 4.0.0-rc.117
   eslint: ^10.3.0
-  execa: ^9.6.1
+  execa: ^10.0.1
   "@fast-check/vitest": ^0.5.0
   fflate: ^0.8.3
   husky: ^9.1.7

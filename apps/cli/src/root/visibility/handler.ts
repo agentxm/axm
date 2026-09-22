@@ -6,7 +6,13 @@
 
 import * as Effect from "effect/Effect";
 
-import { Screen, paragraphDoc, successDoc, tableDoc, type ViewColumn } from "../../screen/index.js";
+import {
+  emitResult,
+  paragraphDoc,
+  successDoc,
+  tableDoc,
+  type ViewColumn,
+} from "../../screen/index.js";
 import {
   VisibilityEvaluationSchema,
   VisibilityMutationResultSchema,
@@ -16,6 +22,7 @@ import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/exte
 import { publishFailureToAppError } from "../../feature-errors.js";
 import { HumanVerificationOptions, isNonInteractive, jsonFlag } from "../../cli-flags/index.js";
 import * as Option from "effect/Option";
+import { withLiveOperation } from "../../operation-lifecycle.js";
 
 interface VisibilityRow {
   readonly field: string;
@@ -40,10 +47,8 @@ const verificationOptions = Effect.gen(function* () {
 
 const emitEvaluation = (evaluation: typeof VisibilityEvaluationSchema.Type) =>
   Effect.gen(function* () {
-    const screen = yield* Screen;
-    if (yield* screen.document(evaluation, VisibilityEvaluationSchema)) return;
-    yield* screen.result(
-      tableDoc(
+    yield* emitResult(evaluation, VisibilityEvaluationSchema, () => [
+      ...tableDoc(
         [
           { field: "Extension", value: evaluation.target },
           { field: "Intended", value: evaluation.intent?.value ?? "not configured" },
@@ -53,28 +58,32 @@ const emitEvaluation = (evaluation: typeof VisibilityEvaluationSchema.Type) =>
         ],
         visibilityColumns,
       ),
-    );
-    for (const finding of evaluation.findings) {
-      yield* screen.note(paragraphDoc(`${finding.severity.toUpperCase()}: ${finding.message}`));
-    }
+      ...evaluation.findings.flatMap((finding) =>
+        paragraphDoc(`${finding.severity.toUpperCase()}: ${finding.message}`),
+      ),
+    ]);
   });
 
 const emitMutation = (result: typeof VisibilityMutationResultSchema.Type) =>
   Effect.gen(function* () {
-    const screen = yield* Screen;
-    if (yield* screen.document(result, VisibilityMutationResultSchema)) return;
-    yield* screen.result(
-      successDoc(
+    yield* emitResult(result, VisibilityMutationResultSchema, () => [
+      ...successDoc(
         result.result === "already-satisfied"
           ? `${result.target} is already ${result.after}.`
           : `Changed ${result.target} from ${result.before} to ${result.after}.`,
       ),
-    );
+      ...paragraphDoc(`Revision: ${result.revision}`),
+    ]);
   });
 
 export const handleVisibilityStatus = Effect.fn("Visibility.status")(
   function* (target: string) {
-    yield* emitEvaluation(yield* ManagePublishedVisibility.status(target));
+    yield* emitEvaluation(
+      yield* withLiveOperation(
+        { command: "visibility.status", name: `Inspect visibility of ${target}`, mode: "preview" },
+        ManagePublishedVisibility.status(target),
+      ),
+    );
   },
   Effect.mapError(publishFailureToAppError),
   Effect.asVoid,
@@ -82,11 +91,15 @@ export const handleVisibilityStatus = Effect.fn("Visibility.status")(
 
 export const handleVisibilitySet = Effect.fn("Visibility.set")(
   function* (target: string, visibility: ExtensionVisibility) {
-    const written = yield* ManagePublishedVisibility.set({
-      target,
-      visibility,
-      verification: yield* verificationOptions,
-    });
+    const verification = yield* verificationOptions;
+    const written = yield* withLiveOperation(
+      { command: "visibility.set", name: `Set visibility of ${target}`, mode: "apply" },
+      ManagePublishedVisibility.set({
+        target,
+        visibility,
+        verification,
+      }),
+    );
     yield* emitMutation(written.mutation);
   },
   Effect.mapError(publishFailureToAppError),
@@ -95,10 +108,14 @@ export const handleVisibilitySet = Effect.fn("Visibility.set")(
 
 export const handleVisibilityReconcile = Effect.fn("Visibility.reconcile")(
   function* (target: string) {
-    const written = yield* ManagePublishedVisibility.reconcile({
-      target,
-      verification: yield* verificationOptions,
-    });
+    const verification = yield* verificationOptions;
+    const written = yield* withLiveOperation(
+      { command: "visibility.reconcile", name: `Reconcile visibility of ${target}`, mode: "apply" },
+      ManagePublishedVisibility.reconcile({
+        target,
+        verification,
+      }),
+    );
     yield* emitMutation(written.mutation);
   },
   Effect.mapError(publishFailureToAppError),

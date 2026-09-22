@@ -107,31 +107,33 @@ export const runUpgradeCommand = (options?: UpgradeCommandOptions) =>
 
     const layer = Layer.provideMerge(
       Layer.mergeAll(UpgradePreparationLive, PackageInstallationLive, ScriptInstallationLive),
-      Layer.mergeAll(
+      Layer.provideMerge(
         CliUpgradeObservationLive,
-        NodeServices.layer,
-        options?.human === true
-          ? humanScreenLayer(streams)
-          : machineScreenLayer(streams, { quiet: options?.quiet === true }),
-        TestFlagsLayer({
-          ...(options?.quiet === undefined ? {} : { quiet: options.quiet }),
-          ...(options?.verbose === undefined ? {} : { verbose: options.verbose }),
-        }),
-        Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(process.cwd()) }),
-        subprocess.layer,
-        releaseOrigin.layer,
-        Layer.succeed(InstallMethod, { detect: () => Effect.succeed(method) }),
-        Layer.succeed(InstallMeta, {
-          read: () => Effect.succeed(Option.none()),
-          write: (metadata: InstallMetaData) =>
-            Effect.sync(() => {
-              installMetaWrites.push(metadata);
-            }),
-        }),
-        Layer.succeed(UpdateCheckCache, {
-          read: () => Effect.succeed(Option.none()),
-          write: () => Effect.void,
-        } satisfies typeof UpdateCheckCache.Service),
+        Layer.mergeAll(
+          NodeServices.layer,
+          options?.human === true
+            ? humanScreenLayer(streams, { quiet: options?.quiet === true })
+            : machineScreenLayer(streams, { quiet: options?.quiet === true }),
+          TestFlagsLayer({
+            ...(options?.quiet === undefined ? {} : { quiet: options.quiet }),
+            ...(options?.verbose === undefined ? {} : { verbose: options.verbose }),
+          }),
+          Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(process.cwd()) }),
+          subprocess.layer,
+          releaseOrigin.layer,
+          Layer.succeed(InstallMethod, { detect: () => Effect.succeed(method) }),
+          Layer.succeed(InstallMeta, {
+            read: () => Effect.succeed(Option.none()),
+            write: (metadata: InstallMetaData) =>
+              Effect.sync(() => {
+                installMetaWrites.push(metadata);
+              }),
+          }),
+          Layer.succeed(UpdateCheckCache, {
+            read: () => Effect.succeed(Option.none()),
+            write: () => Effect.void,
+          } satisfies typeof UpdateCheckCache.Service),
+        ),
       ),
     );
 

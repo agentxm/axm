@@ -4,7 +4,7 @@ import {
   type SetupOutcome,
 } from "@agentxm/workspace/configuration";
 import { agentFlag, isNonInteractive, jsonFlag, Verbosity } from "../cli-flags/index.js";
-import { Screen, errorDoc } from "../screen/index.js";
+import { emitResult, Screen, errorDoc } from "../screen/index.js";
 import { effectCliExit, withArgvTracking } from "../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { resolveTelemetryMode } from "../telemetry/index.js";
@@ -169,13 +169,15 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
         cmd: `axm setup --preview --scope ${args.scope}`,
       },
     ];
-    const emitted = yield* screen.document({ result: prepared.outcome }, SetupDocumentSchema, {
-      suggestions,
-      ok: false,
-    });
-    if (!emitted) {
-      yield* screen.note(errorDoc("Approval required — no changes applied", { suggestions }));
-    }
+    yield* emitResult(
+      { result: prepared.outcome },
+      SetupDocumentSchema,
+      () => errorDoc("Approval required — no changes applied", { suggestions }),
+      {
+        suggestions,
+        ok: false,
+      },
+    );
     return yield* Effect.die(effectCliExit(ExitCode.Usage));
   }
 
@@ -216,14 +218,16 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
     telemetryEnabled,
   });
 
-  if (yield* screen.document({ result }, SetupDocumentSchema, { suggestions })) return;
-
-  yield* screen.result(
-    setupResultDoc(result, {
-      verbosity: verbosity.level,
-      suggestions,
-      displayDirectory: (directory) => formatDisplayPath(path, directory),
-    }),
+  yield* emitResult(
+    { result },
+    SetupDocumentSchema,
+    () =>
+      setupResultDoc(result, {
+        verbosity: verbosity.level,
+        suggestions,
+        displayDirectory: (directory) => formatDisplayPath(path, directory),
+      }),
+    { suggestions },
   );
 }, Effect.asVoid);
 

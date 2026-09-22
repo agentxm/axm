@@ -1,3 +1,4 @@
+import { withLiveOperation } from "../../../operation-lifecycle.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
@@ -8,7 +9,7 @@ import {
 } from "@agentxm/workspace/knowledge/query";
 
 import { ExitCode } from "../../../app-error/index.js";
-import { Screen, errorDoc, rawDoc } from "../../../screen/index.js";
+import { emitResult, errorDoc, rawDoc } from "../../../screen/index.js";
 import { effectCliExit, withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   readOnlyCapabilities,
@@ -25,33 +26,34 @@ export const handleKnowledgeConceptGet = Effect.fn("Knowledge.concepts.get")(fun
   reference: string,
   options?: { readonly ifRevision?: string; readonly raw?: boolean },
 ) {
-  const screen = yield* Screen;
-  const result = yield* Effect.catchTags(
-    KnowledgeDiscovery.get({
-      reference,
-      ...(options?.ifRevision === undefined ? {} : { ifRevision: options.ifRevision }),
-      ...(options?.raw === undefined ? {} : { raw: options.raw }),
-    }),
-    knowledgeConceptFailures,
+  const result = yield* withLiveOperation(
+    { command: "knowledge.concepts.get", name: "Read knowledge concept", mode: "preview" },
+    Effect.catchTags(
+      KnowledgeDiscovery.get({
+        reference,
+        ...(options?.ifRevision === undefined ? {} : { ifRevision: options.ifRevision }),
+        ...(options?.raw === undefined ? {} : { raw: options.raw }),
+      }),
+      knowledgeConceptFailures,
+    ),
   );
   if (result.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
   if (result.outcome === "revision-changed") {
-    const machine = yield* screen.document(result.document, KnowledgeConceptGetOutputSchema, {
-      ok: false,
-    });
-    if (!machine) {
-      yield* screen.note(
-        errorDoc("Knowledge concept revision changed; fetch the current revision"),
-      );
-    }
+    yield* emitResult(
+      result.document,
+      KnowledgeConceptGetOutputSchema,
+      () => errorDoc("Knowledge concept revision changed; fetch the current revision"),
+      {
+        ok: false,
+      },
+    );
     return yield* Effect.die(effectCliExit(ExitCode.Conflict));
   }
-  if (yield* screen.document(result.document, KnowledgeConceptGetOutputSchema)) return;
-  const concept = result.document.concept;
-  const content = (options?.raw === true ? concept?.raw : concept?.body) ?? "";
-  yield* screen.result(
-    rawDoc(`${sanitizeKnowledgeTerminalText(content)}${content.endsWith("\n") ? "" : "\n"}`),
-  );
+  yield* emitResult(result.document, KnowledgeConceptGetOutputSchema, () => {
+    const concept = result.document.concept;
+    const content = (options?.raw === true ? concept?.raw : concept?.body) ?? "";
+    return rawDoc(`${sanitizeKnowledgeTerminalText(content)}${content.endsWith("\n") ? "" : "\n"}`);
+  });
 });
 
 const getConfig = {

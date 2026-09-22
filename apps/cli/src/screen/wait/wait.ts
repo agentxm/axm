@@ -3,7 +3,7 @@
  *
  * A wait parks the terminal while a person acts somewhere else: approving a
  * sign-in, entering a one-time code, completing verification. A view describes
- * it as data and the `Screen` puts it beneath the operation's ledger, keeps
+ * it as data and the `Screen` commits its instructions, keeps
  * only its countdown live, and races the awaited result against the keys that
  * reopen, copy, and stop it. Nothing here paints or reads input, so the
  * reducer and the view are ordinary pure functions.
@@ -18,10 +18,10 @@ import { isQuitKey, type InteractionKey } from "../interaction.js";
 export interface WaitView {
   /**
    * The lifecycle unit this wait parks. A wait whose subject is a unit id
-   * marks that ledger row paused for as long as it stands open.
+   * identifies the paused unit for as long as it stands open.
    */
   readonly subject: string;
-  /** Why the operation is parked, as the paused row and machine output read it. */
+  /** Why the operation is parked, as human narration and machine output read it. */
   readonly detail: string;
   /** The label the settled line carries. */
   readonly label: string;

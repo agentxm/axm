@@ -27,7 +27,8 @@ import { makeAppError, type AppError } from "../../app-error/index.js";
 import { Verbosity } from "../../cli-flags/index.js";
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import { ExecutionDirectory } from "../../execution-directory.js";
-import { Screen } from "../../screen/index.js";
+import { emitResult } from "../../screen/index.js";
+import { settleOperation } from "@agentxm/workspace/transitions/planning";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import { loadVersion } from "../../version.js";
 import { upgradeView } from "./view.js";
@@ -115,19 +116,15 @@ const upgradeSuggestions = (result: UpgradeAssessmentResult): ReadonlyArray<Sugg
   return [{ description: "Verify installed version", cmd: "axm --version" }];
 };
 
-const renderHuman = (result: UpgradeAssessmentResult) =>
-  Effect.gen(function* () {
-    const screen = yield* Screen;
-    const verbosity = yield* Verbosity;
-    yield* Effect.forEach(
-      upgradeView(result, verbosity.level),
-      (entry) => (entry.channel === "result" ? screen.result(entry.doc) : screen.note(entry.doc)),
-      { discard: true },
-    );
-  });
+const successfulAssessment = (result: UpgradeAssessmentResult): boolean =>
+  result.disposition === "previewed" ||
+  result.disposition === "upgraded" ||
+  result.disposition === "reinstalled" ||
+  result.disposition === "already-current" ||
+  result.disposition === "local-newer";
 
 export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: UpgradeHandlerArgs) {
-  const screen = yield* Screen;
+  const verbosity = yield* Verbosity;
   const executionDirectory = yield* ExecutionDirectory;
   const preview = args.preview === true;
   const request = {
@@ -151,13 +148,26 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
     ).pipe(
       Effect.provideService(UpgradeWorkingDirectory, { path: executionDirectory.path }),
       Effect.map(toUpgradeAssessment),
+      Effect.tap((assessment) =>
+        settleOperation(
+          successfulAssessment(assessment) && assessment.outcome !== "indeterminate"
+            ? assessment.outcome
+            : "failed",
+        ),
+      ),
       Effect.mapError(upgradeFailedToAppError),
     ),
   );
 
   yield* setCommandSemanticProperties(
     summarizeCommandOutcome({
-      outcome: result.outcome === "applied" ? "applied" : "no-op",
+      outcome: successfulAssessment(result)
+        ? result.outcome === "previewed"
+          ? "previewed"
+          : result.outcome === "applied"
+            ? "applied"
+            : "no-op"
+        : "failed",
       subjectType: "unknown",
       sourceKind: "git",
       appliedCount: result.outcome === "applied" ? 1 : 0,
@@ -165,18 +175,8 @@ export const handleUpgrade = Effect.fn("Upgrade.handle")(function* (args: Upgrad
       blockedCount: result.outcome === "failed" ? 1 : 0,
     }),
   );
-  if (
-    yield* screen.document({ result }, UpgradeDocumentSchema, {
-      suggestions: upgradeSuggestions(result),
-      ok:
-        result.disposition === "previewed" ||
-        result.disposition === "upgraded" ||
-        result.disposition === "reinstalled" ||
-        result.disposition === "already-current" ||
-        result.disposition === "local-newer",
-    })
-  ) {
-    return;
-  }
-  yield* renderHuman(result);
+  yield* emitResult({ result }, UpgradeDocumentSchema, () => upgradeView(result, verbosity.level), {
+    suggestions: upgradeSuggestions(result),
+    ok: successfulAssessment(result),
+  });
 }, Effect.asVoid);

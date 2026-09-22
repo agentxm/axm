@@ -67,6 +67,8 @@ const writeCredential = (
   });
 
 export interface OutputStreamFacts extends TerminalSize {
+  /** Result layout follows stdout even when it is a different terminal. */
+  readonly stdoutColumns: number;
   readonly stdoutIsTTY: boolean;
   readonly stderrIsTTY: boolean;
 }
@@ -83,12 +85,10 @@ export class OutputStreams extends ServiceMap.Service<
   }
 >()("axm.sh/screen/OutputStreams") {}
 
-const currentColumns = (): number =>
-  Math.max(20, process.stderr.columns ?? process.stdout.columns ?? DEFAULT_COLUMNS);
+const currentColumns = (): number => Math.max(1, process.stderr.columns ?? DEFAULT_COLUMNS);
 
-/** The floor keeps a live region of at least one row above the rows it leaves free. */
-const currentRows = (): number =>
-  Math.max(4, process.stderr.rows ?? process.stdout.rows ?? DEFAULT_ROWS);
+/** Preserve tiny viewport facts so unusable interaction can fail explicitly. */
+const currentRows = (): number => Math.max(1, process.stderr.rows ?? DEFAULT_ROWS);
 
 const resizeStream = Stream.callback<number>((queue) =>
   Effect.acquireRelease(
@@ -111,6 +111,7 @@ export const OutputStreamsLive: Layer.Layer<OutputStreams> = Layer.succeed(Outpu
   stderr: (content) => write(process.stderr, content),
   credential: (content) => writeCredential(process.stdout, content),
   facts: Effect.sync(() => ({
+    stdoutColumns: Math.max(1, process.stdout.columns ?? DEFAULT_COLUMNS),
     stdoutIsTTY: process.stdout.isTTY === true,
     stderrIsTTY: process.stderr.isTTY === true,
     columns: currentColumns(),
@@ -133,6 +134,7 @@ export const makeTestOutputStreams = (options?: {
   readonly stdoutIsTTY?: boolean;
   readonly stderrIsTTY?: boolean;
   readonly columns?: number;
+  readonly stdoutColumns?: number;
   readonly rows?: number;
   readonly resize?: Stream.Stream<number>;
 }): { readonly layer: Layer.Layer<OutputStreams>; readonly state: TestOutputStreamsState } => {
@@ -148,6 +150,7 @@ export const makeTestOutputStreams = (options?: {
       stderr: (content) => Effect.sync(() => void state.stderr.push(content)),
       credential: (content) => Effect.sync(() => void state.stdout.push(content)),
       facts: Effect.sync(() => ({
+        stdoutColumns: options?.stdoutColumns ?? state.size.columns,
         stdoutIsTTY: options?.stdoutIsTTY ?? false,
         stderrIsTTY: options?.stderrIsTTY ?? false,
         columns: state.size.columns,

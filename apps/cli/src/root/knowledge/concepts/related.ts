@@ -1,3 +1,4 @@
+import { withLiveOperation } from "../../../operation-lifecycle.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
@@ -7,7 +8,7 @@ import {
   KnowledgeDiscovery,
 } from "@agentxm/workspace/knowledge/query";
 
-import { Screen, inventoryDoc, type ViewColumn } from "../../../screen/index.js";
+import { emitResult, inventoryDoc, type ViewColumn } from "../../../screen/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   readOnlyCapabilities,
@@ -39,28 +40,33 @@ export const handleKnowledgeConceptRelated = Effect.fn("Knowledge.concepts.relat
   maximumDepth = 1,
   includeIndexBacklinks = false,
 ) {
-  const screen = yield* Screen;
-  const result = yield* Effect.catchTags(
-    KnowledgeDiscovery.related({ reference, maximumDepth, includeIndexBacklinks }),
-    knowledgeConceptFailures,
+  const result = yield* withLiveOperation(
+    {
+      command: "knowledge.concepts.related",
+      name: "Inspect related knowledge concepts",
+      mode: "preview",
+    },
+    Effect.catchTags(
+      KnowledgeDiscovery.related({ reference, maximumDepth, includeIndexBacklinks }),
+      knowledgeConceptFailures,
+    ),
   );
   if (result.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
   const output = result.document;
-  if (yield* screen.document(output, KnowledgeConceptRelatedOutputSchema)) return;
-  const rows = output.items.map(({ depth, relation, ref, title }) => ({
-    depth,
-    relation,
-    concept: sanitizeKnowledgeTerminalText(`${ref.bundle}#${ref.conceptId}`),
-    title: sanitizeKnowledgeTerminalText(title ?? "—"),
-  }));
-  yield* screen.result(
-    inventoryDoc({
+  yield* emitResult(output, KnowledgeConceptRelatedOutputSchema, () => {
+    const rows = output.items.map(({ depth, relation, ref, title }) => ({
+      depth,
+      relation,
+      concept: sanitizeKnowledgeTerminalText(`${ref.bundle}#${ref.conceptId}`),
+      title: sanitizeKnowledgeTerminalText(title ?? "—"),
+    }));
+    return inventoryDoc({
       rows,
       columns: relatedColumns,
       summary: `${rows.length} related concept${rows.length === 1 ? "" : "s"}`,
       empty: "No related installed knowledge concepts were found",
-    }),
-  );
+    });
+  });
 });
 
 const relatedConfig = {

@@ -60,6 +60,20 @@ describe.skipIf(!ptyIsSupported)("pseudo-terminal harness", () => {
     expect(leaked.rawModeRestored).toBe(false);
   });
 
+  it("delivers a resize to the terminal and its foreground process", async () => {
+    const result = await runUnderPty(
+      shell,
+      ["-c", "trap 'stty size; exit 0' WINCH; echo ready; while :; do sleep 0.05; done"],
+      {
+        env: shellEnv,
+        actions: [{ awaiting: "ready" }, { resize: { columns: 20, rows: 4 } }],
+        exitTimeout: 2_000,
+      },
+    );
+    expect(result.exitCode, result.transcript).toBe(0);
+    expect(result.transcript).toContain("4 20");
+  });
+
   it("reports a terminal the subject handed back", async () => {
     const restored = await runUnderPty(shell, ["-c", "stty raw -echo; stty sane"], {
       env: shellEnv,
@@ -239,8 +253,9 @@ describe.skipIf(!ptyIsSupported)("axm prompts under a pseudo-terminal", () => {
     // An arrow arrives as an escape sequence and has to be decoded as one key.
     expect(cursorRow(moved?.emitted ?? "")).not.toBe(cursorRow(opened?.emitted ?? ""));
 
-    // Printable text narrows the list, typed after the question.
-    expect(filtered?.emitted).toContain("Select agents to configure  clau");
+    // The full question is committed once; its short label identifies controls.
+    expect(filtered?.emitted).toContain("Agents  clau");
+    expect(result.transcript.split("Select agents to configure")).toHaveLength(2);
     expect(filtered?.emitted).toContain("Claude Code");
     expect(filtered?.emitted).toMatch(/\d+ of \d+ shown · esc clears the filter/u);
 

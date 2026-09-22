@@ -3,7 +3,7 @@ import { Command } from "effect/unstable/cli";
 
 import { logout, selectedRegistry } from "@agentxm/registry-access/authentication";
 import { coerceAuthFailure } from "../../feature-errors.js";
-import { Screen, successDoc } from "../../screen/index.js";
+import { emitResult, successDoc } from "../../screen/index.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { withArgvTracking } from "../../cli-runtime/index.js";
@@ -35,7 +35,6 @@ const logoutSuggestions = (status: LogoutStatus): ReadonlyArray<SuggestedAction>
 
 export const handleLogout = Effect.fn("AuthLogout.handle")(
   function* () {
-    const screen = yield* Screen;
     const registry = yield* selectedRegistry;
 
     const outcome = yield* withLiveOperation(
@@ -57,18 +56,21 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(
         : {}),
     };
     const suggestions = logoutSuggestions(status);
-    if (yield* screen.document({ result }, LogoutDocumentSchema, { suggestions })) return;
-
-    const identity = result.handle === undefined ? "" : ` as ${result.handle}`;
-    yield* screen.result(
-      successDoc(
-        status === "not-logged-in"
-          ? `Not logged in to ${result.registryHost}.`
-          : status === "logged-out"
-            ? `Logged out of ${result.registryHost}${identity}.`
-            : `Logged out of ${result.registryHost}${identity} locally. Remote revocation failed — token will expire automatically.`,
-        { suggestions },
-      ),
+    yield* emitResult(
+      { result },
+      LogoutDocumentSchema,
+      () => {
+        const identity = result.handle === undefined ? "" : ` as ${result.handle}`;
+        return successDoc(
+          status === "not-logged-in"
+            ? `Not logged in to ${result.registryHost}.`
+            : status === "logged-out"
+              ? `Logged out of ${result.registryHost}${identity}.`
+              : `Logged out of ${result.registryHost}${identity} locally. Remote revocation failed — token will expire automatically.`,
+          { suggestions },
+        );
+      },
+      { suggestions },
     );
   },
   Effect.mapError(coerceAuthFailure),

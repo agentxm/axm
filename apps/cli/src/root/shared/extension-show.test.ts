@@ -10,6 +10,7 @@ import { makeWorkspaceHandlerTestContext } from "../../test-support/test-helpers
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import { EXTENSION_SHOW_ITEM_FIELDS } from "@agentxm/workspace/inspection";
 import { handleExtensionShow } from "./extension-show.js";
+import { paintText } from "../../screen/index.js";
 
 /**
  * Settings key per catalog type. Written by hand rather than derived so the
@@ -43,6 +44,25 @@ describe("extension show", () => {
   });
 
   for (const type of CATALOG_EXTENSION_TYPES) {
+    it.effect(`prints the ${type} identity and source on stdout`, () => {
+      const { provide, rendererState } = makeWorkspaceHandlerTestContext();
+      writeWorkspaceFiles(path.join(tempDir, ".axm"), settingsFor[type]);
+      return provide(
+        Effect.gen(function* () {
+          yield* handleExtensionShow({ type, name: "thing" });
+          const stdout = rendererState.docs
+            .filter((entry) => entry.channel === "stdout")
+            .flatMap((entry) => paintText(entry.doc, { width: "unbounded", colors: false }))
+            .join("\n");
+          expect(stdout).toContain("thing");
+          expect(stdout).toContain("@acme/");
+          expect(stdout).toContain("project");
+          expect(rendererState.events.at(0)?._tag).toBe("OperationStarted");
+          expect(rendererState.events.at(-1)?._tag).toBe("OperationSettled");
+        }),
+      );
+    });
+
     it.effect(`emits the shared item field set for ${type}`, () => {
       const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
       writeWorkspaceFiles(path.join(tempDir, ".axm"), settingsFor[type]);

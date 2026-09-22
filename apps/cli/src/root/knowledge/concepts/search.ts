@@ -9,7 +9,7 @@ import {
 import { observeUnit } from "@agentxm/workspace/transitions/planning";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
-import { Screen, inventoryDoc, type ViewColumn } from "../../../screen/index.js";
+import { emitResult, inventoryDoc, type ViewColumn } from "../../../screen/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   readOnlyCapabilities,
@@ -41,7 +41,6 @@ export const handleKnowledgeConceptSearch = Effect.fn("Knowledge.concepts.search
   scope: WorkspaceScope,
   options?: { readonly resultLimit?: number; readonly cursor?: string },
 ) {
-  const screen = yield* Screen;
   const result = yield* withLiveOperation(
     { command: "knowledge.concepts.search", name: "Search installed knowledge", mode: "preview" },
     observeUnit(
@@ -60,22 +59,20 @@ export const handleKnowledgeConceptSearch = Effect.fn("Knowledge.concepts.search
   if (result.outcome === "corpus-changing") return yield* failKnowledgeCorpusChanging();
   if (result.outcome === "cursor-expired") return yield* failKnowledgeCursorExpired();
   const page = result.page;
-  if (yield* screen.document(page, KnowledgeConceptQueryPageSchema)) return;
-
-  const rows = page.items.map(({ ref, title, kind }) => ({
-    bundle: sanitizeKnowledgeTerminalText(ref.bundle),
-    concept: sanitizeKnowledgeTerminalText(ref.conceptId),
-    title: sanitizeKnowledgeTerminalText(title ?? "—"),
-    kind,
-  }));
-  yield* screen.result(
-    inventoryDoc({
+  yield* emitResult(page, KnowledgeConceptQueryPageSchema, () => {
+    const rows = page.items.map(({ ref, title, kind }) => ({
+      bundle: sanitizeKnowledgeTerminalText(ref.bundle),
+      concept: sanitizeKnowledgeTerminalText(ref.conceptId),
+      title: sanitizeKnowledgeTerminalText(title ?? "—"),
+      kind,
+    }));
+    return inventoryDoc({
       rows,
       columns: conceptColumns,
       summary: `${rows.length} matching concept${rows.length === 1 ? "" : "s"}`,
       empty: "No installed knowledge concepts matched",
-    }),
-  );
+    });
+  });
 });
 
 const searchConfig = {

@@ -3,6 +3,8 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
+import * as Semaphore from "effect/Semaphore";
+import * as Stream from "effect/Stream";
 import type * as Scope from "effect/Scope";
 import * as ServiceMap from "effect/Context";
 import * as Terminal from "effect/Terminal";
@@ -14,7 +16,7 @@ import {
 } from "@agentxm/workspace/transitions/planning";
 
 import type { AppError } from "../app-error/index.js";
-import { promptAvailability } from "../cli-flags/index.js";
+import { promptAvailability, Verbosity } from "../cli-flags/index.js";
 import { makeJsonSuccessEnvelope } from "../cli-runtime/json-envelope.js";
 import { promptRequired, type Ask, type InteractiveGuard } from "./ask/ask.js";
 import type { QuestionCancelled } from "./ask/question-cancelled.js";
@@ -24,8 +26,9 @@ import { parkedOnWait, runStaticWait, runWait, type WaitSurface } from "./wait/r
 import type { WaitActions, WaitView } from "./wait/wait.js";
 import type { Doc, DocNode } from "./doc.js";
 import { plain } from "./doc.js";
-import { Frame } from "./frame.js";
-import type { LivePlan } from "./live-ledger.js";
+import { Frame, type ActiveView } from "./frame.js";
+import { progressActivity, progressTransitionDoc } from "./progress-view.js";
+import type { InteractionSurface } from "./interaction.js";
 import {
   encodeMachineEvent,
   instructionEvent,
@@ -53,7 +56,6 @@ export interface ScreenFacts {
   readonly stdoutIsTTY: boolean;
   /** Whether the primary result stream is styled. */
   readonly colors: boolean;
-  readonly animate: boolean;
 }
 
 /** Operation whose plan the current feature invocation is presenting. */
@@ -74,7 +76,9 @@ export class Screen extends ServiceMap.Service<
     readonly result: (doc: Doc) => Effect.Effect<void>;
     /** Deliver one credential to stdout and succeed only after the stream acknowledges it. */
     readonly credential: (content: string) => Effect.Effect<void, CredentialDeliveryFailed>;
-    readonly note: (doc: Doc, options?: { readonly persistent?: boolean }) => Effect.Effect<void>;
+    readonly note: (doc: Doc) => Effect.Effect<void>;
+    /** Required handoff guidance, also emitted as a machine instruction. */
+    readonly instruction: (doc: Doc) => Effect.Effect<void>;
     readonly document: <S extends Schema.Top>(
       data: Schema.Schema.Type<S>,
       schema: S,
@@ -83,12 +87,6 @@ export class Screen extends ServiceMap.Service<
     readonly observe: (
       lifecycle: OperationLifecycleService,
     ) => Effect.Effect<void, never, Scope.Scope>;
-    /**
-     * Give the live ledger the plan whose rows it paints while the operation
-     * runs. Returns whether the plan is visible in the live frame, so a caller
-     * can print a static fallback when it is not.
-     */
-    readonly showPlan: (plan: LivePlan) => Effect.Effect<boolean>;
     readonly log: (record: ScreenLogRecord) => Effect.Effect<void>;
     /**
      * Put a question to the person and answer with what they chose. The guard
@@ -157,7 +155,10 @@ export const ScreenLive = (
           const isTTY = stream === "stdout" ? facts.stdoutIsTTY : facts.stderrIsTTY;
           return ensureNewline(
             paintText(doc, {
-              width: streamPaintWidth(isTTY, facts.columns),
+              width: streamPaintWidth(
+                isTTY,
+                stream === "stdout" ? facts.stdoutColumns : facts.columns,
+              ),
               colors: options.colors[stream],
               ...(options.glyphs === undefined ? {} : { glyphs: options.glyphs }),
             }).join("\n"),
@@ -165,6 +166,51 @@ export const ScreenLive = (
         });
 
       const note = (doc: Doc) => Effect.flatMap(render(doc, "stderr"), frame.stderr);
+
+      // Screen owns foreground selection and scoped operation/input lifetimes;
+      // Frame sees only one selected view and serialized transcript bytes.
+      const operations = yield* Ref.make<ReadonlyMap<string, ActiveView>>(new Map());
+      const interaction = yield* Ref.make<ActiveView | undefined>(undefined);
+      const presentationPermit = yield* Semaphore.make(1);
+      const inputPermit = yield* Semaphore.make(1);
+      const foreground = Effect.gen(function* () {
+        const open = yield* Ref.get(interaction);
+        if (open !== undefined) return open;
+        return [...(yield* Ref.get(operations)).values()].at(-1);
+      });
+      const interactionSurface = Effect.gen(function* () {
+        const owner = Symbol("interaction");
+        const showInteraction: InteractionSurface["showInteraction"] = (part) =>
+          presentationPermit.withPermit(
+            Effect.gen(function* () {
+              const current = yield* Ref.get(interaction);
+              if (part === undefined && current?.owner !== owner) return;
+              yield* Ref.set(
+                interaction,
+                part === undefined
+                  ? undefined
+                  : ({ owner, kind: "interaction", part } satisfies ActiveView),
+              );
+              yield* frame.updateActive(yield* foreground);
+            }),
+          );
+        yield* Effect.addFinalizer(() => showInteraction(undefined));
+        const finish = (doc: Doc) =>
+          presentationPermit.withPermit(
+            Effect.gen(function* () {
+              const current = yield* Ref.get(interaction);
+              const content = doc.length === 0 ? "" : yield* render(doc, "stderr");
+              if (current?.owner === owner) {
+                yield* Ref.set(interaction, undefined);
+                yield* frame.finishActive(owner, content, yield* foreground);
+              } else if (current === undefined) {
+                // Static waits have no active controls, but still leave an outcome.
+                yield* frame.updateActive(yield* foreground, content);
+              }
+            }),
+          );
+        return { showInteraction, transcript: note, finish } satisfies InteractionSurface;
+      });
 
       return {
         result: (doc) => {
@@ -178,24 +224,61 @@ export const ScreenLive = (
         },
         credential: (content) => frame.settle.pipe(Effect.andThen(streams.credential(content))),
         note,
+        instruction: note,
         document: () => Effect.succeed(false),
-        // One projector folds the stream into progress state; the frame reads
-        // the latest state and clears it at settlement. The projector holds
-        // the drain latch so the settled document prints after that clear.
         observe: (lifecycle) =>
           Effect.gen(function* () {
             const state = yield* Ref.make(initialProgress);
+            const owner = Symbol(lifecycle.operationId);
+            const verbosity = yield* Effect.serviceOption(Verbosity);
+            const detailed =
+              Option.isSome(verbosity) &&
+              (verbosity.value.level === "verbose" || verbosity.value.level === "debug");
+            yield* Effect.addFinalizer(() =>
+              presentationPermit.withPermit(
+                Effect.gen(function* () {
+                  yield* Ref.update(operations, (current) => {
+                    const next = new Map(current);
+                    if (next.get(lifecycle.operationId)?.owner === owner)
+                      next.delete(lifecycle.operationId);
+                    return next;
+                  });
+                  yield* frame.updateActive(yield* foreground);
+                }),
+              ),
+            );
             yield* subscribeLossless(lifecycle, (event) =>
-              Effect.flatMap(
-                Ref.updateAndGet(state, (current) => reduceProgress(current, event)),
-                (next) => frame.present(lifecycle.operationId, next),
+              presentationPermit.withPermit(
+                Effect.gen(function* () {
+                  const previous = yield* Ref.get(state);
+                  const next = reduceProgress(previous, event);
+                  yield* Ref.set(state, next);
+                  const doc = progressTransitionDoc(previous, next, {
+                    detailed,
+                    quiet: options.quiet === true,
+                    static: !options.animate,
+                    attributeOperation: (yield* Ref.get(operations)).size > 1,
+                  });
+                  yield* Ref.update(operations, (current) => {
+                    const updated = new Map(current);
+                    if (next.settled !== undefined) updated.delete(lifecycle.operationId);
+                    else
+                      updated.set(lifecycle.operationId, {
+                        owner,
+                        kind: "activity",
+                        part: progressActivity(next),
+                      });
+                    return updated;
+                  });
+                  yield* frame.updateActive(
+                    yield* foreground,
+                    doc.length === 0 ? "" : yield* render(doc, "stderr"),
+                    event._tag !== "UnitProgress",
+                  );
+                }),
               ),
             );
           }),
-        showPlan: (plan) =>
-          Effect.flatMap(CurrentScreenOperationId, (operationId) =>
-            operationId === undefined ? Effect.succeed(false) : frame.showPlan(operationId, plan),
-          ),
         log: (record) =>
           Effect.flatMap(
             render([{ _tag: "paragraph", tone: "dim", text: record.message }], "stderr"),
@@ -209,39 +292,54 @@ export const ScreenLive = (
             return yield* Option.match(terminal, {
               onNone: () => Effect.fail(promptRequired(plain(ask.question), guard)),
               onSome: (service) =>
-                runAsk(ask, service, {
-                  showInteraction: frame.showInteraction,
-                  transcript: note,
-                }),
+                inputPermit.withPermit(
+                  Effect.scoped(
+                    Effect.gen(function* () {
+                      // A queued question may acquire input after a resize.
+                      if (!(yield* frame.canInteract))
+                        return yield* promptRequired(plain(ask.question), guard);
+                      const surface = yield* interactionSurface;
+                      const unusable = streams.resize.pipe(
+                        Stream.runForEach(() =>
+                          Effect.flatMap(frame.canInteract, (available) =>
+                            available
+                              ? Effect.void
+                              : Effect.fail(promptRequired(plain(ask.question), guard)),
+                          ),
+                        ),
+                        Effect.andThen(Effect.never),
+                      );
+                      return yield* Effect.raceFirst(runAsk(ask, service, surface), unusable);
+                    }),
+                  ),
+                ),
             });
           }),
         wait: <A, E, R>(view: WaitView, awaited: Effect.Effect<A, E, R>, actions?: WaitActions) => {
-          const surface: WaitSurface = {
-            showInteraction: frame.showInteraction,
-            transcript: note,
-          };
-          return Effect.gen(function* () {
-            const interactive = (yield* promptAvailability) && (yield* frame.canInteract);
-            // A terminal that cannot animate, a non-interactive invocation,
-            // and a quiet invocation get the static block: the same brief, no
-            // countdown, and no keys to press.
-            const service =
-              interactive && Option.isSome(terminal) && options.animate && options.quiet !== true
-                ? terminal.value
-                : undefined;
-            return yield* parkedOnWait(
-              view,
-              service === undefined
-                ? runStaticWait(view, awaited, surface)
-                : runWait(view, awaited, actions ?? {}, service, surface),
-            );
-          });
+          return inputPermit.withPermit(
+            Effect.gen(function* () {
+              const surface: WaitSurface = yield* interactionSurface;
+              const interactive = (yield* promptAvailability) && (yield* frame.canInteract);
+              // A terminal that cannot animate, a non-interactive invocation,
+              // and a quiet invocation get the static block: the same brief, no
+              // countdown, and no keys to press.
+              const service =
+                interactive && Option.isSome(terminal) && options.animate && options.quiet !== true
+                  ? terminal.value
+                  : undefined;
+              return yield* parkedOnWait(
+                view,
+                service === undefined
+                  ? runStaticWait(view, awaited, surface)
+                  : runWait(view, awaited, actions ?? {}, service, surface),
+              );
+            }).pipe(Effect.scoped),
+          );
         },
         facts: Effect.map(streams.facts, (facts) => ({
-          columns: facts.columns,
+          columns: facts.stdoutColumns,
           stdoutIsTTY: facts.stdoutIsTTY,
           colors: options.colors.stdout,
-          animate: options.animate,
         })),
         settle: frame.settle,
       };
@@ -289,7 +387,7 @@ export const ScreenMachine = (options?: {
           return Effect.forEach(node.children, nodeEvents, { discard: true });
         }
         if (node._tag === "ledger") {
-          // A ledger row that failed or is blocked logs at its own level.
+          // A unit that failed or is blocked logs at its own level.
           return Effect.forEach(
             node.rows,
             (row) => {
@@ -323,23 +421,19 @@ export const ScreenMachine = (options?: {
         return Effect.void;
       };
 
-      const note = (
-        doc: Doc,
-        noteOptions?: { readonly persistent?: boolean },
-      ): Effect.Effect<void> => {
+      const note = (doc: Doc): Effect.Effect<void> => {
         const literal = doc
           .filter((node) => node._tag === "raw" || node._tag === "markdown")
           .map((node) => node.content)
           .join("");
-        if (literal.length > 0) return streams.stderr(literal);
-        return noteOptions?.persistent === true
-          ? emit(
-              instructionEvent(
-                doc.map((node) => ("text" in node ? plain(node.text) : "")).join("\n"),
-              ),
-            ).pipe(Effect.andThen(Effect.forEach(doc, nodeEvents, { discard: true })))
+        return literal.length > 0
+          ? streams.stderr(literal)
           : Effect.forEach(doc, nodeEvents, { discard: true });
       };
+      const instruction = (doc: Doc) =>
+        emit(
+          instructionEvent(doc.map((node) => ("text" in node ? plain(node.text) : "")).join("\n")),
+        ).pipe(Effect.andThen(note(doc)));
 
       return {
         result: (doc) => {
@@ -351,6 +445,7 @@ export const ScreenMachine = (options?: {
         },
         credential: streams.credential,
         note,
+        instruction,
         document: <S extends Schema.Top>(
           data: Schema.Schema.Type<S>,
           schema: S,
@@ -382,9 +477,6 @@ export const ScreenMachine = (options?: {
           subscribeLossless(lifecycle, (event) =>
             quiet ? Effect.void : emit(progressEvent(event)),
           ),
-        // Machine output carries the lifecycle events themselves, so there is
-        // no live ledger for a plan to paint into.
-        showPlan: () => Effect.succeed(false),
         log: (record) => emit(logEvent(logLevel(record.level), record.message)),
         // Machine output never prompts: asking is the usage error by
         // construction, whatever the terminal on the other end can do.
@@ -393,12 +485,11 @@ export const ScreenMachine = (options?: {
         // brief is what a person or an agent needs to finish elsewhere, so it
         // crosses as instructions and suggestions exactly as it always has.
         wait: (view, awaited) =>
-          parkedOnWait(view, note(view.brief, { persistent: true }).pipe(Effect.andThen(awaited))),
+          parkedOnWait(view, instruction(view.brief).pipe(Effect.andThen(awaited))),
         facts: Effect.succeed({
           columns: 80,
           stdoutIsTTY: false,
           colors: false,
-          animate: false,
         }),
         settle: Effect.void,
       };
@@ -414,3 +505,15 @@ export const emitSuggestionEvents = (
     (suggestion) => screen.stderr(encodeMachineEvent(suggestionEvent(suggestion))),
     { concurrency: 1 },
   ).pipe(Effect.asVoid);
+
+/** Select the output projection once; machine mode never evaluates a human view. */
+export const emitResult = <S extends Schema.Top>(
+  data: Schema.Schema.Type<S>,
+  schema: S,
+  human: () => Doc,
+  options?: ResultOptions,
+): Effect.Effect<void, never, Screen | S["EncodingServices"]> =>
+  Effect.gen(function* () {
+    const screen = yield* Screen;
+    if (!(yield* screen.document(data, schema, options))) yield* screen.result(human());
+  });

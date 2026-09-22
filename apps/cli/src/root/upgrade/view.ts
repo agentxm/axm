@@ -12,25 +12,17 @@ import {
 } from "@agentxm/cli-maintenance/self-update/adapters/cli";
 import { formatAxmSkillCompatibilityTarget } from "@agentxm/cli-maintenance/official-skill/adapters/cli";
 
-export interface UpgradeViewEntry {
-  readonly channel: "result" | "note";
-  readonly doc: Doc;
-}
-
 type Disposition = UpgradeAssessmentResult["disposition"];
 
-const note = (doc: Doc): UpgradeViewEntry => ({ channel: "note", doc });
-const result = (doc: Doc): UpgradeViewEntry => ({ channel: "result", doc });
-
-const outcomeEntry = (upgrade: UpgradeAssessmentResult, message: string): UpgradeViewEntry => {
+const outcomeEntry = (upgrade: UpgradeAssessmentResult, message: string): Doc => {
   switch (upgrade.disposition) {
     case "upgraded":
     case "reinstalled":
     case "already-current":
-      return result(successDoc(message));
+      return successDoc(message);
     case "previewed":
     case "local-newer":
-      return note(headlineDoc("info", message));
+      return headlineDoc("info", message);
     case "downgrade-refused":
     case "installer-lagging":
     case "installer-leading":
@@ -40,7 +32,7 @@ const outcomeEntry = (upgrade: UpgradeAssessmentResult, message: string): Upgrad
     case "verification-failed":
     case "recovery-required":
     case "rolled-back":
-      return note(headlineDoc("warn", message));
+      return headlineDoc("warn", message);
   }
 };
 
@@ -67,7 +59,7 @@ const outputTail = (output: string): string | null => {
  * where the instruction is — not behind a flag that would make acting on the
  * message require rerunning a mutating command.
  */
-const failureEvidence = (upgrade: UpgradeAssessmentResult): ReadonlyArray<UpgradeViewEntry> => {
+const failureEvidence = (upgrade: UpgradeAssessmentResult): Doc => {
   if (!TERMINAL_FAILURES.has(upgrade.disposition)) return [];
   const failing = [...upgrade.commands]
     .reverse()
@@ -76,8 +68,8 @@ const failureEvidence = (upgrade: UpgradeAssessmentResult): ReadonlyArray<Upgrad
   const tail = outputTail(failing.stderr) ?? outputTail(failing.stdout);
   if (tail === null) return [];
   return [
-    note(headlineDoc("warn", `Output from ${failing.display}:`)),
-    ...tail.split("\n").map((line) => note(headlineDoc("info", line))),
+    ...headlineDoc("warn", `Output from ${failing.display}:`),
+    ...tail.split("\n").flatMap((line) => headlineDoc("info", line)),
   ];
 };
 
@@ -88,95 +80,78 @@ const failureEvidence = (upgrade: UpgradeAssessmentResult): ReadonlyArray<Upgrad
  * default verbosity; `--verbose` keeps the full command-by-command audit
  * trail below.
  */
-const resolvedFacts = (upgrade: UpgradeAssessmentResult): ReadonlyArray<UpgradeViewEntry> => [
-  note(headlineDoc("info", `Install method: ${methodLabel(upgrade.ownership.method)}`)),
+const resolvedFacts = (upgrade: UpgradeAssessmentResult): Doc => [
+  ...headlineDoc("info", `Install method: ${methodLabel(upgrade.ownership.method)}`),
   ...upgrade.commands
     .filter((command) => command.purpose === "delegation")
-    .map((command) => note(headlineDoc("info", `Ran: ${command.display}`))),
+    .flatMap((command) => headlineDoc("info", `Ran: ${command.display}`)),
   ...upgrade.verification.executables
     .filter((verification) => verification.reportedVersion !== null)
     .slice(-1)
-    .map((verification) =>
-      note(
-        headlineDoc(
-          "info",
-          `Verified: ${verification.resolvedExecutable ?? verification.path} reported ${verification.reportedVersion ?? ""}`,
-        ),
+    .flatMap((verification) =>
+      headlineDoc(
+        "info",
+        `Verified: ${verification.resolvedExecutable ?? verification.path} reported ${verification.reportedVersion ?? ""}`,
       ),
     ),
 ];
 
-const verboseEntries = (upgrade: UpgradeAssessmentResult): ReadonlyArray<UpgradeViewEntry> => [
-  note(
-    headlineDoc("info", `Detection: ${upgrade.ownership.source} (${upgrade.ownership.confidence})`),
+const verboseEntries = (upgrade: UpgradeAssessmentResult): Doc => [
+  ...headlineDoc(
+    "info",
+    `Detection: ${upgrade.ownership.source} (${upgrade.ownership.confidence})`,
   ),
-  ...upgrade.ownership.evidence.map((evidence) =>
-    note(headlineDoc("info", `Evidence: ${evidence}`)),
-  ),
+  ...upgrade.ownership.evidence.flatMap((evidence) => headlineDoc("info", `Evidence: ${evidence}`)),
   ...upgrade.commands.flatMap((command) => [
-    note(
-      headlineDoc(
-        "info",
-        `${command.purpose}: ${command.display}, ${command.executionState}, exit ${command.exitCode === null ? "unavailable" : String(command.exitCode)}${command.outputTruncated ? ", output truncated" : ""}`,
-      ),
+    ...headlineDoc(
+      "info",
+      `${command.purpose}: ${command.display}, ${command.executionState}, exit ${command.exitCode === null ? "unavailable" : String(command.exitCode)}${command.outputTruncated ? ", output truncated" : ""}`,
     ),
-    ...(command.stdout.length === 0
-      ? []
-      : [note(headlineDoc("info", `stdout: ${command.stdout}`))]),
-    ...(command.stderr.length === 0
-      ? []
-      : [note(headlineDoc("info", `stderr: ${command.stderr}`))]),
+    ...(command.stdout.length === 0 ? [] : headlineDoc("info", `stdout: ${command.stdout}`)),
+    ...(command.stderr.length === 0 ? [] : headlineDoc("info", `stderr: ${command.stderr}`)),
   ]),
-  ...upgrade.verification.executables.map((verification) =>
-    note(
-      headlineDoc(
-        "info",
-        `Verification (${verification.role}${verification.phase === undefined ? "" : `, ${verification.phase}`}): ${verification.resolvedExecutable ?? verification.path} -> ${verification.reportedVersion ?? verification.queryOutcome ?? "unavailable"}`,
-      ),
+  ...upgrade.verification.executables.flatMap((verification) =>
+    headlineDoc(
+      "info",
+      `Verification (${verification.role}${verification.phase === undefined ? "" : `, ${verification.phase}`}): ${verification.resolvedExecutable ?? verification.path} -> ${verification.reportedVersion ?? verification.queryOutcome ?? "unavailable"}`,
     ),
   ),
   ...(upgrade.recovery.backupPath === null
     ? []
-    : [note(headlineDoc("info", `Recoverable backup: ${upgrade.recovery.backupPath}`))]),
+    : headlineDoc("info", `Recoverable backup: ${upgrade.recovery.backupPath}`)),
   ...(upgrade.details.observedFormulaVersion === null
     ? []
-    : [note(headlineDoc("info", `Homebrew formula: ${upgrade.details.observedFormulaVersion}`))]),
+    : headlineDoc("info", `Homebrew formula: ${upgrade.details.observedFormulaVersion}`)),
   ...(upgrade.details.homebrewFailure === null
     ? []
-    : [note(headlineDoc("info", `Homebrew terminal reason: ${upgrade.details.homebrewFailure}`))]),
+    : headlineDoc("info", `Homebrew terminal reason: ${upgrade.details.homebrewFailure}`)),
   ...(upgrade.disposition === "upgraded" || upgrade.disposition === "reinstalled"
-    ? [note(headlineDoc("info", "Install metadata: persisted"))]
+    ? headlineDoc("info", "Install metadata: persisted")
     : []),
 ];
 
-export const upgradeView = (
-  upgrade: UpgradeAssessmentResult,
-  verbosity: VerbosityLevel,
-): ReadonlyArray<UpgradeViewEntry> => {
+export const upgradeView = (upgrade: UpgradeAssessmentResult, verbosity: VerbosityLevel): Doc => {
   const recommended = upgrade.recovery.recommendedCommand;
   if (verbosity === "quiet") {
-    const quietMessage =
-      recommended === null ? upgrade.message : `${upgrade.message}, Next: ${recommended.display}`;
-    return [outcomeEntry(upgrade, quietMessage)];
+    return [
+      ...outcomeEntry(upgrade, upgrade.message),
+      ...failureEvidence(upgrade),
+      ...(recommended === null ? [] : headlineDoc("info", `Next: ${recommended.display}`)),
+    ];
   }
-
   return [
-    outcomeEntry(upgrade, upgrade.message),
+    ...outcomeEntry(upgrade, upgrade.message),
     ...resolvedFacts(upgrade),
-    ...upgrade.details.messages.map((detail) => note(headlineDoc("info", detail))),
+    ...upgrade.details.messages.flatMap((detail) => headlineDoc("info", detail)),
     ...failureEvidence(upgrade),
-    ...[
-      note(
-        headlineDoc(
-          "info",
-          `Compatibility target: ${formatAxmSkillCompatibilityTarget({
-            targetCliVersion: upgrade.target.version,
-            targetSkillVersion: upgrade.target.version,
-          })}`,
-        ),
-      ),
-    ],
-    ...(recommended === null ? [] : [note(headlineDoc("info", `Next: ${recommended.display}`))]),
+    ...headlineDoc(
+      "info",
+      `Compatibility target: ${formatAxmSkillCompatibilityTarget({
+        targetCliVersion: upgrade.target.version,
+        targetSkillVersion: upgrade.target.version,
+      })}`,
+    ),
+    ...(recommended === null ? [] : headlineDoc("info", `Next: ${recommended.display}`)),
     ...(verbosity === "verbose" || verbosity === "debug" ? verboseEntries(upgrade) : []),
   ];
 };

@@ -20,7 +20,7 @@ export const specification = defineSpecification({
   requirement: "cli/unsettled-units-state-their-reason",
   title: "A unit that did not settle as planned says why, and what it was left in",
   statement:
-    "For every unit of a settled operation that did not settle as planned, human output shall state that unit's reason in full beside its row and shall state whether the unit's prior state was kept, restored, or left incomplete, at every bounded terminal width AXM supports, on an unbounded stream, and at normal as well as verbose detail; a unit the operation never reached shall state what stopped it, and a unit whose producer supplied no reason shall state that rather than showing nothing.",
+    "For every unit of a settled operation that did not settle as planned, human output shall state that unit's reason in full beside its identity and shall state whether the unit's prior state was kept, restored, or left incomplete, at every bounded terminal width AXM supports, on an unbounded stream, and at quiet, normal and verbose detail; a unit the operation never reached shall state what stopped it, and a unit whose producer supplied no reason shall state that rather than showing nothing.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "extension-adoption"],
@@ -31,9 +31,7 @@ export const specification = defineSpecification({
   derivedFrom: ["cli/mutations-are-closure-atomic"],
   supersedes: [],
   assumptions: [],
-  openQuestions: [
-    "Whether quiet output keeps an unsettled unit's reason is recorded on `cli/diagnostic-controls-select-the-requested-detail` and is not decided here.",
-  ],
+  openQuestions: [],
   limitations: [
     {
       limitation:
@@ -47,7 +45,7 @@ export const specification = defineSpecification({
 /** The widths a supported terminal takes, and the stream that has none. */
 const WIDTHS: ReadonlyArray<PaintWidth> = [40, 60, 80, 100, 120, "unbounded"];
 
-const VERBOSITIES = ["normal", "verbose"] as const;
+const VERBOSITIES = ["quiet", "normal", "verbose"] as const;
 
 const presentation = operationPresentation({
   imperative: "update",
@@ -82,7 +80,7 @@ const compact = (value: string): string => value.replaceAll(/\s+/gu, "");
 const paintedAt = (
   resolution: OperationResolution<unknown>,
   width: PaintWidth,
-  verbosity: "normal" | "verbose",
+  verbosity: "quiet" | "normal" | "verbose",
 ): string =>
   compact(paintText(operationDoc(resolution, { verbosity }), { width, colors: false }).join("\n"));
 

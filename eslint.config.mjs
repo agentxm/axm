@@ -10,6 +10,31 @@ import {
 
 const axmPolicyPlugin = {
   rules: {
+    "no-terminal-control-literals": {
+      meta: {
+        type: "problem",
+        schema: [],
+        messages: {
+          screen:
+            "Terminal controls belong to Screen; handlers emit semantic documents and interactions.",
+        },
+      },
+      create(context) {
+        const check = (node, value) => {
+          if (typeof value === "string" && (value.includes("\u001b") || value.includes("\u009b"))) {
+            context.report({ node, messageId: "screen" });
+          }
+        };
+        return {
+          Literal(node) {
+            check(node, node.value);
+          },
+          TemplateElement(node) {
+            check(node, node.value.cooked);
+          },
+        };
+      },
+    },
     "no-unbounded-io": {
       meta: {
         type: "problem",
@@ -385,6 +410,46 @@ const cliHandlerBoundaryExceptions = [
   // `cache *` is a CLI-adapter-only command family: the archive cache is the
   // Registry client's own on-disk store, and no feature owns it.
   "apps/cli/src/root/cache/**",
+];
+
+// Screen is the terminal boundary for every handler, including cache commands.
+const cliTerminalImportPatterns = [
+  {
+    group: [
+      "**/screen/frame.js",
+      "**/screen/streams.js",
+      "**/screen/interaction.js",
+      "**/screen/ask/run.js",
+      "**/screen/wait/run.js",
+      "**/screen/terminal-style.js",
+      "**/screen/scene.js",
+      "effect/Terminal",
+      "effect/Console",
+      "node:tty",
+      "node:readline",
+    ],
+    message:
+      "Handlers use Screen and typed documents; terminal geometry, streams and input are owned by Screen.",
+  },
+  {
+    group: ["**/screen/index.js"],
+    importNames: [
+      "Frame",
+      "FrameLive",
+      "OutputStreams",
+      "OutputStreamsLive",
+      "makeTestOutputStreams",
+      "stderrIsTTY",
+      "paintScene",
+      "paintLivePart",
+      "runWait",
+      "runStaticWait",
+      "InteractiveScreen",
+      "MachineScreen",
+    ],
+    message:
+      "Handlers use Screen and emitResult; terminal composition belongs to runtime adapters.",
+  },
 ];
 
 const testPurposeFiles = [
@@ -899,6 +964,35 @@ export default [
     },
   },
   {
+    files: ["apps/cli/src/root/**/*.ts"],
+    ignores: testPurposeFiles,
+    rules: { "axm-policy/no-terminal-control-literals": "error" },
+  },
+  {
+    files: cliHandlerBoundaryExceptions,
+    ignores: testPurposeFiles,
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            ...cliTerminalImportPatterns,
+            {
+              group: ["@agentxm/workspace/transitions/settlement"],
+              importNames: [
+                "withWorkspaceClosure",
+                "settleWorkspaceClosure",
+                "rollbackWorkspaceClosure",
+                "pendingClosureRestorations",
+              ],
+              message: "Closure settlement belongs to transition planning.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // CLI handler boundary: handlers parse, call feature and capability
     // application APIs, and render. They do not construct plans, touch
     // workspace writers, or reach integrations directly; the composition root
@@ -930,6 +1024,7 @@ export default [
             },
           ],
           patterns: [
+            ...cliTerminalImportPatterns,
             {
               group: [
                 "@agentxm/workspace/transitions/settlement",

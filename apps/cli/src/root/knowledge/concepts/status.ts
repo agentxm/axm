@@ -1,3 +1,4 @@
+import { withLiveOperation } from "../../../operation-lifecycle.js";
 import * as Effect from "effect/Effect";
 import { Command } from "effect/unstable/cli";
 
@@ -6,7 +7,7 @@ import {
   reportKnowledgeCorpusStatus,
 } from "@agentxm/workspace/knowledge/query";
 
-import { Screen, rawDoc } from "../../../screen/index.js";
+import { emitResult, rawDoc } from "../../../screen/index.js";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import {
   readOnlyCapabilities,
@@ -18,10 +19,11 @@ import { scopeConfig } from "../flags.js";
 import { sanitizeKnowledgeTerminalText } from "./terminal-text.js";
 
 export const handleKnowledgeConceptStatus = Effect.fn("Knowledge.concepts.status")(function* () {
-  const screen = yield* Screen;
-  const output = yield* reportKnowledgeCorpusStatus();
-  if (yield* screen.document(output, KnowledgeConceptStatusOutputSchema)) return;
-  yield* screen.result(
+  const output = yield* withLiveOperation(
+    { command: "knowledge.concepts.status", name: "Inspect knowledge discovery", mode: "preview" },
+    reportKnowledgeCorpusStatus(),
+  );
+  yield* emitResult(output, KnowledgeConceptStatusOutputSchema, () =>
     rawDoc(
       `Knowledge discovery ${output.capabilities.version}\nStatus   ${output.readiness}\nBundles  ${String(output.bundleCount)}\nConcepts ${String(output.conceptCount)}\n${output.corpusFingerprint === undefined ? "" : `Corpus   ${output.corpusFingerprint}\n`}${output.health.diagnostics.map((diagnostic) => `${sanitizeKnowledgeTerminalText(diagnostic)}\n`).join("")}`,
     ),

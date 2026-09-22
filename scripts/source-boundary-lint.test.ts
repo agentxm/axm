@@ -134,6 +134,15 @@ describe("production source boundary lint rules", () => {
     expect(await violations("terminal.readInput;", INPUT_BOUNDARY)).toEqual([]);
   });
 
+  it("keeps terminal control strings out of every command handler", async () => {
+    for (const source of [PRODUCTION_SOURCE, "apps/cli/src/root/cache/command.ts"]) {
+      expect(await violations('const erase = "\\u001b[2J";', source)).toHaveLength(1);
+      expect(await violations("const erase = `\\x1b[${row}A`;", source)).toHaveLength(1);
+      expect(await violations('const text = "Checking extensions";', source)).toEqual([]);
+    }
+    expect(await violations('const erase = "\\u001b[2J";', OUTPUT_BOUNDARY)).toEqual([]);
+  });
+
   it("reports the streaming result shape in code position", async () => {
     expect(await violations("renderer.resultStream(stream, schema);", PRODUCTION_SOURCE)).toEqual([
       "axm-policy/no-result-stream: Ordinary --json output is one document; streaming requires a future explicit output mode.",
@@ -346,6 +355,31 @@ describe("module boundary constraints", () => {
         'import type { Plan } from "@agentxm/workspace/transitions/planning";\nimport { operationPresentation } from "@agentxm/workspace/transitions/planning";\nimport { handleInstall } from "@agentxm/workspace/lifecycle";',
         HANDLER,
       ),
+    ).toEqual([]);
+  });
+
+  it("requires Screen for terminal output and input while retaining the host adapters", async () => {
+    for (const source of [HANDLER, "apps/cli/src/root/cache/command.ts"]) {
+      for (const code of [
+        'import { Frame as TerminalFrame } from "../../screen/frame.js";',
+        'import { Frame as TerminalFrame } from "../../screen/index.js";',
+        'import * as Output from "../../screen/index.js";',
+        'import { OutputStreams } from "../../screen/streams.js";',
+        'import { runAsk } from "../../screen/ask/run.js";',
+        'import * as Terminal from "effect/Terminal";',
+        'import * as Console from "effect/Console";',
+        'import { createInterface } from "node:readline";',
+      ])
+        expect(await boundaryViolations(code, source), `${source}: ${code}`).toHaveLength(1);
+      expect(
+        await boundaryViolations(
+          'import { Screen, emitResult, paragraphDoc } from "../../screen/index.js";',
+          source,
+        ),
+      ).toEqual([]);
+    }
+    expect(
+      await boundaryViolations('import { FrameLive } from "./screen/index.js";', APPLICATION),
     ).toEqual([]);
   });
 });

@@ -4,7 +4,7 @@ import * as Schema from "effect/Schema";
 import { Command, Flag } from "effect/unstable/cli";
 
 import { login, selectedRegistry } from "@agentxm/registry-access/authentication";
-import { Screen, successDoc } from "../../screen/index.js";
+import { emitResult, successDoc } from "../../screen/index.js";
 import { isNonInteractive, jsonFlag, waitForHumanOption } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
@@ -58,7 +58,6 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
     readonly restart?: boolean;
     readonly waitForHumanSeconds?: number;
   }) {
-    const screen = yield* Screen;
     const registry = yield* selectedRegistry;
     const machineOutput = Option.getOrElse(yield* jsonFlag, () => false);
     const nonInteractive = yield* isNonInteractive;
@@ -86,17 +85,16 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
       registryHost: outcome.registryHost,
       handle: outcome.handle,
     };
-    if (
-      yield* screen.document({ result }, LoginNoOpDocumentSchema, {
+    yield* emitResult(
+      { result },
+      LoginNoOpDocumentSchema,
+      () =>
+        successDoc(`Already logged in to ${result.registryHost} as ${result.handle}.`, {
+          suggestions: LoginNoOpSuggestions,
+        }),
+      {
         suggestions: LoginNoOpSuggestions,
-      })
-    ) {
-      return;
-    }
-    yield* screen.result(
-      successDoc(`Already logged in to ${result.registryHost} as ${result.handle}.`, {
-        suggestions: LoginNoOpSuggestions,
-      }),
+      },
     );
   },
   // A person who abandoned the replace-session question cancelled the command.

@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import {
   OperationLifecycle,
   makeOperationLifecycle,
@@ -12,10 +13,13 @@ import {
   type SubprocessInvocation,
 } from "@agentxm/cli-maintenance/self-update/testing/native";
 import { makeCliUpgradeExecutionObserver } from "../cli-runtime/upgrade-observation.js";
+import { makeTestScreen, rendered } from "./screen-test.js";
+import { TestFlagsLayer } from "../cli-flags/index.js";
 
 export interface ExternalCommandObservation {
   readonly invocation: SubprocessInvocation;
   readonly events: ReadonlyArray<OperationEvent>;
+  readonly transcript: string;
 }
 
 interface ObservedUpgradeOptions extends UpgradeTrialOptions {
@@ -27,6 +31,7 @@ interface ObservedUpgradeOptions extends UpgradeTrialOptions {
 export const runUpgradeTrial = (options?: ObservedUpgradeOptions) =>
   Effect.gen(function* () {
     const events: Array<OperationEvent> = [];
+    const screen = makeTestScreen();
     const lifecycle = yield* makeOperationLifecycle({
       name: options?.preview === true ? "Preview AXM upgrade" : "Upgrade AXM",
       mode: options?.preview === true ? "preview" : "apply",
@@ -49,10 +54,12 @@ export const runUpgradeTrial = (options?: ObservedUpgradeOptions) =>
             seen = events.length;
             yield* Effect.yieldNow;
           }
-          yield* during({ invocation, events: [...events] });
+          yield* during({ invocation, events: [...events], transcript: rendered(screen.state) });
         }),
     });
-    const observer = yield* makeCliUpgradeExecutionObserver();
+    const observer = yield* makeCliUpgradeExecutionObserver().pipe(
+      Effect.provide(Layer.merge(screen.layer, TestFlagsLayer())),
+    );
     const assessment = yield* trial
       .run()
       .pipe(
@@ -67,6 +74,7 @@ export const runUpgradeTrial = (options?: ObservedUpgradeOptions) =>
       updateCheckWrites: trial.updateCheckWrites,
       releaseRequests: trial.releaseRequests,
       assessment,
+      transcript: rendered(screen.state),
     };
   }).pipe(Effect.scoped);
 

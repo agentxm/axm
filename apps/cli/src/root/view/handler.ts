@@ -19,7 +19,7 @@ import type { IdentifierResourceType } from "@agentxm/workspace/resolution/sourc
 
 import { isSignedIn } from "@agentxm/registry-access/authentication";
 
-import { Screen, rawDoc } from "../../screen/index.js";
+import { emitResult, rawDoc } from "../../screen/index.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import { publishedMetadataUnavailableToAppError } from "../inspection-errors.js";
 import { viewPageDoc } from "./view.js";
@@ -34,10 +34,7 @@ export interface ViewHandlerArgs {
 
 const emitFieldValue = (value: ViewFieldValue) =>
   Effect.gen(function* () {
-    const screen = yield* Screen;
-    const emitted = yield* screen.document(value, ViewFieldValueSchema);
-    if (emitted) return;
-    yield* screen.result(
+    yield* emitResult(value, ViewFieldValueSchema, () =>
       rawDoc(
         typeof value === "string"
           ? `${value}\n`
@@ -52,9 +49,7 @@ const emitFieldValue = (value: ViewFieldValue) =>
 
 const emitDocument = (data: ViewDocument) =>
   Effect.gen(function* () {
-    const screen = yield* Screen;
-    if (yield* screen.document(data, ViewDocumentSchema)) return;
-    yield* screen.result(viewPageDoc(data));
+    yield* emitResult(data, ViewDocumentSchema, () => viewPageDoc(data));
   });
 
 const emit = (result: ViewExtensionResult) =>

@@ -1,10 +1,10 @@
 /**
- * Shipped `--json` contract register.
+ * CLI human and machine output contract register.
  *
  * This is deliberately indexed by every command path exposed by the real
  * Effect CLI command tree. `machine-output-contracts.test.ts` compares these
  * rows with that tree using exact equality, so adding, removing, or aliasing a
- * command requires an explicit machine-output decision.
+ * command requires explicit result, liveness and human-scenario decisions.
  *
  * The schema names refer to the named Effect Schema used at the renderer call
  * boundary. Success envelopes add `ok` and may add `summary` / `suggestions`.
@@ -22,6 +22,10 @@ export interface MachineOutputFamily {
   readonly humanOutputKind: HumanOutputKind;
   readonly liveness: LivenessClass;
   readonly livenessCoverage: ReadonlyArray<string>;
+  readonly humanCoverage: ReadonlyArray<{
+    readonly file: string;
+    readonly scenarios: ReadonlyArray<string>;
+  }>;
   readonly schemaNames: ReadonlyArray<string>;
   readonly requiredEnvelopeKeys: ReadonlyArray<string>;
   readonly requiredTopLevelKeys: ReadonlyArray<string>;
@@ -41,6 +45,12 @@ export interface MachineOutputContractRow {
 
 const helpFamily = {
   id: "formatter-help",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/formatter.test.ts",
+      scenarios: ["group orientation", "usage errors", "help"],
+    },
+  ],
   outputClass: "formatter-help",
   humanOutputKind: "orientation",
   liveness: "immediate",
@@ -61,6 +71,20 @@ const helpFamily = {
 
 const planFamily = {
   id: "plan-resolution",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/operation-output.test.ts",
+      scenarios: [
+        "preview",
+        "apply",
+        "no-op",
+        "partial failure",
+        "blocked",
+        "interrupted",
+        "recovery",
+      ],
+    },
+  ],
   outputClass: "structured-result",
   humanOutputKind: "mutation",
   liveness: "progress",
@@ -87,7 +111,7 @@ const planFamily = {
   ],
   rationale: "Mutations expose one durable plan-resolution result across all execution outcomes.",
   centralizedCoverage: [
-    "apps/cli/src/root/publish/result.test.ts",
+    "apps/cli/src/operation-output.test.ts",
     "apps/cli-e2e/src/cli-commands/structured-output.e2e.ts",
   ],
   commandCoverage: ["command-specific tests cover branches not represented by the shared plan"],
@@ -96,6 +120,12 @@ const planFamily = {
 
 const publishFamily = {
   id: "publish",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/publish/command.test.ts",
+      scenarios: ["review", "published URLs", "no-op", "blocked", "unknown settlement", "quiet"],
+    },
+  ],
   outputClass: "structured-result",
   humanOutputKind: "mutation",
   liveness: "progress",
@@ -119,7 +149,7 @@ const publishFamily = {
   rationale:
     "Publish reconciliation has a purpose-built multi-item result whose actions differ from file plans.",
   centralizedCoverage: [
-    "apps/cli/src/root/publish/result.test.ts",
+    "apps/cli/src/root/publish/command.test.ts",
     "apps/cli-e2e/src/cli-commands/structured-output.e2e.ts",
   ],
   commandCoverage: ["apps/cli/src/root/publish/command.test.ts"],
@@ -135,14 +165,16 @@ const defineResultFamily = (input: {
   readonly rationale: string;
   readonly commandCoverage: ReadonlyArray<string>;
   readonly humanOutputKind?: HumanOutputKind;
-  readonly liveness?: LivenessClass;
+  readonly liveness: LivenessClass;
   readonly livenessCoverage?: ReadonlyArray<string>;
+  readonly humanCoverage: MachineOutputFamily["humanCoverage"];
 }): MachineOutputFamily => ({
   id: input.id,
   outputClass: "structured-result",
   humanOutputKind: input.humanOutputKind ?? "query",
-  liveness: input.liveness ?? "progress",
+  liveness: input.liveness,
   livenessCoverage: input.livenessCoverage ?? input.commandCoverage,
+  humanCoverage: input.humanCoverage,
   schemaNames: input.schemaNames,
   requiredEnvelopeKeys: ["ok", "result"],
   requiredTopLevelKeys: ["ok", ...input.requiredTopLevelKeys],
@@ -159,6 +191,10 @@ const defineResultFamily = (input: {
 
 const agentsListFamily = defineResultFamily({
   id: "agents-list",
+  liveness: "progress",
+  humanCoverage: [
+    { file: "apps/cli/src/root/agents/list.test.ts", scenarios: ["configured", "empty"] },
+  ],
   schemaNames: ["AgentsListOutputSchema"],
   requiredTopLevelKeys: ["items", "configured", "detected", "available", "count"],
   scenarios: ["configured agents", "empty workspace"],
@@ -168,6 +204,13 @@ const agentsListFamily = defineResultFamily({
 
 const agentCapabilitiesFamily = defineResultFamily({
   id: "agent-capabilities",
+  liveness: "immediate",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/agents/capabilities.test.ts",
+      scenarios: ["known agent", "unknown agent"],
+    },
+  ],
   schemaNames: ["AgentCapabilitiesOutputSchema"],
   requiredTopLevelKeys: ["agent", "name", "lifecycle", "supported", "items", "count"],
   scenarios: ["known agent", "unknown agent"],
@@ -177,6 +220,13 @@ const agentCapabilitiesFamily = defineResultFamily({
 
 const loginFamily = defineResultFamily({
   id: "login",
+  liveness: "progress",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/auth/login.test.ts",
+      scenarios: ["sign-in", "already signed in", "pending handoff", "cancelled"],
+    },
+  ],
   schemaNames: ["LoginDocumentSchema", "LoginNoOpDocumentSchema"],
   requiredTopLevelKeys: ["result"],
   scenarios: ["logged in", "already logged in", "auth failure"],
@@ -191,6 +241,13 @@ const loginFamily = defineResultFamily({
 
 const logoutFamily = defineResultFamily({
   id: "logout",
+  liveness: "progress",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/auth/logout.test.ts",
+      scenarios: ["signed out", "local-only sign-out", "not signed in"],
+    },
+  ],
   schemaNames: ["LogoutDocumentSchema"],
   requiredTopLevelKeys: ["result"],
   scenarios: ["logged out", "local-only logout", "not logged in"],
@@ -204,12 +261,26 @@ const logoutFamily = defineResultFamily({
  * before any credential is resolved or created, so the only machine document
  * these paths produce is the usage error.
  */
-const credentialExportFamily = (id: string, humanOutputKind: HumanOutputKind) =>
+const credentialExportFamily = (
+  id: string,
+  humanOutputKind: HumanOutputKind,
+  liveness: LivenessClass,
+) =>
   ({
     id,
+    humanCoverage: [
+      {
+        file: "apps/cli/src/root/auth/token.test.ts",
+        scenarios: ["explicit raw credential", "JSON refusal"],
+      },
+      {
+        file: "apps/cli/src/root/auth/token-create-revokes-undelivered-token.spec.ts",
+        scenarios: ["acknowledged delivery", "delivery failure"],
+      },
+    ],
     outputClass: "json-refused",
     humanOutputKind,
-    liveness: "immediate",
+    liveness,
     livenessCoverage: ["apps/cli/src/root/auth/token.test.ts"],
     schemaNames: ["JsonErrorEnvelopeSchema"],
     requiredEnvelopeKeys: ["ok", "code", "title", "detail"],
@@ -228,6 +299,8 @@ const credentialExportFamily = (id: string, humanOutputKind: HumanOutputKind) =>
 
 const tokenListFamily = defineResultFamily({
   id: "token-list",
+  liveness: "progress",
+  humanCoverage: [{ file: "apps/cli/src/root/auth/token.test.ts", scenarios: ["tokens", "empty"] }],
   schemaNames: ["TokenListDocumentSchema"],
   requiredTopLevelKeys: ["items", "count", "hasMore", "cursor"],
   scenarios: ["tokens present", "empty list", "auth failure"],
@@ -237,6 +310,8 @@ const tokenListFamily = defineResultFamily({
 
 const tokenRevokeFamily = defineResultFamily({
   id: "token-revoke",
+  liveness: "progress",
+  humanCoverage: [{ file: "apps/cli/src/root/auth/token.test.ts", scenarios: ["revoked"] }],
   schemaNames: ["RevokeTokenDocumentSchema"],
   requiredTopLevelKeys: ["result"],
   scenarios: ["revoked", "auth failure"],
@@ -247,6 +322,13 @@ const tokenRevokeFamily = defineResultFamily({
 
 const whoamiFamily = defineResultFamily({
   id: "whoami",
+  liveness: "progress",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/auth/whoami.test.ts",
+      scenarios: ["account authority", "limited authority"],
+    },
+  ],
   schemaNames: ["WhoamiDocumentSchema"],
   requiredTopLevelKeys: ["data"],
   scenarios: ["authenticated", "auth failure"],
@@ -256,6 +338,8 @@ const whoamiFamily = defineResultFamily({
 
 const cacheStatusFamily = defineResultFamily({
   id: "cache-status",
+  liveness: "progress",
+  humanCoverage: [{ file: "apps/cli/src/root/cache/command.test.ts", scenarios: ["status"] }],
   schemaNames: ["CacheStatusOutputSchema"],
   requiredTopLevelKeys: ["entries", "bytes", "maxBytes", "maxAgeDays"],
   scenarios: ["populated cache", "empty cache"],
@@ -267,6 +351,8 @@ const cacheStatusFamily = defineResultFamily({
 
 const cacheVerifyFamily = defineResultFamily({
   id: "cache-verify",
+  liveness: "progress",
+  humanCoverage: [{ file: "apps/cli/src/root/cache/command.test.ts", scenarios: ["verification"] }],
   schemaNames: ["CacheVerifyOutputSchema"],
   requiredTopLevelKeys: ["result"],
   scenarios: ["valid", "invalid entries"],
@@ -278,6 +364,8 @@ const cacheVerifyFamily = defineResultFamily({
 
 const cachePruneFamily = defineResultFamily({
   id: "cache-prune",
+  liveness: "progress",
+  humanCoverage: [{ file: "apps/cli/src/root/cache/command.test.ts", scenarios: ["maintenance"] }],
   schemaNames: ["CachePruneOutputSchema"],
   requiredTopLevelKeys: ["result"],
   scenarios: ["pruned", "no-op"],
@@ -290,6 +378,13 @@ const cachePruneFamily = defineResultFamily({
 
 const discoverFamily = defineResultFamily({
   id: "discover",
+  liveness: "progress",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/discover/handler.test.ts",
+      scenarios: ["matches", "empty", "unavailable registry"],
+    },
+  ],
   schemaNames: ["DiscoverOutputSchema"],
   requiredTopLevelKeys: ["items", "count", "totalDetected", "registryAvailable"],
   scenarios: ["matches", "no matches", "registry unavailable"],
@@ -302,6 +397,13 @@ const discoverFamily = defineResultFamily({
 
 const inventoryFamily = defineResultFamily({
   id: "extension-inventory",
+  liveness: "progress",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/list-empty-output.test.ts",
+      scenarios: ["empty inventory"],
+    },
+  ],
   schemaNames: ["ExtensionInventorySchema"],
   requiredTopLevelKeys: [
     "items",
@@ -320,6 +422,13 @@ const inventoryFamily = defineResultFamily({
 
 const extensionShowFamily = defineResultFamily({
   id: "extension-show",
+  liveness: "progress",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/shared/extension-show.test.ts",
+      scenarios: ["identity", "source", "scope"],
+    },
+  ],
   schemaNames: ["ExtensionShowResultSchema"],
   requiredTopLevelKeys: ["item", "agents"],
   scenarios: ["extension found", "not found"],
@@ -327,8 +436,51 @@ const extensionShowFamily = defineResultFamily({
   commandCoverage: ["apps/cli/src/root/shared/extension-show.test.ts"],
 });
 
+const mcpInventoryFamily: MachineOutputFamily = {
+  ...inventoryFamily,
+  id: "mcp-inventory",
+  schemaNames: ["McpServerListQueryResultSchema"],
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/list-empty-output.test.ts",
+      scenarios: ["local server names", "managed state"],
+    },
+  ],
+  commandCoverage: ["apps/cli/src/root/list-empty-output.test.ts"],
+};
+
+const registryTransitionFamily = defineResultFamily({
+  id: "registry-transition",
+  liveness: "progress",
+  humanOutputKind: "mutation",
+  schemaNames: ["RegistryTransitionSchema"],
+  requiredTopLevelKeys: [
+    "contract",
+    "action",
+    "registry",
+    "target",
+    "disposition",
+    "restorable",
+    "message",
+  ],
+  optionalTopLevelKeys: ["version", "affectedVersions"],
+  scenarios: ["yanked", "unyanked", "already current"],
+  rationale: "Version retirement is an authoritative, non-restorable Registry transition.",
+  commandCoverage: ["apps/cli/src/root/lifecycle/command.test.ts"],
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/lifecycle/command.test.ts",
+      scenarios: ["remote disposition", "target"],
+    },
+  ],
+});
+
 const packShowFamily = defineResultFamily({
   id: "pack-show",
+  liveness: "progress",
+  humanCoverage: [
+    { file: "apps/cli/src/root/packs/show.test.ts", scenarios: ["pack authority", "dependencies"] },
+  ],
   schemaNames: ["PackShowResultSchema"],
   requiredTopLevelKeys: [
     "pack",
@@ -347,6 +499,9 @@ const packShowFamily = defineResultFamily({
 
 const helpTopicFamily = defineResultFamily({
   id: "help-topic",
+  humanCoverage: [
+    { file: "apps/cli/src/root/help/command.test.ts", scenarios: ["index", "topic", "raw schema"] },
+  ],
   schemaNames: ["HelpIndexResultSchema", "HelpTopicResultSchema"],
   requiredTopLevelKeys: [],
   optionalTopLevelKeys: ["usage", "topics", "topic", "content"],
@@ -359,6 +514,13 @@ const helpTopicFamily = defineResultFamily({
 
 const knowledgeLintFamily = defineResultFamily({
   id: "knowledge-lint",
+  liveness: "progress",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/knowledge/json-output.test.ts",
+      scenarios: ["coordinate findings", "error tally"],
+    },
+  ],
   schemaNames: ["KnowledgeLintQueryResultSchema"],
   requiredTopLevelKeys: ["valid", "diagnostics"],
   scenarios: ["valid bundle", "diagnostics"],
@@ -368,6 +530,10 @@ const knowledgeLintFamily = defineResultFamily({
 
 const knowledgeListFamily = defineResultFamily({
   id: "knowledge-list",
+  liveness: "progress",
+  humanCoverage: [
+    { file: "apps/cli/src/root/knowledge/json-output.test.ts", scenarios: ["bundle inventory"] },
+  ],
   schemaNames: ["KnowledgeListQueryResultSchema"],
   requiredTopLevelKeys: ["items", "count"],
   scenarios: ["bundles present", "empty"],
@@ -377,6 +543,13 @@ const knowledgeListFamily = defineResultFamily({
 
 const knowledgeConceptGetFamily = defineResultFamily({
   id: "knowledge-concept-get",
+  liveness: "progress",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/knowledge/json-output.test.ts",
+      scenarios: ["human discovery result on stdout", "inspection liveness"],
+    },
+  ],
   schemaNames: ["KnowledgeConceptGetOutputSchema", "KnowledgeConceptCorpusChangingFailureSchema"],
   requiredTopLevelKeys: ["outcome"],
   optionalTopLevelKeys: ["concept", "reason", "ref", "expectedRevision", "currentRevision"],
@@ -387,6 +560,13 @@ const knowledgeConceptGetFamily = defineResultFamily({
 
 const knowledgeConceptQueryFamily = defineResultFamily({
   id: "knowledge-concept-query",
+  liveness: "progress",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/knowledge/json-output.test.ts",
+      scenarios: ["human discovery result on stdout", "inspection liveness"],
+    },
+  ],
   schemaNames: [
     "KnowledgeConceptQueryPageSchema",
     "KnowledgeConceptCursorFailureSchema",
@@ -411,6 +591,13 @@ const knowledgeConceptQueryFamily = defineResultFamily({
 
 const knowledgeConceptResolveFamily = defineResultFamily({
   id: "knowledge-concept-resolve",
+  liveness: "progress",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/knowledge/json-output.test.ts",
+      scenarios: ["human discovery result on stdout", "inspection liveness"],
+    },
+  ],
   schemaNames: [
     "KnowledgeConceptResolveOutputSchema",
     "KnowledgeConceptCorpusChangingFailureSchema",
@@ -427,6 +614,13 @@ const knowledgeConceptResolveFamily = defineResultFamily({
 
 const knowledgeConceptRelatedFamily = defineResultFamily({
   id: "knowledge-concept-related",
+  liveness: "progress",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/knowledge/json-output.test.ts",
+      scenarios: ["human discovery result on stdout", "inspection liveness"],
+    },
+  ],
   schemaNames: [
     "KnowledgeConceptRelatedOutputSchema",
     "KnowledgeConceptCorpusChangingFailureSchema",
@@ -451,6 +645,13 @@ const knowledgeConceptRelatedFamily = defineResultFamily({
 
 const knowledgeConceptStatusFamily = defineResultFamily({
   id: "knowledge-concept-status",
+  liveness: "progress",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/knowledge/json-output.test.ts",
+      scenarios: ["human discovery result on stdout", "inspection liveness"],
+    },
+  ],
   schemaNames: ["KnowledgeConceptStatusOutputSchema"],
   requiredTopLevelKeys: [
     "capabilities",
@@ -474,6 +675,13 @@ const knowledgeConceptStatusFamily = defineResultFamily({
 
 const lintFamily = defineResultFamily({
   id: "workspace-lint",
+  liveness: "progress",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/lint/handler.test.ts",
+      scenarios: ["findings", "clean", "normalization"],
+    },
+  ],
   schemaNames: ["LintResultDocumentSchema"],
   requiredTopLevelKeys: ["result"],
   scenarios: ["clean", "findings", "normalized findings"],
@@ -484,6 +692,13 @@ const lintFamily = defineResultFamily({
 
 const extensionListFamily = defineResultFamily({
   id: "extension-list",
+  liveness: "progress",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/list/command.test.ts",
+      scenarios: ["inventory", "updates", "coverage"],
+    },
+  ],
   schemaNames: ["ExtensionListDocumentSchema"],
   requiredTopLevelKeys: ["filter", "items", "count", "totalCount"],
   scenarios: ["local inventory", "updates available", "deprecated", "incomplete coverage"],
@@ -493,6 +708,13 @@ const extensionListFamily = defineResultFamily({
 
 const instructionsFamily = defineResultFamily({
   id: "instructions-status",
+  liveness: "progress",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/instructions.test.ts",
+      scenarios: ["enabled", "disabled", "stale targets"],
+    },
+  ],
   schemaNames: ["InstructionsStatusOutputSchema"],
   requiredTopLevelKeys: ["enabled", "sourceFileName", "gitignoreAliases", "roots", "items"],
   scenarios: ["enabled", "disabled", "mixed roots"],
@@ -503,6 +725,13 @@ const instructionsFamily = defineResultFamily({
 
 const setupFamily = defineResultFamily({
   id: "setup",
+  liveness: "progress",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/setup.test.ts",
+      scenarios: ["setup", "preview", "already initialized", "partial result"],
+    },
+  ],
   schemaNames: ["SetupDocumentSchema"],
   requiredTopLevelKeys: ["result"],
   scenarios: ["initialized", "already initialized", "previewed", "partial failure"],
@@ -513,6 +742,13 @@ const setupFamily = defineResultFamily({
 
 const shareFamily = defineResultFamily({
   id: "workspace-share",
+  liveness: "progress",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/share/command.test.ts",
+      scenarios: ["copyable locator", "availability"],
+    },
+  ],
   schemaNames: ["ShareWorkspaceDocumentSchema"],
   requiredTopLevelKeys: [
     "command",
@@ -530,6 +766,13 @@ const shareFamily = defineResultFamily({
 
 const upgradeFamily = defineResultFamily({
   id: "upgrade",
+  liveness: "progress",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/upgrade/handler.test.ts",
+      scenarios: ["ownership", "delegation", "failure evidence", "quiet"],
+    },
+  ],
   schemaNames: ["UpgradeDocumentSchema"],
   requiredTopLevelKeys: ["result"],
   scenarios: ["upgraded", "already current", "previewed", "interrupted", "verification failure"],
@@ -540,6 +783,10 @@ const upgradeFamily = defineResultFamily({
 
 const viewFamily = defineResultFamily({
   id: "registry-view",
+  liveness: "progress",
+  humanCoverage: [
+    { file: "apps/cli/src/root/view/handler.test.ts", scenarios: ["page", "scalar", "versions"] },
+  ],
   schemaNames: ["ViewDocumentSchema", "ViewFieldValueSchema"],
   requiredTopLevelKeys: [],
   optionalTopLevelKeys: ["data", "value"],
@@ -550,6 +797,13 @@ const viewFamily = defineResultFamily({
 
 const visibilityEvaluationFamily = defineResultFamily({
   id: "visibility-evaluation",
+  liveness: "progress",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/visibility/handler.test.ts",
+      scenarios: ["intent", "actual state", "findings"],
+    },
+  ],
   schemaNames: ["VisibilityEvaluationSchema"],
   requiredTopLevelKeys: ["target", "intent", "actual", "comparison", "findings"],
   scenarios: ["matching intent", "drift", "unconfigured", "not established", "unavailable"],
@@ -562,6 +816,13 @@ const visibilityEvaluationFamily = defineResultFamily({
 
 const visibilityMutationFamily = defineResultFamily({
   id: "visibility-mutation",
+  liveness: "progress",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/visibility/handler.test.ts",
+      scenarios: ["changed", "already satisfied", "revision"],
+    },
+  ],
   schemaNames: ["VisibilityMutationResultSchema"],
   requiredTopLevelKeys: ["target", "before", "after", "authority", "result", "revision"],
   scenarios: ["changed", "already satisfied", "stale revision", "step-up required"],
@@ -576,6 +837,13 @@ const visibilityMutationFamily = defineResultFamily({
 
 const lifecycleTransitionFamily = defineResultFamily({
   id: "lifecycle-transition",
+  liveness: "progress",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/lifecycle/command.test.ts",
+      scenarios: ["deprecated", "restored", "revision"],
+    },
+  ],
   schemaNames: ["LifecycleTransitionOutputSchema"],
   requiredTopLevelKeys: ["target", "before", "after", "disposition", "revision"],
   scenarios: ["created", "edited", "restored", "unchanged", "stale revision"],
@@ -590,6 +858,13 @@ const lifecycleTransitionFamily = defineResultFamily({
 
 const archivalTransitionFamily = defineResultFamily({
   id: "archival-transition",
+  liveness: "progress",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/lifecycle/command.test.ts",
+      scenarios: ["archived", "restored", "revision"],
+    },
+  ],
   schemaNames: ["ArchivalTransitionOutputSchema"],
   requiredTopLevelKeys: ["target", "before", "after", "disposition", "revision"],
   scenarios: ["created", "edited", "restored", "unchanged", "stale revision"],
@@ -675,10 +950,8 @@ const planPaths = [
   "axm subagents update",
   "axm sync",
   "axm uninstall",
-  "axm unyank",
   "axm update",
   "axm version",
-  "axm yank",
 ] as const;
 
 const publishPaths = [
@@ -703,6 +976,7 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
   ...rowsFor(helpFamily, ["axm visibility"]),
   ...rowsFor(helpFamily, ["axm knowledge concepts"]),
   ...rowsFor(planFamily, planPaths),
+  ...rowsFor(registryTransitionFamily, ["axm yank", "axm unyank"]),
   ...rowsFor(lifecycleTransitionFamily, ["axm deprecate", "axm undeprecate"]),
   ...rowsFor(archivalTransitionFamily, ["axm archive", "axm unarchive"]),
   ...rowsFor(publishFamily, publishPaths),
@@ -710,8 +984,8 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
   ...rowsFor(agentCapabilitiesFamily, ["axm agents capabilities"]),
   ...rowsFor(loginFamily, ["axm login"]),
   ...rowsFor(logoutFamily, ["axm logout"]),
-  ...rowsFor(credentialExportFamily("token-read", "query"), ["axm token"]),
-  ...rowsFor(credentialExportFamily("token-create", "mutation"), ["axm token create"]),
+  ...rowsFor(credentialExportFamily("token-read", "query", "immediate"), ["axm token"]),
+  ...rowsFor(credentialExportFamily("token-create", "mutation", "progress"), ["axm token create"]),
   ...rowsFor(tokenListFamily, ["axm token list"]),
   ...rowsFor(tokenRevokeFamily, ["axm token revoke"]),
   ...rowsFor(whoamiFamily, ["axm whoami"]),
@@ -721,12 +995,12 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
   ...rowsFor(discoverFamily, ["axm discover"]),
   ...rowsFor(inventoryFamily, [
     "axm hooks list",
-    "axm mcps list",
     "axm packs list",
     "axm rules list",
     "axm skills list",
     "axm subagents list",
   ]),
+  ...rowsFor(mcpInventoryFamily, ["axm mcps list"]),
   ...rowsFor(extensionShowFamily, [
     "axm hooks show",
     "axm knowledge show",
@@ -762,6 +1036,7 @@ export const FORMATTER_VERSION_CONTRACT = {
   path: "axm --version",
   family: {
     id: "formatter-version",
+    humanCoverage: [{ file: "apps/cli/src/formatter.test.ts", scenarios: ["version"] }],
     outputClass: "formatter-help",
     humanOutputKind: "orientation",
     liveness: "immediate",

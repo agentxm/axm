@@ -174,7 +174,7 @@ describe("AuthLoginPresenterLive", () => {
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("parks the ledger row the handoff names, and releases it when the wait ends", () => {
+  it.effect("parks the unit the handoff names, and releases it when the wait ends", () => {
     const { layer, state } = makeHuman();
 
     return Effect.gen(function* () {

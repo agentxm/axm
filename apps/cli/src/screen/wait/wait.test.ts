@@ -89,7 +89,7 @@ describe("waitDoc", () => {
 describe("waitSettled", () => {
   it("leaves one ✔ line with the label and the time it took", () => {
     expect(waitSettled(view, 12_400)).toEqual([
-      { _tag: "answer", mark: "ok", label: "Device sign-in", value: "12.4s" },
+      { _tag: "answer", mark: "dim", label: "Device sign-in", value: "Wait completed in 12.4s" },
     ]);
   });
 });

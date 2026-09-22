@@ -1,6 +1,7 @@
+import { withLiveOperation } from "../../operation-lifecycle.js";
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
+import { emitResult, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import { ExtensionInventorySchema } from "@agentxm/workspace/desired-state";
 import { listPacks, type PackListRow } from "@agentxm/workspace/inspection";
 import { withArgvTracking } from "../../cli-runtime/index.js";
@@ -23,10 +24,11 @@ const PackListColumns = [
 ] satisfies ReadonlyArray<ViewColumn<PackListRow>>;
 
 export const handleList = Effect.fn("PacksList.handle")(function* () {
-  const screen = yield* Screen;
-  const { inventory, rows } = yield* listPacks();
-  if (yield* screen.document(inventory, ExtensionInventorySchema)) return;
-  yield* screen.result(
+  const { inventory, rows } = yield* withLiveOperation(
+    { command: "packs.list", name: "Inspect packs", mode: "preview" },
+    listPacks(),
+  );
+  yield* emitResult(inventory, ExtensionInventorySchema, () =>
     inventoryDoc({
       rows,
       columns: PackListColumns,

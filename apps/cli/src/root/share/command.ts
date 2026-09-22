@@ -13,7 +13,7 @@ import { observeUnit } from "@agentxm/workspace/transitions/planning";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { shareFailureToAppError } from "../../feature-errors.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
-import { Screen } from "../../screen/index.js";
+import { emitResult } from "../../screen/index.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { shareDoc } from "./view.js";
@@ -58,7 +58,6 @@ const shareConfig = {
 const handleShare = Effect.fn("Share.handle")(function* (config: {
   readonly [E in (typeof packageMetadataEcosystems)[number]]: boolean;
 }) {
-  const screen = yield* Screen;
   const selectedEcosystems = packageMetadataEcosystems.filter((ecosystem) => config[ecosystem]);
   if (selectedEcosystems.length > 1) {
     return yield* Effect.fail(
@@ -78,8 +77,7 @@ const handleShare = Effect.fn("Share.handle")(function* (config: {
       ),
     ),
   );
-  if (yield* screen.document(result, ShareWorkspaceDocumentSchema)) return;
-  yield* screen.result(shareDoc(result));
+  yield* emitResult(result, ShareWorkspaceDocumentSchema, () => shareDoc(result));
 });
 
 export const shareCommand = Command.make("share", shareConfig, (config) =>

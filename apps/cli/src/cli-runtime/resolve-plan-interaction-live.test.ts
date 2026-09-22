@@ -13,6 +13,13 @@ const plan: Plan = {
   _tag: "Plan",
   name: "Sync workspace",
   description: Option.none(),
+  riskConditions: [
+    {
+      level: "confirmable",
+      id: "source-change",
+      detail: "Review the changed source before applying.",
+    },
+  ],
   jobs: [
     {
       concurrency: 1,

@@ -1,7 +1,8 @@
+import { withLiveOperation } from "../../operation-lifecycle.js";
 import * as Effect from "effect/Effect";
 import { Command } from "effect/unstable/cli";
 
-import { Screen, count, inventoryDoc, type ViewColumn } from "../../screen/index.js";
+import { emitResult, count, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import {
@@ -45,12 +46,11 @@ const BundleColumns = [
 ] satisfies ReadonlyArray<ViewColumn<KnowledgeListRow>>;
 
 export const handleKnowledgeList = Effect.fn("Knowledge.list")(function* () {
-  const screen = yield* Screen;
-  const { document, rows } = yield* ListKnowledge.query().pipe(
-    Effect.mapError(inspectionFailureToAppError),
+  const { document, rows } = yield* withLiveOperation(
+    { command: "knowledge.list", name: "Inspect knowledge bundles", mode: "preview" },
+    ListKnowledge.query().pipe(Effect.mapError(inspectionFailureToAppError)),
   );
-  if (yield* screen.document(document, KnowledgeListQueryResultSchema)) return;
-  yield* screen.result(
+  yield* emitResult(document, KnowledgeListQueryResultSchema, () =>
     inventoryDoc({
       rows,
       columns: BundleColumns,

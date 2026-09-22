@@ -21,7 +21,7 @@ import {
   type HumanHandoff,
   type SessionReplacementDecision,
 } from "@agentxm/registry-access/authentication";
-import { Screen, WaitAbandoned, type ConfirmAsk } from "./screen/index.js";
+import { emitResult, Screen, WaitAbandoned, type ConfirmAsk } from "./screen/index.js";
 import {
   authProgressLabel,
   authProgressUnitId,
@@ -76,7 +76,7 @@ export const AuthLoginPresenterLive = Layer.effect(
       ): Effect.Effect<A, E | AuthInteractionAbandoned, R> =>
         Effect.gen(function* () {
           const view = handoffWaitView(handoff);
-          // The wait is the unit: the ledger row it names reads as paused for
+          // The wait is the unit: its lifecycle remains paused for
           // as long as a person has not finished elsewhere.
           return yield* screen
             .wait(view, observeChildUnit({ id: view.subject, label: view.label }, awaited), {
@@ -95,34 +95,28 @@ export const AuthLoginPresenterLive = Layer.effect(
       // pipe carries the one and a person reads both.
       notePendingApproval: (result) =>
         screen
-          .note(pendingHandoffBrief(result), { persistent: true })
+          .instruction(pendingHandoffBrief(result))
           .pipe(Effect.andThen(screen.result(pendingApprovalDoc(result)))),
       emitLoginSuccess: (result) =>
-        Effect.gen(function* () {
-          if (
-            yield* screen.document({ result }, LoginDocumentSchema, {
-              suggestions: loginSuccessSuggestions,
-            })
-          ) {
-            return;
-          }
-          yield* screen.result(loginSuccessDoc(result));
-        }),
+        emitResult({ result }, LoginDocumentSchema, () => loginSuccessDoc(result), {
+          suggestions: loginSuccessSuggestions,
+        }).pipe(Effect.provideService(Screen, screen)),
       presentLoopbackStart: (start) =>
         Effect.forEach(
           loopbackStartView(start),
-          (entry) => screen.note(entry.doc, { persistent: entry.persistent === true }),
+          (entry) =>
+            entry.instruction === true ? screen.instruction(entry.doc) : screen.note(entry.doc),
           { discard: true },
         ),
       noteLoopbackBrowserOutcome: (opened) => {
         const entry = loopbackBrowserOutcomeView(opened);
-        return screen.note(entry.doc, { persistent: entry.persistent === true });
+        return entry.instruction === true ? screen.instruction(entry.doc) : screen.note(entry.doc);
       },
       noteExistingSession: (handle) => screen.note(existingSessionNote(handle).doc),
       noteRejectedStoredCredentials: screen.note(rejectedStoredCredentialsNote.doc),
       noteDeviceCodeFallback: (reason) => {
         const entry = deviceCodeFallbackNote(reason);
-        return screen.note(entry.doc, { persistent: entry.persistent === true });
+        return entry.instruction === true ? screen.instruction(entry.doc) : screen.note(entry.doc);
       },
       confirmSessionReplacement: () =>
         screen.ask(sessionReplacementAsk).pipe(

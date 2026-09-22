@@ -30,7 +30,15 @@ export const specification = defineSpecification({
 describe("Upgrade ownership disclosure", () => {
   it.effect("names the detected method and the selected version before the first mutation", () =>
     Effect.gen(function* () {
-      const { events } = yield* runUpgradeTrial();
+      const { events } = yield* runUpgradeTrial({
+        duringExternalCommand: ({ invocation, transcript }) =>
+          Effect.sync(() => {
+            if (invocation.executable !== "brew" || invocation.args[0] !== "upgrade") return;
+            expect(transcript).toContain("AXM installed with Homebrew");
+            expect(transcript).toContain(`Selected AXM ${TARGET_VERSION}`);
+            expect(transcript).toContain("Running brew upgrade agentxm/tap/axm");
+          }),
+      });
 
       // The units that resolve a fact settle carrying that fact. The exact
       // sentence is wording; that the owner and the target are named is the
@@ -59,10 +67,12 @@ describe("Upgrade ownership disclosure", () => {
 
   it.effect("a preview discloses the resolved owner and starts no mutation unit", () =>
     Effect.gen(function* () {
-      const { assessment, events } = yield* runUpgradeTrial({ preview: true });
+      const { assessment, events, transcript } = yield* runUpgradeTrial({ preview: true });
 
       expect(unitResolvedLabel(events, "detect-install-method")).toContain("Homebrew");
       expect(unitResolvedLabel(events, "resolve-release")).toContain(TARGET_VERSION);
+      expect(transcript).toContain("AXM installed with Homebrew");
+      expect(transcript).toContain(`Selected AXM ${TARGET_VERSION}`);
       expect(
         events.some((event) => event._tag === "UnitStarted" && event.unitId === "upgrade"),
       ).toBe(false);

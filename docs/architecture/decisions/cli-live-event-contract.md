@@ -47,9 +47,8 @@ states, never formatted strings. Its members are `OperationStarted`,
 `PhaseStarted`, `UnitStarted`, `UnitProgress`, `UnitResolved`, `Waiting`,
 `WaitEnded`, and `OperationSettled`. Every event carries a per-operation
 monotonic sequence number and a wall-clock timestamp. `OperationSettled` is
-terminal and occurs exactly once per operation. The phase vocabulary gains
-`resolution`, the phase in which requested sources are resolved into concrete
-packages before lockfile reconciliation begins. A non-plan operation settles
+terminal and occurs exactly once per operation. The phase vocabulary distinguishes resolution, acquisition, and verification
+from planning and applying, so narration identifies the work actually in flight. A non-plan operation settles
 with the outcome `completed` when it finishes successfully; plan-family
 operations settle with the outcome their resolution derives.
 
@@ -65,9 +64,10 @@ The broadcast is unbounded. Three obligations make that safe:
 1. Lifecycle events are discrete state transitions, so their count is
    proportional to the planned units. Continuous measurements such as download
    bytes are throttled at the producer and never published per chunk.
-2. The human frame never consumes raw events. One projector subscriber folds
-   the stream into latest-wins progress state, and the frame reads that state
-   on each repaint.
+2. The human frame never consumes raw events. Screen folds the stream
+   losslessly, appends selected semantic milestones, and projects current
+   activity into the frame. Continuous measurements only change that latest
+   activity state, so repainting remains independent of event volume.
 3. Every operation ends with the terminal event, and settled output waits on
    the drain latch that every lossless subscriber completes after observing
    it.
@@ -77,9 +77,10 @@ register as lossless. Telemetry buffers locally with a sliding window and does
 not register as lossless, so a slow telemetry sink can never stall an
 operation.
 
-The live-to-settled handoff is defined. At `OperationSettled` the frame
-clears the live region, whose ledger settles into the result document.
-The settled `Doc` prints only after the drain latch opens. A machine consumer
+At `OperationSettled`, Screen appends eligible final phase narration and
+releases that operation's active owner. Prior history remains untouched and
+another operation or interaction may retain the foreground. The final `Doc`
+prints only after the drain latch opens. A machine consumer
 therefore receives every progress event before the result document and the
 exit code.
 
@@ -140,8 +141,8 @@ authority.
 
 Positive:
 
-- the frame shows a live ledger of units, numeric progress, waiting, and
-  restoration from the same facts core records;
+- the transcript and current activity report progress, waiting, and restoration
+  from the same facts core records;
 - a machine consumer observes every lifecycle event in order and before the
   result document;
 - new long operations publish events and inherit presentation without
@@ -195,17 +196,13 @@ mistakes, which the width, color, and glyph checks localized to painter code
 in minutes. A renderer swap is therefore bounded to the painter behind the
 `Doc` seam, and the suite is the acceptance gate for any future one.
 
-## Amendment: live ledger
+## Superseded amendment: live ledger
 
 The [ledger grammar decision](cli-ledger-grammar-and-application-owned-prompts.md)
-amends how the frame presents this stream and leaves the stream itself
-unchanged. The frame paints the plan's rows joined to projected progress by
-unit id instead of a task tree, and at settlement the result ledger prints
-once rather than a collapsed tree line.
-
-A paused row needs no schema change. `Waiting` already carries a `subject`,
-and the plan layer sets it to the unit id, so a wait whose subject is a unit
-marks that row paused.
+initially joined plan rows to progress by unit id. Its stable-transcript
+amendment supersedes that presentation: required reviews and results are
+durable documents, and current activity uses lifecycle facts without a plan
+join. `Waiting.subject` still identifies the paused unit when one is known.
 
 ## Amendment: the attempt in flight
 

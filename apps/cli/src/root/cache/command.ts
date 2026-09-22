@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { Command } from "effect/unstable/cli";
 
-import { Screen, rawDoc, successDoc } from "../../screen/index.js";
+import { emitResult, rawDoc, successDoc } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { makeUserArchiveCache } from "@agentxm/registry-client";
 import { withRuntime } from "../../runtime.js";
@@ -58,14 +58,12 @@ const formatBytes = (bytes: number): string => {
 };
 
 export const handleCacheStatus = Effect.fn("Cache.status")(function* () {
-  const screen = yield* Screen;
   const cache = yield* makeUserArchiveCache();
   const status = yield* withLiveOperation(
     { command: "cache.status", name: "Inspect archive cache", mode: "preview" },
     observeUnit({ id: "status", label: "archive cache status" }, cache.status()),
   );
-  if (yield* screen.document(status, CacheStatusOutputSchema)) return;
-  yield* screen.result(
+  yield* emitResult(status, CacheStatusOutputSchema, () =>
     rawDoc(
       [
         "Archive cache",
@@ -80,14 +78,12 @@ export const handleCacheStatus = Effect.fn("Cache.status")(function* () {
 });
 
 export const handleCacheVerify = Effect.fn("Cache.verify")(function* () {
-  const screen = yield* Screen;
   const cache = yield* makeUserArchiveCache();
   const result = yield* withLiveOperation(
     { command: "cache.verify", name: "Verify archive cache", mode: "apply" },
     observeUnit({ id: "verify", label: "cached archives" }, cache.verify()),
   );
-  if (yield* screen.document({ result }, CacheVerifyOutputSchema)) return;
-  yield* screen.result(
+  yield* emitResult({ result }, CacheVerifyOutputSchema, () =>
     successDoc(
       `Verified ${result.checked} archive cache entr${result.checked === 1 ? "y" : "ies"}; ${result.corruptRemoved} corrupt removed.`,
     ),
@@ -95,14 +91,12 @@ export const handleCacheVerify = Effect.fn("Cache.verify")(function* () {
 });
 
 export const handleCachePrune = Effect.fn("Cache.prune")(function* () {
-  const screen = yield* Screen;
   const cache = yield* makeUserArchiveCache();
   const result = yield* withLiveOperation(
     { command: "cache.prune", name: "Prune archive cache", mode: "apply" },
     observeUnit({ id: "prune", label: "expired and excess archives" }, cache.prune()),
   );
-  if (yield* screen.document({ result }, CachePruneOutputSchema)) return;
-  yield* screen.result(
+  yield* emitResult({ result }, CachePruneOutputSchema, () =>
     successDoc(
       `Pruned ${result.removed} archive cache entr${result.removed === 1 ? "y" : "ies"} (${formatBytes(result.bytesFreed)}); ${result.remaining} remain (${formatBytes(result.remainingBytes)}).`,
     ),

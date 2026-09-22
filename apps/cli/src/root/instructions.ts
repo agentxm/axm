@@ -1,7 +1,7 @@
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import { withArgvTracking } from "../cli-runtime/index.js";
-import { Screen, inventoryDoc, type ViewColumn } from "../screen/index.js";
+import { emitResult, inventoryDoc, type ViewColumn } from "../screen/index.js";
 import {
   InstructionsStatusSchema,
   ManageInstructions,
@@ -16,7 +16,7 @@ import {
   readOnlyCapabilities,
   withCommandCapabilities,
 } from "./shared/command-capabilities.js";
-import { withOperationLifecycle } from "../operation-lifecycle.js";
+import { withLiveOperation, withOperationLifecycle } from "../operation-lifecycle.js";
 import { emitNoOpOutcome } from "./shared/no-op-output.js";
 import { makePlanExecution } from "./shared/confirmation-recovery.js";
 import { configurationFailureToAppError } from "../feature-errors.js";
@@ -44,29 +44,24 @@ const InstructionsColumns = [
 ] satisfies ReadonlyArray<ViewColumn<InstructionStatusRow>>;
 
 export const handleInstructionsStatus = Effect.fn("Instructions.inspect")(function* () {
-  const screen = yield* Screen;
-  const status = yield* ManageInstructions.status().pipe(
-    Effect.mapError(configurationFailureToAppError),
+  const status = yield* withLiveOperation(
+    { command: "instructions", name: "Inspect instruction-file management", mode: "preview" },
+    ManageInstructions.status().pipe(Effect.mapError(configurationFailureToAppError)),
   );
 
-  if (yield* screen.document(status, InstructionsStatusSchema)) return;
-
-  if (!status.enabled) {
-    yield* screen.result(
-      inventoryDoc({
+  yield* emitResult(status, InstructionsStatusSchema, () => {
+    if (!status.enabled) {
+      return inventoryDoc({
         rows: [],
         columns: InstructionsColumns,
         empty: "Instruction-file management is disabled.",
-      }),
-    );
-    return;
-  }
+      });
+    }
 
-  // Stale rows follow the configured rows so residue AXM still owns is visible
-  // beside the targets it currently maintains.
-  const rows = [...status.items, ...status.staleTargets];
-  yield* screen.result(
-    inventoryDoc({
+    // Stale rows follow the configured rows so residue AXM still owns is visible
+    // beside the targets it currently maintains.
+    const rows = [...status.items, ...status.staleTargets];
+    return inventoryDoc({
       rows,
       columns: InstructionsColumns,
       summary:
@@ -74,8 +69,8 @@ export const handleInstructionsStatus = Effect.fn("Instructions.inspect")(functi
           ? ""
           : `${String(rows.length)} instruction ${rows.length === 1 ? "file" : "files"}`,
       empty: "No configured agents need instruction-file propagation.",
-    }),
-  );
+    });
+  });
 });
 
 const PLAN_NAME = {

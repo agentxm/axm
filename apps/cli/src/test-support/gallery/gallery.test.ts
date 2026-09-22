@@ -35,26 +35,46 @@ describe("terminal design gallery", () => {
   it.each(cases)("paints $label within the terminal", async ({ fixture, terminal, label }) => {
     const lines = paintFixture(fixture, terminal, { colors: false });
     // A live line that reaches the last column wraps, so a scene stops one short.
-    const width = fixture._tag === "document" ? terminal.columns : terminal.columns - 1;
+    const history =
+      fixture._tag === "transcript"
+        ? fixture.history
+        : fixture._tag === "document"
+          ? fixture.doc
+          : [];
+    const historyLines = paintText(history, { width: terminal.columns, colors: false }).length;
     // A copyable value is never cut: it is shown whole and may overflow. A
     // live scene carries none, so every line of a scene fits.
-    const copyable = fixture._tag === "document" ? copyableValues(fixture.doc) : [];
+    const copyable = copyableValues(history);
     for (const value of copyable) {
       expect(
         lines.some((line) => line.includes(value)),
         `${label} cut a copyable value: ${value}`,
       ).toBe(true);
     }
-    for (const line of lines) {
+    for (const [index, line] of lines.entries()) {
+      const width = index < historyLines ? terminal.columns : terminal.columns - 1;
       if (!copyable.some((value) => line.includes(value))) {
         expect(displayWidth(line), `${label}: ${line}`).toBeLessThanOrEqual(width);
       }
       expect(line, `${label} trailing whitespace: ${JSON.stringify(line)}`).not.toMatch(/\s$/u);
     }
     if (fixture._tag !== "document") {
-      expect(lines.length, `${label} height`).toBeLessThanOrEqual(terminal.rows - 2);
+      expect(lines.length - historyLines, `${label} active height`).toBeLessThanOrEqual(
+        terminal.rows - 2,
+      );
     }
     await expect(`${lines.join("\n")}\n`).toMatchFileSnapshot(`./__snapshots__/${label}.txt`);
+  });
+
+  it("preserves every committed line when an active transcript exceeds the viewport", () => {
+    for (const fixture of gallery) {
+      if (fixture._tag !== "transcript") continue;
+      const terminal = { columns: 40, rows: 4 };
+      const history = paintText(fixture.history, { width: terminal.columns, colors: false });
+      const lines = paintFixture(fixture, terminal, { colors: false });
+      expect(lines.slice(0, history.length)).toEqual(history);
+      expect(lines.length - history.length).toBeLessThanOrEqual(2);
+    }
   });
 
   it.each(gallery)("paints $name identically with color on and off", (fixture) => {

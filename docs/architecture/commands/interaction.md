@@ -201,12 +201,16 @@ cancelled with no changes applied.
 
 Prompts and waits are part of the live scene, not widgets that take the
 terminal from it. A view describes a question as data and the `Screen` runs
-it beneath the operation's ledger, so a gate is answered while the plan is
-visible. The `Screen` applies the interactivity resolution above before a
+it in the active region after committing its context to the transcript. A
+review candidate and its material risks remain readable above the question. The `Screen` applies the interactivity resolution above before a
 prompt opens; in machine mode asking always fails with the usage error and its
 recovery, so no prompt reaches the terminal by construction. When a prompt is
-answered it leaves the scene and exactly one answer line joins the transcript.
-Cancelling remains an answer with the meaning described above.
+answered its controls leave the active region and exactly one labeled answer
+joins the transcript. Cancellation appends its own disposition. Filtering,
+validation corrections, and requesting details are controls rather than
+accepted decisions. Screen serializes input ownership across questions and
+waits. A terminal smaller than the usable interaction area refuses or cancels
+the question with guidance instead of waiting for an invisible answer.
 
 An approval gate is a confirmation with three choices: no, yes, and `d` for
 details. No is first and is what `enter` chooses because every plan that reaches
@@ -220,21 +224,25 @@ Gates are rare, because only a plan that carries a confirmable condition
 opens one. `axm publish` never gates: its plan carries no confirmable
 condition, and the browser review of the exact publication set is the
 approval, so publish presents its plan and goes straight to the wait for that
-review. Where no gate opens, a hint under the live ledger names `--verbose`
-for details, and `--preview --verbose` shows everything before acting.
+review. Ungated apply does not dump a full candidate by default. `--verbose`
+adds candidate details, and `--preview --verbose` shows them before acting.
+Quiet mode retains any candidate and risks required for approval.
 
 A wait parks the terminal while a person acts elsewhere: signing in, entering a
 device code, authorizing a publication, or completing step-up verification. It
-joins the scene beneath the ledger, shows its code, link, and expiry, and races
-the awaited result against keys: `o` opens the browser, `c` copies the one-time
+first commits its instructions, code, link, and expiry. Its changing status
+and controls take the active region and race the awaited result against keys: `o` opens the browser, `c` copies the one-time
 code for device login and the link for every other wait, and `esc` abandons the
 wait. A failed open or copy remains on the wait line so the person can recover.
 Abandoning is not a failure of the underlying request; the command ends with
 its pending outcome and names the exact route that resumes it, such as `axm
 login --device-code --wait-for-human 300` for a pending device sign-in or `axm publish
 --authorization-request <url>` for publication. When the wait completes it
-settles into one line. Without animation the same information prints once as a
-static block and the command simply waits.
+appends a truthful disposition; generic wait completion does not claim that
+authorization or publication succeeded. The domain result supplies that fact.
+Without animation the same instructions print once and the command waits.
+Stopping, interruption, expiry, rejection, and failure preserve their
+available distinctions without erasing the instructions.
 
 Interaction endings retain their established command semantics:
 

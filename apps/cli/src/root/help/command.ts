@@ -6,8 +6,11 @@ import { Argument, CliError, Command } from "effect/unstable/cli";
 import { type AppError, makeAppError } from "../../app-error/index.js";
 import { quietFlag } from "../../cli-flags/index.js";
 import {
-  Screen,
+  emitResult,
+  type Screen,
+  // eslint-disable-next-line @typescript-eslint/no-restricted-imports -- Pre-runtime help owns its Screen composition.
   InteractiveScreen,
+  // eslint-disable-next-line @typescript-eslint/no-restricted-imports -- Pre-runtime help owns its Screen composition.
   MachineScreen,
   markdownDoc,
   rawDoc,
@@ -133,38 +136,28 @@ const helpRendererLayer = Layer.unwrap(
 
 const writeHelpTopicIndex = () =>
   Effect.gen(function* () {
-    const screen = yield* Screen;
     const rows: ReadonlyArray<HelpTopicRow> = ORDERED_TOPIC_NAMES.map((topic) => ({
       topic,
       description: HELP_TOPIC_DESCRIPTIONS[topic],
     }));
-    const emitted = yield* screen.document(
+    yield* emitResult(
       {
         usage: "axm help <topic>",
         topics: rows.map(({ topic, description }) => ({ name: topic, description })),
       },
       HelpIndexResultSchema,
+      () => [...tableDoc(rows, helpTopicColumns), ...suggestionsDoc(HELP_INDEX_SUGGESTIONS)],
       { suggestions: HELP_INDEX_SUGGESTIONS },
     );
-    if (emitted) return;
-    // Render the index through the renderer's structured table so topics align
-    // in columns and pick up the standard chrome — no Markdown reflow.
-    yield* screen.result(tableDoc(rows, helpTopicColumns));
-    yield* screen.note(suggestionsDoc(HELP_INDEX_SUGGESTIONS));
   });
 
 const writeHelpTopic = (name: HelpTopicName) =>
   Effect.gen(function* () {
-    const screen = yield* Screen;
     const raw = HELP_TOPICS[name];
     const content = raw.endsWith("\n") ? raw : `${raw}\n`;
-    const emitted = yield* screen.document({ topic: name, content }, HelpTopicResultSchema);
-    if (emitted) return;
-    if (HELP_TOPIC_KINDS[name] === "json-schema") {
-      yield* screen.result(rawDoc(content));
-      return;
-    }
-    yield* screen.result(markdownDoc(content));
+    yield* emitResult({ topic: name, content }, HelpTopicResultSchema, () =>
+      HELP_TOPIC_KINDS[name] === "json-schema" ? rawDoc(content) : markdownDoc(content),
+    );
   });
 
 export const resolveCommandPath = (

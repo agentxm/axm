@@ -11,7 +11,7 @@ import { headlineDoc, paragraphDoc, successDoc } from "../../screen/index.js";
 
 export interface AuthViewEntry {
   readonly doc: Doc;
-  readonly persistent?: boolean;
+  readonly instruction?: boolean;
 }
 
 /** Label of the lifecycle unit one sign-in phase runs as. */
@@ -72,7 +72,7 @@ export const deviceCodeFallbackNote = (
       ? "This environment appears to be remote or headless; using device-code sign-in."
       : "Could not start a local callback server; using device-code sign-in instead.",
   ),
-  persistent: true,
+  instruction: true,
 });
 
 /**
@@ -220,8 +220,7 @@ const handoffLabel = (handoff: HumanHandoff): string => {
 
 /**
  * What the person has to do, for the observers that see the wait rather than
- * the terminal: the paused ledger row, the transition line a terminal without
- * animation prints, and machine progress events.
+ * the terminal: current activity, durable narration, and machine progress events.
  */
 const handoffDetail = (handoff: HumanHandoff): string => {
   switch (handoff._tag) {
@@ -308,13 +307,13 @@ export const loopbackStartView = (start: {
 }): ReadonlyArray<AuthViewEntry> => [
   {
     doc: paragraphDoc(`Starting local sign-in server on ${start.redirectUri}.`),
-    persistent: true,
+    instruction: true,
   },
   {
     doc: paragraphDoc(
       `If the browser does not open, visit:\n\n${start.authorizeUrl}\n\nOn a remote or headless machine, run \`axm login --device-code\`.`,
     ),
-    persistent: true,
+    instruction: true,
   },
 ];
 
@@ -325,5 +324,5 @@ export const loopbackBrowserOutcomeView = (opened: boolean): AuthViewEntry =>
         doc: paragraphDoc(
           "Could not open the system browser. Use the authorization URL above to continue.",
         ),
-        persistent: true,
+        instruction: true,
       };

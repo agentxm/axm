@@ -34,8 +34,7 @@ export interface SceneFixture {
 }
 
 /**
- * A whole live scene — a ledger and the interaction beneath it — painted by
- * the live region's own rules for sharing the height between them.
+ * One active region. An interaction takes foreground ownership over activity.
  */
 export interface ComposedFixture {
   readonly _tag: "composed";
@@ -45,7 +44,19 @@ export interface ComposedFixture {
   readonly widths?: ReadonlyArray<number>;
 }
 
-export type GalleryFixture = DocumentFixture | SceneFixture | ComposedFixture;
+/** Committed history has no height bound; only the current scene can repaint. */
+export interface TranscriptCheckpoint {
+  readonly history: Doc;
+  readonly scene: Scene;
+}
+
+export interface TranscriptFixture extends TranscriptCheckpoint {
+  readonly _tag: "transcript";
+  readonly name: string;
+  readonly widths?: ReadonlyArray<number>;
+}
+
+export type GalleryFixture = DocumentFixture | SceneFixture | ComposedFixture | TranscriptFixture;
 
 /**
  * Paint a fixture as the terminal would show it. A settled document fills the
@@ -77,5 +88,14 @@ export const paintFixture = (
         spinner: (style.glyphs ?? unicodeGlyphs).spinner[0] ?? "",
         nowMs: 0,
       });
+    case "transcript":
+      return [
+        ...paintText(fixture.history, { ...style, width: terminal.columns }),
+        ...paintScene(fixture.scene, terminal, {
+          ...style,
+          spinner: (style.glyphs ?? unicodeGlyphs).spinner[0] ?? "",
+          nowMs: 0,
+        }),
+      ];
   }
 };

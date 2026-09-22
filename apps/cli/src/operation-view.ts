@@ -57,8 +57,6 @@ import {
   type LedgerColumn,
   type LedgerFold,
   type LedgerRow,
-  type LivePlan,
-  type Text,
   type Tone,
 } from "./screen/index.js";
 import { operationExitCode } from "./operation-exit-code.js";
@@ -123,19 +121,6 @@ const ledgerColumns = (
   presentation: OperationPresentation,
   outcomeHeader: "Plan" | "Status",
 ): ReadonlyArray<LedgerColumn> => resultLedgerColumns(subjectHeader(presentation), outcomeHeader);
-
-/**
- * The columns a live ledger identifies a unit by. Every one of them is
- * optional, because the live region's values are transient and the result
- * ledger carries them: under width pressure a running row gives up its version
- * before its name, so the marks and the names survive a narrow terminal.
- */
-const liveColumns = (presentation: OperationPresentation): ReadonlyArray<LedgerColumn> => [
-  { header: subjectHeader(presentation), role: "name" },
-  { header: "Version", role: "fixed", priority: "optional" },
-];
-
-const cellOf = (row: LedgerRow, index: number): Text => row.cells[index] ?? "";
 
 /**
  * A pack's members as a ledger of their own beneath the pack's row. It needs
@@ -761,7 +746,11 @@ export const operationDoc = (
   options: OperationDocOptions,
 ): Doc => {
   const outcome = deriveOperationOutcome(resolution);
-  if (outcome === "previewed" && resolution.divergence !== true) return [];
+  if (outcome === "previewed" && resolution.divergence !== true) {
+    return resolution.units.length === 0 && options.message !== undefined
+      ? [{ _tag: "headline", tone: "info", text: options.message }]
+      : [];
+  }
   const counts = countUnitStates(resolution.units);
   const presentation = resolution.presentation ?? defaultOperationPresentation;
   const verdict =
@@ -775,7 +764,11 @@ export const operationDoc = (
           : outcomeHeadline(presentation, outcome, counts));
   const { detailed, quiet } = ledgerViewPolicy(options.verbosity);
   const visible = resolution.units.filter(
-    (unit) => detailed || (unit.state !== "unchanged" && unit.state !== "skipped"),
+    (unit) =>
+      detailed ||
+      (unit.state !== "unchanged" &&
+        unit.state !== "skipped" &&
+        (!quiet || unit.state !== "committed")),
   );
   const coverage = resolutionAgentCoverage(resolution);
   // Where every unsettled unit was left in the same state, the verdict says so
@@ -790,7 +783,7 @@ export const operationDoc = (
     visible.map((unit) =>
       resultRow(unit, resolution.mode, detailed, presentation, dispositionSaidOnce),
     ),
-    detailed
+    detailed || quiet
       ? []
       : foldGroups(presentation, [
           { count: counts.unchanged, state: "unchanged" },
@@ -913,8 +906,8 @@ export const planDoc = (
   const presentation = presentationOf(plan);
   const risks = plan.riskConditions ?? [];
   const gated = risks.some((risk) => risk.level === "confirmable");
-  if (options.mode === "apply" && !gated) return [];
-  const { detailed, quiet } = ledgerViewPolicy(options.verbosity);
+  const { detailed } = ledgerViewPolicy(options.verbosity);
+  if (options.mode === "apply" && !gated && !detailed) return [];
   const plannedChanges = steps.filter((step) => step.artifact?.change !== "unchanged");
   const changing = plannedChanges.filter((step) => step.readiness !== "error");
   const unchanged = steps.filter((step) => step.artifact?.change === "unchanged").length;
@@ -934,13 +927,11 @@ export const planDoc = (
       ),
     ),
   ];
-  const ledger = quiet
-    ? []
-    : foldedLedger(
-        ledgerColumns(presentation, "Plan"),
-        (detailed ? steps : plannedChanges).map((step) => planRow(step, presentation, detailed)),
-        detailed ? [] : foldGroups(presentation, [{ count: unchanged, state: "unchanged" }]),
-      );
+  const ledger = foldedLedger(
+    ledgerColumns(presentation, "Plan"),
+    (detailed ? steps : plannedChanges).map((step) => planRow(step, presentation, detailed)),
+    detailed ? [] : foldGroups(presentation, [{ count: unchanged, state: "unchanged" }]),
+  );
 
   return [
     ...titleLine(presentation, options.mode, {
@@ -967,82 +958,6 @@ export const planDoc = (
       ? []
       : [{ _tag: "paragraph", tone: "dim", text: DETAIL_HINT } as const]),
   ];
-};
-
-/**
- * The plan as the live ledger will carry it: the same title and the same rows
- * the plan showed, identified by the unit ids lifecycle events use, so the
- * region streams the rows it previewed instead of an unrelated tree. The
- * ledger's own two columns — what a unit is doing and how far it has come —
- * are added by the live ledger, which is the only thing that changes while an
- * operation runs.
- */
-export const livePlan = (
-  plan: Plan<unknown, unknown>,
-  options: { readonly verbosity: VerbosityLevel },
-): LivePlan | undefined => {
-  const steps = plan.jobs.flatMap((job) => [...job.steps]);
-  const presentation = presentationOf(plan);
-  const { detailed } = ledgerViewPolicy(options.verbosity);
-  // A unit that is already current has nothing to run, so it never reaches the
-  // live region; the verdict and the result ledger account for it.
-  const running = steps.filter(
-    (step) => step.artifact?.change !== "unchanged" && step.readiness !== "error",
-  );
-  if (running.length === 0) return undefined;
-  const scope = steps.find((step) => step.artifact !== undefined)?.artifact?.scope;
-  const agents = [
-    ...new Set(
-      steps.flatMap((step) =>
-        (step.artifact?.agents ?? []).filter((agent) => agent !== "universal"),
-      ),
-    ),
-  ];
-  const aside = factParts([
-    scope === undefined ? undefined : scopePhrase(scope),
-    agents.length === 0 ? undefined : `agents: ${agents.join(", ")}`,
-  ]);
-  const unchanged = steps.length - running.length;
-  const risks = plan.riskConditions ?? [];
-  return {
-    title: operationTitle(presentation, "apply"),
-    ...(aside.length === 0 ? {} : { aside }),
-    columns: liveColumns(presentation),
-    rows: running.map((step) => {
-      // Children are the settled document's business; a live row carries the
-      // unit's mark, the cells that identify it, and the word it will settle
-      // with — the same word its result row uses, from the same phrase.
-      const row = planRow(step, presentation, false);
-      return {
-        id: unitIdOf(step),
-        plannedMark: row.mark ?? "waiting",
-        plannedStatus: cellOf(row, 2),
-        settledStatus:
-          step.artifact === undefined
-            ? presentation.verb.past.toLowerCase()
-            : artifactChange(step.artifact.change),
-        cells: [cellOf(row, 0), cellOf(row, 1)],
-      };
-    }),
-    ...(detailed || unchanged === 0
-      ? {}
-      : {
-          folds: foldGroups(presentation, [{ count: unchanged, state: "unchanged" }]).map(
-            (fold): LedgerFold => ({ mark: "unchanged", ...fold, hint: FOLD_HINT }),
-          ),
-        }),
-    ...(risks.length === 0
-      ? {}
-      : {
-          attention: risks.map(
-            (risk) => ({ _tag: "callout", tone: "warn", title: risk.detail }) as const,
-          ),
-        }),
-    verdict: planVerdict(presentation, "apply", running.length),
-    // Where no gate opens this is the only place a reader learns the details
-    // are one flag away.
-    ...(detailed || !detailAwaitsVerbose(steps) ? {} : { hint: DETAIL_HINT }),
-  };
 };
 
 /** Paint the planning-time orientation through the application-owned screen. */

@@ -66,7 +66,7 @@ import { widthPromptsChoose } from "./width-prompts--choose.js";
 import { widthPromptsChooseHeight } from "./width-prompts--choose-height.js";
 import { widthPromptsConfirm } from "./width-prompts--confirm.js";
 import { widthPromptsPick } from "./width-prompts--pick.js";
-import { widthPromptsPickWithLedger } from "./width-prompts--pick-with-ledger.js";
+import { widthPromptsPickForeground } from "./width-prompts--pick-foreground.js";
 import { waitOpen } from "./wait-open.js";
 import { waitStatic } from "./wait-static.js";
 import { waitSettledFixture } from "./wait-settled.js";
@@ -216,15 +216,15 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
     widths: [80, 48],
   },
   { _tag: "scene", name: "width-live--height-cap", scene: widthLiveHeightCap },
-  { _tag: "scene", name: "live-update--start", scene: liveUpdateStart, widths: STRESS_WIDTHS },
-  { _tag: "scene", name: "live-update--mid", scene: liveUpdateMid, widths: STRESS_WIDTHS },
+  { _tag: "transcript", name: "live-update--start", ...liveUpdateStart, widths: STRESS_WIDTHS },
+  { _tag: "transcript", name: "live-update--mid", ...liveUpdateMid, widths: STRESS_WIDTHS },
   {
-    _tag: "scene",
+    _tag: "transcript",
     name: "live-update--failure",
-    scene: liveUpdateFailure,
+    ...liveUpdateFailure,
     widths: STRESS_WIDTHS,
   },
-  { _tag: "scene", name: "live-update--last", scene: liveUpdateLast, widths: STRESS_WIDTHS },
+  { _tag: "transcript", name: "live-update--last", ...liveUpdateLast, widths: STRESS_WIDTHS },
   { _tag: "scene", name: "ref-midflight--busy-workspace", scene: refMidflightBusyWorkspace },
   {
     _tag: "scene",
@@ -234,8 +234,8 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
   },
   {
     _tag: "composed",
-    name: "width-prompts--pick-with-ledger",
-    scene: widthPromptsPickWithLedger,
+    name: "width-prompts--pick-foreground",
+    scene: widthPromptsPickForeground,
     widths: [80],
   },
 ];

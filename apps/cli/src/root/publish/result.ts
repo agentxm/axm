@@ -11,7 +11,8 @@ import * as Effect from "effect/Effect";
 import { PublishResultSchema, type PublishResult } from "@agentxm/workspace/publishing";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
-import { Screen } from "../../screen/index.js";
+import { emitResult } from "../../screen/index.js";
+import { settleOperation, awaitDrained } from "@agentxm/workspace/transitions/planning";
 import { Verbosity } from "../../cli-flags/index.js";
 import {
   type CommandOutcomeSummary,
@@ -20,30 +21,14 @@ import {
   setCommandSemanticProperties,
   summarizeCommandOutcome,
 } from "../../cli-runtime/index.js";
-import { publishDoc, type PublishDocOptions } from "./view.js";
+import { publishDoc } from "./view.js";
 
 const publishBrowserSuggestions = (result: PublishResult): ReadonlyArray<SuggestedAction> =>
   result.execution.outcomes.flatMap((item) =>
     item.links === undefined ? [] : [{ description: "View in browser", url: item.links.html }],
   );
 
-const renderHumanPublishResult = (
-  screen: typeof Screen.Service,
-  result: PublishResult,
-  options: Omit<PublishDocOptions, "verbosity">,
-) =>
-  Effect.gen(function* () {
-    const verbosity = yield* Verbosity;
-    yield* screen.result(publishDoc(result, { ...options, verbosity: verbosity.level }));
-    return true;
-  });
-
-/**
- * Emit the publish result: the machine document, or the human view.
- *
- * @returns whether the outcome reached the person or program running the
- * command, so the caller ends with its exit code instead of a second report
- */
+/** Settle narration before emitting the complete publication result. */
 export const emitPublishResult = (
   result: PublishResult,
   options: {
@@ -54,7 +39,7 @@ export const emitPublishResult = (
   },
 ) =>
   Effect.gen(function* () {
-    const screen = yield* Screen;
+    const verbosity = yield* Verbosity;
     const browserSuggestions = publishBrowserSuggestions(result);
     const findingSuggestions = result.execution.outcomes.flatMap((item) =>
       (item.findings ?? []).flatMap((finding) => finding.suggestions),
@@ -76,37 +61,42 @@ export const emitPublishResult = (
       ...existingSemanticProperties,
       ...summarizeCommandOutcome(summary),
     });
-    const emitted = yield* screen.document(result, PublishResultSchema, {
-      ...(suggestions.length === 0 ? {} : { suggestions }),
-      ...withoutSuggestions,
-      ok:
-        result.execution.status !== "failed" &&
-        result.execution.status !== "partial" &&
-        result.execution.failure === undefined &&
-        summary.failedCount === 0,
-    });
-    if (emitted) return true;
-    return yield* renderHumanPublishResult(screen, result, {
-      exitCode: options.exitCode,
-      suggestions,
-      ...(options.elapsedMs === undefined ? {} : { elapsedMs: options.elapsedMs }),
-      ...withoutSuggestions,
-    });
+    yield* settleOperation(summary.outcome);
+    yield* awaitDrained;
+    yield* emitResult(
+      result,
+      PublishResultSchema,
+      () =>
+        publishDoc(result, {
+          verbosity: verbosity.level,
+          exitCode: options.exitCode,
+          suggestions,
+          ...(options.elapsedMs === undefined ? {} : { elapsedMs: options.elapsedMs }),
+          ...withoutSuggestions,
+        }),
+      {
+        ...(suggestions.length === 0 ? {} : { suggestions }),
+        ...withoutSuggestions,
+        ok:
+          result.execution.status !== "failed" &&
+          result.execution.status !== "partial" &&
+          result.execution.failure === undefined &&
+          summary.failedCount === 0,
+      },
+    );
   });
 
 /**
  * Convert a PublishResult to a CommandOutcomeSummary for telemetry.
  *
- * Outcome follows the same convention as executed plans: a run that touched
- * nothing is `no-op`, and any applied or failed work is `applied` even when
- * every item failed, so partial failures stay in one bucket.
+ * Outcome distinguishes applied, partial, failed, blocked and untouched work.
  *
  * Unconfirmed work is not "touched nothing": an indeterminate upload joins the
  * failed bucket because its settlement is unproven and needs attention, and an
  * item that never left the process joins the blocked bucket. Either keeps the
  * run out of `no-op`. An interrupted run still reports `interrupted`.
  */
-export const publishResultToSummary = (result: PublishResult): CommandOutcomeSummary => {
+export const publishResultToSummary = (result: PublishResult) => {
   const appliedCount = result.counts.published;
   // A preview leaves every selected item `pending` by construction, so only an
   // apply carries unconfirmed work.
@@ -141,5 +131,5 @@ export const publishResultToSummary = (result: PublishResult): CommandOutcomeSum
     appliedCount,
     failedCount,
     blockedCount,
-  };
+  } satisfies CommandOutcomeSummary;
 };

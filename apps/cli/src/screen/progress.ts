@@ -33,6 +33,7 @@ export interface ProgressUnitState {
   readonly total?: number;
   readonly status: "running" | UnitState;
   readonly startedAtMs: number;
+  readonly phase?: OperationPhase;
   readonly settledAtMs?: number;
   readonly measure?: ProgressMeasure;
   /** The attempt in flight, present only while a producer is retrying the unit. */
@@ -108,6 +109,7 @@ export const reduceProgress = (state: ProgressState, event: OperationEvent): Pro
         index: event.index,
         ...(event.total === undefined ? {} : { total: event.total }),
         status: "running",
+        ...(state.phase === undefined ? {} : { phase: state.phase }),
         startedAtMs: event.atMs,
       };
       const known = state.units.some((candidate) => candidate.id === event.unitId);
@@ -155,6 +157,7 @@ export const reduceProgress = (state: ProgressState, event: OperationEvent): Pro
                 index: event.index,
                 ...(event.total === undefined ? {} : { total: event.total }),
                 status: "running",
+                ...(state.phase === undefined ? {} : { phase: state.phase }),
                 startedAtMs: event.atMs,
               }),
             ],

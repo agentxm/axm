@@ -234,15 +234,19 @@ const evidenceOf = (
 const ledgerColumns = (mode: PublishResult["mode"]): ReadonlyArray<LedgerColumn> =>
   resultLedgerColumns("Extension", mode === "preview" ? "Plan" : "Status");
 
-/** Rows that did not settle, whose message a reader has to act on either way. */
-const UNSETTLED: ReadonlySet<Standing> = new Set(["failed", "unconfirmed"]);
+/** Rows whose reason and safe correlation facts remain actionable even in quiet output. */
+const UNSETTLED: ReadonlySet<Standing> = new Set(["failed", "unconfirmed", "blocked", "not-tried"]);
 
 const placedRow = (placed: Placed, mode: PublishResult["mode"], detailed: boolean): LedgerRow => {
   const message = placed.item.message;
   // Why an extension failed is what a reader acts on, so it takes the row's
   // own reason slot, which every ledger paints beneath its row at every width.
   const reason = message === undefined || !UNSETTLED.has(placed.standing) ? undefined : message;
-  const children: Doc = detailed ? evidenceOf(placed.item, placed.standing, placed.setItem) : [];
+  const children: Doc = detailed
+    ? evidenceOf(placed.item, placed.standing, placed.setItem)
+    : UNSETTLED.has(placed.standing) && placed.item.cause?.requestId !== undefined
+      ? [dim(`request ${placed.item.cause.requestId}`)]
+      : [];
   return {
     id: identity(placed.item),
     mark: markOf(placed.standing),
@@ -525,7 +529,35 @@ export const publishDoc = (result: PublishResult, options: PublishDocOptions): D
   if (quiet) {
     const noChange =
       placed.length > 0 && placed.every((entry) => entry.standing === "already-published");
-    return noChange ? [] : settled;
+    const unresolved = placed.filter((entry) => UNSETTLED.has(entry.standing));
+    const needsAttention = unresolved.length > 0 || result.execution.failure !== undefined;
+    return noChange && !needsAttention
+      ? []
+      : [
+          ...unresolved.map((entry): DocNode => ({
+            _tag: "callout",
+            tone: entry.standing === "failed" ? "error" : "warn",
+            title: [
+              { text: identity(entry.item), copyable: true },
+              { text: `: ${wordOf(entry.standing, result.mode)}` },
+            ],
+            children: [
+              {
+                _tag: "paragraph",
+                text:
+                  entry.item.message ??
+                  entry.item.cause?.message ??
+                  detailOf(entry.item, entry.standing, result.mode, entry.setItem),
+              },
+              ...(entry.item.cause?.requestId === undefined
+                ? []
+                : [dim(`request ${entry.item.cause.requestId}`)]),
+            ],
+          })),
+          ...(needsAttention ? attentionDoc(result) : []),
+          ...settled,
+          ...(needsAttention ? next : []),
+        ];
   }
   return [
     ...(ledger.length === 0 ? [] : titleDoc(result)),

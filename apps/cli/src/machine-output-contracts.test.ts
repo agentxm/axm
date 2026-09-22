@@ -10,7 +10,7 @@ import {
   JsonVersionDocSchema,
 } from "./cli-runtime/index.js";
 import { LoginDocumentSchema } from "@agentxm/registry-access/authentication";
-import { PublishResultSchema } from "@agentxm/workspace/publishing";
+import { PublishResultSchema, RegistryTransitionSchema } from "@agentxm/workspace/publishing";
 import {
   VisibilityEvaluationSchema,
   VisibilityMutationResultSchema,
@@ -64,6 +64,7 @@ import {
   ExtensionListDocumentSchema,
   ExtensionShowResultSchema,
   KnowledgeListQueryResultSchema,
+  McpServerListQueryResultSchema,
   PackShowResultSchema,
   ViewDocumentSchema,
   ViewFieldValueSchema,
@@ -90,6 +91,7 @@ const NAMED_MACHINE_OUTPUT_SCHEMAS: Readonly<Record<string, Schema.Top>> = {
   JsonVersionDocSchema,
   KnowledgeLintQueryResultSchema,
   KnowledgeListQueryResultSchema,
+  McpServerListQueryResultSchema,
   KnowledgeConceptGetOutputSchema,
   KnowledgeConceptCorpusChangingFailureSchema,
   KnowledgeConceptCursorFailureSchema,
@@ -106,6 +108,7 @@ const NAMED_MACHINE_OUTPUT_SCHEMAS: Readonly<Record<string, Schema.Top>> = {
   PackShowResultSchema,
   PlanResolutionDocumentSchema,
   PublishResultSchema,
+  RegistryTransitionSchema,
   RevokeTokenDocumentSchema,
   ShareWorkspaceDocumentSchema,
   SetupDocumentSchema,
@@ -150,6 +153,10 @@ describe("machine-output contract register", () => {
       expect(["orientation", "query", "mutation", "mixed"]).toContain(row.family.humanOutputKind);
       expect(["immediate", "progress"]).toContain(row.family.liveness);
       expect(row.family.livenessCoverage.length).toBeGreaterThan(0);
+      expect(row.family.humanCoverage.length, row.path).toBeGreaterThan(0);
+      for (const coverage of row.family.humanCoverage) {
+        expect(coverage.scenarios.length, coverage.file).toBeGreaterThan(0);
+      }
       expect(row.family.schemaNames.length).toBeGreaterThan(0);
       expect(row.family.requiredEnvelopeKeys.length).toBeGreaterThan(0);
       expect(row.family.requiredTopLevelKeys.length).toBeGreaterThan(0);
@@ -167,6 +174,8 @@ describe("machine-output contract register", () => {
       [...MACHINE_OUTPUT_CONTRACT_ROWS, FORMATTER_VERSION_CONTRACT].flatMap((row) => [
         ...row.family.commandCoverage,
         ...row.family.livenessCoverage,
+        ...row.family.centralizedCoverage,
+        ...row.family.humanCoverage.map((coverage) => coverage.file),
       ]),
     );
 

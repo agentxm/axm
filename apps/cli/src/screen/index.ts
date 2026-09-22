@@ -96,15 +96,6 @@ export {
 } from "./progress.js";
 export { progressTransitionDoc } from "./progress-view.js";
 export {
-  joinLiveRows,
-  liveLedgerDoc,
-  liveWindow,
-  type LiveLedgerOptions,
-  type LivePlan,
-  type LivePlanRow,
-  type LiveRow,
-} from "./live-ledger.js";
-export {
   OutputStreams,
   OutputStreamsLive,
   CredentialDeliveryFailed,
@@ -115,6 +106,7 @@ export {
 } from "./streams.js";
 export {
   Screen,
+  emitResult,
   CurrentScreenOperationId,
   ScreenLive,
   ScreenMachine,
@@ -154,7 +146,6 @@ export {
   dispositionStatement,
   duration,
   interruptionPhrase,
-  liveUnitActivity,
   notTriedReason,
   operationTitle,
   outcomeHeadline,

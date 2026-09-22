@@ -55,6 +55,11 @@ const makeHarness: Effect.Effect<Harness> = Effect.gen(function* () {
     surface: {
       showInteraction: (part) => Effect.sync(() => void shown.push(part)),
       transcript: (doc) => Effect.sync(() => void transcript.push(doc)),
+      finish: (doc) =>
+        Effect.sync(() => {
+          shown.push(undefined);
+          if (doc.length > 0) transcript.push(doc);
+        }),
     },
   };
 });
@@ -107,10 +112,11 @@ describe("runAsk", () => {
       const answer = yield* runAsk(gate, harness.terminal, harness.surface);
 
       expect(answer).toBe("approved");
-      expect(harness.transcript).toEqual([
+      expect(harness.transcript.slice(1)).toEqual([
         [{ _tag: "answer", mark: "ok", label: "Apply changes", value: "yes" }],
       ]);
-      // The question opened, then left, and nothing of it is still standing.
+      expect(harness.transcript[0]).toEqual([{ _tag: "paragraph", text: "Apply changes?" }]);
+      // Controls left; context and the answer remain in order.
       expect(harness.shown.at(-1)).toBeUndefined();
     }),
   );
@@ -136,7 +142,9 @@ describe("runAsk", () => {
       const failure = yield* runAsk(gate, harness.terminal, harness.surface).pipe(Effect.flip);
 
       expect(failure._tag).toBe("QuestionCancelled");
-      expect(harness.transcript).toEqual([]);
+      expect(harness.transcript.at(-1)).toMatchObject([
+        { _tag: "headline", tone: "warn", text: expect.stringContaining("cancelled") },
+      ]);
       expect(harness.shown.at(-1)).toBeUndefined();
     }),
   );
@@ -177,7 +185,7 @@ describe("runAsk", () => {
       const answer = yield* runAsk(source, harness.terminal, harness.surface);
 
       expect(answer).toBe("CLAUDE.md");
-      expect(harness.transcript).toEqual([
+      expect(harness.transcript.slice(1)).toEqual([
         [{ _tag: "answer", mark: "ok", label: "Instructions source", value: "CLAUDE.md" }],
       ]);
       expect(harness.shown.at(-1)).toBeUndefined();
@@ -222,7 +230,7 @@ describe("runAsk", () => {
       // `cu` left Cursor alone to pick; escape cleared the filter with the
       // caret still on Cursor, so the row above it was the one picked next.
       expect(answer).toEqual(["codex", "cursor"]);
-      expect(harness.transcript).toEqual([
+      expect(harness.transcript.slice(1)).toEqual([
         [{ _tag: "answer", mark: "ok", label: "Agents", value: "Codex, Cursor" }],
       ]);
     }),
@@ -249,7 +257,7 @@ describe("runAsk", () => {
         )
         .some((lines) => lines.includes(" ▲   Enter a file name."));
       expect(refused).toBe(true);
-      expect(harness.transcript).toEqual([
+      expect(harness.transcript.slice(1)).toEqual([
         [{ _tag: "answer", mark: "ok", label: "Instructions file name", value: "a" }],
       ]);
     }),
@@ -264,7 +272,9 @@ describe("runAsk", () => {
       const failure = yield* runAsk(fileName, harness.terminal, harness.surface).pipe(Effect.flip);
 
       expect(failure._tag).toBe("QuestionCancelled");
-      expect(harness.transcript).toEqual([]);
+      expect(harness.transcript.at(-1)).toMatchObject([
+        { _tag: "headline", tone: "warn", text: expect.stringContaining("cancelled") },
+      ]);
       expect(harness.shown.at(-1)).toBeUndefined();
     }),
   );

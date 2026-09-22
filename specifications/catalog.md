@@ -100,7 +100,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Boundary rationale: The registered parser decides which flag spellings a command admits, and the production verbosity resolver decides which detail a parsed request selects; both are reachable in process, and the built-CLI rendering of that detail is bound evidence at apps/cli-e2e/src/diagnostic-controls-select-the-requested-detail.e2e.test.ts.
 - Methods: decision-table, example
 - Derived from: `apps/cli/help/topics/environment.md`, `apps/cli/src/cli-flags/index.ts`, `apps/cli/src/runtime.ts`, `apps/cli/src/cli-runtime/runtime-envelope.ts`, `apps/cli/src/app-error/render.test.ts`, `apps/cli-e2e/src/diagnostic-controls-select-the-requested-detail.e2e.test.ts`
-- Open questions: The earlier public quiet description covered narration, tables, progress, and required actions as well as error detail; complete human-output suppression across commands needs separate allocation and evidence.; What diagnostic selection is promised for failures before parsed command runtime initialization, including raw arguments after -- and parser failures?
+- Open questions: What diagnostic selection is promised for failures before parsed command runtime initialization, including raw arguments after -- and parser failures?
 - Limitation: These examples distinguish detail levels through the resolver and one production settings-error path. They do not prescribe exact cause text, stack frames, log messages, logger severity names, or every flag and environment combination. Retires when: Add distinct producer or combination evidence when a reviewed source reveals behavior not distinguished by these examples.
 - Additional evidence: process via [`apps/cli-e2e/src/diagnostic-controls-select-the-requested-detail.e2e.test.ts`](../apps/cli-e2e/src/diagnostic-controls-select-the-requested-detail.e2e.test.ts) — Only a real process shows the selected detail reaching rendered stderr: the built CLI parses the global flags itself, reads the environment it was given, and renders cause and stack through the production error screen.
 - Source: [`apps/cli/src/cli-flags/diagnostic-controls-select-the-requested-detail.spec.ts`](../apps/cli/src/cli-flags/diagnostic-controls-select-the-requested-detail.spec.ts)
@@ -333,21 +333,6 @@ People and agents can understand invalid workspace state and recover it through 
 - Methods: example
 - Source: [`packages/core/workspace/src/linting/catalog/workspace/reports-user-outputs-without-settings.spec.ts`](../packages/core/workspace/src/linting/catalog/workspace/reports-user-outputs-without-settings.spec.ts)
 
-##### Live progress keeps what has already happened in view
-
-- Requirement: `cli/live-progress-retains-settled-units`
-- Owner: `cli`
-- Statement: While an operation runs, a unit that has settled shall keep its row in the live ledger carrying the final mark and status word its result row will use, for as long as the rows fit the height the scene allows; when they do not, a row that did not settle as planned shall never leave before one that did, and what left shall be counted; the status line shall state how many units have finished out of the total and, once any has, how many did not settle as planned; and a unit that did not settle as planned shall state its reason on its live row as soon as it settles.
-- Class: functional
-- Role: experience
-- Product goals: `actionable-diagnostics`, `extension-adoption`
-- Boundary: memory; selection: per-change
-- Boundary rationale: The live ledger is a pure function of a recorded event log and the space the scene gives, so the whole obligation is decided in memory.
-- Methods: example
-- Derived from: `cli/retried-work-names-the-attempt-in-flight`, `cli/unsettled-units-state-their-reason`
-- Limitation: Examples drive the projector and the live join over an authored event log. That a real terminal erases exactly the rows it painted when settled rows are retained is witnessed by the pseudo-terminal harness in `apps/cli-e2e`, not decided here. Retires when: Bind terminal evidence here if the live region ever paints a row the frame cannot erase.
-- Source: [`apps/cli/src/screen/live-progress-retains-settled-units.spec.ts`](../apps/cli/src/screen/live-progress-retains-settled-units.spec.ts)
-
 ##### The recovery route for a rejected lockfile re-accepts the desired state
 
 - Requirement: `cli/lockfile-rejections-name-recovery-routes`
@@ -421,6 +406,19 @@ People and agents can understand invalid workspace state and recover it through 
 - Additional evidence: process via [`apps/cli-e2e/src/rejected-read-credential.e2e.test.ts`](../apps/cli-e2e/src/rejected-read-credential.e2e.test.ts) — Only a real invocation against a real HTTP origin shows a rejected read travelling the same renewal as a rejected write, and a rejected or unreadable ambient credential reported for what it is rather than hidden behind a not-found.
 - Source: [`packages/supporting/registry-access/src/adapters/reads-carry-the-invocations-credential.spec.ts`](../packages/supporting/registry-access/src/adapters/reads-carry-the-invocations-credential.spec.ts)
 
+##### A captured result remains useful without the interactive transcript
+
+- Requirement: `cli/results-stand-alone-on-stdout`
+- Owner: `cli`
+- Statement: When AXM produces a primary human result, stdout shall contain that result's selected facts, findings, disposition and recovery without depending on activity or diagnostic context on stderr, including previews and unsuccessful assessments.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `extension-adoption`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/non-success-results-name-a-fitting-recovery`
+- Source: [`apps/cli/src/screen/results-stand-alone-on-stdout.spec.ts`](../apps/cli/src/screen/results-stand-alone-on-stdout.spec.ts)
+
 ##### The transport renews a stored session, and nothing else does
 
 - Requirement: `cli/session/renews-the-stored-session-once`
@@ -439,7 +437,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/unsettled-units-state-their-reason`
 - Owner: `cli`
-- Statement: For every unit of a settled operation that did not settle as planned, human output shall state that unit's reason in full beside its row and shall state whether the unit's prior state was kept, restored, or left incomplete, at every bounded terminal width AXM supports, on an unbounded stream, and at normal as well as verbose detail; a unit the operation never reached shall state what stopped it, and a unit whose producer supplied no reason shall state that rather than showing nothing.
+- Statement: For every unit of a settled operation that did not settle as planned, human output shall state that unit's reason in full beside its identity and shall state whether the unit's prior state was kept, restored, or left incomplete, at every bounded terminal width AXM supports, on an unbounded stream, and at quiet, normal and verbose detail; a unit the operation never reached shall state what stopped it, and a unit whose producer supplied no reason shall state that rather than showing nothing.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `extension-adoption`
@@ -447,7 +445,6 @@ People and agents can understand invalid workspace state and recover it through 
 - Boundary rationale: The reason is the sentence a producer settled its unit with, carried on the resolution. Which units fail, and why, belongs to those producers and is not decided here.
 - Methods: example, property
 - Derived from: `cli/mutations-are-closure-atomic`
-- Open questions: Whether quiet output keeps an unsettled unit's reason is recorded on `cli/diagnostic-controls-select-the-requested-detail` and is not decided here.
 - Limitation: Examples and the property drive the settled operation document. That a producer settles a failed unit with a reason at all is witnessed by the producers' own tests, not decided here. Retires when: Bind producer evidence here if a producer is ever allowed to settle a unit unsettled without a stated reason.
 - Source: [`apps/cli/src/unsettled-units-state-their-reason.spec.ts`](../apps/cli/src/unsettled-units-state-their-reason.spec.ts)
 
@@ -525,6 +522,19 @@ People and agents can understand invalid workspace state and recover it through 
 
 #### Human factors
 
+##### Activity describes observed work without inventing progress
+
+- Requirement: `cli/activity-reports-observed-work`
+- Owner: `cli`
+- Statement: AXM shall identify the current meaningful activity and known waits or retries, report counts only for a coherent observed population, distinguish finished work from durable changes, and summarize phases and exceptions at normal detail without accumulating continuous measurements at any detail level.
+- Class: human-factors
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/long-running-operations-emit-lifecycle-events`, `cli/retried-work-names-the-attempt-in-flight`
+- Source: [`apps/cli/src/screen/activity-reports-observed-work.spec.ts`](../apps/cli/src/screen/activity-reports-observed-work.spec.ts)
+
 ##### ASCII output changes display symbols while preserving content
 
 - Requirement: `cli/ascii-human-output-preserves-content`
@@ -539,6 +549,48 @@ People and agents can understand invalid workspace state and recover it through 
 - Open questions: Which locale input controls glyph selection when LC_ALL, LC_CTYPE, and LANG disagree? Earlier environment prose described a non-UTF-8 input selecting ASCII, while the resolver and an internal example select Unicode if any input names UTF-8; this requirement does not decide mixed-locale precedence.
 - Limitation: Examples drive production policy, Screen, and painter over recording streams with supplied terminal facts. They cover status, change, live-progress, prompt, wait, answer, tree, separator, truncation, and content examples, not an actual terminal font, locale installation, or every authored document. Retires when: Add platform, progress, prompt, or new document evidence when its distinct display-symbol obligation is allocated.
 - Source: [`apps/cli/src/screen/ascii-human-output-preserves-content.spec.ts`](../apps/cli/src/screen/ascii-human-output-preserves-content.spec.ts)
+
+##### Interactions retain their context and outcome
+
+- Requirement: `cli/interactions-retain-context-and-disposition`
+- Owner: `cli`
+- Statement: AXM shall preserve review and required-action context before interaction controls, append each accepted answer or cancellation and each wait's truthful disposition, and keep input and foreground ownership exclusive while other observed work advances or settles.
+- Class: human-factors
+- Role: experience
+- Product goals: `actionable-diagnostics`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/output-preserves-committed-history`
+- Source: [`apps/cli/src/screen/interactions-retain-context-and-disposition.spec.ts`](../apps/cli/src/screen/interactions-retain-context-and-disposition.spec.ts)
+
+##### CLI output preserves the story already told
+
+- Requirement: `cli/output-preserves-committed-history`
+- Owner: `cli`
+- Statement: AXM human output shall preserve committed context, phase dispositions, decisions and exceptions in emission order through later activity, interaction, resize and settlement; animation shall replace only current activity or controls, and a unit that fails shall append its available reason when that failure is observed rather than folding it out of history.
+- Class: human-factors
+- Role: experience
+- Product goals: `actionable-diagnostics`, `extension-adoption`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/unsettled-units-state-their-reason`
+- Supersedes: `cli/live-progress-retains-settled-units`
+- Assumptions: The terminal retains enough scrollback for the invocation.
+- Limitation: Headless terminal replay interprets emitted control bytes but cannot establish every terminal's resize/reflow behavior. Retires when: Representative real-terminal and PTY resize observations supplement emulator evidence.
+- Source: [`apps/cli/src/screen/output-preserves-committed-history.spec.ts`](../apps/cli/src/screen/output-preserves-committed-history.spec.ts)
+
+##### Quiet output keeps the facts needed to act
+
+- Requirement: `cli/quiet-keeps-actionable-results`
+- Owner: `cli`
+- Statement: Quiet human output shall suppress routine activity and successful item detail while retaining requested values, required instructions, a concise disposition, and the identities, available reasons, safe correlation facts and recovery needed to act on unsuccessful or unconfirmed work.
+- Class: human-factors
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/diagnostic-controls-select-the-requested-detail`, `cli/unsettled-units-state-their-reason`
+- Source: [`apps/cli/src/screen/quiet-keeps-actionable-results.spec.ts`](../apps/cli/src/screen/quiet-keeps-actionable-results.spec.ts)
 
 ### Goal: agent-interoperability
 
@@ -4715,7 +4767,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/retried-work-names-the-attempt-in-flight`
 - Owner: `cli`
-- Statement: When a producer retries a unit's work, the unit's progress events shall carry the attempt in flight and the attempt limit, a machine progress event shall carry both unchanged through the published lifecycle schema, and the live row for that unit shall name the retry it is on in place of its measurement; a unit on its first attempt shall name no retry.
+- Statement: When a producer retries a unit's work, the unit's progress events shall carry the attempt in flight and the attempt limit, a machine progress event shall carry both unchanged through the published lifecycle schema, and the active detail for that unit shall name the retry it is on in place of its measurement; a unit on its first attempt shall name no retry.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -4723,7 +4775,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Boundary rationale: The attempt is stated by the producer on the published event; which work retries, and how often, belongs to each producer's request policy and is not decided here.
 - Methods: contract, example
 - Derived from: `cli/machine-progress-events-follow-the-lifecycle-schema`, `packages/supporting/registry-client/src/request-policy.test.ts`, `packages/supporting/registry-client/src/remote-client.test.ts`, `packages/core/workspace/src/transitions/planning/plan/operation-events.test.ts`
-- Limitation: Examples drive the published schema, the projector, and the live join over an authored event log. A registry download that a transport failure actually retries is witnessed by ordinary tests in the registry client, not decided here. Retires when: Bind producer evidence here when a retrying producer's own attempt reporting is allocated its own obligation.
+- Limitation: Examples drive the published schema, the projector, and the active presentation over an authored event log. A registry download that a transport failure actually retries is witnessed by ordinary tests in the registry client, not decided here. Retires when: Bind producer evidence here when a retrying producer's own attempt reporting is allocated its own obligation.
 - Source: [`apps/cli/src/screen/retried-work-names-the-attempt-in-flight.spec.ts`](../apps/cli/src/screen/retried-work-names-the-attempt-in-flight.spec.ts)
 
 ##### Settings select one default Registry

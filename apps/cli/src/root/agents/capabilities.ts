@@ -10,7 +10,7 @@ import {
   type Agent,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { makeAppError } from "../../app-error/index.js";
-import { Screen, count, tableDoc, type ViewColumn } from "../../screen/index.js";
+import { emitResult, count, tableDoc, type ViewColumn } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { withRuntime } from "../../runtime.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
@@ -84,7 +84,6 @@ const capabilityRows = (agent: Agent): ReadonlyArray<AgentCapabilityItem> =>
 export const handleAgentsCapabilities = Effect.fn("Agents.capabilities")(function* (
   agentId: string,
 ) {
-  const screen = yield* Screen;
   // Reuses the shared validator for its "did you mean" suggestions; the guard
   // below is what narrows the id for the catalog lookup.
   yield* validateAgentIds([agentId]).pipe(Effect.mapError(configurationFailureToAppError));
@@ -109,16 +108,12 @@ export const handleAgentsCapabilities = Effect.fn("Agents.capabilities")(functio
     count: items.length,
   };
 
-  if (yield* screen.document(output, AgentCapabilitiesOutputSchema)) {
-    return;
-  }
-
-  const lifecycle = lifecycleCell(agent.id);
-  yield* screen.result(
-    tableDoc(items, AgentCapabilityColumns, {
+  yield* emitResult(output, AgentCapabilitiesOutputSchema, () => {
+    const lifecycle = lifecycleCell(agent.id);
+    return tableDoc(items, AgentCapabilityColumns, {
       caption: `${agent.name}${lifecycle === "" ? "" : ` (${lifecycle})`}   ${count(items.length, "capability")}`,
-    }),
-  );
+    });
+  });
 });
 
 const capabilitiesConfig = {

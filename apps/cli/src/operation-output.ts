@@ -66,7 +66,7 @@ import { ArchivalViewSchema } from "@agentxm/extension-model/unstable/extensions
 import { CatalogExtensionTypeSchema } from "@agentxm/extension-model/unstable/extension-types";
 
 import { operationDoc, resolutionAgentCoverage, unsettledUnits } from "./operation-view.js";
-import { Screen, count, type Doc } from "./screen/index.js";
+import { emitResult, count, type Doc } from "./screen/index.js";
 import { suggestionsForCurrentWorkspace } from "./root/shared/scoped-command.js";
 import type { TargetedUpdatePublicContext } from "@agentxm/workspace/resolution";
 
@@ -926,7 +926,6 @@ export const emitOperationResolution = (
   options?: EmitOperationResolutionOptions,
 ) =>
   Effect.gen(function* () {
-    const screen = yield* Screen;
     const verbosity = yield* Verbosity;
     const outcome = deriveOperationOutcome(resolution);
     const exitCode = operationExitCode(resolution, outcome);
@@ -978,24 +977,23 @@ export const emitOperationResolution = (
     yield* settleOperation(outcome);
     yield* awaitDrained;
 
-    const emitted = yield* screen.document({ result }, PlanResolutionDocumentSchema, {
-      ...(suggestions === undefined ? {} : { suggestions }),
-      ok,
-    });
-    if (!emitted) {
-      const unsettled = new Set(unsettledUnits(resolution).map((unit) => targetName(unit.label)));
-      yield* screen.result(
-        operationDoc(resolution, {
+    yield* emitResult(
+      { result },
+      PlanResolutionDocumentSchema,
+      () => {
+        const unsettled = new Set(unsettledUnits(resolution).map((unit) => targetName(unit.label)));
+        return operationDoc(resolution, {
           verbosity: verbosity.level,
           ...(suggestions === undefined ? {} : { suggestions }),
           ...(options?.message === undefined ? {} : { message: options.message }),
           // A condition the operation reports stands with the ledger it is
           // about, so `Next` stays the last thing a reader sees.
           callouts: releaseAgeDoc(command, result, { unsettled }),
-        }),
-      );
-    }
-    return { outcome, exitCode, emitted };
+        });
+      },
+      { ...(suggestions === undefined ? {} : { suggestions }), ok },
+    );
+    return { outcome, exitCode };
   });
 
 /**

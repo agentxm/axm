@@ -1,6 +1,7 @@
+import { withLiveOperation } from "../../operation-lifecycle.js";
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
-import { Screen, inventoryDoc, type ViewColumn } from "../../screen/index.js";
+import { emitResult, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import { ExtensionInventorySchema } from "@agentxm/workspace/desired-state";
 import { listSkills, type SkillListRow } from "@agentxm/workspace/inspection";
 import { withArgvTracking } from "../../cli-runtime/index.js";
@@ -36,10 +37,11 @@ const SkillListColumns = [
 ] satisfies ReadonlyArray<ViewColumn<SkillListRow>>;
 
 export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerArgs) {
-  const screen = yield* Screen;
-  const { inventory, rows } = yield* listSkills({ agents: args.agents });
-  if (yield* screen.document(inventory, ExtensionInventorySchema)) return;
-  yield* screen.result(
+  const { inventory, rows } = yield* withLiveOperation(
+    { command: "skills.list", name: "Inspect skills", mode: "preview" },
+    listSkills({ agents: args.agents }),
+  );
+  yield* emitResult(inventory, ExtensionInventorySchema, () =>
     inventoryDoc({
       rows,
       columns: SkillListColumns,

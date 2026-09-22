@@ -1,3 +1,4 @@
+import { withLiveOperation } from "../../operation-lifecycle.js";
 import { Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import {
@@ -5,7 +6,7 @@ import {
   ConfiguredAgentInventorySchema,
   type ConfiguredAgentInventory,
 } from "@agentxm/workspace/configuration";
-import { Screen, count, inventoryDoc, type ViewColumn } from "../../screen/index.js";
+import { emitResult, count, inventoryDoc, type ViewColumn } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
@@ -42,26 +43,30 @@ const AgentListColumns = [
 ] satisfies ReadonlyArray<ViewColumn<AgentListItem>>;
 
 export const handleAgentsList = Effect.fn("Agents.list")(function* (args: AgentsListArgs) {
-  const screen = yield* Screen;
-  const inventory = yield* ConfigureAgents.list({
-    detected: args.detected,
-    available: args.available,
-  }).pipe(Effect.mapError(configurationFailureToAppError));
+  const inventory = yield* withLiveOperation(
+    { command: "agents.list", name: "Inspect coding agents", mode: "preview" },
+    ConfigureAgents.list({
+      detected: args.detected,
+      available: args.available,
+    }).pipe(Effect.mapError(configurationFailureToAppError)),
+  );
 
   const suggestions = inventory.items.length === 0 ? [SET_UP_AXM_WORKSPACE] : [];
 
-  if (yield* screen.document(inventory, ConfiguredAgentInventorySchema, { suggestions })) {
-    return;
-  }
-  yield* screen.result([
-    ...inventoryDoc({
-      rows: inventory.items,
-      columns: AgentListColumns,
-      summary: count(inventory.items.length, "coding agent"),
-      empty: "No coding agents configured or detected.",
-    }),
-    ...(suggestions.length === 0 ? [] : [{ _tag: "next", actions: suggestions } as const]),
-  ]);
+  yield* emitResult(
+    inventory,
+    ConfiguredAgentInventorySchema,
+    () => [
+      ...inventoryDoc({
+        rows: inventory.items,
+        columns: AgentListColumns,
+        summary: count(inventory.items.length, "coding agent"),
+        empty: "No coding agents configured or detected.",
+      }),
+      ...(suggestions.length === 0 ? [] : [{ _tag: "next", actions: suggestions } as const]),
+    ],
+    { suggestions },
+  );
 });
 
 const listConfig = {

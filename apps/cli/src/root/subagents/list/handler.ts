@@ -1,5 +1,6 @@
+import { withLiveOperation } from "../../../operation-lifecycle.js";
 import * as Effect from "effect/Effect";
-import { Screen, inventoryDoc, type ViewColumn } from "../../../screen/index.js";
+import { emitResult, inventoryDoc, type ViewColumn } from "../../../screen/index.js";
 import { ExtensionInventorySchema } from "@agentxm/workspace/desired-state";
 import { listSubagents, type TypeListRow } from "@agentxm/workspace/inspection";
 import {
@@ -32,10 +33,11 @@ const SubagentListColumns = [
 export const handleListSubagents = Effect.fn("ListSubagents.handle")(function* (
   args: ListSubagentsHandlerArgs,
 ) {
-  const screen = yield* Screen;
-  const { inventory, rows } = yield* listSubagents({ agents: args.agents });
-  if (yield* screen.document(inventory, ExtensionInventorySchema)) return;
-  yield* screen.result(
+  const { inventory, rows } = yield* withLiveOperation(
+    { command: "subagents.list", name: "Inspect subagents", mode: "preview" },
+    listSubagents({ agents: args.agents }),
+  );
+  yield* emitResult(inventory, ExtensionInventorySchema, () =>
     inventoryDoc({
       rows,
       columns: SubagentListColumns,

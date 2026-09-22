@@ -13,7 +13,6 @@ import * as Clock from "effect/Clock";
 import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
-import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Fiber from "effect/Fiber";
 import * as Option from "effect/Option";
@@ -144,7 +143,7 @@ describe("ArchiveCache", () => {
     ),
   );
 
-  it.effect("interrupts waiting equal-digest callers and permits a later retry", () =>
+  it.effect("lets a waiting caller retry when the leading borrower is interrupted", () =>
     withCache((cacheRoot) =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -162,13 +161,13 @@ describe("ArchiveCache", () => {
           .pipe(Effect.forkChild);
         yield* Deferred.await(started);
         const waiter = yield* cache
-          .load("selection", integrity, Effect.die("duplicate transfer"))
+          .load("selection", integrity, Effect.succeed(archive))
           .pipe(Effect.forkChild);
         yield* Effect.yieldNow;
         yield* Fiber.interrupt(leader);
-        expect(Exit.isFailure(yield* Fiber.await(waiter))).toBe(true);
+        expect(Array.from(yield* Fiber.join(waiter))).toEqual([8, 7, 6]);
         expect(
-          Array.from(yield* cache.load("selection", integrity, Effect.succeed(archive))),
+          Array.from(yield* cache.load("selection", integrity, Effect.die("cache miss"))),
         ).toEqual([8, 7, 6]);
       }),
     ),

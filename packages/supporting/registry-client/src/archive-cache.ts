@@ -6,13 +6,13 @@
 
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
+import * as Cause from "effect/Cause";
 import * as Deferred from "effect/Deferred";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
-import * as Exit from "effect/Exit";
 import { RegistryOperationFailed, type RegistryClientFailure } from "./errors.js";
 import { computeIntegrity } from "./integrity.js";
 import { writeFileAtomic } from "./atomic-write.js";
@@ -76,10 +76,13 @@ interface CacheEntry {
 
 interface LoadAdmission {
   readonly leader: boolean;
-  readonly result: Deferred.Deferred<Uint8Array, RegistryClientFailure>;
+  readonly result: Deferred.Deferred<LoadCompletion, RegistryClientFailure>;
 }
 
-type InFlightLoads = Map<string, Deferred.Deferred<Uint8Array, RegistryClientFailure>>;
+type LoadCompletion =
+  { readonly _tag: "ready"; readonly archive: Uint8Array } | { readonly _tag: "retry" };
+
+type InFlightLoads = Map<string, Deferred.Deferred<LoadCompletion, RegistryClientFailure>>;
 
 const cacheError = (detail: string, cause?: unknown): RegistryOperationFailed =>
   new RegistryOperationFailed({
@@ -294,7 +297,7 @@ export const makeArchiveCache = (
     const load: ArchiveCache["load"] = (selectionKey, integrity, fetch) =>
       Effect.uninterruptibleMask((restore) =>
         Effect.gen(function* () {
-          const proposed = yield* Deferred.make<Uint8Array, RegistryClientFailure>();
+          const proposed = yield* Deferred.make<LoadCompletion, RegistryClientFailure>();
           const admission = yield* Ref.modify(
             inFlight,
             (current): readonly [LoadAdmission, InFlightLoads] => {
@@ -305,7 +308,12 @@ export const makeArchiveCache = (
               return [{ leader: true, result: proposed }, next];
             },
           );
-          if (!admission.leader) return yield* restore(Deferred.await(admission.result));
+          if (!admission.leader) {
+            const completed = yield* restore(Deferred.await(admission.result));
+            return completed._tag === "ready"
+              ? completed.archive
+              : yield* restore(load(selectionKey, integrity, fetch));
+          }
           yield* acquireActive(integrity);
           const acquire = Effect.gen(function* () {
             const cached = yield* read(integrity);
@@ -317,19 +325,19 @@ export const makeArchiveCache = (
           return yield* restore(acquire).pipe(
             Effect.onExit((exit) =>
               Effect.gen(function* () {
-                yield* Deferred.complete(
-                  proposed,
-                  Exit.match(exit, {
-                    onFailure: Effect.failCause,
-                    onSuccess: Effect.succeed,
-                  }),
-                );
                 yield* Ref.update(inFlight, (current) => {
                   const next = new Map(current);
                   next.delete(selectionKey);
                   return next;
                 });
                 yield* releaseActive(integrity);
+                if (exit._tag === "Success") {
+                  yield* Deferred.succeed(proposed, { _tag: "ready", archive: exit.value });
+                } else if (Cause.hasInterruptsOnly(exit.cause)) {
+                  yield* Deferred.succeed(proposed, { _tag: "retry" });
+                } else {
+                  yield* Deferred.failCause(proposed, exit.cause);
+                }
               }),
             ),
           );

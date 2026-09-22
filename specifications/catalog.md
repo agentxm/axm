@@ -400,11 +400,11 @@ People and agents can understand invalid workspace state and recover it through 
 - Methods: example, contract
 - Source: [`apps/cli/src/root/auth/reports-safe-effective-identity.spec.ts`](../apps/cli/src/root/auth/reports-safe-effective-identity.spec.ts)
 
-##### A withheld release names recovery from the command that withheld it
+##### Minimum release-age decisions state their outcome and recovery
 
 - Requirement: `cli/withheld-releases-name-recovery-from-the-emitting-command`
 - Owner: `cli`
-- Statement: When a command withholds or refuses a release under the minimum release age, its diagnostic shall name the recovery routes reachable from that command, including the override flag that command accepts and the declared-exemption route, and shall not name a command the operator did not run.
+- Statement: When a command holds, refuses, or explicitly allows an otherwise-too-young release under the minimum release age, its diagnostic shall state that observable outcome before the policy mechanism, preserve the release and timing evidence, name recovery routes reachable from the emitting command when action is required, and shall not name a command the operator did not run.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`

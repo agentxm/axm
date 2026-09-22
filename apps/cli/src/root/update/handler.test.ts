@@ -365,15 +365,15 @@ describe("root update handler", () => {
 
       yield* provide(update(rootUpdate));
 
-      expect(logs.warn).toContain("1 newer release held by the 24h minimum release age");
+      expect(logs.warn).toContain("1 newer release is still in the 24h waiting period");
       expect(logs.info).toContain(
-        "@acme/skills/reviewer 2.0.0 published 2026-08-11T12:00:00.000Z, eligible 2026-08-12T12:00:00.000Z",
+        "@acme/skills/reviewer 2.0.0 was published 2026-08-11T12:00:00.000Z and becomes available 2026-08-12T12:00:00.000Z",
       );
       expect(logs.info.some((message) => message.includes("--ignore-release-age"))).toBe(true);
     }),
   );
 
-  it.effect("names the exemption and both timestamps when a release skips the age gate", () =>
+  it.effect("states that the exemption allowed the release and preserves both timestamps", () =>
     Effect.gen(function* () {
       const {
         provide,
@@ -414,9 +414,12 @@ describe("root update handler", () => {
 
       yield* provide(update(rootUpdate));
 
-      expect(logs.warn).toContain("1 release skipped the 24h minimum release age");
+      expect(logs.warn).toContain("1 release allowed before the 24h minimum release age");
       expect(logs.info).toContain(
-        "Selected @acme/skills/reviewer 1.0.0 ahead of its eligibility at 2026-08-12T12:00:00.000Z (published 2026-08-11T12:00:00.000Z) — exempt via minimumReleaseAgeExclude in project settings",
+        "@acme/skills/reviewer 1.0.0 — published 2026-08-11T12:00:00.000Z",
+      );
+      expect(logs.info).toContain(
+        "Allowed by project minimumReleaseAgeExclude; otherwise held until 2026-08-12T12:00:00.000Z",
       );
     }),
   );

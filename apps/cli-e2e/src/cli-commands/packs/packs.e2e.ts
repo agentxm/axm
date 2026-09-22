@@ -654,7 +654,7 @@ describe("axm packs install", () => {
       });
       expect(applicableHuman.exitCode, applicableHuman.stdout + applicableHuman.stderr).toBe(0);
       expect(applicableHuman.stdout + applicableHuman.stderr).toContain(
-        "No coding-agent targets were materialized",
+        "No coding agents received this change",
       );
 
       const nonApplicable = await runCli(
@@ -679,7 +679,7 @@ describe("axm packs install", () => {
         nonApplicableHuman.stdout + nonApplicableHuman.stderr,
       ).toBe(0);
       expect(nonApplicableHuman.stdout + nonApplicableHuman.stderr).not.toContain(
-        "No coding-agent targets were materialized",
+        "No coding agents received this change",
       );
     } finally {
       cleanup();
@@ -801,7 +801,7 @@ describe("axm packs install", () => {
       expect(humanInstall.exitCode, humanInstall.stdout + humanInstall.stderr).toBe(0);
       const humanOutput = humanInstall.stdout + humanInstall.stderr;
       expect(humanOutput).toContain("agents: claude-code, cursor");
-      expect(humanOutput).not.toContain("No coding-agent targets were materialized");
+      expect(humanOutput).not.toContain("No coding agents received this change");
 
       const settings = readSettings();
       expect(settings.skills?.[directSkill]).toEqual(directDesiredEntry);

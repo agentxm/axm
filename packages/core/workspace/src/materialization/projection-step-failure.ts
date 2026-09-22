@@ -22,7 +22,7 @@ export const projectionErrorToStepFailure = (error: ProjectionError): StepFailur
     case "DesiredStateIncomplete":
       return new StepFailure({
         category: "conflict",
-        detail: `Desired state cannot be enumerated completely; fix pack and declaration problems first: ${error.problems}`,
+        detail: `AXM could not determine what should be installed because some pack or axm.json entries are invalid: ${error.problems}`,
         cause: error,
       });
     case "AuthoredContributorUnsupported":
@@ -40,13 +40,13 @@ export const projectionErrorToStepFailure = (error: ProjectionError): StepFailur
     case "ContributorUnresolved":
       return new StepFailure({
         category: "conflict",
-        detail: `Active ${error.type} has no accepted resolution: ${error.name}`,
+        detail: `AXM has no locked version for active ${error.type} ${error.name}`,
         cause: error,
       });
     case "ContributorTreeMismatch":
       return new StepFailure({
         category: "conflict",
-        detail: `Materialized package tree does not match the accepted lock entry: ${error.packageRoot}`,
+        detail: `Installed package files differ from axm-lock.yaml: ${error.packageRoot}`,
         suggestions: [
           {
             description:
@@ -60,10 +60,7 @@ export const projectionErrorToStepFailure = (error: ProjectionError): StepFailur
     case "ManagedRegionViolation":
       return new StepFailure({
         category: "conflict",
-        detail:
-          error.reason === undefined
-            ? `Cannot reconcile managed region: ${error.displayPath}`
-            : `${error.reason}: ${error.displayPath}`,
+        detail: `AXM cannot safely update its section in ${error.displayPath}${error.reason === undefined ? "" : `: ${error.reason}`}`,
         cause: error,
       });
     case "ProjectionIoFailed":
@@ -71,10 +68,10 @@ export const projectionErrorToStepFailure = (error: ProjectionError): StepFailur
         category: "internal",
         detail:
           error.step === "inspect"
-            ? `Failed to inspect managed-region target: ${error.path}`
+            ? `Failed to inspect AXM's section in ${error.path}`
             : error.step === "read"
-              ? `Failed to read managed-region target: ${error.path}`
-              : `Failed to reconcile managed-region target: ${error.path}`,
+              ? `Failed to read AXM's section in ${error.path}`
+              : `Failed to update AXM's section in ${error.path}`,
         cause: error.cause,
       });
   }

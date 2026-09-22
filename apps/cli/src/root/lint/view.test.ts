@@ -65,7 +65,7 @@ describe("lint findings ledger", () => {
 
   it("points at --fix only while a remaining finding is fixable", () => {
     expect(paint(lintFrame([staleLockfile, floatingMember]))).toMatch(
-      /axm lint --fix\W+apply the deterministic fix/,
+      /axm lint --fix\W+Apply the available automatic fix/,
     );
     expect(paint(lintFrame([floatingMember]))).not.toContain("axm lint --fix");
   });
@@ -73,5 +73,16 @@ describe("lint findings ledger", () => {
   it("states the exit code only when the run fails", () => {
     expect(paint(lintFrame([staleLockfile]))).toContain("exit 1");
     expect(paint(lintFrame([floatingMember]))).not.toContain("exit");
+  });
+
+  it("states what automatic fixes completed and what remains", () => {
+    expect(
+      paint(
+        lintFrame([missingDescription, floatingMember], {
+          fix: true,
+          repaired: [staleLockfile],
+        }),
+      ),
+    ).toContain("Fixed 1 finding; 1 error and 1 warning remain");
   });
 });

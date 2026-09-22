@@ -10,7 +10,7 @@ import { mixedSyncPlan } from "./samples/sync-records.js";
  * change at once: two installs, one update, one removal, and the twelve units
  * that were already current folded into one line with the flag that lists
  * them. The verdict claims only what would change; the counts sit in its
- * aside, and `nothing was written` says a preview wrote nothing.
+ * aside, and `no changes made` says a preview changed nothing.
  */
 export const refSyncMixedOperations = planDoc(mixedSyncPlan, {
   mode: "preview",

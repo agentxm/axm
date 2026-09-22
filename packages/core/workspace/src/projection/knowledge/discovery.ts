@@ -151,7 +151,7 @@ export const reconcileKnowledgeDiscovery = (args: {
       ...(args.dryRun === undefined ? {} : { dryRun: args.dryRun }),
       removeEmptyFile: true,
       preserveEmptyFile: args.preserveInstructionsSource === true,
-      unsupportedTargetDetail: `Knowledge discovery target does not support managed regions: ${instructionRelative}`,
+      unsupportedTargetDetail: `AXM cannot add its Knowledge section because ${instructionRelative} does not support comments`,
     });
     const instructionsChanged = reconciliation.changed;
     const artifacts: Array<KnowledgeDiscoveryArtifact> = [];

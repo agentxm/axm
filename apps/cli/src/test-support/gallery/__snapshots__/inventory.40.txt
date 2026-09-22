@@ -7,6 +7,5 @@
      Activation, Type, Agents, Agent
      outcomes
 
-4 skills (3 configured, 0 implicit, 3
-installed, 0 leftover, 0 undeclared, 1
-unmanaged)
+4 skills: 3 managed by this workspace, 3
+installed, 1 found outside AXM

@@ -3,16 +3,16 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "field-notes",
-  "version": "0.2.4",
-  "description": "Declare what work to observe, then triage occurrences into evidence-prioritized findings and verified improvements",
+  "version": "1.0.0",
+  "description": "Record concise factual notes about friction encountered during an agent session for later analysis",
   "keywords": [
     "field-notes",
     "observation",
     "continuous-improvement",
     "friction",
     "developer-experience",
-    "triage",
-    "retrospective"
+    "session-friction",
+    "evidence"
   ],
   "recommendedPacks": [
     "@craigsmitham/packs/field-notes"

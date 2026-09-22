@@ -101,7 +101,7 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs)
     "sync",
     diverged ? { ...resolution, divergence: true } : resolution,
     diverged
-      ? { message: "Workspace reconciliation is required; no changes were applied" }
+      ? { message: "Workspace is out of sync; no changes were made" }
       : outcome === "no-op" && resolution.units.length === 0
         ? { message: candidate.upToDateMessage }
         : {},

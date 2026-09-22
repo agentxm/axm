@@ -351,7 +351,7 @@ requirements.
 | ---------- | ------ | -------------------------------------------------------------------------------- | ---------------- | -------------------------------- |
 | axm-agents | survey | any session running `axm agents` or projecting extensions into configured agents | —                | a target condition can be stated |
 
-<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery gen=34ce6dc698e5313721e0028dace5268c870d65a6a3abc01a8403582d84750766 -->
+<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery gen=3607e62077344852ba953853814c3757fcf472c43b433038e8993e3958c1922d -->
 
 ## Knowledge Bundles
 
@@ -378,11 +378,11 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | [docs](agent_extensions/registry/@craigsmitham/knowledge/docs/src/index.md)                               | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns |
 | [effect-v4](agent_extensions/registry/@craigsmitham/knowledge/effect-v4/src/index.md)                     | Checklists to consult when designing, implementing, maintaining, or reviewing Effect v4 TypeScript                                                                 |
-| [field-notes](agent_extensions/registry/@craigsmitham/knowledge/field-notes/src/index.md)                 | Operational field-note practice for factual and diagnostic evidence capture, impact-aware triage, evidence-led findings, and verified corrective action            |
+| [field-notes](agent_extensions/registry/@craigsmitham/knowledge/field-notes/src/index.md)                 | Operational field-note practice for preserving factual session friction, observed cost or impact, outcomes, and safe evidence for later analysis                   |
 | [product-engineering](agent_extensions/registry/@craigsmitham/knowledge/product-engineering/src/index.md) | Opinionated product-development lifecycle from strategy through operations and maintenance, with shared conceptual foundations                                     |
 
 <!-- axm:end v=1 region=knowledge -->
-<!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions gen=028022caf089edcb31ccbf74e3695e11332a84c7dccba06bcb04ffc9b04c5099 -->
+<!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions gen=9b1f8c4e964bf1c64086bdc006fb2fd6d68af6eba2cbf6cb70f1d594efb5dddf -->
 <!-- axm:point v=1 ext=@craigsmitham/rules/use-effect-v4@0.2.0 kind=rule -->
 
 ## Use Effect v4
@@ -392,31 +392,17 @@ and scripts. Each change should advance adoption by migrating relevant existing
 code toward a coherent Effect implementation. Keep migrations incremental and
 reviewable, preserve intended behavior, and avoid unrelated rewrites.
 
-<!-- axm:point v=1 ext=@craigsmitham/rules/field-notes@0.2.4 kind=rule -->
+<!-- axm:point v=1 ext=@craigsmitham/rules/field-notes@1.0.0 kind=rule -->
 
 ## Field notes
 
-Capture useful feedback from ordinary work within declared subjects, so
-experience informs improvements to tools, guidance, and workflows. Preserve
-meaningful observations—including differences between expected and actual
-behavior, even when a later attempt succeeds—with enough evidence to understand
-what happened and its outcome. Keep observations factual, protect sensitive
-information, and continue the task.
+Record meaningful friction encountered during the task, including failures,
+confusing guidance, avoidable rework, missing capabilities, and workarounds—even
+when the work succeeds. Use the `field-notes` skill to capture each occurrence
+once, then continue the task.
 
-Subjects under observation are declared in the `## Field note subjects` table in
-this file. If that section is missing or has no rows, this rule is inactive.
-Respect each subject's scope and target condition.
-
-Use `capture.md` alongside the installed field-notes rule source for the record
-format and evidence requirements. Capture each occurrence once; exclude routine
-successes, your own typos, and speculation without an observed occurrence.
-Preserve useful diagnostic evidence before reducing output; never rerun a
-mutation merely to recover evidence.
-
-Recording observations does not authorize investigation, remediation, or issue
-creation beyond the current task. Report capture in at most one short line at
-the end of your response. Raise live correctness, data-loss, or security problems
-immediately.
-
-Use the `field-notes` skill to declare subjects, triage notes, or promote findings.
+Use only evidence and context already available. Do not investigate, perform
+additional analysis, or generate hypotheses or recommendations for the note.
+Skip routine steps, expected diagnostic failures, and isolated typing mistakes.
+Capture does not expand the task's authority.
 <!-- axm:end v=1 region=rules -->

@@ -37,7 +37,7 @@ const cases: ReadonlyArray<ConversionCase> = [
       reason: "symlink is not allowed: src/link",
     }),
     code: "validation",
-    detail: "Invalid materialized package tree at /w/pkg: symlink is not allowed: src/link",
+    detail: "Installed package files are invalid at /w/pkg: symlink is not allowed: src/link",
   },
 ];
 

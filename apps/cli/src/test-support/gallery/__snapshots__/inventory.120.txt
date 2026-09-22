@@ -1,8 +1,9 @@
-     Name                         State       Activation   Type       Agents
-     @craigsmitham/effect-v4      installed   enabled      registry   claude-code, codex, cursor, gemini-cli
-     @craigsmitham/field-notes    installed   enabled      registry   claude-code, codex
-     @agentxm/knowledge/agentxm   installed   disabled     registry   none
-     local-notes                  detected    n/a          detected   none
+     Name                         State                       Activation       Type       Agents
+     @craigsmitham/effect-v4      managed by this workspace   enabled          registry   claude-code, codex, cursor,
+                                                                                          gemini-cli
+     @craigsmitham/field-notes    managed by this workspace   enabled          registry   claude-code, codex
+     @agentxm/knowledge/agentxm   managed by this workspace   disabled         registry   none
+     local-notes                  outside AXM                 not applicable   detected   none
      Not shown at this width: Agent outcomes
 
-4 skills (3 configured, 0 implicit, 3 installed, 0 leftover, 0 undeclared, 1 unmanaged)
+4 skills: 3 managed by this workspace, 3 installed, 1 found outside AXM

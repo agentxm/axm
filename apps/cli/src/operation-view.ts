@@ -219,10 +219,7 @@ const rowChildren = (
         ({
           _tag: "paragraph",
           tone: outcome.outcome === "failed" || outcome.outcome === "blocked" ? "warn" : "dim",
-          text: joined([
-            `${outcome.agentId}: ${agentOutcome(outcome.outcome)}${outcome.path === undefined ? "" : ` at ${outcome.path}`}`,
-            outcome.reason,
-          ]),
+          text: `${outcome.agentId}: ${agentOutcome(outcome.outcome)}${outcome.path === undefined ? "" : ` at ${outcome.path}`}${outcome.reason === undefined || outcome.outcome === "projected" || outcome.outcome === "current" ? "" : ` — ${outcome.reason}`}`,
         }) as const,
     ),
   ];
@@ -451,14 +448,20 @@ const referenceOf = (unit: ResolvedUnit<unknown>): ReadonlyArray<JobStepArtifact
  * reader is not left wondering why they survived. They are the operation's
  * context, not its units, so they follow the ledger as a callout.
  */
-const untouchedPaths = (units: ReadonlyArray<ResolvedUnit<unknown>>): Doc => {
+const untouchedPaths = (
+  units: ReadonlyArray<ResolvedUnit<unknown>>,
+  mode: "preview" | "apply",
+): Doc => {
   const references = units.flatMap(referenceOf);
   if (references.length === 0) return [];
   return [
     {
       _tag: "callout",
       tone: "warn",
-      title: `AXM will not touch ${count(references.length, "path")}`,
+      title:
+        mode === "preview"
+          ? `AXM would leave ${count(references.length, "existing item")} unchanged`
+          : `${count(references.length, "existing item")} ${references.length === 1 ? "was" : "were"} left unchanged`,
       children: references.map(
         (reference) =>
           ({
@@ -568,15 +571,26 @@ const TALLIED: ReadonlyArray<string> = [
 const verdictAside = (
   units: ReadonlyArray<ResolvedUnit<unknown>>,
   mode: "preview" | "apply",
+  outcome: ReturnType<typeof deriveOperationOutcome>,
   exitCode: number,
 ): ReadonlyArray<string> => {
   const words = units.map((unit) => statusWord(settlementOf(unit, mode)));
+  const repeatedByHeadline = new Set<string>(
+    outcome === "applied"
+      ? [unitState("committed")]
+      : outcome === "previewed"
+        ? [unitState("planned"), unitState("ready")]
+        : outcome === "no-op"
+          ? [unitState("unchanged")]
+          : [],
+  );
   return [
     ...TALLIED.map((word) => {
+      if (repeatedByHeadline.has(word)) return undefined;
       const value = words.filter((candidate) => candidate === word).length;
       return value === 0 ? undefined : `${String(value)} ${word}`;
     }),
-    mode === "preview" ? "nothing was written" : undefined,
+    mode === "preview" ? "no changes made" : undefined,
     exitCode === 0 ? undefined : exitPhrase(exitCode),
   ].filter((part): part is string => part !== undefined);
 };
@@ -623,6 +637,7 @@ export const operationDoc = (
   const aside = verdictAside(
     resolution.units,
     resolution.mode,
+    outcome,
     operationExitCode(resolution, outcome),
   );
 
@@ -635,14 +650,17 @@ export const operationDoc = (
     }),
     ...ledger,
     ...groupedWarnings(resolution.units),
-    ...untouchedPaths(resolution.units),
+    ...untouchedPaths(resolution.units, resolution.mode),
     ...(coverage === undefined || coverage.agents.length > 0
       ? []
       : [
           {
             _tag: "callout",
             tone: "warn",
-            title: "No coding-agent targets were materialized",
+            title:
+              resolution.mode === "preview"
+                ? "No coding agents would receive this change"
+                : "No coding agents received this change",
             children: [
               {
                 _tag: "paragraph",
@@ -725,13 +743,10 @@ export const planDoc = (
   const warnings = steps.filter((step) => step.readiness === "warn").length + risks.length;
   const errors = steps.filter((step) => step.readiness === "error").length;
   const aside = factParts([
-    changing.length === 0
-      ? undefined
-      : `${String(changing.length)} to ${presentation.verb.imperative}`,
     unchanged === 0 ? undefined : `${String(unchanged)} ${unitState("unchanged")}`,
     warnings === 0 ? undefined : count(warnings, "warning"),
     errors === 0 ? undefined : count(errors, "error"),
-    options.mode === "preview" ? "nothing was written" : undefined,
+    options.mode === "preview" ? "no changes made" : undefined,
   ]);
   const scope = steps.find((step) => step.artifact !== undefined)?.artifact?.scope;
   const agents = [

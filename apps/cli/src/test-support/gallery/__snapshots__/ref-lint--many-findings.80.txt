@@ -12,8 +12,8 @@ Linting  in this project
  ▲   Member version floats         3 locations
      pack/member-pinned — packs/review-kit, packs/ops, and 1 more
 
-13 errors, 10 warnings  in 23 locations · 1 fixable · exit 1
+13 errors and 10 warnings  in 23 locations · 1 fixable · exit 1
 --verbose lists every location
 
 Next
-     axm lint --fix   apply the deterministic fix
+     axm lint --fix   Apply the available automatic fix

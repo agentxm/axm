@@ -4,7 +4,7 @@
   "projectType": "library",
   "root": "packages/core/registry-protocol",
   "sourceRoot": "packages/core/registry-protocol/src",
-  "tags": ["type:lib", "role:contract", "scope:registry-protocol"],
+  "tags": ["type:lib", "role:contract", "scope:registry-protocol", "release:cli"],
   "targets": {
     "build": {
       "executor": "@nx/js:tsc",

@@ -5332,7 +5332,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 
 - Requirement: `registry-client/operation-scratch-is-bounded`
 - Owner: `registry-client`
-- Statement: AXM shall reserve finite scratch capacity before source acquisition, refuse over-capacity work with a typed resource failure, release unused capacity after measuring the acquired tree, and release retained capacity when its resource scope closes.
+- Statement: AXM shall reserve finite scratch capacity before source acquisition, wait when unsettled reservations can release capacity, refuse retained over-capacity work with a typed resource failure, release unused capacity after measuring the acquired tree, and release retained capacity when its resource scope closes.
 - Class: functional
 - Role: supporting
 - Product goals: `safe-repetition`, `trustworthy-distribution`

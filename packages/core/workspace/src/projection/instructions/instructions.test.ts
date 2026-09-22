@@ -171,6 +171,31 @@ describe("agent instructions", () => {
     ),
   );
 
+  it.effect("skips Nx cache in project discovery but honors it as an explicit workspace root", () =>
+    run(
+      Effect.gen(function* () {
+        const cacheWorkspace = path.join(tempDir, ".nx", "cache", "project");
+        const docs = path.join(tempDir, "docs");
+        fs.mkdirSync(cacheWorkspace, { recursive: true });
+        fs.mkdirSync(docs);
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Root\n");
+        fs.writeFileSync(path.join(docs, "AGENTS.md"), "# Docs\n");
+        fs.writeFileSync(path.join(cacheWorkspace, "AGENTS.md"), "# Explicit\n");
+
+        const broad = yield* observe({ configuredAgents: ["claude-code"] });
+        const explicit = yield* observeInstructionProjection({
+          workspaceRoot: cacheWorkspace,
+          scope: "project",
+          configuredAgents: ["claude-code"],
+          config: TRACKED,
+        });
+
+        expect([...broad.status.roots].sort()).toEqual([docs, tempDir].sort());
+        expect(explicit.status.roots).toEqual([cacheWorkspace]);
+      }),
+    ),
+  );
+
   it.effect("stops instruction discovery at a nested separate working tree", () =>
     run(
       Effect.gen(function* () {

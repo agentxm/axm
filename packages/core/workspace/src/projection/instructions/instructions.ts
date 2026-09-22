@@ -11,6 +11,7 @@ import {
 import { type InstructionsConfig } from "../../desired-state/index.js";
 import { createSymlink } from "../../desired-state/index.js";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
+import { DISCOVERY_SKIPPED_DIRECTORIES } from "@agentxm/extension-model/unstable/discovery-walk";
 import { AXM_DIR_NAME } from "../../desired-state/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { protectWorkspacePath } from "../../transitions/settlement/index.js";
@@ -348,10 +349,7 @@ const PROJECT_EXTENSION_ROOTS: ReadonlySet<string> = new Set([
 ]);
 
 const shouldSkipDir = (name: string, scope: WorkspaceScope): boolean =>
-  name === ".git" ||
-  name === ".axm" ||
-  name === "node_modules" ||
-  name === "dist" ||
+  DISCOVERY_SKIPPED_DIRECTORIES.has(name) ||
   (scope === "project" && PROJECT_EXTENSION_ROOTS.has(name)) ||
   AGENT_CONVENTION_DIRS.has(name);
 

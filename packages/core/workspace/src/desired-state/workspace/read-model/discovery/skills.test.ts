@@ -504,6 +504,27 @@ describe("skillsInDir", () => {
       ),
     );
 
+    it.effect("skips Nx cache in a broad scan but searches an explicit root inside it", () =>
+      withFileSystem(
+        Effect.gen(function* () {
+          const authoredRoot = path.join(tempDir, ".nx", "cache", "authored");
+          createSkillMd(path.join(authoredRoot, "review"), "review", "Explicit source");
+
+          const broad = yield* skillsInDir(tempDir, Option.none(), {
+            ...defaultOptions,
+            fullDepth: true,
+          });
+          const explicit = yield* skillsInDir(authoredRoot, Option.none(), {
+            ...defaultOptions,
+            fullDepth: true,
+          });
+
+          expect(broad.map((skill) => skill.skill.name)).not.toContain("review");
+          expect(explicit.map((skill) => skill.skill.name)).toContain("review");
+        }),
+      ),
+    );
+
     it.effect("skips .git directory", () =>
       withFileSystem(
         Effect.gen(function* () {

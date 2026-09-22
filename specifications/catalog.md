@@ -4177,6 +4177,19 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Derived from: `extension-installability/source-family-policy-is-total`
 - Source: [`packages/core/workspace/src/resolution/sources/discovers-all-manifest-kinds-from-git-and-path.spec.ts`](../packages/core/workspace/src/resolution/sources/discovers-all-manifest-kinds-from-git-and-path.spec.ts)
 
+##### Broad source discovery skips tool caches without hiding explicit roots
+
+- Requirement: `extension-discovery/broad-scans-skip-tool-caches`
+- Owner: `workspace`
+- Statement: When discovering extension packages from a source, AXM shall omit .nx cache trees from broad convention scans and shall still discover a package when its directory is explicitly selected as the source root.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `extension-discovery/all-manifest-kinds-from-git-and-path`
+- Source: [`packages/core/workspace/src/resolution/sources/broad-discovery-skips-tool-caches.spec.ts`](../packages/core/workspace/src/resolution/sources/broad-discovery-skips-tool-caches.spec.ts)
+
 ##### A canonical extension name always parses back to the identity that produced it
 
 - Requirement: `extension-identity/canonical-names-round-trip`

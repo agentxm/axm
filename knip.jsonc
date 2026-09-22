@@ -31,9 +31,11 @@
       // Native toolchain manager; scanner versions are declared in mise.toml,
       // independently of npm dependency ownership.
       "ignoreBinaries": ["mise"],
-      // These are loaded by Allure, a shell launcher, and specification discovery.
+      // These are loaded indirectly by Allure, shell launchers, benchmark child
+      // processes, and specification discovery.
       "entry": [
         "allurerc.ts",
+        "benchmarks/lifecycle-preload.cjs",
         "scripts/axm-local.ts",
         "specifications/product-goals.ts",
         "tools/architecture/check.mjs",

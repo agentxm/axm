@@ -170,7 +170,6 @@ export const collectUnreachableRetirement = (
               detail: "Desired reachability changed before retirement",
             });
           }
-          const writer = yield* AcceptedResolutionWriter;
           for (const row of retired) {
             const accepted = yield* locks.entry(row.type, row.key);
             if (Option.isNone(accepted) || !lockEntrySemanticallyEqual(accepted.value, row.entry))
@@ -197,8 +196,8 @@ export const collectUnreachableRetirement = (
                 ),
               );
             }
-            yield* writer.removeAccepted(row.type, row.key);
           }
+          yield* (yield* AcceptedResolutionWriter).removeAcceptedEntries(retired);
         }),
         validate: () =>
           Effect.gen(function* () {

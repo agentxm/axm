@@ -895,7 +895,7 @@ const retireMaterialization = <TTarget extends ExtensionTarget, TMaterialization
   Effect.gen(function* () {
     const writer = yield* AcceptedResolutionWriter;
     const keys = yield* manager.withdrawnResolutionKeys(args);
-    for (const key of keys) yield* writer.removeAccepted(args.target.type, key);
+    yield* writer.removeAcceptedEntries(keys.map((key) => ({ type: args.target.type, key })));
   });
 
 /**

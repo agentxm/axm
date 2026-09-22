@@ -440,23 +440,8 @@ const findWithVersionRange = (
             toRegistrySearchOptions(owner, options),
           );
           const resolved = yield* Effect.forEach(
-            result.extensions,
-            (entry) =>
-              client
-                .getExtensionIndex({
-                  owner: entry.owner,
-                  type: entry.type,
-                  name: entry.name,
-                })
-                .pipe(
-                  Effect.flatMap((indexOption) =>
-                    Option.match(indexOption, {
-                      onNone: () => Effect.succeed(Option.none<RegistryExtensionManifest>()),
-                      onSome: (index) =>
-                        manifestFromIndex(index, options.versionRange, options.minimumReleaseAge),
-                    }),
-                  ),
-                ),
+            result.indexes,
+            (index) => manifestFromIndex(index, options.versionRange, options.minimumReleaseAge),
             { concurrency: "unbounded" },
           );
 

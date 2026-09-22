@@ -114,6 +114,7 @@ const toResult = (
   extensions: ReadonlyArray<RegistryExtensionManifest>,
 ): GetExtensionsByOwnerResponse => ({
   extensions,
+  indexes: [],
   total: extensions.length,
 });
 

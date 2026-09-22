@@ -413,15 +413,20 @@ const indexToManifest = (
 /**
  * Process a single name directory within a registry owner/type directory.
  * Reads the index.json, validates it, and selects a matching version.
- * Returns Some(RegistryExtensionManifest) if a matching version is found, None otherwise.
+ * Returns the selected manifest with the index read for it, or None.
  */
+interface IndexedManifest {
+  readonly index: ExtensionIndex;
+  readonly manifest: RegistryExtensionManifest;
+}
+
 const processNameDir = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   typeDir: string,
   nameDir: string,
   versionRange: Option.Option<string>,
-): Effect.Effect<Option.Option<RegistryExtensionManifest>, RegistryClientFailure> =>
+): Effect.Effect<Option.Option<IndexedManifest>, RegistryClientFailure> =>
   Effect.gen(function* () {
     const dir = path.join(typeDir, nameDir);
     const idxPath = path.join(dir, "index.json");
@@ -429,7 +434,7 @@ const processNameDir = (
     if (!idxExists) return Option.none();
 
     const index = yield* readExtensionIndex(fs, idxPath);
-    return indexToManifest(index, versionRange);
+    return Option.map(indexToManifest(index, versionRange), (manifest) => ({ index, manifest }));
   });
 
 const packageIdentity = (parts: PackageUrlParts): PackageUrlParts => ({
@@ -779,20 +784,26 @@ export const createLocalRegistryClient = (
       if (args.owner === "*") {
         const extensionsDir = path.join(registryRoot, "extensions");
         const indexes = yield* scanAllExtensions(fs, path, extensionsDir);
-        const manifests = Array.getSomes(
+        const indexed = Array.getSomes(
           indexes
             .filter((index) => args.types.length === 0 || args.types.includes(index.type))
             .filter((index) => args.names.length === 0 || args.names.includes(index.name))
-            .map((index) => indexToManifest(index, Option.none())),
+            .map((index) =>
+              Option.map(indexToManifest(index, Option.none()), (manifest) => ({
+                index,
+                manifest,
+              })),
+            ),
         );
-        const total = manifests.length;
-        const sliced = manifests.slice(args.offset);
-        const extensions = Option.match(args.limit, {
+        const total = indexed.length;
+        const sliced = indexed.slice(args.offset);
+        const page = Option.match(args.limit, {
           onNone: () => sliced,
           onSome: (l) => sliced.slice(0, l),
         });
         return {
-          extensions,
+          extensions: page.map(({ manifest }) => manifest),
+          indexes: page.map(({ index }) => index),
           total,
         } satisfies GetExtensionsByOwnerResponse;
       }
@@ -827,7 +838,7 @@ export const createLocalRegistryClient = (
           return Array.flatten(nestedResults);
         });
 
-      const all: ReadonlyArray<RegistryExtensionManifest> =
+      const all: ReadonlyArray<IndexedManifest> =
         args.names.length > 0
           ? yield* Effect.forEach(args.names, (name) => findForName(name), {
               concurrency: "unbounded",
@@ -837,13 +848,14 @@ export const createLocalRegistryClient = (
       const total = all.length;
       const offset = args.offset;
       const sliced = all.slice(offset);
-      const extensions = Option.match(args.limit, {
+      const page = Option.match(args.limit, {
         onNone: () => sliced,
         onSome: (l) => sliced.slice(0, l),
       });
 
       return {
-        extensions,
+        extensions: page.map(({ manifest }) => manifest),
+        indexes: page.map(({ index }) => index),
         total,
       } satisfies GetExtensionsByOwnerResponse;
     }),

@@ -243,6 +243,8 @@ export interface ExtensionExistsArgs {
  */
 export interface GetExtensionsByOwnerResponse {
   readonly extensions: ReadonlyArray<RegistryExtensionManifest<ExtensionType>>;
+  /** Full indexes from the same authorized reads, aligned with extensions after pagination. */
+  readonly indexes: ReadonlyArray<ExtensionIndex>;
   readonly total: number;
 }
 

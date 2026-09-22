@@ -28,7 +28,7 @@ import {
   type GetExtensionsByOwnerArgs,
   type GetExtensionsByOwnerResponse,
 } from "@agentxm/registry-client";
-import type { VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
+import type { ExtensionIndex, VersionEntry } from "@agentxm/registry-protocol/unstable/registry";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
   PUBLICATION_SET_CONTRACT,
@@ -155,8 +155,10 @@ const makeFetchArchive = (files: Readonly<Record<string, string>>): Uint8Array =
 /** Wrap entries into a GetExtensionsByOwnerResponse. */
 const toResult = (
   extensions: ReadonlyArray<RegistryExtensionManifest>,
+  indexes: ReadonlyArray<ExtensionIndex> = [],
 ): GetExtensionsByOwnerResponse => ({
   extensions,
+  indexes,
   total: extensions.length,
 });
 
@@ -596,6 +598,37 @@ const expectRegistrySubagentRef = (ref: ExtensionRef): RegistrySubagentRef => {
 // -----------------------------------------------------------------------------
 
 describe("LocalRegistrySourceHostProvider.find", () => {
+  it.effect("selects a version from the index already read by broad discovery", () => {
+    const registry = makeTestRegistry();
+    const index = {
+      owner: handle("@test"),
+      type: "skill" as const,
+      name: extensionName("my-skill"),
+      publisherBindingId: "hbnd_test",
+      archival: null,
+      deprecation: null,
+      versions: [makeVersionEntry({ version: "2.0.0" }), makeVersionEntry({ version: "1.0.0" })],
+    } satisfies ExtensionIndex;
+    const client = createMockClient({
+      getExtensionsByScope: () =>
+        Effect.succeed(toResult([makeManifest({ version: "2.0.0" })], [index])),
+      getExtensionIndex: () => Effect.die("The discovery index must not be fetched again"),
+    });
+    const provider = createLocalRegistrySourceHostProvider(client);
+
+    return runEffect(
+      Effect.gen(function* () {
+        const refs = yield* provider.find(registry.source, {
+          ...defaultFindOptions,
+          versionRange: Option.some("^1.0.0"),
+        });
+        expect(refs).toHaveLength(1);
+        const ref = expectRegistrySkillRef(at(refs, 0));
+        expect(ref.version).toBe("1.0.0");
+      }).pipe(Effect.ensuring(Effect.sync(() => registry.cleanup()))),
+    );
+  });
+
   it.effect("maps FindOptions to GetExtensionsByOwnerArgs and returns ExtensionRefs", () => {
     const registry = makeTestRegistry();
     let capturedOptions: GetExtensionsByOwnerArgs | undefined;

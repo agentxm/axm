@@ -563,16 +563,16 @@ export const createRemoteRegistryClient = (
     args: GetExtensionsByOwnerArgs,
   ): Effect.Effect<GetExtensionsByOwnerResponse, RegistryClientFailure> =>
     Effect.gen(function* () {
-      let allExtensions: ReadonlyArray<RegistryExtensionManifest>;
+      let allIndexes: ReadonlyArray<ExtensionIndex>;
       const owner = args.owner;
 
       if (args.names.length === 0 || owner === "*") {
         // List mode: fetch owner listing, then fan-out to get full indexes
-        allExtensions = yield* getListModeExtensions(args);
+        allIndexes = yield* getListModeExtensions(args);
         if (args.names.length > 0) {
           const nameSet = new Set(args.names);
           const requestedTypes = new Set(args.types);
-          allExtensions = allExtensions.filter(
+          allIndexes = allIndexes.filter(
             (entry) =>
               nameSet.has(entry.name) &&
               (requestedTypes.size === 0 || requestedTypes.has(entry.type)),
@@ -605,31 +605,32 @@ export const createRemoteRegistryClient = (
           { concurrency: REGISTRY_READ_CONCURRENCY },
         );
 
-        allExtensions = maybeEntries.flatMap((entry) =>
-          Option.match(entry, {
-            onNone: () => [],
-            onSome: (value) =>
-              Option.match(toRegistryManifest(value, Option.none()), {
-                onNone: () => [],
-                onSome: (manifest) => [manifest],
-              }),
-          }),
-        );
+        allIndexes = maybeEntries.flatMap((entry) => (Option.isSome(entry) ? [entry.value] : []));
       }
 
-      const total = allExtensions.length;
-      const sliced = allExtensions.slice(args.offset);
-      const extensions = Option.match(args.limit, {
+      const indexed = allIndexes.flatMap((index) =>
+        Option.match(toRegistryManifest(index, Option.none()), {
+          onNone: () => [],
+          onSome: (manifest) => [{ index, manifest }],
+        }),
+      );
+      const total = indexed.length;
+      const sliced = indexed.slice(args.offset);
+      const page = Option.match(args.limit, {
         onNone: () => sliced,
         onSome: (limit) => sliced.slice(0, limit),
       });
 
-      return { extensions, total };
+      return {
+        extensions: page.map(({ manifest }) => manifest),
+        indexes: page.map(({ index }) => index),
+        total,
+      };
     });
 
   const getListModeExtensions = (
     args: GetExtensionsByOwnerArgs,
-  ): Effect.Effect<ReadonlyArray<RegistryExtensionManifest>, RegistryClientFailure> =>
+  ): Effect.Effect<ReadonlyArray<ExtensionIndex>, RegistryClientFailure> =>
     Effect.gen(function* () {
       // Fetch extension lists by type
       const listResults =
@@ -655,18 +656,11 @@ export const createRemoteRegistryClient = (
         { concurrency: REGISTRY_READ_CONCURRENCY },
       );
 
-      const allExtensions = maybeEntries.flatMap((entry) =>
-        Option.match(entry, {
-          onNone: () => [],
-          onSome: (value) =>
-            Option.match(toRegistryManifest(value, Option.none()), {
-              onNone: () => [],
-              onSome: (manifest) => [manifest],
-            }),
-        }),
+      const allIndexes = maybeEntries.flatMap((entry) =>
+        Option.isSome(entry) ? [entry.value] : [],
       );
 
-      const sorted = [...allExtensions].sort((a, b) => {
+      const sorted = [...allIndexes].sort((a, b) => {
         if (a.owner !== b.owner) return a.owner.localeCompare(b.owner);
         if (a.name !== b.name) return a.name.localeCompare(b.name);
         return a.type.localeCompare(b.type);

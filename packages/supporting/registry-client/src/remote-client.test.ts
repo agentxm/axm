@@ -370,6 +370,48 @@ describe("getExtensionIndex", () => {
 // =============================================================================
 
 describe("getExtensionsByScope", () => {
+  it.effect("returns the full index from the same list-mode metadata read", () =>
+    Effect.gen(function* () {
+      let indexReads = 0;
+      const httpClient = makeMockHttpClient((request) => {
+        const path = decodeURIComponent(new URL(request.url).pathname);
+        if (path === "/v1/extensions/@acme/skills") {
+          return new Response(
+            JSON.stringify({
+              total: 1,
+              extensions: [
+                {
+                  owner: "@acme",
+                  type: "skill",
+                  name: "test-skill",
+                  latestVersion: "1.0.0",
+                  deprecation: null,
+                  archival: null,
+                },
+              ],
+            }),
+            { status: 200 },
+          );
+        }
+        indexReads++;
+        return new Response(JSON.stringify(extensionIndexResponse), { status: 200 });
+      });
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const result = yield* client.getExtensionsByScope({
+        owner: registryOwner,
+        names: [],
+        types: ["skill"],
+        limit: Option.none(),
+        offset: 0,
+      });
+
+      expect(indexReads).toBe(1);
+      expect(result.indexes.map((index) => index.name)).toEqual(["test-skill"]);
+      expect(result.extensions.map((entry) => entry.name)).toEqual(["test-skill"]);
+    }),
+  );
+
   it.effect("returns extensions in named mode", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(
@@ -388,6 +430,9 @@ describe("getExtensionsByScope", () => {
       expect(result.extensions.length).toBeGreaterThanOrEqual(1);
       expect(result.total).toBeGreaterThanOrEqual(1);
       expect(result.extensions[0]?.name).toBe("test-skill");
+      expect(result.indexes.map((index) => index.name)).toEqual(
+        result.extensions.map((extension) => extension.name),
+      );
     }),
   );
 
@@ -407,6 +452,7 @@ describe("getExtensionsByScope", () => {
       });
 
       expect(result.extensions.length).toBeLessThanOrEqual(1);
+      expect(result.indexes).toHaveLength(result.extensions.length);
     }),
   );
 

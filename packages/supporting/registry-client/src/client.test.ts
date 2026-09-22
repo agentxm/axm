@@ -246,6 +246,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
           expect(at(result.extensions, 0).name).toBe("my-skill");
           expect(at(result.extensions, 0).version).toBe("1.0.0");
           expect(at(result.extensions, 0).owner).toBe("@test");
+          expect(result.indexes.map((index) => index.name)).toEqual(["my-skill"]);
           expect(result.total).toBe(1);
         }).pipe(
           Effect.ensuring(
@@ -331,6 +332,9 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
           const client = yield* makeLocalClient(registryRoot);
           const result = yield* client.getExtensionsByScope(defaultSearchOptions);
           expect(result.extensions).toHaveLength(2);
+          expect(result.indexes.map((index) => index.name)).toEqual(
+            result.extensions.map((extension) => extension.name),
+          );
           expect(result.total).toBe(2);
         }).pipe(
           Effect.ensuring(

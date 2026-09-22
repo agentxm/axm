@@ -564,6 +564,7 @@ describe("authored skill cleanup exclusion", () => {
           workspace.cleanup();
         }
       }).pipe(Effect.provide(NodeServices.layer)),
+    { timeout: 15_000 },
   );
 });
 

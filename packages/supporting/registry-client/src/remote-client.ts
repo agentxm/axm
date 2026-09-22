@@ -858,49 +858,51 @@ export const createRemoteRegistryClient = (
           mapError: mapArchiveFetchError,
         },
       );
-      if (
-        args.exact !== undefined &&
-        archiveCache !== undefined &&
-        args.usagePurpose !== "verification"
-      ) {
-        const cached = yield* archiveCache.read(selected.integrity);
-        if (Option.isSome(cached)) {
-          const outcomes = yield* getResolutionMetadata({
-            schemaVersion: 1,
-            selectionPolicyVersion: "1",
-            items: [
-              {
-                key: "exact",
-                identity: { owner: args.owner, type: args.type, name: args.name },
-                purpose: "restore-exact",
-                expectedPublisherBinding: selected.publisherBindingId,
-                accepted: { version: selected.version, integrity: selected.integrity },
-              },
-            ],
-          });
-          const outcome = outcomes[0];
-          if (
-            outcome?.outcome !== "metadata" ||
-            outcome.page.publisherBindingId !== selected.publisherBindingId
-          ) {
-            return yield* new RegistryOperationFailed({
-              category: "conflict",
-              detail:
-                "Cached archive no longer has current Registry authorization or exact version evidence.",
+      const validateCached =
+        args.exact === undefined || args.usagePurpose === "verification"
+          ? undefined
+          : Effect.gen(function* () {
+              const outcomes = yield* getResolutionMetadata({
+                schemaVersion: 1,
+                selectionPolicyVersion: "1",
+                items: [
+                  {
+                    key: "exact",
+                    identity: { owner: args.owner, type: args.type, name: args.name },
+                    purpose: "restore-exact",
+                    expectedPublisherBinding: selected.publisherBindingId,
+                    accepted: { version: selected.version, integrity: selected.integrity },
+                  },
+                ],
+              });
+              const outcome = outcomes[0];
+              if (
+                outcome?.outcome !== "metadata" ||
+                outcome.page.publisherBindingId !== selected.publisherBindingId
+              ) {
+                return yield* new RegistryOperationFailed({
+                  category: "conflict",
+                  detail:
+                    "Cached archive no longer has current Registry authorization or exact version evidence.",
+                });
+              }
             });
-          }
-          return {
-            archive: cached.value,
-            ...(warnings.length === 0 ? {} : { warnings }),
-          } satisfies GetExtensionPackageResponse;
-        }
-      }
       const archive = yield* archiveCache === undefined
         ? fetchArchive
         : archiveCache.load(
-            JSON.stringify([baseUrl, selected.integrity, args.usagePurpose ?? "normal"]),
+            JSON.stringify([
+              baseUrl,
+              args.owner,
+              args.type,
+              args.name,
+              selected.version,
+              selected.integrity,
+              selected.publisherBindingId,
+              args.usagePurpose ?? "normal",
+            ]),
             selected.integrity,
             fetchArchive,
+            validateCached,
           );
 
       return {

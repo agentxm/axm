@@ -48,11 +48,12 @@ export interface ArchiveCachePruneResult {
 }
 
 export interface ArchiveCache {
-  /** Coalesce an equal selection while retaining each caller's prior policy check. */
+  /** Coalesce equal acquisitions; validate a warm entry before sharing its bytes. */
   readonly load: (
     selectionKey: string,
     integrity: string,
     fetch: Effect.Effect<Uint8Array, RegistryClientFailure>,
+    validateCached?: Effect.Effect<void, RegistryClientFailure>,
   ) => Effect.Effect<Uint8Array, RegistryClientFailure>;
   readonly read: (
     integrity: string,
@@ -294,7 +295,7 @@ export const makeArchiveCache = (
         }
       });
 
-    const load: ArchiveCache["load"] = (selectionKey, integrity, fetch) =>
+    const load: ArchiveCache["load"] = (selectionKey, integrity, fetch, validateCached) =>
       Effect.uninterruptibleMask((restore) =>
         Effect.gen(function* () {
           const proposed = yield* Deferred.make<LoadCompletion, RegistryClientFailure>();
@@ -312,12 +313,15 @@ export const makeArchiveCache = (
             const completed = yield* restore(Deferred.await(admission.result));
             return completed._tag === "ready"
               ? completed.archive
-              : yield* restore(load(selectionKey, integrity, fetch));
+              : yield* restore(load(selectionKey, integrity, fetch, validateCached));
           }
           yield* acquireActive(integrity);
           const acquire = Effect.gen(function* () {
             const cached = yield* read(integrity);
-            if (Option.isSome(cached)) return cached.value;
+            if (Option.isSome(cached)) {
+              if (validateCached !== undefined) yield* validateCached;
+              return cached.value;
+            }
             const archive = yield* fetch;
             yield* write(integrity, archive);
             return archive;

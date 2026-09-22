@@ -101,6 +101,34 @@ describe("ArchiveCache", () => {
     ),
   );
 
+  it.effect("checks current authority before sharing a warm archive", () =>
+    withCache((cacheRoot) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const cache = yield* makeArchiveCache(fs, path, cacheRoot);
+        const archive = new Uint8Array([1, 2, 3]);
+        const integrity = yield* computeIntegrity(archive);
+        yield* cache.write(integrity, archive);
+        const denied = new RegistryOperationFailed({
+          category: "conflict",
+          detail: "Current access was revoked",
+        });
+
+        const failure = yield* cache
+          .load(
+            "accepted-selection",
+            integrity,
+            Effect.die("fetch was not expected"),
+            Effect.fail(denied),
+          )
+          .pipe(Effect.flip);
+
+        expect(failure).toBe(denied);
+      }),
+    ),
+  );
+
   it.effect("coalesces one active selection and forgets a failed load for retry", () =>
     withCache((cacheRoot) =>
       Effect.gen(function* () {

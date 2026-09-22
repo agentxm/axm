@@ -780,11 +780,17 @@ describe("getExtensionPackage", () => {
         );
       });
       const cache = {
-        load: () => Effect.die("load was not expected"),
-        read: (integrity: string) => {
+        load: (
+          _key: string,
+          integrity: string,
+          _fetch: unknown,
+          validate?: Effect.Effect<void, RegistryClientFailure>,
+        ) => {
           expect(integrity).toBe("sha512-selected");
-          return Effect.succeed(Option.some(cachedArchive));
+          if (validate === undefined) return Effect.die("warm validation was not provided");
+          return Effect.as(validate, cachedArchive);
         },
+        read: () => Effect.die("read was not expected"),
         write: () => Effect.die("write was not expected"),
         status: () => Effect.die("status was not expected"),
         verify: () => Effect.die("verify was not expected"),
@@ -823,8 +829,16 @@ describe("getExtensionPackage", () => {
           ),
       );
       const cache = {
-        load: () => Effect.die("load was not expected"),
-        read: () => Effect.succeed(Option.some(new Uint8Array([1]))),
+        load: (
+          _key: string,
+          _integrity: string,
+          _fetch: unknown,
+          validate?: Effect.Effect<void, RegistryClientFailure>,
+        ) =>
+          validate === undefined
+            ? Effect.die("warm validation was not provided")
+            : Effect.as(validate, new Uint8Array([1])),
+        read: () => Effect.die("read was not expected"),
         write: () => Effect.void,
         status: () => Effect.die("status was not expected"),
         verify: () => Effect.die("verify was not expected"),

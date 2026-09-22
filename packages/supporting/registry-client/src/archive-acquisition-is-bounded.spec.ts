@@ -1,7 +1,9 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
 import * as Fiber from "effect/Fiber";
 import * as Path from "effect/Path";
@@ -22,7 +24,7 @@ export const specification = defineSpecification({
   requirement: "registry-client/archive-acquisition-is-bounded",
   title: "Archive acquisition refuses content that exceeds finite resource limits",
   statement:
-    "AXM shall enforce finite compressed-body, expanded-content, entry-count, and concurrent-extraction limits while acquiring Registry archives, stop at a breached content bound with a typed resource failure, and leave the target package tree unwritten.",
+    "AXM shall enforce finite compressed-body, expanded-content, entry-count, and concurrent-extraction limits while acquiring Registry archives, stop at a breached content bound with a typed resource failure, observe cancellation between compressed chunks, and leave the target package tree unwritten on refusal or interruption.",
   class: "functional",
   role: "supporting",
   goals: ["trustworthy-distribution", "safe-repetition"],
@@ -76,6 +78,27 @@ describe("Bounded archive acquisition", () => {
 
       const failure = yield* extractZip(archive, target, { maxExpandedBytes: 4 }).pipe(Effect.flip);
       expect(failure.category).toBe("quota");
+      expect(yield* files.readDirectory(target)).toEqual([]);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("interrupts inflation between chunks before writing the target tree", () =>
+    Effect.gen(function* () {
+      const files = yield* FileSystem.FileSystem;
+      const paths = yield* Path.Path;
+      const root = yield* files.makeTempDirectoryScoped({ prefix: "axm-interrupted-unzip-" });
+      const target = paths.join(root, "target");
+      yield* files.makeDirectory(target);
+      const content = Uint8Array.from({ length: 2 * 1024 * 1024 }, (_, index) => index % 251);
+      const archive = zipSync({ "skill.txt": content }, { level: 0 });
+
+      const worker = yield* extractZip(archive, target).pipe(Effect.forkChild);
+      yield* Effect.yieldNow;
+      expect(worker.pollUnsafe()).toBeUndefined();
+
+      yield* Fiber.interrupt(worker);
+      const exit = yield* Fiber.await(worker);
+      expect(Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)).toBe(true);
       expect(yield* files.readDirectory(target)).toEqual([]);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );

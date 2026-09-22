@@ -102,112 +102,134 @@ interface DecodedEntry {
 const extractionLimitFailure = (detail: string) =>
   new RegistryOperationFailed({ category: "quota", detail });
 
+const archiveDecodeFailure = (cause: unknown) =>
+  cause instanceof RegistryOperationFailed
+    ? cause
+    : new RegistryOperationFailed({
+        category: "validation",
+        detail: "Failed to decompress zip archive",
+        cause,
+      });
+
 /** Validate the central directory before any inflation, then cap actual output chunks. */
 const decodeBoundedZip = (
   archive: Uint8Array,
   limits: Required<ArchiveExtractionLimits>,
-): ReadonlyMap<string, DecodedEntry> => {
-  if (archive.byteLength > limits.maxCompressedBytes) {
-    throw extractionLimitFailure(
-      `Registry archive exceeds the ${limits.maxCompressedBytes} byte acquisition limit`,
-    );
-  }
-
-  let declaredEntries = 0;
-  let declaredBytes = 0;
-  const declared = new Map<string, { readonly size: number; readonly compression: number }>();
-  unzipSync(archive, {
-    filter: (entry) => {
-      if (declared.has(entry.name)) {
-        throw new RegistryOperationFailed({
-          category: "validation",
-          detail: `Registry archive contains a duplicate entry: ${entry.name}`,
-        });
-      }
-      declared.set(entry.name, { size: entry.originalSize, compression: entry.compression });
-      declaredEntries += 1;
-      declaredBytes += entry.originalSize;
-      if (declaredEntries > limits.maxEntries) {
-        throw extractionLimitFailure(
-          `Registry archive exceeds the ${limits.maxEntries} entry limit`,
-        );
-      }
-      if (declaredBytes > limits.maxExpandedBytes) {
-        throw extractionLimitFailure(
-          `Registry archive exceeds the ${limits.maxExpandedBytes} extracted byte limit`,
-        );
-      }
-      return false;
-    },
-  });
-
-  const entries = new Map<string, DecodedEntry>();
-  const seenNames = new Set<string>();
-  let expandedBytes = 0;
-  let completedEntries = 0;
-  const unzip = new Unzip((file) => {
-    const expected = declared.get(file.name);
-    if (
-      expected === undefined ||
-      expected.compression !== file.compression ||
-      (file.originalSize !== undefined && expected.size !== file.originalSize)
-    ) {
-      throw new RegistryOperationFailed({
-        category: "validation",
-        detail: `Registry archive entry differs from its central directory: ${file.name}`,
-      });
+): Effect.Effect<ReadonlyMap<string, DecodedEntry>, RegistryOperationFailed> =>
+  Effect.gen(function* () {
+    if (archive.byteLength > limits.maxCompressedBytes) {
+      return yield* extractionLimitFailure(
+        `Registry archive exceeds the ${limits.maxCompressedBytes} byte acquisition limit`,
+      );
     }
-    if (seenNames.has(file.name)) {
-      throw new RegistryOperationFailed({
-        category: "validation",
-        detail: `Registry archive contains a duplicate entry: ${file.name}`,
-      });
-    }
-    seenNames.add(file.name);
-    const chunks: Array<Uint8Array> = [];
-    let size = 0;
-    file.ondata = (error, data, final) => {
-      if (error !== null) throw error;
-      size += data.byteLength;
-      expandedBytes += data.byteLength;
-      if (expandedBytes > limits.maxExpandedBytes) {
-        throw extractionLimitFailure(
-          `Registry archive exceeds the ${limits.maxExpandedBytes} extracted byte limit`,
-        );
-      }
-      if (size > expected.size) {
-        throw new RegistryOperationFailed({
-          category: "validation",
-          detail: `Registry archive entry has inconsistent size: ${file.name}`,
-        });
-      }
-      if (data.byteLength > 0) chunks.push(new Uint8Array(data));
-      if (final) {
-        if (size !== expected.size) {
-          throw new RegistryOperationFailed({
-            category: "validation",
-            detail: `Registry archive entry has inconsistent size: ${file.name}`,
-          });
-        }
-        entries.set(file.name, { chunks, size });
-        completedEntries += 1;
-      }
-    };
-    file.start();
-  });
-  unzip.register(UnzipInflate);
-  for (let offset = 0; offset < archive.byteLength; offset += 64 * 1024) {
-    const end = Math.min(offset + 64 * 1024, archive.byteLength);
-    unzip.push(archive.subarray(offset, end), end === archive.byteLength);
-  }
-  if (completedEntries !== declaredEntries) {
-    throw new RegistryOperationFailed({
-      category: "validation",
-      detail: "Registry archive entries do not match its central directory",
+
+    let declaredEntries = 0;
+    let declaredBytes = 0;
+    const declared = new Map<string, { readonly size: number; readonly compression: number }>();
+    yield* Effect.try({
+      try: () =>
+        unzipSync(archive, {
+          filter: (entry) => {
+            if (declared.has(entry.name)) {
+              throw new RegistryOperationFailed({
+                category: "validation",
+                detail: `Registry archive contains a duplicate entry: ${entry.name}`,
+              });
+            }
+            declared.set(entry.name, { size: entry.originalSize, compression: entry.compression });
+            declaredEntries += 1;
+            declaredBytes += entry.originalSize;
+            if (declaredEntries > limits.maxEntries) {
+              throw extractionLimitFailure(
+                `Registry archive exceeds the ${limits.maxEntries} entry limit`,
+              );
+            }
+            if (declaredBytes > limits.maxExpandedBytes) {
+              throw extractionLimitFailure(
+                `Registry archive exceeds the ${limits.maxExpandedBytes} extracted byte limit`,
+              );
+            }
+            return false;
+          },
+        }),
+      catch: archiveDecodeFailure,
     });
-  }
-  return entries;
-};
+
+    const entries = new Map<string, DecodedEntry>();
+    const seenNames = new Set<string>();
+    let expandedBytes = 0;
+    let completedEntries = 0;
+    const unzip = yield* Effect.try({
+      try: () =>
+        new Unzip((file) => {
+          const expected = declared.get(file.name);
+          if (
+            expected === undefined ||
+            expected.compression !== file.compression ||
+            (file.originalSize !== undefined && expected.size !== file.originalSize)
+          ) {
+            throw new RegistryOperationFailed({
+              category: "validation",
+              detail: `Registry archive entry differs from its central directory: ${file.name}`,
+            });
+          }
+          if (seenNames.has(file.name)) {
+            throw new RegistryOperationFailed({
+              category: "validation",
+              detail: `Registry archive contains a duplicate entry: ${file.name}`,
+            });
+          }
+          seenNames.add(file.name);
+          const chunks: Array<Uint8Array> = [];
+          let size = 0;
+          file.ondata = (error, data, final) => {
+            if (error !== null) throw error;
+            size += data.byteLength;
+            expandedBytes += data.byteLength;
+            if (expandedBytes > limits.maxExpandedBytes) {
+              throw extractionLimitFailure(
+                `Registry archive exceeds the ${limits.maxExpandedBytes} extracted byte limit`,
+              );
+            }
+            if (size > expected.size) {
+              throw new RegistryOperationFailed({
+                category: "validation",
+                detail: `Registry archive entry has inconsistent size: ${file.name}`,
+              });
+            }
+            if (data.byteLength > 0) chunks.push(new Uint8Array(data));
+            if (final) {
+              if (size !== expected.size) {
+                throw new RegistryOperationFailed({
+                  category: "validation",
+                  detail: `Registry archive entry has inconsistent size: ${file.name}`,
+                });
+              }
+              entries.set(file.name, { chunks, size });
+              completedEntries += 1;
+            }
+          };
+          file.start();
+        }),
+      catch: archiveDecodeFailure,
+    });
+    yield* Effect.try({ try: () => unzip.register(UnzipInflate), catch: archiveDecodeFailure });
+    for (let offset = 0; offset < archive.byteLength; offset += 64 * 1024) {
+      const end = Math.min(offset + 64 * 1024, archive.byteLength);
+      yield* Effect.try({
+        try: () => unzip.push(archive.subarray(offset, end), end === archive.byteLength),
+        catch: archiveDecodeFailure,
+      });
+      yield* Effect.yieldNow;
+    }
+    if (completedEntries !== declaredEntries) {
+      return yield* new RegistryOperationFailed({
+        category: "validation",
+        detail: "Registry archive entries do not match its central directory",
+      });
+    }
+    return entries;
+  });
 
 const extractZipWithoutBudget = (
   archive: Uint8Array,
@@ -233,17 +255,7 @@ const extractZipWithoutBudget = (
       maxExpandedBytes: Math.min(requested.maxExpandedBytes, MAX_EXTRACTED_ARCHIVE_BYTES),
       maxEntries: Math.min(requested.maxEntries, MAX_ARCHIVE_ENTRIES),
     };
-    const entries = yield* Effect.try({
-      try: () => decodeBoundedZip(archive, limits),
-      catch: (e) =>
-        e instanceof RegistryOperationFailed
-          ? e
-          : new RegistryOperationFailed({
-              category: "validation",
-              detail: "Failed to decompress zip archive",
-              cause: e,
-            }),
-    });
+    const entries = yield* decodeBoundedZip(archive, limits);
 
     // Resolve the target directory once for containment checks.
     const baseDir = makeAbsolutePath(path, targetDir);

@@ -10,16 +10,21 @@ import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Clock from "effect/Clock";
+import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as Exit from "effect/Exit";
 import * as FileSystem from "effect/FileSystem";
+import * as Fiber from "effect/Fiber";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { computeIntegrity } from "./integrity.js";
 import { makeArchiveCache } from "./archive-cache.js";
 import { resolveAxmCacheRootPure } from "./cache-root.js";
 import { MAX_BUFFERED_ARCHIVE_BYTES } from "./archive-limits.js";
+import { RegistryOperationFailed } from "./errors.js";
 
 const withCache = <A, E>(
   use: (cacheRoot: string) => Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>,
@@ -38,7 +43,7 @@ describe("ArchiveCache", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const cache = makeArchiveCache(fs, path, cacheRoot);
+        const cache = yield* makeArchiveCache(fs, path, cacheRoot);
         const archive = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
         const integrity = yield* computeIntegrity(archive);
         yield* cache.write(integrity, archive);
@@ -82,7 +87,7 @@ describe("ArchiveCache", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const cache = makeArchiveCache(fs, path, cacheRoot);
+        const cache = yield* makeArchiveCache(fs, path, cacheRoot);
         const archive = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
         const integrity = yield* computeIntegrity(archive);
 
@@ -97,12 +102,133 @@ describe("ArchiveCache", () => {
     ),
   );
 
+  it.effect("coalesces one active selection and forgets a failed load for retry", () =>
+    withCache((cacheRoot) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const cache = yield* makeArchiveCache(fs, path, cacheRoot);
+        const archive = new Uint8Array([1, 2, 3]);
+        const integrity = yield* computeIntegrity(archive);
+        const started = yield* Deferred.make<void>();
+        const release = yield* Deferred.make<void>();
+        const fetches = yield* Ref.make(0);
+        const fetch = Ref.update(fetches, (count) => count + 1).pipe(
+          Effect.andThen(Deferred.succeed(started, undefined)),
+          Effect.andThen(Deferred.await(release)),
+          Effect.as(archive),
+        );
+        const first = yield* cache.load("same-selection", integrity, fetch).pipe(Effect.forkChild);
+        yield* Deferred.await(started);
+        const second = yield* cache.load("same-selection", integrity, fetch).pipe(Effect.forkChild);
+        yield* Effect.yieldNow;
+        expect(yield* Ref.get(fetches)).toBe(1);
+        yield* Deferred.succeed(release, undefined);
+        expect(Array.from(yield* Fiber.join(first))).toEqual([1, 2, 3]);
+        expect(Array.from(yield* Fiber.join(second))).toEqual([1, 2, 3]);
+
+        const missing = yield* computeIntegrity(new Uint8Array([9]));
+        yield* cache
+          .load(
+            "retry-selection",
+            missing,
+            Effect.fail(new RegistryOperationFailed({ category: "network", detail: "offline" })),
+          )
+          .pipe(Effect.exit);
+        expect(
+          Array.from(
+            yield* cache.load("retry-selection", missing, Effect.succeed(new Uint8Array([9]))),
+          ),
+        ).toEqual([9]);
+      }),
+    ),
+  );
+
+  it.effect("interrupts waiting equal-digest callers and permits a later retry", () =>
+    withCache((cacheRoot) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const cache = yield* makeArchiveCache(fs, path, cacheRoot);
+        const archive = new Uint8Array([8, 7, 6]);
+        const integrity = yield* computeIntegrity(archive);
+        const started = yield* Deferred.make<void>();
+        const leader = yield* cache
+          .load(
+            "selection",
+            integrity,
+            Deferred.succeed(started, undefined).pipe(Effect.andThen(Effect.never)),
+          )
+          .pipe(Effect.forkChild);
+        yield* Deferred.await(started);
+        const waiter = yield* cache
+          .load("selection", integrity, Effect.die("duplicate transfer"))
+          .pipe(Effect.forkChild);
+        yield* Effect.yieldNow;
+        yield* Fiber.interrupt(leader);
+        expect(Exit.isFailure(yield* Fiber.await(waiter))).toBe(true);
+        expect(
+          Array.from(yield* cache.load("selection", integrity, Effect.succeed(archive))),
+        ).toEqual([8, 7, 6]);
+      }),
+    ),
+  );
+
+  it.effect("amortizes pruning while protecting an active archive", () =>
+    withCache((cacheRoot) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const cache = yield* makeArchiveCache(fs, path, cacheRoot, { maxBytes: 5 });
+        const archives = [
+          new Uint8Array([1, 1, 1]),
+          new Uint8Array([2, 2, 2]),
+          new Uint8Array([3, 3, 3]),
+          new Uint8Array([4, 4, 4]),
+        ];
+        const integrities = yield* Effect.forEach(archives, computeIntegrity);
+        const activeArchive = archives[0];
+        const activeIntegrity = integrities[0];
+        if (activeArchive === undefined || activeIntegrity === undefined) {
+          return yield* Effect.die("Expected active archive");
+        }
+        const started = yield* Deferred.make<void>();
+        const release = yield* Deferred.make<void>();
+        const active = yield* cache
+          .load(
+            "active-selection",
+            activeIntegrity,
+            cache
+              .write(activeIntegrity, activeArchive, { prune: false })
+              .pipe(
+                Effect.andThen(Deferred.succeed(started, undefined)),
+                Effect.andThen(Deferred.await(release)),
+                Effect.as(activeArchive),
+              ),
+          )
+          .pipe(Effect.forkChild);
+        yield* Deferred.await(started);
+        for (let index = 1; index < archives.length; index++) {
+          const archive = archives[index];
+          const integrity = integrities[index];
+          if (archive === undefined || integrity === undefined) continue;
+          yield* cache.write(integrity, archive);
+        }
+        expect((yield* cache.status()).entries).toBe(4);
+        yield* cache.write(activeIntegrity, activeArchive);
+        expect(Option.isSome(yield* cache.read(activeIntegrity))).toBe(true);
+        yield* Deferred.succeed(release, undefined);
+        yield* Fiber.join(active);
+      }),
+    ),
+  );
+
   it.effect("deletes a corrupt archive instead of returning it", () =>
     withCache((cacheRoot) =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const cache = makeArchiveCache(fs, path, cacheRoot);
+        const cache = yield* makeArchiveCache(fs, path, cacheRoot);
         const archive = new Uint8Array([1, 2, 3, 4]);
         const integrity = yield* computeIntegrity(archive);
 
@@ -126,7 +252,7 @@ describe("ArchiveCache", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const cache = makeArchiveCache(fs, path, cacheRoot);
+        const cache = yield* makeArchiveCache(fs, path, cacheRoot);
         const first = new Uint8Array([1, 2]);
         const second = new Uint8Array([3, 4, 5]);
         const firstIntegrity = yield* computeIntegrity(first);
@@ -153,7 +279,7 @@ describe("ArchiveCache", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const cache = makeArchiveCache(fs, path, cacheRoot, {
+        const cache = yield* makeArchiveCache(fs, path, cacheRoot, {
           maxBytes: 5,
           maxAge: Duration.seconds(1),
         });

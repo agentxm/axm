@@ -603,10 +603,11 @@ describe("getExtensionPackage", () => {
         return new Response(undefined, { status: 500 });
       });
       const cache = {
-        read: (integrity: string) => {
+        load: (_key: string, integrity: string) => {
           expect(integrity).toBe("sha512-selected");
-          return Effect.succeed(Option.some(cachedArchive));
+          return Effect.succeed(cachedArchive);
         },
+        read: () => Effect.die("read was not expected"),
         write: () => Effect.die("write was not expected"),
         status: () => Effect.die("status was not expected"),
         verify: () => Effect.die("verify was not expected"),
@@ -715,7 +716,8 @@ describe("getExtensionPackage", () => {
         return new Response(JSON.stringify(extensionIndexResponse), { status: 200 });
       });
       const cache = {
-        read: () => Effect.succeed(Option.some(cachedArchive)),
+        load: () => Effect.succeed(cachedArchive),
+        read: () => Effect.die("read was not expected"),
         write: () => Effect.void,
         status: () => Effect.die("status was not expected"),
         verify: () => Effect.die("verify was not expected"),

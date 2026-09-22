@@ -15,8 +15,6 @@ import * as HttpClient from "effect/unstable/http/HttpClient";
 import type * as HttpClientError from "effect/unstable/http/HttpClientError";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import type * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
-import * as MutableRef from "effect/MutableRef";
-import * as Stream from "effect/Stream";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -53,7 +51,7 @@ import {
 import { DiscoverPackagesResponseSchema } from "@agentxm/registry-protocol/unstable/registry/discover-schema";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { extensionLifecycleWarnings, pluralizeType } from "./utils.js";
-import { MAX_BUFFERED_ARCHIVE_BYTES } from "./archive-limits.js";
+import { collectBufferedArchive, MAX_BUFFERED_ARCHIVE_BYTES } from "./archive-limits.js";
 import { resolveVersionEntry } from "@agentxm/extension-model/unstable/version-constraints/version-selection";
 import type {
   DiscoverPackagesArgs,
@@ -367,34 +365,17 @@ const downloadArchive = (
         detail: `Registry archive exceeds the ${MAX_BUFFERED_ARCHIVE_BYTES} byte acquisition limit`,
       });
     }
-    const received = MutableRef.make(0);
-    const chunks = yield* response.stream.pipe(
-      Stream.tap((chunk) =>
-        Effect.gen(function* () {
-          const next = MutableRef.get(received) + chunk.byteLength;
-          if (next > MAX_BUFFERED_ARCHIVE_BYTES) {
-            return yield* new RegistryOperationFailed({
-              category: "quota",
-              detail: `Registry archive exceeds the ${MAX_BUFFERED_ARCHIVE_BYTES} byte acquisition limit`,
-            });
-          }
-          MutableRef.set(received, next);
-          yield* report({
-            done: next,
-            ...(total === undefined ? {} : { total }),
-            ...(Option.isNone(attempt) ? {} : { attempt: attempt.value }),
-          });
+    return yield* collectBufferedArchive(
+      response.stream,
+      MAX_BUFFERED_ARCHIVE_BYTES,
+      total,
+      (done) =>
+        report({
+          done,
+          ...(total === undefined ? {} : { total }),
+          ...(Option.isNone(attempt) ? {} : { attempt: attempt.value }),
         }),
-      ),
-      Stream.runCollect,
     );
-    const archive = new Uint8Array(MutableRef.get(received));
-    let offset = 0;
-    for (const chunk of chunks) {
-      archive.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
-    return archive;
   });
 
 const registryRequestMetadata = (method: string, url: string): RegistryRequestMetadata => ({
@@ -787,20 +768,10 @@ export const createRemoteRegistryClient = (
       });
       const warnings = selected.lifecycleWarnings ?? [];
 
-      if (archiveCache !== undefined) {
-        const cached = yield* archiveCache.read(selected.integrity);
-        if (Option.isSome(cached)) {
-          return {
-            archive: cached.value,
-            ...(warnings.length === 0 ? {} : { warnings }),
-          } satisfies GetExtensionPackageResponse;
-        }
-      }
-
       // Step 3: Download archive, streaming the body so the caller observes
       // progress as bytes arrive; the transport never decides how often.
       const archivePath = `/v1/extensions/${encodeURIComponent(args.owner)}/${pluralizeType(args.type)}/${encodeURIComponent(args.name)}/${encodeURIComponent(selected.version)}/archive`;
-      const archive = yield* executeRemoteRequest(
+      const fetchArchive = executeRemoteRequest(
         downloadArchive(
           args.usagePurpose === "verification" ? verificationHttpClient : remoteHttpClient,
           archivePath,
@@ -814,10 +785,13 @@ export const createRemoteRegistryClient = (
           mapError: mapArchiveFetchError,
         },
       );
-
-      if (archiveCache !== undefined) {
-        yield* archiveCache.write(selected.integrity, archive);
-      }
+      const archive = yield* archiveCache === undefined
+        ? fetchArchive
+        : archiveCache.load(
+            JSON.stringify([baseUrl, selected.integrity, args.usagePurpose ?? "normal"]),
+            selected.integrity,
+            fetchArchive,
+          );
 
       return {
         archive,

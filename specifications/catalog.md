@@ -1987,11 +1987,11 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `apps/cli/src/root/lifecycle/command.ts`, `packages/core/workspace/src/publishing/lifecycle/archival.ts`
 - Source: [`packages/core/workspace/src/publishing/archival/archives-at-the-observed-revision.spec.ts`](../packages/core/workspace/src/publishing/archival/archives-at-the-observed-revision.spec.ts)
 
-##### The archive cache reports its limits and enforces exactly those
+##### The archive cache reports and enforces its retention limits
 
 - Requirement: `cli/cache/prune/enforces-reported-retention-limits`
 - Owner: `registry-client`
-- Statement: The archive cache shall report its entry count, byte total, and effective size and age limits, and pruning shall remove expired archives and enough excess archive storage to satisfy exactly those reported limits, preserve unrelated files, and report the removed and remaining entry and byte totals.
+- Statement: The archive cache shall report its entry count, byte total, and effective size and age limits, and pruning shall remove expired archives and excess archive storage up to those limits while preserving archives in active use and unrelated files, then report the removed and remaining entry and byte totals.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`

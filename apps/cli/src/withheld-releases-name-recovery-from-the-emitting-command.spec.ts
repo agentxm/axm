@@ -3,6 +3,8 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
+import { releaseAgeDoc } from "./operation-output.js";
+import { paintText } from "./screen/paint-text.js";
 import { getAppError } from "./test-support/test-helpers.js";
 import { handleInstall } from "./root/install/handler.js";
 import { handleSync } from "./root/sync/handler.js";
@@ -15,9 +17,9 @@ import { makeSpecRegistry } from "./test-support/registry-fixture.js";
 
 export const specification = defineSpecification({
   requirement: "cli/withheld-releases-name-recovery-from-the-emitting-command",
-  title: "A withheld release names recovery from the command that withheld it",
+  title: "Minimum release-age decisions state their outcome and recovery",
   statement:
-    "When a command withholds or refuses a release under the minimum release age, its diagnostic shall name the recovery routes reachable from that command, including the override flag that command accepts and the declared-exemption route, and shall not name a command the operator did not run.",
+    "When a command holds, refuses, or explicitly allows an otherwise-too-young release under the minimum release age, its diagnostic shall state that observable outcome before the policy mechanism, preserve the release and timing evidence, name recovery routes reachable from the emitting command when action is required, shall not name a command the operator did not run, and shall not report a release as allowed into the workspace when the unit it names did not commit.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics"],
@@ -47,6 +49,40 @@ const heldNewerRelease = (cleanups: Array<() => void>) =>
     const workspace = makeSpecWorkspace({
       screen: { kind: "human" },
       settings: { sources: [registry.source], skills: { [SKILL]: FQN } },
+    });
+    cleanups.push(workspace.cleanup);
+    yield* handleInstall({
+      type: Option.none(),
+      source: Option.none(),
+      selectors: {},
+      all: false,
+      force: false,
+      preview: false,
+      env: [],
+      localName: Option.none(),
+      bundled: false,
+    }).pipe(Effect.provide(workspace.layer), Effect.orDie);
+    registry.writeSkill(SKILL, [
+      { version: "1.0.0", body: "First guidance." },
+      { version: "2.0.0", body: "Newer guidance.", published: new Date().toISOString() },
+    ]);
+    workspace.streams?.log.splice(0);
+    return workspace;
+  });
+
+/** An exempt release: the policy still applies, but this project allows it early. */
+const allowedNewerRelease = (cleanups: Array<() => void>) =>
+  Effect.gen(function* () {
+    const registry = makeSpecRegistry();
+    cleanups.push(registry.cleanup);
+    registry.writeSkill(SKILL, [{ version: "1.0.0", body: "First guidance." }]);
+    const workspace = makeSpecWorkspace({
+      screen: { kind: "human" },
+      settings: {
+        sources: [registry.source],
+        skills: { [SKILL]: FQN },
+        minimumReleaseAgeExclude: [FQN],
+      },
     });
     cleanups.push(workspace.cleanup);
     yield* handleInstall({
@@ -159,7 +195,7 @@ describe("A release withheld by the minimum release age", () => {
         yield* run(workspace);
 
         const rendered = renderedText(workspace);
-        expect(rendered).toContain("minimum release age");
+        expect(rendered).toContain("still in the 24h waiting period");
         expect(rendered).toContain(`${command} ${OVERRIDE}`);
         expect(rendered).toContain(EXEMPTION);
         for (const other of others) {
@@ -167,6 +203,58 @@ describe("A release withheld by the minimum release age", () => {
         }
       }),
   );
+
+  it.effect("states that an exempt release was allowed before naming the exemption", () =>
+    Effect.gen(function* () {
+      const workspace = yield* allowedNewerRelease(cleanups);
+
+      yield* handleUpdate({ source: Option.none(), force: false, preview: false }).pipe(
+        Effect.provide(workspace.layer),
+      );
+
+      const rendered = renderedText(workspace);
+      expect(rendered).toContain("1 release allowed before the 24h minimum release age");
+      expect(rendered).toContain(`${FQN} 2.0.0`);
+      expect(rendered).toContain("published");
+      expect(rendered).toContain("Allowed by project minimumReleaseAgeExclude");
+      expect(rendered).toContain("otherwise held until");
+      expect(rendered).not.toContain("release skipped");
+      expect(rendered).not.toContain(`Selected ${FQN}`);
+    }),
+  );
+
+  it("says nothing was allowed in when the unit that would have taken it failed", () => {
+    const evidence = {
+      holdbacks: [],
+      releaseAgeBypasses: [
+        {
+          reason: "minimum-release-age" as const,
+          target: FQN,
+          dependencyPath: [FQN],
+          candidateVersion: "2.0.0",
+          publishedAt: "2026-09-21T16:44:17.865Z",
+          eligibleAt: "2026-09-22T16:44:17.865Z",
+          minimumReleaseAgeSeconds: 86_400,
+          bypassCause: "exclude" as const,
+          exemptionScope: "project" as const,
+        },
+      ],
+    };
+    const name = FQN.split("/").at(-1) ?? FQN;
+    const allowed = paintText(releaseAgeDoc("update", evidence, { unsettled: new Set() }), {
+      width: 100,
+      colors: false,
+    }).join("\n");
+    expect(allowed).toContain("allowed before the 24h minimum release age");
+
+    // The same evidence, for a unit that did not settle as planned: nothing
+    // was let in, so the callout that says one was does not stand.
+    const refused = paintText(releaseAgeDoc("update", evidence, { unsettled: new Set([name]) }), {
+      width: 100,
+      colors: false,
+    }).join("\n");
+    expect(refused).not.toContain("allowed before");
+  });
 
   it.effect.each(refusingCommands)(
     "$command names both recovery routes when it refuses the only release",

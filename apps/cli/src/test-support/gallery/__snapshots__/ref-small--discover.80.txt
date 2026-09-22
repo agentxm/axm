@@ -1,10 +1,17 @@
-     Extension                   Type       Trust
-     @acme/skills/code-review    skill      attested, official
-     @acme/subagents/reviewer    subagent   attested
-     @acme/skills/git-review     skill      package only
-     @sam/skills/review-notes    skill      extension only
-     @acme/skills/local-review   skill      package only
-     Not shown at this width: Resolution, Source, For package
+     Extension       Type       Trust           Resolution
+     @acme/skills/   skill      attested,       1.4.0
+     code-review                official
+     @acme/          subagent   attested        0.9.0
+     subagents/
+     reviewer
+     @acme/skills/   skill      package only    https://github.com/acme/
+     git-review                                 review-tools.git#v2.1.0:skills/
+                                                git-review
+     @sam/skills/    skill      extension       0.2.1
+     review-notes               only
+     @acme/skills/   skill      package only    extensions/local-review
+     local-review
+     Not shown at this width: Source, For package
 
 5 companion extensions for 2 of 14 detected packages · axm view <extension> for
 details

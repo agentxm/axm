@@ -5,7 +5,7 @@ Uninstalling
  -   @acme/subagents/reviewer      0.9.0     removed   1 file, agent_extensions/reviewer
  =   1 extension already current  --verbose to list
 
- ▲   AXM will not touch 1 path
+ ▲   1 existing item was left unchanged
      AGENTS.md, prose AXM did not write
 
-Uninstalled 2 extensions  2 applied · 1 already current
+Uninstalled 2 extensions  1 already current

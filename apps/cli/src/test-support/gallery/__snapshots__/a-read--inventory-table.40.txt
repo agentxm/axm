@@ -1,11 +1,14 @@
-     Extension
-     @acme/skills/code-review
-     @acme/skills/triage
-     @acme/subagents/reviewer
-     @acme/packs/review-kit
-     github
- ▲   @legacy/skills/changelog
-     Not shown at this width: Type,
+     Extension                Type
+     @acme/skills/            skill
+     code-review
+     @acme/skills/triage      skill
+     @acme/subagents/         subagent
+     reviewer
+     @acme/packs/review-kit   pack
+     github                   mcp-server
+ ▲   @legacy/skills/          skill
+     changelog
+     Not shown at this width:
      Management, Installed, Version,
      Source, Assessment, Guidance
 

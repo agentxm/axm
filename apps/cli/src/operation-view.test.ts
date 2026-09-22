@@ -218,9 +218,7 @@ describe("plan ledger", () => {
     const text = paint(planDoc(mixedPlan, { mode: "preview", verbosity: "normal" }));
     const lines = text.split("\n");
     expect(lines[0]).toBe("Previewing sync  in this project");
-    expect(lines.at(-1)).toBe(
-      "Would sync 3 extensions  3 to sync - 1 already current - nothing was written",
-    );
+    expect(lines.at(-1)).toBe("Would sync 3 extensions  1 already current - no changes made");
   });
 
   it("marks each unit with its own change and folds the ones already current", () => {
@@ -279,7 +277,7 @@ describe("result ledger", () => {
     // Where the operation acted and for which agents is stated once, on the
     // title line, rather than repeated as a trailing aside.
     expect(lines[0]).toBe("Syncing  in this project - agents: claude-code, codex");
-    expect(lines.at(-1)).toBe("Synced 1 extension  1 applied");
+    expect(lines.at(-1)).toBe("Synced 1 extension");
     expect(text).toMatch(/~ {3}@acme\/skills\/triage\s+2\.0\.1\s+updated/);
   });
 
@@ -289,7 +287,7 @@ describe("result ledger", () => {
     expect(paint(doc)).toBe(" ok  Nothing to sync");
   });
 
-  it("reports what it will not touch after the ledger rather than in a row", () => {
+  it("reports what it left unchanged after the ledger rather than in a row", () => {
     const text = paint(
       operationDoc(
         resolutionOf([
@@ -308,7 +306,7 @@ describe("result ledger", () => {
         { verbosity: "normal" },
       ),
     );
-    expect(text).toContain("AXM will not touch 1 path");
+    expect(text).toContain("1 existing item was left unchanged");
     expect(text).toContain("AGENTS.md, prose AXM did not write");
     expect(text).not.toMatch(/- {3}@acme\/subagents\/reviewer.*AGENTS\.md/);
   });
@@ -365,10 +363,12 @@ describe("problem outcomes", () => {
       ),
     );
     expect(text).toMatch(
-      /< {3}@acme\/skills\/triage\s+2\.0\.1\s+rolled back\s+interrupted in flight/,
+      /< {3}@acme\/skills\/triage\s+2\.0\.1\s+rolled back\n\s+interrupted in flight/,
     );
-    expect(text).toMatch(/\. {3}@acme\/skills\/standup\s+-\s+not tried$/m);
-    expect(text).not.toContain("not attempted");
+    // A unit the operation stopped before says what stopped it, beneath its row.
+    expect(text).toMatch(
+      /\. {3}@acme\/skills\/standup\s+-\s+not tried\n\s+not attempted: the operation was interrupted/,
+    );
     expect(text.split("\n").at(-1)).toBe(
       "Interrupted - changes rolled back  1 rolled back - 1 not tried - exit 130",
     );
@@ -427,7 +427,10 @@ describe("problem outcomes", () => {
         { verbosity: "normal" },
       ),
     );
-    expect(text).toMatch(/xx {2}@acme\/skills\/standup\s+0\.4\.2\s+failed\s+registry returned 502/);
+    // The unit's own reason stands beneath its row; the operation's follows the verdict.
+    expect(text).toMatch(
+      /xx {2}@acme\/skills\/standup\s+0\.4\.2\s+failed[^\n]*\n\s+registry returned 502/,
+    );
     expect(text.split("\n").slice(-2)).toEqual([
       "Failed to sync 1 extension  1 failed - exit 8",
       "The registry could not be reached.",

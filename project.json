@@ -5,6 +5,30 @@
   "sourceRoot": "scripts",
   "tags": ["type:tooling", "role:tooling", "scope:root"],
   "targets": {
+    "audit:dependencies": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [],
+      "metadata": {
+        "description": "Fail on high or critical advisories in production dependencies"
+      },
+      "options": {
+        "command": "pnpm audit --prod --audit-level high",
+        "cwd": "."
+      }
+    },
+    "audit:report": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": [],
+      "metadata": {
+        "description": "Report all dependency advisories for CI review"
+      },
+      "options": {
+        "command": "pnpm audit --audit-level low",
+        "cwd": "."
+      }
+    },
     "check:workflows": {
       "executor": "nx:run-commands",
       "cache": false,

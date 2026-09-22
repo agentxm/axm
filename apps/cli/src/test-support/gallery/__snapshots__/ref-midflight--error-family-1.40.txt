@@ -10,8 +10,8 @@ Next
                     network, exit 8
      registry.agentxm.ai did not answer
      within 10s (3 attempts)
-     Registry
-       https://registry.agentxm.ai
+     Registry       https://
+                    registry.agentxm.ai
 Next
      axm install @acme/skills/standup --verbose
      Show the requests

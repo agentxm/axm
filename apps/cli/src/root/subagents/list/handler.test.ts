@@ -123,10 +123,10 @@ describe("subagents list.handler", () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Configured subagents show as configured lifecycle
+  // Settings-declared subagents are described in workspace language
   // ---------------------------------------------------------------------------
 
-  it.effect("shows configured lifecycle for settings-declared subagents", () => {
+  it.effect("shows workspace management for settings-declared subagents", () => {
     const { provide, rendererState } = makeLayers();
     initWorkspace(path.join(tempDir, ".axm"), {
       subagents: {
@@ -146,7 +146,7 @@ describe("subagents list.handler", () => {
           _tag: "table",
           rows: [
             expect.objectContaining({
-              cells: expect.arrayContaining(["my-subagent", "configured"]),
+              cells: expect.arrayContaining(["my-subagent", "managed by this workspace"]),
             }),
           ],
         });

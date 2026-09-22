@@ -47,7 +47,7 @@
     "seq": 7,
     "atMs": 0,
     "unitId": "skill:code-review",
-    "label": "code-review",
+    "label": "skills/code-review",
     "index": 0,
     "total": 1
   },
@@ -56,7 +56,7 @@
     "seq": 8,
     "atMs": 0,
     "unitId": "skill:code-review",
-    "label": "code-review",
+    "label": "skills/code-review",
     "state": "committed",
     "index": 0,
     "total": 1
@@ -115,7 +115,7 @@
     "seq": 7,
     "atMs": 0,
     "unitId": "skill:deploy",
-    "label": "deploy",
+    "label": "skills/deploy",
     "index": 0,
     "total": 1
   },
@@ -124,7 +124,7 @@
     "seq": 8,
     "atMs": 0,
     "unitId": "skill:deploy",
-    "label": "deploy",
+    "label": "skills/deploy",
     "state": "committed",
     "index": 0,
     "total": 1

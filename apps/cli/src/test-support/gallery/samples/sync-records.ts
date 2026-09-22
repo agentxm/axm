@@ -179,7 +179,7 @@ export const verboseUpdate = makeOperationResolution({
           agentId: "cursor",
           outcome: "blocked",
           reasonCode: "scope-unsupported",
-          reason: "skills are unavailable at project scope",
+          reason: "project-scoped skills are unsupported",
         },
       ],
     },

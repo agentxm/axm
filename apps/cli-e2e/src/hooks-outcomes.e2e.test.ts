@@ -93,7 +93,6 @@ describe("hook configured-agent outcomes", () => {
       );
       expect(humanPreview.exitCode, humanPreview.stdout + humanPreview.stderr).toBe(0);
       expect(humanPreview.stdout + humanPreview.stderr).toContain("Would install 1 hook");
-      expect(humanPreview.stdout + humanPreview.stderr).toContain("1 to install");
       // Per-agent outcomes are row children at verbose level; the plan ledger
       // points there instead of carrying them.
       expect(humanPreview.stdout + humanPreview.stderr).toContain("--verbose for details");
@@ -112,11 +111,13 @@ describe("hook configured-agent outcomes", () => {
         { cwd: temp.path },
       );
       expect(verbosePreview.exitCode, verbosePreview.stdout + verbosePreview.stderr).toBe(0);
+      // A projected agent states where the hook lands; why it landed there is
+      // the machine document's to carry, asserted below.
       expect(verbosePreview.stdout + verbosePreview.stderr).toContain(
-        "claude-code: projected at .claude/settings.json, All hook bindings have a supported native mapping",
+        "claude-code: available at .claude/settings.json",
       );
       expect(verbosePreview.stdout + verbosePreview.stderr).toContain(
-        "windsurf: projected at AGENTS.md, AXM has not built a hook writer",
+        "windsurf: available at AGENTS.md",
       );
       expect(snapshotTree(temp.path)).toEqual(beforePreview);
       const preview = await runCli(
@@ -208,10 +209,10 @@ describe("hook configured-agent outcomes", () => {
       );
       expect(humanSyncVerbose.exitCode, humanSyncVerbose.stdout + humanSyncVerbose.stderr).toBe(0);
       expect(humanSyncVerbose.stdout + humanSyncVerbose.stderr).toContain(
-        "claude-code: projected at .claude/settings.json, All hook bindings have a supported native mapping",
+        "claude-code: available at .claude/settings.json",
       );
       expect(humanSyncVerbose.stdout + humanSyncVerbose.stderr).toContain(
-        "windsurf: projected at AGENTS.md, AXM has not built a hook writer",
+        "windsurf: available at AGENTS.md",
       );
       expect(snapshotTree(temp.path)).toEqual(beforeSyncPreview);
       const syncPreview = await runCli(["sync", "--preview", "--json", "--non-interactive"], {

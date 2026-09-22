@@ -1,85 +1,58 @@
 ---
 name: field-notes
 description: >
-  Set up and operate field notes: declare what work to observe, then triage
-  recorded occurrences into evidence-prioritized, verified improvements. Use
-  when asked to "watch this area", "track friction with X", "what have we been
-  hitting", "review the
-  field notes", "promote these observations", or when setting up observation of
-  a CLI, a build, a workflow, or an onboarding path. Not for recording an
-  individual observation during work — the field-notes rule does that inline.
-  Not for debugging a specific failure.
+  Records a concise field note for meaningful friction already encountered in
+  an agent session. Use when the field-notes rule requests capture or the user
+  asks to log a failure, confusing instruction, avoidable rework, missing
+  capability, or workaround. Not for investigating causes, recommending
+  improvements, reviewing accumulated notes, or managing their lifecycle.
 ---
 
 # field-notes
 
-Operate the field notes practice: declare **subjects** worth observing, and
-triage recorded **notes** into **findings**.
+Preserve one concrete occurrence of session friction for later analysis, then
+continue the original task.
 
-## Responsibility boundary
+## Capture boundary
 
-The `@craigsmitham/rules/field-notes` rule owns in-situ capture. This skill owns
-subject lifecycle and batch triage; never use it to create a note or judge
-capture eligibility.
+Capture friction that was encountered while doing the task, including:
 
-Concepts — open before classifying anything under
-`knowledge/field-notes/src/`:
-`field-notes-explainer.md` (always), `subject-explainer.md` (declare / graduate /
-retire), and `closure-explainer.md` (triage / promote / close).
+- an unexpected failure or blocked step;
+- confusing, missing, or contradictory guidance;
+- an avoidable retry, repeated read, manual step, or other rework;
+- a missing capability that affected progress; or
+- a workaround required to continue, even when it succeeded.
 
-## Defaults
+Do not capture routine work, an expected diagnostic failure, an isolated typing
+mistake, a general impression, or a speculative concern without an observed
+occurrence. Combine the retries and recovery for one incident into one note.
 
-- **Dry-run first.** Show the proposed edit; write only after confirm, or when
-  the user said "apply".
-- **Never invent a target condition** the user has not agreed to. Propose;
-  do not assert.
-- Respect the host's existing paths and instruction file. Do not impose layout.
+Use only facts, evidence, measurements, and context already available from the
+task. Do not run tools, investigate, analyze causes, interpret evidence, or
+develop recommendations to enrich the note. Missing information stays missing.
+If a constraint, explanation, or possible remedy was already established during
+the task, it may be retained as existing context with its uncertainty intact.
 
-## Artifact contract
+Capture does not authorize remediation, broader investigation, external
+communication, or any other new side effect.
 
-| Artifact | Contract |
-| --- | --- |
-| Active subjects | `## Field note subjects` in the human-authored part of the workspace instruction file, outside `axm:` managed regions |
-| Observed notes | Read and triage `field-notes/<subject>/<occurrence-id>-<key>.md`; accept legacy date-key names |
-| Findings | Write and maintain `field-notes/findings/<key>.md` |
+## Record the occurrence
 
-## Operations
+Read `references/capture.md` and write one new note at:
 
-| Operation | Does | Read |
-| --- | --- | --- |
-| **declare** | Add a subject; pick mode, scope, target condition, retirement | `references/subjects.md` |
-| **graduate** | Survey subject → `target` mode, with a stated target condition | `references/subjects.md` |
-| **retire** | Stop collection; keep notes and findings | `references/subjects.md` |
-| **triage** (default) | Cluster notes, apply the threshold, promote to findings | `references/triage.md` |
-| **close** | Confirm a landed change stopped the class of note | `references/triage.md` |
-| **prune** | Drop stale or superseded open notes | `references/triage.md` |
+`field-notes/<YYYY-MM-DD>T<HHMMSS>Z-<nonce>-<short-description>.md`
 
-If the request is ambiguous between setup and review: no subjects declared →
-**declare**; subjects exist → **triage**.
+Use UTC and a short lowercase alphanumeric nonce. Use an opaque runtime session
+ID when one exists. Otherwise generate a short opaque ID on the first note and
+reuse it for later notes in the same session; use `unknown` when establishing an
+ID would require investigation.
 
-## Bootstrapping a workspace
+Write the note when the immediate outcome is known. Keep it brief, omit optional
+material that adds no value, protect secrets and sensitive values, and never edit
+an earlier note to record a later occurrence.
 
-When no `## Field note subjects` section exists, the rule is inert. To activate:
+The write completes capture. Do not reread or verify the note, inspect repository
+status, or run any other post-write check for it.
 
-1. Ask what area feels expensive. Do not propose subjects unprompted.
-2. Decide the mode honestly. If the user cannot state the outcome they want,
-   it is `survey` — do not manufacture a target condition to make the subject
-   look like `target` mode.
-3. Add the section to the instruction file, outside managed regions.
-4. Keep it to two or three subjects. More produces noise, not coverage.
-
-## Reporting
-
-Report counts and decisions, not note bodies:
-
-```
-Subjects: 2 active (1 survey, 1 target)
-Notes:    14 open — 9 clustered into 3 patterns, 5 singletons held
-Exposure: leading pattern 3 occurrences / 12 observed sessions; others unknown
-Costly singletons: 1 surfaced, still held open
-Promoted: 2 findings
-Dropped:  1 (transient; recorded so it is not re-litigated)
-```
-
-Never present a promoted finding as agreed. Findings propose changes; the user
-decides whether any of them land.
+Continue the original task immediately after writing. Mention captured notes in
+at most one short line at the end of the user response.

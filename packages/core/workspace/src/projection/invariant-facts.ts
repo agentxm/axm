@@ -103,14 +103,14 @@ export const projectionUnavailability = (
           failure.reasonCode === "managed-region-unsupported-version"
             ? "unsupported-version"
             : "invalid-ownership",
-        message: failure.reason ?? `Managed region cannot be reconciled: ${failure.displayPath}`,
+        message: failure.reason ?? `AXM cannot safely update its section in ${failure.displayPath}`,
       };
     case "ProjectionTargetUnsupported":
       return { reasonCode: "unavailable", message: failure.detail };
     case "ProjectionIoFailed":
       return {
         reasonCode: "unavailable",
-        message: `Managed projection could not be ${failure.step}ed: ${failure.path}`,
+        message: `AXM could not ${failure.step === "reconcile" ? "update" : failure.step} its section in ${failure.path}`,
       };
     case "DesiredStateIncomplete":
       return { reasonCode: "unavailable", message: failure.problems };
@@ -127,12 +127,12 @@ export const projectionUnavailability = (
     case "ContributorUnresolved":
       return {
         reasonCode: "unavailable",
-        message: `${failure.type} ${failure.name} has no accepted resolution`,
+        message: `AXM has no locked version for ${failure.type} ${failure.name}`,
       };
     case "ContributorTreeMismatch":
       return {
         reasonCode: "unavailable",
-        message: `Materialized package does not match its accepted resolution: ${failure.packageRoot}`,
+        message: `Installed package files differ from axm-lock.yaml: ${failure.packageRoot}`,
       };
     case "ProjectionParticipantFailed":
       return { reasonCode: "unavailable", message: failure.detail };

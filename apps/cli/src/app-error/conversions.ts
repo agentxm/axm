@@ -633,7 +633,7 @@ export const lockfileReadErrorToAppError = (error: LockfileReadError): AppError 
         error.observedVersion < error.supportedVersion ? "older" : "newer";
       const detail =
         direction === "older"
-          ? `Workspace lockfile at ${error.path} declares version ${error.observedVersion}, but this AXM supports version ${error.supportedVersion}. Re-accept the workspace intent into the current format before continuing.`
+          ? `Workspace lockfile at ${error.path} uses version ${error.observedVersion}, but this AXM uses version ${error.supportedVersion}. Back up and regenerate the lockfile before continuing.`
           : `Workspace lockfile at ${error.path} declares version ${error.observedVersion}, but this AXM supports version ${error.supportedVersion}. This workspace requires a newer AXM.`;
       return makeAppError({
         code: "validation",
@@ -651,15 +651,15 @@ export const lockfileReadErrorToAppError = (error: LockfileReadError): AppError 
             ? [
                 {
                   description:
-                    "Preserve the incompatible lockfile outside its authoritative path, review the desired workspace intent, then remove the incompatible file.",
+                    "Back up the incompatible lockfile outside the workspace, review axm.json, then remove the incompatible file.",
                 },
                 {
-                  description: "Preview fresh resolution in the supported lockfile format.",
+                  description: "Preview a new lockfile in the supported format.",
                   cmd: "axm sync --preview",
                   commandScope: "workspace",
                 },
                 {
-                  description: "Apply the reviewed resolution.",
+                  description: "Apply the previewed workspace changes.",
                   cmd: "axm sync",
                   commandScope: "workspace",
                 },
@@ -685,7 +685,7 @@ export const lockfileReadErrorToAppError = (error: LockfileReadError): AppError 
 export const workspaceRootEscapeToAppError = (error: WorkspaceRootEscape): AppError =>
   makeAppError({
     code: "internal",
-    detail: `Failed to read workspace workspace`,
+    detail: "Failed to read the workspace because its root escaped the allowed directory",
     cause: error,
   });
 
@@ -791,7 +791,7 @@ export const workspaceNotInitializedToAppError = (error: WorkspaceNotInitialized
 export const lockedSkillMissingToAppError = (error: LockedSkillMissing): AppError =>
   makeAppError({
     code: "conflict",
-    detail: `Skill "${error.name}" not found in lockfile`,
+    detail: `Skill "${error.name}" has no entry in axm-lock.yaml`,
     suggestions: [
       {
         description: "Install the skill first.",
@@ -824,7 +824,8 @@ export const desiredPackGraphIncompleteToAppError = (
 ): AppError =>
   makeAppError({
     code: "conflict",
-    detail: "Cannot decide pack retention because the desired pack graph is incomplete.",
+    detail:
+      "AXM cannot decide whether to keep this pack because some pack manifests are missing or invalid.",
     recover: "Restore or reinstall configured pack manifests, then retry.",
   });
 
@@ -834,8 +835,8 @@ export const canonicalPathRemovalErrorToAppError = (error: CanonicalPathRemovalE
     code: "internal",
     detail:
       error.step === "inspect"
-        ? `Failed to inspect canonical extension path ${error.path}`
-        : `Failed to remove canonical extension path ${error.path}`,
+        ? `Failed to inspect the installed extension at ${error.path}`
+        : `Failed to remove the installed extension at ${error.path}`,
     cause: error.cause,
   });
 
@@ -867,14 +868,14 @@ export const lockEntryNameInvalidToAppError = (error: LockEntryNameInvalid): App
 export const lockEntryEndpointConflictToAppError = (error: LockEntryEndpointConflict): AppError =>
   makeAppError({
     code: "conflict",
-    detail: `Lockfile ${error.sourceKind} source "${error.sourceName}" accepts endpoint ${error.acceptedEndpoint}, but configuration resolves it to ${error.resolvedEndpoint}`,
+    detail: `axm-lock.yaml records ${error.acceptedEndpoint} for ${error.sourceKind} source "${error.sourceName}", but axm.json resolves it to ${error.resolvedEndpoint}`,
   });
 
 /** Translate a missing accepted resolution for a desired extension. */
 export const acceptedResolutionMissingToAppError = (error: AcceptedResolutionMissing): AppError =>
   makeAppError({
     code: "validation",
-    detail: `Missing accepted ${error.label} resolution for ${error.name}`,
+    detail: `axm-lock.yaml has no ${error.label} entry for ${error.name}`,
   });
 
 /** Translate an inline entry with no resolvable package source. */
@@ -892,7 +893,7 @@ export const supersededCanonicalRemovalFailedToAppError = (
 ): AppError =>
   makeAppError({
     code: "internal",
-    detail: `Failed to remove superseded canonical package: ${error.path}`,
+    detail: `Failed to remove the previous installed package at ${error.path}`,
     cause: error.cause,
   });
 

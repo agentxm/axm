@@ -8,7 +8,7 @@ Installing  from @acme/toolkit 3.2.0
  ·   reviewer                      3.2.0     install
  ·   planner                       3.2.0     install
 
-Installing 0 of 6 in 0ms
+Installing 0 of 6 done in 0ms
  ?   Which extensions should be installed?  type to filter
  ❯ ◪ Skills
    ◉   code-review

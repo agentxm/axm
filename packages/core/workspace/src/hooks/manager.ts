@@ -778,7 +778,7 @@ export const HookManagerLive = Layer.effect(
             rendered,
             generation,
             ...(options?.dryRun === undefined ? {} : { dryRun: options.dryRun }),
-            unsupportedTargetDetail: `Hook fallback target does not support managed regions: ${target.workspaceRelative}`,
+            unsupportedTargetDetail: `AXM cannot add its hook section because ${target.workspaceRelative} does not support comments`,
           }),
         );
         const fallbackAgentIds = Array.from(

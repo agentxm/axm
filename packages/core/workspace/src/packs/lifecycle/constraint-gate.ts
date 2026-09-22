@@ -213,11 +213,15 @@ export const PACK_CONSTRAINT_CONFLICT_BLOCKER_ID = "pack-constraint-conflict";
 export const configuredPackConstraintBlockPlan = (args: {
   readonly operation: "install" | "update";
   readonly problems: ReadonlyArray<ConstraintConflictProblem>;
-  /** Selected Pack names the group prevented; omit for an unattributed gate. */
-  readonly blockedPackNames?: ReadonlyArray<string>;
+  /**
+   * Display labels for the selected Packs the group prevented; omit for an
+   * unattributed gate. These are the ledger's own labels, so a blocked row
+   * reads in the same form as every other row beside it.
+   */
+  readonly blockedPackLabels?: ReadonlyArray<string>;
 }): Plan<InstallStepRequirements> => {
   const deciding = desiredStateProblemsText(args.problems);
-  const blocked = args.blockedPackNames ?? [];
+  const blocked = args.blockedPackLabels ?? [];
   const affected = blocked.length === 0 ? "" : `; prevented=${[...blocked].sort().join(", ")}`;
   const steps =
     blocked.length === 0
@@ -230,10 +234,10 @@ export const configuredPackConstraintBlockPlan = (args: {
             blockingConditionIds: [PACK_CONSTRAINT_CONFLICT_BLOCKER_ID],
           },
         ]
-      : [...blocked].sort().map((name) => ({
-          key: `pack:${name}`,
+      : [...blocked].sort().map((label) => ({
+          key: `pack:${label}`,
           readiness: "error" as const,
-          label: name,
+          label,
           errorMessage: `Configured Pack constraints are unsatisfiable: ${deciding}${affected}`,
           blockingConditionIds: [PACK_CONSTRAINT_CONFLICT_BLOCKER_ID],
         }));

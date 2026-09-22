@@ -377,7 +377,7 @@ export const observeWorkspaceOwnershipIssues = (args: {
         path: output.path,
         detail:
           output.extensionType === "hook"
-            ? `Hook command targets an AXM canonical extension path without x-axm ownership metadata: ${output.entryName}`
+            ? `Hook command targets an AXM-managed extension path without x-axm ownership metadata: ${output.entryName}`
             : `Agent ${output.extensionType} artifact has no AXM ownership proof.`,
       })),
     ),

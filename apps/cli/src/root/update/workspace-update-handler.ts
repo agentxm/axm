@@ -16,8 +16,18 @@ import {
   recoverySwitch,
 } from "@agentxm/workspace/transitions/planning";
 
+import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
+import { nameFromLabel } from "@agentxm/workspace/reconciliation";
+import type { ResolvedUnit } from "@agentxm/workspace/transitions/planning";
+
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
-import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
+import {
+  emitOperationResolution,
+  operationResolutionSummary,
+  retryCanHelp,
+  type OperationRecoveryContext,
+} from "../../operation-output.js";
+import { INSPECT_INSTALLED } from "../suggested-actions.js";
 import { extensionLifecycleFailedToAppError } from "../../feature-errors.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
@@ -53,6 +63,75 @@ const workspaceUpdateCommand = (
       }
     },
   });
+
+/**
+ * What to type next when a sweep did not finish. Settled units are no-ops on a
+ * rerun, so the emitting route is safe to repeat and is the one route that
+ * covers every unsettled unit; the typed forms narrow it to the units that
+ * are still waiting. Only a failure a retry can change is offered one — where
+ * nothing a command does would help, the reasons stand on their own.
+ */
+const updateRecovery = (args: {
+  readonly type: Option.Option<WorkspaceUpdatableType>;
+  readonly unsettled: ReadonlyArray<ResolvedUnit<unknown>>;
+  readonly refresh: boolean;
+  readonly ignoreReleaseAge: boolean;
+}): ReadonlyArray<SuggestedAction> => {
+  if (!retryCanHelp(args.unsettled)) return [];
+  const route = workspaceUpdateCommand(args.type);
+  const flags = [
+    ...(args.refresh ? ["--refresh"] : []),
+    ...(args.ignoreReleaseAge ? ["--ignore-release-age"] : []),
+  ];
+  // The root route takes no `--name`, so it repeats the whole sweep; a typed
+  // route names each unit that is still waiting.
+  const names = Option.isNone(args.type)
+    ? []
+    : args.unsettled.flatMap((unit) => ["--name", nameFromLabel(unit.label)]);
+  return [
+    {
+      description:
+        args.unsettled.length === 1
+          ? "Try the extension that did not update again"
+          : "Try the extensions that did not update again",
+      cmd: ["axm", ...route, ...flags, ...names].join(" "),
+    },
+  ];
+};
+
+/**
+ * What the sweep offers next. A constraint contradiction is a choice to make,
+ * not a step to repeat, so it names the declarations that disagree; a sweep
+ * that settled everything offers only the inventory; and anything else offers
+ * a route only where one would actually settle it, so a failure no rerun can
+ * change names nothing here.
+ */
+export const updateSuggestions =
+  (args: {
+    readonly type: Option.Option<WorkspaceUpdatableType>;
+    readonly refresh: boolean;
+    readonly ignoreReleaseAge: boolean;
+    readonly constraintRefused: boolean;
+  }) =>
+  ({ unsettled }: OperationRecoveryContext): ReadonlyArray<SuggestedAction> => {
+    if (args.constraintRefused) {
+      return [
+        {
+          description:
+            "Review the declarations that disagree, then widen or remove the declared range, or hold the Pack at a compatible version",
+          cmd: "axm packs show <pack>",
+        },
+        INSPECT_INSTALLED,
+      ];
+    }
+    if (unsettled.length === 0) return [INSPECT_INSTALLED];
+    return updateRecovery({
+      type: args.type,
+      unsettled,
+      refresh: args.refresh,
+      ignoreReleaseAge: args.ignoreReleaseAge,
+    });
+  };
 
 export interface WorkspaceUpdateHandlerArgs {
   readonly command: string;
@@ -142,15 +221,11 @@ const handleWorkspaceUpdateBody = Effect.fn("Update.handleConfigured")(function*
     (unit) => unit.blocking?.reference === PACK_CONSTRAINT_CONFLICT_BLOCKER_ID,
   );
   yield* emitOperationResolution(args.command, resolution, {
-    suggestions: constraintRefused
-      ? [
-          {
-            description:
-              "Review the declarations that disagree, then widen or remove the declared range, or hold the Pack at a compatible version",
-            cmd: "axm packs show <pack>",
-          },
-          { description: "Inspect installed extensions", cmd: "axm list" },
-        ]
-      : [{ description: "Inspect installed extensions", cmd: "axm list" }],
+    suggestions: updateSuggestions({
+      type: args.type,
+      refresh: args.flags.force === true,
+      ignoreReleaseAge: posture === "ignore",
+      constraintRefused,
+    }),
   });
 });

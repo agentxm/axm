@@ -1,6 +1,6 @@
-Setting up AXM in ~/code/storefront  project scope
+Setting up AXM in ~/code/storefront  for this project
 
- ✔   Scanned repo and machine      found 4 agents
+ ✔   Checked for coding agents     found 4 agents
 
  ✔   Agents                        AdaL, AiderDesk, Amp
  ✔   Sync instructions             yes
@@ -21,7 +21,7 @@ Setting up AXM in ~/code/storefront  project scope
 
 Set up AXM for 3 agents  8 created, 1 updated
 
- ●   Some extension types are limited in project scope
+ ●   Some extension types are limited for this project
      Hook: AXM cannot write Cursor hooks yet.
 
 Next

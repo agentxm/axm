@@ -86,6 +86,7 @@ import {
   selectiveUpdatePlanName,
   type SelectiveUpdateCandidate,
 } from "./vocabulary.js";
+import { nameFromLabel } from "../../../reconciliation/index.js";
 
 const PLAN_NAME = selectiveUpdatePlanName("skill");
 const PLAN_DESCRIPTION = "Update installed skills";
@@ -185,7 +186,7 @@ const collectPackConstraints = Effect.fn("SelectiveSkillUpdate.packConstraints")
   if (!graph.complete) {
     return yield* new ExtensionLifecycleFailed({
       category: "validation",
-      detail: "Cannot update skills while the desired pack graph is incomplete",
+      detail: "Cannot update skills because some pack manifests are missing or invalid",
     });
   }
   const constraintMap = new Map<string, Array<PackConstraint>>();
@@ -772,7 +773,7 @@ export const prepareSelectiveSkillUpdate = Effect.fn("SelectiveSkillUpdate.prepa
       ...job,
       steps: job.steps.map((step) => {
         if (step.readiness !== "ready") return step;
-        const message = warningMessage(warningsBySkill.get(step.label) ?? []);
+        const message = warningMessage(warningsBySkill.get(nameFromLabel(step.label)) ?? []);
         return message === undefined ? step : { ...step, message };
       }),
     })),
@@ -796,9 +797,7 @@ export const prepareSelectiveSkillUpdate = Effect.fn("SelectiveSkillUpdate.prepa
     ...new Set(
       request.nameFilters.length > 0
         ? request.nameFilters
-        : plan.jobs.flatMap((job) =>
-            job.steps.map((step) => step.label.replace(/^(?:Skip|Update)\s+/u, "")),
-          ),
+        : plan.jobs.flatMap((job) => job.steps.map((step) => nameFromLabel(step.label))),
     ),
   ].map((name) => ({ extensionType: "skill", name, plannedState: "enabled" as const }));
 

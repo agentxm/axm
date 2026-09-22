@@ -95,15 +95,15 @@ const carriedFailure = (failure: AuthoringStepFailure): StepFailure => {
 const materializationDetail = (failure: PackageMaterializationFailed): string => {
   switch (failure.step) {
     case "recover":
-      return `Failed to recover interrupted canonical materialization at ${failure.path}`;
+      return `Failed to recover an interrupted package installation at ${failure.path}`;
     case "prepare-parent":
-      return `Failed to prepare canonical package parent for ${failure.path}`;
+      return `Failed to prepare the package location for ${failure.path}`;
     case "prepare-staging":
-      return `Failed to prepare canonical package staging at ${failure.path}`;
+      return `Failed to prepare temporary package files at ${failure.path}`;
     case "inspect":
-      return `Failed to inspect canonical package at ${failure.path}`;
+      return `Failed to inspect the installed package at ${failure.path}`;
     case "replace":
-      return `Failed to replace canonical package at ${failure.path}`;
+      return `Failed to replace the installed package at ${failure.path}`;
     case "inspect-create-destination":
       return `Failed to inspect create-only destination: ${failure.path}`;
   }

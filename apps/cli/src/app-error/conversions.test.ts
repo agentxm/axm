@@ -144,7 +144,7 @@ const cases: ReadonlyArray<ConversionCase> = [
     code: "validation",
     title: "Unsupported workspace lockfile version",
     detail:
-      "Workspace lockfile at /w/axm-lock.yaml declares version 5, but this AXM supports version 7. Re-accept the workspace intent into the current format before continuing.",
+      "Workspace lockfile at /w/axm-lock.yaml uses version 5, but this AXM uses version 7. Back up and regenerate the lockfile before continuing.",
     problem: {
       code: "workspace-lockfile-version-unsupported",
       path: "/w/axm-lock.yaml",
@@ -155,15 +155,15 @@ const cases: ReadonlyArray<ConversionCase> = [
     suggestions: [
       {
         description:
-          "Preserve the incompatible lockfile outside its authoritative path, review the desired workspace intent, then remove the incompatible file.",
+          "Back up the incompatible lockfile outside the workspace, review axm.json, then remove the incompatible file.",
       },
       {
-        description: "Preview fresh resolution in the supported lockfile format.",
+        description: "Preview a new lockfile in the supported format.",
         cmd: "axm sync --preview",
         commandScope: "workspace",
       },
       {
-        description: "Apply the reviewed resolution.",
+        description: "Apply the previewed workspace changes.",
         cmd: "axm sync",
         commandScope: "workspace",
       },
@@ -205,7 +205,7 @@ const cases: ReadonlyArray<ConversionCase> = [
     name: "WorkspaceRootEscape",
     failure: new WorkspaceRootEscape({ workspaceRoot: "/outside", allowedRoot: "/w" }),
     code: "internal",
-    detail: "Failed to read workspace workspace",
+    detail: "Failed to read the workspace because its root escaped the allowed directory",
     cause: "self",
   },
   {
@@ -393,7 +393,7 @@ const cases: ReadonlyArray<ConversionCase> = [
     name: "LockedSkillMissing",
     failure: new LockedSkillMissing({ name: "review" }),
     code: "conflict",
-    detail: 'Skill "review" not found in lockfile',
+    detail: 'Skill "review" has no entry in axm-lock.yaml',
     suggestions: [{ description: "Install the skill first.", cmd: "axm skills install <source>" }],
   },
   {
@@ -419,21 +419,22 @@ const cases: ReadonlyArray<ConversionCase> = [
     name: "DesiredPackGraphIncomplete",
     failure: new DesiredPackGraphIncomplete(),
     code: "conflict",
-    detail: "Cannot decide pack retention because the desired pack graph is incomplete.",
+    detail:
+      "AXM cannot decide whether to keep this pack because some pack manifests are missing or invalid.",
     suggestions: [{ description: "Restore or reinstall configured pack manifests, then retry." }],
   },
   {
     name: "CanonicalPathRemovalError inspect",
     failure: new CanonicalPathRemovalError({ path: "/w/ext", step: "inspect", cause: ioCause }),
     code: "internal",
-    detail: "Failed to inspect canonical extension path /w/ext",
+    detail: "Failed to inspect the installed extension at /w/ext",
     cause: ioCause,
   },
   {
     name: "CanonicalPathRemovalError remove",
     failure: new CanonicalPathRemovalError({ path: "/w/ext", step: "remove", cause: ioCause }),
     code: "internal",
-    detail: "Failed to remove canonical extension path /w/ext",
+    detail: "Failed to remove the installed extension at /w/ext",
     cause: ioCause,
   },
   {

@@ -25,8 +25,5 @@
     "docs": "agentxm:@craigsmitham/packs/docs",
     "research": "agentxm:@craigsmitham/packs/research",
     "work-management": "agentxm:@craigsmitham/packs/work-management"
-  },
-  "rules": {
-    "field-notes": "@craigsmitham/rules/field-notes@^0.2.0"
   }
 }

@@ -13,14 +13,17 @@ import type { TableColumnPriority } from "./doc.js";
  *    of the declared minimum (default: header width), the widest unbreakable
  *    word, and half the natural width (capped), so cells wrap between words
  *    onto a couple of lines at most.
- * 4. Drop the droppable priorities in turn, each from the right, refitting at
+ * 4. With `wrapBeforeDrop`, shrink to word floors before dropping anything:
+ *    a ledger would rather wrap a cell onto another line than move its value
+ *    out of the column its header names.
+ * 5. Drop the droppable priorities in turn, each from the right, refitting at
  *    soft floors after every drop. A table drops `optional` columns and then
- *    `preferred` ones; a ledger drops only `optional` ones and stacks rather
- *    than lose a column a reader cannot recover.
- * 5. Shrink the surviving columns to their word floors (wrapping onto more
+ *    `preferred` ones; a ledger drops only `optional` ones, and what it drops
+ *    is repainted beneath each row rather than lost.
+ * 6. Shrink the surviving columns to their word floors (wrapping onto more
  *    lines but never splitting a word), then to their declared minimums,
  *    splitting words as a last resort.
- * 6. Stack.
+ * 7. Stack.
  */
 
 export const STACKED_THRESHOLD = 40;
@@ -64,6 +67,12 @@ export interface LayoutTableArgs {
   readonly stackBelow?: number;
   /** Priorities dropped under pressure, in order; defaults to optional then preferred. */
   readonly droppable?: ReadonlyArray<TableColumnPriority>;
+  /**
+   * Wrap cells onto more lines before dropping a column. A ledger's cells are
+   * prose a reader has to read, so wrapping keeps each value in the column its
+   * header names; dropping moves it out of the grid altogether.
+   */
+  readonly wrapBeforeDrop?: boolean;
 }
 
 const declaredFloor = (column: LayoutColumn): number =>
@@ -81,8 +90,15 @@ const softFloor = (column: LayoutColumn): number =>
     Math.max(wordFloor(column), Math.min(Math.ceil(column.naturalWidth / 2), SOFT_FLOOR_CAP)),
   );
 
+/**
+ * The width a column is laid out at before anything shrinks. A width hint
+ * keeps the columns after it on a shared lane, which is worth having while the
+ * values fit beside it; a protected column starts at its natural width all the
+ * same, so its value gives way only once every shrinkable column has, and
+ * alignment yields to information rather than the other way round.
+ */
 const startWidth = (column: LayoutColumn): number =>
-  column.width === undefined
+  column.width === undefined || column.priority === "required"
     ? column.naturalWidth
     : Math.max(Math.min(column.width, column.naturalWidth), declaredFloor(column));
 
@@ -174,6 +190,11 @@ export const layoutTable = (args: LayoutTableArgs): TableLayout => {
   let active: ReadonlyArray<number> = all;
   const fitted = fit(columns, active, available, gap, softFloor);
   if (fitted !== undefined) return grid(columns, active, fitted);
+
+  if (args.wrapBeforeDrop === true) {
+    const wrappedWhole = fit(columns, active, available, gap, wordFloor);
+    if (wrappedWhole !== undefined) return grid(columns, active, wrappedWhole);
+  }
 
   for (const priority of args.droppable ?? (["optional", "preferred"] as const)) {
     let next = dropLast(columns, active, priority);

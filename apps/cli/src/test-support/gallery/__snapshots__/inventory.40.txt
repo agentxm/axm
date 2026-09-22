@@ -1,12 +1,15 @@
-     Name
-     @craigsmitham/effect-v4
-     @craigsmitham/field-notes
-     @agentxm/knowledge/agentxm
-     local-notes
-     Not shown at this width: State,
+     Name               State
+     @craigsmitham/     managed by this
+     effect-v4          workspace
+     @craigsmitham/     managed by this
+     field-notes        workspace
+     @agentxm/          managed by this
+     knowledge/         workspace
+     agentxm
+     local-notes        outside AXM
+     Not shown at this width:
      Activation, Type, Agents, Agent
      outcomes
 
-4 skills (3 configured, 0 implicit, 3
-installed, 0 leftover, 0 undeclared, 1
-unmanaged)
+4 skills: 3 managed by this workspace, 3
+installed, 1 found outside AXM

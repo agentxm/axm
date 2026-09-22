@@ -5,19 +5,20 @@ Linting  in this project
                     aml
      workspace/lockfile-valid — 2
      entries do not match axm.json
- ✖   Descri…ssing   skills/tri
-                    age/SKILL.
-                    md
+ ✖   Descri…ssing   skills/
+                    triage/
+                    SKILL.md
      skill/description-present — Agents
      choose skills by description
- ▲   Member…loats   packs/revi
-                    ew-kit
+ ▲   Member…loats   packs/
+                    review-kit
      pack/member-pinned — Pin
      @acme/skills/triage for repeatable
      installs
 
-2 errors, 1 warning  1 fixable · exit 1
+2 errors and 1 warning
+  1 fixable · exit 1
 
 Next
      axm lint --fix
-     apply the deterministic fix
+     Apply the available automatic fix

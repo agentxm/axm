@@ -222,7 +222,7 @@ const settleUnpack = Effect.fn("PromoteAuthoredPack.prepare")(function* (
   if (!graph.complete) {
     return yield* new ExtensionLifecycleFailed({
       category: "validation",
-      detail: `Cannot unpack "${request.name}" while the desired pack graph is incomplete`,
+      detail: `Cannot unpack "${request.name}" because some pack manifests are missing or invalid`,
       suggestions: graph.problems.map((problem) => ({
         description: `Resolve ${problem.type} before unpacking.`,
       })),

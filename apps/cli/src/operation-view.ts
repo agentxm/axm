@@ -23,7 +23,9 @@ import {
   INTERRUPTED_IN_FLIGHT,
   MISSING_VERSION,
   NOT_TRIED,
+  PENDING_VERSION,
   Screen,
+  UNREPORTED_REASON,
   VERBOSE_DETAILS_HINT,
   VERBOSE_LIST_HINT,
   agentOutcome,
@@ -37,13 +39,16 @@ import {
   factParts,
   interruptionPhrase,
   joined,
+  dispositionStatement,
   ledgerViewPolicy,
+  notTriedReason,
   operationTitle,
   outcomeHeadline,
   planVerdict,
   plannedArtifactChange,
   resultLedgerColumns,
   scopePhrase,
+  sharedDispositionStatement,
   subjectHeader,
   subjectNoun,
   unitState,
@@ -83,16 +88,32 @@ const detailCell = (
   extra: ReadonlyArray<string | undefined>,
 ): string =>
   joined([
-    artifact?.previousVersion === undefined ? undefined : `from ${artifact.previousVersion}`,
     artifact?.fileCount === undefined ? undefined : count(artifact.fileCount, "file"),
     ...extra,
     artifact === undefined ? undefined : artifactPaths(artifact),
   ]);
 
-const versionCell = (artifact: JobStepArtifact | undefined): string =>
-  artifact?.version === undefined || artifact.version.length === 0
-    ? MISSING_VERSION.operation
-    : artifact.version;
+/**
+ * The version column: what the unit moved between where both ends are known,
+ * the version it reached where only that is known, and — for a unit that did
+ * not settle — the version still installed, because that is the fact a reader
+ * acts on. A planned row with no artifact has a target it has not resolved
+ * yet, which is not the same as having none.
+ */
+const versionCell = (artifact: JobStepArtifact | undefined): string => {
+  const version =
+    artifact?.version === undefined || artifact.version.length === 0 ? undefined : artifact.version;
+  const previous =
+    artifact?.previousVersion === undefined || artifact.previousVersion.length === 0
+      ? undefined
+      : artifact.previousVersion;
+  if (version === undefined) return previous ?? MISSING_VERSION.operation;
+  return previous === undefined || previous === version ? version : `${previous} to ${version}`;
+};
+
+/** The same column on a planned row, which may not know its target yet. */
+const plannedVersionCell = (artifact: JobStepArtifact | undefined): string =>
+  artifact === undefined ? PENDING_VERSION : versionCell(artifact);
 
 /**
  * Plan, progress, and result ledgers differ only in their third column — what
@@ -219,10 +240,7 @@ const rowChildren = (
         ({
           _tag: "paragraph",
           tone: outcome.outcome === "failed" || outcome.outcome === "blocked" ? "warn" : "dim",
-          text: joined([
-            `${outcome.agentId}: ${agentOutcome(outcome.outcome)}${outcome.path === undefined ? "" : ` at ${outcome.path}`}`,
-            outcome.reason,
-          ]),
+          text: `${outcome.agentId}: ${agentOutcome(outcome.outcome)}${outcome.path === undefined ? "" : ` at ${outcome.path}`}${outcome.reason === undefined || outcome.outcome === "projected" || outcome.outcome === "current" ? "" : ` — ${outcome.reason}`}`,
         }) as const,
     ),
   ];
@@ -244,7 +262,68 @@ type Settlement =
   | { readonly _tag: "state"; readonly state: UnitState };
 
 /** States whose unit did not settle as planned, so its message is the reason why. */
-const UNSETTLED: ReadonlySet<UnitState> = new Set(["failed", "blocked", "interrupted"]);
+const UNSETTLED: ReadonlySet<UnitState> = new Set([
+  "failed",
+  "blocked",
+  "interrupted",
+  "rolled-back",
+]);
+
+/** Where a producer's sentence has already closed, so nothing is appended to it. */
+const SENTENCE_END = /[.!?)]$/u;
+
+/** Whether a settlement owes the reader a reason of its own. */
+const owesReason = (settlement: Settlement): boolean =>
+  settlement._tag === "not-tried" ||
+  settlement._tag === "rolled-back-in-flight" ||
+  (settlement._tag === "state" && UNSETTLED.has(settlement.state));
+
+/**
+ * The line beneath an unsettled row: why it did not settle, and — where the
+ * units differ — what state it was left in. The producer's own sentence is
+ * used where there is one; a unit the operation never reached says what
+ * stopped it, and one whose producer said nothing says that, because a blank
+ * line beneath a failed row reads as information that was lost.
+ */
+const reasonOf = (
+  unit: ResolvedUnit<unknown>,
+  settlement: Settlement,
+  presentation: OperationPresentation,
+  saidOnce: boolean,
+): string | undefined => {
+  if (!owesReason(settlement)) return undefined;
+  const reason =
+    settlement._tag === "not-tried"
+      ? (unit.blocking?.detail ?? notTriedReason(presentation))
+      : settlement._tag === "rolled-back-in-flight"
+        ? INTERRUPTED_IN_FLIGHT
+        : (unit.message ?? UNREPORTED_REASON);
+  if (saidOnce || unit.disposition === undefined) return reason;
+  // A producer's sentence already ends where it means to, so the settlement
+  // follows it as a sentence of its own rather than as another clause.
+  return SENTENCE_END.test(reason.trimEnd())
+    ? `${reason} ${dispositionStatement(unit.disposition)}`
+    : joined([reason, disposition(unit.disposition)]);
+};
+
+/**
+ * The state every unsettled unit was left in, when they were all left in the
+ * same one: a partial operation whose closures each rolled themselves back
+ * says so once beneath its verdict rather than on every row.
+ */
+const sharedDisposition = (
+  units: ReadonlyArray<ResolvedUnit<unknown>>,
+  mode: OperationResolution<unknown>["mode"],
+  presentation: OperationPresentation,
+): string | undefined => {
+  const unsettled = units.filter((unit) => owesReason(settlementOf(unit, mode)));
+  if (unsettled.length < 2) return undefined;
+  const dispositions = new Set(unsettled.map((unit) => unit.disposition));
+  const [only] = dispositions;
+  return dispositions.size === 1 && only !== undefined
+    ? sharedDispositionStatement(presentation, only)
+    : undefined;
+};
 
 const settlementOf = (
   unit: ResolvedUnit<unknown>,
@@ -271,6 +350,8 @@ const resultRow = (
   unit: ResolvedUnit<unknown>,
   mode: OperationResolution<unknown>["mode"],
   detailed: boolean,
+  presentation: OperationPresentation,
+  dispositionSaidOnce: boolean,
 ): LedgerRow => {
   const settlement = settlementOf(unit, mode);
   const name = unit.artifact?.packMembership?.pack ?? unit.label;
@@ -292,13 +373,11 @@ const resultRow = (
           ],
         };
       case "not-tried":
-        // Nothing happened to it, so there is nothing to detail.
+        // Nothing happened to it, so there is nothing to detail; why it was
+        // never reached is the reason line beneath it.
         return { mark: "not-tried", cells: [name, version, NOT_TRIED, ""] };
       case "rolled-back-in-flight":
-        return {
-          mark: "rolled-back",
-          cells: [name, version, unitState("rolled-back"), INTERRUPTED_IN_FLIGHT],
-        };
+        return { mark: "rolled-back", cells: [name, version, unitState("rolled-back"), ""] };
       case "state":
         return {
           mark: unitStateChange(settlement.state),
@@ -306,19 +385,24 @@ const resultRow = (
             name,
             version,
             unitState(settlement.state),
-            detailCell(unit.artifact, [
-              // A unit that did not settle as planned says why in its own
-              // message; any other unit's message restates its status.
-              unit.artifact === undefined || UNSETTLED.has(settlement.state)
-                ? unit.message
-                : undefined,
-              unit.disposition === undefined ? undefined : disposition(unit.disposition),
-            ]),
+            // A unit that did not settle as planned says why, and what it was
+            // left in, on its reason line; any other unit's message restates
+            // its status, except where there is no artifact to describe it.
+            UNSETTLED.has(settlement.state)
+              ? detailCell(unit.artifact, [])
+              : detailCell(unit.artifact, [
+                  unit.artifact === undefined ? unit.message : undefined,
+                  unit.disposition === undefined ? undefined : disposition(unit.disposition),
+                ]),
           ],
         };
     }
   })();
-  return withChildren({ id: unitIdOf(unit), ...row }, rowChildren(unit, detailed));
+  const reason = reasonOf(unit, settlement, presentation, dispositionSaidOnce);
+  return withChildren(
+    { id: unitIdOf(unit), ...row, ...(reason === undefined ? {} : { reason }) },
+    rowChildren(unit, detailed),
+  );
 };
 
 const planRow = (
@@ -337,17 +421,19 @@ const planRow = (
             : artifactChangeMark(step.artifact.change),
       cells: [
         step.artifact?.packMembership?.pack ?? step.label,
-        versionCell(step.artifact),
+        plannedVersionCell(step.artifact),
         step.artifact === undefined
           ? presentation.verb.imperative
           : step.artifact.change === "created" && presentation.verb.create !== undefined
             ? presentation.verb.create
             : plannedArtifactChange(step.artifact.change),
-        detailCell(step.artifact, [
-          step.readiness === "warn" ? step.warnMessage : undefined,
-          step.readiness === "error" ? step.errorMessage : undefined,
-        ]),
+        detailCell(step.artifact, [step.readiness === "warn" ? step.warnMessage : undefined]),
       ],
+      // A step the plan cannot run states why beneath its row, where no width
+      // can take the reason away.
+      ...(step.readiness === "error" && step.errorMessage !== undefined
+        ? { reason: step.errorMessage }
+        : {}),
     },
     rowChildren(step, detailed),
   );
@@ -359,8 +445,20 @@ const planRow = (
  */
 const FOLD_HINT = VERBOSE_LIST_HINT;
 
-/** Where no gate opens, the only place a reader learns the details are one flag away. */
+/**
+ * Where no gate opens, the only place a reader learns the details are one flag
+ * away. Width no longer hides anything, so the hint is stated only where
+ * verbose genuinely shows a row something normal level leaves out.
+ */
 const DETAIL_HINT = VERBOSE_DETAILS_HINT;
+
+const detailAwaitsVerbose = (
+  units: ReadonlyArray<{
+    readonly artifact?: JobStepArtifact;
+    readonly agentOutcomes?: ResolvedUnit<unknown>["agentOutcomes"];
+  }>,
+): boolean =>
+  units.some((unit) => rowChildren(unit, true).length > rowChildren(unit, false).length);
 
 interface FoldGroup {
   readonly count: number;
@@ -423,9 +521,19 @@ const headlineTone = (outcome: ReturnType<typeof deriveOperationOutcome>): Tone 
   }
 };
 
-const groupedWarnings = (units: ReadonlyArray<ResolvedUnit<unknown>>): Doc => {
+/**
+ * Warnings the operation reported, grouped by what they say and naming the
+ * units they are about. A unit that did not settle as planned is not named:
+ * its reason states what became of it, and an annotation on work that did not
+ * happen reads as a claim about work that did.
+ */
+const groupedWarnings = (
+  units: ReadonlyArray<ResolvedUnit<unknown>>,
+  mode: OperationResolution<unknown>["mode"],
+): Doc => {
   const groups = new Map<string, Array<string>>();
   for (const unit of units) {
+    if (owesReason(settlementOf(unit, mode))) continue;
     for (const warning of unit.warnings ?? []) {
       const labels = groups.get(warning) ?? [];
       labels.push(unit.label);
@@ -451,14 +559,20 @@ const referenceOf = (unit: ResolvedUnit<unknown>): ReadonlyArray<JobStepArtifact
  * reader is not left wondering why they survived. They are the operation's
  * context, not its units, so they follow the ledger as a callout.
  */
-const untouchedPaths = (units: ReadonlyArray<ResolvedUnit<unknown>>): Doc => {
+const untouchedPaths = (
+  units: ReadonlyArray<ResolvedUnit<unknown>>,
+  mode: "preview" | "apply",
+): Doc => {
   const references = units.flatMap(referenceOf);
   if (references.length === 0) return [];
   return [
     {
       _tag: "callout",
       tone: "warn",
-      title: `AXM will not touch ${count(references.length, "path")}`,
+      title:
+        mode === "preview"
+          ? `AXM would leave ${count(references.length, "existing item")} unchanged`
+          : `${count(references.length, "existing item")} ${references.length === 1 ? "was" : "were"} left unchanged`,
       children: references.map(
         (reference) =>
           ({
@@ -534,7 +648,10 @@ const titleLine = (
 const statusWord = (settlement: Settlement): string => {
   switch (settlement._tag) {
     case "changed":
-      return unitState("committed");
+      // The row says what the change was, so the tally that counts the row
+      // says the same: a verdict reading `5 changed` over five rows reading
+      // `updated` asks a reader to work out that they are the same five.
+      return artifactChange(settlement.artifact.change);
     case "not-tried":
       return NOT_TRIED;
     case "rolled-back-in-flight":
@@ -546,6 +663,9 @@ const statusWord = (settlement: Settlement): string => {
 
 /** The settlements a verdict's aside counts, in the order it names them. */
 const TALLIED: ReadonlyArray<string> = [
+  artifactChange("created"),
+  artifactChange("updated"),
+  artifactChange("removed"),
   unitState("committed"),
   unitState("failed"),
   unitState("blocked"),
@@ -568,23 +688,72 @@ const TALLIED: ReadonlyArray<string> = [
 const verdictAside = (
   units: ReadonlyArray<ResolvedUnit<unknown>>,
   mode: "preview" | "apply",
+  outcome: ReturnType<typeof deriveOperationOutcome>,
   exitCode: number,
 ): ReadonlyArray<string> => {
-  const words = units.map((unit) => statusWord(settlementOf(unit, mode)));
+  const settlements = units.map((unit) => settlementOf(unit, mode));
+  const words = settlements.map(statusWord);
+  const repeatedByHeadline = new Set<string>(
+    outcome === "applied"
+      ? // The headline already claims what was applied, whichever words the
+        // rows used for it.
+        settlements.flatMap((settlement, index) =>
+          settlement._tag === "changed" ? [words[index] ?? ""] : [],
+        )
+      : outcome === "previewed"
+        ? [unitState("planned"), unitState("ready")]
+        : outcome === "no-op"
+          ? [unitState("unchanged")]
+          : [],
+  );
   return [
     ...TALLIED.map((word) => {
+      if (repeatedByHeadline.has(word)) return undefined;
       const value = words.filter((candidate) => candidate === word).length;
       return value === 0 ? undefined : `${String(value)} ${word}`;
     }),
-    mode === "preview" ? "nothing was written" : undefined,
+    mode === "preview" ? "no changes made" : undefined,
     exitCode === 0 ? undefined : exitPhrase(exitCode),
   ].filter((part): part is string => part !== undefined);
+};
+
+/**
+ * The units of a settled operation that did not settle as planned, in ledger
+ * order. An adapter reads them to offer a recovery that fits what actually
+ * happened, rather than the same suggestion whatever the outcome.
+ */
+export const unsettledUnits = (
+  resolution: OperationResolution<unknown>,
+): ReadonlyArray<ResolvedUnit<unknown>> =>
+  resolution.units.filter((unit) => owesReason(settlementOf(unit, resolution.mode)));
+
+/**
+ * What every unsettled unit's producer suggested, in ledger order and without
+ * repeats. The resolution lifts only the first failed unit's suggestions; a
+ * reader of seven failures needs all of them.
+ */
+const producerSuggestions = (
+  resolution: OperationResolution<unknown>,
+): ReadonlyArray<SuggestedAction> => {
+  const suggested = unsettledUnits(resolution).flatMap((unit) => unit.error?.suggestions ?? []);
+  return suggested.filter(
+    (suggestion, index) =>
+      suggested.findIndex(
+        (other) => other.description === suggestion.description && other.cmd === suggestion.cmd,
+      ) === index,
+  );
 };
 
 export interface OperationDocOptions {
   readonly verbosity: VerbosityLevel;
   readonly message?: string;
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
+  /**
+   * Conditions the operation reports beside its ledger, such as a release-age
+   * decision. They stand between the rows and the verdict, so `Next` is the
+   * last thing a reader sees.
+   */
+  readonly callouts?: Doc;
 }
 
 export const operationDoc = (
@@ -609,9 +778,18 @@ export const operationDoc = (
     (unit) => detailed || (unit.state !== "unchanged" && unit.state !== "skipped"),
   );
   const coverage = resolutionAgentCoverage(resolution);
+  // Where every unsettled unit was left in the same state, the verdict says so
+  // once; where they differ, each row says it for itself.
+  const settledAlike = sharedDisposition(resolution.units, resolution.mode, presentation);
+  const dispositionSaidOnce =
+    settledAlike !== undefined &&
+    resolution.blocking === undefined &&
+    resolution.failure?.detail === undefined;
   const ledger = foldedLedger(
     ledgerColumns(presentation, "Status"),
-    visible.map((unit) => resultRow(unit, resolution.mode, detailed)),
+    visible.map((unit) =>
+      resultRow(unit, resolution.mode, detailed, presentation, dispositionSaidOnce),
+    ),
     detailed
       ? []
       : foldGroups(presentation, [
@@ -619,10 +797,21 @@ export const operationDoc = (
           { count: counts.skipped, state: "skipped" },
         ]),
   );
-  const next = [...(options.suggestions ?? []), ...(resolution.recovery?.actions ?? [])];
+  const offered = [
+    ...(options.suggestions ?? []),
+    ...(resolution.recovery?.actions ?? []),
+    ...producerSuggestions(resolution),
+  ];
+  const next = offered.filter(
+    (suggestion, index) =>
+      offered.findIndex(
+        (other) => other.description === suggestion.description && other.cmd === suggestion.cmd,
+      ) === index,
+  );
   const aside = verdictAside(
     resolution.units,
     resolution.mode,
+    outcome,
     operationExitCode(resolution, outcome),
   );
 
@@ -634,15 +823,19 @@ export const operationDoc = (
       ...(coverage === undefined ? {} : { scope: coverage.scope, agents: coverage.agents }),
     }),
     ...ledger,
-    ...groupedWarnings(resolution.units),
-    ...untouchedPaths(resolution.units),
+    ...groupedWarnings(resolution.units, resolution.mode),
+    ...untouchedPaths(resolution.units, resolution.mode),
+    ...(options.callouts ?? []),
     ...(coverage === undefined || coverage.agents.length > 0
       ? []
       : [
           {
             _tag: "callout",
             tone: "warn",
-            title: "No coding-agent targets were materialized",
+            title:
+              resolution.mode === "preview"
+                ? "No coding agents would receive this change"
+                : "No coding agents received this change",
             children: [
               {
                 _tag: "paragraph",
@@ -657,10 +850,13 @@ export const operationDoc = (
       verdict,
       aside,
       // A blocked operation stopped on a condition a person must resolve, so
-      // its reason stands with its verdict; a failure's reason follows it.
+      // its reason stands with its verdict; a failure's reason follows it, and
+      // where neither says anything the state the unsettled units share does.
       ...(resolution.blocking === undefined
         ? resolution.failure?.detail === undefined
-          ? {}
+          ? dispositionSaidOnce && settledAlike !== undefined
+            ? { reason: settledAlike }
+            : {}
           : { reason: resolution.failure.detail }
         : { reason: resolution.blocking.detail, blocked: true }),
     }),
@@ -725,13 +921,10 @@ export const planDoc = (
   const warnings = steps.filter((step) => step.readiness === "warn").length + risks.length;
   const errors = steps.filter((step) => step.readiness === "error").length;
   const aside = factParts([
-    changing.length === 0
-      ? undefined
-      : `${String(changing.length)} to ${presentation.verb.imperative}`,
     unchanged === 0 ? undefined : `${String(unchanged)} ${unitState("unchanged")}`,
     warnings === 0 ? undefined : count(warnings, "warning"),
     errors === 0 ? undefined : count(errors, "error"),
-    options.mode === "preview" ? "nothing was written" : undefined,
+    options.mode === "preview" ? "no changes made" : undefined,
   ]);
   const scope = steps.find((step) => step.artifact !== undefined)?.artifact?.scope;
   const agents = [
@@ -770,7 +963,7 @@ export const planDoc = (
     },
     // Where no gate opens there is nothing to answer, so the hint is the only
     // way a reader learns the details are one flag away.
-    ...(gated || detailed || unchanged > 0
+    ...(gated || detailed || unchanged > 0 || !detailAwaitsVerbose(steps)
       ? []
       : [{ _tag: "paragraph", tone: "dim", text: DETAIL_HINT } as const]),
   ];
@@ -817,12 +1010,17 @@ export const livePlan = (
     columns: liveColumns(presentation),
     rows: running.map((step) => {
       // Children are the settled document's business; a live row carries the
-      // unit's mark and the cells that identify it, and nothing else.
+      // unit's mark, the cells that identify it, and the word it will settle
+      // with — the same word its result row uses, from the same phrase.
       const row = planRow(step, presentation, false);
       return {
         id: unitIdOf(step),
         plannedMark: row.mark ?? "waiting",
         plannedStatus: cellOf(row, 2),
+        settledStatus:
+          step.artifact === undefined
+            ? presentation.verb.past.toLowerCase()
+            : artifactChange(step.artifact.change),
         cells: [cellOf(row, 0), cellOf(row, 1)],
       };
     }),
@@ -843,7 +1041,7 @@ export const livePlan = (
     verdict: planVerdict(presentation, "apply", running.length),
     // Where no gate opens this is the only place a reader learns the details
     // are one flag away.
-    ...(detailed ? {} : { hint: DETAIL_HINT }),
+    ...(detailed || !detailAwaitsVerbose(steps) ? {} : { hint: DETAIL_HINT }),
   };
 };
 

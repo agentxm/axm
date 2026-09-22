@@ -1,14 +1,15 @@
 Uninstalling
 
-     Extension      Version   Status
- -   @acme/…w-kit   2.1.0     removed
- -   @a…/reviewer   0.9.0     removed
+     Extension         Version   Status
+ -   @ac…/review-kit   2.1.0     removed
+     agent_extensions/review-kit
+ -   @acme…/reviewer   0.9.0     removed
+     1 file, agent_extensions/reviewer
  =   1 extension already current
      --verbose to list
-     --verbose for details
 
- ▲   AXM will not touch 1 path
+ ▲   1 existing item was left unchanged
      AGENTS.md, prose AXM did not write
 
 Uninstalled 2 extensions
-  2 applied · 1 already current
+  1 already current

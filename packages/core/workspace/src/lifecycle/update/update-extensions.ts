@@ -117,6 +117,7 @@ import { buildWorkspaceUpdatePlan, type WorkspaceUpdatableType } from "./configu
 import { resolveConfiguredUpdateSelection, type ConfiguredUpdateSelector } from "./selector.js";
 import { resolveRootUpdateIntent, type RootUpdateIntent } from "./root-request.js";
 import { wrapTargetedUpdatePlan } from "./targeted-plan.js";
+import { nameFromLabel } from "../../reconciliation/index.js";
 
 // -----------------------------------------------------------------------------
 // Request
@@ -753,17 +754,14 @@ const configuredAgentOperations = (
           job.steps.flatMap((step) =>
             step.key?.startsWith("not-applicable:") === true ||
             step.key?.endsWith(":planning-error") === true
-              ? [step.label]
+              ? [nameFromLabel(step.label)]
               : [],
           ),
         ),
       );
       return [
         ...new Set(
-          names ??
-            plan.jobs.flatMap((job) =>
-              job.steps.map((step) => step.label.replace(/^(?:Skip|Update)\s+/u, "")),
-            ),
+          names ?? plan.jobs.flatMap((job) => job.steps.map((step) => nameFromLabel(step.label))),
         ),
       ]
         .filter((name) => !nonConverging.has(name))

@@ -20,7 +20,11 @@ import { SYNC_PRESENTATION } from "@agentxm/workspace/reconciliation";
 
 import { makeAppError } from "../../app-error/index.js";
 import { syncFailureToAppError } from "../../feature-errors.js";
-import { emitOperationResolution } from "../../operation-output.js";
+import {
+  emitOperationResolution,
+  retryCanHelp,
+  type OperationSuggestions,
+} from "../../operation-output.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../shared/no-op-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
@@ -97,13 +101,20 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs)
   const outcome = deriveOperationOutcome(resolution);
   const diverged =
     args.failOnChange === true && outcome === "previewed" && resolution.units.length > 0;
+  // A sync that did not finish is repeated through the same route: it
+  // converges from the state the workspace is now in, so the units it settled
+  // are no-ops and the ones it did not are what it tries again.
+  const retry: OperationSuggestions = ({ unsettled }) =>
+    unsettled.length === 0 || !retryCanHelp(unsettled)
+      ? []
+      : [{ description: "Reconcile the workspace again", cmd: "axm sync" }];
   yield* emitOperationResolution(
     "sync",
     diverged ? { ...resolution, divergence: true } : resolution,
     diverged
-      ? { message: "Workspace reconciliation is required; no changes were applied" }
+      ? { message: "Workspace is out of sync; no changes were made", suggestions: retry }
       : outcome === "no-op" && resolution.units.length === 0
         ? { message: candidate.upToDateMessage }
-        : {},
+        : { suggestions: retry },
   );
 });

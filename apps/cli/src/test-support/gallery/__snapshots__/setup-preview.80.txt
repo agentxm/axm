@@ -1,6 +1,6 @@
-Previewing setup in ~/code/storefront  project scope
+Previewing setup in ~/code/storefront  for this project
 
- ✔   Scanned repo and machine      found 4 agents
+ ✔   Checked for coding agents     found 4 agents
 
      Target                        Plan     Detail
  +   axm.json                      create   agents: claude-code, codex, cursor
@@ -11,7 +11,7 @@ Previewing setup in ~/code/storefront  project scope
  =   AGENTS.md                     keep     Codex
  +   .cursor/rules/agents.mdc      copy     Cursor
 
-Would set up AXM for 3 agents  detected agents · nothing was written
+Would set up AXM for 3 agents  using agents found here · no changes made
 
 Next
      axm setup --yes --scope project --agent claude-code --agent codex --agent cursor

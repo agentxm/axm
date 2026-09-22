@@ -9,13 +9,18 @@
  * plan, such as sign-in or upgrade, synthesizes its rows from the units it
  * reports.
  *
- * Settled rows leave the window and return in the result, so a long plan folds
- * into a count rather than scrolling past the height the scene allows.
+ * A row settles in place: it takes its final mark and the word the result will
+ * give it, and stays while the rows fit the height the scene allows. Under
+ * pressure the window keeps what a reader still needs — the work in flight,
+ * everything that did not settle as planned, the next few waiting — and folds
+ * the rest into a count rather than scrolling past the height.
  *
  * Every function here is pure: a recorded event log and the space the scene
  * gives decide the document. Wording comes from the phrase layer; the painter
  * owns every glyph.
  */
+
+import type { UnitState } from "@agentxm/workspace/transitions/planning";
 
 import type { Doc, LedgerColumn, LedgerFold, LedgerRow, Mark, SummaryPart, Text } from "./doc.js";
 import {
@@ -27,7 +32,10 @@ import {
   retryAttempt,
   systemWaitHint,
   systemWaitStatus,
+  unitState,
+  unitStateChange,
 } from "./phrases.js";
+import { joined } from "./presenter-helpers.js";
 import {
   operationElapsedMs,
   type ProgressState,
@@ -65,6 +73,12 @@ export interface LivePlanRow {
   readonly plannedMark: Mark;
   /** The planning word kept until the unit starts. */
   readonly plannedStatus: Text;
+  /**
+   * The word the row says once it settles as its plan described — the same
+   * word the result ledger gives it, so a reader is not told one thing while
+   * the operation runs and another when it ends.
+   */
+  readonly settledStatus?: Text;
   /** One cell per identifying column. */
   readonly cells: ReadonlyArray<Text>;
   readonly depth?: number;
@@ -83,7 +97,17 @@ type Activity =
   | { readonly _tag: "waiting" }
   | { readonly _tag: "running"; readonly unit: ProgressUnitState; readonly nested: boolean }
   | { readonly _tag: "paused"; readonly wait: ProgressWait }
-  | { readonly _tag: "settled" };
+  | { readonly _tag: "settled"; readonly unit: ProgressUnitState; readonly state: UnitState };
+
+/** How many rows that have not started the window keeps before anything else. */
+const PENDING_AHEAD = 2;
+
+/**
+ * The lines one row spends: its own, and one more for the reason a row that
+ * did not settle as planned carries. The window counts lines rather than rows,
+ * because the scene's budget is a height and a reason takes a line of it.
+ */
+const rowHeight = (row: LiveRow): number => (row.row.reason === undefined ? 1 : 2);
 
 /** The two columns the live ledger owns, whatever the plan identifies a unit by. */
 const STATUS_COLUMN: LedgerColumn = { header: "Status", role: "fixed" };
@@ -160,7 +184,7 @@ const activityOf = (state: ProgressState, index: UnitIndex, id: string): Activit
     return { _tag: "running", unit: running, nested: running.id !== id };
   }
   if (own === undefined || own.status === "running") return { _tag: "waiting" };
-  return { _tag: "settled" };
+  return { _tag: "settled", unit: own, state: own.status };
 };
 
 /**
@@ -168,13 +192,13 @@ const activityOf = (state: ProgressState, index: UnitIndex, id: string): Activit
  * plan's own mark, because what changed is what was planned; any other
  * settlement carries the mark of the state it reached.
  */
-const markOf = (
-  activity: Exclude<Activity, { readonly _tag: "settled" }>,
-  planned: Mark | undefined,
-): Mark => {
+const markOf = (activity: Exclude<Activity, { readonly _tag: "settled" }>): Mark => {
   switch (activity._tag) {
     case "waiting":
-      return planned ?? "waiting";
+      // A row that has not started takes the waiting mark and keeps its
+      // planned word; the change mark arrives when the unit settles, so the
+      // two are never one letter apart.
+      return "waiting";
     case "running":
       return "working";
     case "paused":
@@ -231,8 +255,13 @@ const detailOf = (activity: Activity): Text => {
 /** One row of a live ledger: the line it paints, and where the window puts it. */
 export interface LiveRow {
   readonly row: LedgerRow;
-  /** `active` is running or paused, `pending` has not started, `settled` is done. */
-  readonly place: "active" | "pending" | "settled";
+  /**
+   * `active` is running or paused, `pending` has not started, `settled`
+   * finished as its plan described, and `unsettled` finished some other way.
+   * The window gives up a settled row before an unsettled one, because what
+   * went wrong is what a reader is still waiting to act on.
+   */
+  readonly place: "active" | "pending" | "settled" | "unsettled";
 }
 
 const placeOf = (activity: Activity): LiveRow["place"] => {
@@ -243,7 +272,7 @@ const placeOf = (activity: Activity): LiveRow["place"] => {
     case "waiting":
       return "pending";
     case "settled":
-      return "settled";
+      return activity.state === "committed" ? "settled" : "unsettled";
   }
 };
 
@@ -254,19 +283,35 @@ const joinRow = (
     readonly id: string;
     readonly plannedMark?: Mark;
     readonly plannedStatus?: Text;
+    readonly settledStatus?: Text;
     readonly cells: ReadonlyArray<Text>;
     readonly depth?: number;
   },
 ): LiveRow => {
   const activity = activityOf(state, index, planned.id);
+  const depth = planned.depth === undefined ? {} : { depth: planned.depth };
   if (activity._tag === "settled") {
+    // A unit that settled as its plan described keeps the plan's own mark and
+    // takes the word its result row will use; any other settlement carries
+    // the mark and word of the state it reached, and says why while it can.
+    const asPlanned = activity.state === "committed";
+    const reason = activity.unit.failure?.detail;
     return {
-      place: "settled",
+      place: placeOf(activity),
       row: {
         id: planned.id,
-        mark: planned.plannedMark ?? "waiting",
-        cells: planned.cells,
-        ...(planned.depth === undefined ? {} : { depth: planned.depth }),
+        mark: asPlanned ? (planned.plannedMark ?? "waiting") : unitStateChange(activity.state),
+        cells: [
+          ...planned.cells,
+          // A plan states the word its result will use; a synthesized row has
+          // no plan, so it says what its state says.
+          asPlanned
+            ? (planned.settledStatus ?? unitState(activity.state))
+            : unitState(activity.state),
+          "",
+        ],
+        ...depth,
+        ...(reason === undefined ? {} : { reason }),
       },
     };
   }
@@ -275,9 +320,9 @@ const joinRow = (
     place: placeOf(activity),
     row: {
       id: planned.id,
-      mark: markOf(activity, planned.plannedMark),
+      mark: markOf(activity),
       cells: [...planned.cells, statusOf(activity, state, plannedStatus), detailOf(activity)],
-      ...(planned.depth === undefined ? {} : { depth: planned.depth }),
+      ...depth,
     },
   };
 };
@@ -300,45 +345,88 @@ export const joinLiveRows = (
 };
 
 /**
- * The rows the window shows and the line that stands for the rest: work in
- * flight first, then the units waiting their turn, and never a settled row —
- * those have said what they had to say and return in the result ledger.
+ * The rows the window shows, in plan order, and the line that stands for the
+ * rest. While every row fits, every row stays: what has happened is part of
+ * what a reader is reading. When they do not fit, rows leave in one order —
+ * settled as planned first, oldest first, then the waiting rows beyond the
+ * next few — and a row that did not settle as planned never leaves before one
+ * that did, because what went wrong is what a reader has still to act on.
  */
 export const liveWindow = (
   rows: ReadonlyArray<LiveRow>,
   budget: number,
 ): { readonly rows: ReadonlyArray<LedgerRow>; readonly folded?: LedgerFold } => {
-  const visible = [
-    ...rows.filter((row) => row.place === "active"),
-    ...rows.filter((row) => row.place === "pending"),
-  ];
-  const settled = rows.length - visible.length;
   if (budget <= 0) return { rows: [] };
-  if (visible.length <= budget) return { rows: visible.map((row) => row.row) };
+  const height = rows.reduce((sum, row) => sum + rowHeight(row), 0);
+  if (height <= budget) return { rows: rows.map((row) => row.row) };
   // The fold line takes one of the window's rows, so it never replaces a
   // single row it would otherwise have shown.
-  const shown = visible.slice(0, budget - 1);
-  const folded = visible.slice(shown.length);
-  const pending = folded.filter((row) => row.place === "pending").length;
+  const limit = Math.max(0, budget - 1);
+  const placed = (place: LiveRow["place"]): ReadonlyArray<LiveRow> =>
+    rows.filter((row) => row.place === place);
+  const kept = new Set<LiveRow>();
+  let used = 0;
+  /** Keep what fits, and report whether everything did. */
+  const keep = (candidates: ReadonlyArray<LiveRow>): boolean => {
+    for (const row of candidates) {
+      if (kept.has(row)) continue;
+      if (used + rowHeight(row) > limit) return false;
+      kept.add(row);
+      used += rowHeight(row);
+    }
+    return true;
+  };
+  // Each group is kept before the next is considered at all, so a row that
+  // did not settle as planned never gives up its place to one that did, and a
+  // row still to come never gives up its place to one already behind.
+  void (
+    keep(placed("active")) &&
+    keep(placed("unsettled")) &&
+    keep(placed("pending").slice(0, PENDING_AHEAD)) &&
+    keep(placed("pending")) &&
+    keep([...placed("settled")].reverse())
+  );
+  const shown = rows.filter((row) => kept.has(row));
+  const folded = rows.filter((row) => !kept.has(row));
+  const waiting = folded.filter((row) => row.place === "pending").length;
+  const done = placed("settled").length;
+  const failed = placed("unsettled").length;
+  const hint = joined([
+    done === 0 ? undefined : `${String(done)} done`,
+    failed === 0 ? undefined : `${String(failed)} failed`,
+  ]);
   return {
     rows: shown.map((row) => row.row),
     folded: {
       mark: "waiting",
       count: folded.length,
-      noun: pending === folded.length ? "more waiting" : "more",
-      ...(settled === 0 ? {} : { hint: `${String(settled)} done` }),
+      noun: waiting === folded.length ? "more waiting" : "more",
+      ...(hint.length === 0 ? {} : { hint }),
     },
   };
 };
 
-/** What the operation is doing, how far it has come, and how long it has taken. */
+/**
+ * What the operation is doing, how much of it has finished, how much of that
+ * did not settle as planned, and how long it has taken. It counts what has
+ * finished rather than what has started, so a line reading `13 of 13` is never
+ * printed over a unit that is still running.
+ */
 const statusLine = (state: ProgressState, rows: ReadonlyArray<LiveRow>, nowMs: number): Text => {
   const activity =
     state.phase === undefined ? (state.operation?.name ?? "") : phaseLabel(state.phase);
-  const started = rows.filter((row) => row.place !== "pending").length;
+  const finished = rows.filter(
+    (row) => row.place === "settled" || row.place === "unsettled",
+  ).length;
+  const failed = rows.filter((row) => row.place === "unsettled").length;
   const elapsed = operationElapsedMs(state, nowMs);
   const progress =
-    rows.length === 0 ? activity : `${activity} ${String(started)} of ${String(rows.length)}`;
+    rows.length === 0
+      ? activity
+      : joined([
+          `${activity} ${String(finished)} of ${String(rows.length)} done`,
+          failed === 0 ? undefined : `${String(failed)} failed`,
+        ]);
   return elapsed === undefined ? progress : `${progress} in ${duration(elapsed)}`;
 };
 

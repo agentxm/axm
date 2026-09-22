@@ -189,10 +189,11 @@ describe("subagents enable.handler", () => {
                 expect.objectContaining({
                   id: "my-agent",
                   mark: "failed",
-                  cells: expect.arrayContaining([
-                    "my-agent",
-                    'Accepted subagent content for "my-agent" is not usable (not_found), effects were restored',
-                  ]),
+                  cells: expect.arrayContaining(["my-agent"]),
+                  // The refusal is why the unit did not settle, so it stands on
+                  // the row's reason line rather than in a droppable cell.
+                  reason:
+                    'Accepted subagent content for "my-agent" is not usable (not_found) Effects were restored.',
                 }),
               ]),
             }),

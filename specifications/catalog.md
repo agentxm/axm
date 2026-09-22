@@ -134,6 +134,21 @@ People and agents can understand invalid workspace state and recover it through 
 - Open questions: Which target takes precedence when a single word names both a topic and a command? These examples do not establish that collision policy.
 - Source: [`apps/cli-e2e/src/help/returns-requested-topic-or-command.spec.ts`](../apps/cli-e2e/src/help/returns-requested-topic-or-command.spec.ts)
 
+##### A ledger moves a value it cannot lay out; it never removes one
+
+- Requirement: `cli/ledger-width-relocates-values`
+- Owner: `cli`
+- Statement: When an operation ledger cannot lay a column out at the available width, each non-empty value of that column shall appear beneath its own row, so that no value present at a wider width is absent at a narrower one; a value marked as one a person copies shall appear whole, never cut, split, or hyphenated, on a line of its own where it does not fit beside its row.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `extension-adoption`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The painter is a pure function from a document and a terminal width to lines, so the whole obligation is decided in memory.
+- Methods: property, example
+- Derived from: `cli/ascii-human-output-preserves-content`, `cli/non-tty-output-is-plain-and-unpadded`
+- Assumptions: A ledger's protected name column is shortened in the middle rather than relocated, which `cli/names-yield-width-last` owns; this obligation covers every other column.
+- Source: [`apps/cli/src/screen/ledger-width-relocates-values.spec.ts`](../apps/cli/src/screen/ledger-width-relocates-values.spec.ts)
+
 ##### Authored skills are excluded from unowned agent output findings
 
 - Requirement: `cli/lint/authored-skills-are-not-agent-output`
@@ -318,6 +333,21 @@ People and agents can understand invalid workspace state and recover it through 
 - Methods: example
 - Source: [`packages/core/workspace/src/linting/catalog/workspace/reports-user-outputs-without-settings.spec.ts`](../packages/core/workspace/src/linting/catalog/workspace/reports-user-outputs-without-settings.spec.ts)
 
+##### Live progress keeps what has already happened in view
+
+- Requirement: `cli/live-progress-retains-settled-units`
+- Owner: `cli`
+- Statement: While an operation runs, a unit that has settled shall keep its row in the live ledger carrying the final mark and status word its result row will use, for as long as the rows fit the height the scene allows; when they do not, a row that did not settle as planned shall never leave before one that did, and what left shall be counted; the status line shall state how many units have finished out of the total and, once any has, how many did not settle as planned; and a unit that did not settle as planned shall state its reason on its live row as soon as it settles.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `extension-adoption`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The live ledger is a pure function of a recorded event log and the space the scene gives, so the whole obligation is decided in memory.
+- Methods: example
+- Derived from: `cli/retried-work-names-the-attempt-in-flight`, `cli/unsettled-units-state-their-reason`
+- Limitation: Examples drive the projector and the live join over an authored event log. That a real terminal erases exactly the rows it painted when settled rows are retained is witnessed by the pseudo-terminal harness in `apps/cli-e2e`, not decided here. Retires when: Bind terminal evidence here if the live region ever paints a row the frame cannot erase.
+- Source: [`apps/cli/src/screen/live-progress-retains-settled-units.spec.ts`](../apps/cli/src/screen/live-progress-retains-settled-units.spec.ts)
+
 ##### The recovery route for a rejected lockfile re-accepts the desired state
 
 - Requirement: `cli/lockfile-rejections-name-recovery-routes`
@@ -347,6 +377,36 @@ People and agents can understand invalid workspace state and recover it through 
 - Limitation: The HTTP evidence does not establish visual rendering or a real identity-provider round trip. Retires when: Record browser verification of the provider, callback, and terminal result.
 - Source: [`packages/supporting/registry-access/src/authentication/browser-completion-follows-credential-persistence.spec.ts`](../packages/supporting/registry-access/src/authentication/browser-completion-follows-credential-persistence.spec.ts)
 
+##### A name gives way last, and keeps what tells it apart
+
+- Requirement: `cli/names-yield-width-last`
+- Owner: `cli`
+- Statement: A ledger shall shorten a unit's name only when the line has no width left to give it, and a name it must shorten shall keep its final segment and its type segment, giving up scope characters first.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `extension-adoption`
+- Boundary: memory; selection: per-change
+- Boundary rationale: Layout is a pure function of a document and a terminal width, so the whole obligation is decided in memory.
+- Methods: example
+- Derived from: `cli/ledger-width-relocates-values`
+- Assumptions: Extension names are single path segments, so the segment after the last separator is the name itself.
+- Source: [`apps/cli/src/screen/names-yield-width-last.spec.ts`](../apps/cli/src/screen/names-yield-width-last.spec.ts)
+
+##### A result that did not succeed names a recovery that fits it
+
+- Requirement: `cli/non-success-results-name-a-fitting-recovery`
+- Owner: `cli`
+- Statement: When an operation settles partial, failed, blocked, or interrupted, its `Next` shall name at least one recovery that fits the outcome — the emitting command narrowed to the units that did not settle where an unchanged retry can help, or a recovery the producer of a failure stated — and shall not consist solely of a generic inventory suggestion; where no command can change the outcome, it shall offer no retry.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `extension-adoption`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The recovery is derived from the settled resolution and the adapter's own route spelling, both in memory. Which blocker a command's own refusal admits is the emitting feature's and is not decided here.
+- Methods: example, decision-table
+- Derived from: `cli/unsettled-units-state-their-reason`
+- Limitation: Examples drive the shared operation document and the retry policy. That each adapter spells its own route correctly is witnessed by that adapter's tests. Retires when: Bind adapter evidence here when a route's spelling becomes an accepted obligation of its own.
+- Source: [`apps/cli/src/non-success-results-name-a-fitting-recovery.spec.ts`](../apps/cli/src/non-success-results-name-a-fitting-recovery.spec.ts)
+
 ##### A read carries the credential the invocation holds
 
 - Requirement: `cli/reads-carry-the-invocations-credential`
@@ -375,6 +435,22 @@ People and agents can understand invalid workspace state and recover it through 
 - Supersedes: `cli/whoami/refreshes-rejected-stored-credentials`
 - Source: [`packages/supporting/registry-access/src/adapters/renews-the-stored-session-once.spec.ts`](../packages/supporting/registry-access/src/adapters/renews-the-stored-session-once.spec.ts)
 
+##### A unit that did not settle as planned says why, and what it was left in
+
+- Requirement: `cli/unsettled-units-state-their-reason`
+- Owner: `cli`
+- Statement: For every unit of a settled operation that did not settle as planned, human output shall state that unit's reason in full beside its row and shall state whether the unit's prior state was kept, restored, or left incomplete, at every bounded terminal width AXM supports, on an unbounded stream, and at normal as well as verbose detail; a unit the operation never reached shall state what stopped it, and a unit whose producer supplied no reason shall state that rather than showing nothing.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `extension-adoption`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The reason is the sentence a producer settled its unit with, carried on the resolution. Which units fail, and why, belongs to those producers and is not decided here.
+- Methods: example, property
+- Derived from: `cli/mutations-are-closure-atomic`
+- Open questions: Whether quiet output keeps an unsettled unit's reason is recorded on `cli/diagnostic-controls-select-the-requested-detail` and is not decided here.
+- Limitation: Examples and the property drive the settled operation document. That a producer settles a failed unit with a reason at all is witnessed by the producers' own tests, not decided here. Retires when: Bind producer evidence here if a producer is ever allowed to settle a unit unsettled without a stated reason.
+- Source: [`apps/cli/src/unsettled-units-state-their-reason.spec.ts`](../apps/cli/src/unsettled-units-state-their-reason.spec.ts)
+
 ##### Availability outcomes retain the observed reason
 
 - Requirement: `cli/upgrade/availability-failures-are-attributed`
@@ -400,11 +476,11 @@ People and agents can understand invalid workspace state and recover it through 
 - Methods: example, contract
 - Source: [`apps/cli/src/root/auth/reports-safe-effective-identity.spec.ts`](../apps/cli/src/root/auth/reports-safe-effective-identity.spec.ts)
 
-##### A withheld release names recovery from the command that withheld it
+##### Minimum release-age decisions state their outcome and recovery
 
 - Requirement: `cli/withheld-releases-name-recovery-from-the-emitting-command`
 - Owner: `cli`
-- Statement: When a command withholds or refuses a release under the minimum release age, its diagnostic shall name the recovery routes reachable from that command, including the override flag that command accepts and the declared-exemption route, and shall not name a command the operator did not run.
+- Statement: When a command holds, refuses, or explicitly allows an otherwise-too-young release under the minimum release age, its diagnostic shall state that observable outcome before the policy mechanism, preserve the release and timing evidence, name recovery routes reachable from the emitting command when action is required, shall not name a command the operator did not run, and shall not report a release as allowed into the workspace when the unit it names did not commit.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`
@@ -418,13 +494,14 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/errors-do-not-disclose-credentials`
 - Owner: `cli`
-- Statement: AXM shall redact credential values from error reports and their diagnostic details in human and machine output at every supported verbosity level.
+- Statement: AXM shall redact credential values from error reports and their diagnostic details in human and machine output at every supported verbosity level, and from the failure detail a resolved unit publishes on the lifecycle event stream.
 - Class: quality (security)
 - Role: experience
 - Product goals: `actionable-diagnostics`, `machine-automation`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
 - Derived from: `apps/cli/help/topics/machine-output.md`, `apps/cli/src/cli-runtime/handle-error.test.ts`, `apps/cli/src/cli-runtime/json-envelope.test.ts`
+- Limitation: The lifecycle-event example drives the projector and the redaction the producer applies. That every producer applies it before publishing is witnessed by `cli/long-running-operations-emit-lifecycle-events`. Retires when: Bind producer evidence here if a producer ever publishes a failure detail the shared redaction has not seen.
 - Limitation: These examples exercise production error construction and channel rendering with supplied verbosity settings; they do not establish every command-specific diagnostic producer or global flag combination. Retires when: Bind process evidence for global verbosity selection and review diagnostic producers for values that bypass the shared error boundary.
 - Additional evidence: process via [`apps/cli-e2e/src/command.e2e.test.ts`](../apps/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI to observe inline MCP lifecycle argv, exit codes, JSON envelopes, and native files, and invokes the built error runtime with a synthetic secret to establish redaction in human verbose, debug, and quiet-precedence modes.
 - Additional evidence: process via [`apps/cli-e2e/src/smoke.e2e.test.ts`](../apps/cli-e2e/src/smoke.e2e.test.ts) — Observes the shipped process streams under --json: exactly one stdout document per invocation, NDJSON diagnostics on stderr, and the redacted error envelope for failing and defect invocations — channel separation the in-memory renderer capture cannot prove.
@@ -4541,7 +4618,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/long-running-operations-emit-lifecycle-events`
 - Owner: `workspace`
-- Statement: A plan-family operation shall publish an operation-started event, a phase-started event for each phase it enters, a unit-started and a unit-resolved event for every unit it attempts, and exactly one settled event whose outcome equals the outcome of its result document.
+- Statement: A plan-family operation shall publish an operation-started event, a phase-started event for each phase it enters, a unit-started and a unit-resolved event for every unit it attempts, and exactly one settled event whose outcome equals the outcome of its result document; a unit it resolves as failed shall state on that event the category and detail its producer settled with, and a unit that settled as planned shall state none.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -4549,6 +4626,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Boundary rationale: The lifecycle is published by the operation itself; the transport that encodes it for automation is owned separately by cli/machine-progress-events-follow-the-lifecycle-schema.
 - Methods: contract, example
 - Derived from: `cli/machine-progress-events-follow-the-lifecycle-schema`
+- Limitation: The redaction example drives the shared credential-shape redaction the producer applies. Exact secret values harvested at a structured error boundary are redacted by the CLI envelope, which `cli/errors-do-not-disclose-credentials` owns. Retires when: Bind envelope evidence here if a producer is ever given the boundary's harvested secrets.
 - Source: [`packages/core/workspace/src/transitions/planning/plan/long-running-operations-emit-lifecycle-events.spec.ts`](../packages/core/workspace/src/transitions/planning/plan/long-running-operations-emit-lifecycle-events.spec.ts)
 
 ##### A failed machine invocation still emits the stable error envelope
@@ -4583,7 +4661,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/machine-progress-events-follow-the-lifecycle-schema`
 - Owner: `cli`
-- Statement: When machine output mode is on and progress is enabled, every progress event written to standard error shall decode as one lifecycle event of the published schema whose sequence number strictly increases within its operation, and the operation shall write exactly one settled event before its result document.
+- Statement: When machine output mode is on and progress is enabled, every progress event written to standard error shall decode as one lifecycle event of the published schema whose sequence number strictly increases within its operation, the operation shall write exactly one settled event before its result document, and a resolved unit that did not settle as planned shall carry the category and detail its producer settled with through that schema while a unit that settled as planned carries none.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `actionable-diagnostics`

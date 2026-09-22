@@ -148,16 +148,29 @@ export type TruncateMode = "end" | "middle";
 
 const SEPARATOR = "/";
 
+/** The shortest scope worth keeping: the sigil and one character of the name. */
+const MIN_SCOPE = 2;
+
 /**
- * Shorten a path-like name from its middle: keep the scope whole and drop as
- * few trailing segments as the width allows (`@acme-enterprise/…/soc2-review`),
- * and once the scope itself no longer fits, keep the last segment — the part
- * that tells two names apart — and give what is left to the scope. Undefined
- * when the value is one segment, or too narrow for even the last one.
+ * Shorten a path-like name from its middle. The scope gives way first, because
+ * every later segment says something a reader needs: the type segment is what
+ * tells `@acme/skills/docs` from `@acme/knowledge/docs`
+ * (`@acme-ent…/knowledge/docs`). Where even a shortened scope leaves no room,
+ * whole segments go instead, keeping the scope and as many trailing segments
+ * as fit (`@acme-enterprise/…/soc2-review`), and once the scope itself no
+ * longer fits, the last segment — the part that tells two names apart — keeps
+ * what is left. Undefined when the value is one segment, or too narrow for
+ * even the last one.
  */
 const shortenPath = (value: string, width: number, ellipsis: string): string | undefined => {
   const [first, ...rest] = value.split(SEPARATOR);
   if (first === undefined || rest.length === 0) return undefined;
+  const everyLaterSegment = `${SEPARATOR}${rest.join(SEPARATOR)}`;
+  const scopeRoom = width - displayWidth(everyLaterSegment) - displayWidth(ellipsis);
+  if (scopeRoom >= MIN_SCOPE) {
+    const scope = takeDisplayStart(first, scopeRoom);
+    if (displayWidth(scope) >= MIN_SCOPE) return `${scope}${ellipsis}${everyLaterSegment}`;
+  }
   for (let kept = rest.length - 1; kept >= 1; kept -= 1) {
     const candidate = `${first}${SEPARATOR}${ellipsis}${SEPARATOR}${rest.slice(rest.length - kept).join(SEPARATOR)}`;
     if (displayWidth(candidate) <= width) return candidate;

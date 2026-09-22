@@ -1,17 +1,17 @@
 Linting  in this project
 
-     Finding                       Location        Fix
- ✖   Description is missing        12 locations
+     Finding                           Location        Fix
+ ✖   Description is missing            12 locations
      skill/description-present — skills/triage/SKILL.md, skills/standup/SKILL.md, and 10 more
- ✖   Lockfile is stale             axm-lock.yaml   fixable
+ ✖   Lockfile is stale                 axm-lock.yaml   fixable
      workspace/lockfile-valid — 2 entries do not match axm.json
- ▲   Name differs …its directory   7 locations
+ ▲   Name differs from its directory   7 locations
      skill/name-matches-directory — skills/code_review, skills/lintFix, and 5 more
- ▲   Member version floats         3 locations
+ ▲   Member version floats             3 locations
      pack/member-pinned — packs/review-kit, packs/ops, and 1 more
 
-13 errors, 10 warnings  in 23 locations · 1 fixable · exit 1
+13 errors and 10 warnings  in 23 locations · 1 fixable · exit 1
 --verbose lists every location
 
 Next
-     axm lint --fix   apply the deterministic fix
+     axm lint --fix   Apply the available automatic fix

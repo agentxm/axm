@@ -67,6 +67,7 @@ import {
 import type { InstallExecutionFailure, PrepareInstallRequirements } from "../install/vocabulary.js";
 import { resolveRootUninstallIntent } from "./root-intent.js";
 import { refuseUndesiredInstalledTarget, typedUninstallSubject } from "./undesired-target.js";
+import { nameFromLabel } from "../../reconciliation/index.js";
 
 // -----------------------------------------------------------------------------
 // Request
@@ -274,7 +275,7 @@ export const prepareUninstallExtensions: (
     Effect.gen(function* () {
       const steps = yield* Effect.forEach(job.steps, (step) =>
         Effect.gen(function* () {
-          const artifact = artifactByName.get(step.label ?? "");
+          const artifact = artifactByName.get(nameFromLabel(step.label ?? ""));
           if (artifact === undefined || step.readiness === "error" || leafType === undefined)
             return step;
           if ((artifact.targets?.length ?? 0) === 0 && (artifact.references?.length ?? 0) === 0) {
@@ -300,7 +301,7 @@ export const prepareUninstallExtensions: (
             expectedSubagentNames: activeNames("subagent"),
             expectedMcpServerNames: activeNames("mcp-server"),
             expectedHookNames: activeNames("hook"),
-            subjects: [{ type: leafType, name: step.label }],
+            subjects: [{ type: leafType, name: nameFromLabel(step.label) }],
             adapter: cleanupAdapter,
           }).pipe(
             Effect.mapError(

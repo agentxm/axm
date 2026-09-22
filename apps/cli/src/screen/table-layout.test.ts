@@ -116,6 +116,43 @@ describe("layoutTable", () => {
     ).toEqual({ _tag: "grid", columns: [{ index: 0, width: 10, align: "left" }], hidden: [] });
   });
 
+  it("wraps to word floors before dropping a column when asked to", () => {
+    const columns = [
+      column({ naturalWidth: 25, wordWidth: 25, priority: "required" }),
+      column({ naturalWidth: 40, wordWidth: 12 }),
+      column({ naturalWidth: 60, wordWidth: 22, priority: "optional" }),
+    ];
+    // The same columns at the same width the default policy drops at: word
+    // floors give 25 + 12 + 22 + 6 = 65, so 65 cells hold every column.
+    expect(layoutTable({ columns, available: 65, gap: 3, wrapBeforeDrop: true })).toEqual({
+      _tag: "grid",
+      columns: [
+        { index: 0, width: 25, align: "left" },
+        { index: 1, width: 12, align: "left" },
+        { index: 2, width: 22, align: "left" },
+      ],
+      hidden: [],
+    });
+    expect(gridWidths(columns, 65)).toEqual({ widths: [25, 37], hidden: [2] });
+    // Below the word floors there is nothing left to wrap, so it drops again.
+    expect(
+      layoutTable({
+        columns,
+        available: 60,
+        gap: 3,
+        wrapBeforeDrop: true,
+        droppable: ["optional"],
+      }),
+    ).toEqual({
+      _tag: "grid",
+      columns: [
+        { index: 0, width: 25, align: "left" },
+        { index: 1, width: 32, align: "left" },
+      ],
+      hidden: [2],
+    });
+  });
+
   it("drops only the priorities it is given, stacking instead of losing the rest", () => {
     const columns = [
       column({ naturalWidth: 20, wordWidth: 20, minWidth: 20, priority: "required" }),

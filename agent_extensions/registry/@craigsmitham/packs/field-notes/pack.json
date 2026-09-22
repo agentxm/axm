@@ -1,16 +1,16 @@
 {
   "$schema": "https://axm.sh/schemas/pack.schema.json",
   "owner": "@craigsmitham",
-  "version": "0.2.1",
-  "description": "Capture operational occurrences and turn recurring patterns into evidence-prioritized findings and verified improvements",
+  "version": "1.0.0",
+  "description": "Capture concise factual notes about friction encountered during agent sessions for later analysis",
   "keywords": [
     "field-notes",
     "observation",
     "continuous-improvement",
     "friction",
     "developer-experience",
-    "retrospective",
-    "kaizen"
+    "session-friction",
+    "evidence"
   ],
   "repository": {
     "type": "git",
@@ -22,8 +22,8 @@
   "type": "pack",
   "name": "field-notes",
   "dependencies": {
-    "@craigsmitham/knowledge/field-notes": "^0.2.0",
-    "@craigsmitham/rules/field-notes": "^0.2.0",
-    "@craigsmitham/skills/field-notes": "^0.2.0"
+    "@craigsmitham/knowledge/field-notes": "^1.0.0",
+    "@craigsmitham/rules/field-notes": "^1.0.0",
+    "@craigsmitham/skills/field-notes": "^1.0.0"
   }
 }

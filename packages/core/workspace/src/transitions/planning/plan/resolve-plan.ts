@@ -56,6 +56,8 @@ import {
   recordJournalPhase,
   recordOperationJournal,
 } from "./operation-journal.js";
+import { redactRegistryText } from "@agentxm/registry-client";
+
 import {
   CurrentOperationUnit,
   observeUnit,
@@ -63,6 +65,7 @@ import {
   publishPhaseStarted,
   publishWaitEnded,
   publishWaiting,
+  type UnitFailure,
 } from "./operation-events.js";
 import {
   ConfiguredAgentOutcomesProvider,
@@ -550,6 +553,19 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
       },
       { restored: false },
     )[0]?.state ?? "committed";
+  /**
+   * The failure a resolved unit states while the operation is still running:
+   * the category and detail its producer settled with, redacted the way every
+   * other reported failure text is before it leaves this process. A unit that
+   * settled as planned states none.
+   */
+  const publishedUnitFailure = (step: CompletedJobStep<Output>): UnitFailure | undefined =>
+    step.result.result === "error"
+      ? {
+          category: step.result.error.category,
+          detail: redactRegistryText(step.result.error.detail),
+        }
+      : undefined;
   const startedUnits = yield* Ref.make(0);
   const resolvedUnits = yield* Ref.make(0);
   const applyFreshCandidate = Effect.gen(function* () {
@@ -637,6 +653,9 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
               state: resolvedUnitState(step),
               index,
               total: totalUnits,
+              ...(publishedUnitFailure(step) === undefined
+                ? {}
+                : { failure: publishedUnitFailure(step) }),
             })),
           ),
         ),

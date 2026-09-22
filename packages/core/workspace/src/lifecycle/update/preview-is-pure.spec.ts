@@ -352,7 +352,11 @@ describe("Update preview purity", () => {
             // The Pack cannot be planned, so the preview reports the planning
             // error against the Pack rather than proposing work.
             expect(resolution.units).toEqual([
-              expect.objectContaining({ id: `pack:${TOOLKIT}:planning-error`, label: TOOLKIT }),
+              expect.objectContaining({
+                id: `pack:${TOOLKIT}:planning-error`,
+                // Every row of one ledger names its unit in the same form.
+                label: `packs/${TOOLKIT}`,
+              }),
             ]);
             expect(countUnitStates(resolution.units).committed).toBe(0);
             expect(workspace.snapshot()).toEqual(before);

@@ -1,7 +1,7 @@
 Setting up AXM in ~/code/storefront
-  project scope
+  for this project
 
- ✔   Scanned repo and machine
+ ✔   Checked for coding agents
                     found 4 agents
 
  ✔   Agents         AdaL, AiderDesk, Amp
@@ -10,13 +10,19 @@ Setting up AXM in ~/code/storefront
  ✔   Instructions source
        AGENTS.md
 
-     Target         Plan
- +   axm.json       create
- ~   .gitignore     update
- =   AGENTS.md      keep
- +   CLAUDE.md      link
- =   AGENTS.md      keep
- +   .curso…s.mdc   copy
-     --verbose for details
+     Target                     Plan
+ +   axm.json                   create
+     agents: claude-code, codex, cursor
+ ~   .gitignore                 update
+     AXM runtime and package transaction
+     artifacts
+ =   AGENTS.md                  keep
+     source
+ +   CLAUDE.md                  link
+     Claude Code
+ =   AGENTS.md                  keep
+     Codex
+ +   .cursor/rules/agents.mdc   copy
+     Cursor
 
  ?   Apply setup?    Y  yes    n  no

@@ -75,16 +75,30 @@ shape happens to fit the terminal.
 
 Every command whose result carries a ledger opens with the same title line:
 what it is doing, where it acts, and which agents it covers, stated once so no
-row repeats it. No command prints a logo or a phase strip; setup opens like
+row repeats it. A condition the operation reports about its units — a
+release-age decision, a warning several units share — stands between the rows
+and the verdict, and states nothing a row contradicts: an annotation naming a
+unit that did not settle as planned yields to that unit's own reason. `Next` is
+the last thing a reader sees, and on a result that did not succeed it names a
+recovery that fits: the emitting command again, narrowed to the units still
+waiting where an unchanged retry can change their outcome, or what the
+producers of those failures themselves suggested. Where no command would
+change it, it offers no retry. No command prints a logo or a phase strip; setup opens like
 every other command.
 
 A ledger's columns carry a role. The `name` column is protected and shortened
 last; `fixed` columns keep their width; an `elastic` column takes spare width.
 Plan, progress, and result ledgers differ only in their final columns — a plan
-and detail against a status — and their marks. A ledger folds rows that repeat
+and detail against a status — and their marks. A version column states the move
+a unit made where both ends are known, the version still installed for a unit
+that did not settle, and that its target is not resolved yet where a plan has
+not resolved one. A ledger folds rows that repeat
 one outcome, such as unchanged units, into one fold line with a mark, a count, a
-noun, and the flag that reveals them. Row children carry per-agent outcomes and
-details, aligned to the content column and shown at verbose level. A ledger
+noun, and the flag that reveals them. A row that did not settle as planned
+carries its reason: one line beneath the row, at the content column, toned as
+the row's own mark, painted at every width and every level of detail because a
+reason has nowhere else to appear. Row children carry per-agent outcomes and
+details, aligned to the same column and shown at verbose level. A ledger
 takes any columns: lint's are finding, location, and fix, with the rule
 identifier and help as a dim child line, and a rule that repeats folds into one
 row with a location count. The separator between semantic parts of an aside or
@@ -194,15 +208,26 @@ alignment, so a header never drifts from its cells. Breakpoints are emergent,
 not configured: with a required name, a preferred version, and an optional
 elastic detail, spare width flows to detail and detail drops first.
 
-A ledger drops only its `optional` columns, whose values a flag or `--verbose`
-still reveals. When the columns it keeps — the gutter, the name, and every
-column that is not optional — overflow, it stacks each row into its mark and
-name on one line and its remaining values beneath, rather than drop a value
-that has nowhere else to appear. It stacks on that overflow, not at a fixed
+A long word gives way at a path separator or a comma before it is split
+between characters, so a path list wraps at its segments and a column's floor
+is its widest segment rather than the whole list.
+
+A ledger would rather wrap than drop: it shrinks every column to its word
+floors before it gives one up, because wrapping keeps a value in the column
+whose header names it. What it does drop — only an `optional` column — is
+repainted beneath each row that has a value for it, dim, at the content
+column: the bare value when one column was dropped, and `Header  value` pairs
+when more than one was. When the columns it keeps — the gutter, the name, and
+every column that is not optional — overflow, it stacks each row into its mark
+and name on one line and every remaining value beneath. Width therefore moves
+what a ledger carries and never removes it, and no ledger sends a reader to
+`--verbose` for a value the same flag would drop again. The hint remains only
+where verbose genuinely shows more: folded already-current and not-selected
+rows, and every agent's outcome. A ledger stacks on overflow, not at a fixed
 width, and its name column holds the key lane, so a ledger's second column,
 its fields, and its answers share the value column. A read-only table instead
-drops `preferred` columns and stacks below forty columns, which suits wide
-inventories.
+drops `preferred` columns, names what it dropped in one line, and stacks below
+forty columns, which suits wide inventories.
 
 A question yields in three steps. Its key chips follow it on one line while
 both fit; then they take the line beneath it, aligned to the content column;
@@ -232,10 +257,19 @@ match. One dim line beneath the list says how many are picked and names its
 keys; a narrow line drops the arrows and the words of named keys first, then
 every key.
 
-A long name shortens in the middle, keeping its scope and last path segment:
-`@acme-enterprise/…/soc2-review`. A copyable value — a URL, a `next` command, a
+A protected column is laid out at its natural width even where a width hint
+would keep the columns after it on a shared lane: alignment is worth having
+while the values fit beside it, and yields to information when they do not. A
+name therefore shortens only once every shrinkable column has given up what it
+can. When it must shorten, it gives up scope characters and keeps every later
+segment, because the type segment is what tells `@acme/skills/docs` from
+`@acme/knowledge/docs`: `@acme-enterpr…/skills/audits/soc2-review`. Where no
+scope worth keeping fits, whole middle segments go instead, and finally the
+last segment takes what is left. Every row of one ledger identifies its unit in
+the same form, and that form states the unit's type. A copyable value — a URL, a `next` command, a
 one-time code, a request identifier — is never cut, truncated, or hyphenated;
-when it does not fit it moves to its own line.
+when it does not fit it moves to its own line, in a ledger cell as anywhere
+else.
 
 A stream that is not a terminal is unbounded. Nothing written to it is
 wrapped, truncated, or padded to a terminal width, so an agent or a pager
@@ -252,7 +286,11 @@ from the events.
 The live ledger is the plan's rows joined to live progress by unit id. Plan
 rows, lifecycle events, and resolved units share one identifier, and views
 obtain it from the plan layer rather than rebuilding it. A running row shows ◒,
-its state word and its measure; a row not yet started shows `· waiting`; and a
+its state word and its measure; a row not yet started shows the waiting mark
+and the word its plan gave it; a row that has settled shows its final mark and
+the word its result row will use, from the same phrase, so a reader is not told
+one thing while an operation runs and another when it ends; a row that did not
+settle as planned states its reason beneath it as soon as it settles; and a
 row is paused while a wait whose subject
 is that unit is open. An operation with no plan, such as sign-in or upgrade,
 synthesizes rows from its units. A wait that names no unit, such as another
@@ -261,12 +299,18 @@ stands beneath the ledger in place of the status line, with how long it has
 lasted, who holds it, and what stopping costs. Nested units roll up into their parent row's
 state word and measure.
 
-The scene never exceeds the terminal height less two rows. The ledger window
-shows running rows first, then the next few waiting, then the ledger's own fold
-line, which carries the waiting mark, how many rows it stands for, and how many
-have finished; settled rows leave the window and return in the result. Beneath
-the ledger one dim line says what the operation is doing, how far it has come,
-and how long it has taken. When a ledger and an interaction compete for height, the interaction
+The scene never exceeds the terminal height less two rows. While the rows fit
+that height every row stays, in plan order: what has already happened is part
+of what a reader is reading. When they do not fit, the window keeps the work in
+flight, then every row that did not settle as planned, then the next few
+waiting, and then the most recent of what settled as planned; a row leaves in
+the reverse of that order, so a row that did not settle as planned never leaves
+before one that did. A reason takes a line of the height, and is counted as
+one. The ledger's own fold line carries the waiting mark, how many rows it
+stands for, and how many have finished and failed. Beneath the ledger one dim
+line says what the operation is doing, how many of its units have finished —
+finished, not started — how many did not settle as planned, and how long it has
+taken. When a ledger and an interaction compete for height, the interaction
 keeps its minimum — its question, three rows, and a hint — and the ledger window
 shrinks to its header and fold line.
 
@@ -306,7 +350,18 @@ answered states, and every node kind — and its
 file snapshots record the painted output at 40, 80, 120, and 200 columns, and
 at 16 and 24 rows where a scene must fit. A scene fixture is a pure function
 of the terminal size, painted one column short of the width and held within the
-height less two rows. A fixture drawn from the design canvas is named
+height less two rows.
+
+Scenarios that go wrong are drawn from one shared stress data set — qualified
+names across every extension type, a scope too long for its lane, absolute
+paths, reasons that run to several sentences, and a command a reader copies
+out — so layout is reviewed where it has to choose between the information a
+ledger carries and the columns it lays out. Those frames add a hundred columns
+to the widths above, the width a working terminal usually has. A live scene is
+reviewed over time as well as in one frame: a sequence of scenes cut from one
+recorded event log shows the same operation starting, settling units, failing
+one, and reaching its last, so a row that leaves the window between frames left
+because the window's own rules put it there. A fixture drawn from the design canvas is named
 `<board>--<frame>`, so its snapshots can be held against the mock they
 implement. Retained alternatives are separate fixtures only while they remain
 useful review scenarios; superseded or semantically duplicate variants are

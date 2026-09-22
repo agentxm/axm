@@ -89,6 +89,7 @@ import { inlineMcpNotApplicablePlan } from "../install/inline-mcp-operation.js";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 
+import { toTypedLabel } from "../../reconciliation/index.js";
 import { ExtensionLifecycleFailed } from "../errors.js";
 import { lifecycleStepFailure } from "../step-failure.js";
 import { StepFailureConversion } from "../step-failure-conversion.js";
@@ -249,7 +250,7 @@ const workspaceSourceUnchangedPlan = (
         {
           key: `${type}:${name}`,
           readiness: "ready",
-          label: name,
+          label: toTypedLabel(type, name),
           run: Effect.succeed({
             result: "success",
             message: `${name} is workspace-sourced and unchanged`,
@@ -281,7 +282,7 @@ const workspacePlanningErrorPlan = (
         {
           key: `${type}:${name}:planning-error`,
           readiness: "ready",
-          label: name,
+          label: toTypedLabel(type, name),
           run: Effect.fail(lifecycleStepFailure(error)),
         },
       ],
@@ -792,7 +793,7 @@ const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest) =>
               resolveSkillIntent(name, entry.source, selection.releaseAgeEvaluation),
               (intent) => planSkillInstall(intent, { installedBefore }),
               (error) => workspacePlanningErrorPlan("skill", name, error),
-              name,
+              toTypedLabel("skill", name),
             ),
       { concurrency: 16 },
     );
@@ -824,7 +825,7 @@ const collectRulePlans = (selection: WorkspaceUpdateCollectionRequest) =>
               resolveRuleIntent(name, entry.source, selection.releaseAgeEvaluation),
               (intent) => planRuleInstall(intent),
               (error) => workspacePlanningErrorPlan("rule", name, error),
-              name,
+              toTypedLabel("rule", name),
             ),
       { concurrency: "unbounded" },
     );
@@ -856,7 +857,7 @@ const collectHookPlans = (selection: WorkspaceUpdateCollectionRequest) =>
               resolveHookIntent(name, entry.source, selection.releaseAgeEvaluation),
               (intent) => planHookInstall(intent),
               (error) => workspacePlanningErrorPlan("hook", name, error),
-              name,
+              toTypedLabel("hook", name),
             ),
       { concurrency: "unbounded" },
     );
@@ -888,7 +889,7 @@ const collectKnowledgePlans = (selection: WorkspaceUpdateCollectionRequest) =>
               resolveKnowledgeIntent(name, entry.source, selection.releaseAgeEvaluation),
               (intent) => planKnowledgeInstall(intent),
               (error) => workspacePlanningErrorPlan("knowledge", name, error),
-              name,
+              toTypedLabel("knowledge", name),
             ),
       { concurrency: "unbounded" },
     );
@@ -922,7 +923,7 @@ const collectSubagentPlans = (selection: WorkspaceUpdateCollectionRequest) =>
               resolveSubagentIntent(name, entry.source, selection.releaseAgeEvaluation),
               (intent) => planSubagentInstall(intent),
               (error) => workspacePlanningErrorPlan("subagent", name, error),
-              name,
+              toTypedLabel("subagent", name),
             ),
       { concurrency: "unbounded" },
     );
@@ -1029,7 +1030,7 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
                   ? ({
                       kind: "planned",
                       collection: toCollectedWorkspaceUpdatePlans({
-                        plans: [selectorHeldPlan(name, resolution.message)],
+                        plans: [selectorHeldPlan(toTypedLabel("pack", name), resolution.message)],
                       }),
                     } satisfies CollectedPackResolution)
                   : ({
@@ -1088,11 +1089,11 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     const blockPlans = blockedGroups.map((group) => {
       const prevented = selected
         .filter((advance) => group.packIdentities.includes(advance.identity))
-        .map((advance) => advance.name);
+        .map((advance) => advance.identity);
       return configuredPackConstraintBlockPlan({
         operation: "update",
         problems: group.problems,
-        ...(prevented.length === 0 ? {} : { blockedPackNames: prevented }),
+        ...(prevented.length === 0 ? {} : { blockedPackLabels: prevented }),
       });
     });
 

@@ -34,7 +34,10 @@ import type * as Scope from "effect/Scope";
 import * as ServiceMap from "effect/Context";
 import * as Stream from "effect/Stream";
 
+import { redactRegistryText } from "@agentxm/registry-client";
+
 import { BlockingClassSchema } from "./plan.js";
+import { OperationErrorCategorySchema, StepFailure } from "./errors.js";
 import { OperationPhaseSchema, UnitStateSchema, type UnitState } from "./operation-resolution.js";
 
 // -----------------------------------------------------------------------------
@@ -129,6 +132,21 @@ export const UnitProgressEventSchema = Schema.TaggedStruct("UnitProgress", {
   attempt: Schema.optional(ProgressAttemptSchema),
 }).annotate({ identifier: "UnitProgressEvent" });
 
+/**
+ * Why a unit did not settle as planned, as the two facts its producer already
+ * carries: the category it chose and the detail sentence it settled with. It
+ * is not presentation wording — a consumer words it its own way — and it is
+ * present only where a unit failed or was blocked, so an observer watching the
+ * stream learns why while the operation is still running instead of waiting
+ * for the result document.
+ */
+export const UnitFailureSchema = Schema.Struct({
+  category: OperationErrorCategorySchema,
+  detail: Schema.String,
+}).annotate({ identifier: "UnitFailure" });
+
+export type UnitFailure = typeof UnitFailureSchema.Type;
+
 export const UnitResolvedEventSchema = Schema.TaggedStruct("UnitResolved", {
   ...EventBase,
   unitId: Schema.String,
@@ -136,6 +154,7 @@ export const UnitResolvedEventSchema = Schema.TaggedStruct("UnitResolved", {
   state: UnitStateSchema,
   index: Schema.Number,
   total: Schema.optional(Schema.Number),
+  failure: Schema.optional(UnitFailureSchema),
 }).annotate({ identifier: "UnitResolvedEvent" });
 
 export const WaitingEventSchema = Schema.TaggedStruct("Waiting", {
@@ -414,6 +433,20 @@ const unitStateForExit = (exit: Exit.Exit<unknown, unknown>): UnitState =>
       : "failed";
 
 /**
+ * The failure a resolved unit states, where its exit carries a typed one. A
+ * defect is an invariant violation with no producer sentence to report, so it
+ * states none; the detail is redacted the way every other reported failure
+ * text is, before it leaves this process.
+ */
+const unitFailureForExit = (exit: Exit.Exit<unknown, unknown>): UnitFailure | undefined => {
+  if (Exit.isSuccess(exit)) return undefined;
+  const error = Option.getOrUndefined(Cause.findErrorOption(exit.cause));
+  return error instanceof StepFailure
+    ? { category: error.category, detail: redactRegistryText(error.detail) }
+    : undefined;
+};
+
+/**
  * Run one unit of work under the lifecycle: `UnitStarted` before, then
  * `UnitResolved` with the state the exit proves (`committed`, `failed`, or
  * `interrupted`) and the label the unit settles with. The unit identity is
@@ -455,6 +488,9 @@ export const observeUnit = <A, E, R>(
             state: unitStateForExit(exit),
             index,
             ...total,
+            ...(unitFailureForExit(exit) === undefined
+              ? {}
+              : { failure: unitFailureForExit(exit) }),
           })),
         ),
       );

@@ -44,7 +44,8 @@ export const everyNode: Doc = [
       {
         id: "@acme/skills/triage",
         mark: "failed",
-        cells: ["@acme/skills/triage", "2.0.1", "failed", "the registry refused the request"],
+        cells: ["@acme/skills/triage", "2.0.1", "failed", ""],
+        reason: "the registry refused the request",
       },
     ],
     folds: [{ mark: "unchanged", count: 3, noun: "unchanged", hint: "--verbose to list" }],

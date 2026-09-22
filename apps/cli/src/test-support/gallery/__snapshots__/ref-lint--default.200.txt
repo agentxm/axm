@@ -8,7 +8,7 @@ Linting  in this project
  ▲   Member version floats         packs/review-kit
      pack/member-pinned — Pin @acme/skills/triage for repeatable installs
 
-2 errors, 1 warning  1 fixable · exit 1
+2 errors and 1 warning  1 fixable · exit 1
 
 Next
-     axm lint --fix   apply the deterministic fix
+     axm lint --fix   Apply the available automatic fix

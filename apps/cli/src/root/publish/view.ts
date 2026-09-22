@@ -239,14 +239,10 @@ const UNSETTLED: ReadonlySet<Standing> = new Set(["failed", "unconfirmed"]);
 
 const placedRow = (placed: Placed, mode: PublishResult["mode"], detailed: boolean): LedgerRow => {
   const message = placed.item.message;
-  const children: Doc = [
-    // Why an extension failed is what a reader acts on, so it always shows,
-    // beneath its row rather than in a cell too narrow to hold it.
-    ...(message === undefined || !UNSETTLED.has(placed.standing)
-      ? []
-      : [{ _tag: "paragraph", tone: "warn", text: message } as const]),
-    ...(detailed ? evidenceOf(placed.item, placed.standing, placed.setItem) : []),
-  ];
+  // Why an extension failed is what a reader acts on, so it takes the row's
+  // own reason slot, which every ledger paints beneath its row at every width.
+  const reason = message === undefined || !UNSETTLED.has(placed.standing) ? undefined : message;
+  const children: Doc = detailed ? evidenceOf(placed.item, placed.standing, placed.setItem) : [];
   return {
     id: identity(placed.item),
     mark: markOf(placed.standing),
@@ -256,6 +252,7 @@ const placedRow = (placed: Placed, mode: PublishResult["mode"], detailed: boolea
       wordOf(placed.standing, mode),
       detailOf(placed.item, placed.standing, mode, placed.setItem),
     ],
+    ...(reason === undefined ? {} : { reason }),
     ...(children.length === 0 ? {} : { children }),
   };
 };

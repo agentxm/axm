@@ -1,12 +1,19 @@
 # Field notes bundle update log
 
+## 2026-09-21
+
+* **Breaking change**: Reframed field notes as universal, lightweight capture
+  of friction encountered during an agent session. Removed subjects, findings,
+  triage, and closure; added explicit cost/impact capture and a prohibition on
+  extra analysis or investigation while writing a note.
+
 ## 2026-09-08
 
-* **Coherence**: Corrected [Subjects](subject-explainer.md) so survey mode no
-  longer claims that notes under it are exempt from promotion. Survey and
-  target subjects share the recurrence threshold described in
-  [Closure](closure-explainer.md); what distinguishes a survey subject is that
-  its characteristic output is a target condition.
+* **Coherence**: Corrected the former Subjects concept so survey mode no longer
+  claimed that notes under it were exempt from promotion. Survey and target
+  subjects shared the recurrence threshold described in the former Closure
+  concept; what distinguished a survey subject was that its characteristic
+  output was a target condition.
 
 ## 2026-08-24
 
@@ -26,6 +33,5 @@
 
 ## 2026-08-08
 
-* **Creation**: Established the bundle with [Field notes](field-notes-explainer.md),
-  [Subjects](subject-explainer.md), and [Closure](closure-explainer.md).
-  Concepts are `status: draft` pending human review.
+* **Creation**: Established the bundle with Field notes, Subjects, and Closure
+  concepts. Concepts were `status: draft` pending human review.

@@ -37,7 +37,7 @@ describe("axm skills install output UX", () => {
       // callout is what tells a reader nothing was materialized.
       expect(output).toContain("Installing  in this project");
       expect(output).not.toContain("agents:");
-      expect(output).toContain("No coding-agent targets were materialized");
+      expect(output).toContain("No coding agents received this change");
       expect(output).toContain("axm agents add --detected");
     } finally {
       temp.cleanup();
@@ -76,7 +76,7 @@ describe("axm skills install output UX", () => {
       const output = getOutput(result);
       const verdict = "Installed 1 skill";
       const unitRow =
-        "my-skill                      -         created   1 file, .agents/skills/my-skill, .claude/skills/my-skill";
+        "skills/my-skill               -         created   1 file, .agents/skills/my-skill, .claude/skills/my-skill";
       expect(output).toContain(verdict);
       expect(output).toContain(unitRow);
       // The verdict settles the ledger, so it follows the rows it rests on.
@@ -129,7 +129,8 @@ describe("axm skills install output UX", () => {
       });
       expect(document.result.units).toHaveLength(1);
       const unit = document.result.units[0];
-      expect(unit.label).toBe("my-skill");
+      // A label states its extension's type, so one ledger reads in one form.
+      expect(unit.label).toBe("skills/my-skill");
       expect(unit.state).toBe("committed");
       expect(unit.artifact.change).toBe("created");
       expect(unit.artifact.agents).toEqual(["claude-code", "cursor"]);

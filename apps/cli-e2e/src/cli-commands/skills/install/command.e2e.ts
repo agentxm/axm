@@ -128,7 +128,7 @@ describe("axm skills install", () => {
         const verdictIndex = output.indexOf("Installed 1 skill");
         expect(verdictIndex).toBeGreaterThanOrEqual(0);
         const unitRow =
-          "my-skill                      -         created   1 file, .agents/skills/my-skill, .claude/skills/my-skill";
+          "skills/my-skill               -         created   1 file, .agents/skills/my-skill, .claude/skills/my-skill";
         expect(output.indexOf(unitRow)).toBeGreaterThanOrEqual(0);
         expect(output.indexOf(unitRow)).toBeLessThan(verdictIndex);
         expect(output).toMatch(/Installing {2}in this project [·-] agents: claude-code/);
@@ -585,7 +585,7 @@ describe("axm skills install", () => {
         );
 
         expect(result.exitCode).toBe(0);
-        expect(getOutput(result)).toMatch(/\d+ to install/);
+        expect(getOutput(result)).toMatch(/Would install \d+ skills?/);
       } finally {
         temp.cleanup();
       }

@@ -140,6 +140,26 @@ job. Main and recovery runs use the full partitions. Each partition must succeed
 for Required CI; splitting execution does not make E2E optional. Locally,
 `verify:pr` remains the complete command.
 
+`axm:audit:dependencies` is a fresh registry-backed gate in `verify:pr:source`
+and `ci:workspace`. It fails for high or critical advisories in production
+dependencies. Those are the classes with the clearest runtime exposure; lower
+severities and development dependencies are reported by the fresh
+`axm:audit:report` target in the proposed-change CI job. That reporting step is
+nonblocking, so a newly published lower-severity advisory does not fail an
+unrelated pull request. A new production high advisory can fail an unrelated
+pull request; that is the deliberate detection point. Registry errors fail the
+gate rather than producing a clean audit result. Neither target is cached
+because the advisory database can change without a repository change.
+
+If a production high advisory has no applicable fix or reachable exposure,
+add only its GHSA ID with `--ignore` to the gate target. Record the affected
+dependency path, owner, reason, and dated review trigger with that exception;
+the report target must continue to show it. Remove the exception when the
+review trigger is met. Do not use `--ignore-unfixable` or a workspace-wide
+ignore list: either would silently accept future findings without individual
+review. [pnpm audit](https://pnpm.io/cli/audit) defines the severity, production,
+and advisory-ID filters.
+
 Git secret detection has its own fresh `axm:scan-secrets` target and required CI
 host job, including documentation-only changes. It scans HEAD history, staged
 content, and tracked working changes; its staged configuration also runs in the

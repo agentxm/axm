@@ -6,10 +6,11 @@
  * reconciliation, projects configured-agent outcomes, scans readiness,
  * assembles the semantic risk conditions, and fingerprints the material
  * preimages. `resolveExecutionCandidate` presents that candidate, fails
- * closed on blockers and missing policies, previews or confirms, acquires
- * the workspace transition, revalidates the same candidate under it, applies
- * it closure by closure, and produces one `OperationResolution` at every
- * termination path. Presentation and prompting live behind the
+ * closed on blockers and missing policies, previews or acquires verified
+ * content before confirmation, then acquires the workspace transition,
+ * revalidates the same candidate under it, applies it closure by closure,
+ * and produces one `OperationResolution` at every termination path.
+ * Presentation and prompting live behind the
  * `ResolvePlanInteraction` port; per-type outcome refinement behind the
  * `ConfiguredAgentOutcomesProvider`.
  *
@@ -142,12 +143,12 @@ const acquisitionRefsForStep = <Requirements, Output>(
 ) =>
   step.readiness === "error"
     ? []
-    : [
-        ...(step.acquisitionRefs ?? []),
-        ...(step.sourceBinding === undefined
+    : (
+        step.acquisitionRefs ??
+        (step.sourceBinding === undefined
           ? []
-          : [step.sourceBinding.ref, ...(step.sourceBinding.members ?? [])]),
-      ].filter((ref) => ref.refType !== "workspace");
+          : [step.sourceBinding.ref, ...(step.sourceBinding.members ?? [])])
+      ).filter((ref) => ref.refType !== "workspace");
 
 const withPlannedAgentOutcomes = <Requirements, Output>(
   plan: Plan<Requirements, Output>,
@@ -362,13 +363,13 @@ export interface ResolveExecutionCandidateOptions<Requirements, Output> {
  *
  * 1. Present the immutable candidate.
  * 2. Fail closed on blockers and missing named policies.
- * 3. Preview, or approve confirmable semantic risk.
+ * 3. Preview, or acquire selected content and approve confirmable semantic risk.
  * 4. Acquire the workspace transition, revalidate the same candidate under
  *    it, and apply it closure by closure.
  *
  * Every termination path resolves to one `OperationResolution`.
  */
-export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(function* <
+const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(function* <
   Requirements,
   Output,
 >(
@@ -526,6 +527,114 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
       suggestions: escapes,
     });
   }
+
+  function* sourceRefs() {
+    for (const job of candidatePlan.jobs) {
+      for (const step of job.steps) {
+        yield* acquisitionRefsForStep(step);
+      }
+    }
+  }
+  const queue = selectAcquisitionQueue(sourceRefs());
+  if (queue.type === "limit") {
+    return notExecuted({
+      failure: new StepFailure({
+        category: "quota",
+        detail: `This operation requires more than ${queue.limit} distinct source acquisitions`,
+      }),
+    });
+  }
+  const uniqueSourceRefs = queue.refs;
+  const sources = yield* Effect.serviceOption(SourceHostProviders);
+  const budget = yield* Effect.serviceOption(OperationRequestBudget);
+  const scratchBudget = yield* Effect.serviceOption(OperationScratchBudget);
+  const acquisitionScope = yield* Scope.Scope;
+  const acquire = Option.isSome(sources) ? sources.value.acquireForTransition : undefined;
+  if (uniqueSourceRefs.length > 0 && acquire === undefined) {
+    return notExecuted({
+      failure: new StepFailure({
+        category: "internal",
+        detail: "Selected source content cannot be acquired for this workspace transition",
+      }),
+    });
+  }
+  const acquiredResults =
+    acquire === undefined
+      ? []
+      : yield* Effect.forEach(
+          uniqueSourceRefs,
+          (ref) =>
+            Effect.gen(function* () {
+              const key = sourceRefContentKey(ref);
+              const childScope = yield* Scope.fork(acquisitionScope);
+              const attempted = yield* Effect.gen(function* () {
+                const reservation = Option.isSome(scratchBudget)
+                  ? yield* scratchBudget.value.reserve(MAX_ACQUIRED_TREE_BYTES)
+                  : undefined;
+                const files = yield* observeUnit(
+                  {
+                    id:
+                      ref.refType === "registry"
+                        ? `registry-extract:${ref.owner}/${ref.type}/${ref.name}`
+                        : `source-acquire:${ref.type}/${ref.name}`,
+                    label: `acquiring ${ref.name}`,
+                  },
+                  acquire(ref),
+                );
+                if (reservation !== undefined) {
+                  const bytes = yield* measureAcquiredTree(files.scratchRoot ?? files.directory);
+                  yield* reservation.settle(bytes);
+                }
+                return files;
+              }).pipe(Effect.provideService(Scope.Scope, childScope), Effect.result);
+              if (Result.isSuccess(attempted)) return { ref, key, files: attempted.success };
+
+              yield* Scope.close(childScope, Exit.fail(attempted.failure));
+              const cause = attempted.failure;
+              const failureCategory =
+                cause instanceof OperationScratchLimitExceeded ||
+                cause instanceof AcquiredTreeLimitExceeded
+                  ? "quota"
+                  : isSourceResolutionFailure(cause)
+                    ? sourceResolutionFailureCategory(cause)
+                    : "network";
+              const category = OPERATION_ERROR_CATEGORIES.find(
+                (candidate) => candidate === failureCategory,
+              );
+              const detail =
+                cause instanceof OperationScratchLimitExceeded
+                  ? `Source acquisition exceeds the ${cause.capacity} byte operation scratch limit`
+                  : cause instanceof AcquiredTreeLimitExceeded
+                    ? `Acquired source exceeds the ${cause.limit} ${cause.resource} tree limit`
+                    : isSourceResolutionFailure(cause) &&
+                        "detail" in cause &&
+                        typeof cause.detail === "string"
+                      ? redactRegistryText(cause.detail)
+                      : `Could not acquire ${ref.type} ${ref.name} before applying the workspace transition`;
+              return {
+                ref,
+                key,
+                failure: new StepFailure({
+                  category: category ?? "network",
+                  detail,
+                  cause,
+                }),
+              };
+            }),
+          { concurrency: Option.isSome(budget) ? budget.value.capacity : 1 },
+        );
+  const acquiredContent = {
+    filesByKey: new Map(
+      acquiredResults.flatMap((result) =>
+        "files" in result ? [[result.key, result.files] as const] : [],
+      ),
+    ),
+    failuresByKey: new Map(
+      acquiredResults.flatMap((result) =>
+        "failure" in result ? [[result.key, result.failure] as const] : [],
+      ),
+    ),
+  };
 
   // Confirmation. A condition that consents only at a prompt — a publisher
   // change, or any confirmable condition met by a command with no
@@ -885,148 +994,42 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
     }),
   );
   const transitionSubject = "workspace-transition";
-  const applyResult = yield* Effect.scoped(
-    Effect.gen(function* () {
-      function* sourceRefs() {
-        for (const job of candidatePlan.jobs) {
-          for (const step of job.steps) {
-            yield* acquisitionRefsForStep(step);
-          }
-        }
-      }
-      const queue = selectAcquisitionQueue(sourceRefs());
-      if (queue.type === "limit") {
-        return {
-          type: "failure",
-          error: {
-            error: new StepFailure({
-              category: "quota",
-              detail: `This operation requires more than ${queue.limit} distinct source acquisitions`,
-            }),
-          },
-        } as const;
-      }
-      const uniqueSourceRefs = queue.refs;
-      const sources = yield* Effect.serviceOption(SourceHostProviders);
-      const budget = yield* Effect.serviceOption(OperationRequestBudget);
-      const scratchBudget = yield* Effect.serviceOption(OperationScratchBudget);
-      const acquisitionScope = yield* Scope.Scope;
-      const acquire = Option.isSome(sources) ? sources.value.acquireForTransition : undefined;
-      const acquiredResults =
-        acquire === undefined
-          ? []
-          : yield* Effect.forEach(
-              uniqueSourceRefs,
-              (ref) =>
-                Effect.gen(function* () {
-                  const key = sourceRefContentKey(ref);
-                  const childScope = yield* Scope.fork(acquisitionScope);
-                  const attempted = yield* Effect.gen(function* () {
-                    const reservation = Option.isSome(scratchBudget)
-                      ? yield* scratchBudget.value.reserve(MAX_ACQUIRED_TREE_BYTES)
-                      : undefined;
-                    const files = yield* observeUnit(
-                      {
-                        id:
-                          ref.refType === "registry"
-                            ? `registry-extract:${ref.owner}/${ref.type}/${ref.name}`
-                            : `source-acquire:${ref.type}/${ref.name}`,
-                        label: `acquiring ${ref.name}`,
-                      },
-                      acquire(ref),
-                    );
-                    if (reservation !== undefined) {
-                      const bytes = yield* measureAcquiredTree(
-                        files.scratchRoot ?? files.directory,
-                      );
-                      yield* reservation.settle(bytes);
-                    }
-                    return files;
-                  }).pipe(Effect.provideService(Scope.Scope, childScope), Effect.result);
-                  if (Result.isSuccess(attempted)) return { ref, key, files: attempted.success };
-
-                  yield* Scope.close(childScope, Exit.fail(attempted.failure));
-                  const cause = attempted.failure;
-                  const failureCategory =
-                    cause instanceof OperationScratchLimitExceeded ||
-                    cause instanceof AcquiredTreeLimitExceeded
-                      ? "quota"
-                      : isSourceResolutionFailure(cause)
-                        ? sourceResolutionFailureCategory(cause)
-                        : "network";
-                  const category = OPERATION_ERROR_CATEGORIES.find(
-                    (candidate) => candidate === failureCategory,
-                  );
-                  const detail =
-                    cause instanceof OperationScratchLimitExceeded
-                      ? `Source acquisition exceeds the ${cause.capacity} byte operation scratch limit`
-                      : cause instanceof AcquiredTreeLimitExceeded
-                        ? `Acquired source exceeds the ${cause.limit} ${cause.resource} tree limit`
-                        : isSourceResolutionFailure(cause) &&
-                            "detail" in cause &&
-                            typeof cause.detail === "string"
-                          ? redactRegistryText(cause.detail)
-                          : `Could not acquire ${ref.type} ${ref.name} before applying the workspace transition`;
-                  return {
-                    ref,
-                    key,
-                    failure: new StepFailure({
-                      category: category ?? "network",
-                      detail,
-                      cause,
-                    }),
-                  };
-                }),
-              { concurrency: Option.isSome(budget) ? budget.value.capacity : 1 },
-            );
-      const acquiredContent = {
-        filesByKey: new Map(
-          acquiredResults.flatMap((result) =>
-            "files" in result ? [[result.key, result.files] as const] : [],
-          ),
-        ),
-        failuresByKey: new Map(
-          acquiredResults.flatMap((result) =>
-            "failure" in result ? [[result.key, result.failure] as const] : [],
-          ),
-        ),
-      };
-      const waited = yield* Ref.make(false);
-      const contention = yield* acquireWorkspaceTransition({
-        command: applyExecution.approvalRecovery.command.join(" "),
-        candidateId: candidate.id,
-        // Contention is a first-class lifecycle fact: observers render the
-        // wait and its holder; nothing here decides how it is worded.
-        onWaiting: (holder) =>
-          Ref.set(waited, true).pipe(
-            Effect.andThen(
-              publishWaiting({
-                blockingClass: "resource-conflict",
-                subject: transitionSubject,
-                detail: Option.match(holder, {
-                  onNone: () => "another operation",
-                  onSome: (value) => `${value.command} (pid ${String(value.pid)})`,
-                }),
+  const applyResult = yield* Effect.gen(function* () {
+    const waited = yield* Ref.make(false);
+    const contention = yield* acquireWorkspaceTransition({
+      command: applyExecution.approvalRecovery.command.join(" "),
+      candidateId: candidate.id,
+      // Contention is a first-class lifecycle fact: observers render the
+      // wait and its holder; nothing here decides how it is worded.
+      onWaiting: (holder) =>
+        Ref.set(waited, true).pipe(
+          Effect.andThen(
+            publishWaiting({
+              blockingClass: "resource-conflict",
+              subject: transitionSubject,
+              detail: Option.match(holder, {
+                onNone: () => "another operation",
+                onSome: (value) => `${value.command} (pid ${String(value.pid)})`,
               }),
-            ),
+            }),
           ),
-      });
-      if (yield* Ref.get(waited)) yield* publishWaitEnded(transitionSubject);
-      if (Option.isSome(contention)) {
-        return { type: "contention", contention: contention.value } as const;
-      }
-      return yield* (
-        acquire !== undefined && uniqueSourceRefs.length > 0
-          ? guardedApply.pipe(Effect.provideService(AcquiredContent, acquiredContent))
-          : guardedApply
-      ).pipe(
-        Effect.match({
-          onFailure: (error) => ({ type: "failure", error }) as const,
-          onSuccess: (value) => ({ type: "success", value }) as const,
-        }),
-      );
-    }),
-  );
+        ),
+    });
+    if (yield* Ref.get(waited)) yield* publishWaitEnded(transitionSubject);
+    if (Option.isSome(contention)) {
+      return { type: "contention", contention: contention.value } as const;
+    }
+    return yield* (
+      uniqueSourceRefs.length > 0
+        ? guardedApply.pipe(Effect.provideService(AcquiredContent, acquiredContent))
+        : guardedApply
+    ).pipe(
+      Effect.match({
+        onFailure: (error) => ({ type: "failure", error }) as const,
+        onSuccess: (value) => ({ type: "success", value }) as const,
+      }),
+    );
+  });
   if (applyResult.type === "contention") {
     const reference = Option.match(applyResult.contention.holder, {
       onNone: () => undefined,
@@ -1218,3 +1221,9 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
         }),
   });
 });
+
+export const resolveExecutionCandidate = <Requirements, Output>(
+  candidate: ExecutionCandidate<Requirements, Output>,
+  execution: PlanExecution,
+  options?: ResolveExecutionCandidateOptions<Requirements, Output>,
+) => Effect.scoped(resolveExecutionCandidateInScope(candidate, execution, options));

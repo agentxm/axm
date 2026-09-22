@@ -43,6 +43,7 @@ import {
   toLabel,
 } from "../../../reconciliation/index.js";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import { sourceRefContentKey } from "../../../acquisition/acquired-content.js";
 import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import {
   parseExtensionFqnParts,
@@ -1165,6 +1166,28 @@ export const planPackInstall: (
     { concurrency: 1 },
   );
 
+  const acquisitionRefs = yield* Effect.forEach(refs, (ref) =>
+    Effect.gen(function* () {
+      if (ref.type === "pack" || ref.refType === "workspace") return ref;
+      const canonical = yield* usableAcceptedCanonical({
+        type: ref.type,
+        name: targetFromRef(ref).name,
+      }).pipe(
+        Effect.mapError((cause) =>
+          installRefused({
+            category: "internal",
+            detail: `Accepted canonical content for ${targetFromRef(ref).name} could not be inspected`,
+            cause,
+          }),
+        ),
+      );
+      return Option.isSome(canonical) &&
+        sourceRefContentKey(canonical.value.ref) === sourceRefContentKey(ref)
+        ? undefined
+        : ref;
+    }),
+  );
+
   const acceptedPackPath = yield* acceptedLockedCanonicalPath({
     type: "pack",
     name: intent.packToInstall.pack.name,
@@ -1472,6 +1495,7 @@ export const planPackInstall: (
         steps: [
           {
             ...graphStep,
+            acquisitionRefs: acquisitionRefs.filter((ref) => ref !== undefined),
             sourceBinding: {
               extensionType: "pack",
               target: intent.packToInstall.pack.name,

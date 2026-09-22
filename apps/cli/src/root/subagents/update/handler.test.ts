@@ -308,6 +308,7 @@ describe("subagents-update.handler", () => {
           find: () => Effect.succeed([makeRegistrySubagentRef("researcher", "2.0.0", source)]),
           resolveNamedRegistry: () => Effect.die("unused"),
           fetch: () => Effect.die("unused"),
+          acquireForTransition: () => Effect.die("unused"),
           cloneUrl: () => Option.none(),
           origin: () => "test",
         });
@@ -425,6 +426,7 @@ describe("subagents-update.handler", () => {
             },
           }),
         fetch: () => Effect.die("unused"),
+        acquireForTransition: () => Effect.die("unused"),
         cloneUrl: () => Option.none(),
         origin: () => "test",
       });
@@ -489,6 +491,7 @@ describe("subagents-update.handler", () => {
           ),
         resolveNamedRegistry: () => Effect.die("unused"),
         fetch: () => Effect.die("unused"),
+        acquireForTransition: () => Effect.die("unused"),
         cloneUrl: () => Option.none(),
         origin: () => "test",
       });

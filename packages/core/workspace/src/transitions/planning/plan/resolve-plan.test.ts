@@ -1203,9 +1203,36 @@ describe("previewOrApply", () => {
       const material = `${directory}/manifest.json`;
       yield* fs.writeFileString(material, "before");
       let appliedCount = 0;
+      let acquisitions = 0;
+      let confirmedAfterAcquisition = false;
+      const name = decodeExtensionNameSync("package");
+      const ref: SkillExtensionRef = {
+        type: "skill",
+        refType: "local",
+        name,
+        skill: { name, description: Option.none(), metadata: Option.none() },
+        source: { type: "local", path: directory },
+        location: `file://${directory}`,
+      };
+      const sources = {
+        find: () => Effect.die(new Error("unexpected source discovery")),
+        resolveNamedRegistry: () => Effect.die(new Error("unexpected registry resolution")),
+        fetch: () => Effect.die(new Error("unexpected source fetch")),
+        acquireForTransition: () =>
+          Effect.sync(() => {
+            acquisitions += 1;
+            return { directory };
+          }),
+        cloneUrl: () => Option.none(),
+        origin: () => "source",
+      } satisfies SourceHostProvidersService;
       const context = makeTestContext(
         () =>
-          fs.writeFileString(material, "after").pipe(Effect.as("approved" as const), Effect.orDie),
+          Effect.gen(function* () {
+            confirmedAfterAcquisition = acquisitions === 1;
+            yield* fs.writeFileString(material, "after");
+            return "approved" as const;
+          }).pipe(Effect.orDie),
         { confirmationAvailable: true },
         { baseDir: directory },
       );
@@ -1224,6 +1251,7 @@ describe("previewOrApply", () => {
               {
                 readiness: "ready",
                 label: "package",
+                acquisitionRefs: [ref],
                 run: Effect.sync(() => {
                   appliedCount += 1;
                   return { result: "success" as const, message: "updated" };
@@ -1236,10 +1264,12 @@ describe("previewOrApply", () => {
 
       const result = yield* previewOrApply(plan, {
         execution: promptablePlanExecution(testRecovery),
-      }).pipe(Effect.provide(context.layer));
+      }).pipe(Effect.provide(context.layer), Effect.provideService(SourceHostProviders, sources));
       expect(deriveOperationOutcome(result)).toBe("blocked");
       expect(result.blocking?.class).toBe("stale-candidate");
       expect(result.blocking?.escape?.description).toContain("Rerun the command");
+      expect(acquisitions).toBe(1);
+      expect(confirmedAfterAcquisition).toBe(true);
       expect(appliedCount).toBe(0);
     }).pipe(Effect.provide(NodeServices.layer)),
   );

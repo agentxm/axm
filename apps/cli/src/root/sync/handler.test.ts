@@ -241,8 +241,8 @@ const makePackRollbackFixture = (
     readonly canonicalPackState?: "changed" | "missing";
     /**
      * Leave the member's canonical tree in place. Omitting it forces the member
-     * to be reacquired from the registry, which is how these fixtures trigger a
-     * typed failure partway through a Pack closure.
+     * to be reacquired from the registry, where the fixture reports a typed
+     * acquisition failure before the Pack closure can write.
      */
     readonly memberCanonical?: boolean;
     readonly withMemberDependency?: boolean;
@@ -313,6 +313,31 @@ const makePackRollbackFixture = (
   } satisfies SkillExtensionRef;
   const lookupCalls: string[] = [];
   const fetchedRefs: string[] = [];
+  const acquiredRefs: string[] = [];
+  const fetchSource: SourceHostProvidersService["fetch"] = (ref) => {
+    const version = ref.refType === "registry" ? ref.version : "workspace";
+    const name =
+      ref.type === "pack" ? ref.pack.name : ref.type === "skill" ? ref.skill.name : "unexpected";
+    fetchedRefs.push(`${ref.type}:${name}:${version}`);
+    if (ref.type === "pack" && version === "1.0.0") {
+      return Effect.succeed({ directory: acceptedPackSource });
+    }
+    if (ref.type === "pack" && version === "2.0.0") {
+      return Effect.succeed({ directory: availablePackSource });
+    }
+    if (ref.type === "skill" && version === "1.0.0") {
+      return Effect.succeed({ directory: acceptedSkillSource });
+    }
+    if (ref.type === "skill" && version === "2.0.0") {
+      return Effect.succeed({ directory: availableSkillSource });
+    }
+    return Effect.fail(
+      new SourceNotResolvable({
+        category: "not_found",
+        detail: `Unexpected fixture ref ${ref.type}`,
+      }),
+    );
+  };
   const sources = {
     find: (_source, options) => {
       lookupCalls.push(options.type);
@@ -321,29 +346,22 @@ const makePackRollbackFixture = (
       return Effect.succeed([]);
     },
     resolveNamedRegistry: () => Effect.die("unused"),
-    fetch: (ref) => {
-      const version = ref.refType === "registry" ? ref.version : "workspace";
-      const name =
-        ref.type === "pack" ? ref.pack.name : ref.type === "skill" ? ref.skill.name : "unexpected";
-      fetchedRefs.push(`${ref.type}:${name}:${version}`);
-      if (ref.type === "pack" && version === "1.0.0") {
-        return Effect.succeed({ directory: acceptedPackSource });
-      }
-      if (ref.type === "pack" && version === "2.0.0") {
-        return Effect.succeed({ directory: availablePackSource });
-      }
-      if (ref.type === "skill" && version === "1.0.0") {
-        return Effect.succeed({ directory: acceptedSkillSource });
-      }
-      if (ref.type === "skill" && version === "2.0.0") {
-        return Effect.succeed({ directory: availableSkillSource });
-      }
-      return Effect.fail(
-        new SourceNotResolvable({
-          category: "not_found",
-          detail: `Unexpected fixture ref ${ref.type}`,
-        }),
+    fetch: fetchSource,
+    acquireForTransition: (ref) => {
+      acquiredRefs.push(
+        `${ref.type}:${ref.name}:${ref.refType === "registry" ? ref.version : "workspace"}`,
       );
+      return options.memberCanonical === false &&
+        ref.type === "skill" &&
+        ref.refType === "registry" &&
+        ref.version === "1.0.0"
+        ? Effect.fail(
+            new SourceNotResolvable({
+              category: "internal",
+              detail: "Failed to read index for accepted skill",
+            }),
+          )
+        : fetchSource(ref);
     },
     cloneUrl: () => Option.none(),
     origin: () => "test-registry",
@@ -411,6 +429,7 @@ const makePackRollbackFixture = (
     sources,
     lookupCalls,
     fetchedRefs,
+    acquiredRefs,
     manifests: {
       accepted: acceptedPackManifest,
       divergent: divergentPackManifest,
@@ -505,6 +524,12 @@ const makeConstraintMismatchFixture = (
     packages: [],
   } satisfies SkillExtensionRef;
   const lookupCalls: string[] = [];
+  const fetchSource: SourceHostProvidersService["fetch"] = (ref) =>
+    ref.type === "skill" && ref.refType === "registry" && ref.version === "2.2.0"
+      ? Effect.succeed({ directory: availableSkillSource })
+      : Effect.fail(
+          new SourceNotResolvable({ category: "not_found", detail: "Unexpected fixture ref" }),
+        );
   const sources = {
     find: () => Effect.die("unexpected Registry search"),
     resolveNamedRegistry: (_source, options) => {
@@ -517,12 +542,8 @@ const makeConstraintMismatchFixture = (
           })
         : Effect.die("unexpected Registry type");
     },
-    fetch: (ref) =>
-      ref.type === "skill" && ref.refType === "registry" && ref.version === "2.2.0"
-        ? Effect.succeed({ directory: availableSkillSource })
-        : Effect.fail(
-            new SourceNotResolvable({ category: "not_found", detail: "Unexpected fixture ref" }),
-          ),
+    fetch: fetchSource,
+    acquireForTransition: fetchSource,
     cloneUrl: () => Option.none(),
     origin: () => "test-registry",
   } satisfies SourceHostProvidersService;
@@ -1022,7 +1043,7 @@ describe("root sync handler", { timeout: 15_000 }, () => {
         ).toMatchObject({ owner: "@acme", name: "review", version: "1.0.0" });
         expect(fixture.lookupCalls).toEqual([]);
         expect(fixture.fetchedRefs).toContain("pack:toolkit:1.0.0");
-        expect(fixture.fetchedRefs).not.toContain("skill:review:1.0.0");
+        expect(fixture.acquiredRefs).not.toContain("skill:review:1.0.0");
         expect(fixture.fetchedRefs).not.toContain("pack:toolkit:2.0.0");
         expect(fixture.fetchedRefs).not.toContain("skill:review:2.0.0");
 
@@ -1039,7 +1060,7 @@ describe("root sync handler", { timeout: 15_000 }, () => {
       }),
   );
 
-  it.effect("rolls back accepted Pack recovery when a later typed failure occurs", () =>
+  it.effect("blocks accepted Pack recovery when member acquisition fails", () =>
     Effect.gen(function* () {
       const fixture = makePackRollbackFixture(tempDir, { memberCanonical: false });
       const before = capturePackRollbackPreimages(fixture.paths);

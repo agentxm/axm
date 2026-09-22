@@ -84,6 +84,8 @@ const makeSourceHostProviders = () =>
     find: () => Effect.succeed([]),
     fetch: () =>
       Effect.fail(new SourceNotResolvable({ category: "validation", detail: "not used" })),
+    acquireForTransition: () =>
+      Effect.fail(new SourceNotResolvable({ category: "validation", detail: "not used" })),
     cloneUrl: () => Option.none(),
     origin: () => "test",
   });

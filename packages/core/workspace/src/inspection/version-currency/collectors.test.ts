@@ -408,6 +408,7 @@ describe("collectSkillSourceFreshness", () => {
             },
           ]),
         fetch: () => Effect.die(new Error("not used")),
+        acquireForTransition: () => Effect.die(new Error("not used")),
         cloneUrl: () => Option.none(),
         origin: () => "https://github.com/vercel-labs/skills",
       };
@@ -444,6 +445,7 @@ describe("git-source freshness beyond skills", () => {
     resolveNamedRegistry: () => Effect.die("not used"),
     find: () => Effect.succeed(refs),
     fetch: () => Effect.die(new Error("not used")),
+    acquireForTransition: () => Effect.die(new Error("not used")),
     cloneUrl: () => Option.none(),
     origin: () => "https://github.com/acme/pkg",
   });

@@ -34,6 +34,7 @@ describe("resolution flow", () => {
         find: (candidate) =>
           Effect.sync(() => expect(candidate).toEqual(source)).pipe(Effect.as([])),
         fetch: () => Effect.die("not used"),
+        acquireForTransition: () => Effect.die("not used"),
         cloneUrl: () => Option.none(),
         origin: () => "test",
       };

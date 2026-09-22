@@ -19,11 +19,14 @@
 
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Ref from "effect/Ref";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Result from "effect/Result";
 
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import { sourceRefContentKey } from "../acquisition/acquired-content.js";
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions/fqn";
 import {
   SkillManager,
@@ -47,9 +50,13 @@ import { SourceHostProviders } from "../resolution/sources/index.js";
 import {
   acceptedResolutionRef,
   acceptedCanonicalObservation,
+  acceptedLockedCanonicalPath,
+  acceptedLockedResolutionRef,
+  computeMaterializedTreeIntegrity,
   computeExtensionPathsForLayout,
   desiredStateProblemsText,
   enabledConfiguredEntries,
+  LockfileReader,
   SettingsReader,
   WorkspaceLocation,
   type DesiredStateGraph,
@@ -242,6 +249,46 @@ export const collectConfiguredPackRecovery = (args: {
           const memberSteps = yield* Effect.forEach(memberRefs, (ref) =>
             recoveryStep({ ref, isPack: false, adapter: args.adapter }),
           );
+          const acquisitionRefs = yield* Effect.forEach(memberRefs, (ref) =>
+            Effect.gen(function* () {
+              if (ref.refType === "workspace") return undefined;
+              const target = targetFromRef(ref).name;
+              const accepted = yield* acceptedLockedResolutionRef({ type: ref.type, name: target });
+              if (
+                Option.isNone(accepted) ||
+                sourceRefContentKey(accepted.value) !== sourceRefContentKey(ref)
+              )
+                return ref;
+              const canonicalPath = yield* acceptedLockedCanonicalPath({
+                type: ref.type,
+                name: target,
+              });
+              if (Option.isNone(canonicalPath)) return ref;
+              const lockfile = yield* LockfileReader;
+              const entry = yield* ref.type === "mcp-server"
+                ? lockfile.mcpServerForConnection(target)
+                : lockfile.entry(ref.type, target);
+              if (Option.isNone(entry)) return ref;
+              const fs = yield* FileSystem.FileSystem;
+              const exists = yield* fs.exists(canonicalPath.value);
+              if (!exists) return ref;
+              const integrity = yield* Effect.result(
+                computeMaterializedTreeIntegrity(canonicalPath.value),
+              );
+              return Result.isSuccess(integrity) && integrity.success === entry.value.treeIntegrity
+                ? undefined
+                : ref;
+            }),
+          ).pipe(
+            Effect.mapError(
+              (cause) =>
+                new WorkspaceSyncFailed({
+                  category: "internal",
+                  detail: `Accepted canonical content for ${identity} could not be inspected`,
+                  cause,
+                }),
+            ),
+          );
           return {
             steps: [
               {
@@ -288,6 +335,7 @@ export const collectConfiguredPackRecovery = (args: {
                     }
                   }).pipe(Effect.mapError(args.adapter.toStepFailure)),
                 })),
+                acquisitionRefs: [packRef, ...acquisitionRefs.filter((ref) => ref !== undefined)],
                 key: `${SYNC_RECOVERY_IDS.packManifestDivergence}:${name}`,
               },
             ],

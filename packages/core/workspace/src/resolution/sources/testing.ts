@@ -158,6 +158,13 @@ export const SourceHostProvidersTest = (
           detail: "The test provider set fetches no source.",
         }),
       ),
+    acquireForTransition: () =>
+      Effect.fail(
+        new SourceNotResolvable({
+          category: "not_found",
+          detail: "The test provider set acquires no source.",
+        }),
+      ),
     cloneUrl: () => Option.none(),
     origin: (source) => source.type,
     ...overrides,

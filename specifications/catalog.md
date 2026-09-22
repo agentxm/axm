@@ -5316,6 +5316,20 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `docs/architecture/workspace/execution.md`
 - Source: [`packages/supporting/registry-client/src/operation-scratch-is-bounded.spec.ts`](../packages/supporting/registry-client/src/operation-scratch-is-bounded.spec.ts)
 
+##### Verified source content stays scoped across delayed confirmation
+
+- Requirement: `workspace/acquired-content-survives-confirmation`
+- Owner: `workspace`
+- Statement: For an apply candidate requiring confirmation, AXM shall acquire its selected source content before prompting, retain that exact content while confirmation is pending, and release the temporary source tree on refusal without applying or reacquiring it.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: A controlled source provider and delayed confirmation port expose the temporary tree's lifetime, acquisition count, and absence of workspace mutation.
+- Methods: example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`packages/core/workspace/src/transitions/planning/plan/acquired-content-survives-confirmation.spec.ts`](../packages/core/workspace/src/transitions/planning/plan/acquired-content-survives-confirmation.spec.ts)
+
 ##### Acquired source trees are measured before retention
 
 - Requirement: `workspace/acquired-tree-is-bounded`

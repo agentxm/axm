@@ -7,6 +7,7 @@ import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/
 import type { ExtensionFiles } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import type { StepFailure } from "../transitions/planning/plan/errors.js";
 import { PackageMaterializationFailed } from "./errors.js";
+import { gitTransportContextFingerprint } from "../resolution/sources/git/operations.js";
 
 export interface RegistryContentIdentity {
   readonly sourceLocation: URL;
@@ -52,6 +53,7 @@ export const sourceRefContentKey = (ref: ExtensionRef): string => {
       return JSON.stringify([
         "git",
         ref.source.url.href,
+        gitTransportContextFingerprint(),
         ref.gitCommitSha,
         ref.gitTreeSha,
         ref.sourcePath ?? ".",

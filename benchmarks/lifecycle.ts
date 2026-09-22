@@ -27,6 +27,9 @@ class LifecycleBenchmarkError extends Error {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
+const isNumberRecord = (value: unknown): value is Record<string, number> =>
+  isRecord(value) && Object.values(value).every((count) => typeof count === "number");
+
 const archiveCacheRoot = (userHome: string): string => {
   if (process.platform === "darwin") return path.join(userHome, "Library", "Caches", "axm");
   if (process.platform === "win32") {
@@ -83,6 +86,7 @@ interface Sample {
 
 interface NodeApiMetrics {
   readonly directoryCalls: number;
+  readonly directoryCallsByRoot: Readonly<Record<string, number>>;
   readonly hashBytes: number;
   readonly gitProcesses: number;
   readonly writeCalls: number;
@@ -208,6 +212,7 @@ const readNodeApiMetrics = (file: string): NodeApiMetrics | null => {
   if (
     !isRecord(value) ||
     typeof value["directoryCalls"] !== "number" ||
+    !isNumberRecord(value["directoryCallsByRoot"]) ||
     typeof value["hashBytes"] !== "number" ||
     typeof value["gitProcesses"] !== "number" ||
     typeof value["writeCalls"] !== "number"
@@ -216,6 +221,7 @@ const readNodeApiMetrics = (file: string): NodeApiMetrics | null => {
   }
   return {
     directoryCalls: value["directoryCalls"],
+    directoryCallsByRoot: value["directoryCallsByRoot"],
     hashBytes: value["hashBytes"],
     gitProcesses: value["gitProcesses"],
     writeCalls: value["writeCalls"],
@@ -769,7 +775,7 @@ export const runLifecycleBenchmark = (repoRoot: string, outputPath: string): Pro
         }
       }
       const report = {
-        schemaVersion: 1,
+        schemaVersion: 2,
         fixtureVersion,
         complete: true,
         fixtureSourceSha256,

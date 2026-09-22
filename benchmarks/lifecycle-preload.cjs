@@ -8,12 +8,58 @@ const path = require("node:path");
 
 const output = process.env.AXM_BENCH_DIAGNOSTICS_FILE;
 if (output) {
-  const metrics = { directoryCalls: 0, hashBytes: 0, gitProcesses: 0, writeCalls: 0 };
+  const directoryCallsByRoot = {
+    nxCache: 0,
+    extensions: 0,
+    agentTargets: 0,
+    workspaceOther: 0,
+    userHome: 0,
+    outside: 0,
+  };
+  const metrics = {
+    directoryCalls: 0,
+    directoryCallsByRoot,
+    hashBytes: 0,
+    gitProcesses: 0,
+    writeCalls: 0,
+  };
+  const directoryRoot = (value) => {
+    if (typeof value !== "string" && !Buffer.isBuffer(value)) return "outside";
+    const absolute = path.resolve(String(value));
+    const workspaceRelative = path.relative(process.cwd(), absolute);
+    if (workspaceRelative === ".nx" || workspaceRelative.startsWith(`.nx${path.sep}`))
+      return "nxCache";
+    if (
+      workspaceRelative === "agent_extensions" ||
+      workspaceRelative.startsWith(`agent_extensions${path.sep}`)
+    )
+      return "extensions";
+    if (
+      workspaceRelative === ".claude" ||
+      workspaceRelative.startsWith(`.claude${path.sep}`) ||
+      workspaceRelative === ".agents" ||
+      workspaceRelative.startsWith(`.agents${path.sep}`)
+    )
+      return "agentTargets";
+    if (
+      workspaceRelative === "" ||
+      (!workspaceRelative.startsWith("..") && !path.isAbsolute(workspaceRelative))
+    )
+      return "workspaceOther";
+    const home = process.env.AXM_USER_HOME;
+    if (home) {
+      const homeRelative = path.relative(home, absolute);
+      if (homeRelative === "" || (!homeRelative.startsWith("..") && !path.isAbsolute(homeRelative)))
+        return "userHome";
+    }
+    return "outside";
+  };
   const count = (target, name, metric) => {
     const original = target[name];
     if (typeof original !== "function") return;
     target[name] = function (...args) {
       metrics[metric] += 1;
+      if (metric === "directoryCalls") directoryCallsByRoot[directoryRoot(args[0])] += 1;
       return original.apply(this, args);
     };
   };

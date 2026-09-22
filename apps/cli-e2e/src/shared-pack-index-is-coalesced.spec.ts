@@ -11,13 +11,13 @@ export const specification = defineSpecification({
   requirement: "cli/shared-pack-member-index-is-coalesced",
   title: "Configured packs share one member index read and materialization",
   statement:
-    "When two configured Packs depend on the same Registry member, AXM shall read that member's index once during planning, retain both Packs' constraints, and acquire the selected member archive once for the workspace transition.",
+    "When two configured Packs depend on the same Registry member, AXM shall resolve independent Pack indexes concurrently, read the shared member's index once during planning, retain both Packs' constraints, and acquire the selected member archive once for the workspace transition.",
   class: "functional",
   role: "supporting",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
   boundary: "process",
   boundaryRationale:
-    "The real CLI process and controlled HTTP Registry count exact member-index and archive requests for one configured sync.",
+    "The real CLI process and controlled HTTP Registry hold one Pack index response while observing the other Pack and counting shared member-index and archive requests.",
   methods: ["example"],
   derivedFrom: ["docs/architecture/workspace/execution.md"],
   supersedes: [],
@@ -71,7 +71,24 @@ describe("Shared configured Pack member", () => {
   it("reads one member index and downloads one selected archive", async () => {
     const publisher = createTempDir();
     const consumer = createTempDir();
-    const registry = await startHttpRegistry({ enforcePackDependencies: true });
+    let holdFirstPack = false;
+    let releaseFirstPack: () => void = () => undefined;
+    const firstPackGate = new Promise<void>((resolve) => {
+      releaseFirstPack = resolve;
+    });
+    let observeSecondPack: () => void = () => undefined;
+    const secondPackRequested = new Promise<void>((resolve) => {
+      observeSecondPack = resolve;
+    });
+    const registry = await startHttpRegistry({
+      enforcePackDependencies: true,
+      beforeIndexResponse: (name) => {
+        if (!holdFirstPack) return;
+        if (name === "packs/first-pack") return firstPackGate;
+        if (name === "packs/second-pack") observeSecondPack();
+        return undefined;
+      },
+    });
     try {
       await setupWorkspace(publisher.path, registry.url);
       const created = await runCli(["skills", "new", "shared", "--owner", OWNER], {
@@ -96,7 +113,25 @@ describe("Shared configured Pack member", () => {
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
       const start = registry.requests.length;
-      const result = await runCli(["sync", "--json"], { cwd: consumer.path, env });
+      holdFirstPack = true;
+      const sync = runCli(["sync", "--json"], { cwd: consumer.path, env });
+      let deadline: ReturnType<typeof setTimeout> | undefined;
+      let secondStartedWhileFirstHeld = false;
+      try {
+        secondStartedWhileFirstHeld = await Promise.race([
+          secondPackRequested.then(() => true),
+          new Promise<false>((resolve) => {
+            deadline = setTimeout(() => resolve(false), 10_000);
+          }),
+        ]);
+      } finally {
+        if (deadline !== undefined) clearTimeout(deadline);
+        releaseFirstPack();
+      }
+      const result = await sync;
+      expect(secondStartedWhileFirstHeld, "Independent Pack index request was serialized").toBe(
+        true,
+      );
       expect(result.exitCode, result.stdout + result.stderr).toBe(0);
       expect(JSON.parse(result.stdout)).toMatchObject({
         ok: true,
@@ -122,6 +157,7 @@ describe("Shared configured Pack member", () => {
       ).toHaveLength(1);
       expect(memberArchive).toHaveLength(1);
     } finally {
+      releaseFirstPack();
       await registry.close();
       publisher.cleanup();
       consumer.cleanup();

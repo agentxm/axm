@@ -89,6 +89,8 @@ export interface HttpRegistry {
 }
 
 export interface HttpRegistryOptions {
+  /** Hold a selected index response to observe independent resolution requests. */
+  readonly beforeIndexResponse?: (pluralAndName: string) => Promise<void> | void;
   /** Test-only delay used to make an unordered pack upload fail deterministically. */
   readonly publishDelayMsByPlural?: Readonly<Record<string, number>>;
   /** Fail the first upload for each plural/name key, then allow recovery. */
@@ -943,6 +945,7 @@ export const startHttpRegistry = async (
           sendProblem(response, 404, `No extension ${plural}/${name}`);
           return;
         }
+        await options.beforeIndexResponse?.(`${plural}/${name}`);
         sendJson(response, 200, {
           name,
           owner,

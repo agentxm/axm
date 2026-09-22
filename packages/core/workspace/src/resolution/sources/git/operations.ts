@@ -12,6 +12,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { createHash } from "node:crypto";
 import { simpleGit, type SimpleGit, type SimpleGitOptions } from "simple-git";
+import { OperationRequestBudget } from "@agentxm/registry-client";
 
 import { GitOperationFailed, type GitOperation } from "../errors.js";
 
@@ -33,6 +34,27 @@ export const gitTransportContextFingerprint = (): string =>
       ),
     )
     .digest("hex");
+
+const withGitRequestPermit = <A, E, R>(url: string, effect: Effect.Effect<A, E, R>) =>
+  Effect.serviceOption(OperationRequestBudget).pipe(
+    Effect.flatMap((budget) =>
+      Option.isNone(budget) ? effect : budget.value.withAttempt(gitRequestOrigin(url), effect),
+    ),
+  );
+
+const gitRequestOrigin = (url: string): string => {
+  try {
+    const parsed = new URL(url);
+    return parsed.host.length === 0
+      ? url
+      : parsed.origin === "null"
+        ? `${parsed.protocol}//${parsed.host}`
+        : parsed.origin;
+  } catch {
+    const host = /^(?:[^@]+@)?([^:]+):/u.exec(url)?.[1];
+    return host === undefined ? url : `ssh://${host}`;
+  }
+};
 
 const createGit = (baseDir: string, abort?: AbortSignal): SimpleGit => {
   const options: Partial<SimpleGitOptions> = {
@@ -208,30 +230,36 @@ export const shallowClone = (url: string, destination: string, ref?: string) =>
       return yield* shallowFetchCommit(url, destination, ref);
     }
     const path = yield* Path.Path;
-    return yield* Effect.tryPromise({
-      try: (signal) =>
-        createGit(path.dirname(destination), signal).clone(url, destination, [
-          "--depth",
-          "1",
-          "--single-branch",
-          ...(ref ? ["--branch", ref] : []),
-        ]),
-      catch: mapGitError("clone", `Failed to shallow clone ${url}`),
-    });
+    return yield* withGitRequestPermit(
+      url,
+      Effect.tryPromise({
+        try: (signal) =>
+          createGit(path.dirname(destination), signal).clone(url, destination, [
+            "--depth",
+            "1",
+            "--single-branch",
+            ...(ref ? ["--branch", ref] : []),
+          ]),
+        catch: mapGitError("clone", `Failed to shallow clone ${url}`),
+      }),
+    );
   }).pipe(withGitOperationDeadline("clone"), Effect.withSpan("Git.shallowClone"));
 
 /** Initialize a shallow checkout at one immutable, remote-reachable commit. */
 export const shallowFetchCommit = (url: string, destination: string, commit: string) =>
-  Effect.tryPromise({
-    try: async (signal) => {
-      const git = createGit(destination, signal);
-      await git.init();
-      await git.addRemote("origin", url);
-      await git.raw(["fetch", "--depth", "1", "origin", commit]);
-      await git.raw(["checkout", "--detach", "FETCH_HEAD"]);
-    },
-    catch: mapGitError("fetch-commit", `Failed to fetch recorded commit ${commit} from ${url}`),
-  }).pipe(withGitOperationDeadline("fetch-commit"), Effect.withSpan("Git.shallowFetchCommit"));
+  withGitRequestPermit(
+    url,
+    Effect.tryPromise({
+      try: async (signal) => {
+        const git = createGit(destination, signal);
+        await git.init();
+        await git.addRemote("origin", url);
+        await git.raw(["fetch", "--depth", "1", "origin", commit]);
+        await git.raw(["checkout", "--detach", "FETCH_HEAD"]);
+      },
+      catch: mapGitError("fetch-commit", `Failed to fetch recorded commit ${commit} from ${url}`),
+    }).pipe(withGitOperationDeadline("fetch-commit")),
+  ).pipe(Effect.withSpan("Git.shallowFetchCommit"));
 
 /** Remote branch and tag names advertised by a Git repository. */
 export interface GitRemoteRefs {
@@ -256,11 +284,14 @@ const parseRemoteRefs = (output: string): GitRemoteRefs => {
 export const listRemoteRefs = (url: string) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    return yield* Effect.tryPromise({
-      try: (signal) =>
-        createGit(path.resolve("."), signal).raw(["ls-remote", "--heads", "--tags", url]),
-      catch: mapGitError("list-remote-refs", `Failed to list remote Git refs from ${url}`),
-    }).pipe(Effect.map(parseRemoteRefs));
+    return yield* withGitRequestPermit(
+      url,
+      Effect.tryPromise({
+        try: (signal) =>
+          createGit(path.resolve("."), signal).raw(["ls-remote", "--heads", "--tags", url]),
+        catch: mapGitError("list-remote-refs", `Failed to list remote Git refs from ${url}`),
+      }).pipe(Effect.map(parseRemoteRefs)),
+    );
   }).pipe(withGitOperationDeadline("list-remote-refs"), Effect.withSpan("Git.listRemoteRefs"));
 
 /** Read one configured remote URL from a local repository. */

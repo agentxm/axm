@@ -28,6 +28,7 @@ import type { ArtifactChange } from "../../../desired-state/index.js";
 import type { ConfiguredAgentOutcome } from "../../../desired-state/index.js";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import type { ArchivalView } from "@agentxm/extension-model/unstable/extensions/archival";
+import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type {
   RegistryBindingProposal,
   ReleaseAgeOperationEvidence,
@@ -276,6 +277,8 @@ export interface ReadyJobStep<Requirements = never, Output = never> {
   readonly registryLifecycle?: RegistryLifecycleEvidence;
   readonly registryBinding?: RegistryBindingProposal;
   readonly sourceBinding?: SourceBindingProposal;
+  /** External source trees required by a grouped semantic closure. */
+  readonly acquisitionRefs?: ReadonlyArray<ExtensionRef>;
   readonly run: Effect.Effect<JobStepResult<Output>, StepFailure, Requirements>;
 }
 
@@ -292,6 +295,7 @@ export interface WarnJobStep<Requirements = never, Output = never> {
   readonly registryLifecycle?: RegistryLifecycleEvidence;
   readonly registryBinding?: RegistryBindingProposal;
   readonly sourceBinding?: SourceBindingProposal;
+  readonly acquisitionRefs?: ReadonlyArray<ExtensionRef>;
   readonly run: Effect.Effect<JobStepResult<Output>, StepFailure, Requirements>;
 }
 
@@ -308,6 +312,7 @@ export interface ErrorJobStep {
   readonly registryLifecycle?: RegistryLifecycleEvidence;
   readonly registryBinding?: RegistryBindingProposal;
   readonly sourceBinding?: SourceBindingProposal;
+  readonly acquisitionRefs?: ReadonlyArray<ExtensionRef>;
   /** Semantic blockers already represented in Plan.riskConditions. */
   readonly blockingConditionIds?: ReadonlyArray<string>;
 }

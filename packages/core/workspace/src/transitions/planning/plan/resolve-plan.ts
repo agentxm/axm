@@ -36,7 +36,7 @@ import {
 } from "./execution-candidate.js";
 import { augmentPlanWithReconciliation } from "../operations/augment-plan.js";
 import { scanPlanReadiness } from "../operations/scan-plan-readiness.js";
-import type { CompletedJobStep, ExecutedPlan, Plan } from "./plan.js";
+import type { CompletedJobStep, ExecutedPlan, Plan, PlannedJobStep } from "./plan.js";
 import {
   declaredAtomicity,
   executedUnits,
@@ -56,7 +56,7 @@ import {
   recordJournalPhase,
   recordOperationJournal,
 } from "./operation-journal.js";
-import { redactRegistryText } from "@agentxm/registry-client";
+import { OperationRequestBudget, redactRegistryText } from "@agentxm/registry-client";
 import { AcquiredContent, sourceRefContentKey } from "../../../acquisition/acquired-content.js";
 import { SourceHostProviders } from "../../../resolution/sources/service.js";
 
@@ -117,6 +117,18 @@ interface PlanApplyFailure<Output> {
   /** The typed restoration-failure fact; present only when rollback did not complete. */
   readonly restoration?: WorkspaceRestorationIncomplete;
 }
+
+const acquisitionRefsForStep = <Requirements, Output>(
+  step: PlannedJobStep<Requirements, Output>,
+) =>
+  step.readiness === "error"
+    ? []
+    : [
+        ...(step.acquisitionRefs ?? []),
+        ...(step.sourceBinding === undefined
+          ? []
+          : [step.sourceBinding.ref, ...(step.sourceBinding.members ?? [])]),
+      ].filter((ref) => ref.refType !== "workspace");
 
 const withPlannedAgentOutcomes = <Requirements, Output>(
   plan: Plan<Requirements, Output>,
@@ -604,14 +616,11 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
         ...job,
         steps: job.steps.map((step) => {
           if (step.readiness === "error") return step;
-          const binding = step.sourceBinding;
-          const acquisitionFailure =
-            Option.isSome(acquired) && binding !== undefined
-              ? [binding.ref, ...(binding.members ?? [])]
-                  .filter((ref) => ref.refType !== "workspace")
-                  .map((ref) => acquired.value.failuresByKey.get(sourceRefContentKey(ref)))
-                  .find((failure) => failure !== undefined)
-              : undefined;
+          const acquisitionFailure = Option.isSome(acquired)
+            ? acquisitionRefsForStep(step)
+                .map((ref) => acquired.value.failuresByKey.get(sourceRefContentKey(ref)))
+                .find((failure) => failure !== undefined)
+            : undefined;
           return {
             ...step,
             run: withWorkspaceClosure(unitIdOf(step))(
@@ -860,13 +869,7 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
   const applyResult = yield* Effect.scoped(
     Effect.gen(function* () {
       const sourceRefs = candidatePlan.jobs.flatMap((job) =>
-        job.steps.flatMap((step) =>
-          step.sourceBinding === undefined
-            ? []
-            : [step.sourceBinding.ref, ...(step.sourceBinding.members ?? [])].filter(
-                (ref) => ref.refType !== "workspace",
-              ),
-        ),
+        job.steps.flatMap(acquisitionRefsForStep),
       );
       const seenSources = new Set<string>();
       const uniqueSourceRefs = sourceRefs.filter((ref) => {
@@ -876,36 +879,41 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
         return true;
       });
       const sources = yield* Effect.serviceOption(SourceHostProviders);
+      const budget = yield* Effect.serviceOption(OperationRequestBudget);
       const acquire = Option.isSome(sources) ? sources.value.acquireForTransition : undefined;
       const acquiredResults =
         acquire === undefined
           ? []
-          : yield* Effect.forEach(uniqueSourceRefs, (ref) => {
-              const key = sourceRefContentKey(ref);
-              return observeUnit(
-                {
-                  id:
-                    ref.refType === "registry"
-                      ? `registry-extract:${ref.owner}/${ref.type}/${ref.name}`
-                      : `source-acquire:${ref.type}/${ref.name}`,
-                  label: `acquiring ${ref.name}`,
-                },
-                acquire(ref),
-              ).pipe(
-                Effect.match({
-                  onFailure: (cause) => ({
-                    ref,
-                    key,
-                    failure: new StepFailure({
-                      category: "network",
-                      detail: `Could not acquire ${ref.type} ${ref.name} before applying the workspace transition`,
-                      cause,
+          : yield* Effect.forEach(
+              uniqueSourceRefs,
+              (ref) => {
+                const key = sourceRefContentKey(ref);
+                return observeUnit(
+                  {
+                    id:
+                      ref.refType === "registry"
+                        ? `registry-extract:${ref.owner}/${ref.type}/${ref.name}`
+                        : `source-acquire:${ref.type}/${ref.name}`,
+                    label: `acquiring ${ref.name}`,
+                  },
+                  acquire(ref),
+                ).pipe(
+                  Effect.match({
+                    onFailure: (cause) => ({
+                      ref,
+                      key,
+                      failure: new StepFailure({
+                        category: "network",
+                        detail: `Could not acquire ${ref.type} ${ref.name} before applying the workspace transition`,
+                        cause,
+                      }),
                     }),
+                    onSuccess: (files) => ({ ref, key, files }),
                   }),
-                  onSuccess: (files) => ({ ref, key, files }),
-                }),
-              );
-            });
+                );
+              },
+              { concurrency: Option.isSome(budget) ? budget.value.capacity : 1 },
+            );
       const acquiredContent = {
         filesByKey: new Map(
           acquiredResults.flatMap((result) =>

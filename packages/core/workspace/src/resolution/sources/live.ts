@@ -15,6 +15,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import { stripFileProtocol } from "@agentxm/registry-client";
 import type * as Scope from "effect/Scope";
 
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
@@ -31,7 +32,6 @@ import {
   SourceNotResolvable,
   type SourceResolutionFailure,
 } from "./errors.js";
-import { fileUrlToPath } from "./file-url.js";
 import { createGitSourceHostProvider } from "./providers/git.js";
 import { createLocalSourceHostProvider } from "./providers/local.js";
 import {
@@ -105,7 +105,7 @@ export const SourceHostProvidersLive: Layer.Layer<
       ref: ExtensionRef,
     ): Effect.Effect<ExtensionRef, SourceNotResolvable> => {
       if (ref.refType !== "local") return Effect.succeed(ref);
-      const selectedPath = fileUrlToPath(ref.location);
+      const selectedPath = stripFileProtocol(ref.location);
       const relative = makeWorkspaceRelativeSourcePath(path, catalog.workspaceRoot, selectedPath);
       if (Option.isNone(relative)) {
         return Effect.fail(

@@ -794,6 +794,9 @@ export const buildMaterializeOperation = <
     label: args.label ?? toLabelWithCompanions(target, companionPkgs),
     readiness: "ready",
     materialPaths: sourceMaterialPaths(args.ref),
+    ...(args.ref.refType === "workspace" || args.force !== true
+      ? {}
+      : { acquisitionRefs: [args.ref] }),
     run: runMaterializeOperation(manager, args),
   } satisfies PlannedJobStep<R | RecipeRequirements>;
 };

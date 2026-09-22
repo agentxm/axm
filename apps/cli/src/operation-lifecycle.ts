@@ -18,7 +18,11 @@ import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Path from "effect/Path";
-import { RegistryRetryObservation } from "@agentxm/registry-client";
+import {
+  OperationRequestBudget,
+  RegistryRetryObservation,
+  makeOperationRequestBudget,
+} from "@agentxm/registry-client";
 
 import {
   effectCliExit,
@@ -104,6 +108,7 @@ export const withLiveOperation = <A, E, R>(args: LiveOperationArgs, body: Effect
         yield* startProductActivity(args.productActivity);
       }
       const lifecycle = yield* makeOperationLifecycle({ name: args.name, mode: args.mode });
+      const requestBudget = yield* makeOperationRequestBudget({ invocation: 4, origin: 4 });
       yield* screen.observe(lifecycle);
       yield* observeLifecycleForTelemetry(lifecycle);
       yield* lifecycle.publish((seq, atMs) => ({
@@ -115,6 +120,7 @@ export const withLiveOperation = <A, E, R>(args: LiveOperationArgs, body: Effect
         mode: args.mode,
       }));
       return yield* body.pipe(
+        Effect.provideService(OperationRequestBudget, requestBudget),
         Effect.provideService(RegistryRetryObservation, {
           waiting: ({ requestId, operation, nextAttempt, maxAttempts, delayMillis }) =>
             publishWaiting({

@@ -49,9 +49,12 @@ export {
   DEFAULT_REGISTRY_REQUEST_POLICY,
   PUBLISH_REGISTRY_REQUEST_POLICY,
   RegistryRequestAttempt,
+  OperationRequestBudget,
   RegistryRetryObservation,
   executeRegistryRequest,
+  makeOperationRequestBudget,
   type RegistryRequestPolicy,
+  type OperationRequestBudgetService,
   type RegistryRequestReplaySafety,
   type RegistryRetryWait,
 } from "./request-policy.js";

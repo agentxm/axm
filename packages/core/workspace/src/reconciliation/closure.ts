@@ -136,6 +136,12 @@ export const buildReconciliationClosure = <E, R>(
       ): child is ReconciliationChild<R> & { readonly step: ReadyJobStep<R> | WarnJobStep<R> } =>
         child.step.readiness !== "error",
     );
+    const acquisitionRefs = runnableChildren.flatMap(({ step }) => [
+      ...(step.acquisitionRefs ?? []),
+      ...(step.sourceBinding === undefined
+        ? []
+        : [step.sourceBinding.ref, ...(step.sourceBinding.members ?? [])]),
+    ]);
     const run = runWorkspaceTransaction({
       transition: Effect.gen(function* () {
         if (args.preTransition !== undefined) {
@@ -187,6 +193,7 @@ export const buildReconciliationClosure = <E, R>(
           label: args.label,
           materialPaths,
           artifact: args.artifact,
+          ...(acquisitionRefs.length === 0 ? {} : { acquisitionRefs }),
           run,
         } satisfies PlannedJobStep<
           R | WorkspaceTransactionScope | FileSystem.FileSystem | Path.Path
@@ -197,6 +204,7 @@ export const buildReconciliationClosure = <E, R>(
           materialPaths,
           warnMessage: readinessWarnings.join("; "),
           artifact: args.artifact,
+          ...(acquisitionRefs.length === 0 ? {} : { acquisitionRefs }),
           run,
         } satisfies PlannedJobStep<
           R | WorkspaceTransactionScope | FileSystem.FileSystem | Path.Path

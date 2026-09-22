@@ -1,7 +1,9 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Fiber from "effect/Fiber";
 import * as Path from "effect/Path";
 import { zipSync } from "fflate";
 
@@ -13,13 +15,14 @@ import {
   MAX_EXTRACTED_ARCHIVE_BYTES,
   readBufferedArchive,
 } from "./archive-limits.js";
+import { makeOperationExtractionBudget } from "./extraction-budget.js";
 import { extractZip } from "./utils.js";
 
 export const specification = defineSpecification({
   requirement: "registry-client/archive-acquisition-is-bounded",
   title: "Archive acquisition refuses content that exceeds finite resource limits",
   statement:
-    "AXM shall enforce finite compressed-body, expanded-content, and entry-count limits while acquiring a Registry archive, stop at the breached bound with a typed resource failure, and leave the target package tree unwritten.",
+    "AXM shall enforce finite compressed-body, expanded-content, entry-count, and concurrent-extraction limits while acquiring Registry archives, stop at a breached content bound with a typed resource failure, and leave the target package tree unwritten.",
   class: "functional",
   role: "supporting",
   goals: ["trustworthy-distribution", "safe-repetition"],
@@ -75,5 +78,29 @@ describe("Bounded archive acquisition", () => {
       expect(failure.category).toBe("quota");
       expect(yield* files.readDirectory(target)).toEqual([]);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("releases an extraction slot after cancellation so another archive can proceed", () =>
+    Effect.gen(function* () {
+      const budget = yield* makeOperationExtractionBudget(1);
+      const firstStarted = yield* Deferred.make<void>();
+      const secondStarted = yield* Deferred.make<void>();
+      const first = yield* budget
+        .withExtraction(
+          Deferred.succeed(firstStarted, undefined).pipe(Effect.andThen(Effect.never)),
+        )
+        .pipe(Effect.forkChild);
+      yield* Deferred.await(firstStarted);
+
+      const second = yield* budget
+        .withExtraction(Deferred.succeed(secondStarted, undefined))
+        .pipe(Effect.forkChild);
+      yield* Effect.yieldNow;
+      expect(yield* Deferred.isDone(secondStarted)).toBe(false);
+
+      yield* Fiber.interrupt(first);
+      yield* Deferred.await(secondStarted);
+      yield* Fiber.join(second);
+    }),
   );
 });

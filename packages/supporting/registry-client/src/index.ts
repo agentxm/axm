@@ -58,6 +58,11 @@ export {
   type RegistryRequestReplaySafety,
   type RegistryRetryWait,
 } from "./request-policy.js";
+export {
+  OperationExtractionBudget,
+  makeOperationExtractionBudget,
+  type OperationExtractionBudgetService,
+} from "./extraction-budget.js";
 
 export type {
   ArchiveCache,

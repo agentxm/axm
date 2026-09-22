@@ -16,6 +16,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { RegistryOperationFailed } from "./errors.js";
+import { OperationExtractionBudget } from "./extraction-budget.js";
 import {
   MAX_ARCHIVE_ENTRIES,
   MAX_BUFFERED_ARCHIVE_BYTES,
@@ -208,8 +209,7 @@ const decodeBoundedZip = (
   return entries;
 };
 
-/** Extract a bounded ZIP archive into a caller-owned temporary directory. */
-export const extractZip = (
+const extractZipWithoutBudget = (
   archive: Uint8Array,
   targetDir: string,
   options: ArchiveExtractionLimits = {},
@@ -310,4 +310,16 @@ export const extractZip = (
         }),
       { concurrency: 1 },
     );
+  });
+
+/** Extract a bounded ZIP archive into a caller-owned temporary directory. */
+export const extractZip = (
+  archive: Uint8Array,
+  targetDir: string,
+  options: ArchiveExtractionLimits = {},
+) =>
+  Effect.gen(function* () {
+    const budget = yield* Effect.serviceOption(OperationExtractionBudget);
+    const extraction = extractZipWithoutBudget(archive, targetDir, options);
+    return yield* Option.isSome(budget) ? budget.value.withExtraction(extraction) : extraction;
   });

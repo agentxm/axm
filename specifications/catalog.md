@@ -5328,7 +5328,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `registry-client/archive-acquisition-is-bounded`
 - Owner: `registry-client`
-- Statement: AXM shall enforce finite compressed-body, expanded-content, and entry-count limits while acquiring a Registry archive, stop at the breached bound with a typed resource failure, and leave the target package tree unwritten.
+- Statement: AXM shall enforce finite compressed-body, expanded-content, entry-count, and concurrent-extraction limits while acquiring Registry archives, stop at a breached content bound with a typed resource failure, and leave the target package tree unwritten.
 - Class: functional
 - Role: supporting
 - Product goals: `trustworthy-distribution`, `safe-repetition`

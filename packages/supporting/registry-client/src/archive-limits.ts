@@ -1,3 +1,10 @@
+import type * as FileSystem from "effect/FileSystem";
+import * as Effect from "effect/Effect";
+import * as Ref from "effect/Ref";
+import * as Stream from "effect/Stream";
+
+import { RegistryOperationFailed } from "./errors.js";
+
 /** Maximum compressed archive bytes admitted to the in-memory acquisition path. */
 export const MAX_BUFFERED_ARCHIVE_BYTES = 50 * 1024 * 1024;
 
@@ -49,9 +56,3 @@ export const readBufferedArchive = (
     }
     return archive;
   });
-import type * as FileSystem from "effect/FileSystem";
-import * as Effect from "effect/Effect";
-import * as Ref from "effect/Ref";
-import * as Stream from "effect/Stream";
-
-import { RegistryOperationFailed } from "./errors.js";

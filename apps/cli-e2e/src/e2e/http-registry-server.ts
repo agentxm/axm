@@ -109,6 +109,8 @@ export interface HttpRegistryOptions {
   readonly hangArchive?: ReadonlyArray<string>;
   /** Reject a pack until every dependency named by its archive exists. */
   readonly enforcePackDependencies?: boolean;
+  /** Observe an authorized archive request before its response is sent. */
+  readonly onArchiveRequest?: (pluralAndName: string) => void;
   /** Require and complete the durable step-up flow for POST /v1/tokens, and accept revocation. */
   readonly stepUpTokenCreate?: boolean;
   /** Return a deliberately unusable publish-preview contract or HTTP failure. */
@@ -860,6 +862,7 @@ export const startHttpRegistry = async (
           sendProblem(response, 404, `No archive for ${plural}/${name}@${version}`);
           return;
         }
+        options.onArchiveRequest?.(`${plural}/${name}`);
         if (hangingArchives.has(`${plural}/${name}`)) {
           // Accepted and never answered: the download stays in flight so the
           // caller can interrupt the invocation at a known point.

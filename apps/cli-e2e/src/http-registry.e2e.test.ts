@@ -911,6 +911,32 @@ describe("HTTP registry transport", () => {
     }
   });
 
+  it("acquires archive bytes before holding the workspace transition", async () => {
+    const consumer = createTempDir();
+    const lockPresentAtArchive: Array<boolean> = [];
+    const registry = await startHttpRegistry({
+      onArchiveRequest: () =>
+        lockPresentAtArchive.push(
+          fs.existsSync(path.join(consumer.path, ".axm", "tmp", "workspace-transition.lock")),
+        ),
+    });
+    try {
+      await scaffoldAndPublish(registry.url, "skills", "skill", "archive-before-lock");
+      await initWorkspace(consumer.path, registry.url);
+
+      const result = await runCli(["install", `${OWNER}/skills/archive-before-lock`], {
+        cwd: consumer.path,
+        env: registryEnv(registry.url),
+      });
+
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(lockPresentAtArchive).toEqual([false]);
+    } finally {
+      await registry.close();
+      consumer.cleanup();
+    }
+  });
+
   it("narrates a slow metadata retry in piped output", async () => {
     const registry = await startHttpRegistry();
     const consumer = createTempDir();

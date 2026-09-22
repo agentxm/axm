@@ -5302,6 +5302,20 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `docs/architecture/workspace/execution.md`
 - Source: [`apps/cli-e2e/src/acquires-content-before-workspace-transition.spec.ts`](../apps/cli-e2e/src/acquires-content-before-workspace-transition.spec.ts)
 
+##### One candidate has a finite source acquisition queue
+
+- Requirement: `workspace/acquisition-queue-is-bounded`
+- Owner: `workspace`
+- Statement: AXM shall deduplicate external source acquisitions and refuse a candidate whose distinct acquisition count exceeds a finite operation limit before fetching content or taking the workspace transition.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: A synthetic candidate's source refs make deduplication, the admitted queue length, and early refusal directly observable without network or workspace effects.
+- Methods: boundary-value, example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`packages/core/workspace/src/acquisition/acquisition-queue-is-bounded.spec.ts`](../packages/core/workspace/src/acquisition/acquisition-queue-is-bounded.spec.ts)
+
 ##### Extension directory copies have finite byte and entry limits
 
 - Requirement: `workspace/extension-directory-copy-is-bounded`

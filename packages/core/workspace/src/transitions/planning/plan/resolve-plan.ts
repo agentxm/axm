@@ -58,6 +58,7 @@ import {
 } from "./operation-journal.js";
 import { OperationRequestBudget, redactRegistryText } from "@agentxm/registry-client";
 import { AcquiredContent, sourceRefContentKey } from "../../../acquisition/acquired-content.js";
+import { selectAcquisitionQueue } from "../../../acquisition/acquisition-queue.js";
 import { SourceHostProviders } from "../../../resolution/sources/service.js";
 
 import {
@@ -868,16 +869,26 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
   const transitionSubject = "workspace-transition";
   const applyResult = yield* Effect.scoped(
     Effect.gen(function* () {
-      const sourceRefs = candidatePlan.jobs.flatMap((job) =>
-        job.steps.flatMap(acquisitionRefsForStep),
-      );
-      const seenSources = new Set<string>();
-      const uniqueSourceRefs = sourceRefs.filter((ref) => {
-        const key = sourceRefContentKey(ref);
-        if (seenSources.has(key)) return false;
-        seenSources.add(key);
-        return true;
-      });
+      function* sourceRefs() {
+        for (const job of candidatePlan.jobs) {
+          for (const step of job.steps) {
+            yield* acquisitionRefsForStep(step);
+          }
+        }
+      }
+      const queue = selectAcquisitionQueue(sourceRefs());
+      if (queue.type === "limit") {
+        return {
+          type: "failure",
+          error: {
+            error: new StepFailure({
+              category: "quota",
+              detail: `This operation requires more than ${queue.limit} distinct source acquisitions`,
+            }),
+          },
+        } as const;
+      }
+      const uniqueSourceRefs = queue.refs;
       const sources = yield* Effect.serviceOption(SourceHostProviders);
       const budget = yield* Effect.serviceOption(OperationRequestBudget);
       const acquire = Option.isSome(sources) ? sources.value.acquireForTransition : undefined;

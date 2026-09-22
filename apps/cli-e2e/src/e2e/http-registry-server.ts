@@ -67,6 +67,7 @@ export interface HttpRegistry {
   readonly url: string;
   readonly publishes: ReadonlyArray<PublishRecord>;
   readonly requests: ReadonlyArray<RequestRecord>;
+  readonly metadataRequests: ReadonlyArray<ReadonlyArray<string>>;
   /** Every refresh token presented to the token endpoint, in order. */
   readonly presentedRefreshTokens: ReadonlyArray<string>;
   /** Resolves when the next commit-then-hang upload has been stored. */
@@ -375,6 +376,7 @@ export const startHttpRegistry = async (
     for (const resolve of waiters) resolve(hungKey);
   };
   const requests: Array<RequestRecord> = [];
+  const metadataRequests: Array<ReadonlyArray<string>> = [];
   const presentedRefreshTokens: Array<string> = [];
   let session =
     options.rotatingSession === undefined
@@ -470,7 +472,11 @@ export const startHttpRegistry = async (
         return;
       }
 
-      if (options.stepUpTokenCreate === true && request.method === "POST") {
+      if (
+        options.stepUpTokenCreate === true &&
+        request.method === "POST" &&
+        pathname !== "/v1/resolutions/metadata"
+      ) {
         if (pathname !== "/v1/tokens") {
           sendProblem(response, 404, `No POST route for ${pathname}`);
           return;
@@ -810,7 +816,11 @@ export const startHttpRegistry = async (
         return;
       }
 
-      if (request.method !== "GET" && request.method !== "HEAD") {
+      if (
+        request.method !== "GET" &&
+        request.method !== "HEAD" &&
+        !(request.method === "POST" && pathname === "/v1/resolutions/metadata")
+      ) {
         sendProblem(response, 405, `Unsupported method ${request.method ?? "unknown"}`);
         return;
       }
@@ -856,6 +866,123 @@ export const startHttpRegistry = async (
       const canRead = (owner: string, plural: string, name: string): boolean =>
         extensionVisibilities.get(key(owner, plural, name)) !== "private" ||
         requesterOwner === owner;
+
+      if (request.method === "POST" && pathname === "/v1/resolutions/metadata") {
+        let body: unknown;
+        try {
+          body = JSON.parse((await readBody(request)).toString("utf8"));
+        } catch {
+          sendProblem(response, 400, "Invalid batch metadata request.");
+          return;
+        }
+        if (!isRecord(body) || !Array.isArray(body["items"])) {
+          sendProblem(response, 400, "Invalid batch metadata items.");
+          return;
+        }
+        const items: ReadonlyArray<unknown> = body["items"];
+        const identities: string[] = [];
+        for (const item of items) {
+          if (!isRecord(item) || !isRecord(item["identity"])) {
+            sendProblem(response, 400, "Invalid batch metadata item.");
+            return;
+          }
+          const identity = item["identity"];
+          if (
+            typeof item["key"] !== "string" ||
+            typeof identity["owner"] !== "string" ||
+            typeof identity["type"] !== "string" ||
+            typeof identity["name"] !== "string"
+          ) {
+            sendProblem(response, 400, "Invalid batch metadata identity.");
+            return;
+          }
+          identities.push(`${identity["owner"]}/${identity["type"]}/${identity["name"]}`);
+        }
+        metadataRequests.push(identities);
+        await Promise.all(
+          identities.map((identity) => {
+            const [, type = "", name = ""] = identity.split("/");
+            const plural = Object.entries(TYPE_BY_PLURAL).find(([, value]) => value === type)?.[0];
+            return plural === undefined
+              ? undefined
+              : options.beforeIndexResponse?.(`${plural}/${name}`);
+          }),
+        );
+        const observedAt = "2026-09-22T00:00:00.000Z";
+        const validUntil = "2099-01-01T00:00:00.000Z";
+        const results = items.map((item) => {
+          if (!isRecord(item) || !isRecord(item["identity"])) {
+            throw new Error("Validated batch item was lost.");
+          }
+          const identity = item["identity"];
+          const owner = identity["owner"];
+          const type = identity["type"];
+          const name = identity["name"];
+          if (typeof owner !== "string" || typeof type !== "string" || typeof name !== "string") {
+            throw new Error("Validated batch identity was lost.");
+          }
+          const plural = Object.entries(TYPE_BY_PLURAL).find(([, value]) => value === type)?.[0];
+          const versions =
+            plural === undefined ? undefined : extensions.get(key(owner, plural, name));
+          if (
+            plural === undefined ||
+            versions === undefined ||
+            versions.length === 0 ||
+            !canRead(owner, plural, name)
+          ) {
+            return { key: item["key"], outcome: "unavailable" };
+          }
+          const accepted = item["accepted"];
+          if (item["purpose"] === "restore-exact" && isRecord(accepted)) {
+            const exact = versions.find((entry) => entry.version === accepted["version"]);
+            if (exact === undefined) {
+              return { key: item["key"], outcome: "exact-conflict", reason: "version-unavailable" };
+            }
+            if (exact.integrity !== accepted["integrity"]) {
+              return { key: item["key"], outcome: "exact-conflict", reason: "integrity-mismatch" };
+            }
+          }
+          const visibility = extensionVisibilities.get(key(owner, plural, name)) ?? "public";
+          const revision = crypto
+            .createHash("sha256")
+            .update(JSON.stringify({ visibility, versions }))
+            .digest("hex");
+          const current = {
+            publisherBindingId: "hbnd_e2e",
+            visibility,
+            archival: null,
+            deprecation: null,
+            revision,
+            observedAt,
+            validUntil,
+          };
+          if (item["knownRevision"] === revision) {
+            return { key: item["key"], outcome: "unchanged", ...current };
+          }
+          return {
+            key: item["key"],
+            outcome: "metadata",
+            page: {
+              ...current,
+              versions: versions.map((entry) => ({
+                version: entry.version,
+                published: entry.published,
+                integrity: entry.integrity,
+                ...(entry.dependencies === undefined ? {} : { dependencies: entry.dependencies }),
+                yanked_at: entry.yankedAt,
+              })),
+              continuation: null,
+            },
+          };
+        });
+        sendJson(response, 200, {
+          schemaVersion: 1,
+          selectionPolicyVersion: "1",
+          observedAt,
+          results,
+        });
+        return;
+      }
 
       const archiveMatch = ARCHIVE_PATH.exec(pathname);
       if (archiveMatch !== null) {
@@ -985,6 +1112,7 @@ export const startHttpRegistry = async (
     url: `http://127.0.0.1:${address.port}`,
     publishes,
     requests,
+    metadataRequests,
     presentedRefreshTokens,
     failNextIndex: (pluralAndName) => void pendingIndexFailures.add(pluralAndName),
     copyVersion: (owner, plural, name, sourceVersion, targetVersion) => {

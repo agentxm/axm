@@ -11,13 +11,13 @@ export const specification = defineSpecification({
   requirement: "cli/shared-pack-member-index-is-coalesced",
   title: "Configured packs share one member index read and materialization",
   statement:
-    "When two configured Packs depend on the same Registry member, AXM shall resolve independent Pack indexes concurrently, read the shared member's index once during planning, retain both Packs' constraints, and acquire the selected member archive once for the workspace transition.",
+    "When two configured Packs depend on the same Registry member, AXM shall resolve both Pack indexes in one batch, read the shared member's metadata once during planning, retain both Packs' constraints, and acquire the selected member archive once for the workspace transition.",
   class: "functional",
   role: "supporting",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
   boundary: "process",
   boundaryRationale:
-    "The real CLI process and controlled HTTP Registry hold one Pack index response while observing the other Pack and counting shared member-index and archive requests.",
+    "The real CLI process and controlled HTTP Registry hold one Pack metadata item while observing the other Pack in the same batch and counting shared member metadata and archive requests.",
   methods: ["example"],
   derivedFrom: ["docs/architecture/workspace/execution.md"],
   supersedes: [],
@@ -113,6 +113,7 @@ describe("Shared configured Pack member", () => {
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
       const start = registry.requests.length;
+      const metadataStart = registry.metadataRequests.length;
       holdFirstPack = true;
       const sync = runCli(["sync", "--json"], { cwd: consumer.path, env });
       let deadline: ReturnType<typeof setTimeout> | undefined;
@@ -138,15 +139,18 @@ describe("Shared configured Pack member", () => {
         result: { outcome: "applied" },
       });
       const requests = registry.requests.slice(start);
-      const memberIndex = requests.filter(
-        (request) => request.method === "GET" && /\/skills\/shared(?:\?|$)/u.test(request.path),
+      const batches = registry.metadataRequests.slice(metadataStart);
+      const metadataRequests = batches.flat();
+      const memberMetadata = metadataRequests.filter(
+        (identity) => identity === `${OWNER}/skill/shared`,
       );
+      expect(batches).toContainEqual([`${OWNER}/pack/first-pack`, `${OWNER}/pack/second-pack`]);
       const memberArchive = requests.filter(
         (request) =>
           request.method === "GET" && /\/skills\/shared\/[^/]+\/archive$/u.test(request.path),
       );
       expect(
-        memberIndex,
+        memberMetadata,
         `${result.stdout}\n${JSON.stringify(
           requests.map(({ method, path: requestPath, status }) => ({
             method,

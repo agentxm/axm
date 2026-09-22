@@ -11,6 +11,9 @@ import * as Path from "effect/Path";
 import type * as PlatformError from "effect/PlatformError";
 
 import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/extensions";
+import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
+import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import { OperationScratchBudget, makeOperationScratchBudget } from "@agentxm/registry-client";
 
 import {
   applyPlanExecution,
@@ -52,6 +55,10 @@ import {
   type OperationEvent,
 } from "./operation-events.js";
 import { WorkspaceRecordsEmpty } from "./__tests__/plan-spec-support.js";
+import {
+  SourceHostProviders,
+  type SourceHostProvidersService,
+} from "../../../resolution/sources/service.js";
 
 const testRecovery: ConfirmationRecovery = { command: ["install"], arguments: [] };
 
@@ -174,6 +181,69 @@ const makeTestContext = (
 };
 
 describe("previewOrApply", () => {
+  it.effect("refuses a source before fetching when operation scratch is exhausted", () =>
+    Effect.gen(function* () {
+      const name = decodeExtensionNameSync("example");
+      const ref: SkillExtensionRef = {
+        type: "skill",
+        refType: "local",
+        name,
+        skill: { name, description: Option.none(), metadata: Option.none() },
+        source: { type: "local", path: "/source" },
+        location: "file:///source/example",
+      };
+      let acquisitions = 0;
+      let applied = false;
+      const providers = {
+        find: () => Effect.die(new Error("unexpected source discovery")),
+        resolveNamedRegistry: () => Effect.die(new Error("unexpected registry resolution")),
+        fetch: () => Effect.die(new Error("unexpected source fetch")),
+        acquireForTransition: () =>
+          Effect.sync(() => {
+            acquisitions += 1;
+            return { directory: "/unreachable" };
+          }),
+        cloneUrl: () => Option.none(),
+        origin: () => "source",
+      } satisfies SourceHostProvidersService;
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Install source",
+        description: Option.none(),
+        jobs: [
+          {
+            concurrency: 1,
+            steps: [
+              {
+                readiness: "ready",
+                key: "skill:example",
+                label: "example",
+                acquisitionRefs: [ref],
+                run: Effect.sync(() => {
+                  applied = true;
+                  return { result: "success" as const, message: "installed" };
+                }),
+              },
+            ],
+          },
+        ],
+      };
+      const scratch = yield* makeOperationScratchBudget(1);
+      const context = makeTestContext();
+      const result = yield* previewOrApply(plan, { execution: preapprovedPlanExecution }).pipe(
+        Effect.provide(context.layer),
+        Effect.provideService(SourceHostProviders, providers),
+        Effect.provideService(OperationScratchBudget, scratch),
+      );
+
+      expect(acquisitions).toBe(0);
+      expect(applied).toBe(false);
+      expect(deriveOperationOutcome(result)).toBe("failed");
+      expect(result.units[0]?.error?.category).toBe("quota");
+      expect(result.units[0]?.error?.detail).toContain("operation scratch limit");
+    }),
+  );
+
   it.effect("--preview --yes remains a dry run", () => {
     let appliedCount = 0;
     const context = makeTestContext();

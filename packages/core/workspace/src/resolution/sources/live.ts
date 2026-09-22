@@ -19,10 +19,8 @@ import { stripFileProtocol } from "@agentxm/registry-client";
 import type * as Scope from "effect/Scope";
 
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
-import type {
-  ExtensionFiles,
-  FindOptions,
-} from "@agentxm/extension-model/unstable/sources/source-host-provider";
+import type { FindOptions } from "@agentxm/extension-model/unstable/sources/source-host-provider";
+import type { AcquiredSourceFiles } from "./service.js";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { AxmSkillCandidateGate } from "./axm-skill-gate.js";
@@ -146,7 +144,7 @@ export const SourceHostProvidersLive: Layer.Layer<
     const fetchImpl = (
       source: Source,
       ref: ExtensionRef,
-    ): Effect.Effect<ExtensionFiles, SourceResolutionFailure, Scope.Scope> => {
+    ): Effect.Effect<AcquiredSourceFiles, SourceResolutionFailure, Scope.Scope> => {
       switch (source.type) {
         case "local":
           return localProvider.fetch(source, ref).pipe(Effect.provide(depLayer));
@@ -208,7 +206,7 @@ export const SourceHostProvidersLive: Layer.Layer<
                   }),
             ),
           );
-          return { directory };
+          return { directory, scratchRoot: directory };
         }).pipe(Effect.withSpan("SourceHostProviders.acquireForTransition")),
       fetch: (ref) => {
         const source = ref.source;

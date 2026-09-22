@@ -5302,6 +5302,34 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `docs/architecture/workspace/execution.md`
 - Source: [`apps/cli-e2e/src/acquires-content-before-workspace-transition.spec.ts`](../apps/cli-e2e/src/acquires-content-before-workspace-transition.spec.ts)
 
+##### Source acquisitions share an operation scratch limit
+
+- Requirement: `registry-client/operation-scratch-is-bounded`
+- Owner: `registry-client`
+- Statement: AXM shall reserve finite scratch capacity before source acquisition, refuse over-capacity work with a typed resource failure, release unused capacity after measuring the acquired tree, and release retained capacity when its resource scope closes.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Controlled child scopes and small capacities make admission, refinement, refusal, and release observable without allocating large files.
+- Methods: boundary-value, example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`packages/supporting/registry-client/src/operation-scratch-is-bounded.spec.ts`](../packages/supporting/registry-client/src/operation-scratch-is-bounded.spec.ts)
+
+##### Acquired source trees are measured before retention
+
+- Requirement: `workspace/acquired-tree-is-bounded`
+- Owner: `workspace`
+- Statement: AXM shall measure the bytes and entries of an acquired source tree before retaining it for apply and refuse content that exceeds either finite limit.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: A temporary source tree makes byte and entry admission observable before a staged source can be retained.
+- Methods: boundary-value, example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`packages/core/workspace/src/acquisition/acquired-tree-is-bounded.spec.ts`](../packages/core/workspace/src/acquisition/acquired-tree-is-bounded.spec.ts)
+
 ##### One candidate has a finite source acquisition queue
 
 - Requirement: `workspace/acquisition-queue-is-bounded`

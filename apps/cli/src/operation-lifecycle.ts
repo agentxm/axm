@@ -21,8 +21,11 @@ import * as Path from "effect/Path";
 import {
   OperationRequestBudget,
   OperationExtractionBudget,
+  OperationScratchBudget,
   RegistryRetryObservation,
+  MAX_OPERATION_SCRATCH_BYTES,
   makeOperationExtractionBudget,
+  makeOperationScratchBudget,
   makeOperationRequestBudget,
 } from "@agentxm/registry-client";
 
@@ -112,6 +115,7 @@ export const withLiveOperation = <A, E, R>(args: LiveOperationArgs, body: Effect
       const lifecycle = yield* makeOperationLifecycle({ name: args.name, mode: args.mode });
       const requestBudget = yield* makeOperationRequestBudget({ invocation: 4, origin: 4 });
       const extractionBudget = yield* makeOperationExtractionBudget(2);
+      const scratchBudget = yield* makeOperationScratchBudget(MAX_OPERATION_SCRATCH_BYTES);
       yield* screen.observe(lifecycle);
       yield* observeLifecycleForTelemetry(lifecycle);
       yield* lifecycle.publish((seq, atMs) => ({
@@ -125,6 +129,7 @@ export const withLiveOperation = <A, E, R>(args: LiveOperationArgs, body: Effect
       return yield* body.pipe(
         Effect.provideService(OperationRequestBudget, requestBudget),
         Effect.provideService(OperationExtractionBudget, extractionBudget),
+        Effect.provideService(OperationScratchBudget, scratchBudget),
         Effect.provideService(RegistryRetryObservation, {
           waiting: ({ requestId, operation, nextAttempt, maxAttempts, delayMillis }) =>
             publishWaiting({

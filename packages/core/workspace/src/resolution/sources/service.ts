@@ -30,6 +30,11 @@ import { createRegistrySourceHostProviderFromHost } from "./providers/registry/h
 // Service Interface
 // -----------------------------------------------------------------------------
 
+/** The root of all temporary bytes retained for an acquired source. */
+export interface AcquiredSourceFiles extends ExtensionFiles {
+  readonly scratchRoot?: string;
+}
+
 /**
  * Service interface for source host providers.
  *
@@ -56,7 +61,7 @@ export interface SourceHostProvidersService {
   /** Acquire an immutable tree for a workspace transition before its lock. */
   readonly acquireForTransition?: (
     ref: ExtensionRef,
-  ) => Effect.Effect<ExtensionFiles, SourceResolutionFailure, Scope.Scope>;
+  ) => Effect.Effect<AcquiredSourceFiles, SourceResolutionFailure, Scope.Scope>;
   /** Build a git clone URL for this source. Returns None for non-git sources. */
   readonly cloneUrl: (source: Source) => Option.Option<string>;
   /** Canonical origin string for display/comparison. */

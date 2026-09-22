@@ -89,7 +89,10 @@ export const createGitSourceHostProvider = (): SourceHostProvider<
           detail: `Fetched Git content for ${source.url.href} at ${ref.gitCommitSha} did not match the accepted tree`,
         });
       }
-      return { directory: sourcePath === "." ? tempDir : path.join(tempDir, sourcePath) };
+      return {
+        directory: sourcePath === "." ? tempDir : path.join(tempDir, sourcePath),
+        scratchRoot: tempDir,
+      };
     });
   },
 });

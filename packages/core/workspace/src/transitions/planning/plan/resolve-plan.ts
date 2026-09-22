@@ -18,12 +18,16 @@
  */
 
 import * as Cause from "effect/Cause";
+import * as Exit from "effect/Exit";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
+import * as Result from "effect/Result";
+import * as Scope from "effect/Scope";
 import {
   ApprovalRecoveryMissing,
+  OPERATION_ERROR_CATEGORIES,
   STALE_CANDIDATE_DETAIL,
   StaleExecutionCandidate,
   StepFailure,
@@ -56,10 +60,24 @@ import {
   recordJournalPhase,
   recordOperationJournal,
 } from "./operation-journal.js";
-import { OperationRequestBudget, redactRegistryText } from "@agentxm/registry-client";
+import {
+  MAX_ACQUIRED_TREE_BYTES,
+  OperationRequestBudget,
+  OperationScratchBudget,
+  OperationScratchLimitExceeded,
+  redactRegistryText,
+} from "@agentxm/registry-client";
 import { AcquiredContent, sourceRefContentKey } from "../../../acquisition/acquired-content.js";
 import { selectAcquisitionQueue } from "../../../acquisition/acquisition-queue.js";
+import {
+  AcquiredTreeLimitExceeded,
+  measureAcquiredTree,
+} from "../../../acquisition/measure-acquired-tree.js";
 import { SourceHostProviders } from "../../../resolution/sources/service.js";
+import {
+  isSourceResolutionFailure,
+  sourceResolutionFailureCategory,
+} from "../../../resolution/sources/errors.js";
 
 import {
   CurrentOperationUnit,
@@ -891,38 +909,74 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
       const uniqueSourceRefs = queue.refs;
       const sources = yield* Effect.serviceOption(SourceHostProviders);
       const budget = yield* Effect.serviceOption(OperationRequestBudget);
+      const scratchBudget = yield* Effect.serviceOption(OperationScratchBudget);
+      const acquisitionScope = yield* Scope.Scope;
       const acquire = Option.isSome(sources) ? sources.value.acquireForTransition : undefined;
       const acquiredResults =
         acquire === undefined
           ? []
           : yield* Effect.forEach(
               uniqueSourceRefs,
-              (ref) => {
-                const key = sourceRefContentKey(ref);
-                return observeUnit(
-                  {
-                    id:
-                      ref.refType === "registry"
-                        ? `registry-extract:${ref.owner}/${ref.type}/${ref.name}`
-                        : `source-acquire:${ref.type}/${ref.name}`,
-                    label: `acquiring ${ref.name}`,
-                  },
-                  acquire(ref),
-                ).pipe(
-                  Effect.match({
-                    onFailure: (cause) => ({
-                      ref,
-                      key,
-                      failure: new StepFailure({
-                        category: "network",
-                        detail: `Could not acquire ${ref.type} ${ref.name} before applying the workspace transition`,
-                        cause,
-                      }),
+              (ref) =>
+                Effect.gen(function* () {
+                  const key = sourceRefContentKey(ref);
+                  const childScope = yield* Scope.fork(acquisitionScope);
+                  const attempted = yield* Effect.gen(function* () {
+                    const reservation = Option.isSome(scratchBudget)
+                      ? yield* scratchBudget.value.reserve(MAX_ACQUIRED_TREE_BYTES)
+                      : undefined;
+                    const files = yield* observeUnit(
+                      {
+                        id:
+                          ref.refType === "registry"
+                            ? `registry-extract:${ref.owner}/${ref.type}/${ref.name}`
+                            : `source-acquire:${ref.type}/${ref.name}`,
+                        label: `acquiring ${ref.name}`,
+                      },
+                      acquire(ref),
+                    );
+                    if (reservation !== undefined) {
+                      const bytes = yield* measureAcquiredTree(
+                        files.scratchRoot ?? files.directory,
+                      );
+                      yield* reservation.settle(bytes);
+                    }
+                    return files;
+                  }).pipe(Effect.provideService(Scope.Scope, childScope), Effect.result);
+                  if (Result.isSuccess(attempted)) return { ref, key, files: attempted.success };
+
+                  yield* Scope.close(childScope, Exit.fail(attempted.failure));
+                  const cause = attempted.failure;
+                  const failureCategory =
+                    cause instanceof OperationScratchLimitExceeded ||
+                    cause instanceof AcquiredTreeLimitExceeded
+                      ? "quota"
+                      : isSourceResolutionFailure(cause)
+                        ? sourceResolutionFailureCategory(cause)
+                        : "network";
+                  const category = OPERATION_ERROR_CATEGORIES.find(
+                    (candidate) => candidate === failureCategory,
+                  );
+                  const detail =
+                    cause instanceof OperationScratchLimitExceeded
+                      ? `Source acquisition exceeds the ${cause.capacity} byte operation scratch limit`
+                      : cause instanceof AcquiredTreeLimitExceeded
+                        ? `Acquired source exceeds the ${cause.limit} ${cause.resource} tree limit`
+                        : isSourceResolutionFailure(cause) &&
+                            "detail" in cause &&
+                            typeof cause.detail === "string"
+                          ? redactRegistryText(cause.detail)
+                          : `Could not acquire ${ref.type} ${ref.name} before applying the workspace transition`;
+                  return {
+                    ref,
+                    key,
+                    failure: new StepFailure({
+                      category: category ?? "network",
+                      detail,
+                      cause,
                     }),
-                    onSuccess: (files) => ({ ref, key, files }),
-                  }),
-                );
-              },
+                  };
+                }),
               { concurrency: Option.isSome(budget) ? budget.value.capacity : 1 },
             );
       const acquiredContent = {

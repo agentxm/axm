@@ -5,6 +5,7 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -43,17 +44,36 @@ describe("Broad source discovery and explicit roots", () => {
         JSON.stringify({ owner: "@acme", type: "skill", name: "review", version: "1.0.0" }),
       );
       const filter = { names: [], owner: Option.none(), type: "*" } as const;
+      const fileSystem = yield* FileSystem.FileSystem;
+      const cacheRoot = path.join(root, ".nx");
+      let cacheVisits = 0;
+      const visit = (target: string) => {
+        if (target === cacheRoot || target.startsWith(`${cacheRoot}${path.sep}`)) cacheVisits += 1;
+      };
+      const observed = {
+        ...fileSystem,
+        readDirectory: (target, options) =>
+          Effect.sync(() => visit(target)).pipe(
+            Effect.andThen(fileSystem.readDirectory(target, options)),
+          ),
+        stat: (target) =>
+          Effect.sync(() => visit(target)).pipe(Effect.andThen(fileSystem.stat(target))),
+        readLink: (target) =>
+          Effect.sync(() => visit(target)).pipe(Effect.andThen(fileSystem.readLink(target))),
+      } satisfies typeof fileSystem;
 
       const broad = yield* discoverExtensionPackages(root, filter).pipe(
-        Effect.provide(NodeServices.layer),
+        Effect.provideService(FileSystem.FileSystem, observed),
       );
+      expect(cacheVisits).toBe(0);
       const explicit = yield* discoverExtensionPackages(packageRoot, filter).pipe(
-        Effect.provide(NodeServices.layer),
+        Effect.provideService(FileSystem.FileSystem, observed),
       );
 
       expect(broad).toEqual([]);
+      expect(cacheVisits).toBeGreaterThan(0);
       expect(explicit).toHaveLength(1);
       expect(explicit[0]).toMatchObject({ kind: "manifest", directory: packageRoot });
-    }),
+    }).pipe(Effect.provide(NodeServices.layer)),
   );
 });

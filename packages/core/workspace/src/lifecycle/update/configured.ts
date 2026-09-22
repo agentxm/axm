@@ -1079,11 +1079,11 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     const blockPlans = blockedGroups.map((group) => {
       const prevented = selected
         .filter((advance) => group.packIdentities.includes(advance.identity))
-        .map((advance) => advance.name);
+        .map((advance) => advance.identity);
       return configuredPackConstraintBlockPlan({
         operation: "update",
         problems: group.problems,
-        ...(prevented.length === 0 ? {} : { blockedPackNames: prevented }),
+        ...(prevented.length === 0 ? {} : { blockedPackLabels: prevented }),
       });
     });
 

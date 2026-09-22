@@ -15,13 +15,16 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
+import { PACK_CONSTRAINT_CONFLICT_BLOCKER_ID } from "@agentxm/workspace/lifecycle";
+import { StepFailure, type ResolvedUnit } from "@agentxm/workspace/transitions/planning";
+
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   expectNoOpPlanResult,
   makeWorkspaceLifecycleTestContext,
   planResultUnits,
 } from "../../test-support/test-helpers.js";
-import { handleWorkspaceUpdate } from "./workspace-update-handler.js";
+import { handleWorkspaceUpdate, updateSuggestions } from "./workspace-update-handler.js";
 
 describe("workspace update handler output", () => {
   let tempDir: string;
@@ -192,5 +195,81 @@ describe("workspace update handler output", () => {
         });
       }),
     );
+  });
+});
+
+/**
+ * What the sweep offers next. A constraint contradiction and a retryable
+ * failure are different kinds of unsettled, and only one of them is a step to
+ * repeat; neither route was covered before.
+ */
+describe("workspace update suggestions", () => {
+  const unit = (over: Partial<ResolvedUnit<unknown>>): ResolvedUnit<unknown> => ({
+    id: "packs/alpha",
+    label: "@acme/packs/alpha",
+    state: "failed",
+    ...over,
+  });
+
+  const suggest = (
+    over: Partial<Parameters<typeof updateSuggestions>[0]>,
+    unsettled: ReadonlyArray<ResolvedUnit<unknown>>,
+  ) =>
+    updateSuggestions({
+      type: Option.none(),
+      refresh: false,
+      ignoreReleaseAge: false,
+      constraintRefused: false,
+      ...over,
+    })({ outcome: "failed", unsettled });
+
+  it("points a constraint refusal at the declarations that disagree", () => {
+    const blocked = unit({
+      state: "blocked",
+      blocking: {
+        class: "precondition-unmet",
+        subject: "@acme/packs/alpha",
+        phase: "planning",
+        detail: "Configured Pack constraints are unsatisfiable.",
+        reference: PACK_CONSTRAINT_CONFLICT_BLOCKER_ID,
+      },
+    });
+
+    expect(suggest({ constraintRefused: true }, [blocked])).toEqual([
+      {
+        description:
+          "Review the declarations that disagree, then widen or remove the declared range, or hold the Pack at a compatible version",
+        cmd: "axm packs show <pack>",
+      },
+      { description: "Inspect installed extensions", cmd: "axm list" },
+    ]);
+  });
+
+  it("offers the narrowed update route for a failure a retry can change", () => {
+    const failed = unit({
+      label: "skills/triage",
+      error: new StepFailure({ category: "network", detail: "Registry unreachable." }),
+    });
+
+    expect(suggest({ type: Option.some("skill") }, [failed])).toEqual([
+      {
+        description: "Try the extension that did not update again",
+        cmd: "axm skills update --name triage",
+      },
+    ]);
+  });
+
+  it("offers nothing where no rerun would settle the failure", () => {
+    const refused = unit({
+      error: new StepFailure({ category: "forbidden", detail: "Not entitled to this Pack." }),
+    });
+
+    expect(suggest({}, [refused])).toEqual([]);
+  });
+
+  it("offers the inventory when every unit settled", () => {
+    expect(suggest({}, [])).toEqual([
+      { description: "Inspect installed extensions", cmd: "axm list" },
+    ]);
   });
 });

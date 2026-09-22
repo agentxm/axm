@@ -25,6 +25,7 @@ import {
   emitOperationResolution,
   operationResolutionSummary,
   retryCanHelp,
+  type OperationRecoveryContext,
 } from "../../operation-output.js";
 import { INSPECT_INSTALLED } from "../suggested-actions.js";
 import { extensionLifecycleFailedToAppError } from "../../feature-errors.js";
@@ -97,6 +98,40 @@ const updateRecovery = (args: {
     },
   ];
 };
+
+/**
+ * What the sweep offers next. A constraint contradiction is a choice to make,
+ * not a step to repeat, so it names the declarations that disagree; a sweep
+ * that settled everything offers only the inventory; and anything else offers
+ * a route only where one would actually settle it, so a failure no rerun can
+ * change names nothing here.
+ */
+export const updateSuggestions =
+  (args: {
+    readonly type: Option.Option<WorkspaceUpdatableType>;
+    readonly refresh: boolean;
+    readonly ignoreReleaseAge: boolean;
+    readonly constraintRefused: boolean;
+  }) =>
+  ({ unsettled }: OperationRecoveryContext): ReadonlyArray<SuggestedAction> => {
+    if (args.constraintRefused) {
+      return [
+        {
+          description:
+            "Review the declarations that disagree, then widen or remove the declared range, or hold the Pack at a compatible version",
+          cmd: "axm packs show <pack>",
+        },
+        INSPECT_INSTALLED,
+      ];
+    }
+    if (unsettled.length === 0) return [INSPECT_INSTALLED];
+    return updateRecovery({
+      type: args.type,
+      unsettled,
+      refresh: args.refresh,
+      ignoreReleaseAge: args.ignoreReleaseAge,
+    });
+  };
 
 export interface WorkspaceUpdateHandlerArgs {
   readonly command: string;
@@ -186,26 +221,11 @@ const handleWorkspaceUpdateBody = Effect.fn("Update.handleConfigured")(function*
     (unit) => unit.blocking?.reference === PACK_CONSTRAINT_CONFLICT_BLOCKER_ID,
   );
   yield* emitOperationResolution(args.command, resolution, {
-    // Every other outcome offers a route only where one would settle it, so a
-    // sweep that failed on something a rerun cannot fix names nothing here.
-    suggestions: ({ unsettled }) => {
-      if (constraintRefused) {
-        return [
-          {
-            description:
-              "Review the declarations that disagree, then widen or remove the declared range, or hold the Pack at a compatible version",
-            cmd: "axm packs show <pack>",
-          },
-          INSPECT_INSTALLED,
-        ];
-      }
-      if (unsettled.length === 0) return [INSPECT_INSTALLED];
-      return updateRecovery({
-        type: args.type,
-        unsettled,
-        refresh: args.flags.force === true,
-        ignoreReleaseAge: posture === "ignore",
-      });
-    },
+    suggestions: updateSuggestions({
+      type: args.type,
+      refresh: args.flags.force === true,
+      ignoreReleaseAge: posture === "ignore",
+      constraintRefused,
+    }),
   });
 });

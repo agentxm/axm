@@ -70,6 +70,7 @@ interface Sample {
   readonly durationMs: number;
   readonly peakRssBytes: number | null;
   readonly exitCode: number;
+  readonly timedOut: boolean;
   readonly outcome: string | null;
   readonly ok: boolean | null;
   readonly planCounts: Readonly<Record<string, number>> | null;
@@ -235,7 +236,7 @@ const probeRegistryIndex = (url: string) =>
         });
         request.once("error", reject);
       }),
-    catch: (cause) => new LifecycleBenchmarkError(`Duplicate probe failed: ${String(cause)}`),
+    catch: (cause) => new LifecycleBenchmarkError(`Registry probe failed: ${String(cause)}`),
   });
 
 const check = (result: CommandResult, label: string): void => {
@@ -250,7 +251,12 @@ const check = (result: CommandResult, label: string): void => {
 };
 
 const summaryOf = (stdout: string) => {
-  const value: unknown = JSON.parse(stdout);
+  let value: unknown;
+  try {
+    value = JSON.parse(stdout);
+  } catch {
+    return { ok: null, outcome: null, planCounts: null };
+  }
   if (!isRecord(value) || !isRecord(value["result"])) {
     return { ok: null, outcome: null, planCounts: null };
   }
@@ -290,7 +296,6 @@ const measure = (
   observation: { readonly result: CommandResult; readonly requests: RequestMetrics | null },
 ): void => {
   const { result, requests } = observation;
-  check(result, scenario);
   const summary = summaryOf(result.stdout);
   append({
     mode,
@@ -304,6 +309,7 @@ const measure = (
     durationMs: result.durationMs,
     peakRssBytes: result.peakRssBytes,
     exitCode: result.exitCode,
+    timedOut: result.timedOut,
     ...summary,
     cacheState,
     requests,
@@ -311,6 +317,7 @@ const measure = (
     perClosureWrites: null,
     lockWaitMs: null,
   });
+  check(result, scenario);
 };
 
 const runSourceScenarios = (
@@ -471,6 +478,7 @@ export const runLifecycleBenchmark = (repoRoot: string, outputPath: string): Pro
         }).trim().length > 0;
       const samples: Array<Sample> = [];
       let duplicateRequestProbe = false;
+      let serializationProbe = false;
       fs.mkdirSync(path.dirname(outputPath), { recursive: true });
       const append = (sample: Sample): void => {
         samples.push(sample);
@@ -705,6 +713,26 @@ export const runLifecycleBenchmark = (repoRoot: string, outputPath: string): Pro
                     throw new LifecycleBenchmarkError("Duplicate request metric did not change.");
                   }
                   duplicateRequestProbe = true;
+                  const archiveUrl = `${probeUrl}/1.0.0/archive`;
+                  registry.reset(true);
+                  yield* Effect.all(
+                    [probeRegistryIndex(archiveUrl), probeRegistryIndex(archiveUrl)],
+                    { concurrency: 2 },
+                  );
+                  const concurrent = registry.metrics();
+                  registry.reset(true);
+                  yield* probeRegistryIndex(archiveUrl);
+                  yield* probeRegistryIndex(archiveUrl);
+                  const serialized = registry.metrics();
+                  if (
+                    concurrent?.peakActiveArchiveBodies !== 2 ||
+                    serialized?.peakActiveArchiveBodies !== 1
+                  ) {
+                    throw new LifecycleBenchmarkError(
+                      "Archive concurrency metric did not distinguish serialized requests.",
+                    );
+                  }
+                  serializationProbe = true;
                   registry.reset(false);
                 }
               }),
@@ -792,7 +820,10 @@ export const runLifecycleBenchmark = (repoRoot: string, outputPath: string): Pro
           perClosureWrites: "The current CLI exposes no closure-attributed write counter.",
           lockWaitMs: "The current CLI exposes no lock acquisition timer to this runner.",
         },
-        counterChecks: { duplicateMetadataRequest: duplicateRequestProbe ? "passed" : "not-run" },
+        counterChecks: {
+          duplicateMetadataRequest: duplicateRequestProbe ? "passed" : "not-run",
+          serializedArchiveRequests: serializationProbe ? "passed" : "not-run",
+        },
         unavailableHistoricalEvidence:
           "Earlier raw cold-apply, Git, and production traces are unavailable.",
         samples,

@@ -3,7 +3,8 @@
  *
  * Where the live region cannot repaint, the same transitions the live ledger
  * would have shown become transcript lines: one when the operation starts, one
- * per phase and wait, one when it rolls back, and one when it settles. All wording lives
+ * per phase, unit start, retry attempt, and wait, one when it rolls back, and
+ * one when it settles. All wording lives
  * here, beside the painter; the frame paints documents and never formats
  * events.
  */
@@ -13,6 +14,7 @@ import { factParts } from "./docs.js";
 import {
   duration,
   phaseLabel,
+  retryAttempt,
   settledOutcomeTone,
   systemWaitStatus,
   unitState,
@@ -71,6 +73,17 @@ export const progressTransitionDoc = (
         tone: "info",
         text: `${activity.charAt(0).toUpperCase()}${activity.slice(1)}`,
       });
+    }
+  }
+  const priorUnits = new Map(previous?.units.map((unit) => [unit.id, unit]));
+  for (const unit of next.units) {
+    const prior = priorUnits.get(unit.id);
+    if (unit.status === "running" && prior?.status !== "running") {
+      doc.push({ _tag: "headline", tone: "info", text: `Working on ${unit.label}` });
+    }
+    const retry = unit.attempt === undefined ? undefined : retryAttempt(unit.attempt);
+    if (retry !== undefined && unit.attempt?.n !== prior?.attempt?.n) {
+      doc.push({ _tag: "headline", tone: "info", text: `${unit.label}: ${retry}` });
     }
   }
   for (const wait of next.waiting) {

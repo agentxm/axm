@@ -11,6 +11,12 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { writeLocalSkillPackage } from "../testing.js";
 import {
+  OperationLifecycle,
+  makeOperationLifecycle,
+  subscribeLossless,
+  type OperationEvent,
+} from "../../transitions/planning/index.js";
+import {
   applyInstall,
   entriesUnder,
   installRequest,
@@ -104,12 +110,26 @@ describe("Install materializes canonical content", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
+          const lifecycle = yield* makeOperationLifecycle({ name: "Install skill", mode: "apply" });
+          const events: Array<OperationEvent> = [];
+          yield* subscribeLossless(lifecycle, (event) =>
+            Effect.sync(() => void events.push(event)),
+          );
           yield* applyInstall(
             installRequest({
               type: "skill",
               subject: { kind: "source", source: "@acme/skills/registry-review@1.2.3" },
             }),
-          );
+          ).pipe(Effect.provideService(OperationLifecycle, lifecycle));
+          yield* lifecycle.settle("applied");
+          yield* lifecycle.drained.await;
+          expect(
+            events.filter(
+              (event) =>
+                event._tag === "UnitStarted" &&
+                event.unitId === "registry-extract:@acme/skill/registry-review",
+            ),
+          ).toHaveLength(1);
 
           const canonical = nodePath.join(
             workspace.root,

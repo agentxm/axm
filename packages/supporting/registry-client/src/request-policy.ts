@@ -40,6 +40,16 @@ export interface RegistryRequestPolicy {
   readonly maxBackoff: Duration.Input;
 }
 
+/** Report a scheduled backoff and close that wait on resume or interruption. */
+export interface RegistryRetryObserver {
+  readonly waiting: (retry: {
+    readonly nextAttempt: number;
+    readonly maxAttempts: number;
+    readonly delayMillis: number;
+  }) => Effect.Effect<void>;
+  readonly ended: () => Effect.Effect<void>;
+}
+
 export const DEFAULT_REGISTRY_REQUEST_POLICY: RegistryRequestPolicy = {
   requestTimeout: "10 seconds",
   totalDeadline: "30 seconds",
@@ -114,7 +124,11 @@ const retryAfter = (error: unknown) =>
     });
   });
 
-const retrySchedule = (policy: RegistryRequestPolicy, operation: string) => {
+const retrySchedule = (
+  policy: RegistryRequestPolicy,
+  operation: string,
+  onRetryWaiting?: RegistryRetryObserver["waiting"],
+) => {
   const totalDeadlineMillis = Duration.toMillis(Duration.fromInputUnsafe(policy.totalDeadline));
   const maxBackoffMillis = Duration.toMillis(Duration.fromInputUnsafe(policy.maxBackoff));
 
@@ -146,7 +160,17 @@ const retrySchedule = (policy: RegistryRequestPolicy, operation: string) => {
         ...(requestIdFromError(input) === undefined
           ? {}
           : { requestId: requestIdFromError(input) }),
-      }),
+      }).pipe(
+        Effect.andThen(
+          onRetryWaiting === undefined
+            ? Effect.void
+            : onRetryWaiting({
+                nextAttempt: attempt + 1,
+                maxAttempts: policy.maxAttempts,
+                delayMillis: Duration.toMillis(duration),
+              }),
+        ),
+      ),
     ),
   );
 };
@@ -236,6 +260,7 @@ export const executeRegistryRequest = <A, E, R>(
     readonly replaySafety: RegistryRequestReplaySafety;
     readonly mapError: (error: E) => RegistryClientFailure;
     readonly policy?: RegistryRequestPolicy;
+    readonly retryObserver?: RegistryRetryObserver;
   },
   // The policy owns the attempt, so it satisfies the service the governed work
   // reads rather than leaving it for the caller to provide.
@@ -250,16 +275,37 @@ export const executeRegistryRequest = <A, E, R>(
 
   return Effect.gen(function* () {
     const attempts = yield* Ref.make(0);
-    const countedAttempt = Ref.updateAndGet(attempts, (count) => count + 1).pipe(
-      Effect.flatMap((n) =>
-        Effect.provideService(attempt, RegistryRequestAttempt, { n, of: attemptLimit }),
+    const waiting = yield* Ref.make(false);
+    const retryObserver = args.retryObserver;
+    const endRetryWait = Effect.uninterruptible(
+      Ref.getAndSet(waiting, false).pipe(
+        Effect.flatMap((wasWaiting) =>
+          wasWaiting && retryObserver !== undefined ? retryObserver.ended() : Effect.void,
+        ),
       ),
     );
+    const countedAttempt = Ref.updateAndGet(attempts, (count) => count + 1).pipe(
+      Effect.flatMap((n) =>
+        endRetryWait.pipe(
+          Effect.andThen(
+            Effect.provideService(attempt, RegistryRequestAttempt, { n, of: attemptLimit }),
+          ),
+        ),
+      ),
+    );
+    const onRetryWaiting =
+      retryObserver === undefined
+        ? undefined
+        : (retry: Parameters<RegistryRetryObserver["waiting"]>[0]) =>
+            Effect.uninterruptible(
+              retryObserver.waiting(retry).pipe(Effect.andThen(Ref.set(waiting, true))),
+            );
     const executed = replaySafe
-      ? countedAttempt.pipe(Effect.retry(retrySchedule(policy, args.operation)))
+      ? countedAttempt.pipe(Effect.retry(retrySchedule(policy, args.operation, onRetryWaiting)))
       : countedAttempt;
 
     return yield* executed.pipe(
+      Effect.ensuring(endRetryWait),
       Effect.timeout(policy.totalDeadline),
       Effect.catch((error) =>
         Ref.get(attempts).pipe(

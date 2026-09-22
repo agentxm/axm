@@ -15,6 +15,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import type { RegistryClientFailure } from "./errors.js";
+import type { RegistryRetryObserver } from "./request-policy.js";
 import type {
   PublishVisibility,
   VisibilityEvaluation,
@@ -106,10 +107,13 @@ interface GetExtensionPackageBaseArgs {
   /** Marks an archive read used only to verify compatibility before selection. */
   readonly usagePurpose?: "verification";
   /**
-   * Observes archive bytes as they arrive. Called once per received chunk;
-   * callers throttle before publishing. Never called for a cache hit.
+   * Observes archive bytes as they arrive, and reports zero bytes when a
+   * later request attempt begins. Callers throttle chunk measurements before
+   * publishing. Never called for a cache hit.
    */
   readonly onProgress?: (progress: ArchiveDownloadProgress) => Effect.Effect<void>;
+  /** Observes a policy retry delay and the point that delay ends. */
+  readonly retryObserver?: RegistryRetryObserver;
 }
 
 /** An immutable selection whose archive digest and lifecycle warnings were already observed. */

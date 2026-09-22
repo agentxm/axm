@@ -85,7 +85,7 @@ describe("Machine progress event contract", () => {
       return { log, progress: progressLines(log) };
     });
 
-  const machineConfiguredUpdate = () =>
+  const machineConfiguredUpdate = (preview: boolean) =>
     Effect.gen(function* () {
       const workspace = makeSpecWorkspace({
         screen: { kind: "machine" },
@@ -106,7 +106,7 @@ describe("Machine progress event contract", () => {
       }).pipe(Effect.provide(workspace.layer));
       const log = workspace.streams?.log ?? [];
       log.splice(0);
-      yield* handleUpdate({ source: Option.none(), force: false, preview: true }).pipe(
+      yield* handleUpdate({ source: Option.none(), force: false, preview }).pipe(
         Effect.provide(workspace.layer),
       );
       return { log, progress: progressLines(log) };
@@ -207,30 +207,52 @@ describe("Machine progress event contract", () => {
     }),
   );
 
-  it.effect("configured update has one ordered lifecycle and one result document", () =>
-    Effect.gen(function* () {
-      const { log, progress } = yield* machineConfiguredUpdate();
-      const events = yield* Effect.forEach(progress, (line) =>
-        Effect.map(decodeProgressEvent(line.value), (decoded) => ({
-          index: line.index,
-          event: decoded.event,
-        })),
-      );
-      expect(events.filter((entry) => entry.event._tag === "OperationStarted")).toHaveLength(1);
-      expect(events.filter((entry) => entry.event._tag === "OperationSettled")).toHaveLength(1);
-      expect(events.find((entry) => entry.event._tag === "PhaseStarted")?.event).toMatchObject({
-        phase: "resolution",
-      });
-      for (let index = 1; index < events.length; index += 1) {
-        const previous = events[index - 1];
-        const current = events[index];
-        expect(current?.event.seq).toBeGreaterThan(previous?.event.seq ?? 0);
-      }
-      const resultWrites = log.filter((entry) => entry.channel === "stdout");
-      expect(resultWrites).toHaveLength(1);
-      const resultIndex = log.findIndex((entry) => entry.channel === "stdout");
-      yield* decodeDocument(JSON.parse(resultWrites[0]?.content ?? ""));
-      expect(events.every((entry) => entry.index < resultIndex)).toBe(true);
-    }),
+  it.effect(
+    "configured update preview and apply each have one ordered lifecycle and one result",
+    () =>
+      Effect.forEach(
+        [true, false],
+        (preview) =>
+          Effect.gen(function* () {
+            const { log, progress } = yield* machineConfiguredUpdate(preview);
+            const events = yield* Effect.forEach(progress, (line) =>
+              Effect.map(decodeProgressEvent(line.value), (decoded) => ({
+                index: line.index,
+                event: decoded.event,
+              })),
+            );
+            expect(events.filter((entry) => entry.event._tag === "OperationStarted")).toHaveLength(
+              1,
+            );
+            expect(events.filter((entry) => entry.event._tag === "OperationSettled")).toHaveLength(
+              1,
+            );
+            expect(
+              events.find((entry) => entry.event._tag === "PhaseStarted")?.event,
+            ).toMatchObject({
+              phase: "resolution",
+            });
+            expect(
+              events
+                .filter((entry) => entry.event._tag === "UnitStarted")
+                .map((entry) => entry.event),
+            ).toEqual(
+              expect.arrayContaining([
+                expect.objectContaining({ unitId: "configured-update:skill" }),
+              ]),
+            );
+            for (let index = 1; index < events.length; index += 1) {
+              const previous = events[index - 1];
+              const current = events[index];
+              expect(current?.event.seq).toBeGreaterThan(previous?.event.seq ?? 0);
+            }
+            const resultWrites = log.filter((entry) => entry.channel === "stdout");
+            expect(resultWrites).toHaveLength(1);
+            const resultIndex = log.findIndex((entry) => entry.channel === "stdout");
+            yield* decodeDocument(JSON.parse(resultWrites[0]?.content ?? ""));
+            expect(events.every((entry) => entry.index < resultIndex)).toBe(true);
+          }),
+        { discard: true },
+      ),
   );
 });

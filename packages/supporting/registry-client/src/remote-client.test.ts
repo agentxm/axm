@@ -712,18 +712,54 @@ describe("getExtensionPackage", () => {
       });
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
       const reported: Array<ArchiveDownloadProgress> = [];
+      const retryActivity: Array<string> = [];
 
       yield* client.getExtensionPackage({
         ...makePackageArgs(),
         onProgress: (progress) => Effect.sync(() => void reported.push(progress)),
+        retryObserver: {
+          waiting: ({ nextAttempt }) =>
+            Effect.sync(() => void retryActivity.push(`waiting for ${String(nextAttempt)}`)),
+          ended: () => Effect.sync(() => void retryActivity.push("resumed")),
+        },
       });
 
       expect(archiveRequests).toBe(2);
+      expect(retryActivity).toEqual(["waiting for 2", "resumed"]);
       expect(reported.map((progress) => progress.attempt)).toEqual([
         { n: 2, of: 3 },
         { n: 2, of: 3 },
       ]);
       expect(reported[0]?.done).toBe(0);
+    }),
+  );
+
+  it.effect("reports a package index retry before the archive is requested", () =>
+    Effect.gen(function* () {
+      let indexRequests = 0;
+      const httpClient = makeMockHttpClient((request) => {
+        if (request.url.endsWith("/archive")) {
+          return new Response(new Uint8Array([0x50, 0x4b, 0x03, 0x04]), { status: 200 });
+        }
+        indexRequests += 1;
+        return indexRequests === 1
+          ? typedErrorResponse(503, "service_unavailable", "Try again")
+          : new Response(JSON.stringify(extensionIndexResponse), { status: 200 });
+      });
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+      const activity: Array<string> = [];
+
+      yield* client.getExtensionPackage({
+        ...makePackageArgs(),
+        retryObserver: {
+          waiting: ({ nextAttempt }) =>
+            Effect.sync(() => void activity.push(`waiting for ${String(nextAttempt)}`)),
+          ended: () => Effect.sync(() => void activity.push("resumed")),
+        },
+      });
+
+      expect(indexRequests).toBe(2);
+      expect(activity).toEqual(["waiting for 2", "resumed"]);
     }),
   );
 

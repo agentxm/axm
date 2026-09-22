@@ -52,6 +52,7 @@ export {
   executeRegistryRequest,
   type RegistryRequestPolicy,
   type RegistryRequestReplaySafety,
+  type RegistryRetryObserver,
 } from "./request-policy.js";
 
 export type {

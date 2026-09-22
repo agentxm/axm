@@ -237,8 +237,8 @@ describe("previewOrApply", () => {
 
     return Effect.gen(function* () {
       const lifecycle = yield* makeOperationLifecycle({ name: plan.name, mode: "apply" });
-      const observed: Array<OperationEvent> = [];
-      yield* subscribeLossless(lifecycle, (event) => Effect.sync(() => void observed.push(event)));
+      const events: Array<OperationEvent> = [];
+      yield* subscribeLossless(lifecycle, (event) => Effect.sync(() => void events.push(event)));
       yield* previewOrApply(plan, {
         execution: preapprovedPlanExecution,
       }).pipe(Effect.provideService(OperationLifecycle, lifecycle));
@@ -246,7 +246,7 @@ describe("previewOrApply", () => {
       yield* lifecycle.drained.await;
 
       expect(
-        observed.map((event) =>
+        events.map((event) =>
           event._tag === "PhaseStarted"
             ? `${event._tag}:${event.phase}`
             : event._tag === "UnitStarted" || event._tag === "UnitResolved"
@@ -263,7 +263,7 @@ describe("previewOrApply", () => {
         "UnitResolved:code-review",
         "OperationSettled",
       ]);
-      expect(observed.map((event) => event.seq)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+      expect(events.map((event) => event.seq)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
       expect(context.interactionState.confirmApplyChangesCalls).toHaveLength(0);
     }).pipe(Effect.provide(context.layer), Effect.scoped);
   });
@@ -598,6 +598,9 @@ describe("previewOrApply", () => {
       ],
     };
     return Effect.gen(function* () {
+      const lifecycle = yield* makeOperationLifecycle({ name: plan.name, mode: "apply" });
+      const events: Array<OperationEvent> = [];
+      yield* subscribeLossless(lifecycle, (event) => Effect.sync(() => void events.push(event)));
       const records = yield* WorkspaceRecords;
       let inventoryReads = 0;
       const observed = {
@@ -616,8 +619,18 @@ describe("previewOrApply", () => {
             { extensionType: "skill", name: "triage", plannedState: "enabled" },
           ],
         }),
-      }).pipe(Effect.provideService(WorkspaceRecords, observed));
+      }).pipe(
+        Effect.provideService(WorkspaceRecords, observed),
+        Effect.provideService(OperationLifecycle, lifecycle),
+      );
+      yield* lifecycle.settle("applied");
+      yield* lifecycle.drained.await;
       expect(inventoryReads).toBe(1);
+      expect(
+        events.filter(
+          (event) => event._tag === "UnitStarted" && event.unitId === "agent-readback:skill",
+        ),
+      ).toHaveLength(1);
     }).pipe(Effect.provide(context.layer));
   });
 

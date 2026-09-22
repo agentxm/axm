@@ -14,7 +14,11 @@ import * as Path from "effect/Path";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 import { computeIntegrity, createRegistryClient, extractZip } from "@agentxm/registry-client";
-import type { GetExtensionPackageArgs, RegistryClientFailure } from "@agentxm/registry-client";
+import type {
+  GetExtensionPackageArgs,
+  RegistryClientFailure,
+  RegistryRetryObserver,
+} from "@agentxm/registry-client";
 import type {
   ExtensionName,
   ExtensionType,
@@ -27,7 +31,12 @@ import {
   type CanonicalDirectoryReplacementError,
   type MaterializedPackage,
 } from "../acquisition/canonical-directory.js";
-import { makeThrottledUnitProgress } from "../transitions/planning/index.js";
+import {
+  makeThrottledUnitProgress,
+  observeChildUnit,
+  publishWaitEnded,
+  publishWaiting,
+} from "../transitions/planning/index.js";
 import {
   computeMaterializedTreeIntegrity,
   type MaterializedTreeInvalid,
@@ -93,6 +102,16 @@ export const materializeRegistryPackageWithTreeIntegrity = <E = never>(
     // tens of events per archive, attributed to the unit that is running and
     // to the attempt the request policy is on.
     const reportProgress = yield* makeThrottledUnitProgress({ unit: "bytes" });
+    const retrySubject = `registry-retry:${globalThis.crypto.randomUUID()}`;
+    const retryObserver: RegistryRetryObserver = {
+      waiting: ({ nextAttempt, maxAttempts, delayMillis }) =>
+        publishWaiting({
+          blockingClass: "external-blocked",
+          subject: retrySubject,
+          detail: `Registry download retry ${String(nextAttempt)} of ${String(maxAttempts)} after ${delayMillis < 1_000 ? `${String(delayMillis)}ms` : `${String(Math.round(delayMillis / 100) / 10)}s`}`,
+        }),
+      ended: () => publishWaitEnded(retrySubject),
+    };
     const packageArgs: GetExtensionPackageArgs = Option.match(args.integrity, {
       onNone: () => ({
         owner: args.owner,
@@ -100,6 +119,7 @@ export const materializeRegistryPackageWithTreeIntegrity = <E = never>(
         name: args.name,
         version: Option.some(args.version),
         onProgress: (progress) => reportProgress(progress.done, progress.total, progress.attempt),
+        retryObserver,
       }),
       onSome: (integrity) => ({
         owner: args.owner,
@@ -114,6 +134,7 @@ export const materializeRegistryPackageWithTreeIntegrity = <E = never>(
             : { lifecycleWarnings: args.lifecycleWarnings }),
         },
         onProgress: (progress) => reportProgress(progress.done, progress.total, progress.attempt),
+        retryObserver,
       }),
     });
     const { archive, warnings } = yield* client.getExtensionPackage(packageArgs);
@@ -137,7 +158,14 @@ export const materializeRegistryPackageWithTreeIntegrity = <E = never>(
     >({
       baseDir: args.baseDir,
       canonicalPath: args.destinationPath,
-      populate: (stagingPath) => extractZip(archive, stagingPath),
+      populate: (stagingPath) =>
+        observeChildUnit(
+          {
+            id: `registry-extract:${args.owner}/${args.type}/${args.name}`,
+            label: `extracting ${args.name}`,
+          },
+          extractZip(archive, stagingPath),
+        ),
       ...(args.validate === undefined ? {} : { validate: args.validate }),
       inspect: computeMaterializedTreeIntegrity,
     });

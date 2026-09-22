@@ -727,28 +727,31 @@ export const resolveExecutionCandidate = Effect.fn("resolveExecutionCandidate")(
           ),
         ],
         (type) =>
-          Effect.gen(function* () {
-            const override = provider.byExtensionType[type];
-            if (override !== undefined) {
-              const outcomes = yield* override("current").pipe(
-                Effect.mapError(configuredAgentOutcomesUnavailableToStepFailure),
-              );
-              const byName = new Map<string, Array<ConfiguredAgentOutcome>>();
-              for (const outcome of outcomes) {
-                const grouped = byName.get(outcome.name) ?? [];
-                grouped.push(outcome);
-                byName.set(outcome.name, grouped);
+          observeUnit(
+            { id: `agent-readback:${type}`, label: `current ${type} agent state` },
+            Effect.gen(function* () {
+              const override = provider.byExtensionType[type];
+              if (override !== undefined) {
+                const outcomes = yield* override("current").pipe(
+                  Effect.mapError(configuredAgentOutcomesUnavailableToStepFailure),
+                );
+                const byName = new Map<string, Array<ConfiguredAgentOutcome>>();
+                for (const outcome of outcomes) {
+                  const grouped = byName.get(outcome.name) ?? [];
+                  grouped.push(outcome);
+                  byName.set(outcome.name, grouped);
+                }
+                return [type, { override: true, byName } satisfies Readback] as const;
               }
-              return [type, { override: true, byName } satisfies Readback] as const;
-            }
-            const inventory = yield* records
-              .getExtensionInventory(type, {})
-              .pipe(Effect.mapError(workspaceStateReadFailureToStepFailure));
-            const byName = new Map(
-              inventory.items.map((item) => [item.name, item.agentOutcomes] as const),
-            );
-            return [type, { override: false, byName } satisfies Readback] as const;
-          }),
+              const inventory = yield* records
+                .getExtensionInventory(type, {})
+                .pipe(Effect.mapError(workspaceStateReadFailureToStepFailure));
+              const byName = new Map(
+                inventory.items.map((item) => [item.name, item.agentOutcomes] as const),
+              );
+              return [type, { override: false, byName } satisfies Readback] as const;
+            }),
+          ),
       ),
     );
     const currentOutcomes = operations.flatMap((operation) => {

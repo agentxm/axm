@@ -45,6 +45,7 @@ import {
 } from "../../resolution/index.js";
 import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
+  observeUnit,
   operationPresentation,
   type Plan,
   type PlannedJobStep,
@@ -1190,7 +1191,14 @@ export const buildWorkspaceUpdatePlan: (
   );
   const collections = yield* Effect.forEach(
     selectedCollectors,
-    ({ collect }) => collect(selection),
+    ({ type, collect }) =>
+      observeUnit(
+        {
+          id: `configured-update:${type}`,
+          label: `configured ${extensionTypePluralSentenceLabels[toInstallableExtensionTypePlural(type)]}`,
+        },
+        collect(selection),
+      ),
     { concurrency: "unbounded" },
   );
   const fragments = mergeFragments(collections);

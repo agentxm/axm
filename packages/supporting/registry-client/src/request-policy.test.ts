@@ -16,6 +16,7 @@ import {
   RegistryRequestAttempt,
   type RegistryRequestPolicy,
   type RegistryRequestReplaySafety,
+  type RegistryRetryObserver,
 } from "./request-policy.js";
 
 const request = HttpClientRequest.get("https://registry.agentxm.ai/v1/extensions");
@@ -46,6 +47,7 @@ const execute = <A, E, R>(
   options?: {
     readonly replaySafety?: RegistryRequestReplaySafety;
     readonly policy?: RegistryRequestPolicy;
+    readonly retryObserver?: RegistryRetryObserver;
   },
 ) =>
   executeRegistryRequest(effect, {
@@ -54,6 +56,7 @@ const execute = <A, E, R>(
     replaySafety: options?.replaySafety ?? { kind: "safe" },
     mapError,
     policy: options?.policy ?? policy(),
+    ...(options?.retryObserver === undefined ? {} : { retryObserver: options.retryObserver }),
   });
 
 const transportError = () =>
@@ -224,6 +227,44 @@ describe("executeRegistryRequest", () => {
     }),
   );
 
+  it.effect("announces the actual retry delay and clears it before the next attempt", () =>
+    Effect.gen(function* () {
+      const announced = yield* Deferred.make<{
+        readonly nextAttempt: number;
+        readonly maxAttempts: number;
+        readonly delayMillis: number;
+      }>();
+      const ended = yield* Ref.make(0);
+      const attempts = yield* Ref.make(0);
+      const fiber = yield* execute(
+        Ref.updateAndGet(attempts, (count) => count + 1).pipe(
+          Effect.flatMap((attempt) =>
+            attempt === 1
+              ? Effect.fail(responseError(429, { bodyDelay: 2 }))
+              : Effect.succeed("ok"),
+          ),
+        ),
+        {
+          retryObserver: {
+            waiting: (retry) => Deferred.succeed(announced, retry),
+            ended: () => Ref.update(ended, (count) => count + 1),
+          },
+        },
+      ).pipe(Effect.forkChild);
+
+      expect(yield* Deferred.await(announced)).toEqual({
+        nextAttempt: 2,
+        maxAttempts: 3,
+        delayMillis: 2_000,
+      });
+      expect(yield* Ref.get(ended)).toBe(0);
+      yield* TestClock.adjust("2 seconds");
+      expect(yield* Fiber.join(fiber)).toBe("ok");
+      expect(yield* Ref.get(attempts)).toBe(2);
+      expect(yield* Ref.get(ended)).toBe(1);
+    }),
+  );
+
   it.effect("honors a 503 Retry-After header before the next attempt", () =>
     Effect.gen(function* () {
       const attempts = yield* Ref.make(0);
@@ -363,19 +404,29 @@ describe("executeRegistryRequest", () => {
   it.effect("preserves cancellation during retry backoff", () =>
     Effect.gen(function* () {
       const attempted = yield* Deferred.make<void>();
+      const waiting = yield* Deferred.make<void>();
       const attempts = yield* Ref.make(0);
+      const ended = yield* Ref.make(0);
       const fiber = yield* execute(
         Ref.update(attempts, (count) => count + 1).pipe(
           Effect.andThen(Deferred.succeed(attempted, undefined)),
           Effect.andThen(Effect.fail(responseError(503, { retryAfter: "10" }))),
         ),
+        {
+          retryObserver: {
+            waiting: () => Deferred.succeed(waiting, undefined),
+            ended: () => Ref.update(ended, (count) => count + 1),
+          },
+        },
       ).pipe(Effect.forkChild);
 
       yield* Deferred.await(attempted);
+      yield* Deferred.await(waiting);
       yield* Fiber.interrupt(fiber);
       yield* TestClock.adjust("10 seconds");
 
       expect(yield* Ref.get(attempts)).toBe(1);
+      expect(yield* Ref.get(ended)).toBe(1);
     }),
   );
 });

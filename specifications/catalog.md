@@ -5344,6 +5344,34 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `docs/architecture/workspace/execution.md`
 - Source: [`packages/core/workspace/src/acquisition/acquisition-queue-is-bounded.spec.ts`](../packages/core/workspace/src/acquisition/acquisition-queue-is-bounded.spec.ts)
 
+##### A source on another filesystem publishes through sibling staging
+
+- Requirement: `workspace/cross-filesystem-source-publishes`
+- Owner: `workspace`
+- Statement: AXM shall copy a verified source tree from a different filesystem into canonical sibling staging before publishing it, so cross-filesystem rename restrictions cannot leave a partial canonical package.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: process; selection: per-change
+- Boundary rationale: Separate tmpfs and ordinary temporary directories expose real cross-filesystem rename constraints while the canonical staging and backup paths remain inspectable.
+- Methods: example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`packages/core/workspace/src/acquisition/cross-filesystem-source-publishes.spec.ts`](../packages/core/workspace/src/acquisition/cross-filesystem-source-publishes.spec.ts)
+
+##### Disk exhaustion during staging preserves the prior canonical package
+
+- Requirement: `workspace/disk-exhaustion-preserves-canonical`
+- Owner: `workspace`
+- Statement: AXM shall preserve the prior complete canonical package and remove incomplete sibling staging when a disk-full write fails, so a later retry can publish the source successfully.
+- Class: functional
+- Role: supporting
+- Product goals: `safe-repetition`, `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: A real temporary filesystem with one injected ENOSPC sink failure exposes the canonical, staging, backup, and retry outcomes without filling the host disk.
+- Methods: fault-injection, example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`packages/core/workspace/src/acquisition/disk-exhaustion-preserves-canonical.spec.ts`](../packages/core/workspace/src/acquisition/disk-exhaustion-preserves-canonical.spec.ts)
+
 ##### Extension directory copies have finite byte and entry limits
 
 - Requirement: `workspace/extension-directory-copy-is-bounded`

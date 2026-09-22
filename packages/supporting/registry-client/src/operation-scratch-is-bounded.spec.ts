@@ -1,6 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
+import * as Fiber from "effect/Fiber";
 import * as Result from "effect/Result";
 import * as Scope from "effect/Scope";
 
@@ -54,6 +56,26 @@ describe("Operation scratch budget", () => {
       yield* second.settle(4);
       yield* Scope.close(firstScope, Exit.void);
       yield* budget.reserve(6);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("releases a reservation when acquisition is interrupted", () =>
+    Effect.gen(function* () {
+      const budget = yield* makeOperationScratchBudget(7);
+      const reserved = yield* Deferred.make<void>();
+      const acquiring = yield* Effect.scoped(
+        Effect.gen(function* () {
+          yield* budget.reserve(7);
+          yield* Deferred.succeed(reserved, undefined);
+          return yield* Effect.never;
+        }),
+      ).pipe(Effect.forkChild);
+      yield* Deferred.await(reserved);
+
+      const denied = yield* Effect.result(budget.reserve(7));
+      expect(Result.isFailure(denied)).toBe(true);
+      yield* Fiber.interrupt(acquiring);
+      yield* budget.reserve(7);
     }).pipe(Effect.scoped),
   );
 });

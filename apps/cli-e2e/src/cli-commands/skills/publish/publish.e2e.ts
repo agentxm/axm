@@ -82,9 +82,9 @@ describe("axm skills publish", () => {
           /@test\/skills\/my-publish-skill\s+1\.0\.0\s+published/u,
         );
         expect(publishResult.stdout).toContain("Published 1 extension");
-        // Plain mode narrates the operation start and its settlement.
-        expect(publishResult.stderr).toContain("Publish extensions");
-        expect(publishResult.stderr).toMatch(/Publish extensions\s+\d+(?:\.\d+)?(?:ms|s)/u);
+        expect(publishResult.stderr).toMatch(
+          /Publish extensions[\s\S]*Planning[\s\S]*Finished planning[\s\S]*Validating[\s\S]*Finished validating[\s\S]*Applying changes[\s\S]*Finished applying changes/u,
+        );
         expect(publishResult.stderr).not.toContain("\u001b");
 
         // Verify index.json in registry

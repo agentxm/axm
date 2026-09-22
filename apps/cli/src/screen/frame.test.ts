@@ -6,6 +6,7 @@ import * as Stream from "effect/Stream";
 
 import { Frame, FrameLive, type ActiveView } from "./frame.js";
 import { makeTestOutputStreams } from "./streams.js";
+import { makeRecordingStreams } from "../test-support/screen-harness.js";
 import {
   makeTerminalReplay,
   replayBytes,
@@ -37,6 +38,28 @@ const harness = (options?: { animate?: boolean; quiet?: boolean; tty?: boolean }
 };
 
 describe("Frame transcript ownership", () => {
+  it.effect("preserves interleaved results and diagnostics above active controls", () => {
+    const streams = makeRecordingStreams({ stdoutIsTTY: true, stderrIsTTY: true });
+    return Effect.gen(function* () {
+      const terminal = yield* makeTerminalReplay();
+      const frame = yield* Frame;
+      yield* frame.updateActive(active("Open question", "interaction"));
+      yield* frame.stdout("Primary result one\n");
+      yield* frame.stderr("A diagnostic remains\n");
+      yield* frame.stdout("Primary result two\n");
+      yield* frame.settle;
+      yield* replayBytes(terminal, streams.log.map((entry) => entry.content).join(""));
+      expect(terminalTranscript(terminal)).toBe(
+        "Primary result one\nA diagnostic remains\nPrimary result two",
+      );
+    }).pipe(
+      Effect.provide(
+        Layer.provide(FrameLive({ animate: true, quiet: false, colors: false }), streams.layer),
+      ),
+      Effect.scoped,
+    );
+  });
+
   it.effect("preserves committed history across replacement, logs and settlement", () => {
     const h = harness();
     return Effect.gen(function* () {

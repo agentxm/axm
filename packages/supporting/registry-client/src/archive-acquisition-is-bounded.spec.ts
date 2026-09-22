@@ -17,6 +17,13 @@ import {
   MAX_EXTRACTED_ARCHIVE_BYTES,
   readBufferedArchive,
 } from "./archive-limits.js";
+import {
+  BUFFERED_ARCHIVE_RESERVATION_BYTES,
+  MAX_OPERATION_BUFFERED_ARCHIVE_BYTES,
+  OperationBufferedArchiveBudget,
+  makeOperationBufferedArchiveBudget,
+  withBufferedArchiveBudget,
+} from "./buffered-archive-budget.js";
 import { makeOperationExtractionBudget } from "./extraction-budget.js";
 import { extractZip } from "./utils.js";
 
@@ -24,7 +31,7 @@ export const specification = defineSpecification({
   requirement: "registry-client/archive-acquisition-is-bounded",
   title: "Archive acquisition refuses content that exceeds finite resource limits",
   statement:
-    "AXM shall enforce finite compressed-body, expanded-content, entry-count, and concurrent-extraction limits while acquiring Registry archives, stop at a breached content bound with a typed resource failure, observe cancellation between compressed chunks, and leave the target package tree unwritten on refusal or interruption.",
+    "AXM shall enforce finite compressed-body, operation-wide buffered-archive, expanded-content, entry-count, and concurrent-extraction limits while acquiring Registry archives, stop at a breached content bound with a typed resource failure, observe cancellation between compressed chunks, and leave the target package tree unwritten on refusal or interruption.",
   class: "functional",
   role: "supporting",
   goals: ["trustworthy-distribution", "safe-repetition"],
@@ -44,11 +51,38 @@ describe("Bounded archive acquisition", () => {
       MAX_BUFFERED_ARCHIVE_BYTES,
       MAX_EXTRACTED_ARCHIVE_BYTES,
       MAX_ARCHIVE_ENTRIES,
+      MAX_OPERATION_BUFFERED_ARCHIVE_BYTES,
     ]) {
       expect(Number.isSafeInteger(limit)).toBe(true);
       expect(limit).toBeGreaterThan(0);
     }
   });
+
+  it.effect(
+    "holds the operation buffer reservation through consumption and releases it on cancellation",
+    () =>
+      Effect.gen(function* () {
+        const budget = yield* makeOperationBufferedArchiveBudget(
+          BUFFERED_ARCHIVE_RESERVATION_BYTES,
+        );
+        const firstStarted = yield* Deferred.make<void>();
+        const secondStarted = yield* Deferred.make<void>();
+        const first = yield* withBufferedArchiveBudget(
+          Deferred.succeed(firstStarted, undefined).pipe(Effect.andThen(Effect.never)),
+        ).pipe(Effect.provideService(OperationBufferedArchiveBudget, budget), Effect.forkChild);
+        yield* Deferred.await(firstStarted);
+
+        const second = yield* withBufferedArchiveBudget(
+          Deferred.succeed(secondStarted, undefined),
+        ).pipe(Effect.provideService(OperationBufferedArchiveBudget, budget), Effect.forkChild);
+        yield* Effect.yieldNow;
+        expect(yield* Deferred.isDone(secondStarted)).toBe(false);
+
+        yield* Fiber.interrupt(first);
+        yield* Deferred.await(secondStarted);
+        yield* Fiber.join(second);
+      }),
+  );
 
   it.effect("refuses an oversized disk archive before allocating or writing a package tree", () =>
     Effect.gen(function* () {

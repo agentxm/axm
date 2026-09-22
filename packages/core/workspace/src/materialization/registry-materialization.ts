@@ -13,7 +13,12 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
-import { computeIntegrity, createRegistryClient, extractZip } from "@agentxm/registry-client";
+import {
+  computeIntegrity,
+  createRegistryClient,
+  extractZip,
+  withBufferedArchiveBudget,
+} from "@agentxm/registry-client";
 import type { GetExtensionPackageArgs, RegistryClientFailure } from "@agentxm/registry-client";
 import type {
   ExtensionName,
@@ -196,7 +201,7 @@ export const materializeRegistryPackageWithTreeIntegrity = <E = never>(
       canonicalPath: result.canonicalPath,
       treeIntegrity: result.inspection,
     };
-  });
+  }).pipe(withBufferedArchiveBudget);
 
 export const materializeRegistryPackage = <E = never>(args: MaterializeRegistryPackageArgs<E>) =>
   materializeRegistryPackageWithTreeIntegrity(args).pipe(

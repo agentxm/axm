@@ -23,6 +23,7 @@ import {
   createRegistryClient,
   extractZip,
   extensionLifecycleWarnings,
+  withBufferedArchiveBudget,
   type RegistryClient,
   type RegistryExtensionManifest,
   type GetExtensionPackageArgs,
@@ -249,7 +250,7 @@ const probeAxmSkillCompatibility = (
       });
     }
     return { result, ref: ref.value } as const;
-  });
+  }).pipe(withBufferedArchiveBudget);
 
 const resolveNamedFromClient = (
   client: RegistryClient,
@@ -687,7 +688,7 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
     yield* extractZip(archiveBytes, tmpDir);
 
     return { directory: tmpDir } satisfies ExtensionFiles;
-  });
+  }).pipe(withBufferedArchiveBudget);
 
 // -----------------------------------------------------------------------------
 // LocalRegistrySourceHostProvider

@@ -577,12 +577,26 @@ export const CredentialStoreLive = Layer.effect(
     // Returns the tier actually used, so the caller only deletes the plaintext
     // fallback file when the keychain write genuinely succeeded — never when we
     // fell back to writing that file because the keychain was unavailable.
+    // A host without a reachable keychain is a standing fact about the
+    // machine, not news about the command being run: every credential write
+    // repeated it above the command's own title, whatever the command was. It
+    // is worth stating when the fallback first changes where credentials live
+    // — the restricted file did not exist before this write — and is a debug
+    // fact on every write after that.
+    const noteKeychainFallback = fs.exists(getCredentialsPath(path, homeDir)).pipe(
+      Effect.catch(() => Effect.succeed(false)),
+      Effect.flatMap((established) =>
+        established
+          ? Effect.logDebug("OS keychain unavailable; using restricted credential file.")
+          : Effect.logWarning("OS keychain unavailable; using restricted credential file."),
+      ),
+    );
     const saveCredentialFile = (registryUrl: string, data: CredentialFile) =>
       storageTier === "keychain"
         ? writeKeychainCredentialFile(registryUrl, data).pipe(
             Effect.as("keychain" as const),
             Effect.catch(() =>
-              Effect.logWarning("OS keychain unavailable; using restricted credential file.").pipe(
+              noteKeychainFallback.pipe(
                 Effect.flatMap(() => writeStoredFile(data)),
                 Effect.as("file" as const),
               ),

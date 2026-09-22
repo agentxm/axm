@@ -1,7 +1,7 @@
 4 skills: 3 managed by this workspace, 3
 installed, 1 found outside AXM
-     Name
-       @craigsmitham/effect-v4
+     Name           @craigsmitham/
+                    effect-v4
      State          managed by this
                     workspace
      Activation     enabled
@@ -13,8 +13,8 @@ installed, 1 found outside AXM
        available, cursor: available,
        gemini-cli: available
 
-     Name
-       @craigsmitham/field-notes
+     Name           @craigsmitham/
+                    field-notes
      State          managed by this
                     workspace
      Activation     enabled
@@ -24,8 +24,8 @@ installed, 1 found outside AXM
        claude-code: available, codex:
        already available
 
-     Name
-       @agentxm/knowledge/agentxm
+     Name           @agentxm/knowledge/
+                    agentxm
      State          managed by this
                     workspace
      Activation     disabled

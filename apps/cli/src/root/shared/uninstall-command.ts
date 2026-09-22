@@ -20,7 +20,11 @@ import {
 
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import { lifecycleFailureToAppError } from "../../feature-errors.js";
-import { emitOperationResolution, operationResolutionSummary } from "../../operation-output.js";
+import {
+  emitOperationResolution,
+  operationResolutionSummary,
+  retryCanHelp,
+} from "../../operation-output.js";
 import { Screen, successDoc } from "../../screen/index.js";
 import { makeUninstallPlanExecution } from "./confirmation-recovery.js";
 import { emitNoOpOutcome } from "./no-op-output.js";
@@ -124,7 +128,18 @@ const body = (args: UninstallCommandArgs) =>
     }
 
     yield* emitOperationResolution(args.command, resolution, {
-      suggestions: args.suggestions(candidate.type),
+      // An uninstall converges from the state the workspace is now in, so the
+      // route the person typed is what tries the rest again.
+      suggestions: ({ unsettled }) =>
+        unsettled.length === 0 || !retryCanHelp(unsettled)
+          ? args.suggestions(candidate.type)
+          : [
+              {
+                description: "Try removing what is left again",
+                cmd: ["axm", ...args.recoveryCommand, candidate.selector].join(" "),
+              },
+              ...args.suggestions(candidate.type),
+            ],
     });
   });
 

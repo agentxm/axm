@@ -17,7 +17,7 @@ export const specification = defineSpecification({
   requirement: "cli/machine-progress-events-follow-the-lifecycle-schema",
   title: "Machine progress events are the published lifecycle events, in order, before the result",
   statement:
-    "When machine output mode is on and progress is enabled, every progress event written to standard error shall decode as one lifecycle event of the published schema whose sequence number strictly increases within its operation, and the operation shall write exactly one settled event before its result document.",
+    "When machine output mode is on and progress is enabled, every progress event written to standard error shall decode as one lifecycle event of the published schema whose sequence number strictly increases within its operation, the operation shall write exactly one settled event before its result document, and a resolved unit that did not settle as planned shall carry the category and detail its producer settled with through that schema while a unit that settled as planned carries none.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -119,6 +119,39 @@ describe("Machine progress event contract", () => {
         expect(again).toEqual(decoded.event);
       }
     }),
+  );
+
+  it.effect(
+    "carries a resolved unit's failure through the schema, and only when there is one",
+    () =>
+      Effect.gen(function* () {
+        const failed = yield* decodeOperationEvent({
+          _tag: "UnitResolved",
+          seq: 9,
+          atMs: 1_000,
+          unitId: "skill:code-review",
+          label: "code-review",
+          state: "failed",
+          index: 0,
+          total: 1,
+          failure: { category: "network", detail: "The registry refused the request." },
+        });
+        const again = yield* decodeOperationEvent(yield* encodeOperationEvent(failed));
+        expect(again).toEqual(failed);
+        expect(failed._tag === "UnitResolved" && failed.failure).toEqual({
+          category: "network",
+          detail: "The registry refused the request.",
+        });
+
+        // Every unit an install settles, settles as planned, so none states one.
+        const { progress } = yield* machineInstall();
+        for (const line of progress) {
+          const decoded = yield* decodeProgressEvent(line.value);
+          if (decoded.event._tag !== "UnitResolved") continue;
+          expect(decoded.event.state).not.toBe("failed");
+          expect(decoded.event.failure).toBeUndefined();
+        }
+      }),
   );
 
   it.effect("exactly one settled event precedes the result document", () =>

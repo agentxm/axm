@@ -44,6 +44,7 @@ import {
   settleOperation,
   unitsByStableIdentity,
   type JobStepArtifact,
+  type OperationErrorCategory,
   type OperationOutcome,
   type OperationResolution,
   type ResolvedUnit,
@@ -64,7 +65,7 @@ import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensi
 import { ArchivalViewSchema } from "@agentxm/extension-model/unstable/extensions/archival";
 import { CatalogExtensionTypeSchema } from "@agentxm/extension-model/unstable/extension-types";
 
-import { operationDoc, resolutionAgentCoverage } from "./operation-view.js";
+import { operationDoc, resolutionAgentCoverage, unsettledUnits } from "./operation-view.js";
 import { Screen, count, type Doc } from "./screen/index.js";
 import { suggestionsForCurrentWorkspace } from "./root/shared/scoped-command.js";
 import type { TargetedUpdatePublicContext } from "@agentxm/workspace/resolution";
@@ -791,12 +792,41 @@ const releaseAgeRecoveryText = (
   } now for this run only, rerun ${emittingInvocation(command)} --ignore-release-age.`;
 };
 
+/**
+ * The failure categories a retry can change. They are the `external` class of
+ * the shared error vocabulary less `quota`, which a retry does not refill: a
+ * category outside them describes a condition a person resolves, and offering
+ * a retry for one would send a reader round the same loop.
+ */
+export const RETRYABLE_FAILURE_CATEGORIES: ReadonlySet<OperationErrorCategory> = new Set([
+  "network",
+  "rate_limit",
+  "timeout",
+  "unavailable",
+]);
+
+/** Whether re-running the emitting command could change what these units did. */
+export const retryCanHelp = (units: ReadonlyArray<ResolvedUnit<unknown>>): boolean =>
+  units.some(
+    (unit) => unit.error !== undefined && RETRYABLE_FAILURE_CATEGORIES.has(unit.error.category),
+  );
+
+/** The last path segment, which is the extension's own name in every form. */
+const targetName = (value: string): string => value.split("/").at(-1) ?? value;
+
 export const releaseAgeDoc = (
   command: string,
   result: Pick<PlanResolutionResult, "holdbacks" | "releaseAgeBypasses">,
+  settled?: { readonly unsettled: ReadonlySet<string> },
 ): Doc => {
   const holdbacks = result.holdbacks ?? [];
-  const bypasses = result.releaseAgeBypasses ?? [];
+  // A bypass says a newer release was let into the workspace. Where the unit
+  // it names did not settle as planned, nothing was let in, and a callout
+  // saying it was contradicts the row above it. A holdback is unaffected: a
+  // release that was held back was never attempted.
+  const bypasses = (result.releaseAgeBypasses ?? []).filter(
+    (bypass) => settled === undefined || !settled.unsettled.has(targetName(bypass.target)),
+  );
   return [
     ...(holdbacks.length === 0
       ? []
@@ -845,8 +875,28 @@ export const releaseAgeDoc = (
 // The emit boundary
 // -----------------------------------------------------------------------------
 
+/**
+ * What actually happened, for an adapter deciding what to offer next. Only the
+ * adapter knows how its own routes are spelled, and only the resolution knows
+ * which units are still waiting to be acted on, so the two meet here.
+ */
+export interface OperationRecoveryContext {
+  readonly outcome: OperationOutcome;
+  /** The units that did not settle as planned, in ledger order. */
+  readonly unsettled: ReadonlyArray<ResolvedUnit<unknown>>;
+}
+
+/**
+ * The actions a command offers next: a fixed list where the command offers the
+ * same thing however it settles, or a function of the outcome where it does
+ * not.
+ */
+export type OperationSuggestions =
+  | ReadonlyArray<SuggestedAction>
+  | ((context: OperationRecoveryContext) => ReadonlyArray<SuggestedAction>);
+
 export interface EmitOperationResolutionOptions {
-  readonly suggestions?: ReadonlyArray<SuggestedAction>;
+  readonly suggestions?: OperationSuggestions;
   readonly withoutSuggestions?: boolean;
   /** Overrides the derived human headline and is carried in the document. */
   readonly message?: string;
@@ -882,8 +932,12 @@ export const emitOperationResolution = (
     const exitCode = operationExitCode(resolution, outcome);
     const ok = operationOk(resolution, outcome);
 
+    const offered =
+      typeof options?.suggestions === "function"
+        ? options.suggestions({ outcome, unsettled: unsettledUnits(resolution) })
+        : (options?.suggestions ?? []);
     const combinedSuggestions = [
-      ...(options?.suggestions ?? []),
+      ...offered,
       ...(resolution.suggestions ?? []),
       ...(resolution.blocking?.escape === undefined ? [] : [resolution.blocking.escape]),
     ];
@@ -929,14 +983,17 @@ export const emitOperationResolution = (
       ok,
     });
     if (!emitted) {
-      yield* screen.result([
-        ...operationDoc(resolution, {
+      const unsettled = new Set(unsettledUnits(resolution).map((unit) => targetName(unit.label)));
+      yield* screen.result(
+        operationDoc(resolution, {
           verbosity: verbosity.level,
           ...(suggestions === undefined ? {} : { suggestions }),
           ...(options?.message === undefined ? {} : { message: options.message }),
+          // A condition the operation reports stands with the ledger it is
+          // about, so `Next` stays the last thing a reader sees.
+          callouts: releaseAgeDoc(command, result, { unsettled }),
         }),
-        ...releaseAgeDoc(command, result),
-      ]);
+      );
     }
     return { outcome, exitCode, emitted };
   });

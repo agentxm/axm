@@ -278,12 +278,17 @@ one event per line, wrapped in the `progress` envelope:
 `OperationStarted` (`operationId`, `name`, `mode`), `PhaseStarted` (`phase`:
 `resolution`, `planning`, `preview`, `confirmation`, `validation`, `apply`, or
 `restoration`), `UnitStarted` and `UnitResolved` (`unitId`, `label`, `index`,
-optional `total`; the resolved event carries the unit `state`), `UnitProgress`
+optional `total`; the resolved event carries the unit `state`, and an optional
+`failure` with the `category` and `detail` its producer settled with when that
+state is `failed` or `blocked`), `UnitProgress`
 (`unitId`, `done`, optional `total`, `unit` of `bytes`, `files`, or `items`, and
 optional `attempt` with `n` and `of` when retrying),
 `Waiting` and `WaitEnded` (`subject`, with the waiting event's `blockingClass`
 and `detail`), and `OperationSettled` (`outcome`). Events carry identifiers,
-labels, counts, and states, never presentation wording.
+labels, counts, states, and the producer's own category and detail for a unit
+that did not settle — never presentation wording: a consumer words every event
+itself, and a failure detail is redacted before it is published, exactly as the
+error envelope's is.
 
 Within one operation `seq` increases strictly from 1 and `atMs` is wall-clock
 milliseconds. Exactly one `OperationSettled` event ends the operation, and it

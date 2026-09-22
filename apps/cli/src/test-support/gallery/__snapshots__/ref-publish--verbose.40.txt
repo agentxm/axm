@@ -1,8 +1,9 @@
 Previewing publish
   as @acme · to agentxm
 
-     Extension      Version   Plan
- +   @acme/…eview   1.4.0     publish
+     Extension         Version   Plan
+ +   @a…/code-review   1.4.0     publish
+     42 files, 380 KB
      visibility public from the manifest
      source matches Git HEAD a1b2c3d at
      skills/code-review
@@ -10,7 +11,8 @@ Previewing publish
      760 KB source, 380 KB ZIP
      include SKILL.md (2 KB)
      dependency order 0
- +   @a…/reviewer   0.9.0     publish
+ +   @acme…/reviewer   0.9.0     publish
+     3 files, 4 KB
      visibility public from the manifest
      source matches Git HEAD a1b2c3d at
      subagents/reviewer
@@ -18,7 +20,8 @@ Previewing publish
      KB source, 4 KB ZIP
      include SKILL.md (2 KB)
      dependency order 0
- =   @acm…/triage   2.0.1     skip
+ =   @acme/…/triage    2.0.1     skip
+     already published
      visibility public kept from the
      existing publication
      source matches Git HEAD a1b2c3d at
@@ -27,7 +30,8 @@ Previewing publish
      KB source, 12 KB ZIP
      include SKILL.md (2 KB)
      dependency order 0
- +   @acme/…w-kit   2.1.0     publish
+ +   @ac…/review-kit   2.1.0     publish
+     after its 2 members
      visibility public from the manifest
      source matches Git HEAD a1b2c3d at
      packs/review-kit
@@ -37,7 +41,6 @@ Previewing publish
      dependency order 1, after
      @acme/skills/code-review,
      @acme/subagents/reviewer
-     --verbose for details
 
      Visibility     public (from the
                     manifest)

@@ -142,6 +142,7 @@ export {
   type ProgressAttempt,
   type ProgressUnit,
   type SettledOutcome,
+  type UnitFailure,
 } from "./plan/operation-events.js";
 
 // Serialized error vocabulary and the plan-family tagged errors.

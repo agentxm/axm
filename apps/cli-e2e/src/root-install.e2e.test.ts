@@ -783,7 +783,8 @@ describe("axm install", () => {
       );
 
       expect(result.stdout.result.outcome).toBe("applied");
-      expect(result.stdout.result.units.map((unit) => unit.label)).toEqual([target]);
+      // Every row of one ledger names its unit in the same form, type included.
+      expect(result.stdout.result.units.map((unit) => unit.label)).toEqual([`skills/${target}`]);
       expectConfiguredEntriesInstalled(workspace.path, "skills", [target]);
       expect(readSettings(workspace.path).skills?.[other]).toBeUndefined();
       expect(fs.existsSync(extensionDirForSurface(workspace.path, "skills", other))).toBe(false);

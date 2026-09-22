@@ -23,6 +23,13 @@ interface Fragment {
 
 type Word = ReadonlyArray<Fragment>;
 
+/** One piece of a painted line: its fragments, and whether a space precedes it. */
+interface Chunk {
+  readonly word: Word;
+  /** A piece that continues the word before it, with no space between them. */
+  readonly glued: boolean;
+}
+
 const attributesOf = (span: Span): Attributes => ({
   ...(span.tone === undefined ? {} : { tone: span.tone }),
   ...(span.tint === undefined ? {} : { tint: span.tint }),
@@ -102,6 +109,59 @@ const tokenize = (spans: ReadonlyArray<Span>): ReadonlyArray<ReadonlyArray<Word>
 const wordWidth = (word: Word): number =>
   word.reduce((sum, fragment) => sum + displayWidth(fragment.text), 0);
 
+/**
+ * Where a long word may give way without losing a character: after a path
+ * separator or a comma, which is where a reader's eye already stops. A word
+ * broken there keeps every character and needs no hyphen, so a path list
+ * wraps at its segments instead of mid-segment. A copyable value has no such
+ * point: it is never broken at all.
+ */
+const SOFT_BREAK = /[/,]/u;
+
+const softPieces = (word: Word): ReadonlyArray<Word> => {
+  const pieces: Array<Array<Fragment>> = [];
+  let piece: Array<Fragment> = [];
+  let buffer = "";
+  const flush = (attributes: Attributes) => {
+    if (buffer.length > 0) {
+      piece.push({ text: buffer, attributes });
+      buffer = "";
+    }
+  };
+  const close = () => {
+    if (piece.length > 0) {
+      pieces.push(piece);
+      piece = [];
+    }
+  };
+  for (const fragment of word) {
+    for (const character of fragment.text) {
+      buffer += character;
+      if (SOFT_BREAK.test(character)) {
+        flush(fragment.attributes);
+        close();
+      }
+    }
+    flush(fragment.attributes);
+  }
+  close();
+  return pieces.length === 0 ? [word] : pieces;
+};
+
+/**
+ * A word as the line takes it: whole while it fits a line at all, else its
+ * soft pieces, and only then split at character boundaries.
+ */
+const chunksOf = (word: Word, width: number): ReadonlyArray<Chunk> => {
+  if (isCopyable(word) || wordWidth(word) <= width) return [{ word, glued: false }];
+  return softPieces(word).flatMap((piece, index) =>
+    (wordWidth(piece) > width ? splitWord(piece, width) : [piece]).map((part, position) => ({
+      word: part,
+      glued: index > 0 || position > 0,
+    })),
+  );
+};
+
 /** Split one word into pieces no wider than `width`, keeping attributes. */
 const splitWord = (word: Word, width: number): ReadonlyArray<Word> => {
   const pieces: Array<Word> = [];
@@ -130,26 +190,25 @@ const splitWord = (word: Word, width: number): ReadonlyArray<Word> => {
 const fillLines = (
   words: ReadonlyArray<Word>,
   width: number,
-): ReadonlyArray<ReadonlyArray<Word>> => {
-  const lines: Array<Array<Word>> = [];
-  let current: Array<Word> = [];
+): ReadonlyArray<ReadonlyArray<Chunk>> => {
+  const lines: Array<Array<Chunk>> = [];
+  let current: Array<Chunk> = [];
   let used = 0;
-  const pieces = words.flatMap((word) =>
-    wordWidth(word) > width && !isCopyable(word) ? splitWord(word, width) : [word],
-  );
-  for (const word of pieces) {
-    const size = wordWidth(word);
+  for (const chunk of words.flatMap((word) => chunksOf(word, width))) {
+    const size = wordWidth(chunk.word);
+    const gap = chunk.glued ? 0 : 1;
     if (current.length === 0) {
-      current = [word];
+      current = [chunk];
       used = size;
       continue;
     }
-    if (used + 1 + size <= width) {
-      current.push(word);
-      used += 1 + size;
+    if (used + gap + size <= width) {
+      current.push(chunk);
+      used += gap + size;
     } else {
       lines.push(current);
-      current = [word];
+      // A piece that starts a line no longer continues anything.
+      current = [{ word: chunk.word, glued: false }];
       used = size;
     }
   }
@@ -157,7 +216,7 @@ const fillLines = (
   return lines;
 };
 
-const joinWords = (words: ReadonlyArray<Word>): ReadonlyArray<Span> => {
+const joinWords = (chunks: ReadonlyArray<Chunk>): ReadonlyArray<Span> => {
   const spans: Array<Span> = [];
   const push = (fragment: Fragment) => {
     const last = spans[spans.length - 1];
@@ -167,9 +226,9 @@ const joinWords = (words: ReadonlyArray<Word>): ReadonlyArray<Span> => {
       spans.push({ text: fragment.text, ...fragment.attributes });
     }
   };
-  words.forEach((word, index) => {
-    if (index > 0) push({ text: " ", attributes: {} });
-    for (const fragment of word) push(fragment);
+  chunks.forEach((chunk, index) => {
+    if (index > 0 && !chunk.glued) push({ text: " ", attributes: {} });
+    for (const fragment of chunk.word) push(fragment);
   });
   return spans;
 };
@@ -264,6 +323,17 @@ export const truncateText = (
       [{ ...attributes, text: shortened }];
 };
 
-/** Width of the longest unbreakable word, the floor below which wrapping splits words. */
+/**
+ * Width of the longest unbreakable run, the floor below which wrapping starts
+ * splitting words. A path list's floor is its widest segment, not the list,
+ * because the list gives way at its separators.
+ */
 export const longestWordWidth = (value: Text): number =>
-  Math.max(0, ...tokenize(spansOf(value)).flatMap((words) => words.map((word) => wordWidth(word))));
+  Math.max(
+    0,
+    ...tokenize(spansOf(value)).flatMap((words) =>
+      words.flatMap((word) =>
+        (isCopyable(word) ? [word] : softPieces(word)).map((piece) => wordWidth(piece)),
+      ),
+    ),
+  );

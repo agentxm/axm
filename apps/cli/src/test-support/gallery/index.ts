@@ -49,6 +49,15 @@ import { refSyncNothingToDo } from "./ref-sync--nothing-to-do.js";
 import { refSyncUninstallKeptReference } from "./ref-sync--uninstall-kept-reference.js";
 import { refSyncVerboseChildren } from "./ref-sync--verbose-children.js";
 import { refUpdateReleaseAge } from "./ref-update--release-age.js";
+import { refUpdatePartial } from "./ref-update--partial.js";
+import { refInstallFailedRolledBack } from "./ref-install--failed-rolled-back.js";
+import { refSyncBlocked } from "./ref-sync--blocked.js";
+import {
+  liveUpdateFailure,
+  liveUpdateLast,
+  liveUpdateMid,
+  liveUpdateStart,
+} from "./live-update--sequence.js";
 import { widthGateFourWidths } from "./width-gate--four-widths.js";
 import { widthKeepLongNames } from "./width-keep--long-names.js";
 import { widthKeepNeverCut } from "./width-keep--never-cut.js";
@@ -61,6 +70,13 @@ import { widthPromptsPickWithLedger } from "./width-prompts--pick-with-ledger.js
 import { waitOpen } from "./wait-open.js";
 import { waitStatic } from "./wait-static.js";
 import { waitSettledFixture } from "./wait-settled.js";
+
+/**
+ * The widths the stress frames are held at. They add the hundred columns a
+ * working terminal actually has, which is where a ledger first has to choose
+ * between the information it carries and the columns it lays out.
+ */
+const STRESS_WIDTHS = [40, 80, 100, 120, 200] as const;
 
 /**
  * The terminal design gallery: one typed document or live scene per retained
@@ -79,6 +95,20 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
   { _tag: "document", name: "ref-sync--verbose-children", doc: refSyncVerboseChildren },
   { _tag: "document", name: "ref-sync--nothing-to-do", doc: refSyncNothingToDo },
   { _tag: "document", name: "ref-update--release-age", doc: refUpdateReleaseAge },
+  {
+    _tag: "document",
+    name: "ref-update--partial",
+    doc: refUpdatePartial,
+    // The stress frames add the hundred columns a working terminal actually has.
+    widths: STRESS_WIDTHS,
+  },
+  {
+    _tag: "document",
+    name: "ref-install--failed-rolled-back",
+    doc: refInstallFailedRolledBack,
+    widths: STRESS_WIDTHS,
+  },
+  { _tag: "document", name: "ref-sync--blocked", doc: refSyncBlocked, widths: STRESS_WIDTHS },
   {
     _tag: "document",
     name: "ref-sync--uninstall-kept-reference",
@@ -186,6 +216,15 @@ export const gallery: ReadonlyArray<GalleryFixture> = [
     widths: [80, 48],
   },
   { _tag: "scene", name: "width-live--height-cap", scene: widthLiveHeightCap },
+  { _tag: "scene", name: "live-update--start", scene: liveUpdateStart, widths: STRESS_WIDTHS },
+  { _tag: "scene", name: "live-update--mid", scene: liveUpdateMid, widths: STRESS_WIDTHS },
+  {
+    _tag: "scene",
+    name: "live-update--failure",
+    scene: liveUpdateFailure,
+    widths: STRESS_WIDTHS,
+  },
+  { _tag: "scene", name: "live-update--last", scene: liveUpdateLast, widths: STRESS_WIDTHS },
   { _tag: "scene", name: "ref-midflight--busy-workspace", scene: refMidflightBusyWorkspace },
   {
     _tag: "scene",

@@ -279,10 +279,11 @@ describe("enable.handler", () => {
                 expect.objectContaining({
                   id: "my-skill",
                   mark: "failed",
-                  cells: expect.arrayContaining([
-                    "my-skill",
-                    'Accepted skill content for "my-skill" is not usable (not_found), effects were restored',
-                  ]),
+                  cells: expect.arrayContaining(["my-skill"]),
+                  // The refusal is why the unit did not settle, so it stands on
+                  // the row's reason line rather than in a droppable cell.
+                  reason:
+                    'Accepted skill content for "my-skill" is not usable (not_found) Effects were restored.',
                 }),
               ]),
             }),

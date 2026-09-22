@@ -89,6 +89,12 @@ export interface LedgerRow {
   readonly cells: ReadonlyArray<Text>;
   /** Nesting under the row above, such as a pack's members under their pack. */
   readonly depth?: number;
+  /**
+   * Why the row did not settle as planned. A reason has nowhere else to go, so
+   * it is painted beneath its row at every width and every verbosity, before
+   * anything the row carries for a reader who asked for more.
+   */
+  readonly reason?: Text;
   /** Per-agent outcomes and details, shown at verbose level. */
   readonly children?: Doc;
 }

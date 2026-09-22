@@ -363,10 +363,12 @@ describe("problem outcomes", () => {
       ),
     );
     expect(text).toMatch(
-      /< {3}@acme\/skills\/triage\s+2\.0\.1\s+rolled back\s+interrupted in flight/,
+      /< {3}@acme\/skills\/triage\s+2\.0\.1\s+rolled back\n\s+interrupted in flight/,
     );
-    expect(text).toMatch(/\. {3}@acme\/skills\/standup\s+-\s+not tried$/m);
-    expect(text).not.toContain("not attempted");
+    // A unit the operation stopped before says what stopped it, beneath its row.
+    expect(text).toMatch(
+      /\. {3}@acme\/skills\/standup\s+-\s+not tried\n\s+not attempted: the operation was interrupted/,
+    );
     expect(text.split("\n").at(-1)).toBe(
       "Interrupted - changes rolled back  1 rolled back - 1 not tried - exit 130",
     );
@@ -425,7 +427,10 @@ describe("problem outcomes", () => {
         { verbosity: "normal" },
       ),
     );
-    expect(text).toMatch(/xx {2}@acme\/skills\/standup\s+0\.4\.2\s+failed\s+registry returned 502/);
+    // The unit's own reason stands beneath its row; the operation's follows the verdict.
+    expect(text).toMatch(
+      /xx {2}@acme\/skills\/standup\s+0\.4\.2\s+failed[^\n]*\n\s+registry returned 502/,
+    );
     expect(text.split("\n").slice(-2)).toEqual([
       "Failed to sync 1 extension  1 failed - exit 8",
       "The registry could not be reached.",

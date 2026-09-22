@@ -144,8 +144,9 @@ describe("version preview", () => {
         });
 
         const lines = painted(rendererState);
+        // The version column states the move; the detail keeps what it alone says.
         expect(lines).toContain(
-          " ~   @acme/skills/review           1.3.0     update   from 1.2.0, 1 file, skills/review/skill.json",
+          " ~   @acme/skills/review           1.2.0 to 1.3.0   update   1 file, skills/review/skill.json",
         );
         expect(lines.filter((line) => line.startsWith("Would "))).toEqual([
           "Would update 1 skill  no changes made",

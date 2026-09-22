@@ -130,6 +130,28 @@ Negative:
 - the height budget now splits between a ledger and an interaction, which
   needs fixtures at short terminal heights.
 
+## Amendment: settled rows stay in the live window
+
+A settled row stays in the live window. It takes its final mark and the word
+its result row will use, and leaves only when the rows no longer fit the height
+the scene allows. Under that pressure rows leave in one order — settled as
+planned first, oldest first, then the waiting rows beyond the next few — and a
+row that did not settle as planned never leaves before one that did, because
+what went wrong is what a reader has still to act on. What left is counted on
+the fold line, and the status line states how many units have finished, not how
+many have started.
+
+The original rule removed every settled row unconditionally, and gave height as
+its reason. Height was never the reason it fired: the rows left as they settled
+whether or not the scene had room, so an operation that failed seven of
+thirteen units showed nothing of those seven until it ended, and its last frame
+claimed `13 of 13` over a unit that was still running.
+
+What does not change: one ledger per operation in scrollback, because the live
+region still clears at settlement and the result ledger prints once; and the
+event stream, which the [live-event contract](cli-live-event-contract.md)
+owns.
+
 ## Supersession and reconsideration
 
 Reconsider application-owned prompts if a required interaction cannot be

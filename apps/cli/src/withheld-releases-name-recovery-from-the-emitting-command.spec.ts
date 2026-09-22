@@ -3,6 +3,8 @@ import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
+import { releaseAgeDoc } from "./operation-output.js";
+import { paintText } from "./screen/paint-text.js";
 import { getAppError } from "./test-support/test-helpers.js";
 import { handleInstall } from "./root/install/handler.js";
 import { handleSync } from "./root/sync/handler.js";
@@ -17,7 +19,7 @@ export const specification = defineSpecification({
   requirement: "cli/withheld-releases-name-recovery-from-the-emitting-command",
   title: "Minimum release-age decisions state their outcome and recovery",
   statement:
-    "When a command holds, refuses, or explicitly allows an otherwise-too-young release under the minimum release age, its diagnostic shall state that observable outcome before the policy mechanism, preserve the release and timing evidence, name recovery routes reachable from the emitting command when action is required, and shall not name a command the operator did not run.",
+    "When a command holds, refuses, or explicitly allows an otherwise-too-young release under the minimum release age, its diagnostic shall state that observable outcome before the policy mechanism, preserve the release and timing evidence, name recovery routes reachable from the emitting command when action is required, shall not name a command the operator did not run, and shall not report a release as allowed into the workspace when the unit it names did not commit.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics"],
@@ -220,6 +222,39 @@ describe("A release withheld by the minimum release age", () => {
       expect(rendered).not.toContain(`Selected ${FQN}`);
     }),
   );
+
+  it("says nothing was allowed in when the unit that would have taken it failed", () => {
+    const evidence = {
+      holdbacks: [],
+      releaseAgeBypasses: [
+        {
+          reason: "minimum-release-age" as const,
+          target: FQN,
+          dependencyPath: [FQN],
+          candidateVersion: "2.0.0",
+          publishedAt: "2026-09-21T16:44:17.865Z",
+          eligibleAt: "2026-09-22T16:44:17.865Z",
+          minimumReleaseAgeSeconds: 86_400,
+          bypassCause: "exclude" as const,
+          exemptionScope: "project" as const,
+        },
+      ],
+    };
+    const name = FQN.split("/").at(-1) ?? FQN;
+    const allowed = paintText(releaseAgeDoc("update", evidence, { unsettled: new Set() }), {
+      width: 100,
+      colors: false,
+    }).join("\n");
+    expect(allowed).toContain("allowed before the 24h minimum release age");
+
+    // The same evidence, for a unit that did not settle as planned: nothing
+    // was let in, so the callout that says one was does not stand.
+    const refused = paintText(releaseAgeDoc("update", evidence, { unsettled: new Set([name]) }), {
+      width: 100,
+      colors: false,
+    }).join("\n");
+    expect(refused).not.toContain("allowed before");
+  });
 
   it.effect.each(refusingCommands)(
     "$command names both recovery routes when it refuses the only release",

@@ -53,7 +53,7 @@ describe("Inline MCP configuration during workspace install", () => {
             expect(deriveOperationOutcome(resolution)).toBe("no-op");
             expect(resolution.units).toEqual([
               expect.objectContaining({
-                label: "local-tool",
+                label: "mcps/local-tool",
                 state: "skipped",
                 message: expect.any(String),
               }),

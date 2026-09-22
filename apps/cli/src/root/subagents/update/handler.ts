@@ -20,10 +20,11 @@ import {
 } from "@agentxm/workspace/transitions/planning";
 
 import { extensionLifecycleFailedToAppError } from "../../../feature-errors.js";
-import { emitOperationResolution } from "../../../operation-output.js";
+import { emitOperationResolution, retryCanHelp } from "../../../operation-output.js";
 import { makeConfirmationRecovery, makePlanExecution } from "../../shared/confirmation-recovery.js";
 import { emitNoOpOutcome } from "../../shared/no-op-output.js";
 import { withOperationLifecycle } from "../../../operation-lifecycle.js";
+import { nameFromLabel } from "@agentxm/workspace/reconciliation";
 
 const COMMAND = "subagents.update";
 
@@ -88,7 +89,26 @@ const handleUpdateBody = Effect.fn("SubagentsUpdate.handle")(function* (args: Up
     args.force ? ["ignore-version-constraints"] : [],
   );
   const resolution = yield* SelectiveUpdate.previewOrApply(candidate, execution);
+  const inspect = { description: "Inspect installed subagents", cmd: "axm subagents list" };
   yield* emitOperationResolution(COMMAND, resolution, {
-    suggestions: [{ description: "Inspect installed subagents", cmd: "axm subagents list" }],
+    // The route is safe to repeat: a subagent that settled is a no-op on a
+    // rerun, so the same command narrowed to the names still waiting is what
+    // recovers them.
+    suggestions: ({ unsettled }) =>
+      unsettled.length === 0 || !retryCanHelp(unsettled)
+        ? [inspect]
+        : [
+            {
+              description:
+                unsettled.length === 1
+                  ? "Try the subagent that did not update again"
+                  : "Try the subagents that did not update again",
+              cmd: [
+                "axm subagents update",
+                ...unsettled.map((unit) => `--name ${nameFromLabel(unit.label)}`),
+              ].join(" "),
+            },
+            inspect,
+          ],
   });
 });

@@ -1,7 +1,7 @@
 Installing  in this project · agents: claude-code, codex
 
      Extension                     Version   Status    Detail
- +   @acme/skills/standup          0.4.2     install
+ ·   @acme/skills/standup          0.4.2     install
 
  ◒   Waiting - another operation holds the workspace   12s
      axm sync (pid 4122)

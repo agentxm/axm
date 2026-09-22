@@ -11,6 +11,7 @@ import {
 } from "./__generated__/extension-type-matrix.js";
 import { startHttpRegistry, type HttpRegistry } from "./e2e/http-registry-server.js";
 import { createTempDir, runCli } from "./e2e/utils.js";
+import { ptyIsSupported, runCliUnderPty } from "./pty.js";
 
 /**
  * Publish and install over the HTTP registry transport.
@@ -907,6 +908,60 @@ describe("HTTP registry transport", () => {
       fileRegistry.cleanup();
       httpWorkspace.cleanup();
       fileWorkspace.cleanup();
+    }
+  });
+
+  it("narrates a slow metadata retry in piped output", async () => {
+    const registry = await startHttpRegistry();
+    const consumer = createTempDir();
+    try {
+      await scaffoldAndPublish(registry.url, "skills", "skill", "slow-index-pipe");
+      await initWorkspace(consumer.path, registry.url);
+      registry.failNextIndex("skills/slow-index-pipe");
+
+      const result = await runCli(["install", `${OWNER}/skills/slow-index-pipe`], {
+        cwd: consumer.path,
+        env: registryEnv(registry.url),
+      });
+
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(result.stderr).toContain("check extension retry 2 of 3 after 2s");
+      expect(registry.requests.filter((request) => request.status === 503)).toHaveLength(1);
+    } finally {
+      await registry.close();
+      consumer.cleanup();
+    }
+  });
+
+  it.skipIf(!ptyIsSupported)("shows a slow metadata retry in a live terminal", async () => {
+    const registry = await startHttpRegistry();
+    const consumer = createTempDir();
+    const home = createTempDir();
+    try {
+      await scaffoldAndPublish(registry.url, "skills", "skill", "slow-index-terminal");
+      await initWorkspace(consumer.path, registry.url);
+      registry.failNextIndex("skills/slow-index-terminal");
+
+      const result = await runCliUnderPty(
+        ["install", `${OWNER}/skills/slow-index-terminal`, "--all"],
+        {
+          home: home.path,
+          cwd: consumer.path,
+          env: registryEnv(registry.url),
+          actions: [{ awaiting: "retry 2 of 3" }],
+          exitTimeout: 30_000,
+        },
+      );
+
+      expect(result.timedOut).toBe(false);
+      expect(result.exitCode, result.transcript).toBe(0);
+      expect(result.actions[0]?.matched).toBe(true);
+      expect(result.actions[0]?.emitted).toContain("check extension retry 2 of 3 after 2s");
+      expect(registry.requests.filter((request) => request.status === 503)).toHaveLength(1);
+    } finally {
+      await registry.close();
+      consumer.cleanup();
+      home.cleanup();
     }
   });
 

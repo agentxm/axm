@@ -6,7 +6,13 @@ import { DesiredStateReader, WorkspaceRecords } from "../../desired-state/index.
 import { deriveOperationOutcome, previewPlanExecution } from "../../transitions/planning/index.js";
 import { preapprovedPlanExecution } from "../../transitions/planning/testing.js";
 import { SyncWorkspace } from "./sync-workspace.js";
-import { applySync, makeSyncFixture, syncRequest, writeLocalSkillPackage } from "./test-helpers.js";
+import {
+  applySync,
+  makeFileRegistry,
+  makeSyncFixture,
+  syncRequest,
+  writeLocalSkillPackage,
+} from "./test-helpers.js";
 
 describe("Sync inventory observation", () => {
   const cleanups: Array<() => void> = [];
@@ -52,6 +58,45 @@ describe("Sync inventory observation", () => {
             Effect.provideService(DesiredStateReader, observedGraph),
           );
           expect(skillInventoryReads).toBe(2);
+          expect(graphReads).toBe(2);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect("reuses the desired graph while resolving multiple Registry skills", () => {
+    const registry = makeFileRegistry();
+    cleanups.push(registry.cleanup);
+    const names = ["review", "triage"];
+    for (const name of names) {
+      registry.writeSkill(name, [{ version: "1.0.0", body: `Initial ${name}.` }]);
+    }
+    const workspace = makeSyncFixture({
+      settings: {
+        owner: "@acme",
+        agents: ["claude-code"],
+        sources: [registry.source],
+        skills: Object.fromEntries(names.map((name) => [name, `test:@acme/skills/${name}@^1.0.0`])),
+      },
+    });
+    cleanups.push(workspace.cleanup);
+
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          const desiredState = yield* DesiredStateReader;
+          let graphReads = 0;
+          const observed = {
+            ...desiredState,
+            graph: (options) =>
+              Effect.sync(() => {
+                graphReads += 1;
+              }).pipe(Effect.andThen(desiredState.graph(options))),
+          } satisfies typeof desiredState;
+          const candidate = yield* SyncWorkspace.prepare(syncRequest()).pipe(
+            Effect.provideService(DesiredStateReader, observed),
+          );
+          expect(candidate._tag).toBe("SyncWorkspace");
           expect(graphReads).toBe(2);
         }),
       )

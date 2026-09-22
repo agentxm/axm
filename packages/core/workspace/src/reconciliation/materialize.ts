@@ -568,6 +568,11 @@ export const collectMaterializeSteps = (args: {
         }),
       ),
     );
+    const phaseReader = {
+      ...desiredStateReader,
+      graph: (options) =>
+        options === undefined ? Effect.succeed(desiredState) : desiredStateReader.graph(options),
+    } satisfies typeof desiredStateReader;
     const evaluated = yield* Effect.forEach(
       selected,
       (node) =>
@@ -704,7 +709,7 @@ export const collectMaterializeSteps = (args: {
           Effect.map((result) => ({ node, result })),
         ),
       { concurrency: 16 },
-    );
+    ).pipe(Effect.provideService(DesiredStateReader, phaseReader));
     const reconciled = evaluated.flatMap(({ result }) =>
       Result.isSuccess(result) ? [result.success] : [],
     );

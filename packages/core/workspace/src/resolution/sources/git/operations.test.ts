@@ -4,6 +4,7 @@
  * Tests git operations for cloning repositories at specific refs.
  */
 
+import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -71,6 +72,68 @@ describe("git", () => {
     execSync("git add .", gitOptions);
     execSync("git commit -m 'Initial commit'", gitOptions);
   };
+
+  it.effect("passes inherited transport settings and noninteractive overrides to Git", () =>
+    Effect.sync(() => {
+      const binDir = path.join(tempDir, "bin");
+      const resultPath = path.join(tempDir, "observed-env.txt");
+      fs.mkdirSync(binDir);
+      fs.writeFileSync(
+        path.join(binDir, "git"),
+        `#!/bin/sh
+case "$PATH" in "$AXM_GIT_PROBE_BIN":*) path_state=ok ;; *) path_state=missing ;; esac
+if [ "$HTTPS_PROXY" = "proxy-sentinel" ]; then proxy_state=ok; else proxy_state=missing; fi
+if [ "$SSH_AUTH_SOCK" = "ssh-sentinel" ]; then ssh_state=ok; else ssh_state=missing; fi
+if [ "$GIT_SSH_COMMAND" = "ssh-command-sentinel" ]; then ssh_command_state=ok; else ssh_command_state=missing; fi
+if [ -z "$PAGER" ] && [ -z "$GIT_PAGER" ]; then pager_state=ok; else pager_state=present; fi
+if [ "$GIT_TERMINAL_PROMPT" = "0" ]; then prompt_state=ok; else prompt_state=missing; fi
+if [ "$GIT_LFS_SKIP_SMUDGE" = "1" ]; then lfs_state=ok; else lfs_state=missing; fi
+printf '%s\\n' "$path_state" "$proxy_state" "$ssh_state" "$ssh_command_state" "$pager_state" "$prompt_state" "$lfs_state" > "$AXM_GIT_PROBE_RESULT"
+printf '0000000000000000000000000000000000000000\\trefs/heads/main\\n'
+`,
+        { mode: 0o700 },
+      );
+      const program = `
+import * as Effect from "effect/Effect";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+const { listRemoteRefs } = await import(process.argv[1]);
+const refs = await Effect.runPromise(listRemoteRefs("probe").pipe(Effect.provide(NodeServices.layer)));
+if (!refs.branches.includes("main")) process.exitCode = 2;
+`;
+      const operationsUrl = new URL(
+        "../../../../dist/src/resolution/sources/git/operations.js",
+        import.meta.url,
+      ).href;
+      execFileSync(process.execPath, ["--input-type=module", "-e", program, operationsUrl], {
+        cwd: process.cwd(),
+        env: {
+          ...isolatedGitEnv(),
+          PATH: `${binDir}${path.delimiter}${process.env["PATH"] ?? ""}`,
+          HTTPS_PROXY: "proxy-sentinel",
+          SSH_AUTH_SOCK: "ssh-sentinel",
+          GIT_SSH_COMMAND: "ssh-command-sentinel",
+          PAGER: "pager-sentinel",
+          GIT_PAGER: "git-pager-sentinel",
+          GIT_TERMINAL_PROMPT: "1",
+          GIT_LFS_SKIP_SMUDGE: "0",
+          AXM_GIT_PROBE_BIN: binDir,
+          AXM_GIT_PROBE_RESULT: resultPath,
+        },
+        timeout: 10_000,
+        stdio: "pipe",
+      });
+
+      expect(fs.readFileSync(resultPath, "utf8").trim().split("\n")).toEqual([
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+        "ok",
+      ]);
+    }),
+  );
 
   describe("getTreeSha", () => {
     it.effect("returns tree SHA for repository root", () =>

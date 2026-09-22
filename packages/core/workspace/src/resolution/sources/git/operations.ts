@@ -17,15 +17,28 @@ import { GitOperationFailed, type GitOperation } from "../errors.js";
 // Internal Helpers
 // -----------------------------------------------------------------------------
 
+// eslint-disable-next-line no-restricted-properties -- This process adapter forwards inherited transport settings to child Git processes.
+const inheritedGitEnvironment = () => ({ ...process.env });
+
 const createGit = (baseDir: string, abort?: AbortSignal): SimpleGit => {
   const options: Partial<SimpleGitOptions> = {
     baseDir,
     binary: "git",
     maxConcurrentProcesses: 1,
+    unsafe: { allowUnsafeSshCommand: true },
     ...(abort === undefined ? {} : { abort }),
   };
 
-  return simpleGit(options).env("GIT_TERMINAL_PROMPT", "0").env("GIT_LFS_SKIP_SMUDGE", "1");
+  const environment = inheritedGitEnvironment();
+  // Git never needs a pager here, and simple-git rejects inherited pager commands.
+  delete environment["PAGER"];
+  delete environment["GIT_PAGER"];
+
+  return simpleGit(options).env({
+    ...environment,
+    GIT_TERMINAL_PROMPT: "0",
+    GIT_LFS_SKIP_SMUDGE: "1",
+  });
 };
 
 /**

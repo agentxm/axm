@@ -5322,6 +5322,22 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 
 Publishing and acquiring extensions preserves integrity, provenance, and immutable accepted resolutions.
 
+#### Functional
+
+##### Archive acquisition refuses content that exceeds finite resource limits
+
+- Requirement: `registry-client/archive-acquisition-is-bounded`
+- Owner: `registry-client`
+- Statement: AXM shall enforce finite compressed-body, expanded-content, and entry-count limits while acquiring a Registry archive, stop at the breached bound with a typed resource failure, and leave the target package tree unwritten.
+- Class: functional
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Controlled archive bytes and a temporary filesystem make the admitted byte count, extracted entries, typed refusal, and absence of target writes directly observable.
+- Methods: boundary-value, example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`packages/supporting/registry-client/src/archive-acquisition-is-bounded.spec.ts`](../packages/supporting/registry-client/src/archive-acquisition-is-bounded.spec.ts)
+
 #### Constraints
 
 ##### Upgrade establishes ownership before release selection

@@ -232,6 +232,64 @@ describe("extractZip", () => {
     ),
   );
 
+  it.effect("rejects declared expansion before writing any files", () =>
+    withNodeContext(
+      Effect.gen(function* () {
+        const archive = zipSync({ "large.txt": new TextEncoder().encode("longer than four") });
+        const result = yield* extractZip(archive, tmpDir, { maxExpandedBytes: 4 }).pipe(
+          Effect.flip,
+        );
+
+        expect(result.category).toBe("quota");
+        expect(result.detail).toContain("extracted byte limit");
+        expect(fs.readdirSync(tmpDir)).toEqual([]);
+      }),
+    ),
+  );
+
+  it.effect("enforces actual expanded bytes when ZIP metadata understates them", () =>
+    withNodeContext(
+      Effect.gen(function* () {
+        const archive = zipSync({ "large.txt": new TextEncoder().encode("longer than four") });
+        const centralDirectory = archive.findIndex(
+          (byte, index) =>
+            byte === 0x50 &&
+            archive[index + 1] === 0x4b &&
+            archive[index + 2] === 0x01 &&
+            archive[index + 3] === 0x02,
+        );
+        expect(centralDirectory).toBeGreaterThanOrEqual(0);
+        const view = new DataView(archive.buffer, archive.byteOffset);
+        view.setUint32(22, 1, true);
+        view.setUint32(centralDirectory + 24, 1, true);
+
+        const result = yield* extractZip(archive, tmpDir, { maxExpandedBytes: 4 }).pipe(
+          Effect.flip,
+        );
+
+        expect(result.category).toBe("quota");
+        expect(result.detail).toContain("extracted byte limit");
+        expect(fs.readdirSync(tmpDir)).toEqual([]);
+      }),
+    ),
+  );
+
+  it.effect("rejects too many entries before writing any files", () =>
+    withNodeContext(
+      Effect.gen(function* () {
+        const archive = zipSync({
+          "first.txt": new TextEncoder().encode("first"),
+          "second.txt": new TextEncoder().encode("second"),
+        });
+        const result = yield* extractZip(archive, tmpDir, { maxEntries: 1 }).pipe(Effect.flip);
+
+        expect(result.category).toBe("quota");
+        expect(result.detail).toContain("entry limit");
+        expect(fs.readdirSync(tmpDir)).toEqual([]);
+      }),
+    ),
+  );
+
   it.effect("rejects an entry that escapes the target directory (zip slip)", () =>
     withNodeContext(
       Effect.gen(function* () {

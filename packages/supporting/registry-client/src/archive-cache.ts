@@ -14,6 +14,7 @@ import { RegistryOperationFailed, type RegistryClientFailure } from "./errors.js
 import { computeIntegrity } from "./integrity.js";
 import { writeFileAtomic } from "./atomic-write.js";
 import { resolveAxmCacheRoot } from "./cache-root.js";
+import { MAX_BUFFERED_ARCHIVE_BYTES, readBufferedArchive } from "./archive-limits.js";
 
 export const ARCHIVE_CACHE_MAX_BYTES = 2 * 1024 * 1024 * 1024;
 export const ARCHIVE_CACHE_MAX_AGE = Duration.days(90);
@@ -186,11 +187,13 @@ export const makeArchiveCache = (
       const entryPath = yield* pathForIntegrity(integrity);
       const exists = yield* fs.exists(entryPath).pipe(Effect.orElseSucceed(() => false));
       if (!exists) return Option.none();
-      const archive = yield* fs
-        .readFile(entryPath)
-        .pipe(
-          Effect.mapError((cause) => cacheError(`Failed to read cache entry: ${entryPath}`, cause)),
-        );
+      const archive = yield* readBufferedArchive(fs, entryPath).pipe(
+        Effect.mapError((cause) =>
+          cause instanceof RegistryOperationFailed
+            ? cause
+            : cacheError(`Failed to read cache entry: ${entryPath}`, cause),
+        ),
+      );
       const actualIntegrity = yield* computeIntegrity(archive);
       if (actualIntegrity !== integrity) {
         yield* removeEntry(entryPath);
@@ -207,6 +210,12 @@ export const makeArchiveCache = (
     writeOptions: { readonly prune?: boolean } = {},
   ): Effect.Effect<void, RegistryClientFailure> =>
     Effect.gen(function* () {
+      if (archive.byteLength > MAX_BUFFERED_ARCHIVE_BYTES) {
+        return yield* new RegistryOperationFailed({
+          category: "quota",
+          detail: `Registry archive exceeds the ${MAX_BUFFERED_ARCHIVE_BYTES} byte acquisition limit`,
+        });
+      }
       const actualIntegrity = yield* computeIntegrity(archive);
       if (actualIntegrity !== integrity) {
         return yield* new RegistryOperationFailed({

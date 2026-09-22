@@ -53,6 +53,7 @@ import {
 import { DiscoverPackagesResponseSchema } from "@agentxm/registry-protocol/unstable/registry/discover-schema";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { extensionLifecycleWarnings, pluralizeType } from "./utils.js";
+import { MAX_BUFFERED_ARCHIVE_BYTES } from "./archive-limits.js";
 import { resolveVersionEntry } from "@agentxm/extension-model/unstable/version-constraints/version-selection";
 import type {
   DiscoverPackagesArgs,
@@ -351,7 +352,7 @@ const downloadArchive = (
   http: HttpClient.HttpClient,
   path: string,
   onProgress: GetExtensionPackageArgs["onProgress"],
-): Effect.Effect<Uint8Array, HttpClientError.HttpClientError> =>
+): Effect.Effect<Uint8Array, HttpClientError.HttpClientError | RegistryOperationFailed> =>
   Effect.gen(function* () {
     const attempt = yield* Effect.serviceOption(RegistryRequestAttempt);
     const report = onProgress ?? (() => Effect.void);
@@ -360,13 +361,29 @@ const downloadArchive = (
     }
     const response = yield* HttpClient.filterStatusOk(http).execute(HttpClientRequest.get(path));
     const total = contentLength(response);
+    if (total !== undefined && total > MAX_BUFFERED_ARCHIVE_BYTES) {
+      return yield* new RegistryOperationFailed({
+        category: "quota",
+        detail: `Registry archive exceeds the ${MAX_BUFFERED_ARCHIVE_BYTES} byte acquisition limit`,
+      });
+    }
     const received = MutableRef.make(0);
     const chunks = yield* response.stream.pipe(
       Stream.tap((chunk) =>
-        report({
-          done: MutableRef.updateAndGet(received, (done) => done + chunk.byteLength),
-          ...(total === undefined ? {} : { total }),
-          ...(Option.isNone(attempt) ? {} : { attempt: attempt.value }),
+        Effect.gen(function* () {
+          const next = MutableRef.get(received) + chunk.byteLength;
+          if (next > MAX_BUFFERED_ARCHIVE_BYTES) {
+            return yield* new RegistryOperationFailed({
+              category: "quota",
+              detail: `Registry archive exceeds the ${MAX_BUFFERED_ARCHIVE_BYTES} byte acquisition limit`,
+            });
+          }
+          MutableRef.set(received, next);
+          yield* report({
+            done: next,
+            ...(total === undefined ? {} : { total }),
+            ...(Option.isNone(attempt) ? {} : { attempt: attempt.value }),
+          });
         }),
       ),
       Stream.runCollect,

@@ -1,4 +1,11 @@
-import { mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  truncateSync,
+  utimesSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
@@ -12,6 +19,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { computeIntegrity } from "./integrity.js";
 import { makeArchiveCache } from "./archive-cache.js";
 import { resolveAxmCacheRootPure } from "./cache-root.js";
+import { MAX_BUFFERED_ARCHIVE_BYTES } from "./archive-limits.js";
 
 const withCache = <A, E>(
   use: (cacheRoot: string) => Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>,
@@ -25,6 +33,25 @@ const withCache = <A, E>(
 };
 
 describe("ArchiveCache", () => {
+  it.effect("rejects an oversized cached archive before allocating its body", () =>
+    withCache((cacheRoot) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const cache = makeArchiveCache(fs, path, cacheRoot);
+        const archive = new Uint8Array([0x50, 0x4b, 0x03, 0x04]);
+        const integrity = yield* computeIntegrity(archive);
+        yield* cache.write(integrity, archive);
+        const [entry] = yield* fs.readDirectory(cacheRoot);
+        if (entry === undefined) throw new Error("Expected cached archive");
+        truncateSync(path.join(cacheRoot, entry), MAX_BUFFERED_ARCHIVE_BYTES + 1);
+
+        const failure = yield* cache.read(integrity).pipe(Effect.flip);
+        expect(failure.category).toBe("quota");
+      }),
+    ),
+  );
+
   it("resolves the platform-native cache root", () => {
     expect(resolveAxmCacheRootPure(nodePath.join, "darwin", "/Users/test", {})).toBe(
       nodePath.join("/Users/test", "Library", "Caches", "axm"),

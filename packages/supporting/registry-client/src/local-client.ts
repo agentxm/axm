@@ -21,6 +21,7 @@ import * as Semaphore from "effect/Semaphore";
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { RegistryOperationFailed, type RegistryClientFailure } from "./errors.js";
+import { readBufferedArchive } from "./archive-limits.js";
 import type {
   RegistryClient,
   RegistryExtensionManifest,
@@ -961,14 +962,15 @@ export const createLocalRegistryClient = (
         });
       }
 
-      const archive = yield* fs.readFile(archivePath).pipe(
-        Effect.mapError(
-          (e) =>
-            new RegistryOperationFailed({
-              category: "internal",
-              detail: `Failed to read archive: ${archivePath}`,
-              cause: e,
-            }),
+      const archive = yield* readBufferedArchive(fs, archivePath).pipe(
+        Effect.mapError((e) =>
+          e instanceof RegistryOperationFailed
+            ? e
+            : new RegistryOperationFailed({
+                category: "internal",
+                detail: `Failed to read archive: ${archivePath}`,
+                cause: e,
+              }),
         ),
       );
       return {

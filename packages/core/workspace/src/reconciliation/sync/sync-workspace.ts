@@ -17,6 +17,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as crypto from "node:crypto";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -457,7 +458,18 @@ export const prepareSyncWorkspace = (
       name: planName,
       description: planDescription,
     });
-    const execution = yield* prepareExecutionCandidate(plan);
+    const observedInputFingerprint = crypto
+      .createHash("sha256")
+      .update(
+        JSON.stringify({
+          preflightMaterial: preflightMaterial.materialFingerprint,
+          graph,
+          projectionFacts,
+          inventories: collected.inventoryObservations,
+        }),
+      )
+      .digest("hex");
+    const execution = yield* prepareExecutionCandidate(plan, { observedInputFingerprint });
     return {
       _tag: "SyncWorkspace",
       plan,

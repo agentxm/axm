@@ -233,6 +233,8 @@ const readinessBlockersOf = <Requirements, Output>(plan: Plan<Requirements, Outp
 export interface PrepareExecutionCandidateOptions {
   /** Operations whose configured-agent outcomes the candidate projects and, after apply, verifies. */
   readonly configuredAgentOperations?: ReadonlyArray<ConfiguredAgentOperation>;
+  /** Digest of observations revalidated by the owning use case before apply. */
+  readonly observedInputFingerprint?: string;
 }
 
 /**
@@ -300,6 +302,9 @@ export const prepareExecutionCandidate = Effect.fn("prepareExecutionCandidate")(
       settingsPath: location.settingsPath,
       lockPath: location.lockPath,
       baseDir: location.baseDir,
+      ...(options?.observedInputFingerprint === undefined
+        ? {}
+        : { observedInputFingerprint: options.observedInputFingerprint }),
     },
     operations,
   );

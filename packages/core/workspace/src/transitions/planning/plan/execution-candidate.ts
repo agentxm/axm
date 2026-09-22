@@ -13,6 +13,8 @@ export interface ExecutionCandidate<Requirements = never, Output = never> {
   readonly plan: Plan<Requirements, Output>;
   readonly materialPaths: ReadonlyArray<string>;
   readonly materialFingerprint: string;
+  /** Digest of non-file observations that the resolving use case revalidates. */
+  readonly observedInputFingerprint?: string;
   /** Base the material fingerprint is relative to; freshness recomputes against it. */
   readonly baseDir: string;
   /**
@@ -135,6 +137,7 @@ export const makeExecutionCandidate = <Requirements, Output>(
     readonly settingsPath: string;
     readonly lockPath: string;
     readonly baseDir: string;
+    readonly observedInputFingerprint?: string;
   },
   configuredAgentOperations: ReadonlyArray<ConfiguredAgentOperation> = [],
 ): Effect.Effect<
@@ -153,17 +156,23 @@ export const makeExecutionCandidate = <Requirements, Output>(
       path,
     );
     const materialFingerprint = yield* fingerprintMaterials(materialPaths, paths.baseDir, fs, path);
-    const id = crypto
+    const identity = crypto
       .createHash("sha256")
       .update(planIdentity(plan, paths.baseDir, path))
       .update("\0")
-      .update(materialFingerprint)
-      .digest("hex");
+      .update(materialFingerprint);
+    if (paths.observedInputFingerprint !== undefined) {
+      identity.update("\0observed-input\0").update(paths.observedInputFingerprint);
+    }
+    const id = identity.digest("hex");
     return {
       id,
       plan,
       materialPaths,
       materialFingerprint,
+      ...(paths.observedInputFingerprint === undefined
+        ? {}
+        : { observedInputFingerprint: paths.observedInputFingerprint }),
       baseDir: paths.baseDir,
       configuredAgentOperations,
     };

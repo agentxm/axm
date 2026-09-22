@@ -781,6 +781,33 @@ describe("previewOrApply", () => {
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
+  it.effect("includes observed workspace inputs in execution candidate identity", () =>
+    Effect.gen(function* () {
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Sync workspace",
+        description: Option.none(),
+        jobs: [{ concurrency: 1, steps: [] }],
+      };
+      const paths = {
+        settingsPath: "/tmp/axm-candidate/axm.json",
+        lockPath: "/tmp/axm-candidate/axm-lock.yaml",
+        baseDir: "/tmp",
+      };
+      const before = yield* makeExecutionCandidate(plan, {
+        ...paths,
+        observedInputFingerprint: "before",
+      });
+      const after = yield* makeExecutionCandidate(plan, {
+        ...paths,
+        observedInputFingerprint: "after",
+      });
+
+      expect(before.id).not.toBe(after.id);
+      expect(before.observedInputFingerprint).toBe("before");
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("fingerprints the layout's exact settings and lock paths", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

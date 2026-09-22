@@ -325,6 +325,7 @@ const settleDemotion = Effect.fn("Demote.prepare")(function* (request: DemoteReq
     operation.readiness === "error"
       ? operation
       : {
+          ...operation,
           readiness: "warn",
           label: `Demote ${formatFqn(parsed)}`,
           warnMessage: "Future updates may replace this package from its new source",

@@ -68,6 +68,7 @@ export const sourceRefContentKey = (ref: ExtensionRef): string => {
 };
 
 export interface AcquiredContentService {
+  readonly requestedKeys: ReadonlySet<string>;
   readonly filesByKey: ReadonlyMap<string, ExtensionFiles>;
   readonly failuresByKey: ReadonlyMap<string, StepFailure>;
 }
@@ -83,8 +84,10 @@ export const acquiredDirectoryForRef = (ref: ExtensionRef, ordinaryPath: string)
     if (ref.refType === "workspace") return ordinaryPath;
     const acquired = yield* Effect.serviceOption(AcquiredContent);
     if (Option.isNone(acquired)) return ordinaryPath;
-    const files = acquired.value.filesByKey.get(sourceRefContentKey(ref));
+    const key = sourceRefContentKey(ref);
+    const files = acquired.value.filesByKey.get(key);
     if (files !== undefined) return files.directory;
+    if (!acquired.value.requestedKeys.has(key)) return ordinaryPath;
     return yield* new PackageMaterializationFailed({
       path: ordinaryPath,
       step: "prepare-staging",

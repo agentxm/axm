@@ -5540,6 +5540,22 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 Workspace state always reflects explicitly expressed intent, authority, and ownership — never inference, accident, or unauthorized adoption.
 
+#### Functional
+
+##### Every apply has a selected-content boundary
+
+- Requirement: `workspace/apply-provides-acquisition-boundary`
+- Owner: `workspace`
+- Statement: For every apply candidate, AXM shall provide an acquired-content context during the workspace transition, including candidates with no acquisition refs, so source-fetch adapters can refuse undeclared remote retrieval under the lock.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: The real plan executor and transaction scope expose the acquired-content context seen by a closure whose plan names no external acquisitions.
+- Methods: example
+- Derived from: `docs/architecture/workspace/execution.md`
+- Source: [`packages/core/workspace/src/transitions/planning/plan/apply-provides-acquisition-boundary.spec.ts`](../packages/core/workspace/src/transitions/planning/plan/apply-provides-acquisition-boundary.spec.ts)
+
 #### Quality
 
 ##### MCP secrets stay in a per-connection credential namespace and out of workspace files

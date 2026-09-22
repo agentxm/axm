@@ -624,6 +624,7 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
           { concurrency: Option.isSome(budget) ? budget.value.capacity : 1 },
         );
   const acquiredContent = {
+    requestedKeys: new Set(uniqueSourceRefs.map(sourceRefContentKey)),
     filesByKey: new Map(
       acquiredResults.flatMap((result) =>
         "files" in result ? [[result.key, result.files] as const] : [],
@@ -1019,11 +1020,8 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
     if (Option.isSome(contention)) {
       return { type: "contention", contention: contention.value } as const;
     }
-    return yield* (
-      uniqueSourceRefs.length > 0
-        ? guardedApply.pipe(Effect.provideService(AcquiredContent, acquiredContent))
-        : guardedApply
-    ).pipe(
+    return yield* guardedApply.pipe(
+      Effect.provideService(AcquiredContent, acquiredContent),
       Effect.match({
         onFailure: (error) => ({ type: "failure", error }) as const,
         onSuccess: (value) => ({ type: "success", value }) as const,

@@ -316,6 +316,7 @@ export const finalizeSkillInstallIntent: (
 export type SkillInstallationStepInput = {
   readonly ref: SkillExtensionRef;
   readonly force: boolean;
+  readonly installedBefore?: boolean;
 } & (
   | { readonly operation: "install"; readonly versionRange: Option.Option<VersionRange> }
   | { readonly operation: "update" }
@@ -349,15 +350,26 @@ export const planSkillInstallationStep = (
 /** The closures a settled skill intent becomes. */
 export const planSkillInstall: (
   intent: SkillInstallIntent,
+  options?: { readonly installedBefore?: ReadonlyMap<string, boolean> },
 ) => Effect.Effect<
   Plan<InstallStepRequirements>,
   ExtensionLifecycleFailed,
   InstallStepRequirements | SkillManager | FileSystem.FileSystem | Path.Path | HttpClient.HttpClient
-> = Effect.fn("InstallExtensions.planSkills")(function* (intent: SkillInstallIntent) {
+> = Effect.fn("InstallExtensions.planSkills")(function* (
+  intent: SkillInstallIntent,
+  options?: { readonly installedBefore?: ReadonlyMap<string, boolean> },
+) {
   const steps = yield* Effect.forEach(
     intent.skillsToInstall,
     (entry) =>
-      planSkillInstallationStep({ ...entry, operation: "install", force: intent.force === true }),
+      planSkillInstallationStep({
+        ...entry,
+        operation: "install",
+        force: intent.force === true,
+        ...(options?.installedBefore === undefined
+          ? {}
+          : { installedBefore: options.installedBefore.get(entry.ref.skill.name) ?? false }),
+      }),
     { concurrency: 1 },
   );
 

@@ -2456,6 +2456,19 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `cli/subagents/new/scaffolds-for-every-configured-agent`
 - Source: [`packages/core/workspace/src/subagents/authoring/new/preview-is-pure.spec.ts`](../packages/core/workspace/src/subagents/authoring/new/preview-is-pure.spec.ts)
 
+##### Sync does not report convergence from stale workspace observations
+
+- Requirement: `cli/sync/no-op-convergence-validates-current-observation`
+- Owner: `workspace`
+- Statement: When a managed projection disappears, workspace settings change, or an owned aggregate changes during observation, sync shall not report a no-op based on the earlier observed state.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/sync/realizes-desired-state`
+- Source: [`packages/core/workspace/src/reconciliation/sync/no-op-convergence-validates-current-observation.spec.ts`](../packages/core/workspace/src/reconciliation/sync/no-op-convergence-validates-current-observation.spec.ts)
+
 ##### Sync preview describes required changes without applying them
 
 - Requirement: `cli/sync/preview-is-pure`

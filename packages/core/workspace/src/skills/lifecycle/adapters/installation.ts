@@ -165,7 +165,7 @@ const targetState = (args: { readonly linkPath: string; readonly canonicalSkillS
     return exists ? "different" : "absent";
   });
 
-const inspect = (ref: SkillExtensionRef) =>
+const inspect = (ref: SkillExtensionRef, installedBefore?: boolean) =>
   Effect.gen(function* () {
     const workspaceLocation = yield* WorkspaceLocation;
     const paths = yield* ExtensionPaths;
@@ -246,11 +246,13 @@ const inspect = (ref: SkillExtensionRef) =>
         ? path.relative(workspaceLocation.baseDir, skillSrcPath)
         : firstTarget.path;
 
-    const installedBefore = yield* skillManager
-      .isInstalled({ target: { type: "skill", name: ref.skill.name } })
-      .pipe(Effect.catch(() => Effect.succeed(false)));
+    const installed =
+      installedBefore ??
+      (yield* skillManager
+        .isInstalled({ target: { type: "skill", name: ref.skill.name } })
+        .pipe(Effect.catch(() => Effect.succeed(false))));
     return {
-      installed: installedBefore,
+      installed,
       previousVersion,
       sourceHash: sourceHashBeforeInstall,
       scope: workspaceLocation.scope,

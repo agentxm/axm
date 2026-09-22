@@ -23,6 +23,7 @@ export interface SkillInstallationInspection {
 export interface SkillInstallationFacts<E, Preparation, Execution> {
   readonly inspect: (
     ref: SkillExtensionRef,
+    installedBefore?: boolean,
   ) => Effect.Effect<SkillInstallationInspection, E, Preparation>;
   /** Applicable shared release-age evidence, if the source can supply it. */
   readonly releaseAge: (
@@ -46,11 +47,15 @@ export interface SkillInstallationFacts<E, Preparation, Execution> {
 /** Install and update share skill policy, including deferred artifact evidence. */
 export const prepareSkillInstallation = <E, Preparation, Execution>(
   facts: SkillInstallationFacts<E, Preparation, Execution>,
-  input: { readonly ref: SkillExtensionRef; readonly operation: "install" | "update" },
+  input: {
+    readonly ref: SkillExtensionRef;
+    readonly operation: "install" | "update";
+    readonly installedBefore?: boolean;
+  },
 ) =>
   Effect.gen(function* () {
     const ref = input.ref;
-    const before = yield* facts.inspect(ref);
+    const before = yield* facts.inspect(ref, input.installedBefore);
     const targets = before.targets.map(
       ({ state, ...target }) =>
         ({

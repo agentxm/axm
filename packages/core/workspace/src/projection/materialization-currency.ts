@@ -23,6 +23,7 @@ import {
   type WorkspaceRecordsService,
   type DesiredExtensionNode,
   type WorkspaceStateReadFailure,
+  type ExtensionInventory,
 } from "../desired-state/index.js";
 import type { CodingAgentFailure } from "./agent-adapters/index.js";
 import type { McpInspectionError } from "./mcps/errors.js";
@@ -40,6 +41,8 @@ export type MaterializationCurrencyFailure<E> =
 export interface ObservedMaterializationCurrencyArgs<E> {
   readonly location: WorkspaceLocationService;
   readonly records: WorkspaceRecordsService;
+  /** Inventory observed once for this planning phase, when available. */
+  readonly inventory?: ExtensionInventory;
   readonly node: DesiredExtensionNode;
   readonly configuredAgentIds: ReadonlyArray<string>;
   readonly agents: CodingAgentRepositoryService;
@@ -53,6 +56,7 @@ export interface ObservedMaterializationCurrencyArgs<E> {
 export const isObservedMaterializationCurrent = <E>({
   location,
   records,
+  inventory,
   node,
   configuredAgentIds: configuredAgents,
   agents: agentRepo,
@@ -65,105 +69,103 @@ export const isObservedMaterializationCurrent = <E>({
   MaterializationCurrencyFailure<E>,
   ProjectionParticipantRequirements
 > =>
-  records
-    .getExtensionInventory(node.type, {
-      ...(configuredAgents.length > 0 &&
-      (node.type === "skill" || node.type === "mcp-server" || node.type === "subagent")
-        ? { agents: configuredAgents }
-        : {}),
-    })
-    .pipe(
-      Effect.flatMap(
-        (
-          inventory,
-        ): Effect.Effect<
-          boolean,
-          MaterializationCurrencyFailure<E>,
-          ProjectionParticipantRequirements
-        > => {
-          const observed = inventory.items.find(
-            (item) => item.name === node.name && item.installed,
-          );
-          if (observed === undefined) return Effect.succeed(false);
-          if (node.type !== "skill" && node.type !== "mcp-server" && node.type !== "subagent") {
-            // Rule, hook, and knowledge outputs are aggregate units whose
-            // currency is judged by reading the unit back (collectInstructionStep,
-            // collectHooksStep, collectKnowledgeStep). Canonical presence decides
-            // only whether this node needs canonical rematerialization.
-            return Effect.succeed(true);
-          }
-          if (configuredAgents.length === 0 && node.type !== "skill") return Effect.succeed(true);
-          if (node.type === "subagent") {
-            return resolvedRef.type === "subagent"
-              ? observeSubagent
-                  .projectionObservation(resolvedRef)
-                  .pipe(Effect.map(({ current }) => current))
-              : Effect.succeed(false);
-          }
-          const hasProjectionOrigin = (() => {
-            switch (node.type) {
-              case "skill":
-                return observed.origins.includes("agent-skill-dir");
-              case "mcp-server":
-                return (
-                  observed.origins.includes("workspace-mcp-config") ||
-                  observed.origins.includes("agent-mcp-config")
-                );
-              default:
-                return true;
-            }
-          })();
-          if (!hasProjectionOrigin) return Effect.succeed(false);
-          if (node.type !== "skill") {
-            if (node.type === "mcp-server") {
-              return collectManagedAgentMcpServers({
-                workspaceRoot: location.baseDir,
-                scope: location.scope,
-                agentIds: configuredAgents,
-              }).pipe(
-                Effect.provideService(FileSystem.FileSystem, fs),
-                Effect.provideService(Path.Path, path),
-                Effect.map((managed) =>
-                  configuredAgents.every(
-                    (agentId) =>
-                      observed.agents.includes(agentId) ||
-                      managed.some(
-                        (entry) => entry.agentId === agentId && entry.serverName === node.name,
-                      ),
-                  ),
-                ),
+  (inventory === undefined
+    ? records.getExtensionInventory(node.type, {
+        ...(configuredAgents.length > 0 &&
+        (node.type === "skill" || node.type === "mcp-server" || node.type === "subagent")
+          ? { agents: configuredAgents }
+          : {}),
+      })
+    : Effect.succeed(inventory)
+  ).pipe(
+    Effect.flatMap(
+      (
+        inventory,
+      ): Effect.Effect<
+        boolean,
+        MaterializationCurrencyFailure<E>,
+        ProjectionParticipantRequirements
+      > => {
+        const observed = inventory.items.find((item) => item.name === node.name && item.installed);
+        if (observed === undefined) return Effect.succeed(false);
+        if (node.type !== "skill" && node.type !== "mcp-server" && node.type !== "subagent") {
+          // Rule, hook, and knowledge outputs are aggregate units whose
+          // currency is judged by reading the unit back (collectInstructionStep,
+          // collectHooksStep, collectKnowledgeStep). Canonical presence decides
+          // only whether this node needs canonical rematerialization.
+          return Effect.succeed(true);
+        }
+        if (configuredAgents.length === 0 && node.type !== "skill") return Effect.succeed(true);
+        if (node.type === "subagent") {
+          return resolvedRef.type === "subagent"
+            ? observeSubagent
+                .projectionObservation(resolvedRef)
+                .pipe(Effect.map(({ current }) => current))
+            : Effect.succeed(false);
+        }
+        const hasProjectionOrigin = (() => {
+          switch (node.type) {
+            case "skill":
+              return observed.origins.includes("agent-skill-dir");
+            case "mcp-server":
+              return (
+                observed.origins.includes("workspace-mcp-config") ||
+                observed.origins.includes("agent-mcp-config")
               );
-            }
-            return Effect.succeed(
-              configuredAgents.every((agentId) => observed.agents.includes(agentId)),
+            default:
+              return true;
+          }
+        })();
+        if (!hasProjectionOrigin) return Effect.succeed(false);
+        if (node.type !== "skill") {
+          if (node.type === "mcp-server") {
+            return collectManagedAgentMcpServers({
+              workspaceRoot: location.baseDir,
+              scope: location.scope,
+              agentIds: configuredAgents,
+            }).pipe(
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path),
+              Effect.map((managed) =>
+                configuredAgents.every(
+                  (agentId) =>
+                    observed.agents.includes(agentId) ||
+                    managed.some(
+                      (entry) => entry.agentId === agentId && entry.serverName === node.name,
+                    ),
+                ),
+              ),
             );
           }
-
-          return agentRepo.all.pipe(
-            Effect.flatMap((agents) => {
-              const configured = agents.filter((agent) => configuredAgents.includes(agent.id));
-              if (configured.length !== configuredAgents.length) return Effect.succeed(false);
-              return Effect.forEach(
-                configured,
-                (agent) =>
-                  agent.resolveEffectiveSkillsDir({ workspaceRoot: location.baseDir }).pipe(
-                    Effect.provideService(FileSystem.FileSystem, fs),
-                    Effect.provideService(Path.Path, path),
-                    Effect.map((outcome) => {
-                      if (outcome._tag === "unsupported" || outcome._tag === "disabled")
-                        return true;
-                      if (outcome._tag === "misconfigured") return false;
-                      const expectedPath = path.relative(
-                        location.baseDir,
-                        path.join(outcome.dir, sanitizeName(node.name)),
-                      );
-                      return observed.paths.includes(expectedPath);
-                    }),
-                  ),
-                { concurrency: "unbounded" },
-              ).pipe(Effect.map((results) => results.every(Boolean)));
-            }),
+          return Effect.succeed(
+            configuredAgents.every((agentId) => observed.agents.includes(agentId)),
           );
-        },
-      ),
-    );
+        }
+
+        return agentRepo.all.pipe(
+          Effect.flatMap((agents) => {
+            const configured = agents.filter((agent) => configuredAgents.includes(agent.id));
+            if (configured.length !== configuredAgents.length) return Effect.succeed(false);
+            return Effect.forEach(
+              configured,
+              (agent) =>
+                agent.resolveEffectiveSkillsDir({ workspaceRoot: location.baseDir }).pipe(
+                  Effect.provideService(FileSystem.FileSystem, fs),
+                  Effect.provideService(Path.Path, path),
+                  Effect.map((outcome) => {
+                    if (outcome._tag === "unsupported" || outcome._tag === "disabled") return true;
+                    if (outcome._tag === "misconfigured") return false;
+                    const expectedPath = path.relative(
+                      location.baseDir,
+                      path.join(outcome.dir, sanitizeName(node.name)),
+                    );
+                    return observed.paths.includes(expectedPath);
+                  }),
+                ),
+              { concurrency: "unbounded" },
+            ).pipe(Effect.map((results) => results.every(Boolean)));
+          }),
+        );
+      },
+    ),
+  );

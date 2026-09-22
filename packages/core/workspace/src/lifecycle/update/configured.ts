@@ -52,6 +52,7 @@ import {
 import {
   DesiredStateReader,
   SettingsReader,
+  WorkspaceRecords,
   WorkspaceLocation,
   acceptedResolutionRef,
   acquisitionConfiguredEntries,
@@ -768,6 +769,15 @@ const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection).filter(
       hasConfiguredSource,
     );
+    const registryEntries = entries.filter(([, entry]) => !isWorkspaceSourceLocator(entry.source));
+    const installedBefore =
+      registryEntries.length === 0
+        ? new Map<string, boolean>()
+        : new Map(
+            (yield* (yield* WorkspaceRecords).getExtensionInventory("skill", {})).items.map(
+              (item) => [item.name, item.installed] as const,
+            ),
+          );
 
     const resolved = yield* Effect.forEach(
       entries,
@@ -780,11 +790,11 @@ const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest) =>
             )
           : collectResolvedPlan(
               resolveSkillIntent(name, entry.source, selection.releaseAgeEvaluation),
-              (intent) => planSkillInstall(intent),
+              (intent) => planSkillInstall(intent, { installedBefore }),
               (error) => workspacePlanningErrorPlan("skill", name, error),
               name,
             ),
-      { concurrency: "unbounded" },
+      { concurrency: 16 },
     );
 
     return toCollectedWorkspaceUpdatePlans({

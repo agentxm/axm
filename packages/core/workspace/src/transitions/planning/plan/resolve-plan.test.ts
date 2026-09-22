@@ -35,6 +35,7 @@ import {
   ConfiguredAgentOutcomesProviderTest,
   WorkspaceReadTest,
 } from "../../../desired-state/testing.js";
+import { WorkspaceRecords } from "../../../desired-state/index.js";
 import { OperationJournal, makeOperationJournal } from "./operation-journal.js";
 import type { Plan } from "./plan.js";
 import type { PlanExecution } from "./plan-execution.js";
@@ -572,6 +573,54 @@ describe("previewOrApply", () => {
     }).pipe(Effect.provide(context.layer));
   });
 
+  it.effect("shares final inventory readback across enabled operations of one type", () => {
+    const context = makeTestContext();
+    const plan: Plan = {
+      _tag: "Plan",
+      name: "Install skills",
+      description: Option.none(),
+      jobs: [
+        {
+          concurrency: 1,
+          steps: [
+            {
+              readiness: "ready",
+              label: "review",
+              run: Effect.succeed({ result: "success", message: "installed" }),
+            },
+            {
+              readiness: "ready",
+              label: "triage",
+              run: Effect.succeed({ result: "success", message: "installed" }),
+            },
+          ],
+        },
+      ],
+    };
+    return Effect.gen(function* () {
+      const records = yield* WorkspaceRecords;
+      let inventoryReads = 0;
+      const observed = {
+        ...records,
+        getExtensionInventory: (type, options) =>
+          Effect.sync(() => {
+            inventoryReads += 1;
+          }).pipe(Effect.andThen(records.getExtensionInventory(type, options))),
+      } satisfies typeof records;
+      yield* previewOrApply(plan, {
+        execution: applyPlanExecution({
+          approval: "preapproved",
+          recovery: testRecovery,
+          configuredAgentOperations: [
+            { extensionType: "skill", name: "review", plannedState: "enabled" },
+            { extensionType: "skill", name: "triage", plannedState: "enabled" },
+          ],
+        }),
+      }).pipe(Effect.provideService(WorkspaceRecords, observed));
+      expect(inventoryReads).toBe(1);
+    }).pipe(Effect.provide(context.layer));
+  });
+
   it.effect(
     "C-16: displays confirmable risk before confirmation and cancels without execution",
     () => {
@@ -756,6 +805,39 @@ describe("previewOrApply", () => {
       yield* fs.writeFileString(settingsPath, '{"agents":[]}');
       expect(yield* isExecutionCandidateFresh(candidate)).toBe(false);
     }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect(
+    "invalidates a candidate when a missing input appears or a directory gains a member",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-candidate-inputs-" });
+        const members = path.join(directory, "members");
+        const missing = path.join(directory, "missing.json");
+        yield* fs.makeDirectory(members);
+        const plan: Plan = {
+          _tag: "Plan",
+          name: "Observe workspace inputs",
+          description: Option.none(),
+          materialPaths: [members, missing],
+          jobs: [{ concurrency: 1, steps: [] }],
+        };
+        const paths = {
+          settingsPath: path.join(directory, "axm.json"),
+          lockPath: path.join(directory, "axm-lock.yaml"),
+          baseDir: directory,
+        };
+
+        const beforeMissing = yield* makeExecutionCandidate(plan, paths);
+        yield* fs.writeFileString(missing, "{}");
+        expect(yield* isExecutionCandidateFresh(beforeMissing)).toBe(false);
+
+        const beforeMember = yield* makeExecutionCandidate(plan, paths);
+        yield* fs.writeFileString(path.join(members, "added.txt"), "new member");
+        expect(yield* isExecutionCandidateFresh(beforeMember)).toBe(false);
+      }).pipe(Effect.provide(NodeServices.layer)),
   );
 
   it.effect(

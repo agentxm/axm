@@ -37,6 +37,8 @@ import type { McpServerInstallRequirements } from "../index.js";
 import {
   observeUnit,
   OperationJournal,
+  isExecutionCandidateFresh,
+  makeExecutionCandidate,
   prepareExecutionCandidate,
   resolveExecutionCandidate,
   ResolvePlanInteraction,
@@ -49,13 +51,14 @@ import {
   type PlanInteractionFailed,
   type PlannedJobStep,
 } from "../../transitions/planning/index.js";
-import { WorkspaceInvariantFacts } from "../../projection/index.js";
+import { WorkspaceInvariantFacts, type ProjectionInvariantFact } from "../../projection/index.js";
 import {
   ConfiguredAgentOutcomesProvider,
   DesiredStateReader,
   LockfileReader,
   WorkspaceLocation,
   WorkspaceRecords,
+  type DesiredStateGraph,
   type LockfileValidationError,
   type WorkspaceSettingsReadFailure,
 } from "../../desired-state/index.js";
@@ -69,7 +72,11 @@ import {
   collectUnreachableRetirement,
   collectConfiguredPackRecovery,
 } from "../index.js";
-import { SyncStepFailureConversion, type SyncPolicyFailure } from "../index.js";
+import {
+  SyncStepFailureConversion,
+  WorkspaceSyncFailed,
+  type SyncPolicyFailure,
+} from "../index.js";
 import {
   collectMaterializeSteps,
   type CollectedMaterializeSteps,
@@ -133,6 +140,10 @@ export interface SyncWorkspaceCandidate {
   readonly _tag: "SyncWorkspace";
   readonly execution: ExecutionCandidate<SyncWorkspaceRequirements>;
   readonly plan: Plan<SyncWorkspaceRequirements>;
+  readonly inventoryObservations: CollectedMaterializeSteps["inventoryObservations"];
+  readonly preflightMaterial: ExecutionCandidate<unknown, unknown>;
+  readonly observedGraph: DesiredStateGraph;
+  readonly projectionFacts: ReadonlyArray<ProjectionInvariantFact>;
   /** What the operator is told when the sweep turns out to change nothing. */
   readonly upToDateMessage: string;
 }
@@ -155,6 +166,33 @@ const scopeLabelFor = (selection: SyncSelection): string =>
     : Option.isSome(selection.type)
       ? `type ${selection.type.value}`
       : "workspace";
+
+const inventoriesStillCurrent = (observed: CollectedMaterializeSteps["inventoryObservations"]) =>
+  Effect.gen(function* () {
+    const records = yield* WorkspaceRecords;
+    for (const item of observed) {
+      const current = yield* records.getExtensionInventory(item.type, item.options);
+      if (JSON.stringify(current) !== JSON.stringify(item.inventory)) return false;
+    }
+    return true;
+  }).pipe(Effect.catch(() => Effect.succeed(false)));
+
+const observationsStillCurrent = (observation: {
+  readonly preflightMaterial: ExecutionCandidate<unknown, unknown>;
+  readonly graph: DesiredStateGraph;
+  readonly projectionFacts: ReadonlyArray<ProjectionInvariantFact>;
+  readonly inventories: CollectedMaterializeSteps["inventoryObservations"];
+}) =>
+  Effect.gen(function* () {
+    if (!(yield* isExecutionCandidateFresh(observation.preflightMaterial))) return false;
+    const graph = yield* (yield* DesiredStateReader).graph();
+    if (JSON.stringify(graph) !== JSON.stringify(observation.graph)) return false;
+    const projectionFacts = yield* (yield* WorkspaceInvariantFacts).projectionFactsForGraph(graph);
+    if (JSON.stringify(projectionFacts) !== JSON.stringify(observation.projectionFacts)) {
+      return false;
+    }
+    return yield* inventoriesStillCurrent(observation.inventories);
+  }).pipe(Effect.catch(() => Effect.succeed(false)));
 
 /**
  * Whether a narrowed sweep touches one of the shared aggregate units. A
@@ -228,20 +266,30 @@ export const prepareSyncWorkspace = (
     const upToDateMessage = scoped
       ? `${scopeLabel} materialization is up to date`
       : "Workspace materialization is up to date";
+    const preflightMaterial = yield* makeExecutionCandidate(
+      { _tag: "Plan", name: planName, description: Option.none(), jobs: [] },
+      {
+        settingsPath: location.settingsPath,
+        lockPath: location.lockPath,
+        baseDir: location.baseDir,
+      },
+    );
 
     const preflight = yield* observeUnit(
       { id: "sync-preflight", label: `${scopeLabel} sync plan` },
       Effect.gen(function* () {
+        const graph = yield* desiredState.graph();
         const packRecovery = yield* collectConfiguredPackRecovery({
           selection,
           adapter: conversion,
+          graph,
         });
         const collected = yield* collectMaterializeSteps({
           selection,
+          desiredState: graph,
           ...(packRecovery === undefined ? {} : { packRecovery }),
           adapter: conversion,
         });
-        const graph = yield* desiredState.graph();
         const selected = scoped ? selectedDesiredNodes(graph, selection) : [];
         const selectedType = Option.getOrUndefined(selection.type);
         const selectedAccepted =
@@ -252,7 +300,7 @@ export const prepareSyncWorkspace = (
                 name: entry.identity.name,
               }));
         const subjects = scoped ? [...selected, ...selectedAccepted] : undefined;
-        const projectionFacts = yield* invariantFacts.projectionFacts;
+        const projectionFacts = yield* invariantFacts.projectionFactsForGraph(graph);
         const hookProjectionFacts = projectionFacts.filter(({ subject }) =>
           subject.unitId.startsWith("hook:"),
         );
@@ -303,6 +351,7 @@ export const prepareSyncWorkspace = (
           : yield* collectUnreachableRetirement(
               conversion,
               subjects === undefined ? undefined : { resultingGraph: graph, subjects },
+              graph,
             ).pipe(
               Effect.catch((failure) =>
                 Effect.succeed(
@@ -322,6 +371,7 @@ export const prepareSyncWorkspace = (
           : yield* collectLeftoverRetirement(
               conversion,
               subjects === undefined ? undefined : { subjects },
+              graph,
             ).pipe(
               Effect.catch((failure) =>
                 Effect.succeed([
@@ -335,6 +385,8 @@ export const prepareSyncWorkspace = (
               ),
             );
         return {
+          graph,
+          projectionFacts,
           collected,
           knowledgeStep,
           hooksStep,
@@ -347,6 +399,8 @@ export const prepareSyncWorkspace = (
     );
 
     const {
+      graph,
+      projectionFacts,
       collected,
       knowledgeStep,
       hooksStep,
@@ -365,6 +419,19 @@ export const prepareSyncWorkspace = (
       Option.toArray(retirementStep).length +
       leftoverSteps.length;
     const lockfileNeedsRecovery = (yield* lockfile.state) !== "ok";
+    if (
+      !(yield* observationsStillCurrent({
+        preflightMaterial,
+        graph,
+        projectionFacts,
+        inventories: collected.inventoryObservations,
+      }))
+    ) {
+      return yield* new WorkspaceSyncFailed({
+        category: "conflict",
+        detail: "Workspace observations changed during sync planning; retry the command",
+      });
+    }
     if (stepCount === 0 && !lockfileNeedsRecovery) {
       return {
         _tag: "AlreadyReconciled",
@@ -375,7 +442,7 @@ export const prepareSyncWorkspace = (
     }
 
     const plan = yield* makeSyncPlan({
-      graph: yield* desiredState.graph(),
+      graph,
       scope: location.scope,
       adapter: conversion,
       materializeSteps,
@@ -391,7 +458,16 @@ export const prepareSyncWorkspace = (
       description: planDescription,
     });
     const execution = yield* prepareExecutionCandidate(plan);
-    return { _tag: "SyncWorkspace", plan, execution, upToDateMessage };
+    return {
+      _tag: "SyncWorkspace",
+      plan,
+      execution,
+      inventoryObservations: collected.inventoryObservations,
+      preflightMaterial,
+      observedGraph: graph,
+      projectionFacts,
+      upToDateMessage,
+    };
   });
 
 /**
@@ -406,7 +482,16 @@ export const previewOrApplySyncWorkspace = (
   OperationResolution<void>,
   SyncWorkspaceExecutionFailure,
   SyncWorkspaceRequirements
-> => resolveExecutionCandidate(candidate.execution, execution);
+> =>
+  resolveExecutionCandidate(candidate.execution, execution, {
+    additionalFreshness: () =>
+      observationsStillCurrent({
+        preflightMaterial: candidate.preflightMaterial,
+        graph: candidate.observedGraph,
+        projectionFacts: candidate.projectionFacts,
+        inventories: candidate.inventoryObservations,
+      }),
+  });
 
 /** The workspace-reconciliation use case. */
 export const SyncWorkspace = {

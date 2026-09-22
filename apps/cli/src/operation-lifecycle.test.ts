@@ -72,6 +72,50 @@ describe("withOperationLifecycle", () => {
     }),
   );
 
+  it.effect("announces resolution before preparation finishes and settles once", () =>
+    Effect.gen(function* () {
+      const workspaceDir = nodePath.join(tempDir, ".axm");
+      const renderer = TestRenderer.make();
+      const preparing = yield* Deferred.make<void>();
+      const continuePreparation = yield* Deferred.make<void>();
+      const fiber = yield* withOperationLifecycle(
+        { command: "update", mode: "apply", planName: "Update extensions" },
+        Deferred.succeed(preparing, undefined).pipe(
+          Effect.andThen(Deferred.await(continuePreparation)),
+        ),
+      ).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            renderer.layer,
+            TestFlagsLayer({ nonInteractive: true }),
+            Layer.effect(WorkspaceLocation, makeWorkspaceLocationMock(workspaceDir)),
+          ).pipe(Layer.provideMerge(NodeServices.layer)),
+        ),
+        Effect.forkChild,
+      );
+      yield* Deferred.await(preparing);
+      yield* Effect.promise(async () => {
+        for (let attempt = 0; attempt < 100; attempt += 1) {
+          if (renderer.state.events.length >= 2) return;
+          await new Promise((resolve) => setTimeout(resolve, 1));
+        }
+        throw new Error("Preparation events were not observed");
+      });
+      expect(renderer.state.events.map((event) => event._tag)).toEqual([
+        "OperationStarted",
+        "PhaseStarted",
+      ]);
+      expect(renderer.state.events[1]).toMatchObject({ phase: "resolution" });
+      yield* Deferred.succeed(continuePreparation, undefined);
+      yield* Fiber.join(fiber);
+      expect(renderer.state.events.map((event) => event._tag)).toEqual([
+        "OperationStarted",
+        "PhaseStarted",
+        "OperationSettled",
+      ]);
+    }),
+  );
+
   // Lock lifetime is a design invariant, not a contract obligation, so this
   // test carries no obligation ID.
   it.effect("does not hold the workspace transition before the body confirms", () =>

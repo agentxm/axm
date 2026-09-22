@@ -33,6 +33,7 @@ import {
   getOperationJournal,
   makeOperationJournal,
   makeOperationLifecycle,
+  publishPhaseStarted,
   resolveInterruption,
   type AtomicityClass,
   type OperationMode,
@@ -157,7 +158,8 @@ export const withOperationLifecycle = <A, E, R>(
                 ? {}
                 : { productActivity: args.productActivity }),
             },
-            body.pipe(
+            publishPhaseStarted("resolution").pipe(
+              Effect.andThen(body),
               Effect.provideService(OperationJournal, journal),
               Effect.provideService(FootprintRecorder, footprint),
             ),

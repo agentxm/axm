@@ -3,14 +3,20 @@
  *
  * Where the live region cannot repaint, the same transitions the live ledger
  * would have shown become transcript lines: one when the operation starts, one
- * when it rolls back, one per wait, and one when it settles. All wording lives
+ * per phase and wait, one when it rolls back, and one when it settles. All wording lives
  * here, beside the painter; the frame paints documents and never formats
  * events.
  */
 
 import type { Doc, Text } from "./doc.js";
 import { factParts } from "./docs.js";
-import { duration, settledOutcomeTone, systemWaitStatus, unitState } from "./phrases.js";
+import {
+  duration,
+  phaseLabel,
+  settledOutcomeTone,
+  systemWaitStatus,
+  unitState,
+} from "./phrases.js";
 import { operationElapsedMs, type ProgressState } from "./progress.js";
 
 const settledLine = (state: ProgressState): Doc => {
@@ -51,12 +57,21 @@ export const progressTransitionDoc = (
   if (next.operation !== undefined && previous?.operation === undefined) {
     doc.push({ _tag: "headline", tone: "info", text: next.operation.name });
   }
-  if (next.phase === "restoration" && previous?.phase !== "restoration") {
-    doc.push({
-      _tag: "headline",
-      tone: "warn",
-      text: `Rolling back ${next.operation?.name ?? "changes"}`,
-    });
+  if (next.phase !== undefined && next.phase !== previous?.phase) {
+    if (next.phase === "restoration") {
+      doc.push({
+        _tag: "headline",
+        tone: "warn",
+        text: `Rolling back ${next.operation?.name ?? "changes"}`,
+      });
+    } else {
+      const activity = phaseLabel(next.phase);
+      doc.push({
+        _tag: "headline",
+        tone: "info",
+        text: `${activity.charAt(0).toUpperCase()}${activity.slice(1)}`,
+      });
+    }
   }
   for (const wait of next.waiting) {
     if (previous?.waiting.some((known) => known.subject === wait.subject) === true) continue;

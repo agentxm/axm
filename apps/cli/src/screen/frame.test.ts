@@ -109,7 +109,11 @@ describe("Frame", () => {
       expect(harness.state.stderr.join("")).toBe(
         [
           " ●   Install skill",
+          " ●   Resolving sources",
+          " ●   Planning",
+          " ●   Validating",
           " ▲   Waiting - another operation holds the workspace: axm sync (pid 41)",
+          " ●   Applying",
           " ▲   Rolling back Install skill",
           " ✖   Install skill                 1.5s, 1 failed",
           "",

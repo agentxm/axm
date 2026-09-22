@@ -218,6 +218,9 @@ describe("Machine progress event contract", () => {
       );
       expect(events.filter((entry) => entry.event._tag === "OperationStarted")).toHaveLength(1);
       expect(events.filter((entry) => entry.event._tag === "OperationSettled")).toHaveLength(1);
+      expect(events.find((entry) => entry.event._tag === "PhaseStarted")?.event).toMatchObject({
+        phase: "resolution",
+      });
       for (let index = 1; index < events.length; index += 1) {
         const previous = events[index - 1];
         const current = events[index];

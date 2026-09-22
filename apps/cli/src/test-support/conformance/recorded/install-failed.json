@@ -8,8 +8,14 @@
     "mode": "apply"
   },
   {
-    "_tag": "OperationSettled",
+    "_tag": "PhaseStarted",
     "seq": 2,
+    "atMs": 0,
+    "phase": "resolution"
+  },
+  {
+    "_tag": "OperationSettled",
+    "seq": 3,
     "atMs": 0,
     "outcome": "failed"
   }

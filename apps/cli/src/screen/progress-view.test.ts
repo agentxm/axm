@@ -15,11 +15,15 @@ describe("progressTransitionDoc", () => {
       colors: false,
     });
 
-  it("narrates start, waits, restoration, and settlement", () => {
+  it("narrates start, phase activity, waits, restoration, and settlement", () => {
     expect(paintTransition(0, 1)).toEqual([" ●   Install skill"]);
+    expect(paintTransition(1, 2)).toEqual([" ●   Resolving sources"]);
+    expect(paintTransition(4, 5)).toEqual([" ●   Planning"]);
+    expect(paintTransition(7, 8)).toEqual([" ●   Validating"]);
     expect(paintTransition(8, 9)).toEqual([
       " ▲   Waiting - another operation holds the workspace: axm sync (pid 41)",
     ]);
+    expect(paintTransition(10, 11)).toEqual([" ●   Applying"]);
     expect(paintTransition(17, 18)).toEqual([" ▲   Rolling back Install skill"]);
     expect(paintTransition(18, 19)).toEqual([" ✖   Install skill                 1.5s, 1 failed"]);
   });

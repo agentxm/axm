@@ -1,3 +1,21 @@
+## 0.33.0 (2026-09-22)
+
+### 🩹 Fixes
+
+- Improve lifecycle acquisition, Pack resolution, accepted state batching, and Registry metadata protocol ([#410](https://github.com/agentxm/axm/pull/410))
+
+### ⚠️ Breaking Changes
+
+- Raise the supported Node runtime floor to 24. `axm.sh` now declares ([#397](https://github.com/agentxm/axm/pull/397))
+  `engines: { "node": ">=24.19.0" }`, so installing through npm on Node 22
+  reports `EBADENGINE`. The install-script and Homebrew distributions ship a
+  self-contained binary and are unaffected.
+
+### ❤️ Thank You
+
+- Claude Opus 5 (1M context)
+- Craig Smitham
+
 ## 0.32.3 (2026-09-21)
 
 ### 🩹 Fixes

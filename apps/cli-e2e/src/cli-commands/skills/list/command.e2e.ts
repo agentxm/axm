@@ -38,7 +38,7 @@ describe("axm skills list", () => {
 
       expect(textResult.exitCode, getOutput(textResult)).toBe(0);
       expect(textResult.stdout).toContain("native-only");
-      expect(textResult.stdout).toContain("unmanaged");
+      expect(textResult.stdout).toContain("outside AXM");
       expect(textResult.stdout).toContain("1 installed");
       expect(result.exitCode).toBe(0);
       expect(JSON.parse(result.stdout)).toMatchObject({

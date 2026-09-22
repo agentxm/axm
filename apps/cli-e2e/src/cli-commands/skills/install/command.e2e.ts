@@ -585,7 +585,7 @@ describe("axm skills install", () => {
         );
 
         expect(result.exitCode).toBe(0);
-        expect(getOutput(result)).toMatch(/\d+ to install/);
+        expect(getOutput(result)).toMatch(/Would install \d+ skills?/);
       } finally {
         temp.cleanup();
       }

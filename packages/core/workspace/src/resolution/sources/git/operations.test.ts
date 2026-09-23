@@ -205,7 +205,10 @@ if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadli
         `#!/bin/sh
 printf '%s\\n' "$$" > "$AXM_GIT_PROBE_PID"
 for argument do last="$argument"; done
-printf '%s\\n' "$last" > "$AXM_GIT_PROBE_CHECKOUT"
+case "$last" in
+  .) pwd > "$AXM_GIT_PROBE_CHECKOUT" ;;
+  *) printf '%s\\n' "$last" > "$AXM_GIT_PROBE_CHECKOUT" ;;
+esac
 exec sleep 30
 `,
         { mode: 0o700 },

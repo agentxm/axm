@@ -33,7 +33,7 @@ catalog:
   "@types/semver": ^7.7.1
   "@typescript-eslint/parser": ^8.70.0
   "@typescript/native": npm:typescript@^7.0.2
-  allure: ^3.16.0
+  allure: ^3.17.0
   allure-js-commons: ^3.12.1
   allure-vitest: ^3.12.1
   effect: 4.0.0-rc.117

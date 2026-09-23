@@ -1,7 +1,7 @@
 /**
  * Verify that authored sources contain no forbidden C0 control bytes, that
- * production AXM environment literals are classified, that unbounded
- * concurrency stays within its reviewed baseline, and that test and
+ * production AXM environment literals are classified, that newly introduced
+ * unbounded concurrency requires review, and that test and
  * specification files follow the rules discovery relies on.
  *
  * A raw control byte (for example a literal NUL) makes a file invisible to
@@ -13,24 +13,26 @@
  */
 
 import {
-  countUnboundedConcurrencySites,
+  classifyUnboundedConcurrencySites,
   findAxmEnvironmentContractViolations,
   findSourceHygieneViolations,
   findTestTaxonomyViolations,
   formatAxmEnvironmentContractViolation,
   formatTestTaxonomyViolation,
   formatViolation,
+  findUnboundedConcurrencySites,
 } from "./verify-source-hygiene-lib.js";
+import { existingUnboundedConcurrencySites } from "./unbounded-concurrency-sites.js";
 import { readWorkspace } from "./workspace-discovery.js";
-
-// Reviewed 2026-08-18. Lower this ceiling whenever an existing literal is
-// removed; never raise it to accommodate a new traversal.
-const MAX_UNBOUNDED_CONCURRENCY_SITES = 184;
 
 const workspace = await readWorkspace();
 const violations = findSourceHygieneViolations(workspace);
 const environmentContractViolations = findAxmEnvironmentContractViolations(workspace);
-const unboundedConcurrencySites = countUnboundedConcurrencySites(workspace);
+const unboundedConcurrencySites = findUnboundedConcurrencySites(workspace);
+const unboundedChanges = classifyUnboundedConcurrencySites(
+  unboundedConcurrencySites,
+  existingUnboundedConcurrencySites,
+);
 
 if (violations.length > 0) {
   console.error("Source hygiene violations found:");
@@ -48,10 +50,14 @@ if (environmentContractViolations.length > 0) {
   process.exit(1);
 }
 
-if (unboundedConcurrencySites > MAX_UNBOUNDED_CONCURRENCY_SITES) {
-  console.error(
-    `Unbounded concurrency baseline increased: ${unboundedConcurrencySites} > ${MAX_UNBOUNDED_CONCURRENCY_SITES}. Classify and bound the new traversal.`,
-  );
+if (unboundedChanges.added.length > 0 || unboundedChanges.removed.length > 0) {
+  console.error("Unbounded concurrency sites changed; review and update the exact-site inventory:");
+  for (const site of unboundedChanges.added) {
+    console.error(`  New: ${site.filePath}:${site.line}`);
+  }
+  for (const signature of unboundedChanges.removed) {
+    console.error(`  Removed: ${signature}`);
+  }
   process.exit(1);
 }
 
@@ -67,6 +73,6 @@ if (taxonomyViolations.length > 0) {
 console.log("Verified authored sources contain no forbidden control bytes.");
 console.log("Verified production AXM environment literals have classified reference rows.");
 console.log(
-  `Verified literal unbounded concurrency did not exceed the reviewed ${MAX_UNBOUNDED_CONCURRENCY_SITES}-site baseline.`,
+  `Verified ${unboundedConcurrencySites.length} existing unbounded concurrency literals without new sites.`,
 );
 console.log("Verified test and specification filenames follow the discovery rules.");

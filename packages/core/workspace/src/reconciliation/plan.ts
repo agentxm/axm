@@ -267,7 +267,7 @@ export const buildMcpServerPruneOperation = ({
         declaredServerNames,
         scope: location.scope,
       }).pipe(Effect.map((outcome) => ({ agentId, outcome }))),
-    { concurrency: "unbounded" },
+    { concurrency: 1 },
   ).pipe(
     Effect.map((outcomes) => {
       const warnings = outcomes.filter(({ outcome }) => outcome._tag !== "success");

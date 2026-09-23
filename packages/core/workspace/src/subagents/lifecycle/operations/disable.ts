@@ -149,7 +149,7 @@ export const disableSubagent: OperationHandler<
               }
               return Option.some([agent.id, entries] as const);
             }),
-          { concurrency: "unbounded" },
+          { concurrency: 1 },
         );
         return Object.fromEntries(Array.getSomes(removed));
       }),

@@ -304,7 +304,7 @@ export const WorkspaceInvariantFactsLive = Layer.effect(
           );
         const layout = yield* Ref.get(location.layout);
         const observed = yield* Effect.forEach(participants.aggregates, observeParticipant, {
-          concurrency: "unbounded",
+          concurrency: 16,
         });
         const facts: Array<ProjectionInvariantFact> = observed.flatMap((result) =>
           Result.isSuccess(result)

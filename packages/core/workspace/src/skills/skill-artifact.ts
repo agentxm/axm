@@ -87,7 +87,7 @@ export const groupInstallTargetsByDirectory = (
         targetLocationKey(target.targetDir, workspaceRoot).pipe(
           Effect.map((key) => ({ key, target })),
         ),
-      { concurrency: "unbounded" },
+      { concurrency: 16 },
     );
     const locationsByKey = new Map<string, { targetDir: string; agentIds: Array<AgentId> }>();
     for (const { key, target } of keyedTargets) {

@@ -1,24 +1,21 @@
-// Retained sites fan out over fixed catalogs (agents, extension types, detectors,
-// projection participants, or configured agent targets), fixed-size joins (two
-// manifest parsers or process stdout/stderr/exit), or test helpers. Open-ended
-// filesystem, package, Registry, secret-store, and configured-entry work uses
-// explicit traversal limits at its owning call sites. Remove an entry with its
-// site; additions require a workload and downstream-capacity review.
+// Retained sites fan out over fixed catalogs (known agents, extension types,
+// agent markers, or catalog-declared targets), fixed-size joins (two manifest
+// parsers or process stdout/stderr/exit), or test helpers. Process streams must
+// drain together within the scoped child-process lifetime; test helpers run
+// under their test Effect scope. Caller-sized filesystem, package, Registry,
+// secret-store, and configured-entry work uses limits at its owning call site.
+// Remove an entry with its site; additions require workload/capacity review.
 export const existingUnboundedConcurrencySites: ReadonlyArray<string> = [
   '["apps/cli/src/test-support/command-tree-test-helpers.ts","{","concurrency: \\"unbounded\\",","},"]',
   '["packages/core/workspace/src/authoring/create/create-extension.ts",".pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/configuration/setup/initialization.ts","}),","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/desired-state/workspace/read-model-record-readers.ts","const inventories = yield* Effect.forEach(types, (type) => getExtensionInventory(type, {}), {","concurrency: \\"unbounded\\",","});"]',
   '["packages/core/workspace/src/desired-state/workspace/read-model/discovery/plugin-manifests.ts","[parseMarketplaceJson(basePath), parsePluginJson(basePath)],","{ concurrency: \\"unbounded\\" },",");"]',
-  '["packages/core/workspace/src/desired-state/workspace/read-model/scanners/agent-settings.ts","}),","{ concurrency: \\"unbounded\\" },",");"]',
-  '["packages/core/workspace/src/discovery/packaging/detect.ts","const results = yield* Effect.forEach(detectors, (d) => d.detect(projectDir), {","concurrency: \\"unbounded\\",","});"]',
   '["packages/core/workspace/src/inspection/extension-list/assessment.ts","const rowsByType = yield* Effect.forEach(types, (itemType) => records.rows(itemType), {","concurrency: \\"unbounded\\",","});"]',
   '["packages/core/workspace/src/inspection/show/show-extension.ts","],","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/inspection/test-helpers.ts","),","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/inspection/test-helpers.ts","}).pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<DiscoveredSkill>>([]))),","{ concurrency: \\"unbounded\\" },",").pipe(Effect.map(Array.flatten));"]',
   '["packages/core/workspace/src/inspection/view/view-extension.ts",").pipe(Effect.result),","{ concurrency: \\"unbounded\\" },",");"]',
-  '["packages/core/workspace/src/lifecycle/activation/set-activation.ts","),","{ concurrency: \\"unbounded\\", discard: true },",");"]',
-  '["packages/core/workspace/src/lifecycle/activation/set-activation.ts","),","{ concurrency: \\"unbounded\\", discard: true },",");"]',
   '["packages/core/workspace/src/lifecycle/test-helpers.ts","),","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/lifecycle/test-helpers.ts","}).pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<DiscoveredSkill>>([]))),","{ concurrency: \\"unbounded\\" },",").pipe(Effect.map(Array.flatten));"]',
   '["packages/core/workspace/src/linting/catalog/workspace-read-model/lint-workspace.ts","],","{ concurrency: \\"unbounded\\" },",");"]',
@@ -29,8 +26,6 @@ export const existingUnboundedConcurrencySites: ReadonlyArray<string> = [
   '["packages/core/workspace/src/linting/runner.ts","],","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/materialization/test-helpers.ts","),","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/materialization/test-helpers.ts","}).pipe(Effect.catch(() => Effect.succeed<ReadonlyArray<DiscoveredSkill>>([]))),","{ concurrency: \\"unbounded\\" },",").pipe(Effect.map(Array.flatten));"]',
-  '["packages/core/workspace/src/mcp-connections/lifecycle/operations/disable.ts","}),","{ concurrency: \\"unbounded\\" },",");"]',
-  '["packages/core/workspace/src/mcp-connections/lifecycle/operations/uninstall.ts",".pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/projection/agent-adapters/detection.ts","),","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/projection/agent-adapters/detection.ts","Effect.filter(Object.values(AGENTS), (agent) => detectAgentInRootRaw(agent, rootDir), {","concurrency: \\"unbounded\\",","}).pipe(Effect.mapError(wrapDetectionError(`Failed to detect installed agents in ${rootDir}`)));"]',
   '["packages/core/workspace/src/projection/agent-adapters/detection.ts","Effect.forEach(Object.values(AGENTS), (agent) => detectAgentScopes(agent, projectDir), {","concurrency: \\"unbounded\\",","}).pipe(Effect.map((detections) => detections.filter(({ project, user }) => project || user)));"]',
@@ -38,9 +33,7 @@ export const existingUnboundedConcurrencySites: ReadonlyArray<string> = [
   '["packages/core/workspace/src/projection/agent-adapters/mcps/sync.ts","}),","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/projection/agent-adapters/mcps/sync.ts","}),","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/projection/agent-adapters/mcps/sync.ts","},","{ concurrency: \\"unbounded\\" },",");"]',
-  '["packages/core/workspace/src/projection/invariant-facts.ts","const observed = yield* Effect.forEach(participants.aggregates, observeParticipant, {","concurrency: \\"unbounded\\",","});"]',
   '["packages/core/workspace/src/projection/materialization-currency.ts","),","{ concurrency: \\"unbounded\\" },",").pipe(Effect.map((results) => results.every(Boolean)));"]',
-  '["packages/core/workspace/src/reconciliation/plan.ts","}).pipe(Effect.map((outcome) => ({ agentId, outcome }))),","{ concurrency: \\"unbounded\\" },",").pipe("]',
   '["packages/core/workspace/src/skills/lifecycle/adapters/installation.ts",".pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/skills/lifecycle/adapters/installation.ts","},","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/skills/lifecycle/install/bundled.ts","),","{ concurrency: \\"unbounded\\" },",").pipe("]',
@@ -49,13 +42,9 @@ export const existingUnboundedConcurrencySites: ReadonlyArray<string> = [
   '["packages/core/workspace/src/skills/lifecycle/operations/disable.ts","),","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/skills/lifecycle/operations/enable.ts",".pipe(Effect.map((outcome) => ({ agent, outcome }))),","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/skills/lifecycle/operations/enable.ts","}),","{ concurrency: \\"unbounded\\" },",");"]',
-  '["packages/core/workspace/src/skills/lifecycle/uninstall/plan.ts","),","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/skills/lifecycle/uninstall/plan.ts",".pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),","{ concurrency: \\"unbounded\\" },",").pipe("]',
   '["packages/core/workspace/src/skills/manager.ts",".pipe(Effect.map((outcome) => ({ agent, outcome }))),","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/skills/manager.ts",".pipe(Effect.map((outcome) => ({ agent, outcome }))),","{ concurrency: \\"unbounded\\" },",");"]',
-  '["packages/core/workspace/src/skills/skill-artifact.ts","),","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/core/workspace/src/subagents/lifecycle/adapters/installation.ts","),","{ concurrency: \\"unbounded\\" },",").pipe("]',
-  '["packages/core/workspace/src/subagents/lifecycle/operations/disable.ts","}),","{ concurrency: \\"unbounded\\" },",");"]',
-  '["packages/core/workspace/src/subagents/lifecycle/operations/enable.ts","),","{ concurrency: \\"unbounded\\" },",");"]',
   '["packages/supporting/cli-maintenance/src/self-update/adapters/native/subprocess/subprocess.ts","},","{ concurrency: \\"unbounded\\" },",").pipe("]',
 ];

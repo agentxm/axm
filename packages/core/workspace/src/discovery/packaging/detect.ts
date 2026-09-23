@@ -24,7 +24,7 @@ export const detectPackages = Effect.fn("discover.detect")(function* (
   detectors: ReadonlyArray<PackageDetector>,
 ) {
   const results = yield* Effect.forEach(detectors, (d) => d.detect(projectDir), {
-    concurrency: "unbounded",
+    concurrency: 16,
   });
   const allDetected = Array.flatten(results);
   return Array.dedupeWith(allDetected, (a, b) => purlEquivalence(a.purl, b.purl));

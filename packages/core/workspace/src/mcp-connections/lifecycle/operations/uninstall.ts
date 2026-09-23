@@ -173,7 +173,7 @@ const syncConfiguredAgentsOnUninstall = (args: {
             serverName: args.serverName,
           })
           .pipe(Effect.map((outcome) => ({ agentId: agent.id, outcome }))),
-      { concurrency: "unbounded" },
+      { concurrency: 1 },
     );
 
     const misconfigured = Array.filter(outcomes, ({ outcome }) => outcome._tag === "misconfigured");

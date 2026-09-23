@@ -81,7 +81,7 @@ export const disableMcpServer = (
               serverName: op.args.serverName,
               disableOnly: false,
             }),
-          { concurrency: "unbounded" },
+          { concurrency: 1 },
         );
         yield* requireSuccessfulMcpSync(
           op.args.serverName,

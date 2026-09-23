@@ -279,7 +279,7 @@ export const planSkillUninstall: (
           }),
         ),
       ),
-    { concurrency: "unbounded" },
+    { concurrency: 16 },
   );
 
   return {

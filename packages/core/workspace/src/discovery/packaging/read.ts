@@ -38,7 +38,7 @@ export const readLocalRecommendations = Effect.fn("discover.readLocal")(function
           ),
         );
     },
-    { concurrency: "unbounded" },
+    { concurrency: 16 },
   );
 
   return HashMap.fromIterable(Array.getSomes(results));

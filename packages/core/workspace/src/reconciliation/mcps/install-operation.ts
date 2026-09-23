@@ -327,7 +327,7 @@ const loadStoredMcpSecrets = (
         secrets
           .read(mcpSecretAccount({ ...identity, inputName: name }))
           .pipe(Effect.map((value) => ({ name, value }))),
-      { concurrency: "unbounded" },
+      { concurrency: 1 },
     );
     const loaded: Record<string, string> = {};
     for (const { name, value } of entries) {
@@ -353,7 +353,7 @@ const persistMcpSecrets = (
               .write(mcpSecretAccount({ ...identity, inputName }), value)
               .pipe(Effect.map((outcome) => ({ _tag: outcome, inputName })));
       },
-      { concurrency: "unbounded" },
+      { concurrency: 1 },
     );
   });
 
@@ -378,7 +378,7 @@ export const deleteMcpSecrets = (
               (outcome) => ({ _tag: outcome, inputName }) satisfies McpSecretDeletionOutcome,
             ),
           ),
-      { concurrency: "unbounded" },
+      { concurrency: 1 },
     );
   });
 

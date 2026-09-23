@@ -266,7 +266,7 @@ const registryCandidates = (
             registrySourceName: Option.some(sourceConfig.name),
           }));
         }).pipe(Effect.result),
-      { concurrency: "unbounded" },
+      { concurrency: 16 },
     );
 
     for (const result of results) {

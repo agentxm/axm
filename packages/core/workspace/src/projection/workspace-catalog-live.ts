@@ -134,7 +134,7 @@ export const WorkspaceCatalogLive = Layer.effect(
             Effect.mapError(catalogUnavailable),
             Effect.map((outcome) => ({ agent, outcome })),
           ),
-        { concurrency: "unbounded" },
+        { concurrency: 16 },
       );
 
       const agentRoots = sortNames(
@@ -189,7 +189,7 @@ export const WorkspaceCatalogLive = Layer.effect(
               Effect.succeed<ReadonlyArray<DiscoveredSkill>>([]),
             ),
           ),
-        { concurrency: "unbounded" },
+        { concurrency: 16 },
       ).pipe(Effect.provideService(FileSystem.FileSystem, observedFs), Effect.map(Array.flatten));
 
       const failedRead = yield* Ref.get(unreadable);

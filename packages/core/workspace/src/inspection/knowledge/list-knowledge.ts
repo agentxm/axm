@@ -99,7 +99,7 @@ export const ListKnowledge = {
           })),
           Effect.mapError((cause) => inspectionFailed(entry.name, cause)),
         ),
-      { concurrency: "unbounded" },
+      { concurrency: 16 },
     );
 
     const inventory = yield* records.getExtensionInventory("knowledge", {});

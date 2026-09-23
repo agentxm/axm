@@ -641,7 +641,7 @@ export const HookManagerLive = Layer.effect(
                 });
                 return { name: contributor.node.name, marker, manifest, command };
               }),
-            { concurrency: "unbounded" },
+            { concurrency: 16 },
           ),
         ),
         Effect.map((resolved) => [...resolved].sort((a, b) => a.marker.localeCompare(b.marker))),
@@ -1253,7 +1253,7 @@ export const HookManagerLive = Layer.effect(
                 Effect.map(Option.filter((ref): ref is HookExtensionRef => ref.type === "hook")),
               ),
             ),
-          { concurrency: "unbounded" },
+          { concurrency: 16 },
         );
         return refs.flatMap((ref) => (Option.isSome(ref) ? [ref.value] : []));
       }),

@@ -289,7 +289,7 @@ export const listMcpServers: () => Effect.Effect<
           inspections,
         });
       }),
-    { concurrency: "unbounded" },
+    { concurrency: 16 },
   );
   const byName = new Map(rows.map((row) => [row.name, row]));
   return {

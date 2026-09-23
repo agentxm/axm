@@ -451,7 +451,7 @@ export const RuleManagerLive = Layer.effect(
                 });
                 return { name: contributor.node.name, marker, manifest, body };
               }),
-            { concurrency: "unbounded" },
+            { concurrency: 16 },
           ),
         ),
         Effect.map((resolved) => {
@@ -742,7 +742,7 @@ export const RuleManagerLive = Layer.effect(
                 Effect.map(Option.filter((ref): ref is RuleExtensionRef => ref.type === "rule")),
               ),
             ),
-          { concurrency: "unbounded" },
+          { concurrency: 16 },
         );
         return refs.flatMap((ref) => (Option.isSome(ref) ? [ref.value] : []));
       }),

@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "@effect/vitest";
 import { spawnSync } from "node:child_process";
-import { join, resolve } from "node:path";
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -44,10 +46,25 @@ describe("release tarball paths", () => {
     },
   );
 
-  it("keeps a stable release tarball directly inside its cohort directory", () => {
-    expect(releaseCohortTarballPath("release-npm", "axm.sh-", "1.2.3")).toBe(
-      resolve("release-npm/axm.sh-1.2.3.tgz"),
-    );
+  it("selects only the exact regular tarball from the cohort directory", () => {
+    const directory = mkdtempSync(join(tmpdir(), "axm-release-cohort-"));
+    const expected = join(directory, "axm.sh-1.2.3.tgz");
+    const other = join(directory, "axm.sh-1.2.30.tgz");
+    try {
+      writeFileSync(other, "other release");
+      expect(() => releaseCohortTarballPath(directory, "axm.sh-", "1.2.3")).toThrow(
+        "Release tarball is missing or not a regular file",
+      );
+      symlinkSync(other, expected);
+      expect(() => releaseCohortTarballPath(directory, "axm.sh-", "1.2.3")).toThrow(
+        "Release tarball is missing or not a regular file",
+      );
+      rmSync(expected);
+      writeFileSync(expected, "exact release");
+      expect(releaseCohortTarballPath(directory, "axm.sh-", "1.2.3")).toBe(expected);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 
   it.each(["../outside", "../../outside", "/../../outside"])(
@@ -61,7 +78,7 @@ describe("release tarball paths", () => {
 
   it("rejects an invalid tarball prefix even when the version is valid", () => {
     expect(() => releaseCohortTarballPath("release-npm", "../outside/", "1.2.3")).toThrow(
-      "Release tarball must remain in the cohort directory.",
+      "Release tarball name must be a basename.",
     );
   });
 });

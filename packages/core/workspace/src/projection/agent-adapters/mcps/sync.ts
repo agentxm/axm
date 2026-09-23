@@ -60,6 +60,7 @@ import type {
   RemoveMcpServerArgs,
 } from "../agents/coding-agent.js";
 import type { McpServerDeclaration } from "./expected-entry.js";
+import { SCANNER_IO_CONCURRENCY } from "../../../desired-state/workspace/read-model/scanners/fs-helpers.js";
 
 /** Failures the JSON config read/write helpers raise. */
 export type McpConfigSyncFailure = McpConfigIoFailed | McpConfigInvalid | NativeWriteRefused;
@@ -153,7 +154,7 @@ const checkExecutableAvailable = (
       const checks = yield* Effect.forEach(
         directCandidates,
         (candidate) => fs.exists(candidate).pipe(Effect.catch(() => Effect.succeed(false))),
-        { concurrency: "unbounded" },
+        { concurrency: SCANNER_IO_CONCURRENCY },
       );
       return checks.some(Boolean);
     }
@@ -177,9 +178,10 @@ const checkExecutableAvailable = (
           directCandidates,
           (candidate) =>
             fs.exists(path.join(dir, candidate)).pipe(Effect.catch(() => Effect.succeed(false))),
-          { concurrency: "unbounded" },
+          // PATH directories run in parallel; probe each directory's extensions in order.
+          { concurrency: 1 },
         ).pipe(Effect.map((results) => results.some(Boolean))),
-      { concurrency: "unbounded" },
+      { concurrency: SCANNER_IO_CONCURRENCY },
     );
 
     return checks.some(Boolean);
@@ -825,12 +827,12 @@ export const pruneManagedMcpServersForAgent = (
                   activationField: config.activationField,
                   disableOnly: false,
                 }),
-              { concurrency: "unbounded" },
+              { concurrency: 1 },
             );
           }
           prunedTargets.push({ path: configPath, change: "updated" });
         }),
-      { concurrency: "unbounded" },
+      { concurrency: 1 },
     );
     return {
       _tag: "success",

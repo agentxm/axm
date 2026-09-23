@@ -238,7 +238,7 @@ const skillSyncArtifact = (args: {
           Effect.provideService(Path.Path, args.path),
           Effect.map((outcome) => ({ agent, outcome })),
         ),
-      { concurrency: "unbounded" },
+      { concurrency: 16 },
     );
     const targets = resolved.flatMap(({ agent, outcome }) =>
       outcome._tag === "supported" ? [{ agentId: agent.id, targetDir: outcome.dir }] : [],
@@ -867,7 +867,7 @@ export const collectMaterializeSteps = (args: {
             }),
           );
         }),
-      { concurrency: "unbounded" },
+      { concurrency: 16 },
     ).pipe(
       Effect.map((steps) => steps.flatMap((step) => (Option.isSome(step) ? [step.value] : []))),
     );
@@ -976,7 +976,7 @@ export const collectMaterializeSteps = (args: {
     const skillSteps = yield* Effect.forEach(
       skillRefs.filter(({ materialize }) => materialize),
       skillMaterializeStep,
-      { concurrency: "unbounded" },
+      { concurrency: 16 },
     );
 
     const changedHooks = hookRefs

@@ -115,7 +115,7 @@ const filterBySource = (
         Effect.map(sourceMatchesEntrySource(sourceValue, entry[1]), (matches) =>
           matches ? Option.some(entry) : Option.none<SelectedEntry>(),
         ),
-      { concurrency: "unbounded" },
+      { concurrency: 16 },
     );
 
     return sourceMatches.filter(Option.isSome).map((match) => match.value);

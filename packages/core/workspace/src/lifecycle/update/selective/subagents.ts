@@ -356,7 +356,7 @@ export const prepareSelectiveSubagentUpdate = Effect.fn("SelectiveSubagentUpdate
                 } satisfies ResolveResult),
           ),
         ),
-      { concurrency: "unbounded" },
+      { concurrency: 16 },
     );
 
     const resolved = results.filter(

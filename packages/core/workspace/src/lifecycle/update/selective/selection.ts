@@ -92,7 +92,7 @@ const filterBySource = (entries: ReadonlyArray<SelectiveUpdateEntry>, sourceValu
         Effect.map(sourceMatchesEntrySource(sourceValue, entry[1]), (matched) =>
           matched ? Option.some(entry) : Option.none<SelectiveUpdateEntry>(),
         ),
-      { concurrency: "unbounded" },
+      { concurrency: 16 },
     );
     return matches.filter(Option.isSome).map((match) => match.value);
   });

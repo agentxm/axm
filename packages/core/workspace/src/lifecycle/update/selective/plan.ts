@@ -75,7 +75,7 @@ export interface SelectiveUpdateUnit<TOperation> {
 }
 
 /**
- * Build the advance plan for one selective update: one unbounded job whose
+ * Build the advance plan for one selective update: one bounded job whose
  * steps are the selected entries, each either unchanged or dispatched to the
  * install operation that advances it.
  */
@@ -91,7 +91,7 @@ export const buildSelectiveUpdatePlan = <TOperation, R>(
   description,
   jobs: [
     {
-      concurrency: "unbounded",
+      concurrency: 16,
       steps: units.map((unit): PlannedJobStep<R> => {
         const accepted = acceptedResolutions[unit.name];
         const needsUpdate = accepted === undefined || unit.force || hasChanged(unit.ref, accepted);

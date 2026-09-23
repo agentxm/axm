@@ -1113,7 +1113,7 @@ export const KnowledgeManagerLive = Layer.effect(
                   ),
                 ),
               ),
-            { concurrency: "unbounded" },
+            { concurrency: 16 },
           );
           return refs.flatMap((ref) => (Option.isSome(ref) ? [ref.value] : []));
         }),

@@ -661,7 +661,7 @@ export const prepareSelectiveSkillUpdate = Effect.fn("SelectiveSkillUpdate.prepa
         ),
       );
     },
-    { concurrency: "unbounded" },
+    { concurrency: 16 },
   );
 
   const resolved = results.filter(

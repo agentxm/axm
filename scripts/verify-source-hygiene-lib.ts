@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import ts from "typescript";
 
 import { exportsSpecification, parseSpecificationFile } from "./specification-catalog-lib.js";
 import { classifyTestPurpose } from "./test-purpose.js";
@@ -96,21 +97,94 @@ export const findSourceHygieneViolations = (
 const lineAtOffset = (source: string, offset: number): number =>
   source.slice(0, offset).split("\n").length;
 
-const UNBOUNDED_CONCURRENCY_LITERAL = /concurrency\s*:\s*["']unbounded["']/g;
+export interface UnboundedConcurrencySite {
+  readonly filePath: string;
+  readonly line: number;
+  readonly signature: string;
+}
 
-/**
- * Count the reviewed production baseline of literal unbounded traversals.
- * The caller treats this as a ratchet: removals lower the recorded ceiling;
- * additions must classify the workload instead of spending that headroom.
- */
-export const countUnboundedConcurrencySites = (workspace: Workspace): number =>
+const normalizedLine = (line: string): string => line.trim().replace(/\s+/g, " ");
+
+/** Stable across unrelated line insertions; adjacent edits require review. */
+const unboundedSiteSignature = (
+  filePath: string,
+  source: string,
+  start: number,
+  end: number,
+): string => {
+  const lines = source.split(/\r?\n/);
+  const startLine = lineAtOffset(source, start) - 1;
+  const endLine = lineAtOffset(source, end) - 1;
+  const before =
+    lines
+      .slice(0, startLine)
+      .reverse()
+      .find((line) => line.trim() !== "") ?? "";
+  const after = lines.slice(endLine + 1).find((line) => line.trim() !== "") ?? "";
+  const site = lines
+    .slice(startLine, endLine + 1)
+    .map(normalizedLine)
+    .join(" ");
+  return JSON.stringify([filePath, normalizedLine(before), site, normalizedLine(after)]);
+};
+
+export const findUnboundedConcurrencySites = (
+  workspace: Workspace,
+): ReadonlyArray<UnboundedConcurrencySite> =>
   typeScriptSources(workspace)
     .filter(isProductionTypeScriptSource)
-    .reduce(
-      (count, file) =>
-        count + Array.from(workspace.read(file).matchAll(UNBOUNDED_CONCURRENCY_LITERAL)).length,
-      0,
-    );
+    .flatMap((filePath) => {
+      const source = workspace.read(filePath);
+      const sourceFile = ts.createSourceFile(filePath, source, ts.ScriptTarget.Latest, false);
+      const sites: UnboundedConcurrencySite[] = [];
+      const visit = (node: ts.Node): void => {
+        if (
+          ts.isPropertyAssignment(node) &&
+          (ts.isIdentifier(node.name) || ts.isStringLiteral(node.name)) &&
+          node.name.text === "concurrency" &&
+          (ts.isStringLiteral(node.initializer) ||
+            ts.isNoSubstitutionTemplateLiteral(node.initializer)) &&
+          node.initializer.text === "unbounded"
+        ) {
+          const start = node.getStart(sourceFile);
+          sites.push({
+            filePath,
+            line: lineAtOffset(source, start),
+            signature: unboundedSiteSignature(filePath, source, start, node.getEnd()),
+          });
+        }
+        ts.forEachChild(node, visit);
+      };
+      visit(sourceFile);
+      return sites;
+    });
+
+export const classifyUnboundedConcurrencySites = (
+  sites: ReadonlyArray<UnboundedConcurrencySite>,
+  existingSignatures: ReadonlyArray<string>,
+): {
+  readonly added: ReadonlyArray<UnboundedConcurrencySite>;
+  readonly removed: ReadonlyArray<string>;
+} => {
+  const remaining = new Map<string, number>();
+  for (const signature of existingSignatures) {
+    remaining.set(signature, (remaining.get(signature) ?? 0) + 1);
+  }
+  const added: UnboundedConcurrencySite[] = [];
+  for (const site of sites) {
+    const count = remaining.get(site.signature) ?? 0;
+    if (count === 0) added.push(site);
+    else remaining.set(site.signature, count - 1);
+  }
+  const removed = Array.from(remaining, ([signature, count]) =>
+    Array.from({ length: count }, () => signature),
+  ).flat();
+  return { added, removed };
+};
+
+/** Count production literal sites for inventory and diagnostics. */
+export const countUnboundedConcurrencySites = (workspace: Workspace): number =>
+  findUnboundedConcurrencySites(workspace).length;
 
 const AXM_ENVIRONMENT_LITERAL = /["'](AXM_[A-Z0-9_]+)["']/g;
 const AXM_INSTALLER_ENVIRONMENT_REFERENCE = /\b(AXM_[A-Z0-9_]+)\b/g;

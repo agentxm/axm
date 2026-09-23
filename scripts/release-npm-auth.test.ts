@@ -1,11 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
-import {
-  loadNpmPublicationAuth,
-  npmPublicationEnvironment,
-  requireNpmPackageInitialization,
-} from "./release-npm-auth.js";
+import { loadNpmPublicationAuth, npmPublicationProcessEnvironment } from "./release-npm-auth.js";
 
 const configuredEnvironment = {
   NPM_INITIAL_PUBLISH_TOKEN: "initial-publish-fixture",
@@ -19,13 +15,14 @@ describe("npm initial package authentication", () => {
     Effect.gen(function* () {
       const authentication = yield* loadNpmPublicationAuth(ConfigProvider.fromEnvRecord({}));
       expect(authentication).toEqual({ kind: "oidc" });
-      const failure = yield* Effect.flip(
-        requireNpmPackageInitialization("@agentxm/new", false, authentication),
-      );
-      expect(failure).toMatchObject({
-        _tag: "NpmPackagesUninitialized",
-        packages: ["@agentxm/new"],
-      });
+      expect(() =>
+        npmPublicationProcessEnvironment(
+          "@agentxm/new",
+          false,
+          authentication,
+          configuredEnvironment,
+        ),
+      ).toThrow("npm packages are not initialized");
     }),
   );
 
@@ -61,7 +58,7 @@ describe("npm initial package authentication", () => {
       expect(JSON.stringify(authentication)).not.toContain(
         configuredEnvironment.NPM_INITIAL_PUBLISH_TOKEN,
       );
-      const environment = yield* npmPublicationEnvironment(
+      const environment = npmPublicationProcessEnvironment(
         "@agentxm/new",
         false,
         authentication,
@@ -84,7 +81,7 @@ describe("npm initial package authentication", () => {
         const authentication = yield* loadNpmPublicationAuth(
           ConfigProvider.fromEnvRecord(configuredEnvironment),
         );
-        const environment = yield* npmPublicationEnvironment(
+        const environment = npmPublicationProcessEnvironment(
           "@agentxm/existing",
           true,
           authentication,

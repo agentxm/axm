@@ -15,6 +15,18 @@ export class SupersededRelease extends Error {
   }
 }
 
+export class ReleaseBoundaryFailed extends Data.TaggedError("ReleaseBoundaryFailed")<{
+  readonly cause: unknown;
+}> {
+  override get message(): string {
+    return this.cause instanceof Error ? this.cause.message : "Release boundary failed.";
+  }
+}
+
+/** Preserve supersession while classifying failures from foreign Promise callbacks. */
+export const releaseBoundaryError = (cause: unknown): SupersededRelease | ReleaseBoundaryFailed =>
+  cause instanceof SupersededRelease ? cause : new ReleaseBoundaryFailed({ cause });
+
 export const guardPublicationVersion = (
   candidate: string,
   observed: string | null,
@@ -333,7 +345,7 @@ export const publishImmutableInDependencyOrder = (
 
 export interface PublicationBoundary {
   readonly name: "artifacts" | "npm" | "tap";
-  readonly publish: () => Promise<void>;
+  readonly publish: () => Effect.Effect<void, unknown>;
 }
 export type PublicationStates = Record<
   PublicationBoundary["name"],
@@ -341,32 +353,38 @@ export type PublicationStates = Record<
 >;
 
 /** Preflight all mutable owners before any publication; recheck each owner at its write boundary. */
-export const distributeRelease = async (
-  preflight: () => Promise<void>,
+export const distributeRelease = (
+  preflight: Effect.Effect<void, unknown>,
   boundaries: ReadonlyArray<PublicationBoundary>,
   record: (states: PublicationStates) => void,
-): Promise<"distributed" | "superseded"> => {
-  const states: PublicationStates = { artifacts: "pending", npm: "pending", tap: "pending" };
-  let active: PublicationBoundary["name"] | undefined;
-  try {
-    await preflight();
-    for (const boundary of boundaries) {
-      active = boundary.name;
-      await boundary.publish();
-      states[active] = "succeeded";
-      record({ ...states });
-    }
-    return "distributed";
-  } catch (error) {
-    if (active !== undefined)
-      states[active] = error instanceof SupersededRelease ? "superseded" : "failed";
-    record({ ...states });
-    if (error instanceof SupersededRelease) {
-      console.log(error.message);
-      return "superseded";
-    }
-    throw error;
-  }
+): Effect.Effect<"distributed" | "superseded", unknown> => {
+  return Effect.gen(function* () {
+    const states: PublicationStates = { artifacts: "pending", npm: "pending", tap: "pending" };
+    let active: PublicationBoundary["name"] | undefined;
+    return yield* Effect.gen(function* () {
+      yield* preflight;
+      for (const boundary of boundaries) {
+        active = boundary.name;
+        yield* boundary.publish();
+        states[active] = "succeeded";
+        yield* Effect.sync(() => record({ ...states }));
+      }
+      return "distributed" as const;
+    }).pipe(
+      Effect.catch((error: unknown) =>
+        Effect.gen(function* () {
+          if (active !== undefined)
+            states[active] = error instanceof SupersededRelease ? "superseded" : "failed";
+          yield* Effect.sync(() => record({ ...states }));
+          if (error instanceof SupersededRelease) {
+            yield* Effect.sync(() => console.log(error.message));
+            return "superseded" as const;
+          }
+          return yield* Effect.fail(error);
+        }),
+      ),
+    );
+  });
 };
 
 const NpmMetadata = Schema.Struct({

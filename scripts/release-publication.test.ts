@@ -8,6 +8,8 @@ import {
   PublicationHttpError,
   readNpmDistTag,
   readNpmPublication,
+  releaseBoundaryError,
+  ReleaseBoundaryFailed,
   requireInitializedNpmPackages,
   reconcileNpmStableTag,
   distributeRelease,
@@ -386,60 +388,59 @@ describe("bounded publication observation", () => {
 });
 
 describe("distribution ordering and recovery", () => {
-  it.each(["artifacts", "npm", "tap"] as const)(
+  it.effect.each(["artifacts", "npm", "tap"] as const)(
     "records %s failure and permits a rerun to reuse prior outputs",
-    async (failed) => {
-      const completed = new Set<string>();
-      const writes: string[] = [];
-      const records: PublicationStates[] = [];
-      let failure = true;
-      const boundaries = (["artifacts", "npm", "tap"] as const).map((name) => ({
-        name,
-        publish: async () => {
-          if (name === failed && failure) throw new Error("publisher failed");
-          if (!completed.has(name)) {
-            writes.push(name);
-            completed.add(name);
-          }
-        },
-      }));
-      await expect(
-        distributeRelease(
-          async () => undefined,
-          boundaries,
-          (state) => records.push(state),
-        ),
-      ).rejects.toThrow("publisher failed");
-      expect(records.at(-1)?.[failed]).toBe("failed");
-      failure = false;
-      await expect(
-        distributeRelease(
-          async () => undefined,
-          boundaries,
-          (state) => records.push(state),
-        ),
-      ).resolves.toBe("distributed");
-      expect(writes).toEqual(["artifacts", "npm", "tap"]);
-      expect(records.at(-1)).toEqual({
-        artifacts: "succeeded",
-        npm: "succeeded",
-        tap: "succeeded",
-      });
-    },
+    (failed) =>
+      Effect.gen(function* () {
+        const completed = new Set<string>();
+        const writes: string[] = [];
+        const records: PublicationStates[] = [];
+        let failure = true;
+        const boundaries = (["artifacts", "npm", "tap"] as const).map((name) => ({
+          name,
+          publish: () =>
+            Effect.tryPromise({
+              try: async () => {
+                if (name === failed && failure) throw new Error("publisher failed");
+                if (!completed.has(name)) {
+                  writes.push(name);
+                  completed.add(name);
+                }
+              },
+              catch: releaseBoundaryError,
+            }),
+        }));
+        const firstFailure = yield* Effect.flip(
+          distributeRelease(Effect.void, boundaries, (state) => records.push(state)),
+        );
+        expect(firstFailure).toBeInstanceOf(ReleaseBoundaryFailed);
+        expect(firstFailure).toHaveProperty("message", "publisher failed");
+        expect(records.at(-1)?.[failed]).toBe("failed");
+        failure = false;
+        const outcome = yield* distributeRelease(Effect.void, boundaries, (state) =>
+          records.push(state),
+        );
+        expect(outcome).toBe("distributed");
+        expect(writes).toEqual(["artifacts", "npm", "tap"]);
+        expect(records.at(-1)).toEqual({
+          artifacts: "succeeded",
+          npm: "succeeded",
+          tap: "succeeded",
+        });
+      }),
   );
-  it("stops a superseded candidate before any historical publication repair", async () => {
-    const publish = vi.fn(async () => undefined);
-    await expect(
-      distributeRelease(
-        async () => {
-          guardPublicationVersion("1.2.3", "1.2.4", "npm");
-        },
+  it.effect("stops a superseded candidate before any historical publication repair", () =>
+    Effect.gen(function* () {
+      const publish = vi.fn(() => Effect.void);
+      const outcome = yield* distributeRelease(
+        Effect.fail(new SupersededRelease("1.2.3", "1.2.4", "npm")),
         [{ name: "artifacts", publish }],
         () => undefined,
-      ),
-    ).resolves.toBe("superseded");
-    expect(publish).not.toHaveBeenCalled();
-  });
+      );
+      expect(outcome).toBe("superseded");
+      expect(publish).not.toHaveBeenCalled();
+    }),
+  );
   it.each(["npm", "Homebrew", "stable"])(
     "guards an older candidate at the %s write boundary",
     (owner) => {

@@ -30,15 +30,14 @@ import {
   runNx,
 } from "./release-shared.js";
 
-import {
-  loadNpmPublicationAuth,
-  npmPublicationEnvironment,
-  requireNpmPackageInitialization,
-} from "./release-npm-auth.js";
+import { loadNpmPublicationAuth, npmPublicationProcessEnvironment } from "./release-npm-auth.js";
 
 const npmAuthentication = await Effect.runPromise(
   loadNpmPublicationAuth(ConfigProvider.fromEnvRecord(process.env)),
 );
+const publicationEnvironment = (name: string, packageExists: boolean): NodeJS.ProcessEnv => {
+  return npmPublicationProcessEnvironment(name, packageExists, npmAuthentication, process.env);
+};
 
 const [sourceSha, sequenceText] = Schema.decodeUnknownSync(
   Schema.Tuple([Schema.String, Schema.String]),
@@ -107,21 +106,12 @@ try {
           integrity: contentIntegrity(readFileSync(tarball)),
           read: async (signal: AbortSignal) => {
             const metadata = await readNpmPublication(pkg.name, version, fetch, signal);
-            await Effect.runPromise(
-              requireNpmPackageInitialization(pkg.name, metadata.packageExists, npmAuthentication),
-            );
+            publicationEnvironment(pkg.name, metadata.packageExists);
             return metadata.integrity;
           },
           publish: async () => {
             const metadata = await readNpmPublication(pkg.name, version);
-            const publicationEnv = await Effect.runPromise(
-              npmPublicationEnvironment(
-                pkg.name,
-                metadata.packageExists,
-                npmAuthentication,
-                process.env,
-              ),
-            );
+            const publicationEnv = publicationEnvironment(pkg.name, metadata.packageExists);
             run(
               "npm",
               [
@@ -147,9 +137,7 @@ try {
     if (current === version || (await readNpmDistTag(pkg.name, distTag)) === version) continue;
     let submissionFailure: unknown;
     try {
-      const publicationEnv = await Effect.runPromise(
-        npmPublicationEnvironment(pkg.name, true, npmAuthentication, process.env),
-      );
+      const publicationEnv = publicationEnvironment(pkg.name, true);
       run("npm", ["dist-tag", "add", `${pkg.name}@${version}`, distTag], publicationEnv);
     } catch (error) {
       submissionFailure = error;

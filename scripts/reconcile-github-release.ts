@@ -2,6 +2,7 @@ import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import * as Data from "effect/Data";
 import * as Schema from "effect/Schema";
 import * as Effect from "effect/Effect";
 import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
@@ -47,6 +48,24 @@ const apiHeaders = {
 const encodedTag = encodeURIComponent(tag);
 const Ref = Schema.Struct({ object: Schema.Struct({ sha: Schema.String, type: Schema.String }) });
 
+class GitHubReleaseTransportFailed extends Data.TaggedError("GitHubReleaseTransportFailed")<{
+  readonly path: string;
+  readonly cause: unknown;
+}> {
+  override get message(): string {
+    return `GitHub ${this.path} query transport failed.`;
+  }
+}
+
+class GitHubReleaseBodyFailed extends Data.TaggedError("GitHubReleaseBodyFailed")<{
+  readonly path: string;
+  readonly cause: unknown;
+}> {
+  override get message(): string {
+    return `GitHub ${this.path} returned malformed JSON.`;
+  }
+}
+
 const readJson = async (
   path: string,
   signal: AbortSignal,
@@ -59,24 +78,27 @@ const readJson = async (
   const request = HttpClientRequest.get(
     `https://api.github.com/repos/${RELEASE_REPO}/${path}`,
   ).pipe(HttpClientRequest.setHeaders(apiHeaders));
-  const response = await Effect.runPromise(
-    HttpClient.execute(request).pipe(Effect.provide(FetchHttpClient.layer)),
+  return Effect.runPromise(
+    Effect.gen(function* () {
+      const response = yield* HttpClient.execute(request).pipe(
+        Effect.mapError((cause) => new GitHubReleaseTransportFailed({ path, cause })),
+      );
+      if (response.status === 404) return notFound;
+      if (response.status !== 200) {
+        return yield* Effect.fail(
+          new PublicationHttpError(
+            `GitHub ${path} query failed: HTTP ${response.status}.`,
+            response.status,
+          ),
+        );
+      }
+      const body = yield* response.json.pipe(
+        Effect.mapError((cause) => new GitHubReleaseBodyFailed({ path, cause })),
+      );
+      return found(body);
+    }).pipe(Effect.provide(FetchHttpClient.layer)),
     { signal },
-  ).catch((cause: unknown) => {
-    throw new TypeError(`GitHub ${path} query transport failed.`, { cause });
-  });
-  if (response.status === 404) return notFound;
-  if (response.status !== 200) {
-    throw new PublicationHttpError(
-      `GitHub ${path} query failed: HTTP ${response.status}.`,
-      response.status,
-    );
-  }
-  return Effect.runPromise(response.json, { signal })
-    .then(found)
-    .catch((cause: unknown) => {
-      throw new Error(`GitHub ${path} returned malformed JSON.`, { cause });
-    });
+  );
 };
 
 const read = async (signal: AbortSignal): Promise<GitHubReleaseObservation> => {

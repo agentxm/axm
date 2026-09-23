@@ -5289,6 +5289,18 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: golden-output, example
 - Source: [`packages/core/workspace/src/desired-state/settings/saving-settings-preserves-authored-formatting.spec.ts`](../packages/core/workspace/src/desired-state/settings/saving-settings-preserves-authored-formatting.spec.ts)
 
+##### Incomplete workspace observations identify unreadable paths
+
+- Requirement: `workspace-inventory/unreadable-paths-remain-visible`
+- Owner: `workspace`
+- Statement: When filesystem access prevents observing part of a workspace, its inventory shall retain healthy observations and report a diagnostic identifying the unreadable path.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Source: [`packages/core/workspace/src/desired-state/workspace/read-model/workspace-inventory-reports-unreadable-paths.spec.ts`](../packages/core/workspace/src/desired-state/workspace/read-model/workspace-inventory-reports-unreadable-paths.spec.ts)
+
 ## Supporting system behavior
 
 ### Goal: dependable-change-process

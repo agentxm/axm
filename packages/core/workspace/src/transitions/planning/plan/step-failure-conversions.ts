@@ -651,12 +651,11 @@ const isWorkspaceTransactionFailure = (failure: unknown): failure is WorkspaceTr
   failure instanceof WorkspaceTransitionCompromised;
 
 /**
- * Render the first deciding line of a transition cause. A transition fails
- * with a rendered step failure, a stale candidate, or the transaction
- * machinery's own failure; anything else is summarized without its stack.
+ * The detail of a failure the plan pipeline itself raises: a rendered step
+ * failure, a stale candidate, a fingerprint failure, or the transaction
+ * machinery's own failure.
  */
-const firstCauseLine = (cause: Cause.Cause<unknown>): string => {
-  const failure = Option.getOrUndefined(Cause.findErrorOption(cause));
+const planFailureDetail = (failure: unknown): string | undefined => {
   if (failure instanceof StepFailure) return failure.detail;
   if (failure instanceof StaleExecutionCandidate) return STALE_CANDIDATE_DETAIL;
   if (failure instanceof CandidateFingerprintFailed) {
@@ -665,28 +664,48 @@ const firstCauseLine = (cause: Cause.Cause<unknown>): string => {
   if (isWorkspaceTransactionFailure(failure)) {
     return workspaceTransactionFailureToStepFailure(failure).detail;
   }
+  return undefined;
+};
+
+/**
+ * Render the first deciding line of a transition cause: the detail of the
+ * failure that decided it, or the cause summarized without its stack.
+ */
+const firstCauseLine = (
+  cause: Cause.Cause<unknown>,
+  decidingFailureDetail: (failure: unknown) => string | undefined,
+): string => {
+  const detail = decidingFailureDetail(Option.getOrUndefined(Cause.findErrorOption(cause)));
+  if (detail !== undefined) return detail;
   return Cause.pretty(cause).split(/\r?\n/, 1)[0]?.trim() || "The transition did not complete";
 };
 
 const sentence = (text: string): string => (/[.!?]$/.test(text) ? text : `${text}.`);
 
 /** Render the deciding transition cause before restoration consequences. */
-const transitionFailureText = (error: WorkspaceRestorationIncomplete): string =>
+const transitionFailureText = (
+  error: WorkspaceRestorationIncomplete,
+  decidingFailureDetail: (failure: unknown) => string | undefined,
+): string =>
   error.terminationCause === "interruption"
     ? "Transition was interrupted."
-    : `Transition failed: ${sentence(firstCauseLine(error.transitionCause))}`;
+    : `Transition failed: ${sentence(firstCauseLine(error.transitionCause, decidingFailureDetail))}`;
 
 /**
  * Render the typed restoration failure: the deciding transition cause, the
  * retained-state consequence, and the preserved snapshot directory when one
- * exists.
+ * exists. `decidingFailureDetail` names the failure that decided the
+ * transition; the workspace failure rendering supplies one that reads every
+ * failure the kernel renders, and the plan pipeline's own failures are the
+ * default.
  */
 export const restorationIncompleteToStepFailure = (
   error: WorkspaceRestorationIncomplete,
+  decidingFailureDetail: (failure: unknown) => string | undefined = planFailureDetail,
 ): StepFailure =>
   makeStepFailure({
     category: "conflict",
-    detail: `${transitionFailureText(error)} Workspace restoration did not complete; the affected paths keep the state the failure left${
+    detail: `${transitionFailureText(error, decidingFailureDetail)} Workspace restoration did not complete; the affected paths keep the state the failure left${
       error.snapshotDir === undefined
         ? "."
         : `, and their pre-change snapshots are preserved at ${error.snapshotDir}.`

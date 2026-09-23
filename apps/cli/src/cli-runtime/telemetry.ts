@@ -15,7 +15,8 @@ import {
 } from "@agentxm/workspace/transitions/planning";
 import { errorClassForAppErrorCode } from "../app-error/index.js";
 import type { ExpectedCliError } from "./runtime-envelope.js";
-import { isWorkspaceFailure, toAppError } from "../app-error/conversions.js";
+import { isWorkspaceFailure } from "@agentxm/workspace/reconciliation";
+import { toAppError } from "../app-error/conversions.js";
 import { TelemetryClient } from "../telemetry/index.js";
 import type { TelemetryProperties } from "../telemetry/client.js";
 import {

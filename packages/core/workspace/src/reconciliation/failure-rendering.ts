@@ -63,6 +63,7 @@ import {
 } from "../lifecycle/step-failure.js";
 
 import type { WorkspaceSyncFailed } from "./errors.js";
+import { isWorkspaceFailure } from "./failure-recognition.js";
 
 /** Every typed failure the workspace kernel renders. */
 export type WorkspaceFailure =
@@ -99,6 +100,10 @@ const writeBackupRetainedFailure = (error: WriteBackupRetained): StepFailure => 
     cause: inner.cause,
   });
 };
+
+/** A transition's deciding failure reads as it renders wherever else it surfaces. */
+const decidingFailureDetail = (failure: unknown): string | undefined =>
+  isWorkspaceFailure(failure) ? workspaceFailureToStepFailure(failure).detail : undefined;
 
 /**
  * Render one workspace failure. A `StepFailure` is already rendered and
@@ -153,7 +158,7 @@ export const workspaceFailureToStepFailure = (failure: WorkspaceFailure): StepFa
     case "WorkspaceRestorationError":
       return workspaceRestorationErrorToStepFailure(failure);
     case "WorkspaceRestorationIncomplete":
-      return restorationIncompleteToStepFailure(failure);
+      return restorationIncompleteToStepFailure(failure, decidingFailureDetail);
     case "StaleExecutionCandidate":
     case "CandidateFingerprintFailed":
     case "ApprovalRecoveryMissing":

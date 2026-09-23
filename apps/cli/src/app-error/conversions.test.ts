@@ -1,11 +1,18 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
 
 import * as Cause from "effect/Cause";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
 import { RegistryRequestFailed, registryErrorToProblem } from "@agentxm/registry-client";
 import { StepFailure } from "@agentxm/workspace/transitions/planning";
+import { SettingsWriteError } from "@agentxm/workspace/desired-state";
+import {
+  LifecycleFailureConversionLive,
+  StepFailureConversion,
+} from "@agentxm/workspace/lifecycle";
 import { WorkspaceRestorationIncomplete } from "@agentxm/workspace/transitions/settlement";
 import {
   AxmSkillGateUnavailable,
@@ -27,7 +34,12 @@ import {
 
 import { makeJsonErrorEnvelopeFromAppError } from "../cli-runtime/index.js";
 import { makeAppError } from "./app-error.js";
-import { failureToAppError, isWorkspaceFailure, toAppError } from "./conversions.js";
+import {
+  ReconciliationFailureConversionLive,
+  SyncStepFailureConversion,
+  isWorkspaceFailure,
+} from "@agentxm/workspace/reconciliation";
+import { failureToAppError, toAppError } from "./conversions.js";
 import { renderAppError } from "./index.js";
 
 describe("the application boundary projection", () => {
@@ -71,6 +83,34 @@ describe("the application boundary projection", () => {
       /^Transition failed: injected transition failure\. Workspace restoration did not complete;/,
     );
   });
+
+  it.effect("names a deciding workspace failure as it renders elsewhere on every path", () =>
+    Effect.gen(function* () {
+      const deciding = new SettingsWriteError({
+        path: "/w/axm.json",
+        step: "write-temp",
+        cause: new Error("EACCES"),
+      });
+      const restoration = new WorkspaceRestorationIncomplete({
+        terminationCause: "failure",
+        transitionCause: Cause.fail(deciding),
+        restorationCause: new Error("injected restoration defect"),
+        snapshotDir: undefined,
+        retained: ["axm.json"],
+      });
+      const expected = `Transition failed: ${toAppError(deciding).detail}. Workspace restoration did not complete;`;
+      const lifecycle = yield* StepFailureConversion;
+      const reconciliation = yield* SyncStepFailureConversion;
+
+      expect(toAppError(restoration).detail.startsWith(expected)).toBe(true);
+      expect(lifecycle.toStepFailure(restoration).detail.startsWith(expected)).toBe(true);
+      expect(reconciliation.toStepFailure(restoration).detail.startsWith(expected)).toBe(true);
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(LifecycleFailureConversionLive, ReconciliationFailureConversionLive),
+      ),
+    ),
+  );
 
   it("reports an unrecognized value as an internal error", () => {
     const converted = failureToAppError("unexpected");

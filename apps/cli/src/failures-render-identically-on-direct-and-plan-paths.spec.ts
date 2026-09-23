@@ -200,13 +200,14 @@ import {
 import {
   ReconciliationFailureConversionLive,
   SyncStepFailureConversion,
+  isWorkspaceFailure,
   WorkspaceSyncFailed,
   workspaceFailureToStepFailure,
   type WorkspaceFailure,
 } from "@agentxm/workspace/reconciliation";
 
 import type { AppError } from "./app-error/index.js";
-import { isWorkspaceFailure, stepFailureToAppError, toAppError } from "./app-error/conversions.js";
+import { stepFailureToAppError, toAppError } from "./app-error/conversions.js";
 
 export const specification = defineSpecification({
   requirement: "cli/failures-render-identically-on-direct-and-plan-paths",

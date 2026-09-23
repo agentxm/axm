@@ -16,8 +16,8 @@ import {
   exitCodeFor,
   redactSensitiveText,
 } from "../app-error/index.js";
-import type { WorkspaceFailure } from "@agentxm/workspace/reconciliation";
-import { isWorkspaceFailure, toAppError } from "../app-error/conversions.js";
+import { isWorkspaceFailure, type WorkspaceFailure } from "@agentxm/workspace/reconciliation";
+import { toAppError } from "../app-error/conversions.js";
 import type { SkillSelectionCancelled } from "@agentxm/workspace/skills/lifecycle/application";
 import type { SubagentSelectionCancelled } from "@agentxm/workspace/subagents/lifecycle/application";
 import type { InstallSelectionCancelled } from "@agentxm/workspace/lifecycle";

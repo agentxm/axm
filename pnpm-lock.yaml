@@ -330,9 +330,6 @@ importers:
       '@agentxm/cli-maintenance':
         specifier: workspace:^
         version: link:../../packages/supporting/cli-maintenance
-      '@agentxm/extension-content':
-        specifier: workspace:^
-        version: link:../../packages/core/extension-content
       '@agentxm/extension-model':
         specifier: workspace:^
         version: link:../../packages/core/extension-model
@@ -358,6 +355,9 @@ importers:
         specifier: 'catalog:'
         version: 4.0.0-rc.117
     devDependencies:
+      '@agentxm/extension-content':
+        specifier: workspace:^
+        version: link:../../packages/core/extension-content
       '@agentxm/extension-type-parity':
         specifier: workspace:*
         version: link:../../tools/extension-type-parity

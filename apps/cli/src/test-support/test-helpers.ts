@@ -16,7 +16,7 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 
 import { ensureWorkspaceFiles } from "./test-stubs.js";
 import { AppError } from "../app-error/index.js";
-import { isWorkspaceFailure, toAppError } from "../app-error/conversions.js";
+import { toAppError } from "../app-error/conversions.js";
 import { KnowledgeIndexLive } from "@agentxm/workspace/knowledge/query/live";
 import { AuthLoginPresenterTest, CredentialStoreTest } from "@agentxm/registry-access/testing";
 import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
@@ -80,7 +80,10 @@ export {
   SubagentManagerLive,
 };
 import { LifecycleFailureConversionLive } from "@agentxm/workspace/lifecycle";
-import { ReconciliationFailureConversionLive } from "@agentxm/workspace/reconciliation";
+import {
+  isWorkspaceFailure,
+  ReconciliationFailureConversionLive,
+} from "@agentxm/workspace/reconciliation";
 import { ExecutionDirectory } from "../execution-directory.js";
 import { ReleaseAgePosture } from "@agentxm/workspace/resolution";
 import { WorkspaceInitializationInteractionLive } from "../workspace-initialization-interaction-live.js";

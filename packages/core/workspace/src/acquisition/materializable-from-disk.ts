@@ -24,6 +24,7 @@ import type { WorkspaceLayout } from "../desired-state/index.js";
 import { enabledConfiguredEntries } from "../desired-state/index.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
+import { SCANNER_IO_CONCURRENCY } from "../desired-state/workspace/read-model/scanners/fs-helpers.js";
 
 type DiskRefError =
   | LockEntryToRefError
@@ -157,7 +158,7 @@ export const configuredSkillsToDiskRefs = (
         }),
       );
     },
-    { concurrency: "unbounded" },
+    { concurrency: SCANNER_IO_CONCURRENCY },
   ).pipe(Effect.map((refs) => refs.filter(Option.isSome).map((ref) => ref.value)));
 
 export const configuredMcpServersToDiskRefs = (
@@ -174,7 +175,7 @@ export const configuredMcpServersToDiskRefs = (
             ),
           )
         : Effect.succeed(Option.none<McpServerExtensionRef>()),
-    { concurrency: "unbounded" },
+    { concurrency: SCANNER_IO_CONCURRENCY },
   ).pipe(Effect.map((refs) => refs.filter(Option.isSome).map((ref) => ref.value)));
 
 export const configuredSubagentsToDiskRefs = (
@@ -191,7 +192,7 @@ export const configuredSubagentsToDiskRefs = (
             ),
           )
         : Effect.succeed(Option.none<SubagentExtensionRef>()),
-    { concurrency: "unbounded" },
+    { concurrency: SCANNER_IO_CONCURRENCY },
   ).pipe(Effect.map((refs) => refs.filter(Option.isSome).map((ref) => ref.value)));
 
 export const configuredPacksToDiskRefs = (
@@ -206,5 +207,5 @@ export const configuredPacksToDiskRefs = (
             Effect.map((ref) => (ref.type === "pack" ? Option.some(ref) : Option.none<PackRef>())),
           )
         : Effect.succeed(Option.none<PackRef>()),
-    { concurrency: "unbounded" },
+    { concurrency: SCANNER_IO_CONCURRENCY },
   ).pipe(Effect.map((refs) => refs.filter(Option.isSome).map((ref) => ref.value)));

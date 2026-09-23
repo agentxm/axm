@@ -101,7 +101,7 @@ export const resolveSourcePattern = (
           sortNames(matchedNames),
           (name) =>
             resolveNameWithFallback(name, candidates.configuredSkills, candidates.onDiskByName),
-          { concurrency: "unbounded" },
+          { concurrency: 16 },
         );
       })
     : resolveSource(input).pipe(

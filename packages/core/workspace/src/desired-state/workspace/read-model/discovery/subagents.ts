@@ -8,6 +8,7 @@ import * as Path from "effect/Path";
 import { SubagentScanFailed } from "../errors.js";
 import { AGENTS } from "@agentxm/extension-model/unstable/agents/registry";
 import type { AgentDescriptor, AgentId } from "@agentxm/extension-model/unstable/agents/types";
+import { SCANNER_IO_CONCURRENCY } from "../scanners/fs-helpers.js";
 
 export interface DetectedSubagentFile {
   /** File path relative to the project directory */
@@ -51,16 +52,11 @@ const scanKnownAgentSubagentFiles = (agent: AgentDescriptor, projectDir: string)
           const stat = yield* fs.stat(p.join(subagentPath, entry));
           return stat.type === "File";
         }),
-      { concurrency: "unbounded" },
+      { concurrency: SCANNER_IO_CONCURRENCY },
     );
 
-    return yield* Effect.forEach(
-      files,
-      (file) =>
-        Effect.succeed({
-          path: p.join(subagents.dir, file),
-        } satisfies DetectedSubagentFile),
-      { concurrency: "unbounded" },
+    return files.map(
+      (file) => ({ path: p.join(subagents.dir, file) }) satisfies DetectedSubagentFile,
     );
   }).pipe(
     Effect.mapError((error) => new SubagentScanFailed({ agentName: agent.name, cause: error })),
@@ -89,7 +85,7 @@ export const scanAllSubagentFiles = (projectDir: string) =>
             files,
           } satisfies AgentSubagentSummary;
         }),
-      { concurrency: "unbounded" },
+      { concurrency: SCANNER_IO_CONCURRENCY },
     );
 
     return results.filter((result) => result.files.length > 0);
